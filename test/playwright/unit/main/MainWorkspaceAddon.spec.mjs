@@ -1,16 +1,26 @@
-import {test, expect}  from '@playwright/test';
-import {execFile}      from 'child_process';
-import fs              from 'fs';
-import os              from 'os';
-import path            from 'path';
-import {promisify}     from 'util';
-import {fileURLToPath} from 'url';
+import {test, expect}                 from '@playwright/test';
+import {execFile}                     from 'child_process';
+import fs                             from 'fs';
+import os                             from 'os';
+import path                           from 'path';
+import {promisify}                    from 'util';
+import {fileURLToPath, pathToFileURL} from 'url';
 
 const
     __dirname     = path.dirname(fileURLToPath(import.meta.url)),
     REPO_ROOT     = path.resolve(__dirname, '../../../..'),
     ADDON         = 'NoSuchWorkspaceAddon',
     execFileAsync = promisify(execFile);
+
+/**
+ * @summary The import specifier of a file below `root`, as a `file:` URL: the absolute form Node accepts on every
+ * platform. A raw Windows path such as `G:\neo/src/Neo.mjs` reads as a URL with the scheme `g:`.
+ * `pathToFileURL` resolves no symlinks, so a `--preserve-symlinks` engine path stays as given.
+ * @param {String} root
+ * @param {String} relativePath
+ * @returns {String}
+ */
+const fileUrl = (root, relativePath) => pathToFileURL(path.join(root, relativePath)).href;
 
 /**
  * @summary Loads `src/Main.mjs` in a stubbed main-thread context, asks it for one addon under one
@@ -25,9 +35,9 @@ const
  */
 async function resolveAddon(environment, name, engine=REPO_ROOT) {
     const script = `
-        import Neo from '${engine}/src/Neo.mjs';
-        import * as core from '${engine}/src/core/_export.mjs';
-        import {setup} from '${engine}/test/playwright/setup.mjs';
+        import Neo from '${fileUrl(engine, 'src/Neo.mjs')}';
+        import * as core from '${fileUrl(engine, 'src/core/_export.mjs')}';
+        import {setup} from '${fileUrl(engine, 'test/playwright/setup.mjs')}';
 
         setup({mockMain: false, neoConfig: {unitTestMode: true}});
         Neo.config.environment = '${environment}';
@@ -57,7 +67,7 @@ async function resolveAddon(environment, name, engine=REPO_ROOT) {
         delete Neo.main.DomAccess;
         delete Neo.worker.Manager;
 
-        const {default: Main} = await import('${engine}/src/Main.mjs');
+        const {default: Main} = await import('${fileUrl(engine, 'src/Main.mjs')}');
 
         try {
             await Main.importAddon({name: '${name}'});
@@ -85,9 +95,9 @@ async function resolveAddon(environment, name, engine=REPO_ROOT) {
  */
 async function importLazyAddon(delay) {
     const script = `
-        import Neo from '${REPO_ROOT}/src/Neo.mjs';
-        import * as core from '${REPO_ROOT}/src/core/_export.mjs';
-        import {setup} from '${REPO_ROOT}/test/playwright/setup.mjs';
+        import Neo from '${fileUrl(REPO_ROOT, 'src/Neo.mjs')}';
+        import * as core from '${fileUrl(REPO_ROOT, 'src/core/_export.mjs')}';
+        import {setup} from '${fileUrl(REPO_ROOT, 'test/playwright/setup.mjs')}';
 
         setup({mockMain: false, neoConfig: {unitTestMode: true}});
 
@@ -116,8 +126,8 @@ async function importLazyAddon(delay) {
         delete Neo.main.DomAccess;
         delete Neo.worker.Manager;
 
-        const {default: Main}    = await import('${REPO_ROOT}/src/Main.mjs');
-        const {default: AddonBase} = await import('${REPO_ROOT}/src/main/addon/Base.mjs');
+        const {default: Main}    = await import('${fileUrl(REPO_ROOT, 'src/Main.mjs')}');
+        const {default: AddonBase} = await import('${fileUrl(REPO_ROOT, 'src/main/addon/Base.mjs')}');
 
         let registered = false;
 
