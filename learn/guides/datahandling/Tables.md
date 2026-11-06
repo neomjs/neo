@@ -12,6 +12,9 @@ record identities and data operations in one place.
 “Tables” here means tabular application data. `Neo.table.Container` is a UI component that can display it.
 A Store itself has no DOM: the same data can feed a table, a grid, a chart, or a picker.
 
+For a complete practical workflow with a Store subclass, JSON loading and a shared Grid/ComboBox,
+continue with [Using data.Store](#/learn/guides/datahandling/UsingStores).
+
 ## Give the rows a home
 
 Three pieces cooperate. A **Model** describes the fields and their conversions. A **record** holds one

@@ -78,6 +78,12 @@ class Column extends Base {
          */
         exportRenderer: null,
         /**
+         * The header group this column sits under, as `{id, text}`: set by `Neo.grid.Container` for a column declared
+         * inside a `{text, columns: [...]}` entry, and shared by every column of that group. `null` outside a group.
+         * @member {Object|null} headerGroup=null
+         */
+        headerGroup: null,
+        /**
          * @member {String} hideMode_='removeDom'
          */
         hideMode_: 'removeDom',
