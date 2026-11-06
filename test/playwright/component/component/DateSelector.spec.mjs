@@ -330,6 +330,111 @@ test.describe('Neo.component.DateSelector', () => {
         });
     }
 
+    test.describe('month and year selector', () => {
+        /**
+         * @param {import('@playwright/test').Page} page
+         * @returns {Object} The header label and the selector's locators
+         */
+        const locate = page => ({
+            label   : page.locator(`#${componentId}__header-center`),
+            selector: page.locator(`#${componentId} .neo-monthyearselector`)
+        });
+
+        test('the header label opens it over the day view, and OK moves the value to the picked month and year', async ({page, neo}) => {
+            componentId = await createDateSelector(page, {useAnimations: false, value: '2023-10-15'});
+
+            const {label, selector} = locate(page);
+
+            await expect(label).toHaveAttribute('role', 'button');
+            await expect(label).toHaveAttribute('aria-expanded', 'false');
+
+            await label.click();
+
+            await expect(selector).toBeVisible();
+            await expect(label).toHaveAttribute('aria-expanded', 'true');
+            await expect(label).toHaveAttribute('aria-controls', await selector.getAttribute('id'));
+            await expect(selector.getByRole('option', {name: 'October'})).toBeFocused();
+
+            await selector.getByRole('option', {name: 'March'}).click();
+            await selector.getByRole('option', {name: '2027'}).click();
+            await selector.getByRole('button', {name: 'OK'}).click();
+
+            await expect(selector).toHaveCount(0);
+            await expect(label).toBeFocused();
+            await expect(label).toHaveAttribute('aria-expanded', 'false');
+            await expect(label).toContainText('Mar');
+            await expect(label).toContainText('2027');
+            expect((await neo.getConfig(componentId, ['value']))[0]).toBe('2027-03-15')
+        });
+
+        test('keys inside it stay there: arrows move its options, not the day grid, and Enter on a year picks the pair', async ({page, neo}) => {
+            componentId = await createDateSelector(page, {useAnimations: false, value: '2023-10-15'});
+
+            const {label, selector} = locate(page);
+
+            await label.focus();
+            await page.keyboard.press('Enter');
+            await expect(selector.getByRole('option', {name: 'October'})).toBeFocused();
+
+            await page.keyboard.press('ArrowDown');
+            await expect(selector.getByRole('option', {name: 'December'})).toBeFocused();
+            expect((await neo.getConfig(componentId, ['value']))[0], 'the day grid did not move').toBe('2023-10-15');
+
+            // Previous Years, Next Years, then the pending year
+            await page.keyboard.press('Tab');
+            await page.keyboard.press('Tab');
+            await page.keyboard.press('Tab');
+            await expect(selector.getByRole('option', {name: '2023'})).toBeFocused();
+
+            await page.keyboard.press('ArrowRight');
+            await expect(selector.getByRole('option', {name: '2024'})).toBeFocused();
+
+            await page.keyboard.press('Enter');
+
+            await expect(selector).toHaveCount(0);
+            await expect(label).toBeFocused();
+            await expect.poll(async () => (await neo.getConfig(componentId, ['value']))[0]).toBe('2024-12-15')
+        });
+
+        test('Tab wraps inside it, and Escape closes it without a change and hands focus back to the label', async ({page, neo}) => {
+            componentId = await createDateSelector(page, {useAnimations: true, value: '2023-10-15'});
+
+            const {label, selector} = locate(page),
+                  october           = selector.getByRole('option', {name: 'October'});
+
+            await label.click();
+            await expect(october).toBeFocused();
+
+            // Previous Years, Next Years, the pending year, OK, Cancel, then around to the pending month
+            for (let i = 0; i < 6; i++) {
+                await page.keyboard.press('Tab')
+            }
+
+            await expect(october).toBeFocused();
+
+            await page.keyboard.press('Shift+Tab');
+            await expect(selector.getByRole('button', {name: 'Cancel'})).toBeFocused();
+
+            await page.keyboard.press('Escape');
+
+            await expect(selector).toHaveCount(0);
+            await expect(label).toBeFocused();
+            expect((await neo.getConfig(componentId, ['value']))[0]).toBe('2023-10-15')
+        });
+
+        test('useMonthYearSelector false keeps the header label a plain label', async ({page}) => {
+            componentId = await createDateSelector(page, {useMonthYearSelector: false});
+
+            const {label, selector} = locate(page);
+
+            await expect(label).not.toHaveAttribute('role', 'button');
+            await expect(label).not.toHaveAttribute('tabindex');
+
+            await label.click();
+            await expect(selector).toHaveCount(0)
+        })
+    });
+
     for (const timezoneId of ['Pacific/Kiritimati', 'Pacific/Niue']) {
         test.describe(`calendar dates in ${timezoneId}`, () => {
             test.use({timezoneId});
