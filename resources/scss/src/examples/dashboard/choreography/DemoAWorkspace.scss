@@ -5,13 +5,13 @@
 // Pane-identity tints (the design mock's --pane-a…d) are deliberately NOT minted here;
 // until the example palette gains that explicit need, panes alternate its existing tiers.
 
-.agentos-dockdemo-viewport {
+.neo-viewport.agentos-dockdemo-viewport {
     background: var(--dashboard-example-ground);
     color     : var(--dashboard-example-ink);
     font-family: var(--dashboard-example-font-sans);
 }
 
-.agentos-dockdemo-workspace {
+:is(.neo-container, .neo-dock-workspace).agentos-dockdemo-workspace {
     background: var(--dashboard-example-ground);
 }
 
