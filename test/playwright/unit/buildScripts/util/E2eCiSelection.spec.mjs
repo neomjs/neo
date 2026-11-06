@@ -4,6 +4,9 @@ import fs             from 'node:fs';
 import os             from 'node:os';
 import path           from 'node:path';
 import {
+    ARCHIVE_PATHS,
+    archiveReceipt,
+    assertArchiveReport,
     assertBrainDeclarations,
     assertQuarantinesResolve,
     BRAIN_CAPABILITIES,
@@ -262,6 +265,41 @@ test.describe('e2e CI selection — the Brain-gated tier', () => {
 
         expect(unset.paths).toHaveLength(unset.gated.length - BRAIN_CAPABILITIES.flatMap(entry => entry.paths).length);
         expect(set.paths, 'and the whole tier returns once every capability is provisioned').toEqual(set.gated);
+        expect(brainSelection({env: {NEO_MCP_REMOTE_TOKEN: 'present-but-not-an-archive'}, root}).paths)
+            .toEqual(unset.paths);
+    });
+
+    test('an archive receipt cannot pass a filtered, duplicated or non-passing population', () => {
+        const makeReport = () => ({
+            suites: ARCHIVE_PATHS.map((file, index) => ({
+                file : file.replace('test/playwright/e2e/', ''), title: file,
+                specs: [{title: `journey ${index}`, tests: [{
+                    projectName: 'chromium', status: 'expected', results: [{status: 'passed'}]
+                }]}]
+            })),
+            stats: {expected: 2, unexpected: 0, skipped: 0, flaky: 0}, errors: []
+        }), population = makeReport();
+
+        expect(() => assertArchiveReport(makeReport(), population)).not.toThrow();
+        for (const mutate of [
+            report => report.suites.pop(),
+            report => report.suites[1].specs = [],
+            report => report.suites[0].specs.push(report.suites[0].specs[0]),
+            report => report.suites[0].specs[0].tests[0].results = [],
+            report => report.stats.skipped++,
+            report => report.stats.flaky++
+        ]) {
+            const report = makeReport();
+            mutate(report);
+            expect(() => assertArchiveReport(report, population)).toThrow('both complete registered files')
+        }
+        const filtered = makeReport();
+        filtered.suites[1].specs = [];
+        const receipt = archiveReceipt({report: filtered, population, run: {engineSha: 'engine', brainSha: 'brain'}, root});
+        expect(receipt).toContain('**Original:** 2 registered tests in 2 complete files');
+        expect(receipt).toContain('**Selected:** 1 tests; **excluded:** 1');
+        expect(receipt).toContain('**Excluded:** [chromium]');
+        expect(receipt).toContain('**Brain client and server:** `brain`')
     });
 
     test('the quarantine list names its files the way Playwright resolves them, relative to the e2e testDir', () => {

@@ -80,20 +80,25 @@ export const EXCLUSIONS = [{
 export const QUARANTINES = [];
 
 /**
- * Brain-gated specs that need a capability a hosted runner may lack. An entry applies only while its
- * variable is unset, the same way the whole tier keys on `NEO_AGENTOS_RUNTIME_ROOT`, so provisioning the
- * capability brings the files back without anyone editing this list.
+ * Complete files the disposable Memory Core archive job owns, outside the ordinary Brain shards.
+ * @member {String[]} ARCHIVE_PATHS
+ */
+export const ARCHIVE_PATHS = [
+    'test/playwright/e2e/dashboard/DemoBDockTransactionsNL.spec.mjs',
+    'test/playwright/e2e/neural-link/TransactionArchiveReplay.spec.mjs'
+];
+
+/**
+ * Brain-gated specs needing explicit archive provisioning. The URL selects the fixture, not proof of its
+ * capability: the archive job must pass the real MCP probe and both complete files before claiming coverage.
  * @member {Object[]} BRAIN_CAPABILITIES
  */
 export const BRAIN_CAPABILITIES = [{
-    requires: 'NEO_MCP_REMOTE_TOKEN',
-    paths   : [
-        'test/playwright/e2e/dashboard/DemoBDockTransactionsNL.spec.mjs',
-        'test/playwright/e2e/neural-link/TransactionArchiveReplay.spec.mjs'
-    ],
-    reason : 'their transaction archive lives in a Memory Core, whose client refuses to connect without this credential (`archive-store-unavailable`)',
-    exit   : 'CI provisions a Memory Core archive and both files pass against it',
-    tracker: '#17844'
+    requires: 'NEO_E2E_ARCHIVE_URL',
+    paths   : ARCHIVE_PATHS,
+    reason  : 'the ordinary shards have no disposable archive; the separate e2e-brain-archive job provisions it and runs both complete files',
+    exit    : 'the archive job passes its real MCP capability probe and both complete files',
+    tracker : '#17844'
 }];
 
 /**
@@ -607,6 +612,72 @@ export function brainReceipt({report, run, seconds, retries = null, env = proces
     ].join('\n')
 }
 
+/**
+ * @summary Registered or executed archive cases, keyed by project, file and complete title path.
+ * @param {Object|null} report A Playwright JSON report, including a --list report.
+ * @returns {Object[]} Each case's identity and observed outcome.
+ */
+function archiveCases(report) {
+    const entries = [];
+    const walk    = (suite, titles) => {
+        for (const spec of suite.specs ?? []) for (const test of spec.tests ?? []) {
+            entries.push({
+                key   : `[${test.projectName}] ${[...titles, spec.title].join(' › ')}`,
+                status: test.status,
+                passed: test.results?.some(result => result.status === 'passed') === true
+            })
+        }
+        for (const child of suite.suites ?? []) walk(child, [...titles, child.title])
+    };
+    for (const suite of report?.suites ?? []) walk(suite, [suite.title]);
+    return entries
+}
+
+/**
+ * @summary Refuses missing, filtered, duplicated, skipped, flaky or failing archive coverage.
+ * @param {Object|null} report The executed report.
+ * @param {Object} population A fresh Playwright --list report for both complete owning files.
+ * @returns {void}
+ */
+export function assertArchiveReport(report, population) {
+    const expected = archiveCases(population).map(entry => entry.key).sort(),
+          actual   = archiveCases(report), keys = actual.map(entry => entry.key).sort(),
+          files    = report?.suites.map(suite => suite.file).sort(),
+          owning   = ARCHIVE_PATHS.map(file => file.replace('test/playwright/e2e/', '')).sort();
+    if (!expected.length || JSON.stringify(files) !== JSON.stringify(owning) ||
+        JSON.stringify(keys) !== JSON.stringify(expected) ||
+        actual.some(entry => entry.status !== 'expected' || !entry.passed) ||
+        report.stats.unexpected || report.stats.flaky || report.stats.skipped || report.errors?.length) {
+        throw new Error('Archive coverage must pass both complete registered files, without exclusions, skips or retries.');
+    }
+}
+
+/**
+ * @summary Reports the archive job's exact registered, executed and excluded title populations and source pair.
+ * @param {Object} options
+ * @param {Object|null} options.report Executed Playwright JSON.
+ * @param {Object} options.population Fresh --list report for the two complete files.
+ * @param {Object} options.run Engine/Brain SHAs and hosted run identity.
+ * @param {String} [options.root=process.cwd()]
+ * @returns {String}
+ */
+export function archiveReceipt({report, population, run, root = process.cwd()}) {
+    const original = archiveCases(population), actual = archiveCases(report),
+          selected = new Set(actual.map(entry => entry.key)),
+          excluded = original.filter(entry => !selected.has(entry.key));
+    return [
+        '### Brain archive e2e · disposable Memory Core', '',
+        `- **Run:** ${run.event}, attempt ${run.attempt}`,
+        `- **Engine:** \`${run.engineSha}\` · **Brain client and server:** \`${run.brainSha}\``,
+        `- **Original:** ${original.length} registered tests in ${ARCHIVE_PATHS.length} complete files; ${brainPaths(root).length} Brain-gated files in the tree.`,
+        `- **Selected:** ${actual.length} tests; **excluded:** ${excluded.length}. Missing results are unknown, never a pass.`,
+        '- **Capability:** the preceding real MCP save/read/bookkeeping probe; browser replay and undo are proved below.',
+        ...original.map(entry => `- **Registered:** ${entry.key}`),
+        ...actual.map(entry => `- **Executed:** ${entry.key} — ${entry.status}${entry.passed ? ', passed' : ', no passing result'}`),
+        ...excluded.map(entry => `- **Excluded:** ${entry.key}`)
+    ].join('\n')
+}
+
 if (isEntryModule(import.meta.url)) {
     const mode = process.argv[2];
 
@@ -628,6 +699,22 @@ if (isEntryModule(import.meta.url)) {
               {paths}       = brainSelection({tier: TIER || 'full'});
 
         process.stdout.write((SHARD ? brainShard({paths, shard: SHARD}).paths : paths).join(' '))
+    } else if (mode === '--archive-paths') {
+        assertBrainDeclarations();
+        process.stdout.write(ARCHIVE_PATHS.join(' '))
+    } else if (mode === '--archive-receipt') {
+        const {ATTEMPT, BRAIN_SHA, ENGINE_SHA, EVENT, REPORT} = process.env,
+              require                                         = createRequire(import.meta.url),
+              cli                                             = require.resolve('@playwright/test/cli'),
+              population                                      = JSON.parse(execFileSync(process.execPath, [cli, 'test',
+                  '-c', 'test/playwright/playwright.config.e2e.mjs', '--list', '--reporter=json', ...ARCHIVE_PATHS
+              ], {stdio: ['ignore', 'pipe', 'inherit']}).toString());
+        let report = null;
+        try { report = JSON.parse(readFileSync(REPORT, 'utf8')) } catch {}
+        process.stdout.write(archiveReceipt({report, population,
+            run: {event: EVENT, attempt: ATTEMPT, engineSha: ENGINE_SHA, brainSha: BRAIN_SHA}
+        }) + '\n');
+        assertArchiveReport(report, population)
     } else if (mode === '--brain-durations') {
         process.stdout.write(JSON.stringify(brainDurations(readFileSync(0, 'utf8')), null, 4) + '\n')
     } else if (mode === '--brain-test-list') {
@@ -649,7 +736,7 @@ if (isEntryModule(import.meta.url)) {
             seconds: TEST_SECONDS ? Number(TEST_SECONDS) : null
         }) + '\n')
     } else {
-        console.error('usage: e2eCiSelection.mjs --paths | --summary | --brain-paths | --brain-durations | --brain-test-list | --brain-retries | --brain-receipt');
+        console.error('usage: e2eCiSelection.mjs --paths | --summary | --brain-paths | --brain-durations | --brain-test-list | --brain-retries | --brain-receipt | --archive-paths | --archive-receipt');
         process.exit(2)
     }
 }
