@@ -190,6 +190,7 @@
  "Neo.component.Legend": "Neo.component.Base",
  "Neo.component.MagicMoveText": "Neo.component.Base",
  "Neo.component.Markdown": "Neo.component.Base",
+ "Neo.component.MonthYearSelector": "Neo.component.Base",
  "Neo.component.Process": "Neo.component.Base",
  "Neo.component.Progress": "Neo.component.Base",
  "Neo.component.Sparkline": "Neo.component.Canvas",
