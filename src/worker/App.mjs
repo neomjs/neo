@@ -734,6 +734,19 @@ class App extends Base {
     }
 
     /**
+     * @summary Delivers Data-worker progressive rows, progress and push failures to the App Pipeline.
+     * @param {Object} msg
+     * @param {String} msg.id The origin Pipeline ID.
+     * @param {String} msg.event 'data', 'progress' or 'error'.
+     * @param {*} msg.data
+     */
+    onPipelineEvent(msg) {
+        if (['data', 'progress', 'error'].includes(msg.event)) {
+            Neo.manager.Instance.get(msg.id)?.fire(msg.event, msg.data)
+        }
+    }
+
+    /**
      * @summary Delivers a separate Pipeline observation without changing its data or push payloads.
      * @param {Object} msg
      * @param {String} msg.id The App-side Pipeline ID.

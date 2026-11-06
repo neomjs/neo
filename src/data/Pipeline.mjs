@@ -1,5 +1,6 @@
-import Base            from '../core/Base.mjs';
-import ClassSystemUtil from '../util/ClassSystem.mjs';
+import Base             from '../core/Base.mjs';
+import ClassSystemUtil  from '../util/ClassSystem.mjs';
+import InterceptorChain from './interceptor/Chain.mjs';
 
 /**
  * @summary The central orchestrator for data transformation and remote execution.
@@ -20,6 +21,62 @@ class Pipeline extends Base {
      * @static
      */
     static observable = true
+
+    /** @member {Neo.data.interceptor.Chain|null} globalInterceptorChain @static @protected */
+    static globalInterceptorChain = null
+
+    /** @member {Promise|null} globalInterceptorChange @static @protected */
+    static globalInterceptorChange = null
+
+    /**
+     * @summary Atomically replaces this executing realm's global handlers; an empty list clears them.
+     * Existing operations retain their admitted chain. Await replacement before starting work that
+     * requires it. App and Data realms each own their own copy of this class-level policy.
+     * @param {Array} descriptors Neo classes or class/config descriptors.
+     * @returns {Promise<Number>} The admitted handler count.
+     * @static
+     */
+    static setGlobalInterceptors(descriptors) {
+        const definitions = InterceptorChain.validateDescriptors(descriptors),
+              change      = (Pipeline.globalInterceptorChange || Promise.resolve()).catch(() => {}).then(async () => {
+                  if (Neo.workerId === 'data') await Pipeline.preloadInterceptors(definitions, Neo.currentWorker);
+                  const chain = Neo.create(InterceptorChain, {descriptors: definitions});
+
+                  try {
+                      const lease = await chain.acquire(), previous = Pipeline.globalInterceptorChain;
+                      Pipeline.globalInterceptorChain = chain;
+                      lease.release();
+                      previous?.retire();
+                      return definitions.length
+                  } catch (error) {
+                      chain.retire();
+                      throw error
+                  }
+              });
+
+        // Keep a failed registration visible to its caller without poisoning the next replacement.
+        Pipeline.globalInterceptorChange = change.catch(() => {});
+        return change
+    }
+
+    /**
+     * @summary Preloads declared handler modules through the Data worker's production loader.
+     * @param {Array} descriptors Serialized class/config descriptors.
+     * @param {Object} [worker=Neo.worker.Data] Data worker or its remote facade.
+     * @returns {Promise<Array>} Validated descriptors, with no live instances.
+     * @static
+     */
+    static async preloadInterceptors(descriptors, worker=Neo.worker.Data) {
+        const definitions = InterceptorChain.validateDescriptors(descriptors);
+
+        for (const definition of definitions) {
+            if (definition.modulePath) {
+                const result = await worker.loadModule({path: definition.modulePath, className: definition.className});
+                if (!result.success) throw new Error(result.error)
+            }
+        }
+        return definitions
+    }
 
     static config = {
         /**
@@ -59,6 +116,13 @@ class Pipeline extends Base {
          */
         connection_: null,
         /**
+         * Ordered local Neo interceptor descriptors. Globals run first. Supply modulePath for a
+         * custom Data-worker class; only data options cross IPC. Use {@link #setInterceptors} for
+         * awaited replacement after construction, rather than assigning this config directly.
+         * @member {Array|null} interceptors=null
+         */
+        interceptors: null,
+        /**
          * Internal flag to track if the remote instance is currently being created.
          * @member {Boolean} isRemoteConnecting=false
          * @protected
@@ -92,7 +156,7 @@ class Pipeline extends Base {
          * @protected
          */
         remote: {
-            data: ['clearCache', 'create', 'execute', 'profile', 'read', 'update']
+            data: ['clearCache', 'create', 'execute', 'profile', 'read', 'setInterceptors', 'update']
         },
         /**
          * The ID of the corresponding Pipeline instance in the remote worker.
@@ -129,6 +193,21 @@ class Pipeline extends Base {
      */
     readCacheEntries = new Map()
 
+    /** @member {Neo.data.interceptor.Chain|null} interceptorChain @protected */
+    interceptorChain = null
+    /** @member {Promise|null} interceptorChange @protected */
+    interceptorChange = null
+    /** @member {Boolean} interceptorConfigured @protected */
+    interceptorConfigured = true
+    /** @member {Array|null} readCacheChains @protected */
+    readCacheChains = null
+    /** @member {Promise|null} pushTail @protected */
+    pushTail = null
+    /** @member {Promise<void>|null} remoteConnectionPromise @protected */
+    remoteConnectionPromise = null
+    /** @member {Error|null} remoteInitializationError @protected */
+    remoteInitializationError = null
+
     /**
      * @summary Validates the cache lifetime before construction and retains the existing counterpart setup.
      * @param {Object} [config={}]
@@ -136,12 +215,64 @@ class Pipeline extends Base {
     construct(config = {}) {
         const ttl = config.cacheTTL === undefined ? this.cacheTTL : config.cacheTTL;
         if (!Number.isFinite(ttl) || ttl < 0) throw new RangeError('Pipeline cacheTTL must be finite and nonnegative');
+        const interceptors = config.interceptors === undefined ? this.interceptors : config.interceptors;
+        if (interceptors != null) InterceptorChain.validateDescriptors(interceptors);
 
         super.construct(config);
 
         if (this.workerExecution === 'data') {
             this.initRemoteExecution()
+        } else if (this.interceptors) {
+            this.interceptorConfigured = false;
+            this.setInterceptors(this.interceptors).catch(() => {})
         }
+    }
+
+    /**
+     * @summary Replaces local handlers after readiness, preserving the old chain on loading/readiness failure.
+     * Data proxies preload and update their counterpart; no handler instance is created in the proxy.
+     * @param {Array} descriptors Neo classes or class/config descriptors; empty clears the chain.
+     * @returns {Promise<Number>}
+     */
+    setInterceptors(descriptors) {
+        const me     = this, definitions = InterceptorChain.validateDescriptors(descriptors),
+              change = (me.interceptorChange || Promise.resolve()).catch(() => {}).then(async () => {
+                  if (me.isDestroyed) throw new Error('Cannot configure a destroyed Pipeline');
+
+                  if (me.workerExecution === 'data') {
+                      if (!me.remoteId) await me.initRemoteExecution();
+                      if (me.isDestroyed) throw new Error('Pipeline destroyed during interceptor loading');
+                      if (!me.remoteId) throw new Error('Data-worker Pipeline could not be created');
+                      const wire  = await Pipeline.preloadInterceptors(me.serializeConfig(definitions));
+                      const count = await me.remote.data.setInterceptors([wire]);
+                      if (!me.isDestroyed) me.interceptors = definitions;
+                      return count
+                  }
+
+                  const chain = Neo.create(InterceptorChain, {descriptors: definitions});
+                  try {
+                      const lease = await chain.acquire();
+                      if (me.isDestroyed) {
+                          lease.release();
+                          throw new Error('Pipeline destroyed during interceptor readiness')
+                      }
+                      const previous = me.interceptorChain;
+                      me.interceptorChain = chain;
+                      me.interceptorConfigured = true;
+                      me.interceptors = definitions;
+                      me.invalidateReadCache();
+                      lease.release();
+                      previous?.retire();
+                      return definitions.length
+                  } catch (error) {
+                      chain.retire();
+                      throw error
+                  }
+              });
+
+        me.interceptorChange = change;
+        change.catch(() => {});
+        return change
     }
 
     /**
@@ -188,26 +319,35 @@ class Pipeline extends Base {
     }
 
     /**
-     * Triggered when the underlying connection receives unsolicited push data (e.g. WebSocket).
+     * @summary Processes unsolicited connection data through the Pipeline's push stages.
+     * Configured interception serializes arrivals. A failed push emits an `error` receipt and does
+     * not poison the next arrival; destruction suppresses late data and error publication.
      * @param {Object} data
+     * @returns {Promise<void>}
      * @protected
      */
-    async onConnectionPush(data) {
-        let   me         = this, observation;
-        const shapedData = me.telemetry
-            ? (observation = await me.profile({operation: 'push', params: data})).result
-            : await me.runLocal('push', data);
+    onConnectionPush(data) {
+        const me = this, consume = async () => {
+            if (me.isDestroyed) return;
+            let observation;
+            const shapedData = me.telemetry
+                ? (observation = await me.profile({operation: 'push', params: data})).result
+                : await me.runLocal('push', data);
 
-        if (me.appPipelineId) {
-            Neo.currentWorker.sendMessage('app', {
-                action: 'pipelinePush',
-                data  : shapedData,
-                id    : me.appPipelineId
-            });
-        } else {
-            me.fire('push', shapedData);
-        }
-        observation && me.publishTelemetry(observation.telemetry)
+            if (me.isDestroyed) return;
+            if (me.appPipelineId) {
+                Neo.currentWorker.sendMessage('app', {action: 'pipelinePush', data: shapedData, id: me.appPipelineId})
+            } else me.fire('push', shapedData);
+            observation && me.publishTelemetry(observation.telemetry)
+        };
+
+        if (!me.interceptors && !me.interceptorChain && !Pipeline.globalInterceptorChain) return consume();
+        const pending = (me.pushTail || Promise.resolve()).catch(() => {}).then(consume);
+        me.pushTail = pending;
+        pending.catch(error => {
+            if (!me.isDestroyed) me.publishPipelineEvent('error', {operation: 'push', message: error?.message || String(error)})
+        });
+        return pending
     }
 
     /**
@@ -282,16 +422,33 @@ class Pipeline extends Base {
      * @protected
      */
     onParserData(data) {
-        this.invalidateReadCache();
-        this.fire('data', data);
+        if (!this.isDestroyed) {
+            this.invalidateReadCache();
+            this.publishPipelineEvent('data', data)
+        }
     }
 
     /**
+     * @summary Forwards streaming progress without publishing after owner destruction.
      * @param {Object} data
      * @protected
      */
     onParserProgress(data) {
-        this.fire('progress', data);
+        if (!this.isDestroyed) this.publishPipelineEvent('progress', data)
+    }
+
+    /**
+     * @summary Delivers progressive rows, progress and push failures to the owning App Pipeline.
+     * @param {String} event 'data', 'progress' or 'error'.
+     * @param {*} data
+     * @protected
+     */
+    publishPipelineEvent(event, data) {
+        if (this.appPipelineId) {
+            Neo.currentWorker.sendMessage('app', {
+                action: 'pipelineEvent', event, data, id: this.appPipelineId
+            })
+        } else this.fire(event, data)
     }
 
     /**
@@ -301,6 +458,7 @@ class Pipeline extends Base {
         let me = this;
 
         me.invalidateReadCache();
+        me.interceptorChain?.retire();
 
         if (me.workerExecution === 'data' && me.remoteId) {
             Neo.currentWorker.sendMessage('data', {
@@ -323,31 +481,38 @@ class Pipeline extends Base {
      * @protected
      * @returns {Promise<void>}
      */
-    async initRemoteExecution() {
-        let me = this;
-
-        if (me.isDestroyed) return;
-
-        if (me.isRemoteConnecting) {
-            return new Promise(resolve => me.on('remoteConnected', resolve, me, {once: true}))
-        }
-
-        me.isRemoteConnecting = true;
-
-        // We only send the configs, not instances
-        let remoteConfig = {
-            appPipelineId  : me.id,
-            cache          : me.cache,
-            cacheTTL       : me.cacheTTL,
-            className      : me.className,
-            connection     : me.serializeConfig(me._connection),
-            normalizer     : me.serializeConfig(me._normalizer),
-            parser         : me.serializeConfig(me._parser),
-            telemetry      : me.telemetry,
-            workerExecution: 'app' // The remote instance executes locally within its worker
+    initRemoteExecution() {
+        const me = this;
+        if (me.isDestroyed) return Promise.resolve();
+        if (me.remoteConnectionPromise) return me.remoteConnectionPromise;
+        const pending = me.createRemoteExecution(), clear = () => {
+            if (!me.isDestroyed && me.remoteConnectionPromise === pending) me.remoteConnectionPromise = null
         };
+        me.remoteConnectionPromise = pending;
+        pending.then(clear, clear);
+        return pending
+    }
+
+    /**
+     * @summary Performs one shared counterpart attempt, retaining failures for configured callers.
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async createRemoteExecution() {
+        const me = this;
+        me.isRemoteConnecting = true;
+        me.remoteInitializationError = null;
 
         try {
+            const remoteConfig = {
+                appPipelineId: me.id,
+                cache        : me.cache, cacheTTL: me.cacheTTL, className: me.className,
+                connection   : me.serializeConfig(me._connection),
+                interceptors : me.interceptors
+                    ? me.serializeConfig(InterceptorChain.validateDescriptors(me.interceptors)) : null,
+                normalizer: me.serializeConfig(me._normalizer), parser: me.serializeConfig(me._parser),
+                telemetry : me.telemetry, workerExecution: 'app'
+            };
             // Pre-load required modules in the Data Worker using strictly scoped imports
             const modulesToLoad = [];
 
@@ -359,6 +524,9 @@ class Pipeline extends Base {
             }
             if (remoteConfig.parser?.className) {
                 modulesToLoad.push(Neo.worker.Data.loadDataModule({className: remoteConfig.parser.className}))
+            }
+            if (remoteConfig.interceptors) {
+                modulesToLoad.push(Pipeline.preloadInterceptors(remoteConfig.interceptors))
             }
 
             if (modulesToLoad.length > 0) {
@@ -381,9 +549,11 @@ class Pipeline extends Base {
                 me.remoteId = data.id;
                 me.fire('remoteConnected', data.id)
             } else {
+                if (!me.isDestroyed) me.remoteInitializationError = new Error(data.error);
                 console.error('Pipeline: Failed to create remote instance', data.error)
             }
         } catch (e) {
+            if (!me.isDestroyed) me.remoteInitializationError = e;
             console.error('Pipeline: IPC error during remote instantiation', e)
         } finally {
             if (!me.isDestroyed) me.isRemoteConnecting = false
@@ -432,11 +602,15 @@ class Pipeline extends Base {
         const me = this, profiled = me.telemetry, {maxRemoteRetries} = me;
 
         if (me.workerExecution === 'data') {
+            if (me.interceptorChange) await me.interceptorChange.catch(() => {});
             if (!me.remoteId && !me.isDestroyed) {
                 await me.initRemoteExecution();
             }
 
             if (me.isDestroyed) return null;
+            if (me.interceptors != null && !me.remoteId && me.remoteInitializationError) {
+                throw me.remoteInitializationError
+            }
 
             const retryable = operation === 'read' || operation === 'execute';
             const retry     = () => operation === 'read' ? me.read(params, attempt + 1) : me.execute(method, params, attempt + 1);
@@ -444,6 +618,7 @@ class Pipeline extends Base {
                 const response = profiled
                     ? await me.remote.data.profile({operation, params, method})
                     : await me.remote.data[operation](operation === 'execute' ? [method, params] : params);
+                if (me.isDestroyed) return null;
                 const result = profiled && response !== null ? response.result : response;
                 if (profiled && response !== null) me.publishTelemetry(response.telemetry);
                 if (retryable && result === null && attempt <= maxRemoteRetries) {
@@ -453,6 +628,9 @@ class Pipeline extends Base {
                 }
                 return result
             } catch (error) {
+                if (me.isDestroyed) return null;
+                // An admitted policy's rejection is a business outcome, not a lost counterpart.
+                if (error?.code === 'NEO_PIPELINE_INTERCEPTION_REJECTED') throw error.reason;
                 if (!retryable) throw error;
                 if (attempt <= maxRemoteRetries) {
                     console.warn(`Pipeline: Remote ${operation} failed, retrying (attempt ${attempt}/${maxRemoteRetries})...`, error);
@@ -471,7 +649,7 @@ class Pipeline extends Base {
     }
 
     /**
-     * @summary Applies local read-cache policy around the existing stage policies and data carrier.
+     * @summary Snapshots ready interceptor chains and executes one local operation through them.
      * @param {String} operation
      * @param {*} params
      * @param {String} [method=operation]
@@ -480,15 +658,125 @@ class Pipeline extends Base {
      * @protected
      */
     async runLocal(operation, params, method = operation, telemetry = null) {
+        const me = this, appPipelineId = me.appPipelineId;
+        if (me.interceptorChange) {
+            try { await me.interceptorChange } catch (error) {
+                if (!me.interceptorConfigured) throw error
+            }
+        }
+        if (Pipeline.globalInterceptorChange) await Pipeline.globalInterceptorChange;
+
+        const globalChain = Pipeline.globalInterceptorChain, localChain = me.interceptorChain,
+              chains      = [globalChain, localChain].filter(Boolean);
+        if (!chains.length) return me.runPrepared(operation, params, method, telemetry);
+
+        const acquired = await Promise.allSettled(chains.map(chain => chain.acquire())),
+              leases   = acquired.filter(item => item.status === 'fulfilled').map(item => item.value);
+        try {
+            const failure = acquired.find(item => item.status === 'rejected');
+            if (failure) throw failure.reason;
+            const context = {
+                pipeline: me, operation, method, params,
+                handlers: leases.flatMap(lease => lease.handlers),
+                globalChain, localChain,
+                isCurrent: () => !me.isDestroyed && Pipeline.globalInterceptorChain === globalChain
+                    && me.interceptorChain === localChain
+            };
+            if (operation !== 'push') {
+                params = context.params = await me.intercept('request', params, context)
+            }
+            return await me.runPrepared(operation, params, method, telemetry, context)
+        } catch (error) {
+            if (appPipelineId && leases.some(lease => lease.handlers.length)) {
+                throw {code: 'NEO_PIPELINE_INTERCEPTION_REJECTED', reason: error}
+            }
+            throw error
+        } finally {
+            let failure;
+            for (const lease of leases) {
+                try { lease.release() } catch (error) { failure ??= error }
+            }
+            if (failure) throw failure
+        }
+    }
+
+    /**
+     * @summary Applies one awaited value-transform stage using the invocation's admitted handlers.
+     * @param {String} stage
+     * @param {*} value
+     * @param {Object} context
+     * @returns {Promise<*>}
+     * @protected
+     */
+    async intercept(stage, value, context) {
+        for (const handler of context.handlers) {
+            if (this.isDestroyed) throw new Error('Pipeline destroyed during interception');
+            const next = await handler[stage](value, {
+                pipeline: this, operation: context.operation, method: context.method,
+                params  : stage === 'request' ? value : context.params
+            });
+            if (this.isDestroyed) throw new Error('Pipeline destroyed during interception');
+            if (next !== undefined) value = next
+        }
+        return value
+    }
+
+    /**
+     * @summary Runs the ordered response/rejection chain without inventing a transport retry.
+     * @param {*} value Response or rejection.
+     * @param {Boolean} rejected
+     * @param {Object} context
+     * @returns {Promise<*>}
+     * @protected
+     */
+    async interceptResponse(value, rejected, context) {
+        for (const handler of context.handlers) {
+            if (this.isDestroyed) throw new Error('Pipeline destroyed during interception');
+            try {
+                const next = await handler[rejected ? 'responseError' : 'response'](value, {
+                    pipeline: this, operation: context.operation, method: context.method, params: context.params
+                });
+                if (next !== undefined) {
+                    value = next;
+                    rejected = false
+                }
+            } catch (error) {
+                value = error;
+                rejected = true
+            }
+        }
+        if (this.isDestroyed) throw new Error('Pipeline destroyed during interception');
+        if (rejected) throw value;
+        return value
+    }
+
+    /**
+     * @summary Applies cache policy after request preparation; superseded chains bypass the cache.
+     * @param {String} operation
+     * @param {*} params
+     * @param {String} method
+     * @param {Object|null} telemetry
+     * @param {Object|null} [context=null]
+     * @returns {Promise<*>}
+     * @protected
+     */
+    async runPrepared(operation, params, method, telemetry, context=null) {
         const me = this, Stream = Neo.ns('Neo.data.parser.Stream', false);
 
         if (operation === 'read' && me.cache && !(Stream && me.parser instanceof Stream)) {
-            return me.readCached(params, method, telemetry)
+            if (context) {
+                if (!context.isCurrent()) return me.runStages(operation, params, method, telemetry, context);
+                if (me.readCacheChains?.[0] !== context.globalChain || me.readCacheChains?.[1] !== context.localChain) {
+                    me.invalidateReadCache();
+                    me.readCacheChains = [context.globalChain, context.localChain]
+                }
+            }
+            return me.readCached(params, method, telemetry, context)
         }
 
         if (operation !== 'read') me.invalidateReadCache();
         try {
-            return await me.runStages(operation, params, method, telemetry)
+            return await me.runStages(operation, params, method, telemetry, context)
         } finally {
             if (operation !== 'read' && !me.isDestroyed) me.invalidateReadCache()
         }
@@ -500,10 +788,11 @@ class Pipeline extends Base {
      * @param {*} params
      * @param {String} [method=operation]
      * @param {Object|null} [telemetry=null]
+     * @param {Object|null} [context=null] Admitted interceptor snapshot.
      * @returns {Promise<*>}
      * @protected
      */
-    async runStages(operation, params, method = operation, telemetry = null) {
+    async runStages(operation, params, method = operation, telemetry = null, context=null) {
         const me = this, {connection} = me;
         let invoke, rawData = operation === 'push' ? params : undefined;
         if (operation !== 'push' && connection) {
@@ -512,17 +801,29 @@ class Pipeline extends Base {
                 else if (typeof connection[method] === 'function') invoke = () => connection[method](params)
             } else if (operation === 'read' || connection[operation]) invoke = () => connection[operation](params)
         }
-        if (invoke) rawData = await me.measureStage(telemetry, 'connection', invoke);
+        if (invoke) {
+            if (context) {
+                let rejected = false;
+                try { rawData = await me.measureStage(telemetry, 'connection', invoke) } catch (error) {
+                    rawData = error;
+                    rejected = true
+                }
+                rawData = await me.interceptResponse(rawData, rejected, context)
+            } else rawData = await me.measureStage(telemetry, 'connection', invoke)
+        }
         if (telemetry) telemetry.rawSize = me.getTelemetrySize(rawData);
         if (!rawData && (invoke || operation === 'execute')) return null;
 
-        let   shapedData   = rawData;
-        const {parser}     = me;
+        let   shapedData = rawData;
+        const {parser}   = me, Stream = Neo.ns('Neo.data.parser.Stream', false),
+              streaming    = !!(Stream && parser instanceof Stream);
         const parserMethod = operation === 'execute' && typeof parser?.[method] === 'function' ? method
             : ['read', 'execute', 'push'].includes(operation) ? 'read' : operation;
         if (parser && (operation === 'read' || parser[parserMethod])) {
-            shapedData = await me.measureStage(telemetry, 'parser', () => parser[parserMethod](shapedData))
+            shapedData = await me.measureStage(telemetry, 'parser', () => parser[parserMethod](shapedData,
+                context && streaming ? {transformChunk: chunk => me.intercept('postParse', chunk, context)} : undefined))
         }
+        if (context && !streaming) shapedData = await me.intercept('postParse', shapedData, context);
         if (telemetry) telemetry.parsedSize = me.getTelemetrySize(shapedData);
         const {normalizer}     = me;
         const normalizerMethod = operation === 'execute' && typeof normalizer?.[method] === 'function' ? method
@@ -530,6 +831,7 @@ class Pipeline extends Base {
         if (normalizer && (operation === 'read' || normalizer[normalizerMethod])) {
             shapedData = await me.measureStage(telemetry, 'normalizer', () => normalizer[normalizerMethod](shapedData))
         }
+        if (context && me.isDestroyed) throw new Error('Pipeline destroyed during interception');
         return shapedData
     }
 
@@ -633,12 +935,16 @@ class Pipeline extends Base {
      * @param {Object} params
      * @param {String} method
      * @param {Object|null} telemetry
+     * @param {Object|null} [context=null] Admitted interceptor snapshot and cache fence.
      * @returns {Promise<*>}
      * @protected
      */
-    async readCached(params, method, telemetry) {
-        const me = this, key = me.getReadCacheKey([me.connection?.url, params]), entries = me.readCacheEntries, now = Date.now();
-        if (key === null) return me.runStages('read', params, method, telemetry);
+    async readCached(params, method, telemetry, context=null) {
+        const me       = this, connection = me.connection,
+              identity = context ? [connection?.resolveUrl?.(connection.url) ?? connection?.url,
+                  method, connection?.defaultHeaders ?? null, params] : [connection?.url, params],
+              key = me.getReadCacheKey(identity), entries = me.readCacheEntries, now = Date.now();
+        if (key === null || (context && !context.isCurrent())) return me.runStages('read', params, method, telemetry, context);
         for (const [entryKey, value] of entries) if (value.ready && value.expiresAt <= now) entries.delete(entryKey);
         const previous = entries.get(key);
         if (previous?.ready) return me.cloneReadCacheValue(previous.value);
@@ -646,14 +952,14 @@ class Pipeline extends Base {
         const entry = {};
         entries.set(key, entry);
         try {
-            const result = await me.runStages('read', params, method, telemetry);
-            if (!me.isDestroyed && me.cache && entries.get(key) === entry && result != null) {
+            const result = await me.runStages('read', params, method, telemetry, context);
+            if (!me.isDestroyed && me.cache && (!context || context.isCurrent()) && entries.get(key) === entry && result != null) {
                 try {
                     if (Object.getOwnPropertyDescriptor(Object(result), 'success')?.value === false) {
                         entries.delete(key)
                     } else {
                         const snapshot = me.cloneReadCacheValue(result);
-                        if (!me.isDestroyed && me.cache && entries.get(key) === entry) {
+                        if (!me.isDestroyed && me.cache && (!context || context.isCurrent()) && entries.get(key) === entry) {
                             entry.value = snapshot;
                             entry.expiresAt = me.cacheTTL ? Date.now() + me.cacheTTL : Infinity;
                             entry.ready = true

@@ -68,10 +68,13 @@ class Stream extends Base {
     }
 
     /**
+     * @summary Parses a stream progressively, awaiting an optional per-read transform before each batch.
      * @param {Object} rawData Output from the connection
+     * @param {Object} [options={}]
+     * @param {Function} [options.transformChunk] Awaited per-read transform before each data event.
      * @returns {Promise}
      */
-    async read(rawData) {
+    async read(rawData, {transformChunk}={}) {
         let me                                = this,
             chunk                             = [],
             {chunkSize, progressiveChunkSize} = me,
@@ -106,6 +109,7 @@ class Stream extends Base {
                     }
                     // Flush remaining chunk
                     if (chunk.length > 0) {
+                        if (transformChunk) chunk = await transformChunk(chunk);
                         me.fire('data', chunk);
                         me.store && (me.store.isStreaming = false)
                     }
@@ -126,6 +130,7 @@ class Stream extends Base {
                         count++;
 
                         if (chunk.length >= currentChunkSize) {
+                            if (transformChunk) chunk = await transformChunk(chunk);
                             me.fire('data', chunk);
 
                             burstCount++;
