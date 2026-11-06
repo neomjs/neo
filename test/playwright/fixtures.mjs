@@ -1,14 +1,13 @@
-import { test as base, expect }         from '@playwright/test';
-import path                             from 'node:path';
-import process                          from 'node:process';
-import {pathToFileURL}                  from 'node:url';
+import { test as base, expect } from '@playwright/test';
+import path                     from 'node:path';
+import process                  from 'node:process';
+import {pathToFileURL}          from 'node:url';
 import {
     createBridgeAppConnection,
     runDedicatedWorkerNeuralLink
 } from './dedicatedWorkerNeuralLink.mjs';
-import { findBridgeScriptRoot }  from './findBridgeScriptRoot.mjs';
-import {configureArchiveFixture} from './memoryCoreArchiveFixture.mjs';
-import * as RmaHelpers           from './util/RmaHelpers.mjs';
+import { findBridgeScriptRoot } from './findBridgeScriptRoot.mjs';
+import * as RmaHelpers          from './util/RmaHelpers.mjs';
 
 // `Neo` plus the core class system, imported for their SIDE EFFECT and not for these bindings.
 //
@@ -78,7 +77,7 @@ export function loadNeuralLinkModules(env = process.env) {
         loadAgentOsModule('ai/services/neural-link/InteractionService.mjs', env),
         loadAgentOsModule('ai/services/neural-link/RuntimeService.mjs', env),
         loadAgentOsModule('ai/mcp/server/neural-link/config.template.mjs', env)
-    ]).then(async ([component, connection, data, dock, instance, interaction, runtime, config]) => {
+    ]).then(([component, connection, data, dock, instance, interaction, runtime, config]) => {
         const bridgeScriptRoot = findBridgeScriptRoot(runtimeRoot, connection.BRIDGE_NPM_SCRIPT);
 
         if (!bridgeScriptRoot) {
@@ -88,10 +87,7 @@ export function loadNeuralLinkModules(env = process.env) {
             )
         }
 
-        const archiveFixture = await configureArchiveFixture(relative => loadAgentOsModule(relative, env), env);
-
         return {
-            archiveFixture,
             NeuralLink_ComponentService  : component.default,
             NeuralLink_ConnectionService : connection.default,
             NeuralLink_DataService       : data.default,
@@ -340,12 +336,8 @@ export const test = base.extend({
         await use();
 
         // Only a worker whose tests requested `neuralLink` loaded the services; Engine-only projects never do
-        const modules = neuralLinkModulesPromise && await neuralLinkModulesPromise.catch(() => null);
-        try {
-            await stopSpawnedBridge(modules?.NeuralLink_ConnectionService)
-        } finally {
-            await modules?.archiveFixture?.close()
-        }
+        await stopSpawnedBridge(neuralLinkModulesPromise &&
+            (await neuralLinkModulesPromise.catch(() => null))?.NeuralLink_ConnectionService)
     }, {scope: 'worker', auto: true}],
 
     neuralLink: async ({ browser, context, page }, use) => {
