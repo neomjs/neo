@@ -2139,6 +2139,43 @@ test.describe('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => {
         expect(openCount, 'main-origin detach reaches the admission seam').toBe(1)
     });
 
+    test('keyboard command callbacks resolve host policy replaced after construction', async () => {
+        const commands      = workspace.keyboardCommands,
+              document      = JSON.stringify(workspace.dockModel),
+              enumerate     = workspace.enumerateKeyboardTargets.bind(workspace),
+              enumerations  = [],
+              highlights    = [],
+              announcements = [];
+
+        workspace.resolveFocusedDockItem = () => ({
+            itemId: 'workbench', itemLabel: 'Workbench', workspaceId: DemoBWorkspace.MAIN_WORKSPACE_ID
+        });
+        workspace.enumerateKeyboardTargets = request => {
+            enumerations.push(request);
+            return enumerate(request)
+        };
+        workspace.setKeyboardTargetHighlight = target => highlights.push(target);
+        workspace.announceKeyboardOutcome = outcome => announcements.push(outcome);
+
+        await workspace.onDockHostKeyDown({
+            component: {windowId: workspace.windowId}, ctrlKey: true, key: 'm', shiftKey: true
+        });
+
+        expect(enumerations).toEqual([{itemId: 'workbench'}]);
+        expect(highlights.at(-1)).toMatchObject({
+            itemId: 'workbench', label: 'Main window', tabsId: 'side-tabs', workspaceId: DemoBWorkspace.MAIN_WORKSPACE_ID
+        });
+        expect(announcements.at(-1).message).toContain(DemoBWorkspace.KEYBOARD_CYCLE_INSTRUCTIONS);
+
+        await workspace.onDockHostKeyDown({key: 'Escape'});
+
+        expect(workspace.keyboardCommands).toBe(commands);
+        expect(commands.getActiveCycle()).toBeNull();
+        expect(highlights.at(-1)).toBeNull();
+        expect(announcements.at(-1).terminal).toBe('CANCELLED');
+        expect(JSON.stringify(workspace.dockModel)).toBe(document)
+    });
+
     test('focusDockWorkspaceWindow routes DIRECTIONALLY from the recorded command origin', async () => {
         const popupHost = Neo.create(Container, {items: []}),
               verbCalls = [],
