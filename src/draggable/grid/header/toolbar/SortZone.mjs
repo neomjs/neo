@@ -415,7 +415,10 @@ class SortZone extends BaseSortZone {
             // inference above remains as the fallback when no release coordinate is available.
             // The rects come from the drag-start snapshot: live drag-end rects reflect the mid-drag
             // re-flow (hidden dragged column), not the geometry the user dropped against.
-            if (Neo.isNumber(me.lastDragClientX) && me.regionRects) {
+            // A grouped leaf only ever moves inside its group, so it keeps the group's region wherever it is released.
+            if (column.headerGroup) {
+                newLocked = column.locked
+            } else if (Neo.isNumber(me.lastDragClientX) && me.regionRects) {
                 newLocked = me.getDropRegion(me.lastDragClientX, me.regionRects)
             }
         }

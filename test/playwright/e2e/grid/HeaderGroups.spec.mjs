@@ -72,11 +72,11 @@ test.describe('examples/grid/headerGroups', () => {
 
     test('a column resize moves the group edges with it', async ({page}) => {
         // Pinned by id: a drag proxy clones the button, aria-colindex included
-        const febId = await page.locator('.neo-grid-header-toolbar .neo-grid-header-button[aria-colindex="3"]').first().getAttribute('id'),
-              feb   = page.locator(`[id="${febId}"]`),
-              box   = await feb.boundingBox(),
-              x   = box.x + box.width - 3,
-              y   = box.y + box.height / 2,
+        const febId  = await page.locator('.neo-grid-header-toolbar .neo-grid-header-button[aria-colindex="3"]').first().getAttribute('id'),
+              feb    = page.locator(`[id="${febId}"]`),
+              box    = await feb.boundingBox(),
+              x      = box.x + box.width - 3,
+              y      = box.y + box.height / 2,
               handle = feb.locator('.neo-resizable-right');
 
         await expect(async () => {
@@ -142,6 +142,66 @@ test.describe('examples/grid/headerGroups', () => {
         await page.waitForTimeout(400);
 
         expect(await centreOrder(page)).toEqual(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'])
+    });
+
+    test('a grouped header released over another region stays in its group, while an ungrouped one crosses', async ({page}) => {
+        const toolbarOf = text => page.evaluate(label => {
+            const button = [...document.querySelectorAll('.neo-grid-header-toolbar .neo-grid-header-button')]
+                .find(item => item.textContent.trim() === label);
+
+            return [...document.querySelectorAll('.neo-grid-header-toolbar')].indexOf(button?.closest('.neo-grid-header-toolbar'))
+        }, text);
+
+        // Wide enough that every centre header is on screen and draggable
+        await page.setViewportSize({width: 2600, height: 800});
+        await expect.poll(async () => (await groupEdges(page)).every(({left, right, leafLeft, leafRight}) =>
+            Math.abs(left - leafLeft) < 2 && Math.abs(right - leafRight) < 2)).toBe(true);
+
+        /**
+         * Drags a header onto the middle of the Region header, with the cadence `ColumnCrossBodyDnD.spec.mjs` uses to
+         * carry a drag across a region boundary
+         * @param {String} text
+         */
+        const dropOnRegion = async text => {
+            const from = await page.locator('.neo-grid-header-toolbar .neo-grid-header-button', {hasText: text}).first().boundingBox(),
+                  to   = await page.locator('.neo-grid-header-toolbar .neo-grid-header-button', {hasText: 'Region'}).first().boundingBox(),
+                  y    = from.y + from.height / 2;
+
+            await page.mouse.move(from.x + from.width / 2, y);
+            await page.mouse.down();
+            await page.mouse.move(to.x + to.width / 2, y, {steps: 60});
+            await page.mouse.up()
+        };
+
+        // Jan released over the locked start region: its group keeps it in the centre, where it was
+        await dropOnRegion('Jan');
+        await page.waitForTimeout(400);
+
+        expect(await toolbarOf('Jan')).toBe(await toolbarOf('Feb'));
+        expect(await toolbarOf('Jan')).not.toBe(await toolbarOf('Region'));
+        expect(await centreOrder(page)).toEqual(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun']);
+        expectAligned(await groupEdges(page));
+
+        // the control: the ungrouped Id header released over the same region moves into it
+        await dropOnRegion('Id');
+
+        await expect.poll(async () => await toolbarOf('Id') === await toolbarOf('Region')).toBe(true)
+    });
+
+    test('a flex leaf re-lays out with the grid width, and its group cell follows its edges', async ({page}) => {
+        const dec     = page.locator('.neo-grid-header-toolbar .neo-grid-header-button', {hasText: 'Dec'}).first(),
+              aligned = edges => edges.every(({left, right, leafLeft, leafRight}) => Math.abs(left - leafLeft) < 2 && Math.abs(right - leafRight) < 2);
+
+        // Wide enough that the centre outgrows its months, so December takes the rest
+        await page.setViewportSize({width: 2600, height: 800});
+        await expect.poll(async () => (await dec.boundingBox()).width).toBeGreaterThan(300);
+        await expect.poll(async () => aligned(await groupEdges(page))).toBe(true);
+
+        const wide = (await dec.boundingBox()).width;
+
+        await page.setViewportSize({width: 2300, height: 800});
+        await expect.poll(async () => (await dec.boundingBox()).width).toBeLessThan(wide - 200);
+        await expect.poll(async () => aligned(await groupEdges(page))).toBe(true)
     });
 
     test('the centre group cells stay over their leaves while the grid scrolls', async ({page}) => {
