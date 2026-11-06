@@ -380,6 +380,7 @@
  "Neo.grid.column.component.Tree": "Neo.component.Base",
  "Neo.grid.footer.Toolbar": "Neo.toolbar.Base",
  "Neo.grid.header.Button": "Neo.button.Base",
+ "Neo.grid.header.GroupRow": "Neo.component.Base",
  "Neo.grid.header.Toolbar": "Neo.toolbar.Base",
  "Neo.grid.header.Wrapper": "Neo.container.Base",
  "Neo.grid.header.plugin.Menu": "Neo.plugin.Base",

@@ -60,23 +60,27 @@ class GridHorizontalScrollSync extends Base {
     }
 
     /**
-     * @summary Copies the scrollbar's position onto the centre body and header.
+     * @summary Copies the scrollbar's position onto the centre body, the centre header and, while the grid has header
+     * groups, the centre part of its group row.
      * @param {Object} registration
      * @param {Event}  event
      */
     onScroll(registration, event) {
-        let scrollerNode = event.target,
-            bodyNode     = DomAccess.getElement(registration.bodyId),
-            headerNode   = DomAccess.getElement(registration.headerId),
-            scrollLeft   = scrollerNode.scrollLeft;
+        let scrollerNode    = event.target,
+            bodyNode        = DomAccess.getElement(registration.bodyId),
+            headerNode      = DomAccess.getElement(registration.headerId),
+            groupHeaderNode = registration.groupHeaderId && DomAccess.getElement(registration.groupHeaderId),
+            scrollLeft      = scrollerNode.scrollLeft;
 
-        // Synchronously update both nodes in the identical animation frame
+        // Synchronously update every node in the identical animation frame
         if (bodyNode)   { bodyNode.style.setProperty('--grid-scroll-left', scrollLeft + 'px'); }
         if (headerNode) {
             headerNode.scrollLeft         = scrollLeft;
             // What the header actually holds: it may clamp a value past its own range
             registration.headerScrollLeft = headerNode.scrollLeft
         }
+        // Looked up per scroll: the group row comes and goes with the grid's groups, under one id
+        if (groupHeaderNode) { groupHeaderNode.scrollLeft = scrollLeft }
     }
 
     /**
@@ -102,8 +106,10 @@ class GridHorizontalScrollSync extends Base {
      * @param {String} data.bodyId
      * @param {String} data.viewId
      * @param {String} data.headerId
+     * @param {String} [data.groupHeaderId] The centre part of the grid's header group row, present only while the grid
+     * has header groups
      */
-    register({id, scrollerId, bodyId, viewId, headerId}) {
+    register({id, scrollerId, bodyId, viewId, headerId, groupHeaderId}) {
         let me = this,
             registration;
 
@@ -117,6 +123,7 @@ class GridHorizontalScrollSync extends Base {
             bodyId,
             viewId,
             headerId,
+            groupHeaderId,
             headerScrollLeft: DomAccess.getElement(headerId)?.scrollLeft ?? 0,
             wheelListener   : me.onWheel.bind(me, scrollerId)
         };

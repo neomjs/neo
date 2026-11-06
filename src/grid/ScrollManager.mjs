@@ -395,11 +395,13 @@ class ScrollManager extends Base {
 
             if (scrollerId && bodyId && headerId) {
                 addon.register({
-                    id: me.id + '__h_scroll',
+                    id           : me.id + '__h_scroll',
                     scrollerId,
                     bodyId,
                     viewId,
                     headerId,
+                    // One id for the grid's lifetime, so a group row that appears later needs no new registration
+                    groupHeaderId: me.gridContainer.getGroupHeaderPartId('center'),
                     windowId
                 });
             }

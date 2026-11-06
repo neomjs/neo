@@ -433,7 +433,7 @@ class Row extends Component {
         if (ariaRow) {
             let owns = gridBody.getAriaRowOwns(rowIndex);
 
-            vdom['aria-rowindex'] = rowIndex + 2; // header row => 1, first body row => 2
+            vdom['aria-rowindex'] = rowIndex + 1 + gridContainer.headerRowCount; // body rows follow the header rows
             vdom.role             = 'row';
             owns ? (vdom['aria-owns'] = owns) : delete vdom['aria-owns']
         } else {
