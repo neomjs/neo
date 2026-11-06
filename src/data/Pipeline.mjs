@@ -40,16 +40,16 @@ class Pipeline extends Base {
         const definitions = InterceptorChain.validateDescriptors(descriptors),
               change      = (Pipeline.globalInterceptorChange || Promise.resolve()).catch(() => {}).then(async () => {
                   if (Neo.workerId === 'data') await Pipeline.preloadInterceptors(definitions, Neo.currentWorker);
-                  const chain = Neo.create(InterceptorChain, {descriptors: definitions});
+                  const chain = definitions.length ? Neo.create(InterceptorChain, {descriptors: definitions}) : null;
 
                   try {
-                      const lease = await chain.acquire(), previous = Pipeline.globalInterceptorChain;
+                      const lease = await chain?.acquire(), previous = Pipeline.globalInterceptorChain;
                       Pipeline.globalInterceptorChain = chain;
-                      lease.release();
+                      lease?.release();
                       previous?.retire();
                       return definitions.length
                   } catch (error) {
-                      chain.retire();
+                      chain?.retire();
                       throw error
                   }
               });
@@ -245,27 +245,27 @@ class Pipeline extends Base {
                       if (!me.remoteId) throw new Error('Data-worker Pipeline could not be created');
                       const wire  = await Pipeline.preloadInterceptors(me.serializeConfig(definitions));
                       const count = await me.remote.data.setInterceptors([wire]);
-                      if (!me.isDestroyed) me.interceptors = definitions;
+                      if (!me.isDestroyed) me.interceptors = definitions.length ? definitions : null;
                       return count
                   }
 
-                  const chain = Neo.create(InterceptorChain, {descriptors: definitions});
+                  const chain = definitions.length ? Neo.create(InterceptorChain, {descriptors: definitions}) : null;
                   try {
-                      const lease = await chain.acquire();
+                      const lease = await chain?.acquire();
                       if (me.isDestroyed) {
-                          lease.release();
+                          lease?.release();
                           throw new Error('Pipeline destroyed during interceptor readiness')
                       }
                       const previous = me.interceptorChain;
                       me.interceptorChain = chain;
                       me.interceptorConfigured = true;
-                      me.interceptors = definitions;
+                      me.interceptors = definitions.length ? definitions : null;
                       me.invalidateReadCache();
-                      lease.release();
+                      lease?.release();
                       previous?.retire();
                       return definitions.length
                   } catch (error) {
-                      chain.retire();
+                      chain?.retire();
                       throw error
                   }
               });
@@ -650,6 +650,7 @@ class Pipeline extends Base {
 
     /**
      * @summary Snapshots ready interceptor chains and executes one local operation through them.
+     * Remote rejection preserves cloneable values, with a message-only Error fallback for other values.
      * @param {String} operation
      * @param {*} params
      * @param {String} [method=operation]
@@ -688,15 +689,20 @@ class Pipeline extends Base {
             return await me.runPrepared(operation, params, method, telemetry, context)
         } catch (error) {
             if (appPipelineId && leases.some(lease => lease.handlers.length)) {
-                throw {code: 'NEO_PIPELINE_INTERCEPTION_REJECTED', reason: error}
+                let reason;
+                try { reason = structuredClone(error) } catch {
+                    let message = 'Pipeline interception failed';
+                    try {
+                        const property = Object.getOwnPropertyDescriptor(error, 'message');
+                        if (typeof property?.value === 'string') message = property.value
+                    } catch {}
+                    reason = new Error(message)
+                }
+                throw {code: 'NEO_PIPELINE_INTERCEPTION_REJECTED', reason}
             }
             throw error
         } finally {
-            let failure;
-            for (const lease of leases) {
-                try { lease.release() } catch (error) { failure ??= error }
-            }
-            if (failure) throw failure
+            leases.forEach(lease => lease.release())
         }
     }
 

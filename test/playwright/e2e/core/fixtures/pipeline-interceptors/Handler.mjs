@@ -20,6 +20,7 @@ class Handler extends Base {
     /** @summary Makes awaiting the response chain observable without consuming streaming bodies. */
     async response(value) {
         await Promise.resolve();
+        if (this.mode === 'uncloneable') throw {message: 'consumer hook refused', callback() {}};
         if (this.mode === 'stream') return;
         return {...value, responseTrace: [...(value.responseTrace || []), this.token], responseRealm: Neo.workerId}
     }

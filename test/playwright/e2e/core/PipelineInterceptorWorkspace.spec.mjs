@@ -137,6 +137,10 @@ function assertRealm(receipt, requests, realm) {
     expect(receipt.recovered).toMatchObject({ok: true, recovered: 'recover', errorRealm: realm,
         data: {realm, order: 'recover', sequence: 1}, shapeTrace: ['recover'], shapeRealm: realm});
     expect(receipt.rejected, 'undefined from responseError retains a rejection').toBe(true);
+    expect(receipt.remoteRejections).toEqual(['consumer hook refused', 'consumer hook refused']);
+    for (const telemetry of [false, true]) {
+        expect(received(`uncloneable-${telemetry}`), 'a hook refusal settles without retrying transport').toHaveLength(1)
+    }
 
     expect(received('stream')).toHaveLength(2);
     for (const request of received('stream')) expect(request).toMatchObject({order: 'stream-global,stream-local', realm});

@@ -53,8 +53,10 @@ class Controlled extends Interceptor {
 
     /** @summary Makes snapshot retirement independently observable. */
     destroy() {
+        const destroy = controls.get(this.label)?.destroy;
         retired.push({id: this.id, label: this.label});
-        super.destroy()
+        super.destroy();
+        destroy?.()
     }
 }
 Controlled = Neo.setupClass(Controlled);
@@ -93,10 +95,7 @@ test.describe('Pipeline awaited interceptor composition', () => {
 
     /** @summary Restores the no-policy realm state after exercising public global replacement. */
     async function clearGlobals() {
-        await Pipeline.setGlobalInterceptors([]);
-        Pipeline.globalInterceptorChain.retire();
-        Pipeline.globalInterceptorChain = null;
-        Pipeline.globalInterceptorChange = null
+        await Pipeline.setGlobalInterceptors([])
     }
 
     test.beforeEach(async () => {
@@ -288,6 +287,106 @@ test.describe('Pipeline awaited interceptor composition', () => {
         await Pipeline.setGlobalInterceptors([]);
         expect(retired.map(handler => handler.label)).toEqual(['first', 'second']);
         expect(await pipeline.read()).toEqual({serial: 2})
+    });
+
+    for (const scope of ['global', 'local']) {
+        for (const inFlight of [false, true]) {
+            test(`${scope}: teardown failure preserves replacement and ${inFlight ? 'leased' : 'subsequent'} reads`, async () => {
+                const {pipeline} = await create(), entered = deferred(), release = deferred(),
+                      replace    = definitions => scope === 'global'
+                          ? Pipeline.setGlobalInterceptors(definitions) : pipeline.setInterceptors(definitions);
+                controls.set('old', {
+                    destroy: () => {throw new Error('teardown refused')},
+                    request: async value => {
+                        if (inFlight) {entered.resolve(); await release.promise}
+                        return value
+                    },
+                    postParse: value => ({...value, policy: 'old'})
+                });
+                controls.set('new', {postParse: value => ({...value, policy: 'new'})});
+                await replace([descriptor('old'), descriptor('tail')]);
+                const oldRead = inFlight ? track(pipeline.read()) : null;
+                if (inFlight) await entered.promise;
+
+                await expect(replace([descriptor('new')])).resolves.toBe(1);
+                expect((await pipeline.read()).policy).toBe('new');
+                if (inFlight) {
+                    expect(retired).toEqual([]);
+                    release.resolve();
+                    expect((await oldRead).policy).toBe('old')
+                }
+                expect(retired.map(handler => handler.label)).toEqual(['old', 'tail']);
+                expect(handlers.find(handler => handler.label === 'new').isDestroyed).toBeFalsy();
+                expect((await pipeline.read()).policy).toBe('new')
+            })
+        }
+
+        test(`${scope}: clearing invalidates policy-shaped cached results`, async () => {
+            const {pipeline, calls} = await create({cache: true}),
+                  replace           = definitions => scope === 'global'
+                      ? Pipeline.setGlobalInterceptors(definitions) : pipeline.setInterceptors(definitions);
+            controls.set('shape', {postParse: value => ({...value, policy: 'shaped'})});
+            await replace([descriptor('shape')]);
+            expect(await pipeline.read()).toEqual({serial: 1, policy: 'shaped'});
+            await replace([]);
+            expect(await pipeline.read()).toEqual({serial: 2});
+            expect(await pipeline.read()).toEqual({serial: 2});
+            expect(calls).toHaveLength(2)
+        });
+
+        test(`${scope}: clearing restores the never-configured destruction path`, async () => {
+            const {pipeline: never} = await create(), {pipeline: cleared} = await create();
+            const destroyDuringRead = async pipeline => {
+                const entered = deferred(), release = deferred();
+                pipeline.connection.read = async () => {entered.resolve(); await release.promise; return {ok: true}};
+                const read = track(pipeline.read()).then(value => ({value}), error => ({error}));
+                await entered.promise;
+                pipeline.destroy();
+                release.resolve();
+                return read
+            };
+            const expected = await destroyDuringRead(never),
+                  replace  = definitions => scope === 'global'
+                      ? Pipeline.setGlobalInterceptors(definitions) : cleared.setInterceptors(definitions);
+            await replace([descriptor('cleared')]);
+            await replace([]);
+            const chain  = scope === 'global' ? Pipeline.globalInterceptorChain : cleared.interceptorChain,
+                  config = cleared.interceptors;
+            expect(await destroyDuringRead(cleared)).toEqual(expected);
+            expect(chain).toBeNull();
+            expect(config).toBeNull()
+        })
+    }
+
+    for (const [label, makeFailure, message] of [
+        ['callable property', () => ({message: 'hook refused', callback() {}}), 'hook refused'],
+        ['throwing accessor', () => Object.defineProperty({}, 'message', {
+            enumerable: true, get() {throw new Error('accessor refused')}
+        }), 'Pipeline interception failed'],
+        ['symbol', () => Symbol('refused'), 'Pipeline interception failed'],
+        ['revoked proxy', () => {const proxy = Proxy.revocable({}, {}); proxy.revoke(); return proxy.proxy},
+            'Pipeline interception failed'],
+        ['uncloneable cause', () => new Error('hook refused', {cause: {callback() {}}}), 'hook refused']
+    ]) {
+        test(`remote rejection with ${label} produces a cloneable carrier`, async () => {
+            const {pipeline} = await create(), failure = makeFailure();
+            controls.set('reject', {request: () => {throw failure}});
+            await pipeline.setInterceptors([descriptor('reject')]);
+            pipeline.appPipelineId = 'interceptor-rejection-caller';
+            const carrier = await pipeline.read().then(() => null, error => error);
+            expect(carrier.code).toBe('NEO_PIPELINE_INTERCEPTION_REJECTED');
+            const copy = structuredClone(carrier);
+            expect(copy.reason.message).toBe(message)
+        })
+    }
+
+    test('remote rejection preserves an already cloneable business error payload', async () => {
+        const {pipeline} = await create(), failure = {status: 401, detail: {retry: false}};
+        controls.set('reject', {request: () => {throw failure}});
+        await pipeline.setInterceptors([descriptor('reject')]);
+        pipeline.appPipelineId = 'interceptor-rejection-caller';
+        const carrier = await pipeline.read().then(() => null, error => error);
+        expect(structuredClone(carrier)).toEqual({code: 'NEO_PIPELINE_INTERCEPTION_REJECTED', reason: failure})
     });
 
     test('connection pushes await post-parse in arrival order without request or response hooks', async () => {

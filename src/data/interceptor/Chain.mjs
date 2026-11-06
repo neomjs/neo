@@ -213,18 +213,16 @@ class Chain extends CoreBase {
         if (this.#leases === 0) this.#dispose()
     }
 
-    /** @summary Attempts every owned teardown once, then destroys this chain using Core Base's normal semantics. @private */
+    /** @summary Attempts every owned teardown once, containing failures within this retiring owner. @private */
     #dispose() {
         if (this.#disposed) return;
         this.#disposed = true;
         const handlers = this.#handlers;
         this.#handlers = Object.freeze([]);
-        let failure;
         for (const handler of handlers) {
-            try { handler.destroy() } catch (error) { failure ??= error }
+            try { handler.destroy() } catch (error) { console.error('Interceptor teardown failed:', error) }
         }
-        this.destroy();
-        if (failure) throw failure
+        this.destroy()
     }
 }
 

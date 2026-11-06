@@ -63,6 +63,15 @@ class Viewport extends BaseViewport {
             let rejected = false;
             try {await rejection.read({})} catch {rejected = true}
 
+            const remoteRejections = [];
+            for (const telemetry of [false, true]) {
+                const refused = make(`uncloneable-${telemetry}`, {
+                    interceptors: [this.descriptor('refuse', 'uncloneable')], maxRemoteRetries: 2, telemetry
+                });
+                await refused.ready();
+                try {await refused.read({})} catch (error) {remoteRejections.push(error.message)}
+            }
+
             await this.setGlobals(realm, [this.descriptor('stream-global', 'stream')]);
             const stream = make('stream', {
                 cache       : true,
@@ -79,7 +88,8 @@ class Viewport extends BaseViewport {
 
             return {
                 realm, remoteId: pipeline.remoteId, unchanged, first, cached, localChanged, globalChanged,
-                recovered, rejected, stream: {batches, firstBatchCount, progress, first: streamFirst, again: streamAgain}
+                recovered, rejected, remoteRejections,
+                stream: {batches, firstBatchCount, progress, first: streamFirst, again: streamAgain}
             }
         } finally {
             await this.setGlobals(realm, []);
