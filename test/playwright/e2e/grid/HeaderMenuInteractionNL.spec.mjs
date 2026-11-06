@@ -135,17 +135,16 @@ async function reorder(page, state, testInfo) {
     await expect(page.locator(`#${toolbarId}`)).not.toHaveClass(/neo-is-dragging/);
     await expectAligned(page, state);
     assertAligned(await readPairs(page, state), 'reorder drop');
-    const trace = await app.getDragTrace(), current = trace.traces.at(-1);
+    const trace = await app.getDragTrace(), current = trace.traces.at(-1), observed = await motion;
+    await testInfo.attach('header-reorder-motion-and-trace', {
+        body: Buffer.from(JSON.stringify({motion: observed, trace: current})), contentType: 'application/json'
+    });
     expect(current.ownerId).toBe(toolbarId);
     expect(current.startIndex).toBe(before.order.indexOf('firstname'));
     expect(current.events.some(event => event.t === 'switch')).toBe(true);
     expect(current.events.some(event => event.t === 'end')).toBe(true);
-    const observed = await motion;
     expect(observed.samples.length, 'motion sampling observed real drag frames').toBeGreaterThan(2);
     expect(observed.samples.some(sample => sample.rects[0]?.width > 0)).toBe(true);
-    await testInfo.attach('header-reorder-motion-and-trace', {
-        body: Buffer.from(JSON.stringify({motion: observed, trace: current})), contentType: 'application/json'
-    });
     const consistency = await app.verifyComponentConsistency(toolbarId);
     // The perception API reports physical wrapper IDs; the stable wrapper convention maps those to their component owners.
     const owners = ids => ids.map(id => id.endsWith('__wrapper') ? id.slice(0, -9) : id);
@@ -333,11 +332,12 @@ test.describe('Grid header value-menu native interactions', () => {
         await header.click({position: {x: 40, y: 15}});
         await expect.poll(async () => (await headerTruth(state)).sort).toBe('ASC');
         assertAligned(await readPairs(page, state), 'before resize');
-        const box  = await header.boundingBox(), x = box.x + box.width - 3, y = box.y + box.height / 2,
-            motion = state.app.observeMotion({componentIds: [state.headerId], durationMs: 1800, intervalMs: 32});
+        const box = await header.boundingBox(), x = box.x + box.width - 3, y = box.y + box.height / 2;
         await page.mouse.move(x, y);
         await expect(header.locator('.neo-resizable-right')).toBeAttached();
         await page.mouse.down();
+        // The fixed window opens with the gesture; the hover and handle wait before it take unbounded time
+        const motion = state.app.observeMotion({componentIds: [state.headerId], durationMs: 1800, intervalMs: 32});
         try {
             await page.mouse.move(x + 65, y, {steps: 30});
             await expect.poll(async () => (await header.boundingBox()).width).toBeGreaterThan(box.width + 40);
@@ -352,8 +352,8 @@ test.describe('Grid header value-menu native interactions', () => {
         await expectAligned(page, state);
         assertAligned(await readPairs(page, state), 'resize drop');
         const observed = await motion;
-        expect(observed.samples.some(sample => sample.rects[0]?.width > box.width + 40)).toBe(true);
         await testInfo.attach('header-resize-motion', {body: Buffer.from(JSON.stringify(observed)), contentType: 'application/json'});
+        expect(observed.samples.some(sample => sample.rects[0]?.width > box.width + 40)).toBe(true);
         await reorder(page, state, testInfo);
         await expect(page.locator('.neo-grid-column-menu')).toHaveCount(0)
     });
