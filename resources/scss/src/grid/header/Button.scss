@@ -127,9 +127,7 @@
         will-change   : opacity, transform;
     }
 
-    // A label wider than its column ends in an ellipsis inside its own header (the one-line rule of
-    // content-sized cells, column/component/Tree.scss) instead of painting over the next header.
-    // The label alone shrinks; the sort glyph and the menu trigger keep their size.
+    // A label wider than its column ends in an ellipsis inside its own header, like a fixed-height tree cell.
     .neo-button-text {
         color         : var(--grid-header-button-color);
         flex          : 0 1 auto;
