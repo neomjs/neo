@@ -43,6 +43,7 @@
         "create-component"                     : "node ./buildScripts/create/component.mjs",
         "create-theme"                         : "node ./buildScripts/create/theme.mjs",
         "generate-docs-json"                   : "node ./buildScripts/docs/generateDocsJson.mjs",
+        "move-files"                           : "node ./buildScripts/create/move.mjs",
         "postpack"                             : "node ./buildScripts/util/npmIgnoreComposition.mjs restore",
         "prepack"                              : "node ./buildScripts/util/npmIgnoreComposition.mjs compose",
         "prepare"                              : "node ./buildScripts/util/prepare.mjs",
