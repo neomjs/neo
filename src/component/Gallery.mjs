@@ -279,10 +279,12 @@ class Gallery extends Component {
      * @protected
      */
     async afterSetMounted(value, oldValue) {
-        const me       = this, worker = Neo.currentWorker, windowId = me.windowId,
-            generation = ++me.#mountGeneration,
-            current    = () => !me.isDestroying && !me.isDestroyed && me.mounted &&
-                me.windowId === windowId && me.#mountGeneration === generation;
+        const me         = this,
+              worker     = Neo.currentWorker,
+              windowId   = me.windowId,
+              generation = ++me.#mountGeneration,
+              current    = () => !me.isDestroying && !me.isDestroyed && me.mounted &&
+                  me.windowId === windowId && me.#mountGeneration === generation;
 
         me.#pendingInitialSelection = false;
         if (!value) {
@@ -293,7 +295,10 @@ class Gallery extends Component {
         me.focusOnMount && me.focus(me.id);
         try {
             await me.timeout(300);
-            if (!current()) return;
+            if (!current()) {
+                return
+            }
+
             const data = await worker.promiseMessage(windowId, {
                 action    : 'readDom',
                 appName   : me.appName,
@@ -301,9 +306,12 @@ class Gallery extends Component {
                 vnodeId   : me.id,
                 windowId
             });
-            if (!current()) return;
-            me.offsetHeight = data.attributes.offsetHeight;
-            me.offsetWidth = data.attributes.offsetWidth;
+            if (!current()) {
+                return
+            }
+
+            me.offsetHeight             = data.attributes.offsetHeight;
+            me.offsetWidth              = data.attributes.offsetWidth;
             me.#pendingInitialSelection = true;
             me.#selectInitialItem()
         } catch (error) {
@@ -313,18 +321,30 @@ class Gallery extends Component {
         }
     }
 
-    /** @summary Consumes one mount's selection intent using current visible records, preserving key zero. */
+    /**
+     * @summary Consumes one mount's selection intent using current visible records, preserving key zero.
+     * A requested key stays pending until its record arrives; a load finishing without it never substitutes a default.
+     */
     #selectInitialItem() {
-        const me = this, sm = me.selectionModel;
-        if (!me.#pendingInitialSelection || !me.mounted) return;
-        const selection = sm.getSelection(), count = Math.min(me.maxItems, me.store.getCount());
+        const me = this,
+              sm = me.selectionModel;
+
+        if (!me.#pendingInitialSelection || !me.mounted) {
+            return
+        }
+
+        const selection = sm.getSelection(),
+              count     = Math.min(me.maxItems, me.store.getCount());
         if (!selection.length && !me.selectOnMount) {
             me.#pendingInitialSelection = false;
             return
         }
-        if (count < 1 || (selection.length && !me.store.get(selection[0]))) return;
+        if (count < 1 || (selection.length && !me.store.get(selection[0]))) {
+            return
+        }
+
         const index = Math.max(0, Math.min(count - 1, Math.floor(count / me.amountRows))),
-            key     = selection.length ? selection[0] : me.getRecordId(me.store.getAt(index));
+              key   = selection.length ? selection[0] : me.getRecordId(me.store.getAt(index));
         me.#pendingInitialSelection = false;
         sm.select(key)
     }
