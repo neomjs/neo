@@ -383,8 +383,9 @@ class Component extends Abstract {
 
     /**
      * The mount attempt a `document.body`-rooted {@link #show} started, from the call until its
-     * `initVnode(true)` promise settles: theme deferral and the main-thread insert included, which
-     * `isVnodeInitializing` does not span. `null` while none is in the air.
+     * `initVnode(true)` promise (or a subclass's own mount, see {@link #startMountFlight}) settles: theme
+     * deferral and the main-thread insert included, which `isVnodeInitializing` does not span.
+     * `null` while none is in the air.
      * @member {Promise|null} mountFlight=null
      * @protected
      */
@@ -1970,12 +1971,8 @@ class Component extends Abstract {
                 me.parent.updateDepth = -1;
                 me.parent.update()
             } else if (!me.mounted && !me.mountFlight) {
-                // One mount flight at a time: a second one would insert a second node with this id,
-                // and a hide() while it flies is read when it lands. The latch clears first, so a
-                // show() or hide() arriving at the landing takes the ordinary path.
-                me.mountFlight = me.initVnode(true)
-                    .finally(() => {me.mountFlight = null})
-                    .then(() => !me.isDestroyed && me.mounted && me._hidden && me.unmount())
+                // One mount flight at a time: a second one would insert a second node with this id
+                me.startMountFlight(me.initVnode(true))
             }
         } else {
             let style = me.style;
@@ -1986,6 +1983,21 @@ class Component extends Abstract {
         }
 
         me._hidden = false
+    }
+
+    /**
+     * Holds a mount attempt as this component's {@link #mountFlight} until it settles, then lands it on the
+     * latest `hidden`: a hide() while it flies is read here. The latch clears first, so a show() or hide()
+     * arriving at the landing takes the ordinary path.
+     * @param {Promise} attempt `initVnode(true)`, or a subclass's own mount, like an animated show
+     * @protected
+     */
+    startMountFlight(attempt) {
+        let me = this;
+
+        me.mountFlight = attempt
+            .finally(() => {me.mountFlight = null})
+            .then(() => !me.isDestroyed && me.mounted && me._hidden && me.unmount())
     }
 
     /**

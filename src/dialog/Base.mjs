@@ -166,14 +166,18 @@ class Dialog extends Panel {
     }
 
     /**
-     * Triggered after the animateTargetId config got changed
+     * Triggered after the animateTargetId config got changed.
+     * A dialog with an animation target mounts through animateShow(), so it is created unmounted.
+     * Without one, autoInitVnode and autoMount keep their own value.
      * @param {String|null} value
      * @param {String|null} oldValue
      * @protected
      */
     afterSetAnimateTargetId(value, oldValue) {
-        this.autoMount  = !value;
-        this.autoInitVnode = !value
+        if (value) {
+            this.autoMount     = false;
+            this.autoInitVnode = false
+        }
     }
 
     /**
@@ -469,7 +473,11 @@ class Dialog extends Panel {
         // Remove the animation class
         await Neo.applyDeltas(me.windowId, {id, cls: {remove: ['animated-hiding-showing']}});
 
-        me.show(false)
+        // show() holds this as a mount flight, which lands on the latest hidden: a hide() during the animation wins
+        if (!me._hidden) {
+            me.fire('show');
+            me.syncModalMask()
+        }
     }
 
     /**
@@ -590,15 +598,17 @@ class Dialog extends Panel {
     }
 
     /**
+     * Hides the dialog and writes `hidden`. A landed dialog can animate out. Otherwise component.Base#hide
+     * removes it, and leaves a dialog still in its mount flight to the flight.
      * @param {Boolean} animate=!!this.animateTargetId
      */
     async hide(animate=!!this.animateTargetId) {
         let me = this;
 
-        if (animate) {
+        if (animate && me.mounted && !me.mountFlight) {
             me.animateHide()
         } else {
-            me.unmount();
+            super.hide();
             me.fire('hide')
         }
 
@@ -775,18 +785,18 @@ class Dialog extends Panel {
     }
 
     /**
+     * Shows the dialog and writes `hidden`. An animated show is a mount flight of its own, one at a time.
+     * A dialog that is mounted or in flight goes through component.Base#show, which does not mount it again.
      * @param {Boolean} animate=!!this.animateTargetId
      */
     show(animate=!!this.animateTargetId) {
         let me = this;
 
-        if (animate) {
-            me.animateShow()
+        if (animate && !me.mounted && !me.mountFlight) {
+            me._hidden = false;
+            me.startMountFlight(me.animateShow())
         } else {
-            if (!me.mounted) {
-                me.initVnode(true)
-            }
-
+            super.show();
             me.fire('show')
         }
 
