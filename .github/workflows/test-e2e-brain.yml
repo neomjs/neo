@@ -112,6 +112,8 @@ jobs:
           '
 
       - name: Start only the isolated archive fixture services
+        # Bake reads only within its working directory; both Dockerfile and package context belong to Brain.
+        working-directory: brain
         run: |
           docker compose -p "$ARCHIVE_PROJECT" -f "$ARCHIVE_COMPOSE" -f "$ARCHIVE_OVERRIDE" config --quiet
           docker compose -p "$ARCHIVE_PROJECT" -f "$ARCHIVE_COMPOSE" -f "$ARCHIVE_OVERRIDE" \

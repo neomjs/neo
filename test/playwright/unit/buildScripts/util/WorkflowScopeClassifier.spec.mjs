@@ -900,6 +900,15 @@ test.describe('Tests scope classifier — the Brain-gated tier runs only what a 
 
         // The archive runner and every ordinary shard consume the same resolved tip.
         expect(workflow.jobs['e2e-brain-archive'].env.BRAIN_SHA).toBe('${{ needs.changes.outputs.brain_sha }}');
+        // Bake's filesystem boundary is its cwd: a sibling Brain Dockerfile cannot be read from Engine.
+        const archive   = workflow.jobs['e2e-brain-archive'],
+              provision = archive.steps.find(step => step.run?.includes('up -d --build')),
+              workspace = '/archive-workspace',
+              cwd       = (provision['working-directory'] ?? archive.defaults.run['working-directory'])
+                  .replace('${{ github.workspace }}', workspace),
+              dockerfile = path.join(workspace, 'brain/deploy/cloud/Dockerfile');
+
+        expect(path.relative(path.resolve(workspace, cwd), dockerfile)).not.toMatch(/^\.\.(?:\/|$)/);
         // Nothing inside either job re-tests the tier, and the matrix has no `none` branch left
         expect(String(job.strategy.matrix.shard)).not.toContain("'none'");
         // Every shard and the receipt read the one tip the classifier resolved
