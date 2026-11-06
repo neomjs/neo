@@ -42,9 +42,10 @@ const originalDomAccess = Neo.main.DomAccess;
 
 delete Neo.main.DomAccess;
 
-const {default: DomAccess}      = await import('../../../../../src/main/DomAccess.mjs'),
-      {default: DomEvents}      = await import('../../../../../src/main/DomEvents.mjs'),
-      {default: OpenStreetMaps} = await import('../../../../../src/main/addon/OpenStreetMaps.mjs');
+const {default: DomAccess}             = await import('../../../../../src/main/DomAccess.mjs'),
+      {default: DomEvents}             = await import('../../../../../src/main/DomEvents.mjs'),
+      {default: OpenStreetMaps}        = await import('../../../../../src/main/addon/OpenStreetMaps.mjs'),
+      {default: OpenStreetMapsWrapper} = await import('../../../../../src/component/wrapper/OpenStreetMaps.mjs');
 
 /**
  * @summary The OpenStreetMaps addon keeps markers in one `ol.source.Vector` per map, and reports zoom changes and
@@ -157,6 +158,11 @@ test.describe('main.addon.OpenStreetMaps markers and messages', () => {
      */
     const features = () => addon.vectorSources[mapId]?.getFeatures() || [];
 
+    /**
+     * @returns {String[]} The ids of the markers on the map
+     */
+    const markerIds = () => features().map(feature => feature.get('neoId'));
+
     test.beforeEach(() => {
         globalThis.ol = createOl();
 
@@ -186,6 +192,80 @@ test.describe('main.addon.OpenStreetMaps markers and messages', () => {
         await createMap();
 
         expect(features().map(feature => feature.get('neoId'))).toEqual(['m-1'])
+    });
+
+    test('commands sent before the map exists apply in order, so the last word on each marker counts once it is created', async () => {
+        addon.addMarker({id: 'removed', mapId, position: center});
+        addon.removeMarker({id: 'removed', mapId});
+
+        addon.addMarker({id: 'hidden', mapId, position: center});
+        addon.hideMarker({id: 'hidden', mapId});
+
+        addon.addMarker({id: 'shown', mapId, position: center});
+        addon.hideMarker({id: 'shown', mapId});
+        addon.showMarker({id: 'shown', mapId});
+
+        await createMap();
+        expect(markerIds()).toEqual(['shown']);
+
+        addon.showMarker({id: 'hidden', mapId});
+        expect(markerIds()).toEqual(['shown', 'hidden'])
+    });
+
+    test('destroyMarkers and removeMap drop the markers waiting for their map, and no other map\'s', async () => {
+        addon.addMarker({id: 'old', mapId, position: center});
+        addon.destroyMarkers({id: mapId, mapId});
+        addon.addMarker({id: 'new',   mapId,          position: center});
+        addon.addMarker({id: 'other', mapId: 'osm-2', position: center});
+
+        await createMap();
+        expect(markerIds()).toEqual(['new']);
+
+        addon.removeMap({mapId});
+        addon.addMarker({id: 'stale', mapId, position: center});
+        addon.removeMap({mapId});
+        await createMap();
+        expect(markerIds(), 'a marker waiting for a removed map does not reach the next one').toEqual([]);
+
+        expect(addon.markers['osm-2'].other, 'the other map keeps its waiting marker').toBeDefined();
+        addon.removeMap({mapId: 'osm-2'})
+    });
+
+    test('a remounted wrapper shows its current Store\'s markers, and reports no map while unmounted', async () => {
+        const originalAddon = Neo.main.addon.OpenStreetMaps;
+
+        let wrapper;
+
+        // The wrapper calls the addon through this slot; in the app worker it is the remote proxy
+        Neo.main.addon.OpenStreetMaps = addon;
+
+        try {
+            wrapper = Neo.create(OpenStreetMapsWrapper, {
+                appName          : 'MainOpenStreetMapsTest',
+                center,
+                id               : mapId,
+                markerStoreConfig: {data: [{id: 'old', position: center}, {id: 'kept', position: center}]},
+                zoom             : 6
+            });
+
+            wrapper.afterSetMounted(true, false);
+            await expect.poll(() => wrapper.mapCreated).toBe(true);
+            expect(markerIds()).toEqual(['old', 'kept']);
+
+            wrapper.markerStore.remove('old');
+            expect(markerIds()).toEqual(['kept']);
+
+            wrapper.afterSetMounted(false, true);
+            expect(wrapper.mapCreated).toBe(false);
+            expect(addon.maps[mapId]).toBeUndefined();
+
+            wrapper.afterSetMounted(true, false);
+            await expect.poll(() => wrapper.mapCreated).toBe(true);
+            expect(markerIds()).toEqual(['kept'])
+        } finally {
+            wrapper?.destroy();
+            Neo.main.addon.OpenStreetMaps = originalAddon
+        }
     });
 
     test('a marker id is replaced, hidden, shown and removed, each step idempotent', async () => {

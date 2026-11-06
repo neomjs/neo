@@ -18,8 +18,10 @@ const defaultMarkerIcon = 'data:image/svg+xml;base64,' + btoa(
  * @summary Main thread addon that renders OpenStreetMap tiles through OpenLayers, keyless, with the marker API
  * of `Neo.main.addon.GoogleMaps`.
  *
- * Each map owns one vector source, and a marker is an `ol.Feature` in it. `markers[mapId][id]` keeps a hidden
- * marker, so showing it again needs no new record. The wrapper component `Neo.component.wrapper.OpenStreetMaps`
+ * Each map owns one vector source, and a visible marker is an `ol.Feature` in it. `markers[mapId][id]` is a
+ * marker's record: its payload, its feature and whether it is hidden. A record exists before its map does, so marker
+ * commands sent while the map is being created apply in order, and create() renders what is left. removeMap() drops
+ * the records with the map. The wrapper component `Neo.component.wrapper.OpenStreetMaps`
  * listens for the `openStreetMapZoomChange` and `openStreetMapMarkerClick` messages this addon sends.
  * @class Neo.main.addon.OpenStreetMaps
  * @extends Neo.main.addon.Base
@@ -67,7 +69,8 @@ class OpenStreetMaps extends Base {
      */
     maps = {}
     /**
-     * The `ol.Feature` of each marker, by map id and marker id, also while it is hidden
+     * The record of each marker, by map id and marker id: `{data, feature, hidden}`. `feature` stays null until the
+     * marker first shows on an existing map.
      * @member {Object} markers={}
      */
     markers = {}
@@ -78,8 +81,8 @@ class OpenStreetMaps extends Base {
     vectorSources = {}
 
     /**
-     * @summary Adds or replaces a marker on the specified map, deferring until `mapCreated` if the map is not yet
-     * initialized.
+     * @summary Adds or replaces a marker on the specified map. Before the map exists, the marker waits as a record,
+     * so a later hide, remove or destroy still applies to it.
      * @param {Object} data
      * @param {Object} [data.anchorPoint] x & y in px, measured from the icon's top left corner
      * @param {Object|String} [data.icon] The icon URL, or an object with a `url`
@@ -90,40 +93,17 @@ class OpenStreetMaps extends Base {
      * @param {String} [data.title] Shown while the pointer rests on the marker
      */
     addMarker(data) {
-        let me      = this,
-            {mapId} = data,
-            feature, listenerId;
-
-        if (!me.maps[mapId]) {
-            listenerId = me.on('mapCreated', id => {
-                if (mapId === id) {
-                    me.un(listenerId);
-                    me.addMarker(data)
-                }
-            });
-
-            return
-        }
+        let me = this;
 
         me.removeMarker(data);
 
-        Neo.ns(`${mapId}`, true, me.markers);
+        Neo.ns(`${data.mapId}`, true, me.markers)[data.id] = {data, feature: null, hidden: false};
 
-        feature = new ol.Feature({
-            geometry: new ol.geom.Point([data.position.lng, data.position.lat]),
-            neoId   : data.id, // custom property
-            neoMapId: mapId,   // custom property
-            title   : data.title
-        });
-
-        feature.setStyle(me.createMarkerStyle(data));
-
-        me.markers[mapId][data.id] = feature;
-        me.vectorSources[mapId].addFeature(feature)
+        me.renderMarker(data)
     }
 
     /**
-     * @summary Creates the map with a tile layer and a marker layer, then fires `mapCreated`.
+     * @summary Creates the map with a tile layer and a marker layer, and renders the markers that arrived first.
      * @param {Object} data
      * @param {Object} data.center
      * @param {Boolean} data.fullscreenControl
@@ -179,7 +159,7 @@ class OpenStreetMaps extends Base {
             map.on('moveend',     ()    => me.onMapZoomChange(map, mapId));
             map.on('pointermove', event => me.onPointerMove(map, event));
 
-            me.fire('mapCreated', mapId);
+            Object.values(me.markers[mapId] || {}).forEach(({data}) => me.renderMarker(data));
 
             return {success: true, mapId}
         } catch (error) {
@@ -204,6 +184,24 @@ class OpenStreetMaps extends Base {
         fullscreenControl     && controls.push(new ol.control.FullScreen());
 
         return controls
+    }
+
+    /**
+     * @param {Object} data The addMarker() payload
+     * @returns {ol.Feature}
+     * @protected
+     */
+    createFeature(data) {
+        let feature = new ol.Feature({
+            geometry: new ol.geom.Point([data.position.lng, data.position.lat]),
+            neoId   : data.id,    // custom property
+            neoMapId: data.mapId, // custom property
+            title   : data.title
+        });
+
+        feature.setStyle(this.createMarkerStyle(data));
+
+        return feature
     }
 
     /**
@@ -282,10 +280,13 @@ class OpenStreetMaps extends Base {
      * @param {String} data.mapId
      */
     hideMarker(data) {
-        let feature = this.markers[data.mapId]?.[data.id],
-            source  = this.vectorSources[data.mapId];
+        let record = this.markers[data.mapId]?.[data.id],
+            source = this.vectorSources[data.mapId];
 
-        feature && source?.hasFeature(feature) && source.removeFeature(feature)
+        if (record) {
+            record.hidden = true;
+            record.feature && source?.hasFeature(record.feature) && source.removeFeature(record.feature)
+        }
     }
 
     /**
@@ -489,6 +490,24 @@ class OpenStreetMaps extends Base {
     }
 
     /**
+     * @summary Puts a marker's feature on its map, creating the feature first if needed. Does nothing while the map
+     * does not exist or the marker is hidden.
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {String} data.mapId
+     * @protected
+     */
+    renderMarker({id, mapId}) {
+        let record = this.markers[mapId]?.[id],
+            source = this.vectorSources[mapId];
+
+        if (record && source && !record.hidden) {
+            record.feature ??= this.createFeature(record.data);
+            source.hasFeature(record.feature) || source.addFeature(record.feature)
+        }
+    }
+
+    /**
      * @summary Centers the map on a position without animation.
      * @param {Object} data
      * @param {String} data.id The map id
@@ -570,10 +589,12 @@ class OpenStreetMaps extends Base {
      * @param {String} data.mapId
      */
     showMarker(data) {
-        let feature = this.markers[data.mapId]?.[data.id],
-            source  = this.vectorSources[data.mapId];
+        let record = this.markers[data.mapId]?.[data.id];
 
-        feature && source && !source.hasFeature(feature) && source.addFeature(feature)
+        if (record) {
+            record.hidden = false;
+            this.renderMarker(data)
+        }
     }
 }
 
