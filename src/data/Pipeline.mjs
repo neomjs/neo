@@ -108,9 +108,6 @@ class Pipeline extends Base {
         workerExecution: 'app'
     }
 
-    /** @summary Distinguishes concurrent observations without retaining their data. @type {Number} */
-    #telemetrySequence = 0
-
     /**
      * @param {Object} config
      */
@@ -475,7 +472,7 @@ class Pipeline extends Base {
     async profile({operation, params, method = operation}) {
         if (!['create', 'execute', 'read', 'update', 'push'].includes(operation)) throw new Error('Invalid Pipeline operation');
         const telemetry = {
-            id: `${this.id}:${++this.#telemetrySequence}`, pipelineId: this.appPipelineId || this.id,
+            id: crypto.randomUUID(), pipelineId: this.appPipelineId || this.id,
             operation, status: 'fulfilled',
             connectionStart: null, connectionEnd: null, parserStart: null, parserEnd: null,
             normalizerStart: null, normalizerEnd: null,

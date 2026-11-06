@@ -252,6 +252,34 @@ test.describe('Pipeline telemetry preserves its business carriers', () => {
         expect(JSON.stringify(metricData(metrics[0]))).toBe(firstReceipt)
     });
 
+    test('enabled observations get distinct UUIDs while disabled profiling never calls randomUUID', async () => {
+        const disabled = await makePipeline({}, {connection: {read: async () => 'plain'}});
+        const enabled  = await makePipeline({telemetry: true}, {connection: {read: async () => 'profiled'}});
+        const metrics  = [], original = crypto.randomUUID;
+        let   calls    = 0, disabledCalls;
+        enabled.on('telemetry', metric => metrics.push(metric));
+        crypto.randomUUID = function(...args) {
+            calls++;
+            return original.apply(this, args)
+        };
+
+        try {
+            await disabled.read();
+            await disabled.read();
+            disabledCalls = calls;
+            await enabled.read();
+            await enabled.read()
+        } finally {
+            crypto.randomUUID = original
+        }
+
+        expect(disabledCalls).toBe(0);
+        expect(calls).toBe(2);
+        expect(metrics).toHaveLength(2);
+        metrics.forEach(metric => expect(metric.id).toMatch(/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i));
+        expect(metrics[0].id).not.toBe(metrics[1].id)
+    });
+
     test('sizes use exact binary spans and record counts without serializing arbitrary objects', async () => {
         const pipeline   = await makePipeline(), buffer = new ArrayBuffer(8);
         let   serialized = 0, getterReads = 0;
