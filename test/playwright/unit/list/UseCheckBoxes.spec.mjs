@@ -45,6 +45,27 @@ test.describe('Neo.list.Base#useCheckBoxes and checkedField synchronization', ()
     }
     Neo.setupClass(CheckListStore);
 
+    class CustomCheckModel extends Model {
+        static config = {
+            className: 'Test.Unit.List.UseCheckBoxes.CustomModel',
+            fields   : [
+                {name: 'id',        type: 'String'},
+                {name: 'name',      type: 'String'},
+                {name: 'isChecked', type: 'Boolean', defaultValue: false}
+            ]
+        }
+    }
+    Neo.setupClass(CustomCheckModel);
+
+    class CustomCheckStore extends Store {
+        static config = {
+            className  : 'Test.Unit.List.UseCheckBoxes.CustomStore',
+            model      : CustomCheckModel,
+            keyProperty: 'id'
+        }
+    }
+    Neo.setupClass(CustomCheckStore);
+
     let list;
 
     test.afterEach(() => {
@@ -106,27 +127,6 @@ test.describe('Neo.list.Base#useCheckBoxes and checkedField synchronization', ()
     });
 
     test('supports custom checkedField name and radio-style singleSelect deselection', () => {
-        class CustomCheckModel extends Model {
-            static config = {
-                className: 'Test.Unit.List.UseCheckBoxes.CustomModel',
-                fields   : [
-                    {name: 'id',        type: 'String'},
-                    {name: 'name',      type: 'String'},
-                    {name: 'isChecked', type: 'Boolean', defaultValue: false}
-                ]
-            }
-        }
-        Neo.setupClass(CustomCheckModel);
-
-        class CustomCheckStore extends Store {
-            static config = {
-                className  : 'Test.Unit.List.UseCheckBoxes.CustomStore',
-                model      : CustomCheckModel,
-                keyProperty: 'id'
-            }
-        }
-        Neo.setupClass(CustomCheckStore);
-
         list = Neo.create(List, {
             appName,
             checkedField  : 'isChecked',
@@ -153,6 +153,93 @@ test.describe('Neo.list.Base#useCheckBoxes and checkedField synchronization', ()
         list.selectionModel.select(list.getItemId(rec2));
         expect(rec2.isChecked).toBe(true);
         expect(rec1.isChecked).toBe(false);
+    });
+
+    for (const reset of [false, true]) {
+        test(`one click unchecks only its record ${reset ? 'after selection is re-enabled' : 'without a view reset'}`, () => {
+            list = Neo.create(List, {
+                appName,
+                useCheckBoxes : true,
+                selectionModel: {ntype: 'selection-listmodel', singleSelect: false, toggleOnClick: true},
+                store         : Neo.create(CheckListStore, {
+                    data: [
+                        {id: 'a', name: 'Alpha', checked: true},
+                        {id: 'b', name: 'Beta',  checked: true},
+                        {id: 'c', name: 'Gamma', checked: false}
+                    ]
+                })
+            });
+
+            const records = ['a', 'b', 'c'].map(id => list.store.get(id)),
+                  ids     = records.map(record => list.getItemId(list.getRecordId(record))),
+                  items   = ids.map(id => list.getVdomChild(id)),
+                  model   = list.selectionModel;
+            let recordChanges = 0, selectionChanges = 0;
+
+            list.store.on('recordChange', () => recordChanges++);
+            model.on('selectionChange', () => selectionChanges++);
+
+            if (reset) {
+                list.vnodeInitialized = true;
+                list.disableSelection = true;
+                const resetEvents = selectionChanges;
+
+                list.disableSelection = false;
+                expect(selectionChanges).toBe(resetEvents)
+            }
+
+            expect(recordChanges).toBe(0);
+            expect(records.map(record => record.checked)).toEqual([true, true, false]);
+            expect(ids.map(id => model.isSelected(id))).toEqual([true, true, false]);
+            expect(items.map(item => item.cls.includes('neo-selected'))).toEqual([true, true, false]);
+            expect(items.map(item => item['aria-selected'])).toEqual([true, true, false]);
+            ids.forEach((id, index) => expect(list.getVdomChild(id)).toBe(items[index]));
+
+            model.onListClick({currentTarget: ids[0]});
+            expect(records.map(record => record.checked)).toEqual([false, true, false]);
+            expect(ids.map(id => model.isSelected(id))).toEqual([false, true, false])
+        })
+    }
+
+    test('re-enabling single selection preserves custom checked marks and filtered store order', () => {
+        const store = Neo.create(CustomCheckStore, {
+            data: [
+                {id: 'a', name: 'Hidden', isChecked: true},
+                {id: 'b', name: 'Beta',   isChecked: true},
+                {id: 'c', name: 'Gamma',  isChecked: true}
+            ]
+        });
+        const records = ['a', 'b', 'c'].map(id => store.get(id));
+
+        store.set({filters: [{property: 'id', operator: '!=', value: 'a'}], sorters: [{property: 'id', direction: 'DESC'}]});
+        list = Neo.create(List, {
+            appName,
+            checkedField  : 'isChecked',
+            useCheckBoxes : true,
+            selectionModel: {ntype: 'selection-listmodel', singleSelect: true},
+            store
+        });
+
+        const visible = store.items.map(record => list.getItemId(list.getRecordId(record))),
+              items   = visible.map(id => list.getVdomChild(id));
+        let recordChanges = 0, selectionChanges = 0;
+
+        expect(store.items.map(record => record.id)).toEqual(['c', 'b']);
+        expect(visible.map(id => list.selectionModel.isSelected(id))).toEqual([true, false]);
+        store.on('recordChange', () => recordChanges++);
+        list.selectionModel.on('selectionChange', () => selectionChanges++);
+        list.vnodeInitialized = true;
+        list.disableSelection = true;
+        const resetEvents = selectionChanges;
+
+        list.disableSelection = false;
+        expect(selectionChanges).toBe(resetEvents);
+        expect(recordChanges).toBe(0);
+        expect(records.map(record => record.isChecked)).toEqual([true, true, true]);
+        expect(visible.map(id => list.selectionModel.isSelected(id))).toEqual([true, false]);
+        expect(items.map(item => item.cls.includes('neo-selected'))).toEqual([true, true]);
+        expect(items.map(item => item['aria-selected'])).toEqual([true, true]);
+        visible.forEach((id, index) => expect(list.getVdomChild(id)).toBe(items[index]))
     });
 
     test('view resets (disableSelection / deselectAll and selectedIndex = null) do not overwrite checked record data', () => {
