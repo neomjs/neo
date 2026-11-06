@@ -189,6 +189,40 @@ test.describe('Grid: locked bodies and header toolbars', () => {
         expect([headerStart.layoutLock, headerEnd.layoutLock]).toEqual(['start', 'end'])
     });
 
+    test('retiring locked bodies releases scrollbar insets and neo-hide-scrollbar, and onColumnLockChange tolerates mid-flight destroy', async () => {
+        grid = await createGrid(store);
+
+        let {body, horizontalScrollbar, view} = grid;
+
+        horizontalScrollbar.startWidth = 80;
+        horizontalScrollbar.endWidth   = 100;
+        expect(body.wrapperCls).toContain('neo-hide-scrollbar');
+
+        grid.columns.get('id').locked = null;
+        await grid.timeout(50);
+
+        expect(view.bodyStart).toBeNull();
+        expect(horizontalScrollbar.startWidth).toBe(0);
+        expect(body.wrapperCls).toContain('neo-hide-scrollbar');
+
+        grid.columns.get('state').locked = null;
+        await grid.timeout(50);
+
+        expect(view.bodyEnd).toBeNull();
+        expect(horizontalScrollbar.endWidth).toBe(0);
+        expect(body.wrapperCls).not.toContain('neo-hide-scrollbar');
+
+        let releasePassSize;
+        grid.headerToolbar.passSizeToBody = () => new Promise(resolve => { releasePassSize = resolve });
+
+        let lockPromise = grid.onColumnLockChange(grid.columns.get('id'));
+        grid.destroy();
+        grid = null;
+        releasePassSize();
+
+        await expect(lockPromise).resolves.toBeUndefined()
+    });
+
     test('with animatedRowSorting, the locked bodies move every record with the center body', async () => {
         grid = await createGrid(store, {animatedRowSorting: true, pluginAnimateRowsConfig: {transitionDuration: 200}});
 

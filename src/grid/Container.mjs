@@ -293,27 +293,21 @@ class GridContainer extends BaseContainer {
     /**
      * Convenience accessor delegating to {@link Neo.grid.View#bodyEnd}, which owns the locked-end body lifecycle.
      * @member {Neo.grid.Body|null} bodyEnd
+     * @protected
+     * @readonly
      */
     get bodyEnd() {
         return this.view?.bodyEnd || null
-    }
-    set bodyEnd(value) {
-        if (this.view) {
-            this.view.bodyEnd = value
-        }
     }
 
     /**
      * Convenience accessor delegating to {@link Neo.grid.View#bodyStart}, which owns the locked-start body lifecycle.
      * @member {Neo.grid.Body|null} bodyStart
+     * @protected
+     * @readonly
      */
     get bodyStart() {
         return this.view?.bodyStart || null
-    }
-    set bodyStart(value) {
-        if (this.view) {
-            this.view.bodyStart = value
-        }
     }
 
     /**
@@ -1306,6 +1300,10 @@ class GridContainer extends BaseContainer {
             // them from the new toolbar memberships before re-rendering the rows, or the gaining
             // region renders without the column and the losing region keeps a hidden ghost position.
             await Promise.all(me.headerWrapper.getToolbars().map(toolbar => toolbar.passSizeToBody()));
+
+            if (me.isDestroyed) {
+                return
+            }
 
             // Force a full row re-render to apply the new column order and styles
             me.view.bodies.forEach(body => body.createViewData())

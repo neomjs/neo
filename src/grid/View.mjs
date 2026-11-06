@@ -240,7 +240,7 @@ class View extends Base {
         let me        = this,
             container = me.gridContainer;
 
-        return container ? [me.bodyStart || container.bodyStart, container.body, me.bodyEnd || container.bodyEnd].filter(Boolean) : []
+        return container ? [me.bodyStart, container.body, me.bodyEnd].filter(Boolean) : []
     }
 
     /**
@@ -1301,14 +1301,12 @@ class View extends Base {
      * @param {Boolean} [force=false] Re-projects every row, also one whose record and index did not change
      */
     syncBodies(scrollTop, force = false) {
-        let me                          = this,
-            container                   = me.gridContainer,
-            {body, scrollManager}       = container,
-            bodyEnd                     = me.bodyEnd   || container.bodyEnd,
-            bodyStart                   = me.bodyStart || container.bodyStart,
-            {bufferRowRange, rowHeight} = body,
-            {rowGeometry}               = me,
-            newStartIndex               = rowGeometry ? rowGeometry.indexAt(scrollTop) : Math.floor(scrollTop / rowHeight);
+        let me                                = this,
+            container                         = me.gridContainer,
+            {body, scrollManager}             = container,
+            {bodyEnd, bodyStart, rowGeometry} = me,
+            {bufferRowRange, rowHeight}       = body,
+            newStartIndex                     = rowGeometry ? rowGeometry.indexAt(scrollTop) : Math.floor(scrollTop / rowHeight);
 
         let updateBody = _body => {
             let isCenter = _body === body;
