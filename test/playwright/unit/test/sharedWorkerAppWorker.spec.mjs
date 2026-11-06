@@ -1,8 +1,15 @@
 import {test, expect}                 from '@playwright/test';
+import vm                             from 'node:vm';
 import {attachPageSharedAppWorker}    from '../../sharedWorkerAppWorker.mjs';
 import {runDedicatedWorkerNeuralLink} from '../../dedicatedWorkerNeuralLink.mjs';
 
-const APP_URL = 'http://localhost:8080/src/worker/App.mjs';
+const APP_URL   = 'http://localhost:8080/src/worker/App.mjs',
+      REALM_NEO = globalThis.Neo;
+
+// The fake workers evaluate in their own vm contexts. A leaked fake Neo would break the next spec in this worker.
+test.afterAll(() => {
+    expect(globalThis.Neo, 'the test realm keeps its own Neo').toBe(REALM_NEO)
+});
 
 /**
  * @summary A SharedWorker's `Neo` with an in-memory `Neo.ai.Client` that records every request and release.
@@ -38,22 +45,17 @@ function createSharedWorkerNeo() {
 
 /**
  * @summary Runs a relayed `Runtime.evaluate` expression the way the worker would: as global code, against the
- * worker's `Neo`, awaiting its promise and reporting a throw as `exceptionDetails`.
+ * worker's `Neo`, awaiting its promise and reporting a throw as `exceptionDetails`. The expression runs in its own
+ * `vm` context, so overlapping evaluations never swap the test realm's `globalThis.Neo` under each other.
  * @param {Object} neo
  * @param {String} expression
  * @returns {Promise<Object>} The CDP reply's payload
  */
 async function evaluateInFakeWorker(neo, expression) {
-    const previousNeo = globalThis.Neo;
-
-    globalThis.Neo = neo;
-
     try {
-        return {result: {type: 'object', value: await (0, eval)(expression)}}
+        return {result: {type: 'object', value: await vm.runInNewContext(expression, {Neo: neo})}}
     } catch (error) {
         return {result: {type: 'object'}, exceptionDetails: {exception: {description: String(error)}, text: 'Uncaught'}}
-    } finally {
-        globalThis.Neo = previousNeo
     }
 }
 
@@ -261,15 +263,9 @@ test.describe('test/playwright/dedicatedWorkerNeuralLink — the fixture on a Sh
               dedicated = {
                   url: () => APP_URL,
                   async evaluate(fn, arg) {
-                      const previousNeo = globalThis.Neo;
-
-                      globalThis.Neo = {...shared.neo, worker: {App: {...shared.neo.worker.App, isSharedWorker: false}}};
-
-                      try {
-                          return await fn(arg)
-                      } finally {
-                          globalThis.Neo = previousNeo
-                      }
+                      return vm.runInNewContext(`(${fn})(${JSON.stringify(arg)})`, {
+                          Neo: {...shared.neo, worker: {App: {...shared.neo.worker.App, isSharedWorker: false}}}
+                      })
                   }
               };
 
