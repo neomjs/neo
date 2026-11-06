@@ -130,4 +130,71 @@ test.describe('Neo.core.Effect', () => {
 
         effect.destroy();
     });
+
+    test('A nested Effect run keeps an outer pauseTracking() region untracked', () => {
+        let   runCount  = 0;
+        const tracked   = new Config(1);
+        const untracked = new Config(1);
+
+        const effect = new Effect(() => {
+            runCount++;
+            tracked.get();
+
+            EffectManager.pauseTracking();
+
+            try {
+                // Effect.run() pairs pauseTracking() and resumeTracking() around its own state
+                new Effect(() => {}).destroy();
+                untracked.get()
+            } finally {
+                EffectManager.resumeTracking()
+            }
+        });
+
+        expect(effect.dependencies.size).toBe(1);
+
+        untracked.set(2);
+        expect(runCount, 'a read inside the region is no dependency').toBe(1);
+
+        tracked.set(2);
+        expect(runCount).toBe(2);
+        expect(EffectManager.isTrackingPaused).toBe(false);
+
+        effect.destroy();
+    });
+
+    test('An Effect that runs inside a pauseTracking() region still tracks its own reads', () => {
+        let runCount = 0;
+        let effect;
+        const config = new Config(1);
+
+        EffectManager.pauseTracking();
+
+        try {
+            effect = new Effect(() => {
+                runCount++;
+                config.get()
+            })
+        } finally {
+            EffectManager.resumeTracking()
+        }
+
+        expect(effect.dependencies.size).toBe(1);
+
+        config.set(2);
+        expect(runCount).toBe(2);
+
+        effect.destroy();
+    });
+
+    test('An unmatched resumeTracking() leaves the next pause intact', () => {
+        EffectManager.resumeTracking();
+        expect(EffectManager.isTrackingPaused).toBe(false);
+
+        EffectManager.pauseTracking();
+        expect(EffectManager.isTrackingPaused).toBe(true);
+
+        EffectManager.resumeTracking();
+        expect(EffectManager.isTrackingPaused).toBe(false);
+    });
 });
