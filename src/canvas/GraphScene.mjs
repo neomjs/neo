@@ -929,7 +929,8 @@ class GraphScene extends Base {
      * buffer, the scene's counts, the level of detail of a clustered scene (`null` otherwise), the scene's
      * labels with the ones the last frame drew, names included (`null` without labels or names), the near look's
      * floor in drawing-buffer pixels and how far it has arrived, the names' atlas (`null` while there is none), what
-     * is uploaded to the GPU (`null` while nothing is), the frames and the context state.
+     * is uploaded to the GPU (`null` while nothing is), the frames and the context state. `owed` is a requested frame
+     * that has not drawn: until it does, the frames and the labels drawn are the last frame's, not the current state's.
      * @returns {Object}
      */
     getStats() {
@@ -947,6 +948,7 @@ class GraphScene extends Base {
             lod        : lod ? {bundles: lod.bundles.length / 2, clusters: lod.count, ...me.getLodPlan()} : null,
             names      : table ? {cells: table.nodeAt.length, evictions: table.evictions, resident: table.cellOf.size} : null,
             near       : {floor: me.nearFloor(), share: me.getNearShare()},
+            owed       : !!me.animationId,
             restores   : me.restores,
             uploaded   : surfaces ? {
                 beads: surfaces.beads.count,
