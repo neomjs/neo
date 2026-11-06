@@ -119,7 +119,9 @@ class Model extends Base {
     }
 
     /**
-     * @summary Drops the record class cached for this Model before retiring it.
+     * @summary Drops the record class cached for this Model, while it is still this Model's, before retiring it.
+     * A record retained past an explicit destroy cannot read its schema anymore; a Store therefore releases the
+     * Model it created instead (release()).
      */
     destroy() {
         RecordFactory.releaseRecordClass(this);
@@ -148,7 +150,8 @@ class Model extends Base {
      * @summary Drops the global references that keep this Model reachable, without destroying it.
      * Records read their schema through the Model that created them and can outlive their Store: a field may
      * re-resolve a retained record by its key after that Store is gone. The Store that created this Model releases it
-     * when the Store ends or replaces it, and the Model is collected with the last record that still reads it.
+     * when the Store ends or replaces it, and the Model is collected with the last record that still reads it. Each
+     * reference is dropped only while it still names this Model: a successor that reused the id keeps its own.
      */
     release() {
         let me = this;
