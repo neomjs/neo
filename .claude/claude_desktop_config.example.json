@@ -7,7 +7,7 @@
       "command": "<YOUR_NODE_PATH>",
       "args": [
         "--env-file=<YOUR_NEO_REPO_PATH>/.env",
-        "<YOUR_NEO_REPO_PATH>/ai/mcp/client/stdioToStreamableHttp.mjs",
+        "<YOUR_BRAIN_REPO_PATH>/ai/mcp/client/stdioToStreamableHttp.mjs",
         "--url",
         "http://127.0.0.1:3102/kb/mcp",
         "--token-env",
@@ -22,7 +22,7 @@
       "command": "<YOUR_NODE_PATH>",
       "args": [
         "--env-file=<YOUR_NEO_REPO_PATH>/.env",
-        "<YOUR_NEO_REPO_PATH>/ai/mcp/client/stdioToStreamableHttp.mjs",
+        "<YOUR_BRAIN_REPO_PATH>/ai/mcp/client/stdioToStreamableHttp.mjs",
         "--url",
         "http://127.0.0.1:3102/mc/mcp",
         "--token-env",
@@ -37,7 +37,7 @@
       "command": "<YOUR_NODE_PATH>",
       "args": [
         "--env-file=<YOUR_NEO_REPO_PATH>/.env",
-        "<YOUR_NEO_REPO_PATH>/ai/mcp/server/github-workflow/mcp-server.mjs"
+        "<YOUR_BRAIN_REPO_PATH>/ai/mcp/server/github-workflow/mcp-server.mjs"
       ],
       "env": {
         "NEO_OPENAI_COMPATIBLE_HOST": "http://127.0.0.1:1234",
@@ -49,9 +49,9 @@
       "command": "<YOUR_NODE_PATH>",
       "args": [
         "--env-file=<YOUR_NEO_REPO_PATH>/.env",
-        "<YOUR_NEO_REPO_PATH>/ai/mcp/server/neural-link/mcp-server.mjs",
+        "<YOUR_BRAIN_REPO_PATH>/ai/mcp/server/neural-link/mcp-server.mjs",
         "--cwd",
-        "<YOUR_NEO_REPO_PATH>"
+        "<YOUR_BRAIN_REPO_PATH>"
       ],
       "env": {
         "NEO_OPENAI_COMPATIBLE_HOST": "http://127.0.0.1:1234",
