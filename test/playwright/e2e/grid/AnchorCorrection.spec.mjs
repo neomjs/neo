@@ -39,12 +39,19 @@ function defineGridState(grid) {
     let   inFrame = false;
     const rawRaf  = window.requestAnimationFrame.bind(window);
     window.requestAnimationFrame = cb => rawRaf(t => {inFrame = true; try {cb(t)} finally {inFrame = false}});
-    const drains = [], reads = [];
-    window.probeDrains = () => ({drains, reads});
+    const drains = [], reads = [], metas = [];
+    window.probeDrains = () => ({drains, metas, reads});
     const wrapDrain = () => {
         const main = globalThis.Neo?.Main;
         if (!main || main.__probe) return;
         main.__probe = true;
+        // Each batch's view meta beside the DOM offset it lands on: a stale worker offset shows as meta.scrollTop
+        // + correction != the DOM offset after the correction
+        const viewNode = document.querySelector(`${grid} .neo-grid-view`);
+        globalThis.Neo.main.DeltaUpdates.on('update', ({meta}) => {
+            const viewMeta = meta?.[viewNode.id];
+            viewMeta && metas.push({now: Math.round(performance.now()), dom: viewNode.scrollTop, ...viewMeta})
+        });
         const render = main.renderFrame;
         main.renderFrame = function(...args) {
             const result = render.apply(this, args), state = window.gridState(), r = state.rows;
@@ -263,7 +270,7 @@ test.describe('Grid content-sized height corrections', () => {
                       around = probe && (() => {
                           const at = probe.reads.findIndex(read => !read.hit),
                                 lo = probe.reads[Math.max(0, at - 2)].now, hi = probe.reads[Math.min(probe.reads.length - 1, at + 2)].now;
-                          return {reads: probe.reads.slice(Math.max(0, at - 2), at + 3), drains: probe.drains.filter(d => d.now >= lo - 50 && d.now <= hi + 50)}
+                          return {reads: probe.reads.slice(Math.max(0, at - 2), at + 3), drains: probe.drains.filter(d => d.now >= lo - 50 && d.now <= hi + 50), metas: probe.metas.filter(m => m.now >= lo - 300 && m.now <= hi + 50)}
                       })();
 
                 expect([...new Set(tops)], `row ${anchor.id} in every frame; frames without it: ${JSON.stringify(misses)}; PROBE ${JSON.stringify(around)}`)
