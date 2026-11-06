@@ -15,7 +15,8 @@ test.describe('Neo.calendar.view.month.Component event drag and drop', () => {
         await firstEvent.scrollIntoViewIfNeeded();
 
         const dragTargets = await firstEvent.evaluate(el => {
-            const sourceDay = el.closest('.neo-day'),
+            const monthCmp  = el.closest('.neo-calendar-monthcomponent'),
+                  sourceDay = el.closest('.neo-day'),
                   weekRow   = el.closest('.neo-week'),
                   days      = [...weekRow.querySelectorAll(':scope > .neo-day')],
                   sourceIdx = days.indexOf(sourceDay),
@@ -25,6 +26,7 @@ test.describe('Neo.calendar.view.month.Component event drag and drop', () => {
 
             return {
                 eventId    : el.id,
+                monthId    : monthCmp.id,
                 sourceDayId: sourceDay.id,
                 targetDayId: targetDay.id,
                 startX     : eventRect.left + eventRect.width / 2,
@@ -35,6 +37,11 @@ test.describe('Neo.calendar.view.month.Component event drag and drop', () => {
         });
 
         expect(dragTargets.sourceDayId).not.toBe(dragTargets.targetDayId);
+
+        const appWorker = page.workers().find(w => w.url().includes('worker/App'));
+        await expect.poll(() => appWorker?.evaluate(monthId => {
+            return (globalThis.Neo?.manager?.DomEvent?.items?.[monthId]?.['drag:start']?.length ?? 0) > 0;
+        }, dragTargets.monthId)).toBe(true);
 
         await page.mouse.move(dragTargets.startX, dragTargets.startY);
         await page.mouse.down();

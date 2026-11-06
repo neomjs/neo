@@ -45,8 +45,12 @@ test.describe('Gallery and Helix loading feedback', () => {
             await app.callMethod(store, 'sort', [{property: 'id', direction: 'DESC'}]);
             await expect(indicator).toBeVisible();
             await expect(indicator.locator('.fa-spinner')).toBeVisible();
-            await app.callMethod(view.properties['selectionModel.id'], 'deselectAll');
             const firstItem = root.locator(`.neo-${kind}-item`).first();
+            await expect(firstItem).toHaveAttribute('id', /__neo-record-4$/);
+            if (kind === 'gallery') {
+                await expect.poll(async () => (await app.getComponent(view.id, ['offsetHeight'])).offsetHeight > 0).toBe(true)
+            }
+            await app.callMethod(view.properties['selectionModel.id'], 'deselectAll');
             await expect(firstItem).not.toHaveClass(/neo-selected/);
             await firstItem.click();
             await expect(firstItem).toHaveClass(/neo-selected/);
