@@ -232,6 +232,38 @@ test.describe('Neo.form.field.ComboBox on a store it does not own', () => {
         }
     });
 
+    test('an open picker repaints a source record edit, but never one its view does not hold', async () => {
+        const store    = sharedStore(),
+              second   = sharedStore(),
+              combo    = await boundCombo(store),
+              listText = () => JSON.stringify(combo.list.vdom.cn);
+
+        try {
+            combo.getPicker();
+            expect(listText(), 'positive control: the list renders the record').toContain('Germany');
+
+            store.get('de').name = 'Deutschland';
+            expect(listText()).toContain('Deutschland');
+            expect(listText()).not.toContain('Germany');
+
+            combo.doFilter('Fra');
+            store.get('de').name = 'Germany';
+            expect(listText(), 'a record the typing excludes is not forwarded').not.toContain('Germany');
+
+            combo.store = second;
+            combo.doFilter('');
+            expect(() => {store.get('fr').name = 'Frankreich'}).not.toThrow();
+            expect(listText(), 'the retired store\'s edit never reaches the new view').not.toContain('Frankreich');
+
+            second.get('fr').name = 'Francia';
+            expect(listText(), 'the new store\'s edits do').toContain('Francia')
+        } finally {
+            combo.destroy();
+            store.destroy();
+            second.destroy()
+        }
+    });
+
     test('typing narrows only the field\'s view: every other reader keeps every record', async () => {
         const store = sharedStore(),
               combo = await boundCombo(store);

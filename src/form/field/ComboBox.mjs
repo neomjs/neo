@@ -215,7 +215,7 @@ class ComboBox extends Picker {
     /**
      * @summary Releases field-owned stores and private schemas after their picker is gone.
      * Destroys what this field owns — its list view, or a store it created — once the list showing it is
-     * gone. A passed or bound store stays its owner's, minus this field's load listener. A filter still buffered
+     * gone. A passed or bound store stays its owner's, minus this field's load and edit listeners. A filter still buffered
      * from the last keystroke is cancelled: it would run against the destroyed field.
      * @param {...*} args
      */
@@ -225,6 +225,7 @@ class ComboBox extends Picker {
 
         me.filterOnInput.cancel();
         store?.un('load', me.onStoreLoad, me);
+        store?.un('recordChange', me.onSourceRecordChange, me);
 
         super.destroy(...args);
 
@@ -259,7 +260,8 @@ class ComboBox extends Picker {
 
     /**
      * @summary Gives a borrowed Store a private picker view without transferring its Model's edit routing.
-     * The view retains the live schema and Model class, while sourceId keeps the original records.
+     * The view retains the live schema and Model class, while sourceId keeps the original records; the field forwards
+     * the Store's record edits to the view (onSourceRecordChange()).
      * Triggered after the store config got changed
      * @param {Neo.data.Store} value
      * @param {Neo.data.Store} oldValue
@@ -286,7 +288,10 @@ class ComboBox extends Picker {
                     keyProperty: value.keyProperty,
                     model,
                     sourceId   : value.id
-                })
+                });
+
+                // A sourceId view shares the records but receives none of their edits
+                value.on('recordChange', me.onSourceRecordChange, me)
             }
 
             owned.add(listStore);
@@ -331,6 +336,7 @@ class ComboBox extends Picker {
         // Retired only now, with the list already showing the new store
         if (oldValue) {
             oldValue.un('load', me.onStoreLoad, me);
+            oldValue.un('recordChange', me.onSourceRecordChange, me);
             previousView !== oldValue && me.#destroyOwnedStore(previousView);
             me.#destroyOwnedStore(oldValue)
         }
@@ -800,6 +806,18 @@ class ComboBox extends Picker {
 
         inputEl['aria-expanded'] = !value;
         this.update()
+    }
+
+    /**
+     * @summary Hands a borrowed Store's record edit to the private picker view holding that record, so the view
+     * announces it and an open picker list repaints the item.
+     * @param {Object} data The Store's recordChange payload
+     * @protected
+     */
+    onSourceRecordChange(data) {
+        const {listStore} = this;
+
+        listStore?.indexOfItem(data.record) > -1 && listStore.onRecordChange(data)
     }
 
     /**
