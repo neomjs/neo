@@ -48,9 +48,10 @@ test.describe('Workstation — the live feed keeps the reader\'s scroll across i
         await expect.poll(ticks, {message: 'another tick passes', timeout: 5000}).toBeGreaterThanOrEqual(next);
         expect(await scrollTop(), 'at the top, the feed stays at the top').toBe(0);
 
-        const {sequence} = await app.getComponent(storeId, ['sequence']),
-              newest     = await app.callMethod(storeId, 'getAt', [0]);
+        // Both values belong to one worker turn; a live batch can land between separate requests.
+        const snapshot = await app.getComponent(storeId, ['sequence', 'items.0.id']);
 
-        expect(newest?.id, 'the newest event is the first record').toBe(`feed-${String(sequence).padStart(8, '0')}`)
+        expect(snapshot['items.0.id'], 'the newest event is the first record')
+            .toBe(`feed-${String(snapshot.sequence).padStart(8, '0')}`)
     })
 });
