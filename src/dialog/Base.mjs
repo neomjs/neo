@@ -824,6 +824,18 @@ class Dialog extends Panel {
             Neo.main.DomAccess.trapFocus({id, trap: me.trapFocus, windowId})
         }
     }
+
+    /**
+     * @summary Syncs the modal mask once the node has left the DOM, since `Neo.main.DomAccess#syncModalMask`
+     * keys the mask to the dialogs present there. Covers a hide() that lands with an animated show's mount flight,
+     * whose own sync ran while the node was still in the DOM.
+     * @returns {Promise<void>}
+     */
+    async unmount() {
+        await super.unmount();
+
+        !this.isDestroyed && this.syncModalMask()
+    }
 }
 
 export default Neo.setupClass(Dialog);

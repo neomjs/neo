@@ -2014,6 +2014,7 @@ class Component extends Abstract {
 
     /**
      * Removes the component DOM
+     * @returns {Promise<any>} Settles once the main thread removed the node
      */
     unmount() {
         let me = this;
@@ -2023,7 +2024,7 @@ class Component extends Abstract {
         me._hidden = true; // silent update
         me.mounted = false;
 
-        Neo.applyDeltas(me.windowId, {action: 'removeNode', id: me.vdom.id})
+        return Neo.applyDeltas(me.windowId, {action: 'removeNode', id: me.vdom.id})
     }
 
     /**
