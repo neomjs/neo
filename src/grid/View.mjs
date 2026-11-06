@@ -1,5 +1,6 @@
 import Base            from '../container/Base.mjs';
 import ClassSystemUtil from '../util/ClassSystem.mjs';
+import NeoArray        from '../util/Array.mjs';
 import RowGeometry     from './RowGeometry.mjs';
 import Row             from './Row.mjs';
 import RowModel        from '../selection/grid/RowModel.mjs';
@@ -35,6 +36,20 @@ class View extends Base {
          * @protected
          */
         baseCls: ['neo-grid-view', 'neo-hide-scrollbar'],
+        /**
+         * The locked-end body. Created on demand when end-locked columns exist; destroyed once
+         * they no longer do. Owned by this View.
+         * @member {Neo.grid.Body|null} bodyEnd=null
+         * @protected
+         */
+        bodyEnd: null,
+        /**
+         * The locked-start body. Created on demand when start-locked columns exist; destroyed
+         * once they no longer do. Owned by this View.
+         * @member {Neo.grid.Body|null} bodyStart=null
+         * @protected
+         */
+        bodyStart: null,
         /**
          * Content-sized mode: rows take individual heights, and every row-position consumer reads them from
          * the View-owned {@link #rowGeometry} instead of multiplying by `rowHeight`. `grid.Container` sets it
@@ -222,8 +237,10 @@ class View extends Base {
      * @returns {Neo.grid.Body[]}
      */
     get bodies() {
-        let container = this.gridContainer;
-        return container ? [container.bodyStart, container.body, container.bodyEnd].filter(Boolean) : []
+        let me        = this,
+            container = me.gridContainer;
+
+        return container ? [me.bodyStart, container.body, me.bodyEnd].filter(Boolean) : []
     }
 
     /**
@@ -1284,12 +1301,12 @@ class View extends Base {
      * @param {Boolean} [force=false] Re-projects every row, also one whose record and index did not change
      */
     syncBodies(scrollTop, force = false) {
-        let me                                        = this,
-            container                                 = me.gridContainer,
-            {body, bodyEnd, bodyStart, scrollManager} = container,
-            {bufferRowRange, rowHeight}               = body,
-            {rowGeometry}                             = me,
-            newStartIndex                             = rowGeometry ? rowGeometry.indexAt(scrollTop) : Math.floor(scrollTop / rowHeight);
+        let me                                = this,
+            container                         = me.gridContainer,
+            {body, scrollManager}             = container,
+            {bodyEnd, bodyStart, rowGeometry} = me,
+            {bufferRowRange, rowHeight}       = body,
+            newStartIndex                     = rowGeometry ? rowGeometry.indexAt(scrollTop) : Math.floor(scrollTop / rowHeight);
 
         let updateBody = _body => {
             let isCenter = _body === body;
@@ -1342,6 +1359,93 @@ class View extends Base {
         // The rows changed silently, so a body update merging into this cycle must not make it sparse
         me.denseUpdate = true;
         me.update()
+    }
+
+    /**
+     * @summary Creates, retains, or destroys the locked-start and locked-end bodies to match the grid's locked
+     * columns and synchronizes this View's items in visual order (`bodyStart`, `body`, `bodyEnd`).
+     *
+     * Counterpart to {@link Neo.grid.header.Wrapper#updateHeaders}: each locked body is cloned from the center
+     * `body` (`Neo.cloneNeoInstance`) so it inherits the center body's class, plugins, and construction configs
+     * while taking its own id, `flex: 'none'`, `reference: null`, and this View as its `parentId`. When a locked
+     * region empties, its body is destroyed, its VNode reference is unlinked from this View's vnode, and its
+     * horizontal-scrollbar scrollport inset (`startWidth` / `endWidth`) is reset.
+     */
+    updateBodies() {
+        let me                                                                                                                  = this,
+            {gridContainer}                                                                                                     = me,
+            {body, horizontalScrollbar, lockedEndColumns, lockedStartColumns, rowHeight, store, theme, useInternalId, windowId} = gridContainer,
+            // A locked body is the center body's class with its configs, placed in this view
+            lockedBody      = () => Neo.cloneNeoInstance(body, {
+                flex     : 'none',
+                gridContainer,
+                parentId : me.id,
+                reference: null,
+                rowHeight,
+                store,
+                theme,
+                useInternalId,
+                windowId
+            }),
+            retiredBodies   = {},
+            cls             = 'neo-hide-scrollbar';
+
+        // --- Start body (Left) ---
+        if (lockedStartColumns.length > 0) {
+            if (!me.bodyStart) {
+                me.bodyStart = lockedBody()
+            }
+        } else if (me.bodyStart) {
+            retiredBodies[me.bodyStart.id] = me.bodyStart.vnode;
+            me.bodyStart.destroy();
+            me.bodyStart = null;
+
+            // The margin feed lives in Body#afterSetAvailableWidth; a destroyed region must
+            // release its scrollbar-scrollport margin explicitly.
+            horizontalScrollbar && (horizontalScrollbar.startWidth = 0)
+        }
+
+        // --- End body (Right) ---
+        if (lockedEndColumns.length > 0) {
+            if (!me.bodyEnd) {
+                me.bodyEnd = lockedBody()
+            }
+        } else if (me.bodyEnd) {
+            retiredBodies[me.bodyEnd.id] = me.bodyEnd.vnode;
+            me.bodyEnd.destroy();
+            me.bodyEnd = null;
+
+            // See the bodyStart branch: release the scrollport margin of a removed region.
+            horizontalScrollbar && (horizontalScrollbar.endWidth = 0)
+        }
+
+        if (me.vnode && Object.keys(retiredBodies).length > 0) {
+            VNodeUtil.unlinkRetiredReferences(me.vnode, retiredBodies)
+        }
+
+        me.items = me.bodies;
+        me.createItems();
+
+        if (me.bodyStart) {
+            let startCls = [...(me.bodyStart.wrapperCls || [])];
+            if (!startCls.includes(cls)) {
+                startCls.push(cls);
+                me.bodyStart.wrapperCls = startCls
+            }
+        }
+
+        if (body) {
+            let bodyCls = [...(body.wrapperCls || [])],
+                hasCls  = bodyCls.includes(cls);
+
+            if (me.bodyEnd && !hasCls) {
+                bodyCls.push(cls);
+                body.wrapperCls = bodyCls
+            } else if (!me.bodyEnd && hasCls) {
+                NeoArray.remove(bodyCls, cls);
+                body.wrapperCls = bodyCls
+            }
+        }
     }
 
     /**
