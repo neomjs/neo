@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Neo.mjs was the very first frontend platform, which enabled full support for a ***zero builds instant development mode***,
+Neo.mjs provides native support for a ***zero-builds instant development mode***,
 while sticking to the latest ECMAScript features (e.g., the ES6 class system, modules and dynamic imports).
 This means that your ***primary development workflow*** with Neo.mjs involves creating and debugging your application
 ***entirely within this instant, zero-builds environment***, with builds typically reserved only for ***deployment or
@@ -47,7 +47,7 @@ approach, providing a future-proof development experience.
 
 ## dist/esm: Embracing Native ES Modules for Modern Deployment
 
-While Neo.mjs's zero-builds development mode offers unmatched speed and debugging clarity, deploying your application
+While Neo.mjs's zero-builds development mode offers immediate reload speed and debugging clarity, deploying your application
 effectively for the world requires a different set of considerations. This is where the **`dist/esm`** environment steps in:
 it represents the optimal bridge between raw development efficiency and a robust, modern deployment.
 
@@ -57,7 +57,7 @@ This means you're not shipping a single, monolithic JavaScript bundle, but rathe
 ### Identical Code Structure to Dev Mode
 
 A standout feature of `dist/esm` is that it preserves the exact same file and folder structure as your development mode.
-This means the code you deploy is the same code you develop and debug. There are no opaque bundling transformations, no complex source map deciphering; what you see in your IDE is precisely what's running in the browser. This unparalleled fidelity dramatically simplifies debugging and vastly reduces "it works on my machine" scenarios.
+This means the code you deploy is the same code you develop and debug. There are no opaque bundling transformations, no complex source map deciphering; what you see in your IDE is precisely what's running in the browser. This 1:1 module fidelity simplifies debugging and reduces "it works on my machine" scenarios.
 
 ### Native Modularity, Uncompromised
 
@@ -78,10 +78,10 @@ backend-generated, or dynamically produced), the engine efficiently fetches only
 required for that UI, without loading unnecessary code upfront. This ensures optimized resource usage and faster
 rendering for dynamic content.
 
-### Unparalleled Debugging in Production
+### Direct Module Debugging in Production
 
 Since the code remains in its modular, unbundled form (though optimized compared to dev mode), debugging issues in a
-live `dist/esm` environment is dramatically simpler. You're working directly with the actual files and module structure.
+live `dist/esm` environment is straightforward. You're working directly with the actual files and module structure.
 
 ### Seamless Web Worker Integration
 
@@ -170,16 +170,15 @@ users within a Monaco editor that contains its own `import` statements. These sc
 How does the engine ensure consistent and correct module loading across different deployment contexts?
 
 For most traditional frontend architectures relying on bundlers, handling such truly dynamic, run-time imports of
-"anything" (i.e., modules that aren't known at build time) is either impossible or astronomically expensive.
+"anything" (i.e., modules that aren't known at build time) is either unsupported or prohibitively expensive.
 Bundlers are designed to pre-analyze your application's static import graph and create optimized bundles or code-split
 chunks. To accommodate every possible module combination that could be dynamically imported at runtime would require
-generating an unmanageable number of split chunks, leading to insane overhead for internal bundler maps and a bloated,
+generating an unmanageable number of split chunks, leading to combinatorial overhead for internal bundler maps and a bloated,
 inefficient deployment.
 
-This is precisely where Neo.mjs comes to the rescue with its intelligent environment combinations – a novel approach
-that, to our knowledge, no other platform has truly accomplished. By leveraging native browser module loading
-capabilities and a sophisticated class registry, Neo.mjs ensures that even dynamically loaded code, with its arbitrary
-import statements, integrates seamlessly and efficiently into your application, regardless of the core environment
+Neo.mjs resolves this with its environment combinations. By leveraging native browser module loading
+capabilities and a runtime class registry, Neo.mjs ensures that even dynamically loaded code, with its arbitrary
+import statements, integrates cleanly into your application, regardless of the core environment
 it's running in.
 
 ### Loading Behavior for Dynamic Code Modules
