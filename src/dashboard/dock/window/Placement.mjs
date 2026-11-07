@@ -60,7 +60,7 @@ class Placement extends Base {
     #participant = null
     /** @member {Map<String,Object>} #receipts @private */
     #receipts = new Map()
-    /** @member {Promise<Object>|null} lastWrite=null */
+    /** @member {Promise<Object|null>|null} lastWrite=null Latest serialized geometry observation. */
     lastWrite = null
 
     /**
@@ -231,8 +231,7 @@ class Placement extends Base {
             pending = {windowId, before, after, generation: me.generation()};
             pending.flush = buffer(() => {
                 me.#pending.delete(windowId);
-                me.lastWrite = me.ingest(pending);
-                me.lastWrite.catch(error => Neo.logError(error))
+                me.ingest(pending).catch(error => Neo.logError(error))
             }, me, DragCoordinator.nativeWindowDropSettleMs);
             me.#pending.set(windowId, pending)
         }
@@ -241,14 +240,33 @@ class Placement extends Base {
     }
 
     /**
-     * @summary Records a settled free move, or rebases the main frame without a history row.
+     * @summary Serializes observations so an unchanged-hint decision sees earlier adopted moves.
      * @param {Object} movement The generation-fenced, quiesced observation.
      * @returns {Promise<Object|null>}
      */
-    async ingest({windowId, before, after, generation}) {
-        const me = this, binding = Transaction.findByWindow(windowId);
+    ingest(movement) {
+        const run = () => this.#ingest(movement);
+        return this.lastWrite = (this.lastWrite ?? Promise.resolve()).then(run, run)
+    }
+
+    /**
+     * @summary Records a changed popup hint or rebases the main frame after queued Group writes settle.
+     * @param {Object} movement
+     * @returns {Promise<Object|null>}
+     * @private
+     */
+    async #ingest(movement) {
+        const me = this, group = Transaction.get(me.groupId);
+        if (!group || me.isDestroyed) return null;
+        let queue;
+        do {
+            queue = group.queue;
+            await queue
+        } while (queue !== group.queue);
+
+        const {windowId, before, after, generation} = movement,
+              binding                               = Transaction.findByWindow(windowId);
         if (!binding || binding.groupId !== me.groupId || me.generation() !== generation || me.isDestroyed) return null;
-        const group  = Transaction.get(me.groupId);
         const isMain = binding.workspaceKey === me.mainBindingKey;
         if (!isMain && DragCoordinator.nativeWindowDropCandidates.has(windowId)) return null;
         const main = WindowManager.get(group.bindings.get(me.mainBindingKey)?.windowId)?.outerRect;
@@ -256,11 +274,14 @@ class Placement extends Base {
         const key = binding.workspaceKey;
         if (!isMain && !me.documents()[key]) return null;
         if (!isMain && !Object.hasOwn(me.#hints, key)) {
-            await me.write({...me.#hints, [key]: me.relativeHint(before, main)}, 'placement-baseline', 'preserve')
+            await me.write({...me.#hints, [key]: me.relativeHint(before, main)}, 'placement-baseline', 'preserve');
+            return me.#ingest(movement)
         }
-        return me.write(isMain ? me.observedHints() : {
+        const next = isMain ? me.observedHints() : {
             ...me.#hints, [key]: me.relativeHint(after, main, me.#hints[key].fallbackTarget)
-        }, isMain ? 'main-frame-rebase' : 'native-popup-move', isMain ? 'preserve' : 'append')
+        };
+        if (!isMain && Neo.isEqual(next[key], me.#hints[key])) return null;
+        return me.write(next, isMain ? 'main-frame-rebase' : 'native-popup-move', isMain ? 'preserve' : 'append')
     }
 
     /**

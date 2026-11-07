@@ -87,6 +87,87 @@ test.describe('Dock relative placement participant', () => {
         expect(Transaction.get(groupId).snapshot.participants.placementHints).toEqual(placement.hints)
     });
 
+    test('a common main and popup translation records no popup transaction when the relative hint is unchanged', async () => {
+        const reports = [], original = placement.onGeometry;
+        placement.onGeometry = event => reports.push({...event, generation: placement.generation()});
+        try {
+            move(mainWindow, 160, 120);
+            move(popupWindow, 560, 340)
+        } finally {
+            placement.onGeometry = original
+        }
+        await placement.ingest(reports.find(event => event.windowId === mainWindow));
+        const group   = Transaction.get(groupId),
+              before  = JSON.stringify({snapshot: group.snapshot, history: group.history?.toJSON() ?? null}),
+              commits = [], listener = event => {if (event.groupId === groupId) commits.push(event)};
+        Transaction.on('commit', listener);
+        try {
+            const result = await placement.ingest(reports.find(event => event.windowId === popupWindow));
+
+            expect(result).toBeNull();
+            expect(commits).toEqual([]);
+            expect(JSON.stringify({snapshot: group.snapshot, history: group.history?.toJSON() ?? null})).toBe(before)
+        } finally {
+            Transaction.un('commit', listener)
+        }
+    });
+
+    for (const emptyBaseline of [false, true]) test(`queued out-and-back observations retain both genuine relative moves (${emptyBaseline ? 'initial baseline' : 'existing hint'})`, async () => {
+        if (emptyBaseline) {
+            placement.destroy();
+            placement = Neo.create(Placement, {groupId, mainWorkspaceKey: 'workstation-main', initialHints: {}})
+        }
+        const reports = [], original = placement.onGeometry;
+        placement.onGeometry = event => reports.push({...event, generation: placement.generation()});
+        try {
+            move(popupWindow, 560, 350);
+            move(popupWindow, 500, 300)
+        } finally {
+            placement.onGeometry = original
+        }
+        const group = Transaction.get(groupId);
+        let release;
+        const gate    = new Promise(resolve => {release = resolve}),
+              blocked = Transaction.enqueue(group, () => gate),
+              first   = placement.ingest(reports[0]), second = placement.ingest(reports[1]);
+        release();
+        await Promise.all([blocked, first, second]);
+
+        expect(placement.hints.popup).toMatchObject({dx: 400, dy: 220});
+        expect(group.history.count).toBe(2);
+        expect(group.history.cursor).toBe(1);
+        expect(group.history.rows.map(row => ({cause: row.cause,
+            before: row.participants[0].before.popup, after: row.participants[0].after.popup}))).toMatchObject([
+            {cause: 'native-popup-move', before: {dx: 400, dy: 220}, after: {dx: 460, dy: 270}},
+            {cause: 'native-popup-move', before: {dx: 460, dy: 270}, after: {dx: 400, dy: 220}}
+        ])
+    });
+
+    test('an admitted Group write settles before a later observation is compared with the hint', async () => {
+        const reports = [], original = placement.onGeometry;
+        placement.onGeometry = event => reports.push({...event, generation: placement.generation()});
+        try {
+            move(popupWindow, 560, 350);
+            move(popupWindow, 500, 300)
+        } finally {
+            placement.onGeometry = original
+        }
+        const group = Transaction.get(groupId);
+        let release;
+        const gate        = new Promise(resolve => {release = resolve}),
+              blocked     = Transaction.enqueue(group, () => gate),
+              write       = placement.write({popup: {...placement.hints.popup, dx: 460, dy: 270}}, 'queued-placement-control'),
+              observation = placement.ingest(reports[1]);
+        release();
+        await Promise.all([blocked, write, observation]);
+
+        expect(placement.hints.popup).toMatchObject({dx: 400, dy: 220});
+        expect(group.history.count).toBe(2);
+        expect(group.history.current.participants[0]).toMatchObject({
+            before: {popup: {dx: 460, dy: 270}}, after: {popup: {dx: 400, dy: 220}}
+        })
+    });
+
     test('moving the main frame rebases hints and snapshot without changing history or popup geometry', async () => {
         move(popupWindow, 550, 330);
         await expect.poll(() => Transaction.get(groupId).history?.count).toBe(1);
