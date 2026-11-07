@@ -1,6 +1,6 @@
 # Using These Topics
 
-Neo.mjs is an Off-Main-Thread multi-window application engine (**the Body**) paired with an AI Agent OS and live runtime inspection bridge (**the Brain** and **Neural Link**). This page explains how to navigate the ten sections of the learning base and how to use the interactive features embedded throughout the guides.
+***Welcome to the Neo.mjs learning base!*** Neo.mjs is a complete application platform — 461 classes in 39 namespaces from grid, forms, calendar, and dashboard docking to 38 main-thread addons — paired with an Off-Main-Thread (OMT) multi-window runtime (**the Body**) and an AI Agent OS and live runtime inspection bridge (**the Brain** and **Neural Link**). It builds the applications teams build with [Angular, React or Vue](./comparisons/Overview.md) today, at [feature parity with Ext JS](./comparisons/NeoVsExtJs.md) and generations ahead of it in architecture, for desktop and mobile browsers, and goes where single-threaded libraries cannot — sustaining [`40,000+` delta updates/sec](./benefits/body/Speed.md), `100,000`-row buffered grids, and live cross-window component mobility on a single `SharedWorker` heap. These guides walk you through every layer of the architecture with runnable, interactive examples.
 
 <details>
 <summary>Click here to see how disclosure widgets work</summary>
@@ -9,8 +9,8 @@ Neo.mjs is an Off-Main-Thread multi-window application engine (**the Body**) pai
 
 ## Where to Start — Three Reader Paths
 
-- **Evaluating or Building with the Application Engine:** Start with [Introduction](./benefits/Introduction.md) and [Architecture Overview](./benefits/ArchitectureOverview.md), then walk through [Getting Started](./gettingstarted/Workspaces.md), [Guides](./guides/fundamentals/CodebaseOverview.md) (especially *Fundamentals*, *Data Handling*, and the 10 *UI Building Blocks* dock-layout guides), and [Tutorials](./tutorials/DockLayoutsFirstLayout.md).
-- **Evaluating Neo.mjs for an Enterprise Application:** Review the [Introduction Claims & Proof Register](./benefits/Introduction.md), the [Body Benefits](./benefits/body/OffTheMainThread.md) ([Multi-Window](./benefits/body/MultiWindow.md), [Four Environments](./benefits/body/FourEnvironments.md)), and [Engine vs Frameworks](./comparisons/Overview.md) (including [Neo.mjs vs Ext JS](./comparisons/NeoVsExtJs.md)).
+- **Evaluating or Building with the Application Engine:** Start with [Introduction](./benefits/Introduction.md) and [Architecture Overview](./benefits/ArchitectureOverview.md), then walk through [Getting Started](./gettingstarted/Workspaces.md), [Guides](./guides/fundamentals/CodebaseOverview.md) (covering the `461`-class component library across *Fundamentals*, *Data Handling*, [Forms](./benefits/body/FormsEngine.md), and the *UI Building Blocks* dock-layout guides), and [Tutorials](./tutorials/DockLayoutsFirstLayout.md).
+- **Evaluating Neo.mjs Against Frameworks or Ext JS:** Review the [Introduction Claims & Proof Register](./benefits/Introduction.md), the [Body Benefits](./benefits/body/OffTheMainThread.md) ([Multi-Window](./benefits/body/MultiWindow.md), [Four Environments](./benefits/body/FourEnvironments.md)), and [Engine vs Frameworks](./comparisons/Overview.md) (including [Neo.mjs vs Ext JS](./comparisons/NeoVsExtJs.md)).
 - **Running or Integrating Coding Agents:** Open **Brain Interface, Fleet & Agent Tooling** — starting with [Fleet Manager Architecture](./agentos/FleetManagerArchitecture.md), [Running the Fleet Cockpit](./agentos/RunningTheFleetCockpit.md), [The Neural Link](./agentos/NeuralLink.md), [Progressive Disclosure Skills](./agentos/ProgressiveDisclosureSkills.md), [Core Skills](./agentos/CoreSkills.md), and [The Seat Memory Layer](./agentos/SeatMemoryLayer.md).
 
 ## How the Content is Organized
@@ -32,7 +32,7 @@ The learning navigation tree (`learn/tree.json`) is organized into ten sections 
 
 Many topics include runnable `live-preview` examples rendered by `Neo.code.LivePreview` as tab panels with **Source** and **Preview** tabs. Click the **Preview** tab to mount and interact with the live component, or edit the code in the **Source** tab to see your changes applied immediately in **Preview**.
 
-You can also launch any preview into its own browser window by clicking the window popout icon (<span class="far fa-xs fa-window-maximize"></span> *"Open preview in a separate window"*) on the right side of the preview tab bar. Because the Portal itself is a Neo.mjs application, popped-out preview windows stay connected to the same multi-window runtime:
+You can also launch any preview into its own native browser window by clicking the window popout icon (<span class="far fa-xs fa-window-maximize"></span> *"Open preview in a separate window"*) on the right side of the preview tab bar. Because the Portal itself is a Neo.mjs application, popped-out preview windows are not isolated iframes — they stay live-wired to the same multi-window runtime, demonstrating a capability that is physically impossible in traditional single-threaded frameworks:
 
 ```javascript live-preview
 import Button    from '../button/Base.mjs';
@@ -76,3 +76,7 @@ export default defineComponent({
     }
 });
 ```
+
+---
+
+Your journey into Neo.mjs starts here. Continue to the [Introduction](./benefits/Introduction.md) to explore the full architecture and proof register, or jump straight to [Getting Started](./gettingstarted/Workspaces.md) to build your first Off-Main-Thread application.

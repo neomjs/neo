@@ -4,13 +4,14 @@ A Declarative Approach to Application Building
 
 ## Introduction
 
-Modern JavaScript UI libraries popularized declarative patterns for building
-user interfaces, primarily centered around enhancing HTML with custom syntax like JSX or Angular directives.
-However, the complexity of applications extends far beyond the Document Object Model (DOM), encompassing crucial
-non-DOM entities such as data stores, state providers, routers, view controllers, selection models, and layouts.
+Traditional single-threaded UI libraries and frameworks (like React, Angular, or Vue) limit declarative syntax to
+Document Object Model (DOM) templates — bolting custom syntax like JSX or HTML directives onto view functions.
+However, real-world web applications extend far beyond the DOM, encompassing crucial non-DOM entities such as data stores,
+state providers, routers, view controllers, selection models, and layouts.
 
-While existing frameworks offer solutions for managing these aspects, they often lack a truly consistent, declarative,
-and nested approach to their configuration, a gap that a class config system aims to fill.
+In legacy frameworks, these non-DOM layers lack a consistent, declarative, and nested configuration model — forcing teams
+to stitch together disparate third-party libraries and imperative glue code. Neo.mjs solves this at the engine level with
+its **Unified Class Config System**.
 
 ### The Problem with Disparate Configuration
 
@@ -112,10 +113,9 @@ offers several key advantages:
   tools console. This live interaction capability significantly streamlines debugging, prototyping, and understanding
   complex application behavior.
 
-While existing frameworks have made significant strides in declarative UI development, the concept of extending this
-declarative, nested configuration approach consistently to all aspects of an application, particularly the non-DOM realm,
-represents a powerful next step. Neo.mjs's class config system holds the promise of a more unified, maintainable, and
-understandable way to build complex modern web applications.
+Where legacy frameworks stop at declarative DOM templates, Neo.mjs extends a single declarative, nested configuration
+model across every layer of the application — DOM and non-DOM alike. The result is a unified, reactive, and directly
+inspectable architecture for building everything from everyday business apps to complex multi-window workspaces.
 
 ## Unifying Creation and Updates: The Consistent Config Experience
 
@@ -566,7 +566,7 @@ controllers, and routers—Neo.mjs significantly reduces cognitive load and enha
 
 This system empowers developers to describe the desired state and behavior of their applications in a clear, concise,
 and unified manner. The inherent reactivity of configs, coupled with powerful lifecycle hooks like beforeGet, beforeSet,
-and afterSet, offers fine-grained lifecycle control and flexibility, enabling dynamic updates and predictable data flow management.
+and afterSet, offers unparalleled control and flexibility, enabling dynamic updates and sophisticated data flow management.
 
 Ultimately, the Neo.mjs config system streamlines application development, making it easier to build complex,
 high-performance, and maintainable web applications. It's a testament to Neo.mjs's commitment to providing a truly

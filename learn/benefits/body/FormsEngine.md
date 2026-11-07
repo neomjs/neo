@@ -109,13 +109,13 @@ class MainView extends Container {
 MainView = Neo.setupClass(MainView);
 ```
 
-### Nested Forms: Hierarchical Form Composition
+### Nested Forms: Unprecedented Structural Flexibility
 
 Unlike the limitations of HTML, where nesting `<form>` tags is not permitted, Neo.mjs allows for true nested forms.
 This is achieved by mapping form containers to generic DOM nodes (e.g., `{module: FormContainer, tag: 'div'}`).
 
-**Benefit**: This capability provides hierarchical structural flexibility, enabling you to build modular and
-composable forms. You can validate or retrieve values from individual nested forms, or from the top-level form (which
+**Benefit**: This capability provides unparalleled structural flexibility, enabling you to build highly modular and
+complex forms. You can validate or retrieve values from individual nested forms, or from the top-level form (which
 includes all nested items), as needed. This promotes better organization of large forms, improves maintainability,
 and allows for fine-grained control over validation and data submission. For complex business processes, this means
 forms can accurately reflect intricate data relationships.
