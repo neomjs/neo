@@ -1,6 +1,7 @@
-import Base               from '../../../src/core/Base.mjs';
-import TransactionManager from '../../../src/manager/Transaction.mjs';
-import WorkspaceDocument  from '../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
+import Base                    from '../../../src/core/Base.mjs';
+import NativeVesselTransaction from '../../../src/dashboard/dock/window/NativeVesselTransaction.mjs';
+import TransactionManager      from '../../../src/manager/Transaction.mjs';
+import WorkspaceDocument       from '../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 
 /**
  * @class Neo.examples.dashboard.crossWindow.DemoBNativeWindowHost
@@ -10,6 +11,7 @@ import WorkspaceDocument  from '../../../src/dashboard/dock/model/WorkspaceDocum
  * Mixed into the workspace without constructing another owner. The Group owns native resources;
  * the host retains flow reservations, documents, collaborators, listeners and their teardown.
  * Source callbacks resolve current host methods and collaborators, including after awaited work.
+ * ID-supplying facades stay host-only; their mixin implementations use distinct method names.
  */
 class DemoBNativeWindowHost extends Base {
     static config = {
@@ -379,6 +381,417 @@ class DemoBNativeWindowHost extends Base {
         // user closed the retained recovery window by hand — is the Group's to observe. It clears
         // both of its own state owners and calls this host's `released` effect, so a successor
         // gesture can neither inherit nor be blocked by the retired generation.
+    }
+
+    /**
+     * @summary Stamps a retiring vessel with the exact native route of the window it holds.
+     * @description Retirement is the last moment that route is knowable. A vessel identity is minted
+     * at acquisition, before any window connected, so it names no window; the binding that followed
+     * is what knows one — and a refused admission gives that binding up. The Group re-presents the
+     * SAME vessel on every retry, so a route not captured here is a route no retry can rediscover,
+     * and the close degrades to closing by name. Capturing it is what lets a refusal be retried
+     * against the exact generation instead of whatever now answers to that name.
+     * @param {Object} vessel
+     * @returns {Object} The vessel, carrying its exact route when one is still resolvable.
+     * @protected
+     */
+    exactTearOutVessel(vessel) {
+        let me        = this,
+            itemId    = vessel?.itemId,
+            entry     = itemId ? me.resolveTearOutVessel(itemId) : null,
+            admission = itemId ? me.nativeWindows?.getAdmission(me.vesselSourceId, vessel.workspaceKey ?? me.resolveVesselKey(itemId)) : null,
+            windowId  = entry?.windowId ?? admission?.windowId ?? admission?.connectingWindowId,
+            route     = vessel?.nativeRoute ?? entry?.nativeRoute
+                ?? (windowId && Neo.manager?.Window?.get(windowId)?.nativeRoute)
+                // A retry presents the vessel identity again, not the copy stamped last time, and by
+                // then the refused admission has given its window up. The retirement the Group still
+                // holds is where that route was captured — so the retry reads it back from there.
+                ?? me.nativeWindows?.pendingRetirements(me.vesselSourceId).find(pending =>
+                    pending.itemId === itemId && pending.windowName === vessel?.windowName)?.nativeRoute;
+
+        return route ? {...vessel, nativeRoute: route} : vessel
+    }
+
+    /**
+     * @summary Resolves the Group key of an item's tear-out vessel. Each vessel here holds the one item it
+     * was opened for, so the item's newest native record is its vessel.
+     * @param {String} itemId
+     * @returns {String|null}
+     */
+    resolveVesselKey(itemId) {
+        return this.nativeWindows?.keyOf(this.vesselSourceId, itemId) ?? null
+    }
+
+    /**
+     * @summary Commits a detached terminal without sacrificing the live pane to projection order.
+     * @description A connect-first vessel already carries the pane and leaves an exact-slot source
+     * placeholder for ordinary projection cleanup. A terminal-first vessel has no placeholder, so
+     * the source reconciler must preserve the pane until the granted child arrives. This decision is
+     * captured before publishing the committed document; the deferred projection can never race it.
+     * @param {Object} document
+     * @param {Object} operation
+     * @param {Object} vessel The admitted vessel identity: the reservation's slot and lineage token.
+     * @param {String} workspaceId The host main workspace identity.
+     * @returns {Promise<void>} Settles after the Group accepts publication and pane adoption runs.
+     * @protected
+     */
+    async publishTearOutDocument(document, operation, vessel, workspaceId) {
+        let me       = this,
+            detached = operation?.operation === 'detachItem',
+            itemId   = operation?.itemId;
+
+        if (!detached) {
+            return me.onWorkspaceDocumentChange(workspaceId, document, {descriptor: operation})
+        }
+
+        await me.onWorkspaceDocumentChange(workspaceId, document, {
+            descriptor     : operation,
+            preserveItemIds: me.tearOutEmbodiment.isStaged(itemId) ? [] : [itemId]
+        });
+        me.tearOutHandlers.adoptPane(itemId, vessel, me.nativeWindows?.getConnection(me.vesselSourceId, vessel?.workspaceKey) ?? null)
+    }
+
+    /**
+     * @summary The tear-out commit seam with exact-position capture riding it: the
+     * `{tabsNodeId, index}` pair is readable only BEFORE a detach commit removes the item from
+     * the tree, and a refused commit deletes its own capture — no stale placement outlives a
+     * gesture that never committed. Every non-detach descriptor passes through untouched.
+     * @param {Object} descriptor
+     * @param {String} workspaceId The host main workspace identity.
+     * @returns {{document:Object, errors:String[]}|null}
+     * @protected
+     */
+    applyTearOutToWorkspace(descriptor, workspaceId) {
+        let me       = this,
+            isDetach = descriptor?.operation === 'detachItem',
+            captured = isDetach ? WorkspaceDocument.captureItemPlacement(me.dockModel, descriptor.itemId) : null,
+            result;
+
+        captured && me.tearOutHandlers.recordPlacement(descriptor.itemId, captured);
+
+        result = me.applyWorkspaceOperation(workspaceId, descriptor);
+
+        isDetach && result?.errors?.length && me.tearOutHandlers.forgetPlacement(descriptor.itemId);
+
+        return result
+    }
+
+    /**
+     * @summary The pop-out moment: atomically transfers the item record + placement from the primary
+     * workspace document into the popup document, parks the live pane out of the projection,
+     * and opens the popup on the SAME app. The SharedWorker heap makes the new window a second
+     * render target for the one worker; `onWindowConnect` moves the cached instance in.
+     * @param {String} itemId
+     * @param {Object} workspaceIds Host-owned workspace identities.
+     * @param {String} workspaceIds.mainWorkspaceId
+     * @param {String} workspaceIds.popupWorkspaceId
+     * @returns {Promise<{detached: Boolean, errors: String[]}>}
+     */
+    async openPanePopup(itemId, {mainWorkspaceId, popupWorkspaceId}) {
+        let me   = this,
+            pane = me.paneCache[itemId],
+            home = WorkspaceDocument.findContainingTabsId(me.dockModel, itemId);
+
+        if (!pane || !home || me.detachedPanes[itemId]) {
+            return {detached: false, errors: [`"${itemId}" is not a docked, cached, attached pane`]}
+        }
+
+        const
+            workspaceKey = `popup:${itemId}`,
+            windowName   = `demo-b-${itemId}`,
+            reservation  = me.reserveVessel(workspaceKey, 'click-popout', windowName);
+
+        if (!reservation) {
+            return {detached: false, errors: ['no Group slot could be reserved for the pop-out vessel']}
+        }
+
+        me.detachedPanes[itemId] = {tabsNodeId: home, windowId: null};
+
+        let committed;
+        try {
+            committed = await me.workspaceSet.transfer({
+                operation        : 'transferItem', itemId,
+                sourceWorkspaceId: mainWorkspaceId,
+                targetWorkspaceId: popupWorkspaceId,
+                target           : {operation: 'restoreTab', tabsNodeId: 'popup-tabs', home: {parentId: 'popup-root', slot: 'center'}}
+            }, {provenance: {origin: 'human'}});
+
+            pane.parent?.remove(pane, false);
+            let winData = await Neo.Main.getWindowData({windowId: me.windowId});
+
+            let opened = await Neo.Main.windowOpen({
+                topologyIdentity: reservation,
+                url             : `./index.html?popout=${itemId}`,
+                windowFeatures  : `height=420,width=560,left=${winData.screenLeft + 120},top=${winData.screenTop + 120}`,
+                windowId        : me.windowId,
+                windowName
+            });
+
+            if (opened === false) {
+                throw new Error('popup blocked')
+            }
+        } catch (error) {
+            delete me.detachedPanes[itemId];
+            me.revokeVessel(workspaceKey);
+            if (committed) {
+                const before = committed.participants.find(participant =>
+                    participant.workspaceKey === mainWorkspaceId).before;
+                await me.workspaceSet.transfer({
+                    operation        : 'transferItem', itemId,
+                    sourceWorkspaceId: popupWorkspaceId,
+                    targetWorkspaceId: mainWorkspaceId,
+                    target           : {operation: 'restoreTab', ...WorkspaceDocument.captureItemPlacement(before, itemId)}
+                }, {cause: 'dock-popout-refused', provenance: {origin: 'human'}})
+            }
+
+            return {
+                detached: false,
+                errors  : [`popup open failed: ${error?.message || error}`]
+            }
+        }
+
+        return {detached: true, errors: []}
+    }
+
+    /**
+     * @summary Resolves the one connected tear-out generation that may receive physical effects.
+     * @param {String} itemId
+     * @returns {Object|null}
+     * @protected
+     */
+    resolveTearOutVessel(itemId) {
+        return NativeVesselTransaction.resolveVessel({
+            nativeWindows: this.nativeWindows, sourceId: this.vesselSourceId, windowNameFor: (id, key) => this.vesselWindowName(id, key)
+        }, itemId)
+    }
+
+    /**
+     * @summary The semantic name of a tear-out vessel's window: `tearout-<itemId>`, plus the suffix its Group
+     * key was minted with when the item's preferred key was taken. Two live vessels never share a name,
+     * which `Main#windowOpen` would answer by reusing the first one's window.
+     * @param {String} itemId
+     * @param {String} [workspaceKey]
+     * @returns {String}
+     * @protected
+     */
+    vesselWindowName(itemId, workspaceKey) {
+        const preferred = `popup:${itemId}`;
+
+        return `tearout-${itemId}${workspaceKey?.startsWith(preferred) ? workspaceKey.slice(preferred.length) : ''}`
+    }
+
+    /**
+     * @summary The tear-out admission seam: opens the vessel window for a mid-gesture boundary exit.
+     * Reuses the `?popout=` pure-pane-host viewport mode. The granted child immediately carries
+     * the same live pane through {@link Neo.dashboard.dock.window.VesselEmbodiment}; it still owns no
+     * workspace document, and NOTHING is written to
+     * {@link Neo.examples.dashboard.crossWindow.DemoBWorkspace#detachedPanes}, so click-pop-out model
+     * machinery remains structurally absent. A blocked `windowOpen` returns false, which this effect
+     * maps to null; the Group's acquire also treats a thrown platform failure as a refusal.
+     *
+     * This is a PLATFORM effect, not an admission: the Group's native lifecycle owns the slot, its
+     * lineage token and the retirement retry, and hands the minted identity in as `topologyIdentity`
+     * for this method to ride into the vessel's carrier — nothing about the owner is in the URL. The
+     * returned facts are only what the platform decided; `acquire` merges them with the identity, so
+     * the seam's caller still receives the full `{generationToken, workspaceKey, …}` descriptor.
+     * @param {Object} request
+     * @param {String} request.itemId
+     * @param {Object} request.proxyRect
+     * @param {Object} request.topologyIdentity The reserved slot, supplied by `NativeLifecycle#acquire`.
+     * @returns {Promise<{popupHeight: Number, popupWidth: Number, windowName: String}|null>}
+     * @protected
+     */
+    async openTearOutVessel({itemId, proxyRect, topologyIdentity}) {
+        let me         = this,
+            {windowId} = me,
+            windowName = me.vesselWindowName(itemId, topologyIdentity?.workspaceKey);
+
+        // Admission is the caller's: this effect is only ever reached through `acquire`, which has
+        // already retried pending retirements, reserved the slot and minted the identity below. An
+        // effect invoked without one would open a native window no Group slot admits.
+        if (!topologyIdentity) return null;
+
+        let winData = await Neo.Main.getWindowData({windowId}),
+            width   = Math.max(Math.round(proxyRect?.width  || 480), 320),
+            height  = Math.max(Math.round(proxyRect?.height || 360), 240),
+            left    = Math.round((proxyRect?.x ?? 120) + winData.screenLeft),
+            top     = Math.round((proxyRect?.y ?? 120) + (winData.outerHeight - winData.innerHeight) + winData.screenTop);
+
+        me.tearOutAcquisitionAttempts++;
+
+        let opened = await Neo.Main.windowOpen({
+                nativeCapabilities: {close: true, position: true},
+                topologyIdentity,
+                url               : `./index.html?popout=${itemId}`,
+                windowFeatures    : `height=${height},left=${left},top=${top},width=${width}`,
+                windowId,
+                windowName
+            });
+
+        // A blocked popup resolves `false` rather than throwing; a throw is the platform failing.
+        // Both are the same answer here — no vessel — and `acquire` revokes the slot for either.
+        return opened === false ? null : {popupHeight: height, popupWidth: width, windowName}
+    }
+
+    /**
+     * @summary The tear-out retirement seam: closes a vessel the gesture no longer needs (re-entry, cancel,
+     * or a refused model commit) through the engine's shared close. The live connection remains
+     * recoverable until the platform strictly admits the close, so an explicit refusal can be retried
+     * instead of orphaning a parked native generation.
+     * {@link Neo.examples.dashboard.crossWindow.DemoBWorkspace#onTopologyRelease} ignores tear-out
+     * windows by construction (no detachedPanes entry), so no reattach machinery fires after success.
+     * This host's trimming is the vessel proxy: its source slot lives inside the vessel, so it unwinds
+     * before a restoring settle.
+     * @param {Object} vessel
+     * @param {String} [vessel.generationToken] The reservation's lineage token.
+     * @param {String} vessel.itemId
+     * @param {String} vessel.windowName
+     * @param {Object} [vessel.nativeRoute] Exact opener-minted physical route when available
+     * @returns {Promise<Boolean>}
+     * @protected
+     */
+    closeTearOutVessel(vessel) {
+        const me = this;
+
+        return NativeVesselTransaction.closeVessel({
+            beforeRestore: ({itemId}) => !me.vesselProxyEmbodiment.isStaged(itemId) || me.vesselProxyEmbodiment.restore({itemId}),
+            embodiment   : me.tearOutEmbodiment,
+            nativeWindows: me.nativeWindows,
+            ownerWindowId: me.windowId,
+            sourceId     : me.vesselSourceId,
+            sourceOwns   : itemId => Boolean(WorkspaceDocument.findContainingTabsId(me.dockModel, itemId)),
+            windowNameFor: (itemId, workspaceKey) => me.vesselWindowName(itemId, workspaceKey)
+        }, vessel)
+    }
+
+    /**
+     * @summary The post-commit ownership write: the detached terminal committed `detachItem` (the item left
+     * the tree, catalog preserved), so the vessel now OWNS the pane. The REPARENT that used to
+     * follow this write now belongs to the choreography, which calls `reparentPane` right after —
+     * so the long-drag and fast-terminal orders converge on one sequence instead of two.
+     * @param {String} itemId
+     * @param {Object|null} entry The admitted identity for terminal-first adoption, or null to withdraw.
+     * @param {Object|null} [connection=null] The bound vessel connection, when one arrived first.
+     * @param {Boolean} [isMerge=false] Fold into the existing record instead of replacing it.
+     * @param {String} [workspaceKey] The vessel whose record changes.
+     * @protected
+     */
+    recordDockPaneOwner(itemId, entry, connection=null, isMerge=false, workspaceKey=entry?.workspaceKey ?? connection?.workspaceKey) {
+        let me = this;
+
+        if (!me.nativeWindows) {
+            if (entry === null) return;
+            throw new Error('native source is not bound')
+        }
+
+        if (isMerge || entry === null) {
+            me.nativeWindows.recordOwner(me.vesselSourceId, workspaceKey, entry, null, isMerge);
+            return
+        }
+
+        // The shape is this host's; the registry is the Group's. A terminal that beat its connect
+        // owns an as-yet-unbound window, so the record names the generation and leaves `windowId`
+        // for the binding to fill. Passing the connection is what makes the write single-owner:
+        // committed disconnects match ownership from here on, never the pre-terminal connect branch.
+        const key = workspaceKey ?? `popup:${itemId}`;
+
+        me.nativeWindows.recordOwner(me.vesselSourceId, key, connection ? {...connection, itemId, workspaceKey: key} : {
+            generationToken: entry.generationToken ?? null,
+            itemId,
+            windowId       : null,
+            windowName     : entry.windowName ?? `tearout-${itemId}`,
+            workspaceKey   : key
+        }, connection)
+    }
+
+    /**
+     * @summary Moves the LIVE cached pane into a connected tear-out vessel — the same instance-moving
+     * reparent the click-pop-out uses, minus every document write (the model already committed
+     * at the terminal; this is pure render-target work).
+     * @param {Neo.component.Base} pane
+     * @param {Object} target `{windowId}`
+     * @param {String} itemId
+     * @returns {Boolean}
+     * @protected
+     */
+    reparentDockPane(pane, target={}, itemId) {
+        let me         = this,
+            {windowId} = target,
+            app        = Neo.apps[windowId];
+
+        if (me.tearOutEmbodiment.isStaged(itemId)) {
+            return me.tearOutEmbodiment.promote({itemId, windowId}) !== false
+        }
+
+        pane = me.paneCache[itemId] || pane;
+
+        if (!app || !pane || pane.isDestroyed) return false;
+
+        if (pane.parent !== app.mainView) {
+            pane.parent?.remove(pane, false);
+            app.mainView.add(pane)
+        }
+
+        return true
+    }
+
+    /**
+     * @summary The reattach: atomically transfers the item from the popup document into its primary
+     * tabs home, closes the popup (unless it already closed itself), and lets the projection
+     * re-adopt the parked instance — same count, same instance, home again.
+     * @param {String} itemId
+     * @param {Object} [options={}]
+     * @param {Boolean} [options.windowAlreadyClosed=false]
+     * @param {Object} workspaceIds Host-owned workspace identities.
+     * @param {String} workspaceIds.mainWorkspaceId
+     * @param {String} workspaceIds.popupWorkspaceId
+     * @returns {Promise<{reattached: Boolean, errors: String[]}>}
+     */
+    async returnPaneFromPopup(itemId, {windowAlreadyClosed = false} = {}, {mainWorkspaceId, popupWorkspaceId}) {
+        let me    = this,
+            entry = me.detachedPanes[itemId],
+            pane  = me.paneCache[itemId];
+
+        if (!entry || !pane) {
+            return {errors: [`"${itemId}" is not detached`], reattached: false}
+        }
+
+        // home fallback: if the remembered tabs node left the tree (a perspective moved on),
+        // the first tabs node adopts the returning pane — never a dangling reattach
+        let home = me.dockModel.nodes[entry.tabsNodeId]?.type === 'tabs'
+                ? entry.tabsNodeId
+                : Object.keys(me.dockModel.nodes).find(id => me.dockModel.nodes[id].type === 'tabs');
+
+        try {
+            await me.workspaceSet.transfer({
+                operation        : 'transferItem', itemId,
+                sourceWorkspaceId: popupWorkspaceId,
+                targetWorkspaceId: mainWorkspaceId,
+                target           : {operation: 'addTab', tabsNodeId: home}
+            }, {provenance: {origin: 'human'}})
+        } catch (error) {
+            return {errors: [error.message], reattached: false}
+        }
+
+        me.revokeVessel(`popup:${itemId}`);
+        delete me.detachedPanes[itemId];
+        pane.parent?.remove(pane, false);
+
+        // Commit model ownership before awaiting the vessel, and park the pane: the worker reaps the popup's tree
+        // once its window is gone. The deleted bookkeeping entry is the disconnect re-entrancy guard; a close
+        // failure leaves an empty popup, not split truth.
+        if (!windowAlreadyClosed) {
+            try {
+                await Neo.Main.windowClose({
+                    names   : [entry.windowName || `demo-b-${itemId}`],
+                    windowId: me.windowId
+                })
+            } catch (error) {
+                return {errors: [`popup close failed: ${error?.message || error}`], reattached: true}
+            }
+        }
+
+        return {errors: [], reattached: true}
     }
 }
 
