@@ -86,8 +86,9 @@ jobs:
     # A ruled-out tier starts no runner: its shards report SKIPPED, and `e2e-engine-gate` turns
     # that into the required context's green, with the classifier's reason.
     if: ${{ needs.changes.outputs.run_e2e == 'true' }}
-    # The gate runs as Playwright shards on separate runners, each serial and each under the
-    # step's ceiling. A dispatch is one shard, so a probe's tally keeps its whole denominator.
+    # The gate runs as shards on separate runners, each serial and each under the step's ceiling,
+    # each handed its files by measured time. A dispatch is one shard, so a probe's tally keeps its
+    # whole denominator.
     strategy:
       fail-fast: false
       # A selection brings a matrix sized to it. The full matrix is `FULL_SHARDS.engine` in
@@ -263,7 +264,20 @@ jobs:
           # would return 0 over a red suite and the gate would pass on a failing run.
           set -o pipefail
 
-          paths="${PROBE_SPECS:-$TIER_PATHS}"
+          # A probe runs the specs it names. A tier run takes its shard's files, balanced by measured
+          # time: Playwright's own `--shard` gives every shard the same number of tests, and a test
+          # costs anything from milliseconds to a minute.
+          if [ -n "${PROBE_SPECS}" ]; then
+            paths="${PROBE_SPECS}"
+          else
+            paths=$(node buildScripts/util/e2eCiSelection.mjs --engine-paths)
+          fi
+
+          # An empty list would run the whole config and pass
+          if [ -z "${paths}" ]; then
+            echo "::error::shard ${SHARD} has no spec files"
+            exit 1
+          fi
 
           echo "selection: ${paths}"
           echo "repeat-each: ${PROBE_REPEAT}"
@@ -308,7 +322,7 @@ jobs:
           # Deliberately unquoted: the selection is a space-separated list that must word-split
           # into separate arguments.
           npx playwright test -c test/playwright/playwright.config.e2e.mjs --workers=1 \
-            --repeat-each="${PROBE_REPEAT}" --shard="${SHARD}" ${paths} 2>&1 | tee /tmp/e2e-run.log
+            --repeat-each="${PROBE_REPEAT}" ${paths} 2>&1 | tee /tmp/e2e-run.log
 
       # `always()`, because a failed run needs its coverage stated more than a green one
       # does — and the destination is unescaped on purpose: an earlier inline form wrote

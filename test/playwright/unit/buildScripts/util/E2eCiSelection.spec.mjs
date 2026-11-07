@@ -11,6 +11,7 @@ import {
     assertBrainDeclarations,
     assertQuarantinesResolve,
     assertSelectionFloor,
+    balancedShard,
     BRAIN_DURATIONS,
     BRAIN_QUARANTINES,
     BRAIN_RETRY_BRIDGE,
@@ -21,9 +22,11 @@ import {
     brainReceipt,
     brainRetries,
     brainSelection,
-    brainShard,
     brainTestList,
+    ENGINE_DURATIONS,
+    engineDurations,
     enginePaths,
+    engineSelection,
     EXCLUSIONS,
     flakyTests,
     FULL_SHARDS,
@@ -420,7 +423,7 @@ test.describe('e2e CI selection — the Brain-gated tier', () => {
         // By path order and count, two files a shard would run 110 s, 70 s and 30 s
         const durations = {'a.spec.mjs': 60, 'b.spec.mjs': 50, 'c.spec.mjs': 40, 'd.spec.mjs': 30, 'e.spec.mjs': 20, 'f.spec.mjs': 10},
               paths     = Object.keys(durations).toReversed(),
-              split     = () => [1, 2, 3].map(index => brainShard({paths, shard: `${index}/3`, durations}));
+              split     = () => [1, 2, 3].map(index => balancedShard({paths, shard: `${index}/3`, durations}));
 
         expect(split()).toEqual([
             {paths: ['a.spec.mjs', 'f.spec.mjs'], seconds: 70},
@@ -433,16 +436,16 @@ test.describe('e2e CI selection — the Brain-gated tier', () => {
     test('a file the table does not list yet counts as its median, and a shard that is not N/M is refused', () => {
         const durations = {'a.spec.mjs': 10, 'b.spec.mjs': 20, 'c.spec.mjs': 90};
 
-        expect(brainShard({paths: ['new.spec.mjs'], shard: '1/1', durations}).seconds).toBe(20);
+        expect(balancedShard({paths: ['new.spec.mjs'], shard: '1/1', durations}).seconds).toBe(20);
 
         for (const shard of ['0/10', '11/10', '1/0', '3', 'a/b', '']) {
-            expect(() => brainShard({paths: [], shard, durations})).toThrow(`Shard '${shard}' is not N/M`);
+            expect(() => balancedShard({paths: [], shard, durations})).toThrow(`Shard '${shard}' is not N/M`);
         }
     });
 
     test('the tier\'s ten shards run every selected file once, none heavier than another by more than its longest file', () => {
         const {paths} = brainSelection({root}),
-              shards  = Array.from({length: 10}, (_, i) => brainShard({paths, shard: `${i + 1}/10`})),
+              shards  = Array.from({length: 10}, (_, i) => balancedShard({paths, shard: `${i + 1}/10`, durations: BRAIN_DURATIONS})),
               times   = shards.map(shard => shard.seconds),
               longest = Math.max(...paths.map(file => BRAIN_DURATIONS[file] ?? 0));
 
@@ -468,7 +471,7 @@ test.describe('e2e CI selection — the Brain-gated tier', () => {
                   {file: 'core/B.spec.mjs', specs: []}
               ]},
               text      = brainReceipt({report, run, seconds: 120, root}),
-              predicted = brainShard({paths: brainSelection({root}).paths, shard: run.shard}).seconds,
+              predicted = balancedShard({paths: brainSelection({root}).paths, shard: run.shard, durations: BRAIN_DURATIONS}).seconds,
               // GitHub's run log puts the job, the step and a timestamp before every line
               log       = text.split('\n').map(line => `e2e-brain (2/6)\tRun\t2026-10-23T18:43:59.7Z ${line}`).join('\n');
 
@@ -608,7 +611,59 @@ test.describe('e2e CI selection — the selection on this tree', () => {
         expect(tierSelection({specs: new Set([engine[0], brain]), root})).toEqual({brain: {paths: [brain], shards: 1}, engine: {paths: [engine[0]], shards: 1}});
         expect(tierSelection({specs: new Set(), root})).toEqual({brain: {paths: [], shards: 0}, engine: {paths: [], shards: 0}});
         // Never more shards than files, even when nothing is measured
-        expect(tierSelection({specs: new Set([brain]), root, durations: {}}).brain.shards).toBe(1)
+        expect(tierSelection({specs: new Set([brain]), root, durations: {brain: {}, engine: {}}}).brain.shards).toBe(1)
+    });
+
+    test('an engine selection is sized by its measured seconds, so heavy files get more shards than their count', () => {
+        const engine    = enginePaths(root),
+              heavy     = engine.slice(0, 10),
+              // Ten files carry ten times the rest of the tier: by file count they would share one shard
+              durations = {brain: BRAIN_DURATIONS, engine: Object.fromEntries(engine.map(file => [file, heavy.includes(file) ? 100 : 1]))};
+
+        expect(Math.ceil(FULL_SHARDS.engine * heavy.length / engine.length), 'control: the file count gives one shard').toBe(1);
+        expect(tierSelection({specs: new Set(heavy), root, durations}).engine.shards).toBe(FULL_SHARDS.engine)
+    });
+
+    test('the engine tier\'s shards run every file once, none heavier than another by more than its longest file', () => {
+        const paths   = engineSelection({named: RUN_PATHS, root}),
+              shards  = Array.from({length: FULL_SHARDS.engine}, (_, i) => balancedShard({paths, shard: `${i + 1}/${FULL_SHARDS.engine}`, durations: ENGINE_DURATIONS})),
+              times   = shards.map(shard => shard.seconds),
+              longest = Math.max(...paths.map(file => ENGINE_DURATIONS[file] ?? 0));
+
+        expect(paths, 'RUN_PATHS expands to the tier\'s files').toEqual(enginePaths(root));
+        expect(shards.flatMap(shard => shard.paths).toSorted()).toEqual(paths);
+        expect(Math.max(...times) - Math.min(...times)).toBeLessThanOrEqual(Math.ceil(longest) + 1)
+    });
+
+    test('--engine-paths with SHARD prints that shard\'s files of TIER_PATHS, and the shards print them once', () => {
+        const paths    = (named, shard) => execFileSync(process.execPath, ['buildScripts/util/e2eCiSelection.mjs', '--engine-paths'], {
+                  cwd: root, env: {...process.env, SHARD: shard, TIER_PATHS: named.join(' ')}
+              }).toString().split(' ').filter(Boolean),
+              selected = enginePaths(root).filter(file => file.includes('/grid/')),
+              sharded  = Array.from({length: 3}, (_, i) => paths(selected, `${i + 1}/3`));
+
+        expect(paths(RUN_PATHS, ''), 'directories expand to the tier\'s files').toEqual(enginePaths(root));
+        expect(sharded.every(files => files.length), 'no shard is empty').toBe(true);
+        expect(sharded.flat().toSorted()).toEqual(selected)
+    });
+
+    test('an engine log rebuilds the table: each test costs the time since its job\'s previous test ended', () => {
+        const at  = (job, time, text) => `e2e-engine (${job})\tRun e2e (engine tier)\t2026-11-07T01:${time}Z ${text}`,
+              ok  = (n, file, duration) => `  ✓  ${n} [chromium] › test/playwright/e2e/${file}:12:5 › a title › with (parens) (${duration})`,
+              log = [
+                  at('1/2', '13:17.0000000', 'Running 3 tests using 1 worker, shard 1 of 2'),
+                  // 3 ms of test, 15 s since the run started: the file's hooks and fixtures ran first
+                  at('1/2', '13:32.0000000', ok(1, 'core/Boot.spec.mjs', '3ms')),
+                  at('2/2', '13:20.0000000', 'Running 1 test using 1 worker, shard 2 of 2'),
+                  at('1/2', '13:34.5000000', ok(2, 'core/Boot.spec.mjs', '1.2s')),
+                  at('2/2', '15:20.0000000', ok(1, 'grid/Heavy.spec.mjs', '1.9m')),
+                  at('1/2', '13:35.0000000', '  -  3 [chromium] › test/playwright/e2e/grid/Skipped.spec.mjs:3:5 › skipped')
+              ].join('\n');
+
+        expect(engineDurations(log)).toEqual({'test/playwright/e2e/core/Boot.spec.mjs': 17.5, 'test/playwright/e2e/grid/Heavy.spec.mjs': 120});
+        // A log without timestamps, such as a local run's, falls back to the printed durations
+        expect(engineDurations([ok(1, 'core/Boot.spec.mjs', '3ms'), ok(2, 'core/Boot.spec.mjs', '1.2s'), ok(3, 'grid/Heavy.spec.mjs', '1.9m')].join('\n')))
+            .toEqual({'test/playwright/e2e/core/Boot.spec.mjs': 1.2, 'test/playwright/e2e/grid/Heavy.spec.mjs': 114})
     });
 
     test('the classifier reads a full selection as its reasons, and a selected one as each tier\'s files and matrix', () => {
@@ -648,6 +703,13 @@ test.describe('e2e CI selection — the selection on this tree', () => {
 
         expect(fallback('test-e2e.yml', 'engine')).toEqual(matrix(FULL_SHARDS.engine));
         expect(fallback('test-e2e-brain.yml', 'brain')).toEqual(matrix(FULL_SHARDS.brain))
+    });
+
+    test('the engine run step takes its shard\'s files from --engine-paths, never Playwright\'s count split', () => {
+        const workflow = fs.readFileSync(path.join(root, '.github/workflows/test-e2e.yml'), 'utf8');
+
+        expect(workflow).toContain('paths=$(node buildScripts/util/e2eCiSelection.mjs --engine-paths)');
+        expect(workflow).not.toMatch(/--shard[= ]/)
     });
 
     test('every historical red runs in full, runs its failing spec, or is a recorded miss', () => {
