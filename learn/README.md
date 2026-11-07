@@ -1,6 +1,6 @@
 # Neo.mjs Learning Base
 
-Neo.mjs is a complete application platform — 459 classes from grid to forms to calendar to dashboards — for every desktop and mobile web application, with a multi-threaded runtime that goes where single-threaded libraries cannot. It builds the applications teams build with [Angular, React or Vue](./comparisons/Overview.md) today, at [feature parity with Ext JS](./comparisons/NeoVsExtJs.md) and generations ahead of it in architecture, for desktop and mobile browsers.
+Neo.mjs is a complete application platform — 461 classes from grid to forms to calendar to dashboards — for every desktop and mobile web application, with a multi-threaded runtime that goes where single-threaded libraries cannot. It builds the applications teams build with [Angular, React or Vue](./comparisons/Overview.md) today, at [feature parity with Ext JS](./comparisons/NeoVsExtJs.md) and generations ahead of it in architecture, for desktop and mobile browsers.
 
 These Markdown documents power the interactive learning portal on [neomjs.com](https://neomjs.com/#/learn) (complete with live editable previews that can tear out into separate browser windows) and serve as the primary documentation corpus for the **Neo.mjs Knowledge Base MCP Server**.
 
@@ -26,7 +26,7 @@ If you are building any desktop or mobile web application — from everyday form
 1. **[Introduction](./benefits/Introduction.md)** & **[Architecture Overview](./benefits/ArchitectureOverview.md):** How the Off-Main-Thread worker topology, JSON blueprints, and the Neural Link fit together.
 2. **[Getting Started](./gettingstarted/Workspaces.md):** Create your first workspace (`npx neo-app`), run unbundled ES modules in `dev` mode, and inspect how components mount across workers.
 3. **[Guides](./guides/fundamentals/CodebaseOverview.md):**
-   - **Fundamentals & Core Engine:** Class system (`Neo.setupClass`), reactive config descriptors (`beforeSet*` / `afterSet*`), and component lifecycle across all `459` platform classes.
+   - **Fundamentals & Core Engine:** Class system (`Neo.setupClass`), reactive config descriptors (`beforeSet*` / `afterSet*`), and component lifecycle across all `461` platform classes.
    - **Data Handling, Forms & Grids:** `Neo.data.Store`, `Neo.data.Model`, hierarchical `state.Provider`, the `26`-field [Forms Engine](./benefits/body/FormsEngine.md), and buffered `Neo.grid.Container` rendering.
    - **UI Building Blocks, Addons & Multi-Window Docking:** The `42`-class dock-layout and cross-window tear-out shelf (`DockContainer`, `DockZone`, `Workspace`, `Perspectives`), `8` layouts, and `38` main-thread addons.
 4. **[Tutorials](./tutorials/DockLayoutsFirstLayout.md):** Step-by-step application walkthroughs with runnable live-preview examples.
