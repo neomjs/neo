@@ -40,7 +40,7 @@ In legacy frameworks, the code you write gets destroyed by the build step. The r
 **In Neo.mjs, the map IS the territory.**
 The runtime retains the semantic structure of your original intent. The **Neural Link** gives AI agents "Read/Write" access to the living runtime. An agent can query: *"Get me the Grid with reference 'sales-report'"*. The Engine replies with the live object. The AI sees that it has 10,000 records and sits in Window 2.
 
-Joined via the **Neural Link** (`60` runtime inspection and mutation tools) to the **Agent OS** (`neomjs/neo-agent-brain` — Knowledge Base, Memory Core, and GitHub Workflow MCP servers) and **Fleet Manager** (`neomjs/neo-agent-institution`), Neo.mjs gives coding agents live runtime visibility alongside source and persistent memory.
+Joined via the **Neural Link** (see the [Neural Link Guide](../../agentos/NeuralLink.md) for the live runtime inspection and mutation tool surface) to the **Agent OS** (`neomjs/neo-agent-brain` — Knowledge Base, Memory Core, and GitHub Workflow MCP servers) and **Fleet Manager** (`neomjs/neo-agent-institution`), Neo.mjs gives coding agents live runtime visibility alongside source and persistent memory.
 
 ## Conclusion: From Document Trees to an Application Engine
 
