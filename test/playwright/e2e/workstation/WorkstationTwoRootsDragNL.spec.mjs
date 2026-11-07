@@ -188,29 +188,17 @@ async function workspaceIn(app, page) {
  * @summary Observes every successful Group commit, including writes that preserve history.
  * @param {Object} worker
  * @param {String} workspaceId
- * @param {String} managerId
- * @param {String[]} windowIds
  * @returns {Promise<void>}
  */
-async function observeCommits(worker, workspaceId, managerId, windowIds) {
-    await worker.evaluate(({id, managerId, windowIds}) => {
-        const manager  = Neo.getComponent(id).transactionManager, windowManager = Neo.get(managerId),
-              state    = {events: [], lastActivity: performance.now(), manager, windowManager},
-              listener = event => {
-                  state.lastActivity = performance.now();
-                  state.events.push({groupId: event.groupId, cause: event.row?.cause ?? null,
-                      transactionId: event.transactionId})
-              },
-              geometryListener = event => {
-                  if (windowIds.includes(event.windowId)) state.lastActivity = performance.now()
-              };
+async function observeCommits(worker, workspaceId) {
+    await worker.evaluate(id => {
+        const manager = Neo.getComponent(id).transactionManager,
+              events  = [], listener = event => events.push({groupId: event.groupId,
+                  cause: event.row?.cause ?? null, transactionId: event.transactionId});
 
         manager.on({commit: listener, scope: manager});
-        windowManager.on({positionchange: geometryListener, scope: windowManager});
-        state.listener = listener;
-        state.geometryListener = geometryListener;
-        globalThis.__twoRootCommits = state
-    }, {id: workspaceId, managerId, windowIds})
+        globalThis.__twoRootCommits = {events, listener, manager}
+    }, workspaceId)
 }
 
 /**
@@ -220,18 +208,20 @@ async function observeCommits(worker, workspaceId, managerId, windowIds) {
  * @returns {Promise<void>}
  */
 async function settlePlacement(worker, rootIds) {
-    await expect.poll(() => worker.evaluate(async ids => {
-        let hintsMatch = true;
+    await expect.poll(() => worker.evaluate(ids => ids.every(id => {
+        const root      = Neo.getComponent(id), group = root.transactionManager.get(root.topologyGroupId),
+              placement = Neo.get(group.participants.get('placementHints').componentId);
+
+        return JSON.stringify(placement.hints) === JSON.stringify(placement.observedHints())
+    }), rootIds), {message: 'native setup moves reach committed placement hints', timeout: 15000}).toBe(true);
+    await worker.evaluate(async ids => {
         for (const id of ids) {
             const root      = Neo.getComponent(id), group = root.transactionManager.get(root.topologyGroupId),
                   placement = Neo.get(group.participants.get('placementHints').componentId);
             await placement.lastWrite;
-            await group.queue;
-            hintsMatch &&= JSON.stringify(placement.hints) === JSON.stringify(placement.observedHints())
+            await group.queue
         }
-        return hintsMatch && performance.now() - globalThis.__twoRootCommits.lastActivity >=
-            2 * Neo.manager.DragCoordinator.nativeWindowDropSettleMs
-    }, rootIds), {message: 'setup placement and commit queues settle beyond the native debounce', timeout: 15000}).toBe(true)
+    }, rootIds)
 }
 
 /**
@@ -311,10 +301,7 @@ async function restoreObservers(worker) {
         }
         delete globalThis.__twoRootResolvers;
         const observer = globalThis.__twoRootCommits;
-        if (observer) {
-            observer.manager.un({commit: observer.listener, scope: observer.manager});
-            observer.windowManager.un({positionchange: observer.geometryListener, scope: observer.windowManager})
-        }
+        if (observer) observer.manager.un({commit: observer.listener, scope: observer.manager});
         delete globalThis.__twoRootCommits
     })
 }
@@ -451,10 +438,6 @@ test.describe('Workstation independent roots: native held gesture', () => {
                 expect(new Set(handles.map(handle => handle.windowId)).size, 'four independent native frames').toBe(4);
                 watchRoot(targetA.page, 'A popup', errors, resources);
                 watchRoot(targetB.page, 'B popup', errors, resources);
-                observer = await attachPageSharedAppWorker({browser, page});
-                expect(observer, 'the observer binds this context\'s exact App Worker').toBeTruthy();
-                await observeCommits(observer, a.id, managers[0].id, [identities.a.windowId, identities.b.windowId,
-                    popupA.windowId, popupB.windowId]);
                 for (const [handle, column, row] of [[mainA, 0, 0], [mainB, 1, 0], [targetA, 0, 1], [targetB, 1, 1]]) {
                     handle.geometry = await placeWindow(app, managers[0].id, handle, {
                         left : screen.left + 24 + column * (width + gap),
@@ -463,7 +446,10 @@ test.describe('Workstation independent roots: native held gesture', () => {
                     });
                     receipts.push({nativeId: handle.windowId, geometry: handle.geometry})
                 }
+                observer = await attachPageSharedAppWorker({browser, page});
+                expect(observer, 'the observer binds this context\'s exact App Worker').toBeTruthy();
                 await settlePlacement(observer, [a.id, b.id]);
+                await observeCommits(observer, a.id);
                 const beforeA = await committedState(observer, a.id), beforeB = await committedState(observer, b.id),
                       paneId  = await app.callMethod(a.id, 'getPaneIdentity', ['feed']),
                       zero    = {indicators: 0, previews: 0, headers: 0, pane: 0};
