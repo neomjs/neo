@@ -389,6 +389,22 @@ test.describe('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => {
     });
 
     test('capture → load round-trip through the REAL store: one committed swap, honest names', async () => {
+        const panes        = {...workspace.paneCache},
+              assertTitles = () => {
+                  const document = workspace.getDockZoneDocument(), host = workspace.getReference('dock-host-b');
+                  for (const [nodeId, node] of Object.entries(document.nodes)) {
+                      if (node.type !== 'tabs') continue;
+                      const buttons = host.down({dockNodeId: nodeId}).getTabButtons();
+                      expect(buttons).toHaveLength(node.items.length);
+                      node.items.forEach((itemId, index) => {
+                          expect(workspace.paneCache[itemId]).toBe(panes[itemId]);
+                          expect(panes[itemId].header?.text).toBe(document.items[itemId].title);
+                          expect(buttons[index].text).toBe(document.items[itemId].title)
+                      })
+                  }
+              };
+
+        assertTitles();
         // capture the boot stage under a name
         const captured = workspace.capturePerspective('Focus');
 
@@ -403,6 +419,8 @@ test.describe('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => {
 
         expect(result.errors).toEqual([]);
         workspace.dockModel = result.document;
+        await workspace.refreshDockWorkspace();
+        assertTitles();
 
         expect(workspace.getDockZoneDocument().nodes['split-workbench-tabs-0']).toBeTruthy();
 
@@ -411,7 +429,9 @@ test.describe('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => {
 
         expect(loaded.loaded).toBe(true);
         expect(workspace.getDockZoneDocument().nodes['split-workbench-tabs-0']).toBeUndefined();
-        expect(workspace.getDockZoneDocument().nodes.root.zones.center.nodeId).toBe('workbench-tabs')
+        expect(workspace.getDockZoneDocument().nodes.root.zones.center.nodeId).toBe('workbench-tabs');
+        await workspace.awaitProjectionIdle();
+        assertTitles()
     });
 
     test('loading an unknown perspective fails closed and mutates nothing', async () => {

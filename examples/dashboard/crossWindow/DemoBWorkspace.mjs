@@ -1704,9 +1704,9 @@ class DemoBWorkspace extends Container {
     }
 
     /**
-     * Resolves a pane to its CACHED live instance, creating it on first request — the
+     * @summary Resolves a pane to its cached live instance, creating it on first request — the
      * workbench is the counter witness; the rest are labeled placeholder components with
-     * stable skin hooks. The FLIP marker cls rides every instance.
+     * stable skin hooks. Each pane carries its document title as tab-header metadata and a FLIP marker cls.
      * @param {String} itemId
      * @param {Object} item The model item record.
      * @returns {Neo.component.Base}
@@ -1721,10 +1721,12 @@ class DemoBWorkspace extends Container {
 
         cache[itemId] = Neo.create(itemId === 'workbench' ? {
             module: CounterPane,
-            cls   : ['agentos-dockdemo-counter-pane', 'agentos-dockdemo-pane-workbench']
+            cls   : ['agentos-dockdemo-counter-pane', 'agentos-dockdemo-pane-workbench'],
+            header: {text: item?.title ?? itemId}
         } : {
             module: Component,
             cls   : ['agentos-dockdemo-pane', `agentos-dockdemo-pane-${itemId}`],
+            header: {text: item?.title ?? itemId},
             html  : item?.title ?? itemId,
             style : {alignItems: 'center', display: 'flex', fontSize: '18px', justifyContent: 'center'}
         });
