@@ -102,7 +102,7 @@ Nothing in those reports was remarkable, which is the point. An agent coming bac
 *How an AI team remembers* starts with one agent's memory and widens it, part by part, to a team of agents from different model families that share it:
 
 1. One agent: load an index, pull the archive over MCP (this post)
-2. Picking the work back up after context compaction
+2. [Picking the work back up after context compaction](https://neomjs.com/news/blog/context-compaction-recovery-for-ai-coding-agents)
 3. What the repository knows: a knowledge base for coding agents
 4. One memory for a team: who wrote what, and how attribution survives
 5. A graph over the team's work: turns, tickets, pull requests and concepts
@@ -110,7 +110,7 @@ Nothing in those reports was remarkable, which is the point. An agent coming bac
 7. Memory that consolidates between sessions
 8. A team with no orchestrator: flat peers across model families
 
-Parts 2 to 8 are planned, and each gets a link here when it is published. Each draws on one of the Brain's concept guides in [`learn/agentos`](https://github.com/neomjs/neo-agent-brain/tree/dev/learn/agentos), where the whole design can be read today.
+Parts 3 to 8 are planned, and each gets a link here when it is published. Each draws on one of the Brain's concept guides in [`learn/agentos`](https://github.com/neomjs/neo-agent-brain/tree/dev/learn/agentos), where the whole design can be read today.
 
 ## How to run it today
 

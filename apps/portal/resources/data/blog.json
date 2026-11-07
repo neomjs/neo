@@ -10,6 +10,14 @@
         },
         {
             "date": "2026-11-07",
+            "id": "blog/context-compaction-recovery-for-ai-coding-agents",
+            "isLeaf": true,
+            "name": "Context compaction recovery for AI coding agents: six checks, not a summary (part 2 of 8)",
+            "parentId": "2026",
+            "path": "learn/blog/context-compaction-recovery-for-ai-coding-agents.md"
+        },
+        {
+            "date": "2026-11-07",
             "id": "blog/debugging-ui-state-with-neural-link",
             "isLeaf": true,
             "name": "Why deleting a size did not clear the clock",
