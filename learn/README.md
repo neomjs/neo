@@ -37,7 +37,7 @@ If you are connecting coding agents (Claude Code, Codex, Gemini / Antigravity) t
    - **[The Neural Link](./agentos/NeuralLink.md):** Inspecting and driving live Neo.mjs applications over WebSocket + JSON-RPC through the Neural Link's MCP tools.
    - **[Progressive Disclosure Skills](./agentos/ProgressiveDisclosureSkills.md)** & **[Core Skills](./agentos/CoreSkills.md):** `SKILL.md` routers and verification gates.
    - **[The Seat Memory Layer](./agentos/SeatMemoryLayer.md):** Persistent per-seat and shared team memory across sessions.
-   - **Retained Architectural Decision Records (`learn/agentos/decisions/`):** Canonical records held in this directory governing compaction taxonomy (`0007`), skill anatomy (`0008`), the identity source-of-truth model (`0018`), and multi-window docking design (`0038`), alongside pointers to the Brain repository's ADRs.
+   - **Retained Architectural Decision Records (`learn/agentos/decisions/`):** Canonical records held in this directory governing compaction taxonomy (`0007`), skill anatomy (`0008`), the identity source-of-truth model (`0018`), and multi-window docking design (`0029`), alongside pointers to the Brain repository's ADRs.
 
 ---
 
