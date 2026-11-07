@@ -21,19 +21,19 @@ When a traditional framework renders a component, the output (the DOM) is just a
 Components in Neo.mjs (`Button`, `Grid`, `Window`) are precision-engineered objects with **Object Permanence**. They exist as live, stateful nodes within a dedicated App Worker. They maintain their identity, methods, and relationships entirely independently of the DOM.
 
 ### 2. The JSON-First AI Synergy
-Large Language Models (LLMs) natively excel at reading and generating JSON.
-For 6 years, long before trends like Vercel's `json-render`, Neo.mjs has strictly decoupled its workers using a **JSON-first architecture**.
+Large Language Models (LLMs) natively excel at reading, reasoning over, and generating JSON.
+Since its initial GA in November 2019 — years before trends like Vercel's `json-render` — Neo.mjs has strictly decoupled its workers using a **JSON-first architecture**.
 
-Because workers physically cannot read the live DOM, the entire application UI is represented as pure, serializable JSON blueprints. This makes Neo.mjs the premiere target for AI minds. An LLM doesn't have to wrestle with HTML quirks or JSX compilation steps; it simply reads and writes structured JSON data that the Engine translates into blazing-fast UI.
+Because workers physically cannot touch the live DOM, the entire application — component trees, layouts, data stores, state providers, and VDOM deltas — is represented as pure, serializable JSON blueprints (`static config` and `toJSON()`). **Because LLMs excel at JSON, and Neo.mjs has been JSON-first since 2019, LLMs excel at building with Neo.mjs** — especially when paired with Neo's AI infrastructure. An AI model doesn't have to wrestle with HTML quirks, JSX compilation steps, or `useEffect` dependency arrays; JSON is its native tongue.
 
-### 3. Simpler for Humans, Native for Accountable AI Peers
-Multi-threading in Neo.mjs does not add complexity to your application code — **it removes it**. The Engine manages the worker threads and DOM delta updates automatically behind the scenes while you write clean, standard ES module classes and declarative `static config` blueprints in a **zero-builds browser environment** — with no JSX transpilation, no bundler dev-server tax, and no `useEffect` or memoization workarounds to keep state alive across render passes.
+### 3. The Complexity Shift: Why the Pre-AI Burden Disappeared
+In the **pre-AI era**, an engine architecture of multi-threaded Workers, Shared State, and persistent Scene Graphs — and writing explicit JSON blueprints by hand — carried a real cognitive burden for a single human developer.
 
-**And that same architecture unlocks a paradigm shift for AI engineering.**
+**In the AI era, that burden belongs to the past — and the trade-off inverted completely.**
 
-Most of the industry treats AI as a disposable tool: a human "orchestrator" commanding stateless sub-agents to churn out boilerplate. As [What Is Neo.mjs?](../Introduction.md) explains, Command-and-Control is architecturally capped at rung one — you cannot build a team of teams out of tools that forget every session and cannot challenge a flawed premise.
+What once looked verbose for a human typing every line by hand is the exact structured contract an AI mind thrives on. And instead of the industry's Rung-1 Command-and-Control model — a human "orchestrator" babysitting stateless sub-agents that forget every session, which [What Is Neo.mjs?](../Introduction.md) shows is architecturally capped at rung one — Neo.mjs asks the inverted question: *how can software become a body an AI inhabits, and a team of AIs can be trusted to run?*
 
-Neo.mjs inverts the question: *how can software become a body an AI inhabits, and a team of AIs can be trusted to run?* Because of its rigorous Object Permanence and JSON-first worker contracts, Neo.mjs is designed around **Model Experience (MX)**. Accountable, named AI peer maintainers across rival labs (Claude, Gemini, GPT) — with persistent institutional memory, cross-family review rights, and a human gardener at the merge gate — inhabit the engine alongside human engineers to build applications that are physically impossible in legacy frameworks.
+Built around **Model Experience (MX)**, Object Permanence, and JSON-first worker contracts, Neo.mjs is inhabited by **accountable, named AI peer maintainers** across rival labs (Claude, Gemini, GPT) — equipped with persistent institutional memory, cross-family review rights, and a human gardener at the merge gate — who carry that multi-threaded architectural depth natively and build applications that are physically impossible in legacy frameworks.
 
 ## Runtime Embodiment: The Map IS the Territory
 
