@@ -2,30 +2,36 @@
 
 ## Engine vs Framework Comparisons
 
-This section compares Neo.mjs with single-threaded JavaScript libraries and frameworks (`React`, `Angular`, `Vue.js`, `Solid.js`, `Next.js`, and `Ext.js`). Neo.mjs is a complete, batteries-included **Application Engine** (`459` classes across `39` namespaces — `100,000`-row buffered grids, `26` form field types with nested forms, calendars, `42`-class multi-window Dock Layouts, `8` layouts, and `38` main-thread addons) built for **every desktop and mobile web application**, while its Off-Main-Thread worker runtime and live **[Neural Link (`Possession Interface`)](../agentos/NeuralLink.md)** go where single-threaded frameworks cannot.
+This section provides detailed comparisons between Neo.mjs and popular JavaScript frameworks. Our goal is to help
+you understand why Neo.mjs is classified as an **Application Engine** and how its multi-threaded, worker-based
+architecture differs fundamentally from the single-threaded design of traditional libraries and frameworks.
 
-Each comparison examines:
+We aim to compare Neo.mjs with these frameworks from a **technical, objective, and constructive perspective**, focusing on how
+different architectural choices and design philosophies address common web development challenges. Please note that
+these comparison documents were generated with the assistance of a large language model (Gemini).
+
+Each comparison article will focus on:
 
 *   **Bridging Knowledge Gaps:** Mapping concepts you know to Neo.mjs.
-*   **Platform & Architectural Differentiators:** Off-Main-Thread execution, persistent component instances, and zero-builds native ES modules.
-*   **AI-Era Advantage (JSON-First Since 2019 GA):** Why LLMs natively excel at reading and writing Neo.mjs JSON blueprints ([`JSONFirstUIs.md`](../benefits/body/JSONFirstUIs.md)) and inspecting live running apps via the **[Neural Link](../agentos/NeuralLink.md)** without the pre-AI complexity burden.
-*   **Side-by-Side Analysis:** Feature-by-feature architectural comparisons.
+*   **Highlighting Differentiators:** What makes Neo.mjs unique.
+*   **Side-by-Side Analysis:** Feature-by-feature comparisons.
+*   **Trade-offs and Use Cases:** When Neo.mjs might be the optimal choice.
 
 ### Architectural Snapshot
 
-The table below offers a high-level architectural comparison of Neo.mjs and the single-threaded libraries and frameworks discussed in this section:
+The table below offers a high-level architectural comparison of Neo.mjs and the frameworks discussed in this section. It is designed
+to provide a quick snapshot of their core differences. For a deeper understanding, please refer to the detailed comparison
+articles.
 
 | Feature                 | Neo.mjs                                | React                                   | Vue.js                               | Solid.js                                | Angular                                 |
 | ----------------------- |----------------------------------------| --------------------------------------- | ------------------------------------ | --------------------------------------- | --------------------------------------- |
-| **Core Architecture**   | Multi-Threaded (App / VDom / Data / Canvas / SharedWorker) | Single-Threaded (Main-Thread Bound)     | Single-Threaded (Main-Thread Bound)  | Single-Threaded (Main-Thread Bound)     | Single-Threaded (Main-Thread Bound)     |
-| **Platform Breadth**    | **459 Classes / 39 Namespaces** (Grids, 26 Form Fields, Calendar, 42 Dock Classes, 38 Addons, Zero Dependencies) | UI Rendering Library Only (Requires 3rd-Party Glue) | View Layer + Router/Pinia (Requires 3rd-Party UI Kits) | UI Rendering Library Only (Requires 3rd-Party Glue) | Framework + CLI (Requires CDK / 3rd-Party Grids & Docking) |
-| **VDOM & UI Format**    | **JSON-First Blueprints** in App Worker (Since Nov 2019 GA — Native LLM Fluency) | JSX in Main Thread (Requires Build Step) | SFC Templates / JSX in Main Thread (Requires Build Step) | Compiled JSX in Main Thread (No VDOM)   | HTML Templates in Main Thread (Requires Build Step) |
-| **Reactivity Model**    | Fine-Grained Two-Tier (`Config` + `Effect`, Surgical Deltas) | Cascading Re-Renders (Manual Memo)      | Fine-Grained (Compiler-Assisted)     | Fine-Grained (Non-Destructive)          | Zone.js / Signals (Main-Thread Change Detection) |
-| **Manual Optimizations**| Not Required                           | Required (`memo`, `useCallback`, `useMemo`) | Not Required                         | Not Required                            | Often Required (`OnPush`)               |
-| **State Mutability**    | Directly Mutable (`state.Provider` & Configs) | Immutable (Enforced Boilerplate)        | Mutable (Proxied)                    | Immutable Signal Setters / Stores       | Mutable / Observable-based              |
-| **Dev Environment**     | **Zero-Builds Native ES Modules** (Instant) | Build-Based (Vite, Webpack, Next)       | Build-Based (Vite)                   | Build-Based (Vite)                      | Build-Based (Angular CLI)               |
-| **Multi-Window Support**| **Native `SharedWorker` + 42-Class Dock Layouts** (Live Cross-Window Tear-Out & Re-Docking) | None Native (Requires Custom IPC & Re-Mount) | None Native (Requires Custom IPC & Re-Mount) | None Native (Requires Custom IPC & Re-Mount) | None Native (Requires Custom IPC & Re-Mount) |
-| **AI Runtime Embodiment**| **Live via [Neural Link](../agentos/NeuralLink.md)** (Scene-Graph Introspection & In-Place Hot-Patching) | Blind Outside Static Source / DOM Snapshots | Blind Outside Static Source / DOM Snapshots | Blind Outside Static Source / DOM Snapshots | Blind Outside Static Source / DOM Snapshots |
+| **Core Architecture**   | Multi-Threaded (Worker-Based)          | Single-Threaded (Main-Thread Bound)     | Single-Threaded (Main-Thread Bound)  | Single-Threaded (Main-Thread Bound)     | Single-Threaded (Main-Thread Bound)     |
+| **VDOM Location**       | App Worker                             | Main Thread                             | Main Thread                          | No VDOM (Direct DOM Updates)            | Main Thread                             |
+| **Reactivity Model**    | Fine-Grained (Surgical Atomic Updates) | Cascading Re-Renders (Manual Memo)      | Fine-Grained (Compiler-Assisted)     | Fine-Grained (Non-Destructive)          | Zone.js (Automatic Change Detection)    |
+| **Manual Optimizations**| Not Required                           | Required (`memo`, `useCallback`, `useMemo`) | Not Required                         | Not Required                            | Not Required                            |
+| **State Mutability**    | Directly Mutable                       | Immutable (Enforced)                    | Mutable (Proxied)                    | Mutable (Proxied)                       | Mutable (Observable-based)              |
+| **Dev Environment**     | Zero-Builds (Instant)                  | Build-Based (Vite, etc.)                | Build-Based (Vite)                   | Build-Based (Vite)                      | Build-Based (Angular CLI)               |
+| **Multi-Window Support**| Native (Shared Data/Components)        | Limited/Requires Custom Logic           | Limited/Requires Custom Logic        | Limited/Requires Custom Logic           | Limited/Requires Custom Logic           |
 
 ### Available Comparisons
 

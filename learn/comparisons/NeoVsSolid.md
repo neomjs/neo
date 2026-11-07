@@ -64,12 +64,15 @@ This is where the two architectures diverge significantly, each offering unique 
 
 ### Other Considerations:
 
-*   **JSX vs. JSON-First Blueprints (AI-Era Fluency):** Solid uses JSX (requiring a build step), while Neo.mjs has been **JSON-first since its November 2019 GA** ([`JSONFirstUIs.md`](../benefits/body/JSONFirstUIs.md)). Because LLMs natively excel at reading and writing JSON, coding agents generate and mutate Neo.mjs UI blueprints without JSX compilation and inspect or hot-patch the live running app through the **[Neural Link](../agentos/NeuralLink.md)**.
-*   **Side Effects & Two-Tier Reactivity:** Solid uses `createEffect` and `createRenderEffect`. Neo.mjs combines declarative `Neo.core.Effect`-driven `createVdom()` with class-level `beforeSet*` / `afterSet*` config hooks across all `459` classes.
-*   **Complete 459-Class Platform vs. Rendering Primitive:** Solid.js is a rendering primitive that requires assembling third-party packages for grids, forms, routing, and docking. Neo.mjs ships a complete, zero-dependency platform (`100,000`-row buffered grids, `26` form field types, calendars, `42`-class multi-window Dock Layouts, `8` layouts, and `38` main-thread addons).
+*   **JSX vs. Plain Objects:** Solid uses JSX (requiring a build step), while Neo.mjs uses plain JavaScript objects for VDOM (no JSX compilation needed). **This means Neo.mjs's VDOM is defined using simple nested JavaScript objects and arrays, akin to a JSON-like description of the DOM.**
+*   **Side Effects:** Solid has explicit `createEffect` and `createRenderEffect` hooks for managing side effects. In Neo.mjs, `createVdom` is the primary effect for rendering, and other side effects would typically be managed by separate `Neo.core.Effect` instances or dedicated hooks.
+*   **Ecosystem & Maturity:** Solid.js has a growing community and ecosystem. Neo.mjs has a smaller but dedicated community, with a focus on engine-level solutions.
 
 ## Conclusion
 
-While Solid.js optimizes single-threaded DOM updates by compiling JSX templates for the Main Thread, every computation, data transform, and state update in Solid still competes with user input on that single thread.
+Both Neo.mjs and Solid.js are highly performant, modern reactive solutions.
 
-Neo.mjs gives you fine-grained reactivity **off the Main Thread** inside a complete `459`-class **Application Engine** for every desktop and mobile web application — combining zero-builds native ES modules, multi-window `SharedWorker` Dock Layouts (`src/dashboard/dock/`), JSON-first blueprints, and live runtime embodiment via the **[Neural Link](../agentos/NeuralLink.md)**.
+*   **Solid.js** excels by completely sidestepping the Virtual DOM, compiling directly to efficient DOM operations, and running components only once. It's a lean, fast choice for Main Thread-bound applications.
+*   **Neo.mjs** offers a unique value proposition with its worker-based architecture, offloading heavy computation from the Main Thread to ensure UI responsiveness. It combines this with a sophisticated VDOM pipeline that includes off-Main-Thread diffing, intelligent batching/aggregation, and surgical direct DOM API updates.
+
+The choice between them depends on the specific application's needs: Solid.js for ultimate Main Thread rendering speed, and Neo.mjs for guaranteed Main Thread responsiveness and leveraging multi-core processing, especially in complex, data-intensive applications.
