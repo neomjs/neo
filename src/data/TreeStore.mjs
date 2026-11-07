@@ -892,9 +892,14 @@ class TreeStore extends Store {
             const siblings = me.#childrenMap.get(parentId);
 
             if (siblings) {
-                // We use the raw item's identity (=== item) to find it in the siblings array
-                // because the array currently holds the raw object reference.
-                const idx = siblings.indexOf(item);
+                // Identity finds the raw object in practice. A re-add replaces it in the Structural Layer while the
+                // visible layer keeps its own object, so the key scan heals that node too, as `#addChild()` does.
+                let idx = siblings.indexOf(item);
+
+                if (idx < 0) {
+                    idx = siblings.findIndex(sibling => me.getKey(sibling) === key)
+                }
+
                 if (idx > -1) {
                     siblings[idx] = record
                 }
