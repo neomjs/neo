@@ -24,6 +24,13 @@ import TransactionManager                                  from '../../../../../
 import {demoBTourScript, initialDocument} from '../../../../../../examples/dashboard/crossWindow/demoBPerspectives.mjs';
 import {createCrossWindowStage}           from '../../../../../../examples/dashboard/crossWindow/DemoBCrossWindowStage.mjs';
 
+/** @summary A caller-controlled settlement gate. @returns {{promise: Promise, resolve: Function}} */
+function settlementGate() {
+    let resolve;
+    const promise = new Promise(settle => resolve = settle);
+    return {promise, resolve}
+}
+
 /**
  * @summary Installs deterministic popup-vessel seams for the worker-side workspace specs.
  * The real OS-window round-trip is owned by the E2E witness; these seams isolate document
@@ -569,6 +576,144 @@ test.describe('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => {
             expect(mounts).toEqual(['workspace-child'])
         } finally {
             harness.restore()
+        }
+    });
+
+    for (const disposition of ['current', 'replaced', 'revoked', 'destroyed']) {
+        test(`stage binding resumes after geometry with a ${disposition} host admission`, async () => {
+            const windowId    = 'stage-geometry-child',
+                  workspaceId = DemoBWorkspace.POPUP_WORKSPACE_ID,
+                  previous    = Neo.main.addon.WindowPosition,
+                  geometry    = settlementGate(),
+                  entered     = settlementGate(),
+                  calls       = [],
+                  app         = {mainView: {}};
+            let binding;
+
+            Neo.apps[windowId] = app;
+            Neo.main.addon.WindowPosition = {setConfigs: data => {
+                entered.resolve(data);
+                return geometry.promise
+            }};
+            workspace.reserveVessel(workspaceId, 'workspace-target');
+            workspace.mountCrossWindowTarget = () => calls.push('stale');
+
+            try {
+                binding = workspace.onTopologyBind({groupId: hostGroupId, windowId, workspaceKey: workspaceId});
+                await expect(entered.promise).resolves.toEqual({observeMovement: true, observeResize: true, windowId});
+                expect(calls).toEqual([]);
+
+                workspace.mountCrossWindowTarget = (...args) => calls.push(args);
+                if (disposition === 'replaced') {
+                    const reservation = workspace.vesselReservations.get(workspaceId);
+                    workspace.vesselReservations.set(workspaceId, {...reservation})
+                } else if (disposition === 'revoked') {
+                    workspace.revokeVessel(workspaceId)
+                } else if (disposition === 'destroyed') {
+                    workspace.destroy()
+                }
+
+                geometry.resolve();
+                await binding;
+                expect(calls).toEqual(disposition === 'current' ? [[app, windowId, workspaceId]] : [])
+            } finally {
+                geometry.resolve();
+                await binding?.catch(() => {});
+                Neo.main.addon.WindowPosition = previous;
+                delete Neo.apps[windowId]
+            }
+        })
+    }
+
+    test('registered native effects resolve current host facades and the embodiment after geometry', async () => {
+        const windowId   = 'native-geometry-child',
+              previous   = Neo.main.addon.WindowPosition,
+              embodiment = workspace.tearOutEmbodiment,
+              effects    = workspace.nativeWindows.sources.get(workspace.vesselSourceId).effects,
+              geometry   = settlementGate(),
+              entered    = settlementGate(),
+              calls      = [],
+              request    = {itemId: 'timeline'},
+              vessel     = {itemId: 'timeline', windowName: 'live-vessel'},
+              context    = {app: {}, itemId: 'timeline', windowId};
+        let preparing;
+
+        Neo.apps[windowId] = context.app;
+        Neo.main.addon.WindowPosition = {setConfigs: () => {
+            entered.resolve();
+            return geometry.promise
+        }};
+        workspace.openTearOutVessel = data => { calls.push(['open', data]); return vessel };
+        workspace.closeTearOutVessel = data => { calls.push(['close', data]); return false };
+
+        try {
+            expect(effects.open(request)).toBe(vessel);
+            expect(effects.close(vessel)).toBe(false);
+            preparing = effects.prepare(context);
+            await entered.promise;
+            workspace.tearOutEmbodiment = {stage: data => { calls.push(['stage', data]); return false }};
+            geometry.resolve();
+
+            await expect(preparing).resolves.toBe(true);
+            expect(context.staged).toBe(false);
+            expect(calls).toEqual([
+                ['open', request], ['close', vessel], ['stage', {itemId: 'timeline', windowId}]
+            ])
+        } finally {
+            geometry.resolve();
+            await preparing?.catch(() => {});
+            workspace.tearOutEmbodiment = embodiment;
+            Neo.main.addon.WindowPosition = previous;
+            delete Neo.apps[windowId]
+        }
+    });
+
+    test('destroy during real native stage rendering cannot publish a connection or close a window', async () => {
+        const windowId   = 'native-render-child',
+              vessel     = installWindowVessel(),
+              owner      = workspace.nativeWindows,
+              sourceId   = workspace.vesselSourceId,
+              source     = owner.sources.get(sourceId),
+              embodiment = workspace.tearOutEmbodiment,
+              pane       = workspace.resolvePane('timeline', initialDocument.items.timeline),
+              rendered   = settlementGate(),
+              entered    = settlementGate();
+        let binding, target;
+
+        Neo.apps[windowId] = {};
+        target = Neo.create(Container, {items: [], windowId});
+        Neo.apps[windowId].mainView = target;
+        target.promiseUpdate = () => { entered.resolve(); return rendered.promise };
+
+        try {
+            await owner.acquire(sourceId, {
+                itemId: 'timeline', proxyRect: {height: 320, width: 480, x: 40, y: 60}
+            });
+            expect(owner.getAdmission(sourceId, 'popup:timeline')).toBeTruthy();
+
+            binding = owner.onBind({generation: 1, groupId: hostGroupId, windowId, workspaceKey: 'popup:timeline'});
+            await entered.promise;
+            expect(embodiment.isStaged('timeline')).toBe(true);
+            expect(pane.parent).toBe(target);
+            expect(owner.getConnection(sourceId, 'popup:timeline')).toBeNull();
+
+            workspace.destroy();
+            rendered.resolve();
+            await expect(binding).resolves.toBeUndefined();
+
+            expect(embodiment.isDestroyed).toBe(true);
+            expect(owner.sources.get(sourceId)).toBe(source);
+            expect(source.active).toBe(false);
+            expect(owner.getConnection(sourceId, 'popup:timeline')).toBeNull();
+            expect(owner.getOwner(sourceId, 'popup:timeline')).toBeNull();
+            expect(vessel.nativeCloseCalls).toEqual([]);
+            expect(vessel.closeCalls).toEqual([])
+        } finally {
+            rendered.resolve();
+            await binding?.catch(() => {});
+            target?.destroy();
+            delete Neo.apps[windowId];
+            vessel.restore()
         }
     });
 
