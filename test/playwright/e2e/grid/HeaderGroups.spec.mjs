@@ -16,7 +16,9 @@ import {expect, test} from '../../fixtures.mjs';
  * @returns {Promise<Object[]>} `{text, left, right, leafLeft, leafRight}` per group cell
  */
 const groupEdges = page => page.evaluate(() => {
+    // A live drag clones its button into a proxy, aria-colindex included: only the toolbar's own buttons count
     const leaves = new Map([...document.querySelectorAll('.neo-grid-header-button')]
+        .filter(button => !button.closest('.neo-dragproxy'))
         .map(button => [Number(button.getAttribute('aria-colindex')), button.getBoundingClientRect()]));
 
     return [...document.querySelectorAll('.neo-grid-header-group-cell')].map(cell => {
@@ -114,6 +116,66 @@ test.describe('examples/grid/headerGroups', () => {
             const edges = await groupEdges(page);
             return edges.every(({left, right, leafLeft, leafRight}) => Math.abs(left - leafLeft) < 2 && Math.abs(right - leafRight) < 2)
         }).toBe(true)
+    });
+
+    /**
+     * Reveals a header's right resize handle and presses it
+     * @param {Object} page
+     * @param {Object} button A header button locator, pinned by id
+     * @returns {Promise<Object>} `{x, y}` of the press
+     */
+    const pressResizeHandle = async (page, button) => {
+        const box    = await button.boundingBox(),
+              x      = box.x + box.width - 3,
+              y      = box.y + box.height / 2,
+              handle = button.locator('.neo-resizable-right');
+
+        await expect(async () => {
+            await page.mouse.move(x - 30, y);
+            await page.mouse.move(x, y, {steps: 4});
+            await expect(handle).toHaveCount(1, {timeout: 250})
+        }).toPass();
+
+        const hb = await handle.boundingBox(),
+              at = {x: hb.x + hb.width / 2, y: hb.y + hb.height / 2};
+
+        await page.mouse.move(at.x, at.y);
+        await page.mouse.down();
+
+        return at
+    };
+
+    const aligned = edges => edges.every(({left, right, leafLeft, leafRight}) =>
+        Math.abs(left - leafLeft) < 2 && Math.abs(right - leafRight) < 2);
+
+    test('a resized flex leaf takes the dragged width, and its group cell follows', async ({page}) => {
+        const decId = await page.locator('.neo-grid-header-toolbar .neo-grid-header-button', {hasText: 'Dec'}).first().getAttribute('id'),
+              dec   = page.locator(`[id="${decId}"]`);
+
+        // Wide enough that December flexes well past its minWidth
+        await page.setViewportSize({width: 2600, height: 800});
+        await expect.poll(async () => (await dec.boundingBox()).width).toBeGreaterThan(300);
+
+        const before = (await dec.boundingBox()).width,
+              at     = await pressResizeHandle(page, dec);
+
+        await page.mouse.move(at.x - 150, at.y, {steps: 12});
+        await page.mouse.up();
+
+        await expect.poll(async () => (await dec.boundingBox()).width).toBeLessThan(before - 100);
+        await expect.poll(async () => aligned(await groupEdges(page))).toBe(true)
+    });
+
+    test('the group cells follow a column resize while the drag is still live', async ({page}) => {
+        const febId = await page.locator('.neo-grid-header-toolbar .neo-grid-header-button[aria-colindex="3"]').first().getAttribute('id'),
+              feb   = page.locator(`[id="${febId}"]`),
+              at    = await pressResizeHandle(page, feb);
+
+        await page.mouse.move(at.x + 80, at.y, {steps: 12});
+
+        // Still pressed: the leaf has widened, and every group cell must already sit over its leaves
+        await expect.poll(async () => aligned(await groupEdges(page))).toBe(true);
+        await page.mouse.up()
     });
 
     /**
