@@ -21,16 +21,18 @@
     --core-lineheight-headline     : 1.2;
     --core-lineheight-paragraph    : 1.5;
     --core-textdecoration-underline: underline;
-    --gray-100                     : #F0F2F0;
-    --gray-200                     : #D3D7D2;
-    --gray-300                     : #B6BDB4;
-    --gray-400                     : #99A295;
+    // The theme's own hue (225°, as --purple-950 / --purple-800), each step at the luminance the shared scale had,
+    // so every contrast ratio built on the grays stays put
+    --gray-100                     : #F0F1F4;
+    --gray-200                     : #D3D6DF;
+    --gray-300                     : #B6BBCA;
+    --gray-400                     : #989FB4;
     --gray-50                      : #fafafa;
-    --gray-500                     : #7C8877;
-    --gray-600                     : #606A5D;
-    --gray-700                     : #454B42;
-    --gray-800                     : #292D28;
-    --gray-900                     : #0E0F0D;
+    --gray-500                     : #7B849F;
+    --gray-600                     : #5E6781;
+    --gray-700                     : #43495C;
+    --gray-800                     : #282C37;
+    --gray-900                     : #0D0F12;
     --green-100                    : #{color.adjust(#29F5AA, $lightness: 70%)};
     --green-200                    : #{color.adjust(#29F5AA, $lightness: 50%)};
     --green-300                    : #{color.adjust(#29F5AA, $lightness: 20%)};
