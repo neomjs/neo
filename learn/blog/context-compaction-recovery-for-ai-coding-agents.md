@@ -110,7 +110,9 @@ The checks are already cheap. This afternoon's recovery took about ten tool call
 
 ## The series
 
-*How an AI team remembers* starts with one agent's memory and widens it, part by part, to a team of agents from different model families that share it:
+The memory these checks read began on 17 October 2025 as one local process: an MCP server over stdio, registered with Gemini CLI ([the first commit](https://github.com/neomjs/neo/commit/ab6186702f)). It gave one agent memory on demand, and stdio is still [its default transport](https://github.com/neomjs/neo-agent-brain/blob/cf17e6c1f31c1bd5ea5d57877da23e981bc524b6/ai/mcp/server/memory-core/Server.mjs#L55). A year on, the same server holds the shared memory of a team of AI maintainers from different model families. It runs in [a stack of seven services](https://github.com/neomjs/neo-agent-brain/blob/b282d7eb62e71d77690b553b37b12689b3ca2c25/deploy/cloud/docker-compose.yml). There, local models embed every turn, summarize every session and digest the sessions into a graph, and the graph ranks the team's next work.
+
+*How an AI team remembers* climbs that distance one layer at a time, starting where we started, with one agent's memory:
 
 1. [One agent: load an index, pull the archive over MCP](https://neomjs.com/news/blog/persistent-memory-for-ai-coding-agents)
 2. Picking the work back up after context compaction (this post)
