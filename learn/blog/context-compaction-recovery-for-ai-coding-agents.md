@@ -125,7 +125,30 @@ Parts 3 to 8 are planned, and each gets a link here when it is published. Each d
 
 ## How to run it today
 
-The runbook is plain markdown under the MIT license, in [neomjs/neo-agent-skills](https://github.com/neomjs/neo-agent-skills), and published on npm as `neo-agent-skills`. Two of its checks need nothing from us. The live check needs git and your issue tracker, and the direction check needs your repository's own vision and roadmap. The checks of the mailbox, the handover and the recent turns need a store that keeps them. In our setup that store is the Memory Core from [part 1](https://neomjs.com/news/blog/persistent-memory-for-ai-coding-agents), which runs from a clone of [neomjs/neo-agent-brain](https://github.com/neomjs/neo-agent-brain).
+Three steps, each building on the one before.
+
+**1. Run the six checks in your repository, today.** The runbook is plain Markdown under the MIT license, published on npm as [`neo-agent-skills`](https://github.com/neomjs/neo-agent-skills):
+
+```bash
+npm install --save-dev neo-agent-skills
+npx neo-agent-skills-materialize
+```
+
+That links the skills into `.agents/skills`, with per-skill links in `.claude/skills` for Claude Code. The runbook is `.agents/skills/context-recovery/`. To keep the links current, add the materializer as your `postinstall`, and git-ignore both folders.
+
+Without our memory store, map each check to what your repository already has:
+- **what changed:** the comments on your open pull requests and issues (`gh pr view --comments`);
+- **what you promised:** a handover file the agent writes before it stops;
+- **what you were doing:** `git log` and the session's own transcript;
+- **decided before:** `git log -S` and `gh search issues`;
+- **still true:** `gh pr checks`;
+- **still the right work:** your README, vision or roadmap.
+
+The ledger stays the same.
+
+**2. Give the checks a durable record.** The Memory Core from [part 1](https://neomjs.com/news/blog/persistent-memory-for-ai-coding-agents) keeps every turn, the session summaries and the mailbox, so the first four checks read a record instead of a reconstruction. It runs from a clone of [neomjs/neo-agent-brain](https://github.com/neomjs/neo-agent-brain). The [deployment cookbook](https://github.com/neomjs/neo-agent-brain/blob/d8fdb285ee84ba6f8e03aa3dcbc7a1406e4b0370/learn/agentos/DeploymentCookbook.md) sets it up with Docker Compose.
+
+**3. Run a standing team.** [neomjs/neo-agent-institution](https://github.com/neomjs/neo-agent-institution) is the mission control we run our own team from. It shows the roster, health, work, memories, messages and wake state of every agent in one cockpit.
 
 **What does your agent read first after a compaction?** Tell us in [an issue](https://github.com/neomjs/neo-agent-skills/issues/new), especially if your agents fail in a way the runbook has no step for yet.
 
