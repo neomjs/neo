@@ -7,7 +7,7 @@ The legacy web is stuck at the "Framework" level—tools originally designed to 
 
 Neo.mjs is not a framework. It is an **Application Engine**.
 
-Just as Unreal Engine provides a complete, high-performance runtime for complex games, Neo.mjs provides a **multi-threaded runtime** and an **AI-native toolchain** for building desktop-class web applications. It is engineered for use cases where legacy frameworks fatally bottleneck: 40k+ ops/sec financial trading desks, multi-window control rooms, and complex, data-intensive dashboards.
+Just as Unreal Engine provides a complete, high-performance runtime for complex games, Neo.mjs provides a **multi-threaded runtime** and an **AI-native toolchain** for building stunning desktop and mobile web applications. With a battery-included component library of **326 UI component, layout, and interaction modules across 522 engine classes in `src/`** (46 dashboard/docking modules, 45 form modules including 42 field types, 41 grid modules, 39 base components, 28 calendar modules, 25 selection models, 14 draggable modules, 10 layouts, 9 lists, 8 tabs, 8 tables, dialogs, trees, toolbars, menus, and buttons) at feature parity with [Sencha Ext JS](../../comparisons/NeoVsExtJs.md)—and architected far beyond it—Neo.mjs can easily replace Angular, React, or Vue for **any** web application, while delivering **more and faster on top** where legacy frameworks fatally bottleneck: [40k+ ops/sec](./Speed.md) financial trading desks, multi-window control rooms, and complex, 100,000-row data-intensive dashboards.
 
 ## The Paradigm Shift: Why the Industry Must Adapt
 
@@ -42,7 +42,7 @@ In legacy frameworks, the code you write gets destroyed by the build step. The r
 **In Neo.mjs, the map IS the territory.**
 The runtime retains the semantic structure of your original intent. The **Neural Link** gives AI agents "Read/Write" access to the living runtime. An agent can query: *"Get me the Grid with reference 'sales-report'"*. The Engine replies with the live object. The AI sees that it has 10,000 records and sits in Window 2.
 
-Coupled with a dedicated AI SDK and four frontier-harness **MCP servers** spanning Knowledge Base, Memory Core, [Neural Link](../../agentos/NeuralLink.md), and GitHub Workflow, plus a File System MCP server for local or remote AI agents, Neo.mjs provides the tooling required to fix bugs, invent new design patterns, and evolve the Engine itself.
+Coupled with a dedicated AI SDK and four frontier-harness **MCP servers** spanning Knowledge Base, Memory Core, [Neural Link](../../agentos/NeuralLink.md), and GitHub Workflow — the Agent OS in `neomjs/neo-agent-brain` — plus a File System MCP server for local or remote AI agents and the **Fleet Manager** (`neomjs/neo-agent-institution`) that runs the seats, Neo.mjs provides the tooling required to fix bugs, invent new design patterns, and evolve the Engine itself.
 
 ## Conclusion: Build the Impossible
 
