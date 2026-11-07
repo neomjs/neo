@@ -1,8 +1,6 @@
 # Neo.mjs Learning Base
 
-This directory contains the comprehensive learning base for **Neo.mjs** — the **Off-Main-Thread (OMT) JavaScript application engine** and **self-evolving software organism** that fundamentally reimagines web application development.
-
-With a complete, battery-included component library of **326 UI component, layout, and interaction modules across 522 engine classes in `src/`** (46 dashboard/docking modules, 45 form modules including 42 field types, 41 grid modules, 39 base components, 28 calendar modules, 25 selection models, 14 draggable modules, 10 layouts, 9 lists, 8 tabs, 8 tables, dialogs, trees, toolbars, menus, and buttons) at feature parity with [Sencha Ext JS](./comparisons/NeoVsExtJs.md)—and architected far beyond it—Neo.mjs is ready to build stunning desktop and mobile applications. It can easily replace [Angular, React, or Vue](./comparisons/Overview.md) for **any** web application, while delivering **more and faster on top** where legacy single-threaded frameworks bottleneck: [`40,000+` delta updates/sec](./benefits/body/Speed.md) trading desks, multi-window control rooms, and `100,000`-row buffered data grids.
+Neo.mjs is a complete application platform — 459 classes from grid to forms to calendar to dashboards — for every desktop and mobile web application, with a multi-threaded runtime that goes where single-threaded libraries cannot.
 
 These Markdown documents power the interactive learning portal on [neomjs.com](https://neomjs.com/#/learn) (complete with live editable previews that can tear out into separate browser windows) and serve as the primary documentation corpus for the **Neo.mjs Knowledge Base MCP Server**.
 
