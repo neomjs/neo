@@ -1,13 +1,21 @@
 # Neo.mjs Learning Base
 
-Welcome to the official learning directory (`learn/`) for **Neo.mjs**. These Markdown documents power the interactive learning section on [neomjs.com](https://neomjs.com/#/learn) and serve as the primary documentation corpus for the **Neo.mjs Knowledge Base MCP Server**.
+This directory contains the comprehensive learning base for **Neo.mjs** — the **Off-Main-Thread (OMT) JavaScript application engine** and **self-evolving software organism** that fundamentally reimagines web application engineering for workloads where single-threaded frameworks bottleneck.
 
-## Two Hemispheres, One Runtime Contract
+These Markdown documents power the interactive learning portal on [neomjs.com](https://neomjs.com/#/learn) (complete with live editable previews that can tear out into separate browser windows) and serve as the primary documentation corpus for the **Neo.mjs Knowledge Base MCP Server**.
 
-Neo.mjs is architected around two connected hemispheres joined by the **Neural Link**:
+## Why Neo.mjs Is a Paradigm Shift: Two Hemispheres, One Runtime Contract
 
-1. **The Body (`/src/`, `neomjs/neo`):** An Off-Main-Thread (OMT) multi-window application engine organized across four dedicated workers (`App`, `VDom`, `Data`, and `Canvas`). Component trees, state providers, and data stores (`100,000`-row buffered grids) live in the `App` Worker (or a `SharedWorker` across multiple browser windows), virtual DOM diffing runs in the `VDom` Worker (`src/worker/VDom.mjs` → `src/vdom/Helper.mjs`), and the browser's main thread applies the resulting DOM deltas while staying free for input and compositing.
-2. **The Brain (`/ai/`, `neomjs/neo-agent-brain` & `neomjs/neo-agent-institution`):** An Agent OS with a persistent Native Edge Graph, Memory Core, Knowledge Base, and Fleet Manager cockpit. Through the **Neural Link**'s MCP tools, AI coding agents inspect live component instances, query `state.Provider` hierarchies, simulate user interactions, and hot-patch methods inside running applications without page reloads.
+Neo.mjs is not a single-threaded UI framework. It is the **only JavaScript application engine** where component instances, reactive state, and virtual DOM diffing live entirely off the browser's main thread and remain directly inspectable and mutable at runtime by AI coding agents across two connected hemispheres joined by the **Neural Link**:
+
+1. **The Body (`/src/`, `neomjs/neo` — Off-Main-Thread Application Engine):**
+   - **App Worker as the Primary Actor:** All components, controllers, `state.Provider` trees, and `data.Store` instances (`100,000`-row buffered grids) execute inside a dedicated `App` Worker (or a `SharedWorker` spanning multiple browser windows).
+   - **40,000+ Delta Updates/Sec Without Main-Thread Jank:** Virtual DOM diffing runs in a dedicated `VDom` Worker (`src/worker/VDom.mjs` → `src/vdom/Helper.mjs`), sustaining [`40,000+` delta updates per second](./benefits/body/Speed.md) in the Helix benchmark while the main thread stays completely free for 60fps user input and CSS compositing.
+   - **True Multi-Window Object Permanence:** Because component instances live in the worker heap rather than transient main-thread render closures, live views and docked panels can detach from one browser window and mount into another (`remove(cmp, false)`) in milliseconds without losing state.
+   - **Zero-Build Native ES Modules:** Run and debug unbundled ES modules directly in the browser in `dev` mode with zero transpilation or bundler step.
+2. **The Brain (`/ai/`, `neomjs/neo-agent-brain` & `neomjs/neo-agent-institution` — Agent OS):**
+   - **Humans Are the Orchestrators; LLMs Are the Builders:** Paired with a persistent Native Edge Graph, Memory Core, Knowledge Base, and Fleet Manager cockpit, Neo.mjs treats AI agents as first-class maintainers.
+   - **Live Runtime Possession via the Neural Link:** Through the [Neural Link](./agentos/NeuralLink.md)'s MCP tools, coding agents inspect live component trees, query `state.Provider` hierarchies, simulate DOM events, and hot-patch class methods inside running applications without page reloads.
 
 ---
 
