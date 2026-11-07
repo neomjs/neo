@@ -5,6 +5,7 @@ import {createCrossWindowStage}           from './DemoBCrossWindowStage.mjs';
 import DemoBCrossWindowGesture            from './DemoBCrossWindowGesture.mjs';
 import DemoBKeyboardHost                  from './DemoBKeyboardHost.mjs';
 import DemoBNativeWindowHost              from './DemoBNativeWindowHost.mjs';
+import DemoBPerspectiveHost               from './DemoBPerspectiveHost.mjs';
 import DemoBTearOutGesture                from './DemoBTearOutGesture.mjs';
 import DockDropIndicators                 from '../../../src/dashboard/dock/interaction/DropIndicators.mjs';
 import DockLayoutAdapter                  from '../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
@@ -16,7 +17,6 @@ import DockPreview                        from '../../../src/dashboard/dock/inte
 import DockPreviewProducer                from '../../../src/dashboard/dock/interaction/PreviewProducer.mjs';
 import DockProjectionReconciler           from '../../../src/dashboard/dock/projection/Reconciler.mjs';
 import DockService                        from '../../../src/ai/client/DockService.mjs';
-import DockTopologyReconciler             from '../../../src/dashboard/dock/model/TopologyReconciler.mjs';
 import WorkspaceDocument                  from '../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 import Operations                         from '../../../src/dashboard/dock/model/Operations.mjs';
 import Persistence                        from '../../../src/dashboard/dock/model/Persistence.mjs';
@@ -119,8 +119,8 @@ class DemoBWorkspace extends Container {
          * @member {Number} dockHistoryDepth=50
          */
         dockHistoryDepth: 50,
-        /** @member {Neo.core.Base[]} mixins=[TopologySeams, DemoBCrossWindowGesture, DemoBKeyboardHost, DemoBNativeWindowHost, DemoBTearOutGesture] */
-        mixins: [TopologySeams, DemoBCrossWindowGesture, DemoBKeyboardHost, DemoBNativeWindowHost, DemoBTearOutGesture],
+        /** @member {Neo.core.Base[]} mixins=[TopologySeams, DemoBCrossWindowGesture, DemoBKeyboardHost, DemoBNativeWindowHost, DemoBPerspectiveHost, DemoBTearOutGesture] */
+        mixins: [TopologySeams, DemoBCrossWindowGesture, DemoBKeyboardHost, DemoBNativeWindowHost, DemoBPerspectiveHost, DemoBTearOutGesture],
         /**
          * Theme dependencies: the example-owned palette, the dock motion/token contract file (the
          * projected tree is plain containers; nothing loads it per-class), and Demo A's skin
@@ -813,90 +813,6 @@ class DemoBWorkspace extends Container {
     }
 
     /**
-     * Captures the CURRENT committed workspace state as a named perspective through the real
-     * §2.2 path. Window scope persists the primary document; topology scope persists the
-     * Group's registered workspace documents with one composed fingerprint.
-     * `replace: true` keeps tour reruns idempotent — re-capturing your own name is the
-     * demo's update flow, not a collision dispute.
-     * @param {String} name
-     * @param {Object} [options={}]
-     * @param {'window'|'topology'} [options.scope='window']
-     * @returns {{saved: Boolean, errors: String[]}}
-     */
-    capturePerspective(name, {scope = 'window'} = {}) {
-        let me       = this,
-            metadata = {
-                layoutId       : `demo-b-${name.toLowerCase()}`,
-                perspectiveName: name,
-                title          : name
-            },
-            created;
-
-        if (scope !== 'window' && scope !== 'topology') {
-            return {errors: [`unknown perspective capture scope "${scope}"`], saved: false}
-        }
-
-        created = scope === 'topology'
-            ? Persistence.captureTopologyPerspective(
-                Object.fromEntries(me.workspaceSet.ids().map(key => [key, me.workspaceSet.getDocument(key)])),
-                {...metadata, placementHints: me.getPlacementHints()}
-            )
-            : Persistence.createSavedLayout(me.dockModel, metadata);
-
-        if (created.errors.length) {
-            return {errors: created.errors, saved: false}
-        }
-
-        if (scope === 'topology') {
-            const topologies = {
-                    ...me.topologyCollection.topologies,
-                    [created.topology.layoutId]: created.topology
-                },
-                result = Persistence.createTopologyCollection(topologies, {
-                    activeLayoutId: created.topology.layoutId,
-                    metadata      : me.topologyCollection.metadata,
-                    ...(Object.hasOwn(me.topologyCollection, 'revision') && {
-                        revision: me.topologyCollection.revision
-                    })
-                });
-
-            if (result.errors.length) {
-                return {errors: result.errors, saved: false}
-            }
-
-            me.topologyCollection = result.collection;
-            return {errors: [], saved: true}
-        }
-
-        let result = me.perspectiveStore.savePerspective(created.layout, {replace: true});
-
-        return {errors: result.errors, saved: result.saved}
-    }
-
-    /**
-     * The switcher bar: one button per stored perspective (rebuilt from store lifecycle
-     * events) + the capture button. Real `button.Base` children riding the handler contract.
-     * @returns {Object}
-     */
-    createSwitcherBar() {
-        let me = this;
-
-        return {
-            cls      : ['agentos-dockdemo-switcher'],
-            flex     : 'none',
-            layout   : {ntype: 'hbox', align: 'center'},
-            ntype    : 'toolbar',
-            reference: 'switcher-bar',
-            items    : [{
-                cls  : ['agentos-dockdemo-switcher-label'],
-                html : 'Perspectives',
-                ntype: 'component',
-                style: {marginRight: '8px', opacity: 0.7, whiteSpace: 'nowrap'}
-            }]
-        }
-    }
-
-    /**
      * The tour bar — play button, caption feed, pip strip (the Demo-A pattern).
      * @returns {Object}
      */
@@ -941,139 +857,17 @@ class DemoBWorkspace extends Container {
     }
 
     /**
-     * Loads a stored perspective. Window-scope records commit the restored primary document;
-     * topology-scope records go through the changed-topology reconciler and expose its remainder.
-     * @param {String} name
-     * @returns {Promise<Object>} The committed result, including any topology remainder.
-     */
-    async loadPerspectiveByName(name) {
-        let me       = this,
-            topology = Object.values(me.topologyCollection?.topologies || {})
-                .find(record => record.perspectiveName === name || record.layoutId === name);
-
-        // Reconcile BEFORE `loadPerspective` advances the store's active id. A malformed
-        // topology record or live document must leave both layout truth and selection truth
-        // untouched — fail-closed means more than avoiding a document assignment.
-        if (topology) {
-            let preview = await me.restoreTopologyPerspective(topology, {commit: false});
-
-            if (!preview.loaded) return preview;
-
-            let activated = Persistence.createTopologyCollection(me.topologyCollection.topologies, {
-                activeLayoutId: topology.layoutId,
-                metadata      : me.topologyCollection.metadata,
-                ...(Object.hasOwn(me.topologyCollection, 'revision') && {
-                    revision: me.topologyCollection.revision
-                })
-            });
-
-            if (activated.errors.length) {
-                return {errors: activated.errors, loaded: false, report: preview.report}
-            }
-
-            try { await me.commitTopologyRestore(preview) } catch (error) {
-                return {errors: [error.message], loaded: false, report: preview.report}
-            }
-            me.topologyCollection = activated.collection;
-            me.restoreReport = preview.report;
-            me.renderRestoreReport();
-
-            return {errors: [], loaded: true, report: preview.report}
-        }
-
-        const result = await me.dockService.restorePerspective({componentId: me.id, name});
-        return {errors: result.errors, loaded: result.switched}
-    }
-
-    /**
-     * @summary Commits a validated topology result while preserving panes that remain owner-held
-     * but cannot be projected because their captured window is not live.
-     * @param {Object} result
-     * @param {Object<String,Object>} result.workspaces Reconciled documents keyed by workspace.
-     * @param {Boolean} result.hasLivePopup Whether a second render target currently exists.
-     * @param {Object} result.report Structured reconciliation remainder.
-     * @returns {Promise}
-     * @protected
-     */
-    commitTopologyRestore({workspaces, hasLivePopup, report}) {
-        let me              = this,
-            liveDocuments   = Object.values(workspaces),
-            liveItemIds     = new Set(liveDocuments.flatMap(document => Object.keys(document?.items || {}))),
-            preserveItemIds = (report?.unrestored || [])
-                .map(entry => entry.itemId)
-                .filter(itemId => !liveItemIds.has(itemId));
-
-        return me.workspaceSet.write(workspaces, {
-            cause: 'restore-topology', provenance: {origin: 'human'}, descriptor: {preserveItemIds}
-        })
-    }
-
-    /**
-     * @summary Reconciles one topology record onto the currently live workspace documents.
-     * A connected/detached popup contributes its worker-owned document; otherwise the live
-     * topology is intentionally one window. Validation errors mutate neither document.
+     * @summary Restores a topology with this host's semantic workspace identities.
      * @param {Object} topology A keyed topology record.
-     * @param {Object} [options={}]
-     * @param {Boolean} [options.commit=true] Commit reconciled documents; false is a preflight.
-     * @returns {Promise<Object>} The committed result, or a read-only preflight when commit is false.
+     * @param {Object} [options={}] Restore/preflight options.
+     * @returns {Promise<Object>} The existing restore result.
+     * @see Neo.examples.dashboard.crossWindow.DemoBPerspectiveHost#reconcileTopologyPerspective
      */
-    async restoreTopologyPerspective(topology, {commit = true} = {}) {
-        let me             = this,
-            hasLivePopup   = Object.keys(me.detachedPanes).length > 0,
-            liveWorkspaces = {
-                [DemoBWorkspace.MAIN_WORKSPACE_ID]: me.dockModel,
-                ...(hasLivePopup && {[DemoBWorkspace.POPUP_WORKSPACE_ID]: me.popupDocument})
-            },
-            result        = DockTopologyReconciler.reconcile(topology, liveWorkspaces),
-            report        = WorkspaceDocument.clone({
-                applied        : result.applied,
-                displaced      : result.displaced,
-                errors         : result.errors,
-                noWindowSpawned: true,
-                unmatchedLive  : result.unmatchedLive,
-                unrestored     : result.unrestored
-            });
-
-        if (result.errors.length) {
-            me.restoreReport = report;
-            me.renderRestoreReport();
-            return {workspaces: result.workspaces, errors: result.errors, hasLivePopup, loaded: false, report}
-        }
-
-        if (commit) {
-            try { await me.commitTopologyRestore({workspaces: result.workspaces, hasLivePopup, report}) } catch (error) {
-                return {workspaces: result.workspaces, errors: [error.message], hasLivePopup, loaded: false, report}
-            }
-            me.restoreReport = report;
-            me.renderRestoreReport()
-        }
-
-        return {workspaces: result.workspaces, errors: [], hasLivePopup, loaded: true, report}
-    }
-
-    /**
-     * @summary Renders the structured topology remainder into a dedicated visible strip.
-     * Item ids are escaped because saved layouts are data, not trusted markup.
-     * @protected
-     */
-    renderRestoreReport() {
-        let me     = this,
-            target = me.getReference('restore-report-b'),
-            report = me.restoreReport,
-            escape = value => String(value)
-                .replaceAll('&', '&amp;')
-                .replaceAll('<', '&lt;')
-                .replaceAll('>', '&gt;'),
-            entries = values => values.length
-                ? values.map(entry => `${escape(entry.itemId)} (${escape(entry.reason)})`).join(', ')
-                : 'none';
-
-        if (!target || !report) return;
-
-        target.html = report.errors.length
-            ? `<strong>Topology restore rejected.</strong> Validation failed; live documents stayed untouched. ${report.errors.map(escape).join('; ')}`
-            : `<strong>Topology restore — no window spawned.</strong> Unrestored: ${entries(report.unrestored)}. Displaced: ${report.displaced.length ? report.displaced.map(entry => escape(entry.itemId)).join(', ') : 'none'}. Unmatched live workspaces: ${report.unmatchedLive.length ? report.unmatchedLive.join(', ') : 'none'}.`;
-        target.hidden = false
+    async restoreTopologyPerspective(topology, options={}) {
+        return this.reconcileTopologyPerspective(topology, options, {
+            mainWorkspaceId : DemoBWorkspace.MAIN_WORKSPACE_ID,
+            popupWorkspaceId: DemoBWorkspace.POPUP_WORKSPACE_ID
+        })
     }
 
     /**
@@ -1997,38 +1791,6 @@ class DemoBWorkspace extends Container {
         me.setPipProgress(0);
 
         await me.tourRunner.start()
-    }
-
-    /**
-     * Rebuilds the switcher buttons from the store's current collection — fired by every
-     * store lifecycle event; buttons load their perspective through the same path the tour
-     * cues use (one code path, human- and agent-driven alike).
-     * @protected
-     */
-    syncSwitcher() {
-        let me  = this,
-            bar = me.getReference('switcher-bar');
-
-        if (!bar) return;
-
-        let collection = me.perspectiveStore.collection,
-            layouts    = collection?.layouts ?? {},
-            names      = Object.values(layouts).map(record => record.perspectiveName ?? record.layoutId);
-
-        // children after the label are the perspective buttons — rebuild in place
-        while (bar.items.length > 1) {
-            bar.removeAt(bar.items.length - 1)
-        }
-
-        names.forEach(name => {
-            bar.add({
-                cls            : ['agentos-dockdemo-switcher-btn'],
-                handler        : () => me.loadPerspectiveByName(name),
-                ntype          : 'button',
-                text           : name,
-                useRippleEffect: false
-            })
-        })
     }
 
     /**
