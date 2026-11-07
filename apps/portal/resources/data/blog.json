@@ -9,6 +9,14 @@
             "path": null
         },
         {
+            "date": "2026-11-07",
+            "id": "blog/debugging-ui-state-with-neural-link",
+            "isLeaf": true,
+            "name": "Why deleting a size did not clear the clock",
+            "parentId": "2026",
+            "path": "learn/blog/debugging-ui-state-with-neural-link.md"
+        },
+        {
             "date": "2026-11-03",
             "id": "blog/persistent-memory-for-ai-coding-agents",
             "isLeaf": true,
