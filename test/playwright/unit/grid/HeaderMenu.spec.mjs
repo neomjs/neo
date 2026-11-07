@@ -14,6 +14,7 @@ import Store           from '../../../../src/data/Store.mjs';
 import Filter          from '../../../../src/collection/Filter.mjs';
 import Menu            from '../../../../src/grid/header/plugin/Menu.mjs';
 import NumberContainer from '../../../../src/filter/NumberContainer.mjs';
+import VNodeUtil       from '../../../../src/util/VNode.mjs';
 
 /** @summary Real host composition, typed ownership and source projection before browser input evidence. */
 test.describe('Grid header value menu', () => {
@@ -74,6 +75,46 @@ test.describe('Grid header value menu', () => {
         grid.columnMenu = false;
         expect(menu.isDestroyed).toBe(true);
         expect(header.getPlugin('plugin-grid-header-menu')).toBeNull()
+    });
+
+    test('disabling rendered menus retires trigger references before the next flight, and re-enabling creates live triggers', async () => {
+        const grid       = gridFor(storeFor(), {columnMenu: true, showHeaderFilters: true}),
+              headers    = ['status', 'other'].map(field => grid.getButton(field)),
+              menusReady = () => headers.every(header => header.getPlugin('plugin-grid-header-menu'));
+
+        await expect.poll(menusReady).toBe(true);
+        await grid.initVnode();
+        grid.mounted = true;
+        await grid.headerToolbar.promiseUpdate();
+
+        const retiredIds = headers.map(header => header.getPlugin('plugin-grid-header-menu').trigger.id);
+        for (const id of retiredIds) {
+            expect(VNodeUtil.createMap(grid.vnode).has(id)).toBe(true)
+        }
+
+        grid.columnMenu = false;
+        for (const id of retiredIds) expect(InstanceManager.get(id)).toBeNull();
+        for (const header of headers) expect(header.getPlugin('plugin-grid-header-menu')).toBeNull();
+        // An ancestor can land before the headers' removal flight: its walk must already be safe.
+        expect(() => VNodeUtil.createMap(grid.headerToolbar.vnode)).not.toThrow();
+        await grid.headerToolbar.promiseUpdate();
+        const disabledMap = VNodeUtil.createMap(grid.vnode);
+        for (const id of retiredIds) expect(disabledMap.has(id)).toBe(false);
+
+        grid.columnMenu = true;
+        await expect.poll(menusReady).toBe(true);
+        await grid.headerToolbar.promiseUpdate();
+        const triggers   = headers.map(header => header.getPlugin('plugin-grid-header-menu').trigger),
+              enabledMap = VNodeUtil.createMap(grid.vnode);
+        for (const trigger of triggers) {
+            expect(retiredIds).not.toContain(trigger.id);
+            expect(enabledMap.has(trigger.id)).toBe(true);
+            expect(InstanceManager.get(trigger.id)).toBe(trigger)
+        }
+
+        const liveIds = triggers.map(trigger => trigger.id);
+        expect(() => grid.destroy()).not.toThrow();
+        for (const id of liveIds) expect(InstanceManager.get(id)).toBeNull()
     });
 
     test('typed undefined survives options normalization; inline and application contributions remain intact', async () => {
