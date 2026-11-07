@@ -785,28 +785,9 @@ class TabSortZone extends TabHeaderSortZone {
      * @protected
      */
     updateReorderPark(data) {
-        let me     = this,
-            parked = me.enableCrossZoneDrag !== false && Boolean(me.itemRects) && me.releaseVoidsReorder(data);
+        let me = this;
 
-        if (parked === me.isReorderParked) {
-            return
-        }
-
-        me.isReorderParked = parked;
-        me.traceEvent({t: parked ? 'park' : 'unpark', x: data.clientX, y: data.clientY});
-
-        if (parked) {
-            // Neither an over-drag's auto-scroll loop nor the duplicate-move guard may outlive the reorder this park voids
-            me.isOverDragging = false;
-            me.lastInBoundX   = me.lastInBoundY = null;
-
-            while (me.currentIndex !== me.startIndex) {
-                let index = me.currentIndex;
-
-                me.currentIndex += index > me.startIndex ? -1 : 1;
-                me.switchItems(index, me.currentIndex)
-            }
-        }
+        me.setReorderParked(me.enableCrossZoneDrag !== false && Boolean(me.itemRects) && me.releaseVoidsReorder(data), data)
     }
 
     /**

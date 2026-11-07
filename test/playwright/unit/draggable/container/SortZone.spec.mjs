@@ -288,6 +288,33 @@ test.describe('Neo.draggable.container.SortZone', () => {
         expect(sortZone.dragProxy).toBeNull()
     });
 
+    test('an overdrag step the zone refuses ends the auto-scroll loop instead of re-polling it', async () => {
+        await new Promise(resolve => setTimeout(resolve, 10));
+        sortZone = container.sortZone;
+
+        await sortZone.onDragStart({
+            path: [{id: 'btnB', cls: ['neo-draggable'], rect: {left: 100, top: 0, width: 100, height: 100}}]
+        });
+
+        const move  = sortZone.onDragMove.bind(sortZone);
+        let   calls = 0, refused = 0;
+
+        // A subclass boundary the drag may not cross, the way a grid header group refuses a swap out of its group
+        sortZone.switchItems      = index1 => {refused++; sortZone.currentIndex = index1};
+        sortZone.sortBoundaryRect = {left: 0, right: 300, top: 0, bottom: 100};
+        sortZone.onDragMove       = data => {
+            if (++calls > 10) throw new Error('the overdrag loop kept re-polling a refused step');
+            return move(data)
+        };
+
+        // Pointer held beyond the start edge of the (vertical) zone: one refused step, then the loop must stop
+        await sortZone.onDragMove({clientX: 50, clientY: -50});
+
+        expect(refused, 'the move reached the overdrag step').toBe(1);
+        expect(calls).toBe(1);
+        expect(sortZone.isOverDragging).toBe(false)
+    });
+
     test('a drag whose item owned focus hands it back at the terminal as a pointer focus, committed or cancelled; an item without focus gets none (#19281)', async () => {
         await new Promise(resolve => setTimeout(resolve, 10));
         sortZone = container.sortZone;

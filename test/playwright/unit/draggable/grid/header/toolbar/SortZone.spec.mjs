@@ -109,6 +109,47 @@ test.describe('Neo.draggable.grid.header.toolbar.SortZone', () => {
         expect(resolve(350, centerOnly)).toBe(null)
     })
 
+    test('a grouped header\'s pointer is outside its group beyond the group\'s headers, measured in content space', () => {
+        // Q1 spans [0, 200) in content space, an ungrouped header follows at [200, 300)
+        const zone = {
+                  currentIndex    : 0,
+                  getHeaderGroupId: index => ['q1', 'q1', null][index] ?? null,
+                  itemRects       : [{x: 0, width: 100}, {x: 100, width: 100}, {x: 200, width: 100}],
+                  ownerRect       : {x: 50},
+                  scrollLeft      : 0
+              },
+              outside = clientX => SortZone.prototype.isOutsideGroup.call(zone, clientX);
+
+        expect(outside(150)).toBe(false); // over the second Q1 header
+        expect(outside(300)).toBe(true);  // over the ungrouped header
+        expect(outside(20)).toBe(true);   // left of the toolbar, over another region
+
+        // Scrolled by 100, the same pointer is over Q1 content the over-drag scrolls back into view
+        zone.scrollLeft = 100;
+        expect(outside(20)).toBe(false);
+
+        // An ungrouped header has no group to leave, and a move without a pointer x has no verdict
+        zone.currentIndex = 2;
+        expect(outside(-500)).toBe(false);
+        zone.currentIndex = 0;
+        expect(outside(undefined)).toBe(false)
+    });
+
+    test('an ungrouped header steps past a whole group, and has to travel the group\'s extent first', () => {
+        // Q4 is three 100px headers with 1px gaps, the ungrouped Id header after it
+        const zone = {
+            getHeaderGroupId: index => ['q4', 'q4', 'q4', null][index] ?? null,
+            getSwitchTarget : SortZone.prototype.getSwitchTarget,
+            itemRects       : [{x: 0, width: 100}, {x: 101, width: 100}, {x: 202, width: 100}, {x: 303, width: 60}],
+            sortDirection   : 'horizontal'
+        };
+
+        expect(zone.getSwitchTarget(3, 2)).toBe(0);                            // Id lands before Q4's first header
+        expect(SortZone.prototype.getSwitchExtent.call(zone, 3, 2)).toBe(302); // the whole run, gaps included
+        expect(zone.getSwitchTarget(1, 2)).toBe(2);                            // a grouped header switches with its neighbour
+        expect(SortZone.prototype.getSwitchExtent.call(zone, 1, 2)).toBe(100)  // over the neighbour's own width
+    });
+
     test('columnIndexOffset offsets the toolbar-local index into the global columns by preceding-region counts (#9491)', () => {
         const columnIndexOffset = SortZone.prototype.columnIndexOffset,
               gridContainer     = {lockedStartColumns: {length: 2}, centerColumns: {length: 5}, lockedEndColumns: {length: 1}},

@@ -227,7 +227,8 @@ class SortZone extends DragZone {
     /**
      * True while the pointer is where a release would not commit the reorder: {@link #onDragMove} keeps
      * sampling the window boundary but moves no sibling. Off by default; only a subclass that knows such
-     * territory arms it (the dock tab strip, beyond its release band).
+     * territory arms it, via {@link #setReorderParked} (the dock tab strip beyond its release band, a grid header
+     * outside its group).
      * @member {Boolean} isReorderParked=false
      * @protected
      */
@@ -765,18 +766,16 @@ class SortZone extends DragZone {
             ownerX             = rectsAreOwnerRelative ? me.ownerRect.x : 0,
             ownerY             = rectsAreOwnerRelative ? me.ownerRect.y : 0,
             reversed           = me.reversedLayoutDirection,
-            delta, isOverDragging, isOverDraggingEnd, isOverDraggingStart, itemHeightOrWidth, moveFactor;
+            delta, isOverDragging, isOverDraggingEnd, isOverDraggingStart, moveFactor;
 
         if (me.sortDirection === 'horizontal') {
             delta               = clientX - ownerX + me.scrollLeft - me.offsetX - itemRects[index].left;
             isOverDraggingEnd   = clientX > localBoundary.right;
-            isOverDraggingStart = clientX < localBoundary.left;
-            itemHeightOrWidth   = 'width'
+            isOverDraggingStart = clientX < localBoundary.left
         } else {
             delta               = clientY - ownerY + me.scrollTop - me.offsetY - itemRects[index].top;
             isOverDraggingEnd   = clientY > localBoundary.bottom;
-            isOverDraggingStart = clientY < localBoundary.top;
-            itemHeightOrWidth   = 'height'
+            isOverDraggingStart = clientY < localBoundary.top
         }
 
         isOverDragging = isOverDraggingEnd || isOverDraggingStart;
@@ -825,14 +824,14 @@ class SortZone extends DragZone {
         }
 
         else if (index > 0 && (!reversed && delta < 0 || reversed && delta > 0)) {
-            if (Math.abs(delta) > itemRects[index - 1][itemHeightOrWidth] * moveFactor) {
+            if (Math.abs(delta) > me.getSwitchExtent(index, index - 1) * moveFactor) {
                 me.currentIndex--;
                 me.switchItems(index, me.currentIndex)
             }
         }
 
         else if (index < maxItems && (!reversed && delta > 0 || reversed && delta < 0)) {
-            if (Math.abs(delta) > itemRects[index + 1][itemHeightOrWidth] * moveFactor) {
+            if (Math.abs(delta) > me.getSwitchExtent(index, index + 1) * moveFactor) {
                 me.currentIndex++;
                 me.switchItems(index, me.currentIndex)
             }
@@ -850,7 +849,9 @@ class SortZone extends DragZone {
             ir  : itemRects[me.currentIndex] ? Math.round(itemRects[me.currentIndex].left) : null
         });
 
-        me.isOverDragging = isOverDragging && me.currentIndex !== 0 && me.currentIndex !== maxItems;
+        // A step that switchItems refused leaves currentIndex at the dragged item: polling it again would only
+        // scroll toward the same refused neighbour, every frame, for as long as the pointer stays out
+        me.isOverDragging = isOverDragging && me.currentIndex !== index && me.currentIndex !== 0 && me.currentIndex !== maxItems;
 
         if (me.isOverDragging) {
             await me.timeout(30); // wait for 1 frame
@@ -1067,6 +1068,61 @@ class SortZone extends DragZone {
         me.isScrolling = true;
         await me.owner.scrollToIndex?.(me.currentIndex, me.itemRects[me.currentIndex]);
         me.isScrolling = false
+    }
+
+    /**
+     * @summary Parks or resumes the reorder, for a subclass that knows where a release would not commit it.
+     *
+     * Parking walks the drag's switches back to the resting order and arms {@link #isReorderParked}, so the hover
+     * shows what the release will do; resuming lets the live pointer reorder again.
+     * @param {Boolean} parked
+     * @param {Object}  data The drag-move payload
+     * @protected
+     */
+    setReorderParked(parked, data) {
+        let me = this,
+            index;
+
+        if (parked === me.isReorderParked) {
+            return
+        }
+
+        me.isReorderParked = parked;
+        me.traceEvent({t: parked ? 'park' : 'unpark', x: data.clientX, y: data.clientY});
+
+        if (parked) {
+            // Neither an over-drag's auto-scroll loop nor the duplicate-move guard may outlive the reorder this park voids
+            me.isOverDragging = false;
+            me.lastInBoundX   = me.lastInBoundY = null;
+
+            while (me.currentIndex !== me.startIndex) {
+                index = me.currentIndex;
+
+                me.currentIndex += index > me.startIndex ? -1 : 1;
+                me.switchItems(index, me.currentIndex);
+
+                // A refused switch back would spin here forever
+                if (me.currentIndex === index) {
+                    break
+                }
+            }
+        }
+    }
+
+    /**
+     * @summary How far the dragged item must travel toward its neighbour before {@link #switchItems} swaps them.
+     *
+     * The neighbour's own width or height. A subclass whose switch moves the item past several neighbours at once
+     * returns their combined extent: the threshold then matches the distance the item jumps, so the switch back
+     * needs the same travel and the item cannot flip between both positions on every move.
+     * @param {Number} index     The dragged item's position
+     * @param {Number} neighbour The position next to it, in the drag's direction
+     * @returns {Number}
+     */
+    getSwitchExtent(index, neighbour) {
+        let me = this;
+
+        return me.itemRects[neighbour][me.sortDirection === 'horizontal' ? 'width' : 'height']
     }
 
     /**

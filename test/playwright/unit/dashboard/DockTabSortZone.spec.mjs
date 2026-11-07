@@ -842,6 +842,7 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
                 releaseVoidsReorder : () => true,
                 remoteDropCommitted : false,
                 resolveDraggedItemId: DockTabSortZone.prototype.resolveDraggedItemId,
+                setReorderParked    : DockTabSortZone.prototype.setReorderParked,
                 sortGroup           : 'dock-demo',
                 stackDragActive     : false,
                 startIndex          : 2,
