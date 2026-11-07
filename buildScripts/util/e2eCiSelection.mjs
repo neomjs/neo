@@ -183,12 +183,20 @@ export const BRAIN_TIERS = {
 export const FULL_SHARDS = {brain: 10, engine: 8};
 
 /**
- * Measured seconds per Brain-gated spec file, which {@link brainShard} balances the tier's shards by. Every receipt
+ * Measured seconds per Brain-gated spec file, which {@link balancedShard} balances the tier's shards by. Every receipt
  * prints its files' times, and `--brain-durations` turns a full-tier run's receipts back into this table; a file
  * the table does not list yet counts as its median.
  * @member {Object<String, Number>} BRAIN_DURATIONS
  */
 export const BRAIN_DURATIONS = JSON.parse(readFileSync(new URL('./e2eBrainDurations.json', import.meta.url), 'utf8'));
+
+/**
+ * Measured seconds per engine-tier spec file, which {@link balancedShard} balances the tier's shards by.
+ * `--engine-durations` rebuilds it from a full `dev` run's log (`gh run view <id> --log`); a file the table does not
+ * list yet counts as its median.
+ * @member {Object<String, Number>} ENGINE_DURATIONS
+ */
+export const ENGINE_DURATIONS = JSON.parse(readFileSync(new URL('./e2eEngineDurations.json', import.meta.url), 'utf8'));
 
 /**
  * @summary Walks a directory for spec files.
@@ -217,6 +225,18 @@ export function enginePaths(root = process.cwd()) {
         .filter(file => !ignore.some(pattern => pattern.test(file)))
         .map(file => relative(root, file))
         .sort()
+}
+
+/**
+ * @summary The engine-tier files a run's paths name: a pull request's selected files, or {@link RUN_PATHS} with its
+ * directories expanded, so a shard can be balanced file by file.
+ * @param {Object}   options
+ * @param {String[]} options.named The paths the job was handed, relative to the repository root.
+ * @param {String}   [options.root=process.cwd()]
+ * @returns {String[]} The engine-tier files they name, in path order.
+ */
+export function engineSelection({named, root = process.cwd()}) {
+    return enginePaths(root).filter(file => named.some(path => file === path || file.startsWith(`${path}/`)))
 }
 
 /**
@@ -365,7 +385,7 @@ function parseShard(shard) {
 }
 
 /**
- * @summary Seconds per Brain-gated file, a file the table does not list yet counting as the table's median.
+ * @summary Seconds per spec file, a file the table does not list yet counting as the table's median.
  * @param {Object<String, Number>} durations
  * @returns {Function} `path => seconds`
  */
@@ -377,19 +397,20 @@ function durationOf(durations) {
 }
 
 /**
- * @summary One shard of the Brain-gated selection, balanced by measured time rather than by test count.
- * @description Playwright's own `--shard` splits by count, so two of the tier's longest files could share one shard
- * and hold its step near the ceiling while another shard idled. Here each file, longest first, joins the shard with
+ * @summary One shard of a tier's selection, balanced by measured time rather than by test count.
+ * @description Playwright's own `--shard` gives each shard the same number of tests, and a test costs anything from
+ * a few milliseconds to over a minute, so one shard can run past the ceiling while another idles. Here each file,
+ * longest first, joins the shard with
  * the least time so far: equal times fall to the lower shard and equal files to path order, so every shard of a run
  * computes the same split and every selected file runs in exactly one of them.
  * @param {Object}   options
  * @param {String[]} options.paths The selection to split, relative to the repository root.
  * @param {String}   options.shard `N/M`, the shard to return.
- * @param {Object}   [options.durations=BRAIN_DURATIONS] Seconds per file.
+ * @param {Object}   options.durations Seconds per file: {@link BRAIN_DURATIONS} or {@link ENGINE_DURATIONS}.
  * @returns {{paths: String[], seconds: Number}} The shard's files in path order, and their predicted seconds.
  * @throws {Error} For a shard that is not `N/M` with 1 ≤ N ≤ M.
  */
-export function brainShard({paths, shard, durations = BRAIN_DURATIONS}) {
+export function balancedShard({paths, shard, durations}) {
     const [index, total] = parseShard(shard),
           seconds        = durationOf(durations),
           shards         = Array.from({length: total}, () => ({paths: [], seconds: 0}));
@@ -430,6 +451,42 @@ export function brainDurations(text) {
     }
 
     return Object.fromEntries(Object.entries(table).toSorted(([a], [b]) => a < b ? -1 : 1))
+}
+
+/**
+ * @summary {@link ENGINE_DURATIONS} rebuilt from engine-tier logs: what each file cost the shard that ran it, every
+ * attempt included, because the shard paid for those too.
+ * @description Playwright's list reporter prints a line as each test ends. In GitHub's run log every line carries its
+ * job and a timestamp, so a test costs the time since the job's previous test ended, or since its run started: hooks
+ * and fixtures included, which a test's own duration leaves out (a 3 ms test can end 15 s into its shard). A log
+ * without timestamps falls back to the durations the lines print.
+ * @param {String} text Any number of shards' logs; skipped tests, whose lines carry no duration, are ignored.
+ * @returns {Object<String, Number>} Seconds per file to a tenth, keyed by its repository path, in path order.
+ */
+export function engineDurations(text) {
+    const unit  = {ms: 0.001, s: 1, m: 60, h: 3600},
+          ended = new Map(),
+          table = {};
+
+    for (const line of text.split('\n')) {
+        const [, job, stamp] = /^([^\t]+)\t[^\t]*\t(\d{4}-\d\d-\d\dT[\d:.]+Z) /.exec(line) ?? [],
+              at             = stamp && Date.parse(stamp) / 1000,
+              test           = /› (\S+\.spec\.mjs):\d+:\d+ › .*\((\d+(?:\.\d+)?)(ms|s|m|h)\)[ \t\r]*$/.exec(line);
+
+        if (test) {
+            const [, file, value, scale] = test,
+                  path                   = file.startsWith('test/playwright/e2e/') ? file : `test/playwright/e2e/${file}`;
+
+            table[path] = (table[path] ?? 0) + (ended.has(job) ? at - ended.get(job) : Number(value) * unit[scale])
+        }
+
+        if (at && (test || /Running \d+ tests? using/.test(line))) {
+            ended.set(job, at)
+        }
+    }
+
+    return Object.fromEntries(Object.entries(table).toSorted(([a], [b]) => a < b ? -1 : 1)
+        .map(([path, seconds]) => [path, Math.round(seconds * 10) / 10]))
 }
 
 /**
@@ -609,7 +666,7 @@ export function brainReceipt({report, run, seconds, retries = null, now = new Da
           inTier                 = path => tier === 'full' || (tier === 'selected' && selected.includes(path)),
           quarantines            = BRAIN_QUARANTINES.filter(entry => inTier(entry.path)),
           ceiling                = 300,
-          predicted              = brainShard({paths, shard: run.shard}).seconds,
+          predicted              = balancedShard({paths, shard: run.shard, durations: BRAIN_DURATIONS}).seconds,
           days                   = since => Math.floor((now - new Date(since)) / 86400000),
           minutes                = value => `${Math.floor(value / 60)}m ${value % 60}s`,
           short                  = path => `\`${path.replace('test/playwright/e2e/', '')}\``;
@@ -719,31 +776,32 @@ export function selectSpecs({changed, root = process.cwd(), map = specReach({roo
 
 /**
  * @summary Splits a selection into each tier's files, and sizes each tier's shard matrix to them.
- * @description Each shard of a selection keeps the test time a full run gives it: the Brain-gated tier by measured
- * seconds, the engine tier by file count, as Playwright's own `--shard` splits it.
+ * @description Each shard of a selection keeps the test time a full run gives it, both tiers by measured seconds:
+ * a file count would hand a selection of heavy files the full run's files per shard and more time per shard.
  * @param {Object}                      options
  * @param {Map<String, String>|Set<String>} options.specs The selected spec files.
  * @param {String}                      [options.root=process.cwd()]
- * @param {Object<String, Number>}      [options.durations=BRAIN_DURATIONS]
+ * @param {{brain: Object<String, Number>, engine: Object<String, Number>}} [options.durations] Seconds per file per
+ *        tier, {@link BRAIN_DURATIONS} and {@link ENGINE_DURATIONS} by default.
  * @returns {{brain: {paths: String[], shards: Number}, engine: {paths: String[], shards: Number}}} A tier none of
  *          whose files is selected has zero shards.
  */
-export function tierSelection({specs, root = process.cwd(), durations = BRAIN_DURATIONS}) {
-    const duration = durationOf(durations),
-          seconds  = paths => paths.reduce((sum, path) => sum + duration(path), 0),
-          // A tier with files keeps at least one shard, even when every file it runs measures zero seconds, and never
-          // more shards than files: a shard without one fails its own `test -n` guard
-          tier     = (all, full, measure) => {
-              const paths = all.filter(path => specs.has(path)),
-                    whole = measure(all),
-                    share = whole ? Math.ceil(full * measure(paths) / whole) : full;
+export function tierSelection({specs, root = process.cwd(), durations = {brain: BRAIN_DURATIONS, engine: ENGINE_DURATIONS}}) {
+    // A tier with files keeps at least one shard, even when every file it runs measures zero seconds, and never more
+    // shards than files: a shard without one fails its own `test -n` guard
+    const tier = (all, full, table) => {
+        const duration = durationOf(table),
+              seconds  = paths => paths.reduce((sum, path) => sum + duration(path), 0),
+              paths    = all.filter(path => specs.has(path)),
+              whole    = seconds(all),
+              share    = whole ? Math.ceil(full * seconds(paths) / whole) : full;
 
-              return {paths, shards: paths.length && Math.max(1, Math.min(full, paths.length, share))}
-          };
+        return {paths, shards: paths.length && Math.max(1, Math.min(full, paths.length, share))}
+    };
 
     return {
-        brain : tier(brainPaths(root),  FULL_SHARDS.brain,  seconds),
-        engine: tier(enginePaths(root), FULL_SHARDS.engine, paths => paths.length)
+        brain : tier(brainPaths(root),  FULL_SHARDS.brain,  durations.brain),
+        engine: tier(enginePaths(root), FULL_SHARDS.engine, durations.engine)
     }
 }
 
@@ -816,7 +874,15 @@ if (isEntryModule(import.meta.url)) {
         const {BRAIN_SELECTED, SHARD, TIER} = process.env,
               {paths}                       = brainSelection({selected: (BRAIN_SELECTED || '').split(' ').filter(Boolean), tier: TIER || 'full'});
 
-        process.stdout.write((SHARD ? brainShard({paths, shard: SHARD}).paths : paths).join(' '))
+        process.stdout.write((SHARD ? balancedShard({paths, shard: SHARD, durations: BRAIN_DURATIONS}).paths : paths).join(' '))
+    } else if (mode === '--engine-paths') {
+        // The engine files `TIER_PATHS` names; with `SHARD` set, only that shard's
+        const {SHARD, TIER_PATHS} = process.env,
+              paths               = engineSelection({named: (TIER_PATHS || '').split(' ').filter(Boolean)});
+
+        process.stdout.write((SHARD ? balancedShard({paths, shard: SHARD, durations: ENGINE_DURATIONS}).paths : paths).join(' '))
+    } else if (mode === '--engine-durations') {
+        process.stdout.write(JSON.stringify(engineDurations(readFileSync(0, 'utf8')), null, 4) + '\n')
     } else if (mode === '--brain-durations') {
         process.stdout.write(JSON.stringify(brainDurations(readFileSync(0, 'utf8')), null, 4) + '\n')
     } else if (mode === '--brain-test-list') {
@@ -844,7 +910,7 @@ if (isEntryModule(import.meta.url)) {
         // The changed files the E2E impact boundary admits, as JSON, because a path list is not shell-safe
         process.stdout.write(selectionOutput({changed: JSON.parse(process.env.E2E_FILES || '[]')}))
     } else {
-        console.error('usage: e2eCiSelection.mjs --paths | --summary | --brain-paths | --brain-durations | --brain-test-list | --brain-retries | --brain-receipt | --select');
+        console.error('usage: e2eCiSelection.mjs --paths | --summary | --engine-paths | --engine-durations | --brain-paths | --brain-durations | --brain-test-list | --brain-retries | --brain-receipt | --select');
         process.exit(2)
     }
 }
