@@ -281,6 +281,31 @@ test.describe('examples/grid/headerGroups', () => {
         await expect.poll(() => cellsFollowHeaders(page)).toBe(true)
     });
 
+    test('Escape mid-drag puts the headers and the body cells back where they were', async ({page}) => {
+        await showAllHeaders(page);
+
+        // Pinned by id: a drag proxy clones the button, text included
+        const febId = await page.locator('.neo-grid-header-toolbar .neo-grid-header-button', {hasText: 'Feb'}).first().getAttribute('id'),
+              feb   = page.locator(`[id="${febId}"]`),
+              from  = await feb.boundingBox(),
+              jan   = await page.locator('.neo-grid-header-toolbar .neo-grid-header-button', {hasText: 'Jan'}).first().boundingBox(),
+              y     = from.y + from.height / 2;
+
+        await page.mouse.move(from.x + from.width / 2, y);
+        await page.mouse.down();
+        await page.mouse.move(from.x + from.width / 2 - 20, y, {steps: 4});
+        await page.mouse.move(jan.x + 10, y, {steps: 16});
+
+        // Feb has switched with Jan, and its cells with it, before the cancel
+        await expect.poll(async () => Math.round((await feb.boundingBox()).x)).toBe(Math.round(jan.x));
+
+        await page.keyboard.press('Escape');
+        await page.mouse.up();
+
+        await expect.poll(() => cellsFollowHeaders(page)).toBe(true);
+        expect(await centreOrder(page)).toEqual(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'])
+    });
+
     test('an ungrouped header passes a whole group, so the group stays in one piece', async ({page}) => {
         await showAllHeaders(page);
 

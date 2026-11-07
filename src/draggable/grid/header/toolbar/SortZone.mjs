@@ -360,11 +360,10 @@ class SortZone extends BaseSortZone {
 
         await super.processDragEnd(data);
 
-        // Cancellation restores the captured index in the base pipeline and must not let the
-        // grid-specific post-end region inference mutate a column's locked state.
+        // A cancel resolves no column, so the region inference below re-locks none. The body still re-syncs like a
+        // drop that moved nothing: the drag's switches moved its cells along with the headers.
         if (data.cancelled) {
-            me.dragColumnField = null;
-            return
+            me.dragColumnField = null
         }
 
         if (!me.dragElement) {
