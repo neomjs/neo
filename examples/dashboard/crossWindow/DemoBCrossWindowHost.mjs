@@ -64,8 +64,8 @@ class DemoBCrossWindowHost extends Base {
         // The document pair and vessel ownership are one worker-side commit. A physical close can
         // arrive before either projection settles; publishing this entry synchronously lets the
         // disconnect path reattach the item instead of misclassifying committed truth as a cold
-        // cancellation. The generation predicate below prevents that superseded projection from
-        // writing stale source/target chrome after the recovery transaction has taken ownership.
+        // cancellation. The generation predicate below suppresses a superseded gesture receipt
+        // after the recovery transaction has taken ownership.
         if (isPopupDetach) {
             me.detachedPanes[itemId] = {
                 tabsNodeId: context?.sourceNodeId,
