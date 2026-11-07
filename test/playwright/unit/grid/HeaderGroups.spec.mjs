@@ -108,6 +108,29 @@ test.describe('Neo.grid.Container header groups', () => {
         expect(grid.lockedEndColumns).toHaveLength(0)
     });
 
+    test('locking one column of a group at runtime moves the whole group, so it stays in one region', async () => {
+        store = createStore();
+        grid  = await createGrid(store, [
+            {dataField: 'a', width: 100},
+            {text: 'Q1', columns: [{dataField: 'jan', width: 80}, {dataField: 'feb', width: 90}]},
+            {dataField: 'b', width: 100}
+        ]);
+
+        grid.columns.items.find(column => column.dataField === 'jan').locked = 'start';
+        await grid.timeout(50);
+
+        expect(grid.lockedStartColumns.map(column => column.dataField)).toEqual(['jan', 'feb']);
+        expect(grid.centerColumns     .map(column => column.dataField)).toEqual(['a', 'b']);
+
+        // and back: unlocking the other member returns the whole group to the centre, together, where the re-sorted
+        // collection holds it
+        grid.columns.items.find(column => column.dataField === 'feb').locked = null;
+        await grid.timeout(50);
+
+        expect(grid.lockedStartColumns).toHaveLength(0);
+        expect(grid.centerColumns.map(column => column.dataField)).toEqual(['jan', 'feb', 'a', 'b'])
+    });
+
     test('columnDefaults reach the grouped columns, and the group is no column of its own', async () => {
         store = createStore();
         grid  = await createGrid(store, [
