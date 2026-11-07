@@ -331,6 +331,10 @@ class SortZone extends BaseSortZone {
         // Avoid conflicts with grid.header.plugin.Resizable
         if (!me.owner.dragResortable) return;
 
+        if (!data.cancelled && me.isOutsideGroup(me.lastDragClientX)) {
+            me.currentIndex = me.startIndex
+        }
+
         // Remove the drag-start scroll-extent sentinel before the layout restore: the items
         // re-enter the flow and own the scrollable overflow again from here on.
         let ownerCn       = me.owner.vdom.cn,
@@ -480,6 +484,9 @@ class SortZone extends BaseSortZone {
         // Track the release x-coordinate so onDragEnd can resolve the cross-toolbar drop region.
         me.lastDragClientX = data.clientX;
 
+        // The park walks switches back: never while an over-drag step awaits its scroll, the release decides then
+        me.isScrolling || me.setReorderParked(me.isOutsideGroup(data.clientX), data);
+
         await super.onDragMove(data)
     }
 
@@ -549,22 +556,77 @@ class SortZone extends BaseSortZone {
     }
 
     /**
-     * @summary Swaps two neighbouring headers, unless they belong to different header groups.
-     *
-     * A drag moves its header one swap at a time, so refusing the swaps across a group boundary keeps a grouped column
-     * inside its group and keeps an ungrouped one out of every group. `onDragMove` advances `currentIndex` to
-     * `index2` before it asks for the swap, and the drop commits to `currentIndex`: a refused swap moves it back to
-     * `index1`, the dragged header's own position.
-     * @param {Number} index1 The dragged header's position
-     * @param {Number} index2 The position it would move to
+     * @summary Where an ungrouped header lands when it steps toward a grouped neighbour: past that group's last header.
+     * @param {Number} index     The dragged header's position
+     * @param {Number} neighbour The position next to it, in the drag's direction
+     * @returns {Number} `neighbour` itself, unless an ungrouped header meets a group
      */
-    switchItems(index1, index2) {
-        let me = this;
+    getSwitchTarget(index, neighbour) {
+        let me      = this,
+            groupId = me.getHeaderGroupId(neighbour),
+            step    = Math.sign(neighbour - index),
+            target  = neighbour;
 
-        if (me.getHeaderGroupId(index1) !== me.getHeaderGroupId(index2)) {
-            me.currentIndex = index1;
-            return
+        if (groupId && !me.getHeaderGroupId(index)) {
+            while (me.getHeaderGroupId(target + step) === groupId) {
+                target += step
+            }
         }
+
+        return target
+    }
+
+    /**
+     * @summary An ungrouped header has to travel past a whole group before it switches with it.
+     * @param {Number} index     The dragged header's position
+     * @param {Number} neighbour The position next to it, in the drag's direction
+     * @returns {Number}
+     */
+    getSwitchExtent(index, neighbour) {
+        let me     = this,
+            target = me.getSwitchTarget(index, neighbour);
+
+        if (target === neighbour) {
+            return super.getSwitchExtent(index, neighbour)
+        }
+
+        let [first, last] = [me.itemRects[neighbour], me.itemRects[target]].sort((a, b) => a.x - b.x);
+
+        return last.x + last.width - first.x
+    }
+
+    /**
+     * @summary Whether the pointer of a grouped header's drag is outside the headers of its group.
+     *
+     * A drop there is no reorder of the group: the hover parks the reorder ({@link #onDragMove}) and the release
+     * restores the group's order ({@link #processDragEnd}). The span is measured in the toolbar's content space, so an
+     * over-drag past the visible edge keeps reordering while the group continues beyond it.
+     * @param {Number} clientX
+     * @returns {Boolean}
+     */
+    isOutsideGroup(clientX) {
+        let me          = this,
+            {itemRects} = me,
+            groupId     = itemRects && Neo.isNumber(clientX) && me.getHeaderGroupId(me.currentIndex),
+            group, x;
+
+        if (!groupId) {
+            return false
+        }
+
+        x     = clientX - me.ownerRect.x + me.scrollLeft;
+        group = itemRects.filter((rect, index) => me.getHeaderGroupId(index) === groupId);
+
+        return x < Math.min(...group.map(rect => rect.x)) || x > Math.max(...group.map(rect => rect.x + rect.width))
+    }
+
+    /**
+     * @summary Swaps two neighbouring headers, and their body cells along with them.
+     * @param {Number} index1
+     * @param {Number} index2
+     */
+    swapNeighbours(index1, index2) {
+        let me = this;
 
         super.switchItems(index1, index2);
 
@@ -603,6 +665,36 @@ class SortZone extends BaseSortZone {
             body.updateDepth = -1;
             body.update()
         }
+    }
+
+    /**
+     * @summary Moves the dragged header to its neighbour's position, keeping every header group in one piece.
+     *
+     * A grouped header only switches inside its group, and an ungrouped one passes a whole group in one switch, so a
+     * group never splits around a header that does not belong to it. `onDragMove` advances `currentIndex` to `index2`
+     * before it asks for the switch, and the drop commits to `currentIndex`: a refused switch moves it back to `index1`,
+     * the dragged header's own position, and a switch past a group moves it on to the group's far end.
+     * @param {Number} index1 The dragged header's position
+     * @param {Number} index2 The position next to it, in the drag's direction
+     */
+    switchItems(index1, index2) {
+        let me      = this,
+            groupId = me.getHeaderGroupId(index1),
+            step    = Math.sign(index2 - index1),
+            index, target;
+
+        if (groupId && groupId !== me.getHeaderGroupId(index2)) {
+            me.currentIndex = index1;
+            return
+        }
+
+        target = me.getSwitchTarget(index1, index2);
+
+        for (index = index1; index !== target; index += step) {
+            me.swapNeighbours(index, index + step)
+        }
+
+        me.currentIndex = target
     }
 }
 

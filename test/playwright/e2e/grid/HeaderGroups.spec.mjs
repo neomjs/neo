@@ -35,6 +35,23 @@ const groupEdges = page => page.evaluate(() => {
 });
 
 /**
+ * Every centre header against the first body row: the cell of its column (`aria-colindex`) sits under it, visible
+ * @param {Object} page
+ * @returns {Promise<Boolean>}
+ */
+const cellsFollowHeaders = page => page.evaluate(() => {
+    const buttons = [...document.querySelectorAll('.neo-grid-header-toolbar')[1].querySelectorAll('.neo-grid-header-button')],
+          row     = document.querySelectorAll('.neo-grid-body')[1]?.querySelector('.neo-grid-row');
+
+    return buttons.length > 0 && buttons.every(button => {
+        const cell = row?.querySelector(`[aria-colindex="${button.getAttribute('aria-colindex')}"]`);
+
+        return !!cell && getComputedStyle(cell).visibility === 'visible' &&
+            Math.abs(cell.getBoundingClientRect().left - button.getBoundingClientRect().left) < 2
+    })
+});
+
+/**
  * @param {Object[]} edges
  */
 const expectAligned = edges => {
@@ -117,9 +134,39 @@ test.describe('examples/grid/headerGroups', () => {
         await page.mouse.up()
     };
 
-    const centreOrder = page => page.evaluate(() =>
+    const centreHeaders = page => page.evaluate(() =>
         [...document.querySelectorAll('.neo-grid-header-toolbar')[1].querySelectorAll('.neo-grid-header-button')]
-            .map(button => button.textContent.trim()).slice(0, 6));
+            .map(button => button.textContent.trim()));
+
+    const centreOrder = async page => (await centreHeaders(page)).slice(0, 6);
+
+    /**
+     * Drags a header onto the middle of another, with the cadence `ColumnCrossBodyDnD.spec.mjs` uses to carry a drag
+     * across a region boundary
+     * @param {Object} page
+     * @param {String} text   The header to drag
+     * @param {String} target The header to release it on
+     */
+    const dropOn = async (page, text, target) => {
+        const from = await page.locator('.neo-grid-header-toolbar .neo-grid-header-button', {hasText: text}).first().boundingBox(),
+              to   = await page.locator('.neo-grid-header-toolbar .neo-grid-header-button', {hasText: target}).first().boundingBox(),
+              y    = from.y + from.height / 2;
+
+        await page.mouse.move(from.x + from.width / 2, y);
+        await page.mouse.down();
+        await page.mouse.move(to.x + to.width / 2, y, {steps: 60});
+        await page.mouse.up()
+    };
+
+    /**
+     * Widens the viewport until every centre header is on screen and draggable
+     * @param {Object} page
+     */
+    const showAllHeaders = async page => {
+        await page.setViewportSize({width: 2600, height: 800});
+        await expect.poll(async () => (await groupEdges(page)).every(({left, right, leafLeft, leafRight}) =>
+            Math.abs(left - leafLeft) < 2 && Math.abs(right - leafRight) < 2)).toBe(true)
+    };
 
     test('a header reorders inside its group, and the group still spans its leaves', async ({page}) => {
         const jan = await page.locator('.neo-grid-header-toolbar .neo-grid-header-button', {hasText: 'Jan'}).first().boundingBox();
@@ -144,6 +191,46 @@ test.describe('examples/grid/headerGroups', () => {
         expect(await centreOrder(page)).toEqual(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'])
     });
 
+    test('a grouped header over another group rests in its group, and its release leaves the group as it was', async ({page}) => {
+        await showAllHeaders(page);
+
+        // Pinned by id: a drag proxy clones the button, text included
+        const janId = await page.locator('.neo-grid-header-toolbar .neo-grid-header-button', {hasText: 'Jan'}).first().getAttribute('id'),
+              jan   = page.locator(`[id="${janId}"]`),
+              from  = await jan.boundingBox(),
+              may   = await page.locator('.neo-grid-header-toolbar .neo-grid-header-button', {hasText: 'May'}).first().boundingBox(),
+              y     = from.y + from.height / 2;
+
+        // Jan passes Feb and Mar on its way out of Q1, before it reaches May in Q2
+        await page.mouse.move(from.x + from.width / 2, y);
+        await page.mouse.down();
+        await page.mouse.move(may.x + may.width / 2, y, {steps: 60});
+
+        // Still pressed, the hover shows what the release will do: Jan back in its own slot
+        await expect.poll(async () => Math.round((await jan.boundingBox()).x)).toBe(Math.round(from.x));
+
+        await page.mouse.up();
+        await page.waitForTimeout(400);
+
+        expect(await centreOrder(page)).toEqual(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun']);
+        expectAligned(await groupEdges(page));
+
+        // The body took the same swaps on the way out, and has to give them back with the headers
+        await expect.poll(() => cellsFollowHeaders(page)).toBe(true)
+    });
+
+    test('an ungrouped header passes a whole group, so the group stays in one piece', async ({page}) => {
+        await showAllHeaders(page);
+
+        // Id sits after Q4: dropped on Oct, it lands before the group instead of inside it
+        await dropOn(page, 'Id', 'Oct');
+
+        await expect.poll(async () => (await centreHeaders(page)).slice(-4)).toEqual(['Id', 'Oct', 'Nov', 'Dec']);
+        await expect.poll(async () => (await groupEdges(page)).every(({left, right, leafLeft, leafRight}) =>
+            Math.abs(left - leafLeft) < 2 && Math.abs(right - leafRight) < 2)).toBe(true);
+        await expect.poll(() => cellsFollowHeaders(page)).toBe(true)
+    });
+
     test('a grouped header released over another region stays in its group, while an ungrouped one crosses', async ({page}) => {
         const toolbarOf = text => page.evaluate(label => {
             const button = [...document.querySelectorAll('.neo-grid-header-toolbar .neo-grid-header-button')]
@@ -152,38 +239,21 @@ test.describe('examples/grid/headerGroups', () => {
             return [...document.querySelectorAll('.neo-grid-header-toolbar')].indexOf(button?.closest('.neo-grid-header-toolbar'))
         }, text);
 
-        // Wide enough that every centre header is on screen and draggable
-        await page.setViewportSize({width: 2600, height: 800});
-        await expect.poll(async () => (await groupEdges(page)).every(({left, right, leafLeft, leafRight}) =>
-            Math.abs(left - leafLeft) < 2 && Math.abs(right - leafRight) < 2)).toBe(true);
+        await showAllHeaders(page);
 
-        /**
-         * Drags a header onto the middle of the Region header, with the cadence `ColumnCrossBodyDnD.spec.mjs` uses to
-         * carry a drag across a region boundary
-         * @param {String} text
-         */
-        const dropOnRegion = async text => {
-            const from = await page.locator('.neo-grid-header-toolbar .neo-grid-header-button', {hasText: text}).first().boundingBox(),
-                  to   = await page.locator('.neo-grid-header-toolbar .neo-grid-header-button', {hasText: 'Region'}).first().boundingBox(),
-                  y    = from.y + from.height / 2;
-
-            await page.mouse.move(from.x + from.width / 2, y);
-            await page.mouse.down();
-            await page.mouse.move(to.x + to.width / 2, y, {steps: 60});
-            await page.mouse.up()
-        };
-
-        // Jan released over the locked start region: its group keeps it in the centre, where it was
-        await dropOnRegion('Jan');
+        // Mar passes Feb and Jan on its way out of the centre: released over the locked start region, its group keeps
+        // it in the centre, where it was
+        await dropOn(page, 'Mar', 'Region');
         await page.waitForTimeout(400);
 
-        expect(await toolbarOf('Jan')).toBe(await toolbarOf('Feb'));
-        expect(await toolbarOf('Jan')).not.toBe(await toolbarOf('Region'));
+        expect(await toolbarOf('Mar')).toBe(await toolbarOf('Feb'));
+        expect(await toolbarOf('Mar')).not.toBe(await toolbarOf('Region'));
         expect(await centreOrder(page)).toEqual(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun']);
         expectAligned(await groupEdges(page));
+        await expect.poll(() => cellsFollowHeaders(page)).toBe(true);
 
         // the control: the ungrouped Id header released over the same region moves into it
-        await dropOnRegion('Id');
+        await dropOn(page, 'Id', 'Region');
 
         await expect.poll(async () => await toolbarOf('Id') === await toolbarOf('Region')).toBe(true)
     });
