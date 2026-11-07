@@ -373,6 +373,35 @@ test.describe('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => {
         expect(doc.nodes['side-tabs'].items).toEqual(['inspector', 'timeline', 'console'])
     });
 
+    test('tour completion reads the current beat authority after its caption callback', () => {
+        const totalBeats = DemoBWorkspace.totalBeats,
+              caption    = workspace.setTourCaption,
+              progress   = workspace.setPipProgress,
+              calls      = [];
+
+        try {
+            DemoBWorkspace.totalBeats = () => {
+                calls.push('early beat read');
+                return []
+            };
+            workspace.setTourCaption = () => {
+                calls.push('caption');
+                DemoBWorkspace.totalBeats = () => {
+                    calls.push('current beat read');
+                    return [{}, {}]
+                }
+            };
+            workspace.setPipProgress = count => calls.push(['progress', count]);
+
+            expect(workspace.onTourComplete({log: []})).toBeUndefined();
+            expect(calls).toEqual(['caption', 'current beat read', ['progress', 2]])
+        } finally {
+            DemoBWorkspace.totalBeats = totalBeats;
+            workspace.setTourCaption = caption;
+            workspace.setPipProgress = progress
+        }
+    });
+
     test('this host conditionally activates one semantic cross-window step', () => {
         const steps = demoBTourScript.scenes.flatMap(scene => scene.steps)
             .filter(step => step.type === 'cross-window');
