@@ -1,7 +1,7 @@
 # Features and Benefits Summary
 
 Neo.mjs is engineered to address the most pressing challenges in modern web development, offering a suite of features
-that deliver unparalleled performance, developer productivity, and architectural flexibility. Below are the core
+that deliver off-main-thread performance, developer productivity, and architectural flexibility. Below are the core
 capabilities that set Neo.mjs apart.
 
 ## Multi-Window Applications
@@ -14,7 +14,7 @@ sophisticated multi-screen workflows. For more details, see
 
 ## True Multi-threading (Off-The-Main-Thread Architecture)
 
-At the heart of Neo.mjs is its revolutionary Off-Main-Thread (OMT) paradigm. Your entire application, including the
+At the heart of Neo.mjs is its Off-Main-Thread (OMT) worker architecture. Your entire application, including the
 engine itself, runs within a dedicated application worker. This offloads all business logic, data processing, and
 intensive UI updates from the main thread, ensuring a consistently non-blocking, freeze-free user experience, even during
 heavy computations or data I/O. Neo.mjs further enhances this with additional workers for OffscreenCanvas, data handling,

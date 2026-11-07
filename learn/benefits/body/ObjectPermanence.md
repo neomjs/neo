@@ -17,7 +17,7 @@ flowchart TD
 
 This constant destruction requires massive workarounds. To fake persistence in this destructive cycle, developers are forced into a labyrinth of Hooks, dependency arrays, and artificial memoization just to keep state alive between render passes.
 
-## The Paradigm Shift: The Application Engine
+## Persistent Scene Graphs in the App Worker
 
 Neo.mjs rejects the throwaway render function. It is a modern **Application Engine**, and it treats UIs not as documents, but as living, continuous applications executing inside isolated Web Workers.
 
@@ -70,12 +70,12 @@ flowchart TD
     LiveDOM -- "3. Success Reply (Syncs VNode)" --> AppWorker
 ```
 
-## The Superpowers of True Persistence
+## What Persistent Instances Enable
 
-This robust double-layer of permanence unlocks architectural super-powers that are fundamentally impossible in traditional frameworks:
+This two-layer persistence model enables two capabilities that transient render loops cannot support directly:
 
 1. **True Mobility (Multi-Window):** Because components are persistent memory instances, you can physically detach a complex component (like a data grid) using `remove(cmp, false)` and reattach it to another container—even across entirely different browser windows—without losing its internal state, its scrolling position, or resetting its VDOM structure.
-2. **AI-Native Introspection (Neural Link):** In transient frameworks, AI agents are essentially blind; they can only read static source code. Because Neo.mjs components exist as continuous, addressable objects in memory, AI Agents using the **Neural Link** can physically connect to the active runtime. They can introspect the entire living Scene Graph, trace data flows, and dynamically mutate state or hot-patch methods live without ever reloading the application. Neo.mjs is the first UI architecture built ground-up for autonomous AI collaboration.
+2. **AI-Native Introspection (Neural Link):** In transient frameworks, AI agents are essentially blind; they can only read static source code. Because Neo.mjs components exist as continuous, addressable objects in memory, AI Agents using the **Neural Link** can physically connect to the active runtime. They can introspect the entire living Scene Graph, trace data flows, and dynamically mutate state or hot-patch methods live without ever reloading the application. Components remain inspectable by ID, class, and reference across their full lifecycle.
 
 > [!TIP]
 > **Curious about the low-level implementation?**
