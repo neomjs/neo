@@ -4,7 +4,7 @@ A Declarative Approach to Application Building
 
 ## Introduction
 
-Modern JavaScript UI libraries popularized declarative patterns for building
+Modern JavaScript frameworks have revolutionized front-end development by providing declarative ways to build
 user interfaces, primarily centered around enhancing HTML with custom syntax like JSX or Angular directives.
 However, the complexity of applications extends far beyond the Document Object Model (DOM), encompassing crucial
 non-DOM entities such as data stores, state providers, routers, view controllers, selection models, and layouts.
@@ -566,7 +566,7 @@ controllers, and routers—Neo.mjs significantly reduces cognitive load and enha
 
 This system empowers developers to describe the desired state and behavior of their applications in a clear, concise,
 and unified manner. The inherent reactivity of configs, coupled with powerful lifecycle hooks like beforeGet, beforeSet,
-and afterSet, offers fine-grained lifecycle control and flexibility, enabling dynamic updates and predictable data flow management.
+and afterSet, offers unparalleled control and flexibility, enabling dynamic updates and sophisticated data flow management.
 
 Ultimately, the Neo.mjs config system streamlines application development, making it easier to build complex,
 high-performance, and maintainable web applications. It's a testament to Neo.mjs's commitment to providing a truly
