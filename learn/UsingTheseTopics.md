@@ -1,8 +1,11 @@
-Neo.mjs is an Off-Main-Thread multi-window application engine (**the Body**) paired with an AI Agent OS and live runtime inspection bridge (**the Brain** and **Neural Link**). This page explains how to navigate the ten sections of the learning base and how to use the interactive live-preview examples embedded throughout the guides.
+# Using These Topics
 
-:::expand Click here to see how disclosure blocks work
-Throughout the documentation, optional deep-dives and secondary implementation notes are placed inside expandable blocks like this one so you can scan core concepts first and expand details on demand.
-:::
+Neo.mjs is an Off-Main-Thread multi-window application engine (**the Body**) paired with an AI Agent OS and live runtime inspection bridge (**the Brain** and **Neural Link**). This page explains how to navigate the ten sections of the learning base and how to use the interactive features embedded throughout the guides.
+
+<details>
+<summary>Click here to see how disclosure widgets work</summary>
+<p style="background-color:lightgreen;padding:8px">Throughout the documentation, optional deep-dives and secondary implementation notes are placed inside expandable <code>&lt;details&gt;</code> disclosure widgets like this one so you can scan core concepts first and reveal details on demand.</p>
+</details>
 
 ## Where to Start — Three Reader Paths
 
@@ -17,7 +20,7 @@ The learning navigation tree (`learn/tree.json`) is organized into ten sections 
 1. **Using These Topics:** How the learning base is organized and how to run and edit the inline live-preview examples below.
 2. **Benefits:** The [Introduction](./benefits/Introduction.md), [Architecture Overview](./benefits/ArchitectureOverview.md), and 14 focused pages covering Off-the-Main-Thread workers, multi-window apps, the config system, forms, and four build environments.
 3. **Getting Started:** Creating workspaces, describing UI with JSON blueprints, reactive configs, and worker debugging.
-4. **Brain Interface, Fleet & Agent Tooling:** Operating coding agents with Fleet Manager, the Cockpit, the 60-tool Neural Link, Progressive Disclosure skills, Seat Memory, and retained Architectural Decision Records (ADRs).
+4. **Brain Interface, Fleet & Agent Tooling:** Operating coding agents with Fleet Manager, the Cockpit, the Neural Link's MCP tools, Progressive Disclosure skills, Seat Memory, and retained Architectural Decision Records (ADRs).
 5. **Guides:** In-depth engineering guides grouped into eight shelves: *Fundamentals*, *The Core Engine*, *UI Building Blocks* (including the 10-guide dock-layout series), *Data Handling*, *User Interaction*, *Testing*, *Specific Applications/Features*, and *Advanced*.
 6. **Tutorials:** Step-by-step builds (`DockLayoutsFirstLayout`, `TodoList`, `Earthquakes`, `CreatingAFunctionalButton`, `Routing`) that combine multiple engine primitives.
 7. **JavaScript Classes:** How Neo.mjs builds on standard ES module classes, private fields, and `Neo.setupClass`.
@@ -27,23 +30,29 @@ The learning navigation tree (`learn/tree.json`) is organized into ten sections 
 
 ## Live Previews
 
-Many topics include runnable code blocks that mount real Neo.mjs components inside your current worker session. Click the editor toggle in the top-right corner of any preview to inspect or edit the source code and see your changes applied immediately:
+Many topics include runnable `live-preview` examples rendered by `Neo.code.LivePreview` as tab panels with **Source** and **Preview** tabs. Click the **Preview** tab to mount and interact with the live component, or edit the code in the **Source** tab to see your changes applied immediately in **Preview**.
+
+You can also launch any preview into its own browser window by clicking the window popout icon (<span class="far fa-xs fa-window-maximize"></span> *"Open preview in a separate window"*) on the right side of the preview tab bar. Because the Portal itself is a Neo.mjs application, popped-out preview windows stay connected to the same multi-window runtime:
 
 ```javascript live-preview
-import Button from '../button/Base.mjs';
-import Neo    from '../Neo.mjs';
+import Button    from '../button/Base.mjs';
+import Container from '../container/Base.mjs';
 
-class MainView extends Button {
+class MainView extends Container {
     static config = {
-        className: 'Neo.example.button.Base.MainContainer',
-        text     : 'Click me!',
-        handler  : () => Neo.Main.alert({message: 'Button clicked!'})
+        className: 'Example.view.MainView',
+        layout   : {ntype: 'vbox', align: 'start'},
+        items    : [{
+            module : Button,
+            text   : 'Click me!',
+            handler: () => Neo.Main.alert({message: 'Button clicked!'})
+        }]
     }
 }
 MainView = Neo.setupClass(MainView);
 ```
 
-Try editing the `text` config above, or inspect how functional components and `useConfig` reactive state update the DOM without page reloads:
+Try editing the `text` config in the **Source** tab above, or inspect how functional components (`defineComponent`) and `useConfig` reactive state update the DOM without page reloads:
 
 ```javascript live-preview
 import {defineComponent, useConfig} from '../functional/_export.mjs';

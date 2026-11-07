@@ -6,8 +6,8 @@ Welcome to the official learning directory (`learn/`) for **Neo.mjs**. These Mar
 
 Neo.mjs is architected around two connected hemispheres joined by the **Neural Link**:
 
-1. **The Body (`/src/`, `neomjs/neo`):** An Off-Main-Thread (OMT) multi-window application engine. Component trees, state providers, data stores (`100,000`-row buffered grids), and virtual DOM diffing execute inside a dedicated `App` Worker (or a `SharedWorker` across multiple browser windows), leaving the browser's main thread free for input and compositing.
-2. **The Brain (`/ai/`, `neomjs/neo-agent-brain` & `neomjs/neo-agent-institution`):** An Agent OS with a persistent Native Edge Graph, Memory Core, Knowledge Base, and Fleet Manager cockpit. Through the **Neural Link** (`60` MCP tools), AI coding agents inspect live component instances, query `state.Provider` hierarchies, simulate user interactions, and hot-patch methods inside running applications without page reloads.
+1. **The Body (`/src/`, `neomjs/neo`):** An Off-Main-Thread (OMT) multi-window application engine organized across four dedicated workers (`App`, `VDom`, `Data`, and `Canvas`). Component trees, state providers, and data stores (`100,000`-row buffered grids) live in the `App` Worker (or a `SharedWorker` across multiple browser windows), virtual DOM diffing runs in the `VDom` Worker (`src/worker/VDom.mjs` → `src/vdom/Helper.mjs`), and the browser's main thread applies the resulting DOM deltas while staying free for input and compositing.
+2. **The Brain (`/ai/`, `neomjs/neo-agent-brain` & `neomjs/neo-agent-institution`):** An Agent OS with a persistent Native Edge Graph, Memory Core, Knowledge Base, and Fleet Manager cockpit. Through the **Neural Link**'s MCP tools, AI coding agents inspect live component instances, query `state.Provider` hierarchies, simulate user interactions, and hot-patch methods inside running applications without page reloads.
 
 ---
 
@@ -34,10 +34,10 @@ If you are evaluating Neo.mjs for trading/telemetry desks, multi-monitor workspa
 If you are connecting coding agents (Claude Code, Codex, Gemini / Antigravity) to a Neo.mjs app or operating an agent team:
 1. **[Brain Interface, Fleet & Agent Tooling](./agentos/FleetManagerArchitecture.md):**
    - **[Fleet Manager Architecture](./agentos/FleetManagerArchitecture.md)** & **[Running the Fleet Cockpit](./agentos/RunningTheFleetCockpit.md):** Orchestrating named peer seats, live activity streams, and multi-window perspectives.
-   - **[The Neural Link](./agentos/NeuralLink.md):** Inspecting and driving live Neo.mjs applications over WebSocket + JSON-RPC (`60` MCP tools).
+   - **[The Neural Link](./agentos/NeuralLink.md):** Inspecting and driving live Neo.mjs applications over WebSocket + JSON-RPC through the Neural Link's MCP tools.
    - **[Progressive Disclosure Skills](./agentos/ProgressiveDisclosureSkills.md)** & **[Core Skills](./agentos/CoreSkills.md):** `SKILL.md` routers and verification gates.
    - **[The Seat Memory Layer](./agentos/SeatMemoryLayer.md):** Persistent per-seat and shared team memory across sessions.
-   - **Retained Architectural Decision Records (`learn/agentos/decisions/`):** Canonical ADRs governing compaction taxonomy, `AiConfig` reactivity, and dock/drag contracts.
+   - **Retained Architectural Decision Records (`learn/agentos/decisions/`):** Canonical records held in this directory governing compaction taxonomy (`0007`), skill anatomy (`0008`), the identity source-of-truth model (`0018`), and multi-window docking design (`0038`), alongside pointers to the Brain repository's ADRs.
 
 ---
 
@@ -65,6 +65,6 @@ The navigation structure of the learning base is defined in [`learn/tree.json`](
 ## Using `learn/` with a Coding Agent
 
 Coding agents do not need to scrape or paste this directory into their system prompt:
-- **Knowledge Base MCP Server (`neo-mjs-knowledge-base`):** Run `ask_knowledge_base` or `query_documents(type: 'guide')` to retrieve semantic chunks weighted by `learn/tree.json` reading order and class inheritance chains.
+- **Knowledge Base MCP Server (`neo-mjs-knowledge-base`):** Run `ask_knowledge_base` or `query_documents(type: 'guide')` to retrieve semantic chunks indexed from `learn/tree.json`.
 - **`/llms.txt` & `/llms-full.txt` on `neomjs.com`:** For external agents without local MCP servers, `https://neomjs.com/llms.txt` serves a structured index of the learning base and API surface, and `/raw/learn/...` serves raw Markdown directly.
 - **Live Verification (`neo-mjs-neural-link`):** Pair guide patterns with `inspect_component_render_tree`, `get_instance_properties`, and `patch_code` against the running app.
