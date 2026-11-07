@@ -479,6 +479,42 @@ test.describe('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => {
         }
     });
 
+    test('reattach keeps home ownership when native close throws', async () => {
+        const vessel = installWindowVessel({closeError: new Error('native close refused')}),
+              pane   = workspace.resolvePane('workbench', initialDocument.items.workbench),
+              closes = [],
+              close  = Neo.Main.windowClose;
+
+        Neo.Main.windowClose = data => {
+            closes.push({
+                mainOwns       : Boolean(workspace.dockModel.items.workbench),
+                popupReleased  : !workspace.popupDocument.items.workbench,
+                bookkeepingGone: !workspace.detachedPanes.workbench,
+                samePane       : workspace.paneCache.workbench === pane
+            });
+            return close(data)
+        };
+
+        try {
+            expect(await workspace.popOutPane('workbench')).toEqual({detached: true, errors: []});
+            expect(await workspace.reattachPane('workbench')).toEqual({
+                errors: ['popup close failed: native close refused'], reattached: true
+            });
+            expect(closes).toEqual([{
+                mainOwns: true, popupReleased: true, bookkeepingGone: true, samePane: true
+            }]);
+            await workspace.awaitProjectionIdle();
+            expect(workspace.resolvePane('workbench', initialDocument.items.workbench)).toBe(pane);
+            expect(pane.isDestroyed).toBeFalsy();
+            expect(workspace.vesselReservations.has('popup:workbench')).toBe(false);
+            expect((await workspace.reattachPane('workbench')).reattached).toBe(false);
+            expect(vessel.closeCount).toBe(1);
+            expect(TransactionManager.get(hostGroupId).history.count).toBe(2)
+        } finally {
+            vessel.restore()
+        }
+    });
+
     test('a refused popup returns its pane without erasing an intervening Group edit', async () => {
         const vessel = installWindowVessel();
         workspace.resolvePane('workbench', initialDocument.items.workbench);
@@ -1191,6 +1227,44 @@ test.describe('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => {
             expect(calls).toEqual([['retire', active], 'end'])
         } finally {
             workspace.tearOutHandlers = previousTearOut
+        }
+    });
+
+    test('tear-out adoption resolves current collaborators after publication settles', async () => {
+        const previous = {
+                  onWorkspaceDocumentChange: workspace.onWorkspaceDocumentChange,
+                  tearOutHandlers          : workspace.tearOutHandlers,
+                  nativeWindows            : workspace.nativeWindows
+              },
+              operation  = {operation: 'detachItem', itemId: 'workbench'},
+              vessel     = {workspaceKey: 'popup:workbench'},
+              connection = {windowId: 'current-child'},
+              calls      = [];
+        let release;
+        const publication = new Promise(resolve => release = resolve);
+
+        try {
+            workspace.onWorkspaceDocumentChange = () => publication;
+            workspace.tearOutHandlers = {adoptPane: () => calls.push('stale handler')};
+            workspace.nativeWindows = {getConnection: () => ({windowId: 'stale child'})};
+
+            const pending = workspace.onTearOutDocumentChange(workspace.dockModel, operation, vessel);
+            expect(calls).toEqual([]);
+
+            workspace.tearOutHandlers = {adoptPane: (...args) => calls.push(args)};
+            workspace.nativeWindows = {
+                getConnection: (sourceId, workspaceKey) => {
+                    expect(sourceId).toBe(workspace.vesselSourceId);
+                    expect(workspaceKey).toBe(vessel.workspaceKey);
+                    return connection
+                }
+            };
+            release();
+            await pending;
+            expect(calls).toEqual([['workbench', vessel, connection]])
+        } finally {
+            release();
+            Object.assign(workspace, previous)
         }
     });
 
