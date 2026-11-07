@@ -654,7 +654,8 @@ class Container extends Component {
      * within the same browser window, this method performs an **atomic move**.
      * 1. The item is silently removed from its old parent (without triggering a DOM removal).
      * 2. The item is inserted into this container.
-     * 3. This container updates, sending an `insertNode` delta.
+     * 3. The lowest common ancestor of both parents updates, with this container at full depth whatever its last
+     *    update left it at, so the payload carries the item and sends an `insertNode` delta.
      * 4. The `DeltaUpdates` system detects the existing DOM node and moves it physically, preserving
      *    DOM state such as focus, input values, and iframe content.
      *
@@ -709,7 +710,11 @@ class Container extends Component {
 
                     if (lca) {
                         oldParent.remove(item, false, true, true);
-                        removeFromPreviousParent = false
+                        removeFromPreviousParent = false;
+
+                        // The move flushes at the lowest common ancestor, where this container can still be a root of
+                        // its own: its depth must reach the newcomer, which its vnode does not hold yet
+                        me.updateDepth = -1
                     }
                 }
             }
