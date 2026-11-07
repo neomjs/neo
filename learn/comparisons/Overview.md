@@ -15,7 +15,7 @@ Each comparison article will focus on:
 *   **Bridging Knowledge Gaps:** Mapping concepts you know to Neo.mjs.
 *   **Highlighting Differentiators:** What makes Neo.mjs unique.
 *   **Side-by-Side Analysis:** Feature-by-feature comparisons.
-*   **Trade-offs and Use Cases:** When Neo.mjs might be the optimal choice.
+*   **Use Cases:** The applications Neo.mjs builds, and what it adds on top.
 
 ### Architectural Snapshot
 

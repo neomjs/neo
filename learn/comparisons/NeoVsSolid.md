@@ -66,7 +66,7 @@ This is where the two architectures diverge significantly, each offering unique 
 
 *   **JSX vs. Plain Objects:** Solid uses JSX (requiring a build step), while Neo.mjs uses plain JavaScript objects for VDOM (no JSX compilation needed). **This means Neo.mjs's VDOM is defined using simple nested JavaScript objects and arrays, akin to a JSON-like description of the DOM.**
 *   **Side Effects:** Solid has explicit `createEffect` and `createRenderEffect` hooks for managing side effects. In Neo.mjs, `createVdom` is the primary effect for rendering, and other side effects would typically be managed by separate `Neo.core.Effect` instances or dedicated hooks.
-*   **Ecosystem & Maturity:** Solid.js has a growing community and ecosystem. Neo.mjs has a smaller but dedicated community, with a focus on engine-level solutions.
+*   **Ecosystem & Maturity:** Solid.js has a growing ecosystem around a lean view layer, and the grids, forms, docking and routing a Solid project needs come from separate packages. Neo.mjs ships them in one install: more than 450 classes, maintained and released together. Its community is smaller, and its answers are integrated rather than assembled.
 
 ## Conclusion
 
@@ -75,4 +75,4 @@ Both Neo.mjs and Solid.js are highly performant, modern reactive solutions.
 *   **Solid.js** excels by completely sidestepping the Virtual DOM, compiling directly to efficient DOM operations, and running components only once. It's a lean, fast choice for Main Thread-bound applications.
 *   **Neo.mjs** offers a unique value proposition with its worker-based architecture, offloading heavy computation from the Main Thread to ensure UI responsiveness. It combines this with a sophisticated VDOM pipeline that includes off-Main-Thread diffing, intelligent batching/aggregation, and surgical direct DOM API updates.
 
-The choice between them depends on the specific application's needs: Solid.js for ultimate Main Thread rendering speed, and Neo.mjs for guaranteed Main Thread responsiveness and leveraging multi-core processing, especially in complex, data-intensive applications.
+Solid.js is a lean, fast way to render on the main thread. Neo.mjs builds complete applications, from everyday business apps to data-intensive workspaces, with the work kept off the main thread and the components, data layer and tooling in one install. To try it on your next application, start with the [Getting Started](../gettingstarted/Workspaces.md) guide.

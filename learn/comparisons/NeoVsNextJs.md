@@ -44,20 +44,20 @@ SEO are critical.
 Given their distinct architectures, Neo.mjs and Next.js naturally fit different primary use cases, though they can also
 complement each other.
 
-### Neo.mjs: Complex, Interactive SPAs & Enterprise Applications
+### Neo.mjs: Interactive Applications of Every Size
 
-Neo.mjs is ideally suited for applications that demand high levels of interactivity, real-time data processing, and
-guaranteed UI responsiveness, even under heavy load.
+Neo.mjs builds interactive web applications of every size, from everyday business apps to real-time dashboards, and
+keeps the UI responsive even under heavy load.
 
-*   **Rich Data Dashboards:** Building complex dashboards with numerous interactive components, charts, and real-time updates.
-*   **Enterprise-Grade SPAs:** Large-scale business applications requiring robust architecture, high performance, and maintainability.
+*   **Business Applications:** From form-driven customer portals to large back-office systems, with the components, data layer and tooling in one install.
+*   **Rich Data Dashboards:** Dashboards with numerous interactive components, charts, and real-time updates.
 *   **Interactive Tools & Editors:** Applications where user input directly manipulates complex UI elements or data structures.
-*   **Any application where Main Thread responsiveness is a critical non-functional requirement.**
+*   **Any application whose users expect it to stay fluid while it works.**
 
 ### Neo.mjs: Multi-Window / Multi-Screen Applications
 
 Neo.mjs's multi-threaded architecture extends naturally to support complex multi-window and multi-screen application scenarios.
-This is a capability rarely found in other frameworks and offers significant advantages for specific use cases.
+This is a capability rarely found anywhere else on the web.
 
 *   **Shared Data & State:** Raw data and application state can be seamlessly shared and synchronized across multiple
     connected browser windows or even different screens (e.g., a main application window and a separate pop-out dashboard
@@ -69,8 +69,8 @@ This is a capability rarely found in other frameworks and offers significant adv
 *   **Reduced Traffic:** With data and logic shared and synchronized locally, the need to re-fetch or re-process information
     for each window is eliminated, leading to a more efficient and responsive user experience.
 
-This capability is particularly valuable for enterprise applications, trading platforms, control centers, or any scenario
-where users need to monitor and interact with complex data across multiple views simultaneously.
+It serves any application whose users work across several views or screens at once, from back-office tools to trading
+platforms, and Neo.mjs ships it as [Dock Layouts](../guides/uibuildingblocks/DockLayouts.md).
 
 ### Next.js: Content-Driven Websites & SEO-Critical Applications
 
@@ -87,9 +87,9 @@ optimization are paramount.
 It's important to note that Neo.mjs and Next.js are not mutually exclusive. They can be used together to leverage their
 respective strengths:
 
-*   **Next.js as a Content Shell:** Use Next.js to handle the public-facing, SEO-optimized content (e.g., landing pages,
-    blog posts). When a user navigates to a highly interactive section (e.g., a complex dashboard or a data visualization
-    tool), a Neo.mjs application can be seamlessly embedded or loaded as a separate SPA.
+*   **Alongside an Existing Next.js Site:** If your public pages already run on Next.js, a Neo.mjs application can be
+    embedded or loaded as a separate SPA for the interactive sections, such as a dashboard or a data visualization tool.
+    Content pages can run on Neo.mjs too: the neomjs.com portal, its documentation and its blog are a Neo.mjs application.
 *   **Next.js for API Backend:** Utilize Next.js's API Routes to build a robust backend for data fetching and business
     logic, while a Neo.mjs application consumes these APIs to power its rich client-side UI.
 
@@ -101,23 +101,22 @@ respective strengths:
 | **Core Architecture**   | Multi-Threaded (Worker-Based)           | Single-Threaded (React + Node.js)       |
 | **Rendering Strategy**  | Client-Side (Off-Main-Thread VDOM)      | SSR, SSG, CSR (Main Thread React VDOM)  |
 | **Main Thread Impact**  | Minimal (Logic in Workers)              | Significant (All React/DOM work)        |
-| **SEO**                 | Requires pre-rendering solution         | Built-in (SSR/SSG)                      |
+| **SEO**                 | Hydrates server-rendered markup (`useSSR`) | Built-in (SSR/SSG)                   |
 | **Initial Load**        | Fast for Returning Users (Client-side caching) | Fast for First-Time Users (SSR/SSG)     |
 | **Backend Integration** | Via standard APIs                       | Built-in API Routes                     |
 | **Navigation Model**    | Single-Page Application (SPA)           | Page-Based (MPA with client-side routing) |
 
 ## Conclusion
 
-Choosing between Neo.mjs and Next.js depends entirely on your application's primary requirements. If your goal is to
-build a highly interactive, performant, and responsive client-side application that can handle complex UIs and heavy
-data processing without blocking the Main Thread, Neo.mjs is the superior choice. Neo.mjs's architecture, leveraging
+If you are building an interactive application, from an everyday business app to a data-heavy dashboard, Neo.mjs is the
+superior choice: it handles complex UIs and heavy data processing without blocking the Main Thread. Neo.mjs's architecture, leveraging
 Service Workers for aggressive client-side caching of application code, results in near-instant load times for
 returning users, significantly reducing network traffic as only raw data needs to be fetched from the backend.
 Furthermore, its Single-Page Application (SPA) model ensures seamless navigation without full browser reloads, providing
 a fluid and highly engaging user experience for interactive applications.
 
-If your priority is delivering SEO-friendly, content-rich web pages with fast initial load times for first-time users,
-and you prefer a React-based full-stack framework, Next.js is an excellent solution.
+Content sites can run on Neo.mjs as well, as neomjs.com does. If your public pages already run on Next.js, the two
+combine well: keep the existing site, and build the application behind it with Neo.mjs.
 
 For many modern web projects, the most powerful approach might involve combining their strengths, using Next.js for
 content delivery and API services, and embedding or integrating Neo.mjs for the most demanding
