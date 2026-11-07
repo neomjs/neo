@@ -68,16 +68,21 @@ class Stream extends Base {
     }
 
     /**
+     * @summary Parses a stream progressively, awaiting an optional per-read transform before each batch.
+     * Failures cancel the reader before propagating; every terminal path clears the store's streaming flag.
      * @param {Object} rawData Output from the connection
+     * @param {Object} [options={}]
+     * @param {Function} [options.transformChunk] Awaited per-read transform before each data event.
      * @returns {Promise}
      */
-    async read(rawData) {
+    async read(rawData, {transformChunk}={}) {
         let me                                = this,
             chunk                             = [],
             {chunkSize, progressiveChunkSize} = me,
             currentChunkSize                  = me.initialChunkSize || chunkSize,
             burstCount                        = 0,
-            count                             = 0;
+            count                             = 0,
+            reader;
 
         if (rawData.aborted) {
             me.store && (me.store.isStreaming = false);
@@ -89,11 +94,11 @@ class Stream extends Base {
         me.store && (me.store.isStreaming = true);
 
         try {
-            const
-                reader  = stream.getReader(),
-                decoder = new TextDecoder();
-            let buffer  = '',
-                loaded  = 0;
+            reader = stream.getReader();
+            const decoder = new TextDecoder();
+
+            let buffer = '',
+                loaded = 0;
 
             while (true) {
                 const {value, done} = await reader.read();
@@ -106,8 +111,8 @@ class Stream extends Base {
                     }
                     // Flush remaining chunk
                     if (chunk.length > 0) {
-                        me.fire('data', chunk);
-                        me.store && (me.store.isStreaming = false)
+                        if (transformChunk) chunk = await transformChunk(chunk);
+                        me.fire('data', chunk)
                     }
                     break
                 }
@@ -126,6 +131,7 @@ class Stream extends Base {
                         count++;
 
                         if (chunk.length >= currentChunkSize) {
+                            if (transformChunk) chunk = await transformChunk(chunk);
                             me.fire('data', chunk);
 
                             burstCount++;
@@ -148,11 +154,15 @@ class Stream extends Base {
 
             return {success: true, count}
         } catch (e) {
-            if (e.name === 'AbortError') {
-                me.store && (me.store.isStreaming = false);
+            try { await reader?.cancel(e) } catch {}
+            let aborted;
+            try { aborted = e?.name === 'AbortError' } catch {}
+            if (aborted) {
                 return {success: true, count, aborted: true}
             }
             throw e
+        } finally {
+            me.store && (me.store.isStreaming = false)
         }
     }
 

@@ -2,6 +2,7 @@ import Neo      from '../Neo.mjs';
 import Base     from './Base.mjs';
 import Fetch    from '../Fetch.mjs';
 import Instance from '../manager/Instance.mjs';
+import Pipeline from '../data/Pipeline.mjs';
 import Xhr      from '../Xhr.mjs';
 
 /**
@@ -27,7 +28,8 @@ class Data extends Base {
             app: [
                 'createInstance',
                 'loadDataModule',
-                'loadModule'
+                'loadModule',
+                'setPipelineInterceptors'
             ]
         },
         /**
@@ -90,6 +92,12 @@ class Data extends Base {
      * @protected
      */
     async importAppSpaceModule(path) {
+        const appSpace = path.startsWith('apps/') || path.startsWith('examples/') || path.startsWith('docs/app/');
+        // Match App's installed-source theme-map hop; webpack still owns compiled app-space contexts.
+        if (appSpace && ['development', 'dist/esm'].includes(Neo.config.environment)
+            && Neo.config.workerBasePath?.includes('node_modules')) {
+            return import(/* webpackIgnore: true */ `../../../../${path}.mjs`)
+        }
         if (path.startsWith('apps/')) {
             return import(
                 /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|\.claude(?:\/|\\)|server\.mjs|test(?:\/|\\)|System Volume Information|\$RECYCLE\.BIN)/ */
@@ -223,20 +231,34 @@ class Data extends Base {
      *
      * @param {Object} data
      * @param {String} data.path The path to the module to load.
+     * @param {String} [data.className] When supplied, require this registered Neo default export.
      * @returns {Promise<Object>} {success: true, path} or {success: false, path, error}
      */
-    async loadModule({path}) {
+    async loadModule({path, className}) {
         if (path.endsWith('.mjs')) {
             path = path.slice(0, -4)
         }
 
         try {
-            await this.importAppSpaceModule(path);
+            const module = await this.importAppSpaceModule(path);
+            if (className && (!module.default?.isClass || module.default.prototype.className !== className)) {
+                throw new Error(`Module ${path} does not export Neo class ${className}`)
+            }
             return {success: true, path}
         } catch (e) {
             console.error(`Data Worker: Failed to load module ${path}`, e);
             return {success: false, path, error: e.message}
         }
+    }
+
+    /**
+     * @summary Replaces the Data realm's global Pipeline policies after production module loading.
+     * @param {Object} data
+     * @param {Array} data.interceptors Serializable class/config descriptors.
+     * @returns {Promise<Number>} Number of admitted global handlers.
+     */
+    async setPipelineInterceptors({interceptors}) {
+        return Pipeline.setGlobalInterceptors(interceptors)
     }
 
     /**

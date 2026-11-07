@@ -282,6 +282,8 @@
  "Neo.data.connection.Stream": "Neo.data.connection.Base",
  "Neo.data.connection.WebSocket": "Neo.data.connection.Base",
  "Neo.data.connection.Xhr": "Neo.data.connection.Base",
+ "Neo.data.interceptor.Base": "Neo.core.Base",
+ "Neo.data.interceptor.Chain": "Neo.core.Base",
  "Neo.data.normalizer.Base": "Neo.core.Base",
  "Neo.data.normalizer.Path": "Neo.data.normalizer.Base",
  "Neo.data.normalizer.Tree": "Neo.data.normalizer.Base",
