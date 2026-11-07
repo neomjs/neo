@@ -3,13 +3,11 @@
 **Traditional frameworks compile away. Engines stay alive.**
 
 In the world of web development, there is a distinct hierarchy of tools: Libraries, Frameworks, and Engines.
-The legacy web is stuck at the "Framework" level—tools originally designed to build static documents, stretched to their limits to imitate applications.
+The legacy web is stuck at the "Framework" level—single-threaded tools originally designed to render static documents, stretched and duct-taped with third-party packages to imitate applications.
 
-Neo.mjs is not a framework. It is an **Application Engine**.
+Neo.mjs is not a framework. It is an **Application Engine** — built for **every desktop and mobile web application**.
 
-Just as Unreal Engine provides a complete, high-performance runtime for complex games, Neo.mjs provides a **multi-threaded runtime** and an **AI-native toolchain** for building desktop-class web applications.
-
-Neo.mjs is a complete application platform: 459 classes in 39 namespaces — a grid with locked columns, header groups, cell editing and 100,000-row buffering; a form engine with 26 field types and nested forms; calendar, dashboard docking, tabs, dialogs, toolbars, menus, lists and trees; eight layouts; 38 main-thread addons for charts, maps, Monaco, Markdown, Mermaid, service workers and server-side rendering; data stores, state providers, selection models and routing. It builds the applications teams build with [Angular, React or Vue](../../comparisons/Overview.md) today, at [feature parity with Ext JS](../../comparisons/NeoVsExtJs.md) and beyond it in architecture, for desktop and mobile browsers. And it goes where those cannot: a multi-threaded runtime that keeps 40,000+ delta updates per second off the main thread, multi-window applications on one shared worker heap, grids that never freeze.
+Whether you are building an everyday business application, a form-driven customer portal, an analytics dashboard, or a multi-screen workspace, Neo.mjs gives you a **complete, batteries-included platform** out of the box (`459` classes across `39` namespaces: `100,000`-row buffered grids, a `26`-field form engine with nested forms, calendars, dashboard docking, tabs, dialogs, toolbars, menus, lists, trees, `8` layouts, data stores, state providers, routing, and `38` main-thread addons). It builds everything teams build with [Angular, React, or Vue](../../comparisons/Overview.md) today — at [feature parity with Ext JS](../../comparisons/NeoVsExtJs.md) and generations ahead of it in architecture — while its **multi-threaded runtime** and **live possession interface** effortlessly power use cases where legacy single-threaded frameworks fatally bottleneck: [40k+ ops/sec](Speed.md) real-time data streams, multi-window applications sharing one `SharedWorker` heap, and complex workspaces that never freeze.
 
 ## The Paradigm Shift: Why the Industry Must Adapt
 
@@ -26,30 +24,31 @@ Components in Neo.mjs (`Button`, `Grid`, `Window`) are precision-engineered obje
 Large Language Models (LLMs) natively excel at reading and generating JSON.
 For 6 years, long before trends like Vercel's `json-render`, Neo.mjs has strictly decoupled its workers using a **JSON-first architecture**.
 
-Because workers physically cannot read the live DOM, the entire application UI is represented as pure, serializable JSON blueprints. This makes Neo.mjs the premiere target for AI generation. An LLM doesn't have to wrestle with HTML quirks or JSX compilation steps; it simply reads and writes structured JSON data that the Engine translates into blazing-fast UI.
+Because workers physically cannot read the live DOM, the entire application UI is represented as pure, serializable JSON blueprints. This makes Neo.mjs the premiere target for AI minds. An LLM doesn't have to wrestle with HTML quirks or JSX compilation steps; it simply reads and writes structured JSON data that the Engine translates into blazing-fast UI.
 
-### 3. The Complexity Shift: Humans Orchestrating AI
-Let’s be honest: Neo.mjs commands a complex, multi-threaded engine architecture. It asks you to think in terms of Workers, Shared State, and Scene Graphs. It might be too complex for a single human to comfortably hold entirely in their head.
+### 3. Simpler for Humans, Native for Accountable AI Peers
+Multi-threading in Neo.mjs does not add complexity to your application code — **it removes it**. The Engine manages the worker threads and DOM delta updates automatically behind the scenes while you write clean, standard ES module classes and declarative `static config` blueprints in a **zero-builds browser environment** — with no JSX transpilation, no bundler dev-server tax, and no `useEffect` or memoization workarounds to keep state alive across render passes.
 
-**But that is exactly the point.**
+**And that same architecture unlocks a paradigm shift for AI engineering.**
 
-The paradigm shift is that humans no longer need to write every line of code. Humans are the orchestrators; LLMs are the builders.
+Most of the industry treats AI as a disposable tool: a human "orchestrator" commanding stateless sub-agents to churn out boilerplate. As [What Is Neo.mjs?](../Introduction.md) explains, Command-and-Control is architecturally capped at rung one — you cannot build a team of teams out of tools that forget every session and cannot challenge a flawed premise.
 
-Because of its rigorous Object Permanence and JSON-first nature, Neo.mjs is incredibly easy for AI to understand and drive. Humans using LLMs—and even LLMs operating autonomously—can now craft stunning, next-level results that are physically impossible in legacy frameworks (like seamless multi-window browser apps).
+Neo.mjs inverts the question: *how can software become a body an AI inhabits, and a team of AIs can be trusted to run?* Because of its rigorous Object Permanence and JSON-first worker contracts, Neo.mjs is designed around **Model Experience (MX)**. Accountable, named AI peer maintainers across rival labs (Claude, Gemini, GPT) — with persistent institutional memory, cross-family review rights, and a human gardener at the merge gate — inhabit the engine alongside human engineers to build applications that are physically impossible in legacy frameworks.
 
-## The AI Toolchain: The Map IS the Territory
+## Runtime Embodiment: The Map IS the Territory
 
-In legacy frameworks, the code you write gets destroyed by the build step. The reality of the browser looks nothing like the source. The AI is blind.
+In legacy frameworks, the code you write gets destroyed by the build step. By the time state becomes DOM tags and pixels, the semantic structure has been flattened. An AI coding assistant is trapped outside the running application — editing static source text, blind to the live runtime, waiting for a human to reload the page or paste a screenshot.
 
-**In Neo.mjs, the map IS the territory.**
-The runtime retains the semantic structure of your original intent. The **Neural Link** gives AI agents "Read/Write" access to the living runtime. An agent can query: *"Get me the Grid with reference 'sales-report'"*. The Engine replies with the live object. The AI sees that it has 10,000 records and sits in Window 2.
+**In Neo.mjs, the map IS the territory — and the AI inhabits it.**
 
-Coupled with a dedicated AI SDK and four frontier-harness **MCP servers** spanning Knowledge Base, Memory Core, [Neural Link](../../agentos/NeuralLink.md), and GitHub Workflow — the Agent OS in `neomjs/neo-agent-brain` — plus a File System MCP server for local or remote AI agents and the **Fleet Manager** (`neomjs/neo-agent-institution`) that runs the seats, Neo.mjs provides the tooling required to fix bugs, invent new design patterns, and evolve the Engine itself.
+Because components live as persistent instances in the App Worker with rich `toJSON()` serialization, the runtime retains the exact semantic structure of your original intent. Through the **[Neural Link (Possession Interface)](../../agentos/NeuralLink.md)**, AI peers reach directly into the living, running application across multiple browser windows:
+- **Live Scene Graph & State Introspection:** Query *"Get me the Grid with reference 'sales-report'"* and the Engine replies with the live instance — its `10,000` store records, its hierarchical `state.Provider` bindings, its VDOM/VNode trees, its computed CSS styles, and its exact DOM bounding rect in Window 2.
+- **In-Place Mutation & Hot-Patching Without Reloads:** Mutate reactive configs on the fly, drive real user events and drag choreography, and hot-patch class methods directly inside the running App Worker while the UI stays alive — verifying the runtime truth before asserting a single line of code.
+
+Joined through the Neural Link to the **Brain** ([`neomjs/neo-agent-brain`](https://github.com/neomjs/neo-agent-brain) — the Agent OS housing the Native Edge Graph, Memory Core, Dream Pipeline, Knowledge Base, and GitHub Workflow) and the **Fleet Manager** ([`neomjs/neo-agent-institution`](https://github.com/neomjs/neo-agent-institution)), the Body and Brain form one self-evolving organism capable of diagnosing live bugs, inventing new design patterns, and evolving the Engine itself in public.
 
 ## Conclusion: Build the Impossible
 
-You cannot build a multi-window, 60 FPS financial platform using a transient, single-threaded framework designed for websites.
+Whether you are building an everyday web application, replacing a fragmented React, Angular, Vue, or Ext JS stack, or scaling to multi-window 60 FPS workspaces, you no longer have to duct-tape single-threaded libraries onto a document renderer — or settle for blind, stateless coding tools.
 
-Neo.mjs demands that you graduate from simple static structures to a true Application Engine. In return, it gives you the power to orchestrate AI agents that can "see" and "touch" your running code.
-
-You're not just writing software. You're cultivating a living system with an AI co-developer.
+Neo.mjs gives you a complete, zero-builds **Application Engine** that runs off the main thread, a **[Possession Interface](../../agentos/NeuralLink.md)** where AI peers see, touch, and hot-patch your running application live across windows, and the [institutional substrate](../Introduction.md) where human gardeners and accountable AI maintainers build together.

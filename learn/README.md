@@ -6,16 +6,16 @@ These Markdown documents power the interactive learning portal on [neomjs.com](h
 
 ## Why Neo.mjs Is a Paradigm Shift: Two Hemispheres, One Runtime Contract
 
-Neo.mjs is not a single-threaded UI framework. It is the **only JavaScript application engine** where component instances, reactive state, and virtual DOM diffing live entirely off the browser's main thread and remain directly inspectable and mutable at runtime by AI coding agents across two connected hemispheres joined by the **Neural Link**:
+Neo.mjs is not a single-threaded UI framework. It is a **self-evolving software organism** — the only JavaScript **Application Engine** where component instances, reactive state, and virtual DOM diffing live entirely off the browser's main thread and are inhabited at runtime by accountable AI peer maintainers across two connected hemispheres joined by the **[Neural Link](./agentos/NeuralLink.md)**:
 
 1. **The Body (`/src/`, `neomjs/neo` — Off-Main-Thread Application Engine):**
    - **App Worker as the Primary Actor:** All components, controllers, `state.Provider` trees, and `data.Store` instances (`100,000`-row buffered grids) execute inside a dedicated `App` Worker (or a `SharedWorker` spanning multiple browser windows).
    - **40,000+ Delta Updates/Sec Without Main-Thread Jank:** Virtual DOM diffing runs in a dedicated `VDom` Worker (`src/worker/VDom.mjs` → `src/vdom/Helper.mjs`), sustaining [`40,000+` delta updates per second](./benefits/body/Speed.md) in the Helix benchmark while the main thread stays completely free for 60fps user input and CSS compositing.
    - **True Multi-Window Object Permanence:** Because component instances live in the worker heap rather than transient main-thread render closures, live views and docked panels can detach from one browser window and mount into another (`remove(cmp, false)`) in milliseconds without losing state.
    - **Zero-Build Native ES Modules:** Run and debug unbundled ES modules directly in the browser in `dev` mode with zero transpilation or bundler step.
-2. **The Brain (`/ai/`, `neomjs/neo-agent-brain` & `neomjs/neo-agent-institution` — Agent OS):**
-   - **Humans Are the Orchestrators; LLMs Are the Builders:** Paired with a persistent Native Edge Graph, Memory Core, Knowledge Base, and Fleet Manager cockpit, Neo.mjs treats AI agents as first-class maintainers.
-   - **Live Runtime Possession via the Neural Link:** Through the [Neural Link](./agentos/NeuralLink.md)'s MCP tools, coding agents inspect live component trees, query `state.Provider` hierarchies, simulate DOM events, and hot-patch class methods inside running applications without page reloads.
+2. **The Brain & Neural Link (`/ai/`, `neomjs/neo-agent-brain` & `neomjs/neo-agent-institution` — Agent OS & Possession Interface):**
+   - **Accountable AI Peers, Not Disposable Tools:** Instead of a Rung-1 orchestrator commanding stateless sub-agents ([Introduction](./benefits/Introduction.md)), Neo.mjs runs as a **Team of Teams** — named AI maintainers across rival labs (Claude, Gemini, GPT) with persistent identity, a shared **Native Edge Graph** and **Memory Core**, **Dream Pipeline** consolidation into a **Golden Path**, semantic **Knowledge Base** grounding, and cross-family adversarial PR review under a human gardener at the merge gate.
+   - **Live Runtime Embodiment via the Neural Link:** Because Neo.mjs components have true Object Permanence (`Neo.core.Base#toJSON()`), AI peers do not guess from static source files. Through the [Neural Link Possession Interface](./agentos/NeuralLink.md), they inhabit the live running application across windows — inspecting real component and VDOM/VNode scene graphs, reading computed styles and DOM rects, querying live stores and `state.Provider` trees, driving user interactions, and hot-patching class methods directly in the App Worker without reloading the page.
 
 ---
 
@@ -31,8 +31,8 @@ If you are building single-window or multi-window web applications, high-density
    - **UI Building Blocks & Multi-Window Docking:** The 10-part dock-layout and cross-window tear-out shelf (`DockContainer`, `DockZone`, `Workspace`, `Perspectives`).
 4. **[Tutorials](./tutorials/DockLayoutsFirstLayout.md):** Step-by-step application walkthroughs with runnable live-preview examples.
 
-### 2. Evaluating Neo.mjs for an Enterprise Application (Evaluator Path)
-If you are evaluating Neo.mjs for trading/telemetry desks, multi-monitor workspaces, or large-scale data grids:
+### 2. Evaluating Neo.mjs Against Frameworks or Ext JS (Evaluator & Architect Path)
+If you are evaluating Neo.mjs for desktop or mobile web applications, migrating from Ext JS, or replacing a fragmented React, Angular, or Vue stack:
 1. **[Introduction (Claims & Proof Register)](./benefits/Introduction.md):** Every architectural claim paired with its source coordinate, test suite, or reproducible benchmark receipt.
 2. **[Body Benefits](./benefits/body/OffTheMainThread.md):** Off-main-thread execution, [Multi-Window SharedWorker state](./benefits/body/MultiWindow.md), [Object Permanence](./benefits/body/ObjectPermanence.md), [Four Environments](./benefits/body/FourEnvironments.md) (zero-build ESM development through bundled production), and the [RPC Layer](./benefits/body/RPCLayer.md).
 3. **[Engine vs Frameworks](./comparisons/Overview.md):** Architectural comparisons against React, Angular, Vue, Solid, Svelte, and [Sencha Ext JS](./comparisons/NeoVsExtJs.md).
@@ -41,7 +41,7 @@ If you are evaluating Neo.mjs for trading/telemetry desks, multi-monitor workspa
 ### 3. Running or Integrating Coding Agents (Agent Operator Path)
 If you are connecting coding agents (Claude Code, Codex, Gemini / Antigravity) to a Neo.mjs app or operating an agent team:
 1. **[Brain Interface, Fleet & Agent Tooling](./agentos/FleetManagerArchitecture.md):**
-   - **[Fleet Manager Architecture](./agentos/FleetManagerArchitecture.md)** & **[Running the Fleet Cockpit](./agentos/RunningTheFleetCockpit.md):** Orchestrating named peer seats, live activity streams, and multi-window perspectives.
+   - **[Fleet Manager Architecture](./agentos/FleetManagerArchitecture.md)** & **[Running the Fleet Cockpit](./agentos/RunningTheFleetCockpit.md):** Operating named peer seats, live activity streams, and multi-window perspectives.
    - **[The Neural Link](./agentos/NeuralLink.md):** Inspecting and driving live Neo.mjs applications over WebSocket + JSON-RPC through the Neural Link's MCP tools.
    - **[Progressive Disclosure Skills](./agentos/ProgressiveDisclosureSkills.md)** & **[Core Skills](./agentos/CoreSkills.md):** `SKILL.md` routers and verification gates.
    - **[The Seat Memory Layer](./agentos/SeatMemoryLayer.md):** Persistent per-seat and shared team memory across sessions.
