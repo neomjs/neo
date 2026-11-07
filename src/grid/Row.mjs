@@ -443,7 +443,8 @@ class Row extends Component {
 
         if (gridContainer.isTreeGrid && ariaRow) {
             if (!record.isLeaf) {
-                vdom['aria-expanded'] = record.expanded || false;
+                // TreeModel's expansion state is `collapsed`, which TreeStore defaults to true
+                vdom['aria-expanded'] = record.collapsed === false;
             } else {
                 delete vdom['aria-expanded'];
             }
