@@ -100,6 +100,8 @@ class Store extends Collection {
      * @private
      */
     #pendingLoads = 0;
+    /** @member {Set<Function>} #streamingReads Read handlers that have received progressive data. @private */
+    #streamingReads = new Set();
     /**
      * @member {Boolean} #sortingRecordChange=false Prevents derived tree statistics from recursively sorting.
      * @private
@@ -187,6 +189,13 @@ class Store extends Collection {
          * @reactive
          */
         isLoadPending_: false,
+        /**
+         * True while an active Pipeline read has delivered progressive data. Store owns this state in either
+         * execution realm; later chunks preserve the current view, and settlement releases only that read.
+         * @member {Boolean} isStreaming=false
+         * @readonly
+         */
+        isStreaming: false,
         /**
          * @member {Neo.data.Model} model_=null
          * @reactive
@@ -651,6 +660,8 @@ class Store extends Collection {
             model = me.#ownsModel ? me.model : null;
 
         me.allItems?.un('recordChange', me.onAllItemsRecordChange, me);
+        me.#streamingReads.clear();
+        me.isStreaming = false;
         StoreManager.unregister(me);
 
         super.destroy();
@@ -1192,7 +1203,8 @@ class Store extends Collection {
     }
 
     /**
-     * @summary Executes one transport load without changing hydration or progressive-rendering semantics.
+     * @summary Executes one transport load and owns its progressive lifetime through settlement.
+     * Pipeline data events use the same receiving-Store state whether parsing runs locally or in the Data Worker.
      * @param {Object} opts Load options documented by load().
      * @returns {Promise<Object|Object[]>}
      * @private
@@ -1215,7 +1227,9 @@ class Store extends Collection {
             params.sorters = me.exportSorters()
         }
 
-        if (me.pipeline) {
+        const pipeline = me.pipeline;
+
+        if (pipeline) {
             if (me.items.length > 0 && !append) {
                 me.clear();
             }
@@ -1225,8 +1239,12 @@ class Store extends Collection {
             let receivedData = false;
 
             const onData = (data) => {
+                if (me.isDestroyed) return;
+
                 if (data != null && (!Array.isArray(data) || data.length > 0)) {
-                    receivedData = true
+                    receivedData = true;
+                    me.#streamingReads.add(onData);
+                    me.isStreaming = true
                 }
 
                 me.addLoadedItems(data, append);
@@ -1239,34 +1257,39 @@ class Store extends Collection {
             };
 
             const onProgress = (data) => {
-                me.fire('progress', data);
+                if (!me.isDestroyed) me.fire('progress', data);
             };
 
-            me.pipeline.on({
-                data    : onData,
-                progress: onProgress
-            });
+            // Subscription ids keep removal local to this read even when concurrent handlers share names.
+            const subscriptions = [
+                      ['data', pipeline.on('data', onData)],
+                      ['progress', pipeline.on('progress', onProgress)]
+                  ],
+                  release = () => {
+                      for (const [event, id] of subscriptions.splice(0)) {
+                          if (!pipeline.isDestroyed) pipeline.un(event, id)
+                      }
+                      me.#streamingReads.delete(onData);
+                      if (!me.isDestroyed) me.isStreaming = me.#streamingReads.size > 0
+                  };
 
             try {
                 // params.url can override pipeline/connection url
                 if (opts.url) {
                     params.url = opts.url;
 
-                    if (!me.pipeline.connection) {
+                    if (!pipeline.connection) {
                         const ConnectionXhr = (await import('./connection/Xhr.mjs')).default;
-                        me.pipeline.connection = {
+                        pipeline.connection = {
                             module: ConnectionXhr,
                             url   : opts.url
                         };
                     }
                 }
 
-                const response = await me.pipeline.read(params);
-
-                me.pipeline.un({
-                    data    : onData,
-                    progress: onProgress
-                });
+                const response = await pipeline.read(params);
+                release();
+                if (me.isDestroyed) throw Neo.isDestroyed;
 
                 if (response != null) {
                     // response could be the finalized array or an object depending on normalizer
@@ -1288,7 +1311,7 @@ class Store extends Collection {
                     me.fire('load', {
                         isLoading    : false,
                         items        : me.items,
-                        postChunkLoad: append || me.pipeline.parser?.ntype === 'parser-stream',
+                        postChunkLoad: append || receivedData,
                         total        : me.totalCount
                     });
                     return me.items;
@@ -1297,12 +1320,10 @@ class Store extends Collection {
                     return null;
                 }
             } catch (e) {
-                me.pipeline.un({
-                    data    : onData,
-                    progress: onProgress
-                });
-                me.isLoading = false;
+                if (!me.isDestroyed) me.isLoading = false;
                 throw e;
+            } finally {
+                release();
             }
         } else if (me.api) {
             let apiArray = me.api.read.split('.'),

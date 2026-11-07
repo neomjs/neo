@@ -91,6 +91,71 @@ async function appWorker(page) {
     return page.workers().find(isApp)
 }
 
+test('streamed batches preserve the scrolled view through completion', async ({page, neuralLink}) => {
+    await page.setViewportSize({width: 1600, height: 900});
+    await openShowcase(page);
+    await expect(page.locator(`${GRID} .neo-grid-row`).first()).toBeVisible({timeout: 30000});
+    const app    = await neuralLink.connectToApp('Neo.examples.grid.issues'),
+          worker = await appWorker(page), gridId = await page.locator(GRID).getAttribute('id'),
+          read   = () => app.getComponent(gridId, ['store.count', 'store.isStreaming']);
+    expect((await read())['store.count']).toBe(issues.length);
+
+    const viewId = await worker.evaluate(async id => {
+        const {default: Stream}     = await import('/src/data/parser/Stream.mjs'),
+              {default: Connection} = await import('/src/data/connection/Base.mjs'),
+              grid                  = Neo.get(id), store = grid.store;
+        grid.contentSizedRows = false;
+        store.pipeline.parser = {module: Stream, initialChunkSize: 100, chunkSize: 100, initialBurstCount: 0};
+        store.pipeline.connection = {module: Connection};
+        await store.pipeline.parser.ready();
+        let controller;
+        const stream = new ReadableStream({start(value) {controller = value}});
+        store.pipeline.connection.read = async () => ({stream, total: 0});
+        globalThis.__storeStreamWitness = {controller, loading: store.load()};
+        return grid.view.id
+    }, gridId);
+    const enqueue = (from, count) => worker.evaluate(({from, count}) => {
+        const rows = Array.from({length: count}, (_, i) => ({
+            id  : from + i, title: 'Stream record ' + (from + i), summary: 'Controlled arriving batch',
+            type: 'Task', area: 'Grid', state: 'Open', author: 'neo-gpt-sophie', created: '2026-11-07', comments: 0
+        }));
+        __storeStreamWitness.controller.enqueue(new TextEncoder().encode(rows.map(JSON.stringify).join('\n') + '\n'))
+    }, {from, count});
+
+    try {
+        await enqueue(1, 200);
+        await expect.poll(async () => (await read())['store.count']).toBe(200);
+        expect((await read())['store.isStreaming']).toBe(true);
+        const view = page.locator(`[id="${viewId}"]`), scrollTop = () => view.evaluate(node => node.scrollTop);
+        await view.hover();
+        await page.mouse.wheel(0, 600);
+        await expect.poll(scrollTop).toBeGreaterThan(300);
+        await page.waitForTimeout(150);
+        const position = await scrollTop();
+
+        for (const from of [201, 301, 401]) {
+            await enqueue(from, 100);
+            await expect.poll(async () => (await read())['store.count']).toBe(from + 99);
+            expect((await read())['store.isStreaming']).toBe(true);
+            // The ordinary-load reset is dispatched after 50ms; observe past that boundary for each batch.
+            await page.waitForTimeout(150);
+            expect(await scrollTop()).toBe(position)
+        }
+        await worker.evaluate(async () => {
+            __storeStreamWitness.controller.close();
+            await __storeStreamWitness.loading
+        });
+        await expect.poll(async () => (await read())['store.isStreaming']).toBe(false);
+        await page.waitForTimeout(150);
+        expect(await scrollTop()).toBe(position)
+    } finally {
+        await worker.evaluate(() => {
+            try {__storeStreamWitness.controller.close()} catch {}
+            delete globalThis.__storeStreamWitness
+        })
+    }
+});
+
 test.describe('Grid issues showcase', () => {
     test.beforeEach(async ({page}) => {
         await page.setViewportSize({width: 1600, height: 900});

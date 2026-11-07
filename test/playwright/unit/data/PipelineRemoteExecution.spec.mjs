@@ -24,6 +24,116 @@ class RmaReceiver extends Neo.core.Base {
 }
 RmaReceiver = Neo.setupClass(RmaReceiver);
 
+test('remote progressive loads retain streaming state and continuation through the App receiver', () => {
+    const script = `
+        import assert from 'node:assert/strict';
+        import {setup} from './test/playwright/setup.mjs';
+        import Neo from './src/Neo.mjs';
+        import * as core from './src/core/_export.mjs';
+        import Pipeline from './src/data/Pipeline.mjs';
+        import Store from './src/data/Store.mjs';
+        import Model from './src/data/Model.mjs';
+        import Stream from './src/data/parser/Stream.mjs';
+        import Connection from './src/data/connection/Base.mjs';
+        import RemoteMethodAccess from './src/worker/mixin/RemoteMethodAccess.mjs';
+        setup();
+        delete Neo.worker.App;
+        Neo.overwrites = {Neo: {worker: {App: {singleton: false}}}};
+        const {default: App} = await import('./src/worker/App.mjs');
+        class Receiver extends Neo.core.Base {
+            static config = {className: 'Test.Unit.Data.PipelineRemoteStreaming.Receiver', mixins: [RemoteMethodAccess]};
+        }
+        Neo.setupClass(Receiver);
+        const receiver = Neo.create(Receiver), requests = [], events = [], pending = new Map();
+        receiver.resolve = (msg, data) => pending.get(msg.id).resolve(structuredClone(data));
+        receiver.reject = (msg, error) => pending.get(msg.id).reject(error);
+        Neo.workerId = 'app';
+        Neo.config.unitTestMode = false;
+        Neo.currentWorker = {
+            isSharedWorker: false,
+            promiseMessage(destination, opts, buffer) {
+                assert.equal(destination, 'data');
+                assert.equal(buffer, undefined);
+                const id = 'stream-wire-' + requests.length;
+                requests.push(structuredClone(opts));
+                return new Promise((resolve, reject) => {
+                    pending.set(id, {resolve, reject});
+                    receiver.onRemoteMethod({...structuredClone(opts), id, origin: 'app'});
+                });
+            },
+            sendMessage(destination, message) {
+                assert.equal(destination, 'app');
+                const msg = structuredClone(message);
+                assert.equal(msg.action, 'pipelineEvent');
+                events.push(msg);
+                App.prototype.onPipelineEvent.call({}, msg);
+            }
+        };
+        const source = Neo.create(Pipeline), target = Neo.create(Pipeline, {
+            connection: {module: Connection},
+            parser: {module: Stream, chunkSize: 1, initialChunkSize: 1}
+        });
+        await Promise.all([source.ready(), target.ready()]);
+        target.appPipelineId = source.id;
+        source.workerExecution = 'data';
+        source.remoteId = target.id;
+        source.maxRemoteRetries = 0;
+        source.parser = {className: Stream.className, chunkSize: 1, initialChunkSize: 1};
+        const store = Neo.create(Store, {
+            pipeline: source,
+            model: {module: Model, fields: [{name: 'id', type: 'Integer'}]}
+        });
+        await store.ready();
+        assert.equal(target.store ?? null, null);
+        assert.equal(target.parser.store ?? null, null);
+        const snapshots = [], loads = [], encoder = new TextEncoder();
+        let controller, delivered, started;
+        const connected = new Promise(resolve => {started = resolve});
+        target.connection.read = async () => ({stream: new ReadableStream({start(value) {
+            controller = value;
+            started();
+        }})});
+        source.on('data', () => queueMicrotask(() => delivered()));
+        store.on('load', ({postChunkLoad, isMutation}) => loads.push({
+            count: store.count, isMutation: !!isMutation, postChunkLoad, streaming: !!store.isStreaming
+        }));
+        const loading = store.load();
+        await connected;
+        for (const id of [1, 2]) {
+            const chunk = new Promise(resolve => {delivered = resolve});
+            controller.enqueue(encoder.encode(JSON.stringify({id}) + '\\n'));
+            await chunk;
+            snapshots.push({count: store.count, streaming: store.isStreaming});
+        }
+        controller.close();
+        await loading;
+        snapshots.push({count: store.count, streaming: store.isStreaming});
+        assert.equal(requests.length, 1);
+        assert.equal(requests[0].remoteId, target.id);
+        assert.deepEqual(events.filter(event => event.event === 'data').map(event => event.data), [[{id: 1}], [{id: 2}]]);
+        assert.ok(events.every(event => event.id === source.id));
+        assert.deepEqual(store.items.map(item => item.id), [1, 2]);
+        assert.equal(target.store ?? null, null);
+        assert.equal(target.parser.store ?? null, null);
+        source.remoteId = null;
+        source.workerExecution = 'app';
+        store.destroy(); target.destroy(); receiver.destroy();
+        console.log(JSON.stringify({snapshots, loads}));
+    `;
+    const output = execFileSync(process.execPath, ['--input-type=module', '--eval', script], {
+        cwd: new URL('../../../../', import.meta.url), encoding: 'utf8', timeout: 15000
+    });
+    const {snapshots, loads} = JSON.parse(output.trim().split('\n').at(-1));
+
+    expect(snapshots).toEqual([
+        {count: 1, streaming: true},
+        {count: 2, streaming: true},
+        {count: 2, streaming: false}
+    ]);
+    expect(loads).toContainEqual({count: 2, isMutation: true, postChunkLoad: true, streaming: true});
+    expect(loads.at(-1).streaming).toBe(false);
+});
+
 test('profiling selects a known carrier through real RMA and App receivers without changing data or retries', () => {
     const script = `
         import assert from 'node:assert/strict';
