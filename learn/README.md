@@ -1,12 +1,12 @@
 # Neo.mjs Learning Base
 
-Neo.mjs is a complete application platform — 459 classes from grid to forms to calendar to dashboards — for every desktop and mobile web application, with a multi-threaded runtime that goes where single-threaded libraries cannot. It builds the applications teams build with [Angular, React or Vue](./comparisons/Overview.md) today, at [feature parity with Ext JS](./comparisons/NeoVsExtJs.md) and beyond it in architecture, for desktop and mobile browsers.
+Neo.mjs is a complete application platform — 459 classes from grid to forms to calendar to dashboards — for every desktop and mobile web application, with a multi-threaded runtime that goes where single-threaded libraries cannot. It builds the applications teams build with [Angular, React or Vue](./comparisons/Overview.md) today, at [feature parity with Ext JS](./comparisons/NeoVsExtJs.md) and generations ahead of it in architecture, for desktop and mobile browsers.
 
 These Markdown documents power the interactive learning portal on [neomjs.com](https://neomjs.com/#/learn) (complete with live editable previews that can tear out into separate browser windows) and serve as the primary documentation corpus for the **Neo.mjs Knowledge Base MCP Server**.
 
 ## Why Neo.mjs Is a Paradigm Shift: Two Hemispheres, One Runtime Contract
 
-Neo.mjs is not a single-threaded UI framework. It is a **self-evolving software organism** — the only JavaScript **Application Engine** where component instances, reactive state, and virtual DOM diffing live entirely off the browser's main thread and are inhabited at runtime by accountable AI peer maintainers across two connected hemispheres joined by the **[Neural Link](./agentos/NeuralLink.md)**:
+Neo.mjs is not a single-threaded UI framework. It is a **self-evolving software organism** — the only JavaScript **Application Engine** where component instances, reactive state, and virtual DOM diffing live entirely off the browser's main thread so your coding agent (or an accountable AI peer team) can inspect and drive your running application live across two connected hemispheres joined by the **[Neural Link](./agentos/NeuralLink.md)**:
 
 1. **The Body (`/src/`, `neomjs/neo` — Off-Main-Thread Application Engine):**
    - **App Worker as the Primary Actor:** All components, controllers, `state.Provider` trees, and `data.Store` instances (`100,000`-row buffered grids) execute inside a dedicated `App` Worker (or a `SharedWorker` spanning multiple browser windows).
@@ -15,20 +15,20 @@ Neo.mjs is not a single-threaded UI framework. It is a **self-evolving software 
    - **Zero-Build Native ES Modules:** Run and debug unbundled ES modules directly in the browser in `dev` mode with zero transpilation or bundler step.
 2. **The Brain & Neural Link (`/ai/`, `neomjs/neo-agent-brain` & `neomjs/neo-agent-institution` — Agent OS & Possession Interface):**
    - **Accountable AI Peers, Not Disposable Tools:** Instead of a Rung-1 orchestrator commanding stateless sub-agents ([Introduction](./benefits/Introduction.md)), Neo.mjs runs as a **Team of Teams** — named AI maintainers across rival labs (Claude, Gemini, GPT) with persistent identity, a shared **Native Edge Graph** and **Memory Core**, **Dream Pipeline** consolidation into a **Golden Path**, semantic **Knowledge Base** grounding, and cross-family adversarial PR review under a human gardener at the merge gate.
-   - **Live Runtime Embodiment via the Neural Link:** Because Neo.mjs components have true Object Permanence (`Neo.core.Base#toJSON()`), AI peers do not guess from static source files. Through the [Neural Link Possession Interface](./agentos/NeuralLink.md), they inhabit the live running application across windows — inspecting real component and VDOM/VNode scene graphs, reading computed styles and DOM rects, querying live stores and `state.Provider` trees, driving user interactions, and hot-patching class methods directly in the App Worker without reloading the page.
+   - **Live Runtime Embodiment via the Neural Link:** Because Neo.mjs components have true Object Permanence (`Neo.core.Base#toJSON()`), your coding agent (Claude Code, Codex, Gemini) or AI maintainer team does not guess from static source files. Through the [Neural Link Possession Interface](./agentos/NeuralLink.md), agents inhabit your live running application across windows — inspecting real component and VDOM/VNode scene graphs, reading computed styles and DOM rects, querying live stores and `state.Provider` trees, driving user interactions, and hot-patching class methods directly in the App Worker without reloading the page.
 
 ---
 
 ## Where to Start — Three Reader Paths
 
 ### 1. Evaluating or Building with the Application Engine (Developer Path)
-If you are building single-window or multi-window web applications, high-density data grids, or reactive workspaces:
+If you are building any desktop or mobile web application — from everyday forms, calendars, and `100,000`-row data grids to multi-window dock workspaces:
 1. **[Introduction](./benefits/Introduction.md)** & **[Architecture Overview](./benefits/ArchitectureOverview.md):** How the Off-Main-Thread worker topology, JSON blueprints, and the Neural Link fit together.
 2. **[Getting Started](./gettingstarted/Workspaces.md):** Create your first workspace (`npx neo-app`), run unbundled ES modules in `dev` mode, and inspect how components mount across workers.
 3. **[Guides](./guides/fundamentals/CodebaseOverview.md):**
-   - **Fundamentals & Core Engine:** Class system (`Neo.setupClass`), reactive config descriptors (`beforeSet*` / `afterSet*`), and component lifecycle.
-   - **Data Handling & Grids:** `Neo.data.Store`, `Neo.data.Model`, hierarchical `state.Provider`, and buffered `Neo.grid.Container` rendering.
-   - **UI Building Blocks & Multi-Window Docking:** The 10-part dock-layout and cross-window tear-out shelf (`DockContainer`, `DockZone`, `Workspace`, `Perspectives`).
+   - **Fundamentals & Core Engine:** Class system (`Neo.setupClass`), reactive config descriptors (`beforeSet*` / `afterSet*`), and component lifecycle across all `459` platform classes.
+   - **Data Handling, Forms & Grids:** `Neo.data.Store`, `Neo.data.Model`, hierarchical `state.Provider`, the `26`-field [Forms Engine](./benefits/body/FormsEngine.md), and buffered `Neo.grid.Container` rendering.
+   - **UI Building Blocks, Addons & Multi-Window Docking:** The `42`-class dock-layout and cross-window tear-out shelf (`DockContainer`, `DockZone`, `Workspace`, `Perspectives`), `8` layouts, and `38` main-thread addons.
 4. **[Tutorials](./tutorials/DockLayoutsFirstLayout.md):** Step-by-step application walkthroughs with runnable live-preview examples.
 
 ### 2. Evaluating Neo.mjs Against Frameworks or Ext JS (Evaluator & Architect Path)

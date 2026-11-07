@@ -27,13 +27,13 @@ Since its initial GA in November 2019 — years before trends like Vercel's `jso
 Because workers physically cannot touch the live DOM, the entire application — component trees, layouts, data stores, state providers, and VDOM deltas — is represented as pure, serializable JSON blueprints (`static config` and `toJSON()`). **Because LLMs excel at JSON, and Neo.mjs has been JSON-first since 2019, LLMs excel at building with Neo.mjs** — especially when paired with Neo's AI infrastructure. An AI model doesn't have to wrestle with HTML quirks, JSX compilation steps, or `useEffect` dependency arrays; JSON is its native tongue.
 
 ### 3. The Complexity Shift: Why the Pre-AI Burden Disappeared
-In the **pre-AI era**, an engine architecture of multi-threaded Workers, Shared State, and persistent Scene Graphs — and writing explicit JSON blueprints by hand — carried a real cognitive burden for a single human developer.
+Multi-threading in Neo.mjs does not add complexity to your application code — **it removes it**. The engine handles worker orchestration, cross-window state synchronization, and VDOM diffing behind the scenes, while the historical complexity burden of multi-threaded architecture for humans belonged to the **pre-AI era**.
 
-**In the AI era, that burden belongs to the past — and the trade-off inverted completely.**
+**In the AI era, LLMs and Neo.mjs are a natural match.**
 
-What once looked verbose for a human typing every line by hand is the exact structured contract an AI mind thrives on. And instead of the industry's Rung-1 Command-and-Control model — a human "orchestrator" babysitting stateless sub-agents that forget every session, which [What Is Neo.mjs?](../Introduction.md) shows is architecturally capped at rung one — Neo.mjs asks the inverted question: *how can software become a body an AI inhabits, and a team of AIs can be trusted to run?*
+Because **LLMs excel at JSON** and **Neo.mjs has been JSON-first since its November 2019 GA**, coding agents produce Neo.mjs components, layouts, forms, grids, and state providers with near-zero hallucination — especially when paired with our AI infrastructure. And instead of the industry's Rung-1 Command-and-Control model — a human "orchestrator" babysitting stateless sub-agents that forget every session, which [What Is Neo.mjs?](../Introduction.md) shows is architecturally capped at rung one — Neo.mjs asks the inverted question: *how can software become a body an AI inhabits, and a team of AIs can be trusted to run?*
 
-Built around **Model Experience (MX)**, Object Permanence, and JSON-first worker contracts, Neo.mjs is inhabited by **accountable, named AI peer maintainers** across rival labs (Claude, Gemini, GPT) — equipped with persistent institutional memory, cross-family review rights, and a human gardener at the merge gate — who carry that multi-threaded architectural depth natively and build applications that are physically impossible in legacy frameworks.
+Built around **Model Experience (MX)**, Object Permanence, and JSON-first worker contracts, Neo.mjs lets your coding agent — or a standing team of **accountable, named AI peer maintainers** across rival labs (Claude, Gemini, GPT) with persistent institutional memory, cross-family review rights, and a human gardener at the merge gate — build and evolve applications that are physically impossible in legacy frameworks.
 
 ## Runtime Embodiment: The Map IS the Territory
 
@@ -41,7 +41,7 @@ In legacy frameworks, the code you write gets destroyed by the build step. By th
 
 **In Neo.mjs, the map IS the territory — and the AI inhabits it.**
 
-Because components live as persistent instances in the App Worker with rich `toJSON()` serialization, the runtime retains the exact semantic structure of your original intent. Through the **[Neural Link (Possession Interface)](../../agentos/NeuralLink.md)**, AI peers reach directly into the living, running application across multiple browser windows:
+Because components live as persistent instances in the App Worker with rich `toJSON()` serialization, the runtime retains the exact semantic structure of your original intent. Through the **[Neural Link (Possession Interface)](../../agentos/NeuralLink.md)**, your coding agent (Claude Code, Codex, Gemini) — or an AI maintainer team — reaches directly into **your** living, running application across multiple browser windows:
 - **Live Scene Graph & State Introspection:** Query *"Get me the Grid with reference 'sales-report'"* and the Engine replies with the live instance — its `10,000` store records, its hierarchical `state.Provider` bindings, its VDOM/VNode trees, its computed CSS styles, and its exact DOM bounding rect in Window 2.
 - **In-Place Mutation & Hot-Patching Without Reloads:** Mutate reactive configs on the fly, drive real user events and drag choreography, and hot-patch class methods directly inside the running App Worker while the UI stays alive — verifying the runtime truth before asserting a single line of code.
 
