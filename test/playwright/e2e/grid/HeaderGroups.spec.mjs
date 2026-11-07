@@ -258,6 +258,36 @@ test.describe('examples/grid/headerGroups', () => {
         await expect.poll(async () => await toolbarOf('Id') === await toolbarOf('Region')).toBe(true)
     });
 
+    test('emptying the start region after a header drag keeps the moved header, and the groups stay over their leaves', async ({page}) => {
+        const drop = async (text, target) => {
+            const from = await page.locator('.neo-grid-header-toolbar .neo-grid-header-button', {hasText: text}).first().boundingBox(),
+                  to   = await page.locator('.neo-grid-header-toolbar .neo-grid-header-button', {hasText: target}).first().boundingBox(),
+                  y    = from.y + from.height / 2;
+
+            await page.mouse.move(from.x + from.width / 2, y);
+            await page.mouse.down();
+            await page.mouse.move(to.x + to.width / 2, y, {steps: 60});
+            await page.mouse.up()
+        };
+
+        const toolbars = () => page.evaluate(() => [...document.querySelectorAll('.neo-grid-header-toolbar')]
+            .map(toolbar => [...toolbar.querySelectorAll('.neo-grid-header-button')].map(button => button.textContent.trim())));
+
+        await page.setViewportSize({width: 2600, height: 800});
+        await expect(async () => expectAligned(await groupEdges(page))).toPass();
+
+        // A drop the start region refuses still updates the centre toolbar, as every header drag does. It settles
+        // before the next drag starts, as the drops above do
+        await drop('Jan', 'Region');
+        await page.waitForTimeout(400);
+
+        // Region is the start region's only column: moving it into the centre empties that region
+        await drop('Region', 'May');
+
+        await expect.poll(async () => (await toolbars()).map(buttons => buttons[0])).toEqual(['Region', 'Total']);
+        await expect(async () => expectAligned(await groupEdges(page))).toPass()
+    });
+
     test('a flex leaf re-lays out with the grid width, and its group cell follows its edges', async ({page}) => {
         const dec     = page.locator('.neo-grid-header-toolbar .neo-grid-header-button', {hasText: 'Dec'}).first(),
               aligned = edges => edges.every(({left, right, leafLeft, leafRight}) => Math.abs(left - leafLeft) < 2 && Math.abs(right - leafRight) < 2);
