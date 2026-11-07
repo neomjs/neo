@@ -198,5 +198,52 @@ test.describe('Neo.draggable.grid.header.toolbar.SortZone', () => {
         expect(owner.vdom.cn, 'cancellation removes the extent reservation').toEqual([]);
 
         zone.destroy()
+    });
+
+    test('a cancelled drag re-syncs the body its switches moved, and re-locks no column', async () => {
+        const
+            calls         = [],
+            column        = {dataField: 'alpha', locked: null},
+            dragComponent = {vdom: {}, wrapperStyle: {}},
+            owner         = {
+                addDomListeners : () => {},
+                ariaColumnOffset: 0,
+                cls             : [],
+                dragResortable  : true,
+                gridContainer   : {
+                    body   : {createViewData: () => calls.push('createViewData')},
+                    columns: {count: 1, getAt: () => column}
+                },
+                items           : [dragComponent],
+                on              : () => {},
+                passSizeToBody  : async () => calls.push('passSizeToBody'),
+                scrollLeft      : 0,
+                style           : {},
+                update          : () => calls.push('update'),
+                vdom            : {cn: []}
+            },
+            zone = Neo.create(SortZone, {owner});
+
+        Object.assign(zone, {
+            currentIndex   : 0,
+            dragColumnField: 'alpha',
+            dragComponent,
+            dragElement    : {},
+            itemStyles     : [{}],
+            lastDragClientX: 50,
+            ownerStyle     : {},
+            // A drop released here would lock the column to the start region
+            regionRects    : {start: {left: 0, right: 100}, end: null},
+            sortableItems  : [dragComponent],
+            startIndex     : 0,
+            timeout        : () => Promise.resolve()
+        });
+
+        await zone.processDragEnd({cancelled: true});
+
+        expect(column.locked).toBeNull();
+        expect(calls).toEqual(['update', 'passSizeToBody', 'createViewData']);
+
+        zone.destroy()
     })
 });
