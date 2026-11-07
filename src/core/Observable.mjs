@@ -306,6 +306,8 @@ class Observable extends Base {
     /**
      * @summary Remove listeners by id, handler, or object-valued listener specs.
      *
+     * Function selectors match by identity; explicit String selectors can match handler names.
+     *
      * There are different syntax's how you can use this method.
      * Using the eventId:
      * ```
@@ -365,7 +367,7 @@ class Observable extends Base {
                     if (
                         (
                             listener.fn === fn ||
-                            listener.fn?.name === (Neo.isString(fn) ? fn : fn?.name)
+                            (Neo.isString(fn) && listener.fn?.name === fn)
                         ) &&
                         listener.scope === entryScope
                     ) {

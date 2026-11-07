@@ -96,4 +96,56 @@ test.describe('Observable object-form listeners stay caller-owned', () => {
 
         subject.destroy();
     });
+
+    const remove = {
+        direct    : (subject, fn) => subject.un('change', fn),
+        object    : (subject, fn) => subject.un({change: fn}),
+        descriptor: (subject, fn) => subject.un({change: {fn}})
+    };
+
+    for (const [form, un] of Object.entries(remove)) {
+        test(`${form} function selectors remove the requested same-named closure`, () => {
+            const subject = Neo.create(Subject), calls = [],
+                  make    = value => function handler() {calls.push(value)},
+                  first   = make('first'), second = make('second');
+            subject.on('change', first);
+            subject.on('change', second);
+            un(subject, second);
+            subject.fire('change');
+            expect(calls).toEqual(['first']);
+            subject.destroy()
+        });
+
+        test(`${form} unregistered same-named function does not remove a listener`, () => {
+            const subject = Neo.create(Subject), calls = [],
+                  make    = value => function handler() {calls.push(value)};
+            subject.on('change', make('registered'));
+            un(subject, make('unregistered'));
+            subject.fire('change');
+            expect(calls).toEqual(['registered']);
+            subject.destroy()
+        })
+    }
+
+    test('explicit names still remove a function registration by name', () => {
+        const subject = Neo.create(Subject), calls = [],
+              make    = value => function handler() {calls.push(value)};
+        subject.on('change', make('first'));
+        subject.on('change', make('second'));
+        subject.un({change: {fn: 'handler'}});
+        subject.fire('change');
+        expect(calls).toEqual(['second']);
+        subject.destroy()
+    });
+
+    test('subscription ids still distinguish same-named closures', () => {
+        const subject = Neo.create(Subject), calls = [],
+              make    = value => function handler() {calls.push(value)};
+        subject.on('change', make('first'));
+        const id = subject.on('change', make('second'));
+        subject.un('change', id);
+        subject.fire('change');
+        expect(calls).toEqual(['first']);
+        subject.destroy()
+    });
 });
