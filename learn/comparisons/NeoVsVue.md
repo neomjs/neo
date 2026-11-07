@@ -2,7 +2,7 @@
 
 Neo.mjs is a comprehensive JavaScript ecosystem for building high-performance, multi-threaded web applications. Unlike libraries and frameworks like Vue.js, which have perfected their architecture for a single-threaded browser environment, Neo.mjs is a self-contained system with **zero runtime dependencies** built on a fundamentally different, multi-threaded paradigm. It provides a complete, out-of-the-box solution that includes four distinct development and deployment environments, from a revolutionary zero-builds development mode to thread-optimized production bundles.
 
-This article provides a focused comparison between the Neo.mjs ecosystem and Vue.js. While both systems share a commitment to a superb developer experience and a highly efficient reactive model, their underlying philosophies on how to achieve peak performance and scalability diverge. We will explore their approaches to **architecture, rendering, and reactivity**, highlighting the trade-offs between Vue's best-in-class, single-threaded model and Neo.mjs's holistic, worker-based paradigm.
+This article provides a focused comparison between the Neo.mjs ecosystem and Vue.js. While both systems share a commitment to a superb developer experience and a highly efficient reactive model, their underlying philosophies on how to achieve peak performance and scalability diverge. We will explore their approaches to **architecture, rendering, and reactivity**, highlighting the trade-offs between Vue's single-threaded model and Neo.mjs's holistic, worker-based paradigm.
 
 ## Foundational Concepts: A Shared Heritage
 
@@ -77,17 +77,15 @@ A critical architectural difference emerges when dealing with moving components 
     *   **`dist/development`:** A bundled but unminified environment for debugging production-specific issues.
 
 *   **Templates vs. Plain Objects:** Vue primarily uses HTML-like templates in SFCs (requiring a build step). Neo.mjs uses plain JavaScript objects for VDOM (no compilation needed for VDOM definition).
-*   **Ecosystem & Maturity:** Vue has a massive, mature ecosystem with a rich collection of libraries, tools (like Vite and Vue Devtools), and extensive community support. Neo.mjs has a smaller but dedicated community, with a focus on engine-level solutions and integrated features.
+*   **Ecosystem & Maturity:** Vue has a rich ecosystem with excellent tools (like Vite and Vue Devtools), and much of it exists because Vue ships a view layer and leaves grids, forms, docking and multi-window support to separate packages. Neo.mjs ships all of those in one install: more than 450 classes, maintained and released together. Its community is smaller, and its answers are integrated rather than assembled.
 *   **Dependency Management (Batteries Included):** Vue projects, while often leaner than React, still rely on `node_modules` and a build toolchain. Neo.mjs is a "batteries included" platform with zero real runtime dependencies outside of its own core. This native ES Module approach significantly reduces complexity and dependency management overhead.
 
 ## Conclusion: Why Neo.mjs Offers a Different Path to Performance
 
-For many websites and standard business applications, Vue's performance and developer experience are best-in-class for the main-thread paradigm. It is an exceptional tool.
-
-Neo.mjs offers a different solution for a different class of problems. For applications where guaranteed UI fluidity is a non-negotiable business requirement, or for those pushing the boundaries of complexity with data-intensive UIs or multi-window environments, Neo.mjs provides a fundamentally more robust and scalable architecture.
+Vue is one of the most pleasant main-thread view libraries, and its developer experience earns its popularity. Neo.mjs builds the same applications, from standard business apps to data-intensive dashboards and multi-window workspaces, on a foundation that takes the work off the main thread, and it ships the components and tooling Vue projects assemble separately.
 
 *   **True Parallelism:** Neo.mjs doesn't just optimize tasks on the main thread; it runs them in parallel on separate threads, providing a higher performance ceiling.
 *   **Architectural Solutions for Complex Problems:** The hybrid reactivity model and the async-aware, persistent lifecycle are designed to solve complex orchestration and asynchronous challenges at the engine level.
 *   **Future-Proofing for Complexity:** By building on a multi-threaded foundation, Neo.mjs is architecturally prepared for the increasingly complex and data-intensive applications of the future.
 
-The choice depends on the project's goals. If you are building a highly interactive SPA and hitting the limits of the main thread, or if you are envisioning a true multi-window desktop-like experience on the web, Neo.mjs offers a compelling and powerful alternative.
+You get a complete platform in one install, zero-build development, a UI that stays fluid under load, applications that span several browser windows, and a [Neural Link](../agentos/NeuralLink.md) through which your coding agent works inside your running app. To try it on your next application, start with the [Getting Started](../gettingstarted/Workspaces.md) guide.
