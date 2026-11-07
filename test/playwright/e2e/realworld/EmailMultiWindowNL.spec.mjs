@@ -24,12 +24,41 @@ async function openEmail(page, neuralLink) {
         return {objects, items: this.items.map(item => item.id), detached: this.detachedItems.size,
             selected: controller.getReference('detail').stateProvider.getData('email')?.id ?? null,
             draftBody: controller.getReference('compose')?.stateProvider.getData('body') ?? null,
-            storeCount: inbox.store.count, rowPool: inbox.body.items.length,
+            storeCount: inbox.store.count, rowPool: inbox.body.items.length, scrollTop: inbox.view.scrollTop,
             actions: controller.getReference('compose')?.headerToolbar.items.filter(item => item.action)
                 .map(item => ({action: item.action, id: item.id, hidden: item.hidden})) || []};
     }`)).toMatchObject({success: true});
     return {app, id: workspace.id, controllerId: workspace.properties['controller.id'],
         snapshot: () => app.callMethod(workspace.id, 'emailTestState')}
+}
+
+/** @summary Freezes a positive buffered baseline only after worker rows and the native scrollport are ready. */
+async function readyInbox(state, page) {
+    const scrollport = page.locator('.email-inbox .neo-grid-view');
+    await expect.poll(async () => {
+        const {rowPool, storeCount} = await state.snapshot();
+        return rowPool > 0 && rowPool < storeCount
+    }, {message: 'the inbox has a positive buffered row pool'}).toBe(true);
+    await expect(scrollport.locator('[data-row-id="0"]')).toBeVisible();
+    await expect.poll(() => scrollport.evaluate(element =>
+        element.clientHeight > 0 && element.scrollHeight > element.clientHeight),
+    {message: 'the inbox has usable native scroll geometry'}).toBe(true);
+    const initial = await state.snapshot();
+    expect(initial.storeCount).toBe(250);
+    expect(initial.rowPool).toBeGreaterThan(0);
+    expect(initial.rowPool).toBeLessThan(initial.storeCount);
+    return {initial, scrollport}
+}
+
+/** @summary Sends one native wheel and checks scroll delivery separately from buffered row recycling. */
+async function scrollBeyondPool(state, page, {initial, scrollport}) {
+    await scrollport.hover();
+    await page.mouse.wheel(0, 4000);
+    await expect.poll(() => scrollport.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+    await expect.poll(async () => (await state.snapshot()).scrollTop).toBeGreaterThan(0);
+    const row = scrollport.locator('[data-row-id]').filter({visible: true}).first();
+    await expect.poll(async () => Number(await row.getAttribute('data-row-id'))).toBeGreaterThan(initial.rowPool);
+    return row
 }
 
 /** @summary Resolves a visible action from the retained Dialog's current toolbar. */
@@ -51,14 +80,8 @@ test('buffered selection drives the same functional reader through two native po
     await expect(page.locator('.email-compose-dialog')).toHaveCount(0);
     await expect(page.locator('.email-detail-view')).toHaveText('Select an email to read');
     expect(await state.app.callMethod(state.controllerId, 'openInWindow', ['detail'])).toBe(false);
-    const initial = await state.snapshot();
-    expect(initial.storeCount).toBe(250);
-    expect(initial.rowPool).toBeLessThan(initial.storeCount);
-    const body = page.locator('.neo-grid-body');
-    await body.hover();
-    await page.mouse.wheel(0, 4000);
-    const row = body.locator('[data-row-id]').filter({visible: true}).first();
-    await expect.poll(async () => Number(await row.getAttribute('data-row-id'))).toBeGreaterThan(initial.rowPool);
+    const ready = await readyInbox(state, page), {initial, scrollport: body} = ready,
+          row   = await scrollBeyondPool(state, page, ready);
     let selected = Number(await row.getAttribute('data-row-id')) + 1;
     await row.click();
     await expect.poll(async () => (await state.snapshot()).selected).toBe(selected);
@@ -87,6 +110,32 @@ test('buffered selection drives the same functional reader through two native po
         expect(returned.objects.reader.same).toBe(true);
         expect((await state.app.verifyComponentConsistency(state.id)).consistent).toBe(true)
     }
+});
+
+test('buffered scroll readiness waits while the actual inbox layout is withheld', async ({page, neuralLink}) => {
+    await page.route('**/apps/email/index.html', async route => {
+        const response = await route.fetch(), html = await response.text();
+        await route.fulfill({response, body: html.replace('</head>',
+            '<style id="email-layout-gate">.email-inbox {display:none!important}</style></head>')})
+    });
+    let settled = false;
+
+    const state     = await openEmail(page, neuralLink),
+          readiness = readyInbox(state, page);
+    readiness.then(() => settled = true, () => settled = true);
+    try {
+        expect(await state.snapshot()).toMatchObject({storeCount: 250, rowPool: 0});
+        expect(await page.locator('.email-inbox .neo-grid-view').evaluate(element => element.clientHeight)).toBe(0);
+        expect(settled, 'an empty pool cannot be accepted as the scroll baseline').toBe(false)
+    } finally {
+        await page.evaluate(() => document.getElementById('email-layout-gate').remove())
+    }
+    const ready    = await readiness,
+          row      = await scrollBeyondPool(state, page, ready),
+          selected = Number(await row.getAttribute('data-row-id')) + 1;
+    await row.click();
+    await expect.poll(async () => (await state.snapshot()).selected).toBe(selected);
+    await expect(page.locator('.email-detail-view h1')).toHaveText(`Project conversation ${selected}`)
 });
 
 test('draft survives hide, animated maximize, refusal and guarded native popup return', async ({page, context, neuralLink}) => {
