@@ -3,6 +3,8 @@ import Container                          from '../../../src/container/Base.mjs'
 import CounterPane                        from './CounterPane.mjs';
 import {createCrossWindowStage}           from './DemoBCrossWindowStage.mjs';
 import DemoBCrossWindowGesture            from './DemoBCrossWindowGesture.mjs';
+import DemoBCrossWindowHost               from './DemoBCrossWindowHost.mjs';
+import DemoBTourHost                      from './DemoBTourHost.mjs';
 import DemoBKeyboardHost                  from './DemoBKeyboardHost.mjs';
 import DemoBNativeWindowHost              from './DemoBNativeWindowHost.mjs';
 import DockDropIndicators                 from '../../../src/dashboard/dock/interaction/DropIndicators.mjs';
@@ -29,7 +31,6 @@ import NativeVesselTransaction            from '../../../src/dashboard/dock/wind
 import TourRunner                         from '../../../src/ai/client/TourRunner.mjs';
 import TransactionManager                 from '../../../src/manager/Transaction.mjs';
 import WindowManager                      from '../../../src/manager/Window.mjs';
-import PreviewContract                    from '../../../src/dashboard/dock/model/PreviewContract.mjs';
 import {demoBTourScript, initialDocument} from './demoBPerspectives.mjs';
 import '../../../src/button/Base.mjs';   // registers the `button` ntype the bars compose
 import '../../../src/tab/Container.mjs'; // registers the `tab-container` ntype the projection emits
@@ -38,38 +39,24 @@ import '../../../src/toolbar/Base.mjs';  // registers the `toolbar` ntype the ba
 export {describeCrossWindowChromeMismatch} from './DemoBCrossWindowGesture.mjs';
 
 /**
- * @summary The Demo-B showcase workspace: named perspectives that MORPH, and a pane that
- * leaves for its own OS window and returns with its state unbroken — the only-Neo story.
+ * @summary Shows named perspectives and live panes moving between native windows without losing state.
  *
- * **This class hand-rolls a workspace host that the engine now owns, and is not the shape to
- * copy.** {@link Neo.dashboard.dock.Workspace} is the normative host — it owns the committed
- * document, the reducer, the read half of the holder contract, the deferred view-sync and the
- * projection/FLIP loop — and the docking design record fixes it as canonical. Demo A already
- * consumes it; this workspace has not migrated yet because its cross-window tear-out half is
- * coupled to engine work still in flight. Anything starting a new dock host takes the base class.
- * Be aware when reading below that its member signatures differ from the engine's: the base class
- * hands resolvers `(itemId, item)` and passes a tab-insert descriptor as the first argument to the
- * projection and refresh members, so these bodies are not drop-in overrides.
+ * New dock hosts use {@link Neo.dashboard.dock.Workspace}. This example composes a
+ * {@link Neo.dashboard.dock.window.WorkspaceSet} with three committed documents and permits
+ * an absent popup render host. Its resolver and projection signatures differ from the base host;
+ * these methods are not drop-in overrides. Projection-owner adoption must preserve those policies.
  *
- * The reducer-container ownership it implements by hand (committed `dockZone.v1` document as
- * the single source of truth; the pure reducer + view-sync halves of the dock-holder
- * contract) carries the two capabilities this demo exists to show:
+ * This host retains composition, document/projection publication, semantic identities and teardown.
+ * Its example-local mixins provide interaction and presentation code on the same instance.
  *
- * - **Perspectives** ride a {@link Neo.dashboard.dock.persistence.PerspectiveLibrary}: ordinary views are
- *   window-scoped; the detached view captures BOTH worker-owned workspace documents through
- *   `captureTopologyPerspective`. Loading that record composes the real
- *   {@link Neo.dashboard.dock.model.TopologyReconciler} and renders its structured remainder.
- *   The switcher bar rebuilds from store lifecycle events — buttons are born from
- *   `perspectiveSaved`, never hardcoded.
- * - **Pop-out** rides the shared-heap vessel: panes are INSTANCE-CACHED (created once,
- *   handed across every re-projection by `DockProjectionReconciler`), so detaching the
- *   workbench moves the LIVE component into the popup window's view tree
- *   (`mainView.add(instance)` — both windows share one App Worker) and reattaching moves it
- *   home. The {@link Neo.examples.dashboard.crossWindow.CounterPane} witness makes the
- *   reparent-never-recreate contract visible: its count survives because its instance does.
- *   WorkspaceDocument honesty: pop-out and item return use the atomic two-document `transferItem` seam;
- *   the popup stack-handle return composes the sibling `transferNode` seam. Ownership therefore
- *   moves commit-or-neither while component reparenting stays orthogonal.
+ * - **Perspectives** use {@link Neo.dashboard.dock.persistence.PerspectiveLibrary} for window views
+ *   and capture all registered workspace documents for topology views. Loading composes
+ *   {@link Neo.dashboard.dock.model.TopologyReconciler} and renders the structured remainder.
+ *   Switcher buttons rebuild from the library's collectionChange event.
+ * - **Pop-out** moves a cached live component into another render target on the same App Worker.
+ *   The {@link Neo.examples.dashboard.crossWindow.CounterPane} keeps its count because reparenting
+ *   preserves its instance. Pop-out and return use atomic two-document transferItem commits;
+ *   whole-stack return uses transferNode. Document ownership and component reparenting stay separate.
  *
  * @class Neo.examples.dashboard.crossWindow.DemoBWorkspace
  * @extends Neo.container.Base
@@ -77,7 +64,7 @@ export {describeCrossWindowChromeMismatch} from './DemoBCrossWindowGesture.mjs';
 
 class DemoBWorkspace extends Container {
     /**
-     * Shared coordinator registry key for the two active Demo-B workspaces.
+     * Shared coordinator registry key for Demo B's registered workspaces.
      * @member {String} CROSS_WINDOW_SORT_GROUP='demo-b-cross-window'
      * @static
      */
@@ -119,8 +106,8 @@ class DemoBWorkspace extends Container {
          * @member {Number} dockHistoryDepth=50
          */
         dockHistoryDepth: 50,
-        /** @member {Neo.core.Base[]} mixins=[TopologySeams, DemoBCrossWindowGesture, DemoBKeyboardHost, DemoBNativeWindowHost] */
-        mixins: [TopologySeams, DemoBCrossWindowGesture, DemoBKeyboardHost, DemoBNativeWindowHost],
+        /** @member {Neo.core.Base[]} mixins=[TopologySeams, DemoBCrossWindowGesture, DemoBKeyboardHost, DemoBNativeWindowHost, DemoBCrossWindowHost, DemoBTourHost] */
+        mixins: [TopologySeams, DemoBCrossWindowGesture, DemoBKeyboardHost, DemoBNativeWindowHost, DemoBCrossWindowHost, DemoBTourHost],
         /**
          * Theme dependencies: the example-owned palette, the dock motion/token contract file (the
          * projected tree is plain containers; nothing loads it per-class), and Demo A's skin
@@ -897,39 +884,12 @@ class DemoBWorkspace extends Container {
     }
 
     /**
-     * The tour bar — play button, caption feed, pip strip (the Demo-A pattern).
-     * @returns {Object}
+     * @summary Builds tour controls from this host's script and beat authority.
+     * @returns {Object} The tour bar configuration.
+     * @see Neo.examples.dashboard.crossWindow.DemoBTourHost#createTourControls
      */
     createTourBar() {
-        let me = this;
-
-        return {
-            cls   : ['agentos-dockdemo-tourbar'],
-            flex  : 'none',
-            layout: {ntype: 'hbox', align: 'center'},
-            ntype : 'toolbar',
-            items : [{
-                cls      : ['agentos-dockdemo-tour-play'],
-                handler  : () => me.startTour(),
-                iconCls  : 'fa fa-play',
-                ntype    : 'button',
-                reference: 'tour-play-b',
-                text     : 'Tour'
-            }, {
-                cls      : ['agentos-dockdemo-tour-caption'],
-                flex     : 1,
-                html     : `${demoBTourScript.title} — press Tour: three perspectives get captured live, morph into each other, and a pane leaves for its own OS window without dropping a beat.`,
-                ntype    : 'component',
-                reference: 'tour-caption-b',
-                style    : {padding: '0 12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}
-            }, {
-                cls      : ['agentos-dockdemo-tour-pips'],
-                flex     : 'none',
-                ntype    : 'component',
-                reference: 'tour-pips-b',
-                vdom     : {cn: DemoBWorkspace.totalBeats().map(() => ({cls: ['agentos-dockdemo-pip']}))}
-            }]
-        }
+        return this.createTourControls(demoBTourScript, () => DemoBWorkspace.totalBeats())
     }
 
     /**
@@ -1142,52 +1102,13 @@ class DemoBWorkspace extends Container {
     }
 
     /**
-     * @summary Publishes captions and starts the surface cue the runner awaits before its next beat.
-     * Caption feed + pip progress + the surface cues that make narrated beats EXECUTABLE:
-     * perspective saves/loads ride the store, pop-out/reattach ride the vessel — none of
-     * them are dock-document ops, so none of them masquerade as descriptors.
-     * The runner's host callback awaits the returned cue outcome and its projection.
-     * @param {Object} data The runner's beat payload.
-     * @returns {Object|Promise|Boolean|undefined} The initiated surface cue's outcome.
-     */
-    onTourBeat(data) {
-        let me    = this,
-            {cue} = data;
-
-        data.caption && me.setTourCaption(data.caption);
-        me.setPipProgress(++me.beatCount);
-
-        if (!cue) return;
-
-        if (cue.type === 'perspective-save') return me.capturePerspective(cue.name, {scope: cue.scope});
-        if (cue.type === 'perspective-load') return me.loadPerspectiveByName(cue.name);
-        if (cue.type === 'popout') return me.popOutPane(cue.itemId);
-        if (cue.type === 'reattach') return me.reattachPane(cue.itemId)
-    }
-
-    /**
-     * @param {Object} data `{completed, errors, log}`
+     * @summary Publishes tour completion using this host's current beat authority.
+     * @param {Object} data The runner completion payload.
+     * @returns {void}
+     * @see Neo.examples.dashboard.crossWindow.DemoBTourHost#renderTourCompletion
      */
     onTourComplete(data) {
-        let me = this;
-
-        me.setTourCaption(`Tour complete — ${data.log.length} beats; the workbench counter never reset.`);
-        me.setPipProgress(DemoBWorkspace.totalBeats().length)
-    }
-
-    /**
-     * Honest failure surface: an aborted tour names its reason.
-     * @param {Object} data `{errors, log}`
-     */
-    onTourError(data) {
-        this.setTourCaption(`Tour stopped: ${data.errors[0] || 'unknown reason'}`)
-    }
-
-    /**
-     * @param {Object} data The runner's scene payload.
-     */
-    onTourScene(data) {
-        this.setTourCaption(`${data.title}${data.caption ? ' — ' + data.caption : ''}`)
+        return this.renderTourCompletion(data, () => DemoBWorkspace.totalBeats())
     }
 
     /**
@@ -1241,146 +1162,16 @@ class DemoBWorkspace extends Container {
     }
 
     /**
-     * @summary Acknowledges Group transfer admission before the deferred rendered gesture receipt.
-     * @param {Object} data
-     * @returns {Promise}
-     * @protected
+     * @summary Admits a cross-window transfer with this host's semantic workspace identities.
+     * @param {Object} data Transfer data.
+     * @returns {Promise<Boolean>} Group admission, before the deferred gesture receipt.
+     * @see Neo.examples.dashboard.crossWindow.DemoBCrossWindowHost#publishCrossWindowTransfer
      */
     async commitCrossWindowTransfer(data) {
-        let me = this,
-            {
-                descriptor,
-                sourceDocument,
-                sourceWorkspaceId,
-                targetDocument,
-                targetWorkspaceId
-            } = data;
-
-        if (descriptor?.operation === 'transferNode') {
-            const result = await me.commitWholeStackReturn(data);
-            return result?.applied === true
-        }
-
-        const
-            context       = me.crossWindowGestureContext,
-            generation    = me.crossWindowStageGeneration,
-            itemId        = descriptor.itemId,
-            isPopupDetach = sourceWorkspaceId === DemoBWorkspace.MAIN_WORKSPACE_ID
-                && targetWorkspaceId === DemoBWorkspace.POPUP_WORKSPACE_ID,
-            targetWindowId   = me.crossWindowTargetWindowId,
-            ownsTransfer     = () => !me.isDestroyed
-                && me.crossWindowStageGeneration === generation
-                && me.crossWindowTargetWindowId === targetWindowId
-                && (!isPopupDetach || me.detachedPanes[itemId]?.windowId === targetWindowId);
-
-        // Both-or-neither adoption through the shared core — a refused pair ends the commit here,
-        // so the gesture bookkeeping below never diverges from document truth.
-        if (!await me.adoptCommittedTransferPair(data)) {
-            return false
-        }
-        ({sourceDocument, targetDocument} = data);
-
-        // The document pair and vessel ownership are one worker-side commit. A physical close can
-        // arrive before either projection settles; publishing this entry synchronously lets the
-        // disconnect path reattach the item instead of misclassifying committed truth as a cold
-        // cancellation. The generation predicate below prevents that superseded projection from
-        // writing stale source/target chrome after the recovery transaction has taken ownership.
-        if (isPopupDetach) {
-            me.detachedPanes[itemId] = {
-                tabsNodeId: context?.sourceNodeId,
-                windowId  : targetWindowId,
-                windowName: 'demo-b-cross-window'
-            }
-        }
-
-        me.refreshPromise = me.refreshPromise
-            .then(() => me.timeout(0))
-            .then(async () => {
-                if (!ownsTransfer()) return;
-
-                // The admitted result lets source retirement finish before deferred projection.
-                // Read host-owned counters: projection can destroy the emptied source tabs zone.
-                let sourceDecision = {
-                    localDropFires    : me.crossWindowStats.localDropFires,
-                    remoteDropOutFires: me.crossWindowStats.remoteDropOutFires
-                };
-
-                if (!ownsTransfer()) return;
-
-                // A vessel is born only on a desktop leg. One that rode the hand into the claim retired
-                // there and the pane came home (one mount); on the direct path the header proxy adds none.
-                let pane         = me.paneCache[itemId],
-                    framesAfter  = pane?.frames ?? -1,
-                    targetTabsId = WorkspaceDocument.findContainingTabsId(targetDocument, itemId),
-                    vesselBorn   = Number.isInteger(context?.vesselMountCount),
-                    proof        = {
-                        framesAfter,
-                        framesBefore  : context?.frames ?? null,
-                        framesNotReset: framesAfter >= (context?.frames ?? Infinity),
-                        homeMountDelta: Number.isInteger(context?.proxyMountCount)
-                            ? context.proxyMountCount - (vesselBorn ? context.vesselMountCount : (context?.mountCount ?? 0))
-                            : null,
-                        localDropFires    : sourceDecision.localDropFires,
-                        mountDelta        : (pane?.mountCount ?? 0) - (context?.mountCount ?? 0),
-                        remoteDropOutFires: sourceDecision.remoteDropOutFires,
-                        remoteSnapshot    : context?.remoteSnapshot ?? null,
-                        sameInstance      : pane === context?.pane,
-                        sourceItemRemoved : !sourceDocument.items?.[itemId]
-                            && WorkspaceDocument.findContainingTabsId(sourceDocument, itemId) === null,
-                        sourceSuppressionConsumed: sourceDecision.remoteDropOutFires === 1
-                            && sourceDecision.localDropFires === 0,
-                        targetItemPlaced        : !!targetDocument.items?.[itemId]
-                            && targetTabsId === descriptor.target?.tabsNodeId,
-                        targetMountDelta: Number.isInteger(context?.proxyMountCount)
-                            ? (pane?.mountCount ?? 0) - context.proxyMountCount
-                            : null,
-                        targetTabsId,
-                        transferCommits : me.crossWindowStats.transferCommits,
-                        vesselBorn,
-                        vesselMountDelta: vesselBorn ? context.vesselMountCount - (context?.mountCount ?? 0) : 0,
-                        vesselRetired   : !me.resolveTearOutVessel(itemId)
-                    },
-                    checks         = [
-                        ['transfer committed exactly once', proof.transferCommits === 1],
-                        ['source remote-drop-out fired exactly once', proof.remoteDropOutFires === 1],
-                        ['source local drop stayed suppressed', proof.localDropFires === 0],
-                        ['remote semantic and rendered preview settled', proof.remoteSnapshot?.ready === true],
-                        ['source document relinquished the item', proof.sourceItemRemoved],
-                        ['target document placed the item', proof.targetItemPlaced],
-                        ['worker component instance stayed identical', proof.sameInstance],
-                        ['instance heartbeat did not reset', proof.framesNotReset],
-                        ['a vessel born on the desktop mounted the pane once and retired on the claim',
-                            !vesselBorn || (proof.vesselMountDelta === 1 && proof.vesselRetired)],
-                        ['target header proxy settled without taking the pane', proof.remoteSnapshot?.embodiment?.header === true
-                            && proof.remoteSnapshot.embodiment.itemId === itemId
-                            && proof.remoteSnapshot.embodiment.targetWindowId === targetWindowId
-                            && proof.remoteSnapshot.embodiment.ownsPane === false
-                            && proof.remoteSnapshot.embodiment.settled === true
-                            && proof.remoteSnapshot.embodiment.visible === true],
-                        ['the claim brought the pane home before the target took it', proof.homeMountDelta === (vesselBorn ? 1 : 0)],
-                        ['target document added exactly one mount', proof.targetMountDelta === 1],
-                        ['the pane mounted once per window it entered', proof.mountDelta === (vesselBorn ? 3 : 1)],
-                        ['continuity witness is complete', typeof pane?.id === 'string'
-                            && Number.isInteger(pane?.mountCount)]
-                    ],
-                    errors         = checks.filter(([, passed]) => !passed).map(([message]) => message),
-                    receipt        = {
-                        applied       : errors.length === 0,
-                        errors,
-                        sourceDocument: WorkspaceDocument.clone(sourceDocument),
-                        targetDocument: WorkspaceDocument.clone(targetDocument),
-                        witness       : {
-                            instanceId: pane?.id ?? null,
-                            mountCount: pane?.mountCount ?? null
-                        },
-                        proof
-                    };
-
-                me.crossWindowGestureResolve?.(receipt);
-                me.crossWindowGestureResolve = null
-            });
-
-        return true
+        return this.publishCrossWindowTransfer(data, {
+            mainWorkspaceId : DemoBWorkspace.MAIN_WORKSPACE_ID,
+            popupWorkspaceId: DemoBWorkspace.POPUP_WORKSPACE_ID
+        })
     }
 
     /**
@@ -2033,159 +1824,6 @@ class DemoBWorkspace extends Container {
     }
 
     /**
-     * Converts a viewport-space rect into a dock host's local overlay coordinates.
-     * @param {Object} rect
-     * @param {Object} hostRect
-     * @returns {Object}
-     * @protected
-     */
-    localDockRect(rect, hostRect) {
-        return {x: rect.x - hostRect.x, y: rect.y - hostRect.y, width: rect.width, height: rect.height}
-    }
-
-    /**
-     * Clears transient preview state for one workspace.
-     * @param {String} workspaceId
-     * @protected
-     */
-    clearWorkspaceAffordances(workspaceId) {
-        let host = this.crossWindowHosts.get(workspaceId);
-
-        host?.down({ntype: 'dashboard-dock-drop-indicators'})?.clear();
-
-        let preview = host?.down({ntype: 'dock-preview'});
-
-        preview && (preview.dockPreview = null)
-    }
-
-    /**
-     * Synchronous remote-target hit test over pre-measured window-local tabs geometry.
-     * @param {String} workspaceId
-     * @param {Number} localX
-     * @param {Number} localY
-     * @returns {Boolean}
-     * @protected
-     */
-    hitTestWorkspace(workspaceId, localX, localY) {
-        return !!this.dockPreviewProducer.hitTestZone(
-            this.crossWindowGeometry.get(workspaceId)?.zones,
-            {x: localX, y: localY}
-        )
-    }
-
-    /**
-     * Computes and renders one preview through the same producer/indicator/converter pipeline
-     * used by an in-window drag. This method stays synchronous for coordinator callbacks.
-     * @param {String} workspaceId
-     * @param {Object} data
-     * @returns {Object|null}
-     * @protected
-     */
-    renderWorkspacePreview(workspaceId, data) {
-        let me                = this,
-            host              = me.crossWindowHosts.get(workspaceId),
-            geometry          = me.crossWindowGeometry.get(workspaceId),
-            draggedItem       = data.draggedItem,
-            groupNodeId       = draggedItem?.dockGroupNodeId ?? null,
-            itemId            = data.itemId ?? draggedItem?.dockItemId,
-            sourceWorkspaceId = draggedItem?.dockSourceWorkspaceId ?? workspaceId,
-            sourceNodeId      = data.sourceNodeId
-                ?? WorkspaceDocument.findContainingTabsId(me.getWorkspaceDocument(sourceWorkspaceId), itemId),
-            pointer    = {x: data.localX ?? data.clientX, y: data.localY ?? data.clientY};
-
-        if (!host || !geometry || !itemId || !Neo.isNumber(pointer.x) || !Neo.isNumber(pointer.y)) {
-            return null
-        }
-
-        let producer   = me.dockPreviewProducer,
-            indicators = host.down({ntype: 'dashboard-dock-drop-indicators'}),
-            renderer   = host.down({ntype: 'dock-preview'}),
-            zone       = producer.hitTestZone(geometry.zones, pointer);
-
-        if (indicators && (zone?.nodeId ?? null) !== (indicators.candidateSet?.zone?.nodeId ?? null)) {
-            indicators.candidateSet = zone
-                ? producer.produceCandidates({
-                    pointer, zones: geometry.zones, groupNodeId, itemId, sourceNodeId, root: geometry.root
-                })
-                : null
-        }
-
-        let candidate = indicators?.updatePointer(pointer) ?? null,
-            preview   = candidate?.preview
-                ?? producer.produce({pointer, zones: geometry.zones, groupNodeId, itemId, sourceNodeId});
-
-        if (renderer) {
-            renderer.dockPreview = preview;
-
-            if (preview) {
-                let targetRect = preview.target.nodeId === geometry.root.nodeId
-                    ? geometry.root.rect
-                    : geometry.zones.find(entry => entry.nodeId === preview.target.nodeId)?.rect;
-
-                targetRect && renderer.applyTargetGeometry(me.localDockRect(targetRect, geometry.hostRect))
-            }
-        }
-
-        return preview
-    }
-
-    /**
-     * Local drag-move adapter for either active workspace.
-     * @param {String} workspaceId
-     * @param {Object} data
-     * @protected
-     */
-    async onDockCrossZoneDragMove(workspaceId, data) {
-        this.crossWindowGeometry.has(workspaceId) || await this.measureWorkspaceGeometry(workspaceId);
-        this.renderWorkspacePreview(workspaceId, data)
-    }
-
-    /**
-     * Local release path. A committed remote drop must suppress this callback entirely; the
-     * counter is the product witness for that one-shot source decision.
-     * @param {String} workspaceId
-     * @param {Object} data
-     * @returns {Object|null}
-     * @protected
-     */
-    onDockCrossZoneDrop(workspaceId, data) {
-        let me         = this,
-            preview    = me.renderWorkspacePreview(workspaceId, data),
-            descriptor = PreviewContract.previewToOperation(preview),
-            result     = null;
-
-        me.crossWindowStats.localDropFires++;
-        me.clearWorkspaceAffordances(workspaceId);
-
-        if (descriptor) {
-            result = me.applyWorkspaceOperation(workspaceId, descriptor);
-
-            if (result && !result.errors?.length && result.document) {
-                me.onWorkspaceDocumentChange(workspaceId, result.document)
-            }
-        }
-
-        return result
-    }
-
-    /**
-     * Cancels every window-local affordance and resolves the cancellation readiness signal.
-     * @param {String} workspaceId
-     * @param {Object} data
-     * @protected
-     */
-    onDockCrossZoneDragCancel(workspaceId, data) {
-        this.crossWindowHosts.forEach((host, id) => this.clearWorkspaceAffordances(id));
-        this.crossWindowGestureResolve?.({
-            applied: false,
-            errors : ['cross-window gesture cancelled before commit'],
-            itemId : data?.itemId,
-            workspaceId
-        });
-        this.crossWindowGestureResolve = null
-    }
-
-    /**
      * Projects one named committed document, threading the same holder and drag callbacks into
      * both render targets. Cross-window participation is opt-in for the dedicated scene only.
      * @param {Function|null} [resolveComponentRef=null]
@@ -2600,36 +2238,6 @@ class DemoBWorkspace extends Container {
         });
 
         return cache[itemId]
-    }
-
-    /**
-     * Lights the first `count` pips.
-     * @param {Number} count
-     */
-    setPipProgress(count) {
-        const pips = this.getReference('tour-pips-b');
-
-        if (pips) {
-            let {vdom} = pips;
-
-            vdom.cn.forEach((pip, index) => {
-                pip.cls = index < count
-                    ? ['agentos-dockdemo-pip', 'agentos-dockdemo-pip-done']
-                    : ['agentos-dockdemo-pip']
-            });
-
-            pips.update()
-        }
-    }
-
-    /**
-     * Updates the caption feed.
-     * @param {String} text
-     */
-    setTourCaption(text) {
-        const caption = this.getReference('tour-caption-b');
-
-        caption && (caption.html = text)
     }
 
     /**
