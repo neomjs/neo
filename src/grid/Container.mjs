@@ -1268,15 +1268,46 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     * Triggered by `grid.column.Base#afterSetLocked`
-     * Re-sorts the internal columns collection, the header items, and triggers a layout refresh.
+     * True while {@link #onColumnLockChange} carries a column's `locked` to the rest of its header group
+     * @member {Boolean} syncingGroupLock=false
+     * @protected
+     */
+    syncingGroupLock = false
+
+    /**
+     * @summary Triggered by `grid.column.Base#afterSetLocked`. Re-sorts the internal columns collection, the header
+     * items, and triggers a layout refresh.
+     *
+     * A header group stays in one region: a column under a `headerGroup` takes every sibling of its group along to
+     * its new `locked`, and the whole group is re-sorted once.
      * @param {Neo.grid.column.Base} column
      */
     async onColumnLockChange(column) {
-        let me          = this,
-            cellEditing = me.getPlugin('grid-cell-editing'),
-            holds       = !!cellEditing?.session,
+        let me = this;
+
+        // A sibling taking its group's region re-enters here through its own afterSetLocked: the first call re-sorts
+        if (me.syncingGroupLock) {
+            return
+        }
+
+        let {headerGroup, locked} = column,
+            cellEditing           = me.getPlugin('grid-cell-editing'),
+            holds                 = !!cellEditing?.session,
             sortedColumns;
+
+        if (headerGroup) {
+            me.syncingGroupLock = true;
+
+            try {
+                me.columns.items.forEach(sibling => {
+                    if (sibling.headerGroup?.id === headerGroup.id && sibling.locked !== locked) {
+                        sibling.locked = locked
+                    }
+                })
+            } finally {
+                me.syncingGroupLock = false
+            }
+        }
 
         // An open edit leaves its cell before the bodies swap columns, and returns once they have, or failed to
         holds && await cellEditing.holdEdit();
