@@ -26,12 +26,12 @@ Since its initial GA in November 2019 — years before trends like Vercel's `jso
 
 Because workers physically cannot touch the live DOM, the entire application — component trees, layouts, data stores, state providers, and VDOM deltas — is represented as pure, serializable JSON blueprints (`static config` and `toJSON()`). **Because LLMs excel at JSON, and Neo.mjs has been JSON-first since 2019, LLMs excel at building with Neo.mjs** — especially when paired with Neo's AI infrastructure. An AI model doesn't have to wrestle with HTML quirks, JSX compilation steps, or `useEffect` dependency arrays; JSON is its native tongue.
 
-### 3. The Complexity Shift: Why the Pre-AI Burden Disappeared
-Multi-threading in Neo.mjs does not add complexity to your application code — **it removes it**. The engine handles worker orchestration, cross-window state synchronization, and VDOM diffing behind the scenes, while the historical complexity burden of multi-threaded architecture for humans belonged to the **pre-AI era**.
+### 3. Simpler for Humans, Native for Coding Agents
+Multi-threading in Neo.mjs does not add complexity to your application code — **it removes it**. The engine handles worker orchestration, cross-window state synchronization, and VDOM diffing behind the scenes.
 
 **In the AI era, LLMs and Neo.mjs are a natural match.**
 
-Because **LLMs excel at JSON** and **Neo.mjs has been JSON-first since its November 2019 GA**, coding agents produce Neo.mjs components, layouts, forms, grids, and state providers with near-zero hallucination — especially when paired with our AI infrastructure. And instead of the industry's Rung-1 Command-and-Control model — a human "orchestrator" babysitting stateless sub-agents that forget every session, which [What Is Neo.mjs?](../Introduction.md) shows is architecturally capped at rung one — Neo.mjs asks the inverted question: *how can software become a body an AI inhabits, and a team of AIs can be trusted to run?*
+Because **LLMs excel at JSON** and **Neo.mjs has been JSON-first since its November 2019 GA**, coding agents write Neo.mjs components, layouts, forms, grids, and state providers in the same declarative shape a human does, and check the result in the running app through the [Neural Link](../../agentos/NeuralLink.md) — especially when paired with our AI infrastructure. And instead of the industry's Rung-1 Command-and-Control model — a human "orchestrator" babysitting stateless sub-agents that forget every session, which [What Is Neo.mjs?](../Introduction.md) shows is architecturally capped at rung one — Neo.mjs asks the inverted question: *how can software become a body an AI inhabits, and a team of AIs can be trusted to run?*
 
 Built around **Model Experience (MX)**, Object Permanence, and JSON-first worker contracts, Neo.mjs lets your coding agent — or a standing team of **accountable, named AI peer maintainers** across rival labs (Claude, Gemini, GPT) with persistent institutional memory, cross-family review rights, and a human gardener at the merge gate — build and evolve applications that are physically impossible in legacy frameworks.
 
