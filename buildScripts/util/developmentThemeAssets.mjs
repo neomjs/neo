@@ -292,14 +292,14 @@ export function runDevelopmentThemeBuild({repoRoot = REPO_ROOT} = {}) {
         );
 
         child.once('error', error => reject(new Error(
-            `E2E theme preflight could not run \`${DEVELOPMENT_THEME_BUILD_COMMAND}\`: ${error.message}`
+            `Development theme preflight could not run \`${DEVELOPMENT_THEME_BUILD_COMMAND}\`: ${error.message}`
         )));
         child.once('exit', (code, signal) => {
             if (code === 0) {
                 resolve()
             } else {
                 reject(new Error(
-                    `E2E theme preflight: \`${DEVELOPMENT_THEME_BUILD_COMMAND}\` failed ` +
+                    `Development theme preflight: \`${DEVELOPMENT_THEME_BUILD_COMMAND}\` failed ` +
                     `with ${signal ? `signal ${signal}` : `exit code ${code}`}`
                 ))
             }
@@ -325,13 +325,13 @@ export async function ensureDevelopmentThemeAssets({
 
     if (state.ready) return {built: false, state};
 
-    logger.log(`[e2e] development theme assets are missing or stale — running ${DEVELOPMENT_THEME_BUILD_COMMAND}`);
+    logger.log(`[themes] development theme assets are missing or stale — running ${DEVELOPMENT_THEME_BUILD_COMMAND}`);
 
     try {
         await build({repoRoot})
     } catch (error) {
         throw new Error(
-            `E2E theme preflight failed before browser startup: ${error.message}\n` +
+            `Development theme preflight failed: ${error.message}\n` +
             `Recovery: ${DEVELOPMENT_THEME_BUILD_COMMAND}`
         )
     }
@@ -348,7 +348,7 @@ export async function ensureDevelopmentThemeAssets({
         ].filter(Boolean).join('; ');
 
         throw new Error(
-            `E2E theme preflight incomplete after a successful builder exit${details ? ` (${details})` : ''}.\n` +
+            `Development theme preflight incomplete after a successful builder exit${details ? ` (${details})` : ''}.\n` +
             `Recovery: ${DEVELOPMENT_THEME_BUILD_COMMAND}`
         )
     }
