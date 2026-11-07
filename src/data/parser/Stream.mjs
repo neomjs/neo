@@ -69,7 +69,7 @@ class Stream extends Base {
 
     /**
      * @summary Parses a stream progressively, awaiting an optional per-read transform before each batch.
-     * Failures cancel the reader before propagating; every terminal path clears the store's streaming flag.
+     * Failures cancel the reader before propagating. The receiving Store owns progressive-read state.
      * @param {Object} rawData Output from the connection
      * @param {Object} [options={}]
      * @param {Function} [options.transformChunk] Awaited per-read transform before each data event.
@@ -85,13 +85,10 @@ class Stream extends Base {
             reader;
 
         if (rawData.aborted) {
-            me.store && (me.store.isStreaming = false);
             return {success: true, count: 0, aborted: true}
         }
 
         let {stream, total} = rawData;
-
-        me.store && (me.store.isStreaming = true);
 
         try {
             reader = stream.getReader();
@@ -161,8 +158,6 @@ class Stream extends Base {
                 return {success: true, count, aborted: true}
             }
             throw e
-        } finally {
-            me.store && (me.store.isStreaming = false)
         }
     }
 

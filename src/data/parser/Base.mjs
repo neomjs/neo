@@ -41,10 +41,6 @@ class Parser extends Base {
          */
         ntype: 'parser',
         /**
-         * @member {Neo.data.Store|null} store=null
-         */
-        store: null,
-        /**
          * @member {String|null} url=null
          */
         url: null

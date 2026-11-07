@@ -20,15 +20,13 @@ test.describe('Neo.data.parser.Stream', () => {
     let parser;
 
     test.beforeEach(() => {
-        parser = Neo.create(StreamParser, {
-            store: {}
-        });
+        parser = Neo.create(StreamParser);
     });
 
     test.afterEach(() => parser.destroy());
 
     for (const failure of [new Error('chunk refused'), null]) {
-        test(`a ${failure === null ? 'null' : 'Error'} chunk refusal cancels the reader and resets streaming`, async () => {
+        test(`a ${failure === null ? 'null' : 'Error'} chunk refusal cancels the reader`, async () => {
             const cancelled = [], stream = new ReadableStream({
                 start(controller) {controller.enqueue(new TextEncoder().encode('{"id":1}\n{"id":2}\n'))},
                 cancel(reason) {cancelled.push(reason); throw new Error('cancel also refused')}
@@ -36,20 +34,18 @@ test.describe('Neo.data.parser.Stream', () => {
             parser.initialChunkSize = 1;
             const result = parser.read({stream, total: 0}, {transformChunk: () => {throw failure}});
             await expect(result).rejects.toBe(failure);
-            expect(cancelled).toEqual([failure]);
-            expect(parser.store.isStreaming).toBe(false)
+            expect(cancelled).toEqual([failure])
         })
     }
 
-    test('a reader failure resets streaming and preserves the original error if cancellation rejects', async () => {
+    test('a reader failure preserves the original error if cancellation rejects', async () => {
         const failure = new Error('read refused'), cancelled = [],
               stream  = {getReader: () => ({
                   read  : async () => {throw failure},
                   cancel: async reason => {cancelled.push(reason); throw new Error('cancel refused')}
               })};
         await expect(parser.read({stream, total: 0})).rejects.toBe(failure);
-        expect(cancelled).toEqual([failure]);
-        expect(parser.store.isStreaming).toBe(false)
+        expect(cancelled).toEqual([failure])
     });
 
     test('read() should stream and parse NDJSON data', async () => {
