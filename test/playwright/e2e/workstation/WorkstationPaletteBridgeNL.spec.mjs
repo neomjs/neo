@@ -57,6 +57,18 @@ const bridgedTokens = [
     {token: '--tab-header-action-background-color-hover',  consumer: '.neo-toolbar-action',      expect: p => `color-mix(in srgb, ${p.signal} 8%, transparent)`},
     {token: '--tab-header-inline-background-image',        consumer: '.neo-tab-header-toolbar',  expect: p => `linear-gradient( 180deg, ${p.panel2}, ${p.panel} )`},
 
+    // Selection, for every selection model: signal washes above the hover's, ink text.
+    {token: '--grid-cellmodel-selected-cell-background-color',        consumer: '.neo-grid-cell', expect: p => `color-mix(in srgb, ${p.signal} 30%, ${p.panel})`},
+    {token: '--grid-cellmodel-selected-cell-color',                   consumer: '.neo-grid-cell', expect: p => p.ink},
+    {token: '--grid-cellmodel-selected-column-cell-background-color', consumer: '.neo-grid-cell', expect: p => `color-mix(in srgb, ${p.signal} 16%, ${p.panel})`},
+    {token: '--grid-cellmodel-selected-column-cell-color',            consumer: '.neo-grid-cell', expect: p => p.ink},
+    {token: '--grid-cellrowmodel-selected-cell-background-color',     consumer: '.neo-grid-cell', expect: p => `color-mix(in srgb, ${p.signal} 30%, ${p.panel})`},
+    {token: '--grid-cellrowmodel-selected-cell-color',                consumer: '.neo-grid-cell', expect: p => p.ink},
+    {token: '--grid-cellrowmodel-selected-row-cell-background-color', consumer: '.neo-grid-cell', expect: p => `color-mix(in srgb, ${p.signal} 16%, ${p.panel})`},
+    {token: '--grid-cellrowmodel-selected-row-cell-color',            consumer: '.neo-grid-cell', expect: p => p.ink},
+    {token: '--grid-rowmodel-selected-cell-background-color',         consumer: '.neo-grid-cell', expect: p => `color-mix(in srgb, ${p.signal} 22%, ${p.panel})`},
+    {token: '--grid-rowmodel-selected-cell-color',                    consumer: '.neo-grid-cell', expect: p => p.ink},
+
     // A literal, and the one declaration this spec CANNOT discriminate: the app and both neo themes
     // independently arrive at `transparent` here, so deleting the bridge does not move it. Carried in
     // the census with that stated rather than dropped, because an unlisted token reads as an
@@ -99,6 +111,7 @@ function readPalette(page) {
               read  = name => style.getPropertyValue(name).trim();
 
         return {
+            ink   : read('--workstation-ink'),
             inkDim: read('--workstation-ink-dim'),
             line  : read('--workstation-line'),
             panel : read('--workstation-panel'),
