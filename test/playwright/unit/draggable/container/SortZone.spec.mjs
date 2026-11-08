@@ -478,6 +478,80 @@ test.describe('Neo.draggable.container.SortZone', () => {
         expect(sortZone.currentIndex).toBe(0)
     });
 
+    test('getPinnedItems defaults to sortableItems and pins/restores non-sortable siblings when overridden (#20605)', async () => {
+        await new Promise(resolve => setTimeout(resolve, 10));
+        sortZone = container.sortZone;
+
+        const sortable = sortZone.getSortableItems();
+        expect(sortZone.getPinnedItems(container.items, sortable)).toBe(sortable);
+
+        let measuredIds = [];
+        Container.prototype.getDomRect = ids => {
+            measuredIds = ids;
+            return Promise.resolve(ids.map((id, idx) => new Rectangle(
+                idx === 0 ? 0 : (idx - 1) * 110,
+                0,
+                idx === 0 ? 550 : 100,
+                32
+            )))
+        };
+
+        sortZone.getPinnedItems = ownerItems => ownerItems;
+
+        await sortZone.onDragStart({
+            path: [{id: 'btnA', cls: ['neo-draggable'], rect: {left: 0, top: 0, width: 100, height: 32}}]
+        });
+
+        expect(measuredIds).toEqual([container.id, 'btnA', 'btnB', 'sep1', 'btnC', 'btnD']);
+        expect(sortZone.sortableItems.map(item => item.id)).toEqual(['btnA', 'btnB', 'btnD']);
+        expect(sortZone.itemRects.map(r => r.left)).toEqual([0, 110, 440]);
+        expect(container.items[2].wrapperStyle).toMatchObject({position: 'absolute', left: '220px', top: '0px'});
+        expect(container.items[3].wrapperStyle).toMatchObject({position: 'absolute', left: '330px', top: '0px'});
+
+        await sortZone.onDragEnd({});
+
+        expect(container.items[2].wrapperStyle.position).toBeNull();
+        expect(container.items[3].wrapperStyle.position).toBeNull();
+        expect(sortZone.pinnedItems).toBeNull()
+    });
+
+    test('getDragElement defaults to the item VDOM root and receives (draggedItem, handleNode) when overridden (#20605)', async () => {
+        await new Promise(resolve => setTimeout(resolve, 10));
+        sortZone = container.sortZone;
+
+        const [btnA] = container.items;
+        await sortZone.onDragStart({
+            path: [{id: 'btnA', cls: ['neo-draggable'], rect: {left: 0, top: 0, width: 100, height: 32}}]
+        });
+        expect(sortZone.dragElement.id).toBe('btnA');
+        await sortZone.onDragEnd({});
+
+        const handleVdom           = {id: 'btnA__header', cls: ['col-header', 'neo-draggable'], tag: 'div', text: 'Header'};
+        const handlePathDescriptor = {id: 'btnA__header', cls: ['col-header', 'neo-draggable'], rect: {left: 0, top: 0, width: 100, height: 32}, style: '', tagName: 'div'};
+        btnA.vdom.cn = [handleVdom];
+        await btnA.promiseUpdate();
+
+        let receivedArgs = null;
+        sortZone.dragHandleSelector = '.col-header';
+        sortZone.getDragElement     = (draggedItem, handleNode) => {
+            receivedArgs = {draggedItem, handleNode};
+            return handleNode
+        };
+
+        await sortZone.onDragStart({
+            path: [
+                handlePathDescriptor,
+                {id: 'btnA', cls: ['neo-button']}
+            ]
+        });
+
+        expect(receivedArgs.draggedItem).toBe(btnA);
+        expect(receivedArgs.handleNode).toBe(handleVdom);
+        expect(receivedArgs.handleNode).not.toBe(handlePathDescriptor);
+        expect(sortZone.dragElement).toBe(handleVdom);
+        await sortZone.onDragEnd({})
+    });
+
     test('Drag-trace ring buffer records events, caps per-drag size and trims old drags (#12886)', () => {
         const zone = Object.create(SortZone.prototype);
 
