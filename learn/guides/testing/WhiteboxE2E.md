@@ -35,22 +35,22 @@ npx playwright test test/playwright/e2e/<domain>/YourTestNL.spec.mjs -c test/pla
 **3. Choose the Dispatch Path (Dedicated-Worker Adapter vs. Bridge)**
 The `neuralLink` fixture supports two dispatch paths, selected by `NEO_AGENTOS_RUNTIME_ROOT`:
 - **Dedicated-Worker Adapter (`NEO_AGENTOS_RUNTIME_ROOT` unset):** Dispatches directly to the page's own dedicated App Worker (`test/playwright/dedicatedWorkerNeuralLink.mjs`) with no Brain checkout and no WebSocket. The fixture routes `neo-config.json` with `allowAiClientInTests: true` (so the App Worker boots the AI service registry without dialing a Bridge), addresses the captured dedicated App Worker handle directly (never searching by `appName`), mints a fresh `{agentId, sessionId}` writer pair for each test through `Neo.ai.Client#handleTestRequest`, and releases/sweeps that pair via `Neo.ai.Client#handleAgentDisconnected` during fixture teardown even when a test throws.
-- **Neural Link Bridge (`NEO_AGENTOS_RUNTIME_ROOT` set to an absolute `neo-agent-brain` checkout):** Loads the Brain's Neural Link services and dispatches over WebSocket through the Bridge. Set `NEO_AGENTOS_RUNTIME_ROOT=/abs/path/to/neo-agent-brain` (with `npm ci` installed) to run the Bridge path. (Until CI selection moves single-app specs into the Engine tier, `playwright.config.e2e.mjs` still deselects `neuralLink`-tagged specs when `NEO_AGENTOS_RUNTIME_ROOT` is unset.)
+- **Neural Link Bridge (`NEO_AGENTOS_RUNTIME_ROOT` set to an absolute `neo-agent-brain` checkout):** Loads the Brain's Neural Link services and dispatches over WebSocket through the Bridge. Set `NEO_AGENTOS_RUNTIME_ROOT=/abs/path/to/neo-agent-brain` (with `npm ci` installed) to run the Bridge path. While it is unset, `playwright.config.e2e.mjs` deselects every `neuralLink` spec that `test/playwright/externalBrainSelection.mjs` does not list as adapter-eligible.
 
 ## Hosted CI
 
-The engine tier (`.github/workflows/test-e2e.yml`) runs without a Brain, so its population is the Brain-free specs.
+The engine tier (`.github/workflows/test-e2e.yml`) runs without a Brain, so its population is the Brain-free specs, the adapter-eligible ones included.
 
-The Brain-gated specs run in `.github/workflows/test-e2e-brain.yml`, and this tier gates Engine pull requests: merge readiness refuses any red, required or not. The workflow checks out the Brain at its `dev` tip, resolved once per run, and installs it with `npm ci`.
+No CI test job provisions a Brain. The specs that need one run only locally, with `NEO_AGENTOS_RUNTIME_ROOT` set: the Bridge's own sessions, imports of Brain services, and the window specs the off-socket adapter cannot run yet. Run the ones your change reaches before you hand it off. `LOCAL_ONLY` in `e2eCiSelection.mjs` names each one with its reason, and the tier refuses to start while a Neural Link spec is in neither `ADAPTER_ELIGIBLE_SPECS` nor `LOCAL_ONLY`, so a new spec is never silently left out of CI.
 
-The shared scope classifier picks each tier's population:
-- A **`dev` push** runs every tier its change admits in **full**: ten Brain-gated shards and four engine shards.
+The shared scope classifier picks the tier's population:
+- A **`dev` push** runs the tier in **full**, on fourteen shards.
 - A **pull request** whose change reaches the E2E impact boundary runs only the specs it can reach. `buildScripts/util/e2eSpecReach.mjs` maps each spec to the app it navigates and that app's static import closure, plus the helpers the spec imports. `selectSpecs` in `e2eCiSelection.mjs` then picks:
   - every spec that reaches a changed file, or whose app fetches it;
   - every changed spec;
-  - the specs the map cannot place, and the `BRAIN_SMOKE` files, which run with every selection.
+  - the specs the map cannot place, which run with every selection.
 
-  Each tier's matrix shrinks to its share, and a tier none of whose specs is selected starts no job.
+  The matrix shrinks to the selection's share, and a selection with none of the tier's specs starts no job.
 - Some changes run every spec instead:
   - a foundation path: `src/core`, the worker, main-thread and vdom entry points, the canvas workers, top-level `src/*.mjs`, and the theme;
   - a file that loads modules by name or by computed path;
@@ -59,30 +59,17 @@ The shared scope classifier picks each tier's population:
   - a change whose files are all e2e specs.
 - Any other pull request selects **none** and starts no job. The *Classify test scope* summary names the reason and each changed file's boundary rule.
 
-Each tier's job summary names what the selection ran and why, spec by spec. A `dev` red after a selective green belongs to the merged pull request's author: their change is the one the selection judged unable to reach the spec. They triage it first, rerunning a chronic flaker on record and noting it on that flaker's ticket, and otherwise fixing forward or reverting.
+The tier's job summary names what the selection ran and why, spec by spec. A `dev` red after a selective green belongs to the merged pull request's author: their change is the one the selection judged unable to reach the spec. They triage it first, rerunning a chronic flaker on record and noting it on that flaker's ticket, and otherwise fixing forward or reverting.
 
-Each shard's test step stops at five minutes, the ceiling the engine tier enforces too.
+Each shard's test step stops at five minutes.
 
-The shards split the tier by measured time, not by test count. `buildScripts/util/e2eBrainDurations.json` holds each file's seconds, and `e2eCiSelection.mjs` gives each file, longest first, to the shard with the least time so far. A file the table does not list yet counts as its median, so a new spec needs no table edit. When the receipts' predictions drift from their test times, rebuild the table from a green full-tier run:
+The shards split the tier by measured time, not by test count. `buildScripts/util/e2eEngineDurations.json` holds each file's seconds, and `e2eCiSelection.mjs` gives each file, longest first, to the shard with the least time so far. A file the table does not list yet counts as its median, so a new spec needs no table edit. When the shards' times drift from the table, rebuild it from a full `dev` run's log:
 
 ```bash
-gh run view <run-id> --log | node buildScripts/util/e2eCiSelection.mjs --brain-durations > buildScripts/util/e2eBrainDurations.json
+gh run view <run-id> --log | node buildScripts/util/e2eCiSelection.mjs --engine-durations > buildScripts/util/e2eEngineDurations.json
 ```
 
-Each shard writes its receipt to its job summary and to its log. The log copy is the one `gh run view --log` can read. The receipt holds:
-- the event, attempt and tier;
-- the Engine and Brain SHAs;
-- its test time against the five-minute ceiling, and the time the duration table predicted;
-- what the tier selected, and every declared exclusion and quarantine, of which a smoke file may carry none;
-- the files the shard ran, with their outcome and measured seconds.
-
-`buildScripts/util/e2eCiSelection.mjs` declares two kinds of gap, and the receipt prints both:
-- A **capability** excludes files only while the variable they need is unset. Provisioning it brings them back.
-- A **quarantine** deselects one test by file and title. It names who is accountable, what removes it and since when, and after a week every receipt flags it as stale.
-
-A declaration whose file or title no longer exists fails the unit tier, and so does a declared smoke file.
-
-The tier retries a failed test only while `BRAIN_RETRY_BRIDGE` in `buildScripts/util/e2eCiSelection.mjs` is in date. Its last day was 2026-10-25, so the tier now runs without retries and a test red on its one attempt stays red. Every receipt states its run's retries and, while the bridge runs, names each test that needed one, with its first-attempt error.
+The coverage summary names every class of spec the tier leaves out, with its owner: the local-only specs, the Workstation specs a hosted runner cannot composite, and each exclusion `e2eCiSelection.mjs` declares.
 
 ## Connecting the Neural Link (Fixtures)
 
