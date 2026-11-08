@@ -1239,8 +1239,31 @@ test.describe('the grid drag-scroll beat pans a grid pane by raw strokes the gri
             expect(receipt.errors).toEqual([]);
             expect(receipt.applied).toBe(true);
             expect(fixture.calls).toEqual(['mousedown@250,300', 'mousemove@250,300', 'mousemove@243,296', 'mousemove@212,281', 'mousemove@130,240', 'mouseup@130,240']);
-            expect(receipt.proof.travel.observed).toEqual({x: 120, y: 60})
+            expect(receipt.proof.travel.observed).toEqual({x: 120, y: 60});
+            expect(receipt.proof.release.windowMoves).toBe(4)
         } finally {
+            fixture.cleanup()
+        }
+    });
+
+    test('a throw releases without a post-move wait and tightens its whip cadence so a slow runner still keeps at least two moves in the 100 ms release window', async () => {
+        let   now    = 1000;
+        const delays = [],
+              fixture = await makeGridDragScrollFixture({ack: async () => {now += 20}}),
+              timeout = fixture.driver.timeout,
+              dateNow = Date.now;
+        fixture.driver.timeout = async ms => {delays.push(ms); now += ms};
+        Date.now               = () => now;
+        try {
+            const receipt = await fixture.execute({curve: 'throw', moveDelay: 33, moveSteps: 4}, {anchor: {x: 0.5, y: 0.5}, deltaX: -120, deltaY: -60, paneId: 'scale', strokes: 1});
+            expect(receipt.errors).toEqual([]);
+            expect(receipt.applied).toBe(true);
+            // Four move delays precede the four mousemoves; the last two whip samples tighten to 16 ms and mouseup adds no pre-release delay.
+            expect(delays.slice(0, 4)).toEqual([33, 33, 16, 16]);
+            expect(receipt.proof.release).toEqual({agesMs: [92, 56, 20], spanMs: 72, windowMoves: 3})
+        } finally {
+            Date.now               = dateNow;
+            fixture.driver.timeout = timeout;
             fixture.cleanup()
         }
     });
