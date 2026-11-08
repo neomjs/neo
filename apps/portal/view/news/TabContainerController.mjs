@@ -26,7 +26,8 @@ class TabContainerController extends Controller {
             '/news/releases'             : 'onReleasesRoute',
             '/news/releases/{*itemId}'   : 'onReleasesRoute',
             '/news/tickets'              : 'onTicketsRoute',
-            '/news/tickets/{*itemId}'    : 'onTicketsRoute'
+            '/news/tickets/{*itemId}'    : 'onTicketsRoute',
+            '/news/videos'               : 'onVideosRoute'
         }
     }
 
@@ -96,6 +97,13 @@ class TabContainerController extends Controller {
      */
     onTicketsRoute(data) {
         this.activateRoute('/news/tickets')
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onVideosRoute(data) {
+        this.activateRoute('/news/videos')
     }
 }
 
