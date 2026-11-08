@@ -128,7 +128,7 @@ class EventDragZone extends DragZone {
     }
 
     /**
-     * @summary Commits the dragged event's new start and end dates from the target `.neo-day` cell, resorts the event store, and refreshes the month view.
+     * @summary Commits the dragged event's new start and end dates from the target `.neo-day` cell on drop, or skips the commit when `data.cancelled` is set and re-renders the month view from the unchanged record.
      * @param {Object} [data]
      */
     dragEnd(data) {
@@ -142,7 +142,10 @@ class EventDragZone extends DragZone {
 
         super.dragEnd(data);
 
-        if (record && dayFlag) {
+        if (data?.cancelled) {
+            me.removeBodyCursorCls();
+            owner?.createContent()
+        } else if (record && dayFlag) {
             [year, month, day] = dayFlag.split('-').map(Number);
 
             startDate = DateUtil.clone(record.startDate);
