@@ -29,6 +29,10 @@ name: PR Baseline
 # the one place where a mirror is also a gate. The job checks out at depth 1, so the spec-retirement entry
 # fetches the history its `origin/dev..HEAD` range reads. The hierarchy entry runs last because it writes
 # the generated docs.
+#
+# THE GUIDES are judged by the baseline's own guide lint, at this tag, inside `PR baseline`, so no job checks
+# out the Brain to run it. `dead-script-ref` is skipped because these guides name the Brain's `ai:*` scripts,
+# which this repository does not define. The Brain runs that rule over these guides at its own `neo.mjs` pin.
 
 on:
   pull_request:
@@ -49,9 +53,11 @@ permissions:
 # theirs. It lives in the Brain and is read at the Brain's `dev`, never from the pull request under review.
 jobs:
   baseline:
-    uses: neomjs/neo-agent-skills/.github/workflows/reusable-pr-baseline.yml@v1.1.0
+    uses: neomjs/neo-agent-skills/.github/workflows/reusable-pr-baseline.yml@v1.2.0
     with:
       required_base: dev
+      guides: true
+      guides_skip: '["dead-script-ref"]'
       team_roster_repository: neomjs/neo-agent-brain
       team_roster_path: ai/graph/agentCoAuthorEmails.mjs
       guards: |
