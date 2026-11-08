@@ -76,6 +76,13 @@ class NewsTabContainer extends TabContainer {
                 route  : '/news/pulls',
                 text   : 'Pull Requests'
             }
+        }, {
+            module: () => import('./videos/Container.mjs'),
+            header: {
+                iconCls: 'fab fa-youtube',
+                route  : '/news/videos',
+                text   : 'Videos'
+            }
         }],
         /**
          * @member {Object} unmountConfigs={activeIndex: null}
