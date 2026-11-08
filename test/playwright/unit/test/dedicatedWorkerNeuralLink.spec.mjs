@@ -18,9 +18,10 @@ import {
  * Fake Playwright `Worker` that simulates a dedicated App Worker with `Neo.ai.Client` in-memory.
  */
 function createFakeDedicatedWorker({
-    appName  = 'Neo.examples.button.base',
-    url      = 'http://localhost:8080/src/worker/App.mjs',
-    workerId = '11111111-2222-3333-4444-555555555555'
+    appName     = 'Neo.examples.button.base',
+    url         = 'http://localhost:8080/src/worker/App.mjs',
+    windowItems = [{appName, id: '1'}],
+    workerId    = '11111111-2222-3333-4444-555555555555'
 } = {}) {
     const disconnectedPairs = [],
           requests          = [];
@@ -42,7 +43,7 @@ function createFakeDedicatedWorker({
                     environment         : 'development'
                 },
                 manager: {
-                    Window: {items: [{appName, id: '1'}]}
+                    Window: {items: windowItems}
                 },
                 worker: {
                     App: {
@@ -281,6 +282,34 @@ test.describe('test/playwright/dedicatedWorkerNeuralLink — off-socket dedicate
         }]);
 
         expect(await disconnectTestWriter(null, writerPair)).toBeNull()
+    });
+
+    test('get_window_topology hands a window\'s rects over in the wire\'s JSON shape, so x and y survive', async () => {
+        // `Neo.util.Rectangle` is a DOMRect: its geometry lives on prototype getters, which CDP's returnByValue drops
+        const rect = (x, y, width, height) => Object.create({
+                  get height() {return height},
+                  get width()  {return width},
+                  get x()      {return x},
+                  get y()      {return y},
+                  toJSON()     {return {height, width, x, y}}
+              }),
+              worker = createFakeDedicatedWorker({windowItems: [{appName: 'Colors', id: '1', innerRect: rect(10, 20, 300, 200)}]}),
+              nlApp  = createDedicatedWorkerAppConnection({getWorker: () => worker, sessionId: worker.workerId, writerPair: mintTestWriterPair()});
+
+        expect((await nlApp.getWindowTopology())[0].innerRect).toEqual({height: 200, width: 300, x: 10, y: 20})
+    });
+
+    test('a window operation on a window the topology does not hold is refused before the App Worker sees it, as the Bridge refuses it', async () => {
+        const worker = createFakeDedicatedWorker(),
+              nlApp  = createDedicatedWorkerAppConnection({getWorker: () => worker, sessionId: worker.workerId, writerPair: mintTestWriterPair()});
+
+        await expect(nlApp.focusWindow('missing-window-id')).rejects.toThrow("Unknown windowId 'missing-window-id'.");
+        await expect(nlApp.closeWindow('missing-window-id')).rejects.toThrow("Unknown windowId 'missing-window-id'.");
+        await expect(nlApp.positionWindow({windowId: 'missing-window-id', x: 0, y: 0})).rejects.toThrow("Unknown windowId 'missing-window-id'.");
+        expect(worker.requests.map(({method}) => method), 'no refused call reached the App Worker').toEqual([]);
+
+        expect(await nlApp.focusWindow('1')).toMatchObject({method: 'focus_window', ok: true, params: {windowId: '1'}});
+        expect(await nlApp.openComponentWindow({componentId: 'neo-panel-1'})).toMatchObject({method: 'open_component_window', ok: true})
     });
 
     test('createDedicatedWorkerAppConnection and createBridgeAppConnection share one nlApp surface over stub transports', async () => {

@@ -75,6 +75,14 @@ export const BRIDGE_TOOL_SERVICE_MAP = Object.freeze({
 
 const snakeToCamel = tool => tool.replace(/_([a-z])/g, (_, ch) => ch.toUpperCase());
 
+/**
+ * The window operations whose target the Bridge resolves against its topology before the App Worker sees them
+ * (`resolveWindowTarget` in the Brain's `RuntimeService`). `open_component_window` resolves one only when it names a
+ * source `windowId`.
+ * @type {ReadonlySet<String>}
+ */
+const WINDOW_TARGET_TOOLS = new Set(['close_window', 'focus_window', 'open_component_window', 'position_window']);
+
 let writerCounter = 0;
 
 /**
@@ -407,14 +415,14 @@ export function createBridgeAppConnection(services, sessionId) {
  * dedicated App Worker.
  * @param {Object}   options
  * @param {Function} options.getLogs    Returns captured console log entries for the dedicated App Worker
- * @param {Function} options.getWorker  Returns the current dedicated App Worker for the page
+ * @param {Function} options.getWorker  Returns, or resolves to, the page's current App Worker
  * @param {String}   options.sessionId  The App Worker id (`Neo.worker.App.id`)
  * @param {Object}   options.writerPair `{agentId, sessionId}` minted for this test
  * @returns {Object}
  */
 export function createDedicatedWorkerAppConnection({getLogs = () => [], getWorker, sessionId, writerPair}) {
     const invokeWorker = async (method, params = {}) => {
-        const worker = getWorker();
+        const worker = await getWorker();
 
         if (!worker) {
             throw new Error(`Dedicated App Worker is unavailable for Neural Link test request '${method}'.`)
@@ -460,7 +468,7 @@ export function createDedicatedWorkerAppConnection({getLogs = () => [], getWorke
         }
 
         if (tool === 'get_worker_topology') {
-            const worker = getWorker();
+            const worker = await getWorker();
 
             if (!worker) return [];
 
@@ -481,7 +489,7 @@ export function createDedicatedWorkerAppConnection({getLogs = () => [], getWorke
         }
 
         if (tool === 'get_window_topology') {
-            const worker = getWorker();
+            const worker = await getWorker();
 
             if (!worker) return [];
 
@@ -513,7 +521,8 @@ export function createDedicatedWorkerAppConnection({getLogs = () => [], getWorke
                     }
                 });
 
-                return Array.from(windowMap.values())
+                // `innerRect` / `outerRect` are `Neo.util.Rectangle` (a `DOMRect`): only the wire's JSON keeps `x` / `y`
+                return JSON.parse(JSON.stringify(Array.from(windowMap.values())))
             }).catch(() => [])
         }
 
@@ -582,6 +591,20 @@ export function createDedicatedWorkerAppConnection({getLogs = () => [], getWorke
             throw new Error(`Invalid action: ${action}`)
         }
 
+        // The Bridge refuses an unknown target window before the App Worker sees the call, which alone would
+        // answer `{success: false}`: the same refusal, against this App Worker's own topology
+        if (WINDOW_TARGET_TOOLS.has(tool) && (tool !== 'open_component_window' || params.windowId)) {
+            const {windowId} = params;
+
+            if (!windowId || typeof windowId !== 'string') {
+                throw new Error('windowId is required.')
+            }
+
+            if (!(await call('get_window_topology')).some(win => String(win.windowId) === windowId)) {
+                throw new Error(`Unknown windowId '${windowId}'.`)
+            }
+        }
+
         return invokeWorker(tool, params)
     };
 
@@ -599,7 +622,9 @@ export function createDedicatedWorkerAppConnection({getLogs = () => [], getWorke
  *
  * A page whose app runs its App Worker as a SharedWorker has no dedicated worker to capture: the page's own
  * SharedWorker, bound through `attachPageSharedAppWorker`, takes the same role under the same pair, and its
- * CDP session closes after the pair is released. A dedicated App Worker always wins, so a dedicated app's
+ * CDP session closes after the pair is released. The session is also released before each navigation of the
+ * page's own document, because a held session keeps that App Worker alive into the next boot, and the next call
+ * attaches the App Worker the new document starts. A dedicated App Worker always wins, so a dedicated app's
  * run is unchanged.
  *
  * @param {Object}   fixtures
@@ -619,8 +644,8 @@ export async function runDedicatedWorkerNeuralLink({browser, context, page}, use
               logs.push(entry);
               logs.length > 1000 && logs.shift()
           };
-    let appWorker       = page.workers?.()?.find?.(isDedicatedAppWorker) || null,
-        sharedAppWorker = null;
+    let appWorker    = page.workers?.()?.find?.(isDedicatedAppWorker) || null,
+        sharedAttach = null;
 
     if (appWorker) {
         seenWorkers.add(appWorker)
@@ -658,6 +683,61 @@ export async function runDedicatedWorkerNeuralLink({browser, context, page}, use
     await routeConfig(context);
     assertUnnavigated?.(page);
 
+    /**
+     * @summary The page's own SharedWorker App Worker, attached on first use and again after a release. Concurrent
+     * callers share one attachment; a page with no SharedWorker yet is asked again next time.
+     * @returns {Promise<Object|null>}
+     */
+    const sharedAppWorker = () => sharedAttach ??= attachPageSharedAppWorker({browser, onConsole: pushLog, page}).then(
+        handle => {
+            if (handle) {
+                seenWorkers.add(handle)
+            } else {
+                sharedAttach = null
+            }
+
+            return handle
+        },
+        error => {
+            sharedAttach = null;
+            throw error
+        }
+    );
+
+    /**
+     * @summary Closes the held SharedWorker session, if any; the next {@link sharedAppWorker} call attaches again.
+     * @returns {Promise<void>}
+     */
+    const releaseSharedAppWorker = async () => {
+        const attaching = sharedAttach;
+
+        sharedAttach = null;
+        await (await attaching?.catch(() => null))?.close()
+    };
+
+    // A document request (a path ending in `.html` or `/`) holds until the session is released, so the App
+    // SharedWorker has no debugger keeping it alive when its last client unloads
+    await page.route?.(/(?:\.html|\/)(?:\?[^#]*)?$/, async route => {
+        const request = route.request();
+
+        if (request.isNavigationRequest() && request.frame() === page.mainFrame()) {
+            await releaseSharedAppWorker()
+        }
+
+        await route.fallback()
+    });
+
+    /**
+     * @summary Releases the session once the context's last window closed. That close leaves the App SharedWorker no
+     * client while the session holds it, and a worker kept alive that way never answers, so a call waiting on it
+     * rejects instead.
+     * @param {Object} closed The Playwright `Page` that closed
+     */
+    const releaseWhenNoWindowRemains = closed => closed.context().pages().length === 0 && releaseSharedAppWorker();
+
+    page.on?.('close', releaseWhenNoWindowRemains);
+    context.on?.('page', opened => opened.on('close', releaseWhenNoWindowRemains));
+
     const nl = {
         bridgePort: null,
         writerPair,
@@ -688,11 +768,11 @@ export async function runDedicatedWorkerNeuralLink({browser, context, page}, use
             await expect.poll(async () => {
                 // A dedicated App Worker wins; only a page without one looks for its own SharedWorker. An ambiguous
                 // context is reported at once, while a transient attach failure retries on the next poll
-                const candidate = appWorker || page.workers().find(isDedicatedAppWorker) ||
-                    (sharedAppWorker ??= await attachPageSharedAppWorker({browser, onConsole: pushLog, page}).catch(error => {
-                        if (error.name === 'AmbiguousSharedAppWorkerError') attachRefusal = error;
-                        return null
-                    }));
+                const dedicated = appWorker || page.workers().find(isDedicatedAppWorker),
+                      candidate = dedicated || await sharedAppWorker().catch(error => {
+                          if (error.name === 'AmbiguousSharedAppWorkerError') attachRefusal = error;
+                          return null
+                      });
 
                 if (attachRefusal) {
                     return true
@@ -731,7 +811,9 @@ export async function runDedicatedWorkerNeuralLink({browser, context, page}, use
                         return false
                     }
 
-                    appWorker      = candidate;
+                    // Only a dedicated worker becomes `appWorker`: a SharedWorker handle is re-read through
+                    // `sharedAppWorker()`, which a navigation releases
+                    appWorker      = dedicated || null;
                     capturedWorker = candidate;
                     workerId       = readyId;
                     seenWorkers.add(candidate);
@@ -753,7 +835,7 @@ export async function runDedicatedWorkerNeuralLink({browser, context, page}, use
 
             return createDedicatedWorkerAppConnection({
                 getLogs  : () => logs,
-                getWorker: () => appWorker || capturedWorker,
+                getWorker: async () => appWorker || sharedAppWorker(),
                 sessionId: workerId,
                 writerPair
             })
@@ -768,6 +850,6 @@ export async function runDedicatedWorkerNeuralLink({browser, context, page}, use
         }
 
         // The pair is released through the session, so the session closes last
-        await sharedAppWorker?.close()
+        await releaseSharedAppWorker()
     }
 }

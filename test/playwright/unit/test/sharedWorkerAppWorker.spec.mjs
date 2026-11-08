@@ -62,11 +62,12 @@ async function evaluateInFakeWorker(neo, expression) {
 /**
  * @summary A Chromium `Browser` whose CDP target list spans contexts, relaying target messages to a fake worker.
  * @param {Object}   options
- * @param {Object[]} options.targets   `Target.getTargets` infos
- * @param {Object}   [options.workerNeo] The attached worker's `Neo`
+ * @param {Object[]} options.targets      `Target.getTargets` infos
+ * @param {Object}   [options.workerNeo]  The attached worker's `Neo`
+ * @param {Object}   [options.workerNeos] A `Neo` per target id, for a page whose re-boot starts another worker
  * @returns {Object}
  */
-function createFakeChromium({attachError, targets, workerNeo}) {
+function createFakeChromium({attachError, targets, workerNeo, workerNeos}) {
     const sessions = [];
 
     return {
@@ -102,7 +103,7 @@ function createFakeChromium({attachError, targets, workerNeo}) {
 
                               queueMicrotask(async () => {
                                   const reply = inner === 'Runtime.evaluate'
-                                      ? await evaluateInFakeWorker(workerNeo, innerParams.expression)
+                                      ? await evaluateInFakeWorker(workerNeos?.[session.attachedTo] ?? workerNeo, innerParams.expression)
                                       : {result: {}};
 
                                   // CDP nests a command's payload: {id, result: {result: RemoteObject, exceptionDetails?}}
@@ -254,6 +255,15 @@ test.describe('test/playwright/sharedWorkerAppWorker — the page\'s own SharedW
         await expect(pending).rejects.toThrow('session closed');
         expect(browser.sessions[0].detached).toBe(true)
     });
+
+    test('a closed handle rejects a later call at once', async () => {
+        const browser = createFakeChromium({targets: [sharedWorkerTarget('ctx-mine', 'mine')], workerNeo: createSharedWorkerNeo().neo}),
+              handle  = await attachPageSharedAppWorker({browser, page: createFakePage('ctx-mine')});
+
+        await handle.close();
+
+        await expect(handle.evaluate(() => 'answered')).rejects.toThrow('session closed')
+    });
 });
 
 test.describe('test/playwright/dedicatedWorkerNeuralLink — the fixture on a SharedWorker page', () => {
@@ -300,6 +310,70 @@ test.describe('test/playwright/dedicatedWorkerNeuralLink — the fixture on a Sh
 
         expect(pairs[0].sessionId).not.toBe(pairs[1].sessionId);
         expect(worker.requests.map(({context}) => context)).toEqual(pairs)
+    });
+
+    test('a navigation of the page\'s own document releases the session before it proceeds, and the next call binds the App Worker it started', async () => {
+        const first     = createSharedWorkerNeo(),
+              second    = createSharedWorkerNeo(),
+              targets   = [sharedWorkerTarget('ctx-mine', 'first')],
+              browser   = createFakeChromium({targets, workerNeos: {first: first.neo, second: second.neo}}),
+              page      = createFakePage('ctx-mine'),
+              mainFrame = {},
+              routes    = [];
+
+        page.mainFrame = () => mainFrame;
+        page.route     = async (pattern, handler) => {routes.push({handler, pattern})};
+
+        await runDedicatedWorkerNeuralLink(fixtures(browser, page), async nl => {
+            const nlApp = await nl.connectToApp('Workstation');
+
+            await nlApp.setProperties('neo-button-1', {text: 'first boot'});
+
+            // A held session would keep `first` alive into the next boot; the next document starts `second`
+            targets.splice(0, 1, sharedWorkerTarget('ctx-mine', 'second'));
+
+            const navigation    = routes.find(({pattern}) => pattern.test('http://localhost:8080/apps/workstation/index.html'));
+            let   releasedFirst = null;
+
+            await navigation.handler({
+                fallback: async () => {releasedFirst = browser.sessions[0].detached},
+                request : () => ({frame: () => mainFrame, isNavigationRequest: () => true})
+            });
+
+            expect(releasedFirst, 'the session is released before the document request continues').toBe(true);
+
+            await nlApp.setProperties('neo-button-1', {text: 'second boot'});
+            expect(browser.sessions[1].attachedTo, 'the next call attaches the new App Worker').toBe('second')
+        });
+
+        expect(first.requests.map(({params}) => params.properties.text)).toEqual(['first boot']);
+        expect(second.requests.map(({params}) => params.properties.text)).toEqual(['second boot'])
+    });
+
+    test('the context\'s last window closing releases the session, so a call the worker never answers rejects', async () => {
+        const worker         = createSharedWorkerNeo(),
+              browser        = createFakeChromium({targets: [sharedWorkerTarget('ctx-mine', 'mine')], workerNeo: worker.neo}),
+              page           = createFakePage('ctx-mine'),
+              pageContext    = page.context,
+              closeListeners = [];
+
+        page.context = () => ({...pageContext(), pages: () => []});
+        page.on      = (event, listener) => {event === 'close' && closeListeners.push(listener)};
+
+        await runDedicatedWorkerNeuralLink(fixtures(browser, page), async nl => {
+            const nlApp = await nl.connectToApp('Workstation');
+
+            // A worker kept alive past its last window never answers again
+            worker.neo.ai.Client.handleTestRequest = () => new Promise(() => {});
+
+            const unanswered = nlApp.setProperties('neo-button-1', {text: 'after the last window'});
+
+            closeListeners.forEach(listener => listener(page));
+
+            await expect(unanswered).rejects.toThrow('session closed')
+        });
+
+        expect(browser.sessions[0].detached).toBe(true)
     });
 
     test('a page with a dedicated App Worker never opens a browser CDP session', async () => {
