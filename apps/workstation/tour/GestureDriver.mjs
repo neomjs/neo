@@ -1144,8 +1144,9 @@ class GestureDriver extends Base {
      * @param {Object} [options]
      * @param {Number} [options.attempts=180] Poll attempts (16 ms each) for the scroll to settle after the last release.
      * @param {'linear'|'throw'} [options.curve='linear'] How the samples share the travel: evenly, or
-     * eased in (quartic) so the stroke winds up and whips — the last hundred milliseconds carry the
-     * speed the addon's momentum reads at the release.
+     * blending a quartic wind-up (`0.65 * ratio ** 4`) with a late whip (`0.35 * ratio ** Math.max(4, moveSteps)`),
+     * tightening the final two move delays to at most 8 ms and releasing without a trailing pause so
+     * the stroke visibly winds up and the release window carries the speed the addon's momentum reads.
      * @param {Number} [options.moveDelay=16] Milliseconds between pointer samples.
      * @param {Number} [options.moveSteps=12] Samples along one stroke.
      * @param {Boolean} [options.showCursor=false] Film mode: show the shared synthetic cursor.
@@ -1225,8 +1226,8 @@ class GestureDriver extends Base {
 
                 for (let stroke = 0; stroke < strokes; stroke++) {
                     let isThrow   = curve === 'throw',
-                        exponent  = Math.max(4, Math.round(moveSteps * 2 / 3)),
-                        share     = ratio => isThrow ? ratio ** exponent : ratio,
+                        whip      = Math.max(4, moveSteps),
+                        share     = ratio => isThrow ? 0.65 * ratio ** 4 + 0.35 * ratio ** whip : ratio,
                         at        = ratio => ({x: Math.round(start.x + deltaX * share(ratio)), y: Math.round(start.y + deltaY * share(ratio))}),
                         stepDelay = index => isThrow && index >= moveSteps - 1 ? Math.min(moveDelay, 8) : moveDelay,
                         samples   = [{buttons: 1, delay: 0, point: start, targetId: pane.body.id, type: 'mousedown'}],
@@ -1261,6 +1262,7 @@ class GestureDriver extends Base {
                         if (type === 'mousemove') {
                             moveTimes.push(now)
                         } else if (type === 'mouseup') {
+                            // Mirrors `GridDragScroll#onDragEnd`'s `now - 100` ms velocity cutoff (`src/main/addon/GridDragScroll.mjs`).
                             let agesMs = moveTimes.filter(time => time > now - 100).map(time => now - time);
 
                             releases.push({

@@ -1246,7 +1246,7 @@ test.describe('the grid drag-scroll beat pans a grid pane by raw strokes the gri
         }
     });
 
-    test('a throw releases without a post-move wait and scales its whip exponent and cadence with moveSteps so a slow runner still carries momentum across the 100 ms release window', async () => {
+    test('a throw releases without a post-move wait and blends a quartic wind-up with a late whip so the film keeps a visible wind-up while surviving a 100 ms runner stall', async () => {
         let   now    = 1000;
         const delays = [],
               fixture = await makeGridDragScrollFixture({ack: async () => {now += 20}}),
@@ -1262,14 +1262,19 @@ test.describe('the grid drag-scroll beat pans a grid pane by raw strokes the gri
             expect(delays.slice(0, 4)).toEqual([33, 33, 8, 8]);
             expect(receipt.proof.release).toEqual({agesMs: [76, 48, 20], spanMs: 56, windowMoves: 3});
 
-            // At film-tour resolution (moveSteps: 24, deltaY: -480), the final whip step alone carries nearly half the stroke.
+            // At film-tour resolution (moveSteps: 24, deltaY: -480), the quartic wind-up stays visible at mid-stroke (20 px at sample 12, only 8 samples under 5 px) while the final step carries 156 px (~32.5%) to survive a 2-sample 89 ms runner stall.
             fixture.calls.length = 0;
             const filmReceipt = await fixture.execute({curve: 'throw', moveDelay: 33, moveSteps: 24}, {anchor: {x: 0.5, y: 0.5}, deltaX: -360, deltaY: -480, paneId: 'scale', strokes: 1});
             expect(filmReceipt.applied).toBe(true);
             const movePoints = fixture.calls.filter(call => call.startsWith('mousemove@')).map(call => call.slice('mousemove@'.length).split(',').map(Number));
             expect(movePoints).toHaveLength(24);
-            const finalStepDy = movePoints[22][1] - movePoints[23][1];
-            expect(finalStepDy, 'final whip step carries >= 45% of the 480 px stroke even if only 2 moves survive in the 100 ms window').toBeGreaterThanOrEqual(216)
+            const verticalTravel = movePoints.map(([, y]) => 300 - y);
+            expect(verticalTravel.filter(dy => dy < 5).length, 'visible wind-up without a 17-sample hold').toBeLessThanOrEqual(8);
+            expect(verticalTravel[11], 'mid-stroke has already moved 20 px').toBe(20);
+            const penultimateStepDy = movePoints[21][1] - movePoints[22][1],
+                  finalStepDy       = movePoints[22][1] - movePoints[23][1];
+            expect(penultimateStepDy, 'penultimate whip step accelerates smoothly').toBe(83);
+            expect(finalStepDy, 'final whip step carries 156 px (32.5% of 480 px), surviving an 89 ms two-sample stall without a near-cut').toBe(156)
         } finally {
             Date.now               = dateNow;
             fixture.driver.timeout = timeout;
