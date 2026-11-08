@@ -1246,7 +1246,7 @@ test.describe('the grid drag-scroll beat pans a grid pane by raw strokes the gri
         }
     });
 
-    test('a throw releases without a post-move wait and tightens its whip cadence so a slow runner still keeps at least two moves in the 100 ms release window', async () => {
+    test('a throw releases without a post-move wait and scales its whip exponent and cadence with moveSteps so a slow runner still carries momentum across the 100 ms release window', async () => {
         let   now    = 1000;
         const delays = [],
               fixture = await makeGridDragScrollFixture({ack: async () => {now += 20}}),
@@ -1258,9 +1258,18 @@ test.describe('the grid drag-scroll beat pans a grid pane by raw strokes the gri
             const receipt = await fixture.execute({curve: 'throw', moveDelay: 33, moveSteps: 4}, {anchor: {x: 0.5, y: 0.5}, deltaX: -120, deltaY: -60, paneId: 'scale', strokes: 1});
             expect(receipt.errors).toEqual([]);
             expect(receipt.applied).toBe(true);
-            // Four move delays precede the four mousemoves; the last two whip samples tighten to 16 ms and mouseup adds no pre-release delay.
-            expect(delays.slice(0, 4)).toEqual([33, 33, 16, 16]);
-            expect(receipt.proof.release).toEqual({agesMs: [92, 56, 20], spanMs: 72, windowMoves: 3})
+            // Four move delays precede the four mousemoves; the last two whip samples tighten to 8 ms and mouseup adds no pre-release delay.
+            expect(delays.slice(0, 4)).toEqual([33, 33, 8, 8]);
+            expect(receipt.proof.release).toEqual({agesMs: [76, 48, 20], spanMs: 56, windowMoves: 3});
+
+            // At film-tour resolution (moveSteps: 24, deltaY: -480), the final whip step alone carries nearly half the stroke.
+            fixture.calls.length = 0;
+            const filmReceipt = await fixture.execute({curve: 'throw', moveDelay: 33, moveSteps: 24}, {anchor: {x: 0.5, y: 0.5}, deltaX: -360, deltaY: -480, paneId: 'scale', strokes: 1});
+            expect(filmReceipt.applied).toBe(true);
+            const movePoints = fixture.calls.filter(call => call.startsWith('mousemove@')).map(call => call.slice('mousemove@'.length).split(',').map(Number));
+            expect(movePoints).toHaveLength(24);
+            const finalStepDy = movePoints[22][1] - movePoints[23][1];
+            expect(finalStepDy, 'final whip step carries >= 45% of the 480 px stroke even if only 2 moves survive in the 100 ms window').toBeGreaterThanOrEqual(216)
         } finally {
             Date.now               = dateNow;
             fixture.driver.timeout = timeout;

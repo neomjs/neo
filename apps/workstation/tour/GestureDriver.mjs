@@ -1225,9 +1225,10 @@ class GestureDriver extends Base {
 
                 for (let stroke = 0; stroke < strokes; stroke++) {
                     let isThrow   = curve === 'throw',
-                        share     = ratio => isThrow ? ratio ** 4 : ratio,
+                        exponent  = Math.max(4, Math.round(moveSteps * 2 / 3)),
+                        share     = ratio => isThrow ? ratio ** exponent : ratio,
                         at        = ratio => ({x: Math.round(start.x + deltaX * share(ratio)), y: Math.round(start.y + deltaY * share(ratio))}),
-                        stepDelay = index => isThrow && index >= moveSteps - 1 ? Math.min(moveDelay, 16) : moveDelay,
+                        stepDelay = index => isThrow && index >= moveSteps - 1 ? Math.min(moveDelay, 8) : moveDelay,
                         samples   = [{buttons: 1, delay: 0, point: start, targetId: pane.body.id, type: 'mousedown'}],
                         moveTimes = [],
                         sent      = 0;
