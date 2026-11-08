@@ -56,8 +56,8 @@ export const FORBIDDEN_PREFIXES = [
     },
     {
         prefix: '.neo-ai-data/',
-        allow : ['.neo-ai-data/concepts/'],
-        why   : 'Agent OS plane state — server logs, wake-daemon files, deployment snapshots, and the Memory Core SQLite graph (agent memories, session records, A2A edges). The tracked concept ontology is the sole intended export.'
+        allow : [],
+        why   : 'Agent OS plane state — server logs, wake-daemon files, deployment snapshots, and the Memory Core SQLite graph (agent memories, session records, A2A edges). Nothing under it ships; the concept ontology lives in the plane.'
     }
 ];
 
