@@ -37,6 +37,36 @@ test.describe('Docs app class and source routes', () => {
         }
     });
 
+    test('a closed class tab reopens from the tree although its route is still the URL', async ({page}) => {
+        const route = '/viewClass/Neo.form.field.TextArea',
+              leaf  = page.locator('.neo-docs-navigation-tab-container .neo-list-item-leaf', {hasText: 'TextArea'}).first();
+
+        await page.goto(DOCS);
+        await page.locator('input[placeholder="Filter Navigation"]').fill('TextArea');
+        await leaf.click();
+        await expect(tabHeader(page, route)).toHaveClass(/pressed/);
+
+        await tabHeader(page, route).hover();
+        await tabHeader(page, route).locator('.neo-tab-close').click();
+        await expect(tabHeader(page, route)).toHaveCount(0);
+        await expect(page, 'the URL still names the closed tab').toHaveURL(new RegExp(`#${route}$`));
+
+        await leaf.click();
+        await expect(tabHeader(page, route), 'the same click reopens it').toHaveClass(/pressed/)
+    });
+
+    test('inside the Portal a class click keeps the Portal route, so a reload keeps the docs view', async ({page}) => {
+        await page.goto('/apps/portal/index.html#/docs');
+        await page.locator('input[placeholder="Filter Navigation"]').fill('TextArea');
+        await page.locator('.neo-docs-navigation-tab-container .neo-list-item-leaf', {hasText: 'TextArea'}).first().click();
+
+        await expect(page.locator('.neo-docs-maincontainer .neo-tab-header-button', {hasText: 'TextArea'})).toHaveClass(/pressed/);
+        await expect(page, 'the Portal owns the hash').toHaveURL(/#\/docs$/);
+
+        await page.reload();
+        await expect(page.locator('.neo-docs-maincontainer'), 'the reload keeps the docs view').toBeVisible()
+    });
+
     test('activating an open tab moves the URL back to its route', async ({page}) => {
         const first  = '/viewClass/Neo.component.DateSelector',
               second = '/viewClass/Neo.form.field.TextArea';

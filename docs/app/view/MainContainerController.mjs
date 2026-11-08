@@ -80,12 +80,47 @@ class MainContainerController extends Component {
     }
 
     /**
-     * @summary Navigates to the clicked class tree leaf's `/viewClass/{className}` route, which opens its tab, so a
-     * reload restores it.
+     * @summary Opens or focuses the clicked class tree leaf's tab. Where the Docs app owns the hash, the click also moves
+     * the URL to the class route, so a reload restores the tab. The tab opens directly, so reopening a closed tab whose
+     * route is still the URL works too.
      * @param {Object} record
      */
     onApiListLeafClick(record) {
-        Neo.Main.setRoute({value: `/viewClass/${record.className}`, windowId: this.windowId})
+        let me = this;
+
+        me.openClassTab(record);
+        me.ownsRoutes() && Neo.Main.setRoute({value: `/viewClass/${record.className}`, windowId: me.windowId})
+    }
+
+    /**
+     * @summary Opens or focuses the API documentation tab of a class record, setting the full className as the tab
+     * header tooltip. Where the Docs app owns the hash, the header carries the class route.
+     * @param {Object} record
+     */
+    openClassTab(record) {
+        let me = this;
+
+        me.getReference('content-tabcontainer').add({
+            ntype        : 'classdetails-maincontainer',
+            id           : record.className,
+            structureData: record,
+
+            header: {
+                iconCls: record.singleton ? 'fa fa-arrow-alt-circle-right' : 'fa fa-copyright',
+                route  : me.ownsRoutes() ? `/viewClass/${record.className}` : null,
+                text   : record.name,
+                tooltip: record.className
+            }
+        })
+    }
+
+    /**
+     * @summary The standalone Docs app owns the URL hash. Inside the Portal the Portal's router does, and a route it
+     * does not own leaves a reload without the docs view, so the Docs app sets no route there.
+     * @returns {Boolean}
+     */
+    ownsRoutes() {
+        return this.component.appName !== 'Portal'
     }
 
     /**
@@ -238,8 +273,7 @@ class MainContainerController extends Component {
     }
 
     /**
-     * @summary Opens or focuses the API documentation tab of a class route, setting the full className as the tab header
-     * tooltip. The header carries the route, so activating the tab moves the URL back to it.
+     * @summary Opens or focuses the API documentation tab of a class route, so a reload or deep link restores it.
      * @param {Object} data
      * @param {String} data.className
      */
@@ -253,18 +287,7 @@ class MainContainerController extends Component {
 
         record = me.getStateProvider().getStore('structure').find('className', data.className)[0];
 
-        record && me.getReference('content-tabcontainer').add({
-            ntype        : 'classdetails-maincontainer',
-            id           : record.className,
-            structureData: record,
-
-            header: {
-                iconCls: record.singleton ? 'fa fa-arrow-alt-circle-right' : 'fa fa-copyright',
-                route  : `/viewClass/${record.className}`,
-                text   : record.name,
-                tooltip: record.className
-            }
-        })
+        record && me.openClassTab(record)
     }
 
     /**
@@ -295,7 +318,7 @@ class MainContainerController extends Component {
 
                 header: {
                     iconCls: 'fa fa-code',
-                    route  : `/viewSource/${record.className}`,
+                    route  : me.ownsRoutes() ? `/viewSource/${record.className}` : null,
                     text   : record.name,
                     tooltip: record.className
                 }

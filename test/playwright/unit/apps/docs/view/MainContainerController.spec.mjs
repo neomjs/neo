@@ -238,13 +238,15 @@ test.describe('Docs.view.MainContainerController tab header tooltips', () => {
                 exampleLeafRecord   = examplesStore.get(3),
                 multiExampleRecord  = examplesStore.get(4);
 
-            // 1. An API leaf click navigates to its class route, and the route opens the tab. Two API tabs with the same
-            // leaf name ('Base') get distinct full className tooltips, and each header carries its route
+            // 1. An API leaf click opens its tab and moves the URL to its class route. Two API tabs with the same leaf
+            // name ('Base') get distinct full className tooltips, and each header carries its route
             controller.onApiListLeafClick(buttonApiRecord);
-            expect(routes).toEqual([{value: '/viewClass/Neo.button.Base', windowId: controller.windowId}]);
+            controller.onApiListLeafClick(componentApiRecord);
 
-            controller.onViewClassRoute({className: buttonApiRecord.className});
-            controller.onViewClassRoute({className: componentApiRecord.className});
+            expect(routes).toEqual([
+                {value: '/viewClass/Neo.button.Base',    windowId: controller.windowId},
+                {value: '/viewClass/Neo.component.Base', windowId: controller.windowId}
+            ]);
 
             const
                 buttonApiTabButton    = tabBar.items[1],
