@@ -324,6 +324,24 @@ class Column extends Base {
     }
 
     /**
+     * @summary Reads a field's value from a row record, resolving a dotted path such as `metrics.load`.
+     *
+     * A record resolves the path through `Record#get`. In Turbo Mode (`autoInitRecords: false`) a row can
+     * be a plain object without `get`, and `Neo.ns` resolves the same path on it. Column types that read
+     * a value themselves use this, so a nested `dataField` reaches them the way it reaches a plain cell.
+     * @param {Neo.data.Record|Object|null} record
+     * @param {String} [field=this.dataField]
+     * @returns {*} The value at the path, or `undefined` when the record or a segment is missing
+     */
+    getRecordValue(record, field=this.dataField) {
+        if (!record) {
+            return undefined
+        }
+
+        return typeof record.get === 'function' ? record.get(field) : Neo.ns(field, false, record)
+    }
+
+    /**
      * Serializes the instance into a JSON-compatible object for the Neural Link.
      * @returns {Object}
      */

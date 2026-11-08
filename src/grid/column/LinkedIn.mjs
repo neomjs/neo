@@ -37,7 +37,7 @@ class LinkedIn extends ComponentColumn {
      */
     applyRecordConfigs(config, record) {
         let me  = this,
-            url = record[me.dataField];
+            url = me.getRecordValue(record);
 
         if (url && !url.startsWith('http')) {
             url = `https://www.linkedin.com/in/${url}/`

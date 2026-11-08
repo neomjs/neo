@@ -54,11 +54,17 @@ class AnimatedChange extends Column {
      * @param {Object}         data.record
      */
     async onRecordChange({fields, record}) {
-        let me = this,
+        let me          = this,
+            {dataField} = me,
+            root        = dataField.split('.')[0],
+            path        = dataField.slice(root.length + 1),
             field;
 
         for (field of fields) {
-            if (field.name === me.dataField) {
+            // A change to a nested path arrives under its root field (`metrics` for `metrics.load`) with the whole
+            // object as old and new value, so a root change only counts when the value at the path moved.
+            if (field.name === dataField || (path && field.name === root &&
+                me.getRecordValue(field.oldValue, path) !== me.getRecordValue(field.value, path))) {
                 // Wait for the next animation frame
                 await me.timeout(20);
 

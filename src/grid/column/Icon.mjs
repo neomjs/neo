@@ -37,7 +37,7 @@ class Icon extends ComponentColumn {
      */
     applyRecordConfigs(config, record) {
         let me          = this,
-            value       = record[me.dataField],
+            value       = me.getRecordValue(record),
             cellIconCls = me.cellIconCls;
 
         if (cellIconCls) {

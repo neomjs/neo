@@ -80,7 +80,7 @@ class AnimatedCurrency extends AnimatedChange {
      * @returns {String}
      */
     getAnimationCls(record) {
-        return record[this.compareField || this.dataField] < 0 ? 'neo-animated-negative' : 'neo-animated-positive'
+        return this.getRecordValue(record, this.compareField || this.dataField) < 0 ? 'neo-animated-negative' : 'neo-animated-positive'
     }
 
     /**

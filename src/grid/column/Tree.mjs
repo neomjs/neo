@@ -79,7 +79,7 @@ class Tree extends ComponentColumn {
             isLeaf         : record.isLeaf,
             isNodeLoading  : record.isLoading,
             showHelperLines: this.showHelperLines,
-            value          : record[this.dataField],
+            value          : this.getRecordValue(record),
             ...config
         }
     }
