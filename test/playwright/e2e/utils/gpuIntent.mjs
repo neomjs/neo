@@ -53,20 +53,18 @@ export const GPU_INTENT_ARGS = [
 export const PLAYWRIGHT_DISABLED_FEATURES = [
     'AvoidUnnecessaryBeforeUnloadCheckSync',
     'DestroyProfileOnBrowserClose',
-    'DialMediaRouteProvider',
-    'GlobalMediaControls',
     'HttpsUpgrades',
+    'HttpsFirstBalancedModeAutoEnable',
     'LensOverlay',
     'MediaRouter',
     'PaintHolding',
     'ThirdPartyStoragePartitioning',
-    'BlockOriginHeaderModificationOnRedirect',
     'AvoidCorsURLLoaderRestartOnRedirect',
-    'Translate',
-    'AutoDeElevate',
+    'TcpPortRandomizationWin',
     'OptimizationHints',
     'NetworkTimeServiceQuerying',
     'AimEnabled',
+    'PreconnectToSearch',
     'msForceBrowserSignIn',
     'msEdgeUpdateLaunchServicesPreferredVersion'
 ];

@@ -141,6 +141,13 @@ class SortZone extends DragZone {
          */
         ownerStyle: null,
         /**
+         * The items measured, pinned (`position: 'absolute'`), and restored across `onDragStart` and `processDragEnd`.
+         * Defaults to `sortableItems`; subclasses with non-sortable siblings in flow override {@link #getPinnedItems}.
+         * @member {Neo.component.Base[]|null} pinnedItems=null
+         * @protected
+         */
+        pinnedItems: null,
+        /**
          * Applies an inline `position: relative` to the owner for the duration of a drag, making the
          * owner the containing block for the absolutely positioned items. Required whenever the item
          * rects get converted into owner-relative space (adjustItemRectsToParent / adjustProxyRectToParent)
@@ -339,6 +346,29 @@ class SortZone extends DragZone {
               cls       = item.vdom.cls;
 
         return Array.isArray(cls) ? cls.includes(handleCls) : cls === handleCls
+    }
+
+    /**
+     * @summary Returns the VDOM root cloned into the drag proxy for `draggedItem`.
+     * @param {Neo.component.Base} draggedItem
+     * @param {Object|null} [handleNode=null] The matched drag handle VDOM node resolved from `owner.vdom` when `dragHandleSelector` is active
+     * @returns {Object}
+     * @protected
+     */
+    getDragElement(draggedItem, handleNode=null) {
+        return VDomUtil.find(this.owner.vdom, draggedItem.id).vdom
+    }
+
+    /**
+     * @summary Returns the item set measured, pinned (`position: 'absolute'`), and restored across `onDragStart` and `processDragEnd`.
+     * Must contain every entry in `sortableItems` in `owner.items` order so `itemRects` and the owner extent stay aligned.
+     * @param {Object[]} [ownerItems=this.owner.items]
+     * @param {Neo.component.Base[]} [sortableItems=this.sortableItems]
+     * @returns {Neo.component.Base[]}
+     * @protected
+     */
+    getPinnedItems(ownerItems=this.owner.items, sortableItems=this.sortableItems) {
+        return sortableItems
     }
 
     /**
@@ -628,7 +658,7 @@ class SortZone extends DragZone {
                 owner.style = ownerStyle
             }
 
-            me.sortableItems?.forEach((item, index) => {
+            (me.pinnedItems || me.sortableItems)?.forEach((item, index) => {
                 if (item.isDestroyed || (me.isWindowDragging && item === me.dragComponent)) {
                     return
                 }
@@ -644,7 +674,7 @@ class SortZone extends DragZone {
                     width   : itemStyles[index].width || null
                 });
 
-                if (index === me.startIndex) {
+                if (item === me.sortableItems[me.startIndex]) {
                     itemStyle.visibility = null
                 }
 
@@ -694,6 +724,7 @@ class SortZone extends DragZone {
                 lastInBoundX    : null,
                 lastInBoundY    : null,
                 ownerRect       : null,
+                pinnedItems     : null,
                 scrollLeft      : 0,
                 sortBoundaryRect: null,
                 startIndex      : -1,
@@ -884,7 +915,8 @@ class SortZone extends DragZone {
             itemStyles                                                               = me.itemStyles = [],
             {layout}                                                                 = owner,
             ownerStyle                                                               = owner.style || {},
-            draggedItem, index, indexMap, itemStyle, rect, sortableItems;
+            handleNode                                                               = null,
+            draggedItem, index, indexMap, itemStyle, pinnedItems, rect, sortableItems;
 
         if (owner.dragResortable) {
             if (ignoreDragSelector) {
@@ -896,7 +928,7 @@ class SortZone extends DragZone {
 
             if (dragHandleSelector) {
                 const handleClassName = dragHandleSelector.substring(1);
-                const handleNode      = data.path.find(node => node.cls.includes(handleClassName));
+                handleNode            = data.path.find(node => node.cls.includes(handleClassName));
 
                 if (!handleNode) {
                     return
@@ -930,16 +962,25 @@ class SortZone extends DragZone {
                 return
             }
 
+            pinnedItems = me.getPinnedItems(owner.items, sortableItems);
+
+            if (pinnedItems !== sortableItems) {
+                pinnedItems = [...pinnedItems]
+            }
+
+            const handleVdomNode = handleNode ? VDomUtil.find(owner.vdom, handleNode.id)?.vdom || null : null;
+
             indexMap = {};
 
             Object.assign(me, {
                 currentIndex           : index,
-                dragElement            : VDomUtil.find(owner.vdom, draggedItem.id).vdom,
+                dragElement            : me.getDragElement(draggedItem, handleVdomNode),
                 dragProxyConfig        : me.getDragProxyConfig(),
                 indexMap,
                 lastIntersectionRatio  : 1,
                 ownerItems             : [...owner.items],
                 ownerStyle             : {height: ownerStyle.height, minWidth: ownerStyle.minWidth, position: ownerStyle.position, width: ownerStyle.width},
+                pinnedItems,
                 reversedLayoutDirection: layout.direction === 'column-reverse' || layout.direction === 'row-reverse',
                 scrollLeft             : owner.scrollLeft || 0, // absolute owner scroll; subclasses snapshot itemRects in owner-content space
                 sortableItems,
@@ -951,23 +992,30 @@ class SortZone extends DragZone {
             me.dragFocusOwner = draggedItem.containsFocus ? draggedItem : null;
 
             sortableItems.forEach((item, i) => {
-                indexMap[i] = owner.items.indexOf(item);
+                indexMap[i] = owner.items.indexOf(item)
+            });
 
+            pinnedItems.forEach(item => {
                 itemStyles.push({
-                    height: item.height ? `${item.height}px` :  item.style?.height,
-                    width : item.width  ? `${item.width}px`  :  item.style?.width
+                    height: item.height ? `${item.height}px` : item.style?.height,
+                    width : item.width  ? `${item.width}px`  : item.style?.width
                 })
             });
 
-            const itemRects = await owner.getDomRect([owner.id].concat(sortableItems.map(e => e.id)));
+            const pinnedRects = await owner.getDomRect([owner.id].concat(pinnedItems.map(e => e.id)));
 
-            me.ownerRect = itemRects.shift();
+            me.ownerRect = pinnedRects.shift();
+
+            const itemRects = pinnedItems === sortableItems
+                ? pinnedRects
+                : sortableItems.map(item => pinnedRects[pinnedItems.indexOf(item)]);
+
             me.sortBoundaryRect = me.useItemSortBoundary ? me.getSortBoundaryRect(itemRects) : null;
 
             // Calculate real owner dimensions based on first and last item rects (accounting for padding)
-            if (!me.useItemSortBoundary && itemRects.length > 0) {
-                const firstItemRect = itemRects[0];
-                const lastItemRect  = itemRects[itemRects.length - 1];
+            if (!me.useItemSortBoundary && pinnedRects.length > 0) {
+                const firstItemRect = pinnedRects[0];
+                const lastItemRect  = pinnedRects[pinnedRects.length - 1];
 
                 if (firstItemRect.x > me.ownerRect.x) {
                     me.ownerRect.x = firstItemRect.x
@@ -986,7 +1034,7 @@ class SortZone extends DragZone {
                 ...(me.positionOwnerRelative  && {position: 'relative'})
             };
 
-            adjustItemRectsToParent && itemRects.forEach(rect => {
+            adjustItemRectsToParent && pinnedRects.forEach(rect => {
                 rect.x -= me.ownerRect.x;
                 rect.y -= me.ownerRect.y
             });
@@ -1016,12 +1064,18 @@ class SortZone extends DragZone {
                 if (placeholderIndex > -1) {
                     sortableItems[placeholderIndex] = me.dragPlaceholder
                 }
+                if (pinnedItems !== sortableItems) {
+                    const pinnedPlaceholderIndex = pinnedItems.indexOf(draggedItem);
+                    if (pinnedPlaceholderIndex > -1) {
+                        pinnedItems[pinnedPlaceholderIndex] = me.dragPlaceholder
+                    }
+                }
                 me.dragElement = me.dragPlaceholder.vdom
             }
 
-            sortableItems.forEach((item, i) => {
+            pinnedItems.forEach((item, i) => {
                 itemStyle = item.wrapperStyle || {};
-                rect      = me.itemRects[i];
+                rect      = pinnedRects[i];
 
                 me.adjustProxyRectToParent?.(rect, me.ownerRect);
 
