@@ -69,6 +69,7 @@ export const RUN_PATHS = [
     'test/playwright/e2e/rendering/ViewTransitionReveal.spec.mjs',
     'test/playwright/e2e/tab',
     'test/playwright/e2e/table',
+    'test/playwright/e2e/workstation/DockSplitterZoneIdNL.spec.mjs',
     'test/playwright/e2e/workstation/VesselClosesMidFirstRenderNL.spec.mjs',
     'test/playwright/e2e/workstation/VesselNativeRouteNL.spec.mjs',
     'test/playwright/e2e/workstation/WindowGeometryRealChromeNL.spec.mjs',
@@ -80,6 +81,7 @@ export const RUN_PATHS = [
     'test/playwright/e2e/workstation/WorkstationDragTextSelectionNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationEdgeSplitterNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationFeedKeepsScrollNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationFiveBeatNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationFocusedTabOverflowNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationGridRepaintNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationGridUnconstrainedNL.spec.mjs',
@@ -170,14 +172,10 @@ export const LOCAL_ONLY = [{
         'workstation/WorkstationPerspectivesNL.spec.mjs'
     ]
 }, {
-    kind  : 'partial',
-    reason: 'They fail on the off-socket adapter. A re-boot loses the page\'s SharedWorker handle, measured on `DockSplitterZoneIdNL` (3/3 off-socket, 2/2 over the Bridge), and `WorkstationResetSurvivesReloadNL`, `WorkstationTopologyGroupsNL` and `WorkstationFiveBeatNL` stall after a reload too. Closing `EmailMultiWindowNL`\'s source page stalls the fixture\'s teardown, and `WindowOps` finds a popup\'s `innerRect` unset when it compares a drag receipt',
-    owner : '#20587',
+    kind  : 'cause',
+    reason: 'They cold-boot the Workstation in a second browser context and bind it by its App Worker id (`connectToApp(workerId)`), and the off-socket adapter reaches only the fixture\'s own page',
+    owner : '#20614',
     specs : [
-        'neural-link/WindowOps.spec.mjs',
-        'realworld/EmailMultiWindowNL.spec.mjs',
-        'workstation/DockSplitterZoneIdNL.spec.mjs',
-        'workstation/WorkstationFiveBeatNL.spec.mjs',
         'workstation/WorkstationResetSurvivesReloadNL.spec.mjs',
         'workstation/WorkstationTopologyGroupsNL.spec.mjs'
     ]

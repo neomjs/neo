@@ -65,8 +65,14 @@ function toLogEntry({args = [], type = 'log'}) {
  *
  * The handle's `evaluate(fn, arg)` runs `fn(arg)` inside the worker and resolves its value, awaiting promises,
  * so `createDedicatedWorkerAppConnection` and `disconnectTestWriter` accept it unchanged. Its `close()` detaches
- * the CDP session, which the fixture's teardown owes after it has released the test's writer pair. Until the
- * handle exists, every exit detaches the browser session itself and keeps the original error.
+ * the CDP session, which the fixture's teardown owes after it has released the test's writer pair. A closed
+ * handle rejects every later `evaluate` at once. Until the handle exists, every exit detaches the browser
+ * session itself and keeps the original error.
+ *
+ * The attached session keeps the SharedWorker alive past its last client, and a worker kept that way never answers
+ * again. A caller therefore closes the handle before the page navigates, or the next document connects to that
+ * survivor while its Data, VDom and Canvas siblings start fresh, and never finishes booting. It also closes the
+ * handle when the last window closes, or a call made after it waits forever.
  * @param {Object}   options
  * @param {Object}   options.browser     A Playwright `Browser`
  * @param {Function} [options.onConsole] Receives each console entry the worker logs, as `{message, timestamp, type}`
@@ -109,7 +115,18 @@ export async function attachPageSharedAppWorker({browser, onConsole, page}) {
 
         const {sessionId} = await cdp.send('Target.attachToTarget', {targetId: target.targetId, flatten: false}),
               pending     = new Map();
-        let nextId = 0;
+        let closed = false,
+            nextId = 0;
+
+        /**
+         * @summary Marks the handle closed and rejects every call still in flight.
+         * @param {String} reason
+         */
+        const settleClosed = reason => {
+            closed = true;
+            pending.forEach(({reject}) => reject(new Error(reason)));
+            pending.clear()
+        };
 
         cdp.on('Target.receivedMessageFromTarget', ({message, sessionId: from}) => {
             if (from !== sessionId) return;
@@ -132,6 +149,11 @@ export async function attachPageSharedAppWorker({browser, onConsole, page}) {
          * @returns {Promise<Object>}
          */
         const send = (method, params = {}) => new Promise((resolve, reject) => {
+            if (closed) {
+                reject(new Error('The SharedWorker App Worker session closed.'));
+                return
+            }
+
             const id = ++nextId;
 
             pending.set(id, {reject, resolve});
@@ -149,8 +171,7 @@ export async function attachPageSharedAppWorker({browser, onConsole, page}) {
             url     : () => target.url,
 
             async close() {
-                pending.forEach(({reject}) => reject(new Error('The SharedWorker App Worker session closed.')));
-                pending.clear();
+                settleClosed('The SharedWorker App Worker session closed.');
                 await cdp.detach().catch(() => {})
             },
 
