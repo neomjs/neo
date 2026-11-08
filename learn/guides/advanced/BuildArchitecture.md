@@ -202,3 +202,5 @@ size-guard-growth: src/path/Module.mjs — why the destination owner does not ex
 The workflow fetches the current body at run time and passes it as a file. A missing, malformed, or
 wrong-path line provides no hatch, and the reason remains reviewer-owned prose rather than a machine
 judgment.
+
+Negative control, never merged: this line plants a ticket reference, #12345.
