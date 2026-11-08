@@ -7,28 +7,33 @@ const PORTAL  = '/apps/portal/index.html',
       TABS    = ['Blog', 'Discussions', 'Medium', 'Pull Requests', 'Release Notes', 'Tickets', 'Videos'];
 
 /**
- * @summary Reads which news tabs a user can reach: headers fully inside the viewport, plus the overflow menu's items.
- * Leaves the menu open when the control exists.
+ * @summary Opens the overflow menu when the bar has a control. While the menu is open, the plugin parks every
+ * projection, so a bar read taken after this describes the same partition as the menu.
+ * @param {Object} page
+ */
+async function openOverflowMenu(page) {
+    if (await page.locator(CONTROL).isVisible()) {
+        await page.locator(CONTROL).click();
+        await page.locator(MENU).first().waitFor()
+    }
+}
+
+/**
+ * @summary Reads which news tabs a user can reach, in one snapshot: headers fully inside the viewport, plus the
+ * open overflow menu's items.
  * @param {Object} page
  * @returns {Promise<String[]>} The reachable tab labels, sorted
  */
-async function reachableTabs(page) {
-    const inBar = await page.$$eval(HEADERS, buttons => buttons
-        .filter(button => {
-            const rect = button.getBoundingClientRect();
-            return button.offsetParent !== null && rect.height > 0 && rect.bottom <= innerHeight
-        })
-        .map(button => button.innerText.trim()));
-
-    let inMenu = [];
-
-    if (await page.locator(CONTROL).isVisible()) {
-        await page.locator(CONTROL).click();
-        await page.locator(MENU).first().waitFor();
-        inMenu = (await page.locator(MENU).allInnerTexts()).map(text => text.trim())
-    }
-
-    return [...inBar, ...inMenu].sort()
+function reachableTabs(page) {
+    return page.evaluate(([headers, menu]) => [
+        ...[...document.querySelectorAll(headers)]
+            .filter(button => {
+                const rect = button.getBoundingClientRect();
+                return button.offsetParent !== null && rect.height > 0 && rect.bottom <= innerHeight
+            })
+            .map(button => button.innerText.trim()),
+        ...[...document.querySelectorAll(menu)].map(item => item.innerText.trim())
+    ].sort(), [HEADERS, MENU])
 }
 
 /**
@@ -45,7 +50,8 @@ test.describe('Portal section tab bars on a portrait phone', () => {
         const box = await page.locator(CONTROL).boundingBox();
         expect(box.y + box.height, 'the control sits inside the viewport').toBeLessThanOrEqual(664);
 
-        expect(await reachableTabs(page)).toEqual(TABS);
+        await openOverflowMenu(page);
+        await expect.poll(() => reachableTabs(page)).toEqual(TABS);
 
         await page.locator(MENU, {hasText: 'Videos'}).click();
         await expect(page).toHaveURL(/#\/news\/videos$/);
@@ -58,7 +64,8 @@ test.describe('Portal section tab bars on a portrait phone', () => {
         await page.locator(HEADERS).first().waitFor();
         await expect(page.locator(CONTROL)).toBeVisible();
 
-        expect(await reachableTabs(page)).toEqual(TABS)
+        await openOverflowMenu(page);
+        await expect.poll(() => reachableTabs(page)).toEqual(TABS)
     });
 
     test('both section bars withdraw the control once a desktop viewport fits every header', async ({page}) => {
@@ -71,6 +78,6 @@ test.describe('Portal section tab bars on a portrait phone', () => {
             await expect(page.locator(CONTROL), `${route}: everything fits, so the control is gone`).toHaveCount(0)
         }
 
-        expect(await reachableTabs(page)).toEqual(TABS)
+        await expect.poll(() => reachableTabs(page)).toEqual(TABS)
     });
 });
