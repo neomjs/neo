@@ -1066,7 +1066,8 @@ test.describe('Tests scope classifier — the e2e engine tier predicate', () => 
     test('the exclusions hold only while no e2e code reaches what they exclude', () => {
         // Each exclusion rests on a reachability fact, and a fact can stop being true without anyone
         // touching the classifier. These reds name the exclusion to revisit when that happens.
-        // `blog.json` is read only by the lazily loaded news/blog view; the excluded `buildScripts/`
+        // `blog.json` is read only by the lazily loaded news/blog view, which another news tab never
+        // instantiates (`#/news/videos` holds only the Videos store); the excluded `buildScripts/`
         // directories are neither imported nor executed, except the exact move CLI entry exercised
         // by SourceMoveWorkspaceNL. Removing that literal must not hide other references in its file.
         // The e2e side of `test/playwright/`, by the classifier's own support rule: not the unit or
@@ -1076,11 +1077,11 @@ test.describe('Tests scope classifier — the e2e engine tier predicate', () => 
                   .filter(file => file.endsWith('.mjs') && (file.startsWith('test/playwright/component/apps/') ||
                       (!file.startsWith('test/playwright/unit/') && !file.startsWith('test/playwright/component/')))),
               read    = file => fs.readFileSync(path.join(repoRoot, file), 'utf8'),
-              opensNews     = e2eCode.filter(file => /#\/news/.test(read(file))),
+              opensBlog     = e2eCode.filter(file => /#\/news\/blog/.test(read(file))),
               reachesScript = e2eCode.filter(file => reachesExcludedBuildScript(read(file)));
 
         expect(e2eCode.length, 'the scan found the e2e tree').toBeGreaterThan(100);
-        expect(opensNews, 'an e2e spec opens the portal news route: blog.json is reachable, admit it').toEqual([]);
+        expect(opensBlog, 'an e2e spec opens the portal news/blog route: blog.json is reachable, admit it').toEqual([]);
         expect(reachesScript, 'e2e code reaches an excluded buildScripts directory: admit it').toEqual([]);
     });
 
