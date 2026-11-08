@@ -526,7 +526,8 @@ test.describe('Neo.draggable.container.SortZone', () => {
         expect(sortZone.dragElement.id).toBe('btnA');
         await sortZone.onDragEnd({});
 
-        const handleVdom = {id: 'btnA__header', cls: ['col-header', 'neo-draggable'], rect: {left: 0, top: 0, width: 100, height: 32}};
+        const handleVdom           = {id: 'btnA__header', cls: ['col-header', 'neo-draggable'], tag: 'div', text: 'Header'};
+        const handlePathDescriptor = {id: 'btnA__header', cls: ['col-header', 'neo-draggable'], rect: {left: 0, top: 0, width: 100, height: 32}, style: '', tagName: 'div'};
         btnA.vdom.cn = [handleVdom];
         await btnA.promiseUpdate();
 
@@ -539,12 +540,14 @@ test.describe('Neo.draggable.container.SortZone', () => {
 
         await sortZone.onDragStart({
             path: [
-                handleVdom,
+                handlePathDescriptor,
                 {id: 'btnA', cls: ['neo-button']}
             ]
         });
 
-        expect(receivedArgs).toEqual({draggedItem: btnA, handleNode: handleVdom});
+        expect(receivedArgs.draggedItem).toBe(btnA);
+        expect(receivedArgs.handleNode).toBe(handleVdom);
+        expect(receivedArgs.handleNode).not.toBe(handlePathDescriptor);
         expect(sortZone.dragElement).toBe(handleVdom);
         await sortZone.onDragEnd({})
     });

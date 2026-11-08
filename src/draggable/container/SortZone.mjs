@@ -351,7 +351,7 @@ class SortZone extends DragZone {
     /**
      * @summary Returns the VDOM root cloned into the drag proxy for `draggedItem`.
      * @param {Neo.component.Base} draggedItem
-     * @param {Object|null} [handleNode=null] The matched drag handle VDOM node when `dragHandleSelector` is active
+     * @param {Object|null} [handleNode=null] The matched drag handle VDOM node resolved from `owner.vdom` when `dragHandleSelector` is active
      * @returns {Object}
      * @protected
      */
@@ -361,6 +361,7 @@ class SortZone extends DragZone {
 
     /**
      * @summary Returns the item set measured, pinned (`position: 'absolute'`), and restored across `onDragStart` and `processDragEnd`.
+     * Must contain every entry in `sortableItems` in `owner.items` order so `itemRects` and the owner extent stay aligned.
      * @param {Object[]} [ownerItems=this.owner.items]
      * @param {Neo.component.Base[]} [sortableItems=this.sortableItems]
      * @returns {Neo.component.Base[]}
@@ -967,11 +968,13 @@ class SortZone extends DragZone {
                 pinnedItems = [...pinnedItems]
             }
 
+            const handleVdomNode = handleNode ? VDomUtil.find(owner.vdom, handleNode.id)?.vdom || null : null;
+
             indexMap = {};
 
             Object.assign(me, {
                 currentIndex           : index,
-                dragElement            : me.getDragElement(draggedItem, handleNode),
+                dragElement            : me.getDragElement(draggedItem, handleVdomNode),
                 dragProxyConfig        : me.getDragProxyConfig(),
                 indexMap,
                 lastIntersectionRatio  : 1,
