@@ -343,3 +343,5 @@ The recent deep-dive guides are each one organ of the body described above — r
 - **The philosophy and the origin?** → [The Vision](https://github.com/neomjs/neo/blob/dev/.github/VISION.md) · [The Story](https://github.com/neomjs/neo/blob/dev/.github/STORY.md) · [MX (Model Experience)](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/MX.md).
 
 You aren't just choosing a tool. You're deciding whether software should be something humans operate, or something a team of minds can be trusted to inhabit, remember, and improve. Neo.mjs is a working answer to the second — and the wager that the second is also the only one that scales. 🖖
+
+<!-- negative control for the guards context: this line moves the size the fingerprint declares -->
