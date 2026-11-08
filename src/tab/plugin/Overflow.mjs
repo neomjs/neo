@@ -248,7 +248,7 @@ class Overflow extends Plugin {
      */
     naturalWidthLabels = null
     /**
-     * Signature of the hidden set the control currently reflects (`index:text:iconCls` per entry).
+     * Signature of the hidden set the control currently reflects (`index:text:iconCls:route:editRoute` per entry).
      * Projections fire on many no-op events (resize, activation, the render-truth edges), and
      * rewriting identical menu items is not free: it rebuilds the dropdown list and closes an OPEN
      * menu mid-interaction. The signature makes syncControl's menu mutation idempotent — only a
@@ -1300,7 +1300,13 @@ class Overflow extends Plugin {
             }
 
             if (isHidden) {
-                hiddenMeta.push({iconCls: button.iconCls, index, text: button.text})
+                hiddenMeta.push({
+                    editRoute: button.editRoute,
+                    iconCls  : button.iconCls,
+                    index,
+                    route    : button.route,
+                    text     : button.text
+                })
             }
         });
 
@@ -1548,7 +1554,7 @@ class Overflow extends Plugin {
      * The control is a `button.Base` with a `menu` config — button.Base builds the dropdown `menu.List`
      * itself, so no menu is hand-assembled here. Floating mode destroys its body-rooted embodiment when
      * everything fits; action mode keeps one toolbar contribution and toggles its `hidden` state.
-     * @param {Object[]} hiddenMeta  `{text, iconCls, index}` per hidden tab, in header order.
+     * @param {Object[]} hiddenMeta  `{text, iconCls, index, route, editRoute}` per hidden tab, in header order.
      * @param {Neo.tab.Container} tabContainer
      */
     syncControl(hiddenMeta, tabContainer) {
@@ -1590,10 +1596,17 @@ class Overflow extends Plugin {
             return
         }
 
-        let signature = hiddenMeta.map(meta => `${meta.index}:${meta.text}:${meta.iconCls}`).join('|'),
+        let signature = hiddenMeta
+                .map(({editRoute, iconCls, index, route, text}) => `${index}:${text}:${iconCls}:${route}:${editRoute}`)
+                .join('|'),
+            // Like its header: a plain route replaces the hash, an editRoute header merges into it
             menuItems = hiddenMeta.map(meta => ({
-                handler: () => {tabContainer.activeIndex = meta.index},
+                handler: () => {
+                    tabContainer.activeIndex = meta.index;
+                    meta.editRoute && meta.route && Neo.Main.editRoute(meta.route)
+                },
                 iconCls: meta.iconCls,
+                route  : meta.editRoute ? null : meta.route,
                 text   : meta.text
             })),
             menuConfig = {

@@ -693,6 +693,53 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         }
     });
 
+    test('a hidden tab\'s menu item keeps its header\'s route policy: replace, merge, or none', () => {
+        const
+            ancestor     = Neo.create(ThemeAncestor, {theme: 'neo-theme-neo-dark'}),
+            owner        = Neo.create(ThemeOwner, {ancestor}),
+            plugin       = Neo.create(Overflow, {owner}),
+            tabContainer = {activeIndex: 0},
+            edited       = [],
+            origCreate   = Neo.create,
+            origEdit     = Neo.Main.editRoute;
+        let createdConfig;
+
+        Neo.create = config => {
+            createdConfig = config;
+            return {destroy: () => {}, theme: config.theme}
+        };
+        Neo.Main.editRoute = route => edited.push(route);
+
+        try {
+            plugin.syncControl([
+                {text: 'Videos', iconCls: 'fab fa-youtube', index: 6, route: '/news/videos'},
+                {text: 'Table',  iconCls: 'fa fa-table',    index: 5, route: 'mainview=table', editRoute: true},
+                {text: 'Agents', iconCls: 'fa fa-users',    index: 4}
+            ], tabContainer);
+
+            const [routed, merged, plain] = createdConfig.menu.items;
+
+            expect(routed.route, 'Neo.menu.List replaces the hash with a record route after its handler').toBe('/news/videos');
+            expect(merged.route, 'an editRoute item hands menu.List no route, so nothing overwrites the hash').toBe(null);
+            expect(plain.route, 'a tab without a route keeps the activeIndex-only selection').toBeUndefined();
+
+            merged.handler();
+            expect(tabContainer.activeIndex).toBe(5);
+            expect(edited, 'the editRoute item merges its fields like its header').toEqual(['mainview=table']);
+
+            routed.handler();
+            plain.handler();
+            expect(edited, 'neither the replacing nor the unrouted item edits the hash').toHaveLength(1);
+            expect(tabContainer.activeIndex).toBe(4)
+        } finally {
+            Neo.create         = origCreate;
+            Neo.Main.editRoute = origEdit;
+            plugin.destroy();
+            owner.destroy();
+            ancestor.destroy()
+        }
+    });
+
     test('error → success: a failed measure pass releases the latch so the very next pass measures cleanly (no freeze)', async () => {
         // A `shouldThrow` latch controls WHICH pass fails, so the create-time auto-project (onOwnerMounted)
         // settles cleanly first and only the pass we choose throws.
