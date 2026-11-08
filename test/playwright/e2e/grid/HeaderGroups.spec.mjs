@@ -410,5 +410,80 @@ test.describe('examples/grid/headerGroups', () => {
             await expect.poll(async () => (await groupEdges(page)).every(({left, right, leafLeft, leafRight}) =>
                 Math.abs(left - leafLeft) < 2 && Math.abs(right - leafRight) < 2)).toBe(true)
         }
+    });
+
+    /**
+     * Drags a group cell by its middle and releases it at `toX`
+     * @param {Object} page
+     * @param {String} text The group to drag
+     * @param {Number} toX
+     */
+    const dragGroup = async (page, text, toX) => {
+        const box = await page.locator('.neo-grid-header-group-row .neo-grid-header-group-cell', {hasText: text}).first().boundingBox(),
+              y   = box.y + box.height / 2;
+
+        await page.mouse.move(box.x + box.width / 2, y);
+        await page.mouse.down();
+        await page.mouse.move(box.x + box.width / 2 + Math.sign(toX - box.x) * 20, y, {steps: 4});
+        await page.mouse.move(toX, y, {steps: 16});
+        await page.mouse.up()
+    };
+
+    const groupBox = (page, text) =>
+        page.locator('.neo-grid-header-group-row .neo-grid-header-group-cell', {hasText: text}).first().boundingBox();
+
+    const groupOrder = async page => (await groupEdges(page)).sort((a, b) => a.left - b.left).map(({text}) => text);
+
+    /**
+     * After a group drop: no proxy is left, every group cell spans its leaves, and the body cells follow the headers
+     * @param {Object} page
+     */
+    const expectRelaidOut = async page => {
+        await expect(page.locator('.neo-dragproxy')).toHaveCount(0);
+        await expect.poll(async () => {
+            const edges = await groupEdges(page);
+
+            return edges.length === 5 && edges.every(({left, right, leafLeft, leafRight}) =>
+                Math.abs(left - leafLeft) < 2 && Math.abs(right - leafRight) < 2)
+        }).toBe(true);
+        await expect.poll(() => cellsFollowHeaders(page)).toBe(true)
+    };
+
+    test('a group cell drags its whole group: Q3 dropped before Q2 moves Jul, Aug and Sep as one block (#20627)', async ({page}) => {
+        await showAllHeaders(page);
+
+        await dragGroup(page, 'Q3', (await groupBox(page, 'Q2')).x + 10);
+
+        await expect.poll(() => groupOrder(page)).toEqual(['Q1', 'Q3', 'Q2', 'Q4', 'Year']);
+        await expect.poll(() => centreHeaders(page)).toEqual(
+            ['Jan', 'Feb', 'Mar', 'Jul', 'Aug', 'Sep', 'Apr', 'May', 'Jun', 'Oct', 'Nov', 'Dec', 'Id']
+        );
+        await expectRelaidOut(page)
+    });
+
+    test('a group never lands inside another group, and never leaves its region (#20627)', async ({page}) => {
+        await showAllHeaders(page);
+
+        // Released right of Q4's centre, Q3 takes the slot after the whole of Q4, not a slot among its months
+        const q4 = await groupBox(page, 'Q4');
+
+        await dragGroup(page, 'Q3', q4.x + q4.width / 2 + 20);
+
+        await expect.poll(() => groupOrder(page)).toEqual(['Q1', 'Q2', 'Q4', 'Q3', 'Year']);
+        await expect.poll(() => centreHeaders(page)).toEqual(
+            ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Oct', 'Nov', 'Dec', 'Jul', 'Aug', 'Sep', 'Id']
+        );
+        await expectRelaidOut(page);
+
+        // Released over the locked-start region, Q3 stays in the centre: it takes the centre's first slot
+        const region = await page.locator('.neo-grid-header-toolbar .neo-grid-header-button', {hasText: 'Region'}).first().boundingBox();
+
+        await dragGroup(page, 'Q3', region.x + region.width / 2);
+
+        await expect.poll(() => groupOrder(page)).toEqual(['Q3', 'Q1', 'Q2', 'Q4', 'Year']);
+        await expect.poll(() => page.evaluate(() =>
+            [...document.querySelectorAll('.neo-grid-header-toolbar')[0].querySelectorAll('.neo-grid-header-button')]
+                .map(button => button.textContent.trim()))).toEqual(['Region']);
+        await expectRelaidOut(page)
     })
 });
