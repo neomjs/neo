@@ -137,11 +137,10 @@ html, .neo-body-viewport {
     user-select: none;
 }
 
-// Gesture-scoped selection guard: applied by the draggable Mouse sensor from mousedown on a
-// drag target until the physical gesture ends — ordinary mouseup, or the gesture's own move
-// stream observing the primary button gone (an off-document release never reaches mouseup) —
-// so a drag across card content can never become a text selection sweep (the native selection
-// machinery otherwise claims the pre-threshold window).
+// Gesture-scoped selection guard: applied by the draggable Pointer sensor from pointerdown on a
+// drag target until the physical gesture ends — pointerup, pointercancel, or the gesture's own move
+// stream observing the primary button gone — so a drag across card content can never become a
+// text selection sweep (the native selection machinery otherwise claims the pre-threshold window).
 .neo-drag-active,
 .neo-drag-active * {
     user-select: none !important;
@@ -163,12 +162,13 @@ html, .neo-body-viewport {
 // not a gesture), so it lifts while `body.neo-native-drag-active` marks a native drag in flight; the
 // rail-iframe component arms witness both — a change to either scope is a change to both.
 //
-// This covers a window nothing else does. Once a DragZone session is live,
-// `draggable/DragProxyComponent.scss` shields the whole page with
-// `body:has(.neo-is-dragging) * {pointer-events: none !important}`. But that class lands only after
-// the session starts, while the sensor claims the pointer at mousedown — and a splitter resize never
-// opens a DragZone session at all. The unguarded interval is exactly where a crossing loses the
-// stream, which is why the guard keys on the sensor's own class rather than the session's.
+// This covers a window nothing else does. From `drag:start` on, the sensor holds pointer capture,
+// which keeps the stream in the parent document whatever lies under the pointer; and once a
+// DragZone session is live, `draggable/DragProxyComponent.scss` shields the whole page with
+// `body:has(.neo-is-dragging) * {pointer-events: none !important}`. Between the press and the drag
+// threshold neither holds: the sensor leaves the pointer uncaptured so a press can still complete as
+// a click. That interval is exactly where a crossing loses the stream, which is why the guard keys on
+// the sensor's own class rather than the session's.
 //
 // The same rule bounds the opt-out: a universal selector carrying `!important` outranks any `:not()`
 // here, so an opted-out iframe stays interactive through a sensor gesture and is still inert through

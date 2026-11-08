@@ -60,7 +60,7 @@ const nativeDragCls = 'neo-native-drag-active';
  *
  * **The registration is the partition line, and it is the only authority.** A gesture starting on
  * a registered source node is native — even under a `neo-draggable` ancestor — because
- * `sensor.Mouse#onMouseDown` consults {@link #claimsEvent} and declines those gestures. Everything
+ * `sensor.Pointer#onPointerDown` consults {@link #claimsEvent} and declines those gestures. Everything
  * else, the sensor classes included, stays synthetic. One side owning the tiebreak is what makes
  * an overlap a defined state instead of a dead node: two mutually-deferring systems would both
  * decline it. Declined-by-sensor also means the synthetic pipeline's `dragstart` suppression is
@@ -147,10 +147,10 @@ class NativeDragSource extends Base {
     }
 
     /**
-     * Whether a registered native source claims this event's gesture — the sensor-side half of the
-     * partition contract. Pure over the registrations and the event path, so the answer does not
-     * depend on listener ordering between this addon and the sensors.
-     * @param {MouseEvent} event
+     * @summary Whether a registered native source claims this event's gesture — the sensor-side half
+     * of the partition contract. Pure over the registrations and the event path, so the answer does
+     * not depend on listener ordering between this addon and the sensor.
+     * @param {PointerEvent} event The press the sensor is about to claim.
      * @returns {Boolean}
      */
     claimsEvent(event) {
