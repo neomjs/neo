@@ -1,4 +1,5 @@
-// An application projection: theme-root weight outranks the engine's :where() value sheets
+// Stays at theme-root weight (0,2,0) deliberately: an application projection outranks the
+// engine's :where() value sheets by weight, never by load order (#18102).
 :root .neo-theme-neo-light {
     // App-owned daylight palette: Workstation is its own theme authority.
     --workstation-ground   : #f2f5f9;
