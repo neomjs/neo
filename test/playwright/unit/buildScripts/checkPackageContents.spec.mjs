@@ -14,12 +14,15 @@ import {parsePackOutput} from '../../../../buildScripts/util/check-package-conte
  * Pure path controls cover the rule logic; a small real-pack fixture plants generated files to
  * verify the ignore policy. The full checkout is checked by the script's own entrypoint in CI.
  *
- * The carve-out cases are the reason this is not a one-line prefix test. `.neo-ai-data/concepts/` is
- * tracked, exported on purpose, and sits inside a directory whose other contents are Agent OS
- * private state — so "flag everything under the prefix" and "flag nothing under the prefix" are both
- * wrong, and the boundary between them is exactly where the original `.npmignore` defect lived.
+ * The carve-out cases are the reason this is not a one-line prefix test. A deliberate export inside a
+ * directory of private state makes both "flag everything under the prefix" and "flag nothing under
+ * the prefix" wrong, and that boundary is exactly where the original `.npmignore` defect lived. The
+ * production `.neo-ai-data/` rule carves nothing out any more (the concept ontology lives in the
+ * plane), so the carve-out cases run against `CARVED`, a fixture rule with the same shape.
  */
-test.describe('check-package-contents — fires on private state, not on the tracked carve-out', () => {
+test.describe('check-package-contents — fires on private state; a carve-out passes only its own subtree', () => {
+    const CARVED = [{prefix: '.neo-ai-data/', allow: ['.neo-ai-data/keep/'], why: 'fixture: a deliberate export inside private state'}];
+
     let findForbiddenEntries, FORBIDDEN_PREFIXES, parsePackOutput;
 
     test.beforeAll(async () => {
@@ -41,23 +44,28 @@ test.describe('check-package-contents — fires on private state, not on the tra
         expect(findings.every(finding => finding.prefix === '.neo-ai-data/')).toBe(true);
     });
 
-    test('PASSES: the tracked concept ontology, which ships on purpose', () => {
+    test('FIRES: the concept files, which no longer ship', () => {
+        // The ontology lives in the plane, so a stray copy here is private state like any other.
         expect(findForbiddenEntries([
             '.neo-ai-data/concepts/nodes.jsonl',
             '.neo-ai-data/concepts/edges.jsonl'
-        ])).toEqual([]);
+        ])).toHaveLength(2);
+    });
+
+    test('PASSES: a deliberate carve-out, at any depth', () => {
+        expect(findForbiddenEntries(['.neo-ai-data/keep/a.jsonl', '.neo-ai-data/keep/nested/deep.jsonl'], CARVED)).toEqual([]);
     });
 
     test('FIRES: a NEW sibling of the carve-out, not just the ones that existed when it was written', () => {
         // The whole point of spelling the rule as prefix-plus-allowlist. A subdirectory added next
         // week must fail; a check that enumerated today's siblings would pass it forever.
-        expect(findForbiddenEntries(['.neo-ai-data/some-future-subsystem/state.json'])).toHaveLength(1);
+        expect(findForbiddenEntries(['.neo-ai-data/some-future-subsystem/state.json'], CARVED)).toHaveLength(1);
     });
 
     test('FIRES: a carve-out lookalike that is not actually inside the carve-out', () => {
-        // `concepts-backup/` shares a prefix with `concepts/` as a STRING but is a different
-        // directory. A naive `includes('concepts')` would let it through.
-        expect(findForbiddenEntries(['.neo-ai-data/concepts-backup/nodes.jsonl'])).toHaveLength(1);
+        // `keep-backup/` shares a prefix with `keep/` as a STRING but is a different directory.
+        // A naive `includes('keep')` would let it through.
+        expect(findForbiddenEntries(['.neo-ai-data/keep-backup/nodes.jsonl'], CARVED)).toHaveLength(1);
     });
 
     test('FIRES: a forbidden tree regardless of extension', () => {
@@ -122,16 +130,16 @@ test.describe('check-package-contents — fires on private state, not on the tra
         // exist yet is excluded by default, so only a deliberate allowlist edit can widen it — a
         // decision someone makes, rather than one a rename makes for them.
         //
-        // Asserted against `.neo-ai-data/`, which carries the same prefix-plus-carve-out shape. The
+        // Asserted against the `CARVED` fixture, which carries the prefix-plus-carve-out shape. The
         // case originally rode on the DevIndex corpus rule; that app left the repository, and the
         // property is a property of the rule SHAPE rather than of any one tree.
-        expect(findForbiddenEntries(['.neo-ai-data/graph/memory.sqlite'])).toHaveLength(1);
-        expect(findForbiddenEntries(['.neo-ai-data/renamed-graph/memory.sqlite'])).toHaveLength(1);
-        expect(findForbiddenEntries(['.neo-ai-data/some-future-subtree/x.json'])).toHaveLength(1);
+        expect(findForbiddenEntries(['.neo-ai-data/graph/memory.sqlite'], CARVED)).toHaveLength(1);
+        expect(findForbiddenEntries(['.neo-ai-data/renamed-graph/memory.sqlite'], CARVED)).toHaveLength(1);
+        expect(findForbiddenEntries(['.neo-ai-data/some-future-subtree/x.json'], CARVED)).toHaveLength(1);
 
-        // and the one carve-out still passes, at any depth
-        expect(findForbiddenEntries(['.neo-ai-data/concepts/nodes.jsonl'])).toEqual([]);
-        expect(findForbiddenEntries(['.neo-ai-data/concepts/nested/deep.jsonl'])).toEqual([]);
+        // and the carve-out still passes, at any depth
+        expect(findForbiddenEntries(['.neo-ai-data/keep/nodes.jsonl'], CARVED)).toEqual([]);
+        expect(findForbiddenEntries(['.neo-ai-data/keep/nested/deep.jsonl'], CARVED)).toEqual([]);
     });
 
     test('the rule set names DIRECTORIES only — the two generated portal FILES are a boundary, not a gap', () => {
@@ -181,7 +189,7 @@ test.describe('check-package-contents — source-only release', () => {
             expect(files.filter(file => file.startsWith('dist/'))).toEqual([]);
             expect(files).toEqual(expect.arrayContaining(sourcePaths));
             expect(files).not.toContain('.neo-ai-data/sqlite/synthetic.sqlite');
-            expect(files).toContain('.neo-ai-data/concepts/synthetic.json')
+            expect(files).not.toContain('.neo-ai-data/concepts/synthetic.json')
         } finally {
             fs.rmSync(dir, {recursive: true, force: true})
         }
