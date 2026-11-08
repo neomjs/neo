@@ -25,11 +25,10 @@ import Persistence    from '../../../../src/dashboard/dock/model/Persistence.mjs
  * the next generation, and root B, the popup's binding and the number of Groups are unchanged; the
  * superseded generation holds nothing.
  *
- * Run: NEO_AGENTOS_RUNTIME_ROOT=<abs path to neo-agent-brain> \
+ * Run off-socket: env -u NEO_AGENTOS_RUNTIME_ROOT \
  *      npx playwright test workstation/WorkstationTopologyGroupsNL -c test/playwright/playwright.config.e2e.mjs --workers=1
  *
- * The runtime root is not optional: `playwright.config.e2e.mjs` ignores every neuralLink-fixture spec
- * without it, so the command selects ZERO tests and reports success.
+ * Both cold-context worker-id binding and popup operations use the off-socket adapter.
  */
 const
     ACTION     = '.neo-toolbar-action',
