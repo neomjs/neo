@@ -182,19 +182,24 @@ test.describe('e2e CI selection — the coverage summary must add up', () => {
 test.describe('e2e CI selection — the engine tier and the local-only specs', () => {
     const root = path.resolve(import.meta.dirname, '../../../../..');
 
-    test('the engine tier runs what it declares, every adapter-eligible spec included', () => {
-        const engine = enginePaths(root);
+    test('the engine tier runs what it declares: every adapter-eligible spec an exclusion does not name', () => {
+        const engine   = enginePaths(root),
+              excluded = new Set(EXCLUSIONS.map(entry => entry.path));
 
         expect(assertSelectionFloor(root)).toBe(populations(root).executed);
         expect(selectExternalBrainSpecs(path.join(root, 'test/playwright/e2e')).ignore, 'the local-only class')
             .toHaveLength(populations(root).ignored);
 
         for (const rel of ADAPTER_ELIGIBLE_SPECS) {
-            expect(engine, `${rel} runs off-socket in the engine tier`).toContain(`test/playwright/e2e/${rel}`);
-            expect(
-                RUN_PATHS.some(runPath => `test/playwright/e2e/${rel}` === runPath || `test/playwright/e2e/${rel}`.startsWith(`${runPath}/`)),
-                `${rel} is covered by RUN_PATHS`
-            ).toBe(true)
+            const file = `test/playwright/e2e/${rel}`;
+
+            if (excluded.has(file)) {
+                expect(engine, `${rel} is declared out of the tier, so no shard runs it`).not.toContain(file);
+                continue
+            }
+
+            expect(engine, `${rel} runs off-socket in the engine tier`).toContain(file);
+            expect(RUN_PATHS.some(runPath => file === runPath || file.startsWith(`${runPath}/`)), `${rel} is covered by RUN_PATHS`).toBe(true)
         }
     });
 

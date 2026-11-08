@@ -80,7 +80,6 @@ export const RUN_PATHS = [
     'test/playwright/e2e/workstation/WorkstationDragTextSelectionNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationEdgeSplitterNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationFeedKeepsScrollNL.spec.mjs',
-    'test/playwright/e2e/workstation/WorkstationFilmTourNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationFocusedTabOverflowNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationGridRepaintNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationGridUnconstrainedNL.spec.mjs',
@@ -136,6 +135,11 @@ export const EXCLUSIONS = [{
     kind  : 'cause',
     reason: 'parameterised over Dev, Dist Dev and Dist Prod. The 8 Dist arms need built bundles this job does not produce, and that is verified. The 4 Dev arms pass hosted; the 3 that visit `#/learn/benefits/body/FormsEngine` had failed because its code fences waited on a highlight bundle this job did not build',
     owner : 'this tier — the Dist half needs a production build this job does not run'
+}, {
+    path  : 'test/playwright/e2e/workstation/WorkstationFilmTourNL.spec.mjs',
+    kind  : 'observed',
+    reason: 'Hosted, the viewer-driven arm\'s grid throw carried no momentum in one of two runs: 474 px of the 960 its witness requires (run 42461321072), where the other three throws carried 1051–1133 px. It runs off-socket, so it stays adapter-eligible for local runs',
+    owner : '#20593'
 }];
 
 /**
@@ -260,9 +264,10 @@ export function populations(root = process.cwd()) {
           {ignore, total} = selectExternalBrainSpecs(e2e),
           isIgnored       = file => ignore.some(pattern => pattern.test(file)),
           named           = new Set(RUN_PATHS.filter(path => path.endsWith('.spec.mjs')).map(path => join(root, path))),
-          // Only the Brain-FREE workstation specs RUN_PATHS does not name; the rest are already
-          // deselected or executed, and counting them again reports a negative coverage.
-          gpu             = walk(join(e2e, 'workstation')).filter(file => !isIgnored(file) && !named.has(file)).length;
+          excluded        = new Set(EXCLUSIONS.map(entry => join(root, entry.path))),
+          // Only the Brain-FREE workstation specs RUN_PATHS does not name and no exclusion declares; the rest are
+          // already deselected, executed or declared, and counting them again reports a negative coverage.
+          gpu             = walk(join(e2e, 'workstation')).filter(file => !isIgnored(file) && !named.has(file) && !excluded.has(file)).length;
 
     return {brainFree: total - ignore.length, executed: enginePaths(root).length, gpu, ignored: ignore.length, total}
 }
