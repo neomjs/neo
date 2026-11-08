@@ -7,6 +7,8 @@
 # GROUPED, because ungrouped daily updates open a PR per dependency and the queue stops being read.
 # `github-actions` is here because nothing else updates the pinned action versions.
 #
+# EVERY DAY, by cron: `interval: daily` runs Monday to Friday, and our own packages also ship on weekends.
+#
 # No materializer, installer or drift check accompanies this file: each repository commits its own.
 version: 2
 
@@ -14,7 +16,8 @@ updates:
   - package-ecosystem: npm
     directory: "/"
     schedule:
-      interval: daily
+      interval: cron
+      cronjob: "30 7 * * *"
     # Our own Skills releases skip Dependabot's three-day default hold, so agents never read
     # superseded rules; every other update keeps it, made explicit.
     cooldown:
@@ -35,7 +38,8 @@ updates:
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
-      interval: daily
+      interval: cron
+      cronjob: "30 7 * * *"
     groups:
       actions:
         patterns: ["*"]
