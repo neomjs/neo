@@ -371,62 +371,91 @@ test.describe('Tests scope classifier — the outputs the changes job actually d
         expect(Math.min(...sNum), 'the gate test-step ceiling is unchanged').toBe(5);
     });
 
-    test('a ruled-out engine tier starts no shard, and a moved head spends nothing on a rerun', () => {
-        // Two gates at two levels. The classifier's verdict gates the JOB, so an irrelevant diff
-        // never provisions a runner. The head check gates every costly STEP, because re-running a
-        // failed job replays the classifier's output instead of recomputing it, so without a
-        // job-local head check a rerun could certify a tree the PR has already moved past.
-        const job   = readWorkflow('test-e2e.yml').jobs['e2e-engine'],
-              steps = job.steps,
-              // The head probe computes the answer, so it cannot depend on it; the skip step is
-              // gated on the inverse and reports the reason. Every OTHER step spends the runner.
-              exempt   = ['Verify current pull-request head', 'Skip e2e (engine tier)'],
-              expensive = steps.filter(step => !exempt.includes(step.name)),
-              ungated  = expensive.filter(step => !String(step.if || '').includes('steps.head.outputs.current'));
+    /**
+     * Every sharded tier, with the names its gate is held to. A matrix skipped by a job-level `if:`
+     * reports one check under its unexpanded name, never one per shard. So a sharded tier can start no
+     * runner when it is ruled out only if a gate reports the tier's one required context.
+     * @type {Object[]}
+     */
+    const SHARDED_TIERS = [{
+        workflow: 'test-e2e.yml',
+        job     : 'e2e-engine',
+        gate    : 'e2e-engine-gate',
+        context : 'e2e-engine',
+        output  : 'run_e2e',
+        verdict : 'RUN_E2E',
+        skipStep: 'Skip e2e (engine tier)',
+        jobIf   : "${{ needs.changes.outputs.run_e2e == 'true' }}"
+    }, {
+        workflow: 'test.yml',
+        job     : 'components',
+        gate    : 'components-gate',
+        context : 'components',
+        output  : 'run_components',
+        verdict : 'RUN_COMPONENTS',
+        skipStep: 'Skip components tests',
+        // A dispatch probe of another suite rules the tier out as well.
+        jobIf   : "${{ needs.changes.outputs.run_components == 'true' && (github.event_name != 'workflow_dispatch' || inputs.suite == '' || inputs.suite == 'components') }}"
+    }];
 
-        expect(String(job.if)).toBe("${{ needs.changes.outputs.run_e2e == 'true' }}");
-        expect(ungated.map(step => step.name)).toEqual([]);
+    for (const tier of SHARDED_TIERS) {
+        test(`a ruled-out ${tier.context} tier starts no shard, and a moved head spends nothing on a rerun`, () => {
+            // Two gates at two levels. The classifier's verdict gates the JOB, so an irrelevant diff
+            // never provisions a runner. The head check gates every costly STEP, because re-running a
+            // failed job replays the classifier's output instead of recomputing it, so without a
+            // job-local head check a rerun could certify a tree the PR has already moved past.
+            const job   = readWorkflow(tier.workflow).jobs[tier.job],
+                  steps = job.steps,
+                  // The head probe computes the answer, so it cannot depend on it; the skip step is
+                  // gated on the inverse and reports the reason. Every OTHER step spends the runner.
+                  exempt    = ['Verify current pull-request head', tier.skipStep],
+                  expensive = steps.filter(step => !exempt.includes(step.name)),
+                  ungated   = expensive.filter(step => !String(step.if || '').includes('steps.head.outputs.current'));
 
-        // The filters above pass vacuously on an empty job, and `exempt` names steps by string:
-        // a rename would silently exempt nothing and shrink `expensive` to zero.
-        expect(expensive.length).toBeGreaterThan(10);
-        expect(steps.map(step => step.name)).toEqual(expect.arrayContaining(exempt));
-    });
+            expect(String(job.if)).toBe(tier.jobIf);
+            expect(ungated.map(step => step.name)).toEqual([]);
 
-    test('the required e2e-engine context passes a skipped tier only when the classifier ruled it out', () => {
-        // Skipped shards are what a ruled-out tier looks like, and also what a FAILED classifier
-        // leaves behind. The gate must tell them apart, or a broken classifier reads as an
-        // irrelevant diff and the required context goes green on a run that tested nothing.
-        const gate = readWorkflow('test-e2e.yml').jobs['e2e-engine-gate'],
-              step = gate.steps[0];
-
-        expect(gate.name).toBe('e2e-engine');
-        expect(gate.needs).toEqual(['changes', 'e2e-engine']);
-        expect(String(gate.if)).toContain('always()');
-        expect(step.env).toEqual({
-            CLASSIFIER: '${{ needs.changes.result }}',
-            RUN_E2E   : '${{ needs.changes.outputs.run_e2e }}',
-            SHARDS    : '${{ needs.e2e-engine.result }}',
-            REASON    : '${{ needs.changes.outputs.skip_reason }}'
+            // The filters above pass vacuously on an empty job, and `exempt` names steps by string:
+            // a rename would silently exempt nothing and shrink `expensive` to zero.
+            expect(expensive.length).toBeGreaterThan(10);
+            expect(steps.map(step => step.name)).toEqual(expect.arrayContaining(exempt));
         });
 
-        // Executed, not pattern-matched: the script runs under `bash -e`, as GitHub runs it. Only an
-        // explicit `false` from a successful classifier may pass skipped shards; an empty or
-        // unknown verdict is a missing answer, and must fail like a failed classifier does.
-        const gateExit = (CLASSIFIER, RUN_E2E, SHARDS) => spawnSync('bash', ['-e', '-c', step.run], {
-            env: {...process.env, CLASSIFIER, RUN_E2E, SHARDS, REASON: 'docs only', GITHUB_STEP_SUMMARY: '/dev/null'}
-        }).status;
+        test(`the required ${tier.context} context passes a skipped tier only when the classifier ruled it out`, () => {
+            // Skipped shards are what a ruled-out tier looks like, and also what a FAILED classifier
+            // leaves behind. The gate must tell them apart, or a broken classifier reads as an
+            // irrelevant diff and the required context goes green on a run that tested nothing.
+            const gate = readWorkflow(tier.workflow).jobs[tier.gate],
+                  step = gate.steps[0];
 
-        expect(gateExit('success',   'false',  'skipped'), 'ruled out').toBe(0);
-        expect(gateExit('success',   'true',   'success'), 'ran green').toBe(0);
-        expect(gateExit('failure',   'false',  'skipped'), 'classifier failed').toBe(1);
-        expect(gateExit('cancelled', '',       'skipped'), 'classifier cancelled').toBe(1);
-        expect(gateExit('success',   'true',   'failure'), 'a shard failed').toBe(1);
-        expect(gateExit('success',   'true',   'skipped'), 'admitted, yet nothing ran').toBe(1);
-        expect(gateExit('success',   'false',  'success'), 'ruled out, yet shards ran').toBe(1);
-        expect(gateExit('success',   '',       'skipped'), 'empty verdict').toBe(1);
-        expect(gateExit('success',   'maybe',  'skipped'), 'unknown verdict').toBe(1);
-    });
+            expect(gate.name).toBe(tier.context);
+            expect(gate.needs).toEqual(['changes', tier.job]);
+            expect(String(gate.if)).toContain('always()');
+            expect(step.env).toEqual({
+                CLASSIFIER    : '${{ needs.changes.result }}',
+                [tier.verdict]: `\${{ needs.changes.outputs.${tier.output} }}`,
+                SHARDS        : `\${{ needs.${tier.job}.result }}`,
+                REASON        : '${{ needs.changes.outputs.skip_reason }}'
+            });
+
+            // Executed, not pattern-matched: the script runs under `bash -e`, as GitHub runs it. Only an
+            // explicit `false` from a successful classifier may pass skipped shards; an empty or
+            // unknown verdict is a missing answer, and must fail like a failed classifier does.
+            const gateExit = (CLASSIFIER, verdict, SHARDS) => spawnSync('bash', ['-e', '-c', step.run], {
+                env: {...process.env, CLASSIFIER, [tier.verdict]: verdict, SHARDS, REASON: 'docs only', GITHUB_STEP_SUMMARY: '/dev/null'}
+            }).status;
+
+            expect(gateExit('success',   'false',  'skipped'), 'ruled out').toBe(0);
+            expect(gateExit('success',   'true',   'success'), 'ran green').toBe(0);
+            expect(gateExit('failure',   'false',  'skipped'), 'classifier failed').toBe(1);
+            expect(gateExit('cancelled', '',       'skipped'), 'classifier cancelled').toBe(1);
+            expect(gateExit('success',   'true',   'failure'), 'a shard failed').toBe(1);
+            expect(gateExit('success',   'true',   'skipped'), 'admitted, yet nothing ran').toBe(1);
+            expect(gateExit('success',   'false',  'success'), 'ruled out, yet shards ran').toBe(1);
+            expect(gateExit('success',   '',       'skipped'), 'empty verdict').toBe(1);
+            expect(gateExit('success',   'maybe',  'skipped'), 'unknown verdict').toBe(1);
+        });
+    }
 
 });
 
