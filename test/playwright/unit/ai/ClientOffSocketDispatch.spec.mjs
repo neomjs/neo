@@ -763,21 +763,24 @@ test.describe('Neo.ai.Client — off-socket dispatch refusal, regression, confli
             }
         };
 
-        const makeFixtures = () => ({
-            browser: {
-                async newContext() {
-                    return {async route() {}}
+        const makeFixtures = () => {
+            const context = {async route() {}};
+
+            return {
+                browser: {
+                    async newContext() {
+                        return {async route() {}}
+                    }
+                },
+                context,
+                page: {
+                    context: () => context,
+                    on     : () => {},
+                    url    : () => 'about:blank',
+                    workers: () => [worker]
                 }
-            },
-            context: {
-                async route() {}
-            },
-            page: {
-                on     : () => {},
-                url    : () => 'about:blank',
-                workers: () => [worker]
             }
-        });
+        };
 
         let pairA = null,
             pairB = null;

@@ -637,38 +637,9 @@ export function createDedicatedWorkerAppConnection({getLogs = () => [], getWorke
  * @returns {Promise<void>}
  */
 export async function runDedicatedWorkerNeuralLink({browser, context, page}, use, {assertUnnavigated} = {}) {
-    const logs        = [],
-          writerPair  = mintTestWriterPair(),
+    const writerPair  = mintTestWriterPair(),
           seenWorkers = new Set(),
-          pushLog     = entry => {
-              logs.push(entry);
-              logs.length > 1000 && logs.shift()
-          };
-    let appWorker    = page.workers?.()?.find?.(isDedicatedAppWorker) || null,
-        sharedAttach = null;
-
-    if (appWorker) {
-        seenWorkers.add(appWorker)
-    }
-
-    page.on?.('worker', worker => {
-        if (isDedicatedAppWorker(worker)) {
-            appWorker = worker;
-            seenWorkers.add(worker)
-        }
-    });
-
-    page.on?.('console', message => {
-        const worker = message.worker?.();
-
-        if (worker && isDedicatedAppWorker(worker)) {
-            pushLog({
-                message  : message.text?.() || '',
-                timestamp: Date.now(),
-                type     : message.type?.() || 'log'
-            })
-        }
-    });
+          bindings    = new Map();
 
     const routeConfig = (target, mutate = config => config, url = '**/neo-config.json*') => target.route(url, async route => {
         const response = await route.fetch();
@@ -684,59 +655,98 @@ export async function runDedicatedWorkerNeuralLink({browser, context, page}, use
     assertUnnavigated?.(page);
 
     /**
-     * @summary The page's own SharedWorker App Worker, attached on first use and again after a release. Concurrent
-     * callers share one attachment; a page with no SharedWorker yet is asked again next time.
-     * @returns {Promise<Object|null>}
+     * @summary Binds one page through the same worker capture and release hooks as the fixture page. Each SDK keeps
+     * this binding, so connecting another context cannot redirect an existing connection's calls or logs.
+     * @param {Object} boundPage A Playwright `Page`
+     * @returns {Promise<Object>} The page's worker getter, logs and release hook
      */
-    const sharedAppWorker = () => sharedAttach ??= attachPageSharedAppWorker({browser, onConsole: pushLog, page}).then(
-        handle => {
-            if (handle) {
-                seenWorkers.add(handle)
-            } else {
-                sharedAttach = null
-            }
+    const bindPage = boundPage => {
+        if (!bindings.has(boundPage)) {
+            bindings.set(boundPage, (async () => {
+                const logs    = [],
+                      owner   = boundPage.context(),
+                      pushLog = entry => {
+                          logs.push(entry);
+                          logs.length > 1000 && logs.shift()
+                      };
+                let appWorker    = boundPage.workers().find(isDedicatedAppWorker) || null,
+                    sharedAttach = null;
 
-            return handle
-        },
-        error => {
-            sharedAttach = null;
-            throw error
+                appWorker && seenWorkers.add(appWorker);
+
+                boundPage.on?.('worker', worker => {
+                    if (isDedicatedAppWorker(worker)) {
+                        appWorker = worker;
+                        seenWorkers.add(worker)
+                    }
+                });
+
+                boundPage.on?.('console', message => {
+                    const worker = message.worker?.();
+
+                    if (worker && isDedicatedAppWorker(worker)) {
+                        pushLog({message: message.text?.() || '', timestamp: Date.now(), type: message.type?.() || 'log'})
+                    }
+                });
+
+                /**
+                 * @summary Shares one attachment until release; a not-yet-ready page or failed attach can retry.
+                 * @returns {Promise<Object|null>}
+                 */
+                const sharedAppWorker = () => sharedAttach ??= attachPageSharedAppWorker({browser, onConsole: pushLog, page: boundPage}).then(
+                    handle => {
+                        handle ? seenWorkers.add(handle) : sharedAttach = null;
+                        return handle
+                    },
+                    error => {
+                        sharedAttach = null;
+                        throw error
+                    }
+                );
+
+                /**
+                 * @summary Detaches before a re-boot or last-client close can leave a debugger-held survivor.
+                 * @returns {Promise<void>}
+                 */
+                const release = async () => {
+                    const attaching = sharedAttach;
+
+                    sharedAttach = null;
+                    await (await attaching?.catch(() => null))?.close()
+                };
+
+                await boundPage.route?.(/(?:\.html|\/)(?:\?[^#]*)?$/, async route => {
+                    const request = route.request();
+
+                    if (request.isNavigationRequest() && request.frame() === boundPage.mainFrame()) {
+                        await release()
+                    }
+
+                    await route.fallback()
+                });
+
+                const releaseWhenNoWindowRemains = closed => closed.context().pages().length === 0 && release();
+
+                boundPage.on?.('close', releaseWhenNoWindowRemains);
+
+                for (const opened of owner.pages?.() || [boundPage]) {
+                    opened !== boundPage && opened.on?.('close', releaseWhenNoWindowRemains)
+                }
+
+                owner.on?.('page', opened => opened.on('close', releaseWhenNoWindowRemains));
+
+                return {
+                    getLogs  : () => logs,
+                    getWorker: async () => appWorker || boundPage.workers().find(isDedicatedAppWorker) || sharedAppWorker(),
+                    release
+                }
+            })())
         }
-    );
 
-    /**
-     * @summary Closes the held SharedWorker session, if any; the next {@link sharedAppWorker} call attaches again.
-     * @returns {Promise<void>}
-     */
-    const releaseSharedAppWorker = async () => {
-        const attaching = sharedAttach;
-
-        sharedAttach = null;
-        await (await attaching?.catch(() => null))?.close()
+        return bindings.get(boundPage)
     };
 
-    // A document request (a path ending in `.html` or `/`) holds until the session is released, so the App
-    // SharedWorker has no debugger keeping it alive when its last client unloads
-    await page.route?.(/(?:\.html|\/)(?:\?[^#]*)?$/, async route => {
-        const request = route.request();
-
-        if (request.isNavigationRequest() && request.frame() === page.mainFrame()) {
-            await releaseSharedAppWorker()
-        }
-
-        await route.fallback()
-    });
-
-    /**
-     * @summary Releases the session once the context's last window closed. That close leaves the App SharedWorker no
-     * client while the session holds it, and a worker kept alive that way never answers, so a call waiting on it
-     * rejects instead.
-     * @param {Object} closed The Playwright `Page` that closed
-     */
-    const releaseWhenNoWindowRemains = closed => closed.context().pages().length === 0 && releaseSharedAppWorker();
-
-    page.on?.('close', releaseWhenNoWindowRemains);
-    context.on?.('page', opened => opened.on('close', releaseWhenNoWindowRemains));
+    await bindPage(page);
 
     const nl = {
         bridgePort: null,
@@ -753,8 +763,8 @@ export async function runDedicatedWorkerNeuralLink({browser, context, page}, use
         routeConfig,
 
         /**
-         * @summary Binds to the page's captured dedicated App Worker and returns an `nlApp` SDK wrapper.
-         * Never looks up a session by app name: the captured `Worker` handle on `page` is addressed directly.
+         * @summary Binds the fixture page, or the browser page reporting an exact worker UUID, through its own
+         * worker and lifecycle hooks. A root page wins over its popup; app names never select another context.
          * @param {String} [target]                        The app's name (used in failure diagnostics) or an expected worker id
          * @param {Object} [options]
          * @param {Number} [options.identityTimeout=30000] Ms to wait for the dedicated App Worker and its AI registry
@@ -763,16 +773,41 @@ export async function runDedicatedWorkerNeuralLink({browser, context, page}, use
         async connectToApp(target, {identityTimeout = 30000} = {}) {
             let attachRefusal  = null,
                 capturedWorker = null,
+                binding        = null,
                 workerId       = null;
 
             await expect.poll(async () => {
+                let targetPage = page;
+
+                if (WORKER_ID.test(target)) {
+                    targetPage = null;
+
+                    for (const candidatePage of browser.contexts().flatMap(item => item.pages())) {
+                        if (candidatePage.isClosed() || await candidatePage.opener()) continue;
+
+                        const reply = await candidatePage.evaluate(async () => {
+                            const app = globalThis.Neo?.worker?.App;
+
+                            return app?.getWorkerId ? await app.getWorkerId() : null
+                        }).catch(() => null);
+
+                        if ((typeof reply === 'string' ? reply : reply?.data) === target) {
+                            targetPage = candidatePage;
+                            break
+                        }
+                    }
+                }
+
+                if (!targetPage || targetPage.isClosed?.()) return false;
+
+                binding = await bindPage(targetPage);
+
                 // A dedicated App Worker wins; only a page without one looks for its own SharedWorker. An ambiguous
                 // context is reported at once, while a transient attach failure retries on the next poll
-                const dedicated = appWorker || page.workers().find(isDedicatedAppWorker),
-                      candidate = dedicated || await sharedAppWorker().catch(error => {
-                          if (error.name === 'AmbiguousSharedAppWorkerError') attachRefusal = error;
-                          return null
-                      });
+                const candidate = await binding.getWorker().catch(error => {
+                    if (error.name === 'AmbiguousSharedAppWorkerError') attachRefusal = error;
+                    return null
+                });
 
                 if (attachRefusal) {
                     return true
@@ -811,9 +846,6 @@ export async function runDedicatedWorkerNeuralLink({browser, context, page}, use
                         return false
                     }
 
-                    // Only a dedicated worker becomes `appWorker`: a SharedWorker handle is re-read through
-                    // `sharedAppWorker()`, which a navigation releases
-                    appWorker      = dedicated || null;
                     capturedWorker = candidate;
                     workerId       = readyId;
                     seenWorkers.add(candidate);
@@ -834,8 +866,8 @@ export async function runDedicatedWorkerNeuralLink({browser, context, page}, use
             }
 
             return createDedicatedWorkerAppConnection({
-                getLogs  : () => logs,
-                getWorker: async () => appWorker || sharedAppWorker(),
+                getLogs  : binding.getLogs,
+                getWorker: binding.getWorker,
                 sessionId: workerId,
                 writerPair
             })
@@ -850,6 +882,8 @@ export async function runDedicatedWorkerNeuralLink({browser, context, page}, use
         }
 
         // The pair is released through the session, so the session closes last
-        await releaseSharedAppWorker()
+        for (const binding of bindings.values()) {
+            await (await binding).release()
+        }
     }
 }

@@ -1,4 +1,5 @@
 import {test, expect} from '@playwright/test';
+import vm             from 'node:vm';
 import {
     BRIDGE_TOOL_SERVICE_MAP,
     buildAppConnectionSurface,
@@ -15,7 +16,7 @@ import {
 } from '../../fixtures.mjs';
 
 /**
- * Fake Playwright `Worker` that simulates a dedicated App Worker with `Neo.ai.Client` in-memory.
+ * @summary Fake Playwright `Worker` that simulates a dedicated App Worker with `Neo.ai.Client` in-memory.
  */
 function createFakeDedicatedWorker({
     appName     = 'Neo.examples.button.base',
@@ -108,17 +109,26 @@ function createFakeDedicatedWorker({
     }
 }
 
+/**
+ * @summary Playwright page and context facades with a real page-side worker-id read in an isolated realm.
+ * @param {Object} worker The dedicated App Worker facade
+ * @returns {Object}
+ */
 function createFakeFixtures(worker) {
     const contextRoutes = [],
-          listeners     = new Map();
+          listeners     = new Map(),
+          pageRoutes    = [];
 
     const context = {
+        on() {},
+        pages: () => page.closed ? [] : [page],
         async route(pattern, handler) {
             contextRoutes.push({handler, pattern})
         }
     };
 
     const browser = {
+        contexts: () => [context],
         async newContext() {
             return {
                 async route(pattern, handler) {
@@ -129,6 +139,18 @@ function createFakeFixtures(worker) {
     };
 
     const page = {
+        closed  : false,
+        context : () => context,
+        isClosed: () => page.closed,
+        opener  : async () => null,
+        async evaluate(fn, arg) {
+            const Neo = {worker: {App: {getWorkerId: async () => worker.workerId}}};
+
+            return vm.runInNewContext(`(${fn})(${JSON.stringify(arg)})`, {Neo, window: {Neo}})
+        },
+        async route(pattern, handler) {
+            pageRoutes.push({handler, pattern})
+        },
         on(event, listener) {
             listeners.set(event, listener)
         },
@@ -136,10 +158,66 @@ function createFakeFixtures(worker) {
         workers: () => [worker]
     };
 
-    return {browser, context, contextRoutes, listeners, page}
+    return {browser, context, contextRoutes, listeners, page, pageRoutes}
 }
 
 test.describe('test/playwright/dedicatedWorkerNeuralLink — off-socket dedicated App Worker adapter', () => {
+    test('an exact worker id binds a second context after the fixture page closed', async () => {
+        const first  = createFakeFixtures(createFakeDedicatedWorker()),
+              worker = createFakeDedicatedWorker({workerId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'}),
+              second = createFakeFixtures(worker);
+
+        first.browser.contexts = () => [first.context, second.context];
+
+        await runDedicatedWorkerNeuralLink(first, async nl => {
+            first.page.closed = true;
+            await (await nl.connectToApp(worker.workerId, {identityTimeout: 30})).setProperties('second', {text: 'cold boot'})
+        });
+
+        expect(worker.requests.map(({params}) => params.id)).toEqual(['second']);
+        expect(worker.disconnectedPairs).toHaveLength(1)
+    });
+
+    test('an exact worker id prefers its root page over a popup and keeps SDK connections on their own workers', async () => {
+        const firstWorker  = createFakeDedicatedWorker(),
+              secondWorker = createFakeDedicatedWorker({workerId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'}),
+              first        = createFakeFixtures(firstWorker),
+              second       = createFakeFixtures(secondWorker),
+              popup        = createFakeFixtures(secondWorker);
+
+        popup.page.opener = async () => second.page;
+        first.browser.contexts = () => [first.context, {pages: () => [popup.page, second.page]}];
+
+        await runDedicatedWorkerNeuralLink(first, async nl => {
+            const firstApp = await nl.connectToApp(firstWorker.workerId, {identityTimeout: 30}),
+                  otherApp = await nl.connectToApp(secondWorker.workerId, {identityTimeout: 30});
+
+            await otherApp.setProperties('second', {text: 'second context'});
+            await firstApp.setProperties('first', {text: 'original context'});
+
+            expect(second.pageRoutes, 'the root owns the navigation release hook').toHaveLength(1);
+            expect(popup.pageRoutes, 'the popup is never bound').toHaveLength(0)
+        });
+
+        expect(firstWorker.requests.map(({params}) => params.id)).toEqual(['first']);
+        expect(secondWorker.requests.map(({params}) => params.id)).toEqual(['second'])
+    });
+
+    test('an absent exact worker id never dispatches to another context with the same app name', async () => {
+        const first  = createFakeFixtures(createFakeDedicatedWorker()),
+              worker = createFakeDedicatedWorker({workerId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'}),
+              second = createFakeFixtures(worker);
+
+        first.browser.contexts = () => [first.context, second.context];
+
+        await runDedicatedWorkerNeuralLink(first, async nl => {
+            await expect(nl.connectToApp('00000000-0000-0000-0000-000000000000', {identityTimeout: 30}))
+                .rejects.toThrow('did not initialize Neo.ai.Client')
+        });
+
+        expect(worker.requests).toEqual([])
+    });
+
     test('hasBrainRuntimeRoot selects the adapter when NEO_AGENTOS_RUNTIME_ROOT is unset or empty', () => {
         expect(hasBrainRuntimeRoot({})).toBe(false);
         expect(hasBrainRuntimeRoot({NEO_AGENTOS_RUNTIME_ROOT: ''})).toBe(false);

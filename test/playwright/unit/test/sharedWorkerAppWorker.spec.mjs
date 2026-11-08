@@ -130,9 +130,11 @@ function createFakeChromium({attachError, targets, workerNeo, workerNeos}) {
  * @summary A Playwright `Page` in the CDP context `browserContextId`, with `workers` as its dedicated workers.
  * @param {String}   browserContextId
  * @param {Object[]} [workers=[]]
+ * @param {String} [appWorkerUrl=APP_URL]
+ * @param {String} [workerId] The page's remote App Worker id
  * @returns {Object}
  */
-function createFakePage(browserContextId, workers = [], appWorkerUrl = APP_URL) {
+function createFakePage(browserContextId, workers = [], appWorkerUrl = APP_URL, workerId = '99999999-8888-7777-6666-555555555555') {
     return {
         context: () => ({
             async newCDPSession() {
@@ -144,9 +146,21 @@ function createFakePage(browserContextId, workers = [], appWorkerUrl = APP_URL) 
                 }
             }
         }),
-        // The page's main thread answers which script its App Worker loads (null before Neo boots)
-        evaluate: async () => appWorkerUrl,
+        // Execute the actual page-side read, including the SharedWorker remote's reply envelope.
+        evaluate: async fn => vm.runInNewContext(`(${fn})()`, {
+            Neo: {
+                config: {workerBasePath: ''},
+                worker: {
+                    App    : {getWorkerId: async () => ({data: workerId})},
+                    Manager: {workers: {app: appWorkerUrl ? {basePath: '', fileName: appWorkerUrl} : null}}
+                }
+            },
+            URL,
+            document: {baseURI: 'http://localhost:8080/'}
+        }),
+        isClosed: () => false,
         on() {},
+        opener : async () => null,
         url    : () => 'about:blank',
         workers: () => workers
     }
@@ -273,6 +287,66 @@ test.describe('test/playwright/dedicatedWorkerNeuralLink — the fixture on a Sh
      * @returns {Object} The fixtures `runDedicatedWorkerNeuralLink` receives
      */
     const fixtures = (browser, page) => ({browser, context: {async route() {}}, page});
+
+    test('an id-bound second context releases before navigation and on its last window closing', async () => {
+        const workerId        = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+              first           = createSharedWorkerNeo(),
+              second          = createSharedWorkerNeo(),
+              targets         = [sharedWorkerTarget('ctx-cold', 'first')],
+              browser         = createFakeChromium({targets, workerNeos: {first: first.neo, second: second.neo}}),
+              fixture         = createFakePage('ctx-seed'),
+              cold            = createFakePage('ctx-cold', [], APP_URL, workerId),
+              routes          = [],
+              closes          = [],
+              mainFrame       = {},
+              originalContext = cold.context();
+        let pages = [cold];
+
+        first.neo.worker.App.id = second.neo.worker.App.id = workerId;
+        fixture.isClosed = () => true;
+        cold.context = () => ({...originalContext, pages: () => pages});
+        cold.mainFrame = () => mainFrame;
+        cold.on = (event, listener) => {event === 'close' && closes.push(listener)};
+        cold.route = async (pattern, handler) => {routes.push({handler, pattern})};
+        browser.contexts = () => [cold.context()];
+
+        await runDedicatedWorkerNeuralLink(fixtures(browser, fixture), async nl => {
+            const app = await nl.connectToApp(workerId, {identityTimeout: 100});
+
+            await app.setProperties('cold', {text: 'first boot'});
+
+            const navigation = routes.find(({pattern}) => pattern.test('http://localhost:8080/apps/workstation/index.html'));
+
+            await navigation.handler({
+                fallback: async () => {},
+                request : () => ({frame: () => ({}), isNavigationRequest: () => true})
+            });
+            expect(browser.sessions[0].detached, 'an iframe does not release the root binding').toBe(false);
+
+            let detachedBeforeDocument = false;
+
+            await navigation.handler({
+                fallback: async () => {detachedBeforeDocument = browser.sessions[0].detached},
+                request : () => ({frame: () => mainFrame, isNavigationRequest: () => true})
+            });
+            expect(detachedBeforeDocument, 'the second context releases before its navigation continues').toBe(true);
+
+            targets.splice(0, 1, sharedWorkerTarget('ctx-cold', 'second'));
+            await app.setProperties('cold', {text: 'second boot'});
+
+            second.neo.ai.Client.handleTestRequest = () => new Promise(() => {});
+            const unanswered = app.setProperties('cold', {text: 'last window'});
+
+            pages = [];
+            closes.forEach(listener => listener(cold));
+
+            await expect(unanswered).rejects.toThrow('session closed')
+        });
+
+        expect(first.requests.map(({params}) => params.properties.text)).toEqual(['first boot']);
+        expect(second.requests.map(({params}) => params.properties.text)).toEqual(['second boot']);
+        expect(browser.sessions.every(session => session.detached)).toBe(true)
+    });
 
     test('serves the page\'s SharedWorker under the fixture\'s pair, releasing that pair before the session closes', async () => {
         const worker  = createSharedWorkerNeo(),

@@ -17,7 +17,7 @@ import Persistence    from '../../../../src/dashboard/dock/model/Persistence.mjs
  * runs the same path without the popup hint, so a pass of the hinted arm cannot be a harness that never reads
  * storage.
  *
- * Run: NEO_AGENTOS_RUNTIME_ROOT=<abs path to neo-agent-brain> \
+ * Run off-socket: env -u NEO_AGENTOS_RUNTIME_ROOT \
  *      npx playwright test workstation/WorkstationResetSurvivesReloadNL -c test/playwright/playwright.config.e2e.mjs --workers=1
  */
 const
