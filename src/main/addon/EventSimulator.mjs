@@ -144,8 +144,12 @@ class EventSimulator extends Base {
     syntheticPointerId = 2_147_483_647
 
     /**
-     * Dispatches a native DOM event on a target element.
+     * @summary Dispatches a native DOM event on a target element.
      *
+     * A mouse press, move or release arrives as the platform delivers a real one: its pointer event
+     * first ({@link #dispatchMouseAction}). Callers that script raw `mousedown`/`mousemove`/`mouseup`
+     * sequences (the Neural Link's `simulate_event`, tour and demo gesture drivers) thereby keep
+     * driving the pointer-based drag sensor, and every mouse listener keeps its event.
      * @param {Object} data
      * @param {String} data.id - The DOM ID of the target element
      * @param {String} data.type - The event type (e.g., 'click', 'keydown', 'mousedown')
@@ -153,7 +157,7 @@ class EventSimulator extends Base {
      * @returns {Boolean} true if the event was dispatched successfully
      */
     dispatch(data) {
-        return this.dispatchNative(data).success
+        return (pointerTypeByMouseType[data.type] ? this.dispatchMouseAction(data) : this.dispatchNative(data)).success
     }
 
     /**

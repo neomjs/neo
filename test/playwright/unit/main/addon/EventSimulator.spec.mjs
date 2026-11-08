@@ -86,6 +86,30 @@ test.describe('Neo.main.addon.EventSimulator — simulated input', () => {
         expect(calls[1].options, 'the compatibility mouse event is exactly the requested one').toEqual({button: 0, buttons: 1, clientX: 3, clientY: 4})
     });
 
+    test('raw dispatch sends a mouse press, move or release through its pointer event; other types alone', () => {
+        const calls = [],
+              host  = createHost({
+                  dispatchNative(data) {
+                      calls.push(`${data.type}:${data.options?.pointerId ?? '-'}`);
+                      return {event: null, success: true}
+                  }
+              }),
+              dispatch = data => EventSimulator.constructor.prototype.dispatch.call(host, data);
+
+        ['mousedown', 'mousemove', 'mouseup', 'click', 'mouseover', 'keydown'].forEach(type => {
+            expect(dispatch({id: 'source', options: {}, type}), type).toBe(true)
+        });
+
+        expect(calls).toEqual([
+            `pointerdown:${syntheticPointerId}`, 'mousedown:-',
+            `pointermove:${syntheticPointerId}`, 'mousemove:-',
+            `pointerup:${syntheticPointerId}`,   'mouseup:-',
+            'click:-',
+            'mouseover:-',
+            'keydown:-'
+        ])
+    });
+
     test('a failed pointer event withholds its mouse event', () => {
         const calls = [],
               host  = createHost({
