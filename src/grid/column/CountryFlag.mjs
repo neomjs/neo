@@ -37,8 +37,8 @@ class CountryFlag extends ComponentColumn {
      */
     applyRecordConfigs(config, record) {
         return {
-            countryCode: record[this.dataField],
-            location   : record[this.contentField],
+            countryCode: this.getRecordValue(record),
+            location   : this.getRecordValue(record, this.contentField),
             ...config
         }
     }

@@ -33,7 +33,7 @@ class Progress extends ComponentColumn {
      */
     applyRecordConfigs(config, record) {
         return {
-            value: record[this.dataField],
+            value: this.getRecordValue(record),
             ...config
         }
     }
