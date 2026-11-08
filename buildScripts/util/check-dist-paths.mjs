@@ -22,19 +22,42 @@ const
 
 /**
  * @summary Lists the script files under `dir` whose text contains a `file:///` URL.
+ *
+ * Links are followed, because the production resource copy keeps a linked folder a link, and its files are
+ * served like any other. A folder already walked under its real path is not walked again, which bounds link
+ * cycles. A link that cannot be followed throws: what the scan cannot read, it cannot pass.
  * @param {String} dir The build folder to scan.
  * @returns {String[]} Paths relative to `dir`, sorted.
+ * @throws {Error} When a link under `dir` cannot be followed.
  */
 export function findFileUrls(dir) {
-    const found = [];
+    const
+        found   = [],
+        visited = new Set();
 
     const walk = current => {
-        for (const entry of fs.readdirSync(current, {withFileTypes: true})) {
-            const fullPath = path.join(current, entry.name);
+        const real = fs.realpathSync(current);
 
-            if (entry.isDirectory()) {
+        if (visited.has(real)) {
+            return
+        }
+
+        visited.add(real);
+
+        for (const name of fs.readdirSync(current)) {
+            const fullPath = path.join(current, name);
+
+            let stat;
+
+            try {
+                stat = fs.statSync(fullPath)
+            } catch {
+                throw new Error(`check-dist-paths: ${path.relative(dir, fullPath)} is a link that cannot be followed, so it cannot be checked.`)
+            }
+
+            if (stat.isDirectory()) {
                 walk(fullPath)
-            } else if (EXTENSIONS.has(path.extname(entry.name)) && fs.readFileSync(fullPath, 'utf8').includes(FILE_URL)) {
+            } else if (EXTENSIONS.has(path.extname(name)) && fs.readFileSync(fullPath, 'utf8').includes(FILE_URL)) {
                 found.push(path.relative(dir, fullPath).replaceAll('\\', '/'))
             }
         }
@@ -53,7 +76,14 @@ if (isEntryModule(import.meta.url)) {
         process.exit(1)
     }
 
-    const found = findFileUrls(dir);
+    let found;
+
+    try {
+        found = findFileUrls(dir)
+    } catch (error) {
+        console.error(error.message);
+        process.exit(1)
+    }
 
     if (found.length) {
         console.error(`check-dist-paths: ${found.length} build file(s) carry a file:/// URL, the build machine's path:`);

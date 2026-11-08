@@ -1,5 +1,6 @@
 import {test, expect}  from '@playwright/test';
 import {spawnSync}     from 'node:child_process';
+import fsExtra         from 'fs-extra';
 import fs              from 'node:fs';
 import os              from 'node:os';
 import path            from 'node:path';
@@ -63,6 +64,52 @@ test.describe('check-dist-paths: a production build ships no file:/// URL', () =
 
         try {
             expect(findFileUrls(dir)).toEqual(['MicroLoader.mjs'])
+        } finally {
+            fs.rmSync(dir, {force: true, recursive: true})
+        }
+    });
+
+    test('a linked resource folder, kept a link by the production copy, is scanned like any other', () => {
+        const
+            outside = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-dist-paths-linked-')),
+            source  = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-dist-paths-resources-')),
+            control = buildTree(),
+            leaking = buildTree();
+
+        try {
+            // The workspace's resources hold a link to a folder elsewhere, as `webpack.config.main.mjs` copies them
+            fs.writeFileSync(path.join(outside, 'leak.js'), 'const u = "file:///home/builder/app/src/x.mjs";');
+            fs.writeFileSync(path.join(outside, 'clean.js'), 'export default 3;');
+            fs.symlinkSync(outside, path.join(source, 'linked'), 'dir');
+
+            fsExtra.copySync(source, path.join(control, 'resources'));
+            fs.rmSync(path.join(outside, 'leak.js'));
+            expect(fs.lstatSync(path.join(control, 'resources/linked')).isSymbolicLink(), 'the copy keeps the link').toBe(true);
+            expect(findFileUrls(control), 'control: the linked folder holds only a clean script').toEqual([]);
+
+            fs.writeFileSync(path.join(outside, 'leak.js'), 'const u = "file:///home/builder/app/src/x.mjs";');
+            fsExtra.copySync(source, path.join(leaking, 'resources'));
+            expect(findFileUrls(leaking)).toEqual(['resources/linked/leak.js']);
+            expect(spawnSync(process.execPath, [CHECK, leaking], {encoding: 'utf8'}).status).toBe(1)
+        } finally {
+            [outside, source, control, leaking].forEach(dir => fs.rmSync(dir, {force: true, recursive: true}))
+        }
+    });
+
+    test('a link cycle ends, and a link that cannot be followed fails', () => {
+        const dir = buildTree({'chunks/app/7.js': 'const u = "file:///x";'});
+
+        try {
+            fs.symlinkSync(dir, path.join(dir, 'chunks/loop'), 'dir');
+            expect(findFileUrls(dir), 'a folder reached again through a link is walked once').toEqual(['chunks/app/7.js']);
+
+            fs.symlinkSync(path.join(dir, 'gone'), path.join(dir, 'broken'), 'dir');
+            expect(() => findFileUrls(dir)).toThrow('broken is a link that cannot be followed');
+
+            const result = spawnSync(process.execPath, [CHECK, dir], {encoding: 'utf8'});
+
+            expect(result.status).toBe(1);
+            expect(result.stderr).toContain('cannot be followed')
         } finally {
             fs.rmSync(dir, {force: true, recursive: true})
         }
