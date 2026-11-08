@@ -243,11 +243,12 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
         }
         expect(grown.after.width * grown.after.height, 'the window is at least four times the frame it was born with').toBeGreaterThanOrEqual(4 * grown.before.width * grown.before.height);
 
-        const [gridDrag] = byType('grid-drag-scroll'), travel = gridDrag.proof?.travel;
+        const [gridDrag] = byType('grid-drag-scroll'), {release, travel} = gridDrag.proof ?? {};
 
-        console.log(`[film-probe] close: frame ${JSON.stringify(grown.after)} for ${JSON.stringify(grown.target)}; throw ${JSON.stringify(travel)}`);
+        console.log(`[film-probe] close: frame ${JSON.stringify(grown.after)} for ${JSON.stringify(grown.target)}; release ${JSON.stringify(release)}; throw ${JSON.stringify(travel)}`);
         expect(gridDrag.applied, `the grid must follow the hand:\n${(gridDrag.errors || []).join('\n')}`).toBe(true);
         expect(gridDrag.proof?.strokes).toBe(1);
+        expect(release?.windowMoves, 'at least two moves sit in the 100 ms release window').toBeGreaterThanOrEqual(2);
         expect(gridDrag.proof?.after?.settled, 'the momentum tail settled before the read').toBe(true);
         expect(travel?.met, 'both dragged axes reached their expected travel').toEqual({x: true, y: true});
         expect(travel?.expected?.x, 'the pan right had at least a column of room').toBeGreaterThanOrEqual(130);

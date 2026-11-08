@@ -143,6 +143,7 @@
     "test/playwright/e2e/workstation/WorkstationDragTextSelectionNL.spec.mjs": 7.2,
     "test/playwright/e2e/workstation/WorkstationEdgeSplitterNL.spec.mjs": 6.8,
     "test/playwright/e2e/workstation/WorkstationFeedKeepsScrollNL.spec.mjs": 4.7,
+    "test/playwright/e2e/workstation/WorkstationFilmTourNL.spec.mjs": 177.8,
     "test/playwright/e2e/workstation/WorkstationFocusedTabOverflowNL.spec.mjs": 3.1,
     "test/playwright/e2e/workstation/WorkstationGridRepaintNL.spec.mjs": 13.9,
     "test/playwright/e2e/workstation/WorkstationGridUnconstrainedNL.spec.mjs": 2.7,

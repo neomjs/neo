@@ -1144,12 +1144,13 @@ class GestureDriver extends Base {
      * @param {Object} [options]
      * @param {Number} [options.attempts=180] Poll attempts (16 ms each) for the scroll to settle after the last release.
      * @param {'linear'|'throw'} [options.curve='linear'] How the samples share the travel: evenly, or
-     * eased in (quartic) so the stroke winds up and whips — the last hundred milliseconds carry the
-     * speed the addon's momentum reads at the release.
+     * blending a quartic wind-up (`0.65 * ratio ** 4`) with a late whip (`0.35 * ratio ** Math.max(4, moveSteps)`),
+     * tightening the final two move delays to at most 8 ms and releasing without a trailing pause so
+     * the stroke visibly winds up and the release window carries the speed the addon's momentum reads.
      * @param {Number} [options.moveDelay=16] Milliseconds between pointer samples.
      * @param {Number} [options.moveSteps=12] Samples along one stroke.
      * @param {Boolean} [options.showCursor=false] Film mode: show the shared synthetic cursor.
-     * @returns {Promise<Object>} `{applied, errors, proof}`; `proof.travel` carries `requested`, `room`, `expected`, `observed`, `slack` and `met` per axis.
+     * @returns {Promise<Object>} `{applied, errors, proof}`; `proof.travel` carries `requested`, `room`, `expected`, `observed`, `slack` and `met` per axis, and `proof.release` carries `{agesMs, spanMs, windowMoves}` for the 100 ms release window.
      */
     async executeGridDragScrollStep(step, {attempts=180, curve='linear', moveDelay=16, moveSteps=12, showCursor=false}={}) {
         return this.runGesture(async run => {
@@ -1214,6 +1215,7 @@ class GestureDriver extends Base {
                     before        = read(),
                     room          = driver.readGridScrollRoom(pane, before),
                     dispatched    = [],
+                    releases      = [],
                     moveCursor    = point => {
                         if (cursorDot) {
                             cursorDot.style = {...cursorDot.style, left: `${point.x - 8}px`, top: `${point.y - 8}px`}
@@ -1223,16 +1225,22 @@ class GestureDriver extends Base {
                 showCursor && (cursorDot = driver.createFilmCursorDot(start.x, start.y, windowId));
 
                 for (let stroke = 0; stroke < strokes; stroke++) {
-                    let share   = ratio => curve === 'throw' ? ratio ** 4 : ratio,
-                        at      = ratio => ({x: Math.round(start.x + deltaX * share(ratio)), y: Math.round(start.y + deltaY * share(ratio))}),
-                        samples = [{buttons: 1, delay: 0, point: start, targetId: pane.body.id, type: 'mousedown'}],
-                        sent    = 0;
+                    let isThrow   = curve === 'throw',
+                        whip      = Math.max(4, moveSteps),
+                        share     = ratio => isThrow ? 0.65 * ratio ** 4 + 0.35 * ratio ** whip : ratio,
+                        at        = ratio => ({x: Math.round(start.x + deltaX * share(ratio)), y: Math.round(start.y + deltaY * share(ratio))}),
+                        stepDelay = index => isThrow && index >= moveSteps - 1 ? Math.min(moveDelay, 8) : moveDelay,
+                        samples   = [{buttons: 1, delay: 0, point: start, targetId: pane.body.id, type: 'mousedown'}],
+                        moveTimes = [],
+                        sent      = 0;
 
                     for (let index = 1; index <= moveSteps; index++) {
-                        samples.push({buttons: 1, delay: moveDelay, point: at(index / moveSteps), targetId: 'document.body', type: 'mousemove'})
+                        samples.push({buttons: 1, delay: stepDelay(index), point: at(index / moveSteps), targetId: 'document.body', type: 'mousemove'})
                     }
 
-                    samples.push({buttons: 0, delay: moveDelay, point: at(1), targetId: 'document.body', type: 'mouseup'});
+                    // A throw releases while the hand is still moving at `at(1)` (`delay: 0`) so the
+                    // pause after the final sample never consumes GridDragScroll's 100 ms velocity window.
+                    samples.push({buttons: 0, delay: isThrow ? 0 : moveDelay, point: at(1), targetId: 'document.body', type: 'mouseup'});
 
                     // the hand lifts at the end of one stroke and presses again at the anchor
                     stroke && await driver.trap(driver.timeout(moveDelay * 4));
@@ -1249,16 +1257,32 @@ class GestureDriver extends Base {
                             return {applied: false, errors: [`stroke ${stroke + 1} could not be dispatched: ${type} at (${point.x}, ${point.y}) was refused`], proof: {before, dispatched, strokes}}
                         }
 
+                        let now = Date.now();
+
+                        if (type === 'mousemove') {
+                            moveTimes.push(now)
+                        } else if (type === 'mouseup') {
+                            // Mirrors `GridDragScroll#onDragEnd`'s `now - 100` ms velocity cutoff (`src/main/addon/GridDragScroll.mjs`).
+                            let agesMs = moveTimes.filter(time => time > now - 100).map(time => now - time);
+
+                            releases.push({
+                                agesMs,
+                                spanMs     : agesMs.length > 1 ? agesMs[0] - agesMs.at(-1) : 0,
+                                windowMoves: agesMs.length
+                            })
+                        }
+
                         sent++
                     }
 
                     dispatched.push(sent)
                 }
 
-                let after  = await settle(),
-                    travel = driver.measureGridTravel({after, before, deltaX, deltaY, moveSteps, room, strokes}),
-                    proof  = {after, before, dispatched, strokes, travel},
-                    moved  = `scrollLeft ${before.scrollLeft} → ${after.scrollLeft}, scrollTop ${before.scrollTop} → ${after.scrollTop} for ${strokes} stroke(s) of (${deltaX}, ${deltaY})`;
+                let after   = await settle(),
+                    release = releases.at(-1) ?? null,
+                    travel  = driver.measureGridTravel({after, before, deltaX, deltaY, moveSteps, room, strokes}),
+                    proof   = {after, before, dispatched, release, strokes, travel},
+                    moved   = `scrollLeft ${before.scrollLeft} → ${after.scrollLeft}, scrollTop ${before.scrollTop} → ${after.scrollTop} for ${strokes} stroke(s) of (${deltaX}, ${deltaY})`;
 
                 if (!after.settled) {
                     return {applied: false, errors: [`the grid had not settled ${attempts * 16} ms after the last release: ${moved}`], proof}
