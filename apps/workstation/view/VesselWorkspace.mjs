@@ -50,6 +50,13 @@ class VesselWorkspace extends DockWorkspace {
     static VESSEL_WORKSPACE_PREFIX = 'workstation-vessel:'
 
     /**
+     * @summary Copy shown on the browser-hosted Workstation surface when `Neo.Main.windowOpen` refuses a popup.
+     * @member {String} POPUP_REFUSAL_MESSAGE
+     * @static
+     */
+    static POPUP_REFUSAL_MESSAGE = 'The browser could not open this window. Allow pop-ups for this site to use multi-window dragging and pop-out views.'
+
+    /**
      * Returns one vessel's stable semantic workspace identity. Runtime window ids never enter it.
      * @param {String} itemId
      * @returns {String|null}
@@ -117,6 +124,11 @@ class VesselWorkspace extends DockWorkspace {
      * @member {Object|null} initialTopology=null
      */
     initialTopology = null
+
+    /**
+     * @member {{message: String|null, visible: Boolean}} popupRefusalGuidance={message: null, visible: false}
+     */
+    popupRefusalGuidance = {message: null, visible: false}
 
     /**
      * The shared drag-affordance gesture controller (producer lifecycle, memoized geometry,
@@ -335,9 +347,7 @@ class VesselWorkspace extends DockWorkspace {
             return false
         }
 
-        await me.tearOutHandlers.onDockTearOutExit(data);
-
-        return true
+        return Boolean(await me.tearOutHandlers.onDockTearOutExit(data))
     }
 
     /**
@@ -1161,9 +1171,11 @@ class VesselWorkspace extends DockWorkspace {
             me.lastVesselOpen.stage = opened === false ? 'windowOpen-false' : 'granted';
 
             if (opened === false) {
+                me.isBrowserPopupHost(bootstrap, winData) && me.setPopupRefusalGuidance(true);
                 return null
             }
 
+            me.setPopupRefusalGuidance(false);
             me.tearOutVesselDims = {height, width};
 
             return {popupHeight: height, popupWidth: width, windowName}
@@ -1172,6 +1184,35 @@ class VesselWorkspace extends DockWorkspace {
             me.lastVesselOpen.error = String(error?.message || error);
             return null
         }
+    }
+
+    /**
+     * @summary True only when a refused `windowOpen` comes from a browser-hosted surface rather than an Electron shell.
+     * @param {Object|null} bootstrap
+     * @param {Object|null} [winData=null]
+     * @returns {Boolean}
+     * @protected
+     */
+    isBrowserPopupHost(bootstrap, winData=null) {
+        return !(
+            bootstrap?.shell === true ||
+            bootstrap?.shell === 'electron' ||
+            Boolean(bootstrap?.neoShell) ||
+            Boolean(winData?.neoShell) ||
+            /\bElectron\//i.test(bootstrap?.userAgent ?? winData?.userAgent ?? '')
+        )
+    }
+
+    /**
+     * @summary Publishes or clears the non-modal browser popup-refusal guidance on the host provider.
+     * @param {Boolean} visible
+     */
+    setPopupRefusalGuidance(visible) {
+        const active  = Boolean(visible),
+              message = active ? this.constructor.POPUP_REFUSAL_MESSAGE : null;
+
+        this.popupRefusalGuidance = {message, visible: active};
+        this.getStateProvider?.()?.setData?.({popupGuidance: {message, visible: active}})
     }
 
     /**

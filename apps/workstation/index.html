@@ -25,6 +25,7 @@
                 colorScheme: meta.content,
                 defaultTheme,
                 schemes,
+                shell      : Boolean(globalThis.neoShell) || /\bElectron\//i.test(globalThis.navigator?.userAgent ?? ''),
                 theme
             })
         })()
