@@ -34,14 +34,15 @@
  * was this guard's entire output against a repository already at full parity. Following the
  * indirection does not relax anything — the resolved command faces the same single-statement,
  * unmasked, direct-`node` classifier, so the false-GREEN family stays closed. Every workflow that
- * gates `dev` pull requests is eligible, regardless of filename: the `*-lint.yml` filter this
- * carried was a PROXY for that trigger, and the trigger is already checked directly one line
- * later — so the name was buying nothing and costing a false red on every correctly-mirrored
- * guard whose workflow is named for its subject (`guard-ci-parity-lint.yml`) rather than for its
- * category. Eligible workflows must gate `dev` pull requests;
- * their YAML is parsed, then only unmasked `jobs.*.steps[].run` strings are inspected for direct
+ * gates `dev` pull requests is eligible, regardless of filename. Eligible workflows must gate `dev`
+ * pull requests; their YAML is parsed, then only unmasked `jobs.*.steps[].run` strings, and the `run`
+ * of each entry in a shared-baseline caller's `guards` list, are inspected for direct
  * `node … <script>.mjs` commands. Counting any wider population would create a false green inside the
  * guard whose purpose is catching false greens.
+ *
+ * The `guards` list in `pr-baseline.yml` is how this repository mirrors its hook guards: the shared
+ * baseline runs every entry under `bash -e -o pipefail`, each even after a red, as the one required
+ * context `baseline / guards`.
  *
  * ## Scope
  *
@@ -78,7 +79,13 @@ const
      */
     REGISTRY_PATH = process.env.NEO_GUARD_CI_PARITY_REGISTRY
         ? path.resolve(process.env.NEO_GUARD_CI_PARITY_REGISTRY)
-        : path.join(REPO_ROOT, REGISTRY_REL);
+        : path.join(REPO_ROOT, REGISTRY_REL),
+
+    /**
+     * The shared PR baseline, the one reusable workflow whose `guards` input runs a caller's commands.
+     * Another workflow's input of the same name runs nothing this guard can see.
+     */
+    SHARED_BASELINE = /^neomjs\/neo-agent-skills\/\.github\/workflows\/reusable-pr-baseline\.yml@/;
 
 /**
  * @summary Every surface whose contents can change this lint's verdict — the SSOT its CI workflow's
@@ -266,7 +273,9 @@ function hasDevPullRequestGate(workflow) {
         // `mirroredGuards()` to `scan ∩ tracked ⊆ paths`, so a filter narrower than the surface it
         // credits reds there with the uncovered member named. Rejecting it HERE would report the
         // convention itself as the defect.
-        Object.hasOwn(pullRequest, 'types')
+        //
+        // A `types` list gates only when it runs on every new pull request and every new head.
+        Object.hasOwn(pullRequest, 'types') && !['opened', 'synchronize'].every(type => [pullRequest.types].flat().includes(type))
     ) {
         return false
     }
@@ -360,6 +369,12 @@ function workflowExecutions() {
                     return
                 }
 
+                if (typeof job.uses === 'string' && SHARED_BASELINE.test(job.uses)) {
+                    guardsListRuns(job.with?.guards).forEach(run => {
+                        executedNodeScripts(run).forEach(script => executed.add(script))
+                    })
+                }
+
                 const jobDirectory = job?.defaults?.run?.['working-directory'] || workflowDirectory;
 
                 (job?.steps || []).forEach(step => {
@@ -381,6 +396,38 @@ function workflowExecutions() {
 
             return {file, executed}
         })
+}
+
+/**
+ * @summary The `run` commands of a shared-baseline `guards` input, or none when the baseline would
+ * refuse the list. It refuses the whole list before running any guard, so one malformed entry (keys
+ * other than `name` and `run`, a name outside its pattern or repeated, an empty command) credits nothing.
+ * @param {*} guards the caller's `with.guards` value
+ * @returns {String[]}
+ */
+function guardsListRuns(guards) {
+    let entries;
+
+    try {
+        entries = JSON.parse(guards)
+    } catch {
+        return []
+    }
+
+    const
+        names    = new Set(),
+        accepted = Array.isArray(entries) && entries.length > 0 && entries.every(entry => {
+            const valid = entry !== null && typeof entry === 'object' && !Array.isArray(entry) &&
+                Object.keys(entry).sort().join() === 'name,run' &&
+                typeof entry.name === 'string' && /^[A-Za-z0-9][\w .\/-]*$/.test(entry.name) && !names.has(entry.name) &&
+                typeof entry.run === 'string' && entry.run.trim() !== '';
+
+            names.add(entry?.name);
+
+            return valid
+        });
+
+    return accepted ? entries.map(entry => entry.run) : []
 }
 
 /**
