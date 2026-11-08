@@ -22,6 +22,7 @@ class MainContainerController extends Component {
          * @protected
          */
         routes: {
+            '/viewClass/{className}'                   : 'onViewClassRoute',
             '/viewSource/{className}'                  : 'onViewSourceRoute',
             '/viewSource/{className}/line/{lineNumber}': 'onViewSourceRoute'
         }
@@ -60,24 +61,31 @@ class MainContainerController extends Component {
     }
 
     /**
-     * @summary Opens or focuses the API documentation tab for a clicked class tree leaf, setting the full className as the tab header tooltip.
+     * @summary Runs a route handler again once the structure index has loaded, because a deep link fires before it does.
+     * @param {Function} handler
+     * @param {Object} data
+     * @returns {Boolean} true when the route waits for the load
+     */
+    deferUntilStructureLoaded(handler, data) {
+        let me    = this,
+            store = me.getStateProvider().getStore('structure');
+
+        if (store.isLoaded) {
+            return false
+        }
+
+        store.on('load', () => handler.call(me, data), me, {once: true});
+
+        return true
+    }
+
+    /**
+     * @summary Navigates to the clicked class tree leaf's `/viewClass/{className}` route, which opens its tab, so a
+     * reload restores it.
      * @param {Object} record
      */
     onApiListLeafClick(record) {
-        let me                  = this,
-            contentTabContainer = me.getReference('content-tabcontainer');
-
-        contentTabContainer.add({
-            ntype        : 'classdetails-maincontainer',
-            id           : record.className,
-            structureData: record,
-
-            header: {
-                iconCls: record.singleton ? 'fa fa-arrow-alt-circle-right' : 'fa fa-copyright',
-                text   : record.name,
-                tooltip: record.className
-            }
-        })
+        Neo.Main.setRoute({value: `/viewClass/${record.className}`, windowId: this.windowId})
     }
 
     /**
@@ -230,6 +238,36 @@ class MainContainerController extends Component {
     }
 
     /**
+     * @summary Opens or focuses the API documentation tab of a class route, setting the full className as the tab header
+     * tooltip. The header carries the route, so activating the tab moves the URL back to it.
+     * @param {Object} data
+     * @param {String} data.className
+     */
+    onViewClassRoute(data) {
+        let me = this,
+            record;
+
+        if (me.deferUntilStructureLoaded(me.onViewClassRoute, data)) {
+            return
+        }
+
+        record = me.getStateProvider().getStore('structure').find('className', data.className)[0];
+
+        record && me.getReference('content-tabcontainer').add({
+            ntype        : 'classdetails-maincontainer',
+            id           : record.className,
+            structureData: record,
+
+            header: {
+                iconCls: record.singleton ? 'fa fa-arrow-alt-circle-right' : 'fa fa-copyright',
+                route  : `/viewClass/${record.className}`,
+                text   : record.name,
+                tooltip: record.className
+            }
+        })
+    }
+
+    /**
      * @summary Resolves source routes against the complete index regardless of navigation tab or search state.
      * @param {Object} data
      * @param {String} data.className
@@ -240,9 +278,13 @@ class MainContainerController extends Component {
             className           = data.className,
             lineNumber          = data.lineNumber && parseInt(data.lineNumber) || null,
             contentTabContainer = me.getReference('content-tabcontainer'),
-            structureStore      = me.getStateProvider().getStore('structure'),
-            record              = structureStore.find('className', className)[0],
-            tab;
+            record, tab;
+
+        if (me.deferUntilStructureLoaded(me.onViewSourceRoute, data)) {
+            return
+        }
+
+        record = me.getStateProvider().getStore('structure').find('className', className)[0];
 
         if (record) {
             tab = contentTabContainer.add({
@@ -253,6 +295,7 @@ class MainContainerController extends Component {
 
                 header: {
                     iconCls: 'fa fa-code',
+                    route  : `/viewSource/${record.className}`,
                     text   : record.name,
                     tooltip: record.className
                 }
