@@ -120,12 +120,18 @@ test.describe('Docs.view.MainContainerController tab header tooltips', () => {
     test('sets full className and dot-joined example path tooltips on tab header buttons when opening API, Example, and Source tabs', async () => {
         Neo.main ??= {};
         Neo.main.addon ??= {};
+        Neo.Main ??= {};
 
         const
             hasHighlightJS      = Object.prototype.hasOwnProperty.call(Neo.main.addon, 'HighlightJS'),
+            hasSetRoute         = Object.prototype.hasOwnProperty.call(Neo.Main, 'setRoute'),
             hasXhr              = Object.prototype.hasOwnProperty.call(Neo, 'Xhr'),
             previousHighlightJS = Neo.main.addon.HighlightJS,
-            previousXhr         = Neo.Xhr;
+            previousSetRoute    = Neo.Main.setRoute,
+            previousXhr         = Neo.Xhr,
+            routes              = [];
+
+        Neo.Main.setRoute = data => routes.push(data);
 
         Neo.main.addon.HighlightJS = {
             loadFiles          : () => {},
@@ -142,7 +148,9 @@ test.describe('Docs.view.MainContainerController tab header tooltips', () => {
         let apiStore, examplesStore, rootContainer;
 
         try {
+            // Stands in for the loaded structure index the class and source routes resolve against
             apiStore = Neo.create(Collection, {
+                isLoaded   : true,
                 keyProperty: 'id',
                 items      : [
                     {
@@ -230,15 +238,22 @@ test.describe('Docs.view.MainContainerController tab header tooltips', () => {
                 exampleLeafRecord   = examplesStore.get(3),
                 multiExampleRecord  = examplesStore.get(4);
 
-            // 1. Opening two API tabs with the same leaf name ('Base') assigns distinct full className tooltips
+            // 1. An API leaf click opens its tab and moves the URL to its class route. Two API tabs with the same leaf
+            // name ('Base') get distinct full className tooltips, and each header carries its route
             controller.onApiListLeafClick(buttonApiRecord);
             controller.onApiListLeafClick(componentApiRecord);
+
+            expect(routes).toEqual([
+                {value: '/viewClass/Neo.button.Base',    windowId: controller.windowId},
+                {value: '/viewClass/Neo.component.Base', windowId: controller.windowId}
+            ]);
 
             const
                 buttonApiTabButton    = tabBar.items[1],
                 componentApiTabButton = tabBar.items[2];
 
             expect(buttonApiTabButton.text).toBe('Base');
+            expect(buttonApiTabButton.route).toBe('/viewClass/Neo.button.Base');
             expect(buttonApiTabButton._tooltip).toEqual({text: 'Neo.button.Base'});
             expect(buttonApiTabButton.cls).toContain('neo-uses-shared-tooltip');
 
@@ -273,6 +288,7 @@ test.describe('Docs.view.MainContainerController tab header tooltips', () => {
             const sourceTabButton = tabBar.items[5];
 
             expect(sourceTabButton.text).toBe('Base');
+            expect(sourceTabButton.route).toBe('/viewSource/Neo.button.Base');
             expect(sourceTabButton._tooltip).toEqual({text: 'Neo.button.Base'});
             expect(sourceTabButton.cls).toContain('neo-uses-shared-tooltip');
         } finally {
@@ -284,6 +300,12 @@ test.describe('Docs.view.MainContainerController tab header tooltips', () => {
                 Neo.main.addon.HighlightJS = previousHighlightJS;
             } else {
                 delete Neo.main.addon.HighlightJS;
+            }
+
+            if (hasSetRoute) {
+                Neo.Main.setRoute = previousSetRoute;
+            } else {
+                delete Neo.Main.setRoute;
             }
 
             if (hasXhr) {
