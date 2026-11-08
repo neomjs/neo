@@ -877,7 +877,7 @@ test.describe('Tests scope classifier — a ruled-out e2e tier shows why', () =>
     });
 
     test('no classifier output, input or step names a Brain tier any more', () => {
-        // No CI job provisions a Brain: the specs that need one run only locally
+        // No CI test job provisions a Brain: the specs that need one run only locally
         const source = fs.readFileSync(path.join(workflowsDir, CLASSIFIER), 'utf8');
 
         expect(source, 'control: the source was read').toContain('run_e2e');

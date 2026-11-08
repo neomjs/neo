@@ -19,7 +19,7 @@ import isEntryModule                                               from './isEnt
  * - **Brain-dependent** — removed by `testIgnore` in `playwright.config.e2e.mjs`, which deselects
  *   rather than skips: no reporter can name them, and a run missing four fifths of the tier still
  *   prints `Skipped: 0`. That invisibility is why this file reports the fraction at all. They run
- *   only where `NEO_AGENTOS_RUNTIME_ROOT` names a Brain checkout, which no CI job provisions.
+ *   only where `NEO_AGENTOS_RUNTIME_ROOT` names a Brain checkout, which no CI test job provisions.
  * - **GPU** — workstation specs that {@link RUN_PATHS} does not name: the app inherits animated
  *   OffscreenCanvas work no hosted runner can composite. The single-page Neural Link specs named
  *   there are the exception, because they run green hosted.
@@ -224,7 +224,7 @@ export function summary(root = process.cwd()) {
         '',
         `This job selected **${executed} of ${total}** e2e spec files.`,
         '',
-        `- **${ignored}** need an external \`neo-agent-brain\` checkout, which no CI job provisions, so they run only locally. \`testIgnore\` DESELECTS them, so they cannot appear as skips in any report — a run missing them still prints \`Skipped: 0\`.`,
+        `- **${ignored}** need an external \`neo-agent-brain\` checkout, which no CI test job provisions, so they run only locally. \`testIgnore\` DESELECTS them, so they cannot appear as skips in any report — a run missing them still prints \`Skipped: 0\`.`,
         `- **${gpu}** boot the workstation app, which inherits animated OffscreenCanvas work a hosted runner cannot composite.`,
         ...EXCLUSIONS.map(entry => `- \`${entry.path.replace('test/playwright/e2e/', '')}\` — ` +
             ({cause: '', observed: '**cause not established.** ', partial: '**cause covers only part of the failures.** '}[entry.kind]) +

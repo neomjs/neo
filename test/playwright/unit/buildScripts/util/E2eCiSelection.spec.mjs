@@ -173,7 +173,7 @@ test.describe('e2e CI selection — the coverage summary must add up', () => {
 });
 
 /**
- * The specs that need a Brain run only locally: no CI job provisions one. What CI must still guarantee is
+ * The specs that need a Brain run only locally: no CI test job provisions one. What CI must still guarantee is
  * the engine tier's side of that line, so the adapter-eligible specs this file once checked against the Brain tier
  * are now checked against the engine tier that runs them.
  */

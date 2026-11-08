@@ -41,7 +41,7 @@ The `neuralLink` fixture supports two dispatch paths, selected by `NEO_AGENTOS_R
 
 The engine tier (`.github/workflows/test-e2e.yml`) runs without a Brain, so its population is the Brain-free specs, the adapter-eligible ones included.
 
-No CI job provisions a Brain. The specs that need one — real-window journeys, multi-writer Bridge sessions, imports of Brain services — run only locally, with `NEO_AGENTOS_RUNTIME_ROOT` set: run the ones your change reaches before you hand it off.
+No CI test job provisions a Brain. The specs that need one — real-window journeys, multi-writer Bridge sessions, imports of Brain services — run only locally, with `NEO_AGENTOS_RUNTIME_ROOT` set: run the ones your change reaches before you hand it off.
 
 The shared scope classifier picks the tier's population:
 - A **`dev` push** runs the tier in **full**, on eight shards.
