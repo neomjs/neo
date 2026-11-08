@@ -1,4 +1,6 @@
-import {expect, test} from '../../fixtures.mjs';
+import {execFileSync}  from 'node:child_process';
+import {fileURLToPath} from 'node:url';
+import {expect, test}  from '../../fixtures.mjs';
 
 const DOCS = '/docs/index.html';
 
@@ -12,9 +14,17 @@ const tabHeader = (page, route) => page.locator(`.neo-tab-header-button[href="#$
 
 /**
  * The Docs app opens class and source tabs as routes, so the URL names the active tab and a reload or deep link
- * reopens it, even though a route fired on load arrives before the class index has loaded.
+ * reopens it, even though a route fired on load arrives before the class index has loaded. The class index is
+ * generated first, because `docs/output` is not tracked.
  */
 test.describe('Docs app class and source routes', () => {
+    test.beforeAll(() => {
+        execFileSync(process.execPath, ['buildScripts/docs/generateDocsJson.mjs'], {
+            cwd    : fileURLToPath(new URL('../../../../', import.meta.url)),
+            timeout: 60000
+        })
+    });
+
     test('a class tree click moves the URL to the class route, and a reload restores the active tab', async ({page}) => {
         const route = '/viewClass/Neo.form.field.TextArea';
 
