@@ -161,6 +161,11 @@ if (programOpts.info) {
             if (env !== 'esm') {
                 childProcess = spawnSync(nodeCmd, [`${webpackPath}/buildThreads.mjs`].concat(cpArgs), cpOpts);
                 childProcess.status && process.exit(childProcess.status);
+
+                if (env === 'all' || env === 'prod') {
+                    childProcess = spawnSync(nodeCmd, [`${neoPath}/buildScripts/util/check-dist-paths.mjs`, path.resolve(cwd, 'dist/production')], cpOpts);
+                    childProcess.status && process.exit(childProcess.status);
+                }
             }
 
             if (env === 'all' || env === 'esm') {

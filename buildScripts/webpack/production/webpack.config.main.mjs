@@ -53,6 +53,14 @@ export default {
 
     externalsType: 'module',
 
+    // `import.meta.url` stays a runtime value. Inlined, it is the build machine's `file://` path, shipped in the public
+    // bundle, and `Main#importAddonModule` would test the builder's tree instead of the page's.
+    module: {
+        parser: {
+            javascript: {importMeta: false}
+        }
+    },
+
     plugins: [
         mainAddonContextPlugin(insideNeo),
         new WebpackHookPlugin({
