@@ -693,6 +693,37 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         }
     });
 
+    test('a hidden routed tab hands its route to its menu item, so a selection moves the URL like its header anchor', () => {
+        const
+            ancestor   = Neo.create(ThemeAncestor, {theme: 'neo-theme-neo-dark'}),
+            owner      = Neo.create(ThemeOwner, {ancestor}),
+            plugin     = Neo.create(Overflow, {owner}),
+            origCreate = Neo.create;
+        let createdConfig;
+
+        Neo.create = config => {
+            createdConfig = config;
+            return {destroy: () => {}, theme: config.theme}
+        };
+
+        try {
+            plugin.syncControl([
+                {text: 'Videos', iconCls: 'fab fa-youtube', index: 6, route: '/news/videos'},
+                {text: 'Agents', iconCls: 'fa fa-users',    index: 0}
+            ], {activeIndex: 0});
+
+            const [routed, plain] = createdConfig.menu.items;
+
+            expect(routed.route, 'Neo.menu.List navigates a record route after its handler').toBe('/news/videos');
+            expect(plain.route, 'a tab without a route keeps the activeIndex-only selection').toBeUndefined()
+        } finally {
+            Neo.create = origCreate;
+            plugin.destroy();
+            owner.destroy();
+            ancestor.destroy()
+        }
+    });
+
     test('error → success: a failed measure pass releases the latch so the very next pass measures cleanly (no freeze)', async () => {
         // A `shouldThrow` latch controls WHICH pass fails, so the create-time auto-project (onOwnerMounted)
         // settles cleanly first and only the pass we choose throws.
