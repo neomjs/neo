@@ -15,7 +15,7 @@ const
     LINT       = path.join(REPO_ROOT, 'buildScripts/util/check-guard-ci-parity.mjs'),
     REGISTRY   = path.join(REPO_ROOT, 'buildScripts/util/check-guard-ci-parity-registry.json'),
     SELF_REL   = 'buildScripts/util/check-guard-ci-parity.mjs',
-    MIRROR_REL = '.github/workflows/guard-ci-parity-lint.yml';
+    MIRROR_REL = '.github/workflows/pr-baseline.yml';
 
 // Every file whose change can move the verdict. Both carriers are held to this one list, so a surface
 // that grows a member reds whichever carrier stops covering it.
@@ -201,6 +201,34 @@ function runFixture({lintStaged, workflows, clientOnly = {}, preCommit = 'npx li
     }
 }
 
+/**
+ * @summary A `runFixture()` workflow that calls the shared PR baseline the way `pr-baseline.yml` does.
+ * @param {Object[]|String} guards the `guards` input, serialized unless already a String
+ * @param {Object} [options]
+ * @param {String} [options.types] the `pull_request.types` list as YAML flow
+ * @param {String} [options.uses]  the reusable workflow reference
+ * @returns {Object}
+ */
+function baselineCaller(guards, {
+    types = '[opened, edited, synchronize, ready_for_review]',
+    uses  = 'neomjs/neo-agent-skills/.github/workflows/reusable-pr-baseline.yml@v1.1.0'
+} = {}) {
+    return {
+        defaultTrigger: false,
+        source        : [
+            'on:',
+            '  pull_request:',
+            `    types: ${types}`,
+            'jobs:',
+            '  baseline:',
+            `    uses: ${uses}`,
+            '    with:',
+            `      guards: '${typeof guards === 'string' ? guards : JSON.stringify(guards)}'`,
+            ''
+        ].join('\n')
+    }
+}
+
 test.describe('every lint-staged guard has a CI mirror or a recorded reason', () => {
     test('the committed registry is GREEN — the population is fully classified today', () => {
         const {code, output} = runLint();
@@ -237,22 +265,16 @@ test.describe('every lint-staged guard has a CI mirror or a recorded reason', ()
     });
 
     test('RED: a mirror filter that drops a SCAN_SURFACE input is reported, and the input NAMED', () => {
+        // The mirror watches every path, so the arm runs on a filter that covers the inputs exactly.
         const
-            inputs  = VERDICT_INPUTS,
-            without = pattern => {
-                const
-                    workflow = yaml.load(fs.readFileSync(path.join(REPO_ROOT, MIRROR_REL), 'utf8')),
-                    triggers = workflow.on ?? workflow[true];
+            filter  = ['package.json', '.husky/pre-commit', '.github/workflows/**', 'buildScripts/util/**'],
+            without = pattern => ({on: {pull_request: {paths: filter.filter(entry => entry !== pattern)}}});
 
-                triggers.pull_request.paths = triggers.pull_request.paths.filter(entry => entry !== pattern);
-
-                return workflow
-            };
-
+        expect(unwatchedInputs(without(null), VERDICT_INPUTS), 'control: the whole filter watches every input').toEqual([]);
         // A literal, and then the harder shape: dropping the glob must unwatch both the sampled surface
         // entry and this mirror's own file, which only the glob was covering.
-        expect(unwatchedInputs(without('package.json'), inputs)).toEqual(['package.json']);
-        expect(unwatchedInputs(without('.github/workflows/**'), inputs)).toEqual(['.github/workflows/**', MIRROR_REL])
+        expect(unwatchedInputs(without('package.json'), VERDICT_INPUTS)).toEqual(['package.json']);
+        expect(unwatchedInputs(without('.github/workflows/**'), VERDICT_INPUTS)).toEqual(['.github/workflows/**', MIRROR_REL])
     });
 
     test('RED: an unmirrored guard missing from the registry fails, and is NAMED', () => {
@@ -282,25 +304,66 @@ test.describe('every lint-staged guard has a CI mirror or a recorded reason', ()
 
         expect(code, `a stale entry must FAIL.\n\n${output}`).toBe(1);
         expect(output).toMatch(/STALE/);
-        expect(output, 'the failure must name the workflow that already mirrors it').toMatch(/guard-ci-parity-lint\.yml/)
+        expect(output, 'the failure must name the workflow that already mirrors it').toMatch(/pr-baseline\.yml/)
     });
 
-    test('consolidates all mirrored lint-staged guards into guard-ci-parity-lint.yml and keeps substrate-sync push-only', () => {
-        const mirrors    = mirroredGuards(),
-              workflow   = yaml.load(fs.readFileSync(path.join(REPO_ROOT, MIRROR_REL), 'utf8')),
-              substrate  = yaml.load(fs.readFileSync(path.join(REPO_ROOT, '.github/workflows/substrate-sync.yml'), 'utf8')),
-              triggers   = substrate.on ?? substrate[true],
-              guardSteps = workflow.jobs.lint.steps.filter(step => typeof step.run === 'string' && step.run !== 'npm ci --ignore-scripts');
+    test('every mirrored lint-staged guard runs in the baseline guards list, the one required context, and substrate-sync stays push-only', () => {
+        const
+            mirrors   = mirroredGuards(),
+            workflow  = yaml.load(fs.readFileSync(path.join(REPO_ROOT, MIRROR_REL), 'utf8')),
+            guards    = JSON.parse(workflow.jobs.baseline.with.guards),
+            substrate = yaml.load(fs.readFileSync(path.join(REPO_ROOT, '.github/workflows/substrate-sync.yml'), 'utf8')),
+            triggers  = substrate.on ?? substrate[true];
 
         expect(mirrors.length).toBeGreaterThan(0);
-        expect(mirrors.every(({mirrors: files}) => files.length === 1 && files[0] === 'guard-ci-parity-lint.yml')).toBe(true);
-        expect(Object.keys(workflow.jobs)).toEqual(['lint']);
-        expect(workflow.permissions).toEqual({contents: 'read'});
-        expect(guardSteps.length).toBe(12);
-        expect(guardSteps.every(step => step.if === '${{ !cancelled() }}')).toBe(true);
+        // The lint credits any workflow that gates dev pull requests, but only `baseline / guards` is a
+        // required context: a guard mirrored anywhere else would read as covered and still be advisory.
+        expect(mirrors.filter(({mirrors: files}) => files.join() !== 'pr-baseline.yml'), 'guards mirrored outside the required context')
+            .toEqual([]);
+        expect(workflow.jobs.baseline.uses).toMatch(/^neomjs\/neo-agent-skills\/\.github\/workflows\/reusable-pr-baseline\.yml@v\d+\.\d+\.\d+$/);
+        expect(new Set(guards.map(({name}) => name)).size, 'guard names are unique').toBe(guards.length);
 
         expect(triggers.pull_request).toBeUndefined();
         expect(triggers.push).toEqual({branches: ['dev', 'main']})
+    });
+
+    test('a shared-baseline caller credits the commands of its guards list', () => {
+        const {code, output} = runFixture({
+            lintStaged: {'*.mjs': [`node ./${SELF_REL}`, 'node ./tools/listed-guard.mjs']},
+            workflows : {
+                'pr-baseline.yml': baselineCaller([
+                    {name: 'parity', run: `node ./${SELF_REL}`},
+                    {name: 'listed', run: 'node ./tools/listed-guard.mjs'}
+                ])
+            }
+        });
+
+        expect(code, `a guards entry is a CI mirror.\n\n${output}`).toBe(0);
+        expect(output).toMatch(/\[lint-guard-ci-parity\] OK/)
+    });
+
+    test('RED: a guards entry is classified like a step, and only the shared baseline runs the list', () => {
+        [
+            {label: 'a masked entry',                  guards: [{name: 'listed', run: 'node ./tools/listed-guard.mjs || true'}]},
+            {label: 'another reusable workflow',       uses  : 'example/other/.github/workflows/runner.yml@v1'},
+            {label: 'a list that is not JSON',         guards: '[{name: listed}'},
+            {
+                label : 'a list the baseline refuses',
+                guards: [{name: 'listed', run: 'node ./tools/listed-guard.mjs'}, {name: 'listed', run: 'node ./tools/other.mjs'}]
+            },
+            {label: 'a trigger that skips a new head', types : '[opened, edited]'}
+        ].forEach(({label, guards = [{name: 'listed', run: 'node ./tools/listed-guard.mjs'}], uses, types}) => {
+            const {code, output} = runFixture({
+                lintStaged: {'*.mjs': [`node ./${SELF_REL}`, 'node ./tools/listed-guard.mjs']},
+                workflows : {
+                    'guard-lint.yml' : `jobs:\n  lint:\n    steps:\n      - run: node ./${SELF_REL}\n`,
+                    'pr-baseline.yml': baselineCaller(guards, {types, uses})
+                }
+            });
+
+            expect(code, `${label} must not certify a CI mirror.\n\n${output}`).toBe(1);
+            expect(output).toContain('tools/listed-guard.mjs')
+        })
     });
 
     test('admits step-level !cancelled() continuation guards so multi-guard jobs run every check without masking', () => {

@@ -82,6 +82,7 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'neural-link/WorkerStateMutation.spec.mjs',
     'portal/ConnectNL.spec.mjs',
     'portal/DocsMixinsNL.spec.mjs',
+    'portal/VideosNL.spec.mjs',
     'rendering/ButtonBaseNL.spec.mjs',
     'rendering/CalendarMonthRollover.spec.mjs',
     'rendering/ContextMenuNL.spec.mjs',
