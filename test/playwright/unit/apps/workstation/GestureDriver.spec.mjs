@@ -750,11 +750,11 @@ test.describe('the resize beat drags a split boundary through the simulator\'s o
     });
 
     test('a failed drive commits nothing and names the simulator\'s phase and code', async () => {
-        const fixture = await resizeFixture({driveError: {phase: 'arming', code: 'DRAG_NOT_ARMED', message: 'the live Mouse sensor emitted no correlated drag:start'}});
+        const fixture = await resizeFixture({driveError: {phase: 'arming', code: 'DRAG_NOT_ARMED', message: 'the live Pointer sensor emitted no correlated drag:start'}});
         try {
             const receipt = await fixture.execute({showCursor: true});
             expect(receipt.applied).toBe(false);
-            expect(receipt.errors).toEqual([`the drive failed in phase 'arming': DRAG_NOT_ARMED — the live Mouse sensor emitted no correlated drag:start`]);
+            expect(receipt.errors).toEqual([`the drive failed in phase 'arming': DRAG_NOT_ARMED — the live Pointer sensor emitted no correlated drag:start`]);
             expect(receipt.proof).toMatchObject({sizesBefore: [0.6, 0.4], settled: {committed: false, driveSettled: true, errors: [], sizes: [0.6, 0.4]}});
             expect(fixture.workspace.dockModel.nodes['split-main'].sizes).toEqual([0.6, 0.4]);
             expect(fixture.cursors[0].isDestroyed).toBe(true);

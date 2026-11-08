@@ -301,7 +301,7 @@ class DemoBCrossWindowGesture extends Base {
 
     /**
      * @summary Cancels a failed probe through the real main-thread Escape route, then releases
-     * the native mouse sensor so the next cold gesture starts from a clean owner state.
+     * the native pointer sensor so the next cold gesture starts from a clean owner state.
      * @param {Object|null} context
      * @returns {Promise<Object>}
      * @protected

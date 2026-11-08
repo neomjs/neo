@@ -198,7 +198,7 @@ await nlApp.simulateEvent([
 
 `simulateEvent` is the raw escape hatch for caller-authored event sequences. For a complete
 drag gesture, use `driveDrag`: Engine resolves live node/window geometry, reads the source
-window's live Mouse-sensor thresholds, dispatches one atomic source-document gesture, and returns
+window's live Pointer-sensor thresholds, dispatches one atomic source-document gesture, and returns
 a receipt distinguishing raw event dispatch from correlated `drag:start` / `drag:move` /
 `drag:end` observations:
 

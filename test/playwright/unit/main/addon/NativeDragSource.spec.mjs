@@ -263,38 +263,43 @@ test.describe('Neo.main.addon.NativeDragSource', () => {
         const originalWindow = globalThis.window;
         globalThis.window    = new EventTarget();
 
-        const {default: Mouse} = await import('../../../../../src/main/draggable/sensor/Mouse.mjs');
+        const {default: Pointer} = await import('../../../../../src/main/draggable/sensor/Pointer.mjs');
 
         const
             node  = registerGrid(),
             // a `neo-draggable` ancestor in the path: without the consult, the sensor would claim
             event = {
-                button : 0,
-                ctrlKey: false,
-                metaKey: false,
-                path   : [{classList: {contains: cls => cls === 'neo-draggable'}}],
-                target : node
+                button     : 0,
+                ctrlKey    : false,
+                metaKey    : false,
+                path       : [{classList: {contains: cls => cls === 'neo-draggable'}}],
+                pointerId  : 1,
+                pointerType: 'mouse',
+                target     : node
             },
-            sensor = {
+            sensor = Object.assign(Object.create(Pointer.prototype), {
+                currentElement   : null,
                 delay            : 1,
                 dragTargetClasses: ['neo-draggable', 'neo-resizable'],
                 onDistanceChange : () => {},
-                onMouseUp        : () => {}
-            };
+                onPointerCancel  : () => {},
+                onPointerUp      : () => {},
+                suppressEvent    : () => {}
+            });
 
         Neo.main.addon = Neo.main.addon || {};
         Neo.main.addon.NativeDragSource = addon;
 
         try {
-            Mouse.prototype.onMouseDown.call(sensor, event);
-            expect(sensor.currentElement).toBeUndefined();
+            Pointer.prototype.onPointerDown.call(sensor, event);
+            expect(sensor.currentElement).toBe(null);
 
             addon.unregister({ownerId: 'grid-1'});
 
-            Mouse.prototype.onMouseDown.call(sensor, event);
-            expect(sensor.currentElement).toBeDefined()
+            Pointer.prototype.onPointerDown.call(sensor, event);
+            expect(sensor.currentElement).toBeTruthy()
         } finally {
-            clearTimeout(sensor.mouseDownTimeout);
+            clearTimeout(sensor.pointerDownTimeout);
             delete Neo.main.addon.NativeDragSource;
             originalWindow === undefined ? delete globalThis.window : globalThis.window = originalWindow
         }

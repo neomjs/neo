@@ -885,7 +885,7 @@ class GestureDriver extends Base {
     }
 
     /**
-     * @summary Drives the resize beat through the Mouse sensor's own arming: the named split
+     * @summary Drives the resize beat through the Pointer sensor's own arming: the named split
      * boundary follows a real pointer drag, both panes re-flow live on the main thread while the
      * committed document waits, and the release commits exactly one `resizeSplit` equal to the
      * last previewed frame. The drive is the product's own path —
@@ -903,8 +903,8 @@ class GestureDriver extends Base {
      * @param {Number} [options.boundaryIndex=0] Which boundary of the split moves.
      * @param {Number} [options.moveDelay=16] Milliseconds between pointer samples.
      * @param {Number} [options.moveSteps=12] Samples along the travel.
-     * @param {Number} [options.sensorDelayMs=100] The Mouse sensor's own arming delay
-     *     (`src/main/draggable/sensor/Mouse.mjs`), which the drive waits before its first move; the
+     * @param {Number} [options.sensorDelayMs=100] The Pointer sensor's own mouse arming delay
+     *     (`src/main/draggable/sensor/Pointer.mjs`), which the drive waits before its first move; the
      *     film cursor waits the same, and the receipt records the sensor's actual thresholds.
      * @param {Boolean} [options.showCursor=false] Film mode: show the shared synthetic cursor.
      * @param {Number} [options.tolerance=0.01] Largest accepted distance between the committed and
