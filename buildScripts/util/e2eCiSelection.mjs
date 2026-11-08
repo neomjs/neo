@@ -1,5 +1,5 @@
 import {existsSync, readdirSync, readFileSync}                     from 'fs';
-import {join, relative}                                            from 'path';
+import {join, relative, sep}                                       from 'path';
 import {selectExternalBrainSpecs}                                  from '../../test/playwright/externalBrainSelection.mjs';
 import {entryOf, FOUNDATION, RUNTIME_LOADING, SPEC_DIR, specReach} from './e2eSpecReach.mjs';
 import isEntryModule                                               from './isEntryModule.mjs';
@@ -17,9 +17,10 @@ import isEntryModule                                               from './isEnt
  * Three populations are excluded, and they are not the same kind of thing:
  *
  * - **Brain-dependent** — removed by `testIgnore` in `playwright.config.e2e.mjs`, which deselects
- *   rather than skips: no reporter can name them, and a run missing four fifths of the tier still
+ *   rather than skips: no reporter can name them, and a run missing part of the tier still
  *   prints `Skipped: 0`. That invisibility is why this file reports the fraction at all. They run
- *   only where `NEO_AGENTOS_RUNTIME_ROOT` names a Brain checkout, which no CI test job provisions.
+ *   only where `NEO_AGENTOS_RUNTIME_ROOT` names a Brain checkout, which no CI test job provisions,
+ *   so {@link LOCAL_ONLY} states the reason for each.
  * - **GPU** — workstation specs that {@link RUN_PATHS} does not name: the app inherits animated
  *   OffscreenCanvas work no hosted runner can composite. The single-page Neural Link specs named
  *   there are the exception, because they run green hosted.
@@ -55,6 +56,7 @@ export const RUN_PATHS = [
     'test/playwright/e2e/rendering/ContextMenuNL.spec.mjs',
     'test/playwright/e2e/rendering/DeltaCoherenceRegistryNL.spec.mjs',
     'test/playwright/e2e/rendering/DeltaUpdatesChangeNodeName.spec.mjs',
+    'test/playwright/e2e/rendering/FocusHistoryMultiWindowNL.spec.mjs',
     'test/playwright/e2e/rendering/GraphScene.spec.mjs',
     'test/playwright/e2e/rendering/InputModalityMultiWindow.spec.mjs',
     'test/playwright/e2e/rendering/MarkdownStreamingCoherenceNL.spec.mjs',
@@ -67,31 +69,60 @@ export const RUN_PATHS = [
     'test/playwright/e2e/rendering/ViewTransitionReveal.spec.mjs',
     'test/playwright/e2e/tab',
     'test/playwright/e2e/table',
+    'test/playwright/e2e/workstation/VesselClosesMidFirstRenderNL.spec.mjs',
+    'test/playwright/e2e/workstation/VesselNativeRouteNL.spec.mjs',
+    'test/playwright/e2e/workstation/WindowGeometryRealChromeNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationCrossZoneCueNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationDockFlipResizeNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationDockPreviewSymmetryNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationDockSplitChromeNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationDragAffordancesNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationDragTextSelectionNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationEdgeSplitterNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationFeedKeepsScrollNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationFilmTourNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationFocusedTabOverflowNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationGridRepaintNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationGridUnconstrainedNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationHeaderActionsHoverNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationHeaderStatePopOutNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationHumanPopupOverlapNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationMaximizeOverflowMenuNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationMaximizeTabOverflowNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationMaximizeTabReorderNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationNativePopupOverPopupNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationNativeTitlebarDragNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationNestedColumnResizeNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationOffSocketContractNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationOwnPaneEdgeDropNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationPopOutHoverSyncNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationPopOutPaneIdentityNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationPopOutSparklinesNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationPopupGridScrollNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationPopupReturnNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationPopupTabDragNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationPopupTargetCloseNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationRailsOutermostNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationReclaimEmbodimentNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationReopenedPopupReturnNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationResidentCardSizingNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationRootEdgeCornerNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationSplitterGridGeometryNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationStackReturnSplitNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationStarvedTourNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationTabDragHeadersStayNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationTabDragLabelOverlapNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationTabDragSiblingHoldsNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationTabOverflowCapNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationTabReorderNoFlashNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationTabRestoreNL.spec.mjs',
-    'test/playwright/e2e/workstation/WorkstationTourActivationNL.spec.mjs'
+    'test/playwright/e2e/workstation/WorkstationTearOutLateReleaseNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationTearOutSourceContinuityNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationTourActivationNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationTransferIntoVesselHeaderNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationTwoRootsDragNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationUndoEmptiedPopupNL.spec.mjs'
 ];
 
 /**
@@ -108,6 +139,53 @@ export const EXCLUSIONS = [{
 }];
 
 /**
+ * The Brain-dependent specs, by reason. `testIgnore` deselects them unless a Brain checkout is present, so no CI job
+ * runs them, and {@link assertSelectionFloor} holds this list to exactly the specs it deselects: a new Neural Link
+ * spec joins `ADAPTER_ELIGIBLE_SPECS` or states here why it stays local. Paths are relative to `test/playwright/e2e`.
+ * A class that is debt rather than design names its owner.
+ * @member {Object[]} LOCAL_ONLY
+ */
+export const LOCAL_ONLY = [{
+    kind  : 'cause',
+    reason: 'They test the WebSocket Bridge itself: its sessions, a child app\'s connect and writer arbitration',
+    specs : [
+        'neural-link/ChildappConnect.spec.mjs',
+        'neural-link/Fixture.spec.mjs',
+        'write-guard/DisconnectReleaseNL.spec.mjs',
+        'write-guard/MultiWriterNL.spec.mjs'
+    ]
+}, {
+    kind  : 'cause',
+    reason: 'They import Brain services (`loadNeuralLinkModules`): the instance and component tools, the dock transaction archive and the perspective tools',
+    specs : [
+        'dashboard/DemoBDockTransactionsNL.spec.mjs',
+        'dashboard/DemoBPerspectiveToolsNL.spec.mjs',
+        'dashboard/DockNativeWorkspaceReturnNL.spec.mjs',
+        'neural-link/CreateComponentMultiWindow.spec.mjs',
+        'neural-link/CreateInstance.spec.mjs',
+        'workstation/WorkstationPerspectivesNL.spec.mjs'
+    ]
+}, {
+    kind  : 'partial',
+    reason: 'They fail on the off-socket adapter. A re-boot loses the page\'s SharedWorker handle, measured on `DockSplitterZoneIdNL` (3/3 off-socket, 2/2 over the Bridge), and `WorkstationResetSurvivesReloadNL`, `WorkstationTopologyGroupsNL` and `WorkstationFiveBeatNL` stall after a reload too. Closing `EmailMultiWindowNL`\'s source page stalls the fixture\'s teardown, and `WindowOps` finds a popup\'s `innerRect` unset when it compares a drag receipt',
+    owner : '#20587',
+    specs : [
+        'neural-link/WindowOps.spec.mjs',
+        'realworld/EmailMultiWindowNL.spec.mjs',
+        'workstation/DockSplitterZoneIdNL.spec.mjs',
+        'workstation/WorkstationFiveBeatNL.spec.mjs',
+        'workstation/WorkstationResetSurvivesReloadNL.spec.mjs',
+        'workstation/WorkstationTopologyGroupsNL.spec.mjs'
+    ]
+}];
+
+/**
+ * What the summary prints before a reason, by its `kind`.
+ * @member {Object<String, String>} CAUSE_NOTE
+ */
+const CAUSE_NOTE = {cause: '', observed: '**cause not established.** ', partial: '**cause covers only part of the failures.** '};
+
+/**
  * Arms that ARE selected but skip themselves under `NEO_TEST_SKIP_CI`. Declared here as well as at
  * their call site so the job summary can name them: a quarantine that appears only as an anonymous
  * skip in a test log is the silent quarantine this file exists to prevent, and an owner is what
@@ -121,7 +199,7 @@ export const QUARANTINES = [];
  * shard keeps the test time a full run gives it: a smaller selection costs fewer jobs, not shorter ones.
  * @member {{engine: Number}} FULL_SHARDS
  */
-export const FULL_SHARDS = {engine: 8};
+export const FULL_SHARDS = {engine: 14};
 
 /**
  * Measured seconds per engine-tier spec file, which {@link balancedShard} balances the tier's shards by.
@@ -193,12 +271,22 @@ export function populations(root = process.cwd()) {
  * @summary Refuses a run whose executed population is smaller than this file declares.
  * @description Without it, a path typo or a directory rename shrinks coverage silently and the job
  * still reports green — the failure mode a coverage line alone cannot catch, because it would
- * faithfully report the smaller number.
+ * faithfully report the smaller number. A Brain-gated spec missing from {@link LOCAL_ONLY} is the
+ * same loss one step earlier: no CI job would ever run it, and nothing would say so.
  * @param {String} [root=process.cwd()]
  * @returns {Number} The executed spec-file count.
- * @throws {Error} When fewer specs are selected than declared.
+ * @throws {Error} When {@link LOCAL_ONLY} differs from the deselected specs, or fewer specs are
+ * selected than declared.
  */
 export function assertSelectionFloor(root = process.cwd()) {
+    const {undeclared, stale} = localOnlyAccount(root);
+
+    if (undeclared.length || stale.length) {
+        throw new Error('e2e CI selection: LOCAL_ONLY must name exactly the specs testIgnore deselects. ' +
+            `Undeclared: ${undeclared.join(', ') || 'none'}. Declared but not deselected: ${stale.join(', ') || 'none'}. ` +
+            'No CI job runs a deselected spec, so each joins ADAPTER_ELIGIBLE_SPECS or states why it stays local.')
+    }
+
     const {brainFree, executed, gpu} = populations(root),
           expected                   = brainFree - gpu - EXCLUSIONS.length;
 
@@ -209,6 +297,24 @@ export function assertSelectionFloor(root = process.cwd()) {
     }
 
     return executed
+}
+
+/**
+ * @summary Holds {@link LOCAL_ONLY} against the specs `testIgnore` deselects, both ways.
+ * @param {String} [root=process.cwd()]
+ * @returns {{undeclared: String[], stale: String[]}} Deselected specs no entry names, and named specs the selection
+ * does not deselect, relative to `test/playwright/e2e`.
+ */
+export function localOnlyAccount(root = process.cwd()) {
+    const e2e      = join(root, 'test/playwright/e2e'),
+          {ignore} = selectExternalBrainSpecs(e2e),
+          gated    = walk(e2e).filter(file => ignore.some(pattern => pattern.test(file))).map(file => relative(e2e, file).split(sep).join('/')),
+          declared = LOCAL_ONLY.flatMap(group => group.specs);
+
+    return {
+        undeclared: gated.filter(spec => !declared.includes(spec)).sort(),
+        stale     : declared.filter(spec => !gated.includes(spec)).sort()
+    }
 }
 
 /**
@@ -224,11 +330,12 @@ export function summary(root = process.cwd()) {
         '',
         `This job selected **${executed} of ${total}** e2e spec files.`,
         '',
-        `- **${ignored}** need an external \`neo-agent-brain\` checkout, which no CI test job provisions, so they run only locally. \`testIgnore\` DESELECTS them, so they cannot appear as skips in any report — a run missing them still prints \`Skipped: 0\`.`,
+        `- **${ignored}** need an external \`neo-agent-brain\` checkout, which no CI test job provisions, so they run only locally. \`testIgnore\` DESELECTS them, so they cannot appear as skips in any report — a run missing them still prints \`Skipped: 0\`:`,
+        ...LOCAL_ONLY.map(group => `  - **${group.specs.length}** — ${CAUSE_NOTE[group.kind]}${group.reason}.` +
+            `${group.owner ? ` Owner: ${group.owner}.` : ''} ${group.specs.map(spec => `\`${spec}\``).join(', ')}.`),
         `- **${gpu}** boot the workstation app, which inherits animated OffscreenCanvas work a hosted runner cannot composite.`,
         ...EXCLUSIONS.map(entry => `- \`${entry.path.replace('test/playwright/e2e/', '')}\` — ` +
-            ({cause: '', observed: '**cause not established.** ', partial: '**cause covers only part of the failures.** '}[entry.kind]) +
-            `${entry.reason}. Owner: ${entry.owner}.`),
+            `${CAUSE_NOTE[entry.kind]}${entry.reason}. Owner: ${entry.owner}.`),
         '',
         // Rendered only when the list has entries. An empty heading reads as "nothing to declare
         // here", which is the same reassurance an undeclared quarantine would give.

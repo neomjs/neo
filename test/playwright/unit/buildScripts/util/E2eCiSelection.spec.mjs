@@ -16,6 +16,8 @@ import {
     engineSelection,
     EXCLUSIONS,
     FULL_SHARDS,
+    LOCAL_ONLY,
+    localOnlyAccount,
     populations,
     RUN_PATHS,
     selectionOutput,
@@ -27,8 +29,8 @@ import {FOUNDATION, RUNTIME_LOADING, specReach} from '../../../../../buildScript
 
 /**
  * The e2e tier's coverage summary is an honesty guard: `testIgnore` DESELECTS the Brain-dependent
- * specs rather than skipping them, so no reporter can name them and a run missing four fifths of
- * the tier still prints `Skipped: 0`. This summary is the only artifact that says what a green
+ * specs rather than skipping them, so no reporter can name them and a run missing part of the
+ * tier still prints `Skipped: 0`. This summary is the only artifact that says what a green
  * check actually certifies.
  *
  * Which makes its arithmetic load-bearing rather than cosmetic. It shipped stating that
@@ -196,6 +198,32 @@ test.describe('e2e CI selection — the engine tier and the local-only specs', (
         }
     });
 
+    test('every deselected spec states why it stays local, and only those do', () => {
+        expect(localOnlyAccount(root), 'LOCAL_ONLY names exactly the deselected specs').toEqual({undeclared: [], stale: []});
+
+        for (const group of LOCAL_ONLY) {
+            expect(group.specs.length, `${group.reason}: specs`).toBeGreaterThan(0);
+            expect(['cause', 'observed', 'partial'], `${group.reason}: kind`).toContain(group.kind);
+
+            // Debt rather than design: a ticket answers for it
+            if (group.kind !== 'cause') {
+                expect(group.owner, `${group.reason}: owner`).toMatch(/^#\d+$/)
+            }
+        }
+
+        // On a controlled tree, a Neural Link spec nobody listed stops the run rather than leaving CI unseen
+        const tree = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-e2e-local-only-')),
+              spec = path.join(tree, 'test/playwright/e2e/workstation/UnlistedNL.spec.mjs');
+
+        fs.mkdirSync(path.dirname(spec), {recursive: true});
+        fs.writeFileSync(spec, 'import {neuralLink} from "../../fixtures.mjs";');
+
+        expect(localOnlyAccount(tree).undeclared).toEqual(['workstation/UnlistedNL.spec.mjs']);
+        expect(() => assertSelectionFloor(tree)).toThrow(/Undeclared: workstation\/UnlistedNL\.spec\.mjs\./);
+
+        fs.rmSync(tree, {recursive: true, force: true})
+    });
+
     test('the shards split by measured time: every file once, the same split on every shard', () => {
         // By path order and count, two files a shard would run 110 s, 70 s and 30 s
         const durations = {'a.spec.mjs': 60, 'b.spec.mjs': 50, 'c.spec.mjs': 40, 'd.spec.mjs': 30, 'e.spec.mjs': 20, 'f.spec.mjs': 10},
@@ -358,11 +386,11 @@ test.describe('e2e CI selection — the selection on this tree', () => {
 
     test('an engine selection is sized by its measured seconds, so heavy files get more shards than their count', () => {
         const engine    = enginePaths(root),
-              heavy     = engine.slice(0, 10),
-              // Ten files carry ten times the rest of the tier: by file count they would share one shard
-              durations = {engine: Object.fromEntries(engine.map(file => [file, heavy.includes(file) ? 100 : 1]))};
+              heavy     = engine.slice(0, FULL_SHARDS.engine),
+              // One file per shard, each outweighing the rest of the tier together: by file count they would get a few
+              durations = {engine: Object.fromEntries(engine.map(file => [file, heavy.includes(file) ? engine.length : 1]))};
 
-        expect(Math.ceil(FULL_SHARDS.engine * heavy.length / engine.length), 'control: the file count gives one shard').toBe(1);
+        expect(Math.ceil(FULL_SHARDS.engine * heavy.length / engine.length), 'control: the file count gives fewer shards').toBeLessThan(FULL_SHARDS.engine);
         expect(tierSelection({specs: new Set(heavy), root, durations}).engine.shards).toBe(FULL_SHARDS.engine)
     });
 

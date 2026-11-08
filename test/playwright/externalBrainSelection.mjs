@@ -2,29 +2,26 @@ import fs   from 'node:fs';
 import path from 'node:path';
 
 /**
- * @summary Whitebox e2e specs (relative to `test/playwright/e2e`, POSIX-normalized) that can run
- * through the off-socket Neural Link test adapter, on the page's own App Worker, without an external
+ * @summary Whitebox e2e specs (relative to `test/playwright/e2e`, POSIX-normalized) that run through
+ * the off-socket Neural Link test adapter, on the page's own App Worker, without an external
  * `neo-agent-brain` checkout or WebSocket Bridge.
  *
- * A spec is adapter-eligible iff all four structural properties hold:
- * 1. **Single app** — each test binds to one page's App Worker via `runDedicatedWorkerNeuralLink`.
- * 2. **The page's own App Worker** — a dedicated App Worker, or, for an app whose `neo-config.json`
- *    sets `useSharedWorkers: true`, the page's own SharedWorker reached through
- *    `attachPageSharedAppWorker`. Pages may share that SharedWorker; each test's writer pair keeps its
- *    writes and lifetime apart. The worker kind lives in the target app's config, not in the spec text,
- *    so eligibility is declared explicitly here instead of inferred from incidental text in the spec.
- * 3. **No physical window journey or multi-session Bridge arbitration** — the spec does not drive
- *    multi-window browser popups, native window geometry (`open_component_window`, `close_window`,
- *    `position_window`, `focus_window`, `get_window_topology`), direct Brain service imports
- *    (`loadNeuralLinkModules`), or multi-writer WebSocket Bridge sessions (`bridgePort`,
- *    `waitForSession`). Those specs remain Brain-gated under the Bridge/headed tier owner.
- * 4. **No transaction archive recorder** — the spec does not persist or replay Memory Core
- *    transaction archives (`save_transaction`, `replay_transaction`, `NEO_MCP_REMOTE_TOKEN`).
- *    Those specs remain Brain-gated under the Bridge/archive tier owner.
+ * A spec is listed once a hosted engine-tier run has it green, and only while three structural
+ * properties hold:
+ * 1. **The page's own App Worker** — a dedicated App Worker through `runDedicatedWorkerNeuralLink`,
+ *    or, for an app whose `neo-config.json` sets `useSharedWorkers: true`, the page's own SharedWorker
+ *    reached through `attachPageSharedAppWorker`. The app's popups, pop-outs and tear-outs share that
+ *    SharedWorker, so the spec may drive windows (`open_component_window`, `close_window`,
+ *    `position_window`, `focus_window`, `get_window_topology`). The worker kind lives in the target
+ *    app's config, not in the spec text, so eligibility is declared here instead of inferred.
+ * 2. **No WebSocket Bridge** — the spec does not test the Bridge itself: its sessions
+ *    (`waitForSession`), a child app's connect, or writer arbitration across sessions (`bridgePort`).
+ * 3. **No Brain service** — the spec does not import Brain modules (`loadNeuralLinkModules`) or
+ *    persist and replay Memory Core transaction archives (`save_transaction`, `replay_transaction`,
+ *    `NEO_MCP_REMOTE_TOKEN`).
  *
- * SharedWorker apps (`apps/workstation`, `apps/portal`, `apps/colors`, the dashboard examples) are
- * eligible spec by spec under property 3: a spec that opens, pops out, tears out or drives a second
- * window stays Brain-gated, even though the same SharedWorker would serve it.
+ * Every other spec requesting the `neuralLink` fixture runs only where a Brain checkout is present,
+ * and `LOCAL_ONLY` in `buildScripts/util/e2eCiSelection.mjs` states why for each one.
  *
  * @type {ReadonlySet<String>}
  */
@@ -34,6 +31,12 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'core/SplitterLiveResizeNL.spec.mjs',
     'dashboard/DemoADragMenuNL.spec.mjs',
     'dashboard/DemoATourNL.spec.mjs',
+    'dashboard/DemoBCrossWindowDragNL.spec.mjs',
+    'dashboard/DemoBDockTearOutNL.spec.mjs',
+    'dashboard/DemoBKeyboardDetachNL.spec.mjs',
+    'dashboard/DemoBPerspectivesNL.spec.mjs',
+    'dashboard/DemoBPopOutCloseNL.spec.mjs',
+    'dashboard/DemoBThirdClaimantStageNL.spec.mjs',
     'dashboard/DockAutoHideRevealNL.spec.mjs',
     'dashboard/DockCrossWindowWitnessNL.spec.mjs',
     'dashboard/DockCrossZoneDragNL.spec.mjs',
@@ -43,12 +46,15 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'dashboard/DockMotionNL.spec.mjs',
     'dashboard/DockOperationsNL.spec.mjs',
     'dashboard/DockPinCollapseNL.spec.mjs',
+    'dashboard/DockPlacementNL.spec.mjs',
     'dashboard/DockReloadActionNL.spec.mjs',
     'dashboard/DockStandaloneThemingNL.spec.mjs',
     'dashboard/DockTabOverflowNL.spec.mjs',
     'dashboard/DockTourSmokeNL.spec.mjs',
     'dashboard/HeaderHandleAdmissionNL.spec.mjs',
+    'dashboard/LegacyPopupReturnNL.spec.mjs',
     'dashboard/PreviewLanguageDragPairNL.spec.mjs',
+    'dashboard/TearOutMatrixRows4To7NL.spec.mjs',
     'grid/BigDataMultiBodyNL.spec.mjs',
     'grid/BigDataNL.spec.mjs',
     'grid/ColumnCrossBodyDnD.spec.mjs',
@@ -80,37 +86,67 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'rendering/CalendarMonthRollover.spec.mjs',
     'rendering/ContextMenuNL.spec.mjs',
     'rendering/DeltaCoherenceRegistryNL.spec.mjs',
+    'rendering/FocusHistoryMultiWindowNL.spec.mjs',
     'rendering/MarkdownStreamingCoherenceNL.spec.mjs',
     'rendering/NativeSelectNL.spec.mjs',
     'rendering/NestedComponentsNL.spec.mjs',
     'rendering/SparseUpdatesNL.spec.mjs',
     'rendering/StoreLoadingNL.spec.mjs',
     'tab/TabHeaderActionsNL.spec.mjs',
+    'workstation/VesselClosesMidFirstRenderNL.spec.mjs',
+    'workstation/VesselNativeRouteNL.spec.mjs',
+    'workstation/WindowGeometryRealChromeNL.spec.mjs',
     'workstation/WorkstationCrossZoneCueNL.spec.mjs',
     'workstation/WorkstationDockFlipResizeNL.spec.mjs',
+    'workstation/WorkstationDockPreviewSymmetryNL.spec.mjs',
     'workstation/WorkstationDockSplitChromeNL.spec.mjs',
+    'workstation/WorkstationDragAffordancesNL.spec.mjs',
     'workstation/WorkstationDragTextSelectionNL.spec.mjs',
     'workstation/WorkstationEdgeSplitterNL.spec.mjs',
     'workstation/WorkstationFeedKeepsScrollNL.spec.mjs',
+    'workstation/WorkstationFilmTourNL.spec.mjs',
     'workstation/WorkstationFocusedTabOverflowNL.spec.mjs',
     'workstation/WorkstationGridRepaintNL.spec.mjs',
     'workstation/WorkstationGridUnconstrainedNL.spec.mjs',
     'workstation/WorkstationHeaderActionsHoverNL.spec.mjs',
+    'workstation/WorkstationHeaderStatePopOutNL.spec.mjs',
+    'workstation/WorkstationHumanPopupOverlapNL.spec.mjs',
     'workstation/WorkstationMaximizeOverflowMenuNL.spec.mjs',
+    'workstation/WorkstationMaximizeTabOverflowNL.spec.mjs',
     'workstation/WorkstationMaximizeTabReorderNL.spec.mjs',
+    'workstation/WorkstationNL.spec.mjs',
+    'workstation/WorkstationNativePopupOverPopupNL.spec.mjs',
+    'workstation/WorkstationNativeTitlebarDragNL.spec.mjs',
+    'workstation/WorkstationNestedColumnResizeNL.spec.mjs',
     'workstation/WorkstationOffSocketContractNL.spec.mjs',
     'workstation/WorkstationOwnPaneEdgeDropNL.spec.mjs',
+    'workstation/WorkstationPopOutHoverSyncNL.spec.mjs',
+    'workstation/WorkstationPopOutPaneIdentityNL.spec.mjs',
+    'workstation/WorkstationPopOutSparklinesNL.spec.mjs',
+    'workstation/WorkstationPopupGridScrollNL.spec.mjs',
+    'workstation/WorkstationPopupReturnNL.spec.mjs',
+    'workstation/WorkstationPopupTabDragNL.spec.mjs',
+    'workstation/WorkstationPopupTargetCloseNL.spec.mjs',
     'workstation/WorkstationRailsOutermostNL.spec.mjs',
+    'workstation/WorkstationReclaimEmbodimentNL.spec.mjs',
+    'workstation/WorkstationReopenedPopupReturnNL.spec.mjs',
     'workstation/WorkstationResidentCardSizingNL.spec.mjs',
     'workstation/WorkstationRootEdgeCornerNL.spec.mjs',
     'workstation/WorkstationSplitterGridGeometryNL.spec.mjs',
+    'workstation/WorkstationStackReturnSplitNL.spec.mjs',
     'workstation/WorkstationStarvedTourNL.spec.mjs',
     'workstation/WorkstationTabDragHeadersStayNL.spec.mjs',
     'workstation/WorkstationTabDragLabelOverlapNL.spec.mjs',
     'workstation/WorkstationTabDragSiblingHoldsNL.spec.mjs',
+    'workstation/WorkstationTabOverflowCapNL.spec.mjs',
     'workstation/WorkstationTabReorderNoFlashNL.spec.mjs',
     'workstation/WorkstationTabRestoreNL.spec.mjs',
-    'workstation/WorkstationTourActivationNL.spec.mjs'
+    'workstation/WorkstationTearOutLateReleaseNL.spec.mjs',
+    'workstation/WorkstationTearOutSourceContinuityNL.spec.mjs',
+    'workstation/WorkstationTourActivationNL.spec.mjs',
+    'workstation/WorkstationTransferIntoVesselHeaderNL.spec.mjs',
+    'workstation/WorkstationTwoRootsDragNL.spec.mjs',
+    'workstation/WorkstationUndoEmptiedPopupNL.spec.mjs'
 ]);
 
 /**
@@ -144,14 +180,14 @@ export function needsExternalBrain(relativePath, source) {
  * @summary Splits an e2e spec tree into the specs that need an external neo-agent-brain checkout and
  * everything an Engine-only seat can run, in a single walk.
  *
- * Why the split exists: Bridge-shaped, SharedWorker, native-window, and archive whitebox specs drive a
- * live Brain through the `neuralLink` fixture, which throws on those paths unless `NEO_AGENTOS_RUNTIME_ROOT`
- * names an absolute checkout root. Single-app dedicated-worker specs listed in {@link ADAPTER_ELIGIBLE_SPECS}
- * dispatch directly to the page's own App Worker without a Bridge and stay in the Engine-only selection.
+ * Why the split exists: a `neuralLink` spec outside {@link ADAPTER_ELIGIBLE_SPECS} drives a live Brain
+ * through the fixture, which throws unless `NEO_AGENTOS_RUNTIME_ROOT` names an absolute checkout root.
+ * The listed specs dispatch to the page's own App Worker, dedicated or shared, without a Bridge, and
+ * stay in the Engine-only selection.
  *
  * Why the total is returned alongside the matchers: Playwright's `testIgnore` removes files from
  * SELECTION rather than skipping them, so no reporter, summary line or `--list` output can ever
- * mention them — a run missing four fifths of the tier prints `Skipped: 0`. This walk is the only
+ * mention them — a run missing part of the tier prints `Skipped: 0`. This walk is the only
  * place both numbers exist, and returning one without the other is what made the gap inaudible.
  *
  * @param {String} root Absolute directory to walk; recursion passes subdirectories.

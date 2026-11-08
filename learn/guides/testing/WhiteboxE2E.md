@@ -41,10 +41,10 @@ The `neuralLink` fixture supports two dispatch paths, selected by `NEO_AGENTOS_R
 
 The engine tier (`.github/workflows/test-e2e.yml`) runs without a Brain, so its population is the Brain-free specs, the adapter-eligible ones included.
 
-No CI test job provisions a Brain. The specs that need one — real-window journeys, multi-writer Bridge sessions, imports of Brain services — run only locally, with `NEO_AGENTOS_RUNTIME_ROOT` set: run the ones your change reaches before you hand it off.
+No CI test job provisions a Brain. The specs that need one run only locally, with `NEO_AGENTOS_RUNTIME_ROOT` set: the Bridge's own sessions, imports of Brain services, and the window specs the off-socket adapter cannot run yet. Run the ones your change reaches before you hand it off. `LOCAL_ONLY` in `e2eCiSelection.mjs` names each one with its reason, and the tier refuses to start while a Neural Link spec is in neither `ADAPTER_ELIGIBLE_SPECS` nor `LOCAL_ONLY`, so a new spec is never silently left out of CI.
 
 The shared scope classifier picks the tier's population:
-- A **`dev` push** runs the tier in **full**, on eight shards.
+- A **`dev` push** runs the tier in **full**, on fourteen shards.
 - A **pull request** whose change reaches the E2E impact boundary runs only the specs it can reach. `buildScripts/util/e2eSpecReach.mjs` maps each spec to the app it navigates and that app's static import closure, plus the helpers the spec imports. `selectSpecs` in `e2eCiSelection.mjs` then picks:
   - every spec that reaches a changed file, or whose app fetches it;
   - every changed spec;

@@ -14,7 +14,7 @@ name: E2E (engine tier)
 # A third constraint bounds the REPORTING, and is the one a reader is most likely to be
 # misled by: `playwright.config.e2e.mjs` uses `testIgnore` for the Brain-dependent
 # specs, and `testIgnore` removes files from SELECTION rather than skipping them. No
-# reporter can name them, and a run missing four fifths of the tier still prints
+# reporter can name them, and a run missing part of the tier still prints
 # `Skipped: 0`. A green check here certifies a genuine but PARTIAL tier.
 #
 # Which specs run, why the rest do not, and the coverage this job reports all live in
@@ -94,8 +94,8 @@ jobs:
       # A selection brings a matrix sized to it. The full matrix is `FULL_SHARDS.engine` in
       # `e2eCiSelection.mjs`, which a unit arm holds to these lines
       matrix:
-        shard: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '[1]' || needs.changes.outputs.e2e_engine_matrix || '[1, 2, 3, 4, 5, 6, 7, 8]') }}
-        shards: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '[1]' || needs.changes.outputs.e2e_engine_shards || '[8]') }}
+        shard: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '[1]' || needs.changes.outputs.e2e_engine_matrix || '[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]') }}
+        shards: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '[1]' || needs.changes.outputs.e2e_engine_shards || '[14]') }}
     # Bounds provisioning plus tests. The test-time ceiling is the step below; this
     # exists so a hung install cannot occupy a runner indefinitely.
     # The gate keeps its twelve minutes: provisioning plus a five-minute test step, so a hung
