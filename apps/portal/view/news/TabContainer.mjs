@@ -25,12 +25,6 @@ class NewsTabContainer extends TabContainer {
          */
         controller: TabContainerController,
         /**
-         * @member {Object} headerToolbar
-         */
-        headerToolbar: {
-            cls: ['portal-shared-tab-header-toolbar', 'neo-tab-header-toolbar']
-        },
-        /**
          * Items are listed in the intended top-to-bottom display order for the left-docked tab bar.
          * @member {Object[]} items
          */

@@ -30,12 +30,6 @@ class ExamplesTabContainer extends TabContainer {
          */
         dragResortable: true,
         /**
-         * @member {Object} headerToolbar
-         */
-        headerToolbar: {
-            cls: ['portal-shared-tab-header-toolbar', 'neo-tab-header-toolbar']
-        },
-        /**
          * @member {Object} itemDefaults
          */
         itemDefaults: {
