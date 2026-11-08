@@ -30,5 +30,6 @@
     --agent-dock-preview-signal-ground : rgba(11, 14, 19, 0.92);
     --agent-dock-proxy-border          : color-mix(in srgb, var(--workstation-signal) 38%, var(--workstation-line));
     --agent-dock-proxy-ground          : var(--workstation-panel);
+    --agent-dock-proxy-shadow          : var(--workstation-ground);
     --agent-dock-proxy-text            : var(--workstation-ink);
 }
