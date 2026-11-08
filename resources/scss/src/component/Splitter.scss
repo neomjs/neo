@@ -2,6 +2,8 @@
     background-color: var(--splitter-background-color);
     border          : var(--splitter-border);
     border-radius   : var(--splitter-border-radius);
+    // a drag handle: a touch on it is a resize, never a pan that cancels the pointer mid-drag
+    touch-action    : none;
     transition      : background-color 0.3s ease-in-out, border-color 0.3s ease-in-out;
 
     &:active, &:hover {

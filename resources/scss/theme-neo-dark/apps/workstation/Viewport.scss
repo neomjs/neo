@@ -1,4 +1,6 @@
-:where(.neo-theme-neo-dark) {
+// Stays at theme-root weight (0,2,0) deliberately: an application projection outranks the
+// engine's :where() value sheets by weight, never by load order (#18102).
+:root .neo-theme-neo-dark {
     // App-owned palette: Workstation is its own theme authority.
     --workstation-ground   : #0b0e13;
     --workstation-panel    : #141a23;

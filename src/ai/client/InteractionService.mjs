@@ -276,7 +276,7 @@ class InteractionService extends Service {
 
     /**
      * @summary Resolves and executes one whole physical drag while preserving Engine/Brain ownership:
-     * App validates and resolves geometry, source Main drives and observes the atomic Mouse lifecycle.
+     * App validates and resolves geometry, source Main drives and observes the atomic Pointer lifecycle.
      * Every expected refusal returns a typed failure receipt rather than throwing metadata the current
      * JSON-RPC path cannot preserve.
      * @param {Object} request

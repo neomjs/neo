@@ -32,7 +32,7 @@ The other repositories ride these lines: [neomjs/neo-agent-skills](https://githu
 
 | # | Epic | Anchor | Steward | Done signal |
 |---|---|---|---|---|
-| 1 | **Each test tier runs only when a change can reach it** | [#20328](https://github.com/neomjs/neo/issues/20328) | Grace | an Engine PR push holds only the runner slots its diff needs; the fixed checks run as a handful of jobs; the `dev` push runs the Brain-gated tier in full; jobs and runner-minutes per push sit measurably below the epic's baseline |
+| 1 | **Each test tier runs only when a change can reach it** | [#20328](https://github.com/neomjs/neo/issues/20328) | Grace | an Engine PR push holds only the runner slots its diff needs; the fixed checks run as a handful of jobs; no CI test job checks out the Brain, whose specs run locally; jobs and runner-minutes per push sit measurably below the epic's baseline |
 | 2 | **Single-app Neural Link specs without a Bridge** | [#20370](https://github.com/neomjs/neo/issues/20370), graduated from [D#18775](https://github.com/neomjs/neo/discussions/18775) | Vega | hosted CI drives the single-app Neural Link e2e specs through each page's own App Worker, with no Brain checkout and no WebSocket; a production boot behaves exactly as before |
 | 3 | **An outside coding agent gets neo in one command** | [#20114](https://github.com/neomjs/neo/issues/20114) | Grace | a coding agent with no neo or Brain checkout runs one command and reaches a built, running neo app it can reopen, with the neo skills, the Neural Link and the engine's docs in place; one cold run proves it |
 

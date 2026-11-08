@@ -22,12 +22,8 @@ name: Classify test scope
 on:
   workflow_call:
     inputs:
-      resolve_brain_tip:
-        description: Resolve the Brain's `dev` tip into `brain_sha` when the Brain-gated tier runs.
-        type: boolean
-        default: false
       select_e2e:
-        description: On a pull request, select only the e2e specs the change can reach, and size both e2e tiers' matrices to them.
+        description: On a pull request, select only the e2e specs the change can reach, and size the engine tier's matrix to them.
         type: boolean
         default: false
     outputs:
@@ -40,9 +36,6 @@ on:
       run_e2e:
         description: Whether the e2e (engine tier) suite is relevant to the changed paths.
         value: ${{ jobs.classify.outputs.run_e2e }}
-      e2e_brain_tier:
-        description: Which Brain-gated e2e population runs, `full`, `selected` (with `select_e2e`), or `none` when the change cannot reach the tier; a push is always `full`.
-        value: ${{ jobs.classify.outputs.e2e_brain_tier }}
       e2e_selection:
         description: With `select_e2e` on a pull request the boundary admits, `full` or `selected`; empty otherwise, and every admitted tier then runs in full.
         value: ${{ jobs.classify.outputs.e2e_selection }}
@@ -55,17 +48,8 @@ on:
       e2e_engine_shards:
         description: The engine tier's shard count for a `selected` change, as a one-element JSON array; empty means the full count.
         value: ${{ jobs.classify.outputs.e2e_engine_shards }}
-      e2e_brain_paths:
-        description: The Brain-gated spec files a `selected` change reaches, space-separated.
-        value: ${{ jobs.classify.outputs.e2e_brain_paths }}
-      e2e_brain_matrix:
-        description: The Brain-gated tier's shard numbers for a `selected` change, as JSON; empty means the full matrix.
-        value: ${{ jobs.classify.outputs.e2e_brain_matrix }}
-      e2e_brain_shards:
-        description: The Brain-gated tier's shard count for a `selected` change, as a one-element JSON array; empty means the full count.
-        value: ${{ jobs.classify.outputs.e2e_brain_shards }}
       e2e_selection_report:
-        description: Markdown naming what the selection runs and why, for the e2e tiers' job summaries.
+        description: Markdown naming what the selection runs and why, for the engine tier's job summary.
         value: ${{ jobs.classify.outputs.e2e_selection_report }}
       skip_reason:
         description: Human-readable reason a caller can print when it skips.
@@ -73,9 +57,6 @@ on:
       e2e_boundary_report:
         description: One line per changed file, saying whether the E2E boundary admits it and which rule leaves it out.
         value: ${{ jobs.classify.outputs.e2e_boundary_report }}
-      brain_sha:
-        description: The Brain's `dev` tip, resolved once per run when `resolve_brain_tip` is set and the Brain-gated tier runs; empty otherwise.
-        value: ${{ jobs.classify.outputs.brain_sha }}
 
 jobs:
   classify:
@@ -86,18 +67,13 @@ jobs:
       run_unit: ${{ steps.scope.outputs.run_unit }}
       run_components: ${{ steps.scope.outputs.run_components }}
       run_e2e: ${{ steps.select.outputs.run_e2e || steps.scope.outputs.run_e2e }}
-      e2e_brain_tier: ${{ steps.select.outputs.e2e_brain_tier || steps.scope.outputs.e2e_brain_tier }}
       skip_reason: ${{ steps.select.outputs.skip_reason || steps.scope.outputs.skip_reason }}
       e2e_boundary_report: ${{ steps.scope.outputs.e2e_boundary_report }}
       e2e_selection: ${{ steps.select.outputs.e2e_selection }}
       e2e_engine_paths: ${{ steps.select.outputs.e2e_engine_paths }}
       e2e_engine_matrix: ${{ steps.select.outputs.e2e_engine_matrix }}
       e2e_engine_shards: ${{ steps.select.outputs.e2e_engine_shards }}
-      e2e_brain_paths: ${{ steps.select.outputs.e2e_brain_paths }}
-      e2e_brain_matrix: ${{ steps.select.outputs.e2e_brain_matrix }}
-      e2e_brain_shards: ${{ steps.select.outputs.e2e_brain_shards }}
       e2e_selection_report: ${{ steps.select.outputs.e2e_selection_report }}
-      brain_sha: ${{ steps.tip.outputs.sha }}
 
     steps:
       - name: Classify changed paths
@@ -205,7 +181,6 @@ jobs:
               core.setOutput('run_unit', 'false');
               core.setOutput('run_components', 'false');
               core.setOutput('run_e2e', 'false');
-              core.setOutput('e2e_brain_tier', 'none');
               core.setOutput('skip_reason', reason);
               await core.summary
                 .addHeading('Stale workflow attempt')
@@ -226,7 +201,6 @@ jobs:
               core.setOutput('run_unit', 'true');
               core.setOutput('run_components', 'true');
               core.setOutput('run_e2e', 'true');
-              core.setOutput('e2e_brain_tier', 'full');
               core.setOutput('skip_reason', unavailableReason);
               return;
             }
@@ -452,7 +426,7 @@ jobs:
             //                                          executed by SourceMoveWorkspaceNL
             //
             // A unit arm reds when either premise stops holding. A false positive is not cheap either:
-            // the Brain-gated tier follows this boundary, so one costs fourteen jobs on a twenty-job cap.
+            // one starts the engine tier's fourteen shards on a twenty-job cap.
             const isPortalBlogRegistry    = file => file === 'apps/portal/resources/data/blog.json';
             const isOutsideE2eLaunchChain = file =>
               /^buildScripts\/(create|helpers|release)\//.test(file) && file !== 'buildScripts/create/move.mjs';
@@ -476,16 +450,8 @@ jobs:
               file === '.github/workflows/test-e2e.yml' ||
               file === '.github/workflows/classify-test-scope.yml';
 
-            // The Brain-gated tier runs in full on the same boundary plus its own workflow, and on every
-            // push. Any other pull request selects `none`: the smoke shard it ran there tested the
-            // Brain's `dev` tip rather than the change, and the `dev` push already runs the full tier on
-            // every merge.
-            const brainTier = eventName !== 'pull_request' || normalizedFiles.some(file =>
-                isE2eRelevantPath(file) || file === '.github/workflows/test-e2e-brain.yml') ? 'full' : 'none';
-
-            // Each changed file against the boundary, for the Brain tier's skip job to print. With
-            // `none`, a misclassified path runs no Brain shard until the `dev` push; this way the
-            // pull request that carries it shows the rule that left it out.
+            // Each changed file against the boundary, for the skip summary to print: a misclassified
+            // path then shows the rule that left it out on the pull request that carries it.
             const e2eBoundaryRule = file =>
               isE2eRelevantPath(file)       ? 'in' :
               isPortalBlogRegistry(file)    ? 'out (portal blog registry, read only on the news route)' :
@@ -503,27 +469,24 @@ jobs:
             core.info(`run_unit=${runUnit}`);
             core.info(`run_components=${runComponents}`);
             core.info(`run_e2e=${runE2e}`);
-            core.info(`e2e_brain_tier=${brainTier}`);
 
             core.setOutput('run_unit', String(runUnit));
             core.setOutput('run_components', String(runComponents));
             core.setOutput('run_e2e', String(runE2e));
-            core.setOutput('e2e_brain_tier', brainTier);
             const boundaryReport = normalizedFiles.map(file => `${file}: ${e2eBoundaryRule(file)}`).join('\n');
             const skipReason     = 'change does not touch relevant paths for this suite (docs/content/config or unrelated test suite)';
 
             core.setOutput('e2e_boundary_report', boundaryReport);
             core.setOutput('skip_reason', skipReason);
-            // What a selection may narrow: the files that admitted an e2e tier, the Brain tier's own workflow included
-            core.setOutput('e2e_files', JSON.stringify(normalizedFiles.filter(file =>
-              isE2eRelevantPath(file) || file === '.github/workflows/test-e2e-brain.yml')));
+            // What a selection may narrow: the files that admitted the e2e tier
+            core.setOutput('e2e_files', JSON.stringify(normalizedFiles.filter(isE2eRelevantPath)));
 
             // A ruled-out tier starts no runner, so its reason lives here: each changed file and the
             // rule that left it out, so a misclassification shows on the pull request that carries it.
-            if (!runE2e || brainTier === 'none') {
+            if (!runE2e) {
               await core.summary
-                .addHeading('E2E tiers ruled out', 3)
-                .addRaw(`engine tier: ${runE2e ? 'runs' : 'skipped'} · Brain-gated tier: ${brainTier}. Reason: ${skipReason}.`, true)
+                .addHeading('E2E tier ruled out', 3)
+                .addRaw(`engine tier: skipped. Reason: ${skipReason}.`, true)
                 .addCodeBlock(boundaryReport)
                 .write();
             }
@@ -552,15 +515,3 @@ jobs:
         run: |
           set -o pipefail
           node buildScripts/util/e2eCiSelection.mjs --select | tee -a "$GITHUB_OUTPUT"
-
-      # The Brain-gated tier tests the Brain's `dev` tip, resolved once per run attempt: every shard,
-      # and every rerun of failed jobs, reuses this output. Re-running ALL jobs re-runs this step and
-      # resolves the tip again. It runs here, not in a job of its own: a job would boot a runner for
-      # a three-second `git ls-remote`, and a ruled-out tier needs no tip at all.
-      - name: Resolve the Brain's dev tip
-        id: tip
-        if: ${{ inputs.resolve_brain_tip && (steps.select.outputs.e2e_brain_tier || steps.scope.outputs.e2e_brain_tier) != 'none' }}
-        run: |
-          sha=$(git ls-remote https://github.com/neomjs/neo-agent-brain refs/heads/dev | cut -f1)
-          test -n "$sha"
-          echo "sha=$sha" >> "$GITHUB_OUTPUT"

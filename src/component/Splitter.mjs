@@ -84,6 +84,8 @@ class Splitter extends Component {
     dragGeneration = 0
 
     /**
+     * @summary Registers the splitter's own drag listeners, which do not bubble: the splitter owns its gesture,
+     * so an ancestor's `.neo-draggable` delegate (a dashboard's SortZone) never opens a session for it.
      * @param {Object} config
      */
     construct(config) {
@@ -92,8 +94,8 @@ class Splitter extends Component {
         let me = this;
 
         me.addDomListeners([
-            {'drag:end'  : me.onDragEnd,   scope: me},
-            {'drag:start': me.onDragStart, scope: me}
+            {'drag:end'  : me.onDragEnd,   bubble: false, scope: me},
+            {'drag:start': me.onDragStart, bubble: false, scope: me}
         ]);
 
         me.createDragZone()

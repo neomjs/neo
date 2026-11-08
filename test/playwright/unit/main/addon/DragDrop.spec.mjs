@@ -1008,3 +1008,118 @@ test.describe('Neo.main.addon.DragDrop — a drag start whose pressed node a re-
         expect(sent[0].path.map(node => node.id)).toEqual(['neo-tab-header-button-3', 'neo-tab-header-toolbar-9'])
     })
 });
+
+/**
+ * @summary The one Pointer sensor behind the addon: the former mouse names still reach it, and a
+ * captured stream, which names the document root, is serialized as what lies under the pointer.
+ */
+test.describe('Neo.main.addon.DragDrop — the Pointer sensor surface', () => {
+    const
+        root    = {classList: [], id: 'root'},
+        hit     = {classList: ['drop-zone'], id: 'hit'},
+        parent  = {classList: [], id: 'hit-parent'},
+        pressed = {classList: ['neo-draggable'], id: 'pressed'},
+        // a captured pointer event: retargeted to the document root, whatever is under the pointer
+        captured = type => ({composedPath: () => [root, documentRef, windowRef], target: root, timeStamp: 1, type}),
+        sensorEvent = (type, eventPath) => ({
+            detail: {clientX: 40, clientY: 30, eventPath, originalEvent: captured(type), path: [pressed]},
+            path  : [pressed],
+            target: pressed
+        });
+
+    test('the mouse names are aliases of the pointer truth, and mouseSensor stays an accessor', async () => {
+        const sensor = {delay: 100, minDistance: 5},
+              addon  = Object.create(DragDrop.prototype);
+
+        Object.assign(addon, {pointerSensor: null, pointerSensorPromise: Promise.resolve(sensor)});
+
+        expect(await addon.getPointerSensor()).toBe(sensor);
+        expect(await addon.getMouseSensor(), 'the lazy construction is awaited through the old name too').toBe(sensor);
+
+        addon.pointerSensor = sensor;
+
+        expect(addon.mouseSensor).toBe(sensor);
+        // a class field would be an own property shadowing the accessor with a permanent null
+        expect(Object.hasOwn(addon, 'mouseSensor')).toBe(false);
+
+        Object.assign(addon, {pointerSensor: null, pointerSensorPromise: null});
+
+        expect(await addon.getMouseSensor(), 'a realm without a sensor fails closed').toBe(null)
+    });
+
+    test('a captured move is serialized with the hit-test target and path the sensor states', () => {
+        const addon = {resolveSensorPath: DragDrop.prototype.resolveSensorPath},
+              data  = DragDrop.prototype.getEventData.call(addon, sensorEvent('pointermove', [hit, parent, windowRef]));
+
+        expect(data.target.id).toBe('hit');
+        expect(data.targetPath.map(node => node.id)).toEqual(['hit', 'hit-parent', undefined]);
+        expect(data.path.map(node => node.id), 'path stays the drag:start dispatch path').toEqual(['pressed']);
+        expect([data.clientX, data.clientY]).toEqual([40, 30])
+    });
+
+    test('an uncaptured move keeps the event\'s own target and path', () => {
+        const addon = {resolveSensorPath: DragDrop.prototype.resolveSensorPath},
+              data  = DragDrop.prototype.getEventData.call(addon, sensorEvent('pointermove'));
+
+        expect(data.target.id).toBe('root');
+        expect(data.targetPath.map(node => node.id)).toEqual(['root', undefined, undefined])
+    });
+
+    test('a frame forwards the screen point the sensor states, not the event\'s fractional one', () => {
+        const
+            originalMoveTo = Neo.Main.windowMoveTo,
+            originalSend   = DomEvents.sendMessageToApp,
+            moved          = [],
+            sent           = [],
+            addon          = {dragCancelled: false, dragZoneId: 'zone-a', getEventData: () => ({}), offsetX: 20, offsetY: 10};
+
+        Neo.Main.windowMoveTo      = async data => {moved.push(data); return true};
+        DomEvents.sendMessageToApp = data => sent.push(data);
+
+        try {
+            DragDrop.prototype.startWindowDrag.call(addon, {popupHeight: 240, popupName: 'tearout', popupWidth: 320});
+            DragDrop.prototype.onDragMove.call(addon, {
+                detail: {originalEvent: {screenX: 500.93, screenY: 300.4}, screenX: 500, screenY: 300}
+            })
+        } finally {
+            Neo.Main.windowMoveTo      = originalMoveTo;
+            DomEvents.sendMessageToApp = originalSend
+        }
+
+        expect(moved).toEqual([{windowName: 'tearout', x: 480, y: 290}]);
+        expect(sent[0]).toMatchObject({screenX: 500, screenY: 300, type: 'drag:move'})
+    });
+
+    test('a captured release drops on the zone under the pointer, not on the document root', () => {
+        const
+            originalSend = DomEvents.sendMessageToApp,
+            sent         = [],
+            addon        = {
+                bodyCursorStyle     : null,
+                dragCancelled       : false,
+                dragResize          : null,
+                dragZoneId          : 'zone-1',
+                dropZoneIdentifier  : {cls: ['drop-zone']},
+                getEventData        : DragDrop.prototype.getEventData,
+                offsetX             : 0,
+                offsetY             : 0,
+                pathIncludesDropZone: DragDrop.prototype.pathIncludesDropZone,
+                resetDragState      : () => {},
+                resolveSensorPath   : DragDrop.prototype.resolveSensorPath
+            };
+
+        DomEvents.sendMessageToApp = data => sent.push(data);
+
+        try {
+            DragDrop.prototype.onDragEnd.call(addon, sensorEvent('pointerup', [hit, parent, windowRef]))
+        } finally {
+            DomEvents.sendMessageToApp = originalSend
+        }
+
+        expect(sent.map(data => data.type)).toEqual(['drag:end', 'drop']);
+        expect(sent[0].isDrop).toBe(true);
+        expect(sent[1].path.map(node => node.id), 'the App routes the drop by this path').toEqual(['hit', 'hit-parent', undefined]);
+        expect(sent[1].target.id).toBe('hit');
+        expect(sent[1].dragZoneId).toBe('zone-1')
+    })
+});

@@ -53,6 +53,15 @@ PoolingCellComponent = Neo.setupClass(PoolingCellComponent);
 test.describe('Grid Pooling & Fixed-DOM-Order', () => {
     let grid, store;
 
+    // Deterministically drains all in-flight and preUpdate-deferred VDOM flights on a GridBody
+    // (e.g. body.set({availableHeight, containerWidth}) runs afterSetAvailableHeight first with
+    // mountedColumns=[0,0] and defers afterSetContainerWidth's full-column pass into registerPreUpdate).
+    const settleBody = async (body) => {
+        while (body?.isVdomUpdating || body?.needsVdomUpdate) {
+            await body.promiseUpdate()
+        }
+    };
+
     // Helper to capture deltas during an operation
     const captureDeltas = async (operation) => {
         const captured = [];
@@ -70,7 +79,7 @@ test.describe('Grid Pooling & Fixed-DOM-Order', () => {
         try {
             await operation();
             // Allow async updates to settle
-            await grid.timeout(50);
+            await settleBody(grid?.body);
         } finally {
             VdomHelper.updateBatch = originalUpdateBatch;
         }
@@ -165,7 +174,7 @@ test.describe('Grid Pooling & Fixed-DOM-Order', () => {
             containerWidth : 600
         });
 
-        await grid.timeout(50);
+        await settleBody(grid.body);
     });
 
     test.afterEach(async () => {
@@ -517,7 +526,8 @@ test.describe('Grid Pooling & Fixed-DOM-Order', () => {
                 containerWidth : 600
             });
 
-            await componentGrid.timeout(50);
+            await settleBody(componentGrid.body);
+            expect(componentGrid.body.isVdomUpdating, 'initial pool and column mount flights must be fully settled').toBe(false);
 
             // Non-vacuity: initial layout mounted the pool and invoked ComponentColumn#cellRenderer
             const initialMountedEnd = componentGrid.body.mountedRows[1];
@@ -526,7 +536,8 @@ test.describe('Grid Pooling & Fixed-DOM-Order', () => {
             executionCount = 0;
 
             // 1. Idempotent re-evaluation at the same scroll offset must execute 0 cellRenderers
-            componentGrid.body.createViewData();
+            // Pass silent=true so this synchronous check does not launch an unawaited VDOM flight before captureDeltas
+            componentGrid.body.createViewData(true);
             expect(executionCount, 're-running createViewData at identical scrollTop must short-circuit all rows').toBe(0);
 
             // 2. Scroll 10 rows (400px) across 10 flushed single-row steps (40px each).

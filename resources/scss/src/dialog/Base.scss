@@ -109,7 +109,9 @@
             }
 
             &.neo-draggable {
-                cursor: move;
+                cursor      : move;
+                // a drag handle: a touch on it moves the dialog, never pans the page under it
+                touch-action: none;
             }
         }
     }

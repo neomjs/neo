@@ -10,7 +10,7 @@
  */
 export const WORKSTATION_CUE_TYPES = Object.freeze([
     // in-window surface cues (the dense tour's vocabulary, plus the film's rail round trip, its
-    // splitter resize — a real pointer drag through the Mouse sensor's own arming — and the
+    // splitter resize — a real pointer drag through the Pointer sensor's own arming — and the
     // grid's drag-scroll: diagonal pointer strokes the grid's own addon follows on both axes)
     'overflow', 'scroll', 'canvas-update', 'cross-zone-showcase', 'theme', 'rail', 'resize', 'grid-drag-scroll',
     // the viewer gate: playback waits for a click, which is the user activation a window birth needs

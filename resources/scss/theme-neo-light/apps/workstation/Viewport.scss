@@ -1,4 +1,6 @@
-:where(.neo-theme-neo-light) {
+// Stays at theme-root weight (0,2,0) deliberately: an application projection outranks the
+// engine's :where() value sheets by weight, never by load order (#18102).
+:root .neo-theme-neo-light {
     // App-owned daylight palette: Workstation is its own theme authority.
     --workstation-ground   : #f2f5f9;
     --workstation-panel    : #ffffff;
@@ -29,6 +31,6 @@
     --agent-dock-preview-signal-ground : rgba(255, 255, 255, 0.94);
     --agent-dock-proxy-border          : color-mix(in srgb, var(--workstation-signal) 38%, var(--workstation-line));
     --agent-dock-proxy-ground          : var(--workstation-panel);
-    --agent-dock-proxy-shadow          : var(--workstation-ground);
+    --agent-dock-proxy-shadow          : color-mix(in srgb, var(--workstation-ink-dim) 45%, transparent);
     --agent-dock-proxy-text            : var(--workstation-ink);
 }
