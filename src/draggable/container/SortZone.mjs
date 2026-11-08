@@ -1039,6 +1039,9 @@ class SortZone extends DragZone {
                 rect.y -= me.ownerRect.y
             });
 
+            // Published rects open the move gate (onDragMove), which reads them in owner space
+            me.adjustProxyRectToParent && pinnedRects.forEach(rect => me.adjustProxyRectToParent(rect, me.ownerRect));
+
             me.itemRects = itemRects;
 
             SortZone.activeTrace = {
@@ -1076,8 +1079,6 @@ class SortZone extends DragZone {
             pinnedItems.forEach((item, i) => {
                 itemStyle = item.wrapperStyle || {};
                 rect      = pinnedRects[i];
-
-                me.adjustProxyRectToParent?.(rect, me.ownerRect);
 
                 item.wrapperStyle = Object.assign(itemStyle, {
                     height  : `${rect.height}px`,

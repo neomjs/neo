@@ -306,6 +306,74 @@ test.describe('examples/grid/headerGroups', () => {
         expect(await centreOrder(page)).toEqual(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'])
     });
 
+    /**
+     * Where the live proxy's header sits inside the proxy: a colour check alone passes a header shifted out of view
+     * @param {Object} page
+     * @returns {Promise<Object|null>} `{offset, text}`, or null while no proxy shows a header
+     */
+    const proxyHeader = page => page.evaluate(() => {
+        const toolbar = document.querySelector('.neo-dragproxy .neo-grid-header-toolbar'),
+              button  = toolbar?.querySelector('.neo-grid-header-button');
+
+        return button && {
+            offset: Math.round(button.getBoundingClientRect().left - toolbar.getBoundingClientRect().left),
+            text  : button.textContent.trim()
+        }
+    });
+
+    test('after a horizontal scroll, every drag\'s proxy shows its header inside the proxy (#20626)', async ({page}) => {
+        await page.setViewportSize({width: 1991, height: 1000});
+
+        // The moves that follow the threshold land while the drag start is still running, as a quick hand's do
+        for (const text of ['Oct', 'Sep', 'Nov', 'Oct', 'Sep', 'Nov']) {
+            await expect(async () => {
+                await page.evaluate(() => {
+                    const scroller = document.querySelector('.neo-grid-horizontal-scrollbar');
+                    scroller.scrollLeft = 230;
+                    scroller.dispatchEvent(new Event('scroll'))
+                });
+                expect(await page.evaluate(() => document.querySelectorAll('.neo-grid-header-toolbar')[1].scrollLeft)).toBe(230)
+            }).toPass();
+
+            const from = await page.locator('.neo-grid-header-toolbar .neo-grid-header-button', {hasText: text}).first().boundingBox(),
+                  y    = from.y + from.height / 2;
+
+            await page.mouse.move(from.x + from.width / 2, y);
+            await page.mouse.down();
+            await page.mouse.move(from.x + from.width / 2 + 40, y, {steps: 20});
+
+            await expect.poll(() => proxyHeader(page)).not.toBeNull();
+            expect(await proxyHeader(page), `${text}'s proxy`).toEqual({offset: 0, text});
+
+            await page.keyboard.press('Escape');
+            await page.mouse.up();
+            await expect(page.locator('.neo-dragproxy')).toHaveCount(0)
+        }
+    });
+
+    test('a grouped header\'s proxy stops at its group\'s edge, wherever the pointer goes (#20626)', async ({page}) => {
+        await showAllHeaders(page);
+
+        const from       = await page.locator('.neo-grid-header-toolbar .neo-grid-header-button', {hasText: 'Jan'}).first().boundingBox(),
+              may        = await page.locator('.neo-grid-header-toolbar .neo-grid-header-button', {hasText: 'May'}).first().boundingBox(),
+              q1         = (await groupEdges(page)).find(edge => edge.text === 'Q1'),
+              y          = from.y + from.height / 2,
+              proxyEdges = () => page.evaluate(() => {
+                  const rect = document.querySelector('.neo-dragproxy')?.getBoundingClientRect();
+                  return rect && {left: Math.round(rect.left), right: Math.round(rect.right)}
+              });
+
+        await page.mouse.move(from.x + from.width / 2, y);
+        await page.mouse.down();
+        await page.mouse.move(may.x + may.width / 2, y, {steps: 60});
+
+        // The pointer is over Q2's May; the proxy rests against Q1's right edge
+        await expect.poll(async () => (await proxyEdges())?.right).toBe(q1.right);
+        expect((await proxyEdges()).left).toBeGreaterThanOrEqual(q1.left);
+
+        await page.mouse.up()
+    });
+
     test('an ungrouped header passes a whole group, so the group stays in one piece', async ({page}) => {
         await showAllHeaders(page);
 

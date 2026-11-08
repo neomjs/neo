@@ -27,10 +27,11 @@ test.describe('Neo.draggable.grid.header.toolbar.SortZone', () => {
             parent     = Object.getPrototypeOf(SortZone.prototype),
             descriptor = Object.getOwnPropertyDescriptor(parent, 'dragStart'),
             rendered   = Promise.withResolvers(),
-            itemRects  = [{x: 50, y: 0, width: 110}, {x: 160, y: 0, width: 110}],
+            // Owner-content space: the base converts the rects before it publishes them
+            itemRects  = [{x: 312, y: 0, width: 110}, {x: 422, y: 0, width: 110}],
             before     = itemRects.map(rect => ({...rect})),
             owner      = {vdom: {cn: []}, promiseUpdate: () => rendered.promise},
-            zone       = {dragStartScrollLeft: 412, itemRects, owner, ownerRect: {x: 150}};
+            zone       = {clampProxyToGroup: async () => {}, dragStartScrollLeft: 412, itemRects, owner, ownerRect: {x: 150}};
 
         let inheritedStarted = false, starting;
 
@@ -48,7 +49,7 @@ test.describe('Neo.draggable.grid.header.toolbar.SortZone', () => {
                 cls  : ['neo-sortzone-extent-sentinel'],
                 style: {height: '1px', left: '531px', position: 'absolute', top: 0, width: '1px'}
             }]);
-            expect(itemRects, 'the base still owns conversion of the viewport snapshots').toEqual(before);
+            expect(itemRects, 'the sentinel reads the converted rects and leaves them alone').toEqual(before);
 
             rendered.resolve();
             await starting;
@@ -72,7 +73,7 @@ test.describe('Neo.draggable.grid.header.toolbar.SortZone', () => {
         Object.defineProperty(parent, 'dragStart', {configurable: true, value: async () => {starts++}});
 
         try {
-            await SortZone.prototype.dragStart.call({dragStartScrollLeft: 0, owner}, {});
+            await SortZone.prototype.dragStart.call({clampProxyToGroup: async () => {}, dragStartScrollLeft: 0, owner}, {});
             expect(starts).toBe(1);
             expect(owner.vdom.cn).toEqual([])
         } finally {
@@ -133,6 +134,53 @@ test.describe('Neo.draggable.grid.header.toolbar.SortZone', () => {
         expect(outside(-500)).toBe(false);
         zone.currentIndex = 0;
         expect(outside(undefined)).toBe(false)
+    });
+
+    test('a grouped header\'s proxy is clamped to the shown part of its group, at the current scroll (#20626)', async () => {
+        const
+            {DragDrop} = Neo.main.addon || {},
+            sent       = [],
+            // Q3 spans [0, 300) in content space, Q4 follows at [300, 600); the toolbar shows viewport x 50 to 450
+            zone       = {
+                appName              : 'clamp',
+                boundaryContainerRect: {bottom: 90, height: 40, left: 50, right: 450, top: 50},
+                currentIndex         : 1,
+                getHeaderGroupId     : index => ['q3', 'q3', 'q3', 'q4', 'q4', 'q4'][index],
+                itemRects            : [0, 100, 200, 300, 400, 500].map(x => ({x, width: 100})),
+                ownerRect            : {x: 50},
+                scrollLeft           : 0,
+                windowId             : 7
+            },
+            clamp = () => SortZone.prototype.clampProxyToGroup.call(zone);
+
+        Neo.ns('Neo.main.addon', true).DragDrop = {setConfigs: async configs => {sent.push(configs)}};
+
+        try {
+            await clamp();
+            expect(sent.pop()).toEqual({
+                appName              : 'clamp',
+                boundaryContainerRect: {bottom: 90, height: 40, left: 50, right: 350, top: 50, width: 300, x: 50, y: 50},
+                windowId             : 7
+            });
+
+            // Scrolled by 200, Q3's last header is all the toolbar still shows of the group
+            zone.scrollLeft = 200;
+            await clamp();
+            expect(sent.pop().boundaryContainerRect).toMatchObject({left: 50, right: 150, width: 100});
+
+            // Q4 runs past the toolbar's right edge: the toolbar's edge bounds the proxy there
+            zone.currentIndex = 4;
+            zone.scrollLeft   = 0;
+            await clamp();
+            expect(sent.pop().boundaryContainerRect).toMatchObject({left: 350, right: 450});
+
+            // An ungrouped header keeps the toolbar's boundary
+            zone.getHeaderGroupId = () => null;
+            await clamp();
+            expect(sent).toEqual([])
+        } finally {
+            Neo.main.addon.DragDrop = DragDrop
+        }
     });
 
     test('an ungrouped header steps past a whole group, and has to travel the group\'s extent first', () => {
