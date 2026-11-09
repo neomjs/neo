@@ -1,6 +1,7 @@
 
 import {defineConfig, devices}             from '@playwright/test';
 import path                                from 'node:path';
+import {assertInstallMatchesLock}          from '../../buildScripts/util/check-installed-dependencies.mjs';
 import {resolveFreePortSync}               from './resolveFreePort.mjs';
 import {activeLaunchArgs, requiresGlProbe} from './e2e/utils/gpuIntent.mjs';
 import {
@@ -11,6 +12,8 @@ import {
     DEFAULT_BROWSER_LIFECYCLE_RECEIPT_LIMIT,
     resolveBrowserLifecycleReceipt
 } from './e2e/custom-reporter.js';
+
+assertInstallMatchesLock();
 
 // Per-process by default: this suite renders ITS OWN checkout (reuseExistingServer:false below), so a
 // fixed default would silently adopt a foreign dev-server squatting on 8080 — that server serves the

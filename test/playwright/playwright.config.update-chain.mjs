@@ -1,5 +1,8 @@
-import {defineConfig}        from '@playwright/test';
-import {resolveFreePortSync} from './resolveFreePort.mjs';
+import {defineConfig}             from '@playwright/test';
+import {assertInstallMatchesLock} from '../../buildScripts/util/check-installed-dependencies.mjs';
+import {resolveFreePortSync}      from './resolveFreePort.mjs';
+
+assertInstallMatchesLock();
 
 /**
  * The Epic's goal bar, as an executable scenario.

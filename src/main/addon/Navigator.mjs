@@ -487,7 +487,9 @@ class Navigator extends Base {
      * @param {String} data.id The element id to navigate in.
      * @param {String} [data.eventSource] Optional - the element id to read keystrokes from.
      * defaults to the main element id. Select field uses this. Focus remains in the field's
-     * `<input>` element while navigating its dropdown.
+     * `<input>` element while navigating its dropdown. Nothing subscribes while either element is
+     * missing: a picker list can mount after its field's input has left the DOM, and its next mount
+     * subscribes again.
      * @param {String} data.selector A CSS selector which identifies the navigable elements.
      * @param {String} data.activeCls A CSS class to add to the currently active navigable element.
      * @param {Boolean} data.wrap Pass as `true` to have navigation wrap from first to last and vice versa.
@@ -503,7 +505,7 @@ class Navigator extends Base {
             subject     = data.subject = DomAccess.getElement(data.id),
             eventSource = data.eventSource = data.eventSource ? DomAccess.getElement(data.eventSource) : subject;
 
-        if (subject) {
+        if (subject && eventSource) {
             subject.$navigator = data;
 
             if (!data.activeCls) {
