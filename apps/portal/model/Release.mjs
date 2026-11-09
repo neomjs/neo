@@ -38,13 +38,20 @@ class Release extends Model {
             type: 'html',
             /**
              * @param {Object} data
-             * @param {String} data.date
+             * @param {String} [data.date]
              * @param {String} data.id
+             * @param {Boolean} [data.isLeaf]
              * @returns {String}
              */
-            calculate({date, id}) {
+            calculate({date, id, isLeaf}) {
                 if (date) {
                     return `<b>${id}</b> <span class="release-date">[${new Date(date).toLocaleDateString()}]</span>`
+                }
+
+                // A release without a date has not shipped yet. Major-version folders carry no date either,
+                // but the index writes them with `isLeaf: false`.
+                if (isLeaf !== false) {
+                    return `<b>${id}</b> <span class="release-date">[unreleased]</span>`
                 }
 
                 return id

@@ -21,7 +21,8 @@ import {
  * section, allowing users to browse history grouped by Major Version.
  *
  * **Key Features:**
- * - **Metadata Extraction:** Parses frontmatter (`tagName`, `publishedAt`) but falls back to file stats/names if needed.
+ * - **Metadata Extraction:** Parses frontmatter (`tagName`, `publishedAt`); the version falls back to the file name.
+ *   A note without `publishedAt` is unreleased and gets no date.
  * - **SemVer Grouping:** Automatically groups releases by Major Version (e.g., "v5", "v6") using `semver`.
  * - **Tree-Ready Output:** Generates a flat-tree structure with `parentId` references, optimized for `Neo.tree.List`.
  *
@@ -37,7 +38,7 @@ const OUTPUT_FILE = path.resolve(ROOT_DIR, 'apps/portal/resources/data/releases.
  * Parsed release note object
  * @typedef {Object} ReleaseNote
  * @property {String} version - The semantic version string (e.g., "11.18.0")
- * @property {String} date - ISO date string
+ * @property {String} [date] - ISO date string from `publishedAt`; absent for an unreleased note
  * @property {String} title - The display title of the release
  * @property {String} path - Path to the markdown file relative to the release-notes root (for dynamic loading)
  */
@@ -46,7 +47,7 @@ const OUTPUT_FILE = path.resolve(ROOT_DIR, 'apps/portal/resources/data/releases.
  * Core logic to scan and index release note markdown files.
  *
  * 1.  Recursively scans the release-notes root, including any chunk-N folders.
- * 2.  Extracts version numbers and dates (handling both frontmatter and filesystem fallbacks).
+ * 2.  Extracts version numbers (frontmatter or file name) and release dates (frontmatter only).
  * 3.  Groups releases into Major Version buckets (e.g., "v1", "v2").
  * 4.  Sorts majors and minors descending.
  * 5.  Flattens the structure for `Neo.data.Store` consumption.
@@ -83,12 +84,9 @@ async function createReleaseIndex(options = {}) {
             console.warn(`Failed to parse frontmatter for ${fileName}:`, e.message);
         }
 
-        // Extract Date (Priority: frontmatter.publishedAt -> file stats)
-        let date = frontmatter.publishedAt;
-        if (!date) {
-            const stats = await fs.stat(filePath);
-            date = stats.birthtime.toISOString();
-        }
+        // `publishedAt` is stamped when a note is released. A note without it is unreleased, and the file's
+        // birthtime would only say when the file reached this checkout, so it gets no date.
+        const date = frontmatter.publishedAt;
 
         // Extract Version (Priority: frontmatter.tagName -> filename)
         let version = frontmatter.tagName;
@@ -101,7 +99,7 @@ async function createReleaseIndex(options = {}) {
 
         return {
             version: cleanVersion,
-            date,
+            ...(date && {date}),
             // Relative to the release-notes root, chunk-N segment included; the portal resolves it against the base it serves the notes from
             path: contentPath(inputDir, filePath)
         };
