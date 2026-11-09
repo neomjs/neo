@@ -665,4 +665,36 @@ test.describe('examples/grid/headerGroups', () => {
             await expectRelaidOut(page)
         })
     }
+
+    test('a group cell turns draggable only once its drag zone is ready, so no gesture starts without an owner for its Escape (#20627)', async ({page}) => {
+        const held    = [],
+              pattern = '**/src/draggable/DragZone.mjs',
+              ready   = page.locator('.neo-grid-header-group-row .neo-grid-header-group-cell.neo-draggable');
+
+        // A fresh boot whose drag zone module stays in flight
+        await page.context().route(pattern, route => {held.push(route)});
+        await page.goto('/examples/grid/headerGroups/index.html');
+        await expect(page.locator('.neo-grid-header-group-cell')).toHaveCount(5);
+        await showAllHeaders(page);
+        await expect.poll(() => held.length).toBeGreaterThan(0);
+
+        await expect(ready).toHaveCount(0);
+
+        // Pressed, carried and cancelled while the module loads: nothing may move
+        await holdGroup(page, 'Q3', (await groupBox(page, 'Q2')).x + 10);
+        await page.keyboard.press('Escape');
+        await page.mouse.up();
+
+        await Promise.all(held.map(route => route.continue()));
+        await page.context().unroute(pattern);
+        await expect(ready).toHaveCount(5);
+
+        // The next drag starts from the first gesture's true result
+        await dragGroup(page, 'Q4', (await groupBox(page, 'Q2')).x + 10);
+
+        await expect.poll(() => groupOrder(page)).toEqual(['Q1', 'Q4', 'Q2', 'Q3', 'Year']);
+        expect(await page.evaluate(() =>
+            document.querySelectorAll('.neo-dragproxy, .neo-grid-header-group-row.neo-is-dragging').length)).toBe(0);
+        await expectRelaidOut(page)
+    })
 });

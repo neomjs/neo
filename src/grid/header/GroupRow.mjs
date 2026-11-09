@@ -79,7 +79,13 @@ class GroupRow extends Component {
     #drag = null
 
     /**
-     * Resolves to the drag zone once its module has loaded
+     * True once the main thread resolves a group cell's gesture to the drag zone: only then are the cells draggable
+     * @member {Boolean} #dragReady=false
+     */
+    #dragReady = false
+
+    /**
+     * Resolves to the drag zone once its module has loaded and the main thread has registered it
      * @member {Promise<Neo.draggable.DragZone|null>|null} #dragZoneReady=null
      */
     #dragZoneReady = null
@@ -142,7 +148,8 @@ class GroupRow extends Component {
     /**
      * @summary Loads and creates the group cells' drag zone. Its drag element starts as this row, so the zone registers
      * with the main thread under the row: every group cell's gesture resolves to it from its first frame on, and
-     * Escape reaches it even while that gesture's start is still pending.
+     * Escape reaches it even while that gesture's start is still pending. The cells turn draggable only once that
+     * registration has landed, so no gesture can start while its Escape would have no owner.
      * @returns {Promise<Neo.draggable.DragZone|null>}
      */
     async createDragZone() {
@@ -164,6 +171,16 @@ class GroupRow extends Component {
         });
 
         me.dragZone.on('dragCancel', me.onGroupDragCancel, me);
+
+        // The zone's own construction-time registration is fire-and-forget: this one is awaited
+        await me.dragZone.registerZone();
+
+        if (me.isDestroyed) {
+            return null
+        }
+
+        me.#dragReady = true;
+        me.project();
 
         return me.dragZone
     }
@@ -333,7 +350,7 @@ class GroupRow extends Component {
      * the leaves do. The cells sit in the part itself: a reorder moves them inside the scrolled element, whose scroll
      * {@link Neo.main.DeltaUpdates#flushLayoutHeals} keeps, while it would reset the scroll of a scrolled ancestor. A
      * cell's `aria-colindex` is its first column's grid-wide index, and its `aria-colspan` its column count. A cell is
-     * draggable while its region's toolbar is `dragResortable`.
+     * draggable while its region's toolbar is `dragResortable` and the drag zone is ready ({@link #createDragZone}).
      *
      * A rebuilt part carries the `scrollLeft` that `onScrollCapture` recorded on its predecessor, so the update cannot
      * diff the scrolled centre part back to the origin.
@@ -358,7 +375,7 @@ class GroupRow extends Component {
             let region = toolbar.layoutLock || 'center',
                 id     = gridContainer.getGroupHeaderPartId(region),
                 offset = toolbar.ariaColumnOffset,
-                cls    = toolbar.dragResortable ? ['neo-grid-header-group-cell', 'neo-draggable'] : ['neo-grid-header-group-cell'],
+                cls    = toolbar.dragResortable && me.#dragReady ? ['neo-grid-header-group-cell', 'neo-draggable'] : ['neo-grid-header-group-cell'],
                 cells  = GroupRow.getUnits(me.getRegionColumns(region), toolbar.body?.columnPositions).filter(unit => unit.group);
 
             return {
