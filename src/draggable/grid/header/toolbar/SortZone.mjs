@@ -529,8 +529,9 @@ class SortZone extends BaseSortZone {
         me.lastDragClientX = data.clientX;
 
         // Past its group's edge a grouped header waits in the edge's slot. Never while an over-drag step awaits its
-        // scroll: the step decides then
-        let side = me.isScrolling ? 0 : me.groupOverflow(data.clientX);
+        // scroll, the step decides then, and never before the gesture's own boundary arrives: like every other switch,
+        // the walk waits for the start to finish
+        let side = me.isScrolling || !me.boundaryContainerRect ? 0 : me.groupOverflow(data.clientX);
 
         if (side) {
             me.moveToGroupEdge(side);
