@@ -234,8 +234,7 @@ class SortZone extends DragZone {
     /**
      * True while the pointer is where a release would not commit the reorder: {@link #onDragMove} keeps
      * sampling the window boundary but moves no sibling. Off by default; only a subclass that knows such
-     * territory arms it, via {@link #setReorderParked} (the dock tab strip beyond its release band, a grid header
-     * outside its group).
+     * territory arms it, via {@link #setReorderParked} (the dock tab strip beyond its release band).
      * @member {Boolean} isReorderParked=false
      * @protected
      */

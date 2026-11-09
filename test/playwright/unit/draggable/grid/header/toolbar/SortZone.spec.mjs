@@ -110,7 +110,7 @@ test.describe('Neo.draggable.grid.header.toolbar.SortZone', () => {
         expect(resolve(350, centerOnly)).toBe(null)
     })
 
-    test('a grouped header\'s pointer is outside its group beyond the group\'s headers, measured in content space', () => {
+    test('a grouped header\'s pointer is past its group\'s first or last header, measured in content space', () => {
         // Q1 spans [0, 200) in content space, an ungrouped header follows at [200, 300)
         const zone = {
                   currentIndex    : 0,
@@ -119,21 +119,49 @@ test.describe('Neo.draggable.grid.header.toolbar.SortZone', () => {
                   ownerRect       : {x: 50},
                   scrollLeft      : 0
               },
-              outside = clientX => SortZone.prototype.isOutsideGroup.call(zone, clientX);
+              side = clientX => SortZone.prototype.groupOverflow.call(zone, clientX);
 
-        expect(outside(150)).toBe(false); // over the second Q1 header
-        expect(outside(300)).toBe(true);  // over the ungrouped header
-        expect(outside(20)).toBe(true);   // left of the toolbar, over another region
+        expect(side(150)).toBe(0);  // over the second Q1 header
+        expect(side(300)).toBe(1);  // over the ungrouped header
+        expect(side(20)).toBe(-1);  // left of the toolbar, over another region
 
         // Scrolled by 100, the same pointer is over Q1 content the over-drag scrolls back into view
         zone.scrollLeft = 100;
-        expect(outside(20)).toBe(false);
+        expect(side(20)).toBe(0);
 
         // An ungrouped header has no group to leave, and a move without a pointer x has no verdict
         zone.currentIndex = 2;
-        expect(outside(-500)).toBe(false);
+        expect(side(-500)).toBe(0);
         zone.currentIndex = 0;
-        expect(outside(undefined)).toBe(false)
+        expect(side(undefined)).toBe(0)
+    });
+
+    test('past its group\'s edge, a grouped header walks to that edge\'s slot and stops there (#20626)', () => {
+        // Q1 holds slots 0 to 2, Q2 slots 3 to 5
+        const switches = [],
+              zone     = {
+                  currentIndex    : 1,
+                  getHeaderGroupId: index => ['q1', 'q1', 'q1', 'q2', 'q2', 'q2'][index] ?? null,
+                  isOverDragging  : true,
+                  lastInBoundX    : 10,
+                  lastInBoundY    : 10,
+                  switchItems     : (from, to) => switches.push([from, to])
+              },
+              walk     = side => SortZone.prototype.moveToGroupEdge.call(zone, side);
+
+        walk(1);
+        expect(switches).toEqual([[1, 2]]);
+        expect(zone.currentIndex).toBe(2);
+        expect(zone.isOverDragging, 'the walk ends an over-drag loop').toBe(false);
+        expect(zone.lastInBoundX, 'the next move inside the group is not a duplicate').toBe(null);
+
+        // Already at the last slot: a further move past the edge switches nothing
+        walk(1);
+        expect(switches).toHaveLength(1);
+
+        walk(-1);
+        expect(switches.slice(1)).toEqual([[2, 1], [1, 0]]);
+        expect(zone.currentIndex).toBe(0)
     });
 
     test('a grouped header\'s proxy is clamped to the shown part of its group, at the current scroll (#20626)', async () => {

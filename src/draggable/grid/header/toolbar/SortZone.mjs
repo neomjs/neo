@@ -380,10 +380,6 @@ class SortZone extends BaseSortZone {
         // Avoid conflicts with grid.header.plugin.Resizable
         if (!me.owner.dragResortable) return;
 
-        if (!data.cancelled && me.isOutsideGroup(me.lastDragClientX)) {
-            me.currentIndex = me.startIndex
-        }
-
         // Remove the drag-start scroll-extent sentinel before the layout restore: the items
         // re-enter the flow and own the scrollable overflow again from here on.
         let ownerCn       = me.owner.vdom.cn,
@@ -532,8 +528,14 @@ class SortZone extends BaseSortZone {
         // Track the release x-coordinate so onDragEnd can resolve the cross-toolbar drop region.
         me.lastDragClientX = data.clientX;
 
-        // The park walks switches back: never while an over-drag step awaits its scroll, the release decides then
-        me.isScrolling || me.setReorderParked(me.isOutsideGroup(data.clientX), data);
+        // Past its group's edge a grouped header waits in the edge's slot. Never while an over-drag step awaits its
+        // scroll: the step decides then
+        let side = me.isScrolling ? 0 : me.groupOverflow(data.clientX);
+
+        if (side) {
+            me.moveToGroupEdge(side);
+            return
+        }
 
         await super.onDragMove(data)
     }
@@ -644,28 +646,57 @@ class SortZone extends BaseSortZone {
     }
 
     /**
-     * @summary Whether the pointer of a grouped header's drag is outside the headers of its group.
+     * @summary Which side of its group the pointer of a grouped header's drag is on: `-1` before the group's first
+     * header, `1` past its last one, `0` over the group or for an ungrouped header.
      *
-     * A drop there is no reorder of the group: the hover parks the reorder ({@link #onDragMove}) and the release
-     * restores the group's order ({@link #processDragEnd}). The span is measured in the toolbar's content space, so an
-     * over-drag past the visible edge keeps reordering while the group continues beyond it.
+     * Past an edge the header waits in that edge's slot ({@link #moveToGroupEdge}), under its clamped proxy. The span is
+     * measured in the toolbar's content space, so an over-drag past the visible edge keeps reordering while the group
+     * continues beyond it.
      * @param {Number} clientX
-     * @returns {Boolean}
+     * @returns {Number}
      */
-    isOutsideGroup(clientX) {
+    groupOverflow(clientX) {
         let me          = this,
             {itemRects} = me,
             groupId     = itemRects && Neo.isNumber(clientX) && me.getHeaderGroupId(me.currentIndex),
             group, x;
 
         if (!groupId) {
-            return false
+            return 0
         }
 
         x     = clientX - me.ownerRect.x + me.scrollLeft;
         group = itemRects.filter((rect, index) => me.getHeaderGroupId(index) === groupId);
 
-        return x < Math.min(...group.map(rect => rect.x)) || x > Math.max(...group.map(rect => rect.x + rect.width))
+        return x < Math.min(...group.map(rect => rect.x)) ? -1 : x > Math.max(...group.map(rect => rect.x + rect.width)) ? 1 : 0
+    }
+
+    /**
+     * @summary Walks a grouped header to its group's first (`side` -1) or last (`side` 1) slot, where its clamped proxy
+     * rests while the pointer is past that edge. A release there keeps the slot.
+     * @param {Number} side -1 or 1
+     * @protected
+     */
+    moveToGroupEdge(side) {
+        let me      = this,
+            groupId = me.getHeaderGroupId(me.currentIndex),
+            index;
+
+        // Neither an over-drag's auto-scroll loop nor the duplicate-move guard may outlive the walk
+        me.isOverDragging = false;
+        me.lastInBoundX   = me.lastInBoundY = null;
+
+        while (me.getHeaderGroupId(me.currentIndex + side) === groupId) {
+            index = me.currentIndex;
+
+            me.currentIndex += side;
+            me.switchItems(index, me.currentIndex);
+
+            // A refused switch would spin here forever
+            if (me.currentIndex === index) {
+                break
+            }
+        }
     }
 
     /**

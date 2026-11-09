@@ -261,7 +261,7 @@ test.describe('examples/grid/headerGroups', () => {
         expect(await centreOrder(page)).toEqual(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'])
     });
 
-    test('a grouped header over another group rests in its group, and its release leaves the group as it was', async ({page}) => {
+    test('a grouped header carried over another group waits at its group\'s edge, and its release keeps that slot (#20626)', async ({page}) => {
         await showAllHeaders(page);
 
         // Pinned by id: a drag proxy clones the button, text included
@@ -269,6 +269,7 @@ test.describe('examples/grid/headerGroups', () => {
               jan   = page.locator(`[id="${janId}"]`),
               from  = await jan.boundingBox(),
               may   = await page.locator('.neo-grid-header-toolbar .neo-grid-header-button', {hasText: 'May'}).first().boundingBox(),
+              q1    = (await groupEdges(page)).find(edge => edge.text === 'Q1'),
               y     = from.y + from.height / 2;
 
         // Jan passes Feb and Mar on its way out of Q1, before it reaches May in Q2
@@ -276,16 +277,19 @@ test.describe('examples/grid/headerGroups', () => {
         await page.mouse.down();
         await page.mouse.move(may.x + may.width / 2, y, {steps: 60});
 
-        // Still pressed, the hover shows what the release will do: Jan back in its own slot
-        await expect.poll(async () => Math.round((await jan.boundingBox()).x)).toBe(Math.round(from.x));
+        // Still pressed, the hover shows what the release will do: Jan in Q1's last slot, where its proxy rests
+        await expect.poll(async () => {
+            const box = await jan.boundingBox();
+            return Math.abs(Math.round(box.x + box.width) - q1.right) < 2
+        }).toBe(true);
 
         await page.mouse.up();
         await page.waitForTimeout(400);
 
-        expect(await centreOrder(page)).toEqual(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun']);
+        expect(await centreOrder(page)).toEqual(['Feb', 'Mar', 'Jan', 'Apr', 'May', 'Jun']);
         expectAligned(await groupEdges(page));
 
-        // The body took the same swaps on the way out, and has to give them back with the headers
+        // The body took the same swaps, and keeps them with the headers
         await expect.poll(() => cellsFollowHeaders(page)).toBe(true)
     });
 
@@ -452,13 +456,13 @@ test.describe('examples/grid/headerGroups', () => {
         await showAllHeaders(page);
 
         // Mar passes Feb and Jan on its way out of the centre: released over the locked start region, its group keeps
-        // it in the centre, where it was
+        // it in the centre, in Q1's first slot
         await dropOn(page, 'Mar', 'Region');
         await page.waitForTimeout(400);
 
         expect(await toolbarOf('Mar')).toBe(await toolbarOf('Feb'));
         expect(await toolbarOf('Mar')).not.toBe(await toolbarOf('Region'));
-        expect(await centreOrder(page)).toEqual(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun']);
+        expect(await centreOrder(page)).toEqual(['Mar', 'Jan', 'Feb', 'Apr', 'May', 'Jun']);
         expectAligned(await groupEdges(page));
         await expect.poll(() => cellsFollowHeaders(page)).toBe(true);
 
