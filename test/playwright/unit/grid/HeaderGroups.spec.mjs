@@ -25,6 +25,7 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
 import GridContainer  from '../../../../src/grid/Container.mjs';
+import GroupRow       from '../../../../src/grid/header/GroupRow.mjs';
 import Store          from '../../../../src/data/Store.mjs';
 
 // Imported for their side effects: the vdom rig `initVnode()` needs, and the instance manager `Neo.get` needs.
@@ -173,7 +174,7 @@ test.describe('Neo.grid.Container header groups', () => {
  */
 const groupCells = groupRow => groupRow.vdom.cn.map(part => ({
     region: part.cls[1].replace('neo-grid-header-group-part-', ''),
-    cells : part.cn[0].cn.map(cell => ({
+    cells : part.cn.filter(node => node.role === 'columnheader').map(cell => ({
         text    : cell.text,
         colindex: cell['aria-colindex'],
         colspan : cell['aria-colspan'],
@@ -210,9 +211,10 @@ test.describe('Neo.grid.header.GroupRow', () => {
             {dataField: 'b', width: 100}
         ]);
 
-        await expect.poll(() => grid.headerWrapper.groupRow?.vdom.cn[0]?.cn[0]?.cn[0]?.style.width).toBe('220px');
+        await expect.poll(() => grid.headerWrapper.groupRow?.vdom.cn[0]?.cn[1]?.style.width).toBe('220px');
 
-        // Each part clips a track as wide as its region's columns, so the centre one can scroll with the grid
+        // Each part holds an empty track as wide as its region's columns, so the centre one scrolls as far as the
+        // leaves, and its cells sit beside the track in the part itself
         expect(grid.headerWrapper.groupRow.vdom.cn.map(part => [part.id, part.cn[0].style.width])).toEqual([
             [grid.getGroupHeaderPartId('start'),  '320px'],
             [grid.getGroupHeaderPartId('center'), '270px']
@@ -235,7 +237,7 @@ test.describe('Neo.grid.header.GroupRow', () => {
               partId     = grid.getGroupHeaderPartId('center'),
               part       = () => groupRow.vdom.cn.find(item => item.id === partId);
 
-        await expect.poll(() => part()?.cn[0]?.cn.length).toBe(1);
+        await expect.poll(() => part()?.cn.filter(node => node.role === 'columnheader').length).toBe(1);
 
         // The main-thread scroll sync moved the centre part, and onScrollCapture recorded where it landed
         groupRow.onScrollCapture({target: {id: partId}, scrollLeft: 300, scrollTop: 0});
@@ -270,5 +272,45 @@ test.describe('Neo.grid.header.GroupRow', () => {
         expect(grid.headerRowCount).toBe(1);
         expect(grid.headerToolbar.vdom['aria-rowindex']).toBe(1);
         expect(grid.getAriaRoot()['aria-rowcount']).toBe(store.count + 1)
+    })
+});
+
+test.describe('Neo.grid.header.GroupRow: a group cell drags its whole group', () => {
+    const group        = id => ({id, text: id}),
+          [q1, q2, q3] = ['q1', 'q2', 'q3'].map(group),
+          column       = (dataField, headerGroup) => ({dataField, headerGroup}),
+          columns      = [column('jan', q1), column('feb', q1), column('apr', q2), column('may', q2), column('jul', q3), column('aug', q3), column('id')],
+          // Every column 100 wide, in order: q1 0–200, q2 200–400, q3 400–600, id 600–700
+          positions = new Map(columns.map(({dataField}, index) => [dataField, {width: 100, x: index * 100}])),
+          drop      = (groupId, x) => GroupRow.getGroupDropOrder({columns, groupId, positions, x})?.map(({dataField}) => dataField) ?? null;
+
+    test('a region\'s units are its groups\' runs and its ungrouped columns', () => {
+        expect(GroupRow.getUnits(columns, positions).map(({columns, group, index, width, x}) =>
+            ({fields: columns.map(({dataField}) => dataField), group: group?.id ?? null, index, width, x}))).toEqual([
+            {fields: ['jan', 'feb'], group: 'q1', index: 0, width: 200, x: 0},
+            {fields: ['apr', 'may'], group: 'q2', index: 2, width: 200, x: 200},
+            {fields: ['jul', 'aug'], group: 'q3', index: 4, width: 200, x: 400},
+            {fields: ['id'],         group: null, index: 6, width: 100, x: 600}
+        ])
+    });
+
+    test('a group dropped before another moves its whole run there', () => {
+        // q2's centre is at 300: released at 250, q3 takes the slot before q2
+        expect(drop('q3', 250)).toEqual(['jan', 'feb', 'jul', 'aug', 'apr', 'may', 'id'])
+    });
+
+    test('a release over another group takes the slot beside it, never one among its leaves', () => {
+        expect(drop('q3', 150), 'right of q1\'s centre').toEqual(['jan', 'feb', 'jul', 'aug', 'apr', 'may', 'id']);
+        expect(drop('q3', 50),  'left of q1\'s centre').toEqual(['jul', 'aug', 'jan', 'feb', 'apr', 'may', 'id'])
+    });
+
+    test('a release past either end takes the region\'s first or last slot', () => {
+        expect(drop('q1', 5000)).toEqual(['apr', 'may', 'jul', 'aug', 'id', 'jan', 'feb']);
+        expect(drop('q3', -500)).toEqual(['jul', 'aug', 'jan', 'feb', 'apr', 'may', 'id'])
+    });
+
+    test('a release where the group already sits, or for no known group, moves nothing', () => {
+        expect(drop('q2', 300)).toBeNull();
+        expect(drop('nope', 300)).toBeNull()
     })
 });
