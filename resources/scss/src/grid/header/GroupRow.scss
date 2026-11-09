@@ -13,30 +13,47 @@
         position  : relative;
     }
 
+    // Empty: its width gives the part its region's scroll extent, past the last group's cell
     .neo-grid-header-group-track {
-        height  : 100%;
-        position: relative;
+        height: 100%;
     }
 
-    // A group cell is a header cell: it takes the leaf headers' theme, so every theme styles both rows alike
     .neo-grid-header-group-cell {
-        align-items     : center;
-        background-color: var(--grid-header-button-background-color);
-        background-image: var(--grid-header-button-background-image);
-        border-bottom   : 1px solid var(--grid-header-button-border-right-color);
-        border-right    : 1px solid var(--grid-header-button-border-right-color);
-        bottom          : 0;
-        box-sizing      : border-box;
-        color           : var(--grid-header-button-color);
-        display         : flex;
-        font-size       : var(--grid-header-button-font-size);
-        font-weight     : var(--grid-header-button-font-weight);
-        justify-content : center;
-        overflow        : hidden;
-        padding         : 0 8px;
-        position        : absolute;
-        text-overflow   : ellipsis;
-        top             : 0;
-        white-space     : nowrap;
+        bottom  : 0;
+        position: absolute;
+        top     : 0;
+
+        &.neo-draggable {
+            cursor: grab;
+        }
     }
+}
+
+// A group cell is a header cell: it takes the leaf headers' theme, so every theme styles both rows alike. Its drag
+// proxy renders outside the row, so it carries the same look. A drag never selects the group's text.
+.neo-grid-header-group-row .neo-grid-header-group-cell,
+.neo-dragproxy.neo-grid-header-group-cell {
+    align-items     : center;
+    background-color: var(--grid-header-button-background-color);
+    background-image: var(--grid-header-button-background-image);
+    border-bottom   : 1px solid var(--grid-header-button-border-right-color);
+    border-right    : 1px solid var(--grid-header-button-border-right-color);
+    box-sizing      : border-box;
+    color           : var(--grid-header-button-color);
+    display         : flex;
+    font-size       : var(--grid-header-button-font-size);
+    font-weight     : var(--grid-header-button-font-weight);
+    justify-content : center;
+    overflow        : hidden;
+    padding         : 0 8px;
+    text-overflow   : ellipsis;
+    user-select     : none;
+    white-space     : nowrap;
+}
+
+// The proxy lifts off the row: framed and shadowed, so the dragged group reads apart from the cells it passes
+.neo-dragproxy.neo-grid-header-group-cell {
+    border    : 1px solid var(--grid-header-button-border-right-color);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, .3);
+    cursor    : grabbing;
 }
