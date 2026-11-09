@@ -174,7 +174,7 @@ test.describe('Neo.grid.Container header groups', () => {
  */
 const groupCells = groupRow => groupRow.vdom.cn.map(part => ({
     region: part.cls[1].replace('neo-grid-header-group-part-', ''),
-    cells : part.cn[0].cn.map(cell => ({
+    cells : part.cn.filter(node => node.role === 'columnheader').map(cell => ({
         text    : cell.text,
         colindex: cell['aria-colindex'],
         colspan : cell['aria-colspan'],
@@ -211,9 +211,10 @@ test.describe('Neo.grid.header.GroupRow', () => {
             {dataField: 'b', width: 100}
         ]);
 
-        await expect.poll(() => grid.headerWrapper.groupRow?.vdom.cn[0]?.cn[0]?.cn[0]?.style.width).toBe('220px');
+        await expect.poll(() => grid.headerWrapper.groupRow?.vdom.cn[0]?.cn[1]?.style.width).toBe('220px');
 
-        // Each part clips a track as wide as its region's columns, so the centre one can scroll with the grid
+        // Each part holds an empty track as wide as its region's columns, so the centre one scrolls as far as the
+        // leaves, and its cells sit beside the track in the part itself
         expect(grid.headerWrapper.groupRow.vdom.cn.map(part => [part.id, part.cn[0].style.width])).toEqual([
             [grid.getGroupHeaderPartId('start'),  '320px'],
             [grid.getGroupHeaderPartId('center'), '270px']
@@ -236,7 +237,7 @@ test.describe('Neo.grid.header.GroupRow', () => {
               partId     = grid.getGroupHeaderPartId('center'),
               part       = () => groupRow.vdom.cn.find(item => item.id === partId);
 
-        await expect.poll(() => part()?.cn[0]?.cn.length).toBe(1);
+        await expect.poll(() => part()?.cn.filter(node => node.role === 'columnheader').length).toBe(1);
 
         // The main-thread scroll sync moved the centre part, and onScrollCapture recorded where it landed
         groupRow.onScrollCapture({target: {id: partId}, scrollLeft: 300, scrollTop: 0});

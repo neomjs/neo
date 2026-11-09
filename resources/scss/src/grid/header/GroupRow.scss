@@ -13,9 +13,9 @@
         position  : relative;
     }
 
+    // Empty: its width gives the part its region's scroll extent, past the last group's cell
     .neo-grid-header-group-track {
-        height  : 100%;
-        position: relative;
+        height: 100%;
     }
 
     .neo-grid-header-group-cell {
