@@ -313,6 +313,8 @@ class Toolbar extends BaseToolbar {
     }
 
     /**
+     * @summary Creates the column drag zone. The group row's cells in this region drag through it too, so it
+     * re-projects them once the zone exists.
      * @param {Object} config
      */
     createSortZone(config) {
@@ -324,7 +326,9 @@ class Toolbar extends BaseToolbar {
             scrollLeft         : me.scrollLeft
         });
 
-        super.createSortZone(config)
+        super.createSortZone(config);
+
+        me.gridContainer?.headerWrapper?.groupRow?.project()
     }
 
     /**
