@@ -136,6 +136,28 @@ test.describe('Neo.draggable.grid.header.toolbar.SortZone', () => {
         expect(side(undefined)).toBe(0)
     });
 
+    test('a move before the gesture\'s own boundary arrives never walks a header to its group\'s edge (#20626)', async () => {
+        const walks = [],
+              zone  = {
+                  boundaryContainerRect: null,
+                  groupOverflow        : () => 1,
+                  isScrolling          : false,
+                  itemRects            : null,
+                  moveToGroupEdge      : side => walks.push(side),
+                  owner                : {dragResortable: true}
+              },
+              move  = () => SortZone.prototype.onDragMove.call(zone, {clientX: 900, clientY: 10});
+
+        // The start still waits on the main thread: the pointer past the edge switches nothing yet
+        await move();
+        expect(walks).toEqual([]);
+
+        // The gesture's boundary has arrived: the next move walks
+        zone.boundaryContainerRect = {bottom: 40, left: 0, right: 800, top: 0};
+        await move();
+        expect(walks).toEqual([1])
+    });
+
     test('past its group\'s edge, a grouped header walks to that edge\'s slot and stops there (#20626)', () => {
         // Q1 holds slots 0 to 2, Q2 slots 3 to 5
         const switches = [],
