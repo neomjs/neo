@@ -179,6 +179,18 @@ test.describe('buildScripts/util/claimResponse', () => {
             expect(decideReply({comment: late, comments: [firstClaim, late], issue: gfiIssue(), repoUrl: REPO_URL})).toContain("You're first in line")
         });
 
+        test(`any later comment from the claimant keeps the claim: the ${CLAIM_WINDOW_DAYS} days run from their latest word`, () => {
+            const
+                claim    = comment('slow-claimant', '2026-10-31T10:00:00Z', "I'd like to work on this."),
+                progress = comment('slow-claimant', '2026-11-07T10:00:00Z', 'Implementation is complete; tests are in progress.'),
+                second   = comment('newcomer', '2026-11-08T10:00:00Z', "I'd like to work on this."),
+                silent   = comment('newcomer', '2026-11-14T10:00:01Z', "I'd like to work on this.");
+
+            expect(isClaim(progress.body)).toBe(false);
+            expect(decideReply({comment: second, comments: [claim, progress, second], issue: gfiIssue(), candidates: CANDIDATES, repoUrl: REPO_URL})).toContain('This one is taken: [slow-claimant](https://github.com/slow-claimant) asked first.');
+            expect(decideReply({comment: silent, comments: [claim, progress, silent], issue: gfiIssue(), repoUrl: REPO_URL})).toContain("You're first in line")
+        });
+
         test("the claimant's own open pull request holds nothing against them", () => {
             const reply = decideReply({comment: firstClaim, comments: [firstClaim], issue: gfiIssue(), openPullRequests: [{number: 19200, author: 'first-claimant', repository: 'neomjs/neo'}], repoUrl: REPO_URL});
 

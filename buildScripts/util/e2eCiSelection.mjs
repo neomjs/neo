@@ -109,6 +109,7 @@ export const RUN_PATHS = [
     'test/playwright/e2e/workstation/WorkstationReclaimEmbodimentNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationReopenedPopupReturnNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationResidentCardSizingNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationResetSurvivesReloadNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationRootEdgeCornerNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationSplitterGridGeometryNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationStackReturnSplitNL.spec.mjs',
@@ -121,6 +122,7 @@ export const RUN_PATHS = [
     'test/playwright/e2e/workstation/WorkstationTabRestoreNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationTearOutLateReleaseNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationTearOutSourceContinuityNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationTopologyGroupsNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationTourActivationNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationTransferIntoVesselHeaderNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationTwoRootsDragNL.spec.mjs',
@@ -166,14 +168,6 @@ export const LOCAL_ONLY = [{
         'neural-link/CreateComponentMultiWindow.spec.mjs',
         'neural-link/CreateInstance.spec.mjs',
         'workstation/WorkstationPerspectivesNL.spec.mjs'
-    ]
-}, {
-    kind  : 'cause',
-    reason: 'They cold-boot the Workstation in a second browser context and bind it by its App Worker id (`connectToApp(workerId)`), and the off-socket adapter reaches only the fixture\'s own page',
-    owner : '#20614',
-    specs : [
-        'workstation/WorkstationResetSurvivesReloadNL.spec.mjs',
-        'workstation/WorkstationTopologyGroupsNL.spec.mjs'
     ]
 }];
 

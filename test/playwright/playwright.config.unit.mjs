@@ -1,6 +1,9 @@
-import {defineConfig}  from '@playwright/test';
-import path            from 'path';
-import {fileURLToPath} from 'url';
+import {defineConfig}             from '@playwright/test';
+import path                       from 'path';
+import {fileURLToPath}            from 'url';
+import {assertInstallMatchesLock} from '../../buildScripts/util/check-installed-dependencies.mjs';
+
+assertInstallMatchesLock();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);

@@ -40,6 +40,11 @@ updates:
     schedule:
       interval: cron
       cronjob: "30 7 * * *"
+    # The same exemption for the Skills workflows this repository calls at a release tag
+    # (`neomjs/neo-agent-skills/.github/workflows/<file>.yml`): without it, each tag waits three days.
+    cooldown:
+      default-days: 3
+      exclude: ["neomjs/neo-agent-skills*"]
     groups:
       actions:
         patterns: ["*"]

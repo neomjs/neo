@@ -288,6 +288,45 @@ test.describe('Neo.draggable.container.SortZone', () => {
         expect(sortZone.dragProxy).toBeNull()
     });
 
+    test('a move during the next drag start waits for that gesture\'s boundary, and finds its rects in owner space (#20626)', async () => {
+        await new Promise(resolve => setTimeout(resolve, 10));
+        sortZone = container.sortZone;
+
+        const start = {path: [{id: 'btnA', cls: ['neo-draggable'], rect: {left: 0, top: 0, width: 100, height: 100}}]};
+
+        // The owner, then btnA, btnB and btnD side by side
+        Container.prototype.getDomRect = ids => Promise.resolve(ids.map((id, i) => new Rectangle(i && (i - 1) * 100, 0, i ? 100 : 500, 100)));
+
+        // A finished gesture: its boundary must not open the next one's move gate
+        await sortZone.onDragStart(start);
+        await sortZone.onDragEnd({});
+
+        const configs = Promise.withResolvers();
+
+        Neo.main.addon.DragDrop.setConfigs = () => configs.promise;
+        sortZone.adjustProxyRectToParent   = (rect, parentRect) => {rect.x -= parentRect.x + 20};
+
+        const starting = sortZone.onDragStart(start);
+
+        await expect.poll(() => sortZone.itemRects).not.toBeNull();
+        expect(sortZone.itemRects[1].x, 'published rects are already in owner space').toBe(80);
+
+        // The offsets are still 0 and the main thread has not answered: a move this far down would switch btnA past btnB
+        await sortZone.onDragMove({clientX: 50, clientY: 500});
+
+        expect(sortZone.currentIndex).toBe(sortZone.startIndex);
+        expect(container.items[0].wrapperStyle?.left ?? null, 'the item the proxy clones carries no position').toBeNull();
+
+        configs.resolve({boundaryContainerRect: {bottom: 100, left: 0, right: 300, top: 0}});
+        await starting;
+
+        expect(sortZone.dragElementSnapshot.style?.left ?? null).toBeNull();
+        expect(sortZone.sortableItems[1].wrapperStyle.left, 'the lift writes the converted rect').toBe('80px');
+
+        await sortZone.onDragEnd({});
+        expect(sortZone.boundaryContainerRect).toBeNull()
+    });
+
     test('an overdrag step the zone refuses ends the auto-scroll loop instead of re-polling it', async () => {
         await new Promise(resolve => setTimeout(resolve, 10));
         sortZone = container.sortZone;

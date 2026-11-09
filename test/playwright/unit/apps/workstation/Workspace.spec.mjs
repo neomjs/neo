@@ -4584,3 +4584,229 @@ test.describe('Workstation statusModule seam (#20264)', () => {
         }
     })
 });
+
+test.describe('Workstation refused popup open guidance (#19537)', () => {
+    test.beforeEach(() => {
+        TransactionManager.bind({windowId: Neo.config.windowId, workspaceKey: 'main'})
+    });
+
+    test.afterEach(() => {
+        let bound;
+
+        while ((bound = TransactionManager.findByWindow(Neo.config.windowId))) {
+            TransactionManager.retireGroup(bound.groupId)
+        }
+    });
+
+    const windowMetrics = () => ({
+        innerHeight: 700,
+        innerWidth : 1200,
+        outerHeight: 760,
+        outerWidth : 1200,
+        screen     : {availHeight: 1080, availLeft: 0, availTop: 0, availWidth: 1920},
+        screenLeft : 10,
+        screenTop  : 20
+    });
+
+    const browserBootstrap = () => ({
+        defaultTheme: 'neo-theme-neo-dark',
+        schemes     : {
+            'neo-theme-neo-dark' : 'dark',
+            'neo-theme-neo-light': 'light'
+        },
+        shell: false
+    });
+
+    test('refused drag tear-out and explicit pop-out show non-modal guidance without mutating the document, deduplicate repeated refusals, and clear on a subsequent granted open', async () => {
+        const
+            workspace          = Neo.create(Workspace, {theme: 'neo-theme-neo-dark', windowId: Neo.config.windowId}),
+            originalGetByPath  = Neo.Main.getByPath,
+            originalWindowData = Neo.Main.getWindowData,
+            originalWindowOpen = Neo.Main.windowOpen,
+            snapshotBefore     = WorkspaceDocument.clone(workspace.dockModel),
+            dragEvents         = [],
+            sortZone           = {
+                endWindowDrag  : () => dragEvents.push('end'),
+                startWindowDrag: () => dragEvents.push('start'),
+                windowId       : workspace.windowId
+            };
+        let allowOpen = false;
+
+        Neo.Main.getWindowData = async () => windowMetrics();
+        Neo.Main.getByPath     = async () => browserBootstrap();
+        Neo.Main.windowOpen    = async () => allowOpen;
+
+        try {
+            const
+                guidance = workspace.getReference('popup-guidance'),
+                host     = workspace.getReference('dock-host'),
+                provider = workspace.getStateProvider(),
+                chrome   = readTabChrome(workspace),
+                heavyTab = chrome.get('heavy-tabs').tab;
+
+            expect(guidance.hidden).toBe(true);
+            expect(guidance.floating).toBe(false);
+            expect(guidance.role).toBe('status');
+            expect(workspace.popupRefusalGuidance).toEqual({message: null, visible: false});
+
+            const dragAdmitted = await workspace.onDockTearOutExit({
+                itemId    : 'alerts',
+                proxyRect : {height: 36, width: 140, x: 40, y: 60},
+                sortZone,
+                sourceRect: {height: 320, width: 480, x: 40, y: 60}
+            });
+
+            expect(dragAdmitted).toBe(false);
+            expect(workspace.lastVesselOpen).toMatchObject({itemId: 'alerts', stage: 'windowOpen-false'});
+            expect(dragEvents).toEqual(['end']);
+            expect(workspace.tearOutHandlers.activeVessel).toBeNull();
+            expect(workspace.dockModel).toEqual(snapshotBefore);
+            expect(workspace.getPopupStates()).toEqual([]);
+            expect(workspace.popupRefusalGuidance).toEqual({
+                message: Workspace.POPUP_REFUSAL_MESSAGE,
+                visible: true
+            });
+            expect(provider.getData('popupGuidance')).toEqual({
+                message: Workspace.POPUP_REFUSAL_MESSAGE,
+                visible: true
+            });
+            expect(guidance.hidden).toBe(false);
+            expect(guidance.text).toBe(Workspace.POPUP_REFUSAL_MESSAGE);
+
+            const popOutResult = await workspace.onDockHeaderAction({
+                action      : 'pop-out',
+                dockNodeId  : 'heavy-tabs',
+                tabContainer: heavyTab
+            });
+
+            expect(popOutResult).toEqual({
+                document: snapshotBefore,
+                errors  : ['Dock pop-out was refused by the host vessel seam']
+            });
+            expect(workspace.dockModel).toEqual(snapshotBefore);
+            expect(host.items.filter(item => item.reference === 'popup-guidance')).toHaveLength(1);
+            expect(guidance.hidden).toBe(false);
+            expect(guidance.text).toBe(Workspace.POPUP_REFUSAL_MESSAGE);
+
+            workspace.revealRailItem('graph');
+            const railResult = await workspace.popOutRailItem('graph');
+
+            expect(railResult).toEqual({
+                document: snapshotBefore,
+                errors  : ['Dock pop-out was refused by the host vessel seam']
+            });
+            expect(workspace.findDockRail('graph').revealMachine.revealedItemId).toBe('graph');
+
+            allowOpen = true;
+            dragEvents.length = 0;
+
+            const retryAdmitted = await workspace.onDockTearOutExit({
+                itemId    : 'alerts',
+                proxyRect : {height: 36, width: 140, x: 40, y: 60},
+                sortZone,
+                sourceRect: {height: 320, width: 480, x: 40, y: 60}
+            });
+
+            expect(retryAdmitted).toBe(true);
+            expect(workspace.lastVesselOpen).toMatchObject({itemId: 'alerts', stage: 'granted'});
+            expect(dragEvents).toEqual(['start']);
+            expect(workspace.popupRefusalGuidance).toEqual({message: null, visible: false});
+            expect(provider.getData('popupGuidance')).toEqual({message: null, visible: false});
+            expect(guidance.hidden).toBe(true);
+            expect(guidance.text).toBe('')
+        } finally {
+            Neo.Main.getByPath     = originalGetByPath;
+            Neo.Main.getWindowData = originalWindowData;
+            Neo.Main.windowOpen    = originalWindowOpen;
+            workspace.destroy()
+        }
+    });
+
+    test('Electron shells, thrown errors, stale generations, and close refusals never emit browser popup-setting guidance or query window-management', async () => {
+        const
+            workspace          = Neo.create(Workspace, {theme: 'neo-theme-neo-dark', windowId: Neo.config.windowId}),
+            originalGetByPath  = Neo.Main.getByPath,
+            originalWindowData = Neo.Main.getWindowData,
+            originalWindowOpen = Neo.Main.windowOpen,
+            originalClose      = Neo.Main.windowClose,
+            getByPathCalls     = [];
+        let bootstrapReply = browserBootstrap(),
+            winDataReply   = windowMetrics(),
+            openBehavior   = () => false;
+
+        Neo.Main.getWindowData = async () => winDataReply;
+        Neo.Main.getByPath     = async data => {
+            getByPathCalls.push(data.path);
+            return bootstrapReply()
+        };
+        Neo.Main.windowOpen    = async () => openBehavior();
+        Neo.Main.windowClose   = async () => false;
+
+        try {
+            const guidance = workspace.getReference('popup-guidance');
+
+            for (const shellBootstrap of [
+                () => ({...browserBootstrap(), shell: true}),
+                () => ({...browserBootstrap(), shell: 'electron'}),
+                () => ({...browserBootstrap(), neoShell: {}}),
+                () => ({...browserBootstrap(), userAgent: 'Mozilla/5.0 Electron/35.1.0'})
+            ]) {
+                bootstrapReply = shellBootstrap;
+
+                const opened = await workspace.openTearOutVessel({
+                    itemId   : 'alerts',
+                    proxyRect: {height: 320, width: 480, x: 40, y: 60}
+                });
+
+                expect(opened).toBeNull();
+                expect(workspace.lastVesselOpen.stage).toBe('windowOpen-false');
+                expect(workspace.popupRefusalGuidance).toEqual({message: null, visible: false});
+                expect(guidance.hidden).toBe(true)
+            }
+
+            bootstrapReply = () => {
+                throw new Error('WorkstationBootstrap unavailable')
+            };
+
+            expect(await workspace.openTearOutVessel({
+                itemId   : 'alerts',
+                proxyRect: {height: 320, width: 480, x: 40, y: 60}
+            })).toBeNull();
+            expect(workspace.lastVesselOpen.stage).toBe('threw');
+            expect(workspace.popupRefusalGuidance).toEqual({message: null, visible: false});
+            expect(guidance.hidden).toBe(true);
+
+            workspace.nativeWindows.sources.get(workspace.id).connections.set('workstation-vessel:alerts', {
+                generationToken: 'lineage-2',
+                itemId         : 'alerts',
+                windowId       : 'tear-live',
+                windowName     : 'tearout-alerts',
+                workspaceKey   : 'workstation-vessel:alerts'
+            });
+
+            await expect(workspace.closeTearOutVessel({
+                generationToken: 'lineage-1',
+                itemId         : 'alerts',
+                windowName     : 'tearout-alerts'
+            })).resolves.toBe(false);
+            expect(workspace.lastTearOutClose.stage).toBe('identity-refused');
+            expect(guidance.hidden).toBe(true);
+
+            await expect(workspace.closeTearOutVessel({
+                generationToken: 'lineage-2',
+                itemId         : 'alerts',
+                windowName     : 'tearout-alerts'
+            })).resolves.toBe(false);
+            expect(workspace.lastTearOutClose.stage).toBe('platform-refused');
+            expect(guidance.hidden).toBe(true);
+
+            expect(getByPathCalls.every(path => path === 'WorkstationBootstrap')).toBe(true)
+        } finally {
+            Neo.Main.getByPath     = originalGetByPath;
+            Neo.Main.getWindowData = originalWindowData;
+            Neo.Main.windowOpen    = originalWindowOpen;
+            Neo.Main.windowClose   = originalClose;
+            workspace.destroy()
+        }
+    })
+});

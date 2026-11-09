@@ -98,7 +98,10 @@ class Workspace extends VesselWorkspace {
          */
         stateProvider: {
             module: StateProvider,
-            data  : {tour: initialTourState},
+            data  : {
+                popupGuidance: {message: null, visible: false},
+                tour         : initialTourState
+            },
             stores: {
                 feed : {module: Feed},
                 scale: {module: Scale}
@@ -287,6 +290,16 @@ class Workspace extends VesselWorkspace {
             }, {
                 module   : DockDropIndicators,
                 reference: 'drop-indicators'
+            }, {
+                bind     : {
+                    hidden: data => !data.popupGuidance.visible,
+                    text  : data => data.popupGuidance.message || ''
+                },
+                cls      : ['workstation-popup-guidance'],
+                hidden   : true,
+                ntype    : 'component',
+                reference: 'popup-guidance',
+                role     : 'status'
             }],
             layout   : {ntype: 'fit'},
             reference: 'dock-host'
