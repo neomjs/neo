@@ -168,11 +168,23 @@ test.describe('Neo.draggable.grid.header.toolbar.SortZone', () => {
             await clamp();
             expect(sent.pop().boundaryContainerRect).toMatchObject({left: 50, right: 150, width: 100});
 
+            // Scrolled by 250, the toolbar shows 50 px of Q3, less than the 100 px proxy: the bound grows to the left,
+            // where Q3 continues under the toolbar's edge, and never into Q4
+            zone.scrollLeft = 250;
+            await clamp();
+            expect(sent.pop().boundaryContainerRect).toMatchObject({left: 0, right: 100, width: 100});
+
             // Q4 runs past the toolbar's right edge: the toolbar's edge bounds the proxy there
             zone.currentIndex = 4;
             zone.scrollLeft   = 0;
             await clamp();
             expect(sent.pop().boundaryContainerRect).toMatchObject({left: 350, right: 450});
+
+            // A toolbar ending at x 400 shows 50 px of Q4: the bound grows to the right, where Q4 continues
+            zone.boundaryContainerRect = {bottom: 90, height: 40, left: 50, right: 400, top: 50};
+            zone.currentIndex          = 3;
+            await clamp();
+            expect(sent.pop().boundaryContainerRect).toMatchObject({left: 350, right: 450, width: 100});
 
             // An ungrouped header keeps the toolbar's boundary
             zone.getHeaderGroupId = () => null;

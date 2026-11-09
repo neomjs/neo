@@ -282,15 +282,25 @@ class SortZone extends BaseSortZone {
         let me      = this,
             bounds  = me.boundaryContainerRect,
             groupId = me.itemRects && bounds && me.getHeaderGroupId(me.currentIndex),
-            group, left, right;
+            group, groupLeft, groupRight, left, right, width;
 
         if (!groupId) {
             return
         }
 
-        group = me.itemRects.filter((rect, index) => me.getHeaderGroupId(index) === groupId);
-        left  = Math.max(bounds.left,  me.ownerRect.x - me.scrollLeft + Math.min(...group.map(rect => rect.x)));
-        right = Math.min(bounds.right, me.ownerRect.x - me.scrollLeft + Math.max(...group.map(rect => rect.x + rect.width)));
+        group      = me.itemRects.filter((rect, index) => me.getHeaderGroupId(index) === groupId);
+        groupLeft  = me.ownerRect.x - me.scrollLeft + Math.min(...group.map(rect => rect.x));
+        groupRight = me.ownerRect.x - me.scrollLeft + Math.max(...group.map(rect => rect.x + rect.width));
+        width      = me.itemRects[me.currentIndex].width;
+        left       = Math.max(bounds.left,  groupLeft);
+        right      = Math.min(bounds.right, groupRight);
+
+        // A group scrolled nearly out of view can show less of itself than the proxy is wide: the bound then grows
+        // toward where the group continues, so the proxy reaches past the toolbar's edge but never past its group
+        if (right - left < width) {
+            left  = Math.max(groupLeft, right - width);
+            right = Math.min(groupRight, left + width)
+        }
 
         await Neo.main.addon.DragDrop.setConfigs({
             appName              : me.appName,

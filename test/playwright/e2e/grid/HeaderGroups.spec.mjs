@@ -382,6 +382,53 @@ test.describe('examples/grid/headerGroups', () => {
         await page.mouse.up()
     });
 
+    test('a group scrolled almost out of view keeps the proxy inside the group, past the toolbar\'s edge if it must (#20626)', async ({page}) => {
+        await page.setViewportSize({width: 1280, height: 720});
+
+        // Scrolled by 400, Mar shows only a sliver at the centre toolbar's left edge: less of Q1 than its proxy is wide
+        await expect(async () => {
+            await page.evaluate(() => {
+                const scroller = document.querySelector('.neo-grid-horizontal-scrollbar');
+                scroller.scrollLeft = 400;
+                scroller.dispatchEvent(new Event('scroll'))
+            });
+            expect(await page.evaluate(() => document.querySelectorAll('.neo-grid-header-toolbar')[1].scrollLeft)).toBe(400)
+        }).toPass();
+
+        const toolbar = await page.locator('.neo-grid-header-toolbar').nth(1).boundingBox(),
+              mar     = await page.locator('.neo-grid-header-toolbar .neo-grid-header-button', {hasText: 'Mar'}).first().boundingBox(),
+              shown   = mar.x + mar.width - toolbar.x,
+              y       = mar.y + mar.height / 2,
+              edges   = () => page.evaluate(() => {
+                  const proxy = document.querySelector('.neo-dragproxy')?.getBoundingClientRect(),
+                        q1    = [...document.querySelectorAll('.neo-grid-header-group-cell')]
+                            .find(cell => cell.textContent === 'Q1').getBoundingClientRect();
+
+                  return proxy && {left: Math.round(proxy.left), q1Left: Math.round(q1.left), q1Right: Math.round(q1.right), right: Math.round(proxy.right)}
+              });
+
+        expect(shown, 'the toolbar shows less of Q1 than one header').toBeLessThan(mar.width);
+
+        let nudge = 0;
+
+        await page.mouse.move(toolbar.x + shown / 2, y);
+        await page.mouse.down();
+        await page.mouse.move(toolbar.x + 5, y, {steps: 10});
+
+        // The main thread applies a bound on the next move: each try nudges the pointer by a pixel
+        await expect(async () => {
+            await page.mouse.move(toolbar.x + 4 + nudge++ % 2, y);
+
+            const {left, q1Left, q1Right, right} = await edges();
+
+            expect(right, 'the proxy stays out of Q2').toBeLessThanOrEqual(q1Right);
+            expect(left).toBeGreaterThanOrEqual(q1Left)
+        }).toPass({timeout: 5000});
+
+        await page.keyboard.press('Escape');
+        await page.mouse.up()
+    });
+
     test('an ungrouped header passes a whole group, so the group stays in one piece', async ({page}) => {
         await showAllHeaders(page);
 
