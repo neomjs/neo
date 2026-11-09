@@ -75,7 +75,8 @@ class Workspace extends VesselWorkspace {
         /**
          * The shipped arrangement, declared rather than supplied: `construct` keeps supplying the saved
          * main document, so `dock.perspective.modified` reads live-versus-shipped while a torn-out
-         * pane stays owned by its vessel.
+         * pane stays owned by its vessel. A cold boot without a saved main document starts from
+         * `shipped`, and {@link #resetTopology} restores it, so a subclass declares its own here.
          * @member {Object} perspectives={shipped: initialDocument}
          */
         perspectives: {shipped: initialDocument},
@@ -159,11 +160,11 @@ class Workspace extends VesselWorkspace {
     /**
      * @summary Returns the workspace to the arrangement the app ships with, in one undoable commit.
      *
-     * @description The shipped document is committed for `main`, and every other workspace gives back
-     * the panes `initialDocument` owns — in the SAME write. Both halves matter:
+     * @description The shipped document, the captured `shipped` perspective, is committed for `main`,
+     * and every other workspace gives back the panes it owns — in the SAME write. Both halves matter:
      *
      * - **Give the panes back, do not just restore main.** A pane torn into a window is still listed
-     *   by `initialDocument`, so restoring that document beside an untouched popup would leave it
+     *   by the shipped document, so restoring that document beside an untouched popup would leave it
      *   owned twice — an invalid topology `Persistence` refuses to capture, making a reset that
      *   reports success unpersistable.
      * - **A workspace left with nothing becomes the empty edge-root, not a pruned tree.** Detaching
@@ -197,9 +198,10 @@ class Workspace extends VesselWorkspace {
             return {errors: ['the main workspace is not registered'], reset: false, transactionId: null}
         }
 
-        const shipped  = new Set(Object.keys(initialDocument.items ?? {})),
-              next     = {[Workspace.MAIN_WORKSPACE_ID]: WorkspaceDocument.clone(initialDocument)},
-              refusals = [];
+        const shippedDocument = me.perspectiveSelection.document('shipped'),
+              shipped         = new Set(Object.keys(shippedDocument.items ?? {})),
+              next            = {[Workspace.MAIN_WORKSPACE_ID]: shippedDocument},
+              refusals        = [];
 
         for (const [workspaceKey, document] of Object.entries(workspaces)) {
             if (workspaceKey === Workspace.MAIN_WORKSPACE_ID) continue;
@@ -259,7 +261,7 @@ class Workspace extends VesselWorkspace {
 
         let me = this;
 
-        me.dockModel         = WorkspaceDocument.clone(me.initialTopology?.workspaces[Workspace.MAIN_WORKSPACE_ID] ?? initialDocument);
+        me.dockModel         = WorkspaceDocument.clone(me.initialTopology?.workspaces[Workspace.MAIN_WORKSPACE_ID] ?? me.perspectives.shipped);
         me.dockService       = Neo.create(DockService, {});
         me.perspectiveStore  = Neo.create(PerspectiveLibrary, {declaredPerspectives: () => me.declaredPerspectives()});
         me.topologyLibrary ??= Neo.create(TopologyLibrary, {

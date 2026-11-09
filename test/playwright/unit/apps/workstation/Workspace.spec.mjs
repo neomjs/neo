@@ -209,7 +209,8 @@ test('Reset awaits bound popup projections without waiting for a headless owner 
         getPopupStates              : () => [
             {host: {windowId: 'bound-popup', refreshPromise: live.promise}},
             {host: {windowId: null, refreshPromise: headless.promise}}
-        ]
+        ],
+        perspectiveSelection        : {document: () => WorkspaceDocument.clone(initialDocument)}
     }).then(result => {settled = true; return result});
 
     try {
