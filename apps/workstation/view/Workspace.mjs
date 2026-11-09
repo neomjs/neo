@@ -716,7 +716,7 @@ class Workspace extends VesselWorkspace {
      * @summary Flips the workspace theme, revealed from the pointer where the browser supports it.
      *
      * The flip happens AFTER the awaited call, deliberately: `startViewTransition()` resolves once
-     * the transition has started, and `delay` is the window this method has to mutate the DOM
+     * the browser has captured the old state, and `delay` is the window this method has to mutate the DOM
      * before the new state is captured. Flipping first would let the transition capture the
      * already-changed DOM as both states and the reveal would play over no visible difference.
      *

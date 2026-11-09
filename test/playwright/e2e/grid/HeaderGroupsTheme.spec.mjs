@@ -2,6 +2,19 @@ import {expect, test} from '../../fixtures.mjs';
 
 const asArray = value => Array.isArray(value) ? value : [value];
 
+test.beforeEach(async ({page}) => {
+    await page.addInitScript(() => {
+        const start = document.startViewTransition?.bind(document);
+        if (start) {
+            document.startViewTransition = callback => {
+                const transition = start(callback);
+                window.headerGroupsTransition = transition;
+                return transition
+            }
+        }
+    })
+});
+
 /**
  * @summary The standalone Header Groups demo switches modern skins on its existing grid without changing columns.
  */
@@ -26,6 +39,7 @@ test('Header Groups exposes modern light and dark themes without changing its gr
         await expect.poll(() => app.callMethod(view.id, 'getTheme', [])).toBe(theme);
         await expect(page.locator('.neo-examples-grid-header-groups')).toHaveClass(new RegExp(theme));
         await expect(page.getByRole('button', {name: nextButton, exact: true})).toBeVisible();
+        await page.evaluate(() => window.headerGroupsTransition?.finished);
         expect(asArray(await app.queryComponent({className: 'Neo.grid.Container'}, ['id']))[0].id).toBe(grid.id);
         expect(await columns()).toEqual(before);
         await expect.poll(() => page.locator('.neo-grid-container').first().evaluate(node =>
@@ -63,6 +77,7 @@ for (const theme of ['neo-theme-neo-light', 'neo-theme-neo-dark']) {
             await expect(page.getByRole('button', {name: 'Light theme', exact: true})).toBeVisible()
         }
         await expect.poll(() => app.callMethod(view.id, 'getTheme', [])).toBe(theme);
+        await page.evaluate(() => window.headerGroupsTransition?.finished);
         // Boot inherits the body's theme; the switch sets an explicit viewport theme.
         await expect(page.locator(theme === 'neo-theme-neo-light' ? 'body' : '.neo-examples-grid-header-groups'))
             .toHaveClass(new RegExp(theme));
@@ -129,3 +144,76 @@ for (const theme of ['neo-theme-neo-light', 'neo-theme-neo-dark']) {
         )
     })
 }
+
+test('the theme reveal grows from the click with the old skin outside the circle', async ({page}, testInfo) => {
+    await page.goto('/examples/grid/headerGroups/index.html');
+    await expect(page.getByRole('button', {name: 'Dark theme', exact: true})).toBeVisible();
+    expect(await page.evaluate(() => typeof document.startViewTransition)).toBe('function');
+    await page.evaluate(() => {
+        const animate = document.documentElement.animate.bind(document.documentElement),
+              start   = document.startViewTransition.bind(document),
+              color   = () => getComputedStyle(document.querySelector('.neo-examples-grid-header-groups')).backgroundColor;
+        window.headerGroupsReveal = {calls: [], effects: []};
+        document.startViewTransition = callback => start(() => {
+            window.headerGroupsReveal.beforeCapture = color();
+            return callback()
+        });
+        document.addEventListener('click', event => {
+            window.headerGroupsReveal.pointer = {x: event.clientX, y: event.clientY}
+        }, {capture: true});
+        document.documentElement.animate = (keyframes, options) => {
+            const effect = animate(keyframes, options);
+            if (options.pseudoElement?.startsWith('::view-transition-')) {
+                window.headerGroupsReveal.calls.push({keyframes, options});
+                window.headerGroupsReveal.effects.push(effect);
+                effect.pause();
+                effect.currentTime = 250
+            }
+            return effect
+        }
+    });
+
+    const root       = page.locator('.neo-examples-grid-header-groups'),
+          background = () => root.evaluate(node => getComputedStyle(node).backgroundColor.match(/\d+/g).map(Number));
+
+    for (const [label, nextLabel] of [['Dark theme', 'Light theme'], ['Light theme', 'Dark theme']]) {
+        const button = page.getByRole('button', {name: label, exact: true}),
+              box    = await button.boundingBox(),
+              old    = await background();
+        await button.click({position: {x: 16, y: box.height / 2}});
+        await expect(page.getByRole('button', {name: nextLabel, exact: true})).toBeVisible();
+        await page.waitForFunction(() => window.headerGroupsReveal.calls.length === 2);
+        const {call, pointer} = await page.evaluate(() => ({
+            call   : window.headerGroupsReveal.calls.find(item => item.options.pseudoElement === '::view-transition-new(root)'),
+            pointer: window.headerGroupsReveal.pointer
+        }));
+        const origin = call.keyframes[0].clipPath.match(/at ([\d.]+)% ([\d.]+)%/),
+              size   = page.viewportSize();
+        expect(Number(origin[1]) * size.width / 100).toBeCloseTo(pointer.x, 1);
+        expect(Number(origin[2]) * size.height / 100).toBeCloseTo(pointer.y, 1);
+
+        const current = await background(),
+              shot    = await page.screenshot({scale: 'css'}),
+              pixels  = await page.evaluate(async ({image, points}) => {
+                  const img = new Image();
+                  img.src = `data:image/png;base64,${image}`;
+                  await img.decode();
+                  const canvas = document.createElement('canvas');
+                  canvas.width = img.width;
+                  canvas.height = img.height;
+                  const context = canvas.getContext('2d');
+                  context.drawImage(img, 0, 0);
+                  return points.map(([x, y]) => [...context.getImageData(x, y, 1, 1).data].slice(0, 3))
+              }, {image: shot.toString('base64'), points: [[8, 8], [size.width - 8, 8]]});
+        const captured = await page.evaluate(() => window.headerGroupsReveal.beforeCapture.match(/\d+/g).map(Number));
+        await testInfo.attach(`${label}-reveal.png`, {body: shot, contentType: 'image/png'});
+        expect(captured, 'the old theme remains when native capture enters its update callback').toEqual(old);
+        expect(current).not.toEqual(old);
+        expect(pixels, 'old skin outside the circle; new skin inside it').toEqual([old, current]);
+        await page.evaluate(async () => {
+            window.headerGroupsReveal.effects.forEach(effect => effect.finish());
+            await window.headerGroupsTransition.finished;
+            window.headerGroupsReveal = {calls: [], effects: []}
+        })
+    }
+});
