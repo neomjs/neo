@@ -21,22 +21,25 @@ const MAIN = Workspace.MAIN_WORKSPACE_ID, ITEM = 'alerts';
 
 /**
  * @summary A saved topology whose main document lost one pane to that pane's vessel.
+ * @param {Object} [options={}]
+ * @param {Object} [options.document=initialDocument] The shipped document the saved topology departs from
+ * @param {String} [options.itemId=ITEM] The torn-out pane
  * @returns {{savedMain: Object, vessel: Object, vesselId: String}}
  */
-function tornOutTopology() {
+function tornOutTopology({document=initialDocument, itemId=ITEM}={}) {
     const scratch  = Neo.create(Workspace, {windowId: Neo.config.windowId}),
-          vesselId = Workspace.vesselWorkspaceId(ITEM),
-          detached = Operations.applyOperation(WorkspaceDocument.clone(initialDocument), {operation: 'detachItem', itemId: ITEM});
+          vesselId = Workspace.vesselWorkspaceId(itemId),
+          detached = Operations.applyOperation(WorkspaceDocument.clone(document), {operation: 'detachItem', itemId});
 
     try {
         expect(detached.errors).toEqual([]);
         scratch.dockModel = detached.document;
 
-        const owner = Operations.transferItem(detached.document, scratch.createVesselWorkspaceDocument(ITEM), {
-            itemId           : ITEM,
+        const owner = Operations.transferItem(detached.document, scratch.createVesselWorkspaceDocument(itemId), {
+            itemId,
             sourceWorkspaceId: MAIN,
             targetWorkspaceId: vesselId,
-            target           : {operation: 'addTab', tabsNodeId: Workspace.vesselTabsNodeId(ITEM), index: 0}
+            target           : {operation: 'addTab', tabsNodeId: Workspace.vesselTabsNodeId(itemId), index: 0}
         });
 
         expect(owner.errors).toEqual([]);
@@ -152,6 +155,86 @@ test('the topology library refuses a record that takes the shipped perspective n
 
         expect(errors).toEqual([]);
         expect(workspace.topologyLibrary.save(topology).errors.join()).toContain('names a declared perspective')
+    } finally {
+        workspace.destroy();
+        TransactionManager.retireGroup(binding.groupId)
+    }
+});
+
+// A subclass whose declared shipped arrangement adds one tab to the engine's
+const BOARD        = 'board',
+      boardShipped = WorkspaceDocument.clone(initialDocument);
+
+boardShipped.items[BOARD] = {title: 'Work Board'};
+boardShipped.nodes['heavy-tabs'].items.push(BOARD);
+
+class BoardWorkspace extends Workspace {
+    static config = {
+        className   : 'Test.Unit.Workstation.Perspective.BoardWorkspace',
+        perspectives: {shipped: boardShipped}
+    }
+}
+
+BoardWorkspace = Neo.setupClass(BoardWorkspace);
+
+test('a subclass that declares its own shipped document boots to it, unmodified (#20661)', () => {
+    const workspace = Neo.create(BoardWorkspace, {windowId: Neo.config.windowId});
+
+    try {
+        expect(workspace.dockModel.items[BOARD], 'no saved topology: the boot starts from the declared document').toEqual({title: 'Work Board'});
+        expect(workspace.getState('dock.perspective')).toEqual({active: 'shipped', modified: false, pending: null})
+    } finally {
+        workspace.destroy()
+    }
+});
+
+test('Reset to default restores the declared shipped document, not the engine\'s (#20661)', async () => {
+    const binding   = TransactionManager.bind({windowId: Neo.config.windowId, workspaceKey: MAIN}),
+          workspace = Neo.create(BoardWorkspace, {topologyGroupId: binding.groupId, windowId: Neo.config.windowId});
+
+    try {
+        const resized = Operations.applyOperation(WorkspaceDocument.clone(workspace.dockModel), {
+            operation: 'resizeSplit', splitNodeId: 'split-main', sizes: [0.25, 0.75]
+        });
+
+        expect(resized.errors).toEqual([]);
+        expect((await workspace.commitDockTopologyWorkspaces({[MAIN]: resized.document},
+            {name: 'resize', provenance: {origin: 'human'}})).errors).toEqual([]);
+        await workspace.refreshPromise;
+        expect(workspace.getState('dock.perspective').modified, 'the user left the shipped arrangement').toBe(true);
+
+        expect(await workspace.resetTopology()).toMatchObject({errors: [], reset: true});
+        expect(workspace.dockModel.items[BOARD], 'the reset brings the declared tab back').toEqual({title: 'Work Board'});
+        expect(workspace.getState('dock.perspective')).toEqual({active: 'shipped', modified: false, pending: null})
+    } finally {
+        workspace.destroy();
+        TransactionManager.retireGroup(binding.groupId)
+    }
+});
+
+test('Reset to default takes a declared pane back from its vessel (#20661)', async () => {
+    const {savedMain, vessel, vesselId} = tornOutTopology({document: boardShipped, itemId: BOARD}),
+          binding                       = TransactionManager.bind({windowId: Neo.config.windowId, workspaceKey: MAIN}),
+          workspace                     = Neo.create(BoardWorkspace, {
+              initialTopology: {workspaces: {[MAIN]: savedMain, [vesselId]: vessel}},
+              topologyGroupId: binding.groupId,
+              windowId       : Neo.config.windowId
+          });
+
+    try {
+        await TransactionManager.write({
+            cause       : 'cold-hydrate',
+            changes     : [{workspaceKey: MAIN, input: savedMain}, {workspaceKey: vesselId, input: vessel}],
+            cursorAction: 'preserve',
+            descriptor  : {operation: 'hydrateTopology', layoutId: 'default'},
+            groupId     : binding.groupId,
+            provenance  : {source: 'cold-hydrate'}
+        });
+        await workspace.refreshPromise;
+
+        expect(await workspace.resetTopology()).toMatchObject({errors: [], reset: true});
+        expect(workspace.dockModel.items[BOARD], 'main holds the pane again').toEqual({title: 'Work Board'});
+        expect(workspace.workspaceSet.getParticipant(vesselId).getDocument().items[BOARD], 'its vessel gave it back').toBeUndefined()
     } finally {
         workspace.destroy();
         TransactionManager.retireGroup(binding.groupId)
