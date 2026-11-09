@@ -920,7 +920,7 @@ class Store extends Collection {
                 for (const name of properties) {
                     const field = me.model.getField(name), value = item[name], type = field?.type?.toLowerCase();
                     if (!field || !Object.hasOwn(item, name) || (value === undefined && Object.hasOwn(field, 'defaultValue')) ||
-                        (type === 'date' && !(value instanceof Date)) ||
+                        (type === 'date' && value !== null && !(value instanceof Date)) ||
                         (value && ((type === 'string' || type === 'html') && typeof value !== 'string' ||
                             (type === 'int' || type === 'integer') && !Number.isInteger(value) ||
                             type === 'float' && typeof value !== 'number')) ||

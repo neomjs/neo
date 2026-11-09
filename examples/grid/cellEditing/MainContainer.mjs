@@ -139,7 +139,7 @@ class MainContainer extends ConfigurationViewport {
                 }
             }, {
                 dataField: 'randomDate',
-                renderer : ({value}) => new Intl.DateTimeFormat('default').format(value),
+                renderer : ({value}) => value ? new Intl.DateTimeFormat('default').format(value) : '',
                 text     : 'Random Date',
 
                 editor: {

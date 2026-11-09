@@ -518,6 +518,19 @@ test.describe('Grid cell editing on the public example', () => {
         expect(await pickerInserts(page), 'no picker node, not even for a moment').toBe(0)
     });
 
+    test('date: a cleared editor commits no date, and the cell renders empty (#20660)', async ({page}) => {
+        const recordId = await recordIdOf(page, 'rwaters');
+
+        await cell(page, 'randomDate', recordId).dblclick();
+        await expect.poll(() => editingIn(page, 'randomDate', recordId)).toBe(true);
+
+        await page.locator(INPUT).fill('');
+        await page.keyboard.press('Enter');
+        await expect(page.locator(EDITOR)).toHaveCount(0);
+
+        await expect(cell(page, 'randomDate', recordId), 'no date, not 1970-01-01').toHaveText('')
+    });
+
     test('date: Enter after a picker visit commits, shows no picker, and hands focus back to the View', async ({page}) => {
         const recordId = await recordIdOf(page, 'rwaters');
 

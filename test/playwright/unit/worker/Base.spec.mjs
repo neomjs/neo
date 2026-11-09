@@ -42,16 +42,20 @@ class DeadPortWorker extends WorkerBase {
 Neo.setupClass(DeadPortWorker);
 
 test.describe('worker.Base#promiseMessage dead-port rejection (#17894)', () => {
-    let worker;
+    let previousWorker, worker;
 
     test.beforeEach(() => {
+        previousWorker = Neo.currentWorker;
         // No ports at all: every keyed route resolves nothing, sendMessage returns undefined
         // without throwing (the contract ReplyLoss.spec pins), and the dead-port branch fires.
         worker = Neo.create(DeadPortWorker, {workerId: 'dead-port-test'})
     });
 
     test.afterEach(() => {
-        worker.destroy?.()
+        worker.destroy?.();
+        // construct() made the stub Neo.currentWorker and destroy() emptied it: a pending timer from
+        // another spec in this process (DomEvent's 50ms mount) would read its deleted fields.
+        Neo.currentWorker = previousWorker
     });
 
     test('the rejection is a typed Error naming the destination and action', async () => {
