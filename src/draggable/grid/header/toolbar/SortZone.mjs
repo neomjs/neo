@@ -224,13 +224,17 @@ class SortZone extends BaseSortZone {
             columns    = buttons.map(button => body.getColumnCells(button.dataField)),
             offsets    = buttons.map((button, index) => me.itemRects[me.startIndex + index].x - me.itemRects[me.startIndex].x),
             config     = await super.createDragProxy(data, false),
-            rect       = await grid.getDomRect(),
             moveDeltas = [],
             header, rows;
 
+        const [rect, bodyRect] = await Promise.all([grid.getDomRect(), body.getDomRect()]);
+
         config.cls = ['neo-grid-container', me.owner.getTheme()];
 
-        config.style.height = `${rect.height - 2}px`; // minus border-bottom & border-top
+        // The proxy ends with the rows: inside the grid's bottom border, or at the last row when fewer rows than fit.
+        // It starts at the dragged element's top, which is the leaf header's for a leaf in a grouped grid.
+        config.style.height =
+            `${Math.min(rect.bottom - 1, bodyRect.top + body.getContentHeight() - body.scrollTop) - me.dragElementRect.y}px`;
 
         me.movedComponents = [];
 

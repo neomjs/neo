@@ -31,6 +31,9 @@
 
 .neo-grid-header-toolbar {
     &.neo-is-dragging {
+        // The slot a dragged column vacates reads as an empty header cell, not as the generic toolbar beneath it
+        background-color: var(--grid-header-button-background-color);
+
         .neo-button {
             border-right: 1px solid var(--grid-container-border-color); // Would be missing for the last button otherwise
             opacity     : var(--grid-header-button-opacity-is-dragging);
