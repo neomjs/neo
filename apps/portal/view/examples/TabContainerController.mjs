@@ -26,7 +26,7 @@ class TabContainerController extends Component {
      * The initial order mirrors `TabContainer.items` and the left-docked visual order.
      * @member {String[]} tabItems
      */
-    tabItems = ['dist_prod', 'dist_esm', 'dist_dev', 'devmode']
+    tabItems = ['dist_prod', 'dist_esm', 'dist_dev', 'devmode', 'grid']
 
     /**
      *

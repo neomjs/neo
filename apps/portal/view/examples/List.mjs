@@ -29,6 +29,11 @@ class List extends BaseList {
          */
         baseUrl: 'https://neomjs.com/',
         /**
+         * Selects an explicit destination on the canonical example record.
+         * @member {String} catalogMode='devmode'
+         */
+        catalogMode: 'devmode',
+        /**
          * The env of the example links.
          * Valid values are 'development', 'dist/development', 'dist/production'
          * @member {String} environment='development'
@@ -102,6 +107,7 @@ class List extends BaseList {
     }
 
     /**
+     * @summary Renders the catalog's feature and observation beside the real example links.
      * @param {Object} record
      * @param {Number} index
      */
@@ -115,8 +121,15 @@ class List extends BaseList {
                     {cls: ['far', 'fa-window-restore']}
                 ]},
                 {cls: ['neo-full-size', 'preview-image'], flag: `image-${record.id}`, style: imageStyle},
+                {cls: ['portal-example-placeholder'], removeDom: !!record.image, cn: [
+                    {cls: ['fa', 'fa-table']},
+                    {tag: 'span', text: record.component}
+                ]},
                 {cls: ['neo-absolute', 'neo-item-bottom-position'], cn: [
                     {...me.createLink(record)},
+                    {cls: ['portal-example-feature'], removeDom: !record.feature, text: record.feature},
+                    {tag: 'p', cls: ['portal-example-look-for'], removeDom: !record.lookFor, text: record.lookFor},
+                    {tag: 'p', cls: ['portal-example-scope'], removeDom: !record.scope, text: record.scope},
                     {cls: ['neo-top-20'], cn: [
                         {...me.createSourceLink(record)},
                         {cls: ['neo-inner-content'], cn: [
@@ -130,23 +143,24 @@ class List extends BaseList {
     }
 
     /**
-     *
+     * @summary Resolves the selected build mode without deriving external destinations from source paths.
      * @param {Object} record
      * @returns {Object}
      */
     createLink(record) {
-        let externalLink = record.url.startsWith('http'),
+        let url          = record.urls[this.catalogMode],
+            externalLink = url?.startsWith('http'),
 
         vdom = {
             tag : 'a',
             cls : ['neo-title'],
-            href: record.url,
+            href: url,
             text: record.name.replace(List.nameRegEx, '$1')
         };
 
         // We can use a shorter syntax for pointing examples to neomjs.com, but not all examples have to be there.
         if (!externalLink) {
-            vdom.href = this.baseUrl + record.url
+            vdom.href = url ? this.baseUrl + url : null
         }
 
         // Do not open multi-window examples inside a new browser window, in case the environment is the same.
@@ -159,34 +173,36 @@ class List extends BaseList {
     }
 
     /**
-     *
+     * @summary Preserves an example's external or build-specific source destination.
      * @param {Object} record
      * @returns {Object}
      */
     createSourceLink(record) {
-        let vdom = {
+        let sourceUrl = record.sourceUrls?.[this.catalogMode] || record.sourceUrl,
+            vdom      = {
             tag   : 'a',
             cls   : ['fab', 'fa-github', 'neo-github-image'],
-            href  : record.sourceUrl,
+            href  : sourceUrl,
             target: '_blank'
         };
 
         // We can use a shorter syntax for pointing examples to neomjs/neo repo, but not all examples have to be there.
-        if (!record.sourceUrl.startsWith('http')) {
-            vdom.href = this.sourceBaseUrl + record.sourceUrl
+        if (!sourceUrl.startsWith('http')) {
+            vdom.href = this.sourceBaseUrl + sourceUrl
         }
 
         return vdom
     }
 
     /**
-     * @param record
+     * @summary Uses a typographic gradient cover when the example has no published screenshot.
+     * @param {Object} record
      * @returns {{backgroundImage: string}}
      */
     getBackgroundImageStyle(record) {
         return {
             backgroundImage: [
-                `url('${this.imageBasePath}/${record.image}'),`,
+                record.image ? `url('${this.imageBasePath}/${record.image}'),` : '',
                 'linear-gradient(',
                 'var(--portal-examples-list-gradient-start),',
                 'var(--portal-examples-list-gradient-end)',
@@ -210,11 +226,12 @@ class List extends BaseList {
     }
 
     /**
+     * @summary Retains intentional per-mode exclusions and hides entries with no target in this mode.
      * @param {Object} record
      * @returns {Boolean}
      */
     isHiddenItem(record) {
-        if (record.hidden) {
+        if (record.hidden || record.hiddenIn.includes(this.catalogMode) || !record.urls[this.catalogMode]) {
             return true
         }
 
@@ -224,18 +241,20 @@ class List extends BaseList {
     }
 
     /**
+     * @summary Resolves the stable catalog identity and preloads each following card's own cover.
      * @param {Object} data
      */
     onIntersect(data) {
         let me          = this,
             {store}     = me,
-            record      = store.get(parseInt(data.data.recordId)),
+            record      = store.get(data.data.recordId),
             i           = store.indexOf(record),
             len         = Math.min(i + me.preloadImages, store.getCount()),
             needsUpdate = false,
             node;
 
         for (; i < len; i++) {
+            record = store.getAt(i);
             node = VDomUtil.getByFlag(me.vdom, `image-${record.id}`);
 
             if (!node.style) {
