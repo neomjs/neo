@@ -311,6 +311,18 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * @summary The `dataField` of every column that has one, in display order: locked start, center, locked end.
+     * {@link #getCellValues} reads these columns by default, so `values[row][column]` maps back to a column.
+     * @member {String[]} dataFields
+     * @readonly
+     */
+    get dataFields() {
+        let me = this;
+
+        return [...me.lockedStartColumns, ...me.centerColumns, ...me.lockedEndColumns].map(column => column.dataField).filter(Boolean)
+    }
+
+    /**
      * @member {Boolean} hasLockedColumns=false
      * @readonly
      */
@@ -1397,6 +1409,58 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * @summary Reads cells as values: one array per record, one value per column.
+     *
+     * The grid's one value walk: `toCsv()` serializes it, and a reader outside the grid (a clipboard, a spreadsheet
+     * writer, an agent) calls it for the records and columns it needs, so every reader gets the same value for the
+     * same cell. A reader that needs another value extends the walk, and never walks the records itself.
+     *
+     * `mode: 'export'` yields the column's `exportRenderer({record, value})` when it has one, else the record's
+     * value. `undefined` becomes `null`, and an object or array that is not a `Date` becomes its JSON text, so a
+     * serializer formats only strings, numbers, booleans, dates and `null`. `mode: 'raw'` yields the record's value
+     * as {@link Neo.grid.column.Base#getRecordValue} reads it, untouched.
+     *
+     * @example
+     *     grid.getCellValues();                                          // every record × every column
+     *     grid.getCellValues({dataFields: ['name'], records: [record]}); // [['Ada']]
+     *
+     * @param {Object}                     [options={}]
+     * @param {String[]}                   [options.dataFields=this.dataFields] The columns to read, in the order given.
+     *     A dataField no column carries yields `undefined` in `raw` mode and `null` in `export` mode
+     * @param {String}                     [options.mode='export'] 'export' or 'raw'
+     * @param {Neo.data.Record[]|Object[]} [options.records=this.store.items] The rows to read, in the order given
+     * @returns {Array[]} `values[rowIndex][columnIndex]`
+     */
+    getCellValues({dataFields=this.dataFields, mode='export', records=this.store.items}={}) {
+        if (mode !== 'export' && mode !== 'raw') {
+            throw new Error(`Neo.grid.Container#getCellValues: unknown mode '${mode}'`)
+        }
+
+        // Resolved against the region arrays: they hold the live columns, also one whose `dataField` changed at runtime
+        let me      = this,
+            all     = [...me.lockedStartColumns, ...me.centerColumns, ...me.lockedEndColumns],
+            columns = dataFields.map(dataField => all.find(column => column.dataField === dataField));
+
+        return records.map(record => columns.map(column => {
+            let value = column?.getRecordValue(record);
+
+            if (mode === 'raw') {
+                return value
+            }
+
+            if (column?.exportRenderer) {
+                value = column.exportRenderer({record, value})
+            }
+
+            if (value && typeof value === 'object' && !(value instanceof Date)) {
+                value = JSON.stringify(value)
+            }
+
+            return value ?? null
+        }))
+    }
+
+    /**
      * Recomputes the region-grouped column arrays from the global `columns` collection. These
      * arrays are the engine's region+index oracle — they must refresh on EVERY column-order
      * mutation, including within-region drag reorders, which mutate the collection via
@@ -1766,9 +1830,9 @@ class GridContainer extends BaseContainer {
      * @summary The store's current records as CSV, over the grid's columns in display order.
      *
      * Rows follow the store's current filter and sort, rows a buffered grid has not rendered included: the store
-     * holds the data, and the rendered rows are only a window onto it. A cell is `record.get(dataField)`, the value a
-     * grid row reads, or the return value of the column's `exportRenderer({record, value})`. The header line holds
-     * each column's header text.
+     * holds the data, and the rendered rows are only a window onto it. A cell is its {@link #getCellValues} `export`
+     * value: `record.get(dataField)`, the value a grid row reads, or the return value of the column's
+     * `exportRenderer({record, value})`. The header line holds each column's header text.
      *
      * Quoting follows RFC 4180: a field containing the delimiter, a double quote, CR or LF is quoted with its inner
      * quotes doubled, and lines end in CRLF. A string cell starting with `=`, `+`, `-`, `@`, a tab or CR gets a
@@ -1786,19 +1850,17 @@ class GridContainer extends BaseContainer {
      * @returns {String}
      */
     toCsv({delimiter=',', escapeFormulas=true, header=true}={}) {
-        let me      = this,
-            columns = [...me.lockedStartColumns, ...me.centerColumns, ...me.lockedEndColumns].filter(column => column.dataField),
-            lines   = [];
+        let me           = this,
+            {dataFields} = me,
+            lines        = [];
 
         const field = value => {
-            if (value === null || value === undefined) {
+            if (value === null) {
                 return ''
             }
 
             if (value instanceof Date) {
                 value = value.toISOString()
-            } else if (typeof value === 'object') {
-                value = JSON.stringify(value)
             } else if (escapeFormulas && typeof value === 'string' && /^[=+\-@\t\r]/.test(value)) {
                 value = `'${value}`
             }
@@ -1809,15 +1871,11 @@ class GridContainer extends BaseContainer {
         };
 
         if (header) {
-            lines.push(columns.map(column => field(me.headerWrapper?.getButton(column.dataField)?.text ?? column.dataField)).join(delimiter))
+            lines.push(dataFields.map(dataField => field(me.headerWrapper?.getButton(dataField)?.text ?? dataField)).join(delimiter))
         }
 
-        me.store.items.forEach(record => {
-            lines.push(columns.map(column => {
-                let value = typeof record.get === 'function' ? record.get(column.dataField) : Neo.ns(column.dataField, false, record);
-
-                return field(column.exportRenderer ? column.exportRenderer({record, value}) : value)
-            }).join(delimiter))
+        me.getCellValues({dataFields}).forEach(row => {
+            lines.push(row.map(field).join(delimiter))
         });
 
         return lines.join('\r\n')
