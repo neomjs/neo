@@ -634,9 +634,8 @@ test.describe('Neo.main.draggable.sensor.Pointer — touch', () => {
         sensor.attach();
 
         documentRef.dispatchEvent(pointerDown({pointerType: 'touch'}));
-        await new Promise(resolve => setTimeout(resolve, 40));
 
-        expect(seen['drag:start']).toHaveLength(1);
+        await expect.poll(() => seen['drag:start'].length).toBe(1);
         expect(sensor.dragging).toBe(true);
 
         documentRef.dispatchEvent(pointerUp(10, 10, {pointerType: 'touch'}));

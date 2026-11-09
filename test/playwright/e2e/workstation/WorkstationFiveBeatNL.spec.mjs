@@ -1844,6 +1844,7 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             colorScheme : 'light',
             defaultTheme: 'neo-theme-neo-dark',
             schemes     : {'neo-theme-neo-dark': 'dark', 'neo-theme-neo-light': 'light'},
+            shell       : false,
             theme       : 'neo-theme-neo-light'
         });
         expect(popupBirth.metaContents, 'the final document must own exactly one active-theme scheme')
