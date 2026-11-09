@@ -1,0 +1,191 @@
+/**
+ * @file test/playwright/unit/grid/CellValues.spec.mjs
+ * @summary Pins `Neo.grid.Container#getCellValues()` and `#dataFields`: the grid's one value walk over any set of
+ * records and columns, its `export` mode (a column's `exportRenderer`, scalars only) and its `raw` mode (the
+ * record's value, untouched).
+ *
+ * @see Neo.grid.Container#getCellValues
+ */
+import {setup} from '../../setup.mjs';
+
+setup({
+    neoConfig: {
+        allowVdomUpdatesInTests: true,
+        unitTestMode           : true,
+        useDomApiRenderer      : true,
+        useVdomWorker          : false
+    },
+    appConfig: {
+        name             : 'GridCellValuesTest',
+        vnodeInitialising: false
+    }
+});
+
+import {test, expect} from '@playwright/test';
+import Neo            from '../../../../src/Neo.mjs';
+import * as core      from '../../../../src/core/_export.mjs';
+import GridContainer  from '../../../../src/grid/Container.mjs';
+import Store          from '../../../../src/data/Store.mjs';
+
+// Imported for their side effects: the vdom rig `initVnode()` needs, and the instance manager `Neo.get` needs.
+import '../../../../src/manager/Instance.mjs';
+import '../../../../src/vdom/Helper.mjs';
+import '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
+
+const appName = 'GridCellValuesTest';
+
+/**
+ * @param {Object[]} data
+ * @param {Object[]} fields
+ * @returns {Neo.data.Store}
+ */
+const createStore = (data, fields) => Neo.create(Store, {
+    keyProperty: 'id',
+    data,
+    model      : {fields: [{name: 'id', type: 'Integer'}, ...fields]}
+});
+
+/**
+ * @param {Neo.data.Store} store
+ * @param {Object[]} columns
+ * @returns {Promise<Neo.grid.Container>}
+ */
+const createGrid = async (store, columns) => {
+    const grid = Neo.create(GridContainer, {appName, columns, height: 300, rowHeight: 40, store, useInternalId: false, width: 600});
+
+    await grid.initVnode();
+    grid.mounted = true;
+    await grid.timeout(50);
+
+    // the harness has no geometry to derive the row pool from: three rendered rows, whatever the store holds
+    grid.body.set({availableRows: 3, availableWidth: 600, containerWidth: 600});
+    await grid.timeout(20);
+
+    return grid
+};
+
+test.describe('Neo.grid.Container#getCellValues', () => {
+    let grid, store;
+
+    test.afterEach(() => {
+        grid?.destroy();
+        store?.destroy();
+        grid = store = null
+    });
+
+    test('dataFields and the default walk run start, center, end over the store\'s current order', async () => {
+        store = createStore(Array.from({length: 40}, (_, i) => ({id: i, a: `a${i}`, b: `b${i}`, c: i})),
+                            [{name: 'a', type: 'String'}, {name: 'b', type: 'String'}, {name: 'c', type: 'Integer'}]);
+        grid  = await createGrid(store, [
+            {dataField: 'b', text: 'Bee', locked: 'end'},
+            {dataField: 'c', text: 'Cee'},
+            {dataField: 'a', text: 'Ay',  locked: 'start'}
+        ]);
+
+        store.sorters = [{property: 'c', direction: 'DESC'}];
+        store.filters = [{property: 'c', operator: '>=', value: 38}];
+
+        expect(grid.dataFields).toEqual(['a', 'c', 'b']);
+
+        // rows the grid never rendered are part of the walk: the store holds the data
+        expect(grid.getCellValues()).toEqual([['a39', 39, 'b39'], ['a38', 38, 'b38']])
+    });
+
+    test('reads exactly the records and columns given, in the order given', async () => {
+        store = createStore([{id: 1, name: 'Ada', address: {city: 'Berlin'}}, {id: 2, name: 'Bo', address: {city: 'Paris'}}],
+                            [{name: 'name', type: 'String'}, {name: 'address', type: 'Object'}]);
+        grid  = await createGrid(store, [{dataField: 'name', text: 'Name'}, {dataField: 'address.city', text: 'City'}]);
+
+        const ada = store.get(1),
+              bo  = store.get(2);
+
+        store.filters = [{property: 'name', operator: '===', value: 'Bo'}];
+
+        expect(grid.getCellValues()).toEqual([['Bo', 'Paris']]);
+
+        // a record the store's filter hides, a reversed column order, and a plain row a store never held
+        expect(grid.getCellValues({
+            dataFields: ['address.city', 'name'],
+            records   : [bo, ada, {name: 'Cy', address: {city: 'Oslo'}}]
+        })).toEqual([['Paris', 'Bo'], ['Berlin', 'Ada'], ['Oslo', 'Cy']]);
+
+        expect(grid.getCellValues({dataFields: ['name'], records: []})).toEqual([])
+    });
+
+    test('export mode applies exportRenderer and yields scalars only', async () => {
+        const since = new Date(Date.UTC(2026, 10, 5));
+
+        store = createStore([{id: 1, revenue: 10, since, active: true, tags: ['a', 'b'], address: {city: 'Berlin'}, note: null}], [
+            {name: 'revenue', type: 'Number'},
+            {name: 'since',   type: 'Date'},
+            {name: 'active',  type: 'Boolean'},
+            {name: 'tags',    type: 'Array'},
+            {name: 'address', type: 'Object'},
+            {name: 'note',    type: 'String'}
+        ]);
+        grid  = await createGrid(store, [
+            {dataField: 'revenue', text: 'Revenue'},
+            {dataField: 'since',   text: 'Since'},
+            {dataField: 'active',  text: 'Active'},
+            {dataField: 'tags',    text: 'Tags'},
+            {dataField: 'address', text: 'Address'},
+            {dataField: 'note',    text: 'Note', exportRenderer: ({record, value}) => value ?? `none for ${record.get('id')}`}
+        ]);
+
+        const [row] = grid.getCellValues();
+
+        expect(row[0]).toBe(10);
+        expect(row[1]).toBeInstanceOf(Date);
+        expect(row[1].toISOString()).toBe('2026-11-05T00:00:00.000Z');
+        expect(row[2]).toBe(true);
+        expect(row[3]).toBe('["a","b"]');
+        expect(row[4]).toBe('{"city":"Berlin"}');
+        expect(row[5]).toBe('none for 1');
+
+        // a value the row does not hold, and a renderer returning nothing, both read as null
+        grid.columns.get('note').exportRenderer = () => undefined;
+
+        expect(grid.getCellValues({dataFields: ['revenue', 'note'], records: [{note: 'x'}]})).toEqual([[null, null]])
+    });
+
+    test('raw mode returns the record\'s value untouched and ignores exportRenderer', async () => {
+        const row = {name: 'Cy', address: {city: 'Oslo'}};
+
+        store = createStore([{id: 1, name: 'Ada', address: {city: 'Berlin'}}],
+                            [{name: 'name', type: 'String'}, {name: 'address', type: 'Object'}]);
+        grid  = await createGrid(store, [
+            {dataField: 'name',        text: 'Name', exportRenderer: () => 'exported'},
+            {dataField: 'address',     text: 'Address'},
+            {dataField: 'address.zip', text: 'Zip'}
+        ]);
+
+        const values = grid.getCellValues({mode: 'raw', records: [row, store.get(1)]});
+
+        expect(values[0][0]).toBe('Cy');
+        expect(values[0][1]).toBe(row.address);
+        expect(values[0][2]).toBeUndefined();
+        expect(values[1][0]).toBe('Ada');
+        expect(values[1][1]).toEqual({city: 'Berlin'})
+    });
+
+    test('a column pointed at another field at runtime is read under its new dataField', async () => {
+        store = createStore([{id: 1, first: 'one', second: 'two'}], [{name: 'first', type: 'String'}, {name: 'second', type: 'String'}]);
+        grid  = await createGrid(store, [{dataField: 'first', text: 'Value'}]);
+
+        grid.centerColumns[0].dataField = 'second';
+
+        expect(grid.dataFields).toEqual(['second']);
+        expect(grid.getCellValues()).toEqual([['two']]);
+        expect(grid.toCsv()).toBe('Value\r\ntwo')
+    });
+
+    test('an unknown mode throws, and a dataField no column carries holds its position', async () => {
+        store = createStore([{id: 1, name: 'Ada'}], [{name: 'name', type: 'String'}]);
+        grid  = await createGrid(store, [{dataField: 'name', text: 'Name'}]);
+
+        expect(() => grid.getCellValues({mode: 'display'})).toThrow('unknown mode \'display\'');
+
+        expect(grid.getCellValues({dataFields: ['id', 'name']})).toEqual([[null, 'Ada']]);
+        expect(grid.getCellValues({dataFields: ['id', 'name'], mode: 'raw'})).toEqual([[undefined, 'Ada']])
+    })
+});
