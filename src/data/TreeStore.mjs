@@ -408,7 +408,7 @@ class TreeStore extends Store {
                     for (let i = 0; i < len; i++) {
                         const property = sortProperties[i];
                         if (!Object.hasOwn(item, property)) {
-                            item[property] = me.resolveField(item, property)
+                            me.resolveField(item, property)
                         }
                     }
                 }
@@ -608,11 +608,11 @@ class TreeStore extends Store {
      * @fires filter
      */
     filter() {
-        let me = this;
-        const activeFilters = me.filters.filter(f => !f.disabled && f.value !== null);
+        let   me            = this;
+        const activeFilters = me.filters.filter(f => f.effective);
 
-        // 1. Soft hydration (Turbo Mode)
-        if (!me.autoInitRecords && me.model?.hasComplexFields && activeFilters.length > 0) {
+        // 1. Soft hydration (raw items in Turbo Mode or unhydrated tree nodes)
+        if (me.model?.hasComplexFields && activeFilters.length > 0) {
             const filterProperties = activeFilters.flatMap(f => f.fields || (f.property === null ? [] : [f.property])),
                   len              = filterProperties.length;
 
@@ -622,7 +622,7 @@ class TreeStore extends Store {
                         for (let i = 0; i < len; i++) {
                             const property = filterProperties[i];
                             if (!Object.hasOwn(item, property)) {
-                                item[property] = me.resolveField(item, property)
+                                me.resolveField(item, property)
                             }
                         }
                     }
@@ -638,12 +638,14 @@ class TreeStore extends Store {
         } else {
             me._keptNodes = new Set();
 
+            const evaluators = activeFilters.map(filter => filter.createEvaluator());
+
             const evaluateNode = (node, ancestorMatched) => {
                 let key = me.getKey(node);
 
                 let matchesSelf = true;
-                for (let i = 0; i < activeFilters.length; i++) {
-                    if (activeFilters[i].isFiltered(node)) {
+                for (let i = 0; i < evaluators.length; i++) {
+                    if (evaluators[i](node)) {
                         matchesSelf = false;
                         break
                     }
@@ -890,9 +892,14 @@ class TreeStore extends Store {
             const siblings = me.#childrenMap.get(parentId);
 
             if (siblings) {
-                // We use the raw item's identity (=== item) to find it in the siblings array
-                // because the array currently holds the raw object reference.
-                const idx = siblings.indexOf(item);
+                // Identity finds the raw object in practice. A re-add replaces it in the Structural Layer while the
+                // visible layer keeps its own object, so the key scan heals that node too, as `#addChild()` does.
+                let idx = siblings.indexOf(item);
+
+                if (idx < 0) {
+                    idx = siblings.findIndex(sibling => me.getKey(sibling) === key)
+                }
+
                 if (idx > -1) {
                     siblings[idx] = record
                 }
@@ -1001,78 +1008,6 @@ class TreeStore extends Store {
     }
 
     /**
-     * Sorts an array of records/objects based on the Store's current sorters.
-     * Extracted from `Neo.collection.Base` to sort localized child arrays.
-     * @param {Array} arr The array to sort.
-     * @protected
-     */
-    sortArray(arr) {
-        let me = this,
-            {sorters, sortDirections, sortProperties} = me,
-            countSorters      = sortProperties.length || 0,
-            hasSortByMethod   = false,
-            hasTransformValue = false,
-            i, mappedItems, obj, sorter, sortProperty, sortValue, val1, val2;
-
-        sorters.forEach(key => {
-            if (key.sortBy)            hasSortByMethod   = true;
-            if (key.useTransformValue) hasTransformValue = true
-        });
-
-        if (hasSortByMethod) {
-            arr.sort((a, b) => {
-                i = 0;
-                for (; i < countSorters; i++) {
-                    sorter    = sorters[i];
-                    sortValue = sorter[sorter.sortBy ? 'sortBy' : 'defaultSortBy'](a, b);
-                    if (sortValue !== 0) return sortValue;
-                }
-                return 0
-            })
-        } else {
-            if (hasTransformValue) {
-                mappedItems = arr.map((item, index) => {
-                    obj = {index, original: item};
-                    i   = 0;
-                    for (; i < countSorters; i++) {
-                        if (sorters[i].useTransformValue) {
-                            obj[sortProperties[i]] = sorters[i].transformValue(item[sortProperties[i]])
-                        } else {
-                            obj[sortProperties[i]] = item[sortProperties[i]]
-                        }
-                    }
-                    return obj;
-                })
-            } else {
-                mappedItems = arr
-            }
-
-            mappedItems.sort((a, b) => {
-                i = 0;
-                for (; i < countSorters; i++) {
-                    sortProperty = sortProperties[i];
-                    val1         = a[sortProperty];
-                    val2         = b[sortProperty];
-
-                    if (val1 == null && val2 != null) return  1;
-                    if (val1 != null && val2 == null) return -1;
-                    if (val1 > val2) return  1 * sortDirections[i];
-                    if (val1 < val2) return -1 * sortDirections[i]
-                }
-                return 0
-            });
-
-            if (hasTransformValue) {
-                // Map the sorted mappedItems back into the original array in place
-                let sortedOriginals = mappedItems.map(el => el.original);
-                for (i = 0; i < arr.length; i++) {
-                    arr[i] = sortedOriginals[i]
-                }
-            }
-        }
-    }
-
-    /**
      * @summary The definitive mutation hook for hierarchical TreeStore data.
      *
      * Unlike a standard `Neo.collection.Base` which manages a single flat array, the `TreeStore`
@@ -1092,7 +1027,8 @@ class TreeStore extends Store {
      *   parents to recalculate `siblingCount` and `siblingIndex`. This trade-off guarantees O(1) reads
      *   during the `grid.Row` hot-path rendering.
      * - **Projection Delta:** Finally, the method calculates the delta of *visible* nodes and delegates
-     *   only those specific visual changes to `super.splice()`.
+     *   only those specific visual changes to `super.splice()`. A removal of the whole projection is delegated
+     *   in its numeric form, so clearing or reloading stays linear in the visible node count.
      *
      * @param {Number|null} index
      * @param {Number|Object[]} [removeCountOrToRemoveArray]
@@ -1149,8 +1085,9 @@ class TreeStore extends Store {
                     me.#allRecordsMap.delete(key);
                     me.#childrenMap.delete(key);
 
-                    // Track items that must be removed from the base Collection's flat array
-                    if (me.indexOf(node) > -1) {
+                    // Track items that must be removed from the base Collection's flat array.
+                    // The projection's key map answers visibility in O(1); `indexOf()` scans it per node.
+                    if (me.map.has(key)) {
                         visibleToRemove.push(node)
                     }
                 }
@@ -1316,8 +1253,14 @@ class TreeStore extends Store {
             }
         }
 
+        // A full removal (`clear()`, a reload) keeps the Collection's numeric form, which drops the projection in
+        // one pass. Handed over as an item array, the Collection would scan for each item's position.
+        if (index === 0 && removeCountOrToRemoveArray === me.count) {
+            return super.splice(0, me.count, visibleToAdd, silent)
+        }
+
         // Delegate to super.splice ONLY if the Projection Layer (visible items) actually changed.
-        if (visibleToRemove.length > 0 || visibleToAdd.length > 0 || index === 0 && removeCountOrToRemoveArray === me.count) {
+        if (visibleToRemove.length > 0 || visibleToAdd.length > 0) {
             return super.splice(insertIndex, visibleToRemove, visibleToAdd, silent)
         }
 
@@ -1352,7 +1295,7 @@ class TreeStore extends Store {
     }
 
     /**
-     * @summary Overrides `Collection.updateKey` to ensure TreeStore's structural maps remain perfectly synchronized.
+     * @summary Extends Store's key transaction to synchronize the tree's structural maps before edit notifications.
      *
      * In a standard Collection, updating a key just changes the primary lookup maps.
      * However, in a TreeStore, a node's key is critical for both the O(1) `#allRecordsMap` lookup
@@ -1363,8 +1306,9 @@ class TreeStore extends Store {
      * @param {Object|Neo.data.Record} item
      * @param {Number|String} newKey
      * @returns {Boolean} true if the key changed, false otherwise.
+     * @protected
      */
-    updateKey(item, newKey) {
+    updateKeyMaps(item, newKey) {
         let me = this,
             oldKey = me.getKey(item);
 
@@ -1373,7 +1317,7 @@ class TreeStore extends Store {
         }
 
         // 1. Update the base Collection layer (Projection maps & allItems)
-        super.updateKey(item, newKey);
+        super.updateKeyMaps(item, newKey);
 
         // 2. Heal #allRecordsMap
         if (me.#allRecordsMap.has(oldKey)) {

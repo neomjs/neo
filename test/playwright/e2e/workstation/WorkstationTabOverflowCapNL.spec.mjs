@@ -1,4 +1,5 @@
 import {test, expect} from '../../fixtures.mjs';
+import {popOut}       from '../utils/workstationPopOut.mjs';
 
 /**
  * @summary Whitebox E2E witness: an over-wide active tab is bounded at the overflow control's edge.
@@ -250,5 +251,175 @@ test.describe('Workstation — the active tab never runs beneath the overflow co
         });
 
         expect(pageErrors, 'no page errors during the overflow-cap journey').toEqual([])
+    });
+
+    test('a capped title in the right zone and in a 320-px popup clears its cap and ellipsis within one projection when room returns (#20081)', async ({neo, page, neuralLink}) => {
+        const pageErrors = [];
+
+        page.on('pageerror', error => {
+            let value = error == null ? '' : String(error.stack || error.message || error);
+            value && value !== 'undefined' && pageErrors.push(value)
+        });
+
+        await page.goto('/apps/workstation/index.html');
+        await page.waitForSelector('.workstation-dock-host', {timeout: 60000});
+        await page.waitForSelector('.neo-tab-overflow-control', {timeout: 60000});
+        await page.evaluate(() => document.fonts.ready);
+
+        const readId      = result => (Array.isArray(result) ? result[0] : result)?.id ?? null,
+              app         = await neuralLink.connectToApp('Workstation'),
+              wsId        = readId(await app.findInstances({className: 'Workstation.view.Workspace'}, ['id'])),
+              rightChrome = await app.callMethod(wsId, 'getTabChromeIdentity', ['right-top-tabs']),
+              scaleChrome = await app.callMethod(wsId, 'getTabChromeIdentity', ['scale-tabs']),
+              metricsId   = rightChrome?.buttons?.metrics ?? null,
+              scaleTabId  = Object.values(scaleChrome?.buttons || {})[0] ?? null;
+
+        expect(wsId, 'the Workspace must exist in the App Worker').toBeTruthy();
+
+        expect(metricsId, 'right-top-tabs projects the Metrics tab button').toBeTruthy();
+        expect(scaleTabId, 'scale-tabs projects a focusable tab button outside right-top-tabs').toBeTruthy();
+
+        const rightToolbarId = await page.evaluate(
+            id => document.getElementById(id)?.closest('.neo-tab-header-toolbar')?.id ?? null,
+            metricsId
+        );
+
+        expect(rightToolbarId, 'right-top-tabs owns a projected toolbar').toBeTruthy();
+
+        const rightPluginId = (await app.getComponent(rightToolbarId, ['plugins'])).plugins?.[0]?.id ?? null;
+
+        expect(rightPluginId, 'right-top-tabs toolbar owns an Overflow plugin').toBeTruthy();
+
+        // AC-3: Focus Metrics in the 14%-extent right zone ('right-top-tabs'). When the 5 focus-gated
+        // actions reveal alongside 'More tabs' (~133px total inside the ~185px right zone), only ~52px
+        // remains usable (< ~62px natural width), so Metrics is genuinely capped while focused.
+        await page.locator(`#${metricsId}`).click();
+        await app.callMethod(rightPluginId, 'whenProjectionIdle');
+
+        await expect.poll(
+            () => page.evaluate(id => {
+                const el = document.getElementById(id);
+                return {
+                    capped  : el?.classList.contains('neo-tab-overflow-capped') ?? false,
+                    maxWidth: el?.style.maxWidth || null
+                }
+            }, metricsId),
+            {
+                message: `AC-3: ${metricsId} in ${rightToolbarId} must be capped while right-top-tabs holds focus and its 6-action rail is revealed`,
+                timeout: 15000
+            }
+        ).toEqual({
+            capped  : true,
+            maxWidth: expect.stringMatching(/^\d+(\.\d+)?px$/)
+        });
+
+        // Let the focus-reveal ResizeObserver wave settle completely before moving focus away.
+        await page.waitForTimeout(100);
+        await app.callMethod(rightPluginId, 'whenProjectionIdle');
+
+        // Move focus to scale-tabs so right-top-tabs's focus-gated rail withdraws, returning ~151px usable (> ~62px).
+        await page.locator(`#${scaleTabId}`).click();
+        await app.callMethod(rightPluginId, 'whenProjectionIdle');
+
+        const metricsAfterWithdraw = await app.getComponent(metricsId, ['cls', 'maxWidth']);
+
+        expect(
+            metricsAfterWithdraw.cls,
+            'AC-3: Metrics clears neo-tab-overflow-capped within one projection after focus leaves right-top-tabs'
+        ).not.toContain('neo-tab-overflow-capped');
+        expect(
+            metricsAfterWithdraw.maxWidth,
+            'AC-3: Metrics restores maxWidth to null within one projection after focus leaves right-top-tabs'
+        ).toBe(null);
+
+        // AC-1: Pop out Commits into a 320-px-wide window.
+        const {popup} = await popOut({app, itemId: 'commits', page, workspaceId: wsId});
+
+        await popup.setViewportSize({height: 240, width: 320});
+        await popup.evaluate(() => document.fonts.ready);
+
+        const popupStage = await popup.evaluate(() => {
+            const toolbar = document.querySelector('.neo-tab-header-toolbar'),
+                  active  = toolbar?.querySelector('.neo-tab-header-button.pressed');
+
+            return {
+                activeId : active?.id ?? null,
+                toolbarId: toolbar?.id ?? null
+            }
+        });
+
+        expect(popupStage.toolbarId, 'the 320-px popup renders a tab header toolbar').toBeTruthy();
+        expect(popupStage.activeId, 'the 320-px popup renders a pressed tab button').toBeTruthy();
+
+        const popupPluginId = (await app.getComponent(popupStage.toolbarId, ['plugins'])).plugins?.[0]?.id ?? null;
+
+        expect(popupPluginId, 'the popup toolbar owns an Overflow plugin').toBeTruthy();
+
+        // Set a label (~263px natural width) that exceeds the focused 320-px strip (~224px usable with the
+        // 4-action popup rail revealed), while fitting both the 520-px widened popup (Arm 1) and the ~296-px
+        // unfocused 320-px strip once the 3 focus-gated actions withdraw (Arm 2).
+        await app.setProperties(popupStage.activeId, {text: 'Commits — live branch history and diff stream'});
+        await popup.locator(`#${popupStage.activeId}`).click();
+        await expect.poll(
+            () => popup.evaluate(id => document.getElementById(id)?.querySelectorAll(':scope > .neo-toolbar-action').length ?? 0, popupStage.toolbarId),
+            {message: 'focused popup toolbar renders its focus-gated action rail', timeout: 10000}
+        ).toBeGreaterThan(1);
+        await popup.waitForTimeout(100);
+        await app.callMethod(popupPluginId, 'project', [true]);
+        await app.callMethod(popupPluginId, 'whenProjectionIdle');
+
+        const cappedIn320  = await app.getComponent(popupStage.activeId, ['cls', 'maxWidth']),
+              naturalMap   = (await app.getComponent(popupPluginId, ['naturalWidths'])).naturalWidths || {},
+              naturalWidth = naturalMap[popupStage.activeId];
+
+        expect(cappedIn320.cls, `AC-1 stage: active tab (naturalWidth=${naturalWidth}) in 320-px focused popup carries neo-tab-overflow-capped`)
+            .toContain('neo-tab-overflow-capped');
+        expect(cappedIn320.maxWidth, 'AC-1 stage: maxWidth is capped below natural width in 320-px focused popup')
+            .toBeLessThan(naturalWidth);
+
+        // AC-1 Arm 2: Move focus so the popup toolbar's focus-gated rail withdraws (~224px -> ~296px usable > naturalWidth).
+        await app.setProperties(popupStage.toolbarId, {contextualActionsVisible: false});
+        await app.callMethod(popupPluginId, 'whenProjectionIdle');
+
+        const afterRailWithdraw = await app.getComponent(popupStage.activeId, ['cls', 'maxWidth']);
+
+        expect(
+            afterRailWithdraw.cls,
+            'AC-1 Arm 2: withdrawing the focus-gated rail in the 320-px popup removes neo-tab-overflow-capped within one projection'
+        ).not.toContain('neo-tab-overflow-capped');
+        expect(
+            afterRailWithdraw.maxWidth,
+            'AC-1 Arm 2: withdrawing the focus-gated rail in the 320-px popup restores maxWidth to null within one projection'
+        ).toBe(null);
+
+        // Re-focus in the 320-px popup so the 4-action rail reveals and caps the active tab again for Arm 1.
+        await app.setProperties(popupStage.toolbarId, {contextualActionsVisible: true});
+        await expect.poll(
+            () => popup.evaluate(id => document.getElementById(id)?.querySelectorAll(':scope > .neo-toolbar-action').length ?? 0, popupStage.toolbarId),
+            {message: 'focused 320-px popup toolbar renders its focus-gated action rail', timeout: 10000}
+        ).toBeGreaterThan(1);
+        await popup.waitForTimeout(100);
+        await app.callMethod(popupPluginId, 'project', [false]);
+        await app.callMethod(popupPluginId, 'whenProjectionIdle');
+
+        // Cross-bar cap provenance (Reconciler.reconcileTabChrome moving a capped tab button into a toolbar whose
+        // Overflow plugin has an empty appliedCaps Map) followed by Arm 1 (popup widened by 200 px, 320 -> 520 px).
+        await app.setProperties(popupPluginId, {appliedCaps: null});
+        await app.callMethod(popupPluginId, 'project', [true]);
+        await app.callMethod(popupPluginId, 'whenProjectionIdle');
+
+        await popup.setViewportSize({height: 240, width: 520});
+        await popup.waitForTimeout(100);
+        await app.callMethod(popupPluginId, 'whenProjectionIdle');
+
+        const afterWiden = await app.getComponent(popupStage.activeId, ['cls', 'maxWidth']);
+
+        expect(afterWiden.cls, 'AC-1 Arm 1: widening the popup by 200px (320 -> 520px) removes neo-tab-overflow-capped within one projection')
+            .not.toContain('neo-tab-overflow-capped');
+        expect(afterWiden.maxWidth, 'AC-1 Arm 1: widening the popup by 200px (320 -> 520px) restores maxWidth to null within one projection')
+            .toBe(null);
+
+        await popup.close();
+        expect(pageErrors, 'no page errors during the #20081 room-return witness').toEqual([])
     })
 });

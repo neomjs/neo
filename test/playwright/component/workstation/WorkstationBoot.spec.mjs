@@ -34,6 +34,11 @@ const DOCK_HOST = '.workstation-dock-host';
 /** The arriving side's fail-closed answer to a saved-window URL no owner can adopt. */
 const REFUSAL = 'This saved window is waiting for its original workspace.';
 
+/** The root surface's non-modal guidance when the browser refuses a popup open. */
+const
+    POPUP_GUIDANCE     = '.workstation-popup-guidance',
+    POPUP_REFUSAL_COPY = 'The browser could not open this window. Allow pop-ups for this site to use multi-window dragging and pop-out views.';
+
 /** The shipped pane the adoption arms move: its tab title, its pane class, and the vessel key the app mints for it. */
 const
     FEED_TITLE = 'Live Event Stream',
@@ -250,5 +255,77 @@ test.describe('workstation boot — the rendered outcome of each URL mode', () =
 
         expect(await page.locator(DOCK_HOST).count(),
             'the popout branch must not also mount the default host').toBe(0)
+    });
+
+    test('a refused popup open shows non-modal setup guidance without mutating the dock, deduplicates repeated refusals, and clears when a subsequent open is allowed (#19537)', async ({page, context}) => {
+        await page.goto(APP);
+        await page.waitForSelector(DOCK_HOST, {state: 'attached', timeout: 60000});
+
+        const
+            guidance = page.locator(POPUP_GUIDANCE),
+            tab      = page.locator('.neo-tab-header-button', {hasText: FEED_TITLE}).first();
+
+        await expect(guidance).toBeHidden();
+        await expect(tab).toBeVisible({timeout: 60000});
+        await tab.click();
+
+        const
+            header = page.locator('.neo-tab-header-toolbar').filter({has: page.locator('.neo-tab-header-button', {hasText: FEED_TITLE})}).first(),
+            popOut = header.locator('.neo-button:has([class*="fa-window-restore"])').first();
+
+        await expect(popOut).toBeVisible({timeout: 10000});
+
+        // Inject a browser popup-blocker refusal at the platform `window.open` seam (`src/Main.mjs#windowOpen`).
+        await page.evaluate(() => {
+            window.__originalWindowOpen = window.open.bind(window);
+            window.__refusedPopupCount  = 0;
+            window.open = () => {
+                window.__refusedPopupCount++;
+                return null
+            }
+        });
+
+        await popOut.click();
+
+        await expect(guidance, 'refused pop-out renders the non-modal setup guidance').toBeVisible({timeout: 10000});
+        await expect(guidance).toHaveText(POPUP_REFUSAL_COPY);
+        await expect(guidance).toHaveAttribute('role', 'status');
+
+        const guidanceMeta = await page.evaluate(selector => {
+            const node = document.querySelector(selector);
+            return {
+                count        : document.querySelectorAll(selector).length,
+                pointerEvents: node ? getComputedStyle(node).pointerEvents : null,
+                stoleFocus   : document.activeElement === node
+            }
+        }, POPUP_GUIDANCE);
+
+        expect(guidanceMeta).toEqual({
+            count        : 1,
+            pointerEvents: 'none',
+            stoleFocus   : false
+        });
+        expect(context.pages(), 'no orphan popup window was created').toHaveLength(1);
+        await expect(page.locator(FEED_PANE).first(), 'the pane stays in the root document').toBeVisible();
+
+        // Repeated refusal deduplicates rather than stacking warnings.
+        await popOut.click();
+        await expect.poll(() => page.evaluate(() => window.__refusedPopupCount), {timeout: 10000}).toBe(2);
+        expect(await guidance.count(), 'repeated refusals keep a single guidance banner').toBe(1);
+        await expect(guidance).toBeVisible();
+        await expect(guidance).toHaveText(POPUP_REFUSAL_COPY);
+
+        // Allow pop-ups and retry: the vessel opens and stale guidance clears.
+        await page.evaluate(() => {
+            if (window.__originalWindowOpen) {
+                window.open = window.__originalWindowOpen
+            }
+        });
+
+        const popup = await tearOutFeed(page);
+
+        await expect(guidance, 'a subsequent granted popup open clears stale guidance').toBeHidden({timeout: 10000});
+
+        await popup.close()
     })
 });

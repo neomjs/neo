@@ -26,7 +26,9 @@ import NeoArray           from '../../../util/Array.mjs';
  * re-click, `Escape`, outside-click, or focus/pointer leaving dismiss it — reveal state is
  * runtime-only and no operation descriptor exists for dismissal. Hover-reveal is a workspace opt-in
  * (`autoHideRevealOnHover`; dwell-gated, never steals focus — hover reveals are an accessibility
- * hazard by default). The PERSIST path is the overlay's pin control: `setItemPinned(true)` committed
+ * hazard by default). An application may also hold a reveal open ({@link #reveal}): focus stays
+ * where it is, and only `Escape`, the item's own tab, {@link #dismissReveal} or the item leaving end
+ * it. The PERSIST path is the overlay's pin control: `setItemPinned(true)` committed
  * through the owning reducer callback (`applyDockZoneOperation`) or a local
  * `Operations.applyOperation()` — never a parallel mutation path; the model clears `autoHidden`
  * itself.
@@ -99,6 +101,12 @@ class Rail extends Container {
          */
         edge_: 'left',
         /**
+         * Notified with the data of every `dockRailRevealChange` this rail fires; the workspace relays
+         * it to the application.
+         * @member {Function|null} onDockRailRevealChange=null
+         */
+        onDockRailRevealChange: null,
+        /**
          * Notified after a successful local document commit.
          * @member {Function|null} onDockZoneDocumentChange=null
          */
@@ -132,6 +140,20 @@ class Rail extends Container {
          */
         dockRevealLocked_: false,
         /**
+         * Whether the item this rail currently reveals may pop out — bound by the projection to the
+         * workspace's header truth, the docked header's own pop-out gating keyed on the revealed item.
+         * The overlay shows its pop-out control only while it is `true`.
+         * @member {Boolean} dockRevealPopOut_=false
+         * @reactive
+         */
+        dockRevealPopOut_: false,
+        /**
+         * Receives this rail's request to pop out the item it reveals (`{itemId, rail}`); the workspace
+         * answers through its admission path. Runtime-only, never persisted.
+         * @member {Function|null} onDockRailPopOut=null
+         */
+        onDockRailPopOut: null,
+        /**
          * Workspace-owned lock presentation callback for the materialized reveal pane:
          * `(pane, itemId) => void`. Reveal remains policy-free; this callback presents the item's
          * committed lock on the pane, on first reveal and on every later transition.
@@ -155,7 +177,19 @@ class Rail extends Container {
          * workspace's `dockActionTooltips.revealPin`. `null` leaves the control without a tooltip.
          * @member {String|null} revealPinTooltip=null
          */
-        revealPinTooltip: null
+        revealPinTooltip: null,
+        /**
+         * Icon handed to the reveal overlay's pop-out control at construction, from the workspace's
+         * `dockPopOutIconCls`. `null` keeps the overlay's default.
+         * @member {String|null} revealPopOutIconCls=null
+         */
+        revealPopOutIconCls: null,
+        /**
+         * Tooltip text handed to the reveal overlay's pop-out control at construction, from the
+         * workspace's `dockActionTooltips.popOut`. `null` leaves the control without a tooltip.
+         * @member {String|null} revealPopOutTooltip=null
+         */
+        revealPopOutTooltip: null
     }
 
     /**
@@ -233,9 +267,11 @@ class Rail extends Container {
             config.items = [
                 ...(config.railItems || []).map(railItem => this.createTabConfig(railItem, config.edge)),
                 {
-                    module    : RevealOverlay,
-                    edge      : this.getValidatedEdge(config.edge),
-                    pinTooltip: config.revealPinTooltip ?? null
+                    module       : RevealOverlay,
+                    edge         : this.getValidatedEdge(config.edge),
+                    pinTooltip   : config.revealPinTooltip ?? null,
+                    popOutTooltip: config.revealPopOutTooltip ?? null,
+                    ...(config.revealPopOutIconCls && {popOutIconCls: config.revealPopOutIconCls})
                 }
             ]
         }
@@ -350,14 +386,15 @@ class Rail extends Container {
         me.revealOverlay = overlay;
 
         overlay.on({
-            revealEscape       : me.onOverlayEscape,
-            revealFocusEnter   : me.onOverlayFocusEnter,
-            revealFocusLeave   : me.onOverlayFocusLeave,
-            revealLeaveComplete: me.onOverlayLeaveComplete,
-            revealPinRequested : me.onRevealPinRequested,
-            revealPointerEnter : me.onOverlayPointerEnter,
-            revealPointerLeave : me.onOverlayPointerLeave,
-            scope              : me
+            revealEscape         : me.onOverlayEscape,
+            revealFocusEnter     : me.onOverlayFocusEnter,
+            revealFocusLeave     : me.onOverlayFocusLeave,
+            revealLeaveComplete  : me.onOverlayLeaveComplete,
+            revealPinRequested   : me.onRevealPinRequested,
+            revealPopOutRequested: me.onRevealPopOutRequested,
+            revealPointerEnter   : me.onOverlayPointerEnter,
+            revealPointerLeave   : me.onOverlayPointerLeave,
+            scope                : me
         });
 
         me.syncRevealOverlay();
@@ -490,8 +527,6 @@ class Rail extends Container {
             parent = pane.parent;
             const retain = me.retainRevealPane?.(pane, itemId) === true;
 
-            // A parked pane keeps its `parentId` after `removeAt(index, false)`, so `parent` can
-            // resolve a slot that no longer lists it — go through the parent only while it does.
             if (parent?.items?.includes(pane)) {
                 // Splice the slot before publishing, then let the removal land before reuse.
                 parent.remove(pane, !retain);
@@ -499,7 +534,7 @@ class Rail extends Container {
             } else {
                 // Parked: the dismissal already spliced it out, but that update may still be in
                 // flight with the pane's vnode in its diff — let it land before the instance goes.
-                await parent?.promiseUpdate?.();
+                await (parent || me.revealOverlay?.paneSlot)?.promiseUpdate?.();
                 retain || pane.isDestroyed || pane.destroy()
             }
         } finally {
@@ -509,6 +544,33 @@ class Rail extends Container {
             me.revealPaneReleases && delete me.revealPaneReleases[itemId];
             resolveRelease()
         }
+    }
+
+    /**
+     * Gives the revealed item's live pane up to the caller, alive: out of the slot, out of the cache and
+     * out of any pending load. A pop-out moves THIS instance into its vessel, so the release that
+     * follows the item off the rail must find nothing of it to destroy — {@link #releaseRevealPane}
+     * removes a pane from whatever parent it holds by then, which after adoption is the vessel.
+     * @param {String} itemId
+     * @returns {{cached:Boolean, pane:Neo.component.Base}|null} The pane, and whether this rail owned it
+     *     (a cached config pane) rather than parking a resolver's live instance; `null` when the slot
+     *     shows no pane of the item.
+     */
+    yieldRevealPane(itemId) {
+        let me     = this,
+            slot   = me.revealOverlay?.paneSlot,
+            pane   = slot?.items?.[0],
+            cached = me.revealPaneCache[itemId] === pane;
+
+        if (!pane || pane.isDestroyed || me.revealOverlay.revealPaneItemId !== itemId) {
+            return null
+        }
+
+        delete me.revealPaneCache[itemId];
+        delete me.revealPaneLoads[itemId];
+        slot.remove(pane, false);
+
+        return {cached, pane}
     }
 
     /**
@@ -704,6 +766,26 @@ class Rail extends Container {
     }
 
     /**
+     * The pop-out escape: hands the revealed item to the workspace's admission path
+     * ({@link #onDockRailPopOut}), which opens its vessel and detaches it. The rail decides only that
+     * the item is the one it reveals and that the binding allows it.
+     * @param {Object} data
+     * @param {String} [data.itemId] Defaults to the currently revealed item.
+     * @returns {Promise<{document:(Object|null), errors:String[]}>|null} The workspace's answer, or
+     *     `null` when there is nothing to pop out.
+     */
+    onRevealPopOutRequested(data={}) {
+        let me     = this,
+            itemId = data.itemId || me.revealMachine?.revealedItemId;
+
+        if (!itemId || itemId !== me.revealMachine?.revealedItemId || me.dockRevealPopOut !== true) {
+            return null
+        }
+
+        return me.onDockRailPopOut?.({itemId, rail: me}) ?? null
+    }
+
+    /**
      * Binds the composed overlay child once the container created its items — an externally
      * bound overlay (`bindRevealOverlay()`) simply replaces the binding; the composed child then
      * stays idle-hidden.
@@ -721,25 +803,35 @@ class Rail extends Container {
     }
 
     /**
-     * Machine change hook: fires `dockRailRevealChange` and pushes the snapshot into the bound
-     * overlay. Reveal state is runtime-only — nothing here touches a document.
+     * Machine change hook: fires `dockRailRevealChange`, hands the same data to
+     * {@link #onDockRailRevealChange}, and pushes the snapshot into the bound overlay. Reveal state is
+     * runtime-only — nothing here touches a document.
      * @param {Object} next {revealedItemId, state}
      * @param {Object} previous {revealedItemId, state}
+     * @param {String|null} [cause=null] Why the previous item stopped being revealed, `null` when none did
+     *     ({@link Neo.dashboard.dock.interaction.RevealStateMachine}).
      * @protected
      */
-    onRevealStateChange(next, previous) {
-        let me = this;
+    onRevealStateChange(next, previous, cause=null) {
+        let me   = this,
+            data = {
+                cause,
+                next,
+                previous,
+                rail    : me,
+                railItem: (me.railItems || []).find(item => item.dockItemId === next.revealedItemId) || null
+            };
 
-        me.fire('dockRailRevealChange', {
-            next,
-            previous,
-            rail    : me,
-            railItem: (me.railItems || []).find(item => item.dockItemId === next.revealedItemId) || null
-        });
+        me.fire('dockRailRevealChange', data);
+
+        if (typeof me.onDockRailRevealChange === 'function') {
+            me.onDockRailRevealChange(data)
+        }
 
         me.syncRevealOverlay();
         me.syncRevealedTabState(next.revealedItemId);
-        me.syncOutsidePointerListener(next.state !== 'idle');
+        // The application that holds a reveal ends it; a press elsewhere is not its dismissal
+        me.syncOutsidePointerListener(next.state !== 'idle' && next.state !== 'revealed-held');
 
         // Embodied focus-hold: a click-born reveal moves REAL browser focus into the overlay.
         // Focus-rescue transitions (revealed / dismiss-pending -> focused) already hold focus
@@ -794,6 +886,47 @@ class Rail extends Container {
         me.revealMachine.tabClick(itemId);
 
         return {revealedItemId: me.revealMachine.revealedItemId, state: me.revealMachine.state}
+    }
+
+    /**
+     * Reveals one of this rail's items on the application's word and holds it open. Focus stays where
+     * it is and no operation is emitted; only `Escape`, the item's own tab, {@link #dismissReveal} or
+     * the item leaving the rail end it.
+     * @param {String} itemId
+     * @returns {{revealedItemId:(String|null), state:String}|null} Machine snapshot, or `null` when no
+     *     tab of this rail carries the item.
+     */
+    reveal(itemId) {
+        return this.applyRevealIntent(itemId, 'hold')
+    }
+
+    /**
+     * Ends any reveal of one of this rail's items on the application's word, held or not.
+     * @param {String} itemId
+     * @returns {{revealedItemId:(String|null), state:String}|null} Machine snapshot, or `null` when no
+     *     tab of this rail carries the item.
+     */
+    dismissReveal(itemId) {
+        return this.applyRevealIntent(itemId, 'release')
+    }
+
+    /**
+     * Feeds an application intent for one of this rail's items to the reveal machine.
+     * @param {String} itemId
+     * @param {String} intent The machine method: `hold` or `release`.
+     * @returns {{revealedItemId:(String|null), state:String}|null}
+     * @protected
+     */
+    applyRevealIntent(itemId, intent) {
+        const machine = this.revealMachine;
+
+        if (!machine || !(this.railItems || []).some(item => item.dockItemId === itemId)) {
+            return null
+        }
+
+        machine[intent](itemId);
+
+        return {revealedItemId: machine.revealedItemId, state: machine.state}
     }
 
     /**
@@ -912,10 +1045,11 @@ class Rail extends Container {
         railItem = me.currentRevealRailItem();
 
         overlay.set({
-            edge        : me.getValidatedEdge(me.edge),
-            revealExtent: railItem ? me.resolveRevealExtent(railItem.dockItemId) : null,
-            revealState : machine.state,
-            revealedItem: railItem,
+            edge           : me.getValidatedEdge(me.edge),
+            popOutAvailable: me.dockRevealPopOut === true,
+            revealExtent   : railItem ? me.resolveRevealExtent(railItem.dockItemId) : null,
+            revealState    : machine.state,
+            revealedItem   : railItem,
             ...(Number.isFinite(me.defaultRevealFraction) ? {defaultRevealFraction: me.defaultRevealFraction} : {})
         });
 
@@ -1008,6 +1142,16 @@ class Rail extends Container {
             pane   = me.revealOverlay?.paneSlot?.items?.[0];
 
         me.isConstructed && itemId && pane && me.syncDockLockPane?.(pane, itemId)
+    }
+
+    /**
+     * The revealed item's pop-out availability changed: the overlay shows or hides its control.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetDockRevealPopOut(value, oldValue) {
+        this.revealOverlay && (this.revealOverlay.popOutAvailable = value === true)
     }
 
     /**

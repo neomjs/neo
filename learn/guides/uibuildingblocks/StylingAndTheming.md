@@ -246,14 +246,13 @@ A theme file can therefore be very clean and focused:
 
 // No @import needed!
 
-.neo-button {
-    // Dark theme overrides
-    background-color: var(--dark-button-background-color);
-    color: var(--dark-button-text-color);
+:root .neo-theme-dark {
+    --button-background-color: #3c3f41;
+    --button-text-color: #bbb;
 }
 ```
 
-You can also create your own themes that inherit from the existing Neo.mjs themes. The same principle applies: the engine will load the base theme's CSS first, followed by your new theme's CSS.
+This inheritance follows **JavaScript classes**, not a relationship between theme names. Each configured theme loads its own value sheets, whose selectors must match that theme's class. To start a custom theme from an existing skin, generate an editable snapshot as described below; listing both names in `themes` does not retarget the base skin's selectors to the new theme.
 
 ## 6. Architecting Nestable Themes
 
@@ -341,25 +340,30 @@ If you are creating a one-off, custom theme that will never be nested, this rule
 
 ## 7. Creating a New Theme
 
-The most efficient and recommended way to create a new theme is to start with an existing one. This ensures you have all the necessary folder structures and CSS variable definitions in place.
+Start from an existing theme with the theme generator. It gives you the base's value sheets under a new theme name, so you can change the palette without reconstructing every component's variables or editing the installed engine.
 
-1.  **Choose a Base Theme and Duplicate It:**
-    Decide whether `theme-light` or `theme-dark` is a closer starting point for your design. Then, duplicate the folder and give it a new name.
+1.  **Choose a Base Theme and Generate Your Source:**
+    From your application workspace, choose a base such as `theme-neo-light`, `theme-neo-dark`, `theme-light`, or `theme-dark`:
 
     ```bash readonly
-    # Example: Creating a new theme based on theme-light
-    cp -r resources/scss/theme-light resources/scss/theme-my-awesome-theme
+    node node_modules/neo.mjs/buildScripts/create/theme.mjs --name theme-my-awesome-theme --base theme-neo-light --noquestions
     ```
+
+    Inside the Engine checkout, use `npm run create-theme` instead; omitting the flags opens the name and base-theme prompts. The generator creates `resources/scss/theme-my-awesome-theme`, keeps the base's folder structure and internal partials, and changes its exact theme selector to `.neo-theme-my-awesome-theme`. Selector weight is preserved, including the neo skins' `:where()` roots. Shared Sass dependencies such as the motion vocabulary remain imports of their original source rather than independent copies.
+
+    When the selected base has component-package or workspace overrides, the generated snapshot includes those effective files in the same precedence as the theme build. Existing destinations are refused. [Build-script usage](https://github.com/neomjs/neo/blob/dev/buildScripts/README.md#npm-run-create-theme) documents the command options and workspace invocation.
 
 2.  **Customize Your Theme's Variables:**
     Now you can go through the `.scss` files in your new `theme-my-awesome-theme` folder and adjust the CSS variable values to match your design requirements.
+
+    The generated value sheets are yours to edit. Later changes to the base theme are not copied automatically; shared dependencies named in the generated imports still come from their original location.
 
 3.  **Configure Your Application:**
     In your `neo-config.json`, add your new theme to the `themes` array. The first theme in the array becomes the default theme for the application.
 
     ```json readonly
     {
-        "themes": ["neo-theme-my-awesome-theme", "neo-theme-light"]
+        "themes": ["neo-theme-my-awesome-theme"]
     }
     ```
     **Note:** The `neo-` prefix is required, and your folder name should not include it (e.g., folder `theme-foo` becomes `neo-theme-foo` in the config).
@@ -368,8 +372,10 @@ The most efficient and recommended way to create a new theme is to start with an
     Run the full theme build process to compile the SCSS for your new theme and, critically, to update the `theme-map.json` file to include it.
 
     ```bash readonly
-    npm run build-themes
+    node node_modules/neo.mjs/buildScripts/build/themes.mjs -n -e dev -t theme-my-awesome-theme
     ```
+
+    Inside the Engine checkout, use `npm run build-themes -- -n -e dev -t theme-my-awesome-theme`. Rebuild after editing SCSS, or use the watcher described above.
 
 ## 8. Theming in a Workspace
 
@@ -379,19 +385,21 @@ A workspace mirrors the main `neo.mjs` repository structure, including its own `
 
 ### The SCSS Merge Mechanism
 
-The most powerful feature of workspace theming is how the build scripts work. When you run `npm run build-themes` from your workspace, the script intelligently **merges** the SCSS files from your workspace's `resources/scss` directory with the ones from `node_modules/neo.mjs/resources/scss`.
+When you run `npm run build-themes` from your workspace, the script discovers SCSS files from the installed Engine, declared component packages, and the workspace's own `resources/scss` directory. A later file at the same relative path replaces the earlier file's compiled output; it does not merge individual declarations into that file.
 
 The workspace's files act as an overlay, giving you fine-grained control.
 
 This enables several powerful workflows:
 
-1.  **Override Specific Variables:** To change just a few variables for an existing theme (e.g., `theme-dark`), you only need to create a file at the corresponding path in your workspace (e.g., `my-workspace/resources/scss/theme-dark/button/Base.scss`) and redefine only the variables you want to change. The build script will merge your changes with the original theme file from the engine.
+1.  **Override an Existing Theme File:** A workspace file such as `my-workspace/resources/scss/theme-dark/button/Base.scss` replaces the Engine file at that path. Preserve the complete value family when doing this. For a few variable changes, an application theme-root projection, as described in section 6, avoids replacing the component's whole value sheet.
 
 2.  **Create an Entirely New Theme:** You can create a brand new theme folder (e.g., `my-workspace/resources/scss/theme-corporate`) inside your workspace. By creating SCSS files that match the paths of the engine components, you can provide a complete set of CSS variable definitions for your theme. The build script will discover and compile your new theme, allowing you to build a unique look and feel from the ground up without ever touching the engine's source code.
 
 3.  **Style App-Specific Components:** If you create a component that is only used within a single application (e.g., `my-workspace/apps/my-app/view/MyComponent.mjs`), you can create its structural styles in your workspace at `my-workspace/resources/scss/src/apps/my-app/MyComponent.scss`. The build script will pick it up and process it just like a core component.
 
 4.  **Style Workspace-Shared Components:** For components intended to be shared across multiple apps in your workspace, you can create them in the workspace's main `src` folder. These components must use the `Neo` namespace (e.g., `my-workspace/src/component/MyWorkspaceWidget.mjs` defining `Neo.component.MyWorkspaceWidget`). You can then provide their structural styles in the corresponding path within your workspace's `resources/scss/src` folder (e.g., `my-workspace/resources/scss/src/component/MyWorkspaceWidget.scss`).
+
+5.  **Consume Styles from Installed Packages:** An external component package installed in `node_modules/<pkg>` can ship its own SCSS tree by declaring `"neo": {"scss": "resources/scss"}` in its `package.json`. When `npm run build-themes` runs in a workspace, every direct dependency (`dependencies` and `devDependencies`) that declares `neo.scss` joins the build as an SCSS root between the engine (`node_modules/neo.mjs/resources/scss`) and the workspace (`resources/scss`). Package classes outside `Neo.` resolve their theme paths under `apps.<lowercased namespace root>` (for example, `resources/scss/src/apps/<root>/...`), and a same-path file in the workspace still overlays the package's file.
 
 This overlay approach is extremely powerful. It lets you maintain a clean separation between your application code and the engine, making engine upgrades significantly easier.
 

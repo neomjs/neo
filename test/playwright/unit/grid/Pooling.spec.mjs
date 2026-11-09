@@ -34,15 +34,33 @@ import {test, expect}     from '@playwright/test';
 import Neo                from '../../../../src/Neo.mjs';
 import * as core          from '../../../../src/core/_export.mjs';
 import InstanceManager    from '../../../../src/manager/Instance.mjs';
+import Component          from '../../../../src/component/Base.mjs';
+import ComponentColumn    from '../../../../src/grid/column/Component.mjs';
 import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
 import GridContainer      from '../../../../src/grid/Container.mjs';
 import Store              from '../../../../src/data/Store.mjs';
 import VdomHelper         from '../../../../src/vdom/Helper.mjs';
 
-test.describe('Grid Pooling & Fixed-DOM-Order', () => {
-    test.skip(!!process.env.NEO_TEST_SKIP_CI, 'bucket B: Grid tests require Playwright browsers in CI');
+class PoolingCellComponent extends Component {
+    static config = {
+        className: 'Test.Unit.Grid.Pooling.CellComponent',
+        ntype    : 'pooling-cell-component',
+        text     : null
+    }
+}
+PoolingCellComponent = Neo.setupClass(PoolingCellComponent);
 
+test.describe('Grid Pooling & Fixed-DOM-Order', () => {
     let grid, store;
+
+    // Deterministically drains all in-flight and preUpdate-deferred VDOM flights on a GridBody
+    // (e.g. body.set({availableHeight, containerWidth}) runs afterSetAvailableHeight first with
+    // mountedColumns=[0,0] and defers afterSetContainerWidth's full-column pass into registerPreUpdate).
+    const settleBody = async (body) => {
+        while (body?.isVdomUpdating || body?.needsVdomUpdate) {
+            await body.promiseUpdate()
+        }
+    };
 
     // Helper to capture deltas during an operation
     const captureDeltas = async (operation) => {
@@ -61,7 +79,7 @@ test.describe('Grid Pooling & Fixed-DOM-Order', () => {
         try {
             await operation();
             // Allow async updates to settle
-            await grid.timeout(50);
+            await settleBody(grid?.body);
         } finally {
             VdomHelper.updateBatch = originalUpdateBatch;
         }
@@ -156,7 +174,7 @@ test.describe('Grid Pooling & Fixed-DOM-Order', () => {
             containerWidth : 600
         });
 
-        await grid.timeout(50);
+        await settleBody(grid.body);
     });
 
     test.afterEach(async () => {
@@ -443,6 +461,106 @@ test.describe('Grid Pooling & Fixed-DOM-Order', () => {
         for (const row of live) {
             expect(row.vdom?.data?.recordId, `live row ${row.id} keeps its identity`)
                 .toBe(body.getRecordId(row.record))
+        }
+    });
+
+    test('Computational Budget: scrolling 10 rows executes ComponentColumn#cellRenderer strictly for recycled rows (#9160)', async () => {
+        const originalCellRenderer = ComponentColumn.prototype.cellRenderer;
+        let   executionCount       = 0;
+
+        ComponentColumn.prototype.cellRenderer = function(...args) {
+            executionCount++;
+            return originalCellRenderer.apply(this, args)
+        };
+
+        let componentGrid;
+
+        try {
+            componentGrid = Neo.create(GridContainer, {
+                appName       : 'GridPoolingTest',
+                bufferRowRange: 2,
+                height        : 400,
+                rowHeight     : 40,
+                store,
+                width         : 600,
+                columns       : [{
+                    dataField: 'id',
+                    text     : 'ID',
+                    width    : 60
+                }, {
+                    dataField: 'name',
+                    text     : 'Name',
+                    type     : 'component',
+                    width    : 200,
+                    component: ({record}) => ({
+                        module: PoolingCellComponent,
+                        text  : record.name
+                    })
+                }, {
+                    dataField: 'country',
+                    text     : 'Country',
+                    width    : 140
+                }]
+            });
+
+            await componentGrid.initVnode();
+            componentGrid.mounted = true;
+
+            const colPos = [];
+            let   x      = 0;
+
+            componentGrid.columns.items.forEach(col => {
+                colPos.push({
+                    dataField: col.dataField,
+                    width    : col.width,
+                    x
+                });
+                x += col.width
+            });
+
+            componentGrid.body.columnPositions.clear();
+            componentGrid.body.columnPositions.add(colPos);
+
+            componentGrid.body.set({
+                availableHeight: 400 - 40,
+                containerWidth : 600
+            });
+
+            await settleBody(componentGrid.body);
+            expect(componentGrid.body.isVdomUpdating, 'initial pool and column mount flights must be fully settled').toBe(false);
+
+            // Non-vacuity: initial layout mounted the pool and invoked ComponentColumn#cellRenderer
+            const initialMountedEnd = componentGrid.body.mountedRows[1];
+            expect(executionCount, 'ComponentColumn#cellRenderer must run on initial pool mount').toBe(initialMountedEnd);
+
+            executionCount = 0;
+
+            // 1. Idempotent re-evaluation at the same scroll offset must execute 0 cellRenderers
+            // Pass silent=true so this synchronous check does not launch an unawaited VDOM flight before captureDeltas
+            componentGrid.body.createViewData(true);
+            expect(executionCount, 're-running createViewData at identical scrollTop must short-circuit all rows').toBe(0);
+
+            // 2. Scroll 10 rows (400px) across 10 flushed single-row steps (40px each).
+            // Without Row#updateContent short-circuiting, 10 steps * 14 mounted rows would execute ~140 times (> 100).
+            // With pooling + Row#updateContent short-circuiting, only rows newly entering the mounted window invoke cellRenderer.
+            const deltas = await captureDeltas(async () => {
+                for (let step = 1; step <= 10; step++) {
+                    componentGrid.view.syncBodies(step * 40);
+                    await componentGrid.view.promiseUpdate()
+                }
+            });
+
+            const newlyEnteredRows = componentGrid.body.mountedRows[1] - initialMountedEnd;
+
+            expect(executionCount, 'ComponentColumn#cellRenderer must actually run for recycled rows').toBeGreaterThan(0);
+            expect(executionCount, 'Scrolling 10 rows across 10 steps must stay strictly within budget (< 100)').toBeLessThan(100);
+            expect(executionCount, 'Only newly entering rows across the 10-row scroll invoke cellRenderer').toBe(newlyEnteredRows);
+
+            const structureChanges = deltas.filter(d => ['moveNode', 'insertNode', 'removeNode'].includes(d.action));
+            expect(structureChanges.length, 'Zero structural DOM deltas during component-column scroll').toBe(0)
+        } finally {
+            ComponentColumn.prototype.cellRenderer = originalCellRenderer;
+            componentGrid?.destroy()
         }
     });
 });

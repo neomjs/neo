@@ -7,6 +7,8 @@
     height         : 10px;
     justify-content: center;
     position       : absolute;
+    // a drag handle: a touch on it is a resize, never a pan that cancels the pointer mid-drag
+    touch-action   : none;
     width          : 10px;
     z-index        : 10;
 

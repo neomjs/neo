@@ -57,7 +57,7 @@ The organism has two hemispheres, joined by the Neural Link:
 
 The same possession primitive points beyond web UI along a staged arc, *Software → Games → Robots → X*, toward any domain where AI needs an embodied runtime; [the vision](./.github/VISION.md) names the gate each later stage must meet first.
 
-Neo.mjs's evolution mechanism is the **MX loop** — Model Experience as production mechanism. Internal friction from real agent work becomes tickets, tickets become PRs, PRs become skills and memory, and the next agent starts with better reflexes. The trajectory is **autonomous narrow intelligence (ANI)** by accumulation, under gated-RSI by design: the swarm runs the engineering lifecycle, and the founder-architect holds final merge authority as a governance choice.
+Neo.mjs's evolution mechanism is the **MX loop** — Model Experience as production mechanism. Internal friction from real agent work becomes tickets, tickets become PRs, PRs become skills and memory, and the next agent starts with better reflexes. The trajectory is **autonomous narrow intelligence (ANI)** by accumulation, under gated recursive self-improvement (RSI) by design: the swarm runs the engineering lifecycle, and the founder-architect holds final merge authority as a governance choice.
 
 > *"The system evolves by predicting its own evolution."*
 
@@ -107,9 +107,9 @@ The organism is **autopoietic** — it invents on its own. Internal friction bec
 
 ### 🤖 The Body — The Application Engine
 
-The Body is the production runtime the team inhabits through the Neural Link. Neo.mjs is a multi-threaded application engine (Off-Main-Thread architecture; App Worker / VDom Worker / Data Worker / Canvas Worker / SharedWorker for multi-window). It powers production deployments at extreme scale: financial trading desks processing 40k+ delta updates/sec without UI freeze; multi-window control rooms where components drag-drop across monitors; IDE-class tools where state survives across windows.
+The Body is the production runtime that coding agents and the maintainer team inhabit through the Neural Link. Neo.mjs is a complete, batteries-included **Application Engine** for **every desktop and mobile web application** — `461` classes across `39` namespaces (`100,000`-row buffered grids, `26` form field types with nested forms, calendars, `42`-class multi-window Dock Layouts, `8` layouts, data stores, state providers, routing, and `38` main-thread addons). It builds everything teams build with [Angular, React, or Vue](./learn/comparisons/Overview.md) today — at [feature parity with Ext JS](./learn/comparisons/NeoVsExtJs.md) and generations ahead of it in architecture — while its multi-threaded runtime (Off-Main-Thread architecture; App Worker / VDom Worker / Data Worker / Canvas Worker / SharedWorker) effortlessly powers extreme scale: [`40,000+` delta updates/sec](./learn/benefits/body/Speed.md) without UI freeze, multi-window workspaces where live components tear out and re-dock across monitors ([`DockLayouts.md`](./learn/guides/uibuildingblocks/DockLayouts.md)), and IDE-class tools where state survives across windows.
 
-Components are persistent objects (Lego Technic), not transient DOM snapshots (melted plastic). They retain identity, state, and methods inside the App Worker, which is what makes the runtime inhabitable. Zero runtime dependencies. Native ES Modules. No transpilation.
+Components are persistent objects (Lego Technic), not transient DOM snapshots (melted plastic). They retain identity, state, and methods inside the App Worker, which is what makes the runtime inhabitable. And because **LLMs excel at JSON** and **Neo.mjs has been JSON-first since its November 2019 GA** ([`JSONFirstUIs.md`](./learn/benefits/body/JSONFirstUIs.md)), coding agents read and write Neo.mjs blueprints natively while the engine handles multi-threading behind the scenes. Zero runtime dependencies. Native ES Modules. No transpilation.
 
 #### The Possession Interface
 
@@ -167,40 +167,38 @@ This sets up a new app workspace, a pre-configured app shell, a local developmen
 </br></br>
 ## Who This Is For
 
-Neo.mjs is a category-shaped substrate. The two hemispheres filter audience:
+Neo.mjs is built for three audiences across its two hemispheres:
 
-- **Engineers** building enterprise multi-window applications, financial trading platforms, IDE-class tools, control-room dashboards, or any UI where 40k+ ops/sec without jank is table stakes — start with the Body. The rendering engine is production-ready.
-- **AI architects** building multi-agent systems with persistent memory, cross-family coordination, or runtime-mutable application substrates — start with the [`neo-agent-brain`](https://github.com/neomjs/neo-agent-brain) repository and the Possession Interface.
-- **Researchers** studying autopoietic systems, gated-RSI patterns, or empirical multi-agent organism governance — start with [Discussion #10137 (MX coinage)](https://github.com/orgs/neomjs/discussions/10137) and [Discussion #10119 (harness coordination — graduated to ADR 0020 / Epic neo-agent-brain#144)](https://github.com/orgs/neomjs/discussions/10119).
+- **Web & Application Engineers** building any desktop or mobile web application — from everyday business apps, form-driven portals, and analytics views ([Angular, React, or Vue](./learn/comparisons/Overview.md) / [Ext JS](./learn/comparisons/NeoVsExtJs.md) replacements) to [`100,000`-row](./examples/grid/bigData) [grids](./learn/guides/datahandling/Grids.md), [multi-window dock workspaces](./learn/guides/uibuildingblocks/DockLayouts.md), financial trading platforms, IDE-class tools, and control-room dashboards where [`40,000+` ops/sec](./learn/benefits/body/Speed.md) without jank is table stakes — start with **the Body**. Because the engine runs workers behind the scenes and has been [JSON-first since its 2019 GA](./learn/benefits/body/JSONFirstUIs.md), both human developers and coding agents build with zero-builds speed out of the box.
+- **Engineering Teams & AI Architects** deploying coding agents or standing multi-agent teams with persistent memory, cross-family peer review, and live runtime inspection & hot-patching of running apps — start with the **[Neural Link](./learn/agentos/NeuralLink.md)**, [`neo-agent-brain`](https://github.com/neomjs/neo-agent-brain), and [`neo-agent-institution`](https://github.com/neomjs/neo-agent-institution).
+- **Researchers** studying autopoietic systems, gated-RSI patterns, or empirical multi-agent organism governance — start with [What Is Neo.mjs?](./learn/benefits/Introduction.md), [Discussion #10137 (MX coinage)](https://github.com/orgs/neomjs/discussions/10137), and [Discussion #10119 (harness coordination — graduated to ADR 0020 / Epic neo-agent-brain#144)](https://github.com/orgs/neomjs/discussions/10119).
 
-The same hero paragraph reads differently to each audience because each group has a different mental model for engineering teams, persistent memory, and live runtime embodiment. The vocabulary self-filters.
-
-**Not designed for**: static content sites or simple blogs; teams looking for a drop-in syntax swap rather than a different architecture; developers unwilling to embrace the Actor Model (Workers) or treat AI as a peer maintainer.
+The same hero paragraph reads differently to each audience because each group enters through a different door — a complete `461`-class web application platform, a live possession interface for coding agents, or a standing AI engineering institution.
 
 </br></br>
 ## Architecture
 
-Neo.mjs is split into two complementary layers (engine ↔ toolchain):
+Neo.mjs is split into two complementary layers (engine ↔ Agent OS):
 
 ### The Runtime
 *Runs in the browser. Production-ready. Zero-bloat.*
-- **App Worker** — application logic, state, VDOM diffing
-- **VDom Worker** — Asymmetric VDOM (JSON blueprints diffed off the main thread)
+- **App Worker** — application logic, persistent component instances, reactive state, and `state.Provider` / `data.Store` hierarchies
+- **VDom Worker** — Asymmetric VDOM ([JSON blueprints](./learn/benefits/body/JSONFirstUIs.md) diffed off the main thread)
 - **Data Worker** — data processing isolation
-- **Canvas Worker** — 60fps offscreen rendering for high-frequency surfaces (grids, charts)
-- **SharedWorker** — multi-window orchestration; one engine instance, many windows
-- **Main Thread** — restricted to DOM patching only; the neurosurgeon thread
+- **Canvas Worker** — 60fps offscreen rendering for high-frequency surfaces (grids, charts, visualizers)
+- **SharedWorker & Multi-Window Dock Layouts** — one engine instance spanning many browser windows, with live cross-window component tear-out, re-docking, and workspace perspectives ([Dock Layouts](./learn/guides/uibuildingblocks/DockLayouts.md))
+- **Main Thread** — restricted to surgical DOM patching (`DeltaUpdates` & `DomApiRenderer`) and 38 main-thread addons; the neurosurgeon thread
 
 ### The Brain (Agent OS)
-*Runs from the sibling [`neomjs/neo-agent-brain`](https://github.com/neomjs/neo-agent-brain) repository. AI-native.*
-- **Knowledge Base MCP server** — semantic codebase understanding in the unified Chroma store, embedded through local-or-remote providers.
-- **Memory Core MCP server** — agent persistent memory (SQLite Native Edge Graph + ChromaDB episodic)
-- **GitHub Workflow MCP server** — autonomous PR review, issue management, bi-directional sync
-- **Neural Link MCP server** — runtime introspection + mutation of the live App Worker heap
-- **File System MCP server** — sandboxed file IO for internal `Neo.ai.Agent` local loops; frontier harnesses use their native file tools
-- **DreamService** — REM-cycle daemon that distills sessions into Golden Path topology
+*Runs from [`neomjs/neo-agent-brain`](https://github.com/neomjs/neo-agent-brain) and [`neomjs/neo-agent-institution`](https://github.com/neomjs/neo-agent-institution), joined to the Runtime via the [Neural Link](./learn/agentos/NeuralLink.md).*
+- **Neural Link** — the bridge into the Body's Possession Interface: live multi-window scene-graph introspection (`toJSON()`, stores, `state.Provider` bindings, VDOM/VNode trees, computed styles, DOM rects) and in-place config mutation + method hot-patching inside the running App Worker without page reloads
+- **Memory Core & Native Edge Graph** — persistent, queryable episodic and structural reasoning across sessions and model families (SQLite Native Edge Graph + vector store)
+- **DreamService & Golden Path** — REM-cycle consolidation daemon that distills lived session friction into topological priority routing
+- **Semantic Knowledge Base** — hybrid structural + vector grounding across engine source, JSDoc hierarchy, guides, issues, PRs, and discussions
+- **A2A Coordination & GitHub Workflow** — durable peer messaging, wake subscriptions, and cross-family adversarial PR review under a human merge gate
+- **Fleet Manager (`neomjs/neo-agent-institution`)** — multi-window operator cockpit built on Neo.mjs Dock Layouts that starts the agents' harnesses and shows their roster, health, work, memories, messages, and wake state
 
-**Read**: [`learn/benefits/ArchitectureOverview.md`](./learn/benefits/ArchitectureOverview.md)
+**Read**: [`learn/benefits/ArchitectureOverview.md`](./learn/benefits/ArchitectureOverview.md) and [`learn/benefits/Introduction.md`](./learn/benefits/Introduction.md)
 
 </br></br>
 ## A Platform at Scale

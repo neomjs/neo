@@ -1,4 +1,5 @@
-import {test, expect} from '../../fixtures.mjs';
+import {test, expect}                                     from '../../fixtures.mjs';
+import {levelOf, mountedWithGesture, readMountedWithNext} from '../../util/menuLevelReads.mjs';
 
 test.use({viewport: {width: 1280, height: 720}});
 
@@ -30,33 +31,6 @@ async function expectDismissed(page, app, menuId) {
         return `${state.hidden}:${state.mounted}`
     }).toBe('true:false');
     await expect(page.locator(`#${menuId}`)).toHaveCount(0)
-}
-
-/**
- * @summary Starts recording how many menu levels stand, on every DOM mutation batch.
- *
- * Every settled assertion in this file is web-first and re-polls until the timeout, which is correct
- * for the states they describe and blind to a transient one. The leaf-click cascade is transient: a
- * dismissal that reaches only the clicked submenu still ends at zero menus, because a later focus
- * round-trip sweeps the ancestors up — so `toHaveCount(0)` below reports the settled tree and passes
- * either way. Measured, not inferred: that is how one such regression reached `dev` past this very
- * assertion. Recording the transitions makes the lingering ancestors an observation instead of a
- * state polled past.
- * @param {Object} page
- * @returns {Promise<void>}
- */
-function recordLevelCounts(page) {
-    return page.evaluate(() => {
-        const count = () => document.querySelectorAll('.neo-menu-list').length;
-
-        window.__menuLevelCounts = [count()];
-
-        new MutationObserver(() => {
-            const current = count();
-
-            current !== window.__menuLevelCounts.at(-1) && window.__menuLevelCounts.push(current)
-        }).observe(document.body, {childList: true, subtree: true})
-    })
 }
 
 /**
@@ -183,15 +157,17 @@ test.describe('Context Menu — real pointer + Neural Link', () => {
         expect(menuState).toMatchObject({hidden: false, mounted: true});
 
         // The real leaf click updates worker-owned state and follows Menu's leaf-dismissal policy.
-        await recordLevelCounts(page);
+        // The settled assertions below poll until a later focus round trip has swept any lingering ancestor
+        // up, and the DOM may apply each level's removal in a different frame. So read `mounted`
+        // for all three levels in the App Worker task right behind the click.
+        await readMountedWithNext(page, 'click', [menuId, await levelOf(page, 'Details'), await levelOf(page, 'Copy name')]);
         await page.getByText('Copy name', {exact: true}).click();
         await expect(page.getByText('Last action: Copy name')).toBeVisible();
         await expect.poll(async () => (await getMainState(app)).lastAction).toBe('Copy name');
         await expect(page.locator('.neo-menu-list')).toHaveCount(0);
 
-        // Three levels stand, then none. Any value in between is an ancestor that outlived the submenu
-        // the click was in — a partial cascade records [3, 2, 0] here while the assertion above passes.
-        expect(await page.evaluate(() => window.__menuLevelCounts)).toEqual([3, 0]);
+        // An ancestor left to a later task still reads `true` here, however the DOM batched the removals.
+        expect(await mountedWithGesture(page), 'root, Inspect and Details unmount in the click\'s task').toEqual([false, false, false]);
 
         // Reopen at a fresh point after the nested tree settled; identity stays stable and Escape closes it.
         await openAt(page, app, {x: 300, y: 240}, 8, menuId);

@@ -451,4 +451,120 @@ test.describe('Group native lifecycle (#18314)', () => {
         expect(bound, 'the newer resource still binds').toEqual([older.workspaceKey, newer.workspaceKey]);
         expect(windows.getConnection('view', newer.workspaceKey)).toMatchObject({itemId: 'one', windowId: 'newer'})
     });
+
+    test('a readmitting unbind holds a committed key: its own lineage binds it again as owned (#20144)', async () => {
+        const windows = owner('root'), bound = [], released = [];
+        windows.registerSource('view', effects({
+            unbind  : () => ({retained: true, awaitingClosure: true, readmit: true}),
+            bound   : ({connection, owned}) => bound.push({windowId: connection.windowId, owned}),
+            released: data => released.push(data)
+        }));
+        const vessel = await windows.acquire('view', {itemId: 'one'}), key = vessel.workspaceKey;
+        manager.bind({...vessel, windowId: 'old'});
+        await expect.poll(() => windows.getConnection('view', key)).not.toBeNull();
+        windows.recordOwner('view', key, {...vessel, windowId: 'old'}, windows.getConnection('view', key));
+
+        release('old');
+        await expect.poll(() => windows.getAdmission('view', key)).toMatchObject(
+            {readmit: true, connected: false, generationToken: vessel.generationToken, itemId: 'one'});
+        expect(released, 'a held render target hands nothing back').toEqual([]);
+        expect(windows.getOwner('view', key).windowId).toBeNull();
+
+        manager.bind({...vessel, windowId: 'reloaded'});
+        await expect.poll(() => bound.length).toBe(2);
+        expect(bound).toEqual([{windowId: 'old', owned: false}, {windowId: 'reloaded', owned: true}]);
+        expect(windows.getAdmission('view', key), 'the owned rebind consumes its admission').toBeNull();
+        expect(await windows.releaseHeld('view', key), 'a key whose lineage bound again is no longer held').toBe(false);
+        expect(released).toEqual([])
+    });
+
+    test('a held key is released once its source answers that the render target closed (#20144)', async () => {
+        const windows = owner('root'), closed = deferred(), released = deferred();
+        windows.registerSource('view', effects({
+            unbind  : () => ({retained: true, awaitingClosure: true, readmit: true, closed: closed.promise}),
+            released: data => released.resolve(data)
+        }));
+        const vessel = await windows.acquire('view', {itemId: 'one'}), key = vessel.workspaceKey;
+        manager.bind({...vessel, windowId: 'old'});
+        await expect.poll(() => windows.getConnection('view', key)).not.toBeNull();
+        windows.recordOwner('view', key, {...vessel, windowId: 'old'}, windows.getConnection('view', key));
+
+        release('old');
+        await expect.poll(() => windows.getAdmission('view', key)).toMatchObject({readmit: true});
+        closed.resolve(true);
+
+        expect(await released.promise).toMatchObject({committed: true, itemId: 'one', workspaceKey: key, data: {windowId: 'old'}});
+        expect(windows.getAdmission('view', key)).toBeNull()
+    });
+
+    test('a late closed answer from an earlier hold leaves a newer hold for the same key untouched (#20147)', async () => {
+        const windows = owner('root'), closes = [deferred(), deferred()], released = [];
+        let   holds   = 0;
+        windows.registerSource('view', effects({
+            bound   : ({connection, owned, workspaceKey}) => owned && windows.recordOwner('view', workspaceKey, {windowId: connection.windowId}, null, true),
+            unbind  : () => ({retained: true, awaitingClosure: true, readmit: true, closed: closes[holds++].promise}),
+            released: data => released.push(data)
+        }));
+        const vessel = await windows.acquire('view', {itemId: 'one'}), key = vessel.workspaceKey;
+        manager.bind({...vessel, windowId: 'first'});
+        await expect.poll(() => windows.getConnection('view', key)).not.toBeNull();
+        windows.recordOwner('view', key, {...vessel, windowId: 'first'}, windows.getConnection('view', key));
+
+        release('first');
+        await expect.poll(() => windows.getAdmission('view', key)).toMatchObject({readmit: true});
+        const firstHold = windows.getAdmission('view', key);
+
+        manager.bind({...vessel, windowId: 'reloaded'});
+        await expect.poll(() => windows.getAdmission('view', key)).toBeNull();
+        release('reloaded');
+        await expect.poll(() => windows.getAdmission('view', key)).toMatchObject({readmit: true});
+        const secondHold = windows.getAdmission('view', key);
+        expect(secondHold).not.toBe(firstHold);
+
+        closes[0].resolve(true);
+        await Promise.resolve();
+
+        expect(windows.getAdmission('view', key), 'the newer hold survives the stale closed answer').toBe(secondHold);
+        expect(released).toEqual([])
+    });
+
+    test('a held key whose lineage never binds again is released at lease expiry, with no close (#20144)', async () => {
+        const windows = owner('root'), closed = [], released = deferred();
+        windows.registerSource('view', effects({
+            unbind  : () => ({retained: true, awaitingClosure: true, readmit: true}),
+            close   : vessel => { closed.push(vessel); return false },
+            released: data => released.resolve(data)
+        }));
+        const vessel = await windows.acquire('view', {itemId: 'one'}), key = vessel.workspaceKey;
+        manager.bind({...vessel, windowId: 'old'});
+        await expect.poll(() => windows.getConnection('view', key)).not.toBeNull();
+        windows.recordOwner('view', key, {...vessel, windowId: 'old'}, windows.getConnection('view', key));
+        manager.reconnectLeaseMs = 0;
+
+        release('old');
+
+        expect(await released.promise).toMatchObject({committed: true, itemId: 'one', workspaceKey: key});
+        expect(closed, 'a window that already closed refuses a close; the item must not wait on one').toEqual([]);
+        expect(windows.getAdmission('view', key)).toBeNull()
+    });
+
+    test('a source releases without waiting for another source\'s main-thread round trip', async () => {
+        const windows = owner('root'), roundTrip = deferred(), unbound = [];
+        windows.registerSource('first', effects({
+            unbind  : () => { unbound.push('first'); return true },
+            released: () => roundTrip.promise
+        }));
+        windows.registerSource('second', effects({unbind: () => { unbound.push('second'); return true }}));
+        const vessel = await windows.acquire('first', {itemId: 'one'}), key = vessel.workspaceKey;
+        manager.bind({...vessel, windowId: 'old'});
+        await expect.poll(() => windows.getConnection('first', key)).not.toBeNull();
+
+        release('old');
+        await Promise.resolve();
+
+        // The App worker destroys a departed window's tree one task after its disconnect: a detach that waited for
+        // the first source's round trip would come too late
+        expect(unbound).toEqual(['first', 'second']);
+        roundTrip.resolve()
+    });
 });

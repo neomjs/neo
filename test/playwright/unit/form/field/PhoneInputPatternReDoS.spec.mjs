@@ -29,27 +29,22 @@ import Phone          from '../../../../../src/form/field/Phone.mjs';
  * one non-matching char — backtracked catastrophically (measured seconds at ~30 chars). `Text#maxLength`
  * defaults to `null`, so a Phone field imposes no input bound and the pathological value is reachable;
  * validation runs in the App Worker, so the regex freezes all UI logic. The replacement is a
- * language-preserving, linear rewrite. This spec pins BOTH properties on the field's real pattern.
+ * linear rewrite. The current grammar also accepts balanced groups after a country code; the
+ * performance guard and malformed-group controls apply to the field's real pattern.
  */
 test.describe('Neo.form.field.Phone inputPattern — ReDoS-safe', () => {
     let cached;
     const inputPattern = () => (cached ??= Neo.create(Phone, {appName}).inputPattern);
 
-    test('language preserved: accepts well-formed numbers, rejects malformed input', () => {
+    test('accepts formatted numbers and rejects malformed input', () => {
         const re = inputPattern();
 
-        // Trailing `/` is a valid digit-class char (`030/12345678`); a mid-string `(` after the first
-        // run is not (the open paren is only valid at the very start). The close-paren may only follow a
-        // PURE-DIGIT run (`(123)456` accepts; `12/34)56` rejects) — the original language distinguishes
-        // where `)` attaches, so a `/` before `)` must reject. An exhaustive ≤7-char audit over the
-        // pattern alphabet (5,380,840 strings) pins this pattern to 0 divergences from the original.
-        for (const value of ['1234567890', '+49 30 1234567', '030/12345678', '(123)456-789', '12-34-56', '123/456/789', '+1', '0', '12/']) {
+        // Slashes remain supported outside parentheses; parenthesized groups contain digits only.
+        for (const value of ['1234567890', '+49 30 1234567', '030/12345678', '(123)456-789', '12-34-56', '123/456/789', '+1', '0', '12/', '+1 (123) 456-789']) {
             expect(re.test(value), `should accept ${JSON.stringify(value)}`).toBe(true);
         }
 
-        // The final four are the `)`-after-slash divergence class an exhaustive audit surfaced (old rejects,
-        // a merged-run rewrite would wrongly accept) — pinned so the boundary can never silently widen again.
-        for (const value of ['', 'abc', '12--34', '12  34', '-12', '/12', '+1 (123) 456-789', '+12a', '()12', '12/34)56', '0/)', '(030/1234)567', '12/34)']) {
+        for (const value of ['', 'abc', '12--34', '12  34', '-12', '/12', '+12a', '()12', '12/34)56', '0/)', '(030/1234)567', '12/34)']) {
             expect(re.test(value), `should reject ${JSON.stringify(value)}`).toBe(false);
         }
     });

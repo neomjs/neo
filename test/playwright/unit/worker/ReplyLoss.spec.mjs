@@ -10,6 +10,7 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
 import WorkerBase     from '../../../../src/worker/Base.mjs';
+import '../../../../src/manager/Instance.mjs';
 
 /**
  * @summary Regression net for worker reply loss on a null port lookup (the blank-app init wedge).
@@ -70,6 +71,45 @@ const createSharedWorker = portSpecs => {
 };
 
 test.describe('Worker reply loss on null port lookup (#12958)', () => {
+    test('a destroyed target sends a cloneable rejection that settles the live caller', async () => {
+        const {port, sent} = createCapturingPort(),
+              server       = createSharedWorker([{appName: 'ReplyLossApp', id: 'port-cancel', port, windowId: 'win-cancel'}]),
+              caller       = createSharedWorker([]),
+              target       = Neo.create(core.Base), originalError = console.error,
+              pending      = new Promise((resolve, reject) => {
+                  caller.promises['q-cancel'] = {resolve, reject}
+              }),
+              outcome = pending.catch(error => error);
+
+        port.postMessage = message => sent.push(structuredClone(message));
+        target.waitForOwner = () => target.timeout(1000);
+        const errors = [];
+        console.error = (...args) => errors.push(args);
+
+        try {
+            await target.ready();
+            expect(Neo.get(target.id)).toBe(target);
+            server.onRemoteMethod({
+                id      : 'q-cancel', origin: 'main', port: 'port-cancel', windowId: 'win-cancel',
+                remoteId: target.id, remoteMethod: 'waitForOwner', data: []
+            });
+            target.destroy();
+            await Promise.resolve();
+            expect(sent).toHaveLength(1);
+            expect(sent[0].reject).toBe(true);
+            expect(sent[0].data).toBeInstanceOf(Error);
+            caller.onMessage({data: sent[0]});
+            expect((await outcome).message).toBe('Remote method target was destroyed');
+            expect(caller.promises['q-cancel']).toBeUndefined();
+            expect(errors).toEqual([[Neo.isDestroyed]])
+        } finally {
+            console.error = originalError;
+            target.destroy();
+            caller.destroy();
+            server.destroy()
+        }
+    });
+
     test('sendMessage: a stale opts.port falls through to the windowId lookup (reply rescued)', () => {
         const {port, sent} = createCapturingPort();
         const worker       = createSharedWorker([

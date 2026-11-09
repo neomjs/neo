@@ -64,6 +64,13 @@ class Sorter extends Base {
          */
         property_: 'id',
         /**
+         * Opts a local Store into re-sorting when this property's record value changes.
+         * Custom comparators and virtual fields reapply on any record edit. Requires autoSort;
+         * remote, paged, loading and streaming Stores keep their existing update policy.
+         * @member {Boolean} reapplyOnRecordChange=false
+         */
+        reapplyOnRecordChange: false,
+        /**
          * Provide a custom sorting function, has a higher priority than property & direction
          * @member {Function|null} sortBy=null
          * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Collator
@@ -121,10 +128,11 @@ class Sorter extends Base {
      * @returns {Number} `-1`, `0` or `1`, already direction-adjusted.
      */
     defaultSortBy(a, b) {
-        let me = this;
+        let me         = this,
+            {property} = me;
 
-        a = a[me.property];
-        b = b[me.property];
+        a = Sorter.getValue(a, property);
+        b = Sorter.getValue(b, property);
 
         if (me.useTransformValue) {
             a = me.transformValue(a);
@@ -132,6 +140,42 @@ class Sorter extends Base {
         }
 
         return Sorter.compareValues(a, b, me.directionMultiplier)
+    }
+
+    /**
+     * @summary Resolves a sort property on a record or plain item, including dotted nested paths.
+     *
+     * Flat properties, `Symbol` keys (such as `Symbol.for('initialIndex')` in `Store#sort()`), and
+     * declared `Model` getters resolve on the first `item[property]` read. Only when that read is
+     * `undefined` and `property` is a dotted string path does this walk `item.get(property)` (for
+     * `Neo.data.Record` instances whose nested data lives under `this[Symbol.for('data')]`) and
+     * `Neo.ns(property, false, item)` (for plain objects or calculated root getters on a `Record`).
+     * `typeof item.get === 'function'` is duck-typed so `collection/` stays decoupled from
+     * `data/RecordFactory`; any item exposing `get(property)` is consulted before falling through to
+     * `Neo.ns` when it returns `undefined`.
+     *
+     * @param {Object|Neo.data.Record} item
+     * @param {String|Symbol} property
+     * @returns {*}
+     */
+    static getValue(item, property) {
+        if (!item) {
+            return undefined
+        }
+
+        let value = item[property];
+
+        if (value === undefined && typeof property === 'string' && property.includes('.')) {
+            if (typeof item.get === 'function') {
+                value = item.get(property)
+            }
+
+            if (value === undefined) {
+                value = Neo.ns(property, false, item)
+            }
+        }
+
+        return value
     }
 
     /**

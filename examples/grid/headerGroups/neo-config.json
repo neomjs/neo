@@ -1,0 +1,8 @@
+{
+    "appPath"    : "examples/grid/headerGroups/app.mjs",
+    "basePath"   : "../../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs",
+    "useAiClient": true,
+    "themes"     : ["neo-theme-neo-light", "neo-theme-neo-dark"]
+}

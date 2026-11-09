@@ -54,7 +54,7 @@ class Mermaid extends Component {
 
     /**
      * Stores the remote proxy instance of the Mermaid addon.
-     * This proxy is retrieved during `initAsync` and is used to invoke methods on the Main thread.
+     * Retrieved during initialization and refreshed after admitting the current window before rendering.
      * @member {Object|null} addon=null
      * @protected
      */
@@ -118,24 +118,38 @@ class Mermaid extends Component {
     }
 
     /**
-     * Renders the Mermaid diagram.
-     * This method waits for the component to be fully initialized (ready) and then invokes
-     * the `render` method on the remote addon proxy.
+     * @summary Renders through the current window's addon after its per-window admission. A moved component
+     * must load the addon in its destination even when the global proxy already exists. Source, window and
+     * owner checks prevent late admission results from dispatching or replacing a newer borrowed proxy.
      * @returns {Promise<void>}
      */
     async render() {
         let me = this;
 
         if (me.mounted && me.value) {
-            await me.ready();
+            const windowId = me.windowId,
+                  value    = me.value,
+                  current  = () => !me.isDestroyed && me.mounted && me.windowId === windowId && me.value === value;
 
-            const code = `---\nconfig:\n  theme: ${me.resolveTheme()}\n---\n${me.value}`;
+            try {
+                await me.ready();
 
-            await me.addon.render({
-                code,
-                id      : me.id,
-                windowId: me.windowId
-            })
+                if (!current()) return;
+
+                const addon = await Neo.currentWorker.getAddon('Mermaid', windowId);
+
+                if (!current()) return;
+
+                me.addon = addon;
+
+                await addon.render({
+                    code: `---\nconfig:\n  theme: ${me.resolveTheme()}\n---\n${value}`,
+                    id  : me.id,
+                    windowId
+                })
+            } catch (error) {
+                if (current()) throw error
+            }
         }
     }
 

@@ -131,6 +131,34 @@ test.describe('core/Base bounded predicate waits', () => {
 });
 
 test.describe('core/Base Timeout Handling', () => {
+    test('an already destroyed owner creates no timer or async registration', async () => {
+        const instance = Neo.create(core.Base), observed = observeTimeouts(instance);
+
+        try {
+            instance.destroy();
+            await expect(instance.timeout(0)).rejects.toBe(Neo.isDestroyed);
+            expect(observed.scheduled).toHaveLength(0);
+            expect(observed.registered).toHaveLength(0);
+            expect(observed.pending.size).toBe(0)
+        } finally {
+            observed.restore()
+        }
+    });
+
+    test('a pre-aborted signal retains its reason even when the owner is destroyed', async () => {
+        const instance = Neo.create(core.Base), controller = new AbortController(), observed = observeTimeouts(instance);
+
+        try {
+            controller.abort('caller already cancelled');
+            instance.destroy();
+            await expect(instance.timeout(0, {signal: controller.signal})).rejects.toBe('caller already cancelled');
+            expect(observed.scheduled).toHaveLength(0);
+            expect(observed.registered).toHaveLength(0)
+        } finally {
+            observed.restore()
+        }
+    });
+
     test('an aborted wait clears its timer while the owner remains alive', async () => {
         const instance = Neo.create(core.Base), controller = new AbortController(),
               clear    = globalThis.clearTimeout, cleared = [], reason = new Error('superseded');

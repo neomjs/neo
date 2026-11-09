@@ -36,11 +36,16 @@ class Manager extends Collection{
     }
 
     /**
-     * Removes a collection item passed by reference or key
+     * @summary Removes a collection item passed by key, or by reference while it still holds its key's registration.
+     * A retired item whose key a successor reused (e.g. a released Model) leaves the successor registered.
      * @param {Object|String} item
      */
     unregister(item) {
-        this.remove(item)
+        let me = this;
+
+        if (item === null || typeof item !== 'object' || me.get(me.getKey(item)) === item) {
+            me.remove(item)
+        }
     }
 }
 

@@ -6,10 +6,10 @@ import Viewport    from '../../../src/container/Viewport.mjs';
 
 /**
  * @summary A `Neo.canvas.GraphScene` on the canvas worker. Drag to orbit, scroll to zoom. The toolbar sends
- * a bigger or smaller scene, loses and restores the WebGL context, and reads the renderer's stats: the
- * frame count stays still while nothing changes, and the scene comes back after a restore. "100k clustered"
- * sends a clustered graph of 100k nodes and a million edges, drawn through the level of detail, and "LOD lap"
- * measures the frame rate of every edge against the far, mid and near levels.
+ * a bigger or smaller scene, flies the camera to a labelled node, loses and restores the WebGL context, and
+ * reads the renderer's stats: the frame count stays still while nothing changes, and the scene comes back after
+ * a restore. "100k clustered" sends a clustered graph of 100k nodes and a million edges, drawn through the level
+ * of detail, and "LOD lap" measures the frame rate of every edge against the far, mid and near levels.
  *
  * @class Neo.examples.component.graphScene.MainContainer
  * @extends Neo.container.Viewport
@@ -53,6 +53,11 @@ class MainContainer extends Viewport {
                 handler  : 'up.onLodLapButton',
                 reference: 'lod-lap',
                 text     : 'LOD lap'
+            }, {
+                module   : Button,
+                handler  : 'up.onFlyToButton',
+                reference: 'fly-to',
+                text     : 'Fly to #120'
             }, '->', {
                 module   : Button,
                 handler  : 'up.onLoseContextButton',
@@ -106,6 +111,13 @@ class MainContainer extends Viewport {
     }
 
     /**
+     * @summary Flies the camera to node 120, which the demo scene labels.
+     */
+    async onFlyToButton() {
+        await this.getReference('canvas').flyTo(120)
+    }
+
+    /**
      * @summary Sends a scene with the node count the button names.
      * @param {Object} data
      */
@@ -132,9 +144,9 @@ class MainContainer extends Viewport {
      */
     async onStatsButton() {
         const
-            me    = this,
-            stats = {...await me.getReference('canvas').getStats(), read: ++me.statsReads},
-            line  = me.getReference('stats'),
+            me                                                                   = this,
+            stats                                                                = {...await me.getReference('canvas').getStats(), read: ++me.statsReads},
+            line                                                                 = me.getReference('stats'),
             {camera, canvas, contextLost, counts, frames, lod, lodLap, restores} = stats;
 
         line.text = [

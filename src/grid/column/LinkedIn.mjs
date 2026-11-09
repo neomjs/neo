@@ -1,5 +1,5 @@
 import ComponentColumn   from './Component.mjs';
-import IconLinkComponent from '../../component/IconLink.mjs';
+import IconLinkComponent from './component/IconLink.mjs';
 
 /**
  * @class Neo.grid.column.LinkedIn
@@ -37,7 +37,7 @@ class LinkedIn extends ComponentColumn {
      */
     applyRecordConfigs(config, record) {
         let me  = this,
-            url = record[me.dataField];
+            url = me.getRecordValue(record);
 
         if (url && !url.startsWith('http')) {
             url = `https://www.linkedin.com/in/${url}/`

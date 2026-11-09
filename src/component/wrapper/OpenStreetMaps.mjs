@@ -199,6 +199,12 @@ class OpenStreetMaps extends Base {
             me.timeout(50).then(() => {
                 Neo.main.addon.OpenStreetMaps.create(opts).then(() => {
                     me.mapCreated = true;
+
+                    // A remounted map starts empty: removeMap() dropped the markers of the previous one
+                    if (me.markerStore?.getCount() > 0) {
+                        me.onMarkerStoreLoad()
+                    }
+
                     me.onComponentMounted()
                 })
             })
@@ -276,7 +282,7 @@ class OpenStreetMaps extends Base {
     }
 
     /**
-     *
+     * @summary Synchronizes map markers with the current `markerStore` records on store load or collection mutation.
      */
     onMarkerStoreLoad() {
         let {appName, id, windowId} = this;
@@ -284,15 +290,16 @@ class OpenStreetMaps extends Base {
         Neo.main.addon.OpenStreetMaps.destroyMarkers({
             appName,
             id,
+            mapId: id,
             windowId
         });
 
-        this.markerStore.items.forEach(item => {
+        this.markerStore.forEach(item => {
             Neo.main.addon.OpenStreetMaps.addMarker({
                 appName,
                 mapId: id,
                 windowId,
-                ...item
+                ...(item.toJSON?.() || item)
             })
         })
     }
@@ -329,10 +336,12 @@ class OpenStreetMaps extends Base {
     }
 
     /**
-     *
+     * @summary Resets `mapCreated` and removes the map instance, with its markers, via the OpenStreetMaps addon.
      */
     removeMap() {
         let {appName, id, windowId} = this;
+
+        this.mapCreated = false;
 
         Neo.main.addon.OpenStreetMaps.removeMap({
             appName,

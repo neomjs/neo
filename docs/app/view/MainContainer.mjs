@@ -1,3 +1,4 @@
+import ApiStore                from '../store/Api.mjs';
 import ApiTreeList             from './ApiTreeList.mjs';
 import ClassDetailsContainer   from './classdetails/MainContainer.mjs';
 import Collection              from '../../../src/collection/Base.mjs';
@@ -7,12 +8,14 @@ import HeaderContainer         from './HeaderContainer.mjs';
 import MainContainerController from './MainContainerController.mjs';
 import SourceViewComponent     from './classdetails/SourceViewComponent.mjs';
 import Splitter                from '../../../src/component/Splitter.mjs';
+import StateProvider           from '../../../src/state/Provider.mjs';
 import TutorialComponent       from './classdetails/TutorialComponent.mjs';
 import Viewport                from '../../../src/container/Viewport.mjs';
 
 /**
  * @class Docs.view.MainContainer
  * @extends Neo.container.Viewport
+ * @summary Main viewport container for the Neo.mjs Docs application.
  */
 class MainContainer extends Viewport {
     static config = {
@@ -46,11 +49,22 @@ class MainContainer extends Viewport {
          */
         store_: null,
         /**
-         * Important for the Portal App, until the new theme fully supports it
-         * @member {String} theme='neo-theme-light'
+         * One complete source index feeds independent API and application navigation projections.
+         * @member {Object} stateProvider
          * @reactive
          */
-        theme: 'neo-theme-light',
+        stateProvider: {
+            module: StateProvider,
+            stores: {
+                structure: {module: ApiStore},
+                api      : {
+                    module: ApiStore, url: null, sourceId: 'structure', rootName: 'src'
+                },
+                apps: {
+                    module: ApiStore, url: null, sourceId: 'structure', rootName: 'apps'
+                }
+            }
+        },
         /**
          * @member {Array} items=[//...]
          * @reactive
@@ -75,10 +89,21 @@ class MainContainer extends Viewport {
                     module   : ApiTreeList,
                     listeners: {leafItemClick: 'onApiListLeafClick'},
                     reference: 'api-treelist',
+                    bind     : {store: 'stores.api'},
 
                     header: {
                         iconCls: 'fa fa-code',
                         text   : 'API'
+                    }
+                }, {
+                    module   : ApiTreeList,
+                    listeners: {leafItemClick: 'onApiListLeafClick'},
+                    reference: 'apps-treelist',
+                    bind     : {store: 'stores.apps'},
+
+                    header: {
+                        iconCls: 'fa fa-cubes',
+                        text   : 'Apps'
                     }
                 }, {
                     module   : ExamplesTreeList,
@@ -86,8 +111,9 @@ class MainContainer extends Viewport {
                     reference: 'examples-treelist',
 
                     header: {
-                        iconCls: 'fa fa-desktop',
-                        text   : 'Examples'
+                        iconCls  : 'fa fa-desktop',
+                        reference: 'examples-tab-button',
+                        text     : 'Examples'
                     }
                 }]
             }, {
@@ -108,7 +134,7 @@ class MainContainer extends Viewport {
     }
 
     /**
-     *
+     * @summary Creates the member-doclet collection.
      * @param {Object} config
      */
     construct(config) {
@@ -121,19 +147,28 @@ class MainContainer extends Viewport {
                 keyProperty: 'id'
             })
         }
-
-        // Disable the examples Tab for dist versions: the webpack builds cannot serve them yet
-        me.items[1].items[0].items[1].header.disabled = Neo.config.environment !== 'development'
     }
 
     /**
-     *
+     * @summary Loads the shared structure index once and the separate member-doclet collection.
      */
     onConstructed() {
         super.onConstructed();
 
         let me  = this,
             url = '../../docs/output/all.json';
+
+        // Dist builds cannot serve the examples yet.
+        me.controller.getReference('examples-tab-button').disabled = Neo.config.environment !== 'development';
+
+        me.getStateProvider().getStore('structure').load().then(data => {
+            if (!me.isDestroyed && !data) {
+                for (const reference of ['api-treelist', 'apps-treelist']) {
+                    me.controller.getReference(reference).html = '<div style="padding: 1em">To get the content please use:<br>' +
+                        '<code>npm run generate-docs-json</code></div>'
+                }
+            }
+        });
 
         Neo.Xhr.promiseJson({url}).catch(err => {
             console.error('Error for Neo.Xhr.request', {id: me.store.id, error: err, url})

@@ -152,12 +152,66 @@ class Container extends BaseContainer {
     }
 
     /**
+     * What {@link #updateTabPanels} gave each card (`role`, `labelledBy`), so that
+     * {@link #unlinkTabPanel} withdraws exactly that. An equal value is not proof of ownership:
+     * a card may have brought a `tabpanel` role itself.
+     * @member {WeakMap<Neo.component.Base, Object>} tabPanelLinks
+     * @protected
+     */
+    tabPanelLinks = new WeakMap()
+
+    /**
      * Adds one or more tab items to the end of the container.
      * @param {Object|Object[]} item The configuration object for a new tab or an array of such objects.
      * @returns {Neo.component.Base|Neo.component.Base[]} The newly created component(s).
      */
     add(item) {
         return this.insert(this.getCount(), item)
+    }
+
+    /**
+     * @summary Requests closing an opted-in tab, preserving its identity across the cancellable notification.
+     * Fires `beforeTabClose` before either card or header is removed. A synchronous listener can set `abort: true`
+     * to veto, or `restoreFocus: false` to own focus itself. `tabClose` carries the captured card/header ids and
+     * text after removal; the removed instance may already be destroyed. Focus in the closed header or card is
+     * restored to a survivor. Lazy cards need not load to close.
+     * @param {Number} [index=this.activeIndex] Semantic tab index, excluding toolbar actions.
+     * @returns {Neo.component.Base|Object|Boolean} The captured card/config, or false when refused or vetoed.
+     */
+    closeTab(index=this.activeIndex) {
+        const me     = this,
+              header = Number.isInteger(index) && index >= 0 ? me.getTabButtons()[index] : null,
+              card   = header && me.getCard(index);
+
+        if (!header?.closable || header.disabled || !card) return false;
+
+        const identity = {card, header, cardId: card.id || null, headerId: header.id, text: header.text},
+              request  = {...identity, abort: false, index, restoreFocus: header.containsFocus || card.containsFocus === true};
+
+        me.fire('beforeTabClose', request);
+
+        if (request.abort || me.isDestroyed || header.isDestroyed || !header.closable || header.disabled) return false;
+
+        // A listener may move a tab: resolve the captured header again, never close its old positional neighbour.
+        index = me.getTabButtons().indexOf(header);
+        if (index < 0) return false;
+
+        me.removeAt(index);
+        me.fire('tabClose', {...identity, index});
+
+        if (request.restoreFocus && me.mounted) {
+            if (!me.getCount()) me.changeVdomRootKey('tabIndex', -1);
+
+            me.promiseUpdate().then(() => {
+                if (!me.isDestroyed) {
+                    const buttons = me.getTabButtons(),
+                          target  = buttons[Math.min(index, buttons.length - 1)];
+                    target ? target.focus() : me.focus()
+                }
+            })
+        }
+
+        return card
     }
 
     /**
@@ -178,9 +232,13 @@ class Container extends BaseContainer {
             }, me, {once: true})
         } else {
             if (Neo.isNumber(value) && value > -1) {
+                const header = me.getTabButtons()[value];
                 // we need to ensure the afterSet method triggers when lazy loading the module
                 cardContainer.layout._activeIndex = value;
                 await cardContainer.layout.afterSetActiveIndex(value, oldValue);
+
+                if (me.isDestroyed || cardContainer.isDestroyed || me.getCardContainer() !== cardContainer
+                    || me.activeIndex !== value || me.getTabButtons()[value] !== header) return;
 
                 if (oldValue !== undefined) {
                     me.updateTabButtons();
@@ -352,7 +410,9 @@ class Container extends BaseContainer {
 
         me.itemDefaults = null;
 
-        super.createItems()
+        super.createItems();
+
+        me.updateTabPanels(true)
     }
 
     /**
@@ -466,7 +526,7 @@ class Container extends BaseContainer {
 
     /**
      * Creates the configuration object for a single tab button. It merges a default configuration
-     * (including the module, index, and a click listener to change `activeIndex`) with the
+     * (including the module, index, and tab activation/close listeners) with the
      * user-provided configuration from the item's `header` property.
      * @param {Object} config The user-provided configuration from `item.header`.
      * @param {Number} index The index of this tab button.
@@ -484,14 +544,39 @@ class Container extends BaseContainer {
             useActiveTabIndicator: me.useActiveTabIndicator,
 
             domListeners: [{
-                click(data) {
-                    me.activeIndex = data.component.index
-                },
-                scope: me
+                click  : me.onTabButtonClick,
+                keydown: me.onTabButtonKeyDown,
+                scope  : me
             }]
         };
 
         return {...defaultConfig, ...config}
+    }
+
+    /**
+     * @summary Routes the close mark independently of ordinary tab activation.
+     * @param {Object} data Serialized DOM event with its header component.
+     * @protected
+     */
+    onTabButtonClick(data) {
+        const button = data.component;
+
+        if (button.isCloseTarget?.(data)) {
+            this.closeTab(button.index)
+        } else {
+            this.activeIndex = button.index
+        }
+    }
+
+    /**
+     * @summary Gives a focused closable tab the optional Delete action of the tabs keyboard pattern.
+     * @param {Object} data Serialized keyboard event with its header component.
+     * @protected
+     */
+    onTabButtonKeyDown(data) {
+        if (data.key === 'Delete' && !data.altKey && !data.ctrlKey && !data.metaKey) {
+            this.closeTab(data.component.index)
+        }
     }
 
     /**
@@ -569,6 +654,7 @@ class Container extends BaseContainer {
             }
         }
 
+        me.updateTabPanels(silent);
         !silent && me.updateTabButtons();
 
         return superItem
@@ -619,11 +705,21 @@ class Container extends BaseContainer {
         let tabBar = this.getTabBar();
 
         tabBar.on('action', this.onHeaderAction, this);
+        this.getCardContainer().on('cardLoaded', this.onCardLoaded, this);
 
         // The bar is constructed before its parent finished wiring, so its own attempt may have
         // resolved nothing. The subject is this TabContainer: focus anywhere inside it — a tab
         // button, the body, an action — exposes the gated actions; only leaving hides them.
         tabBar.wireFocusSubject()
+    }
+
+    /**
+     * A lazy card exists only once its module loaded, so only now can its tab name it.
+     * @param {Object} data
+     * @protected
+     */
+    onCardLoaded(data) {
+        this.updateTabPanels()
     }
 
     /**
@@ -697,6 +793,7 @@ class Container extends BaseContainer {
 
     /**
      * Removes a tab from the container at a specific index.
+     * @summary Keeps the previous neighbour active, falling back to the first remaining card or null when empty.
      * @param {Number} index The index of the tab to remove.
      * @param {Boolean} [destroyItem=true] Set to false to keep the component instance in memory.
      * @param {Boolean} [silent=false] Defer child DOM updates to the caller's common-parent transaction.
@@ -712,14 +809,21 @@ class Container extends BaseContainer {
         card = cardContainer.removeAt(index, destroyItem, silent, keepMounted);
         tabBar       .removeTabAt(index, true,     silent);
 
+        // A card that outlives its removal must not keep naming the tab it leaves behind
+        if (!destroyItem && card instanceof Neo.component.Base) {
+            me.unlinkTabPanel(card, silent)
+        }
+
         if (index < activeIndex) {
             // silent updates
             me._activeIndex = activeIndex - 1;
             cardContainer.layout._activeIndex = activeIndex - 1
         } else if (index === activeIndex) {
+            const nextIndex = cardContainer.items.length ? Math.max(0, activeIndex - 1) : null;
+
             if (silent) {
-                me._activeIndex = activeIndex - 1;
-                cardContainer.layout._activeIndex = activeIndex - 1;
+                me._activeIndex = nextIndex;
+                cardContainer.layout._activeIndex = nextIndex;
 
                 // Atomic cross-parent moves defer their one DOM commit to the closest common parent.
                 // Keep both card visibility and tab pressed-state inside that same silent transaction.
@@ -728,7 +832,16 @@ class Container extends BaseContainer {
                 });
                 me.updateTabButtons(true)
             } else {
-                me.activeIndex = activeIndex - 1
+                me.activeIndex = nextIndex;
+
+                if (nextIndex === activeIndex) {
+                    // The index stayed zero, but it now names a different card: reapply its presentation.
+                    me.afterSetActiveIndex(nextIndex, activeIndex)
+                } else if (nextIndex === null) {
+                    cardContainer.layout._activeIndex = null;
+                    me.updateTabButtons();
+                    me.fire('activeIndexChange', {item: null, oldValue: activeIndex, value: null})
+                }
             }
         }
 
@@ -741,6 +854,38 @@ class Container extends BaseContainer {
         }
 
         return card
+    }
+
+    /**
+     * Withdraws what {@link #updateTabPanels} recorded in {@link #tabPanelLinks} for a card, and only
+     * that. A role or name the card brought itself stays, even when it equals what this container
+     * would have set.
+     * @param {Neo.component.Base} card
+     * @param {Boolean} [silent=false] Mutate VDOM state without committing an update.
+     * @protected
+     */
+    unlinkTabPanel(card, silent=false) {
+        let link    = this.tabPanelLinks.get(card),
+            changed = false,
+            root;
+
+        if (link) {
+            this.tabPanelLinks.delete(card);
+            root = card.getVdomRoot();
+
+            // Withdraw only what is still this container's value: a role or label set since stays
+            if (link.labelledBy && root['aria-labelledby'] === link.labelledBy) {
+                delete root['aria-labelledby'];
+                changed = true
+            }
+
+            if (link.role && card.role === 'tabpanel') {
+                card.setSilent({role: null});
+                changed = true
+            }
+
+            changed && !silent && card.update()
+        }
     }
 
     /**
@@ -763,6 +908,50 @@ class Container extends BaseContainer {
         })
     }
 
+    /**
+     * Links each tab button to its card the way the WAI-ARIA tabs pattern expects: the button names
+     * its card (`cardId`, rendered as `aria-controls`), and the card becomes a `tabpanel` labelled by
+     * the button. A card keeps any role or accessible name of its own. A lazy card that has not loaded
+     * yet has no node to name, so its button names none until it does. What it sets is recorded in
+     * {@link #tabPanelLinks}.
+     * @param {Boolean} [silent=false] Mutate VDOM state without committing updates.
+     * @protected
+     */
+    updateTabPanels(silent=false) {
+        let me    = this,
+            cards = me.getCardContainer()?.items || [];
+
+        me.getTabButtons().forEach((button, index) => {
+            let card    = cards[index],
+                loaded  = card instanceof Neo.component.Base,
+                changed = false,
+                link, root;
+
+            button[silent ? 'setSilent' : 'set']({cardId: loaded ? card.id : null});
+
+            if (loaded) {
+                link = me.tabPanelLinks.get(card) || {};
+                root = card.getVdomRoot();
+
+                if (!root['aria-label'] && !root['aria-labelledby']) {
+                    root['aria-labelledby'] = button.id;
+                    link.labelledBy         = button.id;
+                    changed                 = true
+                }
+
+                if (!card.role && !root.role) {
+                    card.setSilent({role: 'tabpanel'});
+                    link.role = true;
+                    changed   = true
+                }
+
+                if (changed) {
+                    me.tabPanelLinks.set(card, link);
+                    !silent && card.update()
+                }
+            }
+        })
+    }
 }
 
 export default Neo.setupClass(Container);

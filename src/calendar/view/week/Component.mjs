@@ -227,6 +227,14 @@ class Component extends BaseComponent {
     }
 
     /**
+     * Last-seen horizontal scroll offset of `.neo-c-w-scrollcontainer`, used by `onScroll`
+     * to ignore vertical-only scroll events (`deltaX === 0`).
+     * @member {Number} lastScrollLeft=0
+     * @protected
+     */
+    lastScrollLeft = 0
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -236,6 +244,7 @@ class Component extends BaseComponent {
 
         me.addDomListeners([
             {dblclick: me.onEventDoubleClick, scope: me, delegate: '.neo-event'},
+            {scroll  : me.onScroll,           scope: me},
             {wheel   : me.onWheel,            scope: me}
         ]);
 
@@ -256,9 +265,7 @@ class Component extends BaseComponent {
 
         me.updateHeader(true, me.needsEventUpdate);
 
-        me.needsEventUpdate && me.updateEvents(false);
-
-        me.headerCreated = true
+        me.needsEventUpdate && me.updateEvents(false)
     }
 
     /**
@@ -342,7 +349,7 @@ class Component extends BaseComponent {
     afterSetCurrentDate(value, oldValue) {
         let me = this;
 
-        if (me.isConstructed) {
+        if (value && me.isConstructed) {
             me.updateHeader(false, true);
             me.updateEvents()
         }
@@ -427,6 +434,18 @@ class Component extends BaseComponent {
 
         oldValue?.un(listeners);
         value   ?.on(listeners)
+    }
+
+    /**
+     * @summary Re-renders week events when the bound timeFormatter changes.
+     * @param {Intl.DateTimeFormat|null} value
+     * @param {Intl.DateTimeFormat|null} oldValue
+     * @protected
+     */
+    afterSetIntlFormat_time(value, oldValue) {
+        if (oldValue && this.isConstructed) {
+            this.updateEvents()
+        }
     }
 
     /**
@@ -572,6 +591,7 @@ class Component extends BaseComponent {
     }
 
     /**
+     * @summary Builds column and header VDOM descriptors with deterministic date-scoped IDs so `EventDragZone#dragMove` resolves the right drop day from `targetPath` after mid-drag column paging.
      * @param {Date} date
      * @returns {Object}
      */
@@ -581,6 +601,7 @@ class Component extends BaseComponent {
             currentDate = date.getDate(),
             currentDay  = date.getDay(),
             dateCls     = ['neo-date'],
+            headerId    = me.getColumnHeaderId(date),
             removeDom   = false,
             column, header;
 
@@ -593,12 +614,12 @@ class Component extends BaseComponent {
             dateCls.push('neo-today')
         }
 
-        column = {cls: columnCls, flag: DateUtil.convertToyyyymmdd(date), removeDom};
+        column = {cls: columnCls, flag: DateUtil.convertToyyyymmdd(date), id: me.getColumnId(date), removeDom};
 
         header =
-        {cls: ['neo-header-row-item'], removeDom: removeDom, cn: [
-            {cls: ['neo-day'], text: me.intlFormat_day.format(date)},
-            {cls: dateCls,     text: currentDate}
+        {cls: ['neo-header-row-item'], id: headerId, removeDom: removeDom, cn: [
+            {cls: ['neo-day'], id: `${headerId}_day`,  text: me.intlFormat_day.format(date)},
+            {cls: dateCls,     id: `${headerId}_date`, text: currentDate}
         ]};
 
         return {column, header}
@@ -736,6 +757,28 @@ class Component extends BaseComponent {
     }
 
     /**
+     * @summary Forwards horizontal scroll events on the week scroll container into the infinite-scroll column paging handler while ignoring vertical-only scroll events.
+     * @param {Object} data
+     */
+    onScroll(data) {
+        let me = this;
+
+        if (!data.target || data.target.cls?.includes('neo-c-w-scrollcontainer') || data.target.id === me.getScrollContainer().id) {
+            let deltaX = data.scrollLeft - me.lastScrollLeft;
+
+            me.lastScrollLeft = data.scrollLeft;
+
+            if (deltaX !== 0) {
+                me.onWheel({
+                    ...data,
+                    deltaX,
+                    deltaY: 0
+                })
+            }
+        }
+    }
+
+    /**
      * @param {Object} data
      * @param {Neo.component.Base} data.component
      * @param {Number} data.rowHeight
@@ -750,6 +793,7 @@ class Component extends BaseComponent {
     }
 
     /**
+     * @summary Pages buffered day columns in and out at the horizontal scroll edges and compensates scrollLeft.
      * @param {Object} data
      */
     onWheel(data) {
@@ -814,7 +858,8 @@ class Component extends BaseComponent {
             }
 
             if (scrollValue) {
-                me.isUpdating = true;
+                me.isUpdating     = true;
+                me.lastScrollLeft = data.scrollLeft + scrollValue;
 
                 me.promiseUpdate().then(() => {
                     Neo.main.DomAccess.scrollBy({
@@ -845,6 +890,8 @@ class Component extends BaseComponent {
      */
     updateEvents(silent=false, startIndex=0, endIndex=this.totalColumns) {
         let me = this;
+
+        if (!me.currentDate) return;
 
         if (!me.mounted) {
             me.needsEventUpdate = true
@@ -952,6 +999,7 @@ class Component extends BaseComponent {
     }
 
     /**
+     * @summary Defers header creation until currentDate is set.
      * @param {Boolean} [create=false]
      * @param {Boolean} [silent=false]
      */
@@ -963,6 +1011,12 @@ class Component extends BaseComponent {
             header         = me.getHeaderContainer(),
             i              = 0,
             columnCls, currentDate, currentDay, dateCls, headerId, removeDom;
+
+        if (!date) return;
+
+        if (!me.headerCreated) {
+            create = true
+        }
 
         me.setFirstColumnDate(date);
 
@@ -1009,6 +1063,8 @@ class Component extends BaseComponent {
 
             date.setDate(date.getDate() + 1)
         }
+
+        me.headerCreated = true;
 
         !silent && me.update()
     }

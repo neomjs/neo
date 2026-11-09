@@ -602,6 +602,15 @@ class Workspace extends Container {
     tearOutHandlers = null
 
     /**
+     * The opener's handle of each bound tear-out vessel, by Group key: `{nativeHandleKey, ownerWindowId}`.
+     * It outlives the vessel's route-less reloads, so a release can still ask whether the window closed
+     * ({@link Neo.dashboard.dock.window.NativeVesselTransaction#holdReleasedVessel}).
+     * @member {Object} vesselHandles={}
+     * @protected
+     */
+    vesselHandles = {}
+
+    /**
      * Item ids with a `dockReload()` invocation in flight — the single-flight guard: a second
      * activation during the window neither invokes nor settles.
      * @member {Set<String>} dockReloadInFlight=new Set()
@@ -728,6 +737,7 @@ class Workspace extends Container {
                 commitReturn        : document => this.onDockZoneDocumentChange(document),
                 findContainingTabsId: (document, itemId) => WorkspaceDocument.findContainingTabsId(document, itemId),
                 getDocument         : () => this.dockModel,
+                materializePane     : itemId => this.materializeDockPane(itemId),
                 onAdoptionFailed    : data => this.reportDockAdoptionFailure(data),
                 onDocumentChange    : (document, operation, vessel) => this.onTearOutDocumentChange(document, operation, vessel),
                 onPaneAdopted       : (itemId, entry, connection, isMerge, workspaceKey=entry?.workspaceKey ?? connection?.workspaceKey) => {
@@ -965,12 +975,14 @@ class Workspace extends Container {
                     me.tearOutHandlers.compensateFailedAdoption(itemId, me.nativeWindows.getOwner(me.id, connection.workspaceKey));
                     throw new Error(`Workspace ${me.id}: tear-out pane "${itemId}" could not enter its admitted vessel`)
                 }
+                NativeVesselTransaction.watchVesselHandle(me.vesselHandles, connection);
                 await me.afterTearOutWindowConnect(context)
             },
             ownerChanged  : ({itemId, entry, connection, merge}) => me.afterNativeOwnerChange(itemId, entry, connection, merge),
             unbind        : data => me.onNativeWindowRelease(data),
             bindingExpired: data => me.onNativeWindowRelease({...data, expired: true}),
             released      : async context => {
+                delete me.vesselHandles[context.workspaceKey];
                 const pane = await me.tearOutHandlers.onBindingReleased(context);
                 me.afterTearOutWindowDisconnect({...context, pane})
             },
@@ -988,6 +1000,7 @@ class Workspace extends Container {
                     return
                 }
 
+                delete me.vesselHandles[context.workspaceKey];
                 const pane = await me.tearOutHandlers.onBindingReleased({...context, committed});
                 me.afterTearOutWindowDisconnect({...context, committed, expired: true, pane})
             }
@@ -1018,8 +1031,11 @@ class Workspace extends Container {
      * @returns {Boolean|Object|Promise<Boolean|Object>} Retention disposition for the native lifecycle.
      */
     onNativeWindowRelease(data) {
-        return NativeVesselTransaction.releaseWorkspace({workspaceSet: this.workspaceSet,
-            nativeWindows: this.nativeWindows}, data)
+        const {nativeWindows} = this,
+              disposition     = NativeVesselTransaction.releaseWorkspace({workspaceSet: this.workspaceSet, nativeWindows}, data);
+
+        return disposition === true ? NativeVesselTransaction.holdReleasedVessel({handles: this.vesselHandles,
+            nativeWindows, sourceId: this.id, tearOut: this.tearOutHandlers}, data) : disposition
     }
 
     /**
@@ -1325,6 +1341,23 @@ class Workspace extends Container {
     }
 
     /**
+     * @summary Creates a never-shown lazy pane through its card's `loadModule`, joining any load in flight.
+     * Asks {@link #resolveLivePane} first, so a consumer that owns its pane lifecycle overrides nothing here.
+     * @param {String} itemId
+     * @returns {Promise<Neo.component.Base>|null} The pending load; null when the pane is live or not parked.
+     * @protected
+     */
+    materializeDockPane(itemId) {
+        if (this.resolveLivePane(itemId)) return null;
+
+        const nodeId = WorkspaceDocument.findContainingTabsId(this.dockModel, itemId),
+              body   = nodeId && this.getDockHost()?.down({dockNodeId: nodeId, dockNodeType: 'tabs'})?.getCardContainer(),
+              index  = body?.items.findIndex(item => !(item instanceof Neo.core.Base) && item?.dockItemId === itemId) ?? -1;
+
+        return index > -1 && body.layout?.loadModule ? body.layout.loadModule(body.items[index], index) : null
+    }
+
+    /**
      * @summary The live component currently rendering one dock item, or null.
      *
      * The two resolver-shaped members this folds together — the tree lookup and the stand-in
@@ -1460,15 +1493,20 @@ class Workspace extends Container {
      * @protected
      */
     reparentDockPane(pane, target={}, itemId) {
-        const app       = Neo.apps[target.windowId],
-              oldParent = pane?.parent;
+        const app        = Neo.apps[target.windowId],
+              oldParent  = pane?.parent,
+              sourceRoot = oldParent && oldParent.parent?.getCardContainer?.() === oldParent ? oldParent.parent : oldParent;
 
         if (!app || !pane || pane.isDestroyed) return false;
 
         try {
             if (oldParent !== app.mainView) {
-                oldParent?.remove(pane, false);
-                app.mainView.add(pane)
+                oldParent?.remove(pane, false, true);
+                app.mainView.add(pane);
+                if (sourceRoot && !sourceRoot.isDestroyed) {
+                    sourceRoot.updateDepth = -1;
+                    sourceRoot.update()
+                }
             }
         } catch (error) {
             try {
@@ -1904,6 +1942,70 @@ class Workspace extends Container {
         };
 
         visit(this.getDockHost()?.items?.[this.dockShellIndex])
+    }
+
+    /**
+     * Ends any reveal of an auto-hidden item on the application's word, held or not
+     * ({@link #revealRailItem}).
+     * @param {String} itemId
+     * @returns {{revealedItemId:(String|null), state:String}|null} The rail's snapshot, or `null` when no
+     *     rail of this window carries the item.
+     */
+    dismissRailReveal(itemId) {
+        return this.findDockRail(itemId)?.dismissReveal(itemId) ?? null
+    }
+
+    /**
+     * The projected edge rail whose tabs carry the item.
+     * @param {String} itemId
+     * @returns {Neo.dashboard.dock.interaction.Rail|null}
+     * @protected
+     */
+    findDockRail(itemId) {
+        let rail = null;
+
+        this.forEachDockRail(candidate => {
+            if (!rail && (candidate.railItems || []).some(item => item.dockItemId === itemId)) {
+                rail = candidate
+            }
+        });
+
+        return rail
+    }
+
+    /**
+     * Relays every rail's reveal change as this workspace's own `dockRailRevealChange`, with the rail's
+     * data: the application that holds a reveal open hears who ended it — the person, its own release, or
+     * the item leaving the rail (`cause`, `null` on a change that ends no reveal).
+     * @param {Object} data `{cause, next, previous, rail, railItem}`
+     * @protected
+     */
+    onDockRailRevealChange(data) {
+        this.fire('dockRailRevealChange', data)
+    }
+
+    /**
+     * Reveals an auto-hidden item over the layout on the application's word and holds it open:
+     * runtime-only, no operation, focus where it was. `dockRailRevealChange` on this workspace reports
+     * when `Escape` or the item's own tab ends it.
+     * @param {String} itemId
+     * @returns {{revealedItemId:(String|null), state:String}|null} The rail's snapshot, or `null` when no
+     *     rail of this window carries the item.
+     */
+    revealRailItem(itemId) {
+        return this.findDockRail(itemId)?.reveal(itemId) ?? null
+    }
+
+    /**
+     * @summary Pops a revealed auto-hidden item out into its own window: the reveal toolbar's pop-out,
+     * and the application's for an item it holds revealed ({@link #revealRailItem}). The transaction
+     * lives on {@link Neo.dashboard.dock.plugin.HeaderActions#popOutRailItem}, beside the docked
+     * pop-out's; a workspace that declined that plugin projects no reveal pop-out and answers `null`.
+     * @param {String} itemId
+     * @returns {Promise<{document:Object, errors:String[]}>|null}
+     */
+    popOutRailItem(itemId) {
+        return this.getPlugin('dock-header-actions')?.popOutRailItem(itemId) ?? null
     }
 
     /**
@@ -2506,6 +2608,8 @@ class Workspace extends Container {
                 dockPopOutActionAvailable: me.dockPopOutActionActive,
                 dockPopOutIconCls        : me.dockPopOutIconCls,
                 applyDockZoneOperation   : me.applyDockZoneOperation.bind(me),
+                onDockRailPopOut         : ({itemId}) => me.popOutRailItem(itemId),
+                onDockRailRevealChange   : me.onDockRailRevealChange.bind(me),
                 onDockZoneDocumentChange : me.onDockZoneDocumentChange.bind(me),
                 // A resolved pane's contract is header truth too: the policy publishes what it can
                 // serve as it is resolved, and the reload action's binding reads it.
@@ -2518,6 +2622,7 @@ class Workspace extends Container {
                 dockHeaderActionBindings: nodeId => me.dockHeaderActionPolicy?.createActionBindings(nodeId),
                 dockNodeLockBinding     : nodeId => me.dockHeaderActionPolicy?.createNodeLockBinding(nodeId),
                 dockRailLockBinding     : railId => me.dockHeaderActionPolicy?.createRailLockBinding(railId),
+                dockRailPopOutBinding   : me.getPlugin?.('dock-header-actions') && (railId => me.dockHeaderActionPolicy?.createRailPopOutBinding(railId)),
                 dockWorkspaceId         : me.id,
                 syncDockLockPane        : (pane, itemId) => me.dockHeaderActionPolicy?.syncLockItemPresentation({
                     locked: me.getStateProvider?.()?.getData(`dock.items.${itemId}.locked`) === true,
@@ -2799,6 +2904,7 @@ class Workspace extends Container {
     /**
      * @summary Chains one re-projection of a committed snapshot onto the settled refresh tail. It stands down
      * once {@link #scheduledProjection} has moved on, because that newer commit's projection supersedes it.
+     * Retirement during the owned delay stands down without masking a refresh failure.
      * @param {Object} projection
      * @param {Object|null} projection.document
      * @param {Object} projection.refreshOptions
@@ -2811,7 +2917,7 @@ class Workspace extends Container {
               tail = me.refreshPromise?.catch(() => {}) || Promise.resolve();
 
         me.refreshPromise = tail
-            .then(() => me.timeout(0))
+            .then(() => me.timeout(0).catch(error => {if (error !== Neo.isDestroyed) throw error}))
             .then(() => {
                 if (me.isDestroyed || (me.scheduledProjection && me.scheduledProjection.document !== document)) return;
 

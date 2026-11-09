@@ -73,12 +73,26 @@ class Field extends Component {
          */
         renderPath: true,
         /**
+         * True makes an empty field invalid. `Base` declares the flag and re-validates when it changes;
+         * each field type enforces it in `validate()` / `isValid()`.
+         * @member {Boolean} required_=false
+         * @reactive
+         */
+        required_: false,
+        /**
          * @member {*} value_=null
          * @reactive
          */
         value_: null
     }
 
+    /**
+     * Config keys explicitly passed to this field at construction time (or via immediate container `itemDefaults`),
+     * preserved so ancestor `form.Container#fieldDefaults` never overwrite them.
+     * @type {Set<String>}
+     * @private
+     */
+    #explicitConfigKeys = new Set()
     /**
      * An internal cache for formGroups of all parent levels
      * @member {String|null} formGroupString=null
@@ -101,14 +115,95 @@ class Field extends Component {
     /**
      * @param {Object} config
      */
-    construct(config) {
-        super.construct(config);
-
+    construct(config={}) {
         let me = this;
+
+        me.applyFieldDefaults(config);
+
+        super.construct(config);
 
         createSequence(me, 'afterSetValue', (value, oldValue) => {
             oldValue !== undefined && me.fireChangeEvent(value, oldValue)
         }, me)
+    }
+
+    /**
+     * @summary Applies ancestor `form.Container#fieldDefaults` when a pre-constructed field is dynamically
+     * reparented into a container hierarchy inside a form.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetParentId(value, oldValue) {
+        super.afterSetParentId(value, oldValue);
+
+        if (oldValue !== undefined && value && value !== 'document.body') {
+            this.applyParentFieldDefaults()
+        }
+    }
+
+    /**
+     * @summary Applies `fieldDefaults` from ancestor `Neo.form.Container` instances to the initial field config.
+     *
+     * Records keys explicitly present on `config` before walking up the parent chain starting from `config.parentId`
+     * (closest `form.Container` first, then outer ancestor forms) so explicit field configs and immediate container
+     * `itemDefaults` always take precedence over `fieldDefaults`.
+     * @param {Object} config
+     * @protected
+     */
+    applyFieldDefaults(config) {
+        let me            = this,
+            FormContainer = Neo.form?.Container,
+            parent;
+
+        if (config) {
+            for (const [key, value] of Object.entries(config)) {
+                if (value !== undefined) {
+                    me.#explicitConfigKeys.add(key)
+                }
+            }
+
+            parent = config.parentId && config.parentId !== 'document.body' ? Neo.getComponent(config.parentId) : null;
+
+            while (parent) {
+                if (FormContainer && parent instanceof FormContainer && parent.fieldDefaults) {
+                    for (const [key, value] of Object.entries(parent.fieldDefaults)) {
+                        if (!me.#explicitConfigKeys.has(key) && (!Object.hasOwn(config, key) || config[key] === undefined)) {
+                            config[key] = Neo.clone(value, true, true)
+                        }
+                    }
+                }
+
+                parent = parent.parent
+            }
+        }
+    }
+
+    /**
+     * @summary Applies `fieldDefaults` from ancestor `Neo.form.Container` instances to an already-constructed field
+     * for any keys that were not explicitly configured on the field itself.
+     * @protected
+     */
+    applyParentFieldDefaults() {
+        let me            = this,
+            FormContainer = Neo.form?.Container,
+            defaults      = {},
+            hasDefaults   = false;
+
+        ComponentManager.getParents(me).forEach(parent => {
+            if (FormContainer && parent instanceof FormContainer && parent.fieldDefaults) {
+                for (const [key, value] of Object.entries(parent.fieldDefaults)) {
+                    if (!me.#explicitConfigKeys.has(key) && !Object.hasOwn(defaults, key)) {
+                        defaults[key] = Neo.clone(value, true, true);
+                        hasDefaults   = true
+                    }
+                }
+            }
+        });
+
+        if (hasDefaults) {
+            me.set(defaults)
+        }
     }
 
     /**
@@ -132,6 +227,16 @@ class Field extends Component {
         let me = this;
 
         me.renderName && me.changeInputElKey('name', me.renderPath ? me.getPath() : value)
+    }
+
+    /**
+     * Triggered after the required config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetRequired(value, oldValue) {
+        oldValue !== undefined && this.validate(false)
     }
 
     /**
@@ -408,6 +513,7 @@ class Field extends Component {
             isTouched: me.isTouched,
             isValid  : me.isValid(),
             name     : me.name,
+            required : me.required,
             value    : me.value
         }
     }

@@ -1,5 +1,9 @@
-import {test, expect} from '@playwright/test';
-import {readFileSync} from 'node:fs';
+import {test, expect}                                                from '@playwright/test';
+import {execFileSync}                                                from 'node:child_process';
+import {mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync} from 'node:fs';
+import os                                                            from 'node:os';
+import path                                                          from 'node:path';
+import {fileURLToPath}                                               from 'node:url';
 
 /**
  * The property under test is that the clone destination reaches git as ONE argument.
@@ -142,4 +146,25 @@ test.describe('highlightJs — a failed build ends the process non-zero', () => 
         expect(handler, 'the catch in main() must be findable — the arm is void if the shape moved').toBeTruthy();
         expect(handler).toMatch(/process\.exit\(1\)/)
     })
+});
+
+test('the CLI checks the consumer working directory for an existing bundle', () => {
+    const
+        root   = mkdtempSync(path.join(os.tmpdir(), 'neo-highlight-consumer-')),
+        output = path.join(root, 'dist/highlight'),
+        script = fileURLToPath(new URL('../../../../buildScripts/build/highlightJs.mjs', import.meta.url));
+
+    try {
+        mkdirSync(output, {recursive: true});
+        writeFileSync(path.join(output, 'highlight.custom.js'), 'consumer bundle');
+        writeFileSync(path.join(output, 'highlight.custom.min.js'), 'consumer minified bundle');
+
+        const result = execFileSync(process.execPath, [script], {cwd: root, encoding: 'utf8'});
+
+        expect(result).toContain('bundle already exists. Skipping build');
+        expect(readFileSync(path.join(output, 'highlight.custom.js'), 'utf8')).toBe('consumer bundle');
+        expect(readFileSync(path.join(output, 'highlight.custom.min.js'), 'utf8')).toBe('consumer minified bundle')
+    } finally {
+        rmSync(root, {recursive: true, force: true})
+    }
 });

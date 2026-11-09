@@ -32,47 +32,50 @@ You MUST specify the E2E specific playwright config (`playwright.config.e2e.mjs`
 npx playwright test test/playwright/e2e/<domain>/YourTestNL.spec.mjs -c test/playwright/playwright.config.e2e.mjs
 ```
 
-**3. Point the Fixture at a Brain**
-The `neuralLink` fixture drives a live Brain. Set `NEO_AGENTOS_RUNTIME_ROOT` to the absolute path of a `neo-agent-brain` checkout whose dependencies are installed (`npm ci`). Without it, `playwright.config.e2e.mjs` deselects every spec that uses the fixture.
+**3. Choose the Dispatch Path (Dedicated-Worker Adapter vs. Bridge)**
+The `neuralLink` fixture supports two dispatch paths, selected by `NEO_AGENTOS_RUNTIME_ROOT`:
+- **Dedicated-Worker Adapter (`NEO_AGENTOS_RUNTIME_ROOT` unset):** Dispatches directly to the page's own dedicated App Worker (`test/playwright/dedicatedWorkerNeuralLink.mjs`) with no Brain checkout and no WebSocket. The fixture routes `neo-config.json` with `allowAiClientInTests: true` (so the App Worker boots the AI service registry without dialing a Bridge), addresses the captured dedicated App Worker handle directly (never searching by `appName`), mints a fresh `{agentId, sessionId}` writer pair for each test through `Neo.ai.Client#handleTestRequest`, and releases/sweeps that pair via `Neo.ai.Client#handleAgentDisconnected` during fixture teardown even when a test throws.
+- **Neural Link Bridge (`NEO_AGENTOS_RUNTIME_ROOT` set to an absolute `neo-agent-brain` checkout):** Loads the Brain's Neural Link services and dispatches over WebSocket through the Bridge. Set `NEO_AGENTOS_RUNTIME_ROOT=/abs/path/to/neo-agent-brain` (with `npm ci` installed) to run the Bridge path. While it is unset, `playwright.config.e2e.mjs` deselects every `neuralLink` spec that `test/playwright/externalBrainSelection.mjs` does not list as adapter-eligible.
 
 ## Hosted CI
 
-The engine tier (`.github/workflows/test-e2e.yml`) runs on pull requests without a Brain, so it selects only the Brain-free specs.
+The engine tier (`.github/workflows/test-e2e.yml`) runs without a Brain, so its population is the Brain-free specs, the adapter-eligible ones included.
 
-The Brain-gated specs run in `.github/workflows/test-e2e-brain.yml`, and this tier gates Engine pull requests: merge readiness refuses any red, required or not. The workflow checks out the Brain at its `dev` tip, resolved once per run, and installs it with `npm ci`.
+No CI test job provisions a Brain. The specs that need one run only locally, with `NEO_AGENTOS_RUNTIME_ROOT` set: the Bridge's own sessions, imports of Brain services, and the window specs the off-socket adapter cannot run yet. Run the ones your change reaches before you hand it off. `LOCAL_ONLY` in `e2eCiSelection.mjs` names each one with its reason, and the tier refuses to start while a Neural Link spec is in neither `ADAPTER_ELIGIBLE_SPECS` nor `LOCAL_ONLY`, so a new spec is never silently left out of CI.
 
-The shared scope classifier picks the tier's population, and it never skips:
-- A pull request whose change reaches the E2E impact boundary runs the **full** tier, on ten shards. So does every `dev` push.
-- Any other pull request runs the **smoke** subset (`BRAIN_SMOKE`), on one shard. Its change cannot reach the tier's specs, but the Brain's tip can still break the pairing. A green smoke is not full-tier evidence.
+The shared scope classifier picks the tier's population:
+- A **`dev` push** runs the tier in **full**, on fourteen shards.
+- A **pull request** whose change reaches the E2E impact boundary runs only the specs it can reach. `buildScripts/util/e2eSpecReach.mjs` maps each spec to the app it navigates and that app's static import closure, plus the helpers the spec imports. `selectSpecs` in `e2eCiSelection.mjs` then picks:
+  - every spec that reaches a changed file, or whose app fetches it;
+  - every changed spec;
+  - the specs the map cannot place, which run with every selection.
 
-Each shard's test step stops at five minutes, the ceiling the engine tier enforces too.
+  The matrix shrinks to the selection's share, and a selection with none of the tier's specs starts no job.
+- Some changes run every spec instead:
+  - a foundation path: `src/core`, the worker, main-thread and vdom entry points, the canvas workers, top-level `src/*.mjs`, and the theme;
+  - a file that loads modules by name or by computed path;
+  - a module no static import names, because a computed import can still load it;
+  - a file the map cannot place;
+  - a change whose files are all e2e specs.
+- Any other pull request selects **none** and starts no job. The *Classify test scope* summary names the reason and each changed file's boundary rule.
 
-The shards split the tier by measured time, not by test count. `buildScripts/util/e2eBrainDurations.json` holds each file's seconds, and `e2eCiSelection.mjs` gives each file, longest first, to the shard with the least time so far. A file the table does not list yet counts as its median, so a new spec needs no table edit. When the receipts' predictions drift from their test times, rebuild the table from a green full-tier run:
+The tier's job summary names what the selection ran and why, spec by spec. A `dev` red after a selective green belongs to the merged pull request's author: their change is the one the selection judged unable to reach the spec. They triage it first, rerunning a chronic flaker on record and noting it on that flaker's ticket, and otherwise fixing forward or reverting.
+
+Each shard's test step stops at five minutes.
+
+The shards split the tier by measured time, not by test count. `buildScripts/util/e2eEngineDurations.json` holds each file's seconds, and `e2eCiSelection.mjs` gives each file, longest first, to the shard with the least time so far. A file the table does not list yet counts as its median, so a new spec needs no table edit. When the shards' times drift from the table, rebuild it from a full `dev` run's log:
 
 ```bash
-gh run view <run-id> --log | node buildScripts/util/e2eCiSelection.mjs --brain-durations > buildScripts/util/e2eBrainDurations.json
+gh run view <run-id> --log | node buildScripts/util/e2eCiSelection.mjs --engine-durations > buildScripts/util/e2eEngineDurations.json
 ```
 
-Each shard writes its receipt to its job summary and to its log. The log copy is the one `gh run view --log` can read. The receipt holds:
-- the event, attempt and tier;
-- the Engine and Brain SHAs;
-- its test time against the five-minute ceiling, and the time the duration table predicted;
-- what the tier selected, and every declared exclusion and quarantine, of which a smoke file may carry none;
-- the files the shard ran, with their outcome and measured seconds.
-
-`buildScripts/util/e2eCiSelection.mjs` declares two kinds of gap, and the receipt prints both:
-- A **capability** excludes files only while the variable they need is unset. Provisioning it brings them back.
-- A **quarantine** deselects one test by file and title. It names who is accountable, what removes it and since when, and after a week every receipt flags it as stale.
-
-A declaration whose file or title no longer exists fails the unit tier, and so does a declared smoke file.
-
-Through 2026-10-25 the tier retries a failed test once, while #19655 diagnoses the intermittent set. Every receipt names each test that needed the retry, with its first-attempt error, and a test red on every attempt stays red. After that date the tier runs without retries.
+The coverage summary names every class of spec the tier leaves out, with its owner: the local-only specs, the Workstation specs a hosted runner cannot composite, and each exclusion `e2eCiSelection.mjs` declares.
 
 ## Connecting the Neural Link (Fixtures)
 
 Whitebox E2E tests are located in `test/playwright/e2e/`. Instead of manually establishing WebSocket connections, the Neo.mjs team provides a powerful Playwright fixture called `neuralLink`.
 
-The fixture connects to a Bridge already listening on `aiConfig.port`, and spawns one when none is. You never need a Bridge running first — the fixture supplies the working directory a spawn requires, by walking up from its own location to the package that declares the Bridge npm script.
+When `NEO_AGENTOS_RUNTIME_ROOT` is unset, `neuralLink` runs in-process against the page's captured dedicated App Worker via `Neo.ai.Client#handleTestRequest`, opening zero WebSockets. When `NEO_AGENTOS_RUNTIME_ROOT` names an absolute `neo-agent-brain` checkout, the fixture connects to a Bridge already listening on `aiConfig.port`, and spawns one when none is. You never need a Bridge running first — the fixture supplies the working directory a spawn requires, by walking up from its own location to the package that declares the Bridge npm script.
 
 It deliberately does not use `process.cwd()`. Playwright resolves `testDir` from the config file and never changes directory, so `npx playwright test -c /abs/path/config.mjs` invoked from anywhere is a valid run whose worker cwd is that anywhere. Where no ancestor declares the script, the fixture leaves the working directory unset and the spawn refuses by name, rather than starting `npm` somewhere it cannot resolve.
 
@@ -182,7 +185,7 @@ await nlApp.simulateEvent([
 
 `simulateEvent` is the raw escape hatch for caller-authored event sequences. For a complete
 drag gesture, use `driveDrag`: Engine resolves live node/window geometry, reads the source
-window's live Mouse-sensor thresholds, dispatches one atomic source-document gesture, and returns
+window's live Pointer-sensor thresholds, dispatches one atomic source-document gesture, and returns
 a receipt distinguishing raw event dispatch from correlated `drag:start` / `drag:move` /
 `drag:end` observations:
 

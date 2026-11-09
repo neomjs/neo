@@ -214,6 +214,75 @@ test.describe('main.addon.GoogleMaps readiness (#18829)', () => {
 
         expect(addon.remote.app, 'the intercepted methods are remotely reachable in the first place')
             .toEqual(expect.arrayContaining(intercepted))
+    });
+
+    test('deferred addMarker followed by a record-change replacement before mapCreated leaves one updated marker', () => {
+        const createdMarkers     = [],
+              mapId              = 'gm-deferred-1',
+              originalGetElement = DomAccess.getElement,
+              originalGoogle     = globalThis.google;
+
+        DomAccess.getElement = () => ({});
+        globalThis.google    = {
+            maps: {
+                Map: class {
+                    constructor(el, opts) {
+                        this.opts = opts
+                    }
+                    addListener() {}
+                },
+                Marker: class {
+                    constructor(opts) {
+                        Object.assign(this, opts);
+                        createdMarkers.push(this)
+                    }
+                    addListener() {}
+                    setMap(map) {
+                        this.map = map
+                    }
+                }
+            }
+        };
+
+        try {
+            addon.addMarker({
+                id      : 'm-1',
+                mapId,
+                position: {lat: 10, lng: 20},
+                title   : 'Initial'
+            });
+
+            addon.addMarker({
+                id      : 'm-1',
+                mapId,
+                position: {lat: 55, lng: 65},
+                title   : 'Updated'
+            });
+
+            addon.create({
+                center: {lat: 0, lng: 0},
+                id    : mapId,
+                zoom  : 8
+            });
+
+            const activeMarkers = createdMarkers.filter(m => m.map === addon.maps[mapId]);
+
+            expect(createdMarkers).toHaveLength(2);
+            expect(createdMarkers[0].map).toBeNull();
+            expect(activeMarkers).toHaveLength(1);
+            expect(activeMarkers[0].title).toBe('Updated');
+            expect(activeMarkers[0].position).toEqual({lat: 55, lng: 65});
+            expect(addon.markers[mapId]['m-1']).toBe(activeMarkers[0])
+        } finally {
+            addon.removeMap({mapId});
+            DomAccess.getElement = originalGetElement;
+
+            if (originalGoogle) {
+                globalThis.google = originalGoogle
+            } else {
+                delete globalThis.google
+            }
+        }
     })
 });
 

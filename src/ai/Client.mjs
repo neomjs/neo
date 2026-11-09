@@ -14,9 +14,9 @@ import TransactionService                                      from './Transacti
 import {parseAgentEnvelope}                                    from './parseAgentEnvelope.mjs';
 
 /**
- * The AI Client establishes a WebSocket connection to the Neural Link MCP Server.
- * It acts as a bridge, enabling external AI agents to inspect and manipulate the running Neo.mjs application
- * via a standardized JSON-RPC protocol.
+ * The AI Client hosts the Neural Link API in the App Worker: a registry of six services behind one JSON-RPC
+ * dispatcher, plus an optional WebSocket transport to the Neural Link MCP Server. External AI agents reach the
+ * dispatcher through that transport; a registry-only test boot reaches it through {@link #handleTestRequest}.
  * @class Neo.ai.Client
  * @extends Neo.core.Base
  * @singleton
@@ -60,11 +60,16 @@ class Client extends Base {
      */
     #opened = false
     /**
-     * Buffer for console logs generated before connection is established
-     * @member {Array} logs=[]
-     * @protected
+     * Console lines logged before the socket opened, flushed by {@link #onSocketOpen}. Null until {@link #connect}
+     * starts the transport: a registry-only boot has nothing to flush to.
+     * @member {Object[]|null} #logs=null
      */
-    logs = []
+    #logs = null
+    /**
+     * The App-worker events this client follows, kept so {@link #destroy} unsubscribes exactly what construct added.
+     * @member {Object|null} #workerListeners=null
+     */
+    #workerListeners = null
     /**
      * JSON-RPC method prefix → service instance, filled by each service's `register*ServiceMethods` at
      * construction; insertion order is the prefix precedence.
@@ -112,6 +117,19 @@ class Client extends Base {
     }
 
     /**
+     * Where `Neo.worker.Base#interceptConsole` puts a line while no socket is open. Without a started transport each
+     * read is a fresh array, so the line is dropped instead of kept for a socket that never opens.
+     * @member {Object[]} logs
+     * @protected
+     */
+    get logs() {
+        return this.#logs ?? []
+    }
+
+    /**
+     * @summary Builds the registry (write guard, undo stack, six services, prefix map) and the window listeners, but
+     * starts no transport: the App boot calls {@link #connect} when `useAiClient` resolves true. Without a socket the
+     * listeners stay inert: {@link #redial} needs a socket that gave up, and every send needs an open one.
      * @param {Object} config
      */
     construct(config) {
@@ -143,23 +161,30 @@ class Client extends Base {
         registerRuntimeServiceMethods(me.serviceMap, runtime);
         registerInteractionServiceMethods(me.serviceMap, interaction);
 
-        Neo.currentWorker.on({
+        me.#workerListeners = {
+            appRegistered   : me.onAppRegistered,
             connect         : me.onAppWorkerWindowConnect,
             disconnect      : me.onAppWorkerWindowDisconnect,
             visibilityChange: me.onWindowVisibilityChange,
             windowFocus     : me.redial,
             scope           : me
-        });
+        };
 
-        me.connect()
+        Neo.currentWorker.on(me.#workerListeners)
     }
 
     /**
-     * @summary Establishes the WebSocket connection to the Neural Link MCP Server.
-     * Uses Neo.data.connection.WebSocket for robust connection management.
+     * @summary Starts the transport, a WebSocket to the Neural Link MCP Server. A second call keeps the first socket:
+     * recovery belongs to the socket's own reconnect and to {@link #redial}.
      */
     connect() {
         let me = this;
+
+        if (me.socket) {
+            return
+        }
+
+        me.#logs = [];
 
         try {
             let url     = new URL(Neo.config.neuralLinkUrl || me.url),
@@ -199,6 +224,24 @@ class Client extends Base {
     }
 
     /**
+     * Destroys what {@link #construct} and {@link #connect} created: the worker subscriptions, the six services, the
+     * write guard, the undo stack and a started socket.
+     * @param {...*} args
+     */
+    destroy(...args) {
+        let me = this;
+
+        Neo.currentWorker.un(me.#workerListeners);
+
+        Object.values(me.services).forEach(service => service.destroy());
+        me.writeGuard.destroy();
+        me.transactionService.destroy();
+        me.socket?.destroy();
+
+        super.destroy(...args)
+    }
+
+    /**
      * Routes a JSON-RPC method to the service that registered its prefix — the central dispatcher for
      * every AI-driven command; the rule lives in {@link Neo.ai.client.resolveServiceMethod}.
      * @param {String} method The JSON-RPC method name
@@ -209,6 +252,44 @@ class Client extends Base {
      */
     async handleRequest(method, params, context) {
         return dispatchServiceMethod(this.serviceMap, method, params, context)
+    }
+
+    /**
+     * @summary The test harness's entry to {@link #handleRequest} on a registry-only boot. It refuses before dispatch
+     * unless `Neo.config.allowAiClientInTests` is set and the context is a full writer pair, so the null context,
+     * which admits a write without a lock, is unreachable from a test.
+     * @param {String} method The JSON-RPC method name
+     * @param {Object} params The parameters associated with the method
+     * @param {Object} context `{agentId, sessionId}`, the shape {@link Neo.ai.parseAgentEnvelope} produces
+     * @returns {Promise<*>} The result of the operation
+     */
+    async handleTestRequest(method, params, context) {
+        if (!Neo.config.allowAiClientInTests) {
+            throw new Error('Neo.ai.Client: handleTestRequest needs config.allowAiClientInTests')
+        }
+
+        if (!this.isWriterPair(context)) {
+            throw new Error('Neo.ai.Client: a test request needs a full {agentId, sessionId} writer pair')
+        }
+
+        const {agentId, sessionId} = context;
+
+        return this.handleRequest(method, params, {agentId, sessionId})
+    }
+
+    /**
+     * Announces the window of a non-SharedWorker app that registers after this socket opened. The usual agent
+     * flow starts the Neural Link before the page, so the socket opens before `Neo.app()` registers, and
+     * {@link #onSocketOpen} announces only the windows that exist at open time. An app registering before the
+     * open is that open's to announce; a SharedWorker window arrives through its port's `connect`.
+     * @param {Object} data
+     * @param {String} data.appName
+     * @param {String} data.windowId
+     */
+    onAppRegistered({appName, windowId}) {
+        if (this.#opened && !Neo.worker.App.isSharedWorker && !WindowManager.get(windowId)) {
+            this.sendNotification('window_connected', {appName, windowId})
+        }
     }
 
     /**
@@ -258,9 +339,7 @@ class Client extends Base {
             {agentId, sessionId}             = frame,
             {transactionService, writeGuard} = this;
 
-        if (typeof agentId !== 'string' || agentId === '' ||
-            typeof sessionId !== 'string' || sessionId === '' ||
-            !writeGuard) {
+        if (!this.isWriterPair(frame) || !writeGuard) {
             return {released: 0, swept: false}
         }
 
@@ -272,6 +351,17 @@ class Client extends Base {
               {swept     = false} = transactionService?.sweep({id: {agentId, sessionId}}) ?? {};
 
         return {released, swept}
+    }
+
+    /**
+     * Whether a context carries the full `(agentId, sessionId)` writer pair that the write guard and undo stack key on.
+     * @param {Object|null} [context]
+     * @returns {Boolean}
+     */
+    isWriterPair(context) {
+        const {agentId, sessionId} = context || {};
+
+        return typeof agentId === 'string' && agentId !== '' && typeof sessionId === 'string' && sessionId !== ''
     }
 
     /**
@@ -306,11 +396,13 @@ class Client extends Base {
         this.#opened  = true;
 
         // Flush buffered logs, which are older than the line announcing this connection
-        if (this.logs.length > 0) {
-            this.logs.forEach(log => {
+        const logs = this.#logs;
+
+        if (logs?.length > 0) {
+            logs.forEach(log => {
                 this.sendNotification('console_log', log)
             });
-            this.logs.length = 0
+            logs.length = 0
         }
 
         console.log('Neo.ai.Client: Connected to MCP Server');

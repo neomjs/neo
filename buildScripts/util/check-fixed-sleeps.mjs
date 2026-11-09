@@ -108,8 +108,8 @@ const
     // Plural because the guard shipped watching the tier with the fewest sleeps. The e2e tier held an
     // unexplained twelve-second wait (`e2e/grid/RowPinning.spec.mjs`) that nothing could report, and
     // the component tier held none — added anyway, so the first one to arrive is caught rather than
-    // found by a reviewer. A root added here must be added to `fixed-sleep-lint.yml`'s `paths:` in the
-    // same edit; `ScanSurfaceAlignment.spec.mjs` fails the `scanned ⊆ watched` invariant if it is not.
+    // found by a reviewer. Its CI mirror, `pr-baseline.yml`'s guards list, runs on every pull request, so
+    // a root added here is watched without a filter edit; `ScanSurfaceAlignment.spec.mjs` holds that.
     SCAN_ROOTS     = Object.freeze(['test/playwright/unit', 'test/playwright/component', 'test/playwright/e2e']),
     THRESHOLD_MS   = 1000,
     // ECMAScript ends a line on four terminators, not one. The parser counts all of them, so a guard

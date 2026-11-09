@@ -1,6 +1,9 @@
 
-import {defineConfig, devices} from '@playwright/test';
-import {resolveFreePortSync}   from './resolveFreePort.mjs';
+import {defineConfig, devices}    from '@playwright/test';
+import {assertInstallMatchesLock} from '../../buildScripts/util/check-installed-dependencies.mjs';
+import {resolveFreePortSync}      from './resolveFreePort.mjs';
+
+assertInstallMatchesLock();
 
 // Per-process by default: this suite renders ITS OWN checkout (reuseExistingServer:false below), so a
 // fixed default would silently adopt a foreign dev-server squatting on 8080 — that server serves the

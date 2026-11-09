@@ -5,6 +5,7 @@ import DomEvents        from '../mixin/DomEvents.mjs';
 import Observable       from '../core/Observable.mjs';
 import VdomLifecycle    from '../mixin/VdomLifecycle.mjs';
 import VDomUpdate       from '../manager/VDomUpdate.mjs';
+import VDomUtil         from '../util/VDom.mjs';
 import VNodeUtil        from '../util/VNode.mjs';
 import {isDescriptor}   from '../core/ConfigSymbols.mjs';
 
@@ -357,9 +358,23 @@ class Abstract extends Base {
 
     /**
      * @summary Tears the component down, its render flight first, for classic and functional components alike.
+     * With `updateParentVdom` the component first leaves its parent's vdom, and so the real DOM.
+     * @param {Boolean} [updateParentVdom=false] true to remove the component from the parent vdom => real dom
+     * @param {Boolean} [silent=false] true to edit the parent vdom without an update (useful for destroying multiple child items in a row)
      */
-    destroy() {
-        let {id} = this;
+    destroy(updateParentVdom=false, silent=false) {
+        let {id, parent, parentId, vnode} = this;
+
+        if (updateParentVdom && parentId) {
+            if (parentId === 'document.body') {
+                Neo.applyDeltas(this.windowId, {action: 'removeNode', id: this.vdom.id})
+            } else {
+                const parentVdom = parent.vdom;
+
+                VDomUtil.removeVdomChild(parentVdom, this.vdom.id);
+                parent[silent ? '_vdom' : 'vdom'] = parentVdom
+            }
+        }
 
         // Destruction is a complete render-flight cancellation boundary, here because VdomLifecycle registers the
         // flights for both component families (classic and functional):
@@ -378,7 +393,11 @@ class Abstract extends Base {
         this.removeDomEvents();
         ComponentManager.unregister(this);
         this.stateProvider = null; // triggers destroy()
-        super.destroy()
+        super.destroy();
+
+        // The parent's stored vnode must stop naming a component the registry no longer knows, while the
+        // DOM node stays until the parent's next update removes it: kept as the vnode it last rendered
+        updateParentVdom && parent?.vnode && VNodeUtil.unlinkRetiredReferences(parent.vnode, {[id]: vnode})
     }
 
     /**

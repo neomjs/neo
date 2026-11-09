@@ -21,10 +21,13 @@ on:
       - 'docs/app/**'
       - 'examples/**'
       - 'src/**'
+      - 'test/playwright/dedicatedWorkerNeuralLink.mjs'
+      - 'test/playwright/fixtures.mjs'
       - 'buildScripts/**'
       - '.github/workflows/consumer-runtime-build.yml'
       - '.npmignore'
       - 'package.json'
+      - 'package-lock.json'
 
 concurrency:
   group: consumer-runtime-build-${{ github.run_attempt == '1' && github.ref || github.run_id }}

@@ -81,7 +81,7 @@ class FooterContainer extends Container {
                 }, {
                     iconCls: 'fas fa-handshake-angle',
                     route  : '/services',
-                    text   : 'Services'
+                    text   : 'Connect'
                 }]
             }, {
                 items: [{
@@ -135,7 +135,7 @@ class FooterContainer extends Container {
             items : [{
                 module: Component,
                 cls   : ['neo-version'],
-                text  : `© ${new Date().getFullYear()} Neo.mjs • v13.3.1 • MIT License`
+                text  : `© ${new Date().getFullYear()} Neo.mjs • v13.4.0 • MIT License`
             }]
         }],
         /**

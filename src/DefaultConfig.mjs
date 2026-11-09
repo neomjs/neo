@@ -243,6 +243,15 @@ const DefaultConfig = {
      */
     allowVdomUpdatesInTests: false,
     /**
+     * Test-only, like `allowVdomUpdatesInTests`: loads the Neural Link client's registry without its transport, so a
+     * test harness drives the API through `Neo.ai.Client#handleTestRequest`. `useAiClient` is not consulted.
+     * @default false
+     * @memberOf! module:Neo
+     * @name config.allowAiClientInTests
+     * @type Boolean
+     */
+    allowAiClientInTests: false,
+    /**
      * Set this to true to establish a WebSocket connection to the Neural Link MCP Server.
      * This enables bidirectional communication between the App Worker and external AI Agents.
      *
@@ -360,12 +369,12 @@ const DefaultConfig = {
     useVdomWorker: true,
     /**
      * buildScripts/injectPackageVersion.mjs will update this value
-     * @default '13.3.1'
+     * @default '13.4.0'
      * @memberOf! module:Neo
      * @name config.version
      * @type String
      */
-    version: '13.3.1'
+    version: '13.4.0'
 };
 
 Object.assign(DefaultConfig, {

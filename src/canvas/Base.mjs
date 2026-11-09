@@ -323,16 +323,19 @@ class Base extends NeoBase {
     }
 
     /**
-     * Polls for the OffscreenCanvas until it is available in the Worker's `canvasWindowMap`.
+     * @summary Polls for the OffscreenCanvas until it is available in the Worker's `canvasWindowMap`.
      * Once found, it acquires the `contextType` context with `contextAttributes` and starts the render loop.
      * A `null` context (the type is unsupported on this host) is reported once and leaves the renderer idle:
      * no size update, no mounted hook, no loop.
+     * Destruction cancels pending polls and prevents subsequent context acquisition.
      * @param {String} canvasId
      * @param {String} windowId
      * @param {Boolean} hasChange
      * @protected
      */
     waitForCanvas(canvasId, windowId, hasChange) {
+        if (this.isDestroyed) return;
+
         let me                               = this,
             canvas                           = Neo.currentWorker.canvasWindowMap[canvasId]?.[windowId],
             {contextAttributes, contextType} = me;
@@ -355,7 +358,7 @@ class Base extends NeoBase {
                 me.renderLoop()
             }
         } else {
-            setTimeout(me.waitForCanvas.bind(me, canvasId, windowId, hasChange), 50)
+            me.timeout(50).then(() => me.waitForCanvas(canvasId, windowId, hasChange))
         }
     }
 }

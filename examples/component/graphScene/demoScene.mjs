@@ -1,11 +1,12 @@
 /**
  * @summary A deterministic demo graph for `Neo.canvas.GraphScene`: nodes on a Fibonacci sphere, coloured from
  * pole to pole and sized by a slow wave; edges along the spiral plus a chord to the node `chord` steps
- * ahead; one path through every twelfth node, drawn as a beaded ribbon. The same count always gives the
- * same scene, so a spec can name its counts.
+ * ahead; one path through every twelfth node, drawn as a beaded ribbon, each of its nodes labelled with its
+ * index; and every node named with its index for the near look. The same count always gives the same scene, so a
+ * spec can name its counts.
  * @param {Number} [count=240] The number of nodes
  * @param {Number} [chord=21] How far ahead each chord reaches
- * @returns {{colors: Float32Array, edges: Uint32Array, paths: Uint32Array[], positions: Float32Array, sizes: Float32Array}}
+ * @returns {{colors: Float32Array, edges: Uint32Array, labels: Object, names: Object, paths: Uint32Array[], positions: Float32Array, sizes: Float32Array}}
  */
 export function createDemoScene(count = 240, chord = 21) {
     const
@@ -41,7 +42,15 @@ export function createDemoScene(count = 240, chord = 21) {
         }
     }
 
-    return {colors, edges: Uint32Array.from(edges), paths: [Uint32Array.from(path)], positions, sizes}
+    return {
+        colors,
+        edges : Uint32Array.from(edges),
+        labels: {color: '#ffffff', nodes: Uint32Array.from(path), outline: '#0b1220', texts: path.map(node => `#${node}`)},
+        names : {color: '#ffffff', outline: '#0b1220', texts: Array.from({length: count}, (item, node) => `#${node}`)},
+        paths : [Uint32Array.from(path)],
+        positions,
+        sizes
+    }
 }
 
 /**

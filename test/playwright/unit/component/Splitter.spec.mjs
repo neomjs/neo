@@ -246,5 +246,244 @@ test.describe('Neo.component.Splitter live-resize ownership', () => {
         expect(zone.isDestroyed).toBe(true);
         expect(unregistered).toHaveLength(1);
         expect(unregistered[0]).toMatchObject({dragZoneId: zone.id})
+    });
+
+    test('forwards sibling minWidth / minHeight and opposite sibling bounds into resizeConfig', () => {
+        let tree = createTree({direction: 'vertical', resizeTarget: 'next'});
+
+        tree.previous.minWidth = 110;
+        tree.next.minWidth     = 140;
+
+        expect(tree.splitter.getResizeConfig()).toMatchObject({
+            axis           : 'width',
+            minSize        : 140,
+            oppositeId     : tree.previous.id,
+            oppositeMinSize: 110,
+            resizeNext     : true,
+            targetId       : tree.next.id
+        });
+
+        tree.splitter.resizeTarget = 'previous';
+
+        expect(tree.splitter.getResizeConfig()).toMatchObject({
+            axis           : 'width',
+            minSize        : 110,
+            oppositeId     : tree.next.id,
+            oppositeMinSize: 140,
+            resizeNext     : false,
+            targetId       : tree.previous.id
+        });
+
+        tree.previous.minWidth = '25%';
+
+        expect(tree.splitter.getResizeConfig().minSize).toBeUndefined();
+
+        parent.destroy();
+        parent = null;
+
+        tree = createTree({direction: 'horizontal', resizeTarget: 'next'});
+
+        tree.previous.wrapperStyle = {flex: '1 1 0%', minHeight: '75px'};
+        tree.next.style            = {minHeight: '90px'};
+
+        expect(tree.splitter.getResizeConfig()).toMatchObject({
+            axis           : 'height',
+            minSize        : 90,
+            oppositeId     : tree.previous.id,
+            oppositeMinSize: 75,
+            resizeNext     : true,
+            targetId       : tree.next.id
+        })
+    });
+
+    test('clamps terminal applyResize against the target sibling configured minWidth or minHeight', async () => {
+        const {next, splitter} = createTree();
+
+        next.minWidth = 150;
+
+        await start(splitter);
+        end(splitter, 80);
+
+        expect(next.wrapperStyle).toMatchObject({flex: 'none', width: '150px'})
+    });
+
+    test('aggregates effective minSize across perpendicular (Math.max), parallel (sum + splitters), and card containers while ignoring 0px flex-shrink resets', async () => {
+        const suffix = ++testRun;
+
+        parent = Neo.create(Container, {
+            appName: 'ComponentSplitterLiveResizeTest',
+            id     : `component-splitter-nested-parent-${suffix}`,
+            layout : {ntype: 'hbox'},
+            items  : [{
+                module: Container,
+                id    : `component-splitter-vbox-column-${suffix}`,
+                layout: {ntype: 'vbox'},
+                style : {minHeight: 0, minWidth: 0},
+                items : [{
+                    module  : Component,
+                    id      : `component-splitter-vbox-top-${suffix}`,
+                    minWidth: 130
+                }, {
+                    module   : Splitter,
+                    direction: 'horizontal',
+                    id       : `component-splitter-vbox-inner-splitter-${suffix}`,
+                    size     : 6
+                }, {
+                    module      : Component,
+                    id          : `component-splitter-vbox-bottom-${suffix}`,
+                    wrapperStyle: {minWidth: '210px'}
+                }]
+            }, {
+                module      : Splitter,
+                direction   : 'vertical',
+                id          : `component-splitter-main-${suffix}`,
+                liveResize  : true,
+                resizeTarget: 'previous'
+            }, {
+                module: Container,
+                id    : `component-splitter-hbox-row-${suffix}`,
+                layout: {ntype: 'hbox'},
+                style : {minHeight: '0px', minWidth: '0px'},
+                items : [{
+                    module  : Component,
+                    id      : `component-splitter-hbox-left-${suffix}`,
+                    minWidth: 120
+                }, {
+                    module   : Splitter,
+                    direction: 'vertical',
+                    id       : `component-splitter-hbox-inner-splitter-${suffix}`,
+                    size     : 8
+                }, {
+                    module: Container,
+                    id    : `component-splitter-card-host-${suffix}`,
+                    layout: {activeIndex: 1, ntype: 'card'},
+                    items : [{
+                        module  : Component,
+                        id      : `component-splitter-card-0-${suffix}`,
+                        minWidth: 90
+                    }, {
+                        module  : Component,
+                        id      : `component-splitter-card-1-${suffix}`,
+                        minWidth: 160
+                    }]
+                }]
+            }]
+        });
+
+        const [vboxColumn, splitter, hboxRow] = parent.items;
+
+        splitter.dragZone.dragStart = async () => {};
+        splitter.dragZone.dragEnd   = () => {};
+        splitter.refreshDragZone();
+
+        expect(splitter.getSiblingMinSize(vboxColumn, 'width'),
+            'perpendicular vbox column touching a vertical splitter resolves Math.max(130, 210) and ignores minWidth: 0'
+        ).toBe(210);
+
+        expect(splitter.getSiblingMinSize(hboxRow, 'width'),
+            'parallel hbox row resolves sum(120, activeCard=160) + internal splitter (8) = 288'
+        ).toBe(288);
+
+        expect(splitter.getResizeConfig()).toMatchObject({
+            axis           : 'width',
+            minSize        : 210,
+            oppositeId     : hboxRow.id,
+            oppositeMinSize: 288,
+            resizeNext     : false,
+            targetId       : vboxColumn.id
+        });
+
+        await start(splitter);
+        end(splitter, 120);
+
+        expect(vboxColumn.wrapperStyle).toMatchObject({flex: 'none', width: '210px'})
+    });
+
+    test('preserves oppositeId for non-numeric CSS minima (var(), calc()) so main-thread Resize clamps against computed floor while ignoring 0px resets', async () => {
+        const originalDocument  = globalThis.document,
+              originalDomAccess = Neo.main.DomAccess,
+              originalWindow    = globalThis.window;
+
+        globalThis.document = new EventTarget();
+        globalThis.window   = new EventTarget();
+        delete Neo.main.DomAccess;
+
+        const {default: DomAccess} = await import('../../../../src/main/DomAccess.mjs'),
+              {default: Resize}    = await import('../../../../src/main/draggable/Resize.mjs');
+
+        const createStyle = initial => {
+            const values = new Map(Object.entries(initial));
+
+            return {
+                getPropertyPriority: () => '',
+                getPropertyValue   : key => values.get(key) || '',
+                removeProperty     : key => values.delete(key),
+                setProperty        : (key, value) => values.set(key, value)
+            }
+        };
+
+        const originalGetElement       = DomAccess.getElement,
+              originalGetLayoutRect    = DomAccess.getLayoutRect,
+              originalGetComputedStyle = globalThis.getComputedStyle;
+
+        try {
+            const {next, parent: owner, previous, splitter} = createTree({direction: 'vertical', resizeTarget: 'previous'});
+
+            next.style = {minWidth: '0px'};
+            expect(splitter.hasSiblingMinSize(next, 'width'), 'zero flex-shrink reset does not register an opposite bound').toBe(false);
+            expect(splitter.getResizeConfig().oppositeId).toBeUndefined();
+
+            for (const cssExpr of ['var(--pane-floor)', 'calc(100px + 32px)']) {
+                next.style = {minWidth: cssExpr};
+
+                const descriptor = splitter.getResizeConfig();
+
+                expect(splitter.getSiblingMinSize(next, 'width')).toBeNaN();
+                expect(splitter.hasSiblingMinSize(next, 'width'), `${cssExpr} must be discovered for main-thread resolution`).toBe(true);
+                expect(descriptor.oppositeId).toBe(next.id);
+                expect(descriptor.oppositeMinSize).toBeUndefined();
+
+                const parentEl   = {},
+                      targetEl   = {style: createStyle({flex: '1 1 0%'})},
+                      oppositeEl = {style: createStyle({flex: '1 1 0%'})};
+
+                DomAccess.getElement = id => ({
+                    [owner.id]   : parentEl,
+                    [previous.id]: targetEl,
+                    [next.id]    : oppositeEl
+                })[id] || null;
+
+                DomAccess.getLayoutRect = el => el === parentEl
+                    ? {height: 400, width: 606}
+                    : {height: 400, width: 300};
+
+                globalThis.getComputedStyle = el => ({
+                    getPropertyValue: key => el === oppositeEl && key === 'min-width' ? '132px' : 'none'
+                });
+
+                const resize = new Resize(),
+                      state  = resize.createState({...descriptor, splitterSize: 6}, {clientX: 300});
+
+                resize.state = state;
+
+                expect(state.maxSize, `${cssExpr} computed to 132px clamps target ceiling to 600 - 132 = 468px`).toBe(468);
+                expect(resize.apply({clientX: 550, clientY: 0})).toBe(468);
+            }
+        } finally {
+            DomAccess.getElement    = originalGetElement;
+            DomAccess.getLayoutRect = originalGetLayoutRect;
+            originalDomAccess === undefined
+                ? delete Neo.main.DomAccess
+                : Neo.main.DomAccess = originalDomAccess;
+            originalDocument === undefined
+                ? delete globalThis.document
+                : globalThis.document = originalDocument;
+            originalWindow === undefined
+                ? delete globalThis.window
+                : globalThis.window = originalWindow;
+            originalGetComputedStyle === undefined
+                ? delete globalThis.getComputedStyle
+                : globalThis.getComputedStyle = originalGetComputedStyle
+        }
     })
 });

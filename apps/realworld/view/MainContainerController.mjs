@@ -309,9 +309,9 @@ class MainContainerController extends ComponentController {
             else if (hashString.includes('/article/')) {opts = ['articleComponent',  () => import('./article/Component.mjs'),       'article']}
             else if (hashString.includes('/editor'))   {opts = ['createComponent',   () => import('./article/CreateComponent.mjs'), 'editor']}
             else if (hashString.includes('/profile/')) {opts = ['profileComponent',  () => import('./user/ProfileComponent.mjs'),   'profile']}
-            else if (hash.hasOwnProperty('/login'))    {opts = ['signUpComponent',   () => import('./user/SignUpComponent.mjs'),    'signup']; mode = 'signin';}
-            else if (hash.hasOwnProperty('/register')) {opts = ['signUpComponent',   () => import('./user/SignUpComponent.mjs'),    'signup']; mode = 'signup';}
-            else if (hash.hasOwnProperty('/settings')) {opts = ['settingsComponent', () => import('./user/SettingsComponent.mjs'),  'settings']}
+            else if (Object.hasOwn(hash, '/login'))    {opts = ['signUpComponent',   () => import('./user/SignUpComponent.mjs'),    'signup']; mode = 'signin';}
+            else if (Object.hasOwn(hash, '/register')) {opts = ['signUpComponent',   () => import('./user/SignUpComponent.mjs'),    'signup']; mode = 'signup';}
+            else if (Object.hasOwn(hash, '/settings')) {opts = ['settingsComponent', () => import('./user/SettingsComponent.mjs'),  'settings']}
 
             if (opts) {
                 newView = await me.promiseView(...opts);
@@ -322,8 +322,8 @@ class MainContainerController extends ComponentController {
             }
 
             if (!(oldValue && oldValue.hash && (
-                oldValue.hash.hasOwnProperty('/login')    && hash.hasOwnProperty('/register') ||
-                oldValue.hash.hasOwnProperty('/register') && hash.hasOwnProperty('/login')))
+                Object.hasOwn(oldValue.hash, '/login')    && Object.hasOwn(hash, '/register') ||
+                Object.hasOwn(oldValue.hash, '/register') && Object.hasOwn(hash, '/login')))
             ) {
                 if (component.items.length > 2) {
                     component.removeAt(1, false, true);

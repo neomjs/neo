@@ -51,6 +51,40 @@ FunctionalChild = Neo.setupClass(FunctionalChild);
  * restart its own update exactly once.
  */
 test.describe('VdomLifecycle destroy cancellation boundary', () => {
+    test('destroying during the collection yield sends no later batch', async () => {
+        const component     = Neo.create(Component, {appName, id: 'vdc-before-collect'}),
+              originalSet   = globalThis.setTimeout, originalClear = globalThis.clearTimeout,
+              originalBatch = VdomHelper.updateBatch, scheduled = [], cleared = [], batches = [];
+        await component.ready();
+        await component.initVnode();
+
+        globalThis.setTimeout = (callback, delay) => {
+            const timer = {callback, delay};
+            scheduled.push(timer);
+            return timer
+        };
+        globalThis.clearTimeout = timer => cleared.push(timer);
+        VdomHelper.updateBatch = async data => {batches.push(data); return {vnodes: {}, deltas: []}};
+
+        try {
+            const flight = component.executeVdomUpdate();
+            const yields = scheduled.filter(timer => timer.delay === 1);
+            expect(yields).toHaveLength(1);
+            component.destroy();
+            expect(cleared).toContain(yields[0]);
+            yields[0].callback();
+            await flight;
+            expect(batches).toEqual([]);
+            expect(VDomUpdate.inFlightUpdateMap.has('vdc-before-collect')).toBe(false);
+            expect(VDomUpdate.hasPromiseCallbacks('vdc-before-collect')).toBe(false)
+        } finally {
+            component.destroy();
+            VdomHelper.updateBatch = originalBatch;
+            globalThis.setTimeout = originalSet;
+            globalThis.clearTimeout = originalClear
+        }
+    });
+
     test('flight -> destroy -> stale resolve: reject with sentinel, zero deltas, no residue, ancestor restarts once', async () => {
         const realUpdateBatch = VdomHelper.updateBatch;
         const realApplyDeltas = Neo.applyDeltas;

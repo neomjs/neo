@@ -6,6 +6,56 @@
     margin-top   : 5px;
     white-space  : nowrap;
 
+    &.neo-has-character-count {
+        display              : grid;
+        grid-template-areas  : "label input" ". counter" ". error";
+        grid-template-columns: auto minmax(0, 1fr);
+        grid-template-rows   : minmax(min-content, 1fr) auto auto;
+        height               : max-content;
+
+        > .neo-textfield-label {grid-area: label;}
+        > .neo-textfield-sublabel {grid-area: sublabel;}
+        > .neo-textfield-input, > .neo-input-wrapper {grid-area: input;}
+        > .neo-textfield-error-wrapper {grid-area: error;}
+
+        &.label-right {
+            grid-template-areas  : "input label" "counter ." "error .";
+            grid-template-columns: minmax(0, 1fr) auto;
+        }
+
+        &.label-top {
+            grid-template-areas  : "label" "sublabel" "input" "counter" "error";
+            grid-template-columns: minmax(0, 1fr);
+            grid-template-rows   : auto auto minmax(min-content, 1fr) auto auto;
+        }
+
+        &.label-bottom {
+            grid-template-areas  : "input" "counter" "error" "label";
+            grid-template-columns: minmax(0, 1fr);
+            grid-template-rows   : minmax(min-content, 1fr) auto auto auto;
+        }
+
+        &.label-inline {
+            display              : grid;
+            grid-template-areas  : "input" "counter" "error";
+            grid-template-columns: minmax(0, 1fr);
+
+            > .neo-label-wrapper {
+                grid-area: input;
+                height   : 100%;
+            }
+        }
+    }
+
+    .neo-textfield-character-count {
+        color       : var(--textfield-sublabel-color);
+        font-size   : var(--textfield-sublabel-font-size);
+        grid-area   : counter;
+        justify-self: end;
+        line-height : 1.4;
+        margin-top  : .3em;
+    }
+
     &.neo-focus {
         .neo-input-wrapper {
             border-color: var(--textfield-border-color-active) !important;

@@ -176,28 +176,41 @@ class DragDrop extends Base {
     dragResize = new Resize()
 
     /**
-     * The exact Mouse sensor instance this Main realm created. Gesture automation reads its live
+     * The exact Pointer sensor instance this Main realm created. Gesture automation reads its live
      * reactive threshold values; the class defaults are not runtime authority.
-     * @member {Neo.main.draggable.sensor.Mouse|null} mouseSensor=null
+     * @member {Neo.main.draggable.sensor.Pointer|null} pointerSensor=null
      * @protected
      */
-    mouseSensor = null
+    pointerSensor = null
 
     /**
-     * Resolves when the optional Mouse sensor import and construction complete.
-     * @member {Promise<Neo.main.draggable.sensor.Mouse>|null} mouseSensorPromise=null
+     * Resolves when the optional Pointer sensor import and construction complete.
+     * @member {Promise<Neo.main.draggable.sensor.Pointer>|null} pointerSensorPromise=null
      * @protected
      */
-    mouseSensorPromise = null
+    pointerSensorPromise = null
 
     /**
+     * @summary The former name of {@link #pointerSensor}, kept for automation that reads or sets the
+     * live thresholds through it. An accessor, not a field: a class field would shadow it with a
+     * permanent `null`.
+     * @member {Neo.main.draggable.sensor.Pointer|null} mouseSensor
+     * @deprecated Use {@link #pointerSensor}.
+     */
+    get mouseSensor() {
+        return this.pointerSensor
+    }
+
+    /**
+     * @summary Subscribes the drop-zone hover events and the sensor events, and constructs the one
+     * Pointer sensor for mouse, touch and pen. The device flags stay the gate: a window with neither
+     * has no pointer input to sense.
      * @param {Object} config
      */
     construct(config) {
         super.construct(config);
 
-        let me      = this,
-            imports = [];
+        let me = this;
 
         DomEvents.on({
             mouseEnter: me.onMouseEnter,
@@ -207,31 +220,32 @@ class DragDrop extends Base {
 
         me.addGlobalEventListeners();
 
-        if (Neo.config.hasMouseEvents) {
-            me.mouseSensorPromise = import('../draggable/sensor/Mouse.mjs').then(module => {
-                me.mouseSensor = Neo.create({module: module.default});
+        if (Neo.config.hasMouseEvents || Neo.config.hasTouchEvents) {
+            me.pointerSensorPromise = import('../draggable/sensor/Pointer.mjs').then(module => {
+                me.pointerSensor = Neo.create({module: module.default});
 
-                return me.mouseSensor
-            });
-
-            imports.push(me.mouseSensorPromise)
+                return me.pointerSensor
+            })
         }
-
-        if (Neo.config.hasTouchEvents) {
-            imports.push(import('../draggable/sensor/Touch.mjs').then(module => Neo.create({module: module.default})))
-        }
-
-        Promise.all(imports)
     }
 
     /**
-     * @summary Returns this Main realm's exact live Mouse sensor, waiting for its lazy construction
-     * when necessary. A caller must fail closed on `null`; copying class defaults would stop
-     * observing per-instance overrides.
-     * @returns {Promise<Neo.main.draggable.sensor.Mouse|null>}
+     * @summary The former name of {@link #getPointerSensor}: one sensor now serves every pointer type.
+     * @returns {Promise<Neo.main.draggable.sensor.Pointer|null>}
+     * @deprecated Use {@link #getPointerSensor}.
      */
     async getMouseSensor() {
-        return this.mouseSensor || await this.mouseSensorPromise || null
+        return this.getPointerSensor()
+    }
+
+    /**
+     * @summary Returns this Main realm's exact live Pointer sensor, waiting for its lazy construction
+     * when necessary. A caller must fail closed on `null`; copying class defaults would stop
+     * observing per-instance overrides.
+     * @returns {Promise<Neo.main.draggable.sensor.Pointer|null>}
+     */
+    async getPointerSensor() {
+        return this.pointerSensor || await this.pointerSensorPromise || null
     }
 
     /**
@@ -247,6 +261,11 @@ class DragDrop extends Base {
     }
 
     /**
+     * @summary Serializes a sensor event for the App Worker.
+     *
+     * `targetPath` (and `target`) describe what is under the pointer. An uncaptured pointer event
+     * names that itself. A captured one is retargeted to the document root, so the sensor states the
+     * hit-test path as `detail.eventPath`, and it replaces both.
      * @param {Event} event
      * @returns {Object}
      */
@@ -261,6 +280,7 @@ class DragDrop extends Base {
         };
 
         if (detail.eventPath) {
+            e.target     = DomEvents.getTargetData(detail.eventPath[0]);
             e.targetPath = detail.eventPath.map(e => DomEvents.getTargetData(e))
         } else {
             e.targetPath = e.path
@@ -272,6 +292,8 @@ class DragDrop extends Base {
     }
 
     /**
+     * @summary Forwards the sensor's terminal, plus a `drop` when it lands on a drop zone. A captured
+     * release names the document root, so the drop takes the hit-test path and target instead.
      * @param {Event} event
      */
     onDragEnd(event) {
@@ -309,6 +331,7 @@ class DragDrop extends Base {
             if (isDrop) {
                 DomEvents.sendMessageToApp({
                     ...DomEvents.getMouseEventData(event.detail.originalEvent),
+                    ...(event.detail.eventPath ? {path: parsedEvent.targetPath, target: parsedEvent.target} : {}),
                     dragZoneId: me.dragZoneId,
                     type      : 'drop'
                 })
@@ -376,7 +399,7 @@ class DragDrop extends Base {
 
         // Idempotent second release site for the sensor-side gesture selection guard — NOT an
         // off-document-release fallback: resetDragState() is only reached downstream of the
-        // sensor's own `drag:end`. The Mouse sensor owns the physical mousedown→release bracket,
+        // sensor's own `drag:end`. The Pointer sensor owns the physical pointerdown→terminal bracket,
         // including lost-release recovery on its own move stream; this line just keeps the two
         // layers from drifting should that bracket's semantics ever change.
         // Guarded at the globalThis root: bare test harnesses may stub `document` without a
@@ -388,6 +411,8 @@ class DragDrop extends Base {
             alwaysFireDragMove    : false,
             bodyCursorStyle       : null,
             boundaryContainerRect : null,
+            clientX               : 0,
+            clientY               : 0,
             dragCancelled         : false,
             dragElementRootId     : null,
             dragElementRootRect   : null,
@@ -412,13 +437,18 @@ class DragDrop extends Base {
     }
 
     /**
+     * @summary Moves the proxy or the popup window, and forwards the frame to the App Worker. The screen
+     * point is the sensor's when it states one (its pixel rounding), otherwise the event's own.
      * @param {Event} event
      */
     onDragMove(event) {
         let me              = this,
-            {originalEvent} = event.detail,
+            {detail}        = event,
+            {originalEvent} = detail,
             proxyRect       = me.dragProxyRect,
             rect            = me.boundaryContainerRect,
+            screenX         = detail.screenX ?? originalEvent?.screenX,
+            screenY         = detail.screenY ?? originalEvent?.screenY,
             data, left, resizeLocally, top;
 
         if (me.dragCancelled) {
@@ -427,8 +457,8 @@ class DragDrop extends Base {
 
         if (me.isWindowDragging) {
             const
-                x = originalEvent.screenX - (me.offsetX || 0),
-                y = originalEvent.screenY - (me.offsetY || 0);
+                x = screenX - (me.offsetX || 0),
+                y = screenY - (me.offsetY || 0);
 
             // A refused native move (an accessor throws once the popup navigated) skips this frame's move only.
             Neo.Main.windowMoveTo({windowName: me.popupName, x, y}).catch(Neo.emptyFn);
@@ -439,8 +469,8 @@ class DragDrop extends Base {
                 offsetX   : me.offsetX,
                 offsetY   : me.offsetY,
                 proxyRect : new DOMRect(x - window.screenX, y - window.screenY, me.popupWidth, me.popupHeight),
-                screenX   : originalEvent.screenX,
-                screenY   : originalEvent.screenY,
+                screenX,
+                screenY,
                 type      : 'drag:move'
             });
 
@@ -458,11 +488,25 @@ class DragDrop extends Base {
         }
 
         resizeLocally = Boolean(me.dragResize?.active);
-        resizeLocally && me.dragResize.apply(event.detail);
+        const resizedSize = resizeLocally ? me.dragResize.apply(event.detail) : null;
 
         if (me.dragProxyElement) {
             left = event.detail.clientX - me.offsetX;
             top  = event.detail.clientY - me.offsetY;
+
+            if (resizeLocally && Number.isFinite(resizedSize) && me.dragResize.state) {
+                const
+                    resizeState = me.dragResize.state,
+                    resizeDelta = resizeState.resizeNext
+                        ? resizeState.startSize - resizedSize
+                        : resizedSize - resizeState.startSize;
+
+                if (resizeState.axis === 'width') {
+                    left = resizeState.startCoordinate + resizeDelta - me.offsetX
+                } else if (resizeState.axis === 'height') {
+                    top = resizeState.startCoordinate + resizeDelta - me.offsetY
+                }
+            }
 
             if (rect && !me.allowOverdrag) {
                 if (left < rect.left) {
@@ -489,7 +533,6 @@ class DragDrop extends Base {
         }
 
         if ((!me.dragProxyElement && !resizeLocally) || me.alwaysFireDragMove) {
-            let originalEvent = event.detail.originalEvent;
             proxyRect = null;
 
             if (me.dragProxyElement) {
@@ -503,8 +546,8 @@ class DragDrop extends Base {
                 offsetX   : me.offsetX,
                 offsetY   : me.offsetY,
                 proxyRect,
-                screenX   : originalEvent.screenX,
-                screenY   : originalEvent.screenY,
+                screenX,
+                screenY,
                 type      : 'drag:move'
             })
         }
@@ -527,6 +570,8 @@ class DragDrop extends Base {
         me.dragZoneId = me.resolveDragZoneId(path);
 
         Object.assign(me, {
+            clientX      : event.detail.clientX,
+            clientY      : event.detail.clientY,
             dragCancelled: false,
             dragProxyRect: rect,
             offsetX      : event.detail.clientX - rect.left,
@@ -856,7 +901,7 @@ class DragDrop extends Base {
         delete data.scrollContainerId;
 
         Object.entries(data).forEach(([key, value]) => {
-            if (me.hasOwnProperty(key)) {
+            if (Object.hasOwn(me, key)) {
                 me[key] = value
             } else {
                 console.error('unknown key passed inside setConfigs()', key)

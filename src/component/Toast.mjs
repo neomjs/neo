@@ -53,7 +53,8 @@ class Toast extends Component {
          */
         baseCls: ['neo-toast'],
         /**
-         * If true makes the toast sticky and show a close icon
+         * True renders a close icon so the user can dismiss the toast manually.
+         * Auto-dismissal after mount is controlled independently by {@link #removeDelay}.
          * @member {Boolean} closable_=false
          * @reactive
          */
@@ -125,8 +126,9 @@ class Toast extends Component {
     }
 
     /**
-     * Timeout in ms after which the toast is removed
-     * @member {Number} removeDelay=3000
+     * Timeout in ms after which a mounted toast is automatically dismissed.
+     * Set to `0` or `null` to disable auto-dismissal (sticky toast).
+     * @member {Number|null} removeDelay=3000
      */
     removeDelay = 3000
     /**
@@ -153,13 +155,14 @@ class Toast extends Component {
     }
 
     /**
-     * @param {String|null} value
-     * @param {String|null} oldValue
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
      */
     afterSetClosable(value, oldValue) {
         let vdom = this.getVdomInner().cn[2];
 
-        vdom.removeDom = !value
+        vdom.removeDom = !value;
+        oldValue !== undefined && this.update()
     }
 
     /**
@@ -206,7 +209,8 @@ class Toast extends Component {
     }
 
     /**
-     * Close the toast after the mounted if not closable
+     * Automatically dismisses the toast after {@link #removeDelay} ms when mounted,
+     * regardless of {@link #closable}, as long as `removeDelay > 0`.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      */
@@ -215,10 +219,12 @@ class Toast extends Component {
 
         let me = this;
 
-        if (!me.closable && value) {
-            me.timeout(me.removeDelay).then(() => {
-                me.destroy(true)
-            })
+        if (value && me.removeDelay > 0) {
+            me.trap(me.timeout(me.removeDelay)).then(() => {
+                if (!me.isDestroyed && !me.isDestroying && !me.cls.includes('neo-toast-fade-out')) {
+                    me.destroy(true)
+                }
+            }).catch(() => {})
         }
     }
 
@@ -257,10 +263,17 @@ class Toast extends Component {
     }
 
     /**
-     *
+     * Initiates the toast fade-out sequence and unregisters/destroys the instance on `animationend`.
+     * Guards against duplicate invocations when manual close and {@link #removeDelay} overlap.
+     * @param {...*} args
      */
     async destroy(...args) {
         let me = this;
+
+        if (me.isDestroyed || me.cls.includes('neo-toast-fade-out')) {
+            return
+        }
+
         const superDestroy = super.destroy.bind(me);
 
         me.addDomListeners({

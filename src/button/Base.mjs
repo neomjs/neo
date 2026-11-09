@@ -57,10 +57,10 @@ class Button extends Component {
          */
         baseCls: ['neo-button'],
         /**
-         * false calls Neo.Main.setRoute()
-         * @member {Boolean} editRoute=true
+         * true calls Neo.Main.editRoute() on click instead of rendering an anchor tag
+         * @member {Boolean} editRoute=false
          */
-        editRoute: true,
+        editRoute: false,
         /**
          * Shortcut for domListeners={click:handler}.
          * A string-based value assumes that the handlerFn lives inside a controller.Component.
@@ -472,16 +472,7 @@ class Button extends Component {
      * @protected
      */
     afterSetUrlTarget(value, oldValue) {
-        let me       = this,
-            vdomRoot = me.getVdomRoot();
-
-        if (me.url) {
-            vdomRoot.target = value
-        } else {
-            delete vdomRoot.target
-        }
-
-        me.update()
+        this.updateTag()
     }
 
     /**
@@ -690,7 +681,9 @@ class Button extends Component {
      * @summary Updates the effective root tag and reconciles tag-owned native attributes.
      *
      * Switches between `button` and `a` based on URL/non-editing-route configuration. Since the
-     * root is polymorphic, native disabled semantics are reconciled in the same transition owner.
+     * root is polymorphic, its tag-owned attributes are reconciled in the same transition owner: native
+     * disabled semantics, and the `target` a `url` link takes from `urlTarget`, whichever of the two configs
+     * arrives first. A route link navigates this window and carries no `target`.
      */
     updateTag() {
         let me                      = this,
@@ -708,6 +701,12 @@ class Button extends Component {
         } else {
             delete vdomRoot.href;
             vdomRoot.tag = 'button'
+        }
+
+        if (url && me.urlTarget) {
+            vdomRoot.target = me.urlTarget
+        } else {
+            delete vdomRoot.target
         }
 
         me.syncNativeDisabledState();

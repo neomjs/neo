@@ -209,9 +209,8 @@ class EventDragZone extends DragZone {
     }
 
     /**
-     * DragEnd equals drop, since we can only drag to valid positions
-     * todo: ESC key
-     * @param {Object} data
+     * @summary Commits the dragged event's new start and end dates on drop, or skips the commit when `data.cancelled` is set and re-renders the week view from the unchanged record.
+     * @param {Object} [data]
      */
     dragEnd(data) {
         super.dragEnd(data);
@@ -221,29 +220,38 @@ class EventDragZone extends DragZone {
             record  = me.eventRecord,
             endDate, startDate;
 
-        if (me.keepStartDate) {
-            endDate   = me.newEndDate;
-            startDate = me.newStartDate || record.startDate
+        if (data?.cancelled) {
+            me.removeBodyCursorCls()
         } else {
-            startDate = new Date(VDomUtil.find(owner.vdom, me.proxyParentId).vdom.flag + 'T12:00:00.000Z');
-            startDate.setHours(me.axisStartTime);
-            startDate.setMinutes(me.currentInterval * me.intervalSize);
-
-            if (me.keepEndDate) {
-                endDate   = me.newEndDate   || record.endDate;
-                startDate = me.newStartDate || startDate
+            if (me.keepStartDate) {
+                endDate   = me.newEndDate;
+                startDate = me.newStartDate || record.startDate
             } else {
-                endDate = DateUtil.clone(startDate);
-                endDate.setMinutes(endDate.getMinutes() + me.eventDuration)
+                startDate = new Date(VDomUtil.find(owner.vdom, me.proxyParentId).vdom.flag + 'T12:00:00.000Z');
+                startDate.setHours(me.axisStartTime);
+                startDate.setMinutes(me.currentInterval * me.intervalSize);
+
+                if (me.keepEndDate) {
+                    endDate   = me.newEndDate   || record.endDate;
+                    startDate = me.newStartDate || startDate
+                } else {
+                    endDate = DateUtil.clone(startDate);
+                    endDate.setMinutes(endDate.getMinutes() + me.eventDuration)
+                }
             }
+
+            endDate = me.adjustEndDate(endDate);
+
+            record.setSilent({
+                endDate,
+                startDate
+            });
+
+            // todo: updating a record field which is included inside a sorter should trigger collection.doSort()
+            // see: https://github.com/neomjs/neo/issues/2392
+
+            owner.getStateProvider().getStore('events').doSort()
         }
-
-        endDate = me.adjustEndDate(endDate);
-
-        record.setSilent({
-            endDate,
-            startDate
-        });
 
         Object.assign(me, {
             currentInterval: 0,
@@ -255,10 +263,6 @@ class EventDragZone extends DragZone {
             proxyParentId  : null
         });
 
-        // todo: updating a record field which is included inside a sorter should trigger collection.doSort()
-        // see: https://github.com/neomjs/neo/issues/2392
-
-        owner.getStateProvider().getStore('events').doSort();
         owner.updateEvents()
     }
 
@@ -495,11 +499,19 @@ class EventDragZone extends DragZone {
     }
 
     /**
+     * @summary Syncs main-thread DragDrop scrollContainer configs, measures event/column geometry, and opens the drag proxy.
      * @param {Object} data
      */
     async dragStart(data) {
-        let me            = this,
-            rects         = await me.owner.getDomRect([me.getDragElementRoot().id, data.path[1].id]),
+        let me        = this,
+            [, rects] = await Promise.all([
+                Neo.main.addon.DragDrop?.setConfigs({
+                    appName : me.appName,
+                    windowId: me.windowId,
+                    ...me.getMainThreadConfigs()
+                }),
+                me.owner.getDomRect([me.getDragElementRoot().id, data.path[1].id])
+            ]),
             eventDuration = (me.eventRecord.endDate - me.eventRecord.startDate) / 60 / 1000,
             offsetX       = data.clientX - rects[0].left,
             offsetY       = data.clientY - rects[0].top;

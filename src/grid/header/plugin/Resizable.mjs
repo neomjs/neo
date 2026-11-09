@@ -33,6 +33,8 @@ class Resizable extends BaseResizable {
     }
 
     /**
+     * @summary Resizes the header button live, pinning it to the dragged width even if it was a flex column,
+     * and moves the body cells and the header group cells with it on every pointer step.
      * @param {Object} data
      */
     onDragMove(data) {
@@ -78,19 +80,24 @@ class Resizable extends BaseResizable {
                 // instead would be a trap: `beforeGetWrapperStyle()` returns `{...vdom.style, ...value}`,
                 // so a read-back pins every leaked rendered style — including the proxy's `position`,
                 // `left`, `top` and `transform` — into the config that `onDragEnd()` then has to null.
+                // A flex column's `wrapperStyle.flex` outranks its width, and the flexbox layout keeps it over
+                // `item.flex`: both turn `none`, so the drag pins the width and the toolbar measures it as px
                 owner.set({
+                    flex        : 'none',
                     width       : newWidth,
-                    wrapperStyle: {width: `${newWidth}px`}
+                    wrapperStyle: {flex: 'none', width: `${newWidth}px`}
                 });
 
                 if (body) {
-                    body.updateCellPositions(owner.dataField, newWidth)
+                    body.updateCellPositions(owner.dataField, newWidth);
+                    owner.parent.gridContainer.headerWrapper?.groupRow?.project()
                 }
             }
         }
     }
 
     /**
+     * @summary Commits the dropped width as a fixed px width (no longer flex) and hands the geometry to the body.
      * @param {Object} data
      */
     onDragEnd(data) {
@@ -113,8 +120,9 @@ class Resizable extends BaseResizable {
             style.opacity   = null;
             style.transform = null;
 
-            owner.wrapperStyle = style;
-            owner.width        = newWidth;
+            style.flex = 'none';
+
+            owner.set({flex: 'none', width: newWidth, wrapperStyle: style});
 
             toolbar?.passSizeToBody()
         }

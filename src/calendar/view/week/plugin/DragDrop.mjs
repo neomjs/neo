@@ -53,6 +53,22 @@ class DragDrop extends Base {
     }
 
     /**
+     * @summary Destroys the week view's EventDragZone and clears `owner.eventDragZone` when the plugin destroys.
+     * @param {...*} args
+     */
+    destroy(...args) {
+        let {owner} = this;
+
+        owner?.eventDragZone?.destroy();
+
+        if (owner) {
+            owner.eventDragZone = null
+        }
+
+        super.destroy(...args)
+    }
+
+    /**
      * Adjusts drag events which start on an event resize handle
      * @param {Object} data
      * @returns {Object}
@@ -66,6 +82,8 @@ class DragDrop extends Base {
     }
 
     /**
+     * @param {Object} opts
+     * @summary Lazily creates or reconfigures the week view's EventDragZone with the active scroll container ID.
      * @param {Object} opts
      * @param {Object} opts.dragElement
      * @param {Boolean} opts.enableResizingAcrossOppositeEdge
@@ -84,15 +102,15 @@ class DragDrop extends Base {
                 dragElement                     : opts.dragElement,
                 enableResizingAcrossOppositeEdge: opts.enableResizingAcrossOppositeEdge,
                 eventRecord                     : opts.eventRecord,
-                proxyParentId                   : opts.proxyParentId
+                proxyParentId                   : opts.proxyParentId,
+                scrollContainerId               : owner.getScrollContainer().id
             };
 
         if (!eventDragZone) {
             owner.eventDragZone = eventDragZone = Neo.create({
-                module           : EventDragZone,
+                module: EventDragZone,
                 appName,
                 owner,
-                scrollContainerId: owner.getScrollContainer().id,
                 windowId,
                 ...config,
 

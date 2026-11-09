@@ -686,6 +686,64 @@ test.describe('Neo.data.TreeStore (Ancestor-Aware Filtering)', () => {
         expect(store.items[0].name).toBe('Root A');
         expect(store.items[1].name).toBe('Target Node');
     });
+
+    test('filter should evaluate an enabled filterBy filter without a value and soft-hydrate declared fields in Turbo Mode', () => {
+        class CalculatedTreeModel extends TreeModel {
+            static config = {
+                className: 'Test.Unit.Data.TreeStore.CalculatedTreeModel',
+                fields   : [
+                    {name: 'id',       type: 'String'},
+                    {name: 'name',     type: 'String'},
+                    {name: 'fullName', type: 'String', calculate: data => `${data.id}:${data.name}`}
+                ]
+            }
+        }
+
+        const CalcModel = Neo.setupClass(CalculatedTreeModel);
+
+        store = Neo.create(TreeStore, {
+            autoInitRecords: false,
+            model          : CalcModel,
+            data           : [
+                {id: '1',   name: 'Root A',      isLeaf: false, collapsed: true},
+                {id: '1-1', name: 'Target Node', isLeaf: true,  parentId: '1'},
+                {id: '2',   name: 'Root B',      isLeaf: true}
+            ]
+        });
+
+        store.filters = [{
+            fields  : ['fullName'],
+            filterBy: ({item}) => item.fullName !== '1-1:Target Node'
+        }];
+
+        expect(store.filters[0].value).toBeNull();
+        expect(store.filters[0].effective).toBe(true);
+        expect(store.isFiltered()).toBe(true);
+        expect(store.items.map(item => item.id)).toEqual(['1', '1-1']);
+        expect(store.items[0].collapsed).toBe(false);
+    });
+
+    test('filter should treat an empty filter value as unfiltered when includeEmptyValues is true', () => {
+        store = Neo.create(TreeStore, {
+            model: TestModel,
+            data : [
+                {id: 'a', name: 'Alpha', isLeaf: true},
+                {id: 'b', name: 'Beta',  isLeaf: true},
+                {id: 'c', name: 'Gamma', isLeaf: true}
+            ]
+        });
+
+        store.filters = [{property: 'name', value: 'Beta'}];
+        expect(store.filters[0].effective).toBe(true);
+        expect(store.isFiltered()).toBe(true);
+        expect(store.count).toBe(1);
+
+        store.filters[0].value = '';
+        expect(store.filters[0].effective).toBe(false);
+        expect(store.isFiltered()).toBe(false);
+        expect(store._keptNodes).toBeNull();
+        expect(store.count).toBe(3);
+    });
 });
 
 test.describe('Neo.data.TreeStore (Clear override)', () => {
@@ -1193,4 +1251,58 @@ test.describe('Neo.data.TreeStore (re-adding an existing key)', () => {
         expect(store.get('Orphan/A').name).toBe('A (updated)');
         expect(store.get('Orphan/A').siblingCount).toBe(2)
     })
+});
+
+test.describe('Neo.data.TreeStore (filtering by dotted property paths #20284)', () => {
+    class DottedTreeFilterModel extends TreeModel {
+        static config = {
+            className: 'Test.Unit.Data.TreeStore.DottedTreeFilterModel',
+            fields   : [
+                {name: 'id',    type: 'Integer'},
+                {name: 'tp',    type: 'Integer'},
+                {name: 'stats', type: 'Object'},
+                {
+                    name  : 'user',
+                    fields: [
+                        {name: 'score', type: 'Integer'}
+                    ]
+                },
+                {
+                    name     : 'computed',
+                    type     : 'Object',
+                    calculate: data => ({score: (data.stats?.score ?? 0) * 2})
+                }
+            ]
+        }
+    }
+
+    Neo.setupClass(DottedTreeFilterModel);
+
+    const makeTreeRows = () => [
+        {id: 1, parentId: null, isLeaf: true, tp: 20, stats: {score: 20}, user: {score: 20}},
+        {id: 2, parentId: null, isLeaf: true, tp: 50, stats: {score: 50}, user: {score: 50}}
+    ];
+
+    for (const autoInitRecords of [true, false]) {
+        test(`filters undeclared Object paths and declared nested fields in TreeStore (autoInitRecords=${autoInitRecords})`, () => {
+            for (const [property, threshold] of [['tp', 30], ['stats.score', 30], ['user.score', 30], ['computed.score', 60]]) {
+                const treeStore = Neo.create(TreeStore, {
+                    autoInitRecords,
+                    model  : DottedTreeFilterModel,
+                    data   : makeTreeRows(),
+                    filters: [{operator: '>=', property, value: threshold}]
+                });
+
+                expect(treeStore.items.map(node => node.id), `${property} (autoInitRecords=${autoInitRecords})`).toEqual([2]);
+
+                if (!autoInitRecords) {
+                    expect(treeStore.items.some(node => Object.hasOwn(node, 'stats.score'))).toBe(false);
+                    expect(treeStore.items.some(node => Object.hasOwn(node, 'user.score'))).toBe(false);
+                    expect(treeStore.items.some(node => Object.hasOwn(node, 'computed.score'))).toBe(false)
+                }
+
+                treeStore.destroy()
+            }
+        })
+    }
 });

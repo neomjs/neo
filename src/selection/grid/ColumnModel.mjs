@@ -89,7 +89,7 @@ class ColumnModel extends BaseModel {
      * @param {Number} step
      */
     onNavKeyColumn(step) {
-        this.view.parent.scrollByColumns(this.stepSelectedColumn(step), step)
+        this.view.gridContainer.scrollByColumns(this.stepSelectedColumn(step), step)
     }
 
     /**

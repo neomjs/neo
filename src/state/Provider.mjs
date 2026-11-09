@@ -4,6 +4,7 @@ import Config                        from '../core/Config.mjs';
 import Effect                        from '../core/Effect.mjs';
 import EffectManager                 from '../core/EffectManager.mjs';
 import Observable                    from '../core/Observable.mjs';
+import Store                         from '../data/Store.mjs';
 import {createHierarchicalDataProxy} from './createHierarchicalDataProxy.mjs';
 import {isDescriptor}                from '../core/ConfigSymbols.mjs';
 
@@ -143,17 +144,15 @@ class Provider extends Base {
          */
         parent_: null,
         /**
-         /**
          * A collection of Neo.data.Store instances managed by this StateProvider.
-         * Stores are defined as config objects with a `module` property pointing
-         * to the store class, which will then be instantiated by the framework.
+         * Stores can be defined as config objects, store classes, or existing instances;
+         * config objects omit `module` to default to `Neo.data.Store`.
          * @member {Object|null} stores_=null
          * @example
          *     stores: {
          *         myUsers: {
-         *             module: Neo.data.Store,
-         *             model : 'MyApp.model.User',
-         *             data  : [{id: 1, name: 'John'}, {id: 2, name: 'Doe'}]
+         *             model: 'MyApp.model.User',
+         *             data : [{id: 1, name: 'John'}, {id: 2, name: 'Doe'}]
          *         },
          *         myCustomStore1: MyCustomStoreClass,
          *         myCustomStore2: {
@@ -375,7 +374,7 @@ class Provider extends Base {
                     me.bindCallback(listener, listenerKey, me, storeValue.listeners)
                 })
 
-                value[key] = ClassSystemUtil.beforeSetInstance(storeValue);
+                value[key] = ClassSystemUtil.beforeSetInstance(storeValue, Store);
 
                 providerCreates && me.#ownedStores.add(value[key])
             })
@@ -688,7 +687,7 @@ class Provider extends Base {
             {stores} = me,
             parentStateProvider;
 
-        if (stores?.hasOwnProperty(key)) {
+        if (stores && Object.hasOwn(stores, key)) {
             return stores[key]
         }
 

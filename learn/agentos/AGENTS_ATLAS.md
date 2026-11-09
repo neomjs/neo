@@ -141,7 +141,7 @@ Inject Context Preamble: "Before analyzing the code, you MUST first read `src/Ne
 **FORBIDDEN** from modifying CSS or Layout Configs based solely on static code analysis when a visual bug is reported. Use `neural_link` tool suite to verify physical DOM constraints.
 
 ## §lead_role_baton_intake [DISCIPLINE-ONLY]
-A valid baton is a targeted DM, never `AGENT:*`, with `wakeSuppressed: true`, subject `[handoff] Lead Role Baton`, and body fields `fromLead`, `toLead`, `sourceSessionId`, `reason`, `createdAt`, and expiry / staleness limits.
+A valid baton is a targeted DM that wakes (neo-agent-brain#1250; never `AGENT:*`, never quiet), subject `[handoff] Lead Role Baton`, body fields `fromLead`, `toLead`, `sourceSessionId`, `reason`, `createdAt`, and expiry/staleness limits.
 Missing, stale, malformed, or broadcast baton state does NOT authorize silent self-election: continue in peer-role / normal mailbox triage, dispatch a targeted `lead-role-baton-missing` A2A alert, and await operator or human-triggered recovery.
 
 ## §authoring_discipline_sibling_file [DISCIPLINE-ONLY]

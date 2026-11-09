@@ -131,8 +131,13 @@ class AuthoringHarness extends Viewport {
             }
         } else if (command.action === 'open') {
             result = await workspace.openPane(command.itemId, command.target)
+        } else if (command.action === 'resolveLazy') {
+            const baseResolvePane = workspace.resolvePane.bind(workspace);
+            workspace.resolvePane = (itemId, item) => itemId === command.itemId
+                ? {module: loadLazyPane, header: {text: item?.title || itemId}, text: command.text ?? `${item?.title || itemId} initial`}
+                : baseResolvePane(itemId, item)
         } else if (command.action === 'mark') {
-            const pane = workspace.resolvePane(command.itemId, workspace.dockModel.items[command.itemId]);
+            const pane = this.resolveLiveCard(workspace, command.itemId);
             if (!pane?.isConstructed) throw new Error(`Pane ${command.itemId} is not live`);
             pane.transientNote = command.value;
             if (command.text !== undefined) pane.text = command.text
@@ -154,24 +159,46 @@ class AuthoringHarness extends Viewport {
     }
 
     /**
+     * @summary Resolves the live component rendering an item without materializing dormant panes.
+     * @param {Neo.dashboard.dock.Workspace} workspace
+     * @param {String} itemId
+     * @returns {Neo.component.Base|null}
+     */
+    resolveLiveCard(workspace, itemId) {
+        const item = workspace.dockModel.items[itemId],
+              pane = item ? workspace.resolvePane(itemId, item) : Neo.get(this.observedIds[itemId]);
+
+        if (pane?.isConstructed && !pane.isDestroyed) return pane;
+
+        for (const tab of workspace.down({ntype: 'tab-container'}, false) || []) {
+            const index = (tab.getTabBar()?.sortZoneConfig?.dockItemIds || []).indexOf(itemId),
+                  card  = index > -1 ? tab.getCard(index) : null;
+
+            if (card?.isConstructed && !card.isDestroyed) return card
+        }
+
+        return null
+    }
+
+    /**
      * @summary Reads real instances and persisted membership without materializing dormant panes.
      * @param {Neo.dashboard.dock.Workspace} workspace
      * @returns {Object}
      */
     snapshot(workspace) {
-        const panes = Object.fromEntries(paneKeys.map(itemId => {
-            const item = workspace.dockModel.items[itemId],
-                  pane = item ? workspace.resolvePane(itemId, item) : Neo.get(this.observedIds[itemId]);
-            if (!pane?.isConstructed || pane.isDestroyed) return [itemId, null];
-            this.observedIds[itemId] = pane.id;
-            return [itemId, {
-                id             : pane.id,
-                className      : pane.className,
-                instanceWitness: pane.instanceWitness,
-                text           : pane.text,
-                transientNote  : pane.transientNote ?? null
-            }]
-        }));
+        const keys  = [...new Set([...paneKeys, ...Object.keys(workspace.dockModel.items)])],
+              panes = Object.fromEntries(keys.map(itemId => {
+                  const pane = this.resolveLiveCard(workspace, itemId);
+                  if (!pane) return [itemId, null];
+                  this.observedIds[itemId] = pane.id;
+                  return [itemId, {
+                      id             : pane.id,
+                      className      : pane.className,
+                      instanceWitness: pane.instanceWitness,
+                      text           : pane.text,
+                      transientNote  : pane.transientNote ?? null
+                  }]
+              }));
 
         return {
             panes,

@@ -141,6 +141,13 @@ class SortZone extends DragZone {
          */
         ownerStyle: null,
         /**
+         * The items measured, pinned (`position: 'absolute'`), and restored across `onDragStart` and `processDragEnd`.
+         * Defaults to `sortableItems`; subclasses with non-sortable siblings in flow override {@link #getPinnedItems}.
+         * @member {Neo.component.Base[]|null} pinnedItems=null
+         * @protected
+         */
+        pinnedItems: null,
+        /**
          * Applies an inline `position: relative` to the owner for the duration of a drag, making the
          * owner the containing block for the absolutely positioned items. Required whenever the item
          * rects get converted into owner-relative space (adjustItemRectsToParent / adjustProxyRectToParent)
@@ -227,7 +234,7 @@ class SortZone extends DragZone {
     /**
      * True while the pointer is where a release would not commit the reorder: {@link #onDragMove} keeps
      * sampling the window boundary but moves no sibling. Off by default; only a subclass that knows such
-     * territory arms it (the dock tab strip, beyond its release band).
+     * territory arms it, via {@link #setReorderParked} (the dock tab strip beyond its release band).
      * @member {Boolean} isReorderParked=false
      * @protected
      */
@@ -338,6 +345,40 @@ class SortZone extends DragZone {
               cls       = item.vdom.cls;
 
         return Array.isArray(cls) ? cls.includes(handleCls) : cls === handleCls
+    }
+
+    /**
+     * @summary Returns the VDOM root cloned into the drag proxy for `draggedItem`.
+     * @param {Neo.component.Base} draggedItem
+     * @param {Object|null} [handleNode=null] The matched drag handle VDOM node resolved from `owner.vdom` when `dragHandleSelector` is active
+     * @returns {Object}
+     * @protected
+     */
+    getDragElement(draggedItem, handleNode=null) {
+        return VDomUtil.find(this.owner.vdom, draggedItem.id).vdom
+    }
+
+    /**
+     * @summary Returns the item set measured, pinned (`position: 'absolute'`), and restored across `onDragStart` and `processDragEnd`.
+     * Must contain every entry in `sortableItems` in `owner.items` order so `itemRects` and the owner extent stay aligned.
+     * @param {Object[]} [ownerItems=this.owner.items]
+     * @param {Neo.component.Base[]} [sortableItems=this.sortableItems]
+     * @returns {Neo.component.Base[]}
+     * @protected
+     */
+    getPinnedItems(ownerItems=this.owner.items, sortableItems=this.sortableItems) {
+        return sortableItems
+    }
+
+    /**
+     * @summary The item a drag start moves: the component the pointer pressed. A subclass can name another item, such
+     * as the first of a run it moves as one.
+     * @param {Object} data The drag start event
+     * @returns {Neo.component.Base|null}
+     * @protected
+     */
+    resolveDraggedItem(data) {
+        return Neo.getComponent(data.path[0].id)
     }
 
     /**
@@ -521,7 +562,8 @@ class SortZone extends DragZone {
     async onDragCancel(data={}) {
         let me = this;
 
-        if (!me.dragComponent || me.dragEndActive) {
+        // A cancel while the start is still queued ends that drag too: its end queues behind the start
+        if ((!me.dragComponent && !me.dragStarting) || me.dragEndActive) {
             return
         }
 
@@ -544,21 +586,57 @@ class SortZone extends DragZone {
      * @param {Object} data - The drag end event data.
      */
     async onDragEnd(data) {
-        let me = this;
+        let me = this,
+            latch;
 
         if (me.dragEndActive) {
             return
         }
 
+        // One latch per gesture: a newer drag's start lifts it, so that drag's own end gets through
+        latch = me.dragEndLatch = {};
+
         me.dragEndActive = true;
 
         try {
-            await me.processDragEnd(data)
+            // Queued behind the drag's start: the end tears down what the start builds
+            await me.queueDragStep(() => me.processDragEnd(data))
         } finally {
-            if (!me.isDestroying && !me.isDestroyed) {
-                me.dragEndActive = false
+            if (!me.isDestroying && !me.isDestroyed && me.dragEndLatch === latch) {
+                me.dragEndActive = false;
+                me.dragEndLatch  = null
             }
         }
+    }
+
+    /**
+     * @summary A new gesture lifts the last one's end latch: duplicate deliveries of that end arrived long before.
+     * @param {Object}   data
+     * @param {Function} [prepare]
+     * @returns {Promise<void>}
+     */
+    startDrag(data, prepare) {
+        let me = this;
+
+        me.dragEndActive   = false;
+        me.dragEndLatch    = null;
+        me.pendingDragMove = null;
+
+        return super.startDrag(data, prepare)
+    }
+
+    /**
+     * @summary The moves that arrived while the start waited its turn are not lost: the latest one places the drag.
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async afterDragStart() {
+        let me   = this,
+            move = me.pendingDragMove;
+
+        me.pendingDragMove = null;
+
+        move && await me.onDragMove(move)
     }
 
     /**
@@ -627,7 +705,7 @@ class SortZone extends DragZone {
                 owner.style = ownerStyle
             }
 
-            me.sortableItems?.forEach((item, index) => {
+            (me.pinnedItems || me.sortableItems)?.forEach((item, index) => {
                 if (item.isDestroyed || (me.isWindowDragging && item === me.dragComponent)) {
                     return
                 }
@@ -643,7 +721,7 @@ class SortZone extends DragZone {
                     width   : itemStyles[index].width || null
                 });
 
-                if (index === me.startIndex) {
+                if (item === me.sortableItems[me.startIndex]) {
                     itemStyle.visibility = null
                 }
 
@@ -693,6 +771,7 @@ class SortZone extends DragZone {
                 lastInBoundX    : null,
                 lastInBoundY    : null,
                 ownerRect       : null,
+                pinnedItems     : null,
                 scrollLeft      : 0,
                 sortBoundaryRect: null,
                 startIndex      : -1,
@@ -732,6 +811,12 @@ class SortZone extends DragZone {
     async onDragMove(data) {
         let me = this;
 
+        // While the start is still queued behind the last drag's end, its latest move waits for it (afterDragStart)
+        if (me.dragStartPending) {
+            me.pendingDragMove = data;
+            return
+        }
+
         // The method can trigger before we got the client rects from the main thread
         if (!me.itemRects || me.isScrolling || !me.boundaryContainerRect) {
             return
@@ -765,18 +850,16 @@ class SortZone extends DragZone {
             ownerX             = rectsAreOwnerRelative ? me.ownerRect.x : 0,
             ownerY             = rectsAreOwnerRelative ? me.ownerRect.y : 0,
             reversed           = me.reversedLayoutDirection,
-            delta, isOverDragging, isOverDraggingEnd, isOverDraggingStart, itemHeightOrWidth, moveFactor;
+            delta, isOverDragging, isOverDraggingEnd, isOverDraggingStart, moveFactor;
 
         if (me.sortDirection === 'horizontal') {
             delta               = clientX - ownerX + me.scrollLeft - me.offsetX - itemRects[index].left;
             isOverDraggingEnd   = clientX > localBoundary.right;
-            isOverDraggingStart = clientX < localBoundary.left;
-            itemHeightOrWidth   = 'width'
+            isOverDraggingStart = clientX < localBoundary.left
         } else {
             delta               = clientY - ownerY + me.scrollTop - me.offsetY - itemRects[index].top;
             isOverDraggingEnd   = clientY > localBoundary.bottom;
-            isOverDraggingStart = clientY < localBoundary.top;
-            itemHeightOrWidth   = 'height'
+            isOverDraggingStart = clientY < localBoundary.top
         }
 
         isOverDragging = isOverDraggingEnd || isOverDraggingStart;
@@ -825,14 +908,14 @@ class SortZone extends DragZone {
         }
 
         else if (index > 0 && (!reversed && delta < 0 || reversed && delta > 0)) {
-            if (Math.abs(delta) > itemRects[index - 1][itemHeightOrWidth] * moveFactor) {
+            if (Math.abs(delta) > me.getSwitchExtent(index, index - 1) * moveFactor) {
                 me.currentIndex--;
                 me.switchItems(index, me.currentIndex)
             }
         }
 
         else if (index < maxItems && (!reversed && delta > 0 || reversed && delta < 0)) {
-            if (Math.abs(delta) > itemRects[index + 1][itemHeightOrWidth] * moveFactor) {
+            if (Math.abs(delta) > me.getSwitchExtent(index, index + 1) * moveFactor) {
                 me.currentIndex++;
                 me.switchItems(index, me.currentIndex)
             }
@@ -850,7 +933,9 @@ class SortZone extends DragZone {
             ir  : itemRects[me.currentIndex] ? Math.round(itemRects[me.currentIndex].left) : null
         });
 
-        me.isOverDragging = isOverDragging && me.currentIndex !== 0 && me.currentIndex !== maxItems;
+        // A step that switchItems refused leaves currentIndex at the dragged item: polling it again would only
+        // scroll toward the same refused neighbour, every frame, for as long as the pointer stays out
+        me.isOverDragging = isOverDragging && me.currentIndex !== index && me.currentIndex !== 0 && me.currentIndex !== maxItems;
 
         if (me.isOverDragging) {
             await me.timeout(30); // wait for 1 frame
@@ -883,7 +968,8 @@ class SortZone extends DragZone {
             itemStyles                                                               = me.itemStyles = [],
             {layout}                                                                 = owner,
             ownerStyle                                                               = owner.style || {},
-            draggedItem, index, indexMap, itemStyle, rect, sortableItems;
+            handleNode                                                               = null,
+            draggedItem, index, indexMap, itemStyle, pinnedItems, rect, sortableItems;
 
         if (owner.dragResortable) {
             if (ignoreDragSelector) {
@@ -895,7 +981,7 @@ class SortZone extends DragZone {
 
             if (dragHandleSelector) {
                 const handleClassName = dragHandleSelector.substring(1);
-                const handleNode      = data.path.find(node => node.cls.includes(handleClassName));
+                handleNode            = data.path.find(node => node.cls.includes(handleClassName));
 
                 if (!handleNode) {
                     return
@@ -920,7 +1006,7 @@ class SortZone extends DragZone {
                 sortableItems = me.getSortableItems(owner.items);
                 index         = sortableItems.indexOf(draggedItem);
             } else {
-                draggedItem   = Neo.getComponent(data.path[0].id);
+                draggedItem   = me.resolveDraggedItem(data);
                 sortableItems = me.getSortableItems(owner.items);
                 index         = sortableItems.indexOf(draggedItem)
             }
@@ -929,16 +1015,25 @@ class SortZone extends DragZone {
                 return
             }
 
+            pinnedItems = me.getPinnedItems(owner.items, sortableItems);
+
+            if (pinnedItems !== sortableItems) {
+                pinnedItems = [...pinnedItems]
+            }
+
+            const handleVdomNode = handleNode ? VDomUtil.find(owner.vdom, handleNode.id)?.vdom || null : null;
+
             indexMap = {};
 
             Object.assign(me, {
                 currentIndex           : index,
-                dragElement            : VDomUtil.find(owner.vdom, draggedItem.id).vdom,
+                dragElement            : me.getDragElement(draggedItem, handleVdomNode),
                 dragProxyConfig        : me.getDragProxyConfig(),
                 indexMap,
                 lastIntersectionRatio  : 1,
                 ownerItems             : [...owner.items],
                 ownerStyle             : {height: ownerStyle.height, minWidth: ownerStyle.minWidth, position: ownerStyle.position, width: ownerStyle.width},
+                pinnedItems,
                 reversedLayoutDirection: layout.direction === 'column-reverse' || layout.direction === 'row-reverse',
                 scrollLeft             : owner.scrollLeft || 0, // absolute owner scroll; subclasses snapshot itemRects in owner-content space
                 sortableItems,
@@ -950,23 +1045,30 @@ class SortZone extends DragZone {
             me.dragFocusOwner = draggedItem.containsFocus ? draggedItem : null;
 
             sortableItems.forEach((item, i) => {
-                indexMap[i] = owner.items.indexOf(item);
+                indexMap[i] = owner.items.indexOf(item)
+            });
 
+            pinnedItems.forEach(item => {
                 itemStyles.push({
-                    height: item.height ? `${item.height}px` :  item.style?.height,
-                    width : item.width  ? `${item.width}px`  :  item.style?.width
+                    height: item.height ? `${item.height}px` : item.style?.height,
+                    width : item.width  ? `${item.width}px`  : item.style?.width
                 })
             });
 
-            const itemRects = await owner.getDomRect([owner.id].concat(sortableItems.map(e => e.id)));
+            const pinnedRects = await owner.getDomRect([owner.id].concat(pinnedItems.map(e => e.id)));
 
-            me.ownerRect = itemRects.shift();
+            me.ownerRect = pinnedRects.shift();
+
+            const itemRects = pinnedItems === sortableItems
+                ? pinnedRects
+                : sortableItems.map(item => pinnedRects[pinnedItems.indexOf(item)]);
+
             me.sortBoundaryRect = me.useItemSortBoundary ? me.getSortBoundaryRect(itemRects) : null;
 
             // Calculate real owner dimensions based on first and last item rects (accounting for padding)
-            if (!me.useItemSortBoundary && itemRects.length > 0) {
-                const firstItemRect = itemRects[0];
-                const lastItemRect  = itemRects[itemRects.length - 1];
+            if (!me.useItemSortBoundary && pinnedRects.length > 0) {
+                const firstItemRect = pinnedRects[0];
+                const lastItemRect  = pinnedRects[pinnedRects.length - 1];
 
                 if (firstItemRect.x > me.ownerRect.x) {
                     me.ownerRect.x = firstItemRect.x
@@ -985,10 +1087,13 @@ class SortZone extends DragZone {
                 ...(me.positionOwnerRelative  && {position: 'relative'})
             };
 
-            adjustItemRectsToParent && itemRects.forEach(rect => {
+            adjustItemRectsToParent && pinnedRects.forEach(rect => {
                 rect.x -= me.ownerRect.x;
                 rect.y -= me.ownerRect.y
             });
+
+            // Published rects open the move gate (onDragMove), which reads them in owner space
+            me.adjustProxyRectToParent && pinnedRects.forEach(rect => me.adjustProxyRectToParent(rect, me.ownerRect));
 
             me.itemRects = itemRects;
 
@@ -1015,14 +1120,18 @@ class SortZone extends DragZone {
                 if (placeholderIndex > -1) {
                     sortableItems[placeholderIndex] = me.dragPlaceholder
                 }
+                if (pinnedItems !== sortableItems) {
+                    const pinnedPlaceholderIndex = pinnedItems.indexOf(draggedItem);
+                    if (pinnedPlaceholderIndex > -1) {
+                        pinnedItems[pinnedPlaceholderIndex] = me.dragPlaceholder
+                    }
+                }
                 me.dragElement = me.dragPlaceholder.vdom
             }
 
-            sortableItems.forEach((item, i) => {
+            pinnedItems.forEach((item, i) => {
                 itemStyle = item.wrapperStyle || {};
-                rect      = me.itemRects[i];
-
-                me.adjustProxyRectToParent?.(rect, me.ownerRect);
+                rect      = pinnedRects[i];
 
                 item.wrapperStyle = Object.assign(itemStyle, {
                     height  : `${rect.height}px`,
@@ -1067,6 +1176,61 @@ class SortZone extends DragZone {
         me.isScrolling = true;
         await me.owner.scrollToIndex?.(me.currentIndex, me.itemRects[me.currentIndex]);
         me.isScrolling = false
+    }
+
+    /**
+     * @summary Parks or resumes the reorder, for a subclass that knows where a release would not commit it.
+     *
+     * Parking walks the drag's switches back to the resting order and arms {@link #isReorderParked}, so the hover
+     * shows what the release will do; resuming lets the live pointer reorder again.
+     * @param {Boolean} parked
+     * @param {Object}  data The drag-move payload
+     * @protected
+     */
+    setReorderParked(parked, data) {
+        let me = this,
+            index;
+
+        if (parked === me.isReorderParked) {
+            return
+        }
+
+        me.isReorderParked = parked;
+        me.traceEvent({t: parked ? 'park' : 'unpark', x: data.clientX, y: data.clientY});
+
+        if (parked) {
+            // Neither an over-drag's auto-scroll loop nor the duplicate-move guard may outlive the reorder this park voids
+            me.isOverDragging = false;
+            me.lastInBoundX   = me.lastInBoundY = null;
+
+            while (me.currentIndex !== me.startIndex) {
+                index = me.currentIndex;
+
+                me.currentIndex += index > me.startIndex ? -1 : 1;
+                me.switchItems(index, me.currentIndex);
+
+                // A refused switch back would spin here forever
+                if (me.currentIndex === index) {
+                    break
+                }
+            }
+        }
+    }
+
+    /**
+     * @summary How far the dragged item must travel toward its neighbour before {@link #switchItems} swaps them.
+     *
+     * The neighbour's own width or height. A subclass whose switch moves the item past several neighbours at once
+     * returns their combined extent: the threshold then matches the distance the item jumps, so the switch back
+     * needs the same travel and the item cannot flip between both positions on every move.
+     * @param {Number} index     The dragged item's position
+     * @param {Number} neighbour The position next to it, in the drag's direction
+     * @returns {Number}
+     */
+    getSwitchExtent(index, neighbour) {
+        let me = this;
+
+        return me.itemRects[neighbour][me.sortDirection === 'horizontal' ? 'width' : 'height']
     }
 
     /**

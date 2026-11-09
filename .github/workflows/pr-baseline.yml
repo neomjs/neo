@@ -1,72 +1,80 @@
 name: PR Baseline
 
-# This repository's caller for the shared non-product PR baseline. The reusable workflow owns the
-# executable jobs, so adopting the baseline copies no job logic. What a caller does own is four
-# load-bearing things, every one of them present below: the event trigger, the permission ceiling,
-# the consumer input (`required_base`), and the release tag in `uses:`. The upstream header still describes caller ownership as trigger + coordinate only; the
-# permission ceiling was established empirically here and the correction belongs to that corpus'
-# governance rather than to this file.
+# This repository's caller for the shared PR baseline (`neomjs/neo-agent-skills`). The reusable workflow
+# owns the executable jobs; this file owns the trigger, the permission ceiling, the inputs and the release
+# tag in `uses:`.
 #
-# These jobs REPORT. They are not required contexts: `dev` carries no `required_status_checks` rule
-# today, so a red baseline job does not mechanically block a merge. Binding them is a separate lane
-# and stays there — writing "gate" here would claim enforcement this head does not deliver, which is
-# the same shape as the silent unrun check this file exists to end.
+# THREE CONTEXTS: `baseline / PR baseline` (every check that runs no pull-request code), `baseline / Skills
+# materialized` and `baseline / guards`. The `dev` ruleset is the authority on which of them gate a merge;
+# this comment only names them. `guards` runs the list below as one context, so a guard added to the list
+# needs no ruleset edit, and all of them hold one of the organization's 20 concurrent job slots.
 #
-# THE TRIGGER IS THE CALLER'S OBLIGATION, and `edited` is the load-bearing entry. The `pr-body` job
-# reads the LIVE body, so a corrected body goes green with no push — but only if this workflow fires
-# on the edit. Without it the live fetch buys nothing: an author fixes the body, nothing re-runs, and
-# the red stands until an unrelated commit arrives. `ready_for_review` matters for the same reason at
-# the draft boundary, where the close-target rule changes. A reusable workflow cannot see its caller's
-# `on:` block, so nothing upstream can assert this for us.
+# THE TRIGGER IS THE CALLER'S OBLIGATION, and `edited` is the load-bearing entry: the body checks read the
+# live body, so a corrected body goes green with no push only if this workflow fires on the edit.
+# `ready_for_review` re-judges a draft when it becomes reviewable. A reusable workflow cannot see its
+# caller's `on:` block, so nothing upstream can assert this for us.
 #
-# WHY THIS EXISTS: this repository ran `agent-pr-body-lint.yml` until it was deleted on 2026-08-26
-# (91ae3604b4). Its replacement moved into the shared corpus and no caller was ever added here, so
-# between that deletion and this file NOTHING checked a pull-request body in this repository — and the
-# failure was silent, which is the expensive part: nothing red, nothing missing, just an unrun gate.
+# PERMISSIONS ARE LOAD-BEARING: a called job cannot request more than its caller grants, and the body checks
+# read the pull request itself. Granting only `contents: read` is rejected before any job starts, as a
+# `startup_failure` with no jobs, logs or annotations.
 #
-# NEIGHBOURING LOCAL WORKFLOWS, and none of them is superseded. Nothing is deleted here, because
-# deleting a working guard on an assumed equivalence is how coverage disappears quietly:
+# PIN: a published release tag, never a SHA or a branch. The baseline's `Release ref` step refuses any
+# other ref, and Dependabot's `github-actions` updates move the tag.
 #
-#   - `pr-base`                   vs `pr-base-guard.yml` — COMPLEMENTS, not an overlap. The local
-#                                    workflow fires only on PRs whose base is `main` and MUTATES
-#                                    them: it retargets the base to `dev` and comments, which is why
-#                                    it holds `pull-requests: write`. The baseline job is read-only
-#                                    and rejects a PR whose base is not `required_base`, on every
-#                                    event this caller fires. One fixes a wrong base, the other
-#                                    refuses one; neither covers the other's case.
-#   - `source-comment-archaeology` has no local counterpart since #18809. The path-scoped local
-#                                    workflow ran an engine copy of the guard that had drifted from the
-#                                    published one; measured before it went, the published guard finds
-#                                    nothing over every tracked `.mjs`, so its wider scope is the one
-#                                    kept, and the pre-commit hook runs the same published binary.
+# `pr-base-guard.yml` complements the `PR base` check rather than duplicating it: it retargets a pull
+# request opened against `main` to `dev`, while the check only refuses a wrong base.
 #
-# `skills-materialized` is adjacent to `substrate-sync.yml`; `substrate-size` and `pr-body` have no
-# local counterpart at all and are the reason this caller is worth its duplication in the interim.
+# THE GUARDS run from the repository root after `npm ci`, each under `bash -e -o pipefail`, every one even
+# after a red. `check-guard-ci-parity.spec.mjs` holds every CI-mirrored `lint-staged` guard to this list,
+# the one place where a mirror is also a gate. The job checks out at depth 1, so the spec-retirement entry
+# fetches the history its `origin/dev..HEAD` range reads. The hierarchy entry runs last because it writes
+# the generated docs.
 #
-# PERMISSIONS ARE LOAD-BEARING HERE, and getting them wrong costs a `startup_failure` with no jobs,
-# no logs and no annotations — the least diagnosable result GitHub emits. A called job cannot request
-# more than its caller grants, and the baseline's `pr-body` job declares `pull-requests: read` because
-# it fetches the pull request itself. A caller granting only `contents: read` is rejected outright,
-# before any job starts.
-#
-# PIN: a published release tag, never a commit SHA. The tag names the npm version the called workflow
-# installs, and dependabot's `github-actions` updates move it on each release.
+# THE GUIDES are judged by the baseline's own guide lint, at this tag, inside `PR baseline`, so no job checks
+# out the Brain to run it. `dead-script-ref` is skipped because these guides name the Brain's `ai:*` scripts,
+# which this repository does not define. The Brain runs that rule over these guides at its own `neo.mjs` pin.
 
 on:
   pull_request:
     types: [opened, edited, synchronize, ready_for_review]
 
+# A new head supersedes the run for the old one, which would otherwise queue and hold slots for it. A rerun
+# gets its own group, so it never cancels the current head's run. A body edit waits rather than cancels:
+# `same-head-check-repair.yml` reruns a same-head run that was cancelled.
+concurrency:
+  group: pr-baseline-${{ github.run_attempt == '1' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event.action != 'edited' }}
 
 permissions:
   contents: read
   pull-requests: read
 
-# THE TEAM ROSTER is this caller's input to the `commit-authorship` job: who our agents are, and which addresses are
+# THE TEAM ROSTER is the input to the commit-authorship check: who our agents are, and which addresses are
 # theirs. It lives in the Brain and is read at the Brain's `dev`, never from the pull request under review.
 jobs:
   baseline:
-    uses: neomjs/neo-agent-skills/.github/workflows/reusable-pr-baseline.yml@v0.1.55
+    uses: neomjs/neo-agent-skills/.github/workflows/reusable-pr-baseline.yml@v1.2.0
     with:
       required_base: dev
+      guides: true
+      guides_skip: '["dead-script-ref"]'
       team_roster_repository: neomjs/neo-agent-brain
       team_roster_path: ai/graph/agentCoAuthorEmails.mjs
+      guards: |
+        [
+          {"name": "guard CI parity",           "run": "node ./buildScripts/util/check-guard-ci-parity.mjs"},
+          {"name": "class module scope",        "run": "node ./buildScripts/util/check-class-module-scope.mjs"},
+          {"name": "content root derivations",  "run": "node ./buildScripts/util/check-content-root-derivations.mjs"},
+          {"name": "engine brain boundary",     "run": "node ./buildScripts/util/check-engine-brain-boundary.mjs"},
+          {"name": "fixed sleeps",              "run": "node ./buildScripts/util/check-fixed-sleeps.mjs"},
+          {"name": "JSDoc types",               "run": "node ./buildScripts/util/check-jsdoc-types.mjs"},
+          {"name": "relative links",            "run": "npm run check-relative-links"},
+          {"name": "theme coverage",            "run": "node ./buildScripts/util/check-theme-coverage.mjs"},
+          {"name": "theme value files",         "run": "node ./buildScripts/util/check-theme-value-files.mjs"},
+          {"name": "examples body only",        "run": "npm run check-examples-body-only"},
+          {"name": "theme surfaces",            "run": "npm run check-theme-surfaces"},
+          {"name": "front door fingerprint",    "run": "node ./buildScripts/util/check-front-door-fingerprint.mjs"},
+          {"name": "package contents",          "run": "npm run check-package-contents"},
+          {"name": "spec retirement",           "run": "git fetch --no-tags --unshallow origin \"+${GITHUB_REF}:refs/remotes/origin/pr\" +refs/heads/dev:refs/remotes/origin/dev && node ./buildScripts/util/check-spec-retirement.mjs < /dev/null"},
+          {"name": "class hierarchy freshness", "run": "npm run generate-docs-json && git diff --exit-code -- docs/output/class-hierarchy.json"}
+        ]

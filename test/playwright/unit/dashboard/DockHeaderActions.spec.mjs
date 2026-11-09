@@ -89,6 +89,26 @@ test.describe('Neo.dashboard.dock.plugin.HeaderActions — the declinable owner 
         workspace.destroy()
     });
 
+    for (const retire of ['workspace', 'plugin']) {
+        test(`a pending close does not focus chrome after its ${retire} retires`, async () => {
+            const workspace  = create(), plugin = workspace.getPlugin('dock-header-actions'),
+                  projection = Promise.withResolvers();
+            let focused = false;
+
+            workspace.onDockZoneDocumentChange = () => workspace.refreshPromise = projection.promise;
+            plugin.focusDockCloseTarget = () => {focused = true};
+            const result  = plugin.handleDockCloseAction({dockNodeId: 'main-tabs', tabContainer: tabsOf(workspace)}),
+                  pending = workspace.refreshPromise;
+
+            expect(result.errors).toEqual([]);
+            (retire === 'workspace' ? workspace : plugin).destroy();
+            projection.resolve();
+            await pending;
+            expect(focused).toBe(false);
+            workspace.destroy()
+        })
+    }
+
     test('declined: no plugin, no engine handler — every engine action re-emits for the host, and the document stays', () => {
         const
             workspace = create({enableDockHeaderActionsPlugin: false}),

@@ -4,7 +4,7 @@ The Neo.mjs architecture leverages web workers to run application logic, data pr
 and even parts of the rendering pipeline in parallel, on separate CPU cores.
 This offloads heavy computations from the main thread, ensuring the UI remains responsive.
 
-By contrast, most other JavaScript frameworks operate predominantly within a single main thread.
+By contrast, most JavaScript libraries and frameworks operate predominantly within a single main thread.
 This means all business logic, data handling, and DOM rendering compete for the same CPU resources,
 often leading to a "janky" or unresponsive user interface during intensive operations.
 

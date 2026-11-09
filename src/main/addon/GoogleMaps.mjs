@@ -80,6 +80,7 @@ class GoogleMaps extends Base {
     markers = {}
 
     /**
+     * @summary Adds or replaces a marker on the specified map, deferring until `mapCreated` if the map is not yet initialized.
      * @param {Object} data
      * @param {Object} [data.anchorPoint] x & y
      * @param {String} [data.icon]
@@ -103,6 +104,8 @@ class GoogleMaps extends Base {
             })
         } else {
             Neo.ns(`${mapId}`, true, me.markers);
+
+            me.markers[mapId][data.id]?.setMap(null);
 
             me.markers[mapId][data.id] = marker = new google.maps.Marker({
                 icon    : data.icon,
@@ -150,16 +153,18 @@ class GoogleMaps extends Base {
     }
 
     /**
-     * Destroys all markers for the specified map ID.
+     * @summary Destroys all markers for the specified map ID.
      * @param {Object} data
-     * @param {String} data.mapId
+     * @param {String} [data.id]
+     * @param {String} [data.mapId]
      */
     destroyMarkers(data) {
         let me      = this,
-            markers = me.markers[data.mapId] || {};
+            mapId   = data.mapId || data.id,
+            markers = me.markers[mapId] || {};
 
         Object.values(markers).forEach(marker => marker.setMap(null));
-        delete me.markers[data.mapId]
+        delete me.markers[mapId]
     }
 
     /**

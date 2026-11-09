@@ -41,6 +41,7 @@ Generators to quickly scaffold new code structures following project conventions
 | `appMinimal.mjs` | `npm run create-app-minimal` | Creates a lightweight, single-window app. |
 | `class.mjs` | `npm run create-class` | Generates a new Neo.mjs class file with standard boilerplate. |
 | `component.mjs` | `npm run create-component` | Scaffolds a new UI component with SCSS and JS. |
+| `theme.mjs` | `npm run create-theme` | Creates an editable theme from an existing base theme. |
 | `addConfig.mjs` | `npm run add-config` | Injects configuration into an existing application. |
 
 ---
@@ -65,6 +66,7 @@ Utilities for maintaining code quality and developer experience.
 | `addReactiveTags.mjs` | `npm run add-reactive-tags` | Automatically adds `@reactive` JSDoc tags to config properties ending in `_`. |
 | `checkReactiveTags.mjs` | `npm run check-reactive-tags` | Lints the codebase to ensure all reactive configs have the correct JSDoc tags. |
 | `convertDesignTokens.mjs` | `npm run convert-design-tokens` | Converts JSON design tokens into SCSS variables and CSS custom properties. |
+| `seatStart.mjs` | `npm run seat:start` | What a fresh seat Start needs: rebuilds the development themes only when they are missing or stale. |
 | `watchThemes.mjs` | `npm run watch-themes` | Watches SCSS files for changes and recompiles themes incrementally. |
 
 ---
@@ -275,6 +277,35 @@ Options:
   -h, --help                      display help for command
 ```
 
+## `npm run create-theme`
+
+**Script:** `buildScripts/create/theme.mjs`
+
+Choose a new theme folder and a base interactively with `npm run create-theme`, or provide both names:
+
+```bash
+npm run create-theme -- --name theme-acme --base theme-neo-dark --noquestions
+```
+
+From an application workspace with Neo installed, invoke the package's script:
+
+```bash
+node node_modules/neo.mjs/buildScripts/create/theme.mjs --name theme-acme --base theme-neo-dark --noquestions
+node node_modules/neo.mjs/buildScripts/build/themes.mjs -n -e dev -t theme-acme
+```
+
+The generator writes editable source under `resources/scss/theme-acme`. It takes the selected theme's
+files from the Engine, declared component packages and workspace in build order; later files replace
+matching earlier paths. It changes the theme selector to `.neo-theme-acme`, preserving its specificity,
+and keeps shared Sass imports pointing to their original source. Existing themes and application
+configuration are left intact. An invalid name, missing base or existing destination fails without
+overwriting files.
+
+Customize the generated variables, then put `"neo-theme-acme"` first in the relevant application's
+`neo-config.json` `themes` array to make it the default. Build again after editing SCSS. This is a
+snapshot of the base's current values; future base changes are not copied automatically. The generated
+theme still uses the shared Sass dependencies named in its imports, such as the motion vocabulary.
+
 ## `npm run create-class`
 **Script:** `buildScripts/create/class.mjs`
 
@@ -284,15 +315,19 @@ Generates a new class file extending a core base class.
 Usage: neo.mjs create-class [options]
 
 Options:
-  -V, --version            output the version number
-  -i, --info               print environment debug info
-  -d, --drop               drops class in the currently selected folder
-  -n, --singleton <value>  Create a singleton? Pick "yes" or "no"
-  -s, --source <value>     name of the folder containing the project (default: apps)
-  -b, --baseClass <value>  The base class to extend (e.g. component.Base)
-  -c, --className <value>  The fully qualified class name (e.g. MyApp.view.Main)
-  -r, --scss <value>       The scss class name
-  -h, --help               display help for command
+  -V, --version                      output the version number
+  -i, --info                         print environment debug info
+  -d, --drop                         drops class in the currently selected folder
+  -n, --singleton <value>            Create a singleton? Pick "yes" or "no"
+  -s, --source <value>               name of the folder containing the project (default: apps)
+  -b, --baseClass <value>            The base class to extend (e.g. component.Base)
+  -c, --className <value>            The fully qualified class name (e.g. MyApp.view.Main)
+  -C, --createController <value>     Create a matching controller.Component when generating a view? Pick "yes" or "no"
+  -M, --createModel <value>          Create a matching data.Model when generating a data.Store? Pick "yes" or "no"
+  -p, --createStateProvider <value>  Create a matching state.Provider when generating a view? Pick "yes" or "no"
+  -m, --createStore <value>          Create a matching data.Store when generating a data.Model? Pick "yes" or "no"
+  -r, --scss <value>                 The scss class name
+  -h, --help                         display help for command
 ```
 
 ## `npm run create-component`

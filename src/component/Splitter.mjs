@@ -84,6 +84,8 @@ class Splitter extends Component {
     dragGeneration = 0
 
     /**
+     * @summary Registers the splitter's own drag listeners, which do not bubble: the splitter owns its gesture,
+     * so an ancestor's `.neo-draggable` delegate (a dashboard's SortZone) never opens a session for it.
      * @param {Object} config
      */
     construct(config) {
@@ -92,8 +94,8 @@ class Splitter extends Component {
         let me = this;
 
         me.addDomListeners([
-            {'drag:end'  : me.onDragEnd,   scope: me},
-            {'drag:start': me.onDragStart, scope: me}
+            {'drag:end'  : me.onDragEnd,   bubble: false, scope: me},
+            {'drag:start': me.onDragStart, bubble: false, scope: me}
         ]);
 
         me.createDragZone()
@@ -115,6 +117,12 @@ class Splitter extends Component {
 
         if (!sibling || !Number.isFinite(value) || !['height', 'width'].includes(axis)) {
             return false
+        }
+
+        let minSize = me.getSiblingMinSize(sibling, axis);
+
+        if (Number.isFinite(minSize)) {
+            value = Math.max(value, minSize)
         }
 
         sibling.wrapperStyle = {
@@ -192,6 +200,38 @@ class Splitter extends Component {
     }
 
     /**
+     * @summary Infers the layout mode of a container for minimum-size aggregation.
+     * @param {Neo.component.Base|Object|null} component
+     * @returns {String|null} `'width'`, `'height'`, `'card'`, `'fit'`, or `null`
+     * @protected
+     */
+    getContainerLayoutAxis(component) {
+        if (!component) return null;
+
+        let layout    = component.layout,
+            ntype     = (typeof layout === 'string' ? layout : layout?.ntype) || '',
+            direction = layout?.direction || '';
+
+        if (ntype.endsWith('card')) {
+            return 'card'
+        }
+
+        if (ntype.endsWith('fit')) {
+            return 'fit'
+        }
+
+        if (ntype.endsWith('hbox') || direction.startsWith('row')) {
+            return 'width'
+        }
+
+        if (ntype.endsWith('vbox') || direction.startsWith('column')) {
+            return 'height'
+        }
+
+        return null
+    }
+
+    /**
      * Returns the cursor matching the current resize axis.
      * @returns {String}
      * @protected
@@ -212,6 +252,19 @@ class Splitter extends Component {
     }
 
     /**
+     * @summary Returns the sibling opposite to the configured resizeTarget, if one exists.
+     * @returns {Neo.component.Base|null}
+     * @protected
+     */
+    getOppositeSibling() {
+        let me     = this,
+            parent = me.parent,
+            index  = parent?.indexOf(me);
+
+        return Number.isInteger(index) ? parent.items[me.resizeTarget === 'next' ? index - 1 : index + 1] || null : null
+    }
+
+    /**
      * Builds the main-thread-only descriptor for the current target and resize axis.
      * @returns {Object|null}
      * @protected
@@ -223,14 +276,32 @@ class Splitter extends Component {
 
         if (!parent || !sibling) return null;
 
-        return {
-            axis        : me.direction === 'vertical' ? 'width' : 'height',
-            parentId    : me.getLayoutElementId(parent),
-            preview     : me.liveResize,
-            resizeNext  : me.resizeTarget === 'next',
-            splitterSize: me.size,
-            targetId    : me.getLayoutElementId(sibling)
+        let axis            = me.direction === 'vertical' ? 'width' : 'height',
+            minSize         = me.getSiblingMinSize(sibling, axis),
+            oppositeSibling = me.getOppositeSibling(),
+            oppositeMinSize = me.getSiblingMinSize(oppositeSibling, axis),
+            config          = {
+                axis,
+                parentId    : me.getLayoutElementId(parent),
+                preview     : me.liveResize,
+                resizeNext  : me.resizeTarget === 'next',
+                splitterSize: me.size,
+                targetId    : me.getLayoutElementId(sibling)
+            };
+
+        if (Number.isFinite(minSize)) {
+            config.minSize = minSize
         }
+
+        if (oppositeSibling && me.hasSiblingMinSize(oppositeSibling, axis)) {
+            config.oppositeId = me.getLayoutElementId(oppositeSibling)
+        }
+
+        if (Number.isFinite(oppositeMinSize)) {
+            config.oppositeMinSize = oppositeMinSize
+        }
+
+        return config
     }
 
     /**
@@ -244,6 +315,158 @@ class Splitter extends Component {
             index  = parent?.indexOf(me);
 
         return Number.isInteger(index) ? parent.items[me.resizeTarget === 'next' ? index + 1 : index - 1] || null : null
+    }
+
+    /**
+     * @summary Resolves the effective pixel floor (minWidth or minHeight) from a sibling component or nested container tree.
+     *
+     * Across perpendicular split/container layouts (e.g. a vertical splitter touching 2+ stacked
+     * children in a `vbox`), the effective floor is `Math.max` across the children. Across parallel
+     * layouts (`hbox` for `'width'`, `vbox` for `'height'`), the effective floor is the sum of child
+     * floors plus intervening splitters when at least one child declares a floor. Zero-valued
+     * flex-shrink resets (`minWidth: 0`, `'0px'`) do not mask descendant floors, and percentage
+     * bounds are left to main-thread CSS resolution against the measured parent box.
+     * @param {Neo.component.Base|Object|null} component
+     * @param {String} axis 'width' or 'height'
+     * @returns {Number} Pixel floor, or NaN when none is configured.
+     * @protected
+     */
+    getSiblingMinSize(component, axis) {
+        if (!component || !['height', 'width'].includes(axis)) {
+            return Number.NaN
+        }
+
+        let me          = this,
+            key         = axis === 'width' ? 'minWidth' : 'minHeight',
+            raw         = component[key] ?? component.wrapperStyle?.[key] ?? component.style?.[key],
+            source      = String(raw ?? '').trim(),
+            ownMin      = Number.NaN,
+            childrenMin = Number.NaN;
+
+        if (source && !source.endsWith('%')) {
+            let parsed = Number.parseFloat(source);
+
+            if (Number.isFinite(parsed) && parsed > 0) {
+                ownMin = parsed
+            }
+        }
+
+        if (typeof component.getActiveCard === 'function') {
+            childrenMin = me.getSiblingMinSize(component.getActiveCard(), axis)
+        } else if (Array.isArray(component.items) && component.items.length > 0) {
+            let layoutAxis = me.getContainerLayoutAxis(component);
+
+            if (layoutAxis === 'card') {
+                let activeIndex = Number(component.layout?.activeIndex ?? component.activeIndex ?? 0);
+
+                childrenMin = me.getSiblingMinSize(component.items[activeIndex], axis)
+            } else if (layoutAxis === axis) {
+                let childTotal    = 0,
+                    hasChildMin   = false,
+                    splitterTotal = 0;
+
+                for (const item of component.items) {
+                    if (!item || item.hidden) continue;
+
+                    if (me.isSplitterItem(item)) {
+                        splitterTotal += Number(item.size ?? item[axis]) || 0
+                    } else {
+                        let childMin = me.getSiblingMinSize(item, axis);
+
+                        if (Number.isFinite(childMin)) {
+                            hasChildMin = true;
+                            childTotal += childMin
+                        }
+                    }
+                }
+
+                if (hasChildMin) {
+                    childrenMin = childTotal + splitterTotal
+                }
+            } else if (layoutAxis) {
+                for (const item of component.items) {
+                    if (!item || item.hidden || me.isSplitterItem(item)) continue;
+
+                    let childMin = me.getSiblingMinSize(item, axis);
+
+                    if (Number.isFinite(childMin)) {
+                        childrenMin = Number.isFinite(childrenMin) ? Math.max(childrenMin, childMin) : childMin
+                    }
+                }
+            }
+        }
+
+        if (Number.isFinite(ownMin) && Number.isFinite(childrenMin)) {
+            return Math.max(ownMin, childrenMin)
+        }
+
+        return Number.isFinite(ownMin) ? ownMin : childrenMin
+    }
+
+    /**
+     * @summary Checks whether a sibling component or its nested descendants declare a positive or CSS-computed minWidth/minHeight bound.
+     * @param {Neo.component.Base|Object|null} component
+     * @param {String} axis 'width' or 'height'
+     * @returns {Boolean}
+     * @protected
+     */
+    hasSiblingMinSize(component, axis) {
+        if (!component || !['height', 'width'].includes(axis)) {
+            return false
+        }
+
+        if (Number.isFinite(this.getSiblingMinSize(component, axis))) {
+            return true
+        }
+
+        let key    = axis === 'width' ? 'minWidth' : 'minHeight',
+            raw    = component[key] ?? component.wrapperStyle?.[key] ?? component.style?.[key],
+            source = String(raw ?? '').trim();
+
+        if (source && !['auto', 'initial', 'none', 'unset'].includes(source)) {
+            let parsed = Number.parseFloat(source);
+
+            if (!Number.isFinite(parsed) || parsed > 0) {
+                return true
+            }
+        }
+
+        if (typeof component.getActiveCard === 'function') {
+            return this.hasSiblingMinSize(component.getActiveCard(), axis)
+        }
+
+        if (Array.isArray(component.items) && component.items.length > 0) {
+            let layoutAxis = this.getContainerLayoutAxis(component);
+
+            if (layoutAxis === 'card') {
+                let activeIndex = Number(component.layout?.activeIndex ?? component.activeIndex ?? 0);
+
+                return this.hasSiblingMinSize(component.items[activeIndex], axis)
+            }
+
+            if (layoutAxis) {
+                return component.items.some(item =>
+                    item && !item.hidden && !this.isSplitterItem(item) && this.hasSiblingMinSize(item, axis)
+                )
+            }
+        }
+
+        return false
+    }
+
+    /**
+     * @summary Checks whether an item in a container's items array is a splitter affordance.
+     * @param {Neo.component.Base|Object|null} item
+     * @returns {Boolean}
+     * @protected
+     */
+    isSplitterItem(item) {
+        return Boolean(
+            item && (
+                item instanceof Splitter ||
+                (typeof item.ntype === 'string' && item.ntype.endsWith('splitter'))
+            )
+        )
     }
 
     /**

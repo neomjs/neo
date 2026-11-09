@@ -84,4 +84,153 @@ test.describe('Neo.tree.List VDOM Structure', () => {
 
         tree.destroy();
     });
+
+    test('filter hides unmatched siblings and folders, and collapses unmatched child folders inside matched folders', async () => {
+        const tree = Neo.create(TreeList, {
+            appName                   : 'TreeListTest',
+            id                        : 'test-tree-filter',
+            showCollapseExpandAllIcons: false,
+            store                     : {
+                model: {
+                    fields: [
+                        {name: 'id',        type: 'String'},
+                        {name: 'name',      type: 'String'},
+                        {name: 'parentId',  type: 'String'},
+                        {name: 'isLeaf',    type: 'Boolean'},
+                        {name: 'collapsed', type: 'Boolean'}
+                    ]
+                },
+                data: [
+                    {id: 'component', name: 'component', parentId: null,        isLeaf: false, collapsed: false},
+                    {id: 'button',    name: 'Button',    parentId: 'component', isLeaf: true},
+                    {id: 'splitter',  name: 'Splitter',  parentId: 'component', isLeaf: true},
+                    {id: 'toast',     name: 'Toast',     parentId: 'component', isLeaf: true},
+                    {id: 'form',      name: 'form',      parentId: null,        isLeaf: false, collapsed: false},
+                    {id: 'field',     name: 'field',     parentId: 'form',      isLeaf: false, collapsed: false},
+                    {id: 'textfield', name: 'Text',      parentId: 'field',     isLeaf: true},
+                    {id: 'formctn',   name: 'Container', parentId: 'form',      isLeaf: true},
+                    {id: 'util',      name: 'util',      parentId: null,        isLeaf: false, collapsed: false},
+                    {id: 'array',     name: 'Array',     parentId: 'util',      isLeaf: true}
+                ]
+            }
+        });
+
+        await tree.initVnode();
+
+        const getNode    = id => tree.getVdomChild(tree.getItemId(id));
+        const getChildUl = id => {
+            const {parentNode, index} = VDomUtil.find(tree.vdom, tree.getItemId(id));
+            return parentNode.cn[index + 1];
+        };
+
+        // 1. Leaf match ("Splitter"): hides earlier and later leaf siblings ("Button", "Toast")
+        //    and hides folders without a result ("form", "util")
+        tree.filter('name', 'Splitter', null);
+
+        expect(getNode('component').style.display).toBe('flex');
+        expect(getNode('component').cls).toContain('neo-folder-open');
+        expect(getChildUl('component').removeDom).toBe(false);
+
+        expect(getNode('button').style.display).toBe('none');
+        expect(getNode('splitter').style.display).toBe('flex');
+        expect(getNode('splitter').cn[0].html).toBe('<span class="neo-highlight-search">Splitter</span>');
+        expect(getNode('toast').style.display).toBe('none');
+
+        expect(getNode('form').style.display).toBe('none');
+        expect(getNode('util').style.display).toBe('none');
+
+        // 2. Folder match ("form"): expands "form", shows its direct children ("field" folder and "Container" leaf),
+        //    but collapses the child folder ("field") since nothing inside "field" matched "form"
+        tree.filter('name', 'form', null);
+
+        expect(getNode('component').style.display).toBe('none');
+        expect(getNode('util').style.display).toBe('none');
+
+        expect(getNode('form').style.display).toBe('flex');
+        expect(getNode('form').cls).toContain('neo-folder-open');
+        expect(getChildUl('form').removeDom).toBe(false);
+
+        expect(getNode('formctn').style.display).toBe('flex');
+        expect(getNode('field').style.display).toBe('flex');
+        expect(getNode('field').cls).not.toContain('neo-folder-open');
+        expect(getChildUl('field').removeDom).toBe(true);
+
+        // 3. Clearing filter (""): restores all items without empty highlight spans and expands folders
+        tree.filter('name', '', null);
+
+        expect(getNode('component').style.display).toBe('flex');
+        expect(getNode('splitter').style.display).toBe('flex');
+        expect(getNode('splitter').cn[0].html).toBe('Splitter');
+        expect(getNode('toast').style.display).toBe('flex');
+        expect(getNode('form').style.display).toBe('flex');
+        expect(getNode('field').cls).toContain('neo-folder-open');
+        expect(getChildUl('field').removeDom).toBe(false);
+        expect(getNode('util').style.display).toBe('flex');
+
+        tree.destroy();
+    });
+
+    test('filter treats regex metacharacters as literal case-insensitive substrings', async () => {
+        const tree = Neo.create(TreeList, {
+            appName                   : 'TreeListTest',
+            id                        : 'test-tree-filter-regex',
+            showCollapseExpandAllIcons: false,
+            store                     : {
+                model: {
+                    fields: [
+                        {name: 'id',        type: 'String'},
+                        {name: 'name',      type: 'String'},
+                        {name: 'parentId',  type: 'String'},
+                        {name: 'isLeaf',    type: 'Boolean'},
+                        {name: 'collapsed', type: 'Boolean'}
+                    ]
+                },
+                data: [
+                    {id: 'root',    name: 'Folder',                   parentId: null,   isLeaf: false, collapsed: false},
+                    {id: 'paren',   name: 'Child (1) (a)',            parentId: 'root', isLeaf: true},
+                    {id: 'bracket', name: 'Bracket [a]',              parentId: 'root', isLeaf: true},
+                    {id: 'ops',     name: 'Plus + Question ? Star *', parentId: 'root', isLeaf: true},
+                    {id: 'dot',     name: 'Other.thing',              parentId: 'root', isLeaf: true},
+                    {id: 'plain',   name: 'Plain item',               parentId: 'root', isLeaf: true}
+                ]
+            }
+        });
+
+        await tree.initVnode();
+
+        const getNode = id => tree.getVdomChild(tree.getItemId(id));
+
+        expect(() => tree.filter('name', '(', null)).not.toThrow();
+        expect(getNode('paren').style.display).toBe('flex');
+        expect(getNode('paren').cn[0].html).toBe(
+            'Child <span class="neo-highlight-search">(</span>1) <span class="neo-highlight-search">(</span>a)'
+        );
+        expect(getNode('dot').style.display).toBe('none');
+        expect(getNode('plain').style.display).toBe('none');
+
+        expect(() => tree.filter('name', '[', null)).not.toThrow();
+        expect(getNode('bracket').style.display).toBe('flex');
+        expect(getNode('bracket').cn[0].html).toBe('Bracket <span class="neo-highlight-search">[</span>a]');
+        expect(getNode('paren').style.display).toBe('none');
+
+        for (const op of ['+', '?', '*']) {
+            expect(() => tree.filter('name', op, null)).not.toThrow();
+            expect(getNode('ops').style.display).toBe('flex');
+            expect(getNode('ops').cn[0].html).toContain(`<span class="neo-highlight-search">${op}</span>`);
+            expect(getNode('plain').style.display).toBe('none');
+        }
+
+        expect(() => tree.filter('name', 'child (1', null)).not.toThrow();
+        expect(getNode('paren').style.display).toBe('flex');
+        expect(getNode('paren').cn[0].html).toBe('<span class="neo-highlight-search">Child (1</span>) (a)');
+        expect(getNode('dot').style.display).toBe('none');
+
+        expect(() => tree.filter('name', '.', null)).not.toThrow();
+        expect(getNode('dot').style.display).toBe('flex');
+        expect(getNode('dot').cn[0].html).toBe('Other<span class="neo-highlight-search">.</span>thing');
+        expect(getNode('paren').style.display).toBe('none');
+        expect(getNode('plain').style.display).toBe('none');
+
+        tree.destroy();
+    });
 });

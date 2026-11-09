@@ -153,10 +153,7 @@ both JavaScript and CSS, which are crucial for debugging bundled code by mapping
 
 ### TypeScript Preference
 
-For developers who strongly prefer building their applications using TypeScript, this is the environment where you'll
-typically work. Keep in mind, however, that opting for TypeScript compilation in this mode means sacrificing the
-instantaneous, zero-builds development experience that Neo.mjs uniquely offers. It introduces a build step for every
-code change, a trade-off that many Neo.mjs developers find unnecessary given the platform's native ES module support.
+For developers and teams who build their applications using TypeScript, `dist/development` provides the bundled environment where TypeScript compilation integrates directly into the development workflow. Because TypeScript requires a compilation step on code changes rather than running unbundled ES modules directly from source as in the zero-builds development mode, `dist/development` pairs that compilation pass with unminified output and full JavaScript and CSS source maps.
 
 In essence, `dist/development` offers a familiar, bundled development experience for those who need it, serving as a
 debugging aid for production builds or an option for TypeScript users, but it comes at the cost of Neo.mjs's signature

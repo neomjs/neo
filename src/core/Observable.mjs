@@ -94,22 +94,22 @@ class Observable extends Base {
             // usage like `subject.on(listeners)` followed by `otherSubject.un(listeners)`
             name = {...name};
 
-            if (name.hasOwnProperty('delay')) {
+            if (Object.hasOwn(name, 'delay')) {
                 delay = name.delay;
                 delete name.delay
             }
 
-            if (name.hasOwnProperty('once')) {
+            if (Object.hasOwn(name, 'once')) {
                 once = name.once;
                 delete name.once
             }
 
-            if (name.hasOwnProperty('order')) {
+            if (Object.hasOwn(name, 'order')) {
                 order = name.order;
                 delete name.order
             }
 
-            if (name.hasOwnProperty('scope')) {
+            if (Object.hasOwn(name, 'scope')) {
                 scope = name.scope;
                 delete name.scope
             }
@@ -306,6 +306,8 @@ class Observable extends Base {
     /**
      * @summary Remove listeners by id, handler, or object-valued listener specs.
      *
+     * Function selectors match by identity; explicit String selectors can match handler names.
+     *
      * There are different syntax's how you can use this method.
      * Using the eventId:
      * ```
@@ -365,7 +367,7 @@ class Observable extends Base {
                     if (
                         (
                             listener.fn === fn ||
-                            listener.fn?.name === (Neo.isString(fn) ? fn : fn?.name)
+                            (Neo.isString(fn) && listener.fn?.name === fn)
                         ) &&
                         listener.scope === entryScope
                     ) {

@@ -96,6 +96,15 @@ class Toolbar extends Container {
             ntype: 'button'
         },
         /**
+         * Moves focus between this toolbar's buttons with the arrow keys (the WAI-ARIA toolbar
+         * pattern) through `Neo.main.addon.Navigator`: one button is a Tab stop, the arrow keys follow
+         * the layout direction, and Home/End jump to the ends. Only direct, enabled buttons take part,
+         * so a text field keeps its arrow keys. A toolbar without a role of its own becomes
+         * `role="toolbar"`. Read at construction and on mount, so set it in the config.
+         * @member {Boolean} keyboardNavigation=false
+         */
+        keyboardNavigation: false,
+        /**
          * @member {Object} layout={ntype:'flexbox',align:'center',direction: 'row', pack:'start'}
          * @reactive
          */
@@ -130,6 +139,14 @@ class Toolbar extends Container {
      * @protected
      */
     focusSubject = null
+
+    /**
+     * The `Neo.main.addon.Navigator` subscription while {@link #keyboardNavigation} is on and the
+     * toolbar is mounted.
+     * @member {Object|null} navigator=null
+     * @protected
+     */
+    navigator = null
 
     /**
      * Whether the pointer currently hovers the wired focus subject.
@@ -246,7 +263,10 @@ class Toolbar extends Container {
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
-        value && this.wireFocusSubject()
+        let me = this;
+
+        value && me.wireFocusSubject();
+        me.keyboardNavigation && me.syncKeyboardNavigation(value)
     }
 
     /**
@@ -286,7 +306,40 @@ class Toolbar extends Container {
     onConstructed() {
         super.onConstructed();
 
-        this.wireFocusSubject()
+        let me = this;
+
+        // The toolbar pattern's container role. A subclass role (a tablist, a grid row) stays.
+        if (me.keyboardNavigation && !me.role) {
+            me.role = 'toolbar'
+        }
+
+        me.wireFocusSubject()
+    }
+
+    /**
+     * Subscribes this toolbar's direct, enabled buttons to `Neo.main.addon.Navigator` while it is
+     * mounted, and ends the subscription when it unmounts.
+     * @param {Boolean} mounted
+     * @protected
+     */
+    syncKeyboardNavigation(mounted) {
+        let me = this;
+
+        if (mounted && !me.navigator) {
+            me.navigator = {
+                appName: me.appName,
+                id     : me.id,
+                // Direct items only: a nested toolbar navigates its own buttons
+                selector: `[${Neo.config.useDomIds ? 'id' : 'data-neo-id'}="${me.id}"] > .neo-button:not([disabled])`,
+                windowId: me.windowId,
+                wrap    : true
+            };
+
+            Neo.main.addon.Navigator.subscribe(me.navigator)
+        } else if (!mounted && me.navigator) {
+            Neo.main.addon.Navigator.unsubscribe(me.navigator);
+            me.navigator = null
+        }
     }
 
     /**
@@ -381,7 +434,8 @@ class Toolbar extends Container {
         // diff is what carries the removals and the returns alike.
         if (touched && !silent) {
             me.updateDepth = -1;
-            me.update()
+            me.update();
+            me.fire('actionGeometryChange', {contextual: true})
         }
     }
 

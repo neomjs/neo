@@ -288,6 +288,72 @@ test.describe('Neo.draggable.container.SortZone', () => {
         expect(sortZone.dragProxy).toBeNull()
     });
 
+    test('a move during the next drag start waits for that gesture\'s boundary, and finds its rects in owner space (#20626)', async () => {
+        await new Promise(resolve => setTimeout(resolve, 10));
+        sortZone = container.sortZone;
+
+        const start = {path: [{id: 'btnA', cls: ['neo-draggable'], rect: {left: 0, top: 0, width: 100, height: 100}}]};
+
+        // The owner, then btnA, btnB and btnD side by side
+        Container.prototype.getDomRect = ids => Promise.resolve(ids.map((id, i) => new Rectangle(i && (i - 1) * 100, 0, i ? 100 : 500, 100)));
+
+        // A finished gesture: its boundary must not open the next one's move gate
+        await sortZone.onDragStart(start);
+        await sortZone.onDragEnd({});
+
+        const configs = Promise.withResolvers();
+
+        Neo.main.addon.DragDrop.setConfigs = () => configs.promise;
+        sortZone.adjustProxyRectToParent   = (rect, parentRect) => {rect.x -= parentRect.x + 20};
+
+        const starting = sortZone.onDragStart(start);
+
+        await expect.poll(() => sortZone.itemRects).not.toBeNull();
+        expect(sortZone.itemRects[1].x, 'published rects are already in owner space').toBe(80);
+
+        // The offsets are still 0 and the main thread has not answered: a move this far down would switch btnA past btnB
+        await sortZone.onDragMove({clientX: 50, clientY: 500});
+
+        expect(sortZone.currentIndex).toBe(sortZone.startIndex);
+        expect(container.items[0].wrapperStyle?.left ?? null, 'the item the proxy clones carries no position').toBeNull();
+
+        configs.resolve({boundaryContainerRect: {bottom: 100, left: 0, right: 300, top: 0}});
+        await starting;
+
+        expect(sortZone.dragElementSnapshot.style?.left ?? null).toBeNull();
+        expect(sortZone.sortableItems[1].wrapperStyle.left, 'the lift writes the converted rect').toBe('80px');
+
+        await sortZone.onDragEnd({});
+        expect(sortZone.boundaryContainerRect).toBeNull()
+    });
+
+    test('an overdrag step the zone refuses ends the auto-scroll loop instead of re-polling it', async () => {
+        await new Promise(resolve => setTimeout(resolve, 10));
+        sortZone = container.sortZone;
+
+        await sortZone.onDragStart({
+            path: [{id: 'btnB', cls: ['neo-draggable'], rect: {left: 100, top: 0, width: 100, height: 100}}]
+        });
+
+        const move  = sortZone.onDragMove.bind(sortZone);
+        let   calls = 0, refused = 0;
+
+        // A subclass boundary the drag may not cross, the way a grid header group refuses a swap out of its group
+        sortZone.switchItems      = index1 => {refused++; sortZone.currentIndex = index1};
+        sortZone.sortBoundaryRect = {left: 0, right: 300, top: 0, bottom: 100};
+        sortZone.onDragMove       = data => {
+            if (++calls > 10) throw new Error('the overdrag loop kept re-polling a refused step');
+            return move(data)
+        };
+
+        // Pointer held beyond the start edge of the (vertical) zone: one refused step, then the loop must stop
+        await sortZone.onDragMove({clientX: 50, clientY: -50});
+
+        expect(refused, 'the move reached the overdrag step').toBe(1);
+        expect(calls).toBe(1);
+        expect(sortZone.isOverDragging).toBe(false)
+    });
+
     test('a drag whose item owned focus hands it back at the terminal as a pointer focus, committed or cancelled; an item without focus gets none (#19281)', async () => {
         await new Promise(resolve => setTimeout(resolve, 10));
         sortZone = container.sortZone;
@@ -449,6 +515,80 @@ test.describe('Neo.draggable.container.SortZone', () => {
         expect(sortZone.sortDirection).toBe('vertical');
         expect(sortZone.reversedLayoutDirection).toBe(true);
         expect(sortZone.currentIndex).toBe(0)
+    });
+
+    test('getPinnedItems defaults to sortableItems and pins/restores non-sortable siblings when overridden (#20605)', async () => {
+        await new Promise(resolve => setTimeout(resolve, 10));
+        sortZone = container.sortZone;
+
+        const sortable = sortZone.getSortableItems();
+        expect(sortZone.getPinnedItems(container.items, sortable)).toBe(sortable);
+
+        let measuredIds = [];
+        Container.prototype.getDomRect = ids => {
+            measuredIds = ids;
+            return Promise.resolve(ids.map((id, idx) => new Rectangle(
+                idx === 0 ? 0 : (idx - 1) * 110,
+                0,
+                idx === 0 ? 550 : 100,
+                32
+            )))
+        };
+
+        sortZone.getPinnedItems = ownerItems => ownerItems;
+
+        await sortZone.onDragStart({
+            path: [{id: 'btnA', cls: ['neo-draggable'], rect: {left: 0, top: 0, width: 100, height: 32}}]
+        });
+
+        expect(measuredIds).toEqual([container.id, 'btnA', 'btnB', 'sep1', 'btnC', 'btnD']);
+        expect(sortZone.sortableItems.map(item => item.id)).toEqual(['btnA', 'btnB', 'btnD']);
+        expect(sortZone.itemRects.map(r => r.left)).toEqual([0, 110, 440]);
+        expect(container.items[2].wrapperStyle).toMatchObject({position: 'absolute', left: '220px', top: '0px'});
+        expect(container.items[3].wrapperStyle).toMatchObject({position: 'absolute', left: '330px', top: '0px'});
+
+        await sortZone.onDragEnd({});
+
+        expect(container.items[2].wrapperStyle.position).toBeNull();
+        expect(container.items[3].wrapperStyle.position).toBeNull();
+        expect(sortZone.pinnedItems).toBeNull()
+    });
+
+    test('getDragElement defaults to the item VDOM root and receives (draggedItem, handleNode) when overridden (#20605)', async () => {
+        await new Promise(resolve => setTimeout(resolve, 10));
+        sortZone = container.sortZone;
+
+        const [btnA] = container.items;
+        await sortZone.onDragStart({
+            path: [{id: 'btnA', cls: ['neo-draggable'], rect: {left: 0, top: 0, width: 100, height: 32}}]
+        });
+        expect(sortZone.dragElement.id).toBe('btnA');
+        await sortZone.onDragEnd({});
+
+        const handleVdom           = {id: 'btnA__header', cls: ['col-header', 'neo-draggable'], tag: 'div', text: 'Header'};
+        const handlePathDescriptor = {id: 'btnA__header', cls: ['col-header', 'neo-draggable'], rect: {left: 0, top: 0, width: 100, height: 32}, style: '', tagName: 'div'};
+        btnA.vdom.cn = [handleVdom];
+        await btnA.promiseUpdate();
+
+        let receivedArgs = null;
+        sortZone.dragHandleSelector = '.col-header';
+        sortZone.getDragElement     = (draggedItem, handleNode) => {
+            receivedArgs = {draggedItem, handleNode};
+            return handleNode
+        };
+
+        await sortZone.onDragStart({
+            path: [
+                handlePathDescriptor,
+                {id: 'btnA', cls: ['neo-button']}
+            ]
+        });
+
+        expect(receivedArgs.draggedItem).toBe(btnA);
+        expect(receivedArgs.handleNode).toBe(handleVdom);
+        expect(receivedArgs.handleNode).not.toBe(handlePathDescriptor);
+        expect(sortZone.dragElement).toBe(handleVdom);
+        await sortZone.onDragEnd({})
     });
 
     test('Drag-trace ring buffer records events, caps per-drag size and trims old drags (#12886)', () => {

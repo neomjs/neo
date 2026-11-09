@@ -13,6 +13,17 @@ class DriveAbort extends Error {
 }
 
 /**
+ * The pointer event the platform fires ahead of the compatibility mouse event of a press, a move and
+ * a release.
+ * @type {Object<String,String>}
+ */
+const pointerTypeByMouseType = Object.freeze({
+    mousedown: 'pointerdown',
+    mousemove: 'pointermove',
+    mouseup  : 'pointerup'
+});
+
+/**
  * @param {{x:Number,y:Number}} a
  * @param {{x:Number,y:Number}} b
  * @returns {Number}
@@ -115,7 +126,7 @@ class EventSimulator extends Base {
     }
 
     /**
-     * One Mouse sensor owns the source document. Overlapping automation transactions would both
+     * One Pointer sensor owns the source document. Overlapping automation transactions would both
      * observe the same physical lifecycle, so a second caller is refused rather than queued.
      * @member {Boolean} driveActive=false
      * @protected
@@ -123,8 +134,22 @@ class EventSimulator extends Base {
     driveActive = false
 
     /**
-     * Dispatches a native DOM event on a target element.
+     * The one pointer identity every simulated mouse action carries. The drag sensor owns a gesture
+     * by `pointerId`, so a press, its moves and its release must agree on one id, also across
+     * separate `dispatch()` calls; and a real pointer, numbered upwards from 1 by the platform, must
+     * never pass for the simulated one. The top of the platform's `long` range satisfies both.
+     * @member {Number} syntheticPointerId=2147483647
+     * @protected
+     */
+    syntheticPointerId = 2_147_483_647
+
+    /**
+     * @summary Dispatches a native DOM event on a target element.
      *
+     * A mouse press, move or release arrives as the platform delivers a real one: its pointer event
+     * first ({@link #dispatchMouseAction}). Callers that script raw `mousedown`/`mousemove`/`mouseup`
+     * sequences (the Neural Link's `simulate_event`, tour and demo gesture drivers) thereby keep
+     * driving the pointer-based drag sensor, and every mouse listener keeps its event.
      * @param {Object} data
      * @param {String} data.id - The DOM ID of the target element
      * @param {String} data.type - The event type (e.g., 'click', 'keydown', 'mousedown')
@@ -132,7 +157,44 @@ class EventSimulator extends Base {
      * @returns {Boolean} true if the event was dispatched successfully
      */
     dispatch(data) {
-        return this.dispatchNative(data).success
+        return (pointerTypeByMouseType[data.type] ? this.dispatchMouseAction(data) : this.dispatchNative(data)).success
+    }
+
+    /**
+     * @summary Dispatches one simulated mouse press, move or release the way the platform delivers a
+     * real one: the pointer event, then its compatibility mouse event, on the same target.
+     *
+     * The drag sensor listens to Pointer Events, so a mouse event alone no longer reaches it, while
+     * every mouse listener keeps receiving exactly the event it received before. The pointer event
+     * carries {@link #syntheticPointerId} as a primary `mouse` pointer; a move changes no button, so
+     * its pointer event reports `button` -1 where the mouse event reports 0.
+     * @param {Object} data
+     * @param {String|HTMLElement|Document} data.id
+     * @param {Object} [data.options]
+     * @param {String} data.type `mousedown`, `mousemove` or `mouseup`
+     * @param {Function} [onCreate] Receives the pointer event, the one the sensor reports as `originalEvent`.
+     * @returns {{event: PointerEvent|null, success: Boolean}} The pointer event, and whether both dispatched.
+     * @protected
+     */
+    dispatchMouseAction({id, options={}, type}, onCreate) {
+        let me      = this,
+            pointer = me.dispatchNative({
+                id,
+                options: {
+                    ...options,
+                    button     : type === 'mousemove' ? -1 : (options.button ?? 0),
+                    isPrimary  : true,
+                    pointerId  : me.syntheticPointerId,
+                    pointerType: 'mouse'
+                },
+                type: pointerTypeByMouseType[type]
+            }, onCreate);
+
+        if (!pointer.success) {
+            return pointer
+        }
+
+        return {event: pointer.event, success: me.dispatchNative({id, options, type}).success}
     }
 
     /**
@@ -176,6 +238,18 @@ class EventSimulator extends Base {
             case 'mouseup':
             case 'contextmenu':
                 ctor = MouseEvent;
+                break;
+            case 'gotpointercapture':
+            case 'lostpointercapture':
+            case 'pointercancel':
+            case 'pointerdown':
+            case 'pointerenter':
+            case 'pointerleave':
+            case 'pointermove':
+            case 'pointerout':
+            case 'pointerover':
+            case 'pointerup':
+                ctor = PointerEvent;
                 break;
             case 'keydown':
             case 'keypress':
@@ -232,12 +306,12 @@ class EventSimulator extends Base {
     }
 
     /**
-     * @summary Resolves the exact Mouse sensor retained by the source Main realm's DragDrop addon.
-     * @returns {Promise<Neo.main.draggable.sensor.Mouse|null>}
+     * @summary Resolves the exact Pointer sensor retained by the source Main realm's DragDrop addon.
+     * @returns {Promise<Neo.main.draggable.sensor.Pointer|null>}
      * @protected
      */
-    async resolveMouseSensor() {
-        return await Neo.main.addon.DragDrop?.getMouseSensor?.() || null
+    async resolvePointerSensor() {
+        return await Neo.main.addon.DragDrop?.getPointerSensor?.() || null
     }
 
     /**
@@ -251,14 +325,16 @@ class EventSimulator extends Base {
     }
 
     /**
-     * @summary Executes and observes one complete Mouse-sensor drag in this source Main realm.
+     * @summary Executes and observes one complete Pointer-sensor drag in this source Main realm.
      *
      * The App worker has already resolved every node/window descriptor into global screen and
      * source-realm client coordinates. This method owns the one atomic physical transaction:
-     * it reads the live sensor thresholds, dispatches mousedown on the source node, then uses the
+     * it reads the live sensor's mouse thresholds, presses on the source node, then uses the
      * stable document body for every move/release (the source node may disappear mid-gesture),
-     * and correlates `drag:start/move/end` by native Event object identity. It never calls sensor
-     * lifecycle methods directly and never claims a consumer-specific semantic outcome.
+     * and correlates `drag:start/move/end` by native Event object identity. Every action is a
+     * pointer event carrying {@link #syntheticPointerId}, followed by its compatibility mouse event
+     * ({@link #dispatchMouseAction}). It never calls sensor lifecycle methods directly and never
+     * claims a consumer-specific semantic outcome.
      *
      * @param {Object} request Fully resolved drive request.
      * @returns {Promise<Object>} Typed success/failure receipt; never throws for gesture outcomes.
@@ -319,7 +395,7 @@ class EventSimulator extends Base {
                 screenY   : point.screen.y
             }),
             dispatchMove = point => {
-                const result = this.dispatchNative({
+                const result = this.dispatchMouseAction({
                     id     : 'document.body',
                     options: eventOptions(point, 1),
                     type   : 'mousemove'
@@ -334,14 +410,14 @@ class EventSimulator extends Base {
             };
 
         try {
-            sensor = await this.resolveMouseSensor();
+            sensor = await this.resolvePointerSensor();
 
             if (!sensor) {
-                fail('busy', 'MOUSE_SENSOR_UNAVAILABLE', 'the source window has no live Mouse sensor')
+                fail('busy', 'POINTER_SENSOR_UNAVAILABLE', 'the source window has no live Pointer sensor')
             }
 
             if (sensor.currentElement || sensor.dragging) {
-                fail('busy', 'MOUSE_SENSOR_BUSY', 'the source window Mouse sensor is already engaged')
+                fail('busy', 'POINTER_SENSOR_BUSY', 'the source window Pointer sensor is already engaged')
             }
 
             const
@@ -351,7 +427,7 @@ class EventSimulator extends Base {
             receipt.sensor = {delayMs, minDistance};
 
             if (!Number.isFinite(delayMs) || delayMs < 0 || !Number.isFinite(minDistance) || minDistance < 0) {
-                fail('arming', 'INVALID_SENSOR_THRESHOLDS', 'the live Mouse sensor thresholds are invalid')
+                fail('arming', 'INVALID_SENSOR_THRESHOLDS', 'the live Pointer sensor thresholds are invalid')
             }
 
             if (!Array.isArray(path) || path.length === 0) {
@@ -363,7 +439,7 @@ class EventSimulator extends Base {
                 armDistance = minDistance + 1;
 
             if (total < armDistance) {
-                fail('arming', 'PATH_TOO_SHORT', 'the resolved path does not cross the live Mouse minimum distance')
+                fail('arming', 'PATH_TOO_SHORT', 'the resolved path does not cross the live Pointer minimum distance')
             }
 
             documentRef.addEventListener('drag:start', onStart, true);
@@ -371,7 +447,7 @@ class EventSimulator extends Base {
             documentRef.addEventListener('drag:end',   onEnd,   true);
             listenersInstalled = true;
 
-            const down = this.dispatchNative({
+            const down = this.dispatchMouseAction({
                 id     : source.targetId,
                 options: eventOptions(source, 1),
                 type   : 'mousedown'
@@ -380,7 +456,7 @@ class EventSimulator extends Base {
             receipt.dispatch.down = down.success;
 
             if (!down.success) {
-                fail('dispatch', 'MOUSEDOWN_DISPATCH_FAILED', 'the source mousedown could not be dispatched')
+                fail('dispatch', 'POINTERDOWN_DISPATCH_FAILED', 'the source pointerdown could not be dispatched')
             }
 
             await this.timeout(delayMs);
@@ -390,7 +466,7 @@ class EventSimulator extends Base {
             }
 
             if (!receipt.observed.started) {
-                fail('arming', 'DRAG_NOT_ARMED', 'the live Mouse sensor emitted no correlated drag:start')
+                fail('arming', 'DRAG_NOT_ARMED', 'the live Pointer sensor emitted no correlated drag:start')
             }
 
             const interval = durationMs / steps;
@@ -409,7 +485,7 @@ class EventSimulator extends Base {
                 fail('movement', 'DRAG_MOVE_NOT_OBSERVED', 'no correlated drag:move was observed')
             }
 
-            const up = this.dispatchNative({
+            const up = this.dispatchMouseAction({
                 id     : 'document.body',
                 options: eventOptions(path.at(-1), 0),
                 type   : 'mouseup'
@@ -418,7 +494,7 @@ class EventSimulator extends Base {
             receipt.dispatch.up = up.success;
 
             if (!up.success) {
-                fail('release', 'MOUSEUP_DISPATCH_FAILED', 'the terminal mouseup could not be dispatched')
+                fail('release', 'POINTERUP_DISPATCH_FAILED', 'the terminal pointerup could not be dispatched')
             }
 
             if (!receipt.observed.ended) {
@@ -435,7 +511,7 @@ class EventSimulator extends Base {
                 receipt.cleanup.attempted = true;
 
                 const point   = path?.at?.(-1) || source,
-                      cleanup = this.dispatchNative({
+                      cleanup = this.dispatchMouseAction({
                           id     : 'document.body',
                           options: eventOptions(point, 0),
                           type   : 'mouseup'
@@ -444,7 +520,7 @@ class EventSimulator extends Base {
                 receipt.cleanup.succeeded = cleanup.success;
 
                 if (!cleanup.success) {
-                    abort = new DriveAbort('cleanup', 'CLEANUP_RELEASE_FAILED', 'best-effort mouseup cleanup failed')
+                    abort = new DriveAbort('cleanup', 'CLEANUP_RELEASE_FAILED', 'best-effort pointerup cleanup failed')
                 }
             }
 

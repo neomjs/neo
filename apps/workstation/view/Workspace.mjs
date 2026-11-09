@@ -98,12 +98,22 @@ class Workspace extends VesselWorkspace {
          */
         stateProvider: {
             module: StateProvider,
-            data  : {tour: initialTourState},
+            data  : {
+                popupGuidance: {message: null, visible: false},
+                tour         : initialTourState
+            },
             stores: {
                 feed : {module: Feed},
                 scale: {module: Scale}
             }
-        }
+        },
+        /**
+         * The class `construct` builds the controls row's status readout from. An app that extends the
+         * Workstation names its own readout class here, through a `Workstation.view.Workspace` subclass or
+         * the workspace config object: `statusModule: MyStatusComponent`.
+         * @member {Class} statusModule=StatusComponent
+         */
+        statusModule: StatusComponent
     }
 
     /**
@@ -265,7 +275,7 @@ class Workspace extends VesselWorkspace {
             module: Container,
             cls   : ['workstation-controls'],
             flex  : 'none',
-            items : [{module: StatusComponent, flex: 1}, {module: TopologyToolbar, workspace: me}],
+            items : [{module: me.statusModule, flex: 1}, {module: TopologyToolbar, workspace: me}],
             layout: {ntype: 'flexbox', align: 'center', direction: 'row', wrap: 'wrap'}
         }, {
             module: Container,
@@ -280,6 +290,16 @@ class Workspace extends VesselWorkspace {
             }, {
                 module   : DockDropIndicators,
                 reference: 'drop-indicators'
+            }, {
+                bind     : {
+                    hidden: data => !data.popupGuidance.visible,
+                    text  : data => data.popupGuidance.message || ''
+                },
+                cls      : ['workstation-popup-guidance'],
+                hidden   : true,
+                ntype    : 'component',
+                reference: 'popup-guidance',
+                role     : 'status'
             }],
             layout   : {ntype: 'fit'},
             reference: 'dock-host'
@@ -696,7 +716,7 @@ class Workspace extends VesselWorkspace {
      * @summary Flips the workspace theme, revealed from the pointer where the browser supports it.
      *
      * The flip happens AFTER the awaited call, deliberately: `startViewTransition()` resolves once
-     * the transition has started, and `delay` is the window this method has to mutate the DOM
+     * the browser has captured the old state, and `delay` is the window this method has to mutate the DOM
      * before the new state is captured. Flipping first would let the transition capture the
      * already-changed DOM as both states and the reveal would play over no visible difference.
      *

@@ -1,36 +1,36 @@
-import {test, expect}  from '@playwright/test';
+import {test, expect} from '@playwright/test';
 import {execFileSync} from 'node:child_process';
 import fs             from 'node:fs';
 import os             from 'node:os';
 import path           from 'node:path';
 import {
-    assertBrainDeclarations,
-    assertQuarantinesResolve,
-    BRAIN_CAPABILITIES,
-    BRAIN_DURATIONS,
-    BRAIN_QUARANTINES,
-    BRAIN_RETRY_BRIDGE,
-    BRAIN_SMOKE,
-    BRAIN_TIERS,
-    brainDurations,
-    brainPaths,
-    brainReceipt,
-    brainRetries,
-    brainSelection,
-    brainShard,
-    brainTestList,
+    ADAPTER_ELIGIBLE_SPECS,
+    selectExternalBrainSpecs
+} from '../../../externalBrainSelection.mjs';
+import {
+    assertSelectionFloor,
+    balancedShard,
+    ENGINE_DURATIONS,
+    engineDurations,
+    enginePaths,
+    engineSelection,
     EXCLUSIONS,
-    flakyTests,
+    FULL_SHARDS,
+    LOCAL_ONLY,
+    localOnlyAccount,
     populations,
-    QUARANTINE_STALE_DAYS,
     RUN_PATHS,
-    summary
+    selectionOutput,
+    selectSpecs,
+    summary,
+    tierSelection
 } from '../../../../../buildScripts/util/e2eCiSelection.mjs';
+import {FOUNDATION, RUNTIME_LOADING, specReach} from '../../../../../buildScripts/util/e2eSpecReach.mjs';
 
 /**
  * The e2e tier's coverage summary is an honesty guard: `testIgnore` DESELECTS the Brain-dependent
- * specs rather than skipping them, so no reporter can name them and a run missing four fifths of
- * the tier still prints `Skipped: 0`. This summary is the only artifact that says what a green
+ * specs rather than skipping them, so no reporter can name them and a run missing part of the
+ * tier still prints `Skipped: 0`. This summary is the only artifact that says what a green
  * check actually certifies.
  *
  * Which makes its arithmetic load-bearing rather than cosmetic. It shipped stating that
@@ -174,237 +174,66 @@ test.describe('e2e CI selection — the coverage summary must add up', () => {
     });
 });
 
-test.describe('e2e CI selection — the Brain-gated tier', () => {
-    const root = path.resolve(import.meta.dirname, '../../../../..'),
-          run  = {shard: '2/6', event: 'push', attempt: '1', engineSha: 'e'.repeat(40), brainSha: 'b'.repeat(40)};
+/**
+ * The specs that need a Brain run only locally: no CI test job provisions one. What CI must still guarantee is
+ * the engine tier's side of that line, so the adapter-eligible specs this file once checked against the Brain tier
+ * are now checked against the engine tier that runs them.
+ */
+test.describe('e2e CI selection — the engine tier and the local-only specs', () => {
+    const root = path.resolve(import.meta.dirname, '../../../../..');
 
-    test('selects exactly the specs the neuralLink fixture gates', () => {
-        const paths = brainPaths(root);
+    test('the engine tier runs what it declares: every adapter-eligible spec an exclusion does not name', () => {
+        const engine   = enginePaths(root),
+              excluded = new Set(EXCLUSIONS.map(entry => entry.path));
 
-        expect(paths).toHaveLength(populations(root).ignored);
+        expect(assertSelectionFloor(root)).toBe(populations(root).executed);
+        expect(selectExternalBrainSpecs(path.join(root, 'test/playwright/e2e')).ignore, 'the local-only class')
+            .toHaveLength(populations(root).ignored);
 
-        for (const file of paths) {
-            expect(fs.readFileSync(path.join(root, file), 'utf8'), file).toMatch(/\bneuralLink\b/)
+        for (const rel of ADAPTER_ELIGIBLE_SPECS) {
+            const file = `test/playwright/e2e/${rel}`;
+
+            if (excluded.has(file)) {
+                expect(engine, `${rel} is declared out of the tier, so no shard runs it`).not.toContain(file);
+                continue
+            }
+
+            expect(engine, `${rel} runs off-socket in the engine tier`).toContain(file);
+            expect(RUN_PATHS.some(runPath => file === runPath || file.startsWith(`${runPath}/`)), `${rel} is covered by RUN_PATHS`).toBe(true)
         }
     });
 
-    test('every declaration names a Brain-gated spec, and every quarantine selects exactly one registered test', () => {
-        // The tier asserts its declarations only after checking out a Brain, and never resolves quarantine
-        // titles; this arm fails either kind of stale entry in the unit tier every pull request already runs.
-        expect(() => assertBrainDeclarations({root})).not.toThrow();
-        expect(() => assertQuarantinesResolve({root})).not.toThrow();
-    });
+    test('every deselected spec states why it stays local, and only those do', () => {
+        expect(localOnlyAccount(root), 'LOCAL_ONLY names exactly the deselected specs').toEqual({undeclared: [], stale: []});
 
-    test('a quarantine whose strings are all in the source but which is not a registered path fails', () => {
-        // Each title below exists verbatim in the file, so a check of the source text passes all three.
-        // Only the path Playwright registers tells them apart: a dropped describe, a new enclosing one.
-        // The entry is a literal, so the test outlives an empty quarantine list.
-        const entry = {
-                  path     : 'test/playwright/e2e/workstation/WorkstationFilmTourNL.spec.mjs',
-                  titlePath: ['Workstation — the film tour plays from the toolbar', 'Start film tour runs all scenes; the viewer\'s Continue clicks open every window']
-              },
-              [, title] = entry.titlePath,
-              dropped   = {...entry, titlePath: [title]},
-              wrapped   = {...entry, titlePath: ['hosted profile', ...entry.titlePath]};
+        for (const group of LOCAL_ONLY) {
+            expect(group.specs.length, `${group.reason}: specs`).toBeGreaterThan(0);
+            expect(['cause', 'observed', 'partial'], `${group.reason}: kind`).toContain(group.kind);
 
-        expect(() => assertQuarantinesResolve({quarantines: [entry], root}), 'control: the real entry').not.toThrow();
-        expect(() => assertQuarantinesResolve({quarantines: [dropped, wrapped], root}))
-            .toThrow(new RegExp(`spec\\.mjs › ${title.slice(0, 20)}[\\s\\S]*› hosted profile ›`));
-    });
-
-    test('a declaration naming a file that is not Brain-gated fails, and names it', () => {
-        const tmp  = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-brain-declarations-')),
-              file = 'test/playwright/e2e/grid/GatedNL.spec.mjs';
-
-        fs.mkdirSync(path.join(tmp, 'test/playwright/e2e/grid'), {recursive: true});
-        fs.writeFileSync(path.join(tmp, file), "test('sorts', async ({neuralLink}) => {})");
-
-        expect(() => assertBrainDeclarations({capabilities: [{paths: [file]}], quarantines: [{path: file}], smoke: [], root: tmp}), 'control')
-            .not.toThrow();
-        expect(() => assertBrainDeclarations({capabilities: [{paths: ['test/playwright/e2e/grid/Gone.spec.mjs']}], quarantines: [], smoke: [], root: tmp}))
-            .toThrow('test/playwright/e2e/grid/Gone.spec.mjs');
-        expect(() => assertBrainDeclarations({capabilities: [], quarantines: [{path: 'test/playwright/e2e/grid/Moved.spec.mjs'}], smoke: [], root: tmp}))
-            .toThrow('test/playwright/e2e/grid/Moved.spec.mjs');
-        expect(() => assertBrainDeclarations({capabilities: [], quarantines: [], smoke: ['test/playwright/e2e/grid/Renamed.spec.mjs'], root: tmp}))
-            .toThrow('test/playwright/e2e/grid/Renamed.spec.mjs');
-
-        fs.rmSync(tmp, {recursive: true, force: true})
-    });
-
-    test('a smoke file is refused while a capability or a quarantine touches it, and named', () => {
-        const tmp    = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-brain-smoke-')),
-              file   = 'test/playwright/e2e/grid/GatedNL.spec.mjs',
-              assert = declarations => assertBrainDeclarations({capabilities: [], quarantines: [], smoke: [file], root: tmp, ...declarations});
-
-        fs.mkdirSync(path.join(tmp, 'test/playwright/e2e/grid'), {recursive: true});
-        fs.writeFileSync(path.join(tmp, file), "test('sorts', async ({neuralLink}) => {})");
-
-        expect(() => assert({}), 'control').not.toThrow();
-        expect(() => assert({quarantines: [{path: file}]})).toThrow(`capability-gated or quarantined:\n- ${file}`);
-        expect(() => assert({capabilities: [{paths: [file]}]})).toThrow(`capability-gated or quarantined:\n- ${file}`);
-
-        fs.rmSync(tmp, {recursive: true, force: true})
-    });
-
-    test('the smoke tier selects exactly its declared files, and an unknown tier is refused', () => {
-        expect(brainSelection({env: {}, root, tier: 'smoke'}).paths.toSorted()).toEqual(BRAIN_SMOKE.toSorted());
-        expect(brainSelection({env: {}, root}).paths, 'the default tier is full').toEqual(brainSelection({env: {}, root, tier: 'full'}).paths);
-        expect(() => brainSelection({env: {}, root, tier: 'smok'})).toThrow("Unknown Brain-gated tier 'smok'");
-    });
-
-    test('a capability excludes its files only while its variable is unset', () => {
-        const unset = brainSelection({env: {}, root}),
-              set   = brainSelection({env: Object.fromEntries(BRAIN_CAPABILITIES.map(entry => [entry.requires, 'provisioned'])), root});
-
-        for (const file of BRAIN_CAPABILITIES.flatMap(entry => entry.paths)) {
-            expect(unset.paths, `${file} is out while its capability is unset`).not.toContain(file);
+            // Debt rather than design: a ticket answers for it
+            if (group.kind !== 'cause') {
+                expect(group.owner, `${group.reason}: owner`).toMatch(/^#\d+$/)
+            }
         }
 
-        expect(unset.paths).toHaveLength(unset.gated.length - BRAIN_CAPABILITIES.flatMap(entry => entry.paths).length);
-        expect(set.paths, 'and the whole tier returns once every capability is provisioned').toEqual(set.gated);
-    });
+        // On a controlled tree, a Neural Link spec nobody listed stops the run rather than leaving CI unseen
+        const tree = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-e2e-local-only-')),
+              spec = path.join(tree, 'test/playwright/e2e/workstation/UnlistedNL.spec.mjs');
 
-    test('the quarantine list names its files the way Playwright resolves them, relative to the e2e testDir', () => {
-        const lines = brainTestList().split('\n').filter(Boolean);
+        fs.mkdirSync(path.dirname(spec), {recursive: true});
+        fs.writeFileSync(spec, 'import {neuralLink} from "../../fixtures.mjs";');
 
-        expect(lines).toHaveLength(BRAIN_QUARANTINES.length);
+        expect(localOnlyAccount(tree).undeclared).toEqual(['workstation/UnlistedNL.spec.mjs']);
+        expect(() => assertSelectionFloor(tree)).toThrow(/Undeclared: workstation\/UnlistedNL\.spec\.mjs\./);
 
-        for (const line of lines) {
-            expect(fs.existsSync(path.join(root, 'test/playwright/e2e', line.split(' › ')[0])), line).toBe(true);
-        }
-    });
-
-    test('a receipt states the run, both SHAs, the time against the ceiling, the selection and the outcome', () => {
-        const report         = {suites: [{file: 'core/A.spec.mjs'}, {file: 'grid/B.spec.mjs'}], stats: {expected: 5, unexpected: 1, flaky: 0, skipped: 2}},
-              text           = brainReceipt({report, run, seconds: 312, env: {}, root}),
-              {gated, paths} = brainSelection({env: {}, root});
-
-        expect(text).toContain('shard 2/6');
-        expect(text).toContain('push, attempt 1');
-        expect(text).toContain(run.engineSha);
-        expect(text).toContain(run.brainSha);
-        expect(text).toContain('5m 12s against the 5m 0s ceiling (**over**)');
-        expect(text).toContain(`${paths.length} of the ${gated.length} Brain-gated spec files, with ${BRAIN_QUARANTINES.length} of their tests quarantined`);
-        expect(text).toContain('2 files · 5 passed, 1 failed, 0 flaky, 2 skipped');
-        expect(text).toContain('- `grid/B.spec.mjs`');
-        expect(brainReceipt({report, run, seconds: 300, env: {}, root})).not.toContain('**over**');
-    });
-
-    test('a receipt names its tier, and a run that names none is the full tier', () => {
-        const receipt = tier => brainReceipt({report: null, run: {...run, tier}, seconds: null, env: {}, root});
-
-        expect(receipt(undefined)).toContain('### Brain-gated e2e · full tier · shard 2/6');
-        expect(receipt(undefined)).toContain(`- **Tier:** full — ${BRAIN_TIERS.full}.`);
-        expect(receipt('smoke')).toContain('### Brain-gated e2e · smoke tier · shard 2/6');
-        expect(receipt('smoke')).toContain(`- **Tier:** smoke — ${BRAIN_TIERS.smoke}.`);
-    });
-
-    test('a smoke receipt counts only the smoke files, with no declaration to explain', () => {
-        const text    = brainReceipt({report: null, run: {...run, tier: 'smoke'}, seconds: null, env: {}, root}),
-              {gated} = brainSelection({env: {}, root});
-
-        expect(text).toContain(`${BRAIN_SMOKE.length} of the ${gated.length} Brain-gated spec files, with 0 of their tests quarantined`);
-        expect(text).not.toContain('**Quarantined:**');
-        expect(text).not.toContain('**Excluded while');
-    });
-
-    test('every full-tier receipt prints each declaration: an unset capability with its exit, a quarantine with its owner', () => {
-        const text = brainReceipt({report: null, run, seconds: null, env: {}, root});
-
-        for (const entry of BRAIN_CAPABILITIES) {
-            expect(text).toContain(`Excluded while \`${entry.requires}\` is unset`);
-            expect(text).toContain(`${entry.exit} (${entry.tracker})`);
-        }
-
-        for (const entry of BRAIN_QUARANTINES) {
-            expect(text).toContain(`${entry.titlePath.at(-1)} — ${entry.reason}. Accountable: ${entry.accountable}. Exit: ${entry.exit}.`);
-        }
-    });
-
-    test('a quarantine older than a week is flagged stale on every receipt', () => {
-        // Aged against the oldest entry rather than a fixed date, so a later entry cannot move the boundary
-        if (!BRAIN_QUARANTINES.length) {
-            return
-        }
-
-        const oldest  = Math.min(...BRAIN_QUARANTINES.map(entry => Date.parse(entry.since))),
-              receipt = days => brainReceipt({report: null, run, seconds: null, env: {}, now: new Date(oldest + days * 86400000), root});
-
-        expect(receipt(QUARANTINE_STALE_DAYS)).not.toContain('(**stale**)');
-        expect(receipt(QUARANTINE_STALE_DAYS + 1)).toContain(`${QUARANTINE_STALE_DAYS + 1} days (**stale**)`);
-    });
-
-    test('the retry bridge retries through its end date and not a moment after', () => {
-        const until = BRAIN_RETRY_BRIDGE.until;
-
-        expect(brainRetries(new Date(`${until}T00:00:00Z`))).toBe(BRAIN_RETRY_BRIDGE.retries);
-        expect(brainRetries(new Date(`${until}T23:59:59.999Z`)), 'the last millisecond of its day').toBe(BRAIN_RETRY_BRIDGE.retries);
-        expect(brainRetries(new Date(Date.parse(`${until}T23:59:59.999Z`) + 1)), 'the day after').toBe(0);
-    });
-
-    test('every receipt names each test that needed the retry, with its first attempt\'s error', () => {
-        // Playwright marks a test `flaky` when an attempt failed and a later one passed, and `unexpected`
-        // when every attempt failed. Only the first kind needed the retry; the second stays a failure.
-        const attempt = (status, message) => ({status, ...message ? {error: {message: `\u001b[31m${message}\u001b[39m\nstack`}} : {}}),
-              report  = {
-                  stats : {expected: 1, unexpected: 1, flaky: 1, skipped: 0},
-                  suites: [{file: 'grid/A.spec.mjs', specs: [], suites: [{title: 'Grid', specs: [
-                      {file: 'grid/A.spec.mjs', title: 'heals on retry',  tests: [{status: 'flaky',      results: [attempt('failed', 'Request timed out'), attempt('passed')]}]},
-                      {file: 'grid/A.spec.mjs', title: 'red every time',  tests: [{status: 'unexpected', results: [attempt('failed', 'boom'), attempt('failed', 'boom')]}]},
-                      {file: 'grid/A.spec.mjs', title: 'green first time', tests: [{status: 'expected',  results: [attempt('passed')]}]}
-                  ]}]}]
-              },
-              text    = brainReceipt({report, run, seconds: 120, retries: 1, env: {}, root});
-
-        expect(flakyTests(report)).toEqual([{error: 'Request timed out', file: 'grid/A.spec.mjs', title: 'Grid › heals on retry'}]);
-        expect(text).toContain('**Needed the retry:** `grid/A.spec.mjs` › Grid › heals on retry — first attempt: Request timed out');
-        expect(text, 'a test red on every attempt is a failure, not a retry').not.toContain('red every time');
-    });
-
-    test('the first attempt\'s error is read from every shape Playwright serializes', () => {
-        // A thrown Error carries `message`, anything else thrown only `value`, and the `errors` envelope can
-        // carry an error with no `error` field beside it. A blank field must not hide a populated one.
-        const flaky  = result => ({status: 'flaky', results: [{status: 'failed', ...result}, {status: 'passed'}]}),
-              spec   = (title, result) => ({file: 'grid/A.spec.mjs', title, tests: [flaky(result)]}),
-              report = {stats: {expected: 0, unexpected: 0, flaky: 7, skipped: 0}, suites: [{file: 'grid/A.spec.mjs', specs: [
-                  spec('an Error',                   {error: {message: 'thrown Error', stack: 'Error: thrown Error\n    at x'}}),
-                  spec('a thrown value',             {error: {value: 'a string was thrown'}}),
-                  spec('only the envelope',          {errors: [{message: 'from the errors envelope'}]}),
-                  spec('an empty message, stack',    {error: {message: '', stack: 'Error\n    at x'}}),
-                  spec('an empty message, envelope', {error: {message: ''}, errors: [{message: 'recorded envelope'}]}),
-                  spec('a blank first line',         {error: {message: '\u001b[31m\u001b[39m\nafter a blank line'}}),
-                  spec('nothing recorded',           {})
-              ]}]};
-
-        expect(flakyTests(report).map(test => test.error)).toEqual([
-            'thrown Error', 'a string was thrown', 'from the errors envelope', 'Error', 'recorded envelope', 'after a blank line',
-            'no error recorded'
-        ]);
-    });
-
-    test('the receipt reports the retry count the run selected, not one recomputed at its end', () => {
-        // A run that starts on the bridge's last day and finishes after midnight still retried
-        const after = new Date(Date.parse(`${BRAIN_RETRY_BRIDGE.until}T23:59:59.999Z`) + 1),
-              text  = retries => brainReceipt({report: null, run, seconds: null, retries, env: {}, now: after, root});
-
-        expect(text(1)).toContain(`**Retries:** 1 for this run, from the bridge through ${BRAIN_RETRY_BRIDGE.until}`);
-        expect(brainRetries(after), 'a run started after the bridge ends selects none').toBe(0);
-        expect(text(0)).toContain('**Retries:** none for this run');
-        expect(text(null)).toContain('**Retries:** unknown, because the run step recorded none');
-    });
-
-    test('a step that never finished and a run without a report say so, rather than reading as zero', () => {
-        const text = brainReceipt({report: null, run, seconds: null, env: {}, root});
-
-        expect(text).toContain('none, because the step did not finish');
-        expect(text).toContain('**This shard:** unknown, because the run wrote no Playwright report');
+        fs.rmSync(tree, {recursive: true, force: true})
     });
 
     test('the shards split by measured time: every file once, the same split on every shard', () => {
         // By path order and count, two files a shard would run 110 s, 70 s and 30 s
         const durations = {'a.spec.mjs': 60, 'b.spec.mjs': 50, 'c.spec.mjs': 40, 'd.spec.mjs': 30, 'e.spec.mjs': 20, 'f.spec.mjs': 10},
               paths     = Object.keys(durations).toReversed(),
-              split     = () => [1, 2, 3].map(index => brainShard({paths, shard: `${index}/3`, durations}));
+              split     = () => [1, 2, 3].map(index => balancedShard({paths, shard: `${index}/3`, durations}));
 
         expect(split()).toEqual([
             {paths: ['a.spec.mjs', 'f.spec.mjs'], seconds: 70},
@@ -417,48 +246,267 @@ test.describe('e2e CI selection — the Brain-gated tier', () => {
     test('a file the table does not list yet counts as its median, and a shard that is not N/M is refused', () => {
         const durations = {'a.spec.mjs': 10, 'b.spec.mjs': 20, 'c.spec.mjs': 90};
 
-        expect(brainShard({paths: ['new.spec.mjs'], shard: '1/1', durations}).seconds).toBe(20);
+        expect(balancedShard({paths: ['new.spec.mjs'], shard: '1/1', durations}).seconds).toBe(20);
 
         for (const shard of ['0/10', '11/10', '1/0', '3', 'a/b', '']) {
-            expect(() => brainShard({paths: [], shard, durations})).toThrow(`Shard '${shard}' is not N/M`);
+            expect(() => balancedShard({paths: [], shard, durations})).toThrow(`Shard '${shard}' is not N/M`);
         }
     });
 
-    test('the tier\'s ten shards run every selected file once, none heavier than another by more than its longest file', () => {
-        const {paths} = brainSelection({env: {}, root}),
-              shards  = Array.from({length: 10}, (_, i) => brainShard({paths, shard: `${i + 1}/10`})),
+});
+
+/**
+ * A selective run is only as safe as its fallbacks. Each arm below names one change the static map cannot follow and
+ * pins that it runs the whole population, beside the leaf changes that may select.
+ */
+test.describe('e2e CI selection — what a pull request\'s change selects', () => {
+    const demo  = 'test/playwright/e2e/demo/Demo.spec.mjs',
+          other = 'test/playwright/e2e/demo/Other.spec.mjs',
+          bare  = 'test/playwright/e2e/demo/Bare.spec.mjs';
+
+    let root;
+
+    test.beforeAll(() => {
+        root = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-e2e-select-'));
+
+        const tree = {
+            'buildScripts/tool.mjs'              : '',
+            'examples/demo/app.mjs'              : "import './View.mjs';",
+            'examples/demo/View.mjs'             : "import '../../src/button/Base.mjs';\nconst load = name => import(`../../src/plugin/${name}.mjs`);",
+            'examples/demo/resources/data.json'  : '{}',
+            'examples/lonely/app.mjs'            : '',
+            'examples/lonely/resources/data.json': '{}',
+            'examples/other/app.mjs'             : "import '../../src/form/Field.mjs';",
+            'src/button/Base.mjs'                : '',
+            'src/core/Base.mjs'                  : '',
+            'src/data/table.json'                : '{}',
+            'src/form/Field.mjs'                 : '',
+            'src/loader/Lazy.mjs'                : "export default {importPath: './Late.mjs'};",
+            'src/plugin/Computed.mjs'            : '',
+            'src/unused/Orphan.mjs'              : '',
+            'test/playwright/fixtures.mjs'       : '',
+            'test/playwright/helpers/unused.mjs' : '',
+            [bare]                               : '',
+            [demo]                               : "import {test} from '../../fixtures.mjs';\nawait page.goto('/examples/demo/index.html');",
+            [other]                              : "await page.goto('/examples/other/index.html');"
+        };
+
+        for (const [file, text] of Object.entries(tree)) {
+            fs.mkdirSync(path.join(root, path.dirname(file)), {recursive: true});
+            fs.writeFileSync(path.join(root, file), text)
+        }
+
+        execFileSync('git', ['init', '-q'], {cwd: root});
+        execFileSync('git', ['add', '.'], {cwd: root})
+    });
+
+    test.afterAll(() => {
+        fs.rmSync(root, {recursive: true, force: true})
+    });
+
+    test('a leaf change selects the specs that reach it and the specs the map cannot place', () => {
+        const {full, specs} = selectSpecs({changed: ['src/button/Base.mjs'], root});
+
+        expect(full).toBe(false);
+        expect(specs.get(demo)).toBe('reaches src/button/Base.mjs');
+        expect(specs.get(bare)).toBe('the map cannot place it');
+        expect(specs.has(other)).toBe(false);
+        expect(specs.size, 'nothing else rides along').toBe(2)
+    });
+
+    test('a file an app fetches selects that app\'s specs', () => {
+        const {full, specs} = selectSpecs({changed: ['examples/demo/resources/data.json'], root});
+
+        expect(full).toBe(false);
+        expect(specs.get(demo)).toBe('its app fetches examples/demo/resources/data.json');
+        expect(specs.has(other)).toBe(false)
+    });
+
+    test('a module no static edge names runs the whole population, even one only a computed import loads', () => {
+        // `examples/demo/View.mjs` loads `src/plugin/${name}.mjs`, so the map has no edge to the module it loads
+        expect(selectSpecs({changed: ['src/plugin/Computed.mjs'], root}))
+            .toEqual({full: true, reasons: ['src/plugin/Computed.mjs: no static edge names it'], specs: new Map()});
+        expect(selectSpecs({changed: ['src/unused/Orphan.mjs'], root}).reasons).toEqual(['src/unused/Orphan.mjs: no static edge names it'])
+    });
+
+    test('a selection no placed spec reaches still runs the specs the map cannot place', () => {
+        // An app no spec navigates fetches the file, so no placed spec reaches it
+        const {full, specs} = selectSpecs({changed: ['examples/lonely/resources/data.json'], root});
+
+        expect(full).toBe(false);
+        expect(specs.get(bare)).toBe('the map cannot place it');
+        expect(specs.has(demo) || specs.has(other)).toBe(false)
+    });
+
+    test('a change the map cannot follow runs the whole population', () => {
+        [
+            ['src/core/Base.mjs',                  'src/core/Base.mjs: foundation'],
+            ['src/loader/Lazy.mjs',                'src/loader/Lazy.mjs: loads modules at runtime'],
+            ['src/gone/Deleted.mjs',               'src/gone/Deleted.mjs: not in the tree'],
+            ['src/data/table.json',                'src/data/table.json: unmapped'],
+            ['buildScripts/tool.mjs',              'buildScripts/tool.mjs: unmapped'],
+            ['test/playwright/helpers/unused.mjs', 'test/playwright/helpers/unused.mjs: e2e support no spec imports']
+        ].forEach(([file, reason]) => {
+            // Beside a leaf file that would select on its own, so the full trigger has to win
+            expect(selectSpecs({changed: ['src/button/Base.mjs', file], root}), file).toEqual({full: true, reasons: [reason], specs: new Map()})
+        })
+    });
+
+    test('a change whose files are all e2e specs runs the whole population; a spec beside other files selects', () => {
+        expect(selectSpecs({changed: [demo, other], root}).reasons).toEqual(['every changed file is an e2e spec']);
+
+        const {full, specs} = selectSpecs({changed: [demo, 'src/form/Field.mjs'], root});
+
+        expect(full).toBe(false);
+        expect(specs.get(demo)).toBe('changed spec');
+        expect(specs.get(other)).toBe('reaches src/form/Field.mjs')
+    });
+});
+
+/**
+ * The selection on this tree: how it splits into the tiers, what the classifier reads, and the historical reds it
+ * replays.
+ *
+ * The replay fixture is the dry run's corpus: every red e2e run among the pull requests merged into `dev` from
+ * 2026-10-13 to 2026-11-05, with its failing spec files and the changed files the E2E impact boundary admitted. A map
+ * that narrows turns one of its caught or full rows into a miss, and the arm names that run.
+ */
+test.describe('e2e CI selection — the selection on this tree', () => {
+    const root = path.resolve(import.meta.dirname, '../../../../..');
+
+    test('the engine tier runs its selected files on a matrix sized to them, and a local-only spec in no job', () => {
+        const engine    = enginePaths(root),
+              e2e       = path.join(root, 'test/playwright/e2e'),
+              {ignore}  = selectExternalBrainSpecs(e2e),
+              localOnly = fs.readdirSync(e2e, {recursive: true}).map(file => path.join('test/playwright/e2e', file))
+                  .find(file => file.endsWith('.spec.mjs') && ignore.some(pattern => pattern.test(path.join(root, file))));
+
+        expect(localOnly, 'control: the tree holds a local-only spec').toBeTruthy();
+        expect(tierSelection({specs: new Set(engine), root}).engine.shards, 'the whole tier gets the full matrix').toBe(FULL_SHARDS.engine);
+        expect(tierSelection({specs: new Set([engine[0], localOnly]), root})).toEqual({engine: {paths: [engine[0]], shards: 1}});
+        expect(tierSelection({specs: new Set(), root})).toEqual({engine: {paths: [], shards: 0}});
+        // Never more shards than files, even when nothing is measured
+        expect(tierSelection({specs: new Set([engine[0]]), root, durations: {engine: {}}}).engine.shards).toBe(1)
+    });
+
+    test('an engine selection is sized by its measured seconds, so heavy files get more shards than their count', () => {
+        const engine    = enginePaths(root),
+              heavy     = engine.slice(0, FULL_SHARDS.engine),
+              // One file per shard, each outweighing the rest of the tier together: by file count they would get a few
+              durations = {engine: Object.fromEntries(engine.map(file => [file, heavy.includes(file) ? engine.length : 1]))};
+
+        expect(Math.ceil(FULL_SHARDS.engine * heavy.length / engine.length), 'control: the file count gives fewer shards').toBeLessThan(FULL_SHARDS.engine);
+        expect(tierSelection({specs: new Set(heavy), root, durations}).engine.shards).toBe(FULL_SHARDS.engine)
+    });
+
+    test('the engine tier\'s shards run every file once, none heavier than another by more than its longest file', () => {
+        const paths   = engineSelection({named: RUN_PATHS, root}),
+              shards  = Array.from({length: FULL_SHARDS.engine}, (_, i) => balancedShard({paths, shard: `${i + 1}/${FULL_SHARDS.engine}`, durations: ENGINE_DURATIONS})),
               times   = shards.map(shard => shard.seconds),
-              longest = Math.max(...paths.map(file => BRAIN_DURATIONS[file] ?? 0));
+              longest = Math.max(...paths.map(file => ENGINE_DURATIONS[file] ?? 0));
 
-        expect(shards.flatMap(shard => shard.paths).toSorted()).toEqual(paths.toSorted());
-        expect(Math.max(...times) - Math.min(...times)).toBeLessThanOrEqual(Math.ceil(longest) + 1);
+        expect(paths, 'RUN_PATHS expands to the tier\'s files').toEqual(enginePaths(root));
+        expect(shards.flatMap(shard => shard.paths).toSorted()).toEqual(paths);
+        expect(Math.max(...times) - Math.min(...times)).toBeLessThanOrEqual(Math.ceil(longest) + 1)
     });
 
-    test('--brain-paths with SHARD prints that shard\'s files, and the shards together print the selection once', () => {
-        const paths = shard => execFileSync(process.execPath, ['buildScripts/util/e2eCiSelection.mjs', '--brain-paths'], {
-                  cwd: root, env: {...process.env, SHARD: shard, TIER: 'full'}
+    test('--engine-paths with SHARD prints that shard\'s files of TIER_PATHS, and the shards print them once', () => {
+        const paths    = (named, shard) => execFileSync(process.execPath, ['buildScripts/util/e2eCiSelection.mjs', '--engine-paths'], {
+                  cwd: root, env: {...process.env, SHARD: shard, TIER_PATHS: named.join(' ')}
               }).toString().split(' ').filter(Boolean),
-              all     = paths(''),
-              sharded = Array.from({length: 10}, (_, i) => paths(`${i + 1}/10`));
+              selected = enginePaths(root).filter(file => file.includes('/grid/')),
+              sharded  = Array.from({length: 3}, (_, i) => paths(selected, `${i + 1}/3`));
 
+        expect(paths(RUN_PATHS, ''), 'directories expand to the tier\'s files').toEqual(enginePaths(root));
         expect(sharded.every(files => files.length), 'no shard is empty').toBe(true);
-        expect(sharded.flat().toSorted()).toEqual(all.toSorted());
+        expect(sharded.flat().toSorted()).toEqual(selected)
     });
 
-    test('a receipt prints the table\'s prediction and each file\'s measured seconds, which rebuild the table', () => {
-        const attempt   = duration => ({duration}),
-              report    = {stats: {expected: 1, unexpected: 0, flaky: 1, skipped: 0}, suites: [
-                  {file: 'grid/A.spec.mjs', specs: [{tests: [{results: [attempt(1250), attempt(1300)]}]}], suites: [{specs: [{tests: [{results: [attempt(500)]}]}]}]},
-                  {file: 'core/B.spec.mjs', specs: []}
-              ]},
-              text      = brainReceipt({report, run, seconds: 120, env: {}, root}),
-              predicted = brainShard({paths: brainSelection({env: {}, root}).paths, shard: run.shard}).seconds,
-              // GitHub's run log puts the job, the step and a timestamp before every line
-              log       = text.split('\n').map(line => `e2e-brain (2/6)\tRun\t2026-10-23T18:43:59.7Z ${line}`).join('\n');
+    test('an engine log rebuilds the table: each test costs the time since its job\'s previous test ended', () => {
+        const at  = (job, time, text) => `e2e-engine (${job})\tRun e2e (engine tier)\t2026-11-07T01:${time}Z ${text}`,
+              ok  = (n, file, duration) => `  ✓  ${n} [chromium] › test/playwright/e2e/${file}:12:5 › a title › with (parens) (${duration})`,
+              log = [
+                  at('1/2', '13:17.0000000', 'Running 3 tests using 1 worker, shard 1 of 2'),
+                  // 3 ms of test, 15 s since the run started: the file's hooks and fixtures ran first
+                  at('1/2', '13:32.0000000', ok(1, 'core/Boot.spec.mjs', '3ms')),
+                  at('2/2', '13:20.0000000', 'Running 1 test using 1 worker, shard 2 of 2'),
+                  at('1/2', '13:34.5000000', ok(2, 'core/Boot.spec.mjs', '1.2s')),
+                  at('2/2', '15:20.0000000', ok(1, 'grid/Heavy.spec.mjs', '1.9m')),
+                  at('1/2', '13:35.0000000', '  -  3 [chromium] › test/playwright/e2e/grid/Skipped.spec.mjs:3:5 › skipped')
+              ].join('\n');
 
-        expect(text).toContain(`- **Predicted:** ${Math.floor(predicted / 60)}m ${predicted % 60}s by the duration table`);
-        expect(text, 'every attempt counts, retries and nested describes included').toContain('- `grid/A.spec.mjs` · 3.1 s');
-        expect(text).toContain('- `core/B.spec.mjs` · 0 s');
-        expect(brainDurations(log)).toEqual({'test/playwright/e2e/core/B.spec.mjs': 0, 'test/playwright/e2e/grid/A.spec.mjs': 3.1});
+        expect(engineDurations(log)).toEqual({'test/playwright/e2e/core/Boot.spec.mjs': 17.5, 'test/playwright/e2e/grid/Heavy.spec.mjs': 120});
+        // A log without timestamps, such as a local run's, falls back to the printed durations
+        expect(engineDurations([ok(1, 'core/Boot.spec.mjs', '3ms'), ok(2, 'core/Boot.spec.mjs', '1.2s'), ok(3, 'grid/Heavy.spec.mjs', '1.9m')].join('\n')))
+            .toEqual({'test/playwright/e2e/core/Boot.spec.mjs': 1.2, 'test/playwright/e2e/grid/Heavy.spec.mjs': 114})
+    });
+
+    test('the classifier reads a full selection as its reasons, and a selected one as the engine tier\'s files and matrix', () => {
+        const full     = selectionOutput({changed: ['src/core/Base.mjs'], root}),
+              selected = selectionOutput({changed: ['src/calendar/view/month/Component.mjs'], root}),
+              read     = key => new RegExp(`^${key}=(.*)$`, 'm').exec(selected)?.[1],
+              [shards] = JSON.parse(read('e2e_engine_shards'));
+
+        expect(full).toMatch(/^e2e_selection=full\ne2e_selection_report<<NEO_E2E_SELECTION\n[\s\S]*src\/core\/Base\.mjs: foundation\nNEO_E2E_SELECTION\n$/);
+
+        expect([read('e2e_selection'), read('run_e2e')]).toEqual(['selected', 'true']);
+        expect(JSON.parse(read('e2e_engine_matrix'))).toEqual(Array.from({length: shards}, (_, index) => index + 1));
+        expect(read('e2e_engine_paths').split(' ').length).toBeGreaterThanOrEqual(shards);
+        expect(selected, 'no output names a Brain tier').not.toMatch(/^e2e_brain_/m)
+    });
+
+    test('on this tree, a module no static edge names runs every spec', () => {
+        const map     = specReach({root}),
+              reached = new Set([...map.specs.values()].flatMap(({reach}) => [...reach])),
+              orphan  = [...map.tracked].find(file => /^src\/.+\.mjs$/.test(file) && !reached.has(file) &&
+                  !FOUNDATION.some(rule => rule.test(file)) && !RUNTIME_LOADING.test(fs.readFileSync(path.join(root, file), 'utf8'))),
+              output  = selectionOutput({changed: [orphan], root});
+
+        expect(orphan, 'control: this tree holds a module no static edge names').toBeTruthy();
+        expect(output).toMatch(/^e2e_selection=full$/m);
+        expect(output).toContain(`- ${orphan}: no static edge names it`);
+        expect(output).not.toMatch(/^run_e2e=/m)
+    });
+
+    test('the engine workflow\'s full matrix is FULL_SHARDS', () => {
+        const fallback = (file, tier) => [`e2e_${tier}_matrix`, `e2e_${tier}_shards`].map(key =>
+                  JSON.parse(new RegExp(`${key} \\|\\| '([^']+)'`).exec(fs.readFileSync(path.join(root, '.github/workflows', file), 'utf8'))[1])),
+              matrix   = shards => [Array.from({length: shards}, (_, index) => index + 1), [shards]];
+
+        expect(fallback('test-e2e.yml', 'engine')).toEqual(matrix(FULL_SHARDS.engine))
+    });
+
+    test('the engine run step takes its shard\'s files from --engine-paths, never Playwright\'s count split', () => {
+        const workflow = fs.readFileSync(path.join(root, '.github/workflows/test-e2e.yml'), 'utf8');
+
+        expect(workflow).toContain('paths=$(node buildScripts/util/e2eCiSelection.mjs --engine-paths)');
+        expect(workflow).not.toMatch(/--shard[= ]/)
+    });
+
+    test('every historical red in an engine-tier spec runs in full, runs its failing spec, or is a recorded miss', () => {
+        const rows   = JSON.parse(fs.readFileSync(path.join(root, 'test/playwright/unit/buildScripts/fixtures/e2eSelectionReplay.json'), 'utf8')),
+              map    = specReach({root}),
+              engine = new Set(enginePaths(root)),
+              // The misses the dry run's receipt records. The change reaches runtime code, but not the failing spec.
+              misses = {
+                  39582656813: 'DockTabOverflowNL, no cause on record; the change is portal data',
+                  40202145032: 'HeaderMenuInteractionNL, no cause on record; the change is the calendar week view',
+                  41666963270: 'IssuesShowcase, a read that raced the lazily loaded menu triggers; the change is Carousel',
+                  // The map places this engine-tier spec, and its reach has no src/functional module
+                  42042806935: 'DockCrossWindowWitnessNL, a harness red (target worker cw-win-a missing); the change is useMemo',
+                  42058376779: 'DockCrossWindowWitnessNL, the same harness red on a rerun of that change'
+              },
+              // A red in a spec no CI job runs any more (a local-only one) is out of reach by decision. So is a
+              // row the boundary left out, which could not run any spec, and a spec renamed since, which cannot be asked for
+              replayed = rows.map(row => ({...row, failing: row.failing.filter(spec => engine.has(spec))}))
+                  .filter(row => row.admitted.length && row.failing.length && row.failing.every(spec => map.specs.has(spec))),
+              skipped  = replayed.filter(row => {
+                  const {full, specs} = selectSpecs({changed: row.admitted, map, root});
+
+                  return !full && !row.failing.every(spec => specs.has(spec))
+              });
+
+        expect(replayed.length, 'control: most rows still replay').toBeGreaterThan(rows.length / 2);
+        expect(skipped.map(row => row.run).filter(run => !misses[run]), 'reds the selection now skips').toEqual([])
     });
 });

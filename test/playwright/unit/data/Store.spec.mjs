@@ -301,5 +301,367 @@ test.describe('Neo.data.Store', () => {
 
             lazyStore.destroy()
         })
+    });
+
+    test.describe('Temporary negative record IDs (#3559)', () => {
+        test('assigns clean, non-mutating temporary IDs in eager mode with String keys', () => {
+            const
+                rawInitial = {name: 'Alpha'},
+                rawAdded   = {name: 'Beta'},
+                rawCreated = {name: 'Gamma'},
+                changes    = [];
+
+            const stringKeyStore = Neo.create(Store, {
+                model: {
+                    module             : Model,
+                    trackModifiedFields: true,
+                    fields             : [
+                        {name: 'id',   type: 'String'},
+                        {name: 'name', type: 'String'}
+                    ]
+                },
+                data     : [rawInitial],
+                listeners: {
+                    recordChange: data => changes.push(data)
+                }
+            });
+
+            // Caller raw object must remain untouched
+            expect(rawInitial.id).toBeUndefined();
+
+            const firstRecord = stringKeyStore.getAt(0);
+            expect(firstRecord.id).toBe('-1');
+            expect(stringKeyStore.get('-1')).toBe(firstRecord);
+            expect(firstRecord.isModified).toBe(false);
+            expect(firstRecord.isModifiedField('id')).toBe(false);
+            expect(firstRecord.version).toBe(2);
+
+            // Adding a keyless item returns the created record and indexes by converted String key
+            const addedRecords = stringKeyStore.add(rawAdded);
+            expect(rawAdded.id).toBeUndefined();
+            expect(addedRecords).toHaveLength(1);
+            expect(addedRecords[0]).not.toBeNull();
+            expect(addedRecords[0].id).toBe('-2');
+            expect(stringKeyStore.get('-2')).toBe(addedRecords[0]);
+            expect(addedRecords[0].isModified).toBe(false);
+            expect(addedRecords[0].isModifiedField('id')).toBe(false);
+            expect(addedRecords[0].version).toBe(2);
+            expect(changes).toHaveLength(0);
+
+            // Direct createRecord() also assigns temporary negative key before instantiation
+            const standaloneRecord = stringKeyStore.createRecord(rawCreated);
+            expect(rawCreated.id).toBeUndefined();
+            expect(standaloneRecord.id).toBe('-3');
+            expect(standaloneRecord.isModified).toBe(false);
+            expect(standaloneRecord.version).toBe(2);
+
+            stringKeyStore.destroy()
+        });
+
+        test('assigns numeric temporary IDs for Integer key fields', () => {
+            const intKeyStore = Neo.create(Store, {
+                model: {
+                    module: Model,
+                    fields: [
+                        {name: 'id',   type: 'Integer'},
+                        {name: 'name', type: 'String'}
+                    ]
+                }
+            });
+
+            const [r1, r2] = intKeyStore.add([{name: 'One'}, {name: 'Two'}]);
+
+            expect(r1.id).toBe(-1);
+            expect(r2.id).toBe(-2);
+            expect(intKeyStore.get(-1)).toBe(r1);
+            expect(intKeyStore.get(-2)).toBe(r2);
+            expect(r1.version).toBe(1);
+            expect(r2.version).toBe(1);
+
+            intKeyStore.destroy()
+        });
+
+        test('respects mapped keys when present and assigns temporary ID when mapped key is absent', () => {
+            const mappedStore = Neo.create(Store, {
+                model: {
+                    module: Model,
+                    fields: [
+                        {name: 'id',   type: 'String', mapping: 'meta.uid'},
+                        {name: 'name', type: 'String'}
+                    ]
+                }
+            });
+
+            const [mappedRecord, unmappedRecord] = mappedStore.add([
+                {meta: {uid: 'ext-42'}, name: 'Mapped'},
+                {name: 'Unmapped'}
+            ]);
+
+            expect(mappedRecord.id).toBe('ext-42');
+            expect(mappedStore.get('ext-42')).toBe(mappedRecord);
+            expect(unmappedRecord.id).toBe('-1');
+            expect(mappedStore.get('-1')).toBe(unmappedRecord);
+
+            mappedStore.destroy()
+        });
+
+        test('re-keys map and allItems.map on hydration in Turbo Mode with String keys', () => {
+            const lazyStringStore = Neo.create(Store, {
+                autoInitRecords: false,
+                model          : {
+                    module: Model,
+                    fields: [
+                        {name: 'id',   type: 'String'},
+                        {name: 'name', type: 'String'}
+                    ]
+                },
+                filters: [{property: 'name', operator: '!==', value: 'Hidden'}],
+                data   : [{name: 'Visible'}, {name: 'Hidden'}]
+            });
+
+            const hydrated = lazyStringStore.getAt(0);
+            expect(RecordFactory.isRecord(hydrated)).toBe(true);
+            expect(hydrated.id).toBe('-1');
+            expect(lazyStringStore.get('-1')).toBe(hydrated);
+            expect(lazyStringStore.map.has(-1)).toBe(false);
+
+            lazyStringStore.clearFilters();
+            expect(lazyStringStore.get('-1')).toBe(hydrated);
+
+            lazyStringStore.destroy()
+        })
+    });
+
+    test.describe('Turbo Mode soft hydration with filterBy filters (#20267)', () => {
+        test('Store#filter and Store#isFilteredItem soft-hydrate declared fields for an enabled filterBy filter without a value', () => {
+            const lazyStore = Neo.create(Store, {
+                autoInitRecords: false,
+                model          : {
+                    module: Model,
+                    fields: [
+                        {name: 'id',      type: 'Integer'},
+                        {name: 'amount',  type: 'Integer'},
+                        {name: 'doubled', type: 'Integer', calculate: data => data.amount * 2}
+                    ]
+                },
+                data: [
+                    {id: 1, amount: 5},
+                    {id: 2, amount: 12}
+                ]
+            });
+
+            // Configure a filterBy filter without a value -> triggers Store#filter() soft hydration
+            lazyStore.filters = [{
+                fields  : ['doubled'],
+                filterBy: ({item}) => item.doubled < 20
+            }];
+
+            expect(lazyStore.count).toBe(1);
+            expect(lazyStore.getAt(0).id).toBe(2);
+
+            // Store#isFilteredItem on a fresh raw item also soft-hydrates declared fields
+            const rawKept        = {id: 3, amount: 15},
+                  rawFilteredOut = {id: 4, amount: 4};
+
+            expect(lazyStore.isFilteredItem(rawKept)).toBe(false);
+            expect(rawKept.doubled).toBe(30);
+
+            expect(lazyStore.isFilteredItem(rawFilteredOut)).toBe(true);
+            expect(rawFilteredOut.doubled).toBe(8);
+
+            lazyStore.destroy()
+        })
+    });
+
+    test.describe('Filtering by dotted property paths in Record and Turbo Mode (#20284)', () => {
+        class DottedFilterModel extends Model {
+            static config = {
+                className: 'Test.Unit.Data.Store.DottedFilterModel',
+                fields   : [
+                    {name: 'id',    type: 'Integer'},
+                    {name: 'tp',    type: 'Integer'},
+                    {name: 'stats', type: 'Object'},
+                    {
+                        name  : 'user',
+                        fields: [
+                            {name: 'score', type: 'Integer'}
+                        ]
+                    },
+                    {
+                        name     : 'computed',
+                        type     : 'Object',
+                        calculate: data => ({score: (data.stats?.score ?? 0) * 2})
+                    }
+                ]
+            }
+        }
+
+        Neo.setupClass(DottedFilterModel);
+
+        const makeRows = () => [
+            {id: 1, tp: 20, stats: {score: 20}, user: {score: 20}},
+            {id: 2, tp: 50, stats: {score: 50}, user: {score: 50}}
+        ];
+
+        for (const autoInitRecords of [true, false]) {
+            test(`matches flat, undeclared Object path, declared nested field, and calculated Object path (autoInitRecords=${autoInitRecords})`, () => {
+                for (const [property, threshold] of [['tp', 30], ['stats.score', 30], ['user.score', 30], ['computed.score', 60]]) {
+                    const s = Neo.create(Store, {
+                        autoInitRecords,
+                        model  : DottedFilterModel,
+                        data   : makeRows(),
+                        filters: [{operator: '>=', property, value: threshold}]
+                    });
+
+                    expect(s.items.map(item => item.id), `${property} (autoInitRecords=${autoInitRecords})`).toEqual([2]);
+
+                    if (!autoInitRecords) {
+                        expect(s.items.some(item => Object.hasOwn(item, 'stats.score'))).toBe(false);
+                        expect(s.items.some(item => Object.hasOwn(item, 'user.score'))).toBe(false);
+                        expect(s.items.some(item => Object.hasOwn(item, 'computed.score'))).toBe(false)
+                    }
+
+                    s.destroy()
+                }
+            });
+
+            test(`matches flat field filled by defaultValue on load and add (autoInitRecords=${autoInitRecords})`, () => {
+                const s = Neo.create(Store, {
+                    autoInitRecords,
+                    model: {
+                        module: Model,
+                        fields: [
+                            {name: 'id',     type: 'Integer'},
+                            {name: 'status', type: 'String', defaultValue: 'open'}
+                        ]
+                    },
+                    data   : [{id: 1, status: 'open'}, {id: 2}],
+                    filters: [{operator: '===', property: 'status', value: 'open'}]
+                });
+
+                expect(s.items.map(item => item.id), `load path (autoInitRecords=${autoInitRecords})`).toEqual([1, 2]);
+
+                s.add({id: 3});
+                expect(s.items.map(item => item.id), `add path (autoInitRecords=${autoInitRecords})`).toEqual([1, 2, 3]);
+
+                s.destroy()
+            })
+        }
     })
+});
+
+test.describe('Neo.data.Store Model ownership', () => {
+    class OwnershipModel extends Model {
+        static config = {
+            className: 'Test.Unit.Data.StoreModelOwnership.Model',
+            fields   : [{name: 'id', type: 'Integer'}, {name: 'name', type: 'String'}]
+        }
+    }
+    OwnershipModel = Neo.setupClass(OwnershipModel);
+
+    const data          = () => [{id: 1, name: 'a'}, {id: 2, name: 'b'}],
+          recordClassOf = model => Neo.ns(`${RecordFactory.recordNamespace}.${model.className}`)?.[model.id];
+
+    // Released: nothing global keeps the Model reachable, while a retained record still reads and writes through it
+    const expectReleased = (model, record) => {
+        expect(Neo.get(model.id)).toBeNull();
+        expect(recordClassOf(model)).toBeUndefined();
+        expect(model.isDestroyed).not.toBe(true);
+        expect(record.get('name')).toBe(record.name);
+        expect(() => {record.name = 'changed'}).not.toThrow();
+        expect(record.name).toBe('changed')
+    };
+
+    for (const [label, model] of [['class', () => OwnershipModel], ['config', () => ({module: OwnershipModel})]]) {
+        test(`destroy() releases a Model the Store created from a ${label}`, () => {
+            const store            = Neo.create(Store, {model: model(), data: data()}),
+                  record           = store.get(1),
+                  {model: created} = store;
+
+            expect(Neo.get(created.id)).toBe(created);
+            expect(recordClassOf(created)).toBeTruthy();
+
+            store.destroy();
+
+            expectReleased(created, record)
+        })
+    }
+
+    test('replacing a Model the Store created releases it; its records keep working', () => {
+        const store   = Neo.create(Store, {model: OwnershipModel, data: data()}),
+              record  = store.get(1),
+              created = store.model,
+              passed  = Neo.create(OwnershipModel);
+
+        store.model = passed;
+        expectReleased(created, record);
+
+        store.destroy();
+        expect(Neo.get(passed.id)).toBe(passed);
+
+        passed.destroy()
+    });
+
+    test('a passed Model instance stays its owner\'s, on destroy and on replacement', () => {
+        const shared = Neo.create(OwnershipModel),
+              first  = Neo.create(Store, {model: shared, data: data()});
+
+        first.destroy();
+        expect(Neo.get(shared.id)).toBe(shared);
+
+        const second = Neo.create(Store, {model: shared, data: data()});
+        second.model = OwnershipModel;
+        expect(shared.isDestroyed).not.toBe(true);
+        expect(Neo.get(shared.id)).toBe(shared);
+
+        second.destroy();
+        expect(recordClassOf(shared)).toBeTruthy();
+
+        shared.destroy();
+        expect(recordClassOf(shared)).toBeUndefined()
+    });
+
+    // Before Neo.manager.Instance loads, instances register in Neo.idMap: both registries keep a successor's entry
+    for (const bootstrap of [false, true]) {
+        test(`a released Model whose id a successor reused retires nothing of the successor's (${bootstrap ? 'bootstrap id map' : 'instance manager'})`, () => {
+            const Base      = Neo.core.Base,
+                  available = Base.instanceManagerAvailable,
+                  id        = `test-unit-data-store-model-ownership-reused-id-${bootstrap}`,
+                  holder    = () => (bootstrap ? Neo.idMap?.[id] : Neo.get(id)) ?? null;
+
+            Base.instanceManagerAvailable = !bootstrap;
+
+            try {
+                const first    = Neo.create(Store, {model: {module: OwnershipModel, id}, data: data()}),
+                      released = first.model;
+
+                expect(holder(), 'positive control: the created Model is registered').toBe(released);
+
+                first.destroy();
+                expect(holder()).toBeNull();
+
+                const successor = Neo.create(OwnershipModel, {id}),
+                      second    = Neo.create(Store, {model: successor, data: data()}),
+                      ownClass  = recordClassOf(successor);
+
+                expect(holder()).toBe(successor);
+                expect(ownClass).toBeTruthy();
+
+                released.release();
+                expect(holder(), 'a late release').toBe(successor);
+                expect(recordClassOf(successor), 'a late release').toBe(ownClass);
+
+                released.destroy();
+                expect(holder(), 'the first destroy').toBe(successor);
+                expect(recordClassOf(successor), 'the first destroy').toBe(ownClass);
+
+                second.destroy();
+                successor.destroy();
+                expect(holder()).toBeNull();
+                expect(recordClassOf(successor)).toBeUndefined()
+            } finally {
+                Base.instanceManagerAvailable = available
+            }
+        })
+    }
 });

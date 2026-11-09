@@ -63,8 +63,11 @@ class NativeLifecycle extends Base {
      * @param {Function} [effects.prepare] Asynchronous admission; false refuses the connection.
      * @param {Function} [effects.bound] Embodies the accepted connection after state publication.
      * @param {Function} [effects.ownerChanged] Observes the ownership write, never owns its registry.
-     * @param {Function} [effects.unbind] Unbinds projection; false or {retained: true} retains semantic ownership.
-     * @param {Function} [effects.released] Handles a released resource which was not retained.
+     * @param {Function} [effects.unbind] Unbinds projection; false or {retained: true} retains semantic ownership,
+     *     and {retained: true, readmit: true} also holds the key for its own lineage to bind again — until an
+     *     optional `closed` promise resolves true, or the lease ends.
+     * @param {Function} [effects.released] Handles a released resource which was not retained, or a held one
+     *     whose lineage did not bind again before its lease ended.
      * @param {Function} [effects.bindingExpired] Observes a formerly bound release awaiting native closure.
      * @param {Function} [effects.expired] Handles acknowledged cleanup of a provisional resource.
      * @returns {void}
@@ -399,6 +402,10 @@ class NativeLifecycle extends Base {
 
     /**
      * @summary Releases native binding state while preserving the Group's committed resource ownership.
+     *
+     * Sources release side by side. Each detaches what it keeps from the departed window before its own first
+     * await, so one source's main-thread round trip never holds another's detach past the microtasks of the
+     * disconnect that released them — the App worker destroys whatever a departed window still holds after those.
      * @param {Object} data The generation that actually disconnected.
      * @returns {Promise<void>}
      */
@@ -408,33 +415,73 @@ class NativeLifecycle extends Base {
             data = {...data, releasedWindowId: data.releasedWindowId ?? data.windowId};
             if (!this.isCurrentRelease(data)) return
         }
-        for (const [sourceId, source] of this.sources) {
-            const result   = source.active && await source.effects.unbind?.(data),
-                  retained = result === false || result?.retained === true;
-            if (this.isDestroyed) return;
-            if (data.releasedBinding && !this.isCurrentRelease(data)) return;
-            if (this.isCurrentRelease(data) && typeof result?.awaitingClosure === 'boolean') {
-                data.releasedBinding.awaitingClosure = result.awaitingClosure
-            }
-            const owned = [...source.owners].find(([, entry]) => entry.windowId === data.windowId);
-            const match = owned || [...source.connections].find(([, entry]) => entry.windowId === data.windowId)
-                || [...source.admissions].find(([, entry]) => entry.connectingWindowId === data.windowId || entry.windowId === data.windowId);
-            if (!match) continue;
-            const [workspaceKey, entry] = match, admission = source.admissions.get(workspaceKey),
-                  itemId                = entry.itemId ?? admission?.itemId ?? null;
-            source.connections.delete(workspaceKey);
-            this.clearAdmission(sourceId, workspaceKey, admission);
-            for (const [key, retirement] of source.retirements) {
-                const vessel = retirement.vessel;
-                if (retirement.workspaceKey === workspaceKey && (vessel.generationToken
-                    ? vessel.generationToken === entry.generationToken : vessel.windowName === entry.windowName)) {
-                    retirement.released = true;
-                    source.retirements.delete(key)
-                }
-            }
-            if (owned) source.owners.set(workspaceKey, {...entry, windowId: null});
-            if (source.active && !retained) await source.effects.released?.({data, itemId, workspaceKey, entry, admission, committed: !!owned})
+        await Promise.all(Array.from(this.sources, ([sourceId, source]) => this.releaseSource(sourceId, source, data)))
+    }
+
+    /**
+     * @summary Releases one source's records of the departed window, and hands its item to `released` unless held.
+     * @param {String} sourceId
+     * @param {Object} source
+     * @param {Object} data The generation that actually disconnected.
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async releaseSource(sourceId, source, data) {
+        const result   = source.active && await source.effects.unbind?.(data),
+              retained = result === false || result?.retained === true;
+        if (this.isDestroyed) return;
+        if (data.releasedBinding && !this.isCurrentRelease(data)) return;
+        if (this.isCurrentRelease(data) && typeof result?.awaitingClosure === 'boolean') {
+            data.releasedBinding.awaitingClosure = result.awaitingClosure
         }
+        const owned = [...source.owners].find(([, entry]) => entry.windowId === data.windowId);
+        const match = owned || [...source.connections].find(([, entry]) => entry.windowId === data.windowId)
+            || [...source.admissions].find(([, entry]) => entry.connectingWindowId === data.windowId || entry.windowId === data.windowId);
+        if (!match) return;
+        const [workspaceKey, entry] = match, admission = source.admissions.get(workspaceKey),
+              itemId                = entry.itemId ?? admission?.itemId ?? null;
+        source.connections.delete(workspaceKey);
+        this.clearAdmission(sourceId, workspaceKey, admission);
+        for (const [key, retirement] of source.retirements) {
+            const vessel = retirement.vessel;
+            if (retirement.workspaceKey === workspaceKey && (vessel.generationToken
+                ? vessel.generationToken === entry.generationToken : vessel.windowName === entry.windowName)) {
+                retirement.released = true;
+                source.retirements.delete(key)
+            }
+        }
+        if (owned) source.owners.set(workspaceKey, {...entry, windowId: null});
+        // A held render target, e.g. a reloading window: the same lineage binds again through admission, while
+        // the source's `closed` answer or the lease ending first hands the item to `released` (releaseHeld).
+        if (owned && retained && result?.readmit === true) {
+            const held = {
+                connected      : false, connectingWindowId: null, context: null, gestureToken: null, groupId: this.groupId,
+                generationToken: entry.generationToken ?? data.generationToken, itemId, readmit: true,
+                windowId       : null, windowName: entry.windowName ?? null, workspaceKey};
+            source.admissions.set(workspaceKey, held);
+            result.closed?.then(closed => closed === true && this.releaseHeld(sourceId, workspaceKey, data, held), () => {})
+        }
+        if (source.active && !retained) await source.effects.released?.({data, itemId, workspaceKey, entry, admission, committed: !!owned})
+    }
+
+    /**
+     * @summary Hands a held key's committed item to `released` while its lineage has not bound again: when its
+     * lease ends, or when its source learns the render target is gone for good. Nothing is closed first — a
+     * window that already closed refuses a close, which would strand the item.
+     * @param {String} sourceId
+     * @param {String} workspaceKey
+     * @param {Object} [data={}] The release or lease-expiry envelope `released` receives.
+     * @param {Object} [admission=this.getAdmission(sourceId, workspaceKey)]
+     * @returns {Promise<Boolean>} Whether a held key was released.
+     */
+    async releaseHeld(sourceId, workspaceKey, data={}, admission=this.getAdmission(sourceId, workspaceKey)) {
+        const source = this.sources.get(sourceId);
+        if (!admission?.readmit || admission.connected || admission.connectingWindowId ||
+            source?.admissions.get(workspaceKey) !== admission) return false;
+        this.clearAdmission(sourceId, workspaceKey, admission);
+        source.active && await source.effects.released?.({data, itemId: admission.itemId, workspaceKey,
+            entry: source.owners.get(workspaceKey), admission, committed: source.owners.has(workspaceKey)});
+        return true
     }
 
     /**
@@ -453,6 +500,10 @@ class NativeLifecycle extends Base {
             }
             if (data.releasedBinding && !this.isCurrentRelease(data)) continue;
             const {workspaceKey} = data, admission = source.admissions.get(workspaceKey);
+            if (admission?.readmit) {
+                await this.releaseHeld(sourceId, workspaceKey, data);
+                continue
+            }
             if (!admission || admission.connected) continue;
             const {itemId} = admission, entry = source.owners.get(workspaceKey);
             const vessel   = {...entry, ...admission, windowName: admission.windowName || entry?.windowName};

@@ -1,5 +1,5 @@
 import ComponentColumn      from './Component.mjs';
-import CountryFlagComponent from '../../component/CountryFlag.mjs';
+import CountryFlagComponent from './component/CountryFlag.mjs';
 
 /**
  * @class Neo.grid.column.CountryFlag
@@ -37,8 +37,8 @@ class CountryFlag extends ComponentColumn {
      */
     applyRecordConfigs(config, record) {
         return {
-            countryCode: record[this.dataField],
-            location   : record[this.contentField],
+            countryCode: this.getRecordValue(record),
+            location   : this.getRecordValue(record, this.contentField),
             ...config
         }
     }

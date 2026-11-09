@@ -41,7 +41,7 @@ class Sparkline extends ComponentColumn {
      */
     applyRecordConfigs(config, record) {
         return {
-            values: record[this.dataField],
+            values: this.getRecordValue(record),
             ...config
         }
     }

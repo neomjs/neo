@@ -308,6 +308,25 @@
     padding : 12px;
     position: relative;
 
+    .workstation-popup-guidance {
+        background    : color-mix(in srgb, var(--agent-dock-preview-reject) 14%, var(--workstation-panel-2));
+        border        : 1px solid color-mix(in srgb, var(--agent-dock-preview-reject) 58%, var(--workstation-line));
+        border-radius : 7px;
+        box-shadow    : 0 12px 28px color-mix(in srgb, var(--workstation-ground) 64%, transparent);
+        color         : var(--workstation-ink);
+        font-family   : var(--workstation-font-mono);
+        font-size     : 12px;
+        left          : 50%;
+        line-height   : 1.4;
+        max-width     : min(680px, calc(100% - 32px));
+        padding       : 8px 14px;
+        pointer-events: none;
+        position      : absolute;
+        top           : 16px;
+        transform     : translateX(-50%);
+        z-index       : 20;
+    }
+
     // Persistent drag affordances share this host's local geometry. `position: relative` above is
     // the whole contract this app owes them: the preview and the indicator layer both position
     // themselves against it from the engine sheet. This app used to re-declare the preview's

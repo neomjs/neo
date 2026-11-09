@@ -13,7 +13,7 @@ import {isDescriptor} from '../core/ConfigSymbols.mjs';
  *
  * ### Calculated Fields & Dependencies
  *
- * Fields can dynamically compute their values using a `calculate` function. 
+ * Fields can dynamically compute their values using a `calculate` function.
  * If a calculated field relies on other calculated fields, you **MUST** declare them in the `depends` array.
  *
  * This is critical for performance when the Store operates in "Turbo Mode" (`autoInitRecords: false`).
@@ -46,6 +46,8 @@ class Model extends Base {
          */
         ntype: 'model',
         /**
+         * Field definitions (`{name, type, mapping, defaultValue, calculate, convert, ...}`).
+         * `mapping` supports dot and `[index]` array segments (`items[0].name`, `tags[1]`), preserves falsy leaves (`0`, `false`, `''`), and yields `undefined` when absent so `defaultValue` applies.
          * @member {Object[]|null} fields_
          * @reactive
          */
@@ -117,6 +119,16 @@ class Model extends Base {
     }
 
     /**
+     * @summary Drops the record class cached for this Model, while it is still this Model's, before retiring it.
+     * A record retained past an explicit destroy cannot read its schema anymore; a Store therefore releases the
+     * Model it created instead (release()).
+     */
+    destroy() {
+        RecordFactory.releaseRecordClass(this);
+        super.destroy()
+    }
+
+    /**
      * Finds a field config by a given field name
      * @param {String} name
      * @returns {Object|null} The field config object or null if no match was found
@@ -132,6 +144,25 @@ class Model extends Base {
      */
     getFieldType(name) {
         return this.getField(name)?.type?.toLowerCase() || null
+    }
+
+    /**
+     * @summary Drops the global references that keep this Model reachable, without destroying it.
+     * Records read their schema through the Model that created them and can outlive their Store: a field may
+     * re-resolve a retained record by its key after that Store is gone. The Store that created this Model releases it
+     * when the Store ends or replaces it, and the Model is collected with the last record that still reads it. Each
+     * reference is dropped only while it still names this Model: a successor that reused the id keeps its own.
+     */
+    release() {
+        let me = this;
+
+        RecordFactory.releaseRecordClass(me);
+
+        if (Base.instanceManagerAvailable === true) {
+            Neo.manager.Instance.unregister(me)
+        } else if (Neo.idMap?.[me.id] === me) {
+            delete Neo.idMap[me.id]
+        }
     }
 
     /**

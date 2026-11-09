@@ -133,7 +133,7 @@ class Config {
      */
     notify(newValue, oldValue) {
         for (const id in this.#subscribers) {
-            if (this.#subscribers.hasOwnProperty(id)) {
+            if (Object.hasOwn(this.#subscribers, id)) {
                 const subscriberMap = this.#subscribers[id];
                 for (const [fn, scopeSet] of subscriberMap) {
                     for (const scope of scopeSet) {

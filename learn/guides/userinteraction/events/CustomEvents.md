@@ -142,8 +142,11 @@ class MainViewController extends Controller {
     static config = {
         className: 'Guides.events5.MainViewController'
     }
-    foo(data) {
-        Neo.Main.log({value:data.value})
+
+    // This is a controller lifecycle method run after the controller's view has been constructed
+    onComponentConstructed() {
+        // on() adds the listener procedurally; here the handler is an arrow function
+        this.getReference('nameTextfield').on('change', data => Neo.Main.log({value: data.value}))
     }
 }
 MainViewController = Neo.setupClass(MainViewController);
@@ -160,10 +163,8 @@ class MainView extends Container {
 
         items: [{
             module   : TextField,
-            labelText: 'Name',
-            listeners: {
-                change: 'foo'
-            }
+            reference: 'nameTextfield', // This component can be fetched using this.getReference('nameTextfield')
+            labelText: 'Name'
         }]
     }
 }
@@ -180,7 +181,7 @@ class MainViewController extends Controller {
         className: 'Guides.events6.MainViewController'
     }
     foo(data) {
-        Neo.Main.log('foo' + {value:data.value})
+        Neo.Main.log({value: `foo: ${data.value}`})
     }
 
     // This is a controller lifecycle method run after the controller's view has been constructed

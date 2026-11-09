@@ -1,7 +1,9 @@
 import Base       from '../core/Base.mjs';
 import Observable from '../core/Observable.mjs';
+import Sorter     from './Sorter.mjs';
 
 /**
+ * @summary Predicate rule for filtering `Neo.collection.Base` and `Neo.data.Store` items by property/operator/value or `filterBy`.
  * @class Neo.collection.Filter
  * @extends Neo.core.Base
  * @mixes Neo.core.Observable
@@ -197,15 +199,64 @@ class Filter extends Base {
     }
 
     /**
-     * @summary Builds a scan-local evaluator; typed selection keys are computed once without mutating the Filter.
-     * @returns {Function}
+     * @summary Builds a scan-local evaluator: the configs `isFiltered()` decides by, and a typed selection's keys,
+     * are read once per scan without mutating the Filter.
+     *
+     * Every reactive config read registers an effect dependency, so calling `isFiltered()` per item reads each
+     * config once per item. A subclass that overrides `isFiltered()` gets an evaluator that calls its override.
+     * @returns {Function} `(item, filteredItems, allItems)`, true when the item is filtered out
      * @protected
      */
     createEvaluator() {
-        const keys = !this.disabled && this.operator === 'typedIncluded' && Array.isArray(this.value)
-            ? new Set(this.value.map(Filter.getValueKey)) : null;
+        const me    = this,
+              state = me.#readState(true);
 
-        return (item, filteredItems, allItems) => this.isFiltered(item, filteredItems, allItems, keys)
+        if (me.isFiltered !== Filter.prototype.isFiltered) {
+            return (item, filteredItems, allItems) => me.isFiltered(item, filteredItems, allItems, state.typedKeys)
+        }
+
+        return (item, filteredItems, allItems) => me.#decide(state, item, filteredItems, allItems)
+    }
+
+    /**
+     * @summary Decides one item from configs read once, resolving dotted paths via {@link Neo.collection.Sorter.getValue}.
+     * @param {Object} state
+     * @param {Object} item
+     * @param {Array} filteredItems
+     * @param {Array} allItems
+     * @returns {Boolean} true when the item is filtered out
+     * @private
+     */
+    #decide({disabled, empty, filterBy, operator, property, scope, typedKeys, value}, item, filteredItems, allItems) {
+        if (disabled) {
+            return false
+        }
+
+        if (!item) {
+            return true
+        }
+
+        if (filterBy) {
+            return filterBy.call(scope, {allItems, filteredItems, item, value})
+        }
+
+        if (empty) {
+            return false
+        }
+
+        let filterValue = value,
+            recordValue = Sorter.getValue(item, property);
+
+        if (operator === 'typedIncluded') {
+            return typedKeys ? !typedKeys.has(Filter.getValueKey(recordValue)) : !Filter.typedIncluded(recordValue, filterValue)
+        }
+
+        if (filterValue instanceof Date && recordValue instanceof Date) {
+            filterValue = filterValue.valueOf();
+            recordValue = recordValue.valueOf()
+        }
+
+        return !Filter[operator](recordValue, filterValue)
     }
 
     /**
@@ -246,43 +297,32 @@ class Filter extends Base {
      * @returns {Boolean}
      */
     isFiltered(item, filteredItems, allItems, typedKeys=null) {
-        let me = this,
-            filterValue, recordValue;
+        return this.#decide(this.#readState(false, typedKeys), item, filteredItems, allItems)
+    }
 
-        if (me._disabled) {
-            return false
+    /**
+     * The configs `isFiltered()` decides by, read once.
+     * @param {Boolean} scan true to compute a typed selection's keys for a whole scan
+     * @param {Set|null} [typedKeys=null] Keys a scan computed already
+     * @returns {Object}
+     * @private
+     */
+    #readState(scan, typedKeys=null) {
+        const me       = this,
+              disabled = me._disabled,
+              operator = me._operator,
+              value    = me._value;
+
+        return {
+            disabled,
+            empty    : me.includeEmptyValues && (value === null || Neo.isEmpty(value)),
+            filterBy : me._filterBy,
+            operator,
+            property : me._property,
+            scope    : me.scope || me,
+            typedKeys: typedKeys ?? (scan && !disabled && operator === 'typedIncluded' && Array.isArray(value) ? new Set(value.map(Filter.getValueKey)) : null),
+            value
         }
-
-        if (!item) {
-            return true
-        }
-
-        if (me._filterBy) {
-            return me.filterBy.call(me.scope || me, {
-                allItems,
-                filteredItems,
-                item,
-                value: me._value
-            })
-        }
-
-        if (me.includeEmptyValues && (me._value === null || Neo.isEmpty(me._value))) {
-            return false
-        }
-
-        filterValue = me._value;
-        recordValue = item[me._property];
-
-        if (me._operator === 'typedIncluded') {
-            return typedKeys ? !typedKeys.has(Filter.getValueKey(recordValue)) : !Filter.typedIncluded(recordValue, filterValue)
-        }
-
-        if (filterValue instanceof Date && recordValue instanceof Date) {
-            filterValue = filterValue.valueOf();
-            recordValue = recordValue.valueOf()
-        }
-
-        return !Filter[me._operator](recordValue, filterValue)
     }
 
     /**

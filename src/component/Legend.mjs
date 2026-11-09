@@ -42,19 +42,19 @@ class Legend extends Component {
          */
         _vdom:
         {tag: 'legend', cn:[
-            {vtype: 'text'},
+            {tag: 'i'},
             {vtype: 'text'}
         ]}
     }
 
     /**
-     * Triggered after the iconCls config got changed
+     * @summary Updates the icon element's classes without placing HTML in a text vnode.
      * @param {String} value
      * @param {String} oldValue
      * @protected
      */
     afterSetIconCls(value, oldValue) {
-        this.vdom.cn[0].html = `<i class="neo-legend-icon ${value}"></i>`;
+        this.vdom.cn[0].cls = ['neo-legend-icon', value];
         this.update()
     }
 

@@ -146,24 +146,25 @@ class DeltaUpdates extends Base {
     }
 
     /**
-     * @summary Changes the tag name (nodeName) of an existing HTMLElement in the DOM and returns the replacement node.
-     * This operation is performed by creating a new HTML element with the desired `nodeName`,
-     * preserving attributes, live control properties, and child-node identity from the original `node`,
-     * and then replacing the original `node` with the newly created element within its parent.
+     * @summary Changes the tag name (nodeName) of an existing element in the DOM and returns the replacement node.
+     * This operation is performed by creating a new element with the desired `nodeName` in the original's namespace,
+     * so an SVG element stays an SVG element, preserving attributes, live control properties, and child-node identity
+     * from the original `node`, and then replacing the original `node` with the newly created element within its parent.
      *
-     * @param {HTMLElement} node     The existing DOM HTMLElement whose tag name needs to be changed.
-     * @param {String}      nodeName The new tag name (e.g., 'div', 'span', 'p') for the element.
-     * @returns {HTMLElement|null}
+     * @param {Element} node     The existing DOM element whose tag name needs to be changed.
+     * @param {String}  nodeName The new tag name (e.g., 'div', 'span', 'rect') for the element.
+     * @returns {Element|null}
      */
     changeNodeName(node, nodeName) {
         if (!node) {
             return null
         }
 
-        let {attributes} = node,
-            clone        = document.createElement(nodeName),
-            i            = 0,
-            len          = attributes.length,
+        let {attributes, namespaceURI} = node,
+            isHtml                     = !namespaceURI || namespaceURI === 'http://www.w3.org/1999/xhtml',
+            clone                      = isHtml ? document.createElement(nodeName) : document.createElementNS(namespaceURI, nodeName),
+            i                          = 0,
+            len                        = attributes.length,
             attribute;
 
         for (; i < len; i++) {
@@ -427,6 +428,7 @@ class DeltaUpdates extends Base {
                 newNode = render.DomApiRenderer.createDomTree({
                     index           : -1,
                     isRoot          : true,
+                    namespace       : render.DomApiRenderer.getChildNamespace(parentNode),
                     parentNode      : null, // detached
                     postMountUpdates: localPostMountUpdates,
                     vnode
@@ -500,6 +502,7 @@ class DeltaUpdates extends Base {
             const
                 fragment            = document.createDocumentFragment(),
                 {render}            = Neo.main,
+                namespace           = NeoConfig.useDomApiRenderer ? render.DomApiRenderer.getChildNamespace(parentNode) : null,
                 allPostMountUpdates = [];
 
             batch.forEach(delta => {
@@ -510,6 +513,7 @@ class DeltaUpdates extends Base {
                     node = render.DomApiRenderer.createDomTree({
                         index           : -1,
                         isRoot          : true,
+                        namespace,
                         parentNode      : null, // detached
                         postMountUpdates: localPostMountUpdates,
                         vnode           : delta.vnode

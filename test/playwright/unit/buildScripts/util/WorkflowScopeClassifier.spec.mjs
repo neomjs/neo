@@ -1,4 +1,5 @@
 import { test, expect }  from '@playwright/test';
+import { execFileSync, spawnSync } from 'node:child_process';
 import fs                from 'node:fs';
 import path              from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -58,6 +59,24 @@ const __dirname     = path.dirname(fileURLToPath(import.meta.url)),
 const readWorkflow = name => yaml.load(fs.readFileSync(path.join(workflowsDir, name), 'utf8'));
 
 /**
+ * @summary A minimal `package-lock.json` (v3 shape) whose root depends on the given packages.
+ * @param {Object} deps Package name to resolved version.
+ * @returns {Object}
+ */
+const lockWith = deps => ({
+    name           : 'neo.mjs',
+    lockfileVersion: 3,
+    packages       : {
+        ''   : {name: 'neo.mjs', devDependencies: {...deps}},
+        ...Object.fromEntries(Object.entries(deps).map(([name, version]) => [`node_modules/${name}`, {
+            version,
+            resolved : `https://registry.npmjs.org/${name}/-/${name}-${version}.tgz`,
+            integrity: `sha512-${name}-${version}`
+        }]))
+    }
+});
+
+/**
  * The reusable workflow that owns the predicate. Named once so an arm asserting the classifier's
  * SHAPE and an arm executing its SCRIPT cannot end up reading two different files.
  * @type {String}
@@ -68,7 +87,7 @@ const CLASSIFIER = 'classify-test-scope.yml';
  * Every test workflow and the job in it that calls {@link CLASSIFIER}.
  * @type {String[][]}
  */
-const CALLERS = [['test.yml', 'changes'], ['test-e2e.yml', 'changes'], ['test-e2e-brain.yml', 'changes']];
+const CALLERS = [['test.yml', 'changes'], ['test-e2e.yml', 'changes']];
 
 /**
  * @summary The committed classifier source, read from the workflow on every call.
@@ -98,6 +117,8 @@ const scopeScript = () =>
  * @param {String}  [config.forkOwner] When set, the PR head is a fork owned by this login.
  * @param {Boolean} [config.forkUnreadable] Deleted or private fork — even its own coordinates refuse.
  * @param {String}  [config.liveHead] The head SHA `pulls.get` reports, to drive the stale-head guard.
+ * @param {Object}  [config.baseLock] `package-lock.json` content at the base ref.
+ * @param {Object}  [config.headLock] `package-lock.json` content at the head ref; defaults to the base lock.
  * @returns {Object} `{calls, context, core, github, info, outputs}`
  */
 const createRuntime = ({
@@ -105,24 +126,31 @@ const createRuntime = ({
     basePkg         = {dependencies: {leftpad: '1.0.0'}, scripts: {'build:all': 'a'}},
     headPkg         = {dependencies: {leftpad: '1.0.0'}, scripts: {'build:all': 'a', 'ai:new-script': 'b'}},
     headPkgRaw      = null,
+    baseLock        = lockWith({'neo-agent-skills': '0.1.86', leftpad: '1.0.0'}),
+    headLock        = baseLock,
     baseSha         = 'base-sha',
     getContentError = null,
     forkOwner       = null,
     forkUnreadable  = false,
     liveHead        = 'head-sha',
-    eventName       = 'pull_request'
+    eventName       = 'pull_request',
+    // This workflow's completed push runs, newest first, as `listWorkflowRuns` returns them
+    runs            = [{ id: 1, conclusion: 'success', head_sha: 'before-sha' }],
+    runsError       = null
 } = {}) => {
     const outputs = new Map(),
           info    = [],
           notices = [],
-          calls   = {getContent: 0, listFiles: 0, pullsGet: 0, contentCalls: []},
+          summary = [],
+          calls   = {basehead: null, getContent: 0, listFiles: 0, pullsGet: 0, contentCalls: []},
           core    = {
               info     : value => info.push(value),
               notice   : value => notices.push(value),
               setOutput: (name, value) => outputs.set(name, value),
               summary  : {
-                  addHeading() { return this; },
-                  addRaw()     { return this; },
+                  addHeading(text)   { summary.push(text); return this; },
+                  addRaw(text)       { summary.push(text); return this; },
+                  addCodeBlock(text) { summary.push(text); return this; },
                   async write() {}
               }
           },
@@ -138,22 +166,34 @@ const createRuntime = ({
                           return { data: { head: { sha: liveHead } } };
                       }
                   },
+                  actions: {
+                      getWorkflowRun  : async() => ({ data: { workflow_id: 42, head_branch: 'dev' } }),
+                      listWorkflowRuns: async() => {
+                          if (runsError) throw new Error(runsError);
+                          return { data: { workflow_runs: runs } };
+                      }
+                  },
                   repos: {
                       // A push compares its two commits rather than listing a pull request's files
-                      compareCommitsWithBasehead: async() => ({ data: { files: files.map(filename => ({ filename })) } }),
-                      getContent                : async({ owner, repo, ref }) => {
+                      compareCommitsWithBasehead: async({ basehead }) => {
+                          calls.basehead = basehead;
+                          return { data: { files: files.map(filename => ({ filename })) } };
+                      },
+                      getContent                : async({ owner, repo, path: filePath, ref }) => {
+                          const isLock = filePath === 'package-lock.json';
+
                           calls.getContent++;
-                          calls.contentCalls.push(`${owner}/${repo}@${ref}`);
+                          calls.contentCalls.push(`${owner}/${repo}@${ref}${isLock ? ':lock' : ''}`);
                           if (getContentError) throw new Error(getContentError);
                           if (ref === baseSha) {
-                              const raw = JSON.stringify(basePkg);
+                              const raw = JSON.stringify(isLock ? baseLock : basePkg);
                               return { data: { content: Buffer.from(raw).toString('base64') } };
                           }
                           // A fork head SHA is absent from the base repo; a deleted or private
                           // fork refuses the read even at its own coordinates.
                           if (forkOwner && owner !== forkOwner) throw new Error(`Not Found: ${ref}`);
                           if (forkUnreadable) throw new Error(`Not Found: ${owner}/${repo}`);
-                          const raw = headPkgRaw ?? JSON.stringify(headPkg);
+                          const raw = isLock ? JSON.stringify(headLock) : headPkgRaw ?? JSON.stringify(headPkg);
                           return { data: { content: Buffer.from(raw).toString('base64') } };
                       }
                   }
@@ -161,6 +201,7 @@ const createRuntime = ({
           },
           context = {
               eventName,
+              runId    : 7,
               payload  : {
                   after       : 'after-sha',
                   before      : 'before-sha',
@@ -175,7 +216,7 @@ const createRuntime = ({
               repo: { owner: 'neomjs', repo: 'neo' }
           };
 
-    return { calls, context, core, github, info, notices, outputs };
+    return { calls, context, core, github, info, notices, outputs, summary };
 };
 
 const executeScript = async(script, runtime) => {
@@ -188,6 +229,11 @@ const executeScript = async(script, runtime) => {
 
 const outputsOf = runtime => Object.fromEntries(runtime.outputs);
 
+/** @summary Keeps the exclusion tripwire while allowing only the complete move CLI reference executed by E2E. */
+const reachesExcludedBuildScript = code => /buildScripts\/(create|helpers|release)\//.test(
+    code.replace(/(['"`])buildScripts\/create\/move\.mjs\1/g, '')
+);
+
 test.describe('Tests scope classifier — the outputs the changes job actually declares', () => {
 
     test('the job declares exactly the suites this repository runs', () => {
@@ -198,7 +244,34 @@ test.describe('Tests scope classifier — the outputs the changes job actually d
         // nobody asserted.
         const outputs = readWorkflow(CLASSIFIER).jobs.classify.outputs;
 
-        expect(Object.keys(outputs).sort()).toEqual(['e2e_brain_tier', 'run_components', 'run_e2e', 'run_unit', 'skip_reason']);
+        expect(Object.keys(outputs).sort()).toEqual(['e2e_boundary_report', 'e2e_engine_matrix', 'e2e_engine_paths', 'e2e_engine_shards',
+            'e2e_selection', 'e2e_selection_report', 'run_components', 'run_e2e', 'run_unit', 'skip_reason']);
+    });
+
+    test('a pull request\'s e2e selection runs only for a caller that asks, and its tier verdicts win', async () => {
+        // The selection narrows what the boundary admitted, so it reads exactly those files, and it needs a checkout
+        // only where it runs
+        const classifier = readWorkflow(CLASSIFIER),
+              call       = classifier.on?.workflow_call ?? classifier[true].workflow_call,
+              {outputs}  = classifier.jobs.classify,
+              guarded    = classifier.jobs.classify.steps.filter(step => String(step.if).includes('inputs.select_e2e'));
+
+        expect(call.inputs.select_e2e).toEqual(expect.objectContaining({type: 'boolean', default: false}));
+        expect(guarded.map(step => step.uses ?? step.id)).toEqual(['actions/checkout@v7', 'actions/setup-node@v7', 'select']);
+        guarded.forEach(step => expect(String(step.if)).toContain("github.event_name == 'pull_request'"));
+        expect(guarded.at(-1).run).toContain('node buildScripts/util/e2eCiSelection.mjs --select | tee -a "$GITHUB_OUTPUT"');
+        expect(guarded.at(-1).run, 'a failed selection fails the step, although tee succeeds').toContain('set -o pipefail');
+
+        expect(outputs.run_e2e).toBe('${{ steps.select.outputs.run_e2e || steps.scope.outputs.run_e2e }}');
+
+        const runtime = createRuntime({ files: ['src/grid/Body.mjs', 'learn/blog/post.md', '.github/workflows/test.yml'] });
+
+        await executeScript(scopeScript(), runtime);
+
+        const files = JSON.parse(outputsOf(runtime).e2e_files);
+
+        expect(files).toEqual(['src/grid/Body.mjs']);
+        expect(readWorkflow('test-e2e.yml').jobs.changes.with).toEqual({select_e2e: true});
     });
 
     test('every job output is re-declared to callers', () => {
@@ -298,33 +371,174 @@ test.describe('Tests scope classifier — the outputs the changes job actually d
         expect(Math.min(...sNum), 'the gate test-step ceiling is unchanged').toBe(5);
     });
 
-    test('the e2e job consumes BOTH gates on every step that costs anything', () => {
-        // `test.yml` resolves its flag once into `matrix.run`; the single-job e2e pipeline has no
-        // matrix to hang it on, so each step carries the conditions itself. An ungated provisioning
-        // step would spend the runner these gates exist to stop spending — and would do it quietly,
-        // since the job still reports green.
-        //
-        // Two conditions, not one, and the second is the rerun boundary: the classifier is a
-        // PREREQUISITE, and re-running a failed job replays a successful prerequisite's output
-        // rather than recomputing it. Without a job-local head check, a rerun can certify a tree
-        // the PR has already moved past.
-        const steps = readWorkflow('test-e2e.yml').jobs['e2e-engine'].steps,
-              // The head probe computes the answer, so it cannot depend on it; the skip step is
-              // gated on the inverse and reports the reason. Every OTHER step spends the runner.
-              exempt   = ['Verify current pull-request head', 'Skip e2e (engine tier)'],
-              expensive = steps.filter(step => !exempt.includes(step.name)),
-              ungated  = expensive.filter(step => {
-                  const condition = String(step.if || '');
+    /**
+     * Every sharded tier, with the names its gate is held to. A matrix skipped by a job-level `if:`
+     * reports one check under its unexpanded name, never one per shard. So a sharded tier can start no
+     * runner when it is ruled out only if a gate reports the tier's one required context.
+     * @type {Object[]}
+     */
+    const SHARDED_TIERS = [{
+        workflow: 'test-e2e.yml',
+        job     : 'e2e-engine',
+        gate    : 'e2e-engine-gate',
+        context : 'e2e-engine',
+        output  : 'run_e2e',
+        verdict : 'RUN_E2E',
+        skipStep: 'Skip e2e (engine tier)',
+        jobIf   : "${{ needs.changes.outputs.run_e2e == 'true' }}"
+    }, {
+        workflow: 'test.yml',
+        job     : 'components',
+        gate    : 'components-gate',
+        context : 'components',
+        output  : 'run_components',
+        verdict : 'RUN_COMPONENTS',
+        skipStep: 'Skip components tests',
+        // A dispatch probe of another suite rules the tier out as well.
+        jobIf   : "${{ needs.changes.outputs.run_components == 'true' && (github.event_name != 'workflow_dispatch' || inputs.suite == '' || inputs.suite == 'components') }}"
+    }];
 
-                  return !condition.includes('run_e2e') || !condition.includes('steps.head.outputs.current');
-              });
+    for (const tier of SHARDED_TIERS) {
+        test(`a ruled-out ${tier.context} tier starts no shard, and a moved head spends nothing on a rerun`, () => {
+            // Two gates at two levels. The classifier's verdict gates the JOB, so an irrelevant diff
+            // never provisions a runner. The head check gates every costly STEP, because re-running a
+            // failed job replays the classifier's output instead of recomputing it, so without a
+            // job-local head check a rerun could certify a tree the PR has already moved past.
+            const job   = readWorkflow(tier.workflow).jobs[tier.job],
+                  steps = job.steps,
+                  // The head probe computes the answer, so it cannot depend on it; the skip step is
+                  // gated on the inverse and reports the reason. Every OTHER step spends the runner.
+                  exempt    = ['Verify current pull-request head', tier.skipStep],
+                  expensive = steps.filter(step => !exempt.includes(step.name)),
+                  ungated   = expensive.filter(step => !String(step.if || '').includes('steps.head.outputs.current'));
 
-        expect(ungated.map(step => step.name)).toEqual([]);
+            expect(String(job.if)).toBe(tier.jobIf);
+            expect(ungated.map(step => step.name)).toEqual([]);
 
-        // The filters above pass vacuously on an empty job, and `exempt` names steps by string:
-        // a rename would silently exempt nothing and shrink `expensive` to zero.
-        expect(expensive.length).toBeGreaterThan(10);
-        expect(steps.map(step => step.name)).toEqual(expect.arrayContaining(exempt));
+            // The filters above pass vacuously on an empty job, and `exempt` names steps by string:
+            // a rename would silently exempt nothing and shrink `expensive` to zero.
+            expect(expensive.length).toBeGreaterThan(10);
+            expect(steps.map(step => step.name)).toEqual(expect.arrayContaining(exempt));
+        });
+
+        test(`the required ${tier.context} context passes a skipped tier only when the classifier ruled it out`, () => {
+            // Skipped shards are what a ruled-out tier looks like, and also what a FAILED classifier
+            // leaves behind. The gate must tell them apart, or a broken classifier reads as an
+            // irrelevant diff and the required context goes green on a run that tested nothing.
+            const gate = readWorkflow(tier.workflow).jobs[tier.gate],
+                  step = gate.steps[0];
+
+            expect(gate.name).toBe(tier.context);
+            expect(gate.needs).toEqual(['changes', tier.job]);
+            expect(String(gate.if)).toContain('always()');
+            expect(step.env).toEqual({
+                CLASSIFIER    : '${{ needs.changes.result }}',
+                [tier.verdict]: `\${{ needs.changes.outputs.${tier.output} }}`,
+                SHARDS        : `\${{ needs.${tier.job}.result }}`,
+                REASON        : '${{ needs.changes.outputs.skip_reason }}'
+            });
+
+            // Executed, not pattern-matched: the script runs under `bash -e`, as GitHub runs it. Only an
+            // explicit `false` from a successful classifier may pass skipped shards; an empty or
+            // unknown verdict is a missing answer, and must fail like a failed classifier does.
+            const gateExit = (CLASSIFIER, verdict, SHARDS) => spawnSync('bash', ['-e', '-c', step.run], {
+                env: {...process.env, CLASSIFIER, [tier.verdict]: verdict, SHARDS, REASON: 'docs only', GITHUB_STEP_SUMMARY: '/dev/null'}
+            }).status;
+
+            expect(gateExit('success',   'false',  'skipped'), 'ruled out').toBe(0);
+            expect(gateExit('success',   'true',   'success'), 'ran green').toBe(0);
+            expect(gateExit('failure',   'false',  'skipped'), 'classifier failed').toBe(1);
+            expect(gateExit('cancelled', '',       'skipped'), 'classifier cancelled').toBe(1);
+            expect(gateExit('success',   'true',   'failure'), 'a shard failed').toBe(1);
+            expect(gateExit('success',   'true',   'skipped'), 'admitted, yet nothing ran').toBe(1);
+            expect(gateExit('success',   'false',  'success'), 'ruled out, yet shards ran').toBe(1);
+            expect(gateExit('success',   '',       'skipped'), 'empty verdict').toBe(1);
+            expect(gateExit('success',   'maybe',  'skipped'), 'unknown verdict').toBe(1);
+        });
+    }
+
+});
+
+test.describe('Tests scope classifier — the dev push range', () => {
+
+    test('a dev push diffs from its workflow\'s last completed, non-cancelled run, not from before', async () => {
+        // A newer push cancels the older run, so `before` would leave the cancelled push's commits
+        // in no classified range. A cancelled run classified nothing, so it is skipped as a base.
+        const runtime = createRuntime({
+            eventName: 'push',
+            files    : ['src/grid/Body.mjs'],
+            runs     : [
+                { id: 3, conclusion: 'cancelled', head_sha: 'cancelled-sha' },
+                { id: 2, conclusion: 'failure',   head_sha: 'completed-sha' }
+            ]
+        });
+
+        await executeScript(scopeScript(), runtime);
+
+        expect(runtime.calls.basehead).toBe('completed-sha...after-sha');
+        expect(outputsOf(runtime).run_e2e).toBe('true');
+    });
+
+    test('a push reads package.json at the base its files were diffed from, not at before', async () => {
+        // The cancelled push bumped a dependency; the surviving push touched nothing in package.json.
+        // Read at `before`, both sides would match and the bump would be listed but never compared.
+        const runtime = createRuntime({
+            eventName: 'push',
+            baseSha  : 'completed-sha',
+            headPkg  : {dependencies: {leftpad: '1.0.1'}, scripts: {'build:all': 'a'}},
+            runs     : [
+                { id: 3, conclusion: 'cancelled', head_sha: 'cancelled-sha' },
+                { id: 2, conclusion: 'success',   head_sha: 'completed-sha' }
+            ]
+        });
+
+        await executeScript(scopeScript(), runtime);
+
+        expect(runtime.calls.contentCalls).toContain('neomjs/neo@completed-sha');
+        expect(runtime.calls.contentCalls).not.toContain('neomjs/neo@before-sha');
+        expect(outputsOf(runtime)).toMatchObject({ run_components: 'true', run_e2e: 'true' });
+    });
+
+    test('a push never diffs from its own head', async () => {
+        const runtime = createRuntime({
+            eventName: 'push',
+            files    : ['src/grid/Body.mjs'],
+            runs     : [
+                { id: 5, conclusion: 'success', head_sha: 'after-sha' },
+                { id: 4, conclusion: 'success', head_sha: 'previous-sha' }
+            ]
+        });
+
+        await executeScript(scopeScript(), runtime);
+
+        expect(runtime.calls.basehead).toBe('previous-sha...after-sha');
+    });
+
+    test('no completed run, or a failed lookup, runs every tier and says why', async () => {
+        const none   = createRuntime({eventName: 'push', files: ['learn/guides/x.md'], runs: [{ id: 9, conclusion: 'cancelled', head_sha: 'x' }]}),
+              failed = createRuntime({eventName: 'push', files: ['learn/guides/x.md'], runsError: 'HTTP 403'}),
+              full   = {run_unit: 'true', run_components: 'true', run_e2e: 'true'};
+
+        await executeScript(scopeScript(), none);
+        await executeScript(scopeScript(), failed);
+
+        expect(outputsOf(none)).toEqual(expect.objectContaining(full));
+        expect(outputsOf(none).skip_reason).toContain('no completed, non-cancelled push run');
+        expect(outputsOf(failed)).toEqual(expect.objectContaining(full));
+        expect(outputsOf(failed).skip_reason).toContain('could not be read: HTTP 403');
+        // Fail toward running: no comparison against a guessed base
+        expect(none.calls.basehead).toBeNull();
+        expect(failed.calls.basehead).toBeNull();
+    });
+
+    test('every caller grants its classifier job actions: read alongside what it already read', () => {
+        for (const file of ['test.yml', 'test-e2e.yml']) {
+            expect(readWorkflow(file).jobs.changes.permissions, file).toEqual({
+                actions         : 'read',
+                contents        : 'read',
+                'pull-requests' : 'read'
+            });
+        }
     });
 
 });
@@ -397,13 +611,59 @@ test.describe('Tests scope classifier — package.json change-kind split', () =>
         }
     });
 
-    test('a package-lock.json-only change runs components without a content read', async () => {
-        const runtime = createRuntime({ files: ['package-lock.json'] });
+    // The lock gets the same both-refs read as package.json: a change confined to the
+    // browser-unreachable packages admits neither browser tier, and anything else, including an
+    // unreadable lock, admits both. Its path alone no longer decides.
+    test('a lock change beyond the browser-unreachable packages runs components and e2e', async () => {
+        const runtime = createRuntime({
+            files   : ['package-lock.json'],
+            headLock: lockWith({'neo-agent-skills': '0.1.86', leftpad: '1.0.1'})
+        });
 
         await executeScript(scopeScript(), runtime);
 
-        expect(runtime.calls.getContent).toBe(0); // the lock atom needs no content read
-        expect(outputsOf(runtime)).toMatchObject({ run_components: 'true' });
+        expect(runtime.calls.contentCalls).toEqual(['neomjs/neo@base-sha:lock', 'neomjs/neo@head-sha:lock']);
+        expect(outputsOf(runtime)).toMatchObject({ run_components: 'true', run_e2e: 'true' });
+    });
+
+    test('a neo-agent-skills bump alone runs neither browser tier, and still runs unit', async () => {
+        // A skills bump's whole diff: the package.json specifier, the lock root's specifier and the
+        // lock's own `node_modules/neo-agent-skills` entry, nothing else.
+        const runtime = createRuntime({
+            files   : ['package.json', 'package-lock.json'],
+            basePkg : {devDependencies: {'neo-agent-skills': '0.1.84', leftpad: '1.0.0'}},
+            headPkg : {devDependencies: {'neo-agent-skills': '0.1.86', leftpad: '1.0.0'}},
+            baseLock: lockWith({'neo-agent-skills': '0.1.84', leftpad: '1.0.0'}),
+            headLock: lockWith({'neo-agent-skills': '0.1.86', leftpad: '1.0.0'})
+        });
+
+        await executeScript(scopeScript(), runtime);
+
+        expect(outputsOf(runtime)).toMatchObject({ run_components: 'false', run_e2e: 'false', run_unit: 'true' });
+    });
+
+    test('a neo-agent-skills bump that also moves a shared dependency runs both browser tiers', async () => {
+        // The discriminating case: the skills package depends on `acorn` and `semver`, which the
+        // build chain shares. A bump that moves one of them changes what the tiers install.
+        const runtime = createRuntime({
+            files   : ['package.json', 'package-lock.json'],
+            basePkg : {devDependencies: {'neo-agent-skills': '0.1.84'}},
+            headPkg : {devDependencies: {'neo-agent-skills': '0.1.86'}},
+            baseLock: lockWith({'neo-agent-skills': '0.1.84', acorn: '8.18.0'}),
+            headLock: lockWith({'neo-agent-skills': '0.1.86', acorn: '8.19.0'})
+        });
+
+        await executeScript(scopeScript(), runtime);
+
+        expect(outputsOf(runtime)).toMatchObject({ run_components: 'true', run_e2e: 'true' });
+    });
+
+    test('an unreadable package-lock.json fails TOWARD running', async () => {
+        const runtime = createRuntime({ files: ['package-lock.json'], getContentError: 'getContent unavailable' });
+
+        await executeScript(scopeScript(), runtime);
+
+        expect(outputsOf(runtime)).toMatchObject({ run_components: 'true', run_e2e: 'true' });
     });
 
     test('an undeterminable package.json diff fails TOWARD running (fetch failure)', async () => {
@@ -511,6 +771,20 @@ test.describe('Tests scope classifier — unit admission on docs and content pat
         }
     });
 
+    test('a blog post and its portal registration run unit and no browser tier', async () => {
+        // A blog post's whole diff: the post and its registration in portal data. That data is
+        // unit-guarded content which no e2e spec, fixture or config reads.
+        const runtime = createRuntime({ files: ['learn/blog/persistent-memory-for-ai-coding-agents.md', 'apps/portal/resources/data/blog.json'] });
+
+        await executeScript(scopeScript(), runtime);
+
+        expect(outputsOf(runtime)).toMatchObject({
+            run_components: 'false',
+            run_e2e       : 'false',
+            run_unit      : 'true'
+        });
+    });
+
     test('a content path outside the guarded families stays docs-only', async () => {
         // The discriminator for the arm above: `.github/` markdown is docs-only, and only the
         // release notes lift it. Without this, a `requiresUnitForContent` that returned true for
@@ -585,7 +859,7 @@ test.describe('Tests scope classifier — unavailable diffs', () => {
 
 });
 
-test.describe('Tests scope classifier — the Brain-gated tier never skips', () => {
+test.describe('Tests scope classifier — a ruled-out e2e tier shows why', () => {
 
     /** @summary Runs the committed classifier and returns its outputs. @param {Object} options @returns {Promise<Object>} */
     const classify = async options => {
@@ -596,38 +870,47 @@ test.describe('Tests scope classifier — the Brain-gated tier never skips', () 
         return outputsOf(runtime)
     };
 
-    test('a change inside the E2E impact boundary runs the full tier', async () => {
-        // Grid, the AI client and the Neural Link fixture, specs and config each sit inside the boundary
-        for (const file of ['src/grid/Body.mjs', 'src/ai/client/DockService.mjs', 'test/playwright/fixtures.mjs',
-            'test/playwright/e2e/grid/BigDataNL.spec.mjs', 'test/playwright/playwright.config.e2e.mjs']) {
-            expect((await classify({ files: [file] })).e2e_brain_tier, file).toBe('full');
-        }
+    test('the boundary report names each changed file and the rule that left it out', async () => {
+        // A misclassified pull request runs no engine shard. The report the classifier prints makes the
+        // misclassification visible on the PR that carries it.
+        const outputs = await classify({
+            files   : ['learn/blog/post.md', 'apps/portal/resources/data/blog.json', 'buildScripts/create/class.mjs',
+                       'test/playwright/unit/core/Base.spec.mjs', 'package-lock.json'],
+            baseLock: lockWith({'neo-agent-skills': '0.1.84'}),
+            headLock: lockWith({'neo-agent-skills': '0.1.86'})
+        });
+
+        expect(outputs.run_e2e).toBe('false');
+        expect(outputs.e2e_boundary_report.split('\n')).toEqual([
+            'learn/blog/post.md: out (docs or content)',
+            'apps/portal/resources/data/blog.json: out (portal blog registry, read only on the news route)',
+            'buildScripts/create/class.mjs: out (buildScripts outside the e2e launch chain)',
+            'test/playwright/unit/core/Base.spec.mjs: out (no e2e rule matches)',
+            'package-lock.json: out (unchanged beyond browser-unreachable packages)'
+        ]);
+        expect((await classify({ files: ['src/grid/Body.mjs'] })).e2e_boundary_report).toBe('src/grid/Body.mjs: in');
     });
 
-    test('an edit to the Brain-gated workflow alone runs its full tier, but not the engine tier', async () => {
-        const outputs = await classify({ files: ['.github/workflows/test-e2e-brain.yml'] });
+    test('a ruled-out tier writes its reason and each file\'s boundary rule to the classifier summary', async () => {
+        // No shard runs to print it, so the classifier is where a misclassification must show.
+        const runtime  = createRuntime({files: ['learn/blog/post.md', 'apps/portal/resources/data/blog.json']}),
+              admitted = createRuntime({files: ['src/grid/Body.mjs']});
 
-        expect(outputs.e2e_brain_tier).toBe('full');
-        expect(outputs.run_e2e, 'the engine tier keeps its own boundary').toBe('false');
+        await executeScript(scopeScript(), runtime);
+        await executeScript(scopeScript(), admitted);
+
+        expect(outputsOf(runtime).run_e2e).toBe('false');
+        expect(runtime.summary).toContain('E2E tier ruled out');
+        expect(runtime.summary.join('\n')).toContain('apps/portal/resources/data/blog.json: out (portal blog registry');
+        expect(admitted.summary).not.toContain('E2E tier ruled out');
     });
 
-    test('a docs-only pull request still runs the smoke subset', async () => {
-        expect((await classify({ files: ['learn/guides/testing/WhiteboxE2E.md'] })).e2e_brain_tier).toBe('smoke');
-    });
+    test('no classifier output, input or step names a Brain tier any more', () => {
+        // No CI test job provisions a Brain: the specs that need one run only locally
+        const source = fs.readFileSync(path.join(workflowsDir, CLASSIFIER), 'utf8');
 
-    test('a push runs the full tier whatever it changed', async () => {
-        const outputs = await classify({ eventName: 'push', files: ['learn/guides/testing/WhiteboxE2E.md'] });
-
-        expect(outputs.run_e2e, 'the push diff was classified, not treated as unavailable').toBe('false');
-        expect(outputs.e2e_brain_tier).toBe('full');
-    });
-
-    test('an unavailable diff fails toward the full tier', async () => {
-        expect((await classify({ files: [] })).e2e_brain_tier).toBe('full');
-    });
-
-    test('a superseded attempt runs only the smoke subset', async () => {
-        expect((await classify({ files: ['src/grid/Body.mjs'], liveHead: 'moved-on-sha' })).e2e_brain_tier).toBe('smoke');
+        expect(source, 'control: the source was read').toContain('run_e2e');
+        expect(source).not.toMatch(/e2e_brain|brain_sha|resolve_brain_tip|neo-agent-brain/)
     });
 
 });
@@ -667,7 +950,11 @@ test.describe('Tests scope classifier — the e2e engine tier predicate', () => 
         {file: 'test/playwright/util/RmaHelpers.mjs',                why: 'imported by the shared fixtures every spec builds on'},
         {file: 'test/playwright/e2e/globalSetup.mjs',                why: 'the first half of the tier\'s own webServer.command'},
         {file: 'buildScripts/webpack/webpack.server.config.mjs',     why: 'the server `server-start` launches for the tier to drive'},
-        {file: 'buildScripts/util/developmentThemeAssets.mjs',       why: 'builds the theme assets the run serves'}
+        {file: 'buildScripts/util/developmentThemeAssets.mjs',       why: 'builds the theme assets the run serves'},
+        // Runtime reach, which no import scan sees: the portal's Seo service fetches this on every
+        // route change, and a Docs spec's browser setup executes the docs generator
+        {file: 'apps/portal/resources/data/seo.json',                why: 'fetched by apps/portal/service/Seo.mjs on every portal route'},
+        {file: 'buildScripts/docs/generateDocsJson.mjs',             why: 'executed by a Docs e2e spec\'s browser setup'}
     ];
 
     for (const {file, why} of e2eRelevant) {
@@ -679,6 +966,85 @@ test.describe('Tests scope classifier — the e2e engine tier predicate', () => 
             expect(outputsOf(runtime), why).toMatchObject({ run_e2e: 'true' });
         });
     }
+
+    test('the move CLI admits the e2e tier through the shared boundary', async () => {
+        for (const file of ['buildScripts/create/move.mjs', 'buildScripts\\create\\move.mjs']) {
+            const runtime = createRuntime({files: [file]});
+
+            await executeScript(scopeScript(), runtime);
+
+            expect(outputsOf(runtime), 'SourceMoveWorkspaceNL executes this entry').toMatchObject({
+                run_e2e            : 'true', run_components: 'false', run_unit: 'true',
+                e2e_boundary_report: 'buildScripts/create/move.mjs: in'
+            });
+        }
+    });
+
+    test('the move CLI exception does not admit sibling names, suffixes or directory prefixes', async () => {
+        for (const file of ['buildScripts/create/move-other.mjs', 'buildScripts/create/move.mjs.bak',
+            'buildScripts/create/move.mjs/child.mjs', 'buildScripts/helpers/move.mjs', 'buildScripts/release/move.mjs']) {
+            const runtime = createRuntime({files: [file]});
+
+            await executeScript(scopeScript(), runtime);
+
+            expect(outputsOf(runtime), file).toMatchObject({run_e2e: 'false'});
+        }
+    });
+
+    test('the script reachability tripwire exempts only a complete quoted move entry', () => {
+        for (const quote of ["'", '"', '`']) {
+            expect(reachesExcludedBuildScript(`path.join(engineRoot, ${quote}buildScripts/create/move.mjs${quote})`)).toBe(false);
+        }
+        for (const script of ['buildScripts/create/move-other.mjs', 'buildScripts/create/move.mjs.bak',
+            'buildScripts/create/move.mjs/child.mjs', 'buildScripts/create/move.mjs${suffix}',
+            'buildScripts/create/class.mjs', 'buildScripts/helpers/watchThemes.mjs', 'buildScripts/release/publish.mjs']) {
+            expect(reachesExcludedBuildScript(`path.join(engineRoot, '${script}')`), script).toBe(true);
+        }
+        expect(reachesExcludedBuildScript("const allowed = 'buildScripts/create/move.mjs'; const excluded = 'buildScripts/create/class.mjs';"))
+            .toBe(true);
+    });
+
+    test('paths outside the launch chain do NOT run the tier; a new buildScripts directory does', async () => {
+        // Deny-listed rather than allow-listed: the portal's blog registry, read only on a route no
+        // e2e spec opens, and the `buildScripts/` directories no e2e code imports or executes. Every
+        // other portal data file and a directory that does not exist yet must still admit the tier.
+        for (const file of ['apps/portal/resources/data/blog.json', 'buildScripts/create/class.mjs',
+            'buildScripts/helpers/watchThemes.mjs', 'buildScripts/release/publish.mjs']) {
+            const runtime = createRuntime({ files: [file] });
+
+            await executeScript(scopeScript(), runtime);
+            expect(outputsOf(runtime), file).toMatchObject({ run_e2e: 'false' });
+        }
+
+        for (const file of ['apps/portal/view/Viewport.mjs', 'buildScripts/build/themes.mjs', 'buildScripts/newtool/index.mjs']) {
+            const runtime = createRuntime({ files: [file] });
+
+            await executeScript(scopeScript(), runtime);
+            expect(outputsOf(runtime), file).toMatchObject({ run_e2e: 'true' });
+        }
+    });
+
+    test('the exclusions hold only while no e2e code reaches what they exclude', () => {
+        // Each exclusion rests on a reachability fact, and a fact can stop being true without anyone
+        // touching the classifier. These reds name the exclusion to revisit when that happens.
+        // `blog.json` is read only by the lazily loaded news/blog view, which another news tab never
+        // instantiates (`#/news/videos` holds only the Videos store); the excluded `buildScripts/`
+        // directories are neither imported nor executed, except the exact move CLI entry exercised
+        // by SourceMoveWorkspaceNL. Removing that literal must not hide other references in its file.
+        // The e2e side of `test/playwright/`, by the classifier's own support rule: not the unit or
+        // component spec trees, except the component harness apps the e2e specs navigate
+        const e2eCode = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', 'test/playwright'], {cwd: repoRoot, encoding: 'utf8'})
+                  .trim().split('\n')
+                  .filter(file => file.endsWith('.mjs') && (file.startsWith('test/playwright/component/apps/') ||
+                      (!file.startsWith('test/playwright/unit/') && !file.startsWith('test/playwright/component/')))),
+              read    = file => fs.readFileSync(path.join(repoRoot, file), 'utf8'),
+              opensBlog     = e2eCode.filter(file => /#\/news\/blog/.test(read(file))),
+              reachesScript = e2eCode.filter(file => reachesExcludedBuildScript(read(file)));
+
+        expect(e2eCode.length, 'the scan found the e2e tree').toBeGreaterThan(100);
+        expect(opensBlog, 'an e2e spec opens the portal news/blog route: blog.json is reachable, admit it').toEqual([]);
+        expect(reachesScript, 'e2e code reaches an excluded buildScripts directory: admit it').toEqual([]);
+    });
 
     test('a baseline-pin-only change does NOT run the tier', async () => {
         // The witnessed regression, preserved as an executable arm: a pull request whose entire

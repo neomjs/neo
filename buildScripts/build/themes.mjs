@@ -11,25 +11,40 @@ import * as sass       from 'sass';
 import {sanitizeInput} from '../util/sanitizer.mjs';
 
 const
-    __dirname    = path.resolve(),
-    cwd          = process.cwd(),
-    requireJson  = path => JSON.parse(fs.readFileSync(path)),
-    packageJson  = requireJson(path.resolve(cwd, 'package.json')),
-    insideNeo    = packageJson.name.includes('neo.mjs'),
-    neoPath      = path.resolve(insideNeo ? './' : './node_modules/neo.mjs/'),
-    programName  = `${packageJson.name} buildThemes`,
-    program      = new Command(),
-    scssPath     = 'resources/scss/',
-    scssFolders  = fs.readdirSync(path.resolve(scssPath)),
-    themeMapFile = 'resources/theme-map.json',
-    themeFolders = [],
-    questions    = [];
+    __dirname         = path.resolve(),
+    cwd               = process.cwd(),
+    requireJson       = path => JSON.parse(fs.readFileSync(path)),
+    packageJson       = requireJson(path.resolve(cwd, 'package.json')),
+    insideNeo         = packageJson.name.includes('neo.mjs'),
+    neoPath           = path.resolve(insideNeo ? './' : './node_modules/neo.mjs/'),
+    programName       = `${packageJson.name} buildThemes`,
+    program           = new Command(),
+    scssPath          = 'resources/scss/',
+    frameworkScssPath = path.resolve(neoPath, scssPath),
+    workspaceScssPath = path.resolve(cwd, scssPath),
+    packageScssPaths  = insideNeo ? [] : [
+        ...new Set([
+            ...Object.keys(packageJson.dependencies    || {}),
+            ...Object.keys(packageJson.devDependencies || {})
+        ])
+    ].flatMap(depName => {
+        const depPackagePath = path.resolve(cwd, 'node_modules', depName, 'package.json');
 
-scssFolders.forEach(folder => {
-    if (folder.includes('theme')) {
-        themeFolders.push(folder);
-    }
-});
+        if (!fs.existsSync(depPackagePath)) {
+            return [];
+        }
+
+        const depScss = requireJson(depPackagePath).neo?.scss;
+
+        return depScss ? [path.resolve(cwd, 'node_modules', depName, depScss)] : [];
+    }),
+    scssRoots         = insideNeo
+        ? [frameworkScssPath]
+        : [...new Set([frameworkScssPath, ...packageScssPaths, workspaceScssPath])],
+    scssFolders       = scssRoots.flatMap(root => fs.existsSync(root) ? fs.readdirSync(root) : []),
+    themeMapFile      = 'resources/theme-map.json',
+    themeFolders      = [...new Set(scssFolders.filter(folder => folder.includes('theme')))],
+    questions         = [];
 
 program
     .name(programName)
@@ -91,12 +106,12 @@ if (programOpts.info) {
     }
 
     inquirer.prompt(questions).then(async answers => {
-        const env        = answers.env       || programOpts.env     || 'all',
-              themes     = answers.themes    || programOpts.themes  || 'all',
-              insideNeo  = programOpts.framework || false,
-              startDate  = new Date(),
-              fileCount  = {development: 0, esm: 0, production: 0},
-              totalFiles = {development: 0, esm: 0, production: 0};
+        const env         = answers.env      || programOpts.env    || 'all',
+              themes      = answers.themes   || programOpts.themes || 'all',
+              activeRoots = programOpts.framework ? [frameworkScssPath] : scssRoots,
+              startDate   = new Date(),
+              fileCount   = {development: 0, esm: 0, production: 0},
+              totalFiles  = {development: 0, esm: 0, production: 0};
 
         let themeMap;
 
@@ -122,40 +137,27 @@ if (programOpts.info) {
         }
 
         /**
-         * @param {String} p
          * @param {String} mode development or production
          */
-        async function buildEnv(p, mode) {
-            await parseScssFiles(getAllScssFiles(path.join(p, 'src')), mode, 'src');
+        async function buildEnv(mode) {
+            await parseScssFiles(getAllScssFiles('src'), mode, 'src');
 
             for (const themeFolder of themeFolders) {
                 if (themes === 'all' || themes === themeFolder) {
-                    await parseScssFiles(getAllScssFiles(path.join(p, themeFolder)), mode, themeFolder);
+                    await parseScssFiles(getAllScssFiles(themeFolder), mode, themeFolder);
                 }
             }
         }
 
         /**
-         * @param {String} dirPath
+         * @param {String} target
          * @returns {Object[]}
          */
-        function getAllScssFiles(dirPath) {
-            let files    = [],
-                scssPath = path.resolve(neoPath, dirPath);
-
-            if (fs.existsSync(scssPath)) {
-                files.push(...getScssFiles(scssPath));
-            }
-
-            if (!insideNeo) {
-                scssPath = path.resolve(cwd, dirPath);
-
-                if (fs.existsSync(scssPath)) {
-                    files.push(...getScssFiles(scssPath));
-                }
-            }
-
-            return files;
+        function getAllScssFiles(target) {
+            return activeRoots.flatMap(root => {
+                const targetPath = path.resolve(root, target);
+                return fs.existsSync(targetPath) ? getScssFiles(targetPath) : [];
+            });
         }
 
         /**
@@ -324,19 +326,19 @@ if (programOpts.info) {
         // dist/development
         if (env === 'all' || env === 'dev') {
             console.log(chalk.blue(`${programName} starting dist/development`));
-            await buildEnv(scssPath, 'development');
+            await buildEnv('development');
         }
 
         // dist/esm
         if (env === 'all' || env === 'esm') {
             console.log(chalk.blue(`${programName} starting dist/esm`));
-            await buildEnv(scssPath, 'esm');
+            await buildEnv('esm');
         }
 
         // dist/production
         if (env === 'prod') {
             console.log(chalk.blue(`${programName} starting dist/production`));
-            await buildEnv(scssPath, 'production');
+            await buildEnv('production');
         } else if (env === 'all') {
             // dist/esm & dist/production contain the same output, so we can just copy it over.
             const cssPath = path.join(cwd, '/dist/production/css');

@@ -1,0 +1,84 @@
+// Keep the example's palette on each theme carrier, including proxies mounted outside its viewport.
+.neo-examples-grid-header-groups,
+.neo-examples-grid-header-groups [class*="neo-theme-"],
+body:has(.neo-examples-grid-header-groups) .neo-dragproxy,
+body:has(.neo-examples-grid-header-groups) .neo-dragproxy [class*="neo-theme-"] {
+    --grid-container-border-color              : var(--header-groups-border);
+    --grid-container-cell-background-color     : var(--header-groups-surface);
+    --grid-container-cell-background-color-even: var(--header-groups-alternate);
+    --grid-container-color                     : var(--header-groups-text);
+    --grid-container-font-size                 : 13px;
+    --grid-cell-background-color-hover         : var(--header-groups-hover);
+    --grid-header-button-background-color      : var(--header-groups-header);
+    --grid-header-button-background-color-hover: var(--header-groups-hover);
+    --grid-header-button-background-image      : none;
+    --grid-header-button-border-right-color    : var(--header-groups-border);
+    --grid-header-button-color                 : var(--header-groups-text);
+    --grid-header-button-color-hover           : var(--header-groups-accent);
+    --grid-header-button-font-size             : 12px;
+    --grid-header-button-font-weight           : 600;
+    --grid-header-button-glyph-color           : var(--header-groups-muted);
+    --grid-header-button-glyph-color-hover     : var(--header-groups-accent);
+    --grid-rowmodel-selected-cell-background-color: var(--header-groups-hover);
+    --grid-rowmodel-selected-cell-color           : var(--header-groups-title);
+
+    .neo-grid-header-group-row .neo-grid-header-group-cell {
+        color         : var(--header-groups-accent);
+        font-weight   : 700;
+        letter-spacing: 0.08em;
+    }
+
+    .neo-grid-row .neo-grid-cell {
+        font-variant-numeric: tabular-nums;
+    }
+}
+
+.neo-examples-grid-header-groups.neo-viewport {
+    background-color: var(--header-groups-background);
+    color           : var(--header-groups-text);
+    font-family     : var(--neo-font-family);
+
+    .header-groups-toolbar {
+        background-color: var(--header-groups-background);
+        gap             : 20px;
+        padding         : 24px;
+
+        .neo-button {
+            border       : 1px solid var(--header-groups-border);
+            border-radius: 8px;
+            color        : var(--header-groups-title);
+            padding      : 8px 12px;
+        }
+    }
+
+    .header-groups-title {
+        color         : var(--header-groups-title);
+        font-size     : 24px;
+        font-weight   : 700;
+        letter-spacing: -0.025em;
+        line-height   : 1.2;
+    }
+
+    .header-groups-instruction {
+        color      : var(--header-groups-muted);
+        font-size  : 13px;
+        line-height: 1.5;
+        margin-top : 6px;
+    }
+
+    .neo-grid-container {
+        background-color: var(--header-groups-surface);
+        box-shadow      : 0 -1px 0 var(--header-groups-border);
+    }
+
+    @media (max-width: 700px) {
+        .header-groups-toolbar {
+            gap    : 12px;
+            padding: 18px 16px;
+        }
+
+        .header-groups-title {
+            font-size: 20px;
+        }
+    }
+}

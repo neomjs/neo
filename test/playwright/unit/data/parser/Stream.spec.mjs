@@ -20,9 +20,32 @@ test.describe('Neo.data.parser.Stream', () => {
     let parser;
 
     test.beforeEach(() => {
-        parser = Neo.create(StreamParser, {
-            store: {}
-        });
+        parser = Neo.create(StreamParser);
+    });
+
+    test.afterEach(() => parser.destroy());
+
+    for (const failure of [new Error('chunk refused'), null]) {
+        test(`a ${failure === null ? 'null' : 'Error'} chunk refusal cancels the reader`, async () => {
+            const cancelled = [], stream = new ReadableStream({
+                start(controller) {controller.enqueue(new TextEncoder().encode('{"id":1}\n{"id":2}\n'))},
+                cancel(reason) {cancelled.push(reason); throw new Error('cancel also refused')}
+            });
+            parser.initialChunkSize = 1;
+            const result = parser.read({stream, total: 0}, {transformChunk: () => {throw failure}});
+            await expect(result).rejects.toBe(failure);
+            expect(cancelled).toEqual([failure])
+        })
+    }
+
+    test('a reader failure preserves the original error if cancellation rejects', async () => {
+        const failure = new Error('read refused'), cancelled = [],
+              stream  = {getReader: () => ({
+                  read  : async () => {throw failure},
+                  cancel: async reason => {cancelled.push(reason); throw new Error('cancel refused')}
+              })};
+        await expect(parser.read({stream, total: 0})).rejects.toBe(failure);
+        expect(cancelled).toEqual([failure])
     });
 
     test('read() should stream and parse NDJSON data', async () => {
@@ -33,7 +56,7 @@ test.describe('Neo.data.parser.Stream', () => {
         ];
 
         const ndjson = mockData.map(JSON.stringify).join('\n');
-        
+
         const stream = new ReadableStream({
             start(controller) {
                 const encoder = new TextEncoder();
@@ -65,7 +88,7 @@ test.describe('Neo.data.parser.Stream', () => {
 
     test('read() should handle empty lines and whitespace', async () => {
         const mockData = [{id: 1}, {id: 2}];
-        const ndjson = `
+        const ndjson   = `
 ${JSON.stringify(mockData[0])}
 
 ${JSON.stringify(mockData[1])}

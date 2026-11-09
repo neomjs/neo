@@ -45,7 +45,12 @@ class AccordionContainer extends Base {
          * Title for Headerbar
          * @member {String|null} title=null
          */
-        title_: null
+        title_: null,
+        /**
+         * @member {Object} _vdom={tabIndex:-1,cn:[]}
+         */
+        _vdom:
+        {tabIndex: -1, cn: []}
     }
 
     /**
@@ -68,8 +73,11 @@ class AccordionContainer extends Base {
         }
 
         header = Neo.create({
-            module: Toolbar,
-            items : [{
+            module : Toolbar,
+            flag   : 'header',
+            baseCls: ['neo-accordion-header', 'neo-toolbar'],
+            vdom   : {tabIndex: -1, cn: []},
+            items  : [{
                 flag   : 'iconEl',
                 ntype  : 'component',
                 baseCls: ['neo-accordion-header-icon'],
@@ -116,8 +124,12 @@ class AccordionContainer extends Base {
 
         // Ensure scrollbars are not flipping in and out
         me.timeout(450).then(() => {
-            NeoArray[fn](cls, 'neo-scrollable');
-            me.cls = cls
+            if (!me.isDestroyed) {
+                let currentCls = me.cls;
+
+                NeoArray[me.expanded ? 'add' : 'remove'](currentCls, 'neo-scrollable');
+                me.cls = currentCls
+            }
         })
     }
 
@@ -159,6 +171,14 @@ class AccordionContainer extends Base {
     }
 
     /**
+     * @summary Returns the AccordionItem's header toolbar component.
+     * @returns {Neo.toolbar.Base|null}
+     */
+    getHeader() {
+        return this.down({flag: 'header'})
+    }
+
+    /**
      * If the parent is an AccordionContainer, we run the parent function.
      * Otherwise we set this.expanded to the new value.
      */
@@ -167,7 +187,7 @@ class AccordionContainer extends Base {
             currentState = me.expanded,
             parent       = me.up('accordion');
 
-        if (parent.ntype === 'accordion') {
+        if (parent?.ntype === 'accordion') {
             parent.childExpandChange({
                 expanded: !currentState,
                 target  : me

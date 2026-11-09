@@ -24,7 +24,7 @@ $text-color      : #bbb;
     --button-border-hover                       : 1px #{$border-style} #292929;
     --button-border-pressed                     : 1px #{$border-style} #5d83a7;
     --button-border-radius                      : 0;
-    --button-border-width                       : 1px;
+    --button-border-width                       : #{$border-width};
     --button-glyph-color                        : #{$text-color};
     --button-glyph-color-active                 : #{$text-color};
     --button-glyph-color-disabled               : #{$text-color};

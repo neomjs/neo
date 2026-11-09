@@ -463,4 +463,116 @@ test.describe('DockRevealStateMachine', async () => {
         machine.tabHoverIn('third');
         expect(timers.pendingCount()).toBe(0)
     });
+
+    test('an app hold reveals once, and no pointer, focus, hover or outside input ends it', async () => {
+        let {changes, machine, timers} = createMachine({revealOnHover: true});
+
+        machine.hold('detail');
+        machine.hold('detail');
+
+        expect(changes.map(change => change.next)).toEqual([{revealedItemId: 'detail', state: 'revealed-held'}]);
+
+        machine.overlayPointerEnter();
+        machine.overlayPointerLeave();
+        machine.overlayFocusEnter();
+        machine.overlayFocusLeave();
+        machine.tabHoverIn('detail');
+        machine.tabHoverIn('other');
+        machine.tabHoverOut();
+        machine.outsideClick();
+        await timers.advance(DockRevealStateMachine.DWELL_MS + DockRevealStateMachine.DISMISS_GRACE_MS);
+
+        expect([machine.state, machine.revealedItemId]).toEqual(['revealed-held', 'detail']);
+        expect(changes).toHaveLength(1)
+    });
+
+    test('escape, its own tab, itemCleared and release each end a hold', async () => {
+        let {machine} = createMachine();
+
+        for (const end of [
+            held => held.escape(),
+            held => held.tabClick('detail'),
+            held => held.itemCleared('detail'),
+            held => held.release('detail')
+        ]) {
+            machine.hold('detail');
+            end(machine);
+            expect([machine.state, machine.revealedItemId]).toEqual(['idle', null])
+        }
+    });
+
+    test('release ends a reveal of its own item only, and a hold on another item retargets', async () => {
+        let {changes, machine} = createMachine();
+
+        machine.tabClick('terminal');
+        machine.release('detail');
+        machine.hold('detail');
+        machine.hold('inspector');
+        machine.release('detail');
+
+        expect([machine.state, machine.revealedItemId]).toEqual(['revealed-held', 'inspector']);
+
+        // A person's click on another tab takes over with focus; the app's release of that item ends it
+        machine.tabClick('terminal');
+        machine.release('terminal');
+
+        expect(changes.map(change => [change.next.state, change.next.revealedItemId])).toEqual([
+            ['revealed-focused', 'terminal'],
+            ['revealed-held',    'detail'],
+            ['revealed-held',    'inspector'],
+            ['revealed-focused', 'terminal'],
+            ['idle',             null]
+        ])
+    });
+
+    test('a hold supersedes a pending dwell and its wait', async () => {
+        let {machine, timers} = createMachine({revealOnHover: true});
+
+        machine.tabHoverIn('terminal');
+        machine.hold('detail');
+        await timers.advance(DockRevealStateMachine.DWELL_MS * 2);
+
+        expect([machine.state, machine.revealedItemId]).toEqual(['revealed-held', 'detail'])
+    });
+
+    test('every change that stops revealing an item names its cause; a change that ends none names nothing (#20095 AC-5)', async () => {
+        let causes            = [],
+            {machine, timers} = createMachine({revealOnHover: true, onChange: (next, previous, cause) => causes.push(cause)});
+
+        const ending = async (start, end) => {
+            causes = [];
+            await start(machine);
+            await end(machine);
+            return causes.at(-1)
+        };
+
+        // the person
+        expect(await ending(m => m.tabClick('terminal'), m => m.escape())).toBe('escape');
+        expect(await ending(m => m.tabClick('terminal'), m => m.tabClick('terminal'))).toBe('tab');
+        expect(await ending(m => m.tabClick('terminal'), m => m.outsideClick())).toBe('outside-press');
+        expect(await ending(m => m.tabClick('terminal'), m => m.overlayFocusLeave())).toBe('focus-leave');
+        expect(await ending(m => m.tabClick('terminal'), m => m.tabClick('inspector')), 'a retarget ends the item it leaves').toBe('tab');
+        machine.escape();
+        expect(await ending(
+            async m => { m.tabHoverIn('terminal'); await timers.advance(DockRevealStateMachine.DWELL_MS) },
+            async m => { m.tabHoverOut(); await timers.advance(DockRevealStateMachine.DISMISS_GRACE_MS) }
+        )).toBe('pointer-leave');
+        expect(await ending(
+            async m => { m.tabHoverIn('terminal'); await timers.advance(DockRevealStateMachine.DWELL_MS) },
+            async m => { m.tabHoverIn('inspector'); await timers.advance(DockRevealStateMachine.DWELL_MS) }
+        ), 'a dwell that retargets ends the item it leaves').toBe('hover');
+        machine.escape();
+
+        // the application, and the item leaving its rail
+        expect(await ending(m => m.hold('detail'), m => m.release('detail'))).toBe('release');
+        expect(await ending(m => m.hold('detail'), m => m.hold('inspector'))).toBe('hold');
+        expect(await ending(m => m.hold('inspector'), m => m.itemCleared('inspector'))).toBe('item-left');
+
+        // reveals, dwells, rescues and holds end nothing
+        causes = [];
+        machine.tabClick('terminal');
+        machine.escape();
+        machine.hold('detail');
+        expect(causes, 'only the escape ended a reveal').toEqual([null, 'escape', null])
+    });
 });

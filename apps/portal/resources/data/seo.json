@@ -31,8 +31,12 @@
         "title": "Neo.mjs Releases",
         "description": "Release notes and changelogs for the Neo.mjs platform."
     },
+    "/news/videos": {
+        "title": "Neo.mjs Videos",
+        "description": "Films and demos of the Neo.mjs platform, from the engine to the AI maintainers who build it."
+    },
     "/services": {
-        "title": "Neo.mjs Services",
-        "description": "Professional services for the Neo.mjs platform."
+        "title": "Connect with Neo.mjs",
+        "description": "Build an app with Neo.mjs, explore persistent project memory for coding agents, and join the public development work."
     }
 }

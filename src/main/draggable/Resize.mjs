@@ -204,6 +204,26 @@ class Resize {
 
         if (!Number.isFinite(startSize) || !Number.isFinite(maxSize)) return null;
 
+        if (!config.counterTargetId && (config.oppositeId || Number.isFinite(config.oppositeMinSize))) {
+            const
+                oppositeEl   = config.oppositeId ? DomAccess.getElement(config.oppositeId) : null,
+                opposite     = oppositeEl && oppositeEl !== target ? oppositeEl : null,
+                oppositeRect = opposite ? DomAccess.getLayoutRect(opposite) : null,
+                oppositeSpan = Number(oppositeRect?.[config.axis]),
+                oppositeComp = opposite ? globalThis.getComputedStyle?.(opposite) : null,
+                oppositeMinV = resolveCssBound(oppositeComp?.getPropertyValue(`min-${config.axis}`), Number(parentRect[config.axis])),
+                oppositeMin  = Math.max(
+                    Number.isFinite(oppositeMinV) ? Math.max(0, oppositeMinV) : 0,
+                    Number.isFinite(config.oppositeMinSize) ? Math.max(0, config.oppositeMinSize) : 0
+                );
+
+            if (oppositeMin > 0) {
+                const pairSpan = Number.isFinite(oppositeSpan) ? startSize + oppositeSpan : layoutMax;
+
+                maxSize = Math.max(minSize, Math.min(maxSize, pairSpan - oppositeMin))
+            }
+        }
+
         // Conserved-pair mode: a counter target turns the clamp window into the intersection of
         // both members' CSS bounds under a constant pair total, so every previewed frame is a
         // vector the semantic commit can reproduce exactly.
@@ -220,13 +240,20 @@ class Resize {
                 counterComp  = globalThis.getComputedStyle?.(counter),
                 counterMinV  = resolveCssBound(counterComp?.getPropertyValue(`min-${config.axis}`), Number(parentRect[config.axis])),
                 counterMaxV  = resolveCssBound(counterComp?.getPropertyValue(`max-${config.axis}`), Number(parentRect[config.axis])),
-                counterMin   = Number.isFinite(counterMinV) ? Math.max(0, counterMinV) : 0;
+                counterMin   = Math.max(
+                    1,
+                    Number.isFinite(counterMinV) ? Math.max(0, counterMinV) : 0,
+                    Number.isFinite(config.counterMinSize) ? Math.max(0, config.counterMinSize) : 0
+                );
 
             if (!Number.isFinite(counterStart)) return null;
 
             pairTotal = startSize + counterStart;
-            minSize   = Math.max(minSize, Number.isFinite(counterMaxV) ? pairTotal - counterMaxV : 0);
-            maxSize   = Math.max(minSize, Math.min(maxSize, pairTotal - counterMin));
+
+            const pairCeiling = Math.max(1, pairTotal - 1);
+
+            minSize = Math.min(pairCeiling, Math.max(1, minSize, Number.isFinite(counterMaxV) ? pairTotal - counterMaxV : 0));
+            maxSize = Math.max(minSize, Math.min(pairCeiling, maxSize, pairTotal - counterMin));
 
             counterOriginalStyle = {};
 
@@ -250,13 +277,18 @@ class Resize {
         return {
             axis                 : config.axis,
             awaitWorkerSettlement: config.awaitWorkerSettlement === true,
+            configMinSize        : config.minSize,
             coordinate,
             counter,
+            counterId            : config.counterTargetId,
+            counterMinSize       : config.counterMinSize,
             counterOriginalStyle,
             dragZoneId           : config.dragZoneId,
             lastSize             : startSize,
             maxSize,
             minSize,
+            oppositeId           : config.oppositeId,
+            oppositeMinSize      : config.oppositeMinSize,
             originalStyle,
             pairTotal,
             parentId             : config.parentId,
@@ -351,7 +383,9 @@ class Resize {
                     config  = me.registrations[data.dragElementRootId],
                     current = me.state,
                     changed = !current || current.axis !== config.axis || current.parentId !== config.parentId ||
-                        current.targetId !== config.targetId;
+                        current.targetId !== config.targetId || current.counterId !== config.counterTargetId ||
+                        current.oppositeId !== config.oppositeId || current.configMinSize !== config.minSize ||
+                        current.counterMinSize !== config.counterMinSize || current.oppositeMinSize !== config.oppositeMinSize;
 
                 if (changed) {
                     me.restoreState(current);

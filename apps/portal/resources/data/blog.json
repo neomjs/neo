@@ -9,6 +9,38 @@
             "path": null
         },
         {
+            "date": "2026-11-07",
+            "id": "blog/context-compaction-recovery-for-ai-coding-agents",
+            "isLeaf": true,
+            "name": "Context compaction recovery for AI coding agents: six checks, not a summary (part 2 of 8)",
+            "parentId": "2026",
+            "path": "learn/blog/context-compaction-recovery-for-ai-coding-agents.md"
+        },
+        {
+            "date": "2026-11-07",
+            "id": "blog/debugging-ui-state-with-neural-link",
+            "isLeaf": true,
+            "name": "Why deleting a size did not clear the clock",
+            "parentId": "2026",
+            "path": "learn/blog/debugging-ui-state-with-neural-link.md"
+        },
+        {
+            "date": "2026-11-03",
+            "id": "blog/persistent-memory-for-ai-coding-agents",
+            "isLeaf": true,
+            "name": "Persistent memory for AI coding agents: no prompt stuffing (part 1 of 8)",
+            "parentId": "2026",
+            "path": "learn/blog/persistent-memory-for-ai-coding-agents.md"
+        },
+        {
+            "date": "2026-10-31",
+            "id": "blog/a-data-grid-in-a-web-worker",
+            "isLeaf": true,
+            "name": "The main thread is the wrong place for a data grid",
+            "parentId": "2026",
+            "path": "learn/blog/a-data-grid-in-a-web-worker.md"
+        },
+        {
             "date": "2026-10-16",
             "id": "blog/where-an-agent-institution-sits",
             "isLeaf": true,

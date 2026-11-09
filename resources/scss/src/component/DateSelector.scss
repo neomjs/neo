@@ -6,6 +6,7 @@
     font-size       : 16px; // todo: em-based once table headers are em based
     font-weight     : 400;
     overflow        : hidden;
+    position        : relative; // anchors the month and year selector, which covers the whole date selector
     user-select     : none;
 
     &:focus {
@@ -124,6 +125,12 @@
                     }
                 }
 
+                &.neo-navigated .neo-cell-content {
+                    outline       : 2px solid var(--dateselector-cell-today-border-color);
+                    outline-offset: 2px;
+                    border-radius : 50%;
+                }
+
                 .neo-cell-content {
                     align-items    : center;
                     display        : flex;
@@ -155,6 +162,10 @@
             display        : flex;
             flex           : 1 1 auto;
             justify-content: center;
+
+            &[role="button"] {
+                cursor: pointer;
+            }
 
             .neo-month-text {
                 align-items    : center;

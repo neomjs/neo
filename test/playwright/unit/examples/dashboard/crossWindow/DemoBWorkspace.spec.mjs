@@ -24,6 +24,13 @@ import TransactionManager                                  from '../../../../../
 import {demoBTourScript, initialDocument} from '../../../../../../examples/dashboard/crossWindow/demoBPerspectives.mjs';
 import {createCrossWindowStage}           from '../../../../../../examples/dashboard/crossWindow/DemoBCrossWindowStage.mjs';
 
+/** @summary A caller-controlled settlement gate. @returns {{promise: Promise, resolve: Function}} */
+function settlementGate() {
+    let resolve;
+    const promise = new Promise(settle => resolve = settle);
+    return {promise, resolve}
+}
+
 /**
  * @summary Installs deterministic popup-vessel seams for the worker-side workspace specs.
  * The real OS-window round-trip is owned by the E2E witness; these seams isolate document
@@ -366,6 +373,35 @@ test.describe('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => {
         expect(doc.nodes['side-tabs'].items).toEqual(['inspector', 'timeline', 'console'])
     });
 
+    test('tour completion reads the current beat authority after its caption callback', () => {
+        const totalBeats = DemoBWorkspace.totalBeats,
+              caption    = workspace.setTourCaption,
+              progress   = workspace.setPipProgress,
+              calls      = [];
+
+        try {
+            DemoBWorkspace.totalBeats = () => {
+                calls.push('early beat read');
+                return []
+            };
+            workspace.setTourCaption = () => {
+                calls.push('caption');
+                DemoBWorkspace.totalBeats = () => {
+                    calls.push('current beat read');
+                    return [{}, {}]
+                }
+            };
+            workspace.setPipProgress = count => calls.push(['progress', count]);
+
+            expect(workspace.onTourComplete({log: []})).toBeUndefined();
+            expect(calls).toEqual(['caption', 'current beat read', ['progress', 2]])
+        } finally {
+            DemoBWorkspace.totalBeats = totalBeats;
+            workspace.setTourCaption = caption;
+            workspace.setPipProgress = progress
+        }
+    });
+
     test('this host conditionally activates one semantic cross-window step', () => {
         const steps = demoBTourScript.scenes.flatMap(scene => scene.steps)
             .filter(step => step.type === 'cross-window');
@@ -382,6 +418,22 @@ test.describe('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => {
     });
 
     test('capture → load round-trip through the REAL store: one committed swap, honest names', async () => {
+        const panes        = {...workspace.paneCache},
+              assertTitles = () => {
+                  const document = workspace.getDockZoneDocument(), host = workspace.getReference('dock-host-b');
+                  for (const [nodeId, node] of Object.entries(document.nodes)) {
+                      if (node.type !== 'tabs') continue;
+                      const buttons = host.down({dockNodeId: nodeId}).getTabButtons();
+                      expect(buttons).toHaveLength(node.items.length);
+                      node.items.forEach((itemId, index) => {
+                          expect(workspace.paneCache[itemId]).toBe(panes[itemId]);
+                          expect(panes[itemId].header?.text).toBe(document.items[itemId].title);
+                          expect(buttons[index].text).toBe(document.items[itemId].title)
+                      })
+                  }
+              };
+
+        assertTitles();
         // capture the boot stage under a name
         const captured = workspace.capturePerspective('Focus');
 
@@ -396,6 +448,8 @@ test.describe('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => {
 
         expect(result.errors).toEqual([]);
         workspace.dockModel = result.document;
+        await workspace.refreshDockWorkspace();
+        assertTitles();
 
         expect(workspace.getDockZoneDocument().nodes['split-workbench-tabs-0']).toBeTruthy();
 
@@ -404,7 +458,9 @@ test.describe('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => {
 
         expect(loaded.loaded).toBe(true);
         expect(workspace.getDockZoneDocument().nodes['split-workbench-tabs-0']).toBeUndefined();
-        expect(workspace.getDockZoneDocument().nodes.root.zones.center.nodeId).toBe('workbench-tabs')
+        expect(workspace.getDockZoneDocument().nodes.root.zones.center.nodeId).toBe('workbench-tabs');
+        await workspace.awaitProjectionIdle();
+        assertTitles()
     });
 
     test('loading an unknown perspective fails closed and mutates nothing', async () => {
@@ -467,6 +523,42 @@ test.describe('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => {
                 expect(workspace.popupDocument.items.workbench).toBeUndefined();
                 await workspace.awaitProjectionIdle()
             }
+        } finally {
+            vessel.restore()
+        }
+    });
+
+    test('reattach keeps home ownership when native close throws', async () => {
+        const vessel = installWindowVessel({closeError: new Error('native close refused')}),
+              pane   = workspace.resolvePane('workbench', initialDocument.items.workbench),
+              closes = [],
+              close  = Neo.Main.windowClose;
+
+        Neo.Main.windowClose = data => {
+            closes.push({
+                mainOwns       : Boolean(workspace.dockModel.items.workbench),
+                popupReleased  : !workspace.popupDocument.items.workbench,
+                bookkeepingGone: !workspace.detachedPanes.workbench,
+                samePane       : workspace.paneCache.workbench === pane
+            });
+            return close(data)
+        };
+
+        try {
+            expect(await workspace.popOutPane('workbench')).toEqual({detached: true, errors: []});
+            expect(await workspace.reattachPane('workbench')).toEqual({
+                errors: ['popup close failed: native close refused'], reattached: true
+            });
+            expect(closes).toEqual([{
+                mainOwns: true, popupReleased: true, bookkeepingGone: true, samePane: true
+            }]);
+            await workspace.awaitProjectionIdle();
+            expect(workspace.resolvePane('workbench', initialDocument.items.workbench)).toBe(pane);
+            expect(pane.isDestroyed).toBeFalsy();
+            expect(workspace.vesselReservations.has('popup:workbench')).toBe(false);
+            expect((await workspace.reattachPane('workbench')).reattached).toBe(false);
+            expect(vessel.closeCount).toBe(1);
+            expect(TransactionManager.get(hostGroupId).history.count).toBe(2)
         } finally {
             vessel.restore()
         }
@@ -569,6 +661,144 @@ test.describe('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => {
             expect(mounts).toEqual(['workspace-child'])
         } finally {
             harness.restore()
+        }
+    });
+
+    for (const disposition of ['current', 'replaced', 'revoked', 'destroyed']) {
+        test(`stage binding resumes after geometry with a ${disposition} host admission`, async () => {
+            const windowId    = 'stage-geometry-child',
+                  workspaceId = DemoBWorkspace.POPUP_WORKSPACE_ID,
+                  previous    = Neo.main.addon.WindowPosition,
+                  geometry    = settlementGate(),
+                  entered     = settlementGate(),
+                  calls       = [],
+                  app         = {mainView: {}};
+            let binding;
+
+            Neo.apps[windowId] = app;
+            Neo.main.addon.WindowPosition = {setConfigs: data => {
+                entered.resolve(data);
+                return geometry.promise
+            }};
+            workspace.reserveVessel(workspaceId, 'workspace-target');
+            workspace.mountCrossWindowTarget = () => calls.push('stale');
+
+            try {
+                binding = workspace.onTopologyBind({groupId: hostGroupId, windowId, workspaceKey: workspaceId});
+                await expect(entered.promise).resolves.toEqual({observeMovement: true, observeResize: true, windowId});
+                expect(calls).toEqual([]);
+
+                workspace.mountCrossWindowTarget = (...args) => calls.push(args);
+                if (disposition === 'replaced') {
+                    const reservation = workspace.vesselReservations.get(workspaceId);
+                    workspace.vesselReservations.set(workspaceId, {...reservation})
+                } else if (disposition === 'revoked') {
+                    workspace.revokeVessel(workspaceId)
+                } else if (disposition === 'destroyed') {
+                    workspace.destroy()
+                }
+
+                geometry.resolve();
+                await binding;
+                expect(calls).toEqual(disposition === 'current' ? [[app, windowId, workspaceId]] : [])
+            } finally {
+                geometry.resolve();
+                await binding?.catch(() => {});
+                Neo.main.addon.WindowPosition = previous;
+                delete Neo.apps[windowId]
+            }
+        })
+    }
+
+    test('registered native effects resolve current host facades and the embodiment after geometry', async () => {
+        const windowId   = 'native-geometry-child',
+              previous   = Neo.main.addon.WindowPosition,
+              embodiment = workspace.tearOutEmbodiment,
+              effects    = workspace.nativeWindows.sources.get(workspace.vesselSourceId).effects,
+              geometry   = settlementGate(),
+              entered    = settlementGate(),
+              calls      = [],
+              request    = {itemId: 'timeline'},
+              vessel     = {itemId: 'timeline', windowName: 'live-vessel'},
+              context    = {app: {}, itemId: 'timeline', windowId};
+        let preparing;
+
+        Neo.apps[windowId] = context.app;
+        Neo.main.addon.WindowPosition = {setConfigs: () => {
+            entered.resolve();
+            return geometry.promise
+        }};
+        workspace.openTearOutVessel = data => { calls.push(['open', data]); return vessel };
+        workspace.closeTearOutVessel = data => { calls.push(['close', data]); return false };
+
+        try {
+            expect(effects.open(request)).toBe(vessel);
+            expect(effects.close(vessel)).toBe(false);
+            preparing = effects.prepare(context);
+            await entered.promise;
+            workspace.tearOutEmbodiment = {stage: data => { calls.push(['stage', data]); return false }};
+            geometry.resolve();
+
+            await expect(preparing).resolves.toBe(true);
+            expect(context.staged).toBe(false);
+            expect(calls).toEqual([
+                ['open', request], ['close', vessel], ['stage', {itemId: 'timeline', windowId}]
+            ])
+        } finally {
+            geometry.resolve();
+            await preparing?.catch(() => {});
+            workspace.tearOutEmbodiment = embodiment;
+            Neo.main.addon.WindowPosition = previous;
+            delete Neo.apps[windowId]
+        }
+    });
+
+    test('destroy during real native stage rendering cannot publish a connection or close a window', async () => {
+        const windowId   = 'native-render-child',
+              vessel     = installWindowVessel(),
+              owner      = workspace.nativeWindows,
+              sourceId   = workspace.vesselSourceId,
+              source     = owner.sources.get(sourceId),
+              embodiment = workspace.tearOutEmbodiment,
+              pane       = workspace.resolvePane('timeline', initialDocument.items.timeline),
+              rendered   = settlementGate(),
+              entered    = settlementGate();
+        let binding, target;
+
+        Neo.apps[windowId] = {};
+        target = Neo.create(Container, {items: [], windowId});
+        Neo.apps[windowId].mainView = target;
+        target.promiseUpdate = () => { entered.resolve(); return rendered.promise };
+
+        try {
+            await owner.acquire(sourceId, {
+                itemId: 'timeline', proxyRect: {height: 320, width: 480, x: 40, y: 60}
+            });
+            expect(owner.getAdmission(sourceId, 'popup:timeline')).toBeTruthy();
+
+            binding = owner.onBind({generation: 1, groupId: hostGroupId, windowId, workspaceKey: 'popup:timeline'});
+            await entered.promise;
+            expect(embodiment.isStaged('timeline')).toBe(true);
+            expect(pane.parent).toBe(target);
+            expect(owner.getConnection(sourceId, 'popup:timeline')).toBeNull();
+
+            workspace.destroy();
+            rendered.resolve();
+            await expect(binding).resolves.toBeUndefined();
+
+            expect(embodiment.isDestroyed).toBe(true);
+            expect(owner.sources.get(sourceId)).toBe(source);
+            expect(source.active).toBe(false);
+            expect(owner.getConnection(sourceId, 'popup:timeline')).toBeNull();
+            expect(owner.getOwner(sourceId, 'popup:timeline')).toBeNull();
+            expect(vessel.nativeCloseCalls).toEqual([]);
+            expect(vessel.closeCalls).toEqual([])
+        } finally {
+            rendered.resolve();
+            await binding?.catch(() => {});
+            target?.destroy();
+            delete Neo.apps[windowId];
+            vessel.restore()
         }
     });
 
@@ -1046,6 +1276,44 @@ test.describe('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => {
             expect(calls).toEqual([['retire', active], 'end'])
         } finally {
             workspace.tearOutHandlers = previousTearOut
+        }
+    });
+
+    test('tear-out adoption resolves current collaborators after publication settles', async () => {
+        const previous = {
+                  onWorkspaceDocumentChange: workspace.onWorkspaceDocumentChange,
+                  tearOutHandlers          : workspace.tearOutHandlers,
+                  nativeWindows            : workspace.nativeWindows
+              },
+              operation  = {operation: 'detachItem', itemId: 'workbench'},
+              vessel     = {workspaceKey: 'popup:workbench'},
+              connection = {windowId: 'current-child'},
+              calls      = [];
+        let release;
+        const publication = new Promise(resolve => release = resolve);
+
+        try {
+            workspace.onWorkspaceDocumentChange = () => publication;
+            workspace.tearOutHandlers = {adoptPane: () => calls.push('stale handler')};
+            workspace.nativeWindows = {getConnection: () => ({windowId: 'stale child'})};
+
+            const pending = workspace.onTearOutDocumentChange(workspace.dockModel, operation, vessel);
+            expect(calls).toEqual([]);
+
+            workspace.tearOutHandlers = {adoptPane: (...args) => calls.push(args)};
+            workspace.nativeWindows = {
+                getConnection: (sourceId, workspaceKey) => {
+                    expect(sourceId).toBe(workspace.vesselSourceId);
+                    expect(workspaceKey).toBe(vessel.workspaceKey);
+                    return connection
+                }
+            };
+            release();
+            await pending;
+            expect(calls).toEqual([['workbench', vessel, connection]])
+        } finally {
+            release();
+            Object.assign(workspace, previous)
         }
     });
 
@@ -1531,6 +1799,171 @@ test.describe('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => {
         expect(result.errors).toEqual(['stop after projection readiness gate'])
     });
 
+    for (const own of [true, false]) {
+        test(`a source probe restores an ${own ? 'own' : 'inherited'} handler without changing its ownership`, () => {
+            const calls       = [],
+                  draggedItem = {},
+                  receipt     = {},
+                  original    = function(item) {
+                      calls.push({item, scope: this});
+                      return receipt
+                  },
+                  sourceZone = Object.create({onRemoteDropOut: original});
+
+            if (own) sourceZone.onRemoteDropOut = original;
+            workspace.crossWindowStats = {remoteDropOutFires: 0};
+
+            const probe = workspace.installCrossWindowSourceProbe(sourceZone);
+
+            expect(sourceZone.onRemoteDropOut(draggedItem)).toBe(receipt);
+            expect(calls).toEqual([{item: draggedItem, scope: sourceZone}]);
+            expect(workspace.crossWindowStats.remoteDropOutFires).toBe(1);
+
+            workspace.restoreCrossWindowSourceProbe(probe);
+            workspace.restoreCrossWindowSourceProbe(probe);
+
+            expect(sourceZone.onRemoteDropOut).toBe(original);
+            expect(Object.hasOwn(sourceZone, 'onRemoteDropOut')).toBe(own)
+        })
+    }
+
+    test('source-probe cleanup preserves a handler installed after the probe', () => {
+        const original    = () => 'original',
+              replacement = () => 'replacement',
+              sourceZone  = Object.create({onRemoteDropOut: original});
+
+        workspace.crossWindowStats = {remoteDropOutFires: 0};
+        const probe = workspace.installCrossWindowSourceProbe(sourceZone);
+
+        sourceZone.onRemoteDropOut = replacement;
+        workspace.restoreCrossWindowSourceProbe(probe);
+
+        expect(sourceZone.onRemoteDropOut).toBe(replacement);
+        expect(Object.hasOwn(sourceZone, 'onRemoteDropOut')).toBe(true);
+        expect(sourceZone.onRemoteDropOut()).toBe('replacement');
+        expect(workspace.crossWindowStats.remoteDropOutFires).toBe(0)
+    });
+
+    test('each source probe binds the host stats for its own gesture', () => {
+        const firstStats = {remoteDropOutFires: 0},
+              nextStats  = {remoteDropOutFires: 7},
+              sourceZone = {onRemoteDropOut: () => 'forwarded'};
+
+        workspace.crossWindowStats = firstStats;
+        const firstProbe = workspace.installCrossWindowSourceProbe(sourceZone);
+
+        expect(sourceZone.onRemoteDropOut()).toBe('forwarded');
+        workspace.restoreCrossWindowSourceProbe(firstProbe);
+
+        workspace.crossWindowStats = nextStats;
+        const nextProbe = workspace.installCrossWindowSourceProbe(sourceZone);
+
+        expect(sourceZone.onRemoteDropOut()).toBe('forwarded');
+        expect(nextStats.remoteDropOutFires).toBe(8);
+        expect(firstStats.remoteDropOutFires).toBe(1);
+
+        workspace.restoreCrossWindowSourceProbe(nextProbe)
+    });
+
+    test('cancelling a cross-window gesture waits for Escape before releasing the mouse', async () => {
+        const events     = [],
+              sourceZone = {owner: {cls: []}},
+              context    = {
+                  sourceButtonId: 'cancel-source', sourceWindowId: workspace.windowId,
+                  sourceX       : 15, sourceY: 25, sourceScreenX: 115, sourceScreenY: 125, sourceZone
+              };
+        let releaseEscape;
+
+        workspace.interactionService.dispatch = event => {
+            events.push(event);
+            return event.type === 'keydown'
+                ? new Promise(resolve => releaseEscape = resolve)
+                : Promise.resolve(true)
+        };
+
+        const running = workspace.cancelCrossWindowGesture(context);
+
+        await Promise.resolve();
+        expect(events.map(event => event.type)).toEqual(['keydown']);
+        expect(events[0]).toMatchObject({
+            id     : context.sourceButtonId, windowId: context.sourceWindowId,
+            options: {code: 'Escape', key: 'Escape'}
+        });
+
+        releaseEscape(true);
+
+        expect(await running).toEqual({escapeDispatched: true, releaseDispatched: true, settled: true});
+        expect(events.map(event => event.type)).toEqual(['keydown', 'mouseup']);
+        expect(events[1]).toMatchObject({
+            id     : context.sourceButtonId, windowId: context.sourceWindowId,
+            options: {button: 0, buttons: 0, clientX: 15, clientY: 25, screenX: 115, screenY: 125}
+        })
+    });
+
+    test('destroying the host during executor dispatch still restores its installed source probe', async () => {
+        const sourceWorkspaceId = DemoBWorkspace.MAIN_WORKSPACE_ID,
+              targetWorkspaceId = DemoBWorkspace.POPUP_WORKSPACE_ID,
+              original          = () => 'original',
+              sourceZone        = {
+                  dockItemIds    : ['workbench'], dockWorkspaceId: sourceWorkspaceId,
+                  dragCoordinator: {onDragCancel() {}}, onRemoteDropOut: original
+              },
+              sourceButton = {
+                  id        : 'probe-source', windowId: workspace.windowId,
+                  getDomRect: async () => [{x: 10, y: 10, width: 100, height: 20}]
+              },
+              sourceBar  = {sortZone: sourceZone, getTabButtons: () => [sourceButton]},
+              sourceTabs = {
+                  dockNodeId   : 'workbench-tabs',
+                  getTabAtIndex: () => sourceButton, getTabBar: () => sourceBar
+              },
+              manager     = Neo.manager.Window,
+              previousGet = manager.get,
+              targetId    = 'probe-target-window';
+        let enteredDispatch, rejectDispatch;
+        const dispatchEntered = new Promise(resolve => enteredDispatch = resolve);
+
+        workspace.resolvePane('workbench', initialDocument.items.workbench);
+        workspace.openCrossWindowStage = async () => {};
+        workspace.waitForWorkspaceGeometry = async () => {};
+        workspace.positionCrossWindowStage = async () => ({ready: true});
+        workspace.crossWindowHosts.set(sourceWorkspaceId, {down: () => sourceTabs});
+        workspace.crossWindowGeometry.set(targetWorkspaceId, {
+            zones: [{nodeId: 'popup-tabs', rect: {x: 20, y: 20, width: 200, height: 100}}]
+        });
+        workspace.crossWindowTargetWindowId = targetId;
+        workspace.interactionService.simulateEvent = () => {
+            enteredDispatch();
+            return new Promise((resolve, reject) => rejectDispatch = reject)
+        };
+        manager.get = windowId => [sourceButton.windowId, targetId].includes(windowId)
+            ? {innerRect: {x: 0, y: 0, width: 500, height: 300}}
+            : previousGet.call(manager, windowId);
+
+        try {
+            const running = workspace.executeCrossWindowStep({
+                itemId: 'workbench', sourceWorkspaceId, targetWorkspaceId, targetNodeId: 'popup-tabs'
+            });
+
+            await Promise.race([dispatchEntered, running.then(result => {
+                throw new Error(`executor settled before source-probe dispatch: ${JSON.stringify(result)}`)
+            })]);
+            expect(sourceZone.onRemoteDropOut).not.toBe(original);
+
+            workspace.destroy();
+            expect(workspace.isDestroyed).toBe(true);
+            rejectDispatch(new Error('dispatch interrupted after host destruction'));
+
+            await expect(running).resolves.toMatchObject({
+                applied: false, errors: ['dispatch interrupted after host destruction']
+            });
+            expect(sourceZone.onRemoteDropOut).toBe(original);
+            expect(Object.hasOwn(sourceZone, 'onRemoteDropOut')).toBe(true)
+        } finally {
+            manager.get = previousGet
+        }
+    });
+
     test('topology round-trip transfers ownership, reports the missing popup slot, never spawns on restore, and preserves the pane instance', async () => {
         const vessel = installWindowVessel();
 
@@ -1972,6 +2405,43 @@ test.describe('Neo.examples.dashboard.crossWindow.DemoBWorkspace', () => {
 
         await keyDown(mainFocus);
         expect(openCount, 'main-origin detach reaches the admission seam').toBe(1)
+    });
+
+    test('keyboard command callbacks resolve host policy replaced after construction', async () => {
+        const commands      = workspace.keyboardCommands,
+              document      = JSON.stringify(workspace.dockModel),
+              enumerate     = workspace.enumerateKeyboardTargets.bind(workspace),
+              enumerations  = [],
+              highlights    = [],
+              announcements = [];
+
+        workspace.resolveFocusedDockItem = () => ({
+            itemId: 'workbench', itemLabel: 'Workbench', workspaceId: DemoBWorkspace.MAIN_WORKSPACE_ID
+        });
+        workspace.enumerateKeyboardTargets = request => {
+            enumerations.push(request);
+            return enumerate(request)
+        };
+        workspace.setKeyboardTargetHighlight = target => highlights.push(target);
+        workspace.announceKeyboardOutcome = outcome => announcements.push(outcome);
+
+        await workspace.onDockHostKeyDown({
+            component: {windowId: workspace.windowId}, ctrlKey: true, key: 'm', shiftKey: true
+        });
+
+        expect(enumerations).toEqual([{itemId: 'workbench'}]);
+        expect(highlights.at(-1)).toMatchObject({
+            itemId: 'workbench', label: 'Main window', tabsId: 'side-tabs', workspaceId: DemoBWorkspace.MAIN_WORKSPACE_ID
+        });
+        expect(announcements.at(-1).message).toContain(DemoBWorkspace.KEYBOARD_CYCLE_INSTRUCTIONS);
+
+        await workspace.onDockHostKeyDown({key: 'Escape'});
+
+        expect(workspace.keyboardCommands).toBe(commands);
+        expect(commands.getActiveCycle()).toBeNull();
+        expect(highlights.at(-1)).toBeNull();
+        expect(announcements.at(-1).terminal).toBe('CANCELLED');
+        expect(JSON.stringify(workspace.dockModel)).toBe(document)
     });
 
     test('focusDockWorkspaceWindow routes DIRECTIONALLY from the recorded command origin', async () => {

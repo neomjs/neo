@@ -211,8 +211,6 @@ function switchNoteMode(row) {
 const expectedHeight = record => Math.max(rowHeight, Math.max(record.nameLines, record.noteLines) * LINE + CHROME);
 
 test.describe('Grid wrapText measurement', () => {
-    test.skip(!!process.env.NEO_TEST_SKIP_CI, 'bucket B: Grid tests require Playwright browsers in CI');
-
     let grid, original, reads, respond, store;
 
     test.beforeEach(async () => {
@@ -754,8 +752,6 @@ test.describe('Grid wrapText measurement', () => {
 });
 
 test.describe('Grid wrapText measurement — tree cells', () => {
-    test.skip(!!process.env.NEO_TEST_SKIP_CI, 'bucket B: Grid tests require Playwright browsers in CI');
-
     class TreeLinesModel extends TreeModel {
         static config = {
             className: 'Test.Unit.Grid.WrapTextMeasure.TreeLinesModel',

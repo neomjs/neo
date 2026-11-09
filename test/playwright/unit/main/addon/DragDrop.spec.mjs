@@ -580,6 +580,117 @@ test.describe('Neo.main.addon.DragDrop — main-thread resize preview', () => {
         }
     });
 
+    test('createState caps maxSize against the opposite sibling min bound without mutating the opposite sibling', () => {
+        const originalGetElement       = Neo.main.DomAccess.getElement,
+              originalGetLayoutRect    = Neo.main.DomAccess.getLayoutRect,
+              originalGetComputedStyle = globalThis.getComputedStyle,
+              parent                   = {},
+              oppositeStyle            = createStyle({flex: '1 1 0%'}),
+              opposite                 = {style: oppositeStyle},
+              target                   = {style: createStyle({flex: '1 1 0%'})};
+
+        Neo.main.DomAccess.getElement = id => ({opposite, parent, target})[id] || null;
+        Neo.main.DomAccess.getLayoutRect = element => {
+            if (element === parent)   return {width: 600, height: 400};
+            if (element === opposite) return {width: 290, height: 400};
+            return {width: 300, height: 400}
+        };
+        globalThis.getComputedStyle = element => ({
+            getPropertyValue: key => {
+                if (element === opposite && key === 'min-width') return '25%';
+                if (element === target   && key === 'min-width') return '100px';
+                return 'none'
+            }
+        });
+
+        try {
+            const resize = new Resize(),
+                  state  = resize.createState({
+                      axis           : 'width',
+                      minSize        : 120,
+                      oppositeId     : 'opposite',
+                      oppositeMinSize: 160,
+                      parentId       : 'parent',
+                      preview        : true,
+                      resizeNext     : true,
+                      splitterSize   : 10,
+                      targetId       : 'target'
+                  }, {clientX: 300});
+
+            resize.state = state;
+
+            expect(state.minSize).toBe(120);
+            expect(state.maxSize, 'pair span (300 + 290) minus max(25% of 600 = 150, 160) = 430').toBe(430);
+            expect(state.counter).toBeNull();
+
+            expect(resize.apply({clientX: -200, clientY: 0})).toBe(430);
+            expect(target.style.getPropertyValue('width')).toBe('430px');
+            expect(oppositeStyle.getPropertyValue('width')).toBe('');
+            expect(oppositeStyle.getPropertyValue('flex')).toBe('1 1 0%')
+        } finally {
+            Neo.main.DomAccess.getElement    = originalGetElement;
+            Neo.main.DomAccess.getLayoutRect = originalGetLayoutRect;
+            originalGetComputedStyle === undefined
+                ? delete globalThis.getComputedStyle
+                : globalThis.getComputedStyle = originalGetComputedStyle
+        }
+    });
+
+    test('deferred proxy mode clamps dragProxyElement position to the resize [minSize, maxSize] window', () => {
+        const {resize} = createState({preview: false}),
+              proxyEl  = {
+                  getBoundingClientRect: () => ({height: 400, width: 10}),
+                  style                : {}
+              },
+              addon    = {
+                  allowOverdrag         : false,
+                  alwaysFireDragMove    : false,
+                  boundaryContainerRect : {bottom: 400, left: 0, right: 600, top: 0},
+                  dragCancelled         : false,
+                  dragProxyElement      : proxyEl,
+                  dragProxyRect         : {height: 400, width: 10},
+                  dragResize            : resize,
+                  isWindowDragging      : false,
+                  moveHorizontal        : true,
+                  moveVertical          : false,
+                  offsetX               : 5,
+                  offsetY               : 0,
+                  scrollContainerElement: null
+              };
+
+        Object.assign(resize.state, {
+            maxSize        : 420,
+            minSize        : 150,
+            resizeNext     : true,
+            startCoordinate: 300,
+            startSize      : 300
+        });
+
+        DragDrop.prototype.onDragMove.call(addon, {
+            detail: {
+                clientX      : 550,
+                clientY      : 200,
+                originalEvent: {screenX: 550, screenY: 200}
+            }
+        });
+
+        expect(resize.state.lastSize).toBe(150);
+        expect(proxyEl.style.left, 'stops at 300 + (300 - 150) - 5 = 445px instead of following pointer to 545px')
+            .toBe('445px');
+
+        DragDrop.prototype.onDragMove.call(addon, {
+            detail: {
+                clientX      : 100,
+                clientY      : 200,
+                originalEvent: {screenX: 100, screenY: 200}
+            }
+        });
+
+        expect(resize.state.lastSize).toBe(420);
+        expect(proxyEl.style.left, 'stops at 300 + (300 - 420) - 5 = 175px instead of following pointer to 95px')
+            .toBe('175px')
+    });
+
     test('cancel restores exact inline authority and a live move emits no App-Worker frame', () => {
         const {resize, style} = createState(),
               addon           = {dragResize: resize},
@@ -895,5 +1006,120 @@ test.describe('Neo.main.addon.DragDrop — a drag start whose pressed node a re-
         expect(addon.dragZoneId, 'the live ancestors, not the press path, own a connected node').toBe('neo-dock-tab-sortzone-9');
         expect([addon.offsetX, addon.offsetY]).toEqual([10, 12]);
         expect(sent[0].path.map(node => node.id)).toEqual(['neo-tab-header-button-3', 'neo-tab-header-toolbar-9'])
+    })
+});
+
+/**
+ * @summary The one Pointer sensor behind the addon: the former mouse names still reach it, and a
+ * captured stream, which names the document root, is serialized as what lies under the pointer.
+ */
+test.describe('Neo.main.addon.DragDrop — the Pointer sensor surface', () => {
+    const
+        root    = {classList: [], id: 'root'},
+        hit     = {classList: ['drop-zone'], id: 'hit'},
+        parent  = {classList: [], id: 'hit-parent'},
+        pressed = {classList: ['neo-draggable'], id: 'pressed'},
+        // a captured pointer event: retargeted to the document root, whatever is under the pointer
+        captured = type => ({composedPath: () => [root, documentRef, windowRef], target: root, timeStamp: 1, type}),
+        sensorEvent = (type, eventPath) => ({
+            detail: {clientX: 40, clientY: 30, eventPath, originalEvent: captured(type), path: [pressed]},
+            path  : [pressed],
+            target: pressed
+        });
+
+    test('the mouse names are aliases of the pointer truth, and mouseSensor stays an accessor', async () => {
+        const sensor = {delay: 100, minDistance: 5},
+              addon  = Object.create(DragDrop.prototype);
+
+        Object.assign(addon, {pointerSensor: null, pointerSensorPromise: Promise.resolve(sensor)});
+
+        expect(await addon.getPointerSensor()).toBe(sensor);
+        expect(await addon.getMouseSensor(), 'the lazy construction is awaited through the old name too').toBe(sensor);
+
+        addon.pointerSensor = sensor;
+
+        expect(addon.mouseSensor).toBe(sensor);
+        // a class field would be an own property shadowing the accessor with a permanent null
+        expect(Object.hasOwn(addon, 'mouseSensor')).toBe(false);
+
+        Object.assign(addon, {pointerSensor: null, pointerSensorPromise: null});
+
+        expect(await addon.getMouseSensor(), 'a realm without a sensor fails closed').toBe(null)
+    });
+
+    test('a captured move is serialized with the hit-test target and path the sensor states', () => {
+        const addon = {resolveSensorPath: DragDrop.prototype.resolveSensorPath},
+              data  = DragDrop.prototype.getEventData.call(addon, sensorEvent('pointermove', [hit, parent, windowRef]));
+
+        expect(data.target.id).toBe('hit');
+        expect(data.targetPath.map(node => node.id)).toEqual(['hit', 'hit-parent', undefined]);
+        expect(data.path.map(node => node.id), 'path stays the drag:start dispatch path').toEqual(['pressed']);
+        expect([data.clientX, data.clientY]).toEqual([40, 30])
+    });
+
+    test('an uncaptured move keeps the event\'s own target and path', () => {
+        const addon = {resolveSensorPath: DragDrop.prototype.resolveSensorPath},
+              data  = DragDrop.prototype.getEventData.call(addon, sensorEvent('pointermove'));
+
+        expect(data.target.id).toBe('root');
+        expect(data.targetPath.map(node => node.id)).toEqual(['root', undefined, undefined])
+    });
+
+    test('a frame forwards the screen point the sensor states, not the event\'s fractional one', () => {
+        const
+            originalMoveTo = Neo.Main.windowMoveTo,
+            originalSend   = DomEvents.sendMessageToApp,
+            moved          = [],
+            sent           = [],
+            addon          = {dragCancelled: false, dragZoneId: 'zone-a', getEventData: () => ({}), offsetX: 20, offsetY: 10};
+
+        Neo.Main.windowMoveTo      = async data => {moved.push(data); return true};
+        DomEvents.sendMessageToApp = data => sent.push(data);
+
+        try {
+            DragDrop.prototype.startWindowDrag.call(addon, {popupHeight: 240, popupName: 'tearout', popupWidth: 320});
+            DragDrop.prototype.onDragMove.call(addon, {
+                detail: {originalEvent: {screenX: 500.93, screenY: 300.4}, screenX: 500, screenY: 300}
+            })
+        } finally {
+            Neo.Main.windowMoveTo      = originalMoveTo;
+            DomEvents.sendMessageToApp = originalSend
+        }
+
+        expect(moved).toEqual([{windowName: 'tearout', x: 480, y: 290}]);
+        expect(sent[0]).toMatchObject({screenX: 500, screenY: 300, type: 'drag:move'})
+    });
+
+    test('a captured release drops on the zone under the pointer, not on the document root', () => {
+        const
+            originalSend = DomEvents.sendMessageToApp,
+            sent         = [],
+            addon        = {
+                bodyCursorStyle     : null,
+                dragCancelled       : false,
+                dragResize          : null,
+                dragZoneId          : 'zone-1',
+                dropZoneIdentifier  : {cls: ['drop-zone']},
+                getEventData        : DragDrop.prototype.getEventData,
+                offsetX             : 0,
+                offsetY             : 0,
+                pathIncludesDropZone: DragDrop.prototype.pathIncludesDropZone,
+                resetDragState      : () => {},
+                resolveSensorPath   : DragDrop.prototype.resolveSensorPath
+            };
+
+        DomEvents.sendMessageToApp = data => sent.push(data);
+
+        try {
+            DragDrop.prototype.onDragEnd.call(addon, sensorEvent('pointerup', [hit, parent, windowRef]))
+        } finally {
+            DomEvents.sendMessageToApp = originalSend
+        }
+
+        expect(sent.map(data => data.type)).toEqual(['drag:end', 'drop']);
+        expect(sent[0].isDrop).toBe(true);
+        expect(sent[1].path.map(node => node.id), 'the App routes the drop by this path').toEqual(['hit', 'hit-parent', undefined]);
+        expect(sent[1].target.id).toBe('hit');
+        expect(sent[1].dragZoneId).toBe('zone-1')
     })
 });

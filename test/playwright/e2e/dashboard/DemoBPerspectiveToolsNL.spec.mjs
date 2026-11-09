@@ -19,12 +19,18 @@ test.describe('Dashboard Demo B — NL perspective tools: capture → list → r
         viewport      : {height: 720, width: 760}
     });
 
-    test('a topology restore moves the same live pane out of the sibling and presents both captured documents', async ({page, neuralLink}) => {
+    test('a topology restore moves the same live pane out of the sibling and presents both captured documents', async ({page, neuralLink}, testInfo) => {
         await page.goto('/examples/dashboard/crossWindow/index.html');
         await expect(page.locator('.agentos-dockdemo-counter-pane')).toBeVisible({timeout: 30000});
-        const app     = await neuralLink.connectToApp('Neo.examples.dashboard.crossWindow');
-        const records = await app.findInstances({className: 'Neo.examples.dashboard.crossWindow.DemoBWorkspace'}, ['id']);
-        const wsId    = (Array.isArray(records) ? records[0] : records).id;
+        const app             = await neuralLink.connectToApp('Neo.examples.dashboard.crossWindow');
+        const records         = await app.findInstances({className: 'Neo.examples.dashboard.crossWindow.DemoBWorkspace'}, ['id']);
+        const wsId            = (Array.isArray(records) ? records[0] : records).id;
+        const expectTabTitles = async (surface, titles) => {
+            const labels = surface.locator('.neo-tab-header-button .neo-button-text');
+            await expect(labels).toHaveText(titles);
+            for (const title of titles) await expect(labels.filter({hasText: title})).toBeVisible()
+        };
+        await expectTabTitles(page, ['Workbench', 'Inspector', 'Timeline', 'Console']);
         const panes   = await app.findInstances({className: 'Neo.examples.dashboard.crossWindow.CounterPane'}, ['id']);
         const paneId  = (Array.isArray(panes) ? panes[0] : panes).id;
         const opened  = await app.callMethod(wsId, 'openCrossWindowStage');
@@ -48,6 +54,7 @@ test.describe('Dashboard Demo B — NL perspective tools: capture → list → r
         }])).toMatchObject({errors: []});
         await expect(popup.locator(`[id="${paneId}"]`), 'the existing pane is presented in the changed sibling').toBeVisible({timeout: 10000});
         await expect(page.locator(`[id="${paneId}"]`)).toHaveCount(0);
+        await expectTabTitles(popup, ['Workbench']);
 
         if (process.env.NEO_TEST_DROP_SIBLING_PROJECTION === '1') {
             const className = 'Neo.examples.dashboard.crossWindow.DemoBWorkspace';
@@ -65,7 +72,9 @@ test.describe('Dashboard Demo B — NL perspective tools: capture → list → r
         await expect(page.locator(`[id="${paneId}"]`), 'the original pane returns through the captured primary projection').toBeVisible({timeout: 10000});
         await expect(popup.locator(`[id="${paneId}"]`), 'the sibling no longer presents the moved-away pane').toHaveCount(0);
         await expect(popup.locator('.neo-tab-header-button'), 'the restored empty sibling has no stale Workbench tab').toHaveCount(0);
-        await expect(popup.locator('.neo-tab-container'), 'the normalized empty sibling has no retired tabs projection').toHaveCount(0)
+        await expect(popup.locator('.neo-tab-container'), 'the normalized empty sibling has no retired tabs projection').toHaveCount(0);
+        await expectTabTitles(page, ['Workbench', 'Inspector', 'Timeline', 'Console']);
+        await page.screenshot({path: testInfo.outputPath('restored-tab-titles.png'), fullPage: true})
     });
 
     test('NL capture/list/restore round-trip returns the exact baseline; unknown names fail closed', async ({page, neuralLink}) => {

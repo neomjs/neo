@@ -1,58 +1,51 @@
-# EPIC: Refactor and Enhance the Email App
+# Email demo
 
-This document outlines the plan for refactoring the `apps/email` application into a showcase for the Neo.mjs functional component architecture and multi-window capabilities.
+This app completes the five outcomes in [#6600](https://github.com/neomjs/neo/issues/6600):
+a buffered inbox, a dedicated reader, reader and compose pop-outs, and an animated full-viewport composer.
 
-## Architectural Milestones & Key Learnings
+## Try it
 
-This epic has driven significant architectural improvements to the functional component system. For a full understanding of the current state, review this ticket:
+Serve the repository with `npm run server-start` and open `apps/email/index.html`.
+The app uses SharedWorkers, so its windows share the same live App Worker.
 
--   **[#ticket-functional-recursive-config-diffing.md](/.github/ticket-functional-recursive-config-diffing.md):** A plan for a future enhancement to make the diffing logic recursive, allowing for deep, declarative control over nested component configurations.
+- Scroll the 250 local demo messages and select a row. The reader shows the selected record.
+- Choose **Open in window** above the reader. Selecting another inbox row updates that same reader in its popup.
+- Choose **Compose**, type a draft, and use the maximize button to expand it to the browser content viewport.
+  Restore returns it to overlay size. Closing/reopening the overlay keeps the live draft.
+- The composer's **Open in window** moves its existing fields and draft to a popup.
+  Close the native popup window to return that same host to the inbox.
 
----
+This is a UI demo: no account, sending service, or persistent draft storage is provided.
+Return requires the original inbox window to remain open. If it closes first, detached content can remain
+live in its own window; closing the final window ends that in-memory draft.
 
-## Phase 1: Foundation and Basic Layout (Completed)
+## Ownership
 
-**Goal:** Implement the main 3-pane layout as a functional `MainView` component and set it as the content of the existing classic `Viewport`.
+`WorkspaceContainer` uses the engine Dashboard's transfer/return lifecycle and owns the model-backed Store.
+`MainView`, `DetailView` and `ComposeView` remain functional components. The reader Panel and
+`ComposeDialog` own their providers, so selected message/draft state travels with its host.
+Movable hosts are not conditional children of a functional render.
 
-**Learnings & Decisions:**
--   **Interoperability:** Kept the classic `Viewport` and embedded the new functional `MainView` component, showcasing seamless integration.
--   **Naming:** Renamed `Main.mjs` to `MainView.mjs` for clarity.
+The composer is created on first use and retained afterward. It declares `autoMount: false` and no
+animation target, so the Dashboard renders the first insertion instead of the Dialog mounting itself.
+Later hidden-to-visible transitions use the same instance, and they are instant: only maximize animates.
+`WorkspaceController` guards popup admission before awaiting geometry; reopening a named live popup
+would navigate it and destroy the draft. Source-only actions are unavailable while opening or detached.
 
----
+## Verification and retained experiment
 
-## Phase 2: Email List View (Completed)
+`test/playwright/e2e/realworld/EmailMultiWindowNL.spec.mjs` drives the actual app with native browser input
+and popup close. It checks buffering/selection, same-object return, draft bindings, maximize motion,
+popup refusal, repeated admission, pending-popup Escape, and editing after source retirement.
 
-**Goal:** Implement the email list pane using a `Neo.grid.Container`.
+Run it with the repository's E2E config and a provisioned Brain runtime for the SharedWorker Neural Link:
 
-**Learnings & Decisions:**
--   **Complex Component Integration:** Discovered that complex classic components require specific configs (e.g., `wrapperStyle`) to manage their own layout when nested inside functional components.
--   **Stateful Child Problem:** Uncovered the core issue of stateful children (stores, columns) being re-created on every parent render. This led directly to the architectural work on VDOM diffing.
+```sh
+NEO_AGENTOS_RUNTIME_ROOT=/absolute/path/to/neo-agent-brain NEO_NL_PORT=<free-port> \
+npx playwright test -c test/playwright/playwright.config.e2e.mjs test/playwright/e2e/realworld/EmailMultiWindowNL.spec.mjs
+```
 
----
-
-## Phase 3: Email Detail View (Completed)
-
-**Goal:** Display the content of a selected email from the grid.
--   Implemented a `selection.RowModel` on the grid and used a `useConfig` state variable (`selectedEmail`) to drive a conditional render of the detail pane.
-
----
-
-## Phase 4: Compose Email Functionality (Next)
-
-**Goal:** Implement the ability to compose a new email, initially within the main window.
-
-**Proposed Plan:**
-1.  **Compose Button:** Add a `Neo.button.Base` to the "Folders" pane.
-2.  **State Management:** Use `useConfig` in `MainView` to manage an `isComposing` boolean state.
-3.  **Compose View:** Create a new functional component, `view/ComposeView.mjs`, containing the form for the new email.
-4.  **Conditional Rendering:** Use the `isComposing` flag to conditionally render the `ComposeView` as an overlay on top of the main view.
-5.  **Event Handling:** The "Compose" button will set `isComposing` to `true`. The `ComposeView` will have a "Close" button that sets it back to `false`.
-6.  **Overlay Implementation:** We will build a custom functional overlay for this, as it's a good exercise and provides maximum flexibility.
-
----
-
-## Phase 5: Multi-Window Detach
-
-**Goal:** Implement the "detach" functionality to move the compose view into a separate browser window.
-**Sub-Tasks:** *(To be defined)*
-
+The [intake experiment](https://github.com/neomjs/neo/issues/6600#issuecomment-6681495014)
+retains the original question, browser result and limits. A second-open negative control lost the draft
+by reloading its named popup; the app guard and regression test are the disposition of that result.
+No OS placement or persistence claim follows from the browser proof.

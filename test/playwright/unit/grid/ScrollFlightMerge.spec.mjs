@@ -34,8 +34,6 @@ import VdomHelper      from '../../../../src/vdom/Helper.mjs';
  * later repaint comes, so a pruned row keeps a stored vnode for the index it showed before the scroll.
  */
 test.describe('grid.View scroll repaint with a merged body update', () => {
-    test.skip(!!process.env.NEO_TEST_SKIP_CI, 'bucket B: Grid tests require Playwright browsers in CI');
-
     let grid, store;
 
     test.beforeEach(async () => {
@@ -120,6 +118,59 @@ test.describe('grid.View scroll repaint with a merged body update', () => {
         } finally {
             VdomHelper.updateBatch = originalUpdateBatch;
             delete view.getVdomUpdatePayload
+        }
+    });
+
+    test('ScrollManager onContainerScroll from rest and onScrollEnd ship neo-is-scrolling inside the single View flight without child-update collision', async () => {
+        const {body, scrollManager, view} = grid,
+              originalUpdateBatch         = VdomHelper.updateBatch,
+              batches                     = [];
+
+        VdomHelper.updateBatch = async function(data) {
+            batches.push(Object.keys(data.updates));
+            return originalUpdateBatch.call(this, data)
+        };
+
+        scrollManager.rowHoverSync = false;
+
+        try {
+            scrollManager.onContainerScroll({
+                scrollLeft: 0,
+                scrollTop : 400,
+                target    : {id: view.id, scrollTop: 400}
+            });
+
+            expect(body.isScrolling).toBe(true);
+            expect(body.cls).toContain('neo-is-scrolling');
+            expect(body.isVdomUpdating, 'body does not start a colliding depth-1 flight ahead of View').toBe(false);
+            expect(VDomUpdate.preUpdateMap.has(body.id), 'createViewData ran synchronously rather than deferring to preUpdateMap').toBe(false);
+            expect(VDomUpdate.postUpdateQueueMap.get(body.id), 'View is not parked behind a body child update').toBeNull();
+            expect(view.isVdomUpdating, 'View owns the single scroll flight').toBe(true);
+
+            await expect.poll(() => view.isVdomUpdating || view.needsVdomUpdate).toBe(false);
+
+            expect(batches, 'first scroll frame ships as a single View batch').toEqual([[view.id]]);
+            expect(body.vnode.className).toContain('neo-is-scrolling');
+
+            const withRecord = body.items.filter(row => row.record),
+                  stale      = withRecord
+                      .filter(row => String(row.vnode?.attributes?.['aria-rowindex']) !== String(row.rowIndex + 2))
+                      .map(row => `${row.id}: vnode ${row.vnode?.attributes?.['aria-rowindex']}, rowIndex+2 ${row.rowIndex + 2}`);
+
+            expect(withRecord.length).toBeGreaterThan(0);
+            expect(stale, 'every repainted row reached the DOM in the first flight').toEqual([]);
+
+            // Wait for the buffered onScrollEnd (150ms) to settle isScrolling back to false
+            await expect.poll(() => body.isScrolling).toBe(false);
+            await expect.poll(() => view.isVdomUpdating || view.needsVdomUpdate).toBe(false);
+
+            expect(batches, 'onScrollEnd also ships as a single View batch without a separate body flight').toEqual([
+                [view.id],
+                [view.id]
+            ]);
+            expect(body.vnode.className).not.toContain('neo-is-scrolling')
+        } finally {
+            VdomHelper.updateBatch = originalUpdateBatch
         }
     })
 });

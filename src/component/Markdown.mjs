@@ -7,7 +7,7 @@ const
     regexFrontMatter  = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/,
     regexLabClose     = /<!--\s*\/lab\s*-->/g,
     regexLabOpen      = /<!--\s*lab\s*-->/g,
-    regexLivePreview  = /(?<!\\)```(javascript|html|css|json)\s+live-preview\s*\n([\s\S]*?)\n\s*```/g,
+    regexLivePreview  = /(?<!\\)```(javascript|html|css|json|mermaid)\s+live-preview\s*\n([\s\S]*?)\n\s*```/g,
     regexMermaid      = /(?<!\\)```mermaid\s*\n([\s\S]*?)\n\s*```/g,
     regexNeoComponent = /(?<!\\)```json\s+neo-component\s*\n([\s\S]*?)\n\s*```/g,
     regexNewLines     = /^\n+|\n+$/g,
@@ -342,14 +342,14 @@ class Markdown extends Component {
                 return `${prefix}<a href="${url}"${target}>#${id}</a>`
             });
 
-            // 5. Restore protected blocks (in reverse order to handle nesting if any, though regex usually handles top-level)
-            // Note: Simple loop is fine as tokens are unique strings
+            // 5. Restore protected blocks, newest token first: a link's token can hold an inline-code
+            // token (`[`name`](url)`), so the link must be back in the content before its code is.
             // The replacement is a FUNCTION, not the string itself. A string replacement gives the
             // restored code special meaning: `$&`, `` $` ``, `$'` and `$n` are substitution patterns,
             // so a guide authoring the inline code `` `$` `` restores as "insert everything before
             // the match" and splices the whole preceding document back in. A function replacement is
             // returned verbatim, which is the only thing this loop ever meant.
-            placeholders.forEach(item => {
+            placeholders.reverse().forEach(item => {
                 content = content.replace(item.token, () => item.value);
             });
         }
@@ -458,6 +458,8 @@ class Markdown extends Component {
     }
 
     /**
+     * @summary Extracts editable fences before ordinary Markdown/Mermaid rendering. Mermaid fences carry
+     * their explicit language to LivePreview; the existing code fences retain Neo execution.
      * @param {String} contentString
      * @param {Object} map
      * @returns {String}
@@ -545,7 +547,7 @@ class Markdown extends Component {
     }
 
     /**
-     * Orchestrates the Markdown rendering pipeline.
+     * @summary Orchestrates extraction, parsing and component injection for Markdown content.
      *
      * This method implements a **multi-pass compilation strategy** to overcome the limitations of standard Markdown parsers
      * when dealing with dynamic content and asynchronous operations:
@@ -637,6 +639,7 @@ class Markdown extends Component {
             Object.keys(neoDivs).forEach(key => {
                 const config = {
                     ...baseConfigs,
+                    language: neoDivs[key].language === 'mermaid' ? 'mermaid' : 'neomjs',
                     module  : LivePreviewClass,
                     parentId: key,
                     value   : neoDivs[key].code

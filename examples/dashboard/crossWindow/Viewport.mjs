@@ -26,6 +26,16 @@ class Viewport extends BaseViewport {
          */
         className: 'Neo.examples.dashboard.crossWindow.Viewport',
         /**
+         * Both boot modes need the example skin: a popup hosts the traveling pane without
+         * constructing the workspace that normally loads these sheets.
+         * @member {String[]} additionalThemeFiles
+         */
+        additionalThemeFiles: [
+            'Neo.examples.dashboard.Palette',
+            'Neo.examples.dashboard.choreography.DemoAWorkspace',
+            'Neo.examples.dashboard.crossWindow.DemoBWorkspace'
+        ],
+        /**
          * @member {String[]} cls=['agentos-dockdemo-viewport']
          */
         cls: ['agentos-dockdemo-viewport'],

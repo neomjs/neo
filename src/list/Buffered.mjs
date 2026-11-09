@@ -733,24 +733,24 @@ class Buffered extends ComponentList {
 
     /**
      * Updates only the mounted slot for the changed record. Store sort-triggered loads already ran
-     * before this event; no second full refresh is needed.
+     * before this event, so the slot comes from the record's current index, never `data.index`.
      * @param {Object} data
-     * @param {Number} data.index
      * @param {Object} data.record
      */
     onStoreRecordChange(data) {
         let me        = this,
+            index     = me.store.indexOf(data.record),
             recordId  = me.getRecordId(data.record),
             poolIndex = me.recordSlotMap.get(me.toRecordMapKey(recordId)),
             orderIndex;
 
-        if (poolIndex === undefined || data.index < me.mountedRange[0] || data.index >= me.mountedRange[1]) {
+        if (poolIndex === undefined || index < me.mountedRange[0] || index >= me.mountedRange[1]) {
             return
         }
 
-        orderIndex = data.index - me.mountedRange[0];
+        orderIndex = index - me.mountedRange[0];
         me.vdom.cn[orderIndex + 1] = me.createPooledItem({
-            logicalIndex: data.index,
+            logicalIndex: index,
             poolIndex,
             record      : data.record
         });

@@ -594,6 +594,7 @@ class DomEvents extends Base {
     }
 
     /**
+     * @summary Forwards settled iframe focus after an instance-owned task deferral.
      * Focus crossing into a nested document is invisible to the focus events this document forwards:
      * the element losing focus fires `focusout` with no `relatedTarget`, the `<iframe>` element that
      * now holds it fires no `focusin`, and only the window's `blur` says anything happened. Without a
@@ -606,7 +607,7 @@ class DomEvents extends Base {
     onWindowBlur() {
         let me = this;
 
-        setTimeout(() => {
+        me.timeout(0).then(() => {
             let node = document.activeElement,
                 path = [];
 
@@ -624,7 +625,7 @@ class DomEvents extends Base {
                 timeStamp   : performance.now(),
                 type        : 'focusin'
             }))
-        }, 0)
+        })
     }
 
     /**
@@ -656,13 +657,14 @@ class DomEvents extends Base {
     }
 
     /**
+     * @summary Preserves native input defaults, including an open select's focused option, inside selection regions.
      * @param {KeyboardEvent} event
      */
     onKeyDown(event) {
         let me        = this,
             {target}  = event,
             {tagName} = target,
-            isInput   = tagName === 'INPUT' || tagName === 'TEXTAREA';
+            isInput   = tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT' || !!target.closest?.('select');
 
         if (isInput && disabledInputKeys[target.id]?.includes(event.key)) {
             event.preventDefault()
@@ -707,13 +709,13 @@ class DomEvents extends Base {
             if (
                 !isInput &&
                 ['ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowUp'].includes(event.key) &&
-                me.testPathInclusion(event, ['neo-selection'], true)
+                me.testPathInclusion(event, ['neo-selection', 'neo-accordion-header'], true)
             ) {
                 event.preventDefault()
             }
 
-            // A menu item is not such a native target: Space activates it, like Enter, and scrolls nothing
-            if (!isInput && event.key === ' ' && me.testPathInclusion(event, ['neo-menu-list'])) {
+            // A menu item, accordion header or role-button trigger/nav-button is not a native <button>: Space activates it, like Enter, and scrolls nothing
+            if (!isInput && event.key === ' ' && me.testPathInclusion(event, ['neo-menu-list', 'neo-accordion-header', 'neo-field-trigger', 'neo-nav-button'])) {
                 event.preventDefault()
             }
         }

@@ -8,6 +8,7 @@ import inquirer        from 'inquirer';
 import os              from 'os';
 import path            from 'path';
 import {fileURLToPath} from 'url';
+import isEntryModule   from '../util/isEntryModule.mjs';
 import {sanitizeInput} from '../util/sanitizer.mjs';
 
 const
@@ -32,6 +33,7 @@ const
      */
     sourceRootDirs = ['apps'];
 
+if (isEntryModule(import.meta.url)) {
 program
     .name(programName)
     .version(packageJson.version)
@@ -39,9 +41,13 @@ program
     .option('-d, --drop',              'drops class in the currently selected folder')
     .option('-n, --singleton <value>', 'Create a singleton? Pick "yes" or "no"',                                                    sanitizeInput)
     .option('-s, --source <value>',    `name of the folder containing the project. Defaults to any of ${sourceRootDirs.join(',')}`, sanitizeInput)
-    .option('-b, --baseClass <value>', 'The base class to extend',                                                                  sanitizeInput)
-    .option('-c, --className <value>', 'The class name',                                                                            sanitizeInput)
-    .option('-r, --scss <value>',      'The scss class',                                                                            sanitizeInput)
+    .option('-b, --baseClass <value>',           'The base class to extend',                                                                  sanitizeInput)
+    .option('-c, --className <value>',           'The class name',                                                                            sanitizeInput)
+    .option('-C, --createController <value>',    'Create a matching controller.Component when generating a view? Pick "yes" or "no"',         sanitizeInput)
+    .option('-M, --createModel <value>',         'Create a matching data.Model when generating a data.Store? Pick "yes" or "no"',             sanitizeInput)
+    .option('-p, --createStateProvider <value>', 'Create a matching state.Provider when generating a view? Pick "yes" or "no"',               sanitizeInput)
+    .option('-m, --createStore <value>',         'Create a matching data.Store when generating a data.Model? Pick "yes" or "no"',             sanitizeInput)
+    .option('-r, --scss <value>',                'The scss class',                                                                            sanitizeInput)
     .allowUnknownOption()
     .on('--help', () => {
         console.log('\nIn case you have any issues, please create a ticket here:');
@@ -238,19 +244,217 @@ if (programOpts.info) {
         folderDelta = ns.length + 2;
     }
 
+    let storeModelFile, storeModelName;
+
+    if (baseClass === 'data.Store') {
+        let modelName = file.endsWith('ies') && file.length > 3
+                ? `${file.slice(0, -3)}y`
+                : file.endsWith('s') && !file.endsWith('ss') && file.length > 1
+                    ? file.slice(0, -1)
+                    : file,
+            modelNs = ns.includes('store') ? ns.map(part => part === 'store' ? 'model' : part) : [...ns, 'model'],
+            existingModelFile, modelClassFolder, modelClassName, modelFolderDelta, siblingModelFile, targetModelFile;
+
+        if (root === 'Neo') {
+            modelClassName   = ['Neo', ...modelNs, modelName].join('.');
+            modelClassFolder = path.join(cwd, modelClassName.startsWith('Neo.examples') ? '/' : '/src/', modelNs.join('/'));
+            modelFolderDelta = modelNs.length;
+        } else if (isDrop) {
+            let sourceRootPath = path.resolve(classFolder, '../'.repeat(ns.length));
+            modelClassName   = [...modelNs, modelName].join('.');
+            modelClassFolder = path.resolve(sourceRootPath, modelNs.join(path.sep));
+            modelFolderDelta = modelNs.length + 1;
+        } else {
+            modelClassName   = [root, ...modelNs, modelName].join('.');
+            modelClassFolder = path.resolve(cwd, 'apps', rootLowerCase, modelNs.join('/'));
+            modelFolderDelta = modelNs.length + 2;
+        }
+
+        targetModelFile   = path.join(modelClassFolder, `${modelName}.mjs`);
+        siblingModelFile  = path.join(classFolder, `${modelName}.mjs`);
+        existingModelFile = [targetModelFile, siblingModelFile].find(
+            candidate => candidate !== path.join(classFolder, `${file}.mjs`) && fs.existsSync(candidate)
+        );
+
+        if (existingModelFile) {
+            storeModelFile = existingModelFile;
+            storeModelName = modelName;
+        } else {
+            let createModel = programOpts.createModel;
+
+            if (!createModel && !isDrop) {
+                answer = await inquirer.prompt({
+                    type   : 'select',
+                    name   : 'createModel',
+                    message: 'Do you want to create a matching data.Model?',
+                    default: 'yes',
+                    choices: ['yes', 'no']
+                });
+
+                createModel = answer.createModel;
+            }
+
+            if (createModel === 'yes') {
+                let storeFolder = classFolder;
+
+                classFolder = modelClassFolder;
+
+                createClass({
+                    baseClass  : 'data.Model',
+                    className  : modelClassName,
+                    file       : modelName,
+                    folderDelta: modelFolderDelta,
+                    isSingleton: false,
+                    ns         : modelNs,
+                    root
+                });
+
+                classFolder    = storeFolder;
+                storeModelFile = targetModelFile;
+                storeModelName = modelName;
+            }
+        }
+    }
+
     createClass({
         baseClass,
         className,
         isSingleton,
         file,
         folderDelta,
+        modelFile: storeModelFile,
+        modelName: storeModelName,
         ns,
         root,
         scssClass
     });
 
     if (baseClass === 'data.Model') {
-        // todo: add a question for auto-generating a matching store
+        let createStore = programOpts.createStore;
+
+        if (!createStore && !isDrop) {
+            answer = await inquirer.prompt({
+                type   : 'select',
+                name   : 'createStore',
+                message: 'Do you want to create a matching data.Store?',
+                default: 'yes',
+                choices: ['yes', 'no']
+            });
+
+            createStore = answer.createStore;
+        }
+
+        if (createStore === 'yes') {
+            let modelFile = path.join(classFolder, `${file}.mjs`),
+                modelName = file,
+                storeFile = /[^aeiou]y$/i.test(file) ? `${file.slice(0, -1)}ies` : `${file}s`,
+                storeNs   = ns.includes('model') ? ns.map(part => part === 'model' ? 'store' : part) : [...ns, 'store'],
+                storeClassName;
+
+            if (root === 'Neo') {
+                storeClassName = ['Neo', ...storeNs, storeFile].join('.');
+                classFolder    = path.join(cwd, storeClassName.startsWith('Neo.examples') ? '/' : '/src/', storeNs.join('/'));
+                folderDelta    = storeNs.length;
+            } else if (isDrop) {
+                storeClassName = [...ns, storeFile].join('.');
+            } else {
+                storeClassName = [root, ...storeNs, storeFile].join('.');
+                classFolder    = path.resolve(cwd, 'apps', rootLowerCase, storeNs.join('/'));
+                folderDelta    = storeNs.length + 2;
+            }
+
+            createClass({
+                baseClass  : 'data.Store',
+                className  : storeClassName,
+                file       : storeFile,
+                folderDelta,
+                isSingleton: false,
+                modelFile,
+                modelName,
+                ns         : storeNs,
+                root
+            });
+        }
+    }
+
+    if (isViewBaseClass(baseClass)) {
+        let createController    = programOpts.createController,
+            createStateProvider = programOpts.createStateProvider,
+            isFrameworkSrc      = root === 'Neo' && !className.startsWith('Neo.examples');
+
+        if (!createController && !isDrop && !isFrameworkSrc) {
+            answer = await inquirer.prompt({
+                type   : 'select',
+                name   : 'createController',
+                message: 'Do you want to create a matching controller.Component?',
+                default: 'no',
+                choices: ['yes', 'no']
+            });
+
+            createController = answer.createController;
+        }
+
+        if (createController === 'yes') {
+            let controllerName = `${file}Controller`,
+                controllerFile = path.join(classFolder, `${controllerName}.mjs`);
+
+            if (fs.existsSync(controllerFile)) {
+                adjustView({
+                    baseType  : 'Neo.controller.Component',
+                    configName: 'controller',
+                    importName: controllerName,
+                    importPath: `./${controllerName}.mjs`,
+                    viewFile  : path.join(classFolder, `${file}.mjs`)
+                });
+            } else {
+                createClass({
+                    baseClass  : 'controller.Component',
+                    className  : `${className}Controller`,
+                    file       : controllerName,
+                    folderDelta,
+                    isSingleton: false,
+                    ns,
+                    root
+                });
+            }
+        }
+
+        if (!createStateProvider && !isDrop && !isFrameworkSrc) {
+            answer = await inquirer.prompt({
+                type   : 'select',
+                name   : 'createStateProvider',
+                message: 'Do you want to create a matching state.Provider?',
+                default: 'no',
+                choices: ['yes', 'no']
+            });
+
+            createStateProvider = answer.createStateProvider;
+        }
+
+        if (createStateProvider === 'yes') {
+            let stateProviderName = `${file}StateProvider`,
+                stateProviderFile = path.join(classFolder, `${stateProviderName}.mjs`);
+
+            if (fs.existsSync(stateProviderFile)) {
+                adjustView({
+                    baseType  : 'Neo.state.Provider',
+                    configName: 'stateProvider',
+                    importName: stateProviderName,
+                    importPath: `./${stateProviderName}.mjs`,
+                    viewFile  : path.join(classFolder, `${file}.mjs`)
+                });
+            } else {
+                createClass({
+                    baseClass  : 'state.Provider',
+                    className  : `${className}StateProvider`,
+                    file       : stateProviderName,
+                    folderDelta,
+                    isSingleton: false,
+                    ns,
+                    root
+                });
+            }
+        }
     }
 
     const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
@@ -295,7 +499,7 @@ if (programOpts.info) {
     }
 
     /**
-     * Adjusts the views related to controller.Component or model.Component
+     * Adjusts the views related to controller.Component or state.Provider
      * @param {Object} opts
      * @param {String} opts.baseType
      * @param {String} opts.configName
@@ -400,7 +604,7 @@ if (programOpts.info) {
                     continue;
                 }
 
-                if (className > configName) {
+                if (className.startsWith('_') || className > configName) {
                     for (j = i; j > 0; j--) {
                         if (content[j].includes('/**')) {
                             addConfig({
@@ -438,6 +642,8 @@ if (programOpts.info) {
      * @param {Boolean} opts.isSingleton
      * @param {String} opts.file
      * @param {Number} opts.folderDelta
+     * @param {String} [opts.modelFile]
+     * @param {String} [opts.modelName]
      * @param {String[]} opts.ns
      * @param {String} opts.root
      */
@@ -448,6 +654,8 @@ if (programOpts.info) {
             isSingleton,
             file,
             folderDelta,
+            modelFile,
+            modelName,
             ns,
             root,
             scssClass = undefined,
@@ -480,7 +688,7 @@ if (programOpts.info) {
                 configName = 'controller';
                 importName = file;
                 importPath = `./${importName}.mjs`;
-                index      = file.indexOf('Controller');
+                index      = file.lastIndexOf('Controller');
 
                 if (index > 0) {
                     viewFile = path.join(classFolder, file.substr(0, index) + '.mjs');
@@ -493,28 +701,18 @@ if (programOpts.info) {
             }
 
             case 'data.Store': {
-                baseType   = 'Neo.data.Model';
-                configName = 'model';
-                importName = className.replace('.store.', '.model.');
+                if (modelFile && modelName && fs.existsSync(modelFile)) {
+                    let relativeModelPath = path.relative(classFolder, modelFile).split(path.sep).join('/');
 
-                if (importName.endsWith('ies')) {
-                    importName.replace(new RegExp('ies$'), 'y')
-                } else {
-                    importName = importName.slice(0, -1);
-                }
-
-                viewFile = importName.split('.');
-                viewFile.shift();
-
-                importPath = `../${viewFile.join('/')}.mjs`;
-                viewFile   = path.join(classFolder, importPath);
-
-                // checking for the data.Model file
-                if (fs.existsSync(viewFile)) {
-                    // adjusting the data.Store file
+                    baseType   = 'Neo.data.Model';
+                    configName = 'model';
+                    importName = modelName;
+                    importPath = relativeModelPath.startsWith('.') ? relativeModelPath : `./${relativeModelPath}`;
                     viewFile   = path.join(classFolder, file + '.mjs');
-                    importName = importName.split('.');
-                    importName = importName.pop();
+
+                    while (importName === baseFileName || importName === file) {
+                        importName += 'Model';
+                    }
 
                     adjustView({baseType, configName, importName, importPath, viewFile});
                 }
@@ -526,7 +724,7 @@ if (programOpts.info) {
                 configName = 'stateProvider';
                 importName = file;
                 importPath = `./${importName}.mjs`;
-                index      = file.indexOf('StateProvider');
+                index      = file.lastIndexOf('StateProvider');
 
                 if (index > 0) {
                     viewFile = path.join(classFolder, file.substring(0, index) + '.mjs');
@@ -697,38 +895,79 @@ if (programOpts.info) {
 
         return classContent.join(os.EOL);
     }
+}
+}
 
-    function guessBaseClass(className) {
-        className = className.toLowerCase();
+/**
+ * @summary Infers the default Neo base class from a target class name.
+ * @param {String} className
+ * @returns {String}
+ */
+export function guessBaseClass(className) {
+    className = className.toLowerCase();
 
-        if (className.includes('.model.')) {
-            return 'data.Model';
-        }
-
-        if (className.includes('.store.')) {
-            return 'data.Store';
-        }
-
-        if (className.endsWith('component')) {
-            return 'component.Base';
-        }
-
-        if (className.endsWith('controller')) {
-            return 'controller.Component';
-        }
-
-        if (className.endsWith('stateprovider')) {
-            return 'state.Provider';
-        }
-
-        if (className.includes('table')) {
-            return 'table.Container';
-        }
-
-        if (className.includes('tab')) {
-            return 'tab.Container';
-        }
-
-        return 'container.Base';
+    if (className.includes('.model.')) {
+        return 'data.Model';
     }
+
+    if (className.includes('.store.')) {
+        return 'data.Store';
+    }
+
+    if (className.endsWith('component')) {
+        return 'component.Base';
+    }
+
+    if (className.endsWith('controller')) {
+        return 'controller.Component';
+    }
+
+    if (className.endsWith('stateprovider')) {
+        return 'state.Provider';
+    }
+
+    if (className.endsWith('viewport')) {
+        return 'container.Viewport';
+    }
+
+    if (className.includes('table')) {
+        return 'table.Container';
+    }
+
+    if (className.includes('tab')) {
+        return 'tab.Container';
+    }
+
+    return 'container.Base';
+}
+
+/**
+ * @summary Determines whether a Neo base class is `component.Base` or extends `component.Base` by walking `@extends Neo.<ns>` in `src/`.
+ * @param {String} baseClass
+ * @returns {Boolean}
+ */
+export function isViewBaseClass(baseClass) {
+    let current = baseClass?.replace(/^Neo\./, ''),
+        visited = new Set();
+
+    while (current && !visited.has(current)) {
+        if (current === 'component.Base') {
+            return true;
+        }
+
+        visited.add(current);
+
+        let srcFile = path.resolve(__dirname, '../src', `${current.split('.').join('/')}.mjs`);
+
+        if (!fs.existsSync(srcFile)) {
+            return false;
+        }
+
+        let content = fs.readFileSync(srcFile, 'utf8'),
+            match   = content.match(/@extends\s+Neo\.([A-Za-z0-9_.]+)/);
+
+        current = match ? match[1] : null;
+    }
+
+    return false;
 }

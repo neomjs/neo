@@ -3,6 +3,7 @@ import path                        from 'path';
 import {getEngineReleaseNotesRoot} from '../util/contentRoot.mjs';
 import {
     DEVELOPMENT_THEME_BUILD_COMMAND,
+    getExpectedDevelopmentCss,
     inspectDevelopmentThemeAssets
 } from '../util/developmentThemeAssets.mjs';
 
@@ -26,7 +27,13 @@ function isDevelopmentThemeCssRequest(request) {
  * at startup and at most once per recheck interval while theme CSS is actively requested.
  * Freshness warnings and inspector-error warnings are independently transition-de-duplicated;
  * neither inspection failures nor logging failures can block server startup or a response.
+ *
+ * The root checked is the one `static` serves. A root with no theme sources of its own, such as
+ * an app workspace whose engine sits in `node_modules`, has no build for this check to keep fresh,
+ * so it never warns there.
  * @param {Object} [options]
+ * @param {String} [options.root] The served root.
+ * @param {Function} [options.buildsThemes] Whether the served root has theme sources to build.
  * @param {Function} [options.inspect] Development-theme inspector.
  * @param {Object} [options.logger] Warning logger.
  * @param {Function} [options.now] Millisecond clock.
@@ -34,7 +41,9 @@ function isDevelopmentThemeCssRequest(request) {
  * @returns {{onListening: Function, setupMiddlewares: Function}}
  */
 export function createDevelopmentThemeFreshnessHooks({
-    inspect = inspectDevelopmentThemeAssets,
+    root = process.cwd(),
+    buildsThemes = () => getExpectedDevelopmentCss(root).length > 0,
+    inspect = () => inspectDevelopmentThemeAssets({repoRoot: root}),
     logger = console,
     now = Date.now,
     recheckIntervalMs = DEVELOPMENT_THEME_RECHECK_INTERVAL_MS
@@ -71,7 +80,7 @@ export function createDevelopmentThemeFreshnessHooks({
 
             errorWarned = false;
 
-            if (!ready && lastReady !== false) {
+            if (!ready && lastReady !== false && buildsThemes()) {
                 warn(
                     '[dev-server] WARNING: development theme assets are missing, stale, invalid, ' +
                     'or borrowed. Served CSS may trail current SCSS sources.\n' +

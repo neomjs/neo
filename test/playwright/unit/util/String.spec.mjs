@@ -44,5 +44,29 @@ test.describe('Neo.util.String', () => {
         expect(StringUtil.uncapitalize('')).toBe('');
         expect(StringUtil.uncapitalize(null)).toBeNull();
         expect(StringUtil.uncapitalize(false)).toBe(false)
+    });
+
+    test('escapeRegExp escapes regex metacharacters and passes non-strings through', () => {
+        const metacharacters = '\\^$.*+?()[]{}|/-';
+        const escaped        = StringUtil.escapeRegExp(metacharacters);
+
+        expect(escaped).toBe('\\\\\\^\\$\\.\\*\\+\\?\\(\\)\\[\\]\\{\\}\\|\\/\\-');
+
+        const regex = new RegExp(escaped, 'g');
+        expect(`prefix ${metacharacters} suffix`.replace(regex, 'MATCH')).toBe('prefix MATCH suffix');
+
+        for (const ch of metacharacters) {
+            const singleRegex = new RegExp(StringUtil.escapeRegExp(ch), 'gi');
+            expect(singleRegex.test(ch)).toBe(true);
+            if (ch === '.') {
+                expect(singleRegex.test('a')).toBe(false);
+            }
+        }
+
+        const obj = {a: 1};
+        expect(StringUtil.escapeRegExp(obj)).toBe(obj);
+        expect(StringUtil.escapeRegExp(null)).toBeNull();
+        expect(StringUtil.escapeRegExp(undefined)).toBeUndefined();
+        expect(StringUtil.escapeRegExp(123)).toBe(123)
     })
 });

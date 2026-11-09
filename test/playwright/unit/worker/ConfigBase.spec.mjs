@@ -59,7 +59,7 @@ async function registrationProbe() {
         // Import the receiver class without its connect-on-init singleton startup.
         Neo.overwrites = {Neo: {worker: {App: {singleton: false}}}};
         const {default: App} = await import('./src/worker/App.mjs');
-        const receiver = {ports: [], themeMapFetchStarted: true};
+        const receiver = {ports: [], resolveAiClientBoot: App.prototype.resolveAiClientBoot, themeMapFetchStarted: true};
         Neo.config = {useSharedWorkers: false, useVdomWorker: true, useAiClient: false};
         delete Neo.windowConfigs;
         App.prototype.onRegisterNeoConfig.call(receiver, {data: {

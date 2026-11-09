@@ -12,12 +12,28 @@ const EffectManager = {
      */
     effectStack: [],
     /**
-     * A flag to temporarily disable dependency tracking for the active effect.
-     * This is used internally to prevent effects from depending on their own state, like `isRunning`.
-     * @member {Boolean} isTrackingPaused=false
+     * A counter to manage nested calls to pauseTracking() and resumeTracking(). The active effect collects no
+     * dependencies while it is greater than 0. Each effect has its own: push() starts it at 0, pop() restores the
+     * outer effect's.
+     * @member {Number} trackingPauseCounter=0
      * @protected
      */
-    isTrackingPaused: false,
+    trackingPauseCounter: 0,
+    /**
+     * The trackingPauseCounter of each effect below the active one, restored by pop().
+     * @member {Number[]} trackingPauseStack=[]
+     * @protected
+     */
+    trackingPauseStack: [],
+
+    /**
+     * True while dependency tracking is paused for the active effect.
+     * @member {Boolean} isTrackingPaused
+     * @protected
+     */
+    get isTrackingPaused() {
+        return this.trackingPauseCounter > 0
+    },
     /**
      * A counter to manage nested calls to pause() and resume(). Effect execution is
      * paused or batched while this counter is greater than 0.
@@ -69,27 +85,31 @@ const EffectManager = {
     },
 
     /**
-     * Disables dependency tracking for the currently active effect.
+     * Disables dependency tracking for the currently active effect until the matching resumeTracking().
+     * Each call increments a counter, allowing for nested control.
      * @protected
      */
     pauseTracking() {
-        this.isTrackingPaused = true
+        this.trackingPauseCounter++
     },
 
     /**
-     * Pops the current effect from the stack.
+     * Pops the current effect from the stack and restores the tracking pause of the effect below it.
      * @returns {Neo.core.Effect|null}
      */
     pop() {
+        this.trackingPauseCounter = this.trackingPauseStack.pop() ?? 0;
         return this.effectStack.pop()
     },
 
     /**
-     * Pushes an effect onto the stack.
+     * Pushes an effect onto the stack. It starts with tracking enabled, whatever the outer effect paused.
      * @param {Neo.core.Effect} effect The effect to push.
      */
     push(effect) {
-        this.effectStack.push(effect)
+        this.effectStack.push(effect);
+        this.trackingPauseStack.push(this.trackingPauseCounter);
+        this.trackingPauseCounter = 0
     },
 
     /**
@@ -120,11 +140,14 @@ const EffectManager = {
     },
 
     /**
-     * Re-enables dependency tracking for the currently active effect.
+     * Ends the innermost pauseTracking(). Tracking resumes once the outermost pair ends; a call without a matching
+     * pause does nothing.
      * @protected
      */
     resumeTracking() {
-        this.isTrackingPaused = false
+        if (this.trackingPauseCounter > 0) {
+            this.trackingPauseCounter--
+        }
     }
 };
 

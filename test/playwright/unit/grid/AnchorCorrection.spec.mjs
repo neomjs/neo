@@ -95,8 +95,6 @@ function heightsOf(grid, heights) {
 }
 
 test.describe('Grid content-sized rows: anchor correction', () => {
-    test.skip(!!process.env.NEO_TEST_SKIP_CI, 'bucket B: Grid tests require Playwright browsers in CI');
-
     let grid, metas, store;
 
     test.beforeEach(async () => {
@@ -142,6 +140,39 @@ test.describe('Grid content-sized rows: anchor correction', () => {
 
         expect(metas.filter(meta => meta.scrollCorrection)).toEqual([{scrollCorrection: 80, scrollEpoch: 1, scrollTop: 2090}]);
         expect(metas.at(-1).scrollEpoch).toBe(1)
+    });
+
+    test('a scroll the main thread reported before it applied a correction lands where the correction moved the rows', async () => {
+        let {body, scrollManager, view} = grid,
+            // A scroll event as Neo.main.DomEvents sends it: the view node's dataset carries the applied epoch
+            report = (scrollTop, scrollEpoch) => scrollManager.onContainerScroll({
+                scrollLeft: 0,
+                scrollTop,
+                target    : {data: {scrollEpoch: String(scrollEpoch)}, id: view.id, scrollTop}
+            });
+
+        scrollManager.rowHoverSync = false;
+
+        // Rows above the anchor grow by 80px: the first correction
+        view.setRowHeights(heightsOf(grid, {10: 100, 20: 60}));
+        await view.promiseUpdate();
+        expect(scrollManager.scrollTop, 'the scroll manager follows the correction').toBe(2090);
+
+        // Dispatched before the main thread applied the correction
+        report(2010, 0);
+        await expect.poll(() => view.isVdomUpdating || view.needsVdomUpdate).toBe(false);
+        expect(view.scrollTop).toBe(2090);
+        expect(body.startIndex).toBe(50);
+
+        // Dispatched after it: the offset already includes the correction
+        await grid.timeout(20);
+        report(2100, 1);
+        await expect.poll(() => view.isVdomUpdating || view.needsVdomUpdate).toBe(false);
+        expect(view.scrollTop).toBe(2100);
+
+        // The buffered scroll end re-syncs to the same offset
+        await expect.poll(() => body.isScrolling).toBe(false);
+        expect(view.scrollTop).toBe(2100)
     });
 
     test('a reset of the measured heights keeps the anchor row still', async () => {

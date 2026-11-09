@@ -99,7 +99,7 @@ class Card extends Base {
     loadingModulesById = new Map()
 
     /**
-     * Every parked config participating in one in-flight load, keyed by that load's promise.
+     * The admitted slot occupant and every config participating in one in-flight load, keyed by its promise.
      *
      * Exists only so the settle handler can release what the flight registered. The initiator is
      * known to it directly; a joiner is not, and a joiner's identity entry outliving the flight
@@ -108,7 +108,7 @@ class Card extends Base {
      *
      * A `WeakMap` keyed on the promise, so a flight that somehow never settles cannot pin its
      * participants; the explicit delete in {@link #loadModule} is the ordinary path.
-     * @member {WeakMap<Promise,Object[]>} #loadParticipants=new WeakMap()
+     * @member {WeakMap<Promise,Object>} #loadParticipants=new WeakMap()
      * @private
      */
     #loadParticipants = new WeakMap()
@@ -127,7 +127,7 @@ class Card extends Base {
             sCfg            = me.constructor,
             needsTransition = me.slideDirection && oldValue !== undefined,
             needsUpdate     = false,
-            i, isActiveIndex, item, items, len, module, wrapperCls;
+            i, isActiveIndex, item, items, len, wrapperCls;
 
         if (Neo.isNumber(value) && container) {
             items = container.items;
@@ -138,24 +138,27 @@ class Card extends Base {
                 Neo.error('Trying to activate a non existing card', value, items)
             }
 
-            // we need to run the loop twice, since lazy loading a module at a higher index does affect lower indexes
-            for (i=0; i < len; i++) {
-                module = items[i].module;
+            item = items[value];
 
-                if (i === value && Neo.typeOf(module) === 'Function') {
-                    needsUpdate = true;
-                    break
-                }
+            if (item && Neo.typeOf(item.module) === 'Function') {
+                const requestedIndex = value,
+                      previousCard   = items[oldValue];
+                needsUpdate = true;
+                const loaded = await me.loadModule(item, value);
+
+                if (me.isDestroyed || container.isDestroyed) return;
+
+                // Selection and membership may change while the import waits. Present the live cards.
+                items = container.items;
+                len   = items.length;
+                value = me.activeIndex;
+                needsTransition = needsTransition && value === requestedIndex && items[value] === loaded
+                    && items[oldValue] === previousCard
             }
 
             for (i=0; i < len; i++) {
                 isActiveIndex = i === value;
                 item          = items[i];
-                module        = item.module;
-
-                if (isActiveIndex && Neo.typeOf(module) === 'Function') {
-                    item = await me.loadModule(item, i)
-                }
 
                 if (item instanceof Neo.component.Base) {
                     wrapperCls = item.wrapperCls;
@@ -256,12 +259,18 @@ class Card extends Base {
      * construction deletes it from the config while the load is still in flight.
      * @param {Object} item
      * @param {Number} [index]
-     * @returns {Promise<Neo.component.Base>}
+     * @returns {Promise<Neo.component.Base|null>} Null if the admitted item left its owner before settlement.
      */
     loadModule(item, index) {
         let me       = this,
             {id}     = item,
+            admitted = me.container.items[Neo.isNumber(index) ? index : me.container.items.indexOf(item)],
             inFlight = me.loadingModules.get(item) || (id ? me.loadingModulesById.get(id) : null);
+
+        if (inFlight && !me.loadingModules.has(item)) {
+            const owner = me.#loadParticipants.get(inFlight)?.admitted;
+            if (admitted ? owner !== admitted : !me.container.items.includes(owner)) inFlight = null
+        }
 
         if (inFlight) {
             // A joiner that matched by `id` holds no identity entry of its own, and `id` is the
@@ -272,12 +281,14 @@ class Card extends Base {
             // flight rather than only until its id is taken. Auditing those four call sites
             // instead would be an audit that rots at the fifth.
             me.loadingModules.set(item, inFlight);
-            me.#loadParticipants.get(inFlight)?.push(item);
+            me.#loadParticipants.get(inFlight).participants.push(item);
 
             return inFlight
         }
 
-        const load = me.#loadModuleOnce(item, index);
+        const load               = me.#loadModuleOnce(item, admitted),
+              loadingModules     = me.loadingModules,
+              loadingModulesById = me.loadingModulesById;
 
         // Registered under BOTH keys for the whole pending lifetime, and `id` is captured here
         // rather than re-read on the way out — because the parked object's key CHANGES while the
@@ -289,7 +300,7 @@ class Card extends Base {
         // a re-resolved config naming the item and the original object join the same load.
         const participants = [item];
 
-        me.#loadParticipants.set(load, participants);
+        me.#loadParticipants.set(load, {admitted, participants});
         me.loadingModules.set(item, load);
         id && me.loadingModulesById.set(id, load);
 
@@ -298,35 +309,43 @@ class Card extends Base {
         // placeholder. EVERY participant is removed, not just the initiator — a joiner's identity
         // entry outliving the flight would hand the next caller a settled promise and the old
         // instance, quietly converting the retry path into a cache. Removed by the captured id for
-        // the same reason it was captured.
+        // the same reason it was captured. `isLoading` goes too, or `form.Container` never re-queues it.
         return load.finally(() => {
-            participants.forEach(participant => me.loadingModules.delete(participant));
+            if (loadingModules.get(item) === load) delete item.isLoading;
+            participants.forEach(participant => {
+                if (loadingModules.get(participant) === load) loadingModules.delete(participant)
+            });
             me.#loadParticipants.delete(load);
-            id && me.loadingModulesById.delete(id)
+            if (id && loadingModulesById.get(id) === load) loadingModulesById.delete(id)
         })
     }
 
     /**
-     * The one-shot body of {@link #loadModule}, entered at most once per parked item at a time.
+     * @summary Loads once per flight, publishing only while its admitted slot occupant remains in this owner.
      * @param {Object} item
-     * @param {Number} [index]
-     * @returns {Promise<Neo.component.Base>}
+     * @param {Object} admitted The slot occupant accepted before the import starts.
+     * @returns {Promise<Neo.component.Base|null>}
      * @private
      */
-    async #loadModuleOnce(item, index) {
+    async #loadModuleOnce(item, admitted) {
         let me          = this,
             {container} = me,
             items       = container.items,
             {module}    = item,
-            proto;
+            index, loaded, proto;
 
-        if (!Neo.isNumber(index)) {
-            index = items.indexOf(item)
-        }
+        if (!admitted) return null;
 
         item.isLoading = true; // prevent the item from getting queued multiple times inside form.Container
 
         module = await module();
+
+        if (me.isDestroyed || container.isDestroyed) return null;
+
+        items = container.items;
+        index = items.indexOf(admitted);
+        if (index < 0) return null;
+
         module = module.default;
         proto  = module.prototype;
 
@@ -339,7 +358,21 @@ class Card extends Base {
         item.appName  ??= container.appName;
         item.windowId ??= container.windowId;
 
-        items[index] = item = Neo.create(item);
+        loaded = Neo.create(item);
+
+        // Construction hooks can move or remove the admitted item, too.
+        if (me.isDestroyed || container.isDestroyed) {
+            loaded.destroy();
+            return null
+        }
+
+        index = container.items.indexOf(admitted);
+        if (index < 0) {
+            loaded.destroy();
+            return null
+        }
+
+        container.items[index] = item = loaded;
 
         me.applyChildAttributes(item, index);
 

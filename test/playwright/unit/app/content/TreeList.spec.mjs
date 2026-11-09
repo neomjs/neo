@@ -6,10 +6,14 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
+import {test, expect}    from '@playwright/test';
+import fs                from 'fs';
+import path              from 'path';
 import Neo               from '../../../../../src/Neo.mjs';
 import * as core         from '../../../../../src/core/_export.mjs';
+import ContentStore      from '../../../../../apps/portal/store/Content.mjs';
 import InstanceManager   from '../../../../../src/manager/Instance.mjs';
+import LearnController   from '../../../../../apps/portal/view/learn/MainContainerController.mjs';
 import TicketsController from '../../../../../apps/portal/view/news/tickets/MainContainerController.mjs';
 import TicketsStore      from '../../../../../apps/portal/store/Tickets.mjs';
 import TreeList          from '../../../../../src/app/content/TreeList.mjs';
@@ -236,6 +240,124 @@ test.describe('Portal tickets chunked tree adoption', () => {
             expect(stateProvider.data.countPages).toBe(3)
         } finally {
             store.destroy()
+        }
+    })
+});
+
+test.describe('Portal learn API Docs link routing (#5574)', () => {
+    test('learn/tree.json defines top-level API Docs entry with route /docs and TreeList#onLeafItemClick honors record.route', async () => {
+        const treeData     = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'learn/tree.json'), 'utf8')).data,
+              apiDocsEntry = treeData.find(node => node.id === 'ApiDocs'),
+              originalMain = Neo.Main,
+              routes       = [];
+
+        expect(apiDocsEntry).toEqual({
+            id      : 'ApiDocs',
+            name    : 'API Docs',
+            parentId: null,
+            route   : '/docs'
+        });
+
+        Neo.Main = {
+            ...originalMain,
+            setRoute: payload => routes.push(payload)
+        };
+
+        const store = Neo.create(ContentStore, {
+            id  : 'portal-learn-content-store-test',
+            data: [
+                {id: 'Glossary', name: 'Glossary', parentId: null},
+                apiDocsEntry
+            ]
+        });
+
+        const tree = Neo.create(TreeList, {
+            appName                   : 'AppContentTreeListLazyLoadTest',
+            id                        : 'portal-learn-tree-list-route-test',
+            routePrefix               : '/learn',
+            showCollapseExpandAllIcons: false,
+            store,
+            windowId                  : 'portal-window-1'
+        });
+
+        try {
+            await tree.initVnode();
+
+            await tree.onItemClick(tree.getVdomChild(tree.getItemId('Glossary')), {
+                path: [{id: tree.getItemId('Glossary')}]
+            });
+
+            await tree.onItemClick(tree.getVdomChild(tree.getItemId('ApiDocs')), {
+                path: [{id: tree.getItemId('ApiDocs')}]
+            });
+
+            expect(routes).toEqual([
+                {value: '/learn/Glossary', windowId: 'portal-window-1'},
+                {value: '/docs',           windowId: 'portal-window-1'}
+            ])
+        } finally {
+            tree.destroy();
+            store.destroy();
+            Neo.Main = originalMain
+        }
+    });
+
+    test('Learn MainContainerController routes record.route entries to /docs and restores selection on /learn return', async () => {
+        const originalMain = Neo.Main,
+              routes       = [],
+              selected     = [];
+
+        Neo.Main = {
+            ...originalMain,
+            setRoute: payload => routes.push(payload)
+        };
+
+        const store = Neo.create(ContentStore, {
+            id  : 'portal-learn-controller-store-test',
+            data: [
+                {id: 'Glossary', name: 'Glossary', parentId: null},
+                {id: 'ApiDocs',  name: 'API Docs', parentId: null, route: '/docs'}
+            ]
+        });
+
+        const glossaryRecord = store.get('Glossary'),
+              stateProvider  = {
+                  data    : {currentPageRecord: glossaryRecord},
+                  getStore: () => store
+              },
+              tree = {
+                  routePrefix          : null,
+                  expandAndScrollToItem: async () => {},
+                  expandParents        : () => {},
+                  selectionModel       : {
+                      select: record => selected.push(record)
+                  }
+              },
+              controller = Object.create(LearnController.prototype);
+
+        controller.component        = {windowId: 'portal-window-1'};
+        controller.getStateProvider = () => stateProvider;
+        controller.getReference     = () => tree;
+
+        try {
+            controller.navigateTo('Glossary');
+            controller.navigateTo('ApiDocs');
+
+            await controller.onRouteLearnItem({itemId: 'ApiDocs'}, {}, {hashString: '/learn/Glossary'});
+
+            expect(stateProvider.data.currentPageRecord).toBe(glossaryRecord);
+
+            controller.onRouteDefault({});
+
+            expect(routes).toEqual([
+                {value: '/learn/Glossary', windowId: 'portal-window-1'},
+                {value: '/docs',           windowId: 'portal-window-1'},
+                {value: '/docs',           windowId: 'portal-window-1'}
+            ]);
+            expect(selected).toEqual([glossaryRecord])
+        } finally {
+            store.destroy();
+            Neo.Main = originalMain
         }
     })
 });

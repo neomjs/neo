@@ -2,6 +2,7 @@ import Base            from '../list/Base.mjs';
 import ClassSystemUtil from '../util/ClassSystem.mjs';
 import Collection      from '../collection/Base.mjs';
 import NeoArray        from '../util/Array.mjs';
+import StringUtil      from '../util/String.mjs';
 import TreeModel       from '../selection/TreeModel.mjs';
 import VDomUtil        from "../util/VDom.mjs";
 
@@ -184,25 +185,13 @@ class Tree extends Base {
     collapseAll(silent=false) {
         let me       = this,
             hasMatch = false,
-            nextSibling, node, parentNode, index;
+            node;
 
         me.store.forEach(item => {
             if (!item.isLeaf) {
                 node = me.getVdomChild(me.getItemId(item.id), me.vdom);
 
-                if (node.cls.includes('neo-folder-open')) {
-                    NeoArray.remove(node.cls, 'neo-folder-open');
-
-                    ({parentNode, index} = VDomUtil.find(me.vdom, node.id));
-                    nextSibling          = parentNode.cn[index + 1];
-
-                    node.style.position = null;
-                    node.style.top      = null;
-
-                    if (nextSibling?.tag === 'ul') {
-                        nextSibling.removeDom = true
-                    }
-
+                if (me.#setFolderOpen(node, false)) {
                     hasMatch = true
                 }
             }
@@ -365,25 +354,13 @@ class Tree extends Base {
     expandAll(silent=false) {
         let me       = this,
             hasMatch = false,
-            nextSibling, node, parentNode, index;
+            node;
 
         me.store.forEach(item => {
             if (!item.isLeaf) {
                 node = me.getVdomChild(me.getItemId(item.id), me.vdom);
 
-                if (!node.cls.includes('neo-folder-open')) {
-                    NeoArray.add(node.cls, 'neo-folder-open');
-
-                    ({parentNode, index} = VDomUtil.find(me.vdom, node.id));
-                    nextSibling          = parentNode.cn[index + 1];
-
-                    node.style.position = 'sticky';
-                    node.style.top      = (node.level * 38) + 'px';
-
-                    if (nextSibling?.tag === 'ul') {
-                        nextSibling.removeDom = false
-                    }
-
+                if (me.#setFolderOpen(node, true)) {
                     hasMatch = true
                 }
             }
@@ -421,7 +398,7 @@ class Tree extends Base {
         let me       = this,
             item     = me.store.get(itemId),
             hasMatch = false,
-            nextSibling, node, parentId, parentNode, index;
+            node, parentId;
 
         if (item) {
             parentId = item.parentId;
@@ -429,19 +406,7 @@ class Tree extends Base {
             while (parentId) {
                 node = me.getVdomChild(me.getItemId(parentId));
 
-                if (node && !node.cls.includes('neo-folder-open')) {
-                    NeoArray.add(node.cls, 'neo-folder-open');
-
-                    ({parentNode, index} = VDomUtil.find(me.vdom, node.id));
-                    nextSibling          = parentNode.cn[index + 1];
-
-                    node.style.position = 'sticky';
-                    node.style.top      = (node.level * 38) + 'px';
-
-                    if (nextSibling?.tag === 'ul') {
-                        nextSibling.removeDom = false
-                    }
-
+                if (node && me.#setFolderOpen(node, true)) {
                     hasMatch = true
                 }
 
@@ -457,52 +422,86 @@ class Tree extends Base {
 
     /**
      * Hides Tree nodes which do not match the filter
+     * @summary Filters tree items per node, hiding unmatched siblings/folders and collapsing child folders inside matched folders unless they contain a match.
      * @param {String} property The store field to filter by
      * @param {String} value The filter value
-     * @param {Number|null} parentId The root id for the current filter call
+     * @param {Number|String|null} parentId The root id for the current filter call
      * @param {Boolean} [parentMatch]=false In case a parent folder matches the filter, show its child items
-     * @returns {Boolean} false if at least one child item is filtered
+     * @returns {Boolean} true when no item on this level matches or contains a match
      */
     filter(property, value, parentId, parentMatch = false) {
         let me         = this,
             isFiltered = true,
-            valueRegEx = new RegExp(value, 'gi'),
-            childReturnValue, directMatch, node;
-
-        if (!value) {
-            value = ''
-        }
+            hasValue   = Boolean(value),
+            valueRegEx = hasValue ? new RegExp(StringUtil.escapeRegExp(String(value)), 'gi') : null,
+            childReturnValue, directMatch, itemFiltered, node;
 
         me.store.forEach(item => {
             if (item.parentId === parentId) {
                 directMatch = false;
                 node        = me.getVdomChild(me.getItemId(item.id), me.vdom);
 
-                node.cn[0].html = item[property].replace(valueRegEx, match => {
-                    directMatch = true;
-                    return `<span class="neo-highlight-search">${match}</span>`
-                });
+                if (hasValue) {
+                    node.cn[0].html = item[property].replace(valueRegEx, match => {
+                        directMatch = true;
+                        return `<span class="neo-highlight-search">${match}</span>`
+                    })
+                } else {
+                    node.cn[0].html = item[property]
+                }
 
                 if (item.isLeaf) {
                     childReturnValue = true
                 } else {
-                    childReturnValue = me.filter(property, value, item.id, directMatch || parentMatch)
+                    childReturnValue = me.filter(property, value, item.id, directMatch || parentMatch);
+                    me.#setFolderOpen(node, !hasValue || directMatch || !childReturnValue)
                 }
 
-                if (directMatch || parentMatch || childReturnValue === false || value === '') {
+                itemFiltered = hasValue && !(directMatch || parentMatch || !childReturnValue);
+
+                if (!hasValue || directMatch || !childReturnValue) {
                     isFiltered = false
                 }
 
-                node.style.display = isFiltered ? 'none' : 'list-item'
+                node.style.display = itemFiltered ? 'none' : 'flex'
             }
         });
 
         if (parentId === null) {
-            me.expandAll(true);
             me.update()
         }
 
         return isFiltered
+    }
+
+    /**
+     * Updates a folder VDOM node's open state, sticky positioning, and child list visibility.
+     * @param {Object} node
+     * @param {Boolean} isOpen
+     * @returns {Boolean} true if the folder open state changed
+     */
+    #setFolderOpen(node, isOpen) {
+        let me      = this,
+            wasOpen = node.cls.includes('neo-folder-open'),
+            index, nextSibling, parentNode;
+
+        if (wasOpen === isOpen) {
+            return false
+        }
+
+        NeoArray[isOpen ? 'add' : 'remove'](node.cls, 'neo-folder-open');
+
+        ({parentNode, index} = VDomUtil.find(me.vdom, node.id));
+        nextSibling          = parentNode.cn[index + 1];
+
+        node.style.position = isOpen ? 'sticky' : null;
+        node.style.top      = isOpen ? (node.level * 38) + 'px' : null;
+
+        if (nextSibling?.tag === 'ul') {
+            nextSibling.removeDom = !isOpen
+        }
+
+        return true
     }
 
     /**
@@ -607,23 +606,14 @@ class Tree extends Base {
                     return false
                 }
 
-                NeoArray.toggle(item.cls, 'neo-folder-open');
+                let isOpen = !item.cls.includes('neo-folder-open');
 
-                let isOpen              = item.cls.includes('neo-folder-open'),
-                    {parentNode, index} = VDomUtil.find(me.vdom, item.id),
-                    nextSibling         = parentNode.cn[index + 1];
+                me.#setFolderOpen(item, isOpen);
 
                 if (record.isRecord) {
                     record.setSilent({collapsed: !isOpen})
                 } else {
                     record.collapsed = !isOpen
-                }
-
-                item.style.position = isOpen ? 'sticky' : null;
-                item.style.top      = isOpen ? (item.level * 38) + 'px' : null;
-
-                if (nextSibling?.tag === 'ul') {
-                    nextSibling.removeDom = !isOpen
                 }
 
                 me.update()

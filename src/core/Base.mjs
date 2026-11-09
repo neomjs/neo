@@ -316,7 +316,8 @@ class Base {
         // Triggers async logic after the construction chain is done.
         Promise.resolve().then(async () => {
             await me.initAsync();
-            me.isReady = true
+            // An instance destroyed meanwhile takes no late write, yet its ready() still settles
+            me.isDestroyed ? me.#readyResolver() : me.isReady = true
         })
     }
 
@@ -505,8 +506,9 @@ class Base {
     }
 
     /**
-     * Unregisters this instance from Neo.manager.Instance
-     * and removes all object entries from this instance
+     * Unregisters this instance from Neo.manager.Instance and removes all object entries from this instance.
+     * Afterwards, its configs keep their last values readable, and a config write runs no hook.
+     * Only this instance's own registration goes: a successor that reused its id stays registered.
      */
     destroy() {
         let me = this;
@@ -527,7 +529,7 @@ class Base {
 
         if (Base.instanceManagerAvailable === true) {
             Neo.manager.Instance.unregister(me)
-        } else if (Neo.idMap) {
+        } else if (Neo.idMap?.[me.id] === me) {
             delete Neo.idMap[me.id]
         }
 
@@ -551,13 +553,14 @@ class Base {
     /**
      * A public method to access the underlying Config controller.
      * This enables advanced interactions like subscriptions.
+     * A destroyed instance creates no new controller.
      * @param {String} key The name of the config property (e.g., 'items').
      * @returns {Config|undefined} The Config instance, or undefined if not found.
      */
     getConfig(key) {
         let me = this;
 
-        if (!me.#configs[key] && me.isConfig(key)) {
+        if (!me.#configs[key] && !me.isDestroyed && me.isConfig(key)) {
             me.#configs[key] = new Config(me.constructor.configDescriptors?.[key])
         }
 
@@ -920,13 +923,16 @@ class Base {
      * @private
      */
     #preDestroyHook() {
+        // A repeated call must not write to the destroyed instance
+        if (this.isDestroyed) return false;
+
         this.isDestroying = true;
-        return !this.isDestroyed
+        return true
     }
 
     /**
      * When using set(), configs without a trailing underscore can already be assigned,
-     * so the hasOwnProperty() check will return true
+     * so the Object.hasOwn() check will return true
      * @param {Boolean} [forceAssign=false]
      * @protected
      */
@@ -938,9 +944,9 @@ class Base {
 
         // We do not want to iterate over the keys, since 1 config can remove more than 1 key (beforeSetX, afterSetX)
         if (keys.length > 0) {
-            // The hasOwnProperty check is intended for configs without a trailing underscore
+            // The Object.hasOwn check is intended for configs without a trailing underscore
             // => they could already have been assigned inside an afterSet-method
-            if (forceAssign || !me.hasOwnProperty(keys[0])) {
+            if (forceAssign || !Object.hasOwn(me, keys[0])) {
                 me[keys[0]] = me[configSymbol][keys[0]]
             }
 
@@ -1179,7 +1185,7 @@ Give the config its default with a plain '${key}' entry in static config, or ren
     setStaticConfig(key, value) {
         let staticConfig = this.constructor.staticConfig;
 
-        if (staticConfig.hasOwnProperty(key)) {
+        if (Object.hasOwn(staticConfig, key)) {
             staticConfig[key] = value;
             return true
         }
@@ -1191,7 +1197,8 @@ Give the config its default with a plain '${key}' entry in static config, or ren
      * @summary Waits for a delay owned by this instance, optionally cancellable by its caller.
      * Abort rejects with the signal's reason; destruction rejects with Neo.isDestroyed.
      * Every terminal removes the abort listener and async registration. A pre-aborted signal
-     * creates no timer. Omitting the signal retains the ordinary timeout contract.
+     * creates no timer. A destroyed owner also rejects without scheduling a timer.
+     * Omitting the signal retains the ordinary timeout contract.
      * @param {Number} time Delay in milliseconds
      * @param {Object} [options={}]
      * @param {AbortSignal} [options.signal] Cancels this wait while leaving its owner alive
@@ -1203,6 +1210,11 @@ Give the config its default with a plain '${key}' entry in static config, or ren
         return new Promise((resolve, reject) => {
             if (signal?.aborted) {
                 reject(signal.reason);
+                return
+            }
+
+            if (me.isDestroyed) {
+                reject(Neo.isDestroyed);
                 return
             }
 

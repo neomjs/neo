@@ -4,9 +4,10 @@ const hasRaf = typeof requestAnimationFrame === 'function';
 
 /**
  * The one program. A vertex carries its position, colour and size. The size is the point's diameter in
- * drawing-buffer pixels at the camera's target, scaled by the surface and shrinking with depth relative to
- * the camera distance, so a far node reads far at any scene scale. Every fragment fades a little with that
- * relative depth. The output is premultiplied, which an `alpha: true` canvas composites onto its ground.
+ * drawing-buffer pixels at the camera's target, scaled by the surface, raised to the near look's floor, and
+ * shrinking with depth relative to the camera distance, so a far node reads far at any scene scale. Every
+ * fragment fades a little with that relative depth. The output is premultiplied, which an `alpha: true` canvas
+ * composites onto its ground.
  * @type {Object}
  */
 const SHADERS = {
@@ -16,13 +17,14 @@ layout(location = 1) in vec3  aCol;
 layout(location = 2) in float aSize;
 uniform mat4  uMvp;
 uniform float uDist;
+uniform float uFloor;
 uniform float uScale;
 out vec3  vCol;
 out float vDepth;
 void main() {
     gl_Position  = uMvp * vec4(aPos, 1.0);
     vDepth       = gl_Position.w / uDist;
-    gl_PointSize = aSize * uScale / max(vDepth, 0.1);
+    gl_PointSize = max(aSize * uScale, uFloor) / max(vDepth, 0.1);
     vCol         = aCol;
 }`,
     fragment: `#version 300 es
@@ -46,6 +48,31 @@ void main() {
 };
 
 /**
+ * The label program: screen-aligned quads that the CPU places in clip space each frame, sampling a label atlas,
+ * whose texels are premultiplied, at an opacity.
+ * @type {Object}
+ */
+const LABEL_SHADERS = {
+    vertex: `#version 300 es
+layout(location = 0) in vec2 aPos;
+layout(location = 1) in vec2 aUv;
+out vec2 vUv;
+void main() {
+    gl_Position = vec4(aPos, 0.0, 1.0);
+    vUv         = aUv;
+}`,
+    fragment: `#version 300 es
+precision mediump float;
+in vec2 vUv;
+uniform float     uAlpha;
+uniform sampler2D uAtlas;
+out vec4 outColor;
+void main() {
+    outColor = texture(uAtlas, vUv) * uAlpha;
+}`
+};
+
+/**
  * @summary A WebGL2 graph scene on the canvas worker: nodes as round points, edges as lines, and paths as
  * line strips beaded into ribbons (WebGL draws a line one pixel wide). The App Worker sends typed arrays
  * with the colours and sizes already chosen, so the renderer holds no colours of its own; a subclass that
@@ -62,6 +89,19 @@ void main() {
  * own edges of the clusters nearest the camera's target. The edges are uploaded once, grouped by cluster, so a level
  * only chooses draw ranges. A graph of 100k nodes and a million edges stays interactive this way, where drawing
  * every edge is bound by the pixels it fills.
+ *
+ * A scene can name nodes to label. Each text is drawn once into an atlas texture at the drawing buffer's pixel
+ * ratio. Every frame then places the labels in the scene's order and leaves out any that is behind the camera,
+ * off the surface or over a label already placed. It draws at most `labelStyle.max` of them above everything
+ * else, each just above the point it names, so the label never hides its node: at the far level, that point is
+ * its node's cluster centroid, the one the frame draws. `flyTo` eases the camera to a node, and the pointer taking
+ * the camera ends the flight.
+ *
+ * Closer than `lod.near`, the near look (`nearStyle`) draws every node at least `floor` CSS pixels wide at the
+ * camera's target, and a scene that carries `names` also names the nodes nearest the target, after its own labels
+ * and within the same `labelStyle.max`. A name is drawn into a second atlas of fixed cells when a frame first places
+ * it, into the cell drawn longest ago once all are taken. Both arrive across a band of the wheel's travel, so the
+ * level comes in as a morph, not a pop.
  *
  * Extend it with `singleton: true` and a `className` of your own. The camera math is static, so a test
  * reaches it without a GL context and a subclass can replace it; `normalizeScene` is the seam for a
@@ -92,10 +132,24 @@ class GraphScene extends Base {
          */
         fill: 0.86,
         /**
+         * Where `flyTo` takes the camera unless the call says otherwise: `distance` as a multiple of the fitted
+         * distance, held within `zoom`, and `duration` in milliseconds.
+         * @member {Object} flight={distance: 0.5, duration: 300}
+         */
+        flight: {distance: 0.5, duration: 300},
+        /**
          * The vertical field of view in radians.
          * @member {Number} fov=0.9
          */
         fov: 0.9,
+        /**
+         * The look of a scene's labels, in CSS pixels: the font's `family` and `weight`, the `size` a label
+         * without its own takes, the `outline` stroked under each text, the `gap` two placed labels keep, the
+         * `lift` between the point a label names and the label's lower edge, so the label never hides that point,
+         * and the most labels a frame draws, `max`.
+         * @member {Object} labelStyle={family: 'system-ui, sans-serif', gap: 4, lift: 6, max: 30, outline: 3, size: 12, weight: 600}
+         */
+        labelStyle: {family: 'system-ui, sans-serif', gap: 4, lift: 6, max: 30, outline: 3, size: 12, weight: 600},
         /**
          * The foveated level of detail of a scene that carries `clusters`, by the camera distance as a multiple
          * of the fitted distance. At `far` and beyond: the cluster centroids and one bundle line per connected
@@ -113,6 +167,14 @@ class GraphScene extends Base {
          */
         lodLevel_: null,
         /**
+         * The near look of any scene, by the camera distance as `lod` measures it. Closer than `lod.near`, a node
+         * draws at least `floor` CSS pixels wide at the camera's target (`0` keeps the sizes the scene sends), and
+         * the scene's `names` name the nodes nearest the target, from the `candidates` nearest, each name at most
+         * `width` CSS pixels wide. Both fade in from `fade` times `lod.near` down to `lod.near`.
+         * @member {Object} nearStyle={candidates: 120, fade: 1.25, floor: 0, width: 240}
+         */
+        nearStyle: {candidates: 120, fade: 1.25, floor: 0, width: 240},
+        /**
          * Radians the camera turns per CSS pixel of a primary-button drag.
          * @member {Number} orbitSpeed=0.006
          */
@@ -123,13 +185,14 @@ class GraphScene extends Base {
          */
         pickRadius: 14,
         /**
-         * Remote method access: the base's lifecycle set plus the scene entry, `pick` and the stats.
+         * Remote method access: the base's lifecycle set plus the scene entry, `pick`, `flyTo` and the stats.
          * @member {Object} remote
          * @protected
          */
         remote: {
             app: [
                 'clearGraph',
+                'flyTo',
                 'getStats',
                 'initGraph',
                 'pause',
@@ -180,7 +243,7 @@ class GraphScene extends Base {
         }
 
         const center = [0, 1, 2].map(axis => (min[axis] + max[axis]) / 2);
-        let radius = 0;
+        let   radius = 0;
 
         for (let i = 0; i < count; i++) {
             radius = Math.max(radius, Math.hypot(positions[i * 3] - center[0], positions[i * 3 + 1] - center[1], positions[i * 3 + 2] - center[2]))
@@ -201,9 +264,10 @@ class GraphScene extends Base {
      * @param {Uint32Array} scene.edges Node index pairs
      * @param {Float32Array} scene.positions `x, y, z` per node
      * @param {Float32Array} scene.sizes One per node
-     * @returns {Object} `{bundles, centroids, colors, count, edges, ids, ranges, sizes, weights}`: `ids` maps a
-     * dense index back to its cluster id, `ranges` holds a `start, count` pair of edge indices per cluster,
-     * `bundles` holds centroid index pairs and `weights` the number of edges each bundle stands for
+     * @returns {Object} `{bundles, centroids, clusterOf, colors, count, edges, ids, ranges, sizes, weights}`: `ids`
+     * maps a dense index back to its cluster id and `clusterOf` each node to its dense index, `ranges` holds a
+     * `start, count` pair of edge indices per cluster, `bundles` holds centroid index pairs and `weights` the
+     * number of edges each bundle stands for
      */
     static clusterScene({clusters, colors, edges, positions, sizes}) {
         const
@@ -298,7 +362,7 @@ class GraphScene extends Base {
             weights[bundle++]       = weight
         }
 
-        return {bundles, centroids, colors: tones, count, edges: ordered, ids: [...dense.keys()], ranges, sizes: spans, weights}
+        return {bundles, centroids, clusterOf, colors: tones, count, edges: ordered, ids: [...dense.keys()], ranges, sizes: spans, weights}
     }
 
     /**
@@ -319,6 +383,70 @@ class GraphScene extends Base {
     }
 
     /**
+     * @summary The nodes nearest a point, nearest first, among those `accept` admits. One pass keeps the best
+     * `limit` in order, so a frame can ask it of a whole scene.
+     * @param {Object} options
+     * @param {Function|null} [options.accept=null] Admits a node by its index; `null` admits every node
+     * @param {Number} options.limit The most nodes to answer
+     * @param {Float32Array} options.positions `x, y, z` per node
+     * @param {Number[]} options.target `[x, y, z]`
+     * @returns {Number[]} Node indices
+     */
+    static nearestNodes({accept = null, limit, positions, target: [x, y, z]}) {
+        const nodes = [], distances = [];
+
+        if (limit < 1) {
+            return nodes
+        }
+
+        for (let node = 0; node < positions.length / 3; node++) {
+            const distance = (positions[node * 3] - x) ** 2 + (positions[node * 3 + 1] - y) ** 2 + (positions[node * 3 + 2] - z) ** 2;
+
+            if ((nodes.length < limit || distance < distances[limit - 1]) && (!accept || accept(node))) {
+                let low = 0, high = nodes.length;
+
+                // after every node as near, so of two at one distance the first seen stays first
+                while (low < high) {
+                    const middle = (low + high) >> 1;
+
+                    if (distances[middle] <= distance) {
+                        low = middle + 1
+                    } else {
+                        high = middle
+                    }
+                }
+
+                nodes.splice(low, 0, node);
+                distances.splice(low, 0, distance);
+
+                if (nodes.length > limit) {
+                    nodes.pop();
+                    distances.pop()
+                }
+            }
+        }
+
+        return nodes
+    }
+
+    /**
+     * @summary How far the near look has arrived at a camera distance: `0` from `fade` times `near` out, `1` from
+     * `near` in, and between the two evenly in the distance's logarithm, the measure the wheel moves in.
+     * @param {Object} options
+     * @param {Number} options.fade The band's outer edge as a multiple of `near`; `1` or less switches at `near`
+     * @param {Number} options.near The distance the look is whole at, as a multiple of the fitted distance
+     * @param {Number} options.ratio The camera distance as a multiple of the fitted distance
+     * @returns {Number} `0..1`
+     */
+    static nearShare({fade, near, ratio}) {
+        if (ratio <= near) {
+            return 1
+        }
+
+        return fade <= 1 || ratio >= near * fade ? 0 : Math.log(near * fade / ratio) / Math.log(fade)
+    }
+
+    /**
      * @summary The camera distance at which a sphere fills its share of the surface's tighter axis.
      * @param {Object} options
      * @param {Number} options.aspect The surface's width over its height
@@ -335,6 +463,23 @@ class GraphScene extends Base {
     }
 
     /**
+     * @summary The camera of a flight at a share of its time. The target moves on a straight line and the
+     * distance by a constant ratio, both eased in and out, so a flight between a far and a near distance keeps
+     * one pace on screen.
+     * @param {Object} flight `{from, to}`, each `{dist, target}`
+     * @param {Number} t The share of the flight's time, held within `0..1`
+     * @returns {{dist: Number, target: Number[]}}
+     */
+    static flightStep({from, to}, t) {
+        const share = Math.min(1, Math.max(0, t)), eased = share * share * (3 - 2 * share);
+
+        return {
+            dist  : from.dist * (to.dist / from.dist) ** eased,
+            target: from.target.map((value, axis) => value + (to.target[axis] - value) * eased)
+        }
+    }
+
+    /**
      * @summary The column-major model-view-projection of an orbit camera: yaw and pitch around a target at
      * a distance, over a perspective with the given vertical field of view.
      * @param {Object}   camera
@@ -348,15 +493,15 @@ class GraphScene extends Base {
      */
     static orbitMatrix({dist, pitch, target, yaw}, aspect, fov) {
         const
-            f    = 1 / Math.tan(fov / 2),
-            near = dist / 100,
-            far  = dist * 100,
-            r    = 1 / (near - far),
-            P    = [f / aspect, 0, 0, 0,  0, f, 0, 0,  0, 0, (near + far) * r, -1,  0, 0, 2 * near * far * r, 0],
-            cy   = Math.cos(yaw),
-            sy   = Math.sin(yaw),
-            cp   = Math.cos(pitch),
-            sp   = Math.sin(pitch),
+            f            = 1 / Math.tan(fov / 2),
+            near         = dist / 100,
+            far          = dist * 100,
+            r            = 1 / (near - far),
+            P            = [f / aspect, 0, 0, 0,  0, f, 0, 0,  0, 0, (near + far) * r, -1,  0, 0, 2 * near * far * r, 0],
+            cy           = Math.cos(yaw),
+            sy           = Math.sin(yaw),
+            cp           = Math.cos(pitch),
+            sp           = Math.sin(pitch),
             [tx, ty, tz] = target,
             // column-major, one column per line: the rotation, then a translation that moves the target to
             // the view's centre and the camera back by its distance
@@ -409,6 +554,188 @@ class GraphScene extends Base {
     }
 
     /**
+     * @summary A point's drawn diameter in drawing-buffer pixels, as the vertex program draws it: its size on the
+     * surface's scale, raised to the floor, over its depth relative to the camera distance (`1` at the target).
+     * @param {Object} options
+     * @param {Number} options.depth
+     * @param {Number} options.floor The near look's floor in drawing-buffer pixels, `0` for none
+     * @param {Number} options.scale The surface's scale (see `pointScale`)
+     * @param {Number} options.size The node's size as the scene sends it
+     * @returns {Number}
+     */
+    static pointSize({depth, floor, scale, size}) {
+        return Math.max(size * scale, floor) / Math.max(depth, 0.1)
+    }
+
+    /**
+     * @summary Where each label's centre lies on the surface: its lower edge `lift` above the point it names, or the
+     * point's drawn radius above it where that is larger, so the label never hides that point. A label without an
+     * anchor stays without one.
+     * @param {Object} options
+     * @param {Array<Number[]|null>} options.anchors The point each label names, `[x, y]`, or `null`
+     * @param {Number[][]} options.boxes `[width, height]` per label, in the anchors' unit
+     * @param {Number} options.lift The space between a point and its label's lower edge, in the anchors' unit
+     * @param {Number[]|null} [options.radii=null] Each point's drawn radius, in the anchors' unit
+     * @returns {Array<Number[]|null>}
+     */
+    static labelCentres({anchors, boxes, lift, radii = null}) {
+        return anchors.map((anchor, label) => anchor && [anchor[0], anchor[1] - Math.max(lift, radii?.[label] ?? 0) - boxes[label][1] / 2])
+    }
+
+    /**
+     * @summary Where each label sits in the scene: at its node, or, while the frame draws cluster centroids
+     * instead of nodes, at its node's centroid, so a label never floats where nothing is drawn.
+     * @param {Object} options
+     * @param {Object|null} [options.lod=null] The {@link Neo.canvas.GraphScene.clusterScene clustered geometry}
+     * while the frame draws its centroids, else `null`
+     * @param {Uint32Array} options.nodes The labelled nodes
+     * @param {Float32Array} options.positions `x, y, z` per node
+     * @returns {Float32Array} `x, y, z` per label
+     */
+    static labelAnchors({lod = null, nodes, positions}) {
+        const anchors = new Float32Array(nodes.length * 3);
+
+        nodes.forEach((node, label) => {
+            const at = lod ? lod.clusterOf[node] : node, from = lod ? lod.centroids : positions;
+
+            anchors.set(from.subarray(at * 3, at * 3 + 3), label * 3)
+        });
+
+        return anchors
+    }
+
+    /**
+     * @summary Packs the measured labels into the atlas, row by row, each row up to `limit` wide and the rows up to
+     * `limit` tall. A label the atlas cannot hold whole where the packing stands (wider or taller than `limit`, or
+     * past the last row) gets no place and claims no space: it is neither drawn into the atlas nor placed, and the
+     * labels after it keep packing.
+     * @param {Object} options
+     * @param {Number[][]} options.boxes `[width, height]` per label, measured whole, in drawing-buffer pixels
+     * @param {Number} options.limit The atlas's largest side
+     * @returns {{height: Number, origins: Array<Number[]|null>, width: Number}} `origins` holds each label's top-left
+     * corner in the atlas, `null` for one it does not hold
+     */
+    static packLabels({boxes, limit}) {
+        const origins = [];
+        let   x       = 0, y = 0, row = 0, width = 1;
+
+        boxes.forEach(([w, h]) => {
+            const wraps = x + w > limit, top = wraps ? y + row : y;
+
+            if (w > limit || top + h > limit) {
+                origins.push(null);
+                return
+            }
+
+            if (wraps) {
+                x   = 0;
+                y   = top;
+                row = 0
+            }
+
+            origins.push([x, y]);
+            x     += w;
+            row    = Math.max(row, h);
+            width  = Math.max(width, x)
+        });
+
+        return {height: Math.max(1, y + row), origins, width}
+    }
+
+    /**
+     * @summary An empty cell table for the names' atlas: the node each cell holds (`-1` for none), the frame that last
+     * drew it, and the cell of each name the atlas holds.
+     * @param {Number} count The cells
+     * @returns {{cellOf: Map<Number, Number>, clock: Number, evictions: Number, nodeAt: Int32Array, seen: Uint32Array}}
+     */
+    static nameCells(count) {
+        return {cellOf: new Map(), clock: 0, evictions: 0, nodeAt: new Int32Array(count).fill(-1), seen: new Uint32Array(count)}
+    }
+
+    /**
+     * @summary Gives each name a frame draws a cell of the names' atlas: a name the atlas holds keeps its cell, a new
+     * one takes a free cell or else the cell drawn longest ago, never one this frame draws. A name left without a cell
+     * is not drawn this frame, so the atlas never holds more names than it has cells.
+     * @param {Object} table The {@link Neo.canvas.GraphScene.nameCells cell table}, kept across frames
+     * @param {Number[]} nodes The named nodes this frame draws
+     * @returns {{cells: Array<Number|null>, fresh: Number[]}} each node's cell, and the cells whose name is to be drawn
+     */
+    static claimCells(table, nodes) {
+        const {cellOf, nodeAt, seen} = table, clock = ++table.clock, cells = [], fresh = [];
+
+        nodes.forEach(node => {
+            let cell = cellOf.get(node);
+
+            if (cell === undefined) {
+                cell = nodeAt.indexOf(-1);
+
+                if (cell < 0) {
+                    // a cell this frame drew carries the clock, so it never counts as older
+                    for (let candidate = 0, oldest = clock; candidate < seen.length; candidate++) {
+                        if (seen[candidate] < oldest) {
+                            oldest = seen[candidate];
+                            cell   = candidate
+                        }
+                    }
+
+                    if (cell < 0) {
+                        cells.push(null);
+                        return
+                    }
+
+                    cellOf.delete(nodeAt[cell]);
+                    table.evictions++
+                }
+
+                cellOf.set(node, cell);
+                nodeAt[cell] = node;
+                fresh.push(cell)
+            }
+
+            seen[cell] = clock;
+            cells.push(cell)
+        });
+
+        return {cells, fresh}
+    }
+
+    /**
+     * @summary Which labels a frame draws. In the given order, each label whose box touches the surface and
+     * keeps `gap` from every box already placed is placed, until `max` are. A label without an anchor, its
+     * node behind the camera, is left out.
+     * @param {Object} options
+     * @param {Array<Number[]|null>} options.anchors Each label's centre on the surface, `[x, y]`, or `null`
+     * @param {Number[][]} options.boxes `[width, height]` per label, in the anchors' unit
+     * @param {Number} options.gap The space two placed labels keep
+     * @param {Number} options.height The surface height
+     * @param {Number} options.max The most labels placed
+     * @param {Number} options.width The surface width
+     * @returns {Number[]} The placed labels' indices, in the given order
+     */
+    static placeLabels({anchors, boxes, gap, height, max, width}) {
+        const placed = [];
+
+        for (let label = 0; label < anchors.length && placed.length < max; label++) {
+            const anchor = anchors[label];
+
+            if (anchor) {
+                const
+                    [x, y]    = anchor,
+                    [w, h]    = boxes[label],
+                    onSurface = x + w / 2 > 0 && x - w / 2 < width && y + h / 2 > 0 && y - h / 2 < height;
+
+                onSurface && placed.every(other => {
+                    const [ox, oy] = anchors[other], [ow, oh] = boxes[other];
+
+                    return Math.abs(x - ox) >= (w + ow) / 2 + gap || Math.abs(y - oy) >= (h + oh) / 2 + gap
+                }) && placed.push(label)
+            }
+        }
+
+        return placed
+    }
+
+    /**
      * @summary A point's position on the surface, or `null` behind the camera.
      * @param {Float32Array} M The model-view-projection
      * @param {Number} x
@@ -439,10 +766,22 @@ class GraphScene extends Base {
      */
     contextLost = false
     /**
+     * The labels the last frame drew, the scene's own and then the near names, `{index, text, x, y}` each: the node's
+     * index and, in CSS pixels, the point the label names, which the label sits above.
+     * @member {Object[]} drawnLabels=[]
+     */
+    drawnLabels = []
+    /**
      * The distance the camera fitted at, the wheel's reference.
      * @member {Number} fittedDistance=3
      */
     fittedDistance = 3
+    /**
+     * The flight under way, or `null`: where it starts and ends (`{dist, target}` each), its duration in
+     * milliseconds, and when its first frame drew.
+     * @member {Object|null} flightPlan=null
+     */
+    flightPlan = null
     /**
      * Frames drawn since the canvas arrived: the witness that idle draws none.
      * @member {Number} frames=0
@@ -453,6 +792,17 @@ class GraphScene extends Base {
      * @member {String|null} gpu=null
      */
     gpu = null
+    /**
+     * The compiled label program with its uniform location, or `null` without a live context.
+     * @member {Object|null} labelProgram=null
+     */
+    labelProgram = null
+    /**
+     * The 2D context the near names are measured with, made by the first measure.
+     * @member {OffscreenCanvasRenderingContext2D|null} nameContext=null
+     * @protected
+     */
+    nameContext = null
     /**
      * The compiled program with its uniform locations, or `null` without a live context.
      * @member {Object|null} program=null
@@ -475,7 +825,8 @@ class GraphScene extends Base {
     sphere = {center: [0, 0, 0], radius: 1}
     /**
      * The uploaded scene: vertex arrays over the nodes, the beads and a clustered scene's centroids, the edge
-     * and bundle buffers and one buffer per path, or `null` when there is nothing to draw.
+     * and bundle buffers, one buffer per path, and the atlases of the scene's labels and of its near names, or
+     * `null` when there is nothing to draw.
      * @member {Object|null} surfaces=null
      */
     surfaces = null
@@ -531,37 +882,81 @@ class GraphScene extends Base {
         me.dispose();
         super.clearGraph();
 
-        me.contextLost = false;
-        me.frames      = 0;
-        me.program     = null;
-        me.restores    = 0;
-        me.scene       = null
+        me.contextLost  = false;
+        me.drawnLabels  = [];
+        me.flightPlan   = null;
+        me.frames       = 0;
+        me.labelProgram = null;
+        me.program      = null;
+        me.restores     = 0;
+        me.scene        = null
     }
 
     /**
-     * @summary Remote entry for tests and diagnostics: the camera, the drawing buffer, the scene's counts,
-     * the level of detail of a clustered scene (`null` otherwise), what is uploaded to the GPU (`null` while
-     * nothing is), the frames and the context state.
+     * @summary Remote entry: eases the camera to a node of the current scene. The node becomes the orbit's
+     * target, and the distance moves to `distance` times the fitted distance, held within `zoom`. The camera
+     * counts as taken, so a new scene keeps the framing, and a drag or the wheel ends the flight where it is.
+     * No node moves, and an index the scene lacks changes nothing.
+     * @param {Object} data
+     * @param {Number} data.index The node's index
+     * @param {Number} [data.distance=this.flight.distance] A multiple of the fitted distance
+     * @param {Number} [data.duration=this.flight.duration] Milliseconds; `0` lands at once
+     * @param {String} [data.windowId] Routing only
+     */
+    flyTo({index, distance = this.flight.distance, duration = this.flight.duration}) {
+        const me = this, {camera, fittedDistance, scene, zoom} = me;
+
+        if (!scene || !Number.isInteger(index) || index < 0 || index >= scene.count) {
+            return
+        }
+
+        const {positions} = scene;
+
+        me.flightPlan = {
+            duration,
+            from : {dist: camera.dist, target: [...camera.target]},
+            start: null,
+            to   : {dist: fittedDistance * Math.min(zoom.max, Math.max(zoom.min, distance)), target: [positions[index * 3], positions[index * 3 + 1], positions[index * 3 + 2]]}
+        };
+
+        camera.touched = true;
+        duration > 0 || me.stepFlight();
+        me.requestFrame()
+    }
+
+    /**
+     * @summary Remote entry for tests and diagnostics: the camera and whether a flight moves it, the drawing
+     * buffer, the scene's counts, the level of detail of a clustered scene (`null` otherwise), the scene's
+     * labels with the ones the last frame drew, names included (`null` without labels or names), the near look's
+     * floor in drawing-buffer pixels and how far it has arrived, the names' atlas (`null` while there is none), what
+     * is uploaded to the GPU (`null` while nothing is), the frames and the context state. `owed` is a requested frame
+     * that has not drawn: until it does, the frames and the labels drawn are the last frame's, not the current state's.
      * @returns {Object}
      */
     getStats() {
-        const me = this, {camera, gl, scene, surfaces} = me, lod = scene?.lod;
+        const me = this, {camera, gl, scene, surfaces} = me, lod = scene?.lod, table = surfaces?.names?.table;
 
         return {
             camera     : {...camera, target: [...camera.target]},
             canvas     : gl ? [gl.canvas.width, gl.canvas.height] : [0, 0],
             contextLost: me.contextLost,
             counts     : scene ? {nodes: scene.count, edges: scene.edges.length / 2, paths: scene.paths.length} : null,
+            flying     : me.flightPlan !== null,
             frames     : me.frames,
             gpu        : me.gpu,
+            labels     : scene?.labels || scene?.names ? {count: scene.labels?.nodes.length ?? 0, drawn: me.drawnLabels.map(label => ({...label}))} : null,
             lod        : lod ? {bundles: lod.bundles.length / 2, clusters: lod.count, ...me.getLodPlan()} : null,
+            names      : table ? {cells: table.nodeAt.length, evictions: table.evictions, resident: table.cellOf.size} : null,
+            near       : {floor: me.nearFloor(), share: me.getNearShare()},
+            owed       : !!me.animationId,
             restores   : me.restores,
             uploaded   : surfaces ? {
                 beads: surfaces.beads.count,
                 edges: surfaces.edges.count / 2,
                 nodes: surfaces.nodes.count,
                 paths: surfaces.paths.length,
-                ...surfaces.clusters && {bundles: surfaces.bundles.count / 2, clusters: surfaces.clusters.count}
+                ...surfaces.clusters && {bundles: surfaces.bundles.count / 2, clusters: surfaces.clusters.count},
+                ...surfaces.labels   && {labels: surfaces.labels.count}
             } : null
         }
     }
@@ -613,18 +1008,47 @@ class GraphScene extends Base {
     }
 
     /**
-     * @summary Compiles the program and sets the blend for premultiplied output on the current context.
+     * @summary How far the near look has arrived ({@link Neo.canvas.GraphScene.nearShare}) at the camera distance
+     * against the fitted one. A clustered scene's forced `lodLevel` shows it whole at `'near'` and not at all at
+     * another level.
+     * @returns {Number} `0..1`
+     */
+    getNearShare() {
+        const {camera, fittedDistance, lod, lodLevel, nearStyle, scene} = this;
+
+        if (scene?.lod && lodLevel) {
+            return lodLevel === 'near' ? 1 : 0
+        }
+
+        return this.constructor.nearShare({fade: nearStyle.fade, near: lod.near, ratio: camera.dist / fittedDistance})
+    }
+
+    /**
+     * @summary Compiles the scene's and the labels' programs and sets the blend for premultiplied output on the
+     * current context.
      * @protected
      */
     initGl() {
         const me = this, {gl} = me, debug = gl.getExtension('WEBGL_debug_renderer_info');
 
-        me.program = me.compile();
-        me.gpu     = debug ? gl.getParameter(debug.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+        me.program      = me.compile();
+        me.labelProgram = me.compile(LABEL_SHADERS, ['uAlpha', 'uAtlas']);
+        me.gpu          = debug ? gl.getParameter(debug.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
 
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
         gl.disable(gl.DEPTH_TEST)
+    }
+
+    /**
+     * @summary The floor a node's drawn size has now, in drawing-buffer pixels: `nearStyle.floor` at the drawing
+     * buffer's pixel ratio, as far as the near look has arrived.
+     * @returns {Number}
+     */
+    nearFloor() {
+        const me = this;
+
+        return me.nearStyle.floor * (me.canvasSize?.devicePixelRatio || 1) * me.getNearShare()
     }
 
     /**
@@ -639,8 +1063,11 @@ class GraphScene extends Base {
      * @param {Array<Uint32Array|Number[]>} [scene.paths] Node index sequences, drawn as line strips
      * @param {Uint32Array|Number[]}  [scene.clusters] One cluster id per node: the scene draws through the
      * level of detail `lod` describes
-     * @returns {Object|null} `{colors, count, edges, lod, paths, positions, sizes}`, `lod` being the
-     * {@link Neo.canvas.GraphScene.clusterScene clustered geometry} or `null`
+     * @param {Object} [scene.labels] Nodes to label, checked by {@link #normalizeLabels}
+     * @param {Object} [scene.names] A name per node for the near look, checked by {@link #normalizeNames}
+     * @returns {Object|null} `{colors, count, edges, labels, lod, names, paths, positions, sizes}`, `lod` being the
+     * {@link Neo.canvas.GraphScene.clusterScene clustered geometry} or `null`, and `labels` and `names` `null` without
+     * them
      * @throws {Error} when the scene has no `positions`, naming the keys it has, or when an array's length or
      * an index does not fit the nodes
      */
@@ -679,9 +1106,64 @@ class GraphScene extends Base {
             throw new Error(`${this.className}: edges are index pairs, and every edge and path index names a node`)
         }
 
-        const lod = clusters && count ? this.constructor.clusterScene({clusters, colors, edges, positions, sizes}) : null;
+        const
+            labels = scene.labels ? this.normalizeLabels(scene.labels, count) : null,
+            names  = scene.names  ? this.normalizeNames(scene.names, count)   : null,
+            lod    = clusters && count ? this.constructor.clusterScene({clusters, colors, edges, positions, sizes}) : null;
 
-        return {colors, count, edges: lod?.edges ?? edges, lod, paths, positions, sizes}
+        return {colors, count, edges: lod?.edges ?? edges, labels, lod, names, paths, positions, sizes}
+    }
+
+    /**
+     * @summary Checks a scene's labels against its nodes and settles them into typed forms.
+     * @param {Object} labels
+     * @param {Uint32Array|Number[]} labels.nodes The node each label names, in placement order: a frame places the
+     * first labels first
+     * @param {String[]} labels.texts One text per label
+     * @param {Float32Array|Number[]} [labels.sizes] One font size per label in CSS pixels, `labelStyle.size` by
+     * default
+     * @param {String} [labels.color='#ffffff'] The texts' CSS colour; it arrives with the scene, as every colour does
+     * @param {String} [labels.outline='#000000'] The CSS colour stroked under the texts
+     * @param {Number} count The scene's nodes
+     * @returns {{color: String, nodes: Uint32Array, outline: String, sizes: Float32Array, texts: String[]}}
+     * @throws {Error} when the texts or the sizes do not pair with the labels, or a label names no node
+     * @protected
+     */
+    normalizeLabels({color = '#ffffff', nodes, outline = '#000000', sizes, texts}, count) {
+        const
+            me      = this,
+            indices = Uint32Array.from(nodes ?? []),
+            size    = sizes ? Float32Array.from(sizes) : new Float32Array(indices.length).fill(me.labelStyle.size);
+
+        if (texts?.length !== indices.length || size.length !== indices.length) {
+            throw new Error(`${me.className}: ${indices.length} labels need ${indices.length} texts and sizes, got ${texts?.length ?? 0} and ${size.length}`)
+        }
+
+        if (!indices.every(index => index < count)) {
+            throw new Error(`${me.className}: every label names one of the ${count} nodes`)
+        }
+
+        return {color, nodes: indices, outline, sizes: size, texts: Array.from(texts, String)}
+    }
+
+    /**
+     * @summary Checks a scene's names against its nodes and settles them: one text per node, `''` for a node the
+     * near look leaves unnamed.
+     * @param {Object} names
+     * @param {Array<String|null>} names.texts One per node; `null` or `undefined` names none
+     * @param {String} [names.color='#ffffff'] The texts' CSS colour
+     * @param {String} [names.outline='#000000'] The CSS colour stroked under the texts
+     * @param {Number} count The scene's nodes
+     * @returns {{color: String, outline: String, texts: String[]}}
+     * @throws {Error} when the texts do not pair with the nodes
+     * @protected
+     */
+    normalizeNames({color = '#ffffff', outline = '#000000', texts}, count) {
+        if (texts?.length !== count) {
+            throw new Error(`${this.className}: ${count} nodes need ${count} names, got ${texts?.length ?? 0}`)
+        }
+
+        return {color, outline, texts: Array.from(texts, text => text == null ? '' : String(text))}
     }
 
     /**
@@ -695,9 +1177,10 @@ class GraphScene extends Base {
 
         event.preventDefault();
 
-        me.contextLost = true;
-        me.program     = null;
-        me.surfaces    = null
+        me.contextLost  = true;
+        me.labelProgram = null;
+        me.program      = null;
+        me.surfaces     = null
     }
 
     /**
@@ -739,6 +1222,7 @@ class GraphScene extends Base {
     onWheel(data) {
         const me = this, {camera, fittedDistance, zoom} = me, delta = data.wheel?.deltaY || 0;
 
+        me.flightPlan  = null;
         camera.dist    = Math.min(fittedDistance * zoom.max, Math.max(fittedDistance * zoom.min, camera.dist * Math.exp(delta * zoom.speed)));
         camera.touched = true;
         me.requestFrame()
@@ -772,9 +1256,10 @@ class GraphScene extends Base {
     }
 
     /**
-     * @summary One frame: clear to the transparent ground, then the edges the level of detail admits, path
-     * lines, their beads and the nodes, or the cluster centroids at the far level. A level only chooses draw
-     * ranges; no buffer changes. No frame is scheduled from here; the next one is owed by the next change.
+     * @summary One frame: a flight under way moves the camera first, then the frame clears to the transparent
+     * ground and draws the edges the level of detail admits, path lines, their beads and the nodes, or the
+     * cluster centroids at the far level, and the labels above them. A level only chooses draw ranges; no buffer
+     * changes. Only a flight schedules a frame from here; otherwise the next one is owed by the next change.
      */
     render() {
         const me = this, {camera, gl, program, scene, sceneStyle, surfaces} = me;
@@ -785,6 +1270,8 @@ class GraphScene extends Base {
             return
         }
 
+        me.flightPlan && me.stepFlight();
+
         gl.clearColor(0, 0, 0, 0);
         gl.clear(gl.COLOR_BUFFER_BIT);
 
@@ -794,7 +1281,8 @@ class GraphScene extends Base {
             gl.useProgram(program.id);
             gl.uniformMatrix4fv(program.uMvp, false, me.matrix());
             gl.uniform1f(program.uDist, camera.dist);
-            gl.uniform1f(program.uScale, Math.min(gl.canvas.width, gl.canvas.height) / 400);
+            gl.uniform1f(program.uFloor, 0);
+            gl.uniform1f(program.uScale, me.pointScale());
             gl.uniform1f(program.uRound, 0);
             gl.uniform1f(program.uAlpha, sceneStyle.edgeAlpha);
 
@@ -836,11 +1324,15 @@ class GraphScene extends Base {
 
             gl.bindVertexArray(points.vao);
             gl.uniform1f(program.uAlpha, sceneStyle.nodeAlpha);
+            // the floor is the nodes' own; the centroids standing in for them at the far level keep their sizes
+            level === 'far' || gl.uniform1f(program.uFloor, me.nearFloor());
             gl.drawArrays(gl.POINTS, 0, points.count);
             gl.bindVertexArray(null)
         }
 
-        me.frames++
+        me.drawLabels();
+        me.frames++;
+        me.flightPlan && me.requestFrame()
     }
 
     /**
@@ -883,6 +1375,7 @@ class GraphScene extends Base {
         super.updateMouseState(data);
 
         if (!data.leave && (mouse.buttons & 1) && (mouse.dx || mouse.dy)) {
+            me.flightPlan  = null;
             camera.yaw    += mouse.dx * orbitSpeed;
             camera.pitch   = Math.min(1.45, Math.max(-1.45, camera.pitch + mouse.dy * orbitSpeed));
             camera.touched = true;
@@ -901,7 +1394,9 @@ class GraphScene extends Base {
     }
 
     /**
-     * @summary Sizes the drawing buffer at the size message's `devicePixelRatio` and the viewport with it.
+     * @summary Sizes the drawing buffer at the size message's `devicePixelRatio` and the viewport with it. A new
+     * ratio draws the label atlas again and drops the names' one, which the next frame draws anew, so the texts stay
+     * crisp.
      * @param {Object} size
      * @param {Number} size.height CSS pixels
      * @param {Number} size.width CSS pixels
@@ -922,17 +1417,48 @@ class GraphScene extends Base {
             gl.canvas.width  = width;
             gl.canvas.height = height;
             gl.viewport(0, 0, width, height);
+            me.surfaces?.labels && me.surfaces.labels.ratio !== ratio && me.uploadLabels();
+            me.surfaces?.names  && me.surfaces.names.ratio  !== ratio && me.disposeAtlas('names');
             me.fit();
             me.requestFrame()
         }
     }
 
     /**
-     * @summary Compiles and links the program.
-     * @returns {Object} `{id, uAlpha, uDist, uMvp, uRound, uScale}`
+     * @summary A label atlas's GL objects: its texture, bound, sampled linearly and clamped at its edges, and the
+     * vertex array its frames fill with quads, one interleaved buffer of clip-space x, y and the atlas's u, v per
+     * vertex.
+     * @returns {{quads: WebGLBuffer, texture: WebGLTexture, vao: WebGLVertexArrayObject}}
      * @protected
      */
-    compile() {
+    atlasObjects() {
+        const {gl} = this, texture = gl.createTexture(), quads = gl.createBuffer(), vao = gl.createVertexArray();
+
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+        gl.bindVertexArray(vao);
+        gl.bindBuffer(gl.ARRAY_BUFFER, quads);
+        gl.enableVertexAttribArray(0);
+        gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 16, 0);
+        gl.enableVertexAttribArray(1);
+        gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 16, 8);
+        gl.bindVertexArray(null);
+
+        return {quads, texture, vao}
+    }
+
+    /**
+     * @summary Compiles and links a program and looks up its uniforms: the scene's by default.
+     * @param {Object} [shaders=SHADERS] `{fragment, vertex}` sources
+     * @param {String[]} [uniforms=['uAlpha', 'uDist', 'uFloor', 'uMvp', 'uRound', 'uScale']]
+     * @returns {Object} `{id}` and a location per uniform name
+     * @protected
+     */
+    compile(shaders = SHADERS, uniforms = ['uAlpha', 'uDist', 'uFloor', 'uMvp', 'uRound', 'uScale']) {
         const
             me     = this,
             {gl}   = me,
@@ -950,15 +1476,15 @@ class GraphScene extends Base {
             },
             id = gl.createProgram();
 
-        gl.attachShader(id, shader(gl.VERTEX_SHADER, SHADERS.vertex));
-        gl.attachShader(id, shader(gl.FRAGMENT_SHADER, SHADERS.fragment));
+        gl.attachShader(id, shader(gl.VERTEX_SHADER, shaders.vertex));
+        gl.attachShader(id, shader(gl.FRAGMENT_SHADER, shaders.fragment));
         gl.linkProgram(id);
 
         if (!gl.getProgramParameter(id, gl.LINK_STATUS)) {
             throw new Error(`${me.className}: ${gl.getProgramInfoLog(id)}`)
         }
 
-        return {id, ...Object.fromEntries(['uAlpha', 'uDist', 'uMvp', 'uRound', 'uScale'].map(name => [name, gl.getUniformLocation(id, name)]))}
+        return {id, ...Object.fromEntries(uniforms.map(name => [name, gl.getUniformLocation(id, name)]))}
     }
 
     /**
@@ -967,6 +1493,9 @@ class GraphScene extends Base {
      */
     dispose() {
         const {contextLost, gl, surfaces} = this;
+
+        this.disposeAtlas('labels');
+        this.disposeAtlas('names');
 
         if (gl && surfaces && !contextLost) {
             ['beads', 'clusters', 'nodes'].forEach(key => {
@@ -978,6 +1507,154 @@ class GraphScene extends Base {
         }
 
         this.surfaces = null
+    }
+
+    /**
+     * @summary Deletes a label atlas's GL objects, if any. After a context loss they are already gone.
+     * @param {String} key `'labels'` for the scene's labels, `'names'` for its near names
+     * @protected
+     */
+    disposeAtlas(key) {
+        const {contextLost, gl, surfaces} = this, atlas = surfaces?.[key];
+
+        if (atlas) {
+            if (gl && !contextLost) {
+                gl.deleteTexture(atlas.texture);
+                gl.deleteBuffer(atlas.quads);
+                gl.deleteVertexArray(atlas.vao)
+            }
+
+            surfaces[key] = null
+        }
+    }
+
+    /**
+     * @summary Draws labels from one atlas as quads at an opacity, each snapped to whole pixels.
+     * @param {Object} atlas `{height, quads, texture, vao, width}`
+     * @param {Object[]} items `{box, centre, origin}` each: the label's box and centre on the surface and its top-left
+     * corner in the atlas, in drawing-buffer pixels
+     * @param {Number} alpha
+     * @protected
+     */
+    drawAtlas(atlas, items, alpha) {
+        const me = this, {gl, labelProgram} = me, {height, width} = gl.canvas, quads = new Float32Array(items.length * 24);
+
+        items.forEach(({box: [w, h], centre: [x, y], origin: [u, v]}, quad) => {
+            const
+                left     = Math.round(x - w / 2) / width * 2 - 1,
+                right    = left + w / width * 2,
+                top      = 1 - Math.round(y - h / 2) / height * 2,
+                bottom   = top - h / height * 2,
+                [u0, u1] = [u / atlas.width, (u + w) / atlas.width],
+                [v0, v1] = [v / atlas.height, (v + h) / atlas.height];
+
+            // two triangles, the atlas's rows top down
+            quads.set([left, top, u0, v0,  right, top, u1, v0,  left, bottom, u0, v1,  left, bottom, u0, v1,  right, top, u1, v0,  right, bottom, u1, v1], quad * 24)
+        });
+
+        gl.bindVertexArray(atlas.vao);
+        gl.bindBuffer(gl.ARRAY_BUFFER, atlas.quads);
+        gl.bufferData(gl.ARRAY_BUFFER, quads, gl.DYNAMIC_DRAW);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, atlas.texture);
+        gl.uniform1i(labelProgram.uAtlas, 0);
+        gl.uniform1f(labelProgram.uAlpha, alpha);
+        gl.drawArrays(gl.TRIANGLES, 0, items.length * 6)
+    }
+
+    /**
+     * @summary Draws the labels this frame places ({@link #frameLabels}) in the premultiplied blend, then leaves
+     * the blend as it found it: the scene's own from their atlas, the near names from theirs at the near look's
+     * opacity. A name enters its cell of the names' atlas when it first places ({@link Neo.canvas.GraphScene.claimCells});
+     * one left without a cell waits for a later frame. The labels drawn become `drawnLabels`.
+     * @protected
+     */
+    drawLabels() {
+        const me = this, {gl, labelProgram, scene, surfaces} = me;
+
+        me.drawnLabels = [];
+
+        if (!labelProgram || !surfaces || !surfaces.labels && !scene.names) {
+            return
+        }
+
+        const {names, own, share} = me.frameLabels(), ratio = me.canvasSize?.devicePixelRatio || 1;
+        let   named               = [];
+
+        if (!own.length && !names.length) {
+            return
+        }
+
+        const blend = [gl.BLEND_SRC_RGB, gl.BLEND_DST_RGB, gl.BLEND_SRC_ALPHA, gl.BLEND_DST_ALPHA].map(name => gl.getParameter(name));
+
+        gl.useProgram(labelProgram.id);
+        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+
+        own.length && me.drawAtlas(surfaces.labels, own.map(label => ({...label, origin: surfaces.labels.origins[label.label]})), 1);
+
+        const atlas = names.length && (surfaces.names ?? me.uploadNames());
+
+        if (atlas) {
+            const {cells, fresh} = me.constructor.claimCells(atlas.table, names.map(name => name.node));
+
+            named = names.map((name, index) => ({...name, cell: cells[index]})).filter(name => name.cell !== null);
+
+            me.drawNames(atlas, named.filter(name => fresh.includes(name.cell)));
+            me.drawAtlas(atlas, named.map(name => ({...name, origin: [name.cell % atlas.columns * atlas.cell.width, Math.floor(name.cell / atlas.columns) * atlas.cell.height]})), share)
+        }
+
+        gl.blendFuncSeparate(...blend);
+        gl.bindVertexArray(null);
+
+        me.drawnLabels = [...own, ...named].map(({node, point, text}) => ({index: node, text, x: point[0] / ratio, y: point[1] / ratio}))
+    }
+
+    /**
+     * @summary Draws names into their cells of the names' atlas, each over a cleared cell, fill over outline, cut with
+     * an ellipsis where it is wider than the cell.
+     * @param {Object} atlas The names' atlas ({@link #uploadNames})
+     * @param {Object[]} names `{cell, text}` each
+     * @protected
+     */
+    drawNames(atlas, names) {
+        const {gl} = this, {canvas, cell, columns, context} = atlas, room = cell.width - 2 * cell.pad;
+
+        if (!names.length) {
+            return
+        }
+
+        gl.bindTexture(gl.TEXTURE_2D, atlas.texture);
+        // the program composites premultiplied colour
+        gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+
+        names.forEach(({cell: index, text}) => {
+            let fit = text;
+
+            if (context.measureText(text).width > room) {
+                // by code points, so a character outside the basic plane is never cut in half
+                const chars = [...text];
+                let   low   = 0, high = chars.length;
+
+                while (low < high) {
+                    const middle = (low + high + 1) >> 1;
+
+                    if (context.measureText(chars.slice(0, middle).join('') + '…').width <= room) {
+                        low = middle
+                    } else {
+                        high = middle - 1
+                    }
+                }
+
+                fit = chars.slice(0, low).join('') + '…'
+            }
+
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            context.strokeText(fit, cell.pad, cell.height / 2);
+            context.fillText(fit, cell.pad, cell.height / 2);
+            gl.texSubImage2D(gl.TEXTURE_2D, 0, index % columns * cell.width, Math.floor(index / columns) * cell.height, gl.RGBA, gl.UNSIGNED_BYTE, canvas)
+        });
+
+        gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false)
     }
 
     /**
@@ -995,6 +1672,74 @@ class GraphScene extends Base {
                 camera.dist   = me.fittedDistance;
                 camera.target = [...sphere.center]
             }
+        }
+    }
+
+    /**
+     * @summary The labels this frame places ({@link Neo.canvas.GraphScene.placeLabels}): the scene's own first, in
+     * their order, then, while the near look shows and the frame draws nodes, the names of the nodes nearest the
+     * camera's target, nearest first, each above its point as drawn. The scene's own clear the floor's radius as the
+     * floor enlarges their points, and sit as before without one. A node the scene labels itself, or whose name is
+     * empty, is not named again. Each label comes as `{box, centre, node, point, text}` in drawing-buffer pixels, the
+     * scene's own with its `label` index, a name with its point's drawn `radius`.
+     * @returns {{names: Object[], own: Object[], share: Number}} `share` is how far the near look has arrived, the
+     * names' opacity
+     * @protected
+     */
+    frameLabels() {
+        const
+            me               = this,
+            {camera, scene}  = me,
+            {height, width}  = me.gl.canvas,
+            {gap, lift, max} = me.labelStyle,
+            atlas            = me.surfaces?.labels,
+            level            = me.getLodLevel(),
+            share            = level === 'far' ? 0 : me.getNearShare(),
+            ratio            = me.canvasSize?.devicePixelRatio || 1,
+            M                = me.matrix(),
+            at               = point => me.constructor.project(M, point[0], point[1], point[2], width, height),
+            // a point's depth relative to the camera distance is its clip w over that distance
+            depthOf          = ([x, y, z]) => (M[3] * x + M[7] * y + M[11] * z + M[15]) / camera.dist,
+            floor            = level === 'far' ? 0 : me.nearFloor(),
+            own              = [],
+            names            = [];
+
+        if (atlas) {
+            const
+                {nodes, texts} = scene.labels,
+                points         = me.constructor.labelAnchors({lod: level === 'far' ? scene.lod : null, nodes, positions: scene.positions}),
+                anchors        = Array.from(nodes, (node, label) => atlas.origins[label] ? at(points.subarray(label * 3, label * 3 + 3)) : null),
+                radii          = floor > 0 ? Array.from(nodes, (node, label) => floor / Math.max(depthOf(points.subarray(label * 3, label * 3 + 3)), 0.1) / 2) : null,
+                centres        = me.constructor.labelCentres({anchors, boxes: atlas.boxes, lift: lift * ratio, radii});
+
+            nodes.forEach((node, label) => own.push({box: atlas.boxes[label], centre: centres[label], label, node, point: anchors[label], text: texts[label]}))
+        }
+
+        if (share > 0 && scene.names) {
+            const
+                {positions, sizes} = scene,
+                {texts}            = scene.names,
+                labelled           = new Set(scene.labels?.nodes),
+                cell               = me.nameCell(),
+                scale              = me.pointScale(),
+                nodes              = me.constructor.nearestNodes({accept: node => texts[node] !== '' && !labelled.has(node), limit: me.nearStyle.candidates, positions, target: camera.target}),
+                widths             = me.measureNames(nodes.map(node => texts[node])),
+                anchors            = nodes.map(node => at(positions.subarray(node * 3, node * 3 + 3))),
+                boxes              = widths.map(textWidth => [Math.min(cell.width, Math.ceil(textWidth) + 2 * cell.pad), cell.height]),
+                radii              = nodes.map(node => me.constructor.pointSize({depth: depthOf(positions.subarray(node * 3, node * 3 + 3)), floor, scale, size: sizes[node]}) / 2),
+                centres            = me.constructor.labelCentres({anchors, boxes, lift: lift * ratio, radii});
+
+            nodes.forEach((node, index) => names.push({box: boxes[index], centre: centres[index], node, point: anchors[index], radius: radii[index], text: texts[node]}))
+        }
+
+        const
+            candidates = [...own, ...names],
+            placed     = me.constructor.placeLabels({anchors: candidates.map(label => label.centre), boxes: candidates.map(label => label.box), gap: gap * ratio, height, max, width});
+
+        return {
+            names: placed.filter(index => index >= own.length).map(index => candidates[index]),
+            own  : placed.filter(index => index <  own.length).map(index => candidates[index]),
+            share
         }
     }
 
@@ -1025,6 +1770,62 @@ class GraphScene extends Base {
     }
 
     /**
+     * @summary Each text's width in drawing-buffer pixels, in the labels' font at the drawing buffer's pixel ratio.
+     * @param {String[]} texts
+     * @returns {Number[]}
+     * @protected
+     */
+    measureNames(texts) {
+        const me = this, {family, size, weight} = me.labelStyle;
+
+        me.nameContext ??= new OffscreenCanvas(1, 1).getContext('2d');
+        me.nameContext.font = `${weight} ${size * (me.canvasSize?.devicePixelRatio || 1)}px ${family}`;
+
+        return texts.map(text => me.nameContext.measureText(text).width)
+    }
+
+    /**
+     * @summary A cell of the names' atlas in drawing-buffer pixels: `nearStyle.width` wide and the labels' font tall
+     * at the drawing buffer's pixel ratio, each with the outline's `pad` on both sides, as the scene's labels measure.
+     * @returns {{height: Number, pad: Number, width: Number}}
+     * @protected
+     */
+    nameCell() {
+        const me = this, {outline, size} = me.labelStyle, ratio = me.canvasSize?.devicePixelRatio || 1, pad = Math.ceil(outline * ratio) + 1;
+
+        return {height: Math.ceil(size * ratio * 1.3) + 2 * pad, pad, width: Math.ceil(me.nearStyle.width * ratio) + 2 * pad}
+    }
+
+    /**
+     * @summary The surface's scale for point sizes: the drawing buffer's shorter side over 400.
+     * @returns {Number}
+     * @protected
+     */
+    pointScale() {
+        const {canvas} = this.gl;
+
+        return Math.min(canvas.width, canvas.height) / 400
+    }
+
+    /**
+     * @summary Moves the camera to where the flight is now ({@link Neo.canvas.GraphScene.flightStep}). The
+     * flight's clock starts at its first step, and its last step lands exactly on the end and ends it.
+     * @protected
+     */
+    stepFlight() {
+        const me = this, plan = me.flightPlan, now = performance.now();
+
+        plan.start ??= now;
+
+        if (plan.duration > 0 && now - plan.start < plan.duration) {
+            Object.assign(me.camera, me.constructor.flightStep(plan, (now - plan.start) / plan.duration))
+        } else {
+            Object.assign(me.camera, {dist: plan.to.dist, target: [...plan.to.target]});
+            me.flightPlan = null
+        }
+    }
+
+    /**
      * @summary Uploads the current scene: the node arrays, the edge and path indices, and the beads sampled
      * along every path leg. Nothing to draw leaves `surfaces` null.
      * @protected
@@ -1039,13 +1840,13 @@ class GraphScene extends Base {
         }
 
         const
-            {beadsPerLeg, beadSize} = sceneStyle,
+            {beadsPerLeg, beadSize}    = sceneStyle,
             {colors, paths, positions} = scene,
-            legs          = paths.reduce((sum, path) => sum + Math.max(0, path.length - 1), 0),
-            beadCount     = legs * beadsPerLeg,
-            beadPositions = new Float32Array(beadCount * 3),
-            beadColors    = new Float32Array(beadCount * 3),
-            beadSizes     = new Float32Array(beadCount).fill(beadSize);
+            legs                       = paths.reduce((sum, path) => sum + Math.max(0, path.length - 1), 0),
+            beadCount                  = legs * beadsPerLeg,
+            beadPositions              = new Float32Array(beadCount * 3),
+            beadColors                 = new Float32Array(beadCount * 3),
+            beadSizes                  = new Float32Array(beadCount).fill(beadSize);
         let bead = 0;
 
         paths.forEach(path => {
@@ -1069,10 +1870,120 @@ class GraphScene extends Base {
             clusters: scene.lod ? me.vertexArray(scene.lod.centroids, scene.lod.colors, scene.lod.sizes) : null,
             nodes   : me.vertexArray(positions, colors, scene.sizes),
             edges   : me.indexBuffer(scene.edges),
+            labels  : null,
+            names   : null,
             paths   : paths.map(path => me.indexBuffer(path))
         };
 
-        gl.bindVertexArray(null)
+        gl.bindVertexArray(null);
+        me.uploadLabels()
+    }
+
+    /**
+     * @summary Draws each label's text once into the atlas texture, at the drawing buffer's pixel ratio, fill
+     * over outline, row by row, and readies the vertex array the frames fill with quads. The atlas holds what
+     * fits in 2048 drawing-buffer pixels square ({@link Neo.canvas.GraphScene.packLabels}): a label it cannot
+     * hold whole is never drawn into it nor placed. A scene without labels uploads none.
+     * @protected
+     */
+    uploadLabels() {
+        const me = this, {gl, scene, surfaces} = me, labels = scene?.labels;
+
+        me.disposeAtlas('labels');
+
+        if (!surfaces || !labels?.nodes.length) {
+            return
+        }
+
+        const
+            ratio                     = me.canvasSize?.devicePixelRatio || 1,
+            {family, outline, weight} = me.labelStyle,
+            pad                       = Math.ceil(outline * ratio) + 1,
+            limit                     = Math.min(2048, gl.getParameter(gl.MAX_TEXTURE_SIZE)),
+            canvas                    = new OffscreenCanvas(1, 1),
+            context                   = canvas.getContext('2d'),
+            fonts                     = Array.from(labels.sizes, size => `${weight} ${size * ratio}px ${family}`),
+            // measured whole, so a text wider than the atlas is left out instead of clipped
+            boxes                     = labels.texts.map((text, label) => {
+                context.font = fonts[label];
+
+                return [Math.ceil(context.measureText(text).width) + 2 * pad, Math.ceil(labels.sizes[label] * ratio * 1.3) + 2 * pad]
+            }),
+            {height, origins, width}  = me.constructor.packLabels({boxes, limit});
+
+        // sizing the canvas resets its context state, so the look is set after it
+        canvas.width  = width;
+        canvas.height = height;
+
+        context.fillStyle    = labels.color;
+        context.lineJoin     = 'round';
+        // a stroke straddles the glyph's edge: twice the outline shows the outline outside it
+        context.lineWidth    = 2 * outline * ratio;
+        context.strokeStyle  = labels.outline;
+        context.textBaseline = 'middle';
+
+        labels.texts.forEach((text, label) => {
+            if (origins[label]) {
+                const [left, top] = origins[label], middle = top + boxes[label][1] / 2;
+
+                context.font = fonts[label];
+                context.strokeText(text, left + pad, middle);
+                context.fillText(text, left + pad, middle)
+            }
+        });
+
+        const objects = me.atlasObjects();
+
+        // the program composites premultiplied colour
+        gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
+        gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+
+        surfaces.labels = {...objects, boxes, count: origins.filter(Boolean).length, height, origins, ratio, width}
+    }
+
+    /**
+     * @summary Readies the names' atlas at the drawing buffer's pixel ratio: rows of {@link #nameCell cells}, enough
+     * for twice the labels a frame draws, so an orbit's next frame finds most of its names already drawn. The cells
+     * start empty and keep the names' colours. An atlas without room for one cell readies none.
+     * @returns {Object|null} The atlas, kept as `surfaces.names`, with its {@link Neo.canvas.GraphScene.nameCells cell table}
+     * @protected
+     */
+    uploadNames() {
+        const
+            me      = this,
+            {gl}    = me,
+            cell    = me.nameCell(),
+            limit   = Math.min(2048, gl.getParameter(gl.MAX_TEXTURE_SIZE)),
+            columns = Math.floor(limit / cell.width),
+            rows    = Math.min(Math.floor(limit / cell.height), Math.ceil(2 * me.labelStyle.max / Math.max(1, columns)));
+
+        if (columns < 1 || rows < 1) {
+            return null
+        }
+
+        const
+            {color, outline}       = me.scene.names,
+            {family, size, weight} = me.labelStyle,
+            ratio                  = me.canvasSize?.devicePixelRatio || 1,
+            canvas                 = new OffscreenCanvas(cell.width, cell.height),
+            context                = canvas.getContext('2d'),
+            atlas                  = {...me.atlasObjects(), canvas, cell, columns, context, height: rows * cell.height, ratio, table: me.constructor.nameCells(columns * rows), width: columns * cell.width};
+
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, atlas.width, atlas.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+
+        // the canvas keeps its size, so its look holds for every name drawn into it
+        context.fillStyle    = color;
+        context.font         = `${weight} ${size * ratio}px ${family}`;
+        context.lineJoin     = 'round';
+        // a stroke straddles the glyph's edge: twice the outline shows the outline outside it
+        context.lineWidth    = 2 * me.labelStyle.outline * ratio;
+        context.strokeStyle  = outline;
+        context.textBaseline = 'middle';
+
+        me.surfaces.names = atlas;
+
+        return atlas
     }
 
     /**

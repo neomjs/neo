@@ -71,6 +71,19 @@ class Column extends Base {
          */
         editor: null,
         /**
+         * Returns the value `Neo.grid.Container#toCsv()` writes for this column's cell, in place of
+         * `record.get(dataField)`. Receives `{record, value}`. A renderer's output is markup for display, so it is
+         * never exported; this is the place for a column whose exported value needs formatting.
+         * @member {Function|null} exportRenderer=null
+         */
+        exportRenderer: null,
+        /**
+         * The header group this column sits under, as `{id, text}`: set by `Neo.grid.Container` for a column declared
+         * inside a `{text, columns: [...]}` entry, and shared by every column of that group. `null` outside a group.
+         * @member {Object|null} headerGroup=null
+         */
+        headerGroup: null,
+        /**
          * @member {String} hideMode_='removeDom'
          */
         hideMode_: 'removeDom',
@@ -308,6 +321,24 @@ class Column extends Base {
      */
     cellRenderer({value}) {
         return value
+    }
+
+    /**
+     * @summary Reads a field's value from a row record, resolving a dotted path such as `metrics.load`.
+     *
+     * A record resolves the path through `Record#get`. In Turbo Mode (`autoInitRecords: false`) a row can
+     * be a plain object without `get`, and `Neo.ns` resolves the same path on it. Column types that read
+     * a value themselves use this, so a nested `dataField` reaches them the way it reaches a plain cell.
+     * @param {Neo.data.Record|Object|null} record
+     * @param {String} [field=this.dataField]
+     * @returns {*} The value at the path, or `undefined` when the record or a segment is missing
+     */
+    getRecordValue(record, field=this.dataField) {
+        if (!record) {
+            return undefined
+        }
+
+        return typeof record.get === 'function' ? record.get(field) : Neo.ns(field, false, record)
     }
 
     /**

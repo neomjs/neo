@@ -247,3 +247,193 @@ test.describe('DockSplitter — a drag whose path crosses an iframe', () => {
         // assertion that goes red when the release is swallowed.
     })
 });
+
+/**
+ * The Pointer sensor's OWN robustness across an iframe, with every CSS shield lifted.
+ *
+ * Past the drag threshold the sensor holds pointer capture on the document root, so every later event
+ * of the pointer, the release included, reaches the parent document whatever lies under it. Two shields
+ * would mask that here: `neo-drag-active` makes iframes hit-test-inert for the whole gesture, and the
+ * dock splitter's DragZone session shields the page through `body:has(.neo-is-dragging) *`. The style
+ * {@link instrument} injects keeps THIS iframe interactive through both (an id selector outranks either
+ * rule's `!important`), so capture is the only thing left holding the stream. Without it, the moves
+ * over the iframe and the release inside it go to the child document: the arm counts no in-frame move
+ * and no `drag:end`, and `neo-drag-active` outlives the gesture.
+ *
+ * The drag arms OUTSIDE the iframe and only then crosses it: the window before the threshold is the
+ * shield's, deliberately uncaptured so that a press can still click (the click arm pins that). The
+ * touch arms drive CDP touch input, which the platform delivers as `pointerType: 'touch'`.
+ */
+test.describe('DockSplitter — with every shield lifted, pointer capture alone holds an iframe crossing', () => {
+    /**
+     * @summary Lifts both shields for the iframe and counts the sensor's `drag:*` stream on `document`.
+     * @param {Object} page
+     * @returns {Promise<void>}
+     */
+    const instrument = page => page.evaluate(id => {
+        const style = document.createElement('style');
+
+        style.textContent = `#${id} {pointer-events: auto !important}`;
+        document.head.append(style);
+
+        const frame  = document.getElementById(id).getBoundingClientRect(),
+              inside = ({clientX, clientY}) => clientX > frame.left && clientX < frame.right && clientY > frame.top && clientY < frame.bottom;
+
+        window.__stream = {ends: [], inFrameMoves: 0, moves: 0, pointerType: null, starts: 0};
+
+        document.addEventListener('drag:start', ({detail}) => {
+            window.__stream.starts++;
+            window.__stream.pointerType = detail.originalEvent.pointerType
+        });
+        document.addEventListener('drag:move', ({detail}) => {
+            window.__stream.moves++;
+            inside(detail) && window.__stream.inFrameMoves++
+        });
+        document.addEventListener('drag:end', ({detail}) => window.__stream.ends.push(inside(detail) ? 'in-frame' : 'outside'))
+    }, IFRAME_ID);
+
+    const
+        stream     = (page, key) => page.evaluate(name => window.__stream[name], key),
+        // the gesture's terminal, sensor-side: no selection guard, no pressed element, no capture
+        sensorIdle = page => page.evaluate(async () => {
+            const sensor = await Neo.main.addon.DragDrop.getPointerSensor();
+
+            return {
+                active  : document.body.classList.contains('neo-drag-active'),
+                captured: sensor.hasCapture,
+                dragging: sensor.dragging,
+                engaged : Boolean(sensor.currentElement)
+            }
+        }),
+        idle = {active: false, captured: false, dragging: false, engaged: false};
+
+    /**
+     * @summary The grab point on the splitter and the iframe's box, with the layout the arms rely on asserted.
+     * @param {Object} page
+     * @returns {Promise<{frame: Object, start: {x: Number, y: Number}}>}
+     */
+    async function geometry(page) {
+        const box   = await page.locator('.neo-dashboard-dock-splitter').first().boundingBox(),
+              frame = await page.locator(`#${IFRAME_ID}`).boundingBox(),
+              start = {x: box.x + box.width / 2, y: 380};
+
+        // NON-VACUITY: the drag must arm outside the iframe and then genuinely cross into it
+        expect(start.x + 6, 'the arming move must stay left of the iframe').toBeLessThan(frame.x);
+        expect(start.y, 'the drag path must run through the iframe vertically').toBeGreaterThan(frame.y);
+        expect(start.y).toBeLessThan(frame.y + frame.height);
+
+        return {frame, start}
+    }
+
+    test('moves keep streaming over the iframe, and the release inside it ends the gesture exactly once', async ({page}) => {
+        const {frame, start} = await geometry(page);
+
+        await instrument(page);
+
+        await page.mouse.move(start.x, start.y);
+        await page.mouse.down();
+        // past minDistance; the sensor's delay timer then arms the drag in place, still outside the iframe
+        await page.mouse.move(start.x + 6, start.y);
+
+        await expect.poll(() => stream(page, 'starts'), {message: 'the press must arm a drag before the crossing'}).toBe(1);
+
+        expect(
+            await page.evaluate(id => getComputedStyle(document.getElementById(id)).pointerEvents, IFRAME_ID),
+            'the iframe stays hit-testable mid-drag: no shield holds the stream'
+        ).toBe('auto');
+
+        await page.mouse.move(frame.x + 120, start.y,      {steps: 12});
+        await page.mouse.move(frame.x + 200, start.y + 30, {steps: 8});
+
+        await expect.poll(() => stream(page, 'inFrameMoves'), {
+            message: 'the move stream must survive the pointer entering the iframe'
+        }).toBeGreaterThan(0);
+
+        await page.mouse.up();
+
+        await expect.poll(() => stream(page, 'ends'), {
+            message: 'the release inside the iframe must end the gesture, once'
+        }).toEqual(['in-frame']);
+        expect(await sensorIdle(page)).toEqual(idle);
+
+        // The sensor admits the next press. Dispatched, not hit-tested: in this standalone fixture the
+        // dashboard's own SortZone session (`neo-is-dragging` on the container) outlives a splitter drag,
+        // on dev as well, and `body:has(.neo-is-dragging) *` then leaves no element to hit.
+        expect(await page.evaluate(async () => {
+            const splitter = document.querySelector('.neo-dashboard-dock-splitter'),
+                  sensor   = await Neo.main.addon.DragDrop.getPointerSensor(),
+                  init     = {bubbles: true, button: 0, buttons: 1, isPrimary: true, pointerId: 7, pointerType: 'mouse'};
+
+            splitter.dispatchEvent(new PointerEvent('pointerdown', init));
+
+            const claimed = sensor.currentElement === splitter;
+
+            splitter.dispatchEvent(new PointerEvent('pointerup', {...init, buttons: 0}));
+
+            return claimed
+        }), 'the next press on the splitter is claimed').toBe(true);
+        expect(await sensorIdle(page)).toEqual(idle)
+    });
+
+    test('a press released before the threshold still clicks the splitter: capture never starts at the press', async ({page}) => {
+        const {start} = await geometry(page);
+
+        // A captured pointer's click targets the common ancestor of press and release, the document root.
+        await page.evaluate(() => {
+            window.__clicks = [];
+
+            document.addEventListener('click', ({target}) => {
+                window.__clicks.push(target.closest?.('.neo-dashboard-dock-splitter') ? 'splitter' : target.nodeName)
+            }, true)
+        });
+
+        await page.mouse.click(start.x, start.y);
+
+        await expect.poll(() => page.evaluate(() => window.__clicks)).toEqual(['splitter']);
+        expect(await sensorIdle(page)).toEqual(idle)
+    });
+
+    test('a touch held past touchDelay arms in place, streams, and ends on its release', async ({page}) => {
+        const {start} = await geometry(page),
+              cdp     = await page.context().newCDPSession(page),
+              touch   = (type, points) => cdp.send('Input.dispatchTouchEvent', {type, touchPoints: points});
+
+        await cdp.send('Emulation.setTouchEmulationEnabled', {enabled: true, maxTouchPoints: 1});
+        await instrument(page);
+
+        await touch('touchStart', [{x: start.x, y: start.y}]);
+
+        // touchMinDistance 0: holding still past touchDelay arms the drag without any movement
+        await expect.poll(() => stream(page, 'starts'), {message: 'a long press must arm the touch drag'}).toBe(1);
+        expect(await stream(page, 'pointerType')).toBe('touch');
+
+        for (const dx of [4, 8, 12]) {
+            await touch('touchMove', [{x: start.x + dx, y: start.y}])
+        }
+
+        await expect.poll(() => stream(page, 'moves'), {message: 'the touch drag must stream'}).toBeGreaterThan(0);
+
+        await touch('touchEnd', []);
+
+        await expect.poll(() => stream(page, 'ends')).toEqual(['outside']);
+        expect(await sensorIdle(page)).toEqual(idle)
+    });
+
+    test('a touch cancelled mid-drag ends the gesture exactly once: pointercancel is a terminal', async ({page}) => {
+        const {start} = await geometry(page),
+              cdp     = await page.context().newCDPSession(page),
+              touch   = (type, points) => cdp.send('Input.dispatchTouchEvent', {type, touchPoints: points});
+
+        await cdp.send('Emulation.setTouchEmulationEnabled', {enabled: true, maxTouchPoints: 1});
+        await instrument(page);
+
+        await touch('touchStart', [{x: start.x, y: start.y}]);
+        await expect.poll(() => stream(page, 'starts')).toBe(1);
+        await touch('touchMove', [{x: start.x + 6, y: start.y}]);
+
+        await touch('touchCancel', []);
+
+        await expect.poll(() => stream(page, 'ends'), {message: 'the cancel must end the engaged drag'}).toHaveLength(1);
+        expect(await sensorIdle(page)).toEqual(idle)
+    })
+});

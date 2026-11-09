@@ -91,7 +91,7 @@ class MainStore extends Store {
             console.log('Start generating data and adding to collection');
 
             if (me.items?.length > 0) {
-                me.clear(false)
+                me.clearSilent()
             }
 
             // Turbo Mode: Passing false as the 2nd argument disables the eager Record creation.
@@ -120,7 +120,7 @@ class MainStore extends Store {
         console.log('Start generating data and adding to collection');
 
         if (me.items?.length > 0) {
-            me.clear(false)
+            me.clearSilent()
         }
 
         // Turbo Mode: Passing false as the 2nd argument disables the eager Record creation.

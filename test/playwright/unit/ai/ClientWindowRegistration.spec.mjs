@@ -73,6 +73,54 @@ test.describe('Neo.ai.Client — non-SharedWorker window registration', () => {
         return notifications
     };
 
+    const runOnAppRegistered = (isSharedWorker, data) => {
+        const notifications            = [];
+        const originalSendNotification = client.sendNotification;
+        const originalSharedWorker     = Neo.worker.App.isSharedWorker;
+
+        client.sendNotification       = (method, params) => notifications.push({method, params});
+        Neo.worker.App.isSharedWorker = isSharedWorker;
+
+        try {
+            client.onAppRegistered(data)
+        } finally {
+            client.sendNotification       = originalSendNotification;
+            Neo.worker.App.isSharedWorker = originalSharedWorker
+        }
+
+        return notifications
+    };
+
+    test('an app that registers after the socket opened announces its window, once', () => {
+        // The Bridge was up first, so the socket opened before any app registered
+        expect(runOnSocketOpen(false, {}).filter(n => n.method === 'window_connected'), 'the open finds nothing to announce').toEqual([]);
+
+        expect(runOnAppRegistered(false, {appName: 'LateApp', windowId: 'win-late-1'})).toEqual([
+            {method: 'window_connected', params: {appName: 'LateApp', windowId: 'win-late-1'}}
+        ]);
+
+        client.onSocketClose({})
+    });
+
+    test('an app that registered before the open is announced by the open alone', () => {
+        // No socket yet: the registration has no one to tell
+        client.onSocketClose({});
+        expect(runOnAppRegistered(false, {appName: 'EarlyApp', windowId: 'win-early-1'})).toEqual([]);
+
+        expect(runOnSocketOpen(false, {'win-early-1': {name: 'EarlyApp'}}).filter(n => n.method === 'window_connected')).toEqual([
+            {method: 'window_connected', params: {appName: 'EarlyApp', windowId: 'win-early-1'}}
+        ]);
+
+        client.onSocketClose({})
+    });
+
+    test('a SharedWorker app registering after the open is left to its port connect', () => {
+        runOnSocketOpen(true, {});
+        expect(runOnAppRegistered(true, {appName: 'PortalApp', windowId: 'win-shared-2'})).toEqual([]);
+
+        client.onSocketClose({})
+    });
+
     test('onSocketOpen registers the implicit window for a non-SharedWorker app', () => {
         const notifications = runOnSocketOpen(false, {'win-nonshared-1': {name: 'NonSharedApp'}});
 

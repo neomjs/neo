@@ -159,8 +159,9 @@ class GoogleMaps extends Base {
         let me = this;
 
         value.on({
-            load : me.onMarkerStoreLoad,
-            scope: me
+            load        : me.onMarkerStoreLoad,
+            recordChange: me.onMarkerRecordChange,
+            scope       : me
         });
 
         if (value.items.length > 0) {
@@ -170,6 +171,7 @@ class GoogleMaps extends Base {
 
     /**
      * Triggered after the mounted config got changed
+     * @summary Creates or removes the map instance and re-renders existing markers on mount.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
@@ -199,6 +201,11 @@ class GoogleMaps extends Base {
             me.timeout(50).then(() => {
                 Neo.main.addon.GoogleMaps.create(opts).then(() => {
                     me.mapCreated = true;
+
+                    if (me.markerStore?.getCount() > 0) {
+                        me.onMarkerStoreLoad()
+                    }
+
                     me.onComponentMounted()
                 })
             })
@@ -269,6 +276,18 @@ class GoogleMaps extends Base {
     }
 
     /**
+     * @summary Synchronizes a map marker when its store record changes.
+     * @param {Object} data
+     * @param {Neo.data.Record} data.record
+     */
+    onMarkerRecordChange({record}) {
+        this.addMarker({
+            mapId: this.id,
+            ...(record.toJSON?.() || record)
+        })
+    }
+
+    /**
      * @param {Object} data
      */
     onMapZoomChange(data) {
@@ -276,7 +295,7 @@ class GoogleMaps extends Base {
     }
 
     /**
-     *
+     * @summary Synchronizes map markers with the current `markerStore` records on store load or collection mutation.
      */
     onMarkerStoreLoad() {
         let {appName, id, windowId} = this;
@@ -284,6 +303,7 @@ class GoogleMaps extends Base {
         Neo.main.addon.GoogleMaps.destroyMarkers({
             appName,
             id,
+            mapId: id,
             windowId
         });
 
@@ -292,7 +312,7 @@ class GoogleMaps extends Base {
                 appName,
                 mapId: id,
                 windowId,
-                ...item
+                ...(item.toJSON?.() || item)
             })
         })
     }
@@ -329,10 +349,12 @@ class GoogleMaps extends Base {
     }
 
     /**
-     *
+     * @summary Resets `mapCreated` and removes the map instance via the GoogleMaps addon.
      */
     removeMap() {
         let {appName, id, windowId} = this;
+
+        this.mapCreated = false;
 
         Neo.main.addon.GoogleMaps.removeMap({
             appName,

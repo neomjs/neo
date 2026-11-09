@@ -93,8 +93,6 @@ function displayedRows(body) {
 }
 
 test.describe('Grid: locked bodies and header toolbars', () => {
-    test.skip(!!process.env.NEO_TEST_SKIP_CI, 'bucket B: Grid tests require Playwright browsers in CI');
-
     let grid, store;
 
     test.beforeEach(() => {
@@ -181,8 +179,48 @@ test.describe('Grid: locked bodies and header toolbars', () => {
             expect(locked.store).toBe(grid.store)
         });
 
+        expect(view.bodyStart).toBe(bodyStart);
+        expect(view.bodyEnd).toBe(bodyEnd);
+        expect(view.bodies).toEqual([bodyStart, body, bodyEnd]);
+        expect(bodyStart.wrapperCls).toContain('neo-hide-scrollbar');
+        expect(body.wrapperCls).toContain('neo-hide-scrollbar');
+
         [headerStart, headerEnd].forEach(locked => expect(locked.reference).toBe(null));
         expect([headerStart.layoutLock, headerEnd.layoutLock]).toEqual(['start', 'end'])
+    });
+
+    test('retiring locked bodies releases scrollbar insets and neo-hide-scrollbar, and onColumnLockChange tolerates mid-flight destroy', async () => {
+        grid = await createGrid(store);
+
+        let {body, horizontalScrollbar, view} = grid;
+
+        horizontalScrollbar.startWidth = 80;
+        horizontalScrollbar.endWidth   = 100;
+        expect(body.wrapperCls).toContain('neo-hide-scrollbar');
+
+        grid.columns.get('id').locked = null;
+        await grid.timeout(50);
+
+        expect(view.bodyStart).toBeNull();
+        expect(horizontalScrollbar.startWidth).toBe(0);
+        expect(body.wrapperCls).toContain('neo-hide-scrollbar');
+
+        grid.columns.get('state').locked = null;
+        await grid.timeout(50);
+
+        expect(view.bodyEnd).toBeNull();
+        expect(horizontalScrollbar.endWidth).toBe(0);
+        expect(body.wrapperCls).not.toContain('neo-hide-scrollbar');
+
+        let releasePassSize;
+        grid.headerToolbar.passSizeToBody = () => new Promise(resolve => { releasePassSize = resolve });
+
+        let lockPromise = grid.onColumnLockChange(grid.columns.get('id'));
+        grid.destroy();
+        grid = null;
+        releasePassSize();
+
+        await expect(lockPromise).resolves.toBeUndefined()
     });
 
     test('with animatedRowSorting, the locked bodies move every record with the center body', async () => {

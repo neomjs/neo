@@ -35,7 +35,15 @@ class RecordFactory extends Base {
     }
 
     /**
-     * Assigns model-based default values to a data object
+     * The record class each Model last got from createRecordClass(), so a release removes only its own:
+     * a released Model's id may already name a successor's class.
+     * @member {WeakMap} #recordClasses=new WeakMap()
+     * @private
+     */
+    #recordClasses = new WeakMap()
+
+    /**
+     * @summary Resolves field mappings (dot and `[index]` segments, preserving falsy leaves and yielding `undefined` when absent so `defaultValue` applies) and assigns model default values.
      * @param {Object}         data
      * @param {Neo.data.Model} model
      * @returns {Object}
@@ -49,14 +57,22 @@ class RecordFactory extends Base {
                     key = ns.pop(),
                     source;
 
-                if (ns.length > 0) {
-                    source = Neo.ns(ns, false, data)
-                } else {
-                    source = data
-                }
+                if (key.endsWith(']')) {
+                    const value = Neo.nsWithArrays(field.mapping, false, data);
 
-                if (source && Object.hasOwn(source, key)) {
-                    data[fieldName] = source[key]
+                    if (value !== undefined) {
+                        data[fieldName] = value
+                    }
+                } else {
+                    if (ns.length > 0) {
+                        source = Neo.nsWithArrays(ns, false, data)
+                    } else {
+                        source = data
+                    }
+
+                    if (source && Object.hasOwn(source, key)) {
+                        data[fieldName] = source[key]
+                    }
                 }
             }
 
@@ -347,6 +363,8 @@ class RecordFactory extends Base {
                 Object.defineProperty(cls.prototype, 'isRecord', {value: true});
                 Object.defineProperty(cls, 'isClass', {value: true});
 
+                this.#recordClasses.set(model, cls);
+
                 return ns[key]
             }
 
@@ -376,6 +394,21 @@ class RecordFactory extends Base {
     }
 
     /**
+     * @summary Drops the record class cached for a Model, so a retired Model leaves no class in the record namespace.
+     * Records created earlier keep their class. An entry that no longer holds this Model's class, because a successor
+     * reused its id, stays.
+     * @param {Neo.data.Model} model
+     */
+    releaseRecordClass(model) {
+        let ns = Neo.ns(`${this.recordNamespace}.${model.className}`);
+
+        if (ns && ns[model.id] === this.#recordClasses.get(model)) {
+            delete ns[model.id]
+        }
+    }
+
+    /**
+     * @summary Parses, converts, and validates a record field value, resolving initial field mappings.
      * @param {Object}  data
      * @param {Object}  data.record
      * @param {Object}  data.field
@@ -401,11 +434,15 @@ class RecordFactory extends Base {
         // only trigger mappings for initial values
         // dynamic changes of a field will not pass the recordConfig
         if (mapping && recordConfig) {
-            let ns  = mapping.split('.'),
-                key = ns.pop();
+            if (mapping.endsWith(']')) {
+                value = Neo.nsWithArrays(mapping, false, recordConfig)
+            } else {
+                let ns  = mapping.split('.'),
+                    key = ns.pop();
 
-            ns    = Neo.ns(ns, true, recordConfig);
-            value = ns[key]
+                ns    = Neo.nsWithArrays(ns, true, recordConfig);
+                value = ns[key]
+            }
         }
 
         if (Object.hasOwn(field, 'maxLength')) {

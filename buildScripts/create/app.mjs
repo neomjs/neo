@@ -9,25 +9,26 @@ import path            from 'path';
 import {sanitizeInput} from '../util/sanitizer.mjs';
 
 const
-    __dirname    = path.resolve(),
-    cwd          = process.cwd(),
-    nodeCmd      = os.platform().startsWith('win') ? 'node.exe' : 'node', // node binary based on OS
-    requireJson  = path => JSON.parse(fs.readFileSync((path))),
-    packageJson  = requireJson(path.join(__dirname, 'package.json')),
-    insideNeo    = packageJson.name.includes('neo.mjs'),
-    neoPath       = insideNeo ? './' : './node_modules/neo.mjs/',
-    addonChoices  = fs.readdirSync(path.join(neoPath, '/src/main/addon')).map(item => item.slice(0, -4)),
-    program       = new Command(),
-    programName   = `${packageJson.name} create-app`,
-    questions     = [],
-    scssFolders   = fs.readdirSync(path.join(neoPath, '/resources/scss')),
-    themeFolders  = [];
-
-scssFolders.forEach(folder => {
-    if (folder.includes('theme')) {
-        themeFolders.push(`neo-${folder}`);
-    }
-});
+    __dirname         = path.resolve(),
+    cwd               = process.cwd(),
+    nodeCmd           = os.platform().startsWith('win') ? 'node.exe' : 'node', // node binary based on OS
+    requireJson       = path => JSON.parse(fs.readFileSync((path))),
+    packageJson       = requireJson(path.join(__dirname, 'package.json')),
+    insideNeo         = packageJson.name.includes('neo.mjs'),
+    neoPath           = insideNeo ? './' : './node_modules/neo.mjs/',
+    addonChoices      = fs.readdirSync(path.join(neoPath, '/src/main/addon')).map(item => item.slice(0, -4)),
+    program           = new Command(),
+    programName       = `${packageJson.name} create-app`,
+    questions         = [],
+    frameworkScssPath = path.resolve(cwd, neoPath, 'resources/scss'),
+    workspaceScssPath = path.resolve(cwd, 'resources/scss'),
+    scssFolders       = [
+        ...(fs.existsSync(frameworkScssPath) ? fs.readdirSync(frameworkScssPath) : []),
+        ...(!insideNeo && fs.existsSync(workspaceScssPath) ? fs.readdirSync(workspaceScssPath) : [])
+    ],
+    themeFolders      = [...new Set(
+        scssFolders.filter(folder => folder.includes('theme')).map(folder => `neo-${folder}`)
+    )];
 
 program
     .name(programName)
@@ -196,9 +197,10 @@ if (programOpts.info) {
         fs.writeFileSync(path.join(folder, 'neo-config.json'), JSON.stringify(neoConfig, null, 4));
 
         const viewportContent = [
-            "import BaseViewport from '../../../" + (insideNeo ? '' : 'node_modules/neo.mjs/') + "src/container/Viewport.mjs';",
-            "import Component    from '../../../" + (insideNeo ? '' : 'node_modules/neo.mjs/') + "src/component/Base.mjs';",
-            "import TabContainer from '../../../" + (insideNeo ? '' : 'node_modules/neo.mjs/') + "src/tab/Container.mjs';",
+            "import BaseViewport       from '../../../" + (insideNeo ? '' : 'node_modules/neo.mjs/') + "src/container/Viewport.mjs';",
+            "import Component          from '../../../" + (insideNeo ? '' : 'node_modules/neo.mjs/') + "src/component/Base.mjs';",
+            "import TabContainer       from '../../../" + (insideNeo ? '' : 'node_modules/neo.mjs/') + "src/tab/Container.mjs';",
+            "import ViewportController from './ViewportController.mjs';",
             "",
             "/**",
             " * @class " + appName + ".view.Viewport",
@@ -211,6 +213,11 @@ if (programOpts.info) {
             "         * @protected",
             "         */",
             "        className: '" + appName + ".view.Viewport',",
+            "        /**",
+            "         * @member {Neo.controller.Component} controller=ViewportController",
+            "         * @reactive",
+            "         */",
+            "        controller: ViewportController,",
             "        /*",
             "         * @member {Object} layout={ntype:'fit'}",
             "         */",
@@ -253,6 +260,28 @@ if (programOpts.info) {
 
         fs.writeFileSync(path.join(folder + '/view/Viewport.mjs'), viewportContent);
 
+        const viewportControllerContent = [
+            "import Component from '../../../" + (insideNeo ? '' : 'node_modules/neo.mjs/') + "src/controller/Component.mjs';",
+            "",
+            "/**",
+            " * @class " + appName + ".view.ViewportController",
+            " * @extends Neo.controller.Component",
+            " */",
+            "class ViewportController extends Component {",
+            "    static config = {",
+            "        /**",
+            "         * @member {String} className='" + appName + ".view.ViewportController'",
+            "         * @protected",
+            "         */",
+            "        className: '" + appName + ".view.ViewportController'",
+            "    }",
+            "}",
+            "",
+            "export default Neo.setupClass(ViewportController);"
+        ].join(os.EOL);
+
+        fs.writeFileSync(path.join(folder + '/view/ViewportController.mjs'), viewportControllerContent);
+
         let appJsonPath = path.resolve(cwd, 'buildScripts/myApps.json'),
             appJson;
 
@@ -277,11 +306,11 @@ if (programOpts.info) {
 
         if (mainThreadAddons.includes('HighlightJS')) {
             const childProcess = spawnSync(nodeCmd, [
-                './buildScripts/util/copyFolder.mjs',
+                path.resolve(neoPath, 'buildScripts/util/copyFolder.mjs'),
                 '-s',
-                path.resolve(neoPath, 'docs/resources'),
+                path.resolve(neoPath, 'resources/lib'),
                 '-t',
-                path.resolve(folder, 'resources'),
+                path.resolve(folder, 'resources/lib'),
             ], { env: process.env, cwd: process.cwd(), stdio: 'inherit' });
             childProcess.status && process.exit(childProcess.status);
         }

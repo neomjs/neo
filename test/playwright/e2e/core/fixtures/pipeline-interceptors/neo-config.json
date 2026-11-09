@@ -1,0 +1,12 @@
+{
+    "appPath": "../../apps/probe/app.mjs",
+    "basePath": "../../",
+    "environment": "development",
+    "mainPath": "../node_modules/neo.mjs/src/Main.mjs",
+    "mainThreadAddons": ["Navigator", "Stylesheet"],
+    "themes": [],
+    "useAiClient": false,
+    "useSharedWorkers": false,
+    "useServiceWorker": false,
+    "workerBasePath": "../../node_modules/neo.mjs/src/worker/"
+}

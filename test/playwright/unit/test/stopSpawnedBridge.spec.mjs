@@ -1,5 +1,5 @@
-import {test, expect}      from '@playwright/test';
-import {stopSpawnedBridge} from '../../fixtures.mjs';
+import {test, expect}                                              from '@playwright/test';
+import {assertUnnavigatedBeforeNeuralLinkRoute, stopSpawnedBridge} from '../../fixtures.mjs';
 
 /**
  * Coverage for the rule the neuralLink fixture's worker teardown applies: a Bridge is stopped only when this
@@ -37,5 +37,15 @@ test.describe('test/playwright/fixtures — stopSpawnedBridge', () => {
     test('a worker that never loaded the Neural Link services stops nothing', async () => {
         expect(await stopSpawnedBridge(null)).toBe(false);
         expect(await stopSpawnedBridge(undefined)).toBe(false)
+    });
+
+    test('assertUnnavigatedBeforeNeuralLinkRoute allows about:blank and rejects pre-navigated pages (#20142)', () => {
+        expect(() => assertUnnavigatedBeforeNeuralLinkRoute({url: () => 'about:blank'})).not.toThrow();
+        expect(() => assertUnnavigatedBeforeNeuralLinkRoute({url: () => ''})).not.toThrow();
+        expect(() => assertUnnavigatedBeforeNeuralLinkRoute(null)).not.toThrow();
+
+        expect(() => assertUnnavigatedBeforeNeuralLinkRoute({
+            url: () => 'http://localhost:8080/examples/grid/lockedColumns/'
+        })).toThrow(/Include \{ neuralLink \} in test\.beforeEach whenever beforeEach calls page\.goto\(\)\./)
     })
 });

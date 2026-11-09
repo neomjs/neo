@@ -530,7 +530,8 @@ class DockFlip extends Base {
      * bounds the wait in rendering-starved documents, where rAF callbacks are never serviced
      * and a raw await would wedge the caller forever. The dam result lets callers
      * distinguish a serviced frame from a starved tick: loops re-check DOM state either way
-     * (delta application is message-driven and needs no frames), while the release path uses
+     * (delta application drains on Main's render queue, whose own frame-or-timer dam keeps it
+     * moving without frames), while the release path uses
      * a starved tick as its instant-landing signal — animating a document that cannot paint
      * would only hold transform-scaled mid-motion rects live for async measurers to read as
      * layout truth.

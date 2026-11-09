@@ -31,7 +31,6 @@
         {"name": "Fleet Manager Architecture",                        "parentId": "AgentInterfaces",                                    "id": "agentos/FleetManagerArchitecture"},
         {"name": "Running the Fleet Cockpit",                          "parentId": "AgentInterfaces",                                    "id": "agentos/RunningTheFleetCockpit"},
         {"name": "Neural Link",                                        "parentId": "AgentInterfaces",                                    "id": "agentos/NeuralLink"},
-        {"name": "Neural Link Capability Matrix",                      "parentId": "AgentInterfaces",                                    "id": "agentos/tooling/NeuralLinkCapabilityMatrix"},
         {"name": "Dock-Zone Model",                                    "parentId": "AgentInterfaces",                                    "id": "agentos/DockZoneModel"},
         {"name": "Core Agent Skills",                                  "parentId": "AgentInterfaces",                                    "id": "agentos/CoreSkills"},
         {"name": "Progressive Disclosure Skills",                      "parentId": "AgentInterfaces",                                    "id": "agentos/ProgressiveDisclosureSkills"},
@@ -71,6 +70,7 @@
         {"name": "UI Building Blocks",                                 "parentId": "guides",                             "isLeaf": false, "id": "guides/uibuildingblocks", "collapsed": true},
             {"name": "Component and Container Basics",                 "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/ComponentsAndContainers"},
             {"name": "Layouts",                                        "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/Layouts"},
+            {"name": "Tab Containers",                                 "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/TabContainers"},
             {"name": "Dock Layouts",                                   "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/DockLayouts"},
             {"name": "Dock Layouts: Adopting in Your App",             "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/DockLayoutsAdoption"},
             {"name": "Dock Layouts: State and Persistence",            "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/DockLayoutsStateAndPersistence"},
@@ -93,7 +93,8 @@
             {"name": "Dynamic Grids & Virtualization",                 "parentId": "guides/datahandling",                                 "id": "guides/datahandling/DynamicGrids"},
             {"name": "Pooled Grid Animation Contract",                  "parentId": "guides/datahandling",                                 "id": "guides/datahandling/PooledGridAnimation"},
             {"name": "Streaming Data & Progressive Rendering",         "parentId": "guides/datahandling",                                 "id": "guides/datahandling/Streaming"},
-            {"name": "Tables (Stores)",                                "parentId": "guides/datahandling",                                 "id": "guides/datahandling/Tables", "hidden": true},
+            {"name": "Tables (Stores)",                                "parentId": "guides/datahandling",                                 "id": "guides/datahandling/Tables"},
+            {"name": "Using data.Store",                               "parentId": "guides/datahandling",                                 "id": "guides/datahandling/UsingStores"},
             {"name": "TreeStore & Hierarchical Data",                  "parentId": "guides/datahandling",                                 "id": "guides/datahandling/TreeStore"},
             {"name": "Shared Bindable Data (State Providers)",         "parentId": "guides/datahandling",                                 "id": "guides/datahandling/StateProviders"},
         {"name": "User Interaction & Advanced Features",               "parentId": "guides",                             "isLeaf": false, "id": "guides/userinteraction", "collapsed": true},
@@ -141,5 +142,6 @@
         {"name": "Neo.mjs vs Solid.js",                                "parentId": "comparisons",                                         "id": "comparisons/NeoVsSolid"},
         {"name": "Neo.mjs vs Next.js",                                 "parentId": "comparisons",                                         "id": "comparisons/NeoVsNextJs"},
         {"name": "Neo.mjs vs Ext.js",                                  "parentId": "comparisons",                                         "id": "comparisons/NeoVsExtJs"},
-    {"name": "Glossary",                                               "parentId": null,                                                  "id": "Glossary"}
+    {"name": "Glossary",                                               "parentId": null,                                                  "id": "Glossary"},
+    {"name": "API Docs",                                               "parentId": null,                                                  "id": "ApiDocs", "route": "/docs"}
 ]}

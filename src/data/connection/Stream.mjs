@@ -56,6 +56,7 @@ class Stream extends Base {
     /**
      * @summary Opens the native stream after scoped URL resolution.
      * @param {Object} [params]
+     * @param {HeadersInit} [params.headers] Prepared request headers.
      * @returns {Promise<Object>}
      */
     async read(params) {
@@ -69,7 +70,10 @@ class Stream extends Base {
         me.abortController = new AbortController();
 
         try {
-            const response = await fetch(me.resolveUrl(url), {signal: me.abortController.signal});
+            const response = await fetch(me.resolveUrl(url), {
+                headers: params?.headers,
+                signal : me.abortController.signal
+            });
 
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`)

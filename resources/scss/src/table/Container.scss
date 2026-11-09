@@ -33,9 +33,8 @@
     }
 
     td, th {
-        height   : inherit;
-        min-width: 200px; // for testing
-        width    : inherit;
+        height: inherit;
+        width : inherit;
 
         &:last-child {
             border-right-color : transparent;
@@ -65,6 +64,7 @@
         border-bottom   : var(--table-container-header-cell-border-bottom);
         border-right    : 1px solid var(--table-container-border-color);
         border-top      : 1px solid var(--table-container-border-color);
+        min-width       : 200px;
         padding         : 0;
         position        : sticky;
         top             : 0;

@@ -1,5 +1,5 @@
 import BaseSortZone from '../../../container/SortZone.mjs';
-import VdomUtil from '../../../../util/VDom.mjs';
+import VdomUtil     from '../../../../util/VDom.mjs';
 
 /**
  * @summary Manages drag-and-drop column reordering for Grids.
@@ -19,6 +19,11 @@ import VdomUtil from '../../../../util/VDom.mjs';
  *     reflects drag operations (like hiding the original column or shuffling cells), this class forces
  *     a deep update (`updateDepth: -1`) on the `Grid.Body`. This flushes the state of all Row components
  *     to the VDOM worker in a single batch.
+ *
+ * 3.  **Group Units:**
+ *     A header group's cell drags the group's whole run of headers as one unit ({@link #startUnitDrag}). The
+ *     unit passes whole units only, other groups and ungrouped headers, so it never lands inside another group,
+ *     and its proxy shows the group cell over its headers and their cells.
  *
  * @class Neo.draggable.grid.header.toolbar.SortZone
  * @extends Neo.draggable.container.SortZone
@@ -79,6 +84,13 @@ class SortZone extends BaseSortZone {
      * @protected
      */
     dragStartScrollLeft = 0
+
+    /**
+     * The run of headers a group drag moves as one unit, `null` while a single header drags
+     * @member {{first: Number, groupId: String, head: Object, length: Number}|null} dragUnit=null
+     * @protected
+     */
+    dragUnit = null
 
     /**
      * Resolves the `grid.Body` paired with this SortZone's owner header toolbar, keyed by the
@@ -155,7 +167,38 @@ class SortZone extends BaseSortZone {
     }
 
     /**
+     * @summary A proxy row's copy of a cell, placed `left` px into the proxy. A cell holding component content gets an
+     * empty copy, and the live content moves into it once the proxy mounts.
+     * @param {Object}   cell
+     * @param {Number}   left
+     * @param {Object[]} moveDeltas Collects the content moves
+     * @returns {Object}
+     * @protected
+     */
+    cloneProxyCell(cell, left, moveDeltas) {
+        let me        = this,
+            content   = cell.cn?.[0],
+            contentId = content && (content.id || content.componentId),
+            proxyCell = VdomUtil.clone(cell);
+
+        proxyCell.id    = Neo.getId('proxy-cell');
+        proxyCell.style = {...proxyCell.style, left: `${left}px`};
+
+        if (contentId) {
+            proxyCell.cn = [];
+
+            moveDeltas.push({action: 'moveNode', id: contentId, index: 0, parentId: proxyCell.id});
+            me.movedComponents.push({id: contentId, originalParentId: cell.id})
+        }
+
+        return proxyCell
+    }
+
+    /**
      * Creates the drag proxy.
+     *
+     * The proxy is a slice of the grid: the dragged header over its column's cells. A group unit's proxy shows the
+     * group cell over its headers and their columns, each at its offset from the unit's first column.
      *
      * **Surgical DOM Move Implementation:**
      * Detects if a cell contains component content (checking `cell.cn`). If found, it creates an empty
@@ -171,89 +214,86 @@ class SortZone extends BaseSortZone {
             return await super.createDragProxy(data, createComponent)
         }
 
-        let me = this,
-            grid = me.owner.gridContainer,
-            body = me.gridBody,
-            viewId = Neo.getId('grid-view'),
-            columnIndex = me.dragElement['aria-colindex'] - 1,
-            { dataField } = body.columnPositions.getAt(columnIndex),
-            cells = body.getColumnCells(dataField),
-            rows = [],
-            config = await super.createDragProxy(data, false),
-            rect = await grid.getDomRect(),
-            row, rowComponent;
+        let me         = this,
+            {dragUnit} = me,
+            grid       = me.owner.gridContainer,
+            body       = me.gridBody,
+            viewId     = Neo.getId('grid-view'),
+            // The dragged buttons name their columns; ARIA attributes are written for assistive technology, never read
+            buttons    = me.getDraggedButtons(),
+            columns    = buttons.map(button => body.getColumnCells(button.dataField)),
+            offsets    = buttons.map((button, index) => me.itemRects[me.startIndex + index].x - me.itemRects[me.startIndex].x),
+            config     = await super.createDragProxy(data, false),
+            moveDeltas = [],
+            header, rows;
+
+        const [rect, bodyRect] = await Promise.all([grid.getDomRect(), body.getDomRect()]);
 
         config.cls = ['neo-grid-container', me.owner.getTheme()];
 
-        config.style.height = `${rect.height - 2}px`; // minus border-bottom & border-top
-
-        let moveDeltas = [],
-            proxyCell, proxyCellId;
+        // The proxy ends with the rows: inside the grid's bottom border, or at the last row when fewer rows than fit.
+        // It starts at the dragged element's top, which is the leaf header's for a leaf in a grouped grid.
+        config.style.height =
+            `${Math.min(rect.bottom - 1, bodyRect.top + body.getContentHeight() - body.scrollTop) - me.dragElementRect.y}px`;
 
         me.movedComponents = [];
 
-        cells.forEach((cell, index) => {
-            rowComponent = body.items[index];
+        // A column scrolled out of the rendered range has no cells: its slot in the proxy stays empty
+        rows = body.items.slice(0, Math.max(...columns.map(cells => cells.length))).map((rowComponent, rowIndex) => ({
+            ...VdomUtil.clone({cls: rowComponent.vdom.cls, style: rowComponent.vdom.style}),
+            cn: columns.map((cells, index) => cells[rowIndex] && me.cloneProxyCell(cells[rowIndex], offsets[index], moveDeltas)).filter(Boolean)
+        }));
 
-            row = VdomUtil.clone({ // clone to remove ids
-                cls: rowComponent.vdom.cls,
-                style: rowComponent.vdom.style
-            });
+        if (dragUnit) {
+            let [head] = config.vdom.cn;
 
-            proxyCell = VdomUtil.clone(cell);
-            delete proxyCell.id;
-            delete proxyCell.style.left;
+            head.style = {...head.style, left: 0, width: '100%'};
 
-            proxyCellId = Neo.getId('proxy-cell');
-            proxyCell.id = proxyCellId;
+            header = [
+                {cls: ['neo-grid-header-group-row'], style: {display: 'block'}, cn: [{cls: ['neo-grid-header-group-part'], cn: [head]}]},
+                {
+                    cls  : ['neo-grid-header-toolbar', 'neo-toolbar'],
+                    style: {height: `${me.itemRects[me.startIndex].height}px`, position: 'relative'},
+                    cn   : buttons.map((button, index) => {
+                        let clone = VdomUtil.clone(button.vdom);
 
-            if (cell.cn && cell.cn.length > 0) {
-                let content = cell.cn[0],
-                    contentId = content.id || content.componentId;
+                        clone.style = {
+                            ...clone.style,
+                            height  : '100%',
+                            left    : `${offsets[index]}px`,
+                            position: 'absolute',
+                            top     : 0,
+                            width   : `${me.itemRects[me.startIndex + index].width}px`
+                        };
 
-                if (contentId) {
-                    proxyCell.cn = [];
-
-                    moveDeltas.push({
-                        action: 'moveNode',
-                        id: contentId,
-                        index: 0,
-                        parentId: proxyCellId
-                    });
-
-                    me.movedComponents.push({
-                        id: contentId,
-                        originalParentId: cell.id
+                        return clone
                     })
                 }
-            }
-
-            row.cn = [proxyCell];
-            rows.push(row)
-        });
-
-        config.vdom =
-        {
-            cn: [
-                {
-                    cls: ['neo-grid-container', ...grid.cls], cn: [
-                        { ...config.vdom, cls: ['neo-grid-header-toolbar', 'neo-toolbar'] },
-                        {
-                            cls: ['neo-grid-view'], id: viewId, cn: [
-                                { cls: ['neo-grid-body'], cn: rows },
-                                { cls: ['neo-grid-scrollbar'], style: { height: body.vdom.height } }
-                            ]
-                        }
-                    ]
-                }
             ]
+        } else {
+            header = [{...config.vdom, cls: ['neo-grid-header-toolbar', 'neo-toolbar']}]
+        }
+
+        config.vdom = {
+            cn: [{
+                cls: ['neo-grid-container', ...grid.cls],
+                cn : [
+                    ...header,
+                    {
+                        cls: ['neo-grid-view'], id: viewId, cn: [
+                            {cls: ['neo-grid-body'], cn: rows},
+                            {cls: ['neo-grid-scrollbar'], style: {height: body.vdom.height}}
+                        ]
+                    }
+                ]
+            }]
         };
 
         config.listeners = {
             mounted() {
                 Neo.main.DomAccess.scrollTo({
-                    id: viewId,
-                    value: body.scrollTop,
+                    id      : viewId,
+                    value   : body.scrollTop,
                     windowId: me.windowId
                 });
 
@@ -271,9 +311,59 @@ class SortZone extends BaseSortZone {
     }
 
     /**
-     * @summary Preserves a scrolled header's content extent before the proxy or item lift can shrink it.
-     * The base has captured viewport-space item rects, but has not yet absolutised the headers.
-     * Pin their owner-content extent and wait for that node to reach the DOM before continuing.
+     * @summary Keeps a grouped header's proxy over its group: the main thread clamps the proxy to the part of the
+     * group's span that the toolbar shows at its current scroll. An ungrouped header keeps the toolbar's boundary.
+     *
+     * The span comes from the drag-start rects in owner-content space, so no DOM is read. The zone keeps the toolbar's
+     * boundary for itself: an over-drag still scrolls at the toolbar's edges while the group continues beyond them.
+     * @returns {Promise<void>}
+     */
+    async clampProxyToGroup() {
+        let me     = this,
+            bounds = me.boundaryContainerRect,
+            // A group unit is the group: it keeps the toolbar's boundary
+            groupId = !me.dragUnit && me.itemRects && bounds && me.getHeaderGroupId(me.currentIndex),
+            group, groupLeft, groupRight, left, right, width;
+
+        if (!groupId) {
+            return
+        }
+
+        group      = me.itemRects.filter((rect, index) => me.getHeaderGroupId(index) === groupId);
+        groupLeft  = me.ownerRect.x - me.scrollLeft + Math.min(...group.map(rect => rect.x));
+        groupRight = me.ownerRect.x - me.scrollLeft + Math.max(...group.map(rect => rect.x + rect.width));
+        width      = me.itemRects[me.currentIndex].width;
+        left       = Math.max(bounds.left,  groupLeft);
+        right      = Math.min(bounds.right, groupRight);
+
+        // A group scrolled nearly out of view can show less of itself than the proxy is wide: the bound then grows
+        // toward where the group continues, so the proxy reaches past the toolbar's edge but never past its group
+        if (right - left < width) {
+            left  = Math.max(groupLeft, right - width);
+            right = Math.min(groupRight, left + width)
+        }
+
+        await Neo.main.addon.DragDrop.setConfigs({
+            appName              : me.appName,
+            windowId             : me.windowId,
+            boundaryContainerRect: {
+                bottom: bounds.bottom,
+                height: bounds.height,
+                left,
+                right,
+                top   : bounds.top,
+                width : right - left,
+                x     : left,
+                y     : bounds.top
+            }
+        })
+    }
+
+    /**
+     * @summary Preserves a scrolled header's content extent before the proxy or item lift can shrink it, and clamps a
+     * grouped header's proxy to its group once the proxy exists.
+     * The base has converted the item rects into owner-content space, but has not yet absolutised the headers.
+     * Pin their content extent and wait for that node to reach the DOM before continuing.
      * The existing drag-end path removes the reservation when normal layout takes over again.
      * @param {Object} data The admitted drag-start event.
      * @returns {Promise<void>}
@@ -282,8 +372,7 @@ class SortZone extends BaseSortZone {
         let me = this;
 
         if (me.dragStartScrollLeft > 0 && me.itemRects?.length) {
-            let extent = Math.max(...me.itemRects.map(rect => rect.x + rect.width))
-                - me.ownerRect.x + me.dragStartScrollLeft;
+            let extent = Math.max(...me.itemRects.map(rect => rect.x + rect.width));
 
             me.owner.vdom.cn.push({
                 cls  : ['neo-sortzone-extent-sentinel'],
@@ -299,26 +388,49 @@ class SortZone extends BaseSortZone {
             await me.owner.promiseUpdate()
         }
 
-        await super.dragStart(data)
+        await super.dragStart(data);
+        await me.clampProxyToGroup()
     }
 
     /**
+     * @summary Commits a drop: the dragged header moves to `toIndex`, or a group unit's run moves so its first header
+     * lands there.
      * @param {Number} fromIndex
      * @param {Number} toIndex
      */
     moveTo(fromIndex, toIndex) {
+        let me     = this,
+            length = me.dragUnit?.length || 1,
+            index;
+
+        // One header at a time, in the order that leaves the run's remaining headers where they were
+        if (toIndex < fromIndex) {
+            for (index = 0; index < length; index++) {
+                me.moveItem(fromIndex + index, toIndex + index)
+            }
+        } else {
+            for (index = length - 1; index >= 0; index--) {
+                me.moveItem(fromIndex + index, toIndex + index)
+            }
+        }
+
+        // collection.move() is event-silent (no mutate fires), so the region-grouped column
+        // arrays — the engine's region+index oracle — must refresh explicitly here.
+        me.owner.gridContainer.refreshRegionColumns()
+    }
+
+    /**
+     * @summary Moves one header and its column.
+     * @param {Number} fromIndex
+     * @param {Number} toIndex
+     * @protected
+     */
+    moveItem(fromIndex, toIndex) {
         super.moveTo(fromIndex, toIndex);
 
         // super.moveTo reorders the owner toolbar's own items (local space); the global columns
         // collection needs the locked-region offset so center / end toolbars move the right columns.
-        let offset          = this.columnIndexOffset(),
-            {gridContainer} = this.owner;
-
-        gridContainer.columns.move(fromIndex + offset, toIndex + offset);
-
-        // collection.move() is event-silent (no mutate fires), so the region-grouped column
-        // arrays — the engine's region+index oracle — must refresh explicitly here.
-        gridContainer.refreshRegionColumns()
+        this.owner.gridContainer.columns.move(fromIndex + this.columnIndexOffset(), toIndex + this.columnIndexOffset())
     }
 
     /**
@@ -344,9 +456,9 @@ class SortZone extends BaseSortZone {
         // Restore moved nodes BEFORE destroying the proxy to ensure they return to the Grid.
         if (me.movedComponents?.length > 0) {
             let restoreDeltas = me.movedComponents.map(item => ({
-                action: 'moveNode',
-                id: item.id,
-                index: 0,
+                action  : 'moveNode',
+                id      : item.id,
+                index   : 0,
                 parentId: item.originalParentId
             }));
 
@@ -354,26 +466,33 @@ class SortZone extends BaseSortZone {
             me.movedComponents = null
         }
 
+        // The base shows the dragged header again: a unit's other headers return with it
+        me.getDraggedButtons().slice(1).forEach(button => {
+            button.isDestroyed || (button.wrapperStyle = {...button.wrapperStyle, visibility: null})
+        });
+
+        // The base commits the drop through moveTo, which moves a unit's whole run
         await super.processDragEnd(data);
 
-        // Cancellation restores the captured index in the base pipeline and must not let the
-        // grid-specific post-end region inference mutate a column's locked state.
+        me.dragUnit = null;
+
+        // A cancel resolves no column, so the region inference below re-locks none. The body still re-syncs like a
+        // drop that moved nothing: the drag's switches moved its cells along with the headers.
         if (data.cancelled) {
-            me.dragColumnField = null;
-            return
+            me.dragColumnField = null
         }
 
         if (!me.dragElement) {
             return
         }
 
-        let { owner } = me,
-            grid = owner.gridContainer,
+        let { owner }   = me,
+            grid        = owner.gridContainer,
             { columns } = grid,
-            column = null,
-            toIndex = -1,
-            newLocked = null,
-            i = 0,
+            column      = null,
+            toIndex     = -1,
+            newLocked   = null,
+            i           = 0,
             prevCol, nextCol;
 
         // Re-resolve the dragged column inside the global collection AFTER super.onDragEnd applied
@@ -415,7 +534,10 @@ class SortZone extends BaseSortZone {
             // inference above remains as the fallback when no release coordinate is available.
             // The rects come from the drag-start snapshot: live drag-end rects reflect the mid-drag
             // re-flow (hidden dragged column), not the geometry the user dropped against.
-            if (Neo.isNumber(me.lastDragClientX) && me.regionRects) {
+            // A grouped leaf only ever moves inside its group, so it keeps the group's region wherever it is released.
+            if (column.headerGroup) {
+                newLocked = column.locked
+            } else if (Neo.isNumber(me.lastDragClientX) && me.regionRects) {
                 newLocked = me.getDropRegion(me.lastDragClientX, me.regionRects)
             }
         }
@@ -431,13 +553,13 @@ class SortZone extends BaseSortZone {
             column.locked = newLocked
         } else {
             owner.items.forEach((item, index) => {
-                item.getVdomRoot()['aria-colindex'] = index + 1 // 1 based
+                item.vdom['aria-colindex'] = index + 1 + owner.ariaColumnOffset // 1 based, grid-wide
             });
 
             owner.updateDepth = 2;
-            owner.update();
 
-            await owner.passSizeToBody();
+            // A flex header measured before every header is back in the flow takes their space as its width
+            await owner.measureAfterUpdate();
 
             await this.timeout(20);
 
@@ -477,6 +599,17 @@ class SortZone extends BaseSortZone {
         // Track the release x-coordinate so onDragEnd can resolve the cross-toolbar drop region.
         me.lastDragClientX = data.clientX;
 
+        // Past its group's edge a grouped header waits in the edge's slot. Never while an over-drag step awaits its
+        // scroll, the step decides then, and never before the gesture's own boundary arrives: like every other switch,
+        // the walk waits for the start to finish, and a start still queued keeps the move for its replay (super). A
+        // group unit has no group around it to overflow.
+        let side = me.isScrolling || me.dragUnit || me.dragStartPending || !me.boundaryContainerRect ? 0 : me.groupOverflow(data.clientX);
+
+        if (side) {
+            me.moveToGroupEdge(side);
+            return
+        }
+
         await super.onDragMove(data)
     }
 
@@ -497,34 +630,47 @@ class SortZone extends BaseSortZone {
 
         await super.onDragStart(data);
 
-        // Capture the dragged column's identity at drag-start. `aria-colindex` is toolbar-local
-        // AND stale after the drop, so the global columns collection can only be safely indexed
-        // by re-resolving the dragged column itself at drag-end.
-        me.dragColumnField = me.dragComponent?.dataField || null;
+        // A start the base refused leaves no unit behind
+        if (!me.itemRects) {
+            me.dragUnit = null;
+            return
+        }
+
+        // Capture the dragged column's identity at drag-start. Indices go stale with the drop, so the
+        // global columns collection can only be safely indexed by re-resolving the dragged column
+        // itself at drag-end. A group unit never leaves its region, so it resolves none.
+        me.dragColumnField = me.dragUnit ? null : me.dragComponent?.dataField || null;
 
         // Snapshot the locked-body rects BEFORE any mid-drag re-flow: hiding the dragged column's
         // cells re-flows the locked bodies, so a drag-end read can place an in-region release
         // outside its own (shrunken) region body and silently eject the column.
-        let grid = me.owner.gridContainer;
+        let grid    = me.owner.gridContainer,
+            buttons = me.getDraggedButtons();
 
-        if (grid.bodyStart || grid.bodyEnd) {
+        if (!me.dragUnit && (grid.bodyStart || grid.bodyEnd)) {
             me.regionRects = {
                 start: grid.bodyStart ? await grid.bodyStart.getDomRect() : null,
                 end  : grid.bodyEnd   ? await grid.bodyEnd.getDomRect()   : null
             }
         }
 
+        // The base hides the dragged header: a unit's other headers leave the row with it, and its group cell too, since
+        // the proxy carries both
+        buttons.slice(1).forEach(button => {
+            button.wrapperStyle = {...button.wrapperStyle, visibility: 'hidden'}
+        });
+
+        me.dragUnit && grid.headerWrapper?.groupRow?.project();
+
         if (me.dragComponent && me.moveColumnContent) {
-            let body = me.gridBody,
-                columnIndex = me.dragElement['aria-colindex'] - 1,
-                columnPosition = body.columnPositions.getAt(columnIndex),
-                { dataField } = columnPosition,
-                cells = body.getColumnCells(dataField);
+            let body = me.gridBody;
 
-            columnPosition.hidden = true;
+            buttons.forEach(({dataField}) => {
+                body.columnPositions.get(dataField).hidden = true;
 
-            cells.forEach(cell => {
-                cell.style.visibility = 'hidden'
+                body.getColumnCells(dataField).forEach(cell => {
+                    cell.style.visibility = 'hidden'
+                })
             });
 
             // Force a deep update to propagate Row component VDOM changes (visibility) to the worker.
@@ -534,31 +680,189 @@ class SortZone extends BaseSortZone {
     }
 
     /**
+     * @summary Starts a group drag: the group's run of headers moves as one unit, under a proxy headed by its group
+     * cell. The unit passes whole units only, so it never lands inside another group, and the drop commits the order
+     * the drag previewed.
+     * @param {Object} data The group cell's drag start event
+     * @param {Object} unit
+     * @param {Number} unit.first   The run's first header, as an index into this toolbar's items
+     * @param {String} unit.groupId
+     * @param {Object} unit.head    The group cell's vdom, which the proxy and the drag geometry start from
+     * @param {Number} unit.length  The run's header count
+     * @returns {Promise<void>}
+     */
+    async startUnitDrag(data, unit) {
+        // The last drag's end clears its unit, so this one is set once that end has run
+        await this.startDrag(data, () => {this.dragUnit = unit})
+    }
+
+    /**
+     * @summary The header group of the header at a drag position, `null` outside any group.
+     * @param {Number} index A position in the drag's current order
+     * @returns {String|null}
+     */
+    getHeaderGroupId(index) {
+        let me     = this,
+            button = me.ownerItems?.[me.indexMap?.[index]];
+
+        // The column carries the group: the header button is only its view
+        return me.owner.gridContainer?.columns?.get(button?.dataField)?.headerGroup?.id ?? null
+    }
+
+    /**
+     * @summary Where an ungrouped header lands when it steps toward a grouped neighbour: past that group's last header.
+     * @param {Number} index     The dragged header's position
+     * @param {Number} neighbour The position next to it, in the drag's direction
+     * @returns {Number} `neighbour` itself, unless an ungrouped header meets a group
+     */
+    getSwitchTarget(index, neighbour) {
+        let me      = this,
+            groupId = me.getHeaderGroupId(neighbour),
+            step    = Math.sign(neighbour - index),
+            target  = neighbour;
+
+        if (groupId && !me.getHeaderGroupId(index)) {
+            while (me.getHeaderGroupId(target + step) === groupId) {
+                target += step
+            }
+        }
+
+        return target
+    }
+
+    /**
+     * @summary The whole unit next to a dragged group unit: another group's run, or one ungrouped header.
+     * @param {Number} start The unit's first position
+     * @param {Number} step  -1 for the unit before it, 1 for the one after it
+     * @returns {{from: Number, to: Number}|null} Its first and last positions, `null` at the toolbar's edge
+     */
+    getNeighbourUnit(start, step) {
+        let me    = this,
+            first = step < 0 ? start - 1 : start + me.dragUnit.length,
+            groupId, last;
+
+        if (first < 0 || first >= me.itemRects.length) {
+            return null
+        }
+
+        groupId = me.getHeaderGroupId(first);
+        last    = first;
+
+        while (groupId && me.getHeaderGroupId(last + step) === groupId) {
+            last += step
+        }
+
+        return {from: Math.min(first, last), to: Math.max(first, last)}
+    }
+
+    /**
+     * @summary An ungrouped header has to travel past a whole group before it switches with it, and a group unit past
+     * the whole unit next to it.
+     * @param {Number} index     The dragged header's position, a unit's first one
+     * @param {Number} neighbour The position next to it, in the drag's direction
+     * @returns {Number}
+     */
+    getSwitchExtent(index, neighbour) {
+        let me = this;
+
+        if (me.dragUnit) {
+            let unit = me.getNeighbourUnit(index, Math.sign(neighbour - index));
+
+            return unit ? me.itemRects[unit.to].x + me.itemRects[unit.to].width - me.itemRects[unit.from].x : Infinity
+        }
+
+        let target = me.getSwitchTarget(index, neighbour);
+
+        if (target === neighbour) {
+            return super.getSwitchExtent(index, neighbour)
+        }
+
+        let [first, last] = [me.itemRects[neighbour], me.itemRects[target]].sort((a, b) => a.x - b.x);
+
+        return last.x + last.width - first.x
+    }
+
+    /**
+     * @summary Which side of its group the pointer of a grouped header's drag is on: `-1` before the group's first
+     * header, `1` past its last one, `0` over the group or for an ungrouped header.
+     *
+     * Past an edge the header waits in that edge's slot ({@link #moveToGroupEdge}), under its clamped proxy. The span is
+     * measured in the toolbar's content space, so an over-drag past the visible edge keeps reordering while the group
+     * continues beyond it.
+     * @param {Number} clientX
+     * @returns {Number}
+     */
+    groupOverflow(clientX) {
+        let me          = this,
+            {itemRects} = me,
+            groupId     = itemRects && Neo.isNumber(clientX) && me.getHeaderGroupId(me.currentIndex),
+            group, x;
+
+        if (!groupId) {
+            return 0
+        }
+
+        x     = clientX - me.ownerRect.x + me.scrollLeft;
+        group = itemRects.filter((rect, index) => me.getHeaderGroupId(index) === groupId);
+
+        return x < Math.min(...group.map(rect => rect.x)) ? -1 : x > Math.max(...group.map(rect => rect.x + rect.width)) ? 1 : 0
+    }
+
+    /**
+     * @summary Walks a grouped header to its group's first (`side` -1) or last (`side` 1) slot, where its clamped proxy
+     * rests while the pointer is past that edge. A release there keeps the slot.
+     * @param {Number} side -1 or 1
+     * @protected
+     */
+    moveToGroupEdge(side) {
+        let me      = this,
+            groupId = me.getHeaderGroupId(me.currentIndex),
+            index;
+
+        // Neither an over-drag's auto-scroll loop nor the duplicate-move guard may outlive the walk
+        me.isOverDragging = false;
+        me.lastInBoundX   = me.lastInBoundY = null;
+
+        while (me.getHeaderGroupId(me.currentIndex + side) === groupId) {
+            index = me.currentIndex;
+
+            me.currentIndex += side;
+            me.switchItems(index, me.currentIndex);
+
+            // A refused switch would spin here forever
+            if (me.currentIndex === index) {
+                break
+            }
+        }
+    }
+
+    /**
+     * @summary Swaps two neighbouring headers, and their body cells along with them.
      * @param {Number} index1
      * @param {Number} index2
      */
-    switchItems(index1, index2) {
-        super.switchItems(index1, index2);
-
+    swapNeighbours(index1, index2) {
         let me = this;
 
+        super.switchItems(index1, index2);
+
         if (me.moveColumnContent) {
-            let { itemRects } = me,
-                body = me.gridBody,
+            let { itemRects }       = me,
+                body                = me.gridBody,
                 { columnPositions } = body,
-                column1Position = columnPositions.getAt(index1),
-                column2Position = columnPositions.getAt(index2),
-                column1Cells = body.getColumnCells(column1Position.dataField),
-                column2Cells = body.getColumnCells(column2Position.dataField);
+                column1Position     = columnPositions.getAt(index1),
+                column2Position     = columnPositions.getAt(index2),
+                column1Cells        = body.getColumnCells(column1Position.dataField),
+                column2Cells        = body.getColumnCells(column2Position.dataField);
 
             Object.assign(column1Position, {
                 width: itemRects[index2].width,
-                x: itemRects[index2].x
+                x    : itemRects[index2].x
             });
 
             Object.assign(column2Position, {
                 width: itemRects[index1].width,
-                x: itemRects[index1].x
+                x    : itemRects[index1].x
             });
 
             columnPositions.move(index1, index2);
@@ -577,6 +881,117 @@ class SortZone extends BaseSortZone {
             body.updateDepth = -1;
             body.update()
         }
+    }
+
+    /**
+     * @summary Moves the dragged header to its neighbour's position, keeping every header group in one piece.
+     *
+     * A grouped header only switches inside its group, and an ungrouped one passes a whole group in one switch, so a
+     * group never splits around a header that does not belong to it. `onDragMove` advances `currentIndex` to `index2`
+     * before it asks for the switch, and the drop commits to `currentIndex`: a refused switch moves it back to `index1`,
+     * the dragged header's own position, and a switch past a group moves it on to the group's far end.
+     * @param {Number} index1 The dragged header's position
+     * @param {Number} index2 The position next to it, in the drag's direction
+     */
+    switchItems(index1, index2) {
+        let me      = this,
+            groupId = me.getHeaderGroupId(index1),
+            step    = Math.sign(index2 - index1),
+            index, target;
+
+        if (me.dragUnit) {
+            me.switchUnit(index1, step);
+            return
+        }
+
+        if (groupId && groupId !== me.getHeaderGroupId(index2)) {
+            me.currentIndex = index1;
+            return
+        }
+
+        target = me.getSwitchTarget(index1, index2);
+
+        for (index = index1; index !== target; index += step) {
+            me.swapNeighbours(index, index + step)
+        }
+
+        me.currentIndex = target
+    }
+
+    /**
+     * @summary Moves a group unit past the whole unit next to it: each of that unit's headers steps across the run,
+     * nearest first, so both slide as blocks and keep their order.
+     * @param {Number} start The unit's first position
+     * @param {Number} step  -1 toward the start, 1 toward the end
+     */
+    switchUnit(start, step) {
+        let me        = this,
+            {length}  = me.dragUnit,
+            neighbour = me.getNeighbourUnit(start, step),
+            count, index, position;
+
+        if (!neighbour) {
+            me.currentIndex = start;
+            return
+        }
+
+        count = neighbour.to - neighbour.from + 1;
+
+        if (step < 0) {
+            for (index = neighbour.to; index >= neighbour.from; index--) {
+                for (position = index; position < index + length; position++) {
+                    me.swapNeighbours(position, position + 1)
+                }
+            }
+        } else {
+            for (index = neighbour.from; index <= neighbour.to; index++) {
+                for (position = index; position > index - length; position--) {
+                    me.swapNeighbours(position - 1, position)
+                }
+            }
+        }
+
+        me.currentIndex = start + step * count;
+
+        // The group cells follow their leaves' live positions, so the passed group slides with its leaves
+        me.owner.gridContainer?.headerWrapper?.groupRow?.project()
+    }
+
+    /**
+     * @summary The headers a drag moves: the dragged one, or a group unit's run.
+     * @returns {Neo.component.Base[]}
+     * @protected
+     */
+    getDraggedButtons() {
+        let {dragComponent, dragUnit, ownerItems} = this;
+
+        if (dragUnit) {
+            return ownerItems.slice(dragUnit.first, dragUnit.first + dragUnit.length)
+        }
+
+        return dragComponent ? [dragComponent] : []
+    }
+
+    /**
+     * @summary A group unit's drag starts on its group cell: the cell is the drag element, so the drag geometry and
+     * the proxy start from it.
+     * @param {Neo.component.Base} draggedItem
+     * @param {Object|null}        handleNode
+     * @returns {Object}
+     */
+    getDragElement(draggedItem, handleNode=null) {
+        return this.dragUnit?.head || super.getDragElement(draggedItem, handleNode)
+    }
+
+    /**
+     * @summary A group unit drags its run's first header: the run follows it.
+     * @param {Object} data
+     * @returns {Neo.component.Base|null}
+     */
+    resolveDraggedItem(data) {
+        let {dragUnit} = this;
+
+        return dragUnit ? this.owner.items[dragUnit.first] : super.resolveDraggedItem(data)
     }
 }
 

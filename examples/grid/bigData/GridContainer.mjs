@@ -75,9 +75,9 @@ class GridContainer extends BaseGridContainer {
             columns.push({dataField: 'number' + i, text: 'Number ' + i})
         }
 
-        this.store.amountColumns = value;
+        this.columns = columns;
 
-        this.columns = columns
+        this.store.amountColumns = value
     }
 
     /**

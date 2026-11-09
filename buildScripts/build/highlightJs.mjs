@@ -11,7 +11,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const neoPath   = path.resolve(__dirname, '../../');
 
 const languages     = ['bash', 'css', 'javascript', 'json', 'markdown', 'plaintext', 'scss', 'xml', 'yaml'];
-const outputDir     = path.resolve(neoPath, 'dist/highlight');
+// Runtime URLs are workspace-relative, including when this script comes from an installed Engine.
+const outputDir     = path.resolve('dist/highlight');
 const outputFile    = path.join(outputDir,  'highlight.custom.js');
 const minOutputFile = path.join(outputDir,  'highlight.custom.min.js');
 const tempDir       = path.resolve(neoPath, 'tmp/highlightjs');

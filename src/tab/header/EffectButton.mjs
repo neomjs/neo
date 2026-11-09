@@ -21,6 +21,25 @@ class EffectTabButton extends EffectButton {
          */
         baseCls: ['neo-tab-header-button', 'neo-button'],
         /**
+         * The id of the card this tab shows, rendered as `aria-controls`. `tab.Container` keeps it in
+         * sync; `null` while the card is a lazy config that has not loaded yet.
+         * @member {String|null} cardId_=null
+         * @reactive
+         */
+        cardId_: null,
+        /**
+         * Opts this tab into pointer and Delete-key closing through its TabContainer.
+         * @member {Boolean} closable_=false
+         * @reactive
+         */
+        closable_: false,
+        /**
+         * The close mark's tooltip; the mark is hidden from the tab's accessible name.
+         * @member {String} closeText_='Close tab'
+         * @reactive
+         */
+        closeText_: 'Close tab',
+        /**
          * Specify a role tag attribute for the vdom root.
          * @member {String|null} role='tab'
          * @reactive
@@ -39,12 +58,15 @@ class EffectTabButton extends EffectButton {
      * @protected
      */
     getVdomConfig() {
-        let vdomConfig = super.getVdomConfig();
+        let me         = this,
+            vdomConfig = super.getVdomConfig();
 
-        vdomConfig.role = this.role;
+        vdomConfig.role             = me.role;
+        vdomConfig['aria-selected'] = me.pressed;
+        vdomConfig['aria-keyshortcuts'] = me.closable ? 'Delete' : null;
 
-        if (this.pressed) {
-            vdomConfig['aria-selected'] = true;
+        if (me.cardId) {
+            vdomConfig['aria-controls'] = me.cardId
         }
 
         return vdomConfig;
@@ -61,9 +83,34 @@ class EffectTabButton extends EffectButton {
         children.push({
             cls      : ['neo-tab-button-indicator'],
             removeDom: !this.useActiveTabIndicator
+        }, {
+            tag          : 'span',
+            cls          : ['neo-tab-close'],
+            id           : `${this.id}__close`,
+            text         : '×',
+            title        : this.closeText,
+            'aria-hidden': true,
+            removeDom    : !this.closable
         });
 
         return children;
+    }
+
+    /**
+     * @summary Identifies a close-mark click independently of generated header children.
+     * @param {Object} data Serialized DOM event.
+     * @returns {Boolean}
+     */
+    isCloseTarget(data) {
+        return this.closable && data.path?.some(node => node.id === `${this.id}__close`)
+    }
+
+    /**
+     * @summary Leaves close intent to the TabContainer without running button handlers, routes or ripples.
+     * @param {Object} data Serialized DOM event.
+     */
+    onClick(data) {
+        !this.isCloseTarget(data) && super.onClick(data)
     }
 
     /**

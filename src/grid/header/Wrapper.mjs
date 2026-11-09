@@ -1,4 +1,6 @@
 import BaseContainer from '../../container/Base.mjs';
+import GroupRow      from './GroupRow.mjs';
+import VNodeUtil     from '../../util/VNode.mjs';
 
 /**
  * @summary The dedicated orchestrator for a grid's header region within the multi-body architecture.
@@ -45,6 +47,13 @@ class Wrapper extends BaseContainer {
          * @member {Neo.grid.Container|null} gridContainer=null
          */
         gridContainer: null,
+        /**
+         * The row of header groups above the leaf headers. Created while a column carries a `headerGroup`, destroyed
+         * once none does. Owned by this Wrapper, which is its first item.
+         * @member {Neo.grid.header.GroupRow|null} groupRow=null
+         * @protected
+         */
+        groupRow: null,
         /**
          * The locked-end header toolbar. Created on demand when end-locked columns exist; destroyed once
          * they no longer do. Owned by this Wrapper.
@@ -137,16 +146,17 @@ class Wrapper extends BaseContainer {
         applyRegion(centerColumns,      me.gridContainer.headerToolbar);
         applyRegion(lockedEndColumns,   me.headerEnd);
 
-        // Buttons carry a toolbar-local aria-colindex, which the header SortZone resolves column
-        // positions through at drag start — re-homed and shifted buttons must re-sync it.
+        // Buttons carry the grid-wide aria-colindex: their toolbar index plus the columns of the regions
+        // before it. Re-homed and shifted buttons, and every button after a region count changes, re-sync.
         me.getToolbars().forEach(toolbar => {
-            let dirty = false;
+            let dirty  = false,
+                offset = toolbar.ariaColumnOffset;
 
             toolbar.items.forEach((item, index) => {
-                let root = item.getVdomRoot();
+                let header = item.vdom;
 
-                if (root['aria-colindex'] !== index + 1) {
-                    root['aria-colindex'] = index + 1; // 1 based
+                if (header['aria-colindex'] !== index + 1 + offset) {
+                    header['aria-colindex'] = index + 1 + offset; // 1 based
                     dirty = true
                 }
             });
@@ -155,6 +165,32 @@ class Wrapper extends BaseContainer {
                 toolbar.updateDepth = 2;
                 toolbar.update()
             }
+        });
+
+        me.syncAriaRows()
+    }
+
+    /**
+     * @summary Keeps one ARIA header row across the regions: the first toolbar keeps `role="row"` and owns the
+     * others, which take `role="none"`, so every region's column headers read as one row, like the body rows
+     * ({@link Neo.grid.Body#getAriaRowOwns}). Below a {@link #groupRow}, that row is the second.
+     */
+    syncAriaRows() {
+        let me              = this,
+            [lead, ...rest] = me.getToolbars();
+
+        if (!lead) {
+            return
+        }
+
+        lead.role = 'row';
+        lead.changeVdomRootKey('aria-rowindex', me.gridContainer.headerRowCount);
+        lead.changeVdomRootKey('aria-owns', rest.length > 0 ? rest.map(toolbar => toolbar.id).join(' ') : null);
+
+        rest.forEach(toolbar => {
+            toolbar.role = 'none';
+            toolbar.changeVdomRootKey('aria-owns', null);
+            toolbar.changeVdomRootKey('aria-rowindex', null)
         })
     }
 
@@ -210,10 +246,25 @@ class Wrapper extends BaseContainer {
                 theme,
                 useTriStateSorting: headerToolbar.useTriStateSorting,
                 windowId
-            });
+            }),
+            destroyReplacedButtons = (toolbar, nextButtons) => {
+                if (toolbar?.items) {
+                    const retired = {};
+
+                    for (const item of toolbar.items) {
+                        if (item?.destroy && !nextButtons?.includes(item)) {
+                            retired[item.id] = item.vnode;
+                            item.destroy()
+                        }
+                    }
+
+                    toolbar.vnode && VNodeUtil.unlinkRetiredReferences(toolbar.vnode, retired)
+                }
+            };
 
         // --- Center (Default) ---
         if (centerColumns.length > 0 && centerButtons) {
+            destroyReplacedButtons(headerToolbar, centerButtons);
             headerToolbar.items = centerButtons;
             headerToolbar.createItems()
         }
@@ -223,6 +274,7 @@ class Wrapper extends BaseContainer {
             if (!me.headerStart) {
                 me.headerStart = lockedToolbar(lockedStartButtons || [], 'start')
             } else if (lockedStartButtons) {
+                destroyReplacedButtons(me.headerStart, lockedStartButtons);
                 me.headerStart.items = lockedStartButtons;
                 me.headerStart.createItems()
             }
@@ -233,6 +285,7 @@ class Wrapper extends BaseContainer {
             if (!me.headerEnd) {
                 me.headerEnd = lockedToolbar(lockedEndButtons || [], 'end')
             } else if (lockedEndButtons) {
+                destroyReplacedButtons(me.headerEnd, lockedEndButtons);
                 me.headerEnd.items = lockedEndButtons;
                 me.headerEnd.createItems()
             }
@@ -245,22 +298,81 @@ class Wrapper extends BaseContainer {
             endEmptied   = me.headerEnd   && lockedEndColumns.length   === 0;
 
         if (startEmptied || endEmptied) {
-            me.applyColumnButtonOrder(lockedStartColumns, centerColumns, lockedEndColumns);
+            if (!centerButtons) {
+                me.applyColumnButtonOrder(lockedStartColumns, centerColumns, lockedEndColumns)
+            }
+
+            const retired = {};
 
             if (startEmptied) {
+                retired[me.headerStart.id] = me.headerStart.vnode;
                 me.headerStart.destroy();
                 me.headerStart = null
             }
 
             if (endEmptied) {
+                retired[me.headerEnd.id] = me.headerEnd.vnode;
                 me.headerEnd.destroy();
                 me.headerEnd = null
             }
+
+            me.vnode && VNodeUtil.unlinkRetiredReferences(me.vnode, retired)
         }
 
-        me.items = me.getToolbars();
+        me.syncGroupRow();
+
+        me.items = [me.groupRow, ...me.getToolbars()].filter(Boolean);
         me.createItems();
-        me.syncColumnMenuState()
+        me.syncColumnMenuState();
+        me.syncAriaRows();
+        me.groupRow?.project()
+    }
+
+    /**
+     * @summary Creates the {@link #groupRow} while a column carries a `headerGroup` and destroys it once none does.
+     *
+     * While it exists, this Wrapper lays itself out as a CSS grid with one column per region toolbar, in the toolbars'
+     * order: `auto` for a locked region, `minmax(0, 1fr)` for the centre. The toolbars fill the second row and the
+     * group row spans the first as a subgrid. Without groups it keeps its hbox and today's DOM.
+     * @protected
+     */
+    syncGroupRow() {
+        let me              = this,
+            {gridContainer} = me,
+            {centerColumns, lockedEndColumns, lockedStartColumns} = gridContainer,
+            grouped         = [...lockedStartColumns, ...centerColumns, ...lockedEndColumns].some(column => column.headerGroup),
+            hadGroupRow     = !!me.groupRow,
+            style           = me.style;
+
+        if (grouped && !me.groupRow) {
+            me.groupRow = Neo.create(GroupRow, {
+                appName : gridContainer.appName,
+                gridContainer,
+                parentId: me.id,
+                windowId: gridContainer.windowId
+            })
+        } else if (!grouped && me.groupRow) {
+            // Unlinked after destroy(): only a component that has left the registry is unlinked
+            const retired = {[me.groupRow.id]: me.groupRow.vnode};
+
+            me.groupRow.destroy();
+            me.groupRow = null;
+            me.vnode && VNodeUtil.unlinkRetiredReferences(me.vnode, retired)
+        }
+
+        me.toggleCls('neo-grid-header-grouped', grouped);
+
+        style.gridTemplateColumns = grouped
+            ? me.getToolbars().map(toolbar => toolbar.layoutLock ? 'auto' : 'minmax(0, 1fr)').join(' ')
+            : null;
+
+        me.style = style;
+
+        // The header row count moved: aria-rowcount follows it. Body rows take it on their next render. A grid that
+        // has no store yet counts its rows when the store arrives.
+        if (hadGroupRow !== grouped && gridContainer.store) {
+            gridContainer.updateRowCount()
+        }
     }
 
     /**

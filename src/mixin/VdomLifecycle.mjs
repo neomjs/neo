@@ -270,8 +270,8 @@ class VdomLifecycle extends Base {
             // We need to ensure that the task queue is empty before collecting payloads.
             // This is critical for cases where a component state change (triggering update)
             // is followed immediately by a structural change (e.g. remove) in the same tick.
-            // Using setTimeout forces a Macrotask yield, ensuring all sync operations complete.
-            await new Promise(resolve => setTimeout(resolve, 1));
+            // The owned timeout preserves that task boundary and cancels if this component is destroyed.
+            await me.timeout(1);
 
             const
                 updates   = {},
@@ -890,7 +890,8 @@ class VdomLifecycle extends Base {
                 }
             }
 
-            console.error('initVnode error', err, id);
+            // A window that departs mid-render rejects the render as its departure: an outcome, not a defect
+            worker?.isDeparture?.(err, me.windowId) || console.error('initVnode error', err, id);
             throw err
         } finally {
             if (me[initializationAttempt] === attempt) {

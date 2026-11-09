@@ -30,7 +30,14 @@ class ViewportController extends Controller {
          * @member {String} className='Workstation.view.ViewportController'
          * @protected
          */
-        className: 'Workstation.view.ViewportController'
+        className: 'Workstation.view.ViewportController',
+        /**
+         * The class `createRoot` builds the main workspace from. An app that extends the Workstation names
+         * its own `Workstation.view.Workspace` subclass here, through a controller subclass or the controller
+         * config object: `controller: {module: ViewportController, workspaceModule: MyWorkspace}`.
+         * @member {Class} workspaceModule=Workspace
+         */
+        workspaceModule: Workspace
     }
 
     /**
@@ -207,7 +214,7 @@ class ViewportController extends Controller {
         }
 
         try {
-            workspace = Neo.create(Workspace, {
+            workspace = me.createWorkspace({
                 flex           : 1,
                 initialTopology: selection.topology,
                 topologyGroupId: binding.groupId,
@@ -248,6 +255,15 @@ class ViewportController extends Controller {
             if (!view.isDestroyed) me.showRootFailure();
             throw error
         }
+    }
+
+    /**
+     * @summary Creates the main workspace as an instance of `workspaceModule`.
+     * @param {Object} config The root workspace's config, assembled by `createRoot`
+     * @returns {Workstation.view.Workspace}
+     */
+    createWorkspace(config) {
+        return Neo.create(this.workspaceModule, config)
     }
 
     /**

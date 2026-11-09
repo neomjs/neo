@@ -391,9 +391,7 @@ test.describe('Neo.list.plugin.Animate', () => {
 
             const {id} = list;
             list.destroy();
-            await list.timeout(20);
-
-            expect(calls.some(call => call.op === 'unregister' && call.id === id)).toBe(true)
+            await expect.poll(() => calls.some(call => call.op === 'unregister' && call.id === id)).toBe(true)
         } finally {
             Neo.currentWorker.getAddon = prior
         }
@@ -610,6 +608,196 @@ test.describe('Neo.list.plugin.Animate', () => {
         })
     }
 
+    for (const listClass of [PlainList, CardList]) {
+        test(`${listClass.config.className} publishes record-address metadata with synchronous current membership`, async () => {
+            const {list, plugin, store} = await createFixture({listClass, mounted: true, listConfig: {itemWidth: 300}}),
+                pool                    = list.items?.slice();
+
+            try {
+                store.insert(0, {id: 6, name: 'joined', online: true});
+                const nodes = itemNodes(list);
+                expect(nodes.map(node => node.id)).toEqual([6, 1, 2, 3, 4, 5].map(key => list.getItemId(list.getRecordId(store.get(key)))));
+                const meta = plugin.getMotionMeta();
+                expect(meta.rootId).toBe(list.getVdomRoot().id);
+                expect(nodes.map(node => node['data-neo-list-record'])).toEqual(store.items.map(record => store.getInternalKey(record)));
+                expect(plugin.getMotionMeta()).toEqual(meta);
+                if (pool) {
+                    pool.forEach((item, index) => expect(list.items[index]).toBe(item));
+                    expect(list.items[0].text).toBe('joined')
+                }
+                expect(nodes.every(node => node.style.opacity !== 0 && node.style.transition !== 'none')).toBe(true);
+                expect(nodes[1].style.transform).toBe('translate(320px, 10px)');
+                expect(plugin.pendingFilter).toBe(false)
+            } finally {
+                list.destroy()
+            }
+        })
+    }
+
+    test('an unchanged mutation does no work, while an unmarked same-record load still repaints', async () => {
+        const {list, store} = await createFixture({mounted: true, listConfig: {itemWidth: 300}});
+        let   rebuilds      = 0, updates = 0;
+        const createItems   = list.createItems.bind(list), update = list.update.bind(list);
+        list.createItems = (...args) => { rebuilds++; return createItems(...args) };
+        list.update = (...args) => { updates++; return update(...args) };
+        try {
+            store.remove('missing');
+            expect({rebuilds, updates}).toEqual({rebuilds: 0, updates: 0});
+            store.fire('load', {items: store.items});
+            expect(rebuilds).toBe(1)
+        } finally {
+            list.destroy()
+        }
+    });
+
+    test('batched same-key replacement publishes new component content when endUpdate returns', async () => {
+        const {list, store} = await createFixture({listClass: CardList, mounted: true, listConfig: {itemWidth: 300}}),
+            oldRecords      = [...store.items], pool = [...list.items];
+        try {
+            store.startUpdate();
+            store.clear();
+            store.add(rosterData().map(row => ({...row, name: `${row.name} replaced`})));
+            store.endUpdate();
+            expect(itemNodes(list)).toHaveLength(5);
+            store.items.forEach((record, index) => {
+                expect(record).not.toBe(oldRecords[index]);
+                expect(list.items[index]).toBe(pool[index]);
+                expect(list.items[index].text).toBe(`${rosterData()[index].name} replaced`)
+            })
+        } finally {
+            list.destroy()
+        }
+    });
+
+    test('sorting retains spare pooled components for the next membership change and owner teardown', async () => {
+        const {list, store} = await createFixture({listClass: CardList, mounted: true, listConfig: {itemWidth: 300}});
+        let spare;
+        try {
+            store.add({id: 6, name: 'spare', online: true});
+            spare = list.items[5];
+            store.remove(6);
+            store.sorters = [{property: 'name', direction: 'DESC'}];
+            expect(list.items, 'sorting cannot orphan an unused owned pool slot').toContain(spare);
+            store.add({id: 7, name: 'joined', online: true});
+            expect(list.items).toContain(spare);
+            expect(list.items.slice(0, store.count).map(item => item.text)).toEqual(store.items.map(record => record.name))
+        } finally {
+            list.destroy()
+        }
+        expect(spare.isDestroyed).toBe(true)
+    });
+
+    test('destroying an owner during entry prevents deferred repaint', async () => {
+        const {list, store} = await createFixture({mounted: true, listConfig: {itemWidth: 300}});
+        store.add({id: 6, name: 'joined', online: true});
+        list.destroy();
+        let updates = 0;
+        list.update = () => { updates++ };
+        await new Promise(resolve => setTimeout(resolve, 100));
+        expect(updates).toBe(0)
+    });
+
+    test('native metadata composes the owner hook and plugin destruction restores it', async () => {
+        const original     = function () { return {consumerId: this.id} },
+            {list, plugin} = await createFixture({listConfig: {itemWidth: 300, getVdomUpdateMeta: original}}),
+            released       = [];
+        try {
+            expect(list.getVdomUpdateMeta()).toEqual({consumerId: list.id, listMotion: plugin.getMotionMeta()});
+            plugin.motionAddon = {unregister: data => released.push(data)};
+            plugin.motionToken = 'owned-registration';
+            plugin.motionWindowId = 1;
+            plugin.destroy();
+            expect(list.getVdomUpdateMeta).toBe(original);
+            expect(released).toEqual([{id: list.id, token: 'owned-registration', windowId: 1}])
+        } finally {
+            list.destroy()
+        }
+    });
+
+    for (const outcome of ['destroyed', 'departed', 'unreachable', 'failure']) {
+        test(`native retirement handles ${outcome} without losing unexpected failures`, async () => {
+            const {list, plugin} = await createFixture({listConfig: {itemWidth: 300}}),
+                worker           = Neo.currentWorker, windowId = `motion-retire-${outcome}`,
+                reason           = outcome === 'destroyed' ? Neo.isDestroyed : Object.assign(new Error(outcome), {
+                    code: outcome === 'failure' ? 'TEST_FAILURE' : 'NEO_DEAD_PORT'
+                }),
+                originalError = console.error, originalDeparture = worker.isDeparture, errors = [];
+            console.error = (...args) => errors.push(args);
+            worker.isDeparture = (error, id) => error === reason && id === windowId && outcome === 'departed';
+            try {
+                plugin.motionAddon = {unregister: () => Promise.reject(reason)};
+                plugin.motionToken = 'retiring';
+                plugin.motionWindowId = windowId;
+                const retirement = plugin.disconnectMotion();
+                plugin.motionWindowId = 'next-window';
+                plugin.destroy();
+                await retirement;
+                expect(errors).toEqual(['destroyed', 'departed'].includes(outcome) ? [] : [['Unable to release list motion', reason]])
+            } finally {
+                console.error = originalError;
+                worker.isDeparture = originalDeparture;
+                list.destroy()
+            }
+        })
+    }
+
+    test('native registration follows window changes and unmount/remount through owner configs', async () => {
+        const {list, plugin} = await createFixture({mounted: true, listConfig: {itemWidth: 300}}),
+            events           = [];
+        plugin.connectMotion = () => events.push(`connect:${list.windowId}`);
+        plugin.disconnectMotion = () => events.push('disconnect');
+        try {
+            list.windowId = 'motion-window-a';
+            expect(events.at(-1)).toBe('connect:motion-window-a');
+            list.mounted = false;
+            expect(events.at(-1)).toBe('disconnect');
+            list.windowId = 'motion-window-b';
+            expect(events.at(-1)).toBe('disconnect');
+            list.mounted = true;
+            expect(events.at(-1)).toBe('connect:motion-window-b')
+        } finally {
+            list.destroy()
+        }
+    });
+
+    test('a later metadata wrapper can keep calling its predecessor after Animate is removed', async () => {
+        const {list, plugin} = await createFixture({listConfig: {itemWidth: 300, getVdomUpdateMeta() { return {consumerId: this.id} }}}),
+            predecessor      = list.getVdomUpdateMeta;
+        list.getVdomUpdateMeta = () => ({...predecessor(), laterConsumer: true});
+        try {
+            plugin.destroy();
+            expect(list.getVdomUpdateMeta()).toEqual({consumerId: list.id, laterConsumer: true})
+        } finally {
+            list.destroy()
+        }
+    });
+
+    for (const [operation, interrupt] of [
+        ['sort', ({store}) => { store.sorters = [{property: 'name', direction: 'DESC'}] }],
+        ['filter', ({store}) => { store.filters = [{property: 'online', value: true}] }],
+        ['resize', ({plugin}) => plugin.onOwnerResize({rect: {width: 600, height: 400}})],
+        ['record edit', ({store}) => { store.get(6).name = 'edited' }]
+    ]) {
+        test(`${operation} after a mutation keeps current descriptors and geometry for native presentation`, async () => {
+            const fixture             = await createFixture({mounted: true, listConfig: {itemWidth: 300}}),
+                {list, store, plugin} = fixture;
+            try {
+                store.add({id: 6, name: 'joined', online: true});
+                interrupt(fixture);
+                await list.timeout(180);
+                expect(itemNodes(list)).toHaveLength(store.count);
+                itemNodes(list).forEach((node, index) => {
+                    const {x, y} = plugin.getItemPosition(store.getAt(index), index);
+                    expect(node.style.opacity).not.toBe(0);
+                    expect(node.style.transition).not.toBe('none');
+                    expect(node.style.transform).toBe(`translate(${x}px, ${y}px)`)
+                })
+            } finally {
+                list.destroy()
+            }
+        })
+    }
+
     test('an ordinary component load rebuilds synchronously and leaves no queued rebuild after destroy', async () => {
         const {list, store} = await createFixture({listClass: CardList, listConfig: {itemWidth: 300}});
         let   rebuilds      = 0;
@@ -645,6 +833,111 @@ test.describe('Neo.list.plugin.Animate', () => {
         }
 
         expect(cleared).toContain(armed)
+    });
+
+    test('base-list sort translates items to their sorted slots and settles the vdom order after transitionDuration (#2814)', async () => {
+        const {list, plugin, store} = await createFixture({listConfig: {itemWidth: 300}, pluginConfig: {transitionDuration: 150}});
+
+        store.sorters = [{property: 'name', direction: 'DESC'}];
+        await list.timeout(80);                               // past the 50ms frame, inside transitionDuration
+
+        // echo (id 5) moves to slot 0 (10, 10); alpha (id 1) moves to slot 4 (320, 146)
+        expect(transformOf(list, 5)).toBe('translate(10px, 10px)');
+        expect(transformOf(list, 1)).toBe('translate(320px, 146px)');
+
+        // after transitionDuration settles via createItems(), vdom.cn order matches sorted store order
+        await list.timeout(160);
+        expect(itemNodes(list).map(node => plugin.renderedRecords.get(node).id)).toEqual([5, 4, 3, 2, 1]);
+        expect(transformOf(list, 5)).toBe('translate(10px, 10px)');
+        expect(transformOf(list, 1)).toBe('translate(320px, 146px)');
+
+        list.destroy()
+    });
+
+    test('sorting a base list while a filter transition is in flight preserves leaving fade-outs and settles once to the filtered+sorted set (#2814)', async () => {
+        const
+            {list, plugin, store} = await createFixture({listConfig: {itemWidth: 300}, pluginConfig: {transitionDuration: 200}}),
+            nodeIds               = Object.fromEntries(store.items.map(record => [record.id, list.getItemId(record)])),
+            opacityOf             = id => itemNodes(list).find(node => node.id === nodeIds[id])?.style?.opacity;
+
+        let   settlements = 0;
+        const createItems = list.createItems.bind(list);
+        list.createItems = (...args) => { settlements++; return createItems(...args) };
+
+        // Start a filter (keeps id 1, 2, 4; removes 3, 5)
+        store.filters = [{property: 'online', operator: '===', value: true}];
+        await list.timeout(80);                               // filter's 50ms frame has fired; transitionTimeoutId is armed
+
+        expect(plugin.transitionTimeoutId).toBeTruthy();
+        expect([3, 5].map(opacityOf)).toEqual([0, 0]);
+
+        // Trigger a sort while the filter transition is still in flight
+        store.sorters = [{property: 'name', direction: 'DESC'}];
+        await list.timeout(80);                               // sort's 50ms frame has fired
+
+        // Leaving items (3, 5) stay at opacity 0 while surviving items (4, 2, 1) translate to sorted slots
+        expect([3, 5].map(opacityOf)).toEqual([0, 0]);
+        expect([4, 2, 1].map(opacityOf)).toEqual([1, 1, 1]);
+        expect(transformOf(list, 4)).toBe('translate(10px, 10px)');
+        expect(transformOf(list, 2)).toBe('translate(320px, 10px)');
+        expect(transformOf(list, 1)).toBe('translate(630px, 10px)');
+
+        // Wait for settle pass: only one createItems() runs and vdom.cn settles to [4, 2, 1]
+        await list.timeout(260);
+        expect(settlements).toBe(1);
+        expect(itemNodes(list).map(node => plugin.renderedRecords.get(node).id)).toEqual([4, 2, 1]);
+
+        list.destroy()
+    });
+
+    test('sorting a base list inside the first 50ms window of a filter coalesces into a single frame and settle pass (#2814)', async () => {
+        const
+            {list, plugin, store} = await createFixture({listConfig: {itemWidth: 300}, pluginConfig: {transitionDuration: 150}}),
+            nodeIds               = Object.fromEntries(store.items.map(record => [record.id, list.getItemId(record)])),
+            opacityOf             = id => itemNodes(list).find(node => node.id === nodeIds[id])?.style?.opacity;
+
+        let   settlements = 0;
+        const createItems = list.createItems.bind(list);
+        list.createItems = (...args) => { settlements++; return createItems(...args) };
+
+        // Trigger filter and sort back-to-back within the same tick (before the 50ms frame)
+        store.filters = [{property: 'online', operator: '===', value: true}];
+        store.sorters = [{property: 'name', direction: 'DESC'}];
+
+        await list.timeout(80);
+        expect([3, 5].map(opacityOf)).toEqual([0, 0]);
+        expect(transformOf(list, 4)).toBe('translate(10px, 10px)');
+        expect(transformOf(list, 2)).toBe('translate(320px, 10px)');
+        expect(transformOf(list, 1)).toBe('translate(630px, 10px)');
+
+        await list.timeout(200);
+        expect(settlements).toBe(1);
+        expect(itemNodes(list).map(node => plugin.renderedRecords.get(node).id)).toEqual([4, 2, 1]);
+
+        list.destroy()
+    });
+
+    test('a no-op base-list sort when no filter transition is in flight triggers no update() and no createItems() (#2814)', async () => {
+        const {list, plugin, store} = await createFixture({listConfig: {itemWidth: 300}, pluginConfig: {transitionDuration: 150}});
+
+        let   updates     = 0,
+              settlements = 0;
+        const update      = list.update.bind(list),
+              createItems = list.createItems.bind(list);
+
+        list.update      = (...args) => { updates++;     return update(...args) };
+        list.createItems = (...args) => { settlements++; return createItems(...args) };
+
+        // Store is already ordered by id ASC [1, 2, 3, 4, 5]
+        store.sorters = [{property: 'id', direction: 'ASC'}];
+        await list.timeout(250);
+
+        expect(updates).toBe(0);
+        expect(settlements).toBe(0);
+        expect(plugin.transitionTimeoutId).toBeNull();
+        expect(itemNodes(list).map(node => plugin.renderedRecords.get(node).id)).toEqual([1, 2, 3, 4, 5]);
+
+        list.destroy()
     })
 });
 
@@ -946,6 +1239,62 @@ test.describe('Neo.list.plugin.Animate — measured row height', () => {
         await older;
         expect(plugin.rowHeight, 'the older answer did not win').toBe(180);
         expect(transformOf(list, 4)).toBe('translate(10px, 200px)');
+
+        list.destroy()
+    });
+
+    test('orderByRow: false places items column-by-column and floors rows at 1 when container height is shorter than rowHeight', async () => {
+        const {list, plugin} = await createFixture({
+            listConfig  : {itemWidth: 300},
+            pluginConfig: {orderByRow: false},
+            rect        : {width: 935, height: 400}
+        });
+
+        // rows = floor(400 / 126) = 3, itemWidth = 300, rowHeight = 126, margin = 10
+        // index 0 → col 0, row 0 (10, 10)
+        // index 1 → col 0, row 1 (10, 146)
+        // index 2 → col 0, row 2 (10, 282)
+        // index 3 → col 1, row 0 (320, 10)
+        // index 4 → col 1, row 1 (320, 146)
+        expect(plugin.orderByRow).toBe(false);
+        expect(plugin.rows).toBe(3);
+        expect(transformOf(list, 1)).toBe('translate(10px, 10px)');
+        expect(transformOf(list, 2)).toBe('translate(10px, 146px)');
+        expect(transformOf(list, 3)).toBe('translate(10px, 282px)');
+        expect(transformOf(list, 4)).toBe('translate(320px, 10px)');
+        expect(transformOf(list, 5)).toBe('translate(320px, 146px)');
+
+        // A container shorter than rowHeight (e.g. 80px < 126px) floors rows at 1 — never 0 / NaN
+        plugin.onOwnerResize({rect: {width: 935, height: 80}});
+        expect(plugin.rows).toBe(1);
+        expect(transformOf(list, 1)).toBe('translate(10px, 10px)');
+        expect(transformOf(list, 2)).toBe('translate(320px, 10px)');
+        expect(transformOf(list, 3)).toBe('translate(630px, 10px)');
+
+        list.destroy()
+    });
+
+    test('toggling orderByRow at runtime repositions existing rendered items without rebuilding the DOM', async () => {
+        const {list, plugin} = await createFixture({listConfig: {itemWidth: 300}});
+
+        const nodesBefore = itemNodes(list);
+        expect(plugin.orderByRow).toBe(true);
+        expect(transformOf(list, 2)).toBe('translate(320px, 10px)');
+        expect(transformOf(list, 4)).toBe('translate(10px, 146px)');
+
+        // Switch to column-major (orderByRow: false)
+        plugin.orderByRow = false;
+
+        expect(transformOf(list, 2)).toBe('translate(10px, 146px)');
+        expect(transformOf(list, 4)).toBe('translate(320px, 10px)');
+        itemNodes(list).forEach((node, index) => expect(node).toBe(nodesBefore[index]));
+
+        // Switch back to row-major (orderByRow: true)
+        plugin.orderByRow = true;
+
+        expect(transformOf(list, 2)).toBe('translate(320px, 10px)');
+        expect(transformOf(list, 4)).toBe('translate(10px, 146px)');
+        itemNodes(list).forEach((node, index) => expect(node).toBe(nodesBefore[index]));
 
         list.destroy()
     })

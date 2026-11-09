@@ -1,0 +1,8 @@
+{
+    "appPath": "test/playwright/component/apps/pipeline-cache/app.mjs",
+    "basePath": "../../../../../",
+    "environment": "development",
+    "mainPath": "./Main.mjs",
+    "mainThreadAddons": ["Navigator", "Stylesheet"],
+    "useSharedWorkers": false
+}

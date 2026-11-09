@@ -32,7 +32,8 @@ test.describe('Portal.view.news.TabContainerController — route → activeIndex
             {route: '/news/discussions', index: 2},
             {route: '/news/blog',        index: 3},
             {route: '/news/medium',      index: 4},
-            {route: '/news/pulls',       index: 5}
+            {route: '/news/pulls',       index: 5},
+            {route: '/news/videos',      index: 6}
         ];
 
         const controller = Object.create(TabContainerController.prototype);
@@ -41,6 +42,9 @@ test.describe('Portal.view.news.TabContainerController — route → activeIndex
             activeIndex: null,
             getTabBar  : () => ({items: tabButtons})
         };
+
+        controller.onVideosRoute();
+        expect(controller.component.activeIndex).toBe(6);
 
         controller.onPullsRoute();
         expect(controller.component.activeIndex).toBe(5);

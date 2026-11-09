@@ -1,8 +1,14 @@
-import {test, expect}                                 from '@playwright/test';
-import fs                                             from 'node:fs';
-import os                                             from 'node:os';
-import path                                           from 'node:path';
-import {excludedSpecNotice, selectExternalBrainSpecs} from '../../externalBrainSelection.mjs';
+import {test, expect} from '@playwright/test';
+import fs             from 'node:fs';
+import os             from 'node:os';
+import path           from 'node:path';
+import {
+    ADAPTER_ELIGIBLE_SPECS,
+    excludedSpecNotice,
+    isAdapterEligibleSpec,
+    needsExternalBrain,
+    selectExternalBrainSpecs
+} from '../../externalBrainSelection.mjs';
 
 /**
  * Coverage for the e2e tier's selection split and the notice that discloses it.
@@ -135,5 +141,53 @@ test.describe('test/playwright/externalBrainSelection — the e2e selection spli
         expect(ignore.length).toBeGreaterThan(0);
         expect(ignore.length).toBeLessThan(total);
         expect(excludedSpecNotice({ignore, total})).toContain(`${ignore.length} of ${total}`)
+    });
+
+    test('the adapter-eligible predicate selects listed specs on the page\'s own App Worker, second windows included, and keeps Bridge and Brain-service specs Brain-gated', () => {
+        const root = makeTree({
+            'grid/BigDataNL.spec.mjs'                        : 'import {neuralLink} from "../fixtures.mjs";',
+            'neural-link/CreateComponent.spec.mjs'           : 'import {neuralLink} from "../fixtures.mjs";',
+            'dashboard/DemoADragMenuNL.spec.mjs'             : 'import {neuralLink} from "../fixtures.mjs";',
+            'neural-link/CreateComponentMultiWindow.spec.mjs': 'import {neuralLink} from "../fixtures.mjs";',
+            'workstation/WorkstationNL.spec.mjs'             : 'import {neuralLink} from "../fixtures.mjs";',
+            'write-guard/MultiWriterNL.spec.mjs'             : 'import {neuralLink} from "../fixtures.mjs";'
+        });
+
+        expect(isAdapterEligibleSpec('grid/BigDataNL.spec.mjs')).toBe(true);
+        expect(isAdapterEligibleSpec('grid\\BigDataNL.spec.mjs')).toBe(true);
+        expect(isAdapterEligibleSpec('neural-link/CreateComponent.spec.mjs')).toBe(true);
+        expect(isAdapterEligibleSpec('dashboard/DemoADragMenuNL.spec.mjs'), 'a single-page SharedWorker spec').toBe(true);
+        expect(isAdapterEligibleSpec('workstation/WorkstationNL.spec.mjs'), 'a second-window SharedWorker spec').toBe(true);
+        expect(isAdapterEligibleSpec('write-guard/MultiWriterNL.spec.mjs'), 'a Bridge spec').toBe(false);
+        expect(isAdapterEligibleSpec('')).toBe(false);
+
+        expect(needsExternalBrain('grid/BigDataNL.spec.mjs', 'neuralLink')).toBe(false);
+        expect(needsExternalBrain('write-guard/MultiWriterNL.spec.mjs', 'neuralLink')).toBe(true);
+        expect(needsExternalBrain('workstation/Plain.spec.mjs', 'engine only')).toBe(false);
+
+        const {ignore, total} = selectExternalBrainSpecs(root),
+              isIgnored       = rel => ignore.some(pattern => pattern.test(`/repo/e2e/${rel}`));
+
+        expect(total).toBe(6);
+        expect(ignore).toHaveLength(2);
+        expect(isIgnored('grid/BigDataNL.spec.mjs')).toBe(false);
+        expect(isIgnored('neural-link/CreateComponent.spec.mjs')).toBe(false);
+        expect(isIgnored('dashboard/DemoADragMenuNL.spec.mjs')).toBe(false);
+        expect(isIgnored('workstation/WorkstationNL.spec.mjs')).toBe(false);
+        expect(isIgnored('neural-link/CreateComponentMultiWindow.spec.mjs')).toBe(true);
+        expect(isIgnored('write-guard/MultiWriterNL.spec.mjs')).toBe(true)
+    });
+
+    test('against the real e2e tree: every adapter-eligible entry exists and is selected without a Brain checkout', () => {
+        const root      = path.resolve(import.meta.dirname, '../../e2e'),
+              {ignore}  = selectExternalBrainSpecs(root),
+              isIgnored = rel => ignore.some(pattern => pattern.test(path.join(root, rel)));
+
+        expect(ADAPTER_ELIGIBLE_SPECS.size).toBeGreaterThan(0);
+
+        for (const rel of ADAPTER_ELIGIBLE_SPECS) {
+            expect(fs.existsSync(path.join(root, rel)), `${rel} exists in test/playwright/e2e`).toBe(true);
+            expect(isIgnored(rel), `${rel} is not in testIgnore`).toBe(false)
+        }
     })
 });

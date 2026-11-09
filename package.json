@@ -1,6 +1,6 @@
 {
     "name"       : "neo.mjs",
-    "version"    : "13.3.1",
+    "version"    : "13.4.0",
     "description": "Neo.mjs is a multi-threaded application engine — the Body of a self-evolving software organism — with object permanence, worker isolation, JSON-first UIs, and zero-build native ES modules.",
     "type"       : "module",
     "repository" : {
@@ -41,10 +41,14 @@
         "create-app-minimal"                   : "node ./buildScripts/create/appMinimal.mjs",
         "create-class"                         : "node ./buildScripts/create/class.mjs",
         "create-component"                     : "node ./buildScripts/create/component.mjs",
+        "create-theme"                         : "node ./buildScripts/create/theme.mjs",
         "generate-docs-json"                   : "node ./buildScripts/docs/generateDocsJson.mjs",
+        "move-files"                           : "node ./buildScripts/create/move.mjs",
         "postpack"                             : "node ./buildScripts/util/npmIgnoreComposition.mjs restore",
         "prepack"                              : "node ./buildScripts/util/npmIgnoreComposition.mjs compose",
         "prepare"                              : "node ./buildScripts/util/prepare.mjs",
+        "preserver-start"                      : "node ./buildScripts/util/check-installed-dependencies.mjs",
+        "seat:start"                           : "node ./buildScripts/helpers/seatStart.mjs",
         "server-start"                         : "webpack serve -c ./buildScripts/webpack/webpack.server.config.mjs --open",
         "test"                                 : "playwright test -c test/playwright/playwright.config.mjs",
         "test-components"                      : "playwright test -c test/playwright/playwright.config.component.mjs",
@@ -122,9 +126,12 @@
         "marked"                       : "^18.1.0",
         "mermaid"                      : "^12.1.0",
         "monaco-editor"                : "0.57.0",
-        "neo-agent-skills"             : "0.1.56",
+        "neo-agent-skills"             : "1.2.0",
         "parse5"                       : "^8.0.1",
         "postcss"                      : "^8.5.29",
+        "postcss-scss"                 : "^4.0.9",
+        "postcss-selector-parser"      : "^7.1.7",
+        "postcss-value-parser"         : "^4.2.0",
         "sass"                         : "^1.105.1",
         "semver"                       : "^7.8.5",
         "terser"                       : "^5.51.2",
@@ -136,7 +143,7 @@
         "ws"                           : "^8.22.0"
     },
     "overrides": {
-        "dompurify": "^3.4.16",
+        "dompurify": "^3.4.17",
         "gray-matter": {
             "js-yaml": "^3.15.2"
         },

@@ -10,14 +10,16 @@ often lead to an exponential increase in effort as applications grow in features
 
 ### The Neo.mjs Advantage: A Linear Path to Scalability
 
-Neo.mjs presents a fundamentally different curve. While there might be a slightly higher initial learning curve or setup
-effort compared to starting with a trivial vanilla JavaScript website, this upfront investment is a strategic advantage.
-Developers typically get "up to speed" with Neo.mjs within about a week, grasping its core concepts and unique architecture.
+Neo.mjs presents a fundamentally different curve. Its effort falls below vanilla JavaScript's by the time a website
+becomes a simple web application, and below a typical framework's before that application turns complex; from there,
+the gap only widens. Setup is one command (`npx neo-app@latest`). Developers typically get "up to speed" with Neo.mjs
+within about a week, grasping its core concepts and unique architecture, and a coding agent reads and writes Neo.mjs
+blueprints natively, because they are plain JSON ([JSON-First UIs](./JSONFirstUIs.md)).
 
-This initial effort is quickly recouped, leading to a significant "turning point" where developer productivity skyrockets.
-Once familiar with the Neo.mjs paradigm, the effort required to implement increasingly complex features scales almost
-linearly. This is a stark contrast to other frameworks where complexity often translates into spiraling costs,
-diminishing returns, and a constant battle against technical debt.
+That is the "turning point" where developer productivity skyrockets. Once familiar with the Neo.mjs paradigm, the effort
+required to implement increasingly complex features scales almost linearly. This is a stark contrast to single-threaded
+libraries, where complexity often translates into spiraling costs, diminishing returns, and a constant battle against
+technical debt.
 
 ### Why Neo.mjs Maintains Linearity:
 

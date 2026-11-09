@@ -1,5 +1,6 @@
-import Component from '../component/Base.mjs';
-import NeoArray  from '../util/Array.mjs';
+import AbstractComponent from '../component/Abstract.mjs';
+import Component         from '../component/Base.mjs';
+import NeoArray          from '../util/Array.mjs';
 
 /**
  * @summary Represents a single visible row in the Grid.
@@ -142,7 +143,7 @@ class Row extends Component {
     }
 
     /**
-     * Generates the VDOM configuration for a single cell.
+     * @summary Generates the VDOM configuration for a single cell.
      *
      * @param {Object} data
      * @param {String} [data.cellId]
@@ -161,13 +162,12 @@ class Row extends Component {
         // component column declares its cells' depth, also when it builds them from `defaults` like column.Tree.
         if (cache.measureOnly && column.cellDepth) return null;
 
-        let me            = this,
-            cellCls       = ['neo-grid-cell'],
-            colspan       = record[colspanField],
-            {dataField}   = column,
-            recordId      = gridBody.getRecordId(record),
-            logicalCellId = gridBody.getLogicalCellId(record, dataField),
-            fieldValue    = record.get(dataField),
+        let me          = this,
+            cellCls     = ['neo-grid-cell'],
+            colspan     = record[colspanField],
+            {dataField} = column,
+            recordId    = gridBody.getRecordId(record),
+            fieldValue  = record.get(dataField),
             cellConfig, rendererOutput;
 
         if (fieldValue === null || fieldValue === undefined) {
@@ -222,7 +222,7 @@ class Row extends Component {
             }
         }
 
-        if (rendererOutput instanceof Neo.component.Base) {
+        if (rendererOutput instanceof AbstractComponent) {
             me.components ??= {};
 
             if (!me.components[column.dataField]) {
@@ -270,7 +270,7 @@ class Row extends Component {
             cellId = me.getCellId(column.dataField)
         }
 
-        if (selectionModel?.selectedColumns?.includes(dataField)) {
+        if (selectionModel?.selectedColumns?.length > 0 && selectionModel.selectedColumns.includes(dataField)) {
             NeoArray.add(cellCls, selectionModel.selectedColumnCellCls || 'neo-selected')
         }
 
@@ -291,7 +291,8 @@ class Row extends Component {
         }
 
         cellConfig = {
-            'aria-colindex': columnIndex + 1, // 1 based
+            // 1 based, counting the columns of the regions before this one (Neo.grid.Container#getAriaColumnOffset)
+            'aria-colindex': columnIndex + 1 + (cache.ariaColumnOffset || 0),
             data           : {field: dataField, recordId},
             id             : cellId,
             cls            : cellCls,
@@ -299,7 +300,7 @@ class Row extends Component {
             style          : rendererOutput.style || {}
         };
 
-        if (selectedCells.includes(logicalCellId)) {
+        if (selectedCells?.length > 0 && selectedCells.includes(gridBody.getLogicalCellId(record, dataField))) {
             cellCls.push('neo-selected');
             cellConfig['aria-selected'] = true
         }
@@ -413,23 +414,37 @@ class Row extends Component {
             cellEditing    = gridContainer.getPlugin('grid-cell-editing'),
             editSession    = cellEditing?.session ?? null,
             editsCells     = !!cellEditing && !cellEditing.disabled,
-            cache          = {colspanField, columnPositions, editSession, editsCells, gridBody, gridContainer, highlightModifiedCells, selectedCells, selectionModel, store};
+            ariaColumnOffset = gridContainer.getAriaColumnOffset(gridBody.region),
+            ariaRow        = gridBody.isAriaLeadRegion,
+            cache          = {ariaColumnOffset, colspanField, columnPositions, editSession, editsCells, gridBody, gridContainer, highlightModifiedCells, selectedCells, selectionModel, store};
 
         Object.assign(vdom, {
-            'aria-rowindex': rowIndex + 2, // header row => 1, first body row => 2
-            data           : {recordId, rowId: rowIndex},
-            role           : 'row',
+            data : {recordId, rowId: rowIndex},
             // Content-sized rows take height and offset from the view's geometry, fixed rows multiply
-            style          : {
+            style: {
                 display  : null, // Reset display in case it was hidden
                 height   : (rowGeometry ? rowGeometry.heightAt(rowIndex) : rowHeight) + 'px',
                 transform: me.getRowTransform(rowGeometry ? rowGeometry.offsetAt(rowIndex) : rowIndex * rowHeight)
             }
         });
 
-        if (gridContainer.isTreeGrid) {
+        // One ARIA row per record: the lead region's row carries the row semantics and owns the rows the other
+        // regions render for the same record, which leave the accessibility tree as `role="none"`
+        if (ariaRow) {
+            let owns = gridBody.getAriaRowOwns(rowIndex);
+
+            vdom['aria-rowindex'] = rowIndex + 1 + gridContainer.headerRowCount; // body rows follow the header rows
+            vdom.role             = 'row';
+            owns ? (vdom['aria-owns'] = owns) : delete vdom['aria-owns']
+        } else {
+            ['aria-expanded', 'aria-level', 'aria-owns', 'aria-posinset', 'aria-rowindex', 'aria-setsize'].forEach(key => delete vdom[key]);
+            vdom.role = 'none'
+        }
+
+        if (gridContainer.isTreeGrid && ariaRow) {
             if (!record.isLeaf) {
-                vdom['aria-expanded'] = record.expanded || false;
+                // TreeModel's expansion state is `collapsed`, which TreeStore defaults to true
+                vdom['aria-expanded'] = record.collapsed === false;
             } else {
                 delete vdom['aria-expanded'];
             }
@@ -464,9 +479,9 @@ class Row extends Component {
 
         let selectedRows = gridContainer?.view?.selectedRows;
 
-        if (selectedRows?.includes(recordId)) {
+        if (selectedRows?.length > 0 && selectedRows.includes(recordId)) {
             rowCls.push('neo-selected');
-            vdom['aria-selected'] = true;
+            ariaRow ? (vdom['aria-selected'] = true) : delete vdom['aria-selected'];
             // Note: fire('select') should ideally be handled by the SelectionModel observing the store/records,
             // or we keep it here but suppress events during rendering if needed.
             // gridContainer.fire('select', {record})
@@ -476,9 +491,26 @@ class Row extends Component {
 
         vdom.cls = rowCls;
 
-        lastColumnIndex = columnPositions.getCount() - 1;
+        let countPositions      = columnPositions.getCount(),
+            columnItems         = columns._items,
+            hasPermanentColumns = true;
+
+        lastColumnIndex = countPositions - 1;
         poolSize        = cellPoolSize;
         pooledCells     = new Array(poolSize);
+
+        if (columnItems) {
+            hasPermanentColumns = false;
+
+            for (i = 0; i < countColumns; i++) {
+                column = columnItems[i];
+
+                if (column && (column.hideMode !== 'removeDom' || column.locked)) {
+                    hasPermanentColumns = true;
+                    break
+                }
+            }
+        }
 
         // Pass 1: Render Pooled Cells (hideMode === 'removeDom' && !locked)
         // We render the FULL pool to ensure stable VDOM structure (0 inserts/moves).
@@ -486,7 +518,9 @@ class Row extends Component {
             columnPosition = columnPositions.getAt(i);
             if (!columnPosition) continue;
 
-            column = columns.get(columnPosition.dataField);
+            column = columnItems?.[i]?.dataField === columnPosition.dataField
+                ? columnItems[i]
+                : columns.get(columnPosition.dataField);
 
             // Sanity check for bounds (e.g. if column count changed)
             if (!column) continue;
@@ -501,7 +535,7 @@ class Row extends Component {
                     if (oldNode && oldNode.data?.recordId === recordId) {
                         // We must update the ID and colindex to match the new physical slot
                         Row.setCellId(oldNode, `${me.id}__cell-${poolIndex}`);
-                        oldNode['aria-colindex'] = i + 1;
+                        oldNode['aria-colindex'] = i + 1 + ariaColumnOffset;
 
                         // Update position
                         if (columnPosition) {
@@ -563,92 +597,96 @@ class Row extends Component {
         // Pass 2: Render Permanent Cells (hideMode !== 'removeDom' || locked)
         // We MUST render these even if they are off-screen to preserve their DOM state (e.g. Canvas context).
         // This loop is O(TotalColumns), but typically few columns use this mode.
-        for (i=0; i < countColumns; i++) {
-            columnPosition = columnPositions.getAt(i);
-            if (!columnPosition) continue;
+        if (hasPermanentColumns) {
+            for (i=0; i < countPositions; i++) {
+                columnPosition = columnPositions.getAt(i);
+                if (!columnPosition) continue;
 
-            column = columns.get(columnPosition.dataField);
+                column = columnItems?.[i]?.dataField === columnPosition.dataField
+                    ? columnItems[i]
+                    : columns.get(columnPosition.dataField);
 
-            // Sanity check
-            if (!column) continue;
+                // Sanity check
+                if (!column) continue;
 
-            if (column.hideMode !== 'removeDom' || column.locked) {
-                isMounted = i >= mountedColumns[0] && i <= mountedColumns[1];
+                if (column.hideMode !== 'removeDom' || column.locked) {
+                    isMounted = i >= mountedColumns[0] && i <= mountedColumns[1];
 
-                // Cell Recycling for Permanent Cells
-                if (recycle && oldCellMap) {
-                    let oldNode = oldCellMap.get(column.dataField);
+                    // Cell Recycling for Permanent Cells
+                    if (recycle && oldCellMap) {
+                        let oldNode = oldCellMap.get(column.dataField);
 
-                    if (oldNode && oldNode.data?.recordId === recordId) {
-                        // Identity-migration symmetry with the Pass 1 recycle: this node may have
-                        // been rendered POOLED (id `…__cell-N`) before the column flipped into
-                        // permanent territory (e.g. `locked` changed on a mounted row via a
-                        // cross-region drag re-home). Pass 1's placeholder loop has already
-                        // re-issued that pool id — keeping it here puts two nodes with one id
-                        // into a single row, and id-based diffing collapses (id-less insert
-                        // storms, the DOM accumulating both generations).
-                        Row.setCellId(oldNode, `${me.id}__${column.dataField}`);
-                        oldNode['aria-colindex'] = i + 1;
+                        if (oldNode && oldNode.data?.recordId === recordId) {
+                            // Identity-migration symmetry with the Pass 1 recycle: this node may have
+                            // been rendered POOLED (id `…__cell-N`) before the column flipped into
+                            // permanent territory (e.g. `locked` changed on a mounted row via a
+                            // cross-region drag re-home). Pass 1's placeholder loop has already
+                            // re-issued that pool id — keeping it here puts two nodes with one id
+                            // into a single row, and id-based diffing collapses (id-less insert
+                            // storms, the DOM accumulating both generations).
+                            Row.setCellId(oldNode, `${me.id}__${column.dataField}`);
+                            oldNode['aria-colindex'] = i + 1 + ariaColumnOffset;
 
-                        if (columnPosition) {
-                            oldNode.style.left  = columnPosition.x + 'px';
-                            oldNode.style.width = columnPosition.width + 'px';
+                            if (columnPosition) {
+                                oldNode.style.left  = columnPosition.x + 'px';
+                                oldNode.style.width = columnPosition.width + 'px';
 
-                            if (isMounted || column.locked) {
-                                if (columnPosition.hidden) {
-                                    oldNode.style.visibility = 'hidden'
+                                if (isMounted || column.locked) {
+                                    if (columnPosition.hidden) {
+                                        oldNode.style.visibility = 'hidden'
+                                    } else {
+                                        oldNode.style.visibility = null;
+                                        oldNode.style.display = null;
+                                    }
                                 } else {
-                                    oldNode.style.visibility = null;
-                                    oldNode.style.display = null;
-                                }
-                            } else {
-                                if (column.hideMode === 'visibility') {
-                                    oldNode.style.visibility = 'hidden'
-                                } else if (column.hideMode === 'display') {
-                                    oldNode.style.display = 'none'
+                                    if (column.hideMode === 'visibility') {
+                                        oldNode.style.visibility = 'hidden'
+                                    } else if (column.hideMode === 'display') {
+                                        oldNode.style.display = 'none'
+                                    }
                                 }
                             }
+                            vdom.cn.push(oldNode);
+                            continue;
                         }
-                        vdom.cn.push(oldNode);
-                        continue;
                     }
-                }
 
-                cellConfig = me.applyRendererOutput({
-                    cache,
-                    cellId      : `${me.id}__${column.dataField}`,
-                    column,
-                    columnIndex : i,
-                    isLastColumn: i === lastColumnIndex,
-                    record,
-                    rowIndex,
-                    silent
-                });
+                    cellConfig = me.applyRendererOutput({
+                        cache,
+                        cellId      : `${me.id}__${column.dataField}`,
+                        column,
+                        columnIndex : i,
+                        isLastColumn: i === lastColumnIndex,
+                        record,
+                        rowIndex,
+                        silent
+                    });
 
-                if (!columnPosition) {
-                    continue
-                }
-
-                cellConfig.style = {
-                    ...cellConfig.style,
-                    left : columnPosition.x     + 'px',
-                    width: columnPosition.width + 'px'
-                };
-
-                // Visibility Logic
-                if (isMounted || column.locked) {
-                    if (columnPosition.hidden) {
-                        cellConfig.style.visibility = 'hidden'
+                    if (!columnPosition) {
+                        continue
                     }
-                } else {
-                    if (column.hideMode === 'visibility') {
-                        cellConfig.style.visibility = 'hidden'
-                    } else if (column.hideMode === 'display') {
-                        cellConfig.style.display = 'none'
-                    }
-                }
 
-                vdom.cn.push(cellConfig)
+                    cellConfig.style = {
+                        ...cellConfig.style,
+                        left : columnPosition.x     + 'px',
+                        width: columnPosition.width + 'px'
+                    };
+
+                    // Visibility Logic
+                    if (isMounted || column.locked) {
+                        if (columnPosition.hidden) {
+                            cellConfig.style.visibility = 'hidden'
+                        }
+                    } else {
+                        if (column.hideMode === 'visibility') {
+                            cellConfig.style.visibility = 'hidden'
+                        } else if (column.hideMode === 'display') {
+                            cellConfig.style.display = 'none'
+                        }
+                    }
+
+                    vdom.cn.push(cellConfig)
+                }
             }
         }
 

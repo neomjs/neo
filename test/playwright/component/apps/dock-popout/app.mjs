@@ -132,7 +132,14 @@ class PopOutFixtureWorkspace extends DockWorkspace {
          * @member {String|null} retireItemId_=null
          * @reactive
          */
-        retireItemId_: null
+        retireItemId_: null,
+        /**
+         * Spec trigger: the application holds an item's reveal open, then pops it out — the app-held
+         * reveal's own route into the reveal pop-out ({@link Neo.dashboard.dock.Workspace#popOutRailItem}).
+         * @member {String|null} popOutHeldItemId_=null
+         * @reactive
+         */
+        popOutHeldItemId_: null
     }
 
     /**
@@ -140,6 +147,26 @@ class PopOutFixtureWorkspace extends DockWorkspace {
      * @member {String|null} docJson=null
      */
     docJson = null
+
+    /**
+     * Spec-readable log of every `dockRailRevealChange` cause this workspace relayed.
+     * @member {String} revealCausesJson='[]'
+     */
+    revealCausesJson = '[]'
+
+    /**
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetPopOutHeldItemId(value, oldValue) {
+        if (oldValue === undefined || !value) {
+            return
+        }
+
+        this.revealRailItem(value);
+        this.popOutRailItem(value)
+    }
 
     /**
      * Spec-readable log of every host-seam call: `{closed:[…], opened:[{itemId, proxyRect}]}`.
@@ -285,7 +312,14 @@ class PopOutFixtureWorkspace extends DockWorkspace {
 
         // The proven deferred-boot dance: seed the empty shell, then commit the real document.
         this.add(this.projectDockModel());
-        this.onDockZoneDocumentChange(structuredClone(fixtureDocument))
+        this.onDockZoneDocumentChange(structuredClone(fixtureDocument));
+
+        const causes = [];
+
+        this.on('dockRailRevealChange', data => {
+            causes.push(data.cause);
+            this.revealCausesJson = JSON.stringify(causes)
+        })
     }
 
     /**

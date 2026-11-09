@@ -6,6 +6,7 @@ import {isHtmlTemplate} from '../util/html.mjs';
 
 const
     activeDomListenersSymbol = Symbol.for('activeDomListeners'),
+    autoIdSymbol             = Symbol.for('vdomAutoId'),
     hookIndexSymbol          = Symbol.for('hookIndex'),
     hooksSymbol              = Symbol.for('hooks'),
     pendingDomEventsSymbol   = Symbol.for('pendingDomEvents'),
@@ -62,10 +63,14 @@ class FunctionalBase extends Abstract {
      * @param {Object} config
      */
     construct(config) {
-        super.construct(config);
-
         let me   = this,
             opts = {configurable: true, enumerable: false, writable: true};
+
+        if (!Object.hasOwn(me, 'vdom') && me.vdom) {
+            me.vdom = Neo.clone(me.vdom, true)
+        }
+
+        super.construct(config);
 
         // The build process will replace `render()` with `createVdom()`.
         if (Neo.config.environment !== 'development') {
@@ -403,13 +408,22 @@ class FunctionalBase extends Abstract {
     generateIds(vdom, prefix=this.id, scopeMap=new Map()) {
         if (!vdom) return;
 
-        // If the node has an ID, it becomes the new prefix for its children
-        if (vdom.id) {
+        if (vdom.componentId) {
+            if (vdom[autoIdSymbol]) {
+                let count = scopeMap.get(prefix) || 0;
+                scopeMap.set(prefix, count + 1)
+            }
+            return
+        }
+
+        // If the node has a custom ID, it becomes the new prefix for its children
+        if (vdom.id && !vdom[autoIdSymbol]) {
             prefix = vdom.id
         } else {
             // Otherwise, generate an ID based on the current prefix and its counter
             let count = scopeMap.get(prefix) || 0;
             vdom.id = prefix + '__' + count;
+            vdom[autoIdSymbol] = true;
             scopeMap.set(prefix, count + 1)
         }
 
@@ -450,7 +464,9 @@ class FunctionalBase extends Abstract {
     }
 
     /**
-     * Recursively processes a VDOM node to instantiate components defined within it.
+     * Recursively processes a VDOM node in place to instantiate components defined within it
+     * and converts component definitions into `{componentId}` references, preserving tracked
+     * child instances when memoized VDOM subtrees are reused across renders.
      * @param {Object} vdomTree The VDOM node to process.
      * @param {String} parentId The ID of the parent component (the functional component hosting it).
      * @param {Number} [parentIndex] The index of the vdomNode within its parent's children.
@@ -463,12 +479,18 @@ class FunctionalBase extends Abstract {
             return vdomTree
         }
 
-        // If it's already a component reference, no need to process further
+        const me = this;
+
+        // If it's already a component reference (e.g. from a memoized subtree), carry its tracking forward
         if (vdomTree.componentId) {
+            const childData = me.childComponents?.get(vdomTree.componentId);
+
+            if (childData) {
+                me.#nextChildComponents.set(vdomTree.componentId, childData)
+            }
+
             return vdomTree
         }
-
-        const me = this;
 
         // Check if it's a component definition (functional or classic)
         if (vdomTree.className || vdomTree.module || vdomTree.ntype) {
@@ -518,7 +540,13 @@ class FunctionalBase extends Abstract {
             });
 
             // Replace the definition with a reference using the component's own method
-            return instance.createVdomReference();
+            const ref = instance.createVdomReference();
+
+            if (vdomTree[autoIdSymbol]) {
+                ref[autoIdSymbol] = true
+            }
+
+            return ref;
         }
 
         // Recursively process children

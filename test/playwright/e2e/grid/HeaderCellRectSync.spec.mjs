@@ -49,7 +49,8 @@ test.describe('Grid header↔cell rect sync through drag passes (#12955)', () =>
             }))
             .sort((a, b2) => a.x - b2.x);
 
-        const row   = body.querySelector('[role="row"]');
+        // The body's first record row: only the lead region's rows carry role="row"
+        const row   = body.querySelector('.neo-grid-row[data-record-id]');
         const cells = [...row.children]
             .map(c => ({c, r: c.getBoundingClientRect()}))
             .filter(({c, r}) => inClip(r) && getComputedStyle(c).display !== 'none')

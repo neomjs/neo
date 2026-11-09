@@ -1,7 +1,8 @@
-import {test, expect} from '@playwright/test';
-import fs             from 'node:fs';
-import os             from 'node:os';
-import path           from 'node:path';
+import {test, expect}  from '@playwright/test';
+import fs              from 'node:fs';
+import os              from 'node:os';
+import path            from 'node:path';
+import {fileURLToPath} from 'node:url';
 
 /**
  * A built app page must find its static siblings — a web app manifest above all — inside the dist
@@ -22,7 +23,8 @@ test.describe('dist app assets', () => {
         ({DIST_APP_ASSET_EXTENSIONS, copyDistAppAssets, isDistAppAsset} =
             await import('../../../../buildScripts/util/distAppAssets.mjs'));
 
-        repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../../..')
+        // fileURLToPath, not URL#pathname: on Windows the pathname keeps its leading slash (`/G:/…`)
+        repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
     });
 
     test('a web app manifest is a dist asset', () => {

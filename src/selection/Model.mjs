@@ -150,7 +150,8 @@ class Model extends Base {
                 view.onDeselect?.();
 
                 me.fire('selectionChange', {
-                    selection: itemCollection
+                    deselected: [item],
+                    selection : itemCollection
                 })
             }
         } else if (!silent) {
@@ -450,7 +451,7 @@ class Model extends Base {
         let me     = this,
             {view} = me;
 
-        if (!view.isDestroying) {
+        if (view && !view.isDestroying) {
             let cls = view.wrapperCls || [];
 
             if (me.cls && cls.includes(me.cls)) {
@@ -462,6 +463,8 @@ class Model extends Base {
 
             me.removeDomListeners()
         }
+
+        me.view = null
     }
 }
 

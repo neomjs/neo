@@ -127,14 +127,20 @@
         will-change   : opacity, transform;
     }
 
+    // A label wider than its column ends in an ellipsis inside its own header, like a fixed-height tree cell.
     .neo-button-text {
         color         : var(--grid-header-button-color);
+        flex          : 0 1 auto;
         font-family   : inherit;
         font-size     : var(--grid-header-button-font-size);
         font-weight   : var(--grid-header-button-font-weight);
         line-height   : inherit;
+        min-width     : 0;
+        overflow      : hidden;
         pointer-events: none;
+        text-overflow : ellipsis;
         text-transform: none;
+        white-space   : nowrap;
 
         @media (max-width: 600px) {
             // button/Base changes its text size for narrow windows; the header keeps its own at every

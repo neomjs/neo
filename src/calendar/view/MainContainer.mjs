@@ -212,14 +212,17 @@ class MainContainer extends Container {
     }
 
     /**
-     * Triggered after the baseFontSize config got changed
+     * @summary Updates the root `fontSize` style and refreshes the mounted MonthComponent header height.
+     *
+     * Triggered after the baseFontSize config got changed.
      * @param {String} value
      * @param {String} oldValue
      * @protected
      */
     afterSetBaseFontSize(value, oldValue) {
         if (oldValue !== undefined) {
-            let style = this.style || {};
+            let me    = this,
+                style = me.style || {};
 
             if (!value) {
                 delete style.fontSize
@@ -227,7 +230,11 @@ class MainContainer extends Container {
                 style.fontSize = `${value}px`
             }
 
-            this.style = style
+            me.style = style;
+
+            if (me.monthComponent?.mounted) {
+                me.monthComponent.updateHeaderHeight()
+            }
         }
     }
 

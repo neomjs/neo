@@ -1,5 +1,13 @@
-import {test, expect} from '@playwright/test';
-import path           from 'node:path';
+import {test, expect}            from '@playwright/test';
+import fs                        from 'node:fs';
+import os                        from 'node:os';
+import path                      from 'node:path';
+import {createRequire}           from 'node:module';
+import mainAddonContextPlugin    from '../../../../buildScripts/webpack/mainAddonContextPlugin.mjs';
+import workerContextRebasePlugin from '../../../../buildScripts/webpack/workerContextRebasePlugin.mjs';
+
+const require           = createRequire(import.meta.url),
+      {ResolverFactory} = require('enhanced-resolve');
 
 /**
  * The consumer runtime-build guard fails when installed Data/Main contexts resolve framework
@@ -14,7 +22,16 @@ import path           from 'node:path';
  * the failure DIRECTIONS, and the workflow asserts the behaviour.
  */
 test.describe('check-consumer-runtime-build — rule logic', () => {
-    let APP_EXPECTATIONS, CANVAS_EXPECTATIONS, collectConsumerBuildFailures, collectMainContextFailures, findMissingBrowserArtifacts;
+    let APP_EXPECTATIONS,
+        CANVAS_EXPECTATIONS,
+        EXPECTED_APP_WORKER_REMOTE,
+        TEST_HARNESS_ABSENCE_EXPECTATIONS,
+        collectAppWorkerDispatchSurfaceFailures,
+        collectConsumerBuildFailures,
+        collectMainContextFailures,
+        findMissingBrowserArtifacts,
+        probeAppWorkerDispatchSurface,
+        resolveFixtureDevDependencies;
 
     const runtimeFiles = [
         'dist/marked.mjs', 'dist/mermaid.mjs', 'dist/parse5.mjs',
@@ -23,6 +40,9 @@ test.describe('check-consumer-runtime-build — rule logic', () => {
         'dist/monaco/editor.mjs', 'dist/monaco/editor.worker.mjs', 'dist/monaco/html.worker.mjs',
         'dist/monaco/json.worker.mjs', 'dist/monaco/ts.worker.mjs'
     ];
+
+    const workspaceFiles = ['dist/highlight/highlight.custom.js', 'dist/highlight/highlight.custom.min.js'],
+          installedFiles = runtimeFiles.filter(file => !workspaceFiles.includes(file));
 
     const APP_VIEW         = './node_modules/neo.mjs/apps/portal/view/news/tickets/Component.mjs',
           APP_MARKED       = './node_modules/neo.mjs/dist/marked.mjs',
@@ -39,16 +59,86 @@ test.describe('check-consumer-runtime-build — rule logic', () => {
           workspaceContext = {context: path.join(workspace, 'src/main/addon'), regExpSource: '^\\.\\/.*\\.mjs$'};
 
     test.beforeAll(async () => {
-        ({APP_EXPECTATIONS, CANVAS_EXPECTATIONS, collectConsumerBuildFailures, collectMainContextFailures, findMissingBrowserArtifacts} = await import('../../../../buildScripts/util/check-consumer-runtime-build.mjs'))
+        ({
+            APP_EXPECTATIONS,
+            CANVAS_EXPECTATIONS,
+            EXPECTED_APP_WORKER_REMOTE,
+            TEST_HARNESS_ABSENCE_EXPECTATIONS,
+            collectAppWorkerDispatchSurfaceFailures,
+            collectConsumerBuildFailures,
+            collectMainContextFailures,
+            findMissingBrowserArtifacts,
+            probeAppWorkerDispatchSurface,
+            resolveFixtureDevDependencies
+        } = await import('../../../../buildScripts/util/check-consumer-runtime-build.mjs'))
     });
 
-    test('a complete installed dependency build satisfies every runtime address', () => {
-        expect(findMissingBrowserArtifacts([...runtimeFiles, 'dist/unrelated.mjs'])).toEqual([])
+    test('fixture toolchain uses only root-lock direct versions without changing its inputs', () => {
+        const declared = {'@playwright/test': '^1.63.0', webpack: '^5.0.0'},
+              lock     = {packages: {
+                  ''                                                : {devDependencies: {...declared}},
+                  'node_modules/@playwright/test'                   : {version: '1.64.1'},
+                  'node_modules/webpack'                            : {version: '5.111.0'},
+                  'node_modules/other/node_modules/@playwright/test': {version: '1.65.0'},
+                  'node_modules/unrelated-runtime'                  : {version: '2.0.0'}
+              }},
+              original = JSON.stringify({declared, lock});
+
+        expect(resolveFixtureDevDependencies(declared, lock)).toEqual({'@playwright/test': '1.64.1', webpack: '5.111.0'});
+        expect(JSON.stringify({declared, lock})).toBe(original);
+    });
+
+    test('fixture toolchain refuses missing root-lock entries despite installed and nested copies', () => {
+        const declared = {'@playwright/test': '^1.63.0'};
+
+        for (const packages of [undefined, {}, {
+            ''                                                : {devDependencies: declared},
+            'node_modules/other/node_modules/@playwright/test': {version: '1.64.1'}
+        }]) {
+            expect(() => resolveFixtureDevDependencies(declared, {packages})).toThrow('node_modules/@playwright/test');
+        }
+    });
+
+    test('fixture toolchain refuses unusable locked versions', () => {
+        const declared = {'@playwright/test': '^1.63.0'};
+
+        for (const version of [undefined, null, '', 1641, '^1.64.1', 'latest']) {
+            expect(() => resolveFixtureDevDependencies(declared, {packages: {
+                ''                             : {devDependencies: declared},
+                'node_modules/@playwright/test': {version}
+            }})).toThrow('node_modules/@playwright/test');
+        }
+    });
+
+    test('fixture toolchain refuses stale root declarations', () => {
+        expect(() => resolveFixtureDevDependencies({'@playwright/test': '^1.63.0'}, {packages: {
+            ''                             : {devDependencies: {'@playwright/test': '^1.62.0'}},
+            'node_modules/@playwright/test': {version: '1.64.1'}
+        }})).toThrow('@playwright/test');
+    });
+
+    test('fixture toolchain preserves an aliased package identity at its locked version', () => {
+        const declared = {compiler: 'npm:webpack@^5.0.0'};
+
+        expect(resolveFixtureDevDependencies(declared, {packages: {
+            ''                     : {devDependencies: declared},
+            'node_modules/compiler': {name: 'webpack', version: '5.111.0'}
+        }})).toEqual({compiler: 'npm:webpack@5.111.0'});
+    });
+
+    test('a consumer build satisfies each package-owned and workspace-owned runtime address', () => {
+        expect(findMissingBrowserArtifacts([...installedFiles, 'dist/unrelated.mjs'], workspaceFiles)).toEqual([])
+    });
+
+    test('highlighter files generated only inside the package cannot satisfy workspace URLs', () => {
+        expect(findMissingBrowserArtifacts(runtimeFiles)).toEqual(workspaceFiles);
+        expect(findMissingBrowserArtifacts([], runtimeFiles)).toEqual(installedFiles)
     });
 
     test('each missing runtime artifact fails independently, including CSS, font and worker files', () => {
         for (const missing of runtimeFiles) {
-            expect(findMissingBrowserArtifacts(runtimeFiles.filter(file => file !== missing)), missing)
+            expect(findMissingBrowserArtifacts(
+                installedFiles.filter(file => file !== missing), workspaceFiles.filter(file => file !== missing)), missing)
                 .toEqual([missing])
         }
     });
@@ -182,5 +272,144 @@ test.describe('check-consumer-runtime-build — rule logic', () => {
 
         expect(failures).toHaveLength(1);
         expect(failures[0]).toContain('src/canvas/GraphScene.mjs is absent, expected present')
+    });
+
+    test('workerContextRebasePlugin and mainAddonContextPlugin emit POSIX relative specifiers that enhanced-resolve parses with module: false (#6619)', () => {
+        const resolver   = ResolverFactory.createResolver({fileSystem: fs}),
+              fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-6619-')),
+              workerDir  = path.join(fixtureDir, 'node_modules', 'neo.mjs', 'src', 'worker'),
+              srcDir     = path.join(fixtureDir, 'node_modules', 'neo.mjs', 'src');
+
+        try {
+            fs.mkdirSync(workerDir, {recursive: true});
+            fs.mkdirSync(path.join(fixtureDir, 'apps'), {recursive: true});
+
+            // Negative control: path.win32.join produces backslashes that enhanced-resolve misclassifies as a module lookup.
+            expect(resolver.parse(path.win32.join('../../', '../..')).module).toBe(true);
+            expect(resolver.parse(path.win32.join('../../', '../../apps')).module).toBe(true);
+            expect(resolver.parse(path.win32.join('..', 'src', 'main', 'addon')).module).toBe(true);
+
+            const rebaseCallback = workerContextRebasePlugin(false).newContentCallback,
+                  appContext     = {context: workerDir, request: '..\\..'},
+                  dataContext    = {context: workerDir, request: '..\\..\\apps'};
+
+            rebaseCallback(appContext);
+            rebaseCallback(dataContext);
+
+            expect(appContext.request).toBe('../../../..');
+            expect(dataContext.request).toBe('../../../../apps');
+            expect(resolver.parse(appContext.request).module).toBe(false);
+            expect(resolver.parse(dataContext.request).module).toBe(false);
+
+            const mainCallback = mainAddonContextPlugin(false).newContentCallback,
+                  mainContext  = {context: srcDir, request: '..\\..\\..\\src\\main\\addon'};
+
+            mainCallback(mainContext);
+
+            expect(mainContext.request).toBe('../src/main/addon');
+            expect(String(mainContext.regExp)).toBe('/(?!)/');
+            expect(resolver.parse(mainContext.request).module).toBe(false)
+        } finally {
+            fs.rmSync(fixtureDir, {recursive: true, force: true})
+        }
+    });
+
+    test('negative control: a test-harness adapter or fixture module leaking into any compiled worker or Main bundle fails', () => {
+        const adapterLeak = './node_modules/neo.mjs/test/playwright/dedicatedWorkerNeuralLink.mjs',
+              fixtureLeak = './node_modules/neo.mjs/test/playwright/fixtures.mjs',
+              addonLeak   = './node_modules/neo.mjs/src/main/addon/NeuralLinkBridge.mjs';
+
+        const dataFailures = collectConsumerBuildFailures({
+            mode       : 'production/data',
+            moduleNames: [CONSUMER, adapterLeak],
+            errors     : []
+        });
+        expect(dataFailures).toHaveLength(2);
+        expect(dataFailures[0]).toContain('test/playwright/dedicatedWorkerNeuralLink.mjs is present, expected absent');
+        expect(dataFailures[1]).toContain('test/playwright/* is present, expected absent');
+
+        const appFailures = collectConsumerBuildFailures({
+            mode       : 'development/app',
+            moduleNames: [APP_VIEW, APP_MARKED, fixtureLeak],
+            errors     : []
+        }, APP_EXPECTATIONS);
+        expect(appFailures).toHaveLength(2);
+        expect(appFailures[0]).toContain('test/playwright/fixtures.mjs is present, expected absent');
+        expect(appFailures[1]).toContain('test/playwright/* is present, expected absent');
+
+        const canvasFailures = collectConsumerBuildFailures({
+            mode       : 'production/canvas',
+            moduleNames: [ENGINE_RENDERER, GRAPH_SCENE, PROBE_RENDERER, `${adapterLeak} + 1 modules`],
+            errors     : []
+        }, CANVAS_EXPECTATIONS);
+        expect(canvasFailures).toHaveLength(2);
+        expect(canvasFailures[0]).toContain('test/playwright/dedicatedWorkerNeuralLink.mjs is present, expected absent');
+
+        const mainFailures = collectConsumerBuildFailures({
+            mode       : 'production/main-absent',
+            moduleNames: [addonLeak],
+            errors     : []
+        }, TEST_HARNESS_ABSENCE_EXPECTATIONS);
+        expect(mainFailures).toHaveLength(1);
+        expect(mainFailures[0]).toContain('src/main/addon/*NeuralLink*.mjs is present, expected absent')
+    });
+
+    test('flag-off App worker dispatch surface matches the pre-change remote methods and loads no AI client', () => {
+        const liveSurface = probeAppWorkerDispatchSurface();
+
+        expect(liveSurface).toEqual({
+            defaultAllowAiClientInTests: false,
+            defaultUseAiClient         : false,
+            remote                     : {main: [...EXPECTED_APP_WORKER_REMOTE.main]},
+            flagOffDevelopmentBoot     : null,
+            flagOffProductionBoot      : null
+        });
+        expect(collectAppWorkerDispatchSurfaceFailures(liveSurface)).toEqual([])
+    });
+
+    test('negative control: any extra App worker remote route or flag-off AI boot fails the dispatch surface guard', () => {
+        const baseSurface = {
+            defaultAllowAiClientInTests: false,
+            defaultUseAiClient         : false,
+            remote                     : {main: [...EXPECTED_APP_WORKER_REMOTE.main]},
+            flagOffDevelopmentBoot     : null,
+            flagOffProductionBoot      : null
+        };
+
+        const extraMethodFailures = collectAppWorkerDispatchSurfaceFailures({
+            ...baseSurface,
+            remote: {main: [...EXPECTED_APP_WORKER_REMOTE.main, 'handleTestRequest']}
+        });
+        expect(extraMethodFailures).toEqual([
+            '[app-worker-dispatch] App.config.remote.main exposes unexpected method(s): handleTestRequest'
+        ]);
+
+        const extraTargetFailures = collectAppWorkerDispatchSurfaceFailures({
+            ...baseSurface,
+            remote: {...baseSurface.remote, test: ['handleTestRequest']}
+        });
+        expect(extraTargetFailures).toEqual([
+            "[app-worker-dispatch] unexpected App.config.remote target 'test'"
+        ]);
+
+        const missingMethodFailures = collectAppWorkerDispatchSurfaceFailures({
+            ...baseSurface,
+            remote: {main: EXPECTED_APP_WORKER_REMOTE.main.filter(name => name !== 'setGlobalConfig')}
+        });
+        expect(missingMethodFailures).toEqual([
+            '[app-worker-dispatch] App.config.remote.main is missing expected method(s): setGlobalConfig'
+        ]);
+
+        const flagLeakFailures = collectAppWorkerDispatchSurfaceFailures({
+            ...baseSurface,
+            defaultAllowAiClientInTests: true,
+            flagOffDevelopmentBoot     : 'registry',
+            flagOffProductionBoot      : 'transport'
+        });
+        expect(flagLeakFailures).toEqual([
+            '[app-worker-dispatch] DefaultConfig.allowAiClientInTests is true, expected false',
+            '[app-worker-dispatch] flag-off development resolveAiClientBoot returned "registry", expected null',
+            '[app-worker-dispatch] flag-off dist/production resolveAiClientBoot returned "transport", expected null'
+        ])
     })
 });

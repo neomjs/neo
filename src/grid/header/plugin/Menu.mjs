@@ -508,10 +508,9 @@ class Menu extends Plugin {
         this.surface?.destroy(true);
         this.optionsStore?.destroy();
         if (this.trigger) {
-            const id = this.trigger.id;
-            this.owner.vdom.cn = this.owner.vdom.cn.filter(node => node.componentId !== id && node.id !== id);
-            this.trigger.destroy();
-            if (!this.owner.isDestroying && !this.owner.isDestroyed) {
+            const updateOwner = !this.owner.isDestroying && !this.owner.isDestroyed;
+            this.trigger.destroy(updateOwner, true);
+            if (updateOwner) {
                 this.owner.updateDepth = -1;
                 this.owner.update()
             }

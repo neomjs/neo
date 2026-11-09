@@ -4,8 +4,8 @@ import webpack from 'webpack';
 
 const
     MATCHES_NOTHING   = /(?!)/,
-    PACKAGE_REQUEST   = path.join('..', 'src', 'main', 'addon'),
-    WORKSPACE_REQUEST = path.join('..', '..', '..', 'src', 'main', 'addon');
+    PACKAGE_REQUEST   = '../src/main/addon',
+    WORKSPACE_REQUEST = '../../../src/main/addon';
 
 /**
  * @summary Resolves the optional workspace-owned Main-addon context without leaking package addons.
@@ -33,14 +33,14 @@ const
 export default function mainAddonContextPlugin(insideNeo) {
     return new webpack.ContextReplacementPlugin(/.*/, context => {
         if (context.resource !== undefined || !context.context) return;
-        if (path.join(context.request) !== WORKSPACE_REQUEST) return;
+        if (path.posix.normalize(context.request.replaceAll('\\', '/')) !== WORKSPACE_REQUEST) return;
 
         if (insideNeo) {
             context.request = PACKAGE_REQUEST;
             return
         }
 
-        if (!fs.existsSync(path.resolve(context.context, context.request))) {
+        if (!fs.existsSync(path.resolve(context.context, WORKSPACE_REQUEST))) {
             context.request = PACKAGE_REQUEST;
             context.regExp  = MATCHES_NOTHING
         }

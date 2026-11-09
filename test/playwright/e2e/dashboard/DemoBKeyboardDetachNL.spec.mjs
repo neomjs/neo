@@ -28,7 +28,7 @@ test.describe('Dashboard Demo B — keyboard detach + cycle grammar (Neural Link
         viewport      : {height: 720, width: 900}
     });
 
-    test('Ctrl+Shift+D detaches the focused tab to a real popup; the announcement matches platform focus truth', async ({page}) => {
+    test('Ctrl+Shift+D detaches the focused tab to a real popup; the announcement matches platform focus truth', async ({page, neuralLink}) => {
         const pageErrors = [];
         page.on('pageerror', error => pageErrors.push(error.message));
 
@@ -36,6 +36,20 @@ test.describe('Dashboard Demo B — keyboard detach + cycle grammar (Neural Link
 
         const headers = page.locator('.neo-tab-header-toolbar .neo-tab-header-button');
         await expect(headers.first()).toBeVisible({timeout: 60000});
+
+        const pane = page.locator('.agentos-dockdemo-counter-pane');
+        await expect(pane).toHaveCSS('display', 'flex');
+        await expect(pane.locator('.agentos-dockdemo-counter-value')).toHaveCSS('font-size', '34px');
+
+        const app        = await neuralLink.connectToApp('Neo.examples.dashboard.crossWindow'),
+              paneId     = await pane.getAttribute('id'),
+              before     = await app.getComponent(paneId, ['windowId', 'frames']),
+              appearance = await pane.evaluate(node => ({
+                  background: getComputedStyle(node).backgroundColor,
+                  color     : getComputedStyle(node.querySelector('.agentos-dockdemo-counter-value')).color
+              }));
+
+        expect(appearance.background).not.toBe('rgba(0, 0, 0, 0)');
 
         // keyboard-alone discipline for the COMMAND: focus lands programmatically (no pointer
         // gesture participates), the chord does the work
@@ -63,6 +77,22 @@ test.describe('Dashboard Demo B — keyboard detach + cycle grammar (Neural Link
         await expect(live).toHaveAttribute('role', 'status');
         await expect(live).toHaveAttribute('aria-live', 'polite');
         await expect(live).toContainText('detached to its own window', {timeout: 15000});
+
+        // A successful transfer can still lose its skin in the new document. Observe the
+        // actual card and palette, rather than a theme class that was present during the bug.
+        const popupPane = popup.locator('.agentos-dockdemo-counter-pane'),
+              counter   = popupPane.locator('.agentos-dockdemo-counter-value');
+
+        await expect(popupPane).toHaveAttribute('id', paneId);
+        await expect(popupPane).toHaveCSS('display', 'flex');
+        await expect(popupPane).toHaveCSS('background-color', appearance.background);
+        await expect(counter).toHaveCSS('font-size', '34px');
+        await expect(counter).toHaveCSS('color', appearance.color);
+        await expect(popup.locator('.agentos-dockdemo-popout-host')).toHaveCSS('padding', '10px');
+
+        const after = await app.getComponent(paneId, ['windowId', 'frames']);
+        expect(after.windowId).not.toBe(before.windowId);
+        expect(after.frames).toBeGreaterThanOrEqual(before.frames);
 
         // announced truth === platform truth, in whichever direction the platform ruled:
         // a granted hop must say so, a declined one must say so — never a mismatch

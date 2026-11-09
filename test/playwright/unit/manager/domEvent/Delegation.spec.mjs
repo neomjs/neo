@@ -189,4 +189,108 @@ test.describe('Neo.manager.DomEvent Delegation Verification', () => {
 
         parent.destroy();
     });
+
+    test('should verify delegation via node attributes ([data-*], [aria-*], [role], [tabindex], and compound selectors) (#5005)', () => {
+        const path = [
+            {
+                id       : 'img-child',
+                tagName  : 'IMG',
+                cls      : [],
+                style    : '',
+                draggable: true,
+                role     : null,
+                tabIndex : null,
+                data     : {},
+                aria     : {}
+            },
+            {
+                id      : 'action-btn',
+                cls     : ['neo-button'],
+                data    : {ref: 'foo', actionType: 'save-draft'},
+                aria    : {label: 'Save draft', expanded: 'false'},
+                role    : 'button',
+                tabIndex: '0'
+            },
+            {
+                id  : 'toolbar-1',
+                cls : ['neo-toolbar'],
+                data: {section: 'header'},
+                role: null
+            },
+            {
+                id  : 'container-root',
+                cls : ['neo-container'],
+                role: null
+            }
+        ];
+
+        const componentPath = ['img-child', 'action-btn', 'toolbar-1', 'container-root'];
+
+        // 1. Unquoted [data-ref=foo]
+        expect(DomEvent.verifyDelegationPath({
+            delegate: '[data-ref=foo]',
+            vnodeId : 'container-root'
+        }, path, componentPath)).toBe('action-btn');
+
+        // 2. Hyphenated data-* attribute mapped to camelCase in dataset ([data-action-type="save-draft"])
+        expect(DomEvent.verifyDelegationPath({
+            delegate: '[data-action-type="save-draft"]',
+            vnodeId : 'container-root'
+        }, path, componentPath)).toBe('action-btn');
+
+        // 3. Quoted aria-* attribute containing whitespace ([aria-label="Save draft"])
+        expect(DomEvent.verifyDelegationPath({
+            delegate: '.neo-toolbar [aria-label="Save draft"]',
+            vnodeId : 'container-root'
+        }, path, componentPath)).toBe('toolbar-1');
+
+        // 4. Top-level serialized node attributes ([role=button], [tabindex="0"], [tabindex]) and presence-only ([data-ref])
+        expect(DomEvent.verifyDelegationPath({
+            delegate: '[role=button]',
+            vnodeId : 'container-root'
+        }, path, componentPath)).toBe('action-btn');
+
+        expect(DomEvent.verifyDelegationPath({
+            delegate: '[tabindex="0"]',
+            vnodeId : 'container-root'
+        }, path, componentPath)).toBe('action-btn');
+
+        expect(DomEvent.verifyDelegationPath({
+            delegate: '[tabindex]',
+            vnodeId : 'container-root'
+        }, path, componentPath)).toBe('action-btn');
+
+        expect(DomEvent.verifyDelegationPath({
+            delegate: '[data-ref]',
+            vnodeId : 'container-root'
+        }, path, componentPath)).toBe('action-btn');
+
+        // 5. Non-matching attribute value returns false
+        expect(DomEvent.verifyDelegationPath({
+            delegate: '[data-ref=bar]',
+            vnodeId : 'container-root'
+        }, path, componentPath)).toBe(false);
+
+        // 6. Property-backed names ([style], [draggable]) do not match nodes without those attributes
+        expect(DomEvent.verifyDelegationPath({
+            delegate: '[style]',
+            vnodeId : 'container-root'
+        }, path, componentPath)).toBe(false);
+
+        expect(DomEvent.verifyDelegationPath({
+            delegate: '[draggable]',
+            vnodeId : 'container-root'
+        }, path, componentPath)).toBe(false);
+
+        expect(DomEvent.verifyDelegationPath({
+            delegate: '[draggable=true]',
+            vnodeId : 'container-root'
+        }, path, componentPath)).toBe(false);
+
+        // 7. [role] does not match a node whose serialized role is null
+        expect(DomEvent.verifyDelegationPath({
+            delegate: '[role]',
+            vnodeId : 'container-root'
+        }, [path[0], path[2], path[3]], ['img-child', 'toolbar-1', 'container-root'])).toBe(false);
+    });
 });

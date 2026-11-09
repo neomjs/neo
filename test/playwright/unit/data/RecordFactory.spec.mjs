@@ -104,4 +104,65 @@ test.describe('Neo.data.RecordFactory', () => {
         // no actual value change occurs, so version should be stable.
         expect(record.version).toBe(1);
     });
+
+    test('Supports intermediate and leaf array bracket paths in field mappings (#4546)', () => {
+        const mappedModel = Neo.create(Model, {
+            fields: [
+                {name: 'id',          type: 'String'},
+                {name: 'firstItem',   type: 'String',  mapping: 'items[0].name'},
+                {name: 'secondTag',   type: 'String',  mapping: 'tags[1]'},
+                {name: 'primaryRole', type: 'String',  mapping: 'user.roles[0]'},
+                {name: 'cellScore',   type: 'Integer', mapping: 'matrix[0][1].score'},
+                {name: 'zeroScore',   type: 'Integer', mapping: 'scores[0]',         defaultValue: 99},
+                {name: 'falseFlag',   type: 'Boolean', mapping: 'flags[1]',          defaultValue: true},
+                {name: 'missingLeaf', type: 'String',  mapping: 'tags[5]',           defaultValue: 'fallback-tag'},
+                {name: 'missingCell', type: 'Integer', mapping: 'emptyMatrix[0][1]', defaultValue: 42}
+            ]
+        });
+
+        const rawData = {
+            id         : 'rec-1',
+            items      : [{name: 'Alpha'}, {name: 'Beta'}],
+            tags       : ['neo', 'worker'],
+            user       : {roles: ['maintainer', 'reviewer']},
+            matrix     : [[{score: 10}, {score: 95}]],
+            scores     : [0],
+            flags      : [true, false],
+            emptyMatrix: []
+        };
+
+        const record = RecordFactory.createRecord(mappedModel, rawData);
+
+        expect(record.firstItem).toBe('Alpha');
+        expect(record.secondTag).toBe('worker');
+        expect(record.primaryRole).toBe('maintainer');
+        expect(record.cellScore).toBe(95);
+        expect(record.zeroScore).toBe(0);
+        expect(record.falseFlag).toBe(false);
+        expect(record.missingLeaf).toBe('fallback-tag');
+        expect(record.missingCell).toBe(42);
+
+        const parsedIntermediate = RecordFactory.parseRecordValue({
+            record,
+            field       : mappedModel.getField('firstItem'),
+            recordConfig: {items: [{name: 'Override'}]}
+        });
+        expect(parsedIntermediate).toBe('Override');
+
+        const parsedLeaf = RecordFactory.parseRecordValue({
+            record,
+            field       : mappedModel.getField('secondTag'),
+            recordConfig: {tags: ['first', 'second']}
+        });
+        expect(parsedLeaf).toBe('second');
+
+        mappedModel.destroy();
+    });
+
+    test('Neo.nsWithArrays preserves falsy leaves and returns undefined on out-of-bounds intermediates', () => {
+        expect(Neo.nsWithArrays('scores[0]', false, {scores: [0, 5]})).toBe(0);
+        expect(Neo.nsWithArrays('flags[1]',  false, {flags: [true, false]})).toBe(false);
+        expect(Neo.nsWithArrays('grid[0][1]', false, {grid: [['a', '']]})).toBe('');
+        expect(Neo.nsWithArrays('grid[3][1]', false, {grid: [['a', '']]})).toBeUndefined();
+    });
 });

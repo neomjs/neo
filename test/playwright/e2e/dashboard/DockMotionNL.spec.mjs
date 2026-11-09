@@ -201,16 +201,24 @@ test.describe('Dock motion pipeline (Neural Link) — the signal brackets real m
 
         expect(witnessItemId, 'a real logical item must exist beneath root-split').toBeTruthy();
         await expectMarkerLaidOut(page, itemMarker);
+
+        // Motion still settling (boot, an earlier spec on the shared heap, an overflow projection)
+        // would open and close the bracket before this glide begins, and the read would land
+        // before the motion it witnesses
+        await expect.poll(
+            () => page.locator(SIGNAL).count(),
+            {message: 'in-flight dock motion must settle before the glide witness', timeout: 3500, intervals: [50]}
+        ).toBe(0);
         await startMotionSampler(page, itemMarker);
 
         // the bracket is armed CONCURRENTLY with the operation: the appear-poll races the op's
         // delivery into the browser, so the witness cannot miss a motion window that opens
-        // before the RPC settles
+        // before the RPC settles. It brackets the glide's own producer, the workspace FLIP.
         const [result] = await Promise.all([
             app.executeDockOperation(holderId, {
                 operation: 'resizeSplit', splitNodeId: 'root-split', sizes: target
             }),
-            expectSignalBracket(page)
+            expectSignalBracket(page, {selector: `.neo-dock-workspace${SIGNAL}`})
         ]);
 
         expect(result.errors).toEqual([]);
@@ -218,8 +226,8 @@ test.describe('Dock motion pipeline (Neural Link) — the signal brackets real m
 
         // real movement: the pane traveled THROUGH intermediate widths (a hard cut shows at
         // most the before/after pair; a glide shows a progression) — on valid reads only
-        const { samples } = await readMotionSamples(page);
-        expect(samples.length, 'the glide witness must have observed real frames').toBeGreaterThan(5);
+        const { gaps, samples } = await readMotionSamples(page);
+        expect(samples.length, `the glide witness must have observed real frames (${gaps} frames without it)`).toBeGreaterThan(5);
         expect(samples.every(s => s.w > 0), 'a zero-width sample means the witness watched a dead node').toBe(true);
 
         const widths = [...new Set(samples.map(s => s.w))];
@@ -255,11 +263,12 @@ test.describe('Dock motion pipeline (Neural Link) — the signal brackets real m
 
         await startMotionSampler(page, itemMarker);
 
+        // the move also re-projects two tab strips, whose header toolbars raise the signal first
         const [result] = await Promise.all([
             app.executeDockOperation(holderId, {
                 operation: 'moveItem', itemId: move.itemId, targetNodeId: move.targetNodeId, index: 0
             }),
-            expectSignalBracket(page)
+            expectSignalBracket(page, {selector: `.neo-dock-workspace${SIGNAL}`})
         ]);
 
         expect(result.errors).toEqual([]);

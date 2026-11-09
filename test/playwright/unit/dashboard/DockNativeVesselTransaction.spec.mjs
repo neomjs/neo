@@ -11,6 +11,10 @@ setup({
 import {test, expect}          from '@playwright/test';
 import Neo                     from "../../../../src/Neo.mjs";
 import * as core               from "../../../../src/core/_export.mjs";
+import '../../../../src/manager/Instance.mjs';
+import Collection              from '../../../../src/collection/Base.mjs';
+import Component               from '../../../../src/component/Base.mjs';
+import Container               from '../../../../src/container/Base.mjs';
 import NativeVesselTransaction from '../../../../src/dashboard/dock/window/NativeVesselTransaction.mjs';
 import Operations              from '../../../../src/dashboard/dock/model/Operations.mjs';
 import WorkspaceDocument       from '../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
@@ -244,6 +248,72 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction', () => {
  * identity before resolution, route authority before the pane moves, the pane home before its window
  * goes, and the platform's own answer returned — the by-name `false` the copies used to swallow above all.
  */
+test.describe('Neo.dashboard.dock.window.NativeVesselTransaction#watchVesselHandle', () => {
+    test('a route that arrives only with its window\'s connect is recorded once, per watch', () => {
+        const previous = Neo.currentWorker,
+              // A real Observable: it drops a listener whose scope has no id, and removes by scope
+              worker   = Neo.create(Collection, {}),
+              handles  = {},
+              route    = key => ({nativeHandleKey: key, ownerWindowId: 'opener', targetWindowId: 'vessel'}),
+              connect  = (windowId, key) => worker.fire('connect', {windowId, windowData: {nativeRoute: route(key)}});
+
+        Neo.currentWorker = worker;
+
+        try {
+            ['a', 'b', 'c'].forEach(id => NativeVesselTransaction.watchVesselHandle(handles, {windowId: `vessel-${id}`, workspaceKey: `popup:${id}`}));
+
+            connect('vessel-other', 'other');
+            expect(handles).toEqual({});
+
+            connect('vessel-a', 'handle-a');
+            connect('vessel-b', 'handle-b');
+            worker.fire('disconnect', {windowId: 'vessel-c'});
+            connect('vessel-c', 'handle-c');
+            connect('vessel-a', 'stale');
+
+            expect(handles, 'each watch ends with its own window, and leaves the others').toEqual({
+                'popup:a': {nativeHandleKey: 'handle-a', ownerWindowId: 'opener'},
+                'popup:b': {nativeHandleKey: 'handle-b', ownerWindowId: 'opener'}
+            })
+        } finally {
+            Neo.currentWorker = previous;
+            worker.destroy()
+        }
+    })
+});
+
+test.describe('Neo.dashboard.dock.window.NativeVesselTransaction#holdReleasedVessel', () => {
+    test('the held pane leaves the departed tree however deep the host nested it, and a pane elsewhere stays', () => {
+        Neo.Main ??= {};
+
+        const previous = Neo.Main.windowNativeIsClosed,
+              pane     = Neo.create(Component, {windowId: 'vessel'}),
+              wrapper  = Neo.create(Container, {items: [pane], windowId: 'vessel'}),
+              other    = Neo.create(Component, {windowId: 'elsewhere'}),
+              handles  = {'vessel:notes': {nativeHandleKey: 'handle-notes', ownerWindowId: 'opener'}},
+              hold     = held => NativeVesselTransaction.holdReleasedVessel({handles, sourceId: 'source-1',
+                  nativeWindows: {getOwner: () => ({itemId: 'notes'})}, tearOut: {heldPane: () => held}},
+                  {windowId: 'vessel', workspaceKey: 'vessel:notes'});
+
+        Neo.Main.windowNativeIsClosed = async () => false;
+        WindowManager.register({id: 'opener'});
+
+        try {
+            // The App worker destroys whatever the departed window's tree still holds
+            expect(hold(pane)).toMatchObject({retained: true, readmit: true});
+            expect(wrapper.items.includes(pane), 'the pane left the wrapper the host put around it').toBe(false);
+            expect(pane.windowId).toBeNull();
+
+            expect(hold(other)).toMatchObject({retained: true, readmit: true});
+            expect(other.windowId, 'a pane rendered in another window is not the departed window\'s').toBe('elsewhere')
+        } finally {
+            Neo.Main.windowNativeIsClosed = previous;
+            WindowManager.unregister('opener');
+            [pane, wrapper, other].forEach(item => item.destroy())
+        }
+    })
+});
+
 test.describe('Neo.dashboard.dock.window.NativeVesselTransaction#closeVessel', () => {
     const CLOSE_ROUTE = {capabilities: {close: true}, nativeHandleKey: 'handle-close', ownerWindowId: 'win-owner', targetWindowId: 'win-vessel'};
 
@@ -483,6 +553,7 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction workspace retur
             TransactionManager.retireGroup(host.groupId);
             host.set.destroy()
         }
+        WindowManager.get('native-return-landing') && WindowManager.unregister('native-return-landing');
         Object.assign(Neo.Main, previousMain);
         TransactionManager.reconnectLeaseMs = previousLease;
         Neo.logError = previousLogError;
@@ -502,8 +573,9 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction workspace retur
      * @param {Object} [options={}] Close policy, native binding, real lease duration and the popup's panes.
      * @returns {Object} The independent host and its controlled platform answers.
      */
-    const createHost = ({policy = 'return', bound = true, leaseMs, sourceItems = ['pane-last', 'pane-first']} = {}) => {
+    const createHost = ({policy = 'return', bound = true, leaseMs, sourceItems = ['pane-last', 'pane-first'], componentId} = {}) => {
         if (leaseMs !== undefined) TransactionManager.reconnectLeaseMs = leaseMs;
+        WindowManager.register({id: 'native-return-landing'});
         const identity = TransactionManager.bind({workspaceKey: LANDING, windowId: 'native-return-landing'}),
               groupId  = identity.groupId;
         TransactionManager.setHistoryDepth({groupId, depth: 8});
@@ -559,7 +631,8 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction workspace retur
         });
         for (const [key, state, bindingKey] of [[SOURCE, host.source, FLOATING], [TARGET, host.target, LANDING]]) {
             state.seams = {
-                bindingKey, getDocument: () => state.document, setDocument: document => state.document = document,
+                bindingKey, componentId: state === host.source ? componentId : undefined,
+                getDocument            : () => state.document, setDocument: document => state.document = document,
                 resolveReturnDescriptor: Operations.appendingReturnDescriptor,
                 nativeWindow           : nativeSeams(state),
                 project                : context => NativeVesselTransaction.replayWorkspaceReturn(set, key, context, () => {
@@ -599,6 +672,21 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction workspace retur
         expect(owner.returned).toHaveLength(1)
     });
 
+    test('#20152 a workspace whose opener departed returns at once without waiting for the lease', async () => {
+        const owner = createHost();
+        owner.answers.observe = () => Promise.reject(new Error('no live port for departed opener'));
+        WindowManager.unregister(owner.target.windowId);
+        const result = await owner.release();
+        expect(result).toMatchObject({retained: true, awaitingClosure: false,
+            receipt: {returned: true, workspaceId: SOURCE, itemIds: ['pane-first', 'pane-last']}});
+        expect(owner.calls.filter(call => call.name === 'observe'), 'no departed opener is asked').toEqual([]);
+        expect(owner.source.document.items).toEqual({});
+        expect(owner.target.document.nodes.tabs.items).toEqual(['anchor', 'pane-first', 'pane-last']);
+        expect(TransactionManager.get(owner.groupId).history.current).toMatchObject({
+            operation: 'returnPopupWorkspace', workspaceId: SOURCE, targetWorkspaceId: TARGET, cause: 'popup-close'
+        })
+    });
+
     test('retain detaches the render target while preserving both documents and history', async () => {
         const owner        = createHost({policy: 'retain'}), sourceBefore = WorkspaceDocument.clone(owner.source.document),
               targetBefore = WorkspaceDocument.clone(owner.target.document);
@@ -608,6 +696,38 @@ test.describe('Neo.dashboard.dock.window.NativeVesselTransaction workspace retur
         expect(owner.target.document).toEqual(targetBefore);
         expect(owner.calls.filter(call => call.name === 'observe')).toEqual([]);
         expect(TransactionManager.get(owner.groupId).history).toBeNull()
+    });
+
+    for (const policy of ['return', 'retain']) {
+        test(`a released participant under '${policy}' detaches before the main thread answers`, async () => {
+            const owner = createHost({policy});
+
+            owner.answers.observe = () => new Promise(() => {});
+            owner.release();
+            await Promise.resolve();
+            await Promise.resolve();
+
+            // The App worker destroys a departed window's tree one task after its disconnect
+            expect(owner.calls.map(({name}) => name)).toContain('detach');
+            expect(owner.source.windowId).toBeNull()
+        });
+    }
+
+    test('a released participant without a close policy leaves the departed tree and keeps its window id', async () => {
+        const root  = Neo.create(Component, {windowId: 'native-return-floating'}),
+              shell = Neo.create(Container, {items: [root], windowId: 'native-return-floating'}),
+              owner = createHost({policy: null, componentId: root.id});
+
+        try {
+            expect(await owner.release()).toBe(true);
+
+            // A warm reload adopts it again; until then it lives outside the tree the App worker destroys
+            expect(shell.items.includes(root)).toBe(false);
+            expect(root.windowId).toBe('native-return-floating');
+            expect(owner.calls.map(({name}) => name), 'nothing detaches it headless or returns it').toEqual([])
+        } finally {
+            [root, shell].forEach(item => item.destroy())
+        }
     });
 
     test('unknown native closure waits for its exact formerly-bound lease expiry', async () => {

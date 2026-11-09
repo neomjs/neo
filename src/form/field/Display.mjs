@@ -26,10 +26,17 @@ class Display extends Text {
          * @protected
          * @reactive
          */
-        clearable: false
+        clearable: false,
+        /**
+         * Uses the inherited reactive readonly path before the input is rendered.
+         * @member {Boolean} readOnly=true
+         * @reactive
+         */
+        readOnly: true
     }
 
     /**
+     * @summary Keeps the display input outside sequential keyboard navigation.
      * @param {Object} config
      */
     construct(config) {
@@ -38,7 +45,6 @@ class Display extends Text {
         let me      = this,
             inputEl = me.getInputEl();
 
-        inputEl.readonly = 'readonly';
         inputEl.tabindex = '-1';
 
         me.update()

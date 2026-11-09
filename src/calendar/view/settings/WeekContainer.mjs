@@ -35,7 +35,10 @@ class WeekContainer extends Container {
     createContent() {
         let me            = this,
             weekComponent = me.getWeekComponent(),
-            timeAxis      = weekComponent.timeAxis || {};
+            timeAxis      = weekComponent.timeAxis || {},
+            is12h         = me.getStateProvider()
+                ? Boolean(me.getState('timeFormatter')?.resolvedOptions().hour12)
+                : timeAxis.timeFormat === '12h';
 
         me.add([{
             module              : NumberField,
@@ -89,6 +92,35 @@ class WeekContainer extends Container {
             listeners     : {change: me.onTimeAxisPositionChange, scope: me},
             name          : 'timeAxisPosition',
             valueLabel    : 'end'
+        }, {
+            module: RadioField,
+            bind  : {
+                checked: data => data.timeFormatter
+                    ? Boolean(data.timeFormatter.resolvedOptions().hour12)
+                    : timeAxis.timeFormat === '12h'
+            },
+            checked       : is12h,
+            fieldValue    : '12h',
+            hideValueLabel: false,
+            labelText     : 'timeFormat',
+            listeners     : {change: me.onTimeFormatChange, scope: me},
+            name          : 'timeFormat',
+            style         : {marginTop: '10px'},
+            valueLabel    : 'am/pm'
+        }, {
+            module: RadioField,
+            bind  : {
+                checked: data => data.timeFormatter
+                    ? !data.timeFormatter.resolvedOptions().hour12
+                    : timeAxis.timeFormat === '24h'
+            },
+            checked       : !is12h,
+            fieldValue    : '24h',
+            hideValueLabel: false,
+            labelText     : '',
+            listeners     : {change: me.onTimeFormatChange, scope: me},
+            name          : 'timeFormat',
+            valueLabel    : '24h'
         }])
     }
 
@@ -126,6 +158,39 @@ class WeekContainer extends Container {
     onTimeAxisPositionChange(data) {
         if (data.value) {
             this.getWeekComponent().timeAxisPosition = data.component.fieldValue
+        }
+    }
+
+    /**
+     * @summary Updates the shared stateProvider timeFormat hour12 setting (and standalone timeAxis when unbound).
+     * @param {Object} data
+     */
+    onTimeFormatChange(data) {
+        if (data.value) {
+            let me         = this,
+                fieldValue = data.component.fieldValue,
+                hour12     = fieldValue === '12h',
+                provider   = me.getStateProvider?.(),
+                timeAxis   = me.getTimeAxis?.();
+
+            if (provider) {
+                if (provider.getData('timeFormatter')?.resolvedOptions().hour12 !== hour12) {
+                    me.setState('timeFormat', {
+                        ...(me.getState('timeFormat') || {hour: '2-digit', minute: '2-digit'}),
+                        hour12
+                    })
+                }
+            } else {
+                me.setState?.('timeFormat', {
+                    hour  : '2-digit',
+                    hour12,
+                    minute: '2-digit'
+                })
+            }
+
+            if (timeAxis && timeAxis.timeFormat !== fieldValue) {
+                timeAxis.timeFormat = fieldValue
+            }
         }
     }
 }

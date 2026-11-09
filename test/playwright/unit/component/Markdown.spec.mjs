@@ -76,6 +76,24 @@ test.describe('Neo.component.Markdown', () => {
         expect(result, 'the bare id').toContain('<a href="#/news/tickets/10074">#10074</a>')
     });
 
+    test('a code span inside a Markdown link stays part of that link', () => {
+        // Blog posts link code names, `[`openapi.yaml`](url)`, and rendered the link text as a bold
+        // NEO_INLINE_CODE_n placeholder: the link's token held the code span's token
+        const component = Object.create(Markdown.prototype);
+
+        Object.assign(component, {
+            issuesUrl        : '#/news/tickets/',
+            renderFrontmatter: false,
+            replaceTicketIds : true
+        });
+
+        const result = component.modifyMarkdown('See [`openapi.yaml`](https://example.com/openapi.yaml) and #10074.\n');
+
+        expect(result, 'the link is left as written').toContain('[`openapi.yaml`](https://example.com/openapi.yaml)');
+        expect(result, 'no placeholder is left behind').not.toContain('NEO_INLINE_CODE');
+        expect(result, 'the bare id').toContain('<a href="#/news/tickets/10074">#10074</a>')
+    });
+
     test('wrapMarkdownTables wraps each rendered Markdown table', () => {
         const html = '<table><tbody><tr><td>One</td></tr></tbody></table><p>Between</p><table class="wide"><tbody><tr><td>Two</td></tr></tbody></table>';
 

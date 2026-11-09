@@ -1,0 +1,137 @@
+// Reads the date selector's theme variables: Neo.component.DateSelector embeds this component, so it follows that theme
+.neo-monthyearselector {
+    background-color: var(--dateselector-cell-background-color);
+    border          : 1px solid var(--dateselector-border-color);
+    color           : var(--dateselector-cell-color);
+    display         : flex;
+    flex-direction  : column;
+    font-size       : 13px;
+    inset           : 0;
+    position        : absolute;
+    z-index         : 1;
+
+    &.neo-animated {
+        animation: neo-monthyearselector-slide-in 200ms ease-out;
+    }
+
+    .neo-monthyearselector-lists {
+        display   : flex;
+        flex      : 1;
+        min-height: 0;
+    }
+
+    .neo-months,
+    .neo-years {
+        display              : grid;
+        flex                 : 1;
+        gap                  : 2px;
+        grid-template-columns: repeat(2, 1fr);
+        padding              : 4px;
+    }
+
+    .neo-years-region {
+        border-left   : 1px solid var(--dateselector-border-color);
+        display       : flex;
+        flex          : 1;
+        flex-direction: column;
+    }
+
+    .neo-years-nav {
+        display        : flex;
+        justify-content: space-between;
+        padding        : 2px 4px 0;
+    }
+
+    .neo-years-nav-button {
+        cursor : pointer;
+        padding: 0 4px;
+
+        &:before {
+            color      : var(--dateselector-nav-button-color);
+            font-family: var(--fa-style-family-classic);
+            font-size  : 16px;
+            font-weight: 900;
+        }
+
+        &:hover:before {
+            color: var(--dateselector-nav-button-color-hover);
+        }
+
+        &.neo-disabled {
+            cursor        : default;
+            opacity       : .3;
+            pointer-events: none;
+        }
+    }
+
+    .neo-prev-years:before {
+        content: "\f137";
+    }
+
+    .neo-next-years:before {
+        content: "\f138";
+    }
+
+    .neo-month,
+    .neo-year {
+        align-items    : center;
+        border-radius  : 4px;
+        cursor         : pointer;
+        display        : flex;
+        justify-content: center;
+
+        &:hover {
+            color: var(--dateselector-nav-button-color-hover);
+        }
+
+        &:focus {
+            outline: 0;
+        }
+
+        &:focus-visible {
+            outline       : 2px solid var(--dateselector-cell-today-border-color);
+            outline-offset: -2px;
+        }
+
+        &.neo-selected {
+            background-color: var(--dateselector-cell-today-border-color);
+            color           : var(--dateselector-cell-color-selected);
+        }
+
+        &.neo-disabled {
+            color         : var(--dateselector-cell-color-disabled);
+            cursor        : default;
+            pointer-events: none;
+        }
+    }
+
+    .neo-monthyearselector-footer {
+        border-top     : 1px solid var(--dateselector-border-color);
+        display        : flex;
+        gap            : 8px;
+        justify-content: center;
+        padding        : 4px;
+    }
+
+    .neo-monthyearselector-button {
+        border       : 1px solid var(--dateselector-border-color);
+        border-radius: 4px;
+        cursor       : pointer;
+        padding      : 2px 12px;
+
+        &:hover {
+            color: var(--dateselector-nav-button-color-hover);
+        }
+    }
+}
+
+@keyframes neo-monthyearselector-slide-in {
+    from {transform: translateY(-100%)}
+    to   {transform: translateY(0)}
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .neo-monthyearselector.neo-animated {
+        animation: none;
+    }
+}

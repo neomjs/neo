@@ -9,7 +9,12 @@ import createReleaseIndex          from './index/release.mjs';
 import createDiscussionIndex       from './index/discussions.mjs';
 import createPullRequestIndex      from './index/pulls.mjs';
 import createTicketIndex           from './index/tickets.mjs';
-import {getLlmsTxt, getSitemapXml} from './seo/generate.mjs';
+import {
+    getLlmsFullTxt,
+    getLlmsTxt,
+    getSitemapIndexXml,
+    getSitemapXml
+} from './seo/generate.mjs';
 import {
     getEngineReleaseNotesRoot,
     requireContentRoot
@@ -27,8 +32,8 @@ const DEFAULT_BASE_URL = 'https://neomjs.com';
  * `.github/RELEASE_NOTES`, where they are authored. A build that serves them elsewhere passes
  * `--release-notes`.
  *
- * The rebuild cannot leave `apps/portal/resources/data`, `apps/portal/sitemap.xml`, or
- * `apps/portal/llms.txt` stale relative to the corpus it read. Release and CI callers can opt
+ * The rebuild cannot leave `apps/portal/resources/data`, `apps/portal/sitemap*.xml`, or
+ * `apps/portal/llms*.txt` stale relative to the corpus it read. Release and CI callers can opt
  * into the remote GitHub label index via `includeLabelIndex`; the label builder is
  * intentionally loaded lazily so the scheduled GitHub Workflow sync does not import the SDK
  * label path.
@@ -43,16 +48,22 @@ const DEFAULT_BASE_URL = 'https://neomjs.com';
  * @param {String} [options.releaseNotesRoot] The release-notes root (`--release-notes`); defaults to the engine's
  * `.github/RELEASE_NOTES` under `root`.
  * @param {String} [options.baseUrl='https://neomjs.com'] Canonical site URL for SEO outputs.
- * @param {String} [options.sitemapPath] Target sitemap path.
- * @param {String} [options.llmsPath] Target llms.txt path.
+ * @param {String} [options.sitemapPath] Target sitemap index path (`apps/portal/sitemap.xml`).
+ * @param {String} [options.sitemapCorePath] Target core sitemap path (`apps/portal/sitemap-core.xml`).
+ * @param {String} [options.sitemapArchivePath] Target archive sitemap path (`apps/portal/sitemap-archive.xml`).
+ * @param {String} [options.llmsPath] Target curated llms.txt path (`apps/portal/llms.txt`).
+ * @param {String} [options.llmsFullPath] Target full documentation atlas path (`apps/portal/llms-full.txt`).
+ * @param {String} [options.llmsAllPath] Target exhaustive archive llms-all.txt path (`apps/portal/llms-all.txt`).
  * @param {Boolean} [options.includeLabelIndex=false] Also rebuild the remote GitHub label index.
  * @param {Function} [options.createLabelIndexFn] Test seam for the label index builder.
  * @param {Function} [options.createReleaseIndexFn] Test seam for the release index builder.
  * @param {Function} [options.createDiscussionIndexFn] Test seam for the discussion index builder.
  * @param {Function} [options.createPullRequestIndexFn] Test seam for the pull-request index builder.
  * @param {Function} [options.createTicketIndexFn] Test seam for the ticket index builder.
- * @param {Function} [options.getSitemapXmlFn] Test seam for sitemap generation.
- * @param {Function} [options.getLlmsTxtFn] Test seam for llms.txt generation.
+ * @param {Function} [options.getSitemapXmlFn] Test seam for sitemap `<urlset>` generation.
+ * @param {Function} [options.getSitemapIndexXmlFn] Test seam for sitemap `<sitemapindex>` generation.
+ * @param {Function} [options.getLlmsTxtFn] Test seam for llms.txt / llms-all.txt generation.
+ * @param {Function} [options.getLlmsFullTxtFn] Test seam for llms-full.txt generation.
  * @param {Function} [options.writeFileSync] Test seam for filesystem writes.
  * @param {Function} [options.log] Test seam for logging.
  * @returns {Promise<Object>} Generated artifact paths.
@@ -63,7 +74,11 @@ async function rebuildContentIndexesAndSeo({
     releaseNotesRoot         = getEngineReleaseNotesRoot(root),
     baseUrl                  = DEFAULT_BASE_URL,
     sitemapPath              = path.join(root, 'apps/portal/sitemap.xml'),
+    sitemapCorePath          = path.join(path.dirname(sitemapPath), 'sitemap-core.xml'),
+    sitemapArchivePath       = path.join(path.dirname(sitemapPath), 'sitemap-archive.xml'),
     llmsPath                 = path.join(root, 'apps/portal/llms.txt'),
+    llmsFullPath             = path.join(path.dirname(llmsPath), 'llms-full.txt'),
+    llmsAllPath              = path.join(path.dirname(llmsPath), 'llms-all.txt'),
     includeLabelIndex        = false,
     createLabelIndexFn       = null,
     createReleaseIndexFn     = createReleaseIndex,
@@ -71,7 +86,9 @@ async function rebuildContentIndexesAndSeo({
     createPullRequestIndexFn = createPullRequestIndex,
     createTicketIndexFn      = createTicketIndex,
     getSitemapXmlFn          = getSitemapXml,
+    getSitemapIndexXmlFn     = getSitemapIndexXml,
     getLlmsTxtFn             = getLlmsTxt,
+    getLlmsFullTxtFn         = getLlmsFullTxt,
     writeFileSync            = fs.writeFileSync,
     log                      = console.log
 } = {}) {
@@ -94,19 +111,68 @@ async function rebuildContentIndexesAndSeo({
     await createDiscussionIndexFn({corpusRoot});
     await createTicketIndexFn({corpusRoot});
 
-    const sitemapXml = await getSitemapXmlFn({baseUrl, corpusRoot, existingSitemapPath: sitemapPath, releaseNotesRoot});
-    writeFileSync(sitemapPath, sitemapXml);
+    const sitemapCoreXml = await getSitemapXmlFn({
+        baseUrl,
+        corpusRoot,
+        existingSitemapPath: sitemapCorePath,
+        includeArchives    : false,
+        releaseNotesRoot
+    });
+    writeFileSync(sitemapCorePath, sitemapCoreXml);
+    log(`Generated ${path.relative(root, sitemapCorePath)}`);
+
+    const sitemapArchiveXml = await getSitemapXmlFn({
+        baseUrl,
+        corpusRoot,
+        existingSitemapPath: sitemapArchivePath,
+        includeArchives    : true,
+        onlyArchives       : true,
+        releaseNotesRoot
+    });
+    writeFileSync(sitemapArchivePath, sitemapArchiveXml);
+    log(`Generated ${path.relative(root, sitemapArchivePath)}`);
+
+    const sitemapIndexXml = await getSitemapIndexXmlFn({
+        baseUrl,
+        sitemaps: [
+            {path: path.basename(sitemapCorePath),    xml: sitemapCoreXml},
+            {path: path.basename(sitemapArchivePath), xml: sitemapArchiveXml}
+        ]
+    });
+    writeFileSync(sitemapPath, sitemapIndexXml);
     log(`Generated ${path.relative(root, sitemapPath)}`);
 
-    const llmsTxt = await getLlmsTxtFn({baseUrl, corpusRoot, releaseNotesRoot});
+    const llmsTxt = await getLlmsTxtFn({
+        baseUrl,
+        corpusRoot,
+        includeArchives: false,
+        releaseNotesRoot
+    });
     writeFileSync(llmsPath, llmsTxt);
     log(`Generated ${path.relative(root, llmsPath)}`);
 
+    const llmsFullTxt = await getLlmsFullTxtFn({baseUrl, root});
+    writeFileSync(llmsFullPath, llmsFullTxt);
+    log(`Generated ${path.relative(root, llmsFullPath)}`);
+
+    const llmsAllTxt = await getLlmsTxtFn({
+        baseUrl,
+        corpusRoot,
+        includeArchives: true,
+        releaseNotesRoot
+    });
+    writeFileSync(llmsAllPath, llmsAllTxt);
+    log(`Generated ${path.relative(root, llmsAllPath)}`);
+
     return {
         baseUrl,
+        llmsAllPath,
+        llmsFullPath,
         llmsPath,
+        sitemapArchivePath,
+        sitemapCorePath,
         sitemapPath
-    }
+    };
 }
 
 async function runCli() {

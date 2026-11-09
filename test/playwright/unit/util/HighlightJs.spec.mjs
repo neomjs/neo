@@ -21,20 +21,24 @@ const bundles = {
 };
 
 /**
- * @summary The loader addresses the producer's two filenames inside a consumer's installed Engine.
+ * @summary The loader addresses the producer's two filenames in the consuming workspace.
  * The full consumer-build guard owns real generation; these stand-ins isolate the public debug-path contract.
  */
 test.describe('Neo.util.HighlightJs — consumer-generated bundle paths', () => {
-    let originalBasePath, originalDebug, tmpRoot;
+    let originalBasePath, originalDebug, originalUrl, originalDocument, tmpRoot;
 
     test.beforeEach(() => {
         originalBasePath = Neo.config.basePath;
         originalDebug    = HighlightJs.debug;
+        originalUrl      = Neo.config.url;
+        originalDocument = globalThis.document;
         tmpRoot          = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'neo-highlight-pack-')))
     });
 
     test.afterEach(() => {
         Neo.config.basePath = originalBasePath;
+        Neo.config.url      = originalUrl;
+        originalDocument === undefined ? delete globalThis.document : globalThis.document = originalDocument;
         HighlightJs.debug   = originalDebug;
         HighlightJs.hljs    = null;
         fs.rmSync(tmpRoot, {recursive: true, force: true})
@@ -42,7 +46,7 @@ test.describe('Neo.util.HighlightJs — consumer-generated bundle paths', () => 
 
     /**
      * @summary Creates consumer-generated stand-ins at the producer's filenames, independently of the loader.
-     * @returns {String} The installed Engine root as a file URL with a trailing slash.
+     * @returns {String} The workspace root as a file URL with a trailing slash.
      */
     const installConsumerBundles = () => {
         const installRoot = path.join(tmpRoot, 'install');
@@ -75,6 +79,28 @@ test.describe('Neo.util.HighlightJs — consumer-generated bundle paths', () => 
         await HighlightJs.load();
 
         expect(HighlightJs.hljs.bundle).toBe(originalDebug ? bundles.production : bundles.debug)
+    });
+
+    test('a worker resolves a relative workspace root against the originating page', async () => {
+        const root = installConsumerBundles();
+
+        Neo.config.basePath = '../../';
+        Neo.config.url      = {base: new URL('apps/probe/index.html', root).href};
+        delete globalThis.document;
+        await HighlightJs.load();
+
+        expect(HighlightJs.hljs.bundle).toBe(originalDebug ? bundles.debug : bundles.production)
+    });
+
+    test('the main thread resolves the same relative root against document.baseURI', async () => {
+        const root = installConsumerBundles();
+
+        Neo.config.basePath = '../../';
+        Neo.config.url      = undefined;
+        globalThis.document = {baseURI: new URL('apps/probe/index.html', root).href};
+        await HighlightJs.load();
+
+        expect(HighlightJs.hljs.bundle).toBe(originalDebug ? bundles.debug : bundles.production)
     });
 
     test('control: a requested bundle absent from the install tree rejects instead of loading', async () => {

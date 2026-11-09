@@ -131,6 +131,35 @@ async function runCase(body) {
  * must fall all the same.
  */
 test.describe('Neo.worker.App theme-file loads of a departed window', () => {
+    for (const [folder, projection, expected] of [
+        ['demo', null, 'apps.demo.section.view.Card'],
+        ['palette', 'palette', 'apps.palette.section.view.Card']
+    ]) {
+        test(`application theme lookup retains nested view segments with ${projection || 'default'} projection`, async () => {
+            const report = await runCase(`
+                openWindow('live');
+                Neo.appsByName = {Demo: [{appThemeFolder: ${JSON.stringify(projection)}}]};
+                Neo.cssMap = {fileInfo: {apps: {${folder}: {section: {view: {Card: ['src', 'theme-light']}}}}}};
+                const calls = [];
+                Neo.main.addon.Stylesheet.addThemeFiles = data => {
+                    calls.push(data);
+                    return Promise.resolve()
+                };
+                app.insertThemeFiles('live', null, 'Demo.view.section.view.Card');
+                await Promise.resolve();
+                report.calls = calls;
+                report.cached = Neo.cssMap.live.apps.demo.section.view.Card;
+                report.loading = app.countLoadingThemeFiles;
+            `);
+
+            expect(report).toEqual({
+                calls  : [{className: expected, folders: ['src', 'theme-light'], windowId: 'live'}],
+                cached : true,
+                loading: 0
+            })
+        })
+    }
+
     test('control: an answered load releases the count, and a later update in a live window runs', async () => {
         const report = await runCase(`
             openWindow('live');
@@ -178,6 +207,8 @@ test.describe('Neo.worker.App theme-file loads of a departed window', () => {
             closeGone();
             await tick();
 
+            // The departed window's own config went with it, so the late load reads the worker's
+            Neo.config.themes = ['neo-theme-light'];
             app.insertThemeFiles('gone', null, 'Neo.button.Base');
             report.loading = app.countLoadingThemeFiles;
 

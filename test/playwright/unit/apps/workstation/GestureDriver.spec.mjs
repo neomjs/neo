@@ -750,11 +750,11 @@ test.describe('the resize beat drags a split boundary through the simulator\'s o
     });
 
     test('a failed drive commits nothing and names the simulator\'s phase and code', async () => {
-        const fixture = await resizeFixture({driveError: {phase: 'arming', code: 'DRAG_NOT_ARMED', message: 'the live Mouse sensor emitted no correlated drag:start'}});
+        const fixture = await resizeFixture({driveError: {phase: 'arming', code: 'DRAG_NOT_ARMED', message: 'the live Pointer sensor emitted no correlated drag:start'}});
         try {
             const receipt = await fixture.execute({showCursor: true});
             expect(receipt.applied).toBe(false);
-            expect(receipt.errors).toEqual([`the drive failed in phase 'arming': DRAG_NOT_ARMED — the live Mouse sensor emitted no correlated drag:start`]);
+            expect(receipt.errors).toEqual([`the drive failed in phase 'arming': DRAG_NOT_ARMED — the live Pointer sensor emitted no correlated drag:start`]);
             expect(receipt.proof).toMatchObject({sizesBefore: [0.6, 0.4], settled: {committed: false, driveSettled: true, errors: [], sizes: [0.6, 0.4]}});
             expect(fixture.workspace.dockModel.nodes['split-main'].sizes).toEqual([0.6, 0.4]);
             expect(fixture.cursors[0].isDestroyed).toBe(true);
@@ -1239,8 +1239,45 @@ test.describe('the grid drag-scroll beat pans a grid pane by raw strokes the gri
             expect(receipt.errors).toEqual([]);
             expect(receipt.applied).toBe(true);
             expect(fixture.calls).toEqual(['mousedown@250,300', 'mousemove@250,300', 'mousemove@243,296', 'mousemove@212,281', 'mousemove@130,240', 'mouseup@130,240']);
-            expect(receipt.proof.travel.observed).toEqual({x: 120, y: 60})
+            expect(receipt.proof.travel.observed).toEqual({x: 120, y: 60});
+            expect(receipt.proof.release.windowMoves).toBe(4)
         } finally {
+            fixture.cleanup()
+        }
+    });
+
+    test('a throw releases without a post-move wait and blends a quartic wind-up with a late whip so the film keeps a visible wind-up while surviving a 100 ms runner stall', async () => {
+        let   now    = 1000;
+        const delays = [],
+              fixture = await makeGridDragScrollFixture({ack: async () => {now += 20}}),
+              timeout = fixture.driver.timeout,
+              dateNow = Date.now;
+        fixture.driver.timeout = async ms => {delays.push(ms); now += ms};
+        Date.now               = () => now;
+        try {
+            const receipt = await fixture.execute({curve: 'throw', moveDelay: 33, moveSteps: 4}, {anchor: {x: 0.5, y: 0.5}, deltaX: -120, deltaY: -60, paneId: 'scale', strokes: 1});
+            expect(receipt.errors).toEqual([]);
+            expect(receipt.applied).toBe(true);
+            // Four move delays precede the four mousemoves; the last two whip samples tighten to 8 ms and mouseup adds no pre-release delay.
+            expect(delays.slice(0, 4)).toEqual([33, 33, 8, 8]);
+            expect(receipt.proof.release).toEqual({agesMs: [76, 48, 20], spanMs: 56, windowMoves: 3});
+
+            // At film-tour resolution (moveSteps: 24, deltaY: -480), the quartic wind-up stays visible at mid-stroke (20 px at sample 12, only 8 samples under 5 px) while the final step carries 156 px (~32.5%) to survive a 2-sample 89 ms runner stall.
+            fixture.calls.length = 0;
+            const filmReceipt = await fixture.execute({curve: 'throw', moveDelay: 33, moveSteps: 24}, {anchor: {x: 0.5, y: 0.5}, deltaX: -360, deltaY: -480, paneId: 'scale', strokes: 1});
+            expect(filmReceipt.applied).toBe(true);
+            const movePoints = fixture.calls.filter(call => call.startsWith('mousemove@')).map(call => call.slice('mousemove@'.length).split(',').map(Number));
+            expect(movePoints).toHaveLength(24);
+            const verticalTravel = movePoints.map(([, y]) => 300 - y);
+            expect(verticalTravel.filter(dy => dy < 5).length, 'visible wind-up without a 17-sample hold').toBeLessThanOrEqual(8);
+            expect(verticalTravel[11], 'mid-stroke has already moved 20 px').toBe(20);
+            const penultimateStepDy = movePoints[21][1] - movePoints[22][1],
+                  finalStepDy       = movePoints[22][1] - movePoints[23][1];
+            expect(penultimateStepDy, 'penultimate whip step accelerates smoothly').toBe(83);
+            expect(finalStepDy, 'final whip step carries 156 px (32.5% of 480 px), surviving an 89 ms two-sample stall without a near-cut').toBe(156)
+        } finally {
+            Date.now               = dateNow;
+            fixture.driver.timeout = timeout;
             fixture.cleanup()
         }
     });

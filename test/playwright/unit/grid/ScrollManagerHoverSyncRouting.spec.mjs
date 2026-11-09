@@ -59,13 +59,13 @@ test.describe('Neo.grid.ScrollManager routes hover-sync suspend and resume to it
         const
             gridBody      = {addCls() {}, removeCls() {}},
             gridContainer = {
-                body               : {isScrolling: false},
+                body               : {isScrolling: false, setSilent(values) {Object.assign(this, values)}},
                 bodyEnd            : null,
                 bodyStart          : null,
                 headerToolbar      : null,
                 horizontalScrollbar: null,
                 syncBodies()       {},
-                view               : {id: 'hover-sync-routing-view'}
+                view               : {id: 'hover-sync-routing-view', reconcileScrollTop: scrollTop => scrollTop}
             };
 
         manager = Neo.create(ScrollManager, {appName: APP, gridBody, gridContainer, windowId: 'w2'});

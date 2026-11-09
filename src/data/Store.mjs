@@ -88,6 +88,25 @@ class Store extends Collection {
      * @private
      */
     #keyChanges = new Map();
+    /**
+     * True while the current Model was created by this Store from a class or config; a passed instance stays its
+     * owner's to retire.
+     * @member {Boolean} #ownsModel=false
+     * @private
+     */
+    #ownsModel = false;
+    /**
+     * @member {Number} #pendingLoads=0 Outstanding load invocations, including transport readiness.
+     * @private
+     */
+    #pendingLoads = 0;
+    /** @member {Set<Function>} #streamingReads Read handlers that have received progressive data. @private */
+    #streamingReads = new Set();
+    /**
+     * @member {Boolean} #sortingRecordChange=false Prevents derived tree statistics from recursively sorting.
+     * @private
+     */
+    #sortingRecordChange = false;
 
     /**
      * True automatically applies the core.Observable mixin
@@ -162,6 +181,21 @@ class Store extends Collection {
          * @member {Boolean} isLoading=false
          */
         isLoading: false,
+        /**
+         * True while any load() invocation is pending. Consumers observe this state; Store owns its writes.
+         * Unlike isLoading, first progressive data does not clear it, and local data edits do not set it.
+         * @member {Boolean} isLoadPending_=false
+         * @readonly
+         * @reactive
+         */
+        isLoadPending_: false,
+        /**
+         * True while an active Pipeline read has delivered progressive data. Store owns this state in either
+         * execution realm; later chunks preserve the current view, and settlement releases only that read.
+         * @member {Boolean} isStreaming=false
+         * @readonly
+         */
+        isStreaming: false,
         /**
          * @member {Neo.data.Model} model_=null
          * @reactive
@@ -566,13 +600,18 @@ class Store extends Collection {
     }
 
     /**
+     * @summary Creates the Model from a class or config and borrows a passed instance; releases only a Model it created.
+     * Records keep reading the Model that created them, so a replaced Model is released, never destroyed.
      * @param {Neo.data.Model|Object} value
      * @param {Neo.data.Model|Object} oldValue
      * @protected
      * @returns {Neo.data.Model}
      */
     beforeSetModel(value, oldValue) {
-        oldValue?.destroy();
+        let me = this;
+
+        me.#ownsModel && oldValue?.release();
+        me.#ownsModel = Neo.typeOf(value) !== 'NeoInstance';
 
         return ClassSystemUtil.beforeSetInstance(value, Model)
     }
@@ -601,7 +640,7 @@ class Store extends Collection {
 
                         // Only resolve if the property is missing on the raw object
                         if (!Object.hasOwn(item, property)) {
-                            item[property] = me.resolveField(item, property)
+                            me.resolveField(item, property)
                         }
                     }
                 }
@@ -612,13 +651,21 @@ class Store extends Collection {
     }
 
     /**
-     * @summary Detaches the owned unfiltered projection's edit forwarding before destroying Store resources.
+     * @summary Detaches the owned unfiltered projection's edit forwarding, retires the Store, then releases a Model it
+     * created. Records can outlive the Store and still read that Model, so it is released, never destroyed; a passed
+     * Model instance stays its owner's.
      */
     destroy() {
-        this.allItems?.un('recordChange', this.onAllItemsRecordChange, this);
-        StoreManager.unregister(this);
+        let me    = this,
+            model = me.#ownsModel ? me.model : null;
 
-        super.destroy()
+        me.allItems?.un('recordChange', me.onAllItemsRecordChange, me);
+        me.#streamingReads.clear();
+        me.isStreaming = false;
+        StoreManager.unregister(me);
+
+        super.destroy();
+        model?.release()
     }
 
     /**
@@ -676,9 +723,9 @@ class Store extends Collection {
     }
 
     /**
-     * Converts an object or array of objects into records
+     * @summary Converts raw data object(s) into `Neo.data.Record` instance(s), stamping missing keys with `this.keyPropertyIndex--`.
      * @param {Object|Object[]} config
-     * @returns {Object|Object[]} Array in case an array was passed
+     * @returns {Neo.data.Record|Neo.data.Record[]} Array in case an array was passed
      */
     createRecord(config) {
         let isArray = true;
@@ -689,15 +736,26 @@ class Store extends Collection {
                 config  = [config]
             }
 
-            let me  = this,
-                i   = 0,
-                len = config.length,
+            let me          = this,
+                keyProperty = me.getKeyProperty(),
+                keyField    = me.model?.getField(keyProperty),
+                hasAutoKey  = Boolean(keyField?.calculate || keyField?.defaultValue != null),
+                hasMapping  = Boolean(keyField?.mapping),
+                i           = 0,
+                len         = config.length,
                 item;
 
             for (; i < len; i++) {
-                item = config[i]
+                item = config[i];
 
                 if (!RecordFactory.isRecord(item)) {
+                    if (item && !hasAutoKey && me.getKey(item) == null && (!hasMapping || Neo.nsWithArrays(keyField.mapping, false, item) == null)) {
+                        item = {
+                            ...item,
+                            [keyProperty]: me.keyPropertyIndex--
+                        }
+                    }
+
                     config[i] = RecordFactory.createRecord(me.model, item)
                 }
             }
@@ -718,7 +776,7 @@ class Store extends Collection {
 
         if (!me.autoInitRecords && me.model?.hasComplexFields && me.filters.length > 0) {
             const
-                activeFilters    = me.filters.filter(f => !f.disabled && f.value !== null),
+                activeFilters    = me.filters.filter(f => f.effective),
                 filterProperties = activeFilters.flatMap(f => f.fields || (f.property === null ? [] : [f.property])),
                 len              = filterProperties.length;
 
@@ -737,7 +795,7 @@ class Store extends Collection {
                             const property = filterProperties[i];
 
                             if (!Object.hasOwn(item, property)) {
-                                item[property] = me.resolveField(item, property)
+                                me.resolveField(item, property)
                             }
                         }
                     }
@@ -980,8 +1038,7 @@ class Store extends Collection {
     }
 
     /**
-     * Lazily instantiates a raw data object into a Record instance and updates all internal maps.
-     * This acts as the Single Source of Truth for "Soft Hydration" in Turbo Mode.
+     * @summary Lazily instantiates a raw data object into a `Neo.data.Record` instance and heals internal maps.
      * @param {Object} item The raw data object or Record
      * @param {Number} [index] Optional index in the items array (for performance)
      * @returns {Neo.data.Record|Object|null} The hydrated Record (or original item if already a record or null)
@@ -991,8 +1048,10 @@ class Store extends Collection {
         let me = this;
 
         if (item && !RecordFactory.isRecord(item)) {
-            const record = RecordFactory.createRecord(me.model, item);
-            const pk     = record[me.keyProperty]; // Use the actual PK from the record
+            const
+                rawKey = me.getKey(item),
+                record = RecordFactory.createRecord(me.model, item),
+                pk     = me.getKey(record); // Use the actual PK from the record
 
             // For get(), index is omitted, so we find it. For getAt(), we pass it in.
             if (index === undefined) {
@@ -1002,7 +1061,10 @@ class Store extends Collection {
             // Replace the raw data with the record instance in the current (filtered) collection
             // ONLY if it was actually in the map. Hidden/filtered items should not bleed into the active map.
             if (me.map.has(pk)) {
-                me.map.set(pk, record);
+                me.map.set(pk, record)
+            } else if (me.map.has(rawKey)) {
+                me.map.delete(rawKey);
+                me.map.set(pk, record)
             }
 
             if (index !== -1) {
@@ -1025,7 +1087,10 @@ class Store extends Collection {
                     me.allItems._items[masterIndex] = record;
                 }
                 if (me.allItems.map.has(pk)) {
-                    me.allItems.map.set(pk, record);
+                    me.allItems.map.set(pk, record)
+                } else if (me.allItems.map.has(rawKey)) {
+                    me.allItems.map.delete(rawKey);
+                    me.allItems.map.set(pk, record)
                 }
                 if (me.allItems.trackInternalId) {
                     const internalKey = me.getInternalKey(record);
@@ -1081,9 +1146,9 @@ class Store extends Collection {
     }
 
     /**
-     * Overrides collection.Base:isFilteredItem() to handle "Turbo Mode" (autoInitRecords: false).
-     * In this mode, items are raw objects which may lack the canonical field names used by Filters.
-     * This method "soft hydrates" the raw item by resolving and caching the filter values.
+     * @summary Overrides collection.Base:isFilteredItem() to soft-hydrate raw items before evaluating filters.
+     * In Turbo Mode (or in TreeStore before post-splice record hydration), items are raw objects which may lack
+     * the canonical field names or default values used by Filters.
      * @param {Object} item
      * @returns {boolean}
      * @protected
@@ -1091,12 +1156,12 @@ class Store extends Collection {
     isFilteredItem(item) {
         let me = this;
 
-        if (!me.autoInitRecords && !RecordFactory.isRecord(item) && me.filters.length > 0) {
+        if (!RecordFactory.isRecord(item) && me.filters.length > 0) {
             me.filters.forEach(filter => {
-                if (!filter.disabled && filter.value !== null) {
+                if (filter.effective) {
                     for (const property of filter.fields || (filter.property === null ? [] : [filter.property])) {
                         if (!Object.hasOwn(item, property)) {
-                            item[property] = me.resolveField(item, property)
+                            me.resolveField(item, property)
                         }
                     }
                 }
@@ -1122,6 +1187,29 @@ class Store extends Collection {
      * @protected
      */
     async load(opts={}) {
+        const me = this;
+
+        ++me.#pendingLoads;
+        me.isLoadPending = true;
+
+        try {
+            return await me.#loadRecords(opts)
+        } finally {
+            --me.#pendingLoads;
+            if (!me.isDestroyed) {
+                me.isLoadPending = me.#pendingLoads > 0
+            }
+        }
+    }
+
+    /**
+     * @summary Executes one transport load and owns its progressive lifetime through settlement.
+     * Pipeline data events use the same receiving-Store state whether parsing runs locally or in the Data Worker.
+     * @param {Object} opts Load options documented by load().
+     * @returns {Promise<Object|Object[]>}
+     * @private
+     */
+    async #loadRecords(opts) {
         let me     = this,
             append = !!opts.append,
             params = {page: me.currentPage, pageSize: me.pageSize, ...opts.params};
@@ -1139,7 +1227,9 @@ class Store extends Collection {
             params.sorters = me.exportSorters()
         }
 
-        if (me.pipeline) {
+        const pipeline = me.pipeline;
+
+        if (pipeline) {
             if (me.items.length > 0 && !append) {
                 me.clear();
             }
@@ -1149,8 +1239,12 @@ class Store extends Collection {
             let receivedData = false;
 
             const onData = (data) => {
+                if (me.isDestroyed) return;
+
                 if (data != null && (!Array.isArray(data) || data.length > 0)) {
-                    receivedData = true
+                    receivedData = true;
+                    me.#streamingReads.add(onData);
+                    me.isStreaming = true
                 }
 
                 me.addLoadedItems(data, append);
@@ -1163,34 +1257,39 @@ class Store extends Collection {
             };
 
             const onProgress = (data) => {
-                me.fire('progress', data);
+                if (!me.isDestroyed) me.fire('progress', data);
             };
 
-            me.pipeline.on({
-                data    : onData,
-                progress: onProgress
-            });
+            // Subscription ids keep removal local to this read even when concurrent handlers share names.
+            const subscriptions = [
+                      ['data', pipeline.on('data', onData)],
+                      ['progress', pipeline.on('progress', onProgress)]
+                  ],
+                  release = () => {
+                      for (const [event, id] of subscriptions.splice(0)) {
+                          if (!pipeline.isDestroyed) pipeline.un(event, id)
+                      }
+                      me.#streamingReads.delete(onData);
+                      if (!me.isDestroyed) me.isStreaming = me.#streamingReads.size > 0
+                  };
 
             try {
                 // params.url can override pipeline/connection url
                 if (opts.url) {
                     params.url = opts.url;
 
-                    if (!me.pipeline.connection) {
+                    if (!pipeline.connection) {
                         const ConnectionXhr = (await import('./connection/Xhr.mjs')).default;
-                        me.pipeline.connection = {
+                        pipeline.connection = {
                             module: ConnectionXhr,
                             url   : opts.url
                         };
                     }
                 }
 
-                const response = await me.pipeline.read(params);
-
-                me.pipeline.un({
-                    data    : onData,
-                    progress: onProgress
-                });
+                const response = await pipeline.read(params);
+                release();
+                if (me.isDestroyed) throw Neo.isDestroyed;
 
                 if (response != null) {
                     // response could be the finalized array or an object depending on normalizer
@@ -1212,7 +1311,7 @@ class Store extends Collection {
                     me.fire('load', {
                         isLoading    : false,
                         items        : me.items,
-                        postChunkLoad: append || me.pipeline.parser?.ntype === 'parser-stream',
+                        postChunkLoad: append || receivedData,
                         total        : me.totalCount
                     });
                     return me.items;
@@ -1221,12 +1320,10 @@ class Store extends Collection {
                     return null;
                 }
             } catch (e) {
-                me.pipeline.un({
-                    data    : onData,
-                    progress: onProgress
-                });
-                me.isLoading = false;
+                if (!me.isDestroyed) me.isLoading = false;
                 throw e;
+            } finally {
+                release();
             }
         } else if (me.api) {
             let apiArray = me.api.read.split('.'),
@@ -1295,6 +1392,9 @@ class Store extends Collection {
     }
 
     /**
+     * @summary Re-fires membership changes as synchronous coarse loads, identified for presentation consumers.
+     * The additive origin flag lets a consumer recognize a no-op mutation without suppressing
+     * ordinary load notifications which can request a repaint of the same records.
      * @param {Object} opts
      */
     onCollectionMutate(opts) {
@@ -1305,6 +1405,7 @@ class Store extends Collection {
 
             me.fire('load', {
                 isLoading    : !!me.isStreaming,
+                isMutation   : true,
                 items        : me.items,
                 postChunkLoad: me.#appendNotification || (!!me.isStreaming && !isFirstChunk),
                 total        : me.chunkingTotal
@@ -1526,7 +1627,7 @@ class Store extends Collection {
     }
 
     /**
-     * @summary Reapplies opted-in local filters before publishing the record's settled membership index.
+     * @summary Reapplies opted-in local filters and sorters before publishing the record's settled index.
      * Gets triggered after changing the value of a record field.
      * E.g. myRecord.foo = 'bar';
      * @param {Object} data
@@ -1539,7 +1640,18 @@ class Store extends Collection {
             this.#keyChanges.set(data.record, data);
             return
         }
-        if (this.shouldReapplyFilters(data.record)) this.filter();
+        const refilter = !this.#sortingRecordChange && this.shouldReapplyFilters(data.record),
+              resort   = this.shouldReapplySorters(data);
+
+        if (refilter) this.filter();
+        if (resort && (!refilter || this.hasNtype('tree-store'))) {
+            this.#sortingRecordChange = true;
+            try {
+                this.doSort()
+            } finally {
+                this.#sortingRecordChange = false
+            }
+        }
 
         this.fire('recordChange', {
             ...data,
@@ -1574,22 +1686,47 @@ class Store extends Collection {
     }
 
     /**
-     * @summary Lets the existing key writer commit before an opted-in filter publishes settled membership.
-     * Non-opted-in updates retain Collection's behavior. Record and updateKey notifications see final maps.
+     * @summary Checks whether an opted-in sorter reads a changed field on a current local record.
+     * Callback and virtual-field dependencies are opaque, so any edit can affect their order.
+     * An omitted fields list checks eligibility before a key transaction knows its calculated changes.
+     * @param {Object} data
+     * @returns {Boolean}
+     * @protected
+     */
+    shouldReapplySorters({fields, model=this.model, record}) {
+        const me = this;
+        if (me.isDestroyed || me.#sortingRecordChange || !me.autoSort || me.isLoading || me.isStreaming ||
+            me.isPipelinePushProjectionUncertain()) return false;
+
+        const affected = me.sorters.some(sorter => sorter.reapplyOnRecordChange &&
+            (!fields || sorter.sortBy || model.getField(sorter.property)?.virtual || fields.some(({name}) =>
+                name === sorter.property || typeof sorter.property === 'string' && sorter.property.startsWith(name + '.'))));
+        if (!affected) return false;
+
+        const key     = me.getKey(record),
+              current = me.hasNtype('tree-store') ? me.get(key) : me.map.get(key);
+        return current === record
+    }
+
+    /**
+     * @summary Commits flat and subclass key maps before opted-in projection changes publish their final index.
+     * Non-opted-in updates retain the existing key writer's behavior.
      * @param {Object} item
      * @param {String|Number} newKey
      */
     updateKey(item, newKey) {
         const oldKey = this.getKey(item);
-        if (oldKey === newKey || !this.shouldReapplyFilters(item) || this.hasNtype('tree-store')) {
-            return super.updateKey(item, newKey)
+        if (oldKey === newKey ||
+            !(this.shouldReapplyFilters(item) && !this.hasNtype('tree-store') ||
+              this.shouldReapplySorters({record: item}))) {
+            return this.updateKeyMaps(item, newKey)
         }
 
-        let change;
+        let change, result;
         this.#keyChanges.set(item, null);
         this[updatingIndexSymbol]++;
         try {
-            super.updateKey(item, newKey);
+            result = this.updateKeyMaps(item, newKey);
             change = this.#keyChanges.get(item)
         } finally {
             this[updatingIndexSymbol]--;
@@ -1598,11 +1735,23 @@ class Store extends Collection {
 
         if (change) this.onRecordChange(change);
         else if (this.shouldReapplyFilters(item)) this.filter();
-        if (this[updatingIndexSymbol] === 0) this.fire('updateKey', {item, newKey, oldKey, scope: this})
+        else if (this.shouldReapplySorters({record: item})) this.doSort();
+        if (this[updatingIndexSymbol] === 0) this.fire('updateKey', {item, newKey, oldKey, scope: this});
+        return result
     }
 
     /**
-     * Helper to resolve a field value from a raw data object using the Model definition.
+     * @summary Applies a key change inside Store's notification transaction; subclasses extend their own maps here.
+     * @param {Object} item
+     * @param {String|Number} newKey
+     * @protected
+     */
+    updateKeyMaps(item, newKey) {
+        return super.updateKey(item, newKey)
+    }
+
+    /**
+     * @summary Helper to resolve a field value from a raw data object using the Model definition.
      * Handles mapping, calculate, and convert.
      *
      * **Limitations & "Turbo-Safe" Requirement:**
@@ -1628,7 +1777,19 @@ class Store extends Collection {
             field = me.model.getField(fieldName),
             value;
 
-        if (!field) return undefined;
+        if (!field) {
+            if (typeof fieldName === 'string' && fieldName.includes('.')) {
+                let rootField = fieldName.split('.')[0];
+
+                if (!RecordFactory.isRecord(item) && !Object.hasOwn(item, rootField) && me.model.getField(rootField)) {
+                    me.resolveField(item, rootField)
+                }
+
+                return Neo.ns(fieldName, false, item)
+            }
+
+            return undefined
+        }
 
         if (!RecordFactory.isRecord(item) && field.depends) {
             let deps = field.depends,
@@ -1657,7 +1818,11 @@ class Store extends Collection {
                     value = source[key]
                 }
             } else {
-                value = item[fieldName]
+                value = item[fieldName];
+
+                if (value === undefined && fieldName.includes('.')) {
+                    value = Neo.ns(fieldName, false, item)
+                }
             }
 
             // Handle Convert
@@ -1671,7 +1836,7 @@ class Store extends Collection {
             }
         }
 
-        if (!RecordFactory.isRecord(item)) {
+        if (!RecordFactory.isRecord(item) && (!fieldName.includes('.') || field.calculate || field.convert || field.mapping || Object.hasOwn(field, 'defaultValue'))) {
             item[fieldName] = value;
         }
 

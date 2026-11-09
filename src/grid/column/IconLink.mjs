@@ -1,5 +1,5 @@
 import ComponentColumn from './Component.mjs';
-import IconLinkComponent from '../../component/IconLink.mjs';
+import IconLinkComponent from './component/IconLink.mjs';
 
 /**
  * @class Neo.grid.column.IconLink
@@ -49,9 +49,9 @@ class IconLink extends ComponentColumn {
      */
     applyRecordConfigs(config, record) {
         let me        = this,
-            dataValue = record[me.dataField],
+            dataValue = me.getRecordValue(record),
             url       = dataValue,
-            label     = me.labelField ? record[me.labelField] : null;
+            label     = me.labelField ? me.getRecordValue(record, me.labelField) : null;
 
         if (me.urlFormatter) {
             url = me.urlFormatter(dataValue, record)

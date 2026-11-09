@@ -13,12 +13,10 @@ class Focus extends CoreBase {
          */
         className: 'Neo.manager.Focus',
         /**
-         * An array containing opts objects.
-         * opts.componentPath
-         * opts.data
-         * @member {Object[]} history=[]
+         * Newest-first focus entries per originating window, each containing componentPath and DOM event data.
+         * @member {Object} history={}
          */
-        history: [],
+        history: {},
         /**
          * How long a focusout waits for its focusin before it counts as a leave. A focusin arriving while the focusout
          * still waits makes the pair a focusmove, however long the App Worker took to handle it.
@@ -26,17 +24,17 @@ class Focus extends CoreBase {
          */
         maxFocusInOutGap: 50,
         /**
-         * The maximum amount of items stored inside the history array
+         * The maximum number of entries retained in each window's history array.
          * @member {Number} maxHistoryLength=20
          */
         maxHistoryLength: 20,
         /**
-         * The focusout waiting for its focusin ({@link #maxFocusInOutGap}). `null` once a focusin made the pair a move,
-         * or its leave came due.
-         * @member {Object|null} pendingFocusOut=null
+         * The focusout waiting for its focusin per window ({@link #maxFocusInOutGap}). A window's entry is removed
+         * once its focusin makes the pair a move, its leave comes due, or its final port retires.
+         * @member {Object} pendingFocusOut={}
          * @protected
          */
-        pendingFocusOut: null,
+        pendingFocusOut: {},
         /**
          * @member {Boolean} singleton=true
          * @protected
@@ -45,20 +43,24 @@ class Focus extends CoreBase {
     }
 
     /**
+     * @summary Records a focus entry in its originating window's bounded history.
      * @param {Object} opts
+     * @param {String} opts.windowId Originating window from the DOM event envelope
      * @param {Array}  opts.componentPath Component ids upwards
      * @param {Object} opts.data dom event infos
      * @protected
      */
     addToHistory(opts) {
-        let history = this.history;
+        let history = this.history[opts.windowId] ||= [];
 
         history.unshift(opts);
-        history.length >= this.maxHistoryLength && history.pop()
+        history.length > this.maxHistoryLength && history.pop()
     }
 
     /**
+     * @summary Enters a focus path and records it for the originating window.
      * @param {Object} opts
+     * @param {String} opts.windowId
      * @param {Array}  opts.componentPath Component ids upwards
      * @param {Object} opts.data dom event infos
      * @protected
@@ -79,14 +81,16 @@ class Focus extends CoreBase {
     }
 
     /**
+     * @summary Reconciles the new focus path with this window's previous history entry.
      * @param {Object} opts
+     * @param {String} opts.windowId
      * @param {Array}  opts.componentPath Component ids upwards
      * @param {Object} opts.data dom event infos
      * @protected
      */
     focusMove(opts) {
         let me               = this,
-            {history}        = me,
+            history          = me.history[opts.windowId],
             newComponentPath = opts.componentPath,
             oldComponentPath = history[0].componentPath,
             commonId         = me.getClosestCommonComponentId(oldComponentPath, newComponentPath),
@@ -152,42 +156,58 @@ class Focus extends CoreBase {
     }
 
     /**
-     * A focusin that finds a focusout still waiting completes a move; otherwise focus enters. The browser raises both
-     * halves of a move in one task, so the wait decides the pair, never the time the App Worker took between them.
+     * @summary Completes a pending move within the originating window, or enters its first focus path.
+     * The browser raises both halves of a move in one task, so the wait decides the pair, never the time the
+     * App Worker took between them.
      * @param {Object} opts
+     * @param {String} opts.windowId
      * @param {Array}  opts.componentPath Component ids upwards
      * @param {Object} opts.data dom event infos
      * @protected
      */
     onFocusin(opts) {
         let me      = this,
-            pending = me.pendingFocusOut;
+            pending = me.pendingFocusOut[opts.windowId];
 
-        me.pendingFocusOut = null;
+        delete me.pendingFocusOut[opts.windowId];
 
-        pending ? me.focusMove(opts) : me.focusEnter(opts)
+        pending && me.history[opts.windowId]?.length ? me.focusMove(opts) : me.focusEnter(opts)
     }
 
     /**
-     * A focusout waits {@link #maxFocusInOutGap} for its focusin, then counts as a leave — unless the engine removed a
+     * @summary Defers a leave for the originating window until its focusin arrives or the gap expires.
+     * A focusout waits {@link #maxFocusInOutGap} for its window's focusin, then counts as a leave — unless the engine removed a
      * floating component that is shown again by then ({@link #isRemovedFloatingShownAgain}).
      * @param {Object} opts
+     * @param {String} opts.windowId
      * @param {Array}  opts.componentPath Component ids upwards
      * @param {Object} opts.data dom event infos
      * @protected
      */
     onFocusout(opts) {
-        let me = this;
+        let me         = this,
+            {windowId} = opts;
 
-        me.pendingFocusOut = opts;
+        me.pendingFocusOut[windowId] = opts;
 
         me.timeout(me.maxFocusInOutGap).then(() => {
             // Identity: a focusin made it a move, or a newer focusout, raised against a newer mount, replaced it
-            if (me.pendingFocusOut === opts) {
-                me.pendingFocusOut = null;
+            if (me.pendingFocusOut[windowId] === opts) {
+                delete me.pendingFocusOut[windowId];
                 me.isRemovedFloatingShownAgain(opts) || me.focusLeave(opts)
             }
         })
+    }
+
+    /**
+     * @summary Clears a departed window's focus state and makes its pending leave callbacks inert.
+     * Called when the App Worker retires the window's final live port, before disconnect listeners can move a
+     * surviving component into another window. Sibling windows retain their histories and pending leaves.
+     * @param {String} windowId
+     */
+    removeWindow(windowId) {
+        delete this.history[windowId];
+        delete this.pendingFocusOut[windowId]
     }
 
     /**

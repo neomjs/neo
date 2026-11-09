@@ -91,6 +91,71 @@ async function appWorker(page) {
     return page.workers().find(isApp)
 }
 
+test('streamed batches preserve the scrolled view through completion', async ({page, neuralLink}) => {
+    await page.setViewportSize({width: 1600, height: 900});
+    await openShowcase(page);
+    await expect(page.locator(`${GRID} .neo-grid-row`).first()).toBeVisible({timeout: 30000});
+    const app    = await neuralLink.connectToApp('Neo.examples.grid.issues'),
+          worker = await appWorker(page), gridId = await page.locator(GRID).getAttribute('id'),
+          read   = () => app.getComponent(gridId, ['store.count', 'store.isStreaming']);
+    expect((await read())['store.count']).toBe(issues.length);
+
+    const viewId = await worker.evaluate(async id => {
+        const {default: Stream}     = await import('/src/data/parser/Stream.mjs'),
+              {default: Connection} = await import('/src/data/connection/Base.mjs'),
+              grid                  = Neo.get(id), store = grid.store;
+        grid.contentSizedRows = false;
+        store.pipeline.parser = {module: Stream, initialChunkSize: 100, chunkSize: 100, initialBurstCount: 0};
+        store.pipeline.connection = {module: Connection};
+        await store.pipeline.parser.ready();
+        let controller;
+        const stream = new ReadableStream({start(value) {controller = value}});
+        store.pipeline.connection.read = async () => ({stream, total: 0});
+        globalThis.__storeStreamWitness = {controller, loading: store.load()};
+        return grid.view.id
+    }, gridId);
+    const enqueue = (from, count) => worker.evaluate(({from, count}) => {
+        const rows = Array.from({length: count}, (_, i) => ({
+            id  : from + i, title: 'Stream record ' + (from + i), summary: 'Controlled arriving batch',
+            type: 'Task', area: 'Grid', state: 'Open', author: 'neo-gpt-sophie', created: '2026-11-07', comments: 0
+        }));
+        __storeStreamWitness.controller.enqueue(new TextEncoder().encode(rows.map(JSON.stringify).join('\n') + '\n'))
+    }, {from, count});
+
+    try {
+        await enqueue(1, 200);
+        await expect.poll(async () => (await read())['store.count']).toBe(200);
+        expect((await read())['store.isStreaming']).toBe(true);
+        const view = page.locator(`[id="${viewId}"]`), scrollTop = () => view.evaluate(node => node.scrollTop);
+        await view.hover();
+        await page.mouse.wheel(0, 600);
+        await expect.poll(scrollTop).toBeGreaterThan(300);
+        await page.waitForTimeout(150);
+        const position = await scrollTop();
+
+        for (const from of [201, 301, 401]) {
+            await enqueue(from, 100);
+            await expect.poll(async () => (await read())['store.count']).toBe(from + 99);
+            expect((await read())['store.isStreaming']).toBe(true);
+            // The ordinary-load reset is dispatched after 50ms; observe past that boundary for each batch.
+            await page.waitForTimeout(150);
+            expect(await scrollTop()).toBe(position)
+        }
+        await worker.evaluate(async () => {
+            __storeStreamWitness.controller.close();
+            await __storeStreamWitness.loading
+        });
+        await expect.poll(async () => (await read())['store.isStreaming']).toBe(false);
+        await page.waitForTimeout(150);
+        expect(await scrollTop()).toBe(position)
+    } finally {
+        await worker.evaluate(() => {
+            try {__storeStreamWitness.controller.close()} catch {}
+            delete globalThis.__storeStreamWitness
+        })
+    }
+});
+
 test.describe('Grid issues showcase', () => {
     test.beforeEach(async ({page}) => {
         await page.setViewportSize({width: 1600, height: 900});
@@ -274,7 +339,7 @@ test.describe('Grid issues showcase', () => {
         await expect(menu).toBeVisible()
     });
 
-    test('only the sorted header announces its direction, through aria-sort (#19913)', async ({page}) => {
+    test('only the sorted header announces its direction, through aria-sort (#19913, #20188)', async ({page}) => {
         const header = name => page.locator(GRID).getByRole('columnheader', {name, exact: true}),
               sorted = page.locator(`${GRID} [aria-sort]`);
 
@@ -286,7 +351,107 @@ test.describe('Grid issues showcase', () => {
 
         await expect(header('Title')).toHaveAttribute('aria-sort', 'ascending');
         await expect(header('#')).not.toHaveAttribute('aria-sort');
+        await expect(sorted).toHaveCount(1);
+
+        // State has a column menu, so its wrapper is the columnheader and its sort button sits inside it
+        await header('State').locator('.neo-grid-header-button').click();
+
+        await expect(header('State')).toHaveAttribute('aria-sort', 'ascending');
+        await expect(header('Title')).not.toHaveAttribute('aria-sort');
         await expect(sorted).toHaveCount(1)
+    });
+
+    test('assistive technology reads one row per record across the locked regions, with the search toolbar outside the grid and menu triggers inside their column headers (#20187, #20188)', async ({page}) => {
+        // The menu plugin loads lazily (`grid.header.Button#afterSetColumnMenu`), so its triggers can land after the rows
+        await expect(page.locator(`${GRID} .neo-grid-menu-trigger`)).toHaveCount(4, {timeout: 20000});
+
+        // Chromium's own accessibility tree, which applies aria-owns: the DOM holds one row per region and record
+        const cdp           = await page.context().newCDPSession(page),
+              {nodes}       = await cdp.send('Accessibility.getFullAXTree'),
+              byId          = new Map(nodes.map(node => [node.nodeId, node])),
+              role          = node => node.ignored ? null : node.role?.value,
+              name          = node => node.name?.value,
+              cells         = ['cell', 'columnheader', 'gridcell'],
+              rows          = [],
+              columnMenus   = [],
+              strayControls = [];
+
+        // A row's cells in reading order, reached through ignored and generic nodes but never through another row
+        const cellsOf = (node, found = []) => {
+            (node.childIds || []).map(id => byId.get(id)).filter(Boolean).forEach(child => {
+                if (cells.includes(role(child))) {
+                    found.push(role(child))
+                } else if (role(child) !== 'row') {
+                    cellsOf(child, found)
+                }
+            });
+
+            return found
+        };
+
+        const walk = (node, insideCell = false, columnHeaderName = null) => {
+            (node.childIds || []).map(id => byId.get(id)).filter(Boolean).forEach(child => {
+                const childRole = role(child),
+                      inCell    = insideCell || cells.includes(childRole),
+                      header    = childRole === 'columnheader' ? name(child) : columnHeaderName;
+
+                if (childRole === 'row') {
+                    rows.push(cellsOf(child))
+                }
+
+                if ((childRole === 'button' || childRole === 'textbox') && !inCell) {
+                    strayControls.push({name: name(child), role: childRole})
+                }
+
+                if (childRole === 'button' && header && name(child)?.startsWith('Filter ')) {
+                    columnMenus.push({header, trigger: name(child)})
+                }
+
+                walk(child, inCell, header)
+            })
+        };
+
+        const controlsOf = (node, found = []) => {
+            (node?.childIds || []).map(id => byId.get(id)).filter(Boolean).forEach(child => {
+                const childRole = role(child);
+
+                if (childRole === 'button' || childRole === 'textbox') {
+                    found.push({name: name(child), role: childRole})
+                }
+
+                controlsOf(child, found)
+            });
+
+            return found
+        };
+
+        const gridNode       = nodes.find(node => role(node) === 'grid'),
+              gridSiblings   = (byId.get(gridNode.parentId)?.childIds || []).map(id => byId.get(id)).filter(node => node && node !== gridNode),
+              toolbarSibling = gridSiblings[0];
+
+        walk(gridNode);
+        await cdp.detach();
+
+        // One header row with all eight column headers, then one row of eight cells per issue
+        expect(rows.length).toBe(1 + issues.length);
+        expect(rows[0]).toEqual(Array(8).fill('columnheader'));
+        rows.slice(1).forEach(row => expect(row).toEqual(Array(8).fill('gridcell')));
+
+        // AC-1: no textbox or button inside the grid sits outside a cell or column header, and the search toolbar is a sibling of the grid
+        expect(strayControls).toEqual([]);
+        expect(controlsOf(toolbarSibling)).toEqual([
+            {name: 'Search records', role: 'textbox'},
+            {name: 'Grid columns',   role: 'button'},
+            {name: 'Match case',     role: 'button'}
+        ]);
+
+        // AC-2: each header menu trigger sits inside its columnheader
+        expect(columnMenus).toEqual([
+            {header: 'Type',   trigger: 'Filter Type'},
+            {header: 'Area',   trigger: 'Filter Area'},
+            {header: 'Author', trigger: 'Filter Author'},
+            {header: 'State',  trigger: 'Filter State'}
+        ])
     });
 
     test('the filter list draws its focus ring inside the row and its rows on the menu surface, in both themes (#19928)', async ({page}) => {

@@ -1,6 +1,8 @@
 import BaseModel from './BaseModel.mjs';
 
 /**
+ * Row selection model for `Neo.table.Body`. When {@link #modifierClickEvents} is `true`, modifier clicks fire
+ * `altSelect` > `ctrlSelect` > `metaSelect` > `shiftSelect` on `view` with `{data, record}` instead of toggling.
  * @class Neo.selection.table.RowModel
  * @extends Neo.selection.table.BaseModel
  */
@@ -20,7 +22,11 @@ class RowModel extends BaseModel {
          * @member {String} cls='neo-selection-rowmodel'
          * @protected
          */
-        cls: 'neo-selection-rowmodel'
+        cls: 'neo-selection-rowmodel',
+        /**
+         * @member {Boolean} modifierClickEvents=false
+         */
+        modifierClickEvents: false
     }
 
     /**
@@ -102,18 +108,28 @@ class RowModel extends BaseModel {
     }
 
     /**
+     * @summary Fires modifier-key select events when `modifierClickEvents` is enabled, or toggles row selection.
      * @param {Object} data
      */
     onRowClick(data) {
-        let me     = this,
-            id     = data.data.currentTarget,
-            {view} = me,
+        let me        = this,
+            eventData = data.data,
+            id        = eventData.currentTarget,
+            {view}    = me,
             isSelected, record;
 
         if (id) {
-            record = view.getRecord(id);
+            record = data.record || view.getRecord(id);
 
-            if (me.hasAnnotations(record)) {
+            if (me.modifierClickEvents && eventData.altKey) {
+                view.fire('altSelect', {data: eventData, record})
+            } else if (me.modifierClickEvents && eventData.ctrlKey) {
+                view.fire('ctrlSelect', {data: eventData, record})
+            } else if (me.modifierClickEvents && eventData.metaKey) {
+                view.fire('metaSelect', {data: eventData, record})
+            } else if (me.modifierClickEvents && eventData.shiftKey) {
+                view.fire('shiftSelect', {data: eventData, record})
+            } else if (me.hasAnnotations(record)) {
                 me.updateAnnotations(record)
             } else {
                 me.toggleSelection(id);

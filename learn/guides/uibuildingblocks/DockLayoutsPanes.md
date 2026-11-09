@@ -423,7 +423,8 @@ Saving task data remains an application data responsibility; saving a dock layou
 ## Reload, lazy creation and asynchronous work keep their ordinary meanings
 
 A lazy pane has no component instance until it first materializes. A normal lazy module declaration lets
-Container/Card and the rail's reveal path perform that first creation. After creation, the declared instance
+Container/Card, the rail's reveal path and a tear-out perform that first creation: a tab dragged out before
+its card ever showed is created before the detach commits. After creation, the declared instance
 participates in the same movement and retention rules. Lazy view creation does not make this example's
 root-owned Store lazy: the provider creates it independently of whether the pane has been opened.
 

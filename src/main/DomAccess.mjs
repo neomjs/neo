@@ -204,7 +204,7 @@ class DomAccess extends Base {
      * @param {String} [data.src=true]
      */
     addScript(data) {
-        if (!data.hasOwnProperty('async')) {
+        if (!Object.hasOwn(data, 'async')) {
             data.async = true
         }
 
@@ -1220,10 +1220,10 @@ class DomAccess extends Base {
     /**
      * @summary Starts a view transition, optionally revealing the new state from a point.
      *
-     * Resolves once the transition has STARTED, deliberately not once it has finished. The caller
-     * applies its DOM change after this resolves, and `data.delay` is the window it has to do so
-     * before the new state is captured. Awaiting `transition.ready` here would close that window,
-     * and the transition would capture the unchanged DOM as both states.
+     * Resolves once the browser has captured the old state and entered its update callback. The
+     * caller then applies its DOM change during `data.delay`, before the new state is captured.
+     * Resolving earlier races old-state capture; awaiting `transition.ready` would instead close
+     * the update window and capture unchanged DOM as both states.
      *
      * Built-in reveals own both snapshot layers' opacity and blending until the transition
      * settles. Consumers need no cancellation CSS; raw `data.animate` payloads remain caller-owned.
@@ -1231,21 +1231,31 @@ class DomAccess extends Base {
      * @param {Object} [data.animate] Raw keyframes and options, passed to `animate()` unchanged
      * @param {Number} [data.delay=50] Milliseconds the caller has to apply its DOM change
      * @param {Object} [data.reveal] Origin for a circular reveal — see DomUtils.createRevealAnimation()
-     * @returns {Promise<Boolean>} False when the browser has no View Transition API
+     * @returns {Promise<Boolean>} False when native capture is unavailable, fails to start or ends before its callback
      */
     async startViewTransition(data) {
         if (!document.startViewTransition) {
             return false
         }
 
-        const reveal     = data.animate ? null : DomUtils.createRevealAnimation(data.reveal),
-              animate    = data.animate || reveal,
-              effects    = [],
-              cleanup    = () => effects.forEach(effect => effect.cancel()),
-              transition = document.startViewTransition(async () => {
-                  // `??`, not `||`: `delay: 0` is a caller asking for no window at all.
-                  await this.timeout(data.delay ?? 50)
-              });
+        let captureStarted, transition;
+
+        const captured = new Promise(resolve => captureStarted = resolve),
+              reveal   = data.animate ? null : DomUtils.createRevealAnimation(data.reveal),
+              animate  = data.animate || reveal,
+              effects  = [],
+              cleanup  = () => effects.forEach(effect => effect.cancel());
+
+        try {
+            transition = document.startViewTransition(async () => {
+                captureStarted(true);
+                // `??`, not `||`: `delay: 0` is a caller asking for no window at all.
+                await this.timeout(data.delay ?? 50)
+            })
+        } catch (error) {
+            console.warn('Neo.main.DomAccess: the view transition could not start.', error);
+            return false
+        }
 
         if (reveal) {
             // Finished filled effects must survive until the pseudo tree is removed, including
@@ -1273,7 +1283,7 @@ class DomAccess extends Base {
             })
         }
 
-        return true
+        return Promise.race([captured, transition.finished.then(() => false, () => false)])
     }
 
     /**

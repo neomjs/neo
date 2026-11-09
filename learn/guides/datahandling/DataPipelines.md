@@ -261,6 +261,124 @@ than no key, because it adds a second row under an identity that already exists.
 If your server owns keys in one of the refused shapes, push a `'reload'` strategy instead of an insert —
 the Store can re-read a projection it cannot address record-by-record.
 
+## Interceptors: share a policy without replacing the transport
+
+An authorization header belongs on every relevant request, whether it came from a grid refresh or a
+background load. Copying that preparation into each caller makes a policy change depend on finding every
+call site. Replacing the connection just to add the header also mixes application policy with transport.
+
+A Pipeline can instead compose ordinary Neo interceptor classes. It awaits each hook and passes the
+result to the next handler. Global handlers run before the Pipeline's local handlers, in declaration
+order. The connection, parser and normalizer keep their existing jobs.
+
+For example, a consumer can define `apps/myapp/data/Authorization.mjs`:
+
+```javascript readonly
+import Interceptor from '../../../node_modules/neo.mjs/src/data/interceptor/Base.mjs';
+
+class Authorization extends Interceptor {
+    static config = {
+        className: 'MyApp.data.Authorization',
+        token    : null
+    }
+
+    async request(params) {
+        const headers = new Headers(params.headers);
+        headers.set('Authorization', `Bearer ${this.token}`);
+        return {...params, headers: [...headers]}
+    }
+}
+
+export default Neo.setupClass(Authorization);
+```
+
+The class contains the behavior; its configuration contains only data. This distinction matters when
+the work runs in another worker: a callback closure cannot be serialized into that realm.
+
+In the application's `app.mjs`, the same descriptor can configure a local Pipeline or its Data-worker
+counterpart. The explicit module path lets Data load the application's class through its production
+module loader:
+
+```javascript readonly
+import Authorization from './data/Authorization.mjs';
+import Pipeline      from '../../node_modules/neo.mjs/src/data/Pipeline.mjs';
+
+const policy = {
+    module    : Authorization,
+    modulePath: 'apps/myapp/data/Authorization.mjs',
+    token     : '<application-supplied token>'
+};
+
+const pipeline = Neo.create(Pipeline, {
+    workerExecution: 'data',
+    connection     : {className: 'Neo.data.connection.Fetch', url: '/api/users'},
+    interceptors   : [policy]
+});
+
+const users = await pipeline.read();
+```
+
+Use `await pipeline.setInterceptors([...])` to replace local policies, or an empty array to clear them.
+Do not mutate the construction descriptors to change an admitted policy. The Pipeline owns fresh handler
+instances; passing a borrowed instance or a callback as a data option is rejected.
+
+### Globals belong to the realm doing the work
+
+`await Pipeline.setGlobalInterceptors([...])` changes the current realm's global chain. A Pipeline
+executing in App uses App's globals. For Data execution, register them through the Data worker:
+
+```javascript readonly
+await Neo.worker.Data.setPipelineInterceptors({
+    interceptors: [{
+        className : 'MyApp.data.Authorization',
+        modulePath: 'apps/myapp/data/Authorization.mjs',
+        token     : '<application-supplied token>'
+    }]
+});
+```
+
+Await registration before starting work that requires the new policy. Existing Pipelines see the new
+global chain; operations already using the old one finish with their own snapshot. Retired handlers are
+destroyed after their last operation releases them. Failed loading or readiness leaves the previous
+admitted chain in place.
+
+### Each hook has one place in the flow
+
+`request` prepares parameters before transport **and before cache lookup**. `response` transforms a
+successful transport result before parsing. `responseError` receives a rejected transport result: return
+a replacement to recover, or throw/return `undefined` to keep it rejected. Later handlers follow the
+resulting success or rejection path. No token refresh or retry is invented by the hook chain.
+
+`postParse` transforms parsed values before normalization. Returning `undefined` from a value hook keeps
+the preceding value. Hook context identifies the executing Pipeline, operation, business method and
+effective request parameters; the hook can await its own application work without capturing a proxy.
+
+For a non-streaming read with caching enabled:
+
+```mermaid
+flowchart TD
+    Request[Await request hooks] --> Cache{Completed cache hit?}
+    Cache -->|yes| Result[Return shaped result]
+    Cache -->|no| Transport[Connection]
+    Transport --> Response[Await response hooks]
+    Response --> Parse[Parser]
+    Parse --> PostParse[Await post-parse hooks]
+    PostParse --> Shape[Normalizer]
+    Shape --> Save[Cache the completed result]
+    Save --> Result
+```
+
+Request preparation still runs on a cache hit, so changed request headers do not silently reuse another
+request's result. A hit reuses the final shaped snapshot and does not replay response or post-parse
+effects. Replacing a chain invalidates incompatible entries; an older operation cannot publish a reusable
+entry under the newer policy. Unsupported cache-key values remain uncached.
+
+Streams stay progressive and uncached. Their `postParse` hooks receive each row batch, not the terminal
+`{success, count}` summary, and are awaited before that batch is emitted. Data-worker rows and progress
+reach the App-side Pipeline's ordinary events. Unsolicited pushes have no request or HTTP response stage;
+their async processing preserves arrival order. A rejected intercepted push emits an `error` receipt
+with `operation: 'push'` and a message, and does not prevent the next push from being processed.
+
 ## Migration Path for Legacy Configs
 
 If you are upgrading from an older version of Neo.mjs, your existing `url` and `api` configs on Stores are still fully supported.

@@ -115,8 +115,6 @@ function expectRowsOnGeometry(body, geometry) {
 }
 
 test.describe('Grid AnimateRows with content-sized rows', () => {
-    test.skip(!!process.env.NEO_TEST_SKIP_CI, 'bucket B: Grid tests require Playwright browsers in CI');
-
     let grid, store, warn, warnings;
 
     test.beforeEach(() => {
@@ -214,6 +212,53 @@ test.describe('Grid AnimateRows with content-sized rows', () => {
         await grid.view.promiseUpdate();
 
         expect(warnings).toEqual([])
+    });
+
+    test('a destroyed plugin restores the body store listeners and removes neo-animate-rows', async () => {
+        grid = await createGrid(store, false);
+
+        let {body} = grid;
+
+        body.getPlugin('grid-animate-rows').destroy();
+
+        expect(body.getPlugin('grid-animate-rows')).toBeNull();
+        expect(body.cls).not.toContain('neo-animate-rows');
+        expect(body.onStoreFilter).toBe(Object.getPrototypeOf(body).onStoreFilter);
+        expect(body.onStoreLoad).toBe(Object.getPrototypeOf(body).onStoreLoad);
+
+        store.sort({direction: 'DESC', property: 'id'});
+        await grid.timeout(50);
+
+        expect(body.items.find(row => row.rowIndex === 0)?.record.id).toBe(199);
+        expect(body.cls).not.toContain('neo-animate-rows-moving');
+
+        store.filters = [{property: 'id', operator: '<', value: 190}];
+        await grid.timeout(50);
+
+        expect(body.items.find(row => row.rowIndex === 0)?.record.id).toBe(189);
+        expect(body.cls).not.toContain('neo-animate-rows-moving')
+    });
+
+    test('animatedRowSorting toggled off and back on at runtime destroys and recreates the plugin', async () => {
+        grid = await createGrid(store, false);
+
+        let {body} = grid;
+
+        body.animatedRowSorting = false;
+
+        expect(body.getPlugin('grid-animate-rows')).toBeNull();
+        expect(body.cls).not.toContain('neo-animate-rows');
+        expect(body.onStoreFilter).toBe(Object.getPrototypeOf(body).onStoreFilter);
+        expect(body.onStoreLoad).toBe(Object.getPrototypeOf(body).onStoreLoad);
+
+        store.sort({direction: 'DESC', property: 'id'});
+        await grid.timeout(50);
+
+        expect(body.items.find(row => row.rowIndex === 0)?.record.id).toBe(199);
+
+        body.animatedRowSorting = true;
+        await expect.poll(() => !!body.getPlugin('grid-animate-rows')).toBe(true);
+        expect(body.cls).toContain('neo-animate-rows')
     });
 
     test('content-sized rows: a plugin declared by hand stands aside, too', async () => {

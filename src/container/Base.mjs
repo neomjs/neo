@@ -654,7 +654,8 @@ class Container extends Component {
      * within the same browser window, this method performs an **atomic move**.
      * 1. The item is silently removed from its old parent (without triggering a DOM removal).
      * 2. The item is inserted into this container.
-     * 3. This container updates, sending an `insertNode` delta.
+     * 3. The lowest common ancestor of both parents updates, with this container at full depth whatever its last
+     *    update left it at, so the payload carries the item and sends an `insertNode` delta.
      * 4. The `DeltaUpdates` system detects the existing DOM node and moves it physically, preserving
      *    DOM state such as focus, input values, and iframe content.
      *
@@ -709,7 +710,11 @@ class Container extends Component {
 
                     if (lca) {
                         oldParent.remove(item, false, true, true);
-                        removeFromPreviousParent = false
+                        removeFromPreviousParent = false;
+
+                        // The move flushes at the lowest common ancestor, where this container can still be a root of
+                        // its own: its depth must reach the newcomer, which its vnode does not hold yet
+                        me.updateDepth = -1
                     }
                 }
             }
@@ -753,9 +758,8 @@ class Container extends Component {
                     // The failure route this call site owes: loadModule() flags the item `isLoading`
                     // before its await and has no catch of its own, so a rejected import (a chunk that
                     // fails to fetch, a module that throws while evaluating) would otherwise leave an
-                    // unhandled rejection and an item flagged loading forever. The config stays parked
+                    // unhandled rejection; the flag clears on settle. The config stays parked
                     // behind its placeholder, unflagged, so the next activation retries the load.
-                    delete item.isLoading;
                     console.error(`${me.id}: the lazy module inserted at index ${index} failed to load`, error)
                 })
             }
@@ -943,6 +947,7 @@ class Container extends Component {
 
     /**
      * Removes a container item at a given index.
+     * An unconstructed lazy-card config leaves without component lifecycle calls; no instance exists to destroy.
      *
      * @param {Number} index
      * @param {Boolean} destroyItem=true
@@ -950,7 +955,7 @@ class Container extends Component {
      * @param {Boolean} keepMounted=false Set to `true` to keep the item's `mounted` state as `true`.
      * This is critical for **Atomic Moves**, where the item is removed from one container and immediately added
      * to another, and we do not want to trigger unmount lifecycle hooks in between.
-     * @returns {Neo.component.Base|null}
+     * @returns {Neo.component.Base|Object|null}
      */
     removeAt(index, destroyItem=true, silent=false, keepMounted=false) {
         let me      = this,
@@ -976,14 +981,23 @@ class Container extends Component {
             // indices. `items` is already spliced above, so a listener re-reads the post-removal set.
             !silent && me.fire('remove', {index, item});
 
+            if (!(item instanceof Neo.core.Base)) {
+                return destroyItem ? null : item
+            }
+
             if (destroyItem) {
                 item.destroy(true, silent);
                 return null
             } else {
-                me.layout?.removeChildAttributes(item);
                 if (!keepMounted) {
-                    item.mounted = false
+                    item.set({
+                        appName    : null,
+                        mounted    : false,
+                        parentId   : null,
+                        parentIndex: null
+                    })
                 }
+                me.layout?.removeChildAttributes(item);
                 return item
             }
         }

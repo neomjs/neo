@@ -388,18 +388,26 @@ class GridBody extends Component {
      * @protected
      */
     afterSetAnimatedRowSorting(value, oldValue) {
-        if (value && !this.getPlugin('grid-animate-rows')) {
-            import('./plugin/AnimateRows.mjs').then(module => {
-                let me = this,
-                    plugins = me.plugins || [];
+        let me     = this,
+            plugin = me.getPlugin('grid-animate-rows');
 
-                plugins.push({
-                    module: module.default,
-                    ...me.pluginAnimateRowsConfig
-                });
+        if (value) {
+            if (!plugin) {
+                import('./plugin/AnimateRows.mjs').then(module => {
+                    if (!me.isDestroyed && me.animatedRowSorting && !me.getPlugin('grid-animate-rows')) {
+                        let plugins = me.plugins || [];
 
-                me.plugins = plugins
-            })
+                        plugins.push({
+                            module: module.default,
+                            ...me.pluginAnimateRowsConfig
+                        });
+
+                        me.plugins = plugins
+                    }
+                })
+            }
+        } else if (oldValue !== undefined) {
+            plugin?.destroy()
         }
     }
 
@@ -697,6 +705,45 @@ class GridBody extends Component {
     }
 
     /**
+     * @summary Projects `{record.<field>}` token values for the rows currently rendered in {@link #items}.
+     *
+     * Walks only the live row pool (`this.items`), never `store.getAt(0..count)`, so lazy records outside
+     * the rendered viewport window stay unhydrated. Keys the map strictly by each rendered row's stable
+     * `data-record-id` (`String(this.getRecordId(row.record))`), never by the pooled DOM slot id (`__row-N`).
+     * @override
+     * @returns {Object|undefined}
+     * @protected
+     */
+    buildNativeDragZoneRecords() {
+        let me     = this,
+            fields = me.getNativeDragZoneRecordFields(),
+            key, record, records, row;
+
+        if (!fields.length) {
+            return me.nativeDragZone?.records
+        }
+
+        records = {...me.nativeDragZone?.records};
+
+        for (row of me.items) {
+            record = row?.record;
+
+            if (record) {
+                key = me.getRecordId(record);
+
+                if (key !== undefined && key !== null && key !== '') {
+                    records[String(key)] = Object.fromEntries(fields.map(field => {
+                        const value = typeof record.get === 'function' ? record.get(field) : record[field];
+                        return [field, value === undefined || value === null ? '' : String(value)]
+                    }))
+                }
+            }
+        }
+
+        return records
+    }
+
+    /**
      * Initializes or expands the pool of `Neo.grid.Row` instances.
      *
      * This method calculates the number of rows needed to cover the viewport plus the buffer range.
@@ -879,8 +926,17 @@ class GridBody extends Component {
         // A pass can take the open edit's cell out of the DOM, and only the editing plugin knows what that means
         me.gridContainer.getPlugin('grid-cell-editing')?.onBodyRender();
 
+        me.refreshNativeDragZoneRecords();
+
         if (me.isScrolling) {
             Performance.markEnd('grid.createViewData:' + me.id)
+        }
+
+        // The lead region's rows own this body's rows, and this pool may have formed after the lead's pass
+        if (!me.isAriaLeadRegion) {
+            let {gridContainer} = me;
+
+            (gridContainer.bodyStart || gridContainer.body)?.syncAriaRowOwns(silent)
         }
 
         if (!silent) {
@@ -1062,6 +1118,22 @@ class GridBody extends Component {
     }
 
     /**
+     * @summary The height of all rows, without the scroll room {@link #updateScrollHeight} adds below the last one.
+     * Content-sized rows count their known geometry plus the estimate for rows a chunked load has not delivered.
+     * A header drag ends its proxy here when the rows stop above the grid's bottom.
+     * @returns {Number}
+     */
+    getContentHeight() {
+        let me                         = this,
+            countRecords               = me.#initialTotalSize || me.store?.count || 0,
+            { rowGeometry, rowHeight } = me;
+
+        return rowGeometry ?
+            rowGeometry.totalHeight + (countRecords - rowGeometry.count) * rowGeometry.estimate :
+            countRecords * rowHeight
+    }
+
+    /**
      * Resolves the dataField for a physical cell id — the inverse of {@link #getCellId}.
      * Pooled cell ids resolve through the MATERIALIZED slot binding ({@link Neo.grid.Row#createVdom}
      * stamps `data.field` into every rendered cell): pool slots keep their render-time column
@@ -1162,22 +1234,91 @@ class GridBody extends Component {
     }
 
     /**
+     * @summary The ids of the rows the other regions render for `rowIndex`, which the lead region's row owns, so a
+     * locked-column grid exposes one ARIA row per record instead of one per region.
+     *
+     * Every region maps a record to its pool slot as `rowIndex % items.length` (see {@link #createViewData}), so each
+     * sibling row resolves without bookkeeping. `aria-owns` places owned elements after the owner's own children,
+     * which keeps the cells in start → center → end order.
+     * @param {Number} rowIndex
+     * @returns {String|null} `null` for a body outside the lead region, or a grid with one region
+     */
+    getAriaRowOwns(rowIndex) {
+        let me              = this,
+            {gridContainer} = me;
+
+        if (!gridContainer || !me.isAriaLeadRegion) {
+            return null
+        }
+
+        let ids = [gridContainer.body, gridContainer.bodyEnd]
+            .filter(body => body && body !== me && body.items.length > 0)
+            .map(body => body.items[rowIndex % body.items.length].id);
+
+        return ids.length > 0 ? ids.join(' ') : null
+    }
+
+    /**
+     * @summary Whether this body's rows are the grid's ARIA rows: true for the first region present, which is
+     * `start` when the grid has locked-start columns and `center` otherwise. The rows of the other regions take
+     * `role="none"`, and the lead row owns them through {@link #getAriaRowOwns}.
+     * @returns {Boolean}
+     */
+    get isAriaLeadRegion() {
+        let {gridContainer} = this;
+
+        return !gridContainer || (gridContainer.bodyStart || gridContainer.body) === this
+    }
+
+    /**
+     * @summary The region this body renders: `'start'`, `'center'` or `'end'`, resolved by identity against its grid,
+     * like the scrollbar feed in {@link #afterSetAvailableWidth}.
+     * @returns {'start'|'center'|'end'}
+     */
+    get region() {
+        let {gridContainer} = this;
+
+        return gridContainer?.bodyStart === this ? 'start' : gridContainer?.bodyEnd === this ? 'end' : 'center'
+    }
+
+    /**
+     * @summary Points each rendered lead row's `aria-owns` at the rows the other regions render for its record.
+     *
+     * A sibling region can build its row pool after the lead region rendered, and a lead row whose record did not
+     * change skips its next render, so each sibling calls this after its own pass ({@link #createViewData}).
+     * @param {Boolean} [silent=false] True to leave the update to the caller's batch
+     */
+    syncAriaRowOwns(silent=false) {
+        let me    = this,
+            dirty = false;
+
+        me.items.forEach(row => {
+            if (row.record) {
+                let owns = me.getAriaRowOwns(row.rowIndex) ?? undefined;
+
+                if (row.vdom['aria-owns'] !== owns) {
+                    owns ? (row.vdom['aria-owns'] = owns) : delete row.vdom['aria-owns'];
+                    dirty = true
+                }
+            }
+        });
+
+        if (dirty && !silent) {
+            me.updateDepth = -1;
+            me.update()
+        }
+    }
+
+    /**
+     * @summary The record a row shows, read from the row's own `rowIndex`. A row outside the lead region carries no
+     * `aria-rowindex`, so ARIA stays write-only for the engine.
      * @param {String} rowId
      * @returns {Record|null}
      */
     getRecordByRowId(rowId) {
-        let me = this,
-            node = Neo.getComponent(rowId)?.vdom,
-            rowIndex = node?.['aria-rowindex'];
+        let rowIndex = Neo.getComponent(rowId)?.rowIndex;
 
-        if (Neo.isNumber(rowIndex)) {
-            // aria-rowindex is 1 based & also includes the header
-            rowIndex -= 2;
-
-            return me.store.getAt(rowIndex)
-        }
-
-        return null
+        return Neo.isNumber(rowIndex) && rowIndex > -1 ? this.store.getAt(rowIndex) : null
     }
 
     /**
@@ -1384,6 +1525,8 @@ class GridBody extends Component {
                     row.createVdom(false, false)
                 }
             }
+
+            me.refreshNativeDragZoneRecords()
         }
     }
 
@@ -1668,6 +1811,7 @@ class GridBody extends Component {
     }
 
     /**
+     * @summary Sizes the scroller to {@link #getContentHeight} plus one row of scroll room below the last row.
      * @param {Boolean} silent=false
      */
     updateScrollHeight(silent = false) {
@@ -1676,10 +1820,7 @@ class GridBody extends Component {
             { rowGeometry, rowHeight } = me;
 
         if (countRecords > 0 && rowHeight > 0) {
-            // Content-sized rows: the known geometry, plus the estimate for rows a chunked load has not delivered
-            me.vdom.height = rowGeometry ?
-                `${rowGeometry.totalHeight + (countRecords - rowGeometry.count + 1) * rowGeometry.estimate}px` :
-                `${(countRecords + 1) * rowHeight}px`;
+            me.vdom.height = `${me.getContentHeight() + (rowGeometry ? rowGeometry.estimate : rowHeight)}px`;
             !silent && me.update()
         }
     }

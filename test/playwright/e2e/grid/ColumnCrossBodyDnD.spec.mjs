@@ -35,7 +35,8 @@ test.describe('Desktop (1920x1080): lockedColumns Fixture Locked-Column DnD (#12
     test.setTimeout(90000); // allow time for render + Neural Link mapping.
     test.use({ viewport: { width: 1920, height: 1080 } });
 
-    test.beforeEach(async ({ page }) => {
+    test.beforeEach(async ({ page, neuralLink }) => {
+        void neuralLink;
         await page.goto('/examples/grid/lockedColumns/');
         page.on('console',   msg => console.log('BROWSER:', msg.text()));
         page.on('pageerror', err => console.error('BROWSER JS ERROR:', err));

@@ -106,26 +106,30 @@ Neo.mjs thrives on community engagement. One of the most impactful ways to contr
 
 ### 3.  Contribute to the Neo.mjs code base
 
-**What we are working on now.** The next engine release, 13.2, is the first since the project split into several
-repositories. <a href="ROADMAP.md">`ROADMAP.md`</a> says what ships and why, and the <a href="https://github.com/neomjs/neo/milestone/9">v13.2 milestone</a>
-holds the open work. The <a href="README.md#the-repository-map">repository map</a> names the repositories, and they release
+**What we are working on now.** <a href="ROADMAP.md">`ROADMAP.md`</a> names the next engine release, explains its scope,
+and links its live milestone. Follow that milestone for the current open work. The
+<a href="README.md#the-repository-map">repository map</a> names the repositories, and they release
 independently: this one as the `neo.mjs` npm package, the Brain as container images, the shared agent skills as
 `neo-agent-skills` on npm. A fix you land here ships with the next engine release.
 
 1. **Looking for somewhere to start?** For a first PR, take an issue labelled <a href="../../issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22">good first issue</a>:
    comment on one to claim it (see 3). No approval round needed; they are already approved.
    **After your first merged PR**, move on to <a href="../../issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22">help wanted</a>
-   or an unassigned issue in the v13.2 milestone, the same way. Good first issues stay reserved for first-time
-   contributors, so there is always a way in for the next person.
-2. For anything else, please ***always*** create a new issue inside our <a href="../../issues">Issues Tracker</a> first and wait for approval.
+   or an unassigned issue in the roadmap's milestone, the same way. Good first issues stay reserved for first-time
+   contributors.
+
+   **The listed issues are already claimed, or nothing fits?** Ask in <a href="https://github.com/neomjs/neo/discussions/categories/q-a">Q&A</a>.
+   Tell us which example you tried and what area you would like to work on, so we can help you find an existing Engine issue.
+2. For a new idea or bug without an existing ticket, please create an issue inside our <a href="../../issues">Issues Tracker</a> first and wait for approval.
    This ensures that your idea fits the scope of the project and makes it less likely to get a rejected PR.
    We will do our best to reply to new tickets within 7d max. In case we don't, feel free to bump the ticket.
-3. **Claim before you start.** To work on an existing ticket, comment there; we assign the first person who asks.
-   An automatic reply tells you whether you are first in line. If you are, the ticket is yours: start right away,
-   and a maintainer confirms the assignment. You can open a PR without being assigned, but we merge the first
-   approve-worthy PR for a ticket, so if someone else holds it or gets there first, your work may not land. An
-   assignment is what protects your time.
-   To keep the project moving, if a ticket is assigned and we do not receive any feedback from the assignee (e.g. via a comment) within 7 days, the ticket may get re-assigned to make it available for other contributors.
+3. **Claim before you start.** To work on an existing ticket, comment there. An automatic reply tells you whether you
+   are first in line. If you are, your claim reserves the ticket from that reply: start right away. A maintainer
+   confirms the claim by assigning you, and can release a claim from an account that sprays them. You can open a PR
+   without a claim, but we merge the first approve-worthy PR for a ticket, so if someone else holds it or gets there
+   first, your work may not land. A claim is what protects your time.
+   To keep the project moving, a claim lasts 7 days, and any comment you leave on the ticket starts the 7 days again.
+   After 7 days without a word from you, the ticket may go to another contributor.
 4. Please make sure that pull requests are always related to an issue inside our <a href="../../issues">Issues Tracker</a>.
 5. Please create PRs for the `dev` branch, not for `main`.
 6. Please do not copy code from other frameworks / libraries. So far, the entire Neo.mjs code base is written from scratch.

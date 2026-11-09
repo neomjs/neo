@@ -66,8 +66,9 @@ class DragZone extends Base {
          */
         boundaryContainerId: null,
         /**
-         * Stores the DOMRect matching this.boundaryContainerId
-         * @member {DOMRect|null} data=null
+         * Stores the DOMRect matching this.boundaryContainerId. Lives for one gesture: dragStart() sets it, dragEnd()
+         * clears it, so a zone that gates its moves on it waits for its own gesture's boundary.
+         * @member {DOMRect|null} boundaryContainerRect=null
          * @protected
          */
         boundaryContainerRect: null,
@@ -492,12 +493,13 @@ class DragZone extends Base {
         }
 
         Object.assign(me, {
-            dragElementRect    : null,
-            dragElementSnapshot: null,
-            dragStartIndex     : null,
-            offsetX            : 0,
-            offsetY            : 0,
-            scrollContainerId  : null
+            boundaryContainerRect: null,
+            dragElementRect      : null,
+            dragElementSnapshot  : null,
+            dragStartIndex       : null,
+            offsetX              : 0,
+            offsetY              : 0,
+            scrollContainerId    : null
         });
 
         me.fire('dragEnd', data);

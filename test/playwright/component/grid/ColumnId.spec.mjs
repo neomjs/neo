@@ -10,8 +10,9 @@ import {expect, test} from '../../fixtures.mjs';
  * Fixture: `apps/grid-cell-editing`, whose pooled grid gives `c3` the id an arm reaches the column by. The refusal is
  * a `Neo.logError`, which writes to the console and raises nothing, so the arm reads the console itself.
  */
-const COLUMN_ID = 'grid-cell-editing-pooled-c3',
-      GRID      = '#grid-cell-editing-pooled';
+const COLUMN_ID  = 'grid-cell-editing-pooled-c3',
+      GRID       = '#grid-cell-editing-pooled',
+      SMALL_GRID = '#grid-cell-editing';
 
 test('a column\'s id resolves to the column, and its header button takes a generated one', async ({page}) => {
     const refusals = [];
@@ -31,4 +32,43 @@ test('a column\'s id resolves to the column, and its header button takes a gener
         'the id answers with the column').toEqual(['Neo.grid.column.Base', 'c3']);
 
     expect(refusals, 'no instance was refused its id').toEqual([])
+});
+
+test('a runtime column swap that creates locked start and end regions measures and renders both locked bodies', async ({page}) => {
+    const errors = [];
+
+    page.on('console', message => message.type() === 'error' && errors.push(message.text()));
+    page.on('pageerror', error => errors.push(error.message));
+
+    await page.goto('test/playwright/component/apps/grid-cell-editing/index.html');
+    await expect(page.locator(`${SMALL_GRID} .neo-grid-cell[data-field="code"]`).first()).toHaveText('C-1', {timeout: 30000});
+
+    await page.evaluate(() => Neo.worker.App.setConfigs({
+        id     : 'grid-cell-editing',
+        columns: [
+            {dataField: 'name',  text: 'Name',  width: 200},
+            {dataField: 'score', text: 'Score', width: 100},
+            {dataField: 'city',  text: 'City',  width: 160}
+        ]
+    }));
+
+    await expect(page.locator(`${SMALL_GRID} .neo-grid-cell[data-field="code"]`)).toHaveCount(0);
+    await expect(page.locator(`${SMALL_GRID} .neo-grid-cell[data-field="note"]`)).toHaveCount(0);
+    await expect(page.locator(`${SMALL_GRID} .neo-grid-cell[data-field="name"]`).first()).toHaveText('Name 1');
+
+    await page.evaluate(() => Neo.worker.App.setConfigs({
+        id     : 'grid-cell-editing',
+        columns: [
+            {dataField: 'code',  text: 'Code',  width: 110, locked: 'start'},
+            {dataField: 'name',  text: 'Name',  width: 200},
+            {dataField: 'score', text: 'Score', width: 100},
+            {dataField: 'city',  text: 'City',  width: 160},
+            {dataField: 'note',  text: 'Note',  width: 160, locked: 'end'}
+        ]
+    }));
+
+    await expect(page.locator(`${SMALL_GRID} .neo-grid-cell[data-field="code"]`).first()).toHaveText('C-1');
+    await expect(page.locator(`${SMALL_GRID} .neo-grid-cell[data-field="name"]`).first()).toHaveText('Name 1');
+    await expect(page.locator(`${SMALL_GRID} .neo-grid-cell[data-field="note"]`).first()).toHaveText('Note 1');
+    expect(errors).toEqual([])
 });

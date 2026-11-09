@@ -636,6 +636,7 @@ class Collection extends Base {
         me._items.splice(0, me.count);
         me.map.clear();
         me.internalIdMap?.clear();
+        me._count = 0;
         me.initialIndexCounter = 0
     }
 
@@ -730,85 +731,13 @@ class Collection extends Base {
      * @protected
      */
     doSort(items=this._items, silent=false) {
-        let me                = this,
-            previousItems     = items.slice(),
-            {sorters, sortDirections, sortProperties} = me,
-            countSorters      = sortProperties.length || 0,
-            hasSortByMethod   = false,
-            hasTransformValue = false,
-            i, mappedItems, obj, sorter, sortProperty, sortValue, val1, val2;
+        let me            = this,
+            previousItems = items.slice(),
+            countSorters  = me.sortProperties.length || 0;
 
         if (countSorters > 0) {
-            sorters.forEach(key => {
-                if (key.sortBy) {
-                    hasSortByMethod = true
-                }
-
-                if (key.useTransformValue) {
-                    hasTransformValue = true
-                }
-            });
-
-            if (hasSortByMethod) {
-                me._items.sort((a, b) => {
-                    i = 0;
-
-                    for (; i < countSorters; i++) {
-                        sorter    = sorters[i];
-                        sortValue = sorter[sorter.sortBy ? 'sortBy' : 'defaultSortBy'](a, b);
-
-                        if (sortValue !== 0) {
-                            return sortValue
-                        }
-                    }
-
-                    return 0
-                })
-            } else {
-                if (hasTransformValue) {
-                    // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort#Sorting_with_map
-                    // The position lives under a Symbol, so a sort property of any name (e.g. `index`) cannot overwrite it
-                    mappedItems = items.map((item, index) => {
-                        obj = {[sortPosition]: index};
-                        i   = 0;
-
-                        for (; i < countSorters; i++) {
-                            if (sorters[i].useTransformValue) {
-                                obj[sortProperties[i]] = sorters[i].transformValue(item[sortProperties[i]])
-                            } else {
-                                obj[sortProperties[i]] = item[sortProperties[i]]
-                            }
-                        }
-
-                        return obj
-                    });
-                } else {
-                    mappedItems = items
-                }
-
-                mappedItems.sort((a, b) => {
-                    i = 0;
-
-                    for (; i < countSorters; i++) {
-                        sortProperty = sortProperties[i];
-                        val1         = a[sortProperty];
-                        val2         = b[sortProperty];
-                        sortValue    = Sorter.compareValues(val1, val2, sortDirections[i]);
-
-                        if (sortValue !== 0) {
-                            return sortValue
-                        }
-                    }
-
-                    return 0
-                });
-
-                if (hasTransformValue) {
-                    me._items = mappedItems.map(el => {
-                        return items[el[sortPosition]]
-                    })
-                }
-            }
+            me.sortArray(items);
+            me._items = items
         }
 
         me[isSorted] = countSorters > 0;
@@ -1158,7 +1087,7 @@ class Collection extends Base {
     evaluateFilters(excludeFilter, onInclude=null) {
         const items    = this.allItems?._items || this._items,
             evaluators = this.filters.filter(filter => filter !== excludeFilter).map(filter => filter.createEvaluator());
-        let filtered = items.slice();
+        let filtered;
 
         if (this.filterMode === 'primitive') {
             filtered = [];
@@ -1176,6 +1105,7 @@ class Collection extends Base {
                 }
             }
         } else {
+            filtered = items.slice();
             for (const evaluate of evaluators) {
                 const next = [];
                 for (let i = 0; i < filtered.length; i++) {
@@ -1517,6 +1447,99 @@ class Collection extends Base {
     }
 
     /**
+     * @summary Sorts an array of items or records in place using the collection's active sorters.
+     *
+     * Shared by {@link #doSort} (for flat collections and stores) and `Neo.data.TreeStore` (for localized
+     * `#childrenMap` arrays). Both paths read {@link Neo.collection.Sorter.getValue} (so dotted property
+     * paths resolve on `Record` instances and plain objects alike) and {@link Neo.collection.Sorter.compareValues}
+     * (so `null` / `undefined` sink and numeric convertibility stays transitive).
+     *
+     * @param {Object[]} arr The array to sort in place.
+     * @protected
+     */
+    sortArray(arr) {
+        let me                                        = this,
+            {sorters, sortDirections, sortProperties} = me,
+            countSorters                              = sortProperties.length || 0,
+            hasSortByMethod                           = false,
+            hasTransformValue                         = false,
+            i, mappedItems, obj, rawValue, sorted, sorter, sortProperty, sortValue, val1, val2;
+
+        if (countSorters < 1 || arr.length < 2) {
+            return
+        }
+
+        sorters.forEach(key => {
+            if (key.sortBy) {
+                hasSortByMethod = true
+            }
+
+            if (key.useTransformValue) {
+                hasTransformValue = true
+            }
+        });
+
+        if (hasSortByMethod) {
+            arr.sort((a, b) => {
+                for (i = 0; i < countSorters; i++) {
+                    sorter    = sorters[i];
+                    sortValue = sorter[sorter.sortBy ? 'sortBy' : 'defaultSortBy'](a, b);
+
+                    if (sortValue !== 0) {
+                        return sortValue
+                    }
+                }
+
+                return 0
+            })
+        } else {
+            if (hasTransformValue) {
+                // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort#Sorting_with_map
+                // The position lives under a Symbol, so a sort property of any name (e.g. `index`) cannot overwrite it
+                mappedItems = arr.map((item, index) => {
+                    obj = {[sortPosition]: index};
+
+                    for (i = 0; i < countSorters; i++) {
+                        sortProperty = sortProperties[i];
+                        rawValue     = Sorter.getValue(item, sortProperty);
+
+                        obj[sortProperty] = sorters[i].useTransformValue
+                            ? sorters[i].transformValue(rawValue)
+                            : rawValue
+                    }
+
+                    return obj
+                })
+            } else {
+                mappedItems = arr
+            }
+
+            mappedItems.sort((a, b) => {
+                for (i = 0; i < countSorters; i++) {
+                    sortProperty = sortProperties[i];
+                    val1         = hasTransformValue ? a[sortProperty] : Sorter.getValue(a, sortProperty);
+                    val2         = hasTransformValue ? b[sortProperty] : Sorter.getValue(b, sortProperty);
+                    sortValue    = Sorter.compareValues(val1, val2, sortDirections[i]);
+
+                    if (sortValue !== 0) {
+                        return sortValue
+                    }
+                }
+
+                return 0
+            });
+
+            if (hasTransformValue) {
+                sorted = mappedItems.map(el => arr[el[sortPosition]]);
+
+                for (i = 0; i < arr.length; i++) {
+                    arr[i] = sorted[i]
+                }
+            }
+        }
+    }
+
+    /**
      * Removes items from and/or adds items to this collection
      * If the toRemoveArray is used, then the index is not used for removing, the entries are found by key and removed from where they are.
      * If index is not passed, toAddArray is appended to the Collection.
@@ -1573,7 +1596,8 @@ class Collection extends Base {
             // Optimization: If this is a full clear operation, use map.clear()
             if (index === 0 && removeCountAtIndex === me.count) {
                 removedItems = items;
-                me._items = [];
+                // The add path below reads `items`: left on the removed array, it would add there
+                items = me._items = [];
                 map.clear();
                 me.internalIdMap?.clear()
             } else {
@@ -1595,6 +1619,8 @@ class Collection extends Base {
         }
 
         if (toAddArray && (len = toAddArray.length) > 0) {
+            const hasEffectiveFilters = me._filters.some(filter => filter.effective);
+
             for (i=0; i < len; i++) {
                 item = toAddArray[i];
 
@@ -1615,7 +1641,7 @@ class Collection extends Base {
                     item[initialIndexSymbol] = me.initialIndexCounter++
                 }
 
-                if (!map.has(key) && !me.isFilteredItem(item)) {
+                if (!map.has(key) && (!hasEffectiveFilters || !me.isFilteredItem(item))) {
                     addedItems.push(item);
                     map.set(key, item);
 

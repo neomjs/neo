@@ -65,14 +65,21 @@ class HashHistory extends Base {
     }
 
     /**
-     * @param {Number} [windowId]
-     * @returns {Number}
+     * @summary Resolves a window's history without registering an anonymous stack on a cold read.
+     * An omitted windowId selects the first known window. Before any window is known, the returned
+     * empty array is not stored. Once a window is selected, its registered stack keeps its identity.
+     * @param {Number|String} [windowId]
+     * @returns {Object[]}
      */
     getStack(windowId) {
         let me       = this,
             {stacks} = me,
             stackId  = windowId || Object.keys(stacks)[0],
             stack    = stacks[stackId];
+
+        if (stackId === undefined) {
+            return []
+        }
 
         if (!stack) {
             stacks[stackId] = stack = []

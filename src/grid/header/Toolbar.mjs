@@ -126,6 +126,17 @@ class Toolbar extends BaseToolbar {
     }
 
     /**
+     * @summary The count of columns in the header regions before this toolbar's. A button's toolbar index plus this
+     * offset is its grid-wide `aria-colindex` (see {@link Neo.grid.Container#getAriaColumnOffset}).
+     * @returns {Number}
+     */
+    get ariaColumnOffset() {
+        let {gridContainer, layoutLock} = this;
+
+        return gridContainer?.getAriaColumnOffset(layoutLock === 'start' ? 'start' : layoutLock === 'end' ? 'end' : 'center') || 0
+    }
+
+    /**
      * Triggered after the mounted config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -170,8 +181,11 @@ class Toolbar extends BaseToolbar {
         if (oldValue !== undefined && sortZone) {
             sortZone.scrollLeft = value;
 
-            // Term observability while a drag is in flight (itemRects = the mid-drag marker)
-            sortZone.itemRects && sortZone.traceEvent({t: 'scrollSync', sl: value})
+            // A drag in flight (itemRects = the mid-drag marker) traces the term and keeps its proxy over its group
+            if (sortZone.itemRects) {
+                sortZone.traceEvent({t: 'scrollSync', sl: value});
+                sortZone.clampProxyToGroup()
+            }
         }
     }
 
@@ -280,7 +294,7 @@ class Toolbar extends BaseToolbar {
             style;
 
         items.forEach((item, index) => {
-            item.getVdomRoot()['aria-colindex'] = index + 1; // 1 based
+            item.vdom['aria-colindex'] = index + 1 + me.ariaColumnOffset; // 1 based, grid-wide
 
             style = item.wrapperStyle;
 
@@ -299,6 +313,8 @@ class Toolbar extends BaseToolbar {
     }
 
     /**
+     * @summary Creates the column drag zone. The group row's cells in this region drag through it too, so it
+     * re-projects them once the zone exists.
      * @param {Object} config
      */
     createSortZone(config) {
@@ -310,7 +326,9 @@ class Toolbar extends BaseToolbar {
             scrollLeft         : me.scrollLeft
         });
 
-        super.createSortZone(config)
+        super.createSortZone(config);
+
+        me.gridContainer?.headerWrapper?.groupRow?.project()
     }
 
     /**
@@ -440,6 +458,9 @@ class Toolbar extends BaseToolbar {
             body[silent ? 'setSilent' : 'set']({
                 availableWidth: currentX
             });
+
+            // The group cells are a projection of these positions
+            me.gridContainer.headerWrapper?.groupRow?.project();
 
             // refreshColumns(true), not updateMountedAndVisibleColumns(): we just replaced the
             // column geometry above, and a pure width change (a column resize) leaves the mounted

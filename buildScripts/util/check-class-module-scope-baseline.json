@@ -160,16 +160,6 @@
         "count": 1
     },
     {
-        "file": "src/main/draggable/sensor/Mouse.mjs",
-        "name": "preventDefault",
-        "count": 1
-    },
-    {
-        "file": "src/main/draggable/sensor/Touch.mjs",
-        "name": "preventDefault",
-        "count": 1
-    },
-    {
         "file": "src/manager/transaction/History.mjs",
         "name": "deepFreeze",
         "count": 1

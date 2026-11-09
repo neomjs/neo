@@ -1,12 +1,14 @@
-import Neo             from '../Neo.mjs';
-import Base            from './Base.mjs';
-import CanvasGroups    from './CanvasGroups.mjs';
-import HiddenTick      from './HiddenTick.mjs';
-import Message         from './Message.mjs';
-import Application     from '../controller/Application.mjs';
-import InstanceManager from '../manager/Instance.mjs';
-import DomEventManager from '../manager/DomEvent.mjs';
-import HashHistory     from '../util/HashHistory.mjs';
+import Neo                 from '../Neo.mjs';
+import Base                from './Base.mjs';
+import CanvasGroups        from './CanvasGroups.mjs';
+import HiddenTick          from './HiddenTick.mjs';
+import Message             from './Message.mjs';
+import Application         from '../controller/Application.mjs';
+import InstanceManager     from '../manager/Instance.mjs';
+import DomEventManager     from '../manager/DomEvent.mjs';
+import FocusManager        from '../manager/Focus.mjs';
+import HashHistory         from '../util/HashHistory.mjs';
+import {getThemeNamespace} from '../util/Theme.mjs';
 
 /**
  * The App worker contains most parts of the framework as well as all apps which get created.
@@ -181,7 +183,7 @@ class App extends Base {
                 delete config.importPath
             }
 
-            let appName   = Object.values(Neo.apps)[0]?.name, // fallback in case no appName was provided
+            let appName = Object.values(Neo.apps)[0]?.name, // fallback in case no appName was provided
                 Container = Neo.container?.Base,
                 index, instance, parent;
 
@@ -423,7 +425,7 @@ class App extends Base {
 
         return import(
             /* webpackInclude: /(?:(?:apps|docs\/app|examples|src)\/.*|docs\/)app\.mjs$/ */
-            /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|\.claude(?:\/|\\)|server\.mjs|test(?:\/|\\))/ */
+            /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|\.claude(?:\/|\\)|server\.mjs|test(?:\/|\\)|System Volume Information|\$RECYCLE\.BIN)/ */
             /* webpackMode: "lazy" */
             `../../${path}.mjs`
         )
@@ -446,21 +448,16 @@ class App extends Base {
             let me     = this,
                 cssMap = Neo.cssMap,
                 parent = proto?.__proto__,
-                classPath, classRoot, fileName, lClassRoot, mapClassName, ns, themeFolders;
+                classPath, classRoot, fileName, mapClassName, ns, themeFolders;
 
             if (!cssMap) {
                 me.themeFilesCache.push([windowId, proto, className])
             } else {
                 // we need to modify app related class names
                 if (!className.startsWith('Neo.')) {
-                    className  = className.split('.');
-                    classRoot  = className.shift();
-                    lClassRoot = classRoot.toLowerCase();
-
-                    className[0] === 'view' && className.shift();
-
-                    mapClassName = `apps.${Neo.appsByName[classRoot]?.[0]?.appThemeFolder || lClassRoot}.${className.join('.')}`;
-                    className    = `apps.${lClassRoot}.${className.join('.')}`
+                    classRoot    = className.split('.')[0];
+                    mapClassName = getThemeNamespace(className, Neo.appsByName[classRoot]?.[0]?.appThemeFolder);
+                    className    = getThemeNamespace(className)
                 }
 
                 proto?.additionalThemeFiles?.forEach(ns => {
@@ -653,6 +650,24 @@ class App extends Base {
     }
 
     /**
+     * @summary Disconnects as the base does, then reaps what the departed window leaves behind (see
+     * {@link #reapWindow}) once every `disconnect` listener had its turn.
+     *
+     * A window is a render target, never a state owner. An owner keeps a component by moving it out of the departed
+     * tree inside its `disconnect` listener, synchronously or in microtasks; the reap runs in the next task, after
+     * every listener and its microtask chain. Only a SharedWorker outlives a window, so only it reaps.
+     * @param {Object} data
+     * @param {String} [data.appName]
+     * @param {String} data.windowId
+     * @param {Object} [sourcePort]
+     */
+    onDisconnect(data, sourcePort) {
+        super.onDisconnect(data, sourcePort);
+
+        this.isSharedWorker && this.timeout(0).then(() => this.reapWindow(data.windowId))
+    }
+
+    /**
      * Every dom event will get forwarded as a worker message from main and ends up here first
      * @param {Object} data useful event properties, differs for different event types. See Neo.main.DomEvents.
      */
@@ -719,6 +734,29 @@ class App extends Base {
     }
 
     /**
+     * @summary Delivers Data-worker progressive rows, progress and push failures to the App Pipeline.
+     * @param {Object} msg
+     * @param {String} msg.id The origin Pipeline ID.
+     * @param {String} msg.event 'data', 'progress' or 'error'.
+     * @param {*} msg.data
+     */
+    onPipelineEvent(msg) {
+        if (['data', 'progress', 'error'].includes(msg.event)) {
+            Neo.manager.Instance.get(msg.id)?.fire(msg.event, msg.data)
+        }
+    }
+
+    /**
+     * @summary Delivers a separate Pipeline observation without changing its data or push payloads.
+     * @param {Object} msg
+     * @param {String} msg.id The App-side Pipeline ID.
+     * @param {Object} msg.data Metric-only stage observation.
+     */
+    onPipelineTelemetry(msg) {
+        Neo.manager.Instance.get(msg.id)?.publishTelemetry(msg.data)
+    }
+
+    /**
      * @param {Object} msg
      * @param {Object} [sourcePort]
      */
@@ -760,21 +798,12 @@ class App extends Base {
 
         config.remotesApiUrl && import('../remotes/Api.mjs');
 
-        if (config.useAiClient && !config.isGitHubPages) {
-            let {environment, useAiClient} = config,
-                useAi                      = useAiClient === true;
+        const aiClientBoot = me.resolveAiClientBoot(config);
 
-            if (!useAi) {
-                if (Array.isArray(useAiClient)) {
-                    useAi = useAiClient.includes(environment)
-                } else if (typeof useAiClient === 'string') {
-                    useAi = useAiClient === environment
-                }
-            }
-
-            if (useAi) {
-                this.aiClientPromise = import('../ai/Client.mjs')
-            }
+        if (aiClientBoot) {
+            me.aiClientPromise = import('../ai/Client.mjs').then(({default: client}) => {
+                aiClientBoot === 'transport' && client.connect()
+            })
         }
 
         !config.useVdomWorker && import('../vdom/Helper.mjs')
@@ -885,6 +914,32 @@ class App extends Base {
     }
 
     /**
+     * @summary Destroys the apps a window no longer hosts and, once the window left, its own state.
+     *
+     * An app stays hosted while a port of its window still lists its name, so a disconnect the base refused — a stale
+     * port, a window without one — reaps nothing.
+     * @param {String} windowId
+     * @protected
+     */
+    reapWindow(windowId) {
+        let me    = this,
+            ports = me.ports.filter(port => port.windowId === windowId);
+
+        Object.values(Neo.appsByName).flat().forEach(app => {
+            if (app.windowId === windowId && !app.isDestroyed && !ports.some(port => me.hasPortApp(port, app.name))) {
+                app.destroy()
+            }
+        });
+
+        if (ports.length === 0) {
+            delete Neo.cssMap?.[windowId];
+            delete Neo.windowConfigs?.[windowId];
+            delete me.windowAddons[windowId];
+            me.hiddenTick.stop(windowId)
+        }
+    }
+
+    /**
      * An Application instance announces itself for its window. The port bookkeeping matters only for
      * SharedWorkers; the topology admission runs for both worker types — this is the first moment the
      * window has a live app, and the window's config carries the identity its carrier presented. The
@@ -892,8 +947,11 @@ class App extends Base {
      * admitted by the manager's own sweep the moment one does. The app module imports asynchronously, so a
      * SharedWorker can see the registration after the window's port retired: that window is gone, and its app
      * registers nothing — a binding admitted for it would hold its slot with no disconnect left to release it.
+     * The `appRegistered` event closes the registration: only a SharedWorker port fires `connect`, so it is the
+     * one moment a non-SharedWorker app announces its window.
      * @param {String} appName
      * @param {String} windowId
+     * @fires appRegistered
      */
     registerApp(appName, windowId) {
         let me   = this,
@@ -906,22 +964,15 @@ class App extends Base {
         // register the name as fast as possible
         me.onRegisterApp({appName}, port);
         Neo.manager.Transaction?.admit({topologyIdentity: Neo.windowConfigs?.[windowId]?.topologyIdentity, windowId});
-        me.sendMessage(windowId, {action: 'registerAppName', appName})
-    }
-
-    /**
-     * Unregister the app from the CSS map
-     * Only needed for SharedWorkers
-     * @param {String} appName
-     */
-    removeAppFromThemeMap(appName) {
-        delete Neo.cssMap[appName.toLowerCase()]
+        me.sendMessage(windowId, {action: 'registerAppName', appName});
+        me.fire('appRegistered', {appName, windowId})
     }
 
     /**
      * @summary Retires a port as the base does, and with it the canvas waits that exact port admitted. When it was the
      * window's last port, that window leaves its canvas group too, so only its own canvas waits reject — as its
-     * departure — and a sibling keeps waiting.
+     * departure — and a sibling keeps waiting. Its focus history and pending leave retire at this same boundary,
+     * before disconnect listeners can rescue a component into a different window.
      * @param {Object} portEntry
      * @returns {Boolean} True when the entry was live and removed
      */
@@ -934,11 +985,37 @@ class App extends Base {
             me.canvasGroups.retirePort(portEntry);
 
             if (windowId && !me.ports.some(entry => entry.windowId === windowId)) {
-                me.canvasGroups.removeWindow(windowId)
+                me.canvasGroups.removeWindow(windowId);
+                FocusManager.removeWindow(windowId)
             }
         }
 
         return removed
+    }
+
+    /**
+     * @summary How a boot hosts the Neural Link client. `allowAiClientInTests` boots the registry without transport;
+     * otherwise `useAiClient` keeps its three forms (`true`, an environment array, an environment name). Never on
+     * GitHub Pages.
+     * @param {Object} config The realm's `Neo.config`
+     * @returns {'registry'|'transport'|null} `null` when the boot loads no client
+     */
+    resolveAiClientBoot({allowAiClientInTests, environment, isGitHubPages, useAiClient}) {
+        if (isGitHubPages) {
+            return null
+        }
+
+        if (allowAiClientInTests) {
+            return 'registry'
+        }
+
+        if (useAiClient === true ||
+            Array.isArray(useAiClient) && useAiClient.includes(environment) ||
+            typeof useAiClient === 'string' && useAiClient === environment) {
+            return 'transport'
+        }
+
+        return null
     }
 
     /**

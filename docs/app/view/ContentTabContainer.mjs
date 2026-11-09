@@ -1,5 +1,4 @@
-import Container    from '../../../src/tab/Container.mjs';
-import HeaderButton from '../../../src/tab/header/Button.mjs';
+import Container from '../../../src/tab/Container.mjs';
 
 /**
  * @class Docs.view.ContentTabContainer
@@ -69,7 +68,7 @@ class ContentTabContainer extends Container {
     }
 
     /**
-     * Overriding the button click listener to allow closing tabs on icon click
+     * @summary Opts Docs cards into the generic close interaction while preserving each header's own configuration.
      * @param {Object} config
      * @param {Number} index
      * @returns {Object} The merged config
@@ -77,28 +76,7 @@ class ContentTabContainer extends Container {
      * @override
      */
     getTabButtonConfig(config, index) {
-        let me = this,
-            defaultConfig = {
-                module : HeaderButton,
-                flex   : 'none',
-                index  : index,
-                pressed: me.activeIndex === index,
-
-                domListeners: [{
-                    click: function(data) {
-                        let path = data.path.map(e => e.id);
-
-                        if (path[0].indexOf('neo-tab-header-button-') === 0) {
-                            me.activeIndex = data.component.index
-                        } else {
-                            me.removeAt(Neo.getComponent(me.tabBarId).indexOf(path[1]))
-                        }
-                    },
-                    scope: me
-                }]
-            };
-
-        return {...defaultConfig, ...config}
+        return super.getTabButtonConfig({closable: true, ...config}, index)
     }
 }
 

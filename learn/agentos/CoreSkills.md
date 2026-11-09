@@ -194,9 +194,12 @@ number is not the moat; the growth pattern is.
 
 `guide-authoring` exists because several guide PRs were clean, accurate, and
 still below the bar. The failure was not just prose. It was missing grounding,
-missing lived proof, missing render-verified diagrams, and confusing conceptual
-guides with reference docs. That correction became a skill so the next guide
-starts from the lesson instead of rediscovering it.
+skipping `src/` capability breadth (such as the `42`-class multi-window Dock
+Layouts shelf), niche-gating Neo.mjs away from everyday web applications,
+flattering legacy single-threaded libraries as "modern," or projecting pre-AI
+human worker-complexity fears onto an engine that has been JSON-first since its
+November 2019 GA. That correction became a skill so the next guide or front-door
+review starts from the lesson instead of rediscovering it.
 
 `create-skill` is the meta-loop. When a repeated failure mode is real, it gives
 the swarm a way to add or reshape a skill without bloating the root prompt.

@@ -2,6 +2,7 @@ import ClassSystemUtil   from '../util/ClassSystem.mjs';
 import Component         from './Base.mjs';
 import DateSelectorModel from '../selection/DateSelectorModel.mjs';
 import DateUtil          from '../util/Date.mjs';
+import MonthYearSelector from './MonthYearSelector.mjs';
 import NeoArray          from '../util/Array.mjs';
 import VDomUtil          from '../util/VDom.mjs';
 
@@ -16,6 +17,7 @@ const today = {
 /**
  * @class Neo.component.DateSelector
  * @extends Neo.component.Base
+ * @summary Renders the displayed calendar date independently of the committed value when keyboard navigation defers selection.
  */
 class DateSelector extends Component {
     static config = {
@@ -40,6 +42,12 @@ class DateSelector extends Component {
          * @protected
          */
         cachedDayViewRebuild: null,
+        /**
+         * Latest uncommitted keyboard destination requested during a transition.
+         * @member {Date|null} cachedNavigationDate=null
+         * @protected
+         */
+        cachedNavigationDate: null,
         /**
          * Stores the last date change which got triggered while a month / year transition was running
          * @member {Date|null} cachedUpdate=null
@@ -80,7 +88,10 @@ class DateSelector extends Component {
          * Additional used keys for the selection model
          * @member {Object} keys
          */
-        keys: {},
+        keys: {
+            Enter: 'onNavButtonKeyDown',
+            Space: 'onNavButtonKeyDown'
+        },
         /**
          * @member {String} locale_=Neo.config.locale
          * @reactive
@@ -137,6 +148,13 @@ class DateSelector extends Component {
          */
         useAnimations: true,
         /**
+         * True turns the header's month and year label into a button, which opens a
+         * {@link Neo.component.MonthYearSelector} over the day view
+         * @member {Boolean} useMonthYearSelector_=true
+         * @reactive
+         */
+        useMonthYearSelector_: true,
+        /**
          * @member {String} value_=DateUtil.convertToyyyymmdd(new Date())
          * @reactive
          */
@@ -153,16 +171,30 @@ class DateSelector extends Component {
         _vdom:
         {tabIndex: -1, cn: [
             {cls: ['neo-dateselector-header'], cn: [
-                {cls: ['neo-nav-button', 'neo-prev-button']},
-                {cls: ['neo-center-region'], cn: [
+                {cls: ['neo-nav-button', 'neo-prev-button'], role: 'button', 'aria-label': 'Previous Month', tabIndex: 0},
+                {cls: ['neo-center-region'], 'aria-live': 'polite', cn: [
                     {cls: ['neo-month-text']},
                     {cls: ['neo-year-text']}
                 ]},
-                {cls: ['neo-nav-button', 'neo-next-button']}
+                {cls: ['neo-nav-button', 'neo-next-button'], role: 'button', 'aria-label': 'Next Month', tabIndex: 0}
             ]},
-            {cls: ['neo-dateselector-content'], cn: []}
+            {cls: ['neo-dateselector-content'], role: 'grid', cn: []}
         ]}
     }
+
+    /**
+     * The month and year selector, created when the header label opens it for the first time
+     * @member {Neo.component.MonthYearSelector|null} monthYearSelector=null
+     * @protected
+     */
+    monthYearSelector = null
+    /**
+     * True while a header navigation button interaction is updating the displayed month,
+     * preserving focus on the activated button instead of moving focus into the day grid.
+     * @member {Boolean} preserveHeaderFocus=false
+     * @protected
+     */
+    preserveHeaderFocus = false
 
     /**
      * @param {Object} config
@@ -188,6 +220,7 @@ class DateSelector extends Component {
 
     /**
      * Triggered after the currentDate config got changed
+     * @summary Updates the displayed month or day without selecting a pending keyboard destination.
      * @param {Date} value
      * @param {Date} oldValue
      * @protected
@@ -209,11 +242,16 @@ class DateSelector extends Component {
                 method       = 'changeYear';
                 methodParams = [yearIncrement]
             } else if (dayIncrement !== 0) {
-                me.selectionModel.select(id + '__' + DateUtil.convertToyyyymmdd(value))
+                if (me.selectionModel.navigationId) {
+                    me.recreateDayViewContent(true);
+                    me.triggerVdomUpdate()
+                } else {
+                    me.selectionModel.select(id + '__' + DateUtil.convertToyyyymmdd(value))
+                }
             }
 
             if (method) {
-                if (me.containsFocus) {
+                if (me.containsFocus && !me.preserveHeaderFocus) {
                     Neo.main.DomAccess.focus({id, windowId}).then(data => {
                         me[method](...methodParams)
                     })
@@ -248,6 +286,7 @@ class DateSelector extends Component {
 
     /**
      * Triggered after the isUpdating config got changed
+     * @summary Replays deferred value, day-view and keyboard work after the current transition settles.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
@@ -256,7 +295,7 @@ class DateSelector extends Component {
         if (value === false) {
             let me = this;
 
-            if (me.cachedUpdate && me.cachedUpdate !== new Date(`${me.value}T12:00:00.000Z`)) {
+            if (me.cachedUpdate && me.cachedUpdate.getTime() !== me.dateFromValue(me.value).getTime()) {
                 me.afterSetValue(me.value, DateUtil.convertToyyyymmdd(me.cachedUpdate))
             }
 
@@ -267,6 +306,13 @@ class DateSelector extends Component {
 
                 me.cachedDayViewRebuild = null;
                 me.recreateDayViewContent(silent, syncIds)
+            }
+
+            if (me.cachedNavigationDate) {
+                let date = me.cachedNavigationDate;
+
+                me.cachedNavigationDate = null;
+                me.navigateToDate(date)
             }
         }
     }
@@ -379,7 +425,34 @@ class DateSelector extends Component {
     }
 
     /**
+     * Triggered after the useMonthYearSelector config got changed
+     * @summary Turns the header's month and year label into the toggle button of the month and year selector, or
+     * back into a plain label.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetUseMonthYearSelector(value, oldValue) {
+        let me      = this,
+            labelEl = me.getHeaderCenterEl();
+
+        if (value) {
+            Object.assign(labelEl, {'aria-expanded': false, role: 'button', tabIndex: 0})
+        } else {
+            me.closeMonthYearSelector();
+
+            delete labelEl['aria-controls'];
+            delete labelEl['aria-expanded'];
+            delete labelEl.role;
+            delete labelEl.tabIndex
+        }
+
+        oldValue !== undefined && me.update()
+    }
+
+    /**
      * Triggered after the value config got changed
+     * @summary Replaces the keyboard preview with the committed value and notifies consumers after rendering can proceed.
      * @param {String} value
      * @param {String} oldValue
      * @protected
@@ -387,9 +460,12 @@ class DateSelector extends Component {
     afterSetValue(value, oldValue) {
         let me = this;
 
+        me.cachedNavigationDate = null;
+        me.selectionModel?.clearNavigation?.();
+
         if (value) {
             if (!me.isUpdating) {
-                me.currentDate = new Date(`${value}T12:00:00.000Z`);
+                me.currentDate = me.dateFromValue(value);
 
                 me.fire('change', {
                     component: me,
@@ -410,6 +486,22 @@ class DateSelector extends Component {
      */
     afterSetWeekStartDay(value, oldValue) {
         oldValue !== undefined && this.recreateDayViewContent(false, false)
+    }
+
+    /**
+     * Triggered after the windowId config got changed
+     * @summary Loads the month and year selector's styles together with these, so its first slide-in is styled.
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        super.afterSetWindowId(value, oldValue);
+
+        if (value) {
+            this.monthYearSelector && (this.monthYearSelector.windowId = value);
+            Neo.currentWorker.insertThemeFiles(value, MonthYearSelector.prototype)
+        }
     }
 
     /**
@@ -607,21 +699,44 @@ class DateSelector extends Component {
     }
 
     /**
-     *
+     * @summary Closes the month and year selector. A focus inside it moves to the header label first: removing the
+     * focused node would let the focus leave the date selector, and a date field closes its picker when it does.
+     * @returns {Promise<void>}
+     */
+    async closeMonthYearSelector() {
+        let me                            = this,
+            {monthYearSelector, windowId} = me;
+
+        if (monthYearSelector && !monthYearSelector.hidden) {
+            me.getHeaderCenterEl()['aria-expanded'] = false;
+
+            if (me.containsFocus) {
+                await Neo.main.DomAccess.focus({id: me.getHeaderCenterId(), windowId})
+            }
+
+            Neo.main.DomAccess.trapFocus({id: monthYearSelector.id, trap: false, windowId});
+            monthYearSelector.hidden = true
+        }
+    }
+
+    /**
+     * @summary Builds the weekday header row with WAI-ARIA `row` and `columnheader` semantics and full-weekday `aria-label` names.
+     * @returns {Object}
      */
     createDayNamesRow() {
-        let me   = this,
-            date = DateUtil.clone(me.currentDate),
-            i    = 0,
-            len  = 7,
-            row  = {cls: ['neo-row', 'neo-header-row'], cn: []},
+        let me      = this,
+            date    = DateUtil.clone(me.currentDate),
+            longDay = new Intl.DateTimeFormat(me.locale, {weekday: 'long'}),
+            i       = 0,
+            len     = 7,
+            row     = {cls: ['neo-row', 'neo-header-row'], role: 'row', cn: []},
             config, day;
 
         date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
 
         for (; i < len; i++) {
             config =
-            {cls: ['neo-cell'], cn: [
+            {'aria-label': longDay.format(date), cls: ['neo-cell'], role: 'columnheader', cn: [
                 {cls : ['neo-cell-content'], text: me.intlFormat_day.format(date)}
             ]};
 
@@ -640,28 +755,35 @@ class DateSelector extends Component {
     }
 
     /**
+     * @summary Builds the calendar day grid with WAI-ARIA `grid`, `row`, `gridcell`, `aria-selected`, `aria-disabled`, `aria-current`, and `aria-label` semantics.
      * @param {Boolean} silent=false true to update the vdom silently
      * @param {Object} [containerEl]
      */
     createDayViewContent(silent=false, containerEl) {
         let me              = this,
             {currentDate}   = me,
-            currentDay      = currentDate.getDate(),
             currentMonth    = currentDate.getMonth(),
             currentYear     = currentDate.getFullYear(),
             date            = me.currentDate, // cloned
-            maxDate         = me.maxValue && new Date(`${me.maxValue}T12:00:00.000Z`),
-            minDate         = me.minValue && new Date(`${me.minValue}T12:00:00.000Z`),
-            valueDate       = new Date(`${me.value}T12:00:00.000Z`),
+            fullDateFormat  = new Intl.DateTimeFormat(me.locale, {dateStyle: 'full'}),
+            maxDate         = me.maxValue && me.dateFromValue(me.maxValue),
+            minDate         = me.minValue && me.dateFromValue(me.minValue),
+            valueDate       = me.dateFromValue(me.value),
+            valueDay        = valueDate.getDate(),
             valueMonth      = valueDate.getMonth(),
             valueYear       = valueDate.getFullYear(),
             daysInMonth     = DateUtil.getDaysInMonth(currentDate),
             firstDayInMonth = DateUtil.getFirstDayOfMonth(currentDate),
             firstDayOffset  = firstDayInMonth - me.weekStartDay,
             centerEl        = containerEl || me.getCenterContentEl(),
+            headerCenterId  = me.getHeaderCenterId(),
             columns         = 7,
             i               = 0,
-            cellId, config, dateDay, day, hasContent, j, row, rows;
+            activeCellConfig, cellId, config, dateDay, day, firstEnabledCellConfig, hasContent, j, row, rows;
+
+        me.vdom.cn[0].cn[1].id     = headerCenterId;
+        centerEl['aria-labelledby'] = headerCenterId;
+        centerEl.role               = 'grid';
 
         firstDayOffset = firstDayOffset < 0 ? firstDayOffset + 7 : firstDayOffset;
         rows           = (daysInMonth + firstDayOffset) / 7 > 5 ? 6 : 5;
@@ -672,7 +794,7 @@ class DateSelector extends Component {
         centerEl.cn.push(me.createDayNamesRow());
 
         for (; i < rows; i++) {
-            row = {cls: ['neo-row'], cn: []};
+            row = {cls: ['neo-row'], role: 'row', cn: []};
 
             for (j=0; j < columns; j++) {
                 hasContent = day > 0 && day <= daysInMonth;
@@ -683,12 +805,17 @@ class DateSelector extends Component {
                 config ={
                     id      : cellId,
                     cls     : hasContent ? ['neo-cell'] : ['neo-cell', 'neo-disabled'],
+                    role    : 'gridcell',
                     tabIndex: hasContent ? -1 : null,
-                    cn: [{
+                    cn      : [{
                         cls : ['neo-cell-content'],
                         text: hasContent ? day : me.showDisabledDays ? date.getDate() : ''
                     }]
                 };
+
+                if (hasContent || me.showDisabledDays) {
+                    config['aria-label'] = fullDateFormat.format(date)
+                }
 
                 if (dateDay === 0 || dateDay === 6) {
                     if (!me.showWeekends) {
@@ -702,13 +829,27 @@ class DateSelector extends Component {
                     NeoArray.add(config.cls, 'neo-disabled')
                 }
 
+                if (config.cls.includes('neo-disabled')) {
+                    config['aria-disabled'] = true
+                } else if (hasContent && !firstEnabledCellConfig) {
+                    firstEnabledCellConfig = config
+                }
+
                 if (today.year === currentYear && today.month === currentMonth && today.day === day) {
+                    config['aria-current'] = 'date';
                     config.cn[0].cls.push('neo-today')
                 }
 
-                if (valueYear === currentYear && valueMonth === currentMonth && day === currentDay) {
+                if (valueYear === currentYear && valueMonth === currentMonth && day === valueDay) {
+                    config['aria-selected'] = true;
                     config.cls.push('neo-selected');
-                    me.selectionModel.items = [cellId] // silent update
+                    me.selectionModel.items = [cellId]; // silent update
+                    activeCellConfig = activeCellConfig || config
+                }
+
+                if (cellId === me.selectionModel.navigationId) {
+                    config.cls.push(me.selectionModel.navigationCls);
+                    activeCellConfig = config
                 }
 
                 row.cn.push(config);
@@ -721,14 +862,73 @@ class DateSelector extends Component {
             centerEl.cn.push(row)
         }
 
+        activeCellConfig = activeCellConfig || firstEnabledCellConfig;
+
+        if (activeCellConfig) {
+            activeCellConfig.tabIndex = 0
+        }
+
         !silent && me.update()
     }
 
     /**
-     *
+     * @param {...*} args
+     */
+    destroy(...args) {
+        this.monthYearSelector?.destroy();
+        super.destroy(...args)
+    }
+
+    /**
+     * @summary Focuses the pending keyboard destination, or the committed day when no preview exists.
      */
     focusCurrentItem() {
-        this.focus(this.selectionModel.items[0])
+        this.focus(this.selectionModel.navigationId || this.selectionModel.items[0])
+    }
+
+    /**
+     * @summary Reads a date-only value at local noon, preserving its calendar day in every UTC offset.
+     * @param {String} value
+     * @returns {Date}
+     * @protected
+     */
+    dateFromValue(value) {
+        let [year, month, day] = String(value).split('-').map(Number),
+            date               = new Date(year, month - 1, day, 12);
+
+        date.setFullYear(year);
+
+        return date
+    }
+
+    /**
+     * @summary Displays an uncommitted keyboard date, retaining only the latest destination during rendering.
+     * @param {Date} date
+     */
+    navigateToDate(date) {
+        let me = this;
+
+        if (me.isUpdating) {
+            me.cachedNavigationDate = date
+        } else if (date.getTime() === me.currentDate.getTime()) {
+            me.recreateDayViewContent(true);
+            me.triggerVdomUpdate()
+        } else {
+            me.currentDate = date
+        }
+    }
+
+    /**
+     * @summary Commits a date through the existing selection path, including an unchanged date in an empty field picker.
+     * @param {String} value
+     */
+    selectDate(value) {
+        let me = this;
+
+        me._value = value;
+        me.selectionModel.clearNavigation?.();
+        me.selectionModel.select(me.id + '__' + value);
+        me.afterSetValue(value, null)
     }
 
     /**
@@ -761,6 +961,22 @@ class DateSelector extends Component {
     }
 
     /**
+     * @summary Returns the vdom of the header's month and year label, the region the day grid's `aria-labelledby` names.
+     * @returns {Object}
+     */
+    getHeaderCenterEl() {
+        return this.vdom.cn[0].cn[1]
+    }
+
+    /**
+     * @summary Returns the deterministic DOM id for the month/year header region referenced by the calendar grid's `aria-labelledby`.
+     * @returns {String}
+     */
+    getHeaderCenterId() {
+        return `${this.id}__header-center`
+    }
+
+    /**
      * @returns {Object}
      */
     getHeaderMonthEl() {
@@ -775,6 +991,7 @@ class DateSelector extends Component {
     }
 
     /**
+     * @summary Commits the clicked calendar cell through the shared date-selection path.
      * @param {Object} data
      */
     onCellClick(data) {
@@ -785,10 +1002,7 @@ class DateSelector extends Component {
         date.setDate(parseInt(cellEl.vdom.cn[0].text));
         date = DateUtil.convertToyyyymmdd(date);
 
-        // We want to always trigger a change event.
-        // Reason: A form.field.Date can have a null value, and we want to select the current date.
-        me._value = date;
-        me.afterSetValue(date, null)
+        me.selectDate(date)
     }
 
     /**
@@ -802,11 +1016,35 @@ class DateSelector extends Component {
              if (cls.includes('neo-cell'))        {me.onCellClick(data)}
         else if (cls.includes('neo-next-button')) {monthIncrement =  1}
         else if (cls.includes('neo-prev-button')) {monthIncrement = -1}
+        else if (me.useMonthYearSelector && data.path.some(node => node.id === me.getHeaderCenterId())) {
+            me.openMonthYearSelector()
+        }
 
         if (monthIncrement) {
+            me.preserveHeaderFocus = me.mounted;
             date = me.currentDate; // cloned
             date.setMonth(date.getMonth() + monthIncrement);
             me.value = DateUtil.convertToyyyymmdd(date)
+        }
+    }
+
+    /**
+     * @summary Activates the focused header button on Enter or Space: the previous / next month buttons, or the month
+     * and year label, which opens the month and year selector.
+     * @param {Object} data
+     * @protected
+     */
+    onNavButtonKeyDown(data) {
+        let me     = this,
+            target = data.path?.[0],
+            cls    = target?.cls;
+
+        if (cls?.includes('neo-next-button') || cls?.includes('neo-prev-button')) {
+            data.cancelBubble = true;
+            me.onComponentClick(data)
+        } else if (me.useMonthYearSelector && target?.id === me.getHeaderCenterId()) {
+            data.cancelBubble = true;
+            me.openMonthYearSelector()
         }
     }
 
@@ -818,6 +1056,11 @@ class DateSelector extends Component {
             {deltaX, deltaY} = data,
             wheelDelta       = me.mouseWheelDelta,
             date, monthIncrement, yearIncrement;
+
+        // The open month and year selector covers the day view, which must not move underneath it
+        if (me.monthYearSelector?.hidden === false) {
+            return
+        }
 
         if (Math.abs(deltaY) >= Math.abs(deltaX)) {
                  if (deltaY >=  wheelDelta) {yearIncrement  =  1}
@@ -847,10 +1090,99 @@ class DateSelector extends Component {
     }
 
     /**
+     * @summary Moves the value to the same day in the picked month and year, clamped to the month's length and to
+     * minValue / maxValue, the way the previous / next month buttons move it. The focus stays on the header label.
+     * @param {Object} data
+     * @param {Number} data.month
+     * @param {Number} data.year
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async onMonthYearSelect({month, year}) {
+        let me      = this,
+            date    = new Date(2000, 0, 1, 12),
+            maxDate = me.maxValue && me.dateFromValue(me.maxValue),
+            minDate = me.minValue && me.dateFromValue(me.minValue),
+            value;
+
+        date.setFullYear(year, month, Math.min(me.currentDate.getDate(), DateUtil.getDaysInMonth(new Date(year, month, 1))));
+
+        if (minDate && date < minDate) {
+            date = minDate
+        } else if (maxDate && date > maxDate) {
+            date = maxDate
+        }
+
+        value = DateUtil.convertToyyyymmdd(date);
+
+        await me.closeMonthYearSelector();
+
+        if (value !== me.value) {
+            me.preserveHeaderFocus = me.mounted;
+            me.value               = value
+        }
+    }
+
+    /**
      * @param {String[]} items
      */
     onSelect(items) {
         this.value = items[0].split('__')[1]
+    }
+
+    /**
+     * @summary Opens the month and year selector on the displayed month and year, and focuses that month. The selector
+     * gets created when it opens for the first time.
+     * @returns {Promise<void>}
+     */
+    async openMonthYearSelector() {
+        let me                      = this,
+            {currentDate, windowId} = me,
+            labelEl                 = me.getHeaderCenterEl(),
+            selector                = me.monthYearSelector,
+            config                  = {
+                locale  : me.locale,
+                maxValue: me.maxValue,
+                minValue: me.minValue,
+                month   : currentDate.getMonth(),
+                year    : currentDate.getFullYear()
+            };
+
+        if (!selector) {
+            selector = me.monthYearSelector = Neo.create({
+                module   : MonthYearSelector,
+                appName  : me.appName,
+                cls      : me.useAnimations ? ['neo-animated'] : [],
+                listeners: {cancel: me.closeMonthYearSelector, select: me.onMonthYearSelect, scope: me},
+                parentId : me.id,
+                windowId,
+                ...config
+            });
+
+            labelEl['aria-controls'] = selector.id;
+
+            // The header holds the reference: the slide animations rely on the root holding exactly header + day view
+            me.vdom.cn[0].cn.push(selector.createVdomReference())
+        } else if (selector.hidden) {
+            // Opens on the decade of the displayed year, even when the last visit paged away from it
+            selector.yearPageStart = null;
+            selector.set(config);
+            selector.updateLists(true);
+            selector.toggleCls('neo-animated', me.useAnimations);
+            selector.hidden = false
+        } else {
+            return
+        }
+
+        labelEl['aria-expanded'] = true;
+        me.updateDepth           = -1;
+
+        await me.promiseUpdate();
+
+        if (!me.isDestroyed) {
+            await Neo.main.DomAccess.trapFocus({id: selector.id, windowId});
+            await selector.focusOption('month')
+        }
     }
 
     /**
@@ -901,6 +1233,7 @@ class DateSelector extends Component {
 
     /**
      * Triggers a vdom update & sets isUpdating
+     * @summary Commits the settled date VDOM and restores the navigation or selected cell's focus unless its own window has a pending leave.
      * @param {Boolean} [silent=false]
      * @protected
      */
@@ -910,13 +1243,39 @@ class DateSelector extends Component {
 
             me.isUpdating = true;
 
-            me.promiseUpdate().then(() => {
-                me.isUpdating = false
+            me.promiseUpdate().then(async () => {
+                let isSettled = (!me.cachedUpdate || me.cachedUpdate.getTime() === me.dateFromValue(me.value).getTime()) &&
+                                          !me.cachedNavigationDate &&
+                                          !me.cachedDayViewRebuild,
+                    preserveHeaderFocus = me.preserveHeaderFocus;
+
+                if (isSettled) {
+                    me.preserveHeaderFocus = false
+                }
+
+                if (
+                    !me.isDestroyed &&
+                    me.containsFocus &&
+                    !preserveHeaderFocus &&
+                    !Neo.manager.Focus?.pendingFocusOut?.[me.windowId]?.componentPath?.includes(me.id) &&
+                    isSettled &&
+                    (me.selectionModel?.navigationId || me.selectionModel?.items?.[0])
+                ) {
+                    await Neo.main?.DomAccess?.focus({
+                        id      : me.selectionModel.navigationId || me.selectionModel.items[0],
+                        windowId: me.windowId
+                    })
+                }
+
+                if (!me.isDestroyed) {
+                    me.isUpdating = false
+                }
             })
         }
     }
 
     /**
+     * @summary Updates the weekday column headers and their localized `aria-label` names when `dayNameFormat`, `locale`, `weekStartDay`, or `showWeekends` changes.
      * @param {String} value
      * @param {String} oldValue
      * @param {Boolean} [silent=false]
@@ -929,6 +1288,7 @@ class DateSelector extends Component {
         if (oldValue !== undefined) {
             let centerEl = me.getCenterContentEl().cn[0],
                 date     = me.currentDate, // cloned
+                longDay  = new Intl.DateTimeFormat(me.locale, {weekday: 'long'}),
                 i        = 0,
                 day, node;
 
@@ -937,7 +1297,8 @@ class DateSelector extends Component {
             for (; i < 7; i++) {
                 node = centerEl.cn[i];
 
-                node.cn[0].text = me.intlFormat_day.format(date);
+                node['aria-label'] = longDay.format(date);
+                node.cn[0].text    = me.intlFormat_day.format(date);
 
                 day = date.getDay();
 

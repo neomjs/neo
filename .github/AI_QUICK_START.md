@@ -168,6 +168,10 @@ enabled              = true
 
 The two stdio servers still resolve their scripts from the Brain checkout while keeping the Engine as working directory — the same split described in §5, expressed in TOML. The tracked template carries the current form of all four.
 
+Neural Link also needs `--cwd <YOUR_BRAIN_REPO_PATH>`: this names the Agent OS runtime from which it connects or starts its Bridge. The shell's `cd <YOUR_NEO_REPO_PATH>` keeps the target repository separate; it does not supply the Bridge runtime root. GitHub Workflow already gets its target checkout from that shell command and needs no Neural Link flag.
+
+**Updating an existing manual copy:** in `.codex/config.toml`, find `[mcp_servers."neo-mjs-neural-link"]`. If the command does not already pass `--cwd`, append `--cwd <YOUR_BRAIN_REPO_PATH>`, replacing the placeholder with the same Brain checkout used for `mcp-server.mjs`. Preserve the other server entries, environment allowlists and local settings; do not overwrite the file with a fresh template. Relaunch the Codex session to start the updated MCP child, then check Neural Link's connection health. Fleet-managed seats already receive this runtime-root argument from provisioning and do not need this manual update.
+
 ## 5. Understanding the Configuration Files
 
 The agent's behavior is controlled by several configuration files depending on your chosen environment:
@@ -247,7 +251,7 @@ That scoping is deliberate. `set -a; source .env` would hand every server every 
       "command": "/bin/zsh",
       "args": [
         "-lc",
-        "cd <YOUR_NEO_REPO_PATH>; . <YOUR_NEO_REPO_PATH>/.env >/dev/null 2>&1; NEO_AGENT_IDENTITY=\"$NEO_AGENT_IDENTITY\" exec <YOUR_NODE_PATH> <YOUR_BRAIN_REPO_PATH>/ai/mcp/server/neural-link/mcp-server.mjs"
+        "cd <YOUR_NEO_REPO_PATH>; . <YOUR_NEO_REPO_PATH>/.env >/dev/null 2>&1; NEO_AGENT_IDENTITY=\"$NEO_AGENT_IDENTITY\" exec <YOUR_NODE_PATH> <YOUR_BRAIN_REPO_PATH>/ai/mcp/server/neural-link/mcp-server.mjs --cwd <YOUR_BRAIN_REPO_PATH>"
       ]
     }
   }

@@ -10,8 +10,11 @@ import {
     getContentRoutes,
     getDisallowedReleaseNoteGithubLinks,
     getExistingSitemapLastmodMap,
+    getLatestSitemapLastmod,
+    getLlmsFullTxt,
     getLlmsTxt,
     getReleaseNotePriority,
+    getSitemapIndexXml,
     getSitemapXml
 } from '../../../../../../buildScripts/docs/seo/generate.mjs';
 
@@ -186,8 +189,10 @@ test.describe('docs SEO generator content roots (#19166)', () => {
         const [routes, sitemap, llmsTxt] = await Promise.all([getContentRoutes(roots), getSitemapXml(roots), getLlmsTxt(roots)]);
 
         for (const post of posts) {
-            expect(routes).toContain(`/#/news/blog/${post.id}`);
-            expect(sitemap).toContain(`<loc>https://neomjs.com/news/blog/${post.id}</loc>\n    <priority>0.9</priority>`);
+            const slug = post.id.replace(/^blog\//, '');
+            expect(routes).toContain(`/#/news/blog/${slug}`);
+            expect(routes).not.toContain(`/#/news/blog/blog/${slug}`);
+            expect(sitemap).toContain(`<loc>https://neomjs.com/news/blog/${slug}</loc>\n    <priority>0.9</priority>`);
             expect(llmsTxt).toContain(`- [${post.name}](https://neomjs.com/raw/${post.path})`)
         }
     })
@@ -204,7 +209,7 @@ test.describe('docs SEO generator blog routes (#19501)', () => {
         await fs.remove(tempDir)
     });
 
-    test('a post becomes a /news/blog route dated by its markdown file', async () => {
+    test('a post becomes a /news/blog/<slug> route dated by its markdown file', async () => {
         const postPath  = path.join(tempDir, 'a-post.md');
         const indexPath = path.join(tempDir, 'blog.json');
 
@@ -215,7 +220,7 @@ test.describe('docs SEO generator blog routes (#19501)', () => {
         ]});
 
         expect(await collectBlogRoutes(indexPath)).toEqual([
-            {category: 'blog', filePath: postPath, id: '/news/blog/blog/a-post', name: 'A post.'}
+            {category: 'blog', filePath: postPath, id: '/news/blog/a-post', name: 'A post.'}
         ])
     });
 
@@ -228,4 +233,166 @@ test.describe('docs SEO generator blog routes (#19501)', () => {
 
         await expect(collectBlogRoutes(indexPath)).rejects.toThrow('blog/missing-post')
     })
+});
+
+test.describe('docs SEO generator archive exclusion (#20089)', () => {
+    let corpusRoot, releaseNotesRoot, tempDir;
+
+    test.beforeEach(async () => {
+        tempDir          = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-seo-archive-'));
+        corpusRoot       = path.join(tempDir, 'corpus');
+        releaseNotesRoot = path.join(tempDir, 'notes');
+
+        await fs.outputFile(path.join(corpusRoot, 'issues/chunk-1/issue-12742.md'), '# Ticket 12742');
+        await fs.outputFile(path.join(corpusRoot, 'pulls/chunk-1/pr-20088.md'), '# PR 20088');
+        await fs.outputFile(path.join(corpusRoot, 'discussions/chunk-1/discussion-11026.md'), '# Discussion 11026');
+        await fs.outputFile(path.join(releaseNotesRoot, 'v13.0.0.md'), '# Release 13.0.0');
+    });
+
+    test.afterEach(async () => {
+        await fs.remove(tempDir);
+    });
+
+    test('getSitemapXml and getLlmsTxt exclude raw ticket, PR, and discussion archive routes by default', async () => {
+        const roots = {
+            baseUrl       : 'https://neomjs.com/',
+            corpusRoot,
+            includeLastmod: false,
+            releaseNotesRoot
+        };
+
+        const [routes, sitemap, llmsTxt] = await Promise.all([
+            getContentRoutes(roots),
+            getSitemapXml(roots),
+            getLlmsTxt(roots)
+        ]);
+
+        // SPA route table retains all routes
+        expect(routes).toContain('/#/news/tickets/12742');
+        expect(routes).toContain('/#/news/pulls/20088');
+        expect(routes).toContain('/#/news/discussions/11026');
+
+        // Primary sitemap.xml includes canonical release/learn/blog routes and excludes archive churn
+        expect(sitemap).toContain('<loc>https://neomjs.com/news/releases/13.0.0</loc>');
+        expect(sitemap).not.toContain('/news/tickets/');
+        expect(sitemap).not.toContain('/news/pulls/');
+        expect(sitemap).not.toContain('/news/discussions/');
+
+        // Primary llms.txt includes release notes, excludes archive churn, and links to llms-full.txt + llms-all.txt
+        expect(llmsTxt).toContain('## Release Notes');
+        expect(llmsTxt).toContain('- [Connect](https://neomjs.com/services)');
+        expect(llmsTxt).not.toContain('[Services](https://neomjs.com/services)');
+        expect(llmsTxt).not.toContain('https://neomjs.com/connect');
+        expect(sitemap).toContain('<loc>https://neomjs.com/services</loc>');
+        expect(sitemap).not.toContain('<loc>https://neomjs.com/connect</loc>');
+        expect(llmsTxt).not.toContain('## GitHub Tickets');
+        expect(llmsTxt).not.toContain('## GitHub Pull Requests');
+        expect(llmsTxt).not.toContain('## GitHub Discussions');
+        expect(llmsTxt).toContain('## Optional');
+        expect(llmsTxt).toContain('https://neomjs.com/llms-full.txt');
+        expect(llmsTxt).toContain('https://neomjs.com/llms-all.txt');
+    });
+
+    test('getSitemapXml and getLlmsTxt include archive routes when includeArchives is true', async () => {
+        const roots = {
+            baseUrl        : 'https://neomjs.com/',
+            corpusRoot,
+            includeArchives: true,
+            includeLastmod : false,
+            releaseNotesRoot
+        };
+
+        const [sitemap, llmsTxt] = await Promise.all([
+            getSitemapXml(roots),
+            getLlmsTxt(roots)
+        ]);
+
+        expect(sitemap).toContain('<loc>https://neomjs.com/news/tickets/12742</loc>');
+        expect(sitemap).toContain('<loc>https://neomjs.com/news/pulls/20088</loc>');
+        expect(sitemap).toContain('<loc>https://neomjs.com/news/discussions/11026</loc>');
+
+        expect(llmsTxt).toContain('- [Ticket #12742](https://neomjs.com/raw/news/tickets/12742.md)');
+        expect(llmsTxt).toContain('- [Pull Request #20088](https://neomjs.com/raw/news/pulls/20088.md)');
+        expect(llmsTxt).toContain('- [Discussion #11026](https://neomjs.com/raw/news/discussions/11026.md)');
+        expect(llmsTxt).not.toContain('## Optional');
+    });
+
+    test('getSitemapXml with onlyArchives emits exclusively archive routes for sitemap-archive.xml', async () => {
+        const archiveSitemap = await getSitemapXml({
+            baseUrl       : 'https://neomjs.com/',
+            corpusRoot,
+            includeLastmod: false,
+            onlyArchives  : true
+        });
+
+        expect(archiveSitemap).toContain('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">');
+        expect(archiveSitemap).toContain('<loc>https://neomjs.com/news/tickets/12742</loc>');
+        expect(archiveSitemap).toContain('<loc>https://neomjs.com/news/pulls/20088</loc>');
+        expect(archiveSitemap).toContain('<loc>https://neomjs.com/news/discussions/11026</loc>');
+        expect(archiveSitemap).not.toContain('/news/releases/');
+        expect(archiveSitemap).not.toContain('/news/blog/');
+        expect(archiveSitemap).not.toContain('/learn/');
+        expect(archiveSitemap).not.toContain('https://neomjs.com/home');
+    });
+
+    test('getSitemapIndexXml emits a valid sitemapindex with newest child lastmod dates', () => {
+        const coreXml = [
+            '<urlset>',
+            '  <url><loc>https://neomjs.com/home</loc><lastmod>2026-10-20T10:00:00Z</lastmod></url>',
+            '  <url><loc>https://neomjs.com/docs</loc><lastmod>2026-10-24T18:30:00Z</lastmod></url>',
+            '</urlset>'
+        ].join('\n');
+
+        const archiveXml = [
+            '<urlset>',
+            '  <url><loc>https://neomjs.com/news/tickets/20089</loc><lastmod>2026-10-25T01:00:00Z</lastmod></url>',
+            '</urlset>'
+        ].join('\n');
+
+        expect(getLatestSitemapLastmod(coreXml)).toBe('2026-10-24T18:30:00Z');
+        expect(getLatestSitemapLastmod(archiveXml)).toBe('2026-10-25T01:00:00Z');
+        expect(getLatestSitemapLastmod('<urlset><url><loc>https://neomjs.com/home</loc></url></urlset>')).toBeNull();
+
+        const indexXml = getSitemapIndexXml({
+            baseUrl : 'https://neomjs.com',
+            sitemaps: [
+                {path: 'sitemap-core.xml',    xml: coreXml},
+                {path: 'sitemap-archive.xml', xml: archiveXml}
+            ]
+        });
+
+        expect(indexXml).toContain('<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">');
+        expect(indexXml).toContain('<loc>https://neomjs.com/sitemap-core.xml</loc>\n    <lastmod>2026-10-24T18:30:00Z</lastmod>');
+        expect(indexXml).toContain('<loc>https://neomjs.com/sitemap-archive.xml</loc>\n    <lastmod>2026-10-25T01:00:00Z</lastmod>');
+    });
+
+    test('getLlmsFullTxt concatenates markdown prose for learn/tree.json leaf guides', async () => {
+        const learnDir     = path.join(tempDir, 'learn');
+        const treeFilePath = path.join(learnDir, 'tree.json');
+
+        await fs.outputFile(path.join(learnDir, 'benefits/Introduction.md'), '# Introduction\n\nNeo is an agent institution.');
+        await fs.outputFile(path.join(learnDir, 'guides/QuickStart.md'), '# Quick Start\n\nRun zero-build ES modules.');
+        await fs.writeJSON(treeFilePath, {
+            data: [
+                {id: 'benefits', isLeaf: false, name: 'Benefits'},
+                {id: 'benefits/Introduction', isLeaf: true, name: 'Introduction'},
+                {id: 'guides/QuickStart', isLeaf: true, name: 'Quick Start'},
+                {id: 'guides/Missing', isLeaf: true, name: 'Missing Guide'}
+            ]
+        });
+
+        const llmsFull = await getLlmsFullTxt({
+            baseUrl: 'https://neomjs.com',
+            learnDir,
+            treeFilePath
+        });
+
+        expect(llmsFull).toContain('# Neo.mjs: Full Documentation Atlas (llms-full.txt)');
+        expect(llmsFull).toContain('# [Introduction](https://neomjs.com/raw/learn/benefits/Introduction.md)');
+        expect(llmsFull).toContain('Source: https://neomjs.com/learn/benefits/Introduction');
+        expect(llmsFull).toContain('Neo is an agent institution.');
+        expect(llmsFull).toContain('# [Quick Start](https://neomjs.com/raw/learn/guides/QuickStart.md)');
+        expect(llmsFull).toContain('Run zero-build ES modules.');
+        expect(llmsFull).not.toContain('Missing Guide');
+    });
 });

@@ -139,6 +139,7 @@ class DomEvent extends Base {
      * even if they are not physical ancestors in the DOM.
      *
      * @param {Object} event
+     * @param {String} event.windowId Originating document from the Main-to-App message envelope
      * @protected
      */
     fire(event) {
@@ -240,7 +241,8 @@ class DomEvent extends Base {
             if (eventName === 'focusin' || eventName === 'focusout') {
                 FocusManager['on' + Neo.capitalize(eventName)]({
                     componentPath: path,
-                    data
+                    data,
+                    windowId     : event.windowId
                 });
 
                 break
@@ -331,6 +333,48 @@ class DomEvent extends Base {
 
             return event || null
         }
+    }
+
+    /**
+     * @summary Matches a bracketed attribute selector (`[attr=value]` or `[attr]`) against a serialized DOM path node.
+     * Supports `data-*` (`node.data`), `aria-*` (`node.aria`), `role` (`node.role`), and `tabindex` (`node.tabIndex`).
+     * @param {Object} node     Serialized event path node from `Neo.main.DomEvents#getTargetData`
+     * @param {String} selector Bracketed attribute selector, e.g. `'[data-ref=foo]'` or `'[role=button]'`
+     * @returns {Boolean}
+     */
+    matchesAttributeTarget(node, selector) {
+        let content  = selector.slice(1, -1).trim(),
+            eqIndex  = content.indexOf('='),
+            hasValue = eqIndex !== -1,
+            attrName = (hasValue ? content.slice(0, eqIndex) : content).trim(),
+            expected = hasValue ? content.slice(eqIndex + 1).trim().replace(/^['"]|['"]$/g, '') : null,
+            actual, camelKey, rawKey;
+
+        if (!attrName || !node) {
+            return false
+        }
+
+        if (attrName.startsWith('data-')) {
+            rawKey   = attrName.substring(5);
+            camelKey = Neo.camel(rawKey);
+            actual   = node.data?.[camelKey] ?? node.data?.[rawKey] ?? node.data?.[attrName]
+        } else if (attrName.startsWith('aria-')) {
+            rawKey   = attrName.substring(5);
+            camelKey = Neo.camel(rawKey);
+            actual   = node.aria?.[rawKey] ?? node.aria?.[camelKey] ?? node.aria?.[attrName]
+        } else if (attrName === 'role') {
+            actual = node.role
+        } else if (attrName === 'tabindex') {
+            actual = node.tabIndex
+        } else {
+            return false
+        }
+
+        if (hasValue) {
+            return actual !== undefined && actual !== null && String(actual) === expected
+        }
+
+        return actual !== undefined && actual !== null
     }
 
     /**
@@ -472,7 +516,7 @@ class DomEvent extends Base {
         let local = config.local || (Neo.isObject(opts) && opts.local) || false;
 
         listenerConfig = {
-            bubble        : config.hasOwnProperty('bubble') ? config.bubble : opts.hasOwnProperty('bubble') ? opts.bubble : true,
+            bubble        : Object.hasOwn(config, 'bubble') ? config.bubble : Object.hasOwn(opts, 'bubble') ? opts.bubble : true,
             delegate      : config.delegate,
             eventName,
             fn,
@@ -575,7 +619,7 @@ class DomEvent extends Base {
                 Object.entries(domListener).forEach(([key, value]) => {
                     if (!eventConfigKeys.includes(key)) {
                         me.register({
-                            bubble        : domListener.hasOwnProperty('bubble') ? domListener.bubble : value.hasOwnProperty?.('bubble') ? value.bubble : true,
+                            bubble        : Object.hasOwn(domListener, 'bubble') ? domListener.bubble : (value && Object.hasOwn(value, 'bubble')) ? value.bubble : true,
                             delegate      : domListener.delegate || value.delegate || '#' + (component.vdom.id || component.id),
                             eventName     : key,
                             id            : component.vdom.id || component.id, // honor wrapper nodes
@@ -616,6 +660,11 @@ class DomEvent extends Base {
      *    target belongs to a component that is logically a descendant of the listener component.
      *    This is crucial for handling events from detached components (Portals/Proxies).
      *
+     * String `delegate` grammar: space-separated tokens, each one simple selector (`#id`, `.cls`, a bare class name,
+     * `[attr]`, or `[attr=value]` with an optionally quoted value that may contain spaces but not `]`). Supported
+     * attribute names are `data-*`, `aria-*`, `role`, and `tabindex`. Compound selectors on a single node (such as
+     * `.btn[data-ref=foo]`) are not supported and will not match.
+     *
      * @param {Object} listener
      * @param {Array} path            The raw DOM path from the event
      * @param {Array} [componentPath] The logical component ID path
@@ -634,21 +683,28 @@ class DomEvent extends Base {
                 targetId = path[j].id
             }
         } else {
-            let delegationArray = delegate.split(' '),
+            let delegationArray = delegate.match(/\[[^\]]+\]|\S+/g) || [],
                 len             = delegationArray.length,
-                hasMatch, i, item, isId;
+                hasMatch, i, isAttribute, isId, item, matchNode;
 
             for (i=len-1; i >= 0; i--) {
-                hasMatch = false;
-                item     = delegationArray[i];
-                isId     = item.startsWith('#');
+                hasMatch    = false;
+                item        = delegationArray[i];
+                isAttribute = item.startsWith('[') && item.endsWith(']');
+                isId        = !isAttribute && item.startsWith('#');
 
-                if (isId || item.startsWith('.')) {
+                if (isId || (!isAttribute && item.startsWith('.'))) {
                     item = item.substring(1)
                 }
 
                 for (; j < pathLen; j++) {
-                    if (isId ? path[j].id === item : path[j].cls.includes(item)) {
+                    matchNode = isAttribute
+                        ? this.matchesAttributeTarget(path[j], item)
+                        : isId
+                            ? path[j].id === item
+                            : path[j].cls?.includes(item);
+
+                    if (matchNode) {
                         hasMatch = true;
                         targetId = path[j].id;
                         break

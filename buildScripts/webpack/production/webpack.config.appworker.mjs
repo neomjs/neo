@@ -1,10 +1,10 @@
-import fs                  from 'fs-extra';
-import path                from 'path';
-import {spawnSync}         from 'child_process';
-import {copyDistAppAssets} from '../../util/distAppAssets.mjs';
-import {minifyHtml}        from '../../util/minifyHtml.mjs';
-import * as Terser         from 'terser';
-import webpack             from 'webpack';
+import fs                        from 'fs-extra';
+import path                      from 'path';
+import {spawnSync}               from 'child_process';
+import {copyDistAppAssets}       from '../../util/distAppAssets.mjs';
+import {minifyHtml}              from '../../util/minifyHtml.mjs';
+import * as Terser               from 'terser';
+import workerContextRebasePlugin from '../workerContextRebasePlugin.mjs';
 
 const
     cwd            = process.cwd(),
@@ -177,15 +177,7 @@ export default async function(env) {
         },
 
         plugins: [
-            new webpack.ContextReplacementPlugin(/.*/, context => {
-                let con = context.context;
-
-                if (!insideNeo && (con.includes('/src/worker') || con.includes('\\src\\worker'))) {
-                    if (!context.request.startsWith('../../') && !context.request.startsWith('..\\..\\') && !context.request.startsWith('../data/') && !context.request.startsWith('..\\data\\')) {
-                        context.request = path.join('../../', context.request);
-                    }
-                }
-            }),
+            workerContextRebasePlugin(insideNeo),
             ...plugins
         ],
 

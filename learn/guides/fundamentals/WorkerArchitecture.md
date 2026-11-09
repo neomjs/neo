@@ -180,6 +180,19 @@ Neo.currentWorker.on('connect', (data) => {
 });
 ```
 
+A departing window's `disconnect` event is the last moment to keep what it hosted. A window is a render target, never a state owner: once every `disconnect` listener and the microtasks it queued have run, the App worker destroys the departed window's application together with its main view and whatever that tree still holds. A listener keeps a component by moving it out first, synchronously or in microtasks:
+
+```javascript
+// Example: Taking a widget back before its departed window's tree is destroyed
+Neo.currentWorker.on('disconnect', (data) => {
+    const widget = this.getReference('my-widget');
+
+    if (widget.windowId === data.windowId) {
+        this.getReference('dashboard').add(widget)
+    }
+});
+```
+
 ## Debugging & Error Handling
 
 Debugging multi-threaded applications might seem daunting, but modern tools make it manageable.

@@ -236,7 +236,7 @@ wrong" into a sequence of facts, each read from the place that owns it:
    move, per switch and at the end; `get_drag_state` shows what the coordinator holds right now.
 
 This loop is only the part a dock question needs; the
-[Neural Link Capability Matrix](../../agentos/tooling/NeuralLinkCapabilityMatrix.md) lists the full tool surface.
+[Neural Link Capability Matrix](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/tooling/NeuralLinkCapabilityMatrix.md) lists the full tool surface.
 
 **Name your witness before you read.** `get_worker_topology` lists every App Worker connected to the bridge — the browser
 the bug was reported in, and also any browser you opened yourself to look. A read that does not name a session goes

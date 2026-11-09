@@ -139,6 +139,12 @@ test.describe('Grid snapshots with stable record keys', () => {
 test.describe('Grid & Store Interactions', () => {
     let grid, store;
 
+    const settleBody = async () => {
+        do {
+            await grid.body.promiseUpdate()
+        } while (grid.body.isVdomUpdating || grid.body.needsVdomUpdate)
+    };
+
     // Helper to capture deltas during an operation
     const captureDeltas = async (operation) => {
         const captured = [];
@@ -156,7 +162,7 @@ test.describe('Grid & Store Interactions', () => {
         try {
             await operation();
             // Allow async updates to settle
-            await grid.timeout(50);
+            await settleBody();
         } finally {
             VdomHelper.updateBatch = originalUpdateBatch;
         }
@@ -186,6 +192,7 @@ test.describe('Grid & Store Interactions', () => {
                 ]
             }
         });
+        await store.ready();
 
         grid = Neo.create(GridContainer, {
             appName  : 'GridStoreInteractionsTest',
@@ -232,7 +239,9 @@ test.describe('Grid & Store Interactions', () => {
             containerWidth : 600
         });
 
-        await grid.timeout(50);
+        await settleBody();
+        expect(grid.body.items.length).toBe(14);
+        expect(grid.body.isVdomUpdating).toBe(false);
     });
 
     test.afterEach(async () => {

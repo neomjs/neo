@@ -2,6 +2,7 @@ import TreeList from '../../../../src/tree/List.mjs';
 import NeoArray from '../../../../src/util/Array.mjs';
 
 /**
+ * @summary Selects the class and mixin sources contributing members to a Docs class view.
  * @class Docs.view.classdetails.HierarchyTreeList
  * @extends Neo.tree.List
  */
@@ -27,6 +28,11 @@ class HierarchyTreeList extends TreeList {
             'neo-list'
         ],
         /**
+         * These rows toggle member-source filters; they do not select records in the plain collection.
+         * @member {Boolean} disableSelection=true
+         */
+        disableSelection: true,
+        /**
          * @member {Boolean} showCollapseExpandAllIcons=false
          */
         showCollapseExpandAllIcons: false,
@@ -49,48 +55,83 @@ class HierarchyTreeList extends TreeList {
     }
 
     /**
-     *
+     * @summary Adds the `unchecked` CSS class when `record.checked` is false so initial checkbox icons match `onLeafItemClick`.
+     * @param {Object} record
+     * @returns {Object}
      */
-    createStoreItems() {
-        let me            = this,
-            className     = me.structureData.className,
-            mainContainer = me.up('main-container'),
-            mainStore     = mainContainer.store,
-            storeItems    = [],
-            tmpItems      = [],
-            item, parentId;
+    createItem(record) {
+        let itemVdom = super.createItem(record);
 
-        item = mainStore.find({
-            $kind       : className === 'Neo' ? 'module' : 'class',
-            neoClassName: me.structureData.className
-        })[0];
-
-        tmpItems.unshift(item);
-
-        while (item?.hasOwnProperty('augments')) {
-            item = mainStore.find({
-                $kind       : 'class',
-                neoClassName: item.augments[0]
-            })[0];
-
-            tmpItems.unshift(item)
+        if (!record.checked) {
+            NeoArray.add(itemVdom.cls, 'unchecked')
         }
 
-        tmpItems.forEach((key, index) => {
-            if (key) {
-                parentId = tmpItems[index - 1] ? tmpItems[index - 1].id : null;
+        return itemVdom
+    }
 
-                storeItems.push({
-                    checked : true,
-                    id      : key.id,
-                    isLeaf  : true,
-                    name    : key.neoClassName,
-                    parentId: parentId
-                })
-            }
+    /**
+     * @summary Builds class ancestry and deduplicated mixin toggles, checking only sources introduced by the selected class.
+     */
+    createStoreItems() {
+        const me        = this,
+              className = me.structureData.className,
+              mainStore = me.up('main-container').store,
+              classes   = new Map(mainStore.find({$kind: 'class'}).map(item => [item.neoClassName, item])),
+              ancestry  = [],
+              seen      = new Set(),
+              mixins    = new Map(),
+              sources   = [];
+
+        let item = mainStore.find({
+            $kind       : className === 'Neo' ? 'module' : 'class',
+            neoClassName: className
+        })[0];
+
+        while (item && !seen.has(item.neoClassName)) {
+            seen.add(item.neoClassName);
+            ancestry.unshift(item);
+            item = classes.get(item.augments?.[0])
+        }
+
+        ancestry.forEach((record, index) => {
+            sources.push({
+                checked        : record.neoClassName === className,
+                id             : record.id,
+                isLeaf         : true,
+                isMixin        : false,
+                name           : record.neoClassName,
+                order          : sources.length,
+                parentId       : ancestry[index - 1]?.id ?? null,
+                sourceClassName: record.neoClassName
+            });
+
+            const visitMixin = (name, parentId, path = new Set()) => {
+                if (seen.has(name) || path.has(name)) return;
+
+                const previous = mixins.get(name),
+                      source   = {
+                          checked        : record.neoClassName === className,
+                          configOrder    : previous?.configOrder ?? sources.length,
+                          id             : previous?.id ?? `docs-mixin-${mixins.size}`,
+                          isLeaf         : true,
+                          isMixin        : true,
+                          name           : `${name} (mixin)`,
+                          order          : sources.length,
+                          ownerClassName : record.neoClassName,
+                          parentId,
+                          sourceClassName: name
+                      };
+
+                mixins.set(name, source);
+                sources.push(source);
+                path = new Set([...path, name]);
+                classes.get(name)?.mixes?.forEach(mixin => visitMixin(mixin, source.id, path))
+            };
+
+            record.mixes?.forEach(name => visitMixin(name, record.id))
         });
 
-        me.store.items = storeItems
+        me.store.items = sources.filter(source => !source.isMixin || mixins.get(source.sourceClassName) === source)
     }
 
     /**

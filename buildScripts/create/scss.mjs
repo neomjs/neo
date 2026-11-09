@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 
-import {Command}       from 'commander';
-import fs              from 'fs-extra';
-import os              from 'os';
-import path            from 'path';
-import {fileURLToPath} from 'url';
-import {sanitizeInput} from '../util/sanitizer.mjs';
+import {Command}           from 'commander';
+import fs                  from 'fs-extra';
+import os                  from 'os';
+import path                from 'path';
+import {fileURLToPath}     from 'url';
+import {sanitizeInput}     from '../util/sanitizer.mjs';
+import {getThemeNamespace} from '../../src/util/Theme.mjs';
 
 const
     __dirname   = fileURLToPath(new URL('../', import.meta.url)),
@@ -23,21 +24,14 @@ program
 
 const programOpts = program.opts();
 
-let className = programOpts.className;
+const className = programOpts.className,
+      namespace = getThemeNamespace(className).split('.'),
+      file      = namespace.pop();
 
-let ns            = className.split('.');
-let file          = ns.pop();
-let root          = ns.shift();
-let rootLowerCase = root.toLowerCase();
+if (namespace[0] === 'Neo') namespace.shift();
 
-// let classFolder = path.join(cwd,  '/src/', ns.join('/'));
-const forNonNeoPathArray = ns.filter(f => f !== 'view');
-let nonNeoPath           = `apps/${rootLowerCase}`;
-if (forNonNeoPathArray.length > 0) {
-    nonNeoPath = nonNeoPath.concat('/', forNonNeoPathArray.join('/'));
-}
-
-let classFolder = path.join(cwd, 'resources/scss/src/', rootLowerCase === 'neo' ? `/${ns.join('/')}` : nonNeoPath);
+const relative    = path.join(...namespace);
+let   classFolder = path.join(cwd, 'resources/scss/src', relative);
 
 if (!fs.existsSync(classFolder)) {
     fs.mkdirpSync(classFolder, {recursive: true});
@@ -56,17 +50,12 @@ let themeFoldersPath = path.join(cwd, 'resources/scss/');
 const themeFolders = listDirectories(themeFoldersPath);
 
 themeFolders.forEach(theme => {
-    const forNonNeoPathArray = ns.filter(f => f !== 'view');
-    let nonNeoPath           = `apps/${rootLowerCase}`;
-    if (forNonNeoPathArray.length > 0) {
-        nonNeoPath = nonNeoPath.concat('/', forNonNeoPathArray.join('/'));
-    }
-    classFolder = path.join(cwd, 'resources/scss/', theme, rootLowerCase === 'neo' ? `/${ns.join('/')}` : nonNeoPath);
+    classFolder = path.join(cwd, 'resources/scss', theme, relative);
     if (!fs.existsSync(classFolder)) {
         fs.mkdirpSync(classFolder, {recursive: true});
     }
     const exampleColor  = theme.includes('dark') ? 'darkgreen' : 'green';
-    const themeTemplate = `:root .${rootLowerCase}-${theme} { // .${scssClassName}
+    const themeTemplate = `:root .neo-${theme} { // .${scssClassName}
         // add css theme information here
         --${scssClassName.toLowerCase()}-background-color: ${exampleColor}; //example
 }`;
