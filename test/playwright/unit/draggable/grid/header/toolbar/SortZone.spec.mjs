@@ -310,7 +310,7 @@ test.describe('Neo.draggable.grid.header.toolbar.SortZone', () => {
         zone.destroy()
     });
 
-    test('a cancelled drag re-syncs the body its switches moved, and re-locks no column', async () => {
+    test('a cancelled drag re-syncs the body its switches moved once its headers have rendered, and re-locks no column', async () => {
         const
             calls         = [],
             column        = {dataField: 'alpha', locked: null},
@@ -324,13 +324,15 @@ test.describe('Neo.draggable.grid.header.toolbar.SortZone', () => {
                     body   : {createViewData: () => calls.push('createViewData')},
                     columns: {count: 1, getAt: () => column}
                 },
-                items           : [dragComponent],
-                on              : () => {},
-                passSizeToBody  : async () => calls.push('passSizeToBody'),
-                scrollLeft      : 0,
-                style           : {},
-                update          : () => calls.push('update'),
-                vdom            : {cn: []}
+                items             : [dragComponent],
+                // A layout read before the headers render measures the drag's layout, so the measurement waits for it
+                measureAfterUpdate: async () => {calls.push('measureAfterUpdate'); await Promise.resolve(); calls.push('measured')},
+                on                : () => {},
+                passSizeToBody    : async () => calls.push('passSizeToBody'),
+                scrollLeft        : 0,
+                style             : {},
+                update            : () => calls.push('update'),
+                vdom              : {cn: []}
             },
             zone = Neo.create(SortZone, {owner});
 
@@ -352,7 +354,7 @@ test.describe('Neo.draggable.grid.header.toolbar.SortZone', () => {
         await zone.processDragEnd({cancelled: true});
 
         expect(column.locked).toBeNull();
-        expect(calls).toEqual(['update', 'passSizeToBody', 'createViewData']);
+        expect(calls).toEqual(['measureAfterUpdate', 'measured', 'createViewData']);
 
         zone.destroy()
     })

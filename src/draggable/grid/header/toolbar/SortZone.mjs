@@ -553,9 +553,9 @@ class SortZone extends BaseSortZone {
             });
 
             owner.updateDepth = 2;
-            owner.update();
 
-            await owner.passSizeToBody();
+            // A flex header measured before every header is back in the flow takes their space as its width
+            await owner.measureAfterUpdate();
 
             await this.timeout(20);
 
