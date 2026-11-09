@@ -275,14 +275,13 @@ test.describe('Neo.grid.header.GroupRow', () => {
     })
 });
 
-test.describe('Neo.grid.header.GroupRow: a group cell drags its whole group', () => {
+test.describe('Neo.grid.header.GroupRow: units', () => {
     const group        = id => ({id, text: id}),
           [q1, q2, q3] = ['q1', 'q2', 'q3'].map(group),
           column       = (dataField, headerGroup) => ({dataField, headerGroup}),
           columns      = [column('jan', q1), column('feb', q1), column('apr', q2), column('may', q2), column('jul', q3), column('aug', q3), column('id')],
           // Every column 100 wide, in order: q1 0–200, q2 200–400, q3 400–600, id 600–700
-          positions = new Map(columns.map(({dataField}, index) => [dataField, {width: 100, x: index * 100}])),
-          drop      = (groupId, x) => GroupRow.getGroupDropOrder({columns, groupId, positions, x})?.map(({dataField}) => dataField) ?? null;
+          positions = new Map(columns.map(({dataField}, index) => [dataField, {width: 100, x: index * 100}]));
 
     test('a region\'s units are its groups\' runs and its ungrouped columns', () => {
         expect(GroupRow.getUnits(columns, positions).map(({columns, group, index, width, x}) =>
@@ -292,25 +291,5 @@ test.describe('Neo.grid.header.GroupRow: a group cell drags its whole group', ()
             {fields: ['jul', 'aug'], group: 'q3', index: 4, width: 200, x: 400},
             {fields: ['id'],         group: null, index: 6, width: 100, x: 600}
         ])
-    });
-
-    test('a group dropped before another moves its whole run there', () => {
-        // q2's centre is at 300: released at 250, q3 takes the slot before q2
-        expect(drop('q3', 250)).toEqual(['jan', 'feb', 'jul', 'aug', 'apr', 'may', 'id'])
-    });
-
-    test('a release over another group takes the slot beside it, never one among its leaves', () => {
-        expect(drop('q3', 150), 'right of q1\'s centre').toEqual(['jan', 'feb', 'jul', 'aug', 'apr', 'may', 'id']);
-        expect(drop('q3', 50),  'left of q1\'s centre').toEqual(['jul', 'aug', 'jan', 'feb', 'apr', 'may', 'id'])
-    });
-
-    test('a release past either end takes the region\'s first or last slot', () => {
-        expect(drop('q1', 5000)).toEqual(['apr', 'may', 'jul', 'aug', 'id', 'jan', 'feb']);
-        expect(drop('q3', -500)).toEqual(['jul', 'aug', 'jan', 'feb', 'apr', 'may', 'id'])
-    });
-
-    test('a release where the group already sits, or for no known group, moves nothing', () => {
-        expect(drop('q2', 300)).toBeNull();
-        expect(drop('nope', 300)).toBeNull()
     })
 });

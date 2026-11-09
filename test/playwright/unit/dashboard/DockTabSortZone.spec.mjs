@@ -408,6 +408,9 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
                               dragComponent  : {dockItemId: 'graph', id: 'graph-button'},
                               dragCoordinator: coordinator,
                               dragEnd        : () => calls.push(['cleanup']),
+                              // The zone runs its drag starts and ends one at a time
+                              dragQueue    : Promise.resolve(),
+                              queueDragStep: ContainerSortZone.prototype.queueDragStep,
                               onRemoteDropOut() {
                                   calls.push(['remote-out']);
                                   this.remoteDropCommitted = true
