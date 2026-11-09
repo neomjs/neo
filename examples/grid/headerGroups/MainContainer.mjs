@@ -1,3 +1,6 @@
+import Button        from '../../../src/button/Base.mjs';
+import Component     from '../../../src/component/Base.mjs';
+import Container     from '../../../src/container/Base.mjs';
 import GridContainer from '../../../src/grid/Container.mjs';
 import MainStore     from './MainStore.mjs';
 import {months}      from './MainModel.mjs';
@@ -29,14 +32,41 @@ class MainContainer extends Viewport {
          */
         className: 'Neo.examples.grid.headerGroups.MainContainer',
         /**
-         * @member {Object} layout={ntype:'fit'}
+         * @member {String[]} cls=['neo-examples-grid-header-groups']
          */
-        layout: {ntype: 'fit'},
+        cls: ['neo-examples-grid-header-groups'],
+        /**
+         * @member {Object} layout={ntype:'vbox',align:'stretch'}
+         */
+        layout: {ntype: 'vbox', align: 'stretch'},
         /**
          * @member {Object[]} items
          */
         items: [{
+            module: Container,
+            cls   : ['header-groups-toolbar'],
+            flex  : 'none',
+            layout: {ntype: 'hbox', align: 'center'},
+            items : [{
+                module  : Component,
+                flex    : 1,
+                minWidth: 0,
+                vdom    : {cn: [
+                    {cls: ['header-groups-title'], text: 'Grouped column headers'},
+                    {cls: ['header-groups-instruction'], text: 'Move a quarter as a group, or reorder months within it. Resize a month to see its group stay aligned.'}
+                ]}
+            }, {
+                module   : Button,
+                handler  : 'up.onThemeButtonClick',
+                reference: 'themeButton',
+                text     : 'Dark theme',
+                iconCls  : 'fa-solid fa-moon',
+                tooltip  : 'Switch between the light and dark theme',
+                ui       : 'ghost'
+            }]
+        }, {
             module: GridContainer,
+            flex  : 1,
             store : MainStore,
 
             columns: [
@@ -49,6 +79,27 @@ class MainContainer extends Viewport {
                 {text: 'Year', locked: 'end', columns: [{dataField: 'total', text: 'Total', width: 140}]}
             ]
         }]
+    }
+
+    /** @summary Reflects the effective boot theme, including a theme selected by the example URL. */
+    onConstructed() {
+        super.onConstructed();
+        this.syncThemeButton()
+    }
+
+    /** @summary Switches the viewport theme so the grid and its floating drag proxies share the active skin. */
+    onThemeButtonClick() {
+        this.theme = this.getTheme() === 'neo-theme-neo-dark' ? 'neo-theme-neo-light' : 'neo-theme-neo-dark';
+        this.syncThemeButton()
+    }
+
+    /** @summary Labels the button with the theme its next click will select. */
+    syncThemeButton() {
+        const dark = this.getTheme() === 'neo-theme-neo-dark';
+        this.getReference('themeButton').set({
+            iconCls: dark ? 'fa-solid fa-sun' : 'fa-solid fa-moon',
+            text   : dark ? 'Light theme' : 'Dark theme'
+        })
     }
 }
 

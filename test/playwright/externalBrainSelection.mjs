@@ -61,6 +61,7 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'grid/ColumnOverdragScroll.spec.mjs',
     'grid/GridExportCsvNL.spec.mjs',
     'grid/GridViewFocus.spec.mjs',
+    'grid/HeaderGroupsTheme.spec.mjs',
     'grid/HeaderInlineProjectionNL.spec.mjs',
     'grid/HeaderMenuCoverageNL.spec.mjs',
     'grid/HeaderMenuInteractionNL.spec.mjs',
