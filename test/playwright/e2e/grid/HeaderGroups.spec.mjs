@@ -865,5 +865,52 @@ test.describe('examples/grid/headerGroups', () => {
         expect(await page.evaluate(() =>
             document.querySelectorAll('.neo-dragproxy, .neo-grid-header-toolbar.neo-is-dragging').length)).toBe(0);
         await expectRelaidOut(page)
+    });
+
+    test('a drag proxy ends at the last row when the rows stop above the grid\'s bottom (#20652)', async ({page}) => {
+        // Taller than the header plus all rows, so the grid's bottom lies below its last row
+        await page.setViewportSize({width: 1600, height: 1000});
+        await expect.poll(async () => (await groupEdges(page))[0].right - (await groupEdges(page))[0].left).toBeGreaterThan(400);
+
+        const proxy  = page.locator('.neo-dragproxy'),
+              bottom = () => page.evaluate(() => {
+                  const outside = node => !node.closest('.neo-dragproxy'),
+                        grid    = [...document.querySelectorAll('.neo-grid-container')].find(node => outside(node)),
+                        rows    = [...document.querySelectorAll('.neo-grid-row')].filter(row => outside(row) && row.textContent.trim());
+
+                  return {
+                      grid : Math.round(grid.getBoundingClientRect().bottom),
+                      last : Math.round(Math.max(...rows.map(row => row.getBoundingClientRect().bottom))),
+                      proxy: Math.round(document.querySelector('.neo-dragproxy').getBoundingClientRect().bottom)
+                  }
+              });
+
+        // A leaf: its proxy starts at the leaf header, below the group row
+        const leaf = await page.locator('.neo-grid-header-button:not(.neo-dragproxy *)', {hasText: /^Feb$/}).first().boundingBox(),
+              y    = leaf.y + leaf.height / 2;
+
+        await page.mouse.move(leaf.x + leaf.width / 2, y);
+        await page.mouse.down();
+        await page.mouse.move(leaf.x + leaf.width / 2 + 20, y, {steps: 4});
+        await page.mouse.move(leaf.x + leaf.width / 2 + 120, y, {steps: 12});
+        await expect(proxy).toHaveCount(1);
+
+        let {grid, last, proxy: end} = await bottom();
+        // Must-contain: the rows do stop above the grid's bottom, else this arm proves nothing
+        expect(last).toBeLessThan(grid - 40);
+        expect(Math.abs(end - last), `leaf proxy ends at ${end}, last row at ${last}`).toBeLessThanOrEqual(2);
+        await page.keyboard.press('Escape');
+        await page.mouse.up();
+        await expect(proxy).toHaveCount(0);
+
+        // A group: its proxy starts at the group row
+        await holdGroup(page, 'Q3', (await groupBox(page, 'Q2')).x + 10);
+        await expect(proxy).toHaveCount(1);
+
+        ({grid, last, proxy: end} = await bottom());
+        expect(Math.abs(end - last), `group proxy ends at ${end}, last row at ${last}`).toBeLessThanOrEqual(2);
+        await page.keyboard.press('Escape');
+        await page.mouse.up();
+        await expect(proxy).toHaveCount(0)
     })
 });

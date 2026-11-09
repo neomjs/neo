@@ -362,6 +362,8 @@ test.describe('Grid content-sized rows', () => {
 
         expect(fixed.body.availableRows).toBe(Math.ceil(viewport / rowHeight) - 1);
         expect(fixed.body.vdom.height).toBe(`${(store.count + 1) * rowHeight}px`);
+        // The rows alone, without the extent's extra row: where a header drag's proxy ends
+        expect(fixed.body.getContentHeight()).toBe(store.count * rowHeight);
 
         fixed.body.items.filter(row => row.record).forEach(row => {
             expect(renderedGeometry(row)).toEqual({height: rowHeight, offset: row.rowIndex * rowHeight})
@@ -387,6 +389,7 @@ test.describe('Grid content-sized rows', () => {
 
         // One extra estimated row below the last one, as the fixed-height extent keeps one extra row
         expect(body.vdom.height).toBe(`${geometry.totalHeight + rowHeight}px`);
+        expect(body.getContentHeight()).toBe(geometry.totalHeight);
         expect(verticalScrollbar.vdom.cn[0].height).toBe(body.vdom.height);
 
         scrollTop = geometry.offsetAt(7) + 10;

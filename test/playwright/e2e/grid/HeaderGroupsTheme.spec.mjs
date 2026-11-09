@@ -106,6 +106,9 @@ for (const theme of ['neo-theme-neo-light', 'neo-theme-neo-dark']) {
             await expect(header).toHaveText(name);
             await expect(proxy).toHaveClass(new RegExp(theme));
             await expect(header).toHaveCSS('background-color', color);
+            // The slot the leaf vacates shows its toolbar, which must read as header, not as the stock toolbar color
+            await expect(toolbar).toHaveClass(/neo-is-dragging/);
+            await expect(toolbar).toHaveCSS('background-color', color);
             await expect.poll(() => header.evaluate(node => {
                 const rect   = node.getBoundingClientRect(),
                       parent = node.closest('.neo-grid-header-toolbar').getBoundingClientRect();
@@ -125,6 +128,7 @@ for (const theme of ['neo-theme-neo-light', 'neo-theme-neo-dark']) {
               target = await page.locator('.neo-grid-container .neo-grid-header-group-cell').filter({hasText: /^Q1$/}).boundingBox(),
               color  = await group.evaluate(node => getComputedStyle(node).backgroundColor),
               ink    = await group.evaluate(node => getComputedStyle(node).color),
+              leaf   = await toolbar.locator('.neo-grid-header-button').first().evaluate(node => getComputedStyle(node).backgroundColor),
               y      = from.y + from.height / 2;
         await page.mouse.move(from.x + from.width / 2, y);
         await page.mouse.down();
@@ -136,6 +140,9 @@ for (const theme of ['neo-theme-neo-light', 'neo-theme-neo-dark']) {
         await expect(proxy.locator('.neo-grid-header-group-cell')).toHaveCSS('color', ink);
         await expect(proxy.locator('.neo-grid-header-button')).toHaveText(['Apr', 'May', 'Jun']);
         await expect(proxy.locator('.neo-grid-row').first()).toBeVisible();
+        // The group's vacated leaf slots show the same toolbar
+        await expect(toolbar).toHaveClass(/neo-is-dragging/);
+        await expect(toolbar).toHaveCSS('background-color', leaf);
         await testInfo.attach(`${theme}-group.png`, {body: await page.screenshot(), contentType: 'image/png'});
         await page.mouse.up();
         await expect(proxy).toHaveCount(0);
