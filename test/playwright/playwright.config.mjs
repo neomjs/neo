@@ -1,8 +1,11 @@
 
-import {defineConfig, devices} from '@playwright/test';
-import path                    from 'path';
-import {fileURLToPath}         from 'url';
-import {resolveFreePortSync}   from './resolveFreePort.mjs';
+import {defineConfig, devices}    from '@playwright/test';
+import path                       from 'path';
+import {fileURLToPath}            from 'url';
+import {assertInstallMatchesLock} from '../../buildScripts/util/check-installed-dependencies.mjs';
+import {resolveFreePortSync}      from './resolveFreePort.mjs';
+
+assertInstallMatchesLock();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);

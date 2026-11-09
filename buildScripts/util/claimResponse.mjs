@@ -30,8 +30,8 @@ export const CURATED_LABELS = Object.freeze(['good first issue', 'help wanted'])
 export const TEAM_ASSOCIATIONS = Object.freeze(['COLLABORATOR', 'MEMBER', 'OWNER']);
 
 /**
- * How long an unassigned claim holds an issue for later claimants, mirroring CONTRIBUTING's seven days for a silent
- * assignee.
+ * How long a claim holds an issue for later claimants after its claimant's latest comment, mirroring CONTRIBUTING's
+ * seven days for a silent claimant.
  * @member {Number} CLAIM_WINDOW_DAYS
  */
 export const CLAIM_WINDOW_DAYS = 7;
@@ -148,8 +148,9 @@ export function pickAlternatives({candidates = [], exclude, seed = '', count = 3
 }
 
 /**
- * The earliest live claim by another outside contributor before `comment`: made within {@link CLAIM_WINDOW_DAYS} of
- * it, and not given back by a later withdrawal from the same person.
+ * The earliest live claim by another outside contributor before `comment`: its claimant commented on the issue within
+ * {@link CLAIM_WINDOW_DAYS} of it, with the claim or any later word such as a progress note, and gave nothing back by a
+ * later withdrawal.
  * @param {Object} options
  * @param {String} options.claimant
  * @param {Object} options.comment The claim being answered: `id`, `created_at`
@@ -158,17 +159,20 @@ export function pickAlternatives({candidates = [], exclude, seed = '', count = 3
  */
 export function earlierClaim({claimant, comment, comments = []}) {
     const
-        self   = String(claimant).toLowerCase(),
-        at     = new Date(comment.created_at).getTime(),
-        before = comments.filter(other => other.id !== comment.id && new Date(other.created_at).getTime() <= at);
+        self     = String(claimant).toLowerCase(),
+        at       = new Date(comment.created_at).getTime(),
+        before   = comments.filter(other => other.id !== comment.id && new Date(other.created_at).getTime() <= at),
+        lastWord = login => Math.max(...before
+            .filter(other => String(other.user?.login).toLowerCase() === login)
+            .map(other => new Date(other.created_at).getTime()));
 
     return before.find(other => {
         const login = String(other.user?.login).toLowerCase();
 
         return login !== self &&
             isOutsideHuman(other) &&
-            at - new Date(other.created_at).getTime() <= CLAIM_WINDOW_DAYS * DAY_MS &&
             isClaim(other.body) &&
+            at - lastWord(login) <= CLAIM_WINDOW_DAYS * DAY_MS &&
             !before.some(later =>
                 String(later.user?.login).toLowerCase() === login &&
                 new Date(later.created_at) > new Date(other.created_at) &&

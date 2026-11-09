@@ -1,6 +1,9 @@
 
-import {defineConfig}        from '@playwright/test';
-import {resolveFreePortSync} from './resolveFreePort.mjs';
+import {defineConfig}             from '@playwright/test';
+import {assertInstallMatchesLock} from '../../buildScripts/util/check-installed-dependencies.mjs';
+import {resolveFreePortSync}      from './resolveFreePort.mjs';
+
+assertInstallMatchesLock();
 
 // Foreign-tree evidence is structurally impossible here: an explicit NEO_E2E_PORT pin wins,
 // otherwise an OS-assigned free port is probed per process — and the webServer below never

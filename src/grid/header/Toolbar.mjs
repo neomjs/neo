@@ -181,8 +181,11 @@ class Toolbar extends BaseToolbar {
         if (oldValue !== undefined && sortZone) {
             sortZone.scrollLeft = value;
 
-            // Term observability while a drag is in flight (itemRects = the mid-drag marker)
-            sortZone.itemRects && sortZone.traceEvent({t: 'scrollSync', sl: value})
+            // A drag in flight (itemRects = the mid-drag marker) traces the term and keeps its proxy over its group
+            if (sortZone.itemRects) {
+                sortZone.traceEvent({t: 'scrollSync', sl: value});
+                sortZone.clampProxyToGroup()
+            }
         }
     }
 
