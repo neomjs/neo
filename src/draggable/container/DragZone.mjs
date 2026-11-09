@@ -21,6 +21,34 @@ class DragZone extends BaseDragZone {
     }
 
     /**
+     * Chains the zone's drag starts and ends, so they run one at a time in the order they arrive
+     * @member {Promise<void>} dragQueue
+     * @protected
+     */
+    dragQueue = Promise.resolve()
+
+    /**
+     * True from {@link #startDrag} until its queued start has built the drag
+     * @member {Boolean} dragStartPending=false
+     * @protected
+     */
+    dragStartPending = false
+
+    /**
+     * The start {@link #startDrag} queued, until it settles
+     * @member {Promise<void>|null} dragStarting=null
+     * @protected
+     */
+    dragStarting = null
+
+    /**
+     * @summary Runs once a queued start has built its drag, before any end queued behind it.
+     * @returns {Promise<void>|void}
+     * @protected
+     */
+    afterDragStart() {}
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -33,7 +61,7 @@ class DragZone extends BaseDragZone {
         owner.addDomListeners([
             {'drag:end'  : me.onDragEnd,   ...opts},
             {'drag:move' : me.onDragMove,  ...opts},
-            {'drag:start': me.onDragStart, ...opts}
+            {'drag:start': me.startDrag,   ...opts}
         ]);
 
         owner.on({
@@ -121,6 +149,57 @@ class DragZone extends BaseDragZone {
                     me.dragEnd();
                 });
             });
+        }
+    }
+
+    /**
+     * @summary Queues a drag start or end behind every earlier one: a start never runs into the last drag's end, and an
+     * end never tears down a start that is still building.
+     * @param {Function} step
+     * @returns {Promise<*>}
+     * @protected
+     */
+    queueDragStep(step) {
+        let me  = this,
+            run = me.dragQueue.then(step);
+
+        // A failed step must not stall the ones behind it
+        me.dragQueue = run.catch(Neo.emptyFn);
+
+        return run
+    }
+
+    /**
+     * @summary The drag start entry. It queues {@link #onDragStart} with every override, and records that start until
+     * it settles, so the drag's moves wait for it.
+     * @param {Object}   data
+     * @param {Function} [prepare] Sets the drag up once the zone is free, right before its start runs
+     * @returns {Promise<void>}
+     */
+    async startDrag(data, prepare) {
+        let me = this,
+            start;
+
+        me.dragStartPending = true;
+
+        start = me.queueDragStep(async () => {
+            prepare?.();
+
+            try {
+                await me.onDragStart(data)
+            } finally {
+                me.dragStartPending = false
+            }
+
+            await me.afterDragStart()
+        });
+
+        me.dragStarting = start;
+
+        try {
+            await start
+        } finally {
+            me.dragStarting === start && (me.dragStarting = null)
         }
     }
 

@@ -371,6 +371,17 @@ class SortZone extends DragZone {
     }
 
     /**
+     * @summary The item a drag start moves: the component the pointer pressed. A subclass can name another item, such
+     * as the first of a run it moves as one.
+     * @param {Object} data The drag start event
+     * @returns {Neo.component.Base|null}
+     * @protected
+     */
+    resolveDraggedItem(data) {
+        return Neo.getComponent(data.path[0].id)
+    }
+
+    /**
      * @summary Returns the draggable items that occupy a live DOM layout slot at drag start.
      * @param {Object[]} [items=this.owner.items]
      * @returns {Neo.component.Base[]}
@@ -551,7 +562,8 @@ class SortZone extends DragZone {
     async onDragCancel(data={}) {
         let me = this;
 
-        if (!me.dragComponent || me.dragEndActive) {
+        // A cancel while the start is still queued ends that drag too: its end queues behind the start
+        if ((!me.dragComponent && !me.dragStarting) || me.dragEndActive) {
             return
         }
 
@@ -574,21 +586,57 @@ class SortZone extends DragZone {
      * @param {Object} data - The drag end event data.
      */
     async onDragEnd(data) {
-        let me = this;
+        let me = this,
+            latch;
 
         if (me.dragEndActive) {
             return
         }
 
+        // One latch per gesture: a newer drag's start lifts it, so that drag's own end gets through
+        latch = me.dragEndLatch = {};
+
         me.dragEndActive = true;
 
         try {
-            await me.processDragEnd(data)
+            // Queued behind the drag's start: the end tears down what the start builds
+            await me.queueDragStep(() => me.processDragEnd(data))
         } finally {
-            if (!me.isDestroying && !me.isDestroyed) {
-                me.dragEndActive = false
+            if (!me.isDestroying && !me.isDestroyed && me.dragEndLatch === latch) {
+                me.dragEndActive = false;
+                me.dragEndLatch  = null
             }
         }
+    }
+
+    /**
+     * @summary A new gesture lifts the last one's end latch: duplicate deliveries of that end arrived long before.
+     * @param {Object}   data
+     * @param {Function} [prepare]
+     * @returns {Promise<void>}
+     */
+    startDrag(data, prepare) {
+        let me = this;
+
+        me.dragEndActive   = false;
+        me.dragEndLatch    = null;
+        me.pendingDragMove = null;
+
+        return super.startDrag(data, prepare)
+    }
+
+    /**
+     * @summary The moves that arrived while the start waited its turn are not lost: the latest one places the drag.
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async afterDragStart() {
+        let me   = this,
+            move = me.pendingDragMove;
+
+        me.pendingDragMove = null;
+
+        move && await me.onDragMove(move)
     }
 
     /**
@@ -762,6 +810,12 @@ class SortZone extends DragZone {
      */
     async onDragMove(data) {
         let me = this;
+
+        // While the start is still queued behind the last drag's end, its latest move waits for it (afterDragStart)
+        if (me.dragStartPending) {
+            me.pendingDragMove = data;
+            return
+        }
 
         // The method can trigger before we got the client rects from the main thread
         if (!me.itemRects || me.isScrolling || !me.boundaryContainerRect) {
@@ -952,7 +1006,7 @@ class SortZone extends DragZone {
                 sortableItems = me.getSortableItems(owner.items);
                 index         = sortableItems.indexOf(draggedItem);
             } else {
-                draggedItem   = Neo.getComponent(data.path[0].id);
+                draggedItem   = me.resolveDraggedItem(data);
                 sortableItems = me.getSortableItems(owner.items);
                 index         = sortableItems.indexOf(draggedItem)
             }
