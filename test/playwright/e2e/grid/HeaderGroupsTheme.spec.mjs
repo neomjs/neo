@@ -43,6 +43,10 @@ test('Header Groups exposes modern light and dark themes without changing its gr
     const instruction = await page.locator('.header-groups-instruction').boundingBox(),
           header      = await page.locator('.neo-grid-header-group-row').first().boundingBox();
     expect(instruction.y + instruction.height).toBeLessThanOrEqual(header.y);
+    await expect(page.locator('.header-groups-toolbar')).toHaveCount(1);
+    await expect.poll(() => page.locator('.neo-grid-container').evaluate(node =>
+        Math.round(node.getBoundingClientRect().bottom))).toBe(720);
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     await testInfo.attach('narrow.png', {body: await page.screenshot(), contentType: 'image/png'})
 });
 
@@ -105,6 +109,7 @@ for (const theme of ['neo-theme-neo-light', 'neo-theme-neo-dark']) {
               from   = await group.boundingBox(),
               target = await page.locator('.neo-grid-container .neo-grid-header-group-cell').filter({hasText: /^Q1$/}).boundingBox(),
               color  = await group.evaluate(node => getComputedStyle(node).backgroundColor),
+              ink    = await group.evaluate(node => getComputedStyle(node).color),
               y      = from.y + from.height / 2;
         await page.mouse.move(from.x + from.width / 2, y);
         await page.mouse.down();
@@ -113,6 +118,7 @@ for (const theme of ['neo-theme-neo-light', 'neo-theme-neo-dark']) {
         await expect(proxy).toHaveClass(new RegExp(theme));
         await expect(proxy.locator('.neo-grid-header-group-cell')).toHaveText('Q2');
         await expect(proxy.locator('.neo-grid-header-group-cell')).toHaveCSS('background-color', color);
+        await expect(proxy.locator('.neo-grid-header-group-cell')).toHaveCSS('color', ink);
         await expect(proxy.locator('.neo-grid-header-button')).toHaveText(['Apr', 'May', 'Jun']);
         await expect(proxy.locator('.neo-grid-row').first()).toBeVisible();
         await testInfo.attach(`${theme}-group.png`, {body: await page.screenshot(), contentType: 'image/png'});
