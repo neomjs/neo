@@ -1,7 +1,10 @@
-import {defineConfig}       from '@playwright/test';
-import path                 from 'path';
-import {fileURLToPath}      from 'url';
-import {buildUnitRunPolicy} from './playwright.config.unit.mjs';
+import {defineConfig}             from '@playwright/test';
+import path                       from 'path';
+import {fileURLToPath}            from 'url';
+import {assertInstallMatchesLock} from '../../buildScripts/util/check-installed-dependencies.mjs';
+import {buildUnitRunPolicy}       from './playwright.config.unit.mjs';
+
+assertInstallMatchesLock();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
