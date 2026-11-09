@@ -1,8 +1,21 @@
 import {voidAttributes} from '../../vdom/domConstants.mjs';
 
+const
+    HTML_NAMESPACE = 'http://www.w3.org/1999/xhtml',
+    /**
+     * The elements that open a foreign namespace for their subtree, as the HTML parser switches on `<svg>` and
+     * `<math>`. Every other element is created in the namespace it inherits.
+     */
+    namespaceRoots = new Map([
+        ['math', 'http://www.w3.org/1998/Math/MathML'],
+        ['svg',  'http://www.w3.org/2000/svg']
+    ]);
+
 const DomApiRenderer = {
     /**
-     * Recursively creates a DOM element (or DocumentFragment) from a VNode tree.
+     * @summary Recursively creates a DOM element (or DocumentFragment) from a VNode tree, each element in its namespace.
+     * An element is created in the namespace it inherits from its parent unless it opens its own (`svg`, `math`), so an
+     * SVG subtree becomes SVG elements and draws; the VNode carries no namespace, the tree position decides it.
      * This method handles two primary modes based on `isRoot`:
      * 1. If `isRoot` is true:
      *   a. Builds a detached DocumentFragment: if `parentNode` is null. Returns the fragment.
@@ -17,13 +30,15 @@ const DomApiRenderer = {
      * @param {Object}      config
      * @param {Number}      [config.index]               The index within `parentNode` to insert the root fragment (used when `isRoot` is true).
      * @param {Boolean}     [config.isRoot=false]        If true, this is the root call for the VNode tree.
-     * @param {HTMLElement} [config.parentNode=null]     The parent DOM node to insert into. Its role changes based on `isRoot`.
+     * @param {String|null} [config.namespace=null]      The namespace inherited from the parent, `null` for HTML.
+     *                                                   A root call passes {@link #getChildNamespace} of its insertion parent.
+     * @param {Element}     [config.parentNode=null]     The parent DOM node to insert into. Its role changes based on `isRoot`.
      * @param {Object[]}    [config.postMountUpdates=[]] Array to store nodes that need post-mount updates (e.g. scroll state).
      * @param {Object}      config.vnode                 The VNode object to convert to a real DOM element.
-     * @returns {DocumentFragment|HTMLElement|null}  The created DOM node, the root DocumentFragment, or null.
+     * @returns {DocumentFragment|Element|null}  The created DOM node, the root DocumentFragment, or null.
      * @private
      */
-    createDomTree({index, isRoot=false, parentNode, postMountUpdates=[], vnode}) {
+    createDomTree({index, isRoot=false, namespace=null, parentNode, postMountUpdates=[], vnode}) {
         let domNode;
 
         // No node or just a reference node, opt out
@@ -51,11 +66,11 @@ const DomApiRenderer = {
         }
         // Handle regular elements
         else if (vnode.nodeName) {
-            if (vnode.ns) { // For SVG, ensure correct namespace
-                domNode = document.createElementNS(vnode.ns, vnode.nodeName)
-            } else {
-                domNode = document.createElement(vnode.nodeName)
-            }
+            const elementNamespace = namespaceRoots.get(vnode.nodeName) || namespace;
+
+            domNode = elementNamespace ?
+                document.createElementNS(elementNamespace, vnode.nodeName) :
+                document.createElement(vnode.nodeName);
 
             // Apply the top-level 'id' property first (guaranteed to exist)
             domNode[Neo.config.useDomIds ? 'id' : 'data-neo-id'] = vnode.id;
@@ -112,9 +127,11 @@ const DomApiRenderer = {
             postMountUpdates.push({node: domNode, vnode})
         }
 
-        // Recursively process children
+        // Recursively process children. A fragment is transparent: its children inherit what it inherited.
+        const childNamespace = vnode.nodeName === 'fragment' ? namespace : this.getChildNamespace(domNode);
+
         vnode.childNodes.forEach(childVnode => {
-            this.createDomTree({parentNode: domNode, postMountUpdates, vnode: childVnode})
+            this.createDomTree({namespace: childNamespace, parentNode: domNode, postMountUpdates, vnode: childVnode})
         })
 
         if (vnode.nodeName === 'fragment') {
@@ -154,6 +171,20 @@ const DomApiRenderer = {
             // Return the appended node (or null)
             return domNode
         }
+    },
+
+    /**
+     * @summary Returns the namespace the children of a live DOM element are created in, `null` for HTML.
+     * An SVG or MathML element passes its own namespace down. SVG's `foreignObject` holds HTML content, like every
+     * HTML element. {@link Neo.main.DeltaUpdates} reads it off the insertion parent, so a subtree inserted into an
+     * existing `<svg>` lands in the SVG namespace even when its own root is a `<g>` or a `<circle>`.
+     * @param {Element|DocumentFragment|null} element
+     * @returns {String|null}
+     */
+    getChildNamespace(element) {
+        const namespace = element?.namespaceURI;
+
+        return !namespace || namespace === HTML_NAMESPACE || element.localName === 'foreignObject' ? null : namespace
     }
 };
 
