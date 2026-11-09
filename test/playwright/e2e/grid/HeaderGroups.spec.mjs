@@ -22,7 +22,8 @@ const groupEdges = page => page.evaluate(() => {
         .filter(button => !button.closest('.neo-dragproxy'))
         .map(button => [Number(button.getAttribute('aria-colindex')), button.getBoundingClientRect()]));
 
-    return [...document.querySelectorAll('.neo-grid-header-group-cell')].map(cell => {
+    // A live group drag clones its group cell into the proxy: only the row's own cells count
+    return [...document.querySelectorAll('.neo-grid-header-group-cell')].filter(cell => !cell.closest('.neo-dragproxy')).map(cell => {
         const first = Number(cell.getAttribute('aria-colindex')),
               last  = first + Number(cell.getAttribute('aria-colspan')) - 1,
               rect  = cell.getBoundingClientRect();
@@ -574,67 +575,70 @@ test.describe('examples/grid/headerGroups', () => {
         page.locator('.neo-grid-header-group-row .neo-grid-header-group-cell', {hasText: text}).first().boundingBox();
 
     /**
-     * Presses a group cell in the middle of its visible part and carries it to `toX`, still pressed
+     * Presses a group cell in the middle of its visible part and carries it until its left edge reaches `edgeX`, still
+     * pressed. A group moves by where its edge is, as a column does, so the target is an edge, not a pointer position.
      * @param {Object} page
-     * @param {String} text The group to drag
-     * @param {Number} toX
-     * @returns {Promise<Object>} `{box, part, pressX}`: the cell's and its region part's rects, and the press x
+     * @param {String} text  The group to drag
+     * @param {Number} edgeX Where the group's left edge goes
+     * @returns {Promise<Object>} `{box, part, pressX, toX}`: the cell's and its region part's rects, the press x and
+     * the pointer's final x
      */
-    const holdGroup = async (page, text, toX) => {
+    const holdGroup = async (page, text, edgeX) => {
         const {box, part} = await page.evaluate(label => {
                   const cell = [...document.querySelectorAll('.neo-grid-header-group-row .neo-grid-header-group-cell')]
-                          .find(item => item.textContent === label),
+                          .find(item => item.textContent === label && !item.closest('.neo-dragproxy')),
                         rect = node => {const {x, y, width, height} = node.getBoundingClientRect(); return {x, y, width, height}};
 
                   return {box: rect(cell), part: rect(cell.closest('.neo-grid-header-group-part'))}
               }, text),
               pressX = (Math.max(box.x, part.x) + Math.min(box.x + box.width, part.x + part.width)) / 2,
+              toX    = edgeX + pressX - box.x,
               y      = box.y + box.height / 2;
 
         await page.mouse.move(pressX, y);
         await page.mouse.down();
-        await page.mouse.move(pressX + Math.sign(toX - box.x) * 20, y, {steps: 4});
+        await page.mouse.move(pressX + Math.sign(toX - pressX) * 20, y, {steps: 4});
         await page.mouse.move(toX, y, {steps: 16});
 
-        return {box, part, pressX}
+        return {box, part, pressX, toX}
     };
 
     /**
-     * Drags a group cell and releases it at `toX`
+     * Drags a group cell until its left edge reaches `edgeX`, and releases it
      * @param {Object} page
-     * @param {String} text The group to drag
-     * @param {Number} toX
+     * @param {String} text  The group to drag
+     * @param {Number} edgeX
      */
-    const dragGroup = async (page, text, toX) => {
-        await holdGroup(page, text, toX);
+    const dragGroup = async (page, text, edgeX) => {
+        await holdGroup(page, text, edgeX);
         await page.mouse.up()
     };
 
     /**
-     * The live group proxy: it shows the group's label painted on top, level with the row, and travels with the
-     * pointer until its region's part of the row holds it, as `Neo.main.addon.DragDrop#onDragMove` clamps
+     * The live group proxy: it shows the group's cell painted on top, level with the row, and travels with the pointer
+     * until the region's toolbar holds it, as `Neo.main.addon.DragDrop#onDragMove` clamps
      * @param {Object} page
      * @param {Object} hold What `holdGroup` returned
-     * @param {Number} toX  The pointer's x
      * @param {String} text
      */
-    const expectProxyFollows = (page, {box, part, pressX}, toX, text) => expect(async () => {
+    const expectProxyFollows = (page, {box, part, pressX, toX}, text) => expect(async () => {
         const proxy = await page.evaluate(() => {
-            const el = document.querySelector('.neo-dragproxy.neo-grid-header-group-cell');
+            const el   = document.querySelector('.neo-dragproxy'),
+                  cell = el?.querySelector('.neo-grid-header-group-cell');
 
-            if (!el) {
+            if (!cell) {
                 return null
             }
 
             // A drag turns off hit-testing for the whole page, so the proxy's own style is the visibility witness
             const {x, y, width} = el.getBoundingClientRect(),
-                  style         = getComputedStyle(el);
+                  style         = getComputedStyle(cell);
 
             return {
                 x, y, width,
                 painted: style.backgroundColor !== 'rgba(0, 0, 0, 0)' || style.backgroundImage !== 'none',
-                text   : el.textContent,
-                visible: style.visibility === 'visible' && Number(style.opacity) > 0
+                text   : cell.textContent,
+                visible: style.visibility === 'visible' && Number(getComputedStyle(el).opacity) > 0
             }
         });
 
@@ -673,10 +677,41 @@ test.describe('examples/grid/headerGroups', () => {
         await expect.poll(() => cellsFollowHeaders(page)).toBe(true)
     };
 
-    test('a group cell drags its whole group: Q3 dropped before Q2 moves Jul, Aug and Sep as one block (#20627)', async ({page}) => {
+    test('a group cell drags its whole group: Q2 slides aside live, the proxy carries Q3\'s columns, and the drop keeps that order (#20627, #20641)', async ({page}) => {
+        // The grid's own header, never the proxy's clone
+        const leftOf = text => page.evaluate(label => [...document.querySelectorAll('.neo-grid-header-toolbar .neo-grid-header-button')]
+                  .find(button => button.textContent.trim() === label && !button.closest('.neo-dragproxy')).getBoundingClientRect().left, text),
+              julValue = () => page.evaluate(() => {
+                  const jul = [...document.querySelectorAll('.neo-grid-header-toolbar .neo-grid-header-button')].find(button => button.textContent.trim() === 'Jul');
+
+                  return document.querySelectorAll('.neo-grid-body')[1].querySelector(`.neo-grid-row [aria-colindex="${jul.getAttribute('aria-colindex')}"]`).textContent
+              });
+
         await showAllHeaders(page);
 
-        await dragGroup(page, 'Q3', (await groupBox(page, 'Q2')).x + 10);
+        const apr = await leftOf('Apr'),
+              q2  = await groupBox(page, 'Q2'),
+              q3  = await groupBox(page, 'Q3'),
+              jul = await julValue();
+
+        await holdGroup(page, 'Q3', q2.x + 10);
+
+        // Still pressed: Q2 and its leaves have already slid right by Q3's width
+        await expect.poll(async () => Math.abs(await leftOf('Apr') - apr - q3.width)).toBeLessThan(3);
+        await expect.poll(async () => Math.abs((await groupEdges(page)).find(edge => edge.text === 'Q2').left - q2.x - q3.width)).toBeLessThan(3);
+
+        // ... and the proxy shows Q3 over its months and their cells
+        expect(await page.evaluate(() => {
+            const proxy = document.querySelector('.neo-dragproxy');
+
+            return {
+                group  : proxy?.querySelector('.neo-grid-header-group-cell')?.textContent,
+                headers: [...(proxy?.querySelectorAll('.neo-grid-header-button') || [])].map(button => button.textContent.trim()),
+                row    : proxy?.querySelector('.neo-grid-row')?.textContent
+            }
+        })).toEqual({group: 'Q3', headers: ['Jul', 'Aug', 'Sep'], row: expect.stringContaining(jul)});
+
+        await page.mouse.up();
 
         await expect.poll(() => groupOrder(page)).toEqual(['Q1', 'Q3', 'Q2', 'Q4', 'Year']);
         await expect.poll(() => centreHeaders(page)).toEqual(
@@ -688,10 +723,12 @@ test.describe('examples/grid/headerGroups', () => {
     test('a group never lands inside another group, and never leaves its region (#20627)', async ({page}) => {
         await showAllHeaders(page);
 
-        // Released right of Q4's centre, Q3 takes the slot after the whole of Q4, not a slot among its months
-        const q4 = await groupBox(page, 'Q4');
+        // Carried most of Q4's width along, Q3 takes the slot after the whole of Q4, not a slot among its months. The
+        // switch past a unit comes at 55% of its width, so 80% passes Q4 and stays short of the narrow Id after it.
+        const q3 = await groupBox(page, 'Q3'),
+              q4 = await groupBox(page, 'Q4');
 
-        await dragGroup(page, 'Q3', q4.x + q4.width / 2 + 20);
+        await dragGroup(page, 'Q3', q3.x + q4.width * 0.8);
 
         await expect.poll(() => groupOrder(page)).toEqual(['Q1', 'Q2', 'Q4', 'Q3', 'Year']);
         await expect.poll(() => centreHeaders(page)).toEqual(
@@ -699,7 +736,7 @@ test.describe('examples/grid/headerGroups', () => {
         );
         await expectRelaidOut(page);
 
-        // Released over the locked-start region, Q3 stays in the centre: it takes the centre's first slot
+        // Carried over the locked-start region, Q3 stays in the centre: it takes the centre's first slot
         const region = await page.locator('.neo-grid-header-toolbar .neo-grid-header-button', {hasText: 'Region'}).first().boundingBox();
 
         await dragGroup(page, 'Q3', region.x + region.width / 2);
@@ -714,23 +751,19 @@ test.describe('examples/grid/headerGroups', () => {
     test('in a scrolled grid, each group drag shows its proxy under the pointer and drops in the slot there (#20627)', async ({page}) => {
         await scrollLeavesTo(page, 300, (await groupEdges(page)).find(edge => edge.text === 'Q2').leafLeft);
 
-        // Released just inside Q2, Q3 lands before it: the release maps into the scrolled content
-        let toX  = (await groupBox(page, 'Q2')).x + 10,
-            hold = await holdGroup(page, 'Q3', toX);
+        // With its edge just inside Q2, Q3 lands before it: the drag maps into the scrolled content
+        let hold = await holdGroup(page, 'Q3', (await groupBox(page, 'Q2')).x + 10);
 
-        await expectProxyFollows(page, hold, toX, 'Q3');
+        await expectProxyFollows(page, hold, 'Q3');
         await page.mouse.up();
 
         await expect.poll(() => groupOrder(page)).toEqual(['Q1', 'Q3', 'Q2', 'Q4', 'Year']);
         await expectRelaidOut(page);
 
-        // A second gesture starts from the first one's drop: Q3 goes back behind Q2
-        const q2 = await groupBox(page, 'Q2');
+        // A second gesture starts from the first one's drop: past Q2's edge, Q3 goes back behind Q2
+        hold = await holdGroup(page, 'Q3', (await groupBox(page, 'Q2')).x + 60);
 
-        toX  = q2.x + q2.width / 2 + 20;
-        hold = await holdGroup(page, 'Q3', toX);
-
-        await expectProxyFollows(page, hold, toX, 'Q3');
+        await expectProxyFollows(page, hold, 'Q3');
         await page.mouse.up();
 
         await expect.poll(() => groupOrder(page)).toEqual(['Q1', 'Q2', 'Q3', 'Q4', 'Year']);
@@ -760,6 +793,7 @@ test.describe('examples/grid/headerGroups', () => {
         }
     });
 
+    // The zone keeps the moves that arrive while the start waits, so a release lands where the pointer let go
     for (const escape of [false, true]) {
         test(`${escape ? 'Escape' : 'a release'} during a group drag's pending start ${escape ? 'moves nothing' : 'drops the group'}, and leaves no proxy (#20627)`, async ({page}) => {
             await showAllHeaders(page);
@@ -770,17 +804,33 @@ test.describe('examples/grid/headerGroups', () => {
 
             escape && await page.keyboard.press('Escape');
             await page.mouse.up();
-            await page.evaluate(() => window.releaseGroupHandshake());
 
+            // The held start resumes now: it lifts the toolbar into its drag state, and the gesture's end, queued
+            // behind it, settles the toolbar again. Only then does the page take the next press.
+            await page.evaluate(() => {
+                const toolbar = document.querySelectorAll('.neo-grid-header-toolbar')[1];
+                let   lifted  = false;
+
+                window.groupDragSettled = false;
+
+                new MutationObserver(() => {
+                    lifted ||= toolbar.classList.contains('neo-is-dragging');
+                    window.groupDragSettled = lifted && !toolbar.classList.contains('neo-is-dragging')
+                }).observe(toolbar, {attributeFilter: ['class']});
+
+                window.releaseGroupHandshake()
+            });
+
+            await expect.poll(() => page.evaluate(() => window.groupDragSettled)).toBe(true);
             await expect.poll(() => groupOrder(page)).toEqual(escape ? ['Q1', 'Q2', 'Q3', 'Q4', 'Year'] : ['Q1', 'Q3', 'Q2', 'Q4', 'Year']);
 
-            // The App Worker resumes the held start before it reads the next drag's start, so once that drag has
-            // landed, a proxy, a dragging row or a late move left now is the first gesture's
+            // The next drag starts from the gesture's true result: a proxy, a dragging toolbar or a late move left
+            // now is the first gesture's
             await dragGroup(page, 'Q4', (await groupBox(page, 'Q2')).x + 10);
 
             await expect.poll(() => groupOrder(page)).toEqual(escape ? ['Q1', 'Q4', 'Q2', 'Q3', 'Year'] : ['Q1', 'Q3', 'Q4', 'Q2', 'Year']);
             expect(await page.evaluate(() =>
-                document.querySelectorAll('.neo-dragproxy, .neo-grid-header-group-row.neo-is-dragging').length)).toBe(0);
+                document.querySelectorAll('.neo-dragproxy, .neo-grid-header-toolbar.neo-is-dragging').length)).toBe(0);
             await expectRelaidOut(page)
         })
     }
@@ -813,7 +863,7 @@ test.describe('examples/grid/headerGroups', () => {
 
         await expect.poll(() => groupOrder(page)).toEqual(['Q1', 'Q4', 'Q2', 'Q3', 'Year']);
         expect(await page.evaluate(() =>
-            document.querySelectorAll('.neo-dragproxy, .neo-grid-header-group-row.neo-is-dragging').length)).toBe(0);
+            document.querySelectorAll('.neo-dragproxy, .neo-grid-header-toolbar.neo-is-dragging').length)).toBe(0);
         await expectRelaidOut(page)
     })
 });

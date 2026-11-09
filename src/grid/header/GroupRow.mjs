@@ -13,9 +13,10 @@ import VDomUtil  from '../../util/VDom.mjs';
  * A group cell is a projection of its region body's `columnPositions`. It starts at its first column's `x` and spans
  * its columns' widths, so a resize, a flex re-layout or a reorder re-projects it without measuring anything twice.
  *
- * A group cell also drags its whole group, while its region's toolbar is `dragResortable`. The drop moves the group's
- * run of leaves as one block among the region's top-level units, the other groups and the ungrouped columns, so a
- * group never lands inside another one and never leaves its region ({@link #moveGroup}).
+ * A group cell also drags its whole group, while its region's toolbar is `dragResortable`. The toolbar's drag zone moves
+ * the group's run of leaves as one unit among the region's other groups and ungrouped columns, which slide aside as it
+ * passes them, so a group never lands inside another one and never leaves its region
+ * ({@link Neo.draggable.grid.header.toolbar.SortZone#startUnitDrag}).
  *
  * @class Neo.grid.header.GroupRow
  * @extends Neo.component.Base
@@ -38,12 +39,6 @@ class GroupRow extends Component {
          */
         baseCls: ['neo-grid-header-group-row'],
         /**
-         * The group cells' drag zone, created once this row first projects draggable cells ({@link #createDragZone})
-         * @member {Neo.draggable.DragZone|null} dragZone=null
-         * @protected
-         */
-        dragZone: null,
-        /**
          * @member {Neo.grid.Container|null} gridContainer=null
          */
         gridContainer: null,
@@ -60,8 +55,8 @@ class GroupRow extends Component {
     }
 
     /**
-     * The group and region of each rendered group cell, by the cell's id. A drag resolves its group here.
-     * @member {Map<String, {groupId: String, region: String}>} cellGroups
+     * The group, region and leaf count of each rendered group cell, by the cell's id. A drag resolves its group here.
+     * @member {Map<String, {groupId: String, length: Number, region: String}>} cellGroups
      * @protected
      */
     cellGroups = new Map()
@@ -73,22 +68,16 @@ class GroupRow extends Component {
     #aligned = false
 
     /**
-     * The group drag in progress: its group and region, its pending start, and whether a release or a cancel ended it
-     * @member {Object|null} #drag=null
+     * The drag zone each region part is registered under with the main thread, by part id
+     * @member {Map<String, String>} #parts
      */
-    #drag = null
+    #parts = new Map()
 
     /**
-     * True once the main thread resolves a group cell's gesture to the drag zone: only then are the cells draggable
-     * @member {Boolean} #dragReady=false
+     * The part ids whose registration is on its way to the main thread
+     * @member {Set<String>} #partsPending
      */
-    #dragReady = false
-
-    /**
-     * Resolves to the drag zone once its module has loaded and the main thread has registered it
-     * @member {Promise<Neo.draggable.DragZone|null>|null} #dragZoneReady=null
-     */
-    #dragZoneReady = null
+    #partsPending = new Set()
 
     /**
      * @summary A region's top-level units in column order: each run of a group's leaves is one unit, and each
@@ -120,80 +109,6 @@ class GroupRow extends Component {
     }
 
     /**
-     * @summary A region's column order once its group `groupId` is dropped at `x`, or null when the group stays put.
-     * The group takes the slot between the units whose centres straddle `x`, so it never lands inside another group.
-     * @param {Object}                   data
-     * @param {Object[]}                 data.columns   The region's columns
-     * @param {String}                   data.groupId   The dragged group
-     * @param {Neo.collection.Base|null} data.positions The region body's `columnPositions`
-     * @param {Number}                   data.x         The release x in the region's content space
-     * @returns {Object[]|null}
-     */
-    static getGroupDropOrder({columns, groupId, positions, x}) {
-        let units   = GroupRow.getUnits(columns, positions),
-            dragged = units.find(unit => unit.group?.id === groupId),
-            others  = units.filter(unit => unit !== dragged),
-            slot    = others.filter(unit => unit.x + unit.width / 2 < x).length,
-            order;
-
-        if (!dragged) {
-            return null
-        }
-
-        order = [...others.slice(0, slot), dragged, ...others.slice(slot)].flatMap(unit => unit.columns);
-
-        return order.some((column, index) => column !== columns[index]) ? order : null
-    }
-
-    /**
-     * @summary Loads and creates the group cells' drag zone. Its drag element starts as this row, so the zone registers
-     * with the main thread under the row: every group cell's gesture resolves to it from its first frame on, and
-     * Escape reaches it even while that gesture's start is still pending. The cells turn draggable only once that
-     * registration has landed, so no gesture can start while its Escape would have no owner.
-     * @returns {Promise<Neo.draggable.DragZone|null>}
-     */
-    async createDragZone() {
-        let me       = this,
-            DragZone = (await import('../../draggable/DragZone.mjs')).default;
-
-        if (me.isDestroyed) {
-            return null
-        }
-
-        me.dragZone = Neo.create({
-            module         : DragZone,
-            appName        : me.appName,
-            dragElement    : me.vdom,
-            moveVertical   : false,
-            owner          : me,
-            useProxyWrapper: false,
-            windowId       : me.windowId
-        });
-
-        me.dragZone.on('dragCancel', me.onGroupDragCancel, me);
-
-        // The zone's own construction-time registration is fire-and-forget: this one is awaited
-        await me.dragZone.registerZone();
-
-        if (me.isDestroyed) {
-            return null
-        }
-
-        me.#dragReady = true;
-        me.project();
-
-        return me.dragZone
-    }
-
-    /**
-     * @param {...*} args
-     */
-    destroy(...args) {
-        this.dragZone?.destroy();
-        super.destroy(...args)
-    }
-
-    /**
      * @summary A region's columns: locked start, centre or locked end.
      * @param {String} region `'start'`, `'center'` or `'end'`
      * @returns {Object[]}
@@ -205,50 +120,6 @@ class GroupRow extends Component {
     }
 
     /**
-     * @summary Moves a group's run of leaves to the slot its release names, then lays the grid out once.
-     * @param {Object} drag
-     * @param {String} drag.groupId
-     * @param {String} drag.region
-     * @param {Number} clientX The release x
-     * @returns {Promise<Boolean>} true when the columns moved
-     */
-    async moveGroup({groupId, region}, clientX) {
-        let me              = this,
-            {gridContainer} = me,
-            toolbar         = gridContainer?.headerWrapper?.getToolbars().find(item => (item.layoutLock || 'center') === region),
-            columns         = me.getRegionColumns(region),
-            rect            = toolbar && Neo.isNumber(clientX) && await toolbar.getDomRect(),
-            order           = rect && GroupRow.getGroupDropOrder({
-                columns,
-                groupId,
-                positions: toolbar.body?.columnPositions,
-                x        : clientX - rect.x + (toolbar.scrollLeft || 0)
-            });
-
-        if (!order || me.isDestroyed) {
-            return false
-        }
-
-        let all    = gridContainer.columns,
-            offset = all.indexOf(columns[0]);
-
-        // A region is one contiguous run of the global collection, so each column takes its slot in turn
-        order.forEach((column, index) => {
-            let from = all.indexOf(column);
-
-            from !== offset + index && all.move(from, offset + index)
-        });
-
-        // `move()` is event-silent: one pass re-derives the regions, the header buttons and the bodies. The buttons'
-        // positions are measured once they render in their new order, and this row projects from that measurement.
-        gridContainer.onColumnsMutate({});
-
-        await toolbar.measureAfterUpdate();
-
-        return true
-    }
-
-    /**
      * @summary Listens for drags on the group cells.
      */
     onConstructed() {
@@ -256,90 +127,59 @@ class GroupRow extends Component {
 
         let me = this;
 
-        me.addDomListeners([
-            {'drag:end'  : me.onGroupDragEnd,   scope: me, delegate: '.neo-grid-header-group-cell'},
+        me.addDomListeners(
             {'drag:start': me.onGroupDragStart, scope: me, delegate: '.neo-grid-header-group-cell'}
-        ])
+        )
     }
 
     /**
-     * @summary Ends a cancelled group drag: nothing moves. The drag zone has already removed its proxy, and a cancel
-     * during the pending start removes the late one once that start settles.
+     * @summary Starts a group drag in its region: the region toolbar's drag zone moves the group's run of headers as
+     * one unit. The zone owns the rest of the gesture: the main thread routes its moves, its release and its Escape there.
      * @param {Object} data
      */
-    async onGroupDragCancel(data) {
-        let me   = this,
-            drag = me.#drag;
+    onGroupDragStart(data) {
+        let me      = this,
+            cell    = data.path?.find(node => me.cellGroups.has(node.id)),
+            group   = cell && me.cellGroups.get(cell.id),
+            toolbar = group && me.gridContainer.headerWrapper.getToolbars().find(item => (item.layoutLock || 'center') === group.region),
+            first   = toolbar?.sortZone ? toolbar.items.findIndex(item =>
+                me.gridContainer.columns.get(item.dataField)?.headerGroup?.id === group.groupId) : -1;
 
-        if (drag) {
-            me.#drag   = null;
-            drag.ended = true;
-
-            await drag.started;
-
-            me.dragZone?.dragEnd({...data, cancelled: true})
-        }
+        first > -1 && toolbar.sortZone.startUnitDrag(data, {
+            first,
+            groupId: group.groupId,
+            head   : VDomUtil.find(me.vdom, cell.id)?.vdom,
+            length : group.length
+        })
     }
 
     /**
-     * @summary Drops the dragged group: its proxy goes, and its leaves move to the release's slot. A release during
-     * the pending start waits for it, so the late proxy goes with the drop. A cancelled drag never ends here.
-     * @param {Object} data
+     * @summary Registers a region's part with the main thread under its toolbar's drag zone, so a group cell's gesture
+     * resolves to that zone from its first frame on: Escape reaches it even while the drag's start is pending. The
+     * part's cells turn draggable once the registration has landed.
+     * @param {String}                 partId
+     * @param {Neo.draggable.DragZone} zone
+     * @returns {Promise<void>}
      */
-    async onGroupDragEnd(data) {
-        let me   = this,
-            drag = me.#drag;
+    async registerPart(partId, zone) {
+        let me = this;
 
-        if (drag) {
-            me.#drag   = null;
-            drag.ended = true;
+        me.#partsPending.add(partId);
 
-            await drag.started
+        // Optional like the zones' own registration: a worker without the main-thread addon registers nothing
+        await Neo.main.addon.DragDrop?.registerZone?.({
+            appName          : me.appName,
+            dragElementRootId: partId,
+            dragZoneId       : zone.id,
+            windowId         : me.windowId
+        });
+
+        me.#partsPending.delete(partId);
+
+        if (!me.isDestroyed) {
+            me.#parts.set(partId, zone.id);
+            me.project()
         }
-
-        me.dragZone?.dragEnd(data);
-
-        drag && await me.moveGroup(drag, data.clientX)
-    }
-
-    /**
-     * @summary Starts a group drag: the cell becomes its group's proxy, held to its region's part of this row.
-     * The start waits on the drag zone and on the main thread, so a release or a cancel can end the gesture first.
-     * @param {Object} data
-     */
-    async onGroupDragStart(data) {
-        let me    = this,
-            cell  = data.path?.find(node => me.cellGroups.has(node.id)),
-            group = cell && me.cellGroups.get(cell.id),
-            drag, dragZone, element;
-
-        if (!group) {
-            return
-        }
-
-        drag     = me.#drag = {...group, ended: false, started: null};
-        dragZone = await me.#dragZoneReady;
-
-        if (!dragZone || me.isDestroyed) {
-            me.#drag === drag && (me.#drag = null);
-            return
-        }
-
-        // Released while the zone loaded: the release already dropped the group, and no proxy ever appears
-        if (drag.ended) {
-            return
-        }
-
-        element = VDomUtil.find(me.vdom, cell.id)?.vdom;
-
-        dragZone.boundaryContainerId = me.gridContainer.getGroupHeaderPartId(drag.region);
-        dragZone.dragElement         = element;
-        // The proxy component's own `text` config owns its root text, so the label travels as that config
-        dragZone.dragProxyConfig     = {text: element?.text};
-
-        drag.started = dragZone.dragStart(data);
-
-        await drag.started
     }
 
     /**
@@ -350,7 +190,8 @@ class GroupRow extends Component {
      * the leaves do. The cells sit in the part itself: a reorder moves them inside the scrolled element, whose scroll
      * {@link Neo.main.DeltaUpdates#flushLayoutHeals} keeps, while it would reset the scroll of a scrolled ancestor. A
      * cell's `aria-colindex` is its first column's grid-wide index, and its `aria-colspan` its column count. A cell is
-     * draggable while its region's toolbar is `dragResortable` and the drag zone is ready ({@link #createDragZone}).
+     * draggable while its region's toolbar is `dragResortable` and its part is registered under the toolbar's drag zone
+     * ({@link #registerPart}).
      *
      * A rebuilt part carries the `scrollLeft` that `onScrollCapture` recorded on its predecessor, so the update cannot
      * diff the scrolled centre part back to the origin.
@@ -364,19 +205,24 @@ class GroupRow extends Component {
             return
         }
 
-        let scrolled = new Map(me.vdom.cn.map(part => [part.id, part.scrollLeft])),
-            toolbars = headerWrapper.getToolbars();
+        let scrolled     = new Map(me.vdom.cn.map(part => [part.id, part.scrollLeft])),
+            toolbars     = headerWrapper.getToolbars(),
+            unregistered = [];
 
         me.cellGroups.clear();
-
-        toolbars.some(toolbar => toolbar.dragResortable) && (me.#dragZoneReady ??= me.createDragZone());
 
         me.vdom.cn = toolbars.map(toolbar => {
             let region = toolbar.layoutLock || 'center',
                 id     = gridContainer.getGroupHeaderPartId(region),
                 offset = toolbar.ariaColumnOffset,
-                cls    = toolbar.dragResortable && me.#dragReady ? ['neo-grid-header-group-cell', 'neo-draggable'] : ['neo-grid-header-group-cell'],
-                cells  = GroupRow.getUnits(me.getRegionColumns(region), toolbar.body?.columnPositions).filter(unit => unit.group);
+                zone   = toolbar.dragResortable && toolbar.sortZone,
+                ready  = !!zone && me.#parts.get(id) === zone.id,
+                // A dragged group's proxy carries its cell, so the cell leaves the row until the drop
+                dragged = zone?.dragUnit?.groupId,
+                cls     = ready ? ['neo-grid-header-group-cell', 'neo-draggable'] : ['neo-grid-header-group-cell'],
+                cells   = GroupRow.getUnits(me.getRegionColumns(region), toolbar.body?.columnPositions).filter(unit => unit.group);
+
+            zone && !ready && !me.#partsPending.has(id) && unregistered.push([id, zone]);
 
             return {
                 id,
@@ -391,7 +237,7 @@ class GroupRow extends Component {
                 }, ...cells.map(({columns, group, index, width, x}) => {
                     let cellId = `${group.id}__cell`;
 
-                    me.cellGroups.set(cellId, {groupId: group.id, region});
+                    me.cellGroups.set(cellId, {groupId: group.id, length: columns.length, region});
 
                     return {
                         id             : cellId,
@@ -399,12 +245,14 @@ class GroupRow extends Component {
                         role           : 'columnheader',
                         'aria-colindex': offset + index + 1,
                         'aria-colspan' : columns.length,
-                        style          : {left: `${x}px`, width: `${width}px`},
+                        style          : {left: `${x}px`, visibility: group.id === dragged ? 'hidden' : null, width: `${width}px`},
                         text           : group.text
                     }
                 })]
             }
         });
+
+        unregistered.forEach(([id, zone]) => me.registerPart(id, zone));
 
         me.promiseUpdate().then(() => {
             // The scroll sync moves the centre part from the next scroll on. A row created while the grid is already

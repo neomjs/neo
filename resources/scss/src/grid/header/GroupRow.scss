@@ -29,10 +29,10 @@
     }
 }
 
-// A group cell is a header cell: it takes the leaf headers' theme, so every theme styles both rows alike. Its drag
-// proxy renders outside the row, so it carries the same look. A drag never selects the group's text.
-.neo-grid-header-group-row .neo-grid-header-group-cell,
-.neo-dragproxy.neo-grid-header-group-cell {
+// A group cell is a header cell: it takes the leaf headers' theme, so every theme styles both rows alike. A group drag's
+// proxy wraps its copy of the cell in a group row too, so the copy carries the same look. A drag never selects the
+// group's text.
+.neo-grid-header-group-row .neo-grid-header-group-cell {
     align-items     : center;
     background-color: var(--grid-header-button-background-color);
     background-image: var(--grid-header-button-background-image);
@@ -49,11 +49,4 @@
     text-overflow   : ellipsis;
     user-select     : none;
     white-space     : nowrap;
-}
-
-// The proxy lifts off the row: framed and shadowed, so the dragged group reads apart from the cells it passes
-.neo-dragproxy.neo-grid-header-group-cell {
-    border    : 1px solid var(--grid-header-button-border-right-color);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, .3);
-    cursor    : grabbing;
 }
