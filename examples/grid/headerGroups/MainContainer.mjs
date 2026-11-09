@@ -87,8 +87,19 @@ class MainContainer extends Viewport {
         this.syncThemeButton()
     }
 
-    /** @summary Switches the viewport theme so the grid and its floating drag proxies share the active skin. */
-    onThemeButtonClick() {
+    /**
+     * @summary Reveals the new skin from the pointer, then keeps the grid, proxies and button in sync.
+     * @param {Object} [data] Click coordinates; absent coordinates retain the engine's default transition.
+     * @returns {Promise<void>}
+     */
+    async onThemeButtonClick(data) {
+        // Start capture before changing the theme. A failed decorative round trip must not prevent the switch.
+        await Neo.main.DomAccess.startViewTransition({
+            delay   : 100,
+            reveal  : {x: data?.clientX, y: data?.clientY},
+            windowId: this.windowId
+        }).catch(() => {});
+
         this.theme = this.getTheme() === 'neo-theme-neo-dark' ? 'neo-theme-neo-light' : 'neo-theme-neo-dark';
         this.syncThemeButton()
     }

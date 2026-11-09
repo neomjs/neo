@@ -27,6 +27,74 @@ import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
 import DomUtils       from '../../../../src/main/DomUtils.mjs';
 
+const importDocument = globalThis.document,
+      importAccess   = Neo.main.DomAccess;
+globalThis.document = {addEventListener() {}, getElementById() { return null }};
+if (importAccess?.className !== 'Neo.main.DomAccess') delete Neo.main.DomAccess;
+const {default: DomAccess} = await import('../../../../src/main/DomAccess.mjs');
+globalThis.document = importDocument;
+Neo.main.DomAccess = importAccess;
+
+/**
+ * @summary Runs the production transition method with a controlled native API, without changing the reveal geometry.
+ * @param {Function} run Test body receiving the native document replacement.
+ * @returns {Promise<void>}
+ */
+async function withTransitionDocument(run) {
+    const original = globalThis.document;
+    try {
+        globalThis.document = {};
+        await run(globalThis.document)
+    } finally {
+        original === undefined ? delete globalThis.document : globalThis.document = original
+    }
+}
+
+test('startViewTransition acknowledges old-state capture before the update delay finishes', async () => {
+    await withTransitionDocument(async doc => {
+        let update, releaseDelay, settled = false;
+        doc.startViewTransition = callback => {
+            update = callback;
+            return {ready: new Promise(() => {}), finished: new Promise(() => {})}
+        };
+        const pending = DomAccess.startViewTransition.call({
+            timeout: () => new Promise(resolve => releaseDelay = resolve)
+        }, {animate: {keyframes: [], options: {}}, delay: 100});
+        pending.then(() => settled = true);
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(settled, 'the browser has not captured the old state yet').toBe(false);
+        const updating = update();
+        expect(await pending).toBe(true);
+        expect(typeof releaseDelay).toBe('function');
+        releaseDelay();
+        await updating
+    })
+});
+
+test('an unsupported or abandoned native capture settles false', async () => {
+    await withTransitionDocument(async doc => {
+        expect(await DomAccess.startViewTransition({})).toBe(false);
+        doc.startViewTransition = () => ({ready: new Promise(() => {}), finished: Promise.resolve()});
+        expect(await DomAccess.startViewTransition({animate: {keyframes: [], options: {}}})).toBe(false)
+    })
+});
+
+test('a synchronous native start failure warns and settles false', async () => {
+    await withTransitionDocument(async doc => {
+        const originalWarn = console.warn,
+              warnings     = [];
+        console.warn = (...args) => warnings.push(args);
+        doc.startViewTransition = () => { throw new Error('native start failed') };
+        try {
+            expect(await DomAccess.startViewTransition({animate: {keyframes: [], options: {}}})).toBe(false);
+            expect(warnings).toHaveLength(1)
+        } finally {
+            console.warn = originalWarn
+        }
+    })
+});
+
 /**
  * The reference length a `circle()` percentage radius resolves against, per CSS Shapes:
  * `sqrt(width² + height²) / sqrt(2)`.

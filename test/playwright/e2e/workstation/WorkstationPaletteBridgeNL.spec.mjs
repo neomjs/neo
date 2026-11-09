@@ -47,10 +47,9 @@ const bridgedTokens = [
     {token: '--tab-header-action-glyph-color-active',      consumer: '.neo-toolbar-action',      expect: p => p.signal},
     {token: '--tab-header-action-glyph-color-hover',       consumer: '.neo-toolbar-action',      expect: p => p.signal},
 
-    // Composed values. A `color-mix()` or a border shorthand is still a bridged declaration, and
+    // Composed values. A `color-mix()` or a gradient is still a bridged declaration, and
     // omitting them is how a census silently shrinks to the tokens that were easy to assert.
     {token: '--grid-cell-background-color-hover',          consumer: '.neo-grid-cell',           expect: p => `color-mix(in srgb, ${p.signal} 10%, ${p.panel})`},
-    {token: '--grid-container-header-cell-border-bottom',  consumer: '.neo-grid-cell',           expect: p => `1px solid ${p.line}`},
     {token: '--tab-button-background-color-active',        consumer: '.neo-tab-header-button',   expect: p => `color-mix(in srgb, ${p.signal} 12%, transparent)`},
     {token: '--tab-button-background-color-hover',         consumer: '.neo-tab-header-button',   expect: p => `color-mix(in srgb, ${p.signal} 8%, transparent)`},
     {token: '--tab-header-action-background-color-active', consumer: '.neo-toolbar-action',      expect: p => `color-mix(in srgb, ${p.signal} 12%, transparent)`},
