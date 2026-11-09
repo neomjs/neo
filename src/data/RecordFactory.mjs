@@ -409,6 +409,8 @@ class RecordFactory extends Base {
 
     /**
      * @summary Parses, converts, and validates a record field value, resolving initial field mappings.
+     *
+     * A `Date` field converts every value except `null` and `undefined`; only `nullable: false` refuses `null`.
      * @param {Object}  data
      * @param {Object}  data.record
      * @param {Object}  data.field
@@ -466,7 +468,7 @@ class RecordFactory extends Base {
             }
         }
 
-        if (type === 'date' && Neo.typeOf(value) !== 'Date') {
+        if (type === 'date' && value != null && Neo.typeOf(value) !== 'Date') {
             return new Date(value)
         }
 

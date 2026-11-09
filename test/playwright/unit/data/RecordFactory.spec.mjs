@@ -165,4 +165,33 @@ test.describe('Neo.data.RecordFactory', () => {
         expect(Neo.nsWithArrays('grid[0][1]', false, {grid: [['a', '']]})).toBe('');
         expect(Neo.nsWithArrays('grid[3][1]', false, {grid: [['a', '']]})).toBeUndefined();
     });
+
+    test('A Date field keeps null instead of turning it into 1970-01-01 (#20660)', () => {
+        const dateModel = Neo.create(Model, {
+            fields: [
+                {name: 'id',       type: 'String'},
+                {name: 'due',      type: 'Date'},
+                {name: 'required', type: 'Date', nullable: false}
+            ]
+        });
+
+        expect(RecordFactory.createRecord(dateModel, {id: '1', due: null}).due).toBeNull();
+        // An explicit undefined takes parseRecordValue's null default; an omitted field is never parsed.
+        expect(RecordFactory.createRecord(dateModel, {id: '2', due: undefined}).due).toBeNull();
+        expect(RecordFactory.createRecord(dateModel, {id: '3'}).due).toBeUndefined();
+
+        const iso    = '2026-11-09T10:00:00.000Z',
+              record = RecordFactory.createRecord(dateModel, {id: '4', due: iso, required: iso});
+
+        expect(record.due).toBeInstanceOf(Date);
+        expect(record.due.toISOString()).toBe(iso);
+
+        record.set({due: null});
+        expect(record.due).toBeNull();
+
+        record.set({required: null});
+        expect(record.required.toISOString()).toBe(iso);
+
+        dateModel.destroy();
+    });
 });
