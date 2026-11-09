@@ -279,7 +279,7 @@ test.describe('Neo.main.draggable.sensor.Pointer — gesture bracket and termina
         documentRef.dispatchEvent(pointerDown());
 
         // The exact shape the pointerDownTimeout callback passes: coords and the pointer, no buttons.
-        sensor.onDistanceChange({clientX: 12, clientY: 12, pageX: 12, pageY: 12, pointerId: 1});
+        sensor.onDistanceChange({clientX: 12, clientY: 12, pageX: 12, pageY: 12, pointerId: 1}, true);
 
         expect(bodyClasses.has('neo-drag-active')).toBe(true);
         expect(sensor.currentElement).toBe(dragNode);
@@ -644,6 +644,27 @@ test.describe('Neo.main.draggable.sensor.Pointer — touch', () => {
         expectIdle(sensor);
 
         sensor.detach()
+    });
+
+    test('a still touch arms when its timer fires, though Date.now() reads the delay a millisecond short (#20636)', async () => {
+        const realNow = Date.now,
+              seen    = record('drag:start'),
+              sensor  = createSensor({touchDelay: 10, touchMinDistance: 0});
+
+        sensor.attach();
+        documentRef.dispatchEvent(pointerDown({pointerType: 'touch'}));
+
+        // The wall clock floors at other millisecond edges than the timer's clock: an on-time timer can read 9 of 10
+        Date.now = () => sensor.pointerDownTime + 9;
+
+        try {
+            await expect.poll(() => seen['drag:start'].length).toBe(1);
+            expect(sensor.dragging).toBe(true)
+        } finally {
+            Date.now = realNow;
+            documentRef.dispatchEvent(pointerUp(10, 10, {pointerType: 'touch'}));
+            sensor.detach()
+        }
     });
 
     test('on a touch device, the scroll lock cancels touchmove only while a touch drag is engaged', () => {

@@ -273,9 +273,11 @@ class Pointer extends Base {
     /**
      * @summary Starts the drag once both the delay and the distance of the pointer's type are met.
      * @param {PointerEvent|Object} event An object when the pointerDownTimeout re-enters
+     * @param {Boolean} [delayElapsed=false] True from the pointerDownTimeout, which IS the delay: `Date.now()` can read
+     * it a millisecond short, and a declined re-entry would leave a still pointer unarmed for good
      * @protected
      */
-    onDistanceChange(event) {
+    onDistanceChange(event, delayElapsed=false) {
         let me = this;
 
         if (me.currentElement && me.ownsEvent(event)) {
@@ -293,7 +295,7 @@ class Pointer extends Base {
 
             me.point = point;
 
-            if (timeElapsed >= delay && distanceTravelled >= minDistance) {
+            if ((delayElapsed || timeElapsed >= delay) && distanceTravelled >= minDistance) {
                 clearTimeout(me.pointerDownTimeout);
                 document.removeEventListener('pointermove', me.onDistanceChange);
                 me.startDrag()
@@ -368,7 +370,7 @@ class Pointer extends Base {
                 document.addEventListener('pointerup',     me.onPointerUp);
 
                 me.pointerDownTimeout = setTimeout(() => {
-                    me.onDistanceChange({...me.point, pointerId})
+                    me.onDistanceChange({...me.point, pointerId}, true)
                 }, delay)
             }
         }
