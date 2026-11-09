@@ -271,9 +271,58 @@ class SortZone extends BaseSortZone {
     }
 
     /**
-     * @summary Preserves a scrolled header's content extent before the proxy or item lift can shrink it.
-     * The base has captured viewport-space item rects, but has not yet absolutised the headers.
-     * Pin their owner-content extent and wait for that node to reach the DOM before continuing.
+     * @summary Keeps a grouped header's proxy over its group: the main thread clamps the proxy to the part of the
+     * group's span that the toolbar shows at its current scroll. An ungrouped header keeps the toolbar's boundary.
+     *
+     * The span comes from the drag-start rects in owner-content space, so no DOM is read. The zone keeps the toolbar's
+     * boundary for itself: an over-drag still scrolls at the toolbar's edges while the group continues beyond them.
+     * @returns {Promise<void>}
+     */
+    async clampProxyToGroup() {
+        let me      = this,
+            bounds  = me.boundaryContainerRect,
+            groupId = me.itemRects && bounds && me.getHeaderGroupId(me.currentIndex),
+            group, groupLeft, groupRight, left, right, width;
+
+        if (!groupId) {
+            return
+        }
+
+        group      = me.itemRects.filter((rect, index) => me.getHeaderGroupId(index) === groupId);
+        groupLeft  = me.ownerRect.x - me.scrollLeft + Math.min(...group.map(rect => rect.x));
+        groupRight = me.ownerRect.x - me.scrollLeft + Math.max(...group.map(rect => rect.x + rect.width));
+        width      = me.itemRects[me.currentIndex].width;
+        left       = Math.max(bounds.left,  groupLeft);
+        right      = Math.min(bounds.right, groupRight);
+
+        // A group scrolled nearly out of view can show less of itself than the proxy is wide: the bound then grows
+        // toward where the group continues, so the proxy reaches past the toolbar's edge but never past its group
+        if (right - left < width) {
+            left  = Math.max(groupLeft, right - width);
+            right = Math.min(groupRight, left + width)
+        }
+
+        await Neo.main.addon.DragDrop.setConfigs({
+            appName              : me.appName,
+            windowId             : me.windowId,
+            boundaryContainerRect: {
+                bottom: bounds.bottom,
+                height: bounds.height,
+                left,
+                right,
+                top   : bounds.top,
+                width : right - left,
+                x     : left,
+                y     : bounds.top
+            }
+        })
+    }
+
+    /**
+     * @summary Preserves a scrolled header's content extent before the proxy or item lift can shrink it, and clamps a
+     * grouped header's proxy to its group once the proxy exists.
+     * The base has converted the item rects into owner-content space, but has not yet absolutised the headers.
+     * Pin their content extent and wait for that node to reach the DOM before continuing.
      * The existing drag-end path removes the reservation when normal layout takes over again.
      * @param {Object} data The admitted drag-start event.
      * @returns {Promise<void>}
@@ -282,8 +331,7 @@ class SortZone extends BaseSortZone {
         let me = this;
 
         if (me.dragStartScrollLeft > 0 && me.itemRects?.length) {
-            let extent = Math.max(...me.itemRects.map(rect => rect.x + rect.width))
-                - me.ownerRect.x + me.dragStartScrollLeft;
+            let extent = Math.max(...me.itemRects.map(rect => rect.x + rect.width));
 
             me.owner.vdom.cn.push({
                 cls  : ['neo-sortzone-extent-sentinel'],
@@ -299,7 +347,8 @@ class SortZone extends BaseSortZone {
             await me.owner.promiseUpdate()
         }
 
-        await super.dragStart(data)
+        await super.dragStart(data);
+        await me.clampProxyToGroup()
     }
 
     /**
@@ -330,10 +379,6 @@ class SortZone extends BaseSortZone {
 
         // Avoid conflicts with grid.header.plugin.Resizable
         if (!me.owner.dragResortable) return;
-
-        if (!data.cancelled && me.isOutsideGroup(me.lastDragClientX)) {
-            me.currentIndex = me.startIndex
-        }
 
         // Remove the drag-start scroll-extent sentinel before the layout restore: the items
         // re-enter the flow and own the scrollable overflow again from here on.
@@ -483,8 +528,15 @@ class SortZone extends BaseSortZone {
         // Track the release x-coordinate so onDragEnd can resolve the cross-toolbar drop region.
         me.lastDragClientX = data.clientX;
 
-        // The park walks switches back: never while an over-drag step awaits its scroll, the release decides then
-        me.isScrolling || me.setReorderParked(me.isOutsideGroup(data.clientX), data);
+        // Past its group's edge a grouped header waits in the edge's slot. Never while an over-drag step awaits its
+        // scroll, the step decides then, and never before the gesture's own boundary arrives: like every other switch,
+        // the walk waits for the start to finish
+        let side = me.isScrolling || !me.boundaryContainerRect ? 0 : me.groupOverflow(data.clientX);
+
+        if (side) {
+            me.moveToGroupEdge(side);
+            return
+        }
 
         await super.onDragMove(data)
     }
@@ -595,28 +647,57 @@ class SortZone extends BaseSortZone {
     }
 
     /**
-     * @summary Whether the pointer of a grouped header's drag is outside the headers of its group.
+     * @summary Which side of its group the pointer of a grouped header's drag is on: `-1` before the group's first
+     * header, `1` past its last one, `0` over the group or for an ungrouped header.
      *
-     * A drop there is no reorder of the group: the hover parks the reorder ({@link #onDragMove}) and the release
-     * restores the group's order ({@link #processDragEnd}). The span is measured in the toolbar's content space, so an
-     * over-drag past the visible edge keeps reordering while the group continues beyond it.
+     * Past an edge the header waits in that edge's slot ({@link #moveToGroupEdge}), under its clamped proxy. The span is
+     * measured in the toolbar's content space, so an over-drag past the visible edge keeps reordering while the group
+     * continues beyond it.
      * @param {Number} clientX
-     * @returns {Boolean}
+     * @returns {Number}
      */
-    isOutsideGroup(clientX) {
+    groupOverflow(clientX) {
         let me          = this,
             {itemRects} = me,
             groupId     = itemRects && Neo.isNumber(clientX) && me.getHeaderGroupId(me.currentIndex),
             group, x;
 
         if (!groupId) {
-            return false
+            return 0
         }
 
         x     = clientX - me.ownerRect.x + me.scrollLeft;
         group = itemRects.filter((rect, index) => me.getHeaderGroupId(index) === groupId);
 
-        return x < Math.min(...group.map(rect => rect.x)) || x > Math.max(...group.map(rect => rect.x + rect.width))
+        return x < Math.min(...group.map(rect => rect.x)) ? -1 : x > Math.max(...group.map(rect => rect.x + rect.width)) ? 1 : 0
+    }
+
+    /**
+     * @summary Walks a grouped header to its group's first (`side` -1) or last (`side` 1) slot, where its clamped proxy
+     * rests while the pointer is past that edge. A release there keeps the slot.
+     * @param {Number} side -1 or 1
+     * @protected
+     */
+    moveToGroupEdge(side) {
+        let me      = this,
+            groupId = me.getHeaderGroupId(me.currentIndex),
+            index;
+
+        // Neither an over-drag's auto-scroll loop nor the duplicate-move guard may outlive the walk
+        me.isOverDragging = false;
+        me.lastInBoundX   = me.lastInBoundY = null;
+
+        while (me.getHeaderGroupId(me.currentIndex + side) === groupId) {
+            index = me.currentIndex;
+
+            me.currentIndex += side;
+            me.switchItems(index, me.currentIndex);
+
+            // A refused switch would spin here forever
+            if (me.currentIndex === index) {
+                break
+            }
+        }
     }
 
     /**

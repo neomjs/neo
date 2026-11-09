@@ -234,8 +234,7 @@ class SortZone extends DragZone {
     /**
      * True while the pointer is where a release would not commit the reorder: {@link #onDragMove} keeps
      * sampling the window boundary but moves no sibling. Off by default; only a subclass that knows such
-     * territory arms it, via {@link #setReorderParked} (the dock tab strip beyond its release band, a grid header
-     * outside its group).
+     * territory arms it, via {@link #setReorderParked} (the dock tab strip beyond its release band).
      * @member {Boolean} isReorderParked=false
      * @protected
      */
@@ -1039,6 +1038,9 @@ class SortZone extends DragZone {
                 rect.y -= me.ownerRect.y
             });
 
+            // Published rects open the move gate (onDragMove), which reads them in owner space
+            me.adjustProxyRectToParent && pinnedRects.forEach(rect => me.adjustProxyRectToParent(rect, me.ownerRect));
+
             me.itemRects = itemRects;
 
             SortZone.activeTrace = {
@@ -1076,8 +1078,6 @@ class SortZone extends DragZone {
             pinnedItems.forEach((item, i) => {
                 itemStyle = item.wrapperStyle || {};
                 rect      = pinnedRects[i];
-
-                me.adjustProxyRectToParent?.(rect, me.ownerRect);
 
                 item.wrapperStyle = Object.assign(itemStyle, {
                     height  : `${rect.height}px`,
