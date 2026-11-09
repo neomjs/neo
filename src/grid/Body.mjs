@@ -1118,6 +1118,22 @@ class GridBody extends Component {
     }
 
     /**
+     * @summary The height of all rows, without the scroll room {@link #updateScrollHeight} adds below the last one.
+     * Content-sized rows count their known geometry plus the estimate for rows a chunked load has not delivered.
+     * A header drag ends its proxy here when the rows stop above the grid's bottom.
+     * @returns {Number}
+     */
+    getContentHeight() {
+        let me                         = this,
+            countRecords               = me.#initialTotalSize || me.store?.count || 0,
+            { rowGeometry, rowHeight } = me;
+
+        return rowGeometry ?
+            rowGeometry.totalHeight + (countRecords - rowGeometry.count) * rowGeometry.estimate :
+            countRecords * rowHeight
+    }
+
+    /**
      * Resolves the dataField for a physical cell id — the inverse of {@link #getCellId}.
      * Pooled cell ids resolve through the MATERIALIZED slot binding ({@link Neo.grid.Row#createVdom}
      * stamps `data.field` into every rendered cell): pool slots keep their render-time column
@@ -1795,6 +1811,7 @@ class GridBody extends Component {
     }
 
     /**
+     * @summary Sizes the scroller to {@link #getContentHeight} plus one row of scroll room below the last row.
      * @param {Boolean} silent=false
      */
     updateScrollHeight(silent = false) {
@@ -1803,10 +1820,7 @@ class GridBody extends Component {
             { rowGeometry, rowHeight } = me;
 
         if (countRecords > 0 && rowHeight > 0) {
-            // Content-sized rows: the known geometry, plus the estimate for rows a chunked load has not delivered
-            me.vdom.height = rowGeometry ?
-                `${rowGeometry.totalHeight + (countRecords - rowGeometry.count + 1) * rowGeometry.estimate}px` :
-                `${(countRecords + 1) * rowHeight}px`;
+            me.vdom.height = `${me.getContentHeight() + (rowGeometry ? rowGeometry.estimate : rowHeight)}px`;
             !silent && me.update()
         }
     }
