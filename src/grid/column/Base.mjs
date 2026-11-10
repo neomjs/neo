@@ -153,6 +153,7 @@ class Column extends Base {
                 gridContainer = me.parent,
                 body          = gridContainer?.body,
                 colPositions  = body?.columnPositions,
+                columns       = gridContainer?.columns,
                 button        = gridContainer?.getButton(oldValue),
                 pos           = colPositions?.get(oldValue);
 
@@ -164,6 +165,14 @@ class Column extends Base {
                 colPositions.map.delete(oldValue);
                 pos.dataField = value;
                 colPositions.map.set(value, pos)
+            }
+
+            // The grid's columns collection is keyed by 'dataField' too. Its item already carries the
+            // new value, so the Map index is re-keyed here directly; the items array keeps the
+            // column's position, and grid.columns.get(newDataField) resolves again.
+            if (columns?.get(oldValue) === me) {
+                columns.map.delete(oldValue);
+                columns.map.set(value, me)
             }
 
             if (button) {
