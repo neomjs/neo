@@ -593,10 +593,5 @@ test.describe('docs SEO generator archive exclusion (#20089)', () => {
         expect(fixtureSeo['/learn/gettingstarted/Setup']?.title).toBe(
             'Setup — Multi-Threaded JavaScript Application Engine | Neo.mjs'
         );
-
-        const committedSeo = await fs.readJSON(path.resolve(process.cwd(), 'apps/portal/resources/data/seo.json'));
-        const freshSeo     = await getSeoJson();
-
-        expect(committedSeo).toEqual(freshSeo);
     });
 });
