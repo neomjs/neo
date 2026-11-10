@@ -645,10 +645,20 @@ class View extends Base {
     }
 
     /**
+     * The distance in px of the corrections the main thread has not acknowledged yet, see {@link #reconcileScrollTop}
+     * @returns {Number}
+     * @private
+     */
+    #pendingDistance() {
+        return this.#pendingCorrections.reduce((sum, {distance}) => sum + distance, 0)
+    }
+
+    /**
      * Picks the page for a logical scroll offset while fixed rows reach past {@link #maxScrollHeight}, and returns the
      * logical offset to render, see {@link Neo.grid.ScrollPages}:
      *
      * - **A thumb drag** owns the physical offset. It picks its page in proportion, and the logical offset follows.
+     *   The main thread drops a correction that lands during the drag, so the page comes from the offset it reported.
      * - **The first or the last viewport** of the physical range picks the first or the last page. From another page
      *   only a jump gets there: a load's reset to the top, Home or End.
      * - **Any other scroll** keeps the logical offset. Crossing into another page moves the physical offset by the
@@ -672,7 +682,9 @@ class View extends Base {
         }
 
         if (me.isThumbDragging) {
-            page = pages.thumbPageAt(physical)
+            // The main thread drops corrections during a drag, so the offset it reported is where the thumb is
+            physical -= me.#pendingDistance();
+            page      = pages.thumbPageAt(physical)
         } else if (physical <= 0) {
             page = 0
         } else if (physical >= pages.physicalExtent - 2 * pages.viewHeight) {
@@ -1288,7 +1300,7 @@ class View extends Base {
             pending.shift()
         }
 
-        return pending.reduce((offset, {distance}) => offset + distance, scrollTop) + this.pageOffset
+        return scrollTop + this.#pendingDistance() + this.pageOffset
     }
 
     /**

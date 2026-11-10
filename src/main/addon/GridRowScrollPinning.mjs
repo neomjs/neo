@@ -155,15 +155,18 @@ class GridRowScrollPinning extends Base {
      * Intercepts VDOM delta updates to precisely track when the worker has generated DOM modifications
      * for the scroll events. We synchronize using the dedicated `scrollTop` meta property from the View.
      *
-     * Content-sized rows: when row heights above the visible rows change, the View's meta carries a
-     * `scrollCorrection`, the distance the visible rows move. The scroll offset moves by the same distance in the
-     * same task as the deltas, so the visible rows hold still and the pin offset stays `actual - worker`. The
-     * target is the offset before the deltas plus the correction, so scrolling done while the worker computed
-     * survives. {@link #onDeltaUpdated} applies it once the deltas resized the bodies: a grown extent admits it, and
-     * the clamp of a shrunk extent does not count twice. Each correction raises `scrollEpoch`, and an
-     * acknowledgement with an older epoch describes the geometry before it: adopting its `scrollTop` would displace
-     * the rows a second time, so it is ignored. The view node carries the last epoch as `data-scroll-epoch`, so a
-     * scroll event tells the worker which corrections its offset includes ({@link Neo.grid.View#reconcileScrollTop}).
+     * When the visible rows move without a scroll, because row heights above them changed or the view crossed into
+     * another scroll page, the View's meta carries a `scrollCorrection`, the distance they move. The scroll offset
+     * moves by the same distance in the same task as the deltas, so the visible rows hold still and the pin offset
+     * stays `actual - worker`. The target is the offset before the deltas plus the correction, so scrolling done
+     * while the worker computed survives. {@link #onDeltaUpdated} applies it once the deltas resized the bodies: a
+     * grown extent admits it, and the clamp of a shrunk extent does not count twice. A correction that lands during a
+     * thumb drag is dropped: the thumb owns the scroll offset, and the pin holds the moved rows in view until the
+     * worker renders for the thumb's place. Each correction raises `scrollEpoch`, and an acknowledgement with an
+     * older epoch describes the geometry before it: adopting its `scrollTop` would displace the rows a second time,
+     * so it is ignored. The view node carries the last epoch as `data-scroll-epoch`, a dropped correction's too, so a
+     * scroll event tells the worker which corrections its offset includes or no longer awaits
+     * ({@link Neo.grid.View#reconcileScrollTop}).
      *
      * @param {Object} data The DeltaUpdates event payload
      * @param {Object[]} data.deltas
@@ -197,7 +200,7 @@ class GridRowScrollPinning extends Base {
                 // We sync against the true scroll target the VDOM was generated for
                 state.workerScrollTop = viewMeta.scrollTop;
 
-                if (viewMeta.scrollCorrection) {
+                if (viewMeta.scrollCorrection && !state.isThumbDragging) {
                     state.scrollTarget = state.wrapperNode.scrollTop + viewMeta.scrollCorrection
                 } else {
                     me.applyPinning(state.id)

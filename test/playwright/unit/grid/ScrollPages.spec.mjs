@@ -246,6 +246,37 @@ test.describe('Grid scroll pages: fixed rows past the cap', () => {
             view.isThumbDragging = false
         });
 
+        test('a thumb drag that starts while a crossing\'s correction is in flight pages from the offset the thumb set', async () => {
+            let {scrollManager, view} = grid,
+                pages                 = view.scrollPages,
+                physical              = 100000;
+
+            scrollManager.rowHoverSync = false;
+
+            // A crossing queues a correction of one page step, which the main thread has not applied yet
+            view.syncBodies(1990);
+            view.syncBodies(2090);
+            await view.promiseUpdate();
+            expect(view.pageOffset).toBe(Math.round(step));
+
+            // The thumb is pressed before that correction lands: the main thread drops it during the drag, so the
+            // offset reported under the old epoch is where the thumb is
+            view.isThumbDragging = true;
+
+            scrollManager.onContainerScroll({
+                scrollLeft: 0,
+                scrollTop : physical,
+                target    : {data: {scrollEpoch: '0'}, id: view.id, scrollTop: physical}
+            });
+
+            let page = pages.thumbPageAt(physical);
+
+            await expect.poll(() => view.pageOffset).toBe(pages.offsetAt(page));
+            expect(view.scrollTop).toBe(physical + pages.offsetAt(page));
+
+            view.isThumbDragging = false
+        });
+
         test('a jump to the top of the physical range returns to the first page', async () => {
             let {scrollManager, view} = grid,
                 report                = scrollTop => scrollManager.onContainerScroll({
