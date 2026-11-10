@@ -42,6 +42,7 @@
         "create-class"                         : "node ./buildScripts/create/class.mjs",
         "create-component"                     : "node ./buildScripts/create/component.mjs",
         "create-theme"                         : "node ./buildScripts/create/theme.mjs",
+        "generate-agents-md"                   : "neo-agent-skills-agents-md --repo neo,neo-agent-brain --out AGENTS.md",
         "generate-docs-json"                   : "node ./buildScripts/docs/generateDocsJson.mjs",
         "move-files"                           : "node ./buildScripts/create/move.mjs",
         "postpack"                             : "node ./buildScripts/util/npmIgnoreComposition.mjs restore",
