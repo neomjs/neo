@@ -251,6 +251,45 @@ test.describe('Neo.main.addon.GridRowScrollPinning — content-sized scroll corr
         expect(wrapper.scrollTop).toBe(1500)
     });
 
+    test('a render for the thumb\'s place, committed after a held correction, retires it', () => {
+        addon.onMouseDown({currentTarget: scrollbar});
+
+        // The thumb's offset reaches the worker before the correction of the place it left
+        wrapper.scrollTop = 1300;
+        addon.onScroll({target: wrapper});
+        deliver({scrollCorrection: -80, scrollEpoch: 1, scrollTop: 920});
+
+        // The worker then renders for the thumb's place: the rows sit where the thumb is
+        deliver({scrollEpoch: 1, scrollTop: 1300});
+        expect(pinOffset()).toBe('0px');
+
+        addon.onMouseUp({});
+        expect(wrapper.scrollTop).toBe(1300)
+    });
+
+    test('corrections that continue from where the last one left the rows add up until the release', () => {
+        addon.onMouseDown({currentTarget: scrollbar});
+
+        deliver({scrollCorrection: -80, scrollEpoch: 1, scrollTop: 920});
+        deliver({scrollCorrection: -20, scrollEpoch: 2, scrollTop: 900});
+
+        addon.onMouseUp({});
+        expect(wrapper.scrollTop).toBe(900)
+    });
+
+    for (const next of ['nothing', 'an unrelated batch that commits']) {
+        test(`a correction whose batch failed during a drag is not held, followed by ${next}`, () => {
+            addon.onMouseDown({currentTarget: scrollbar});
+
+            // The deltas threw, so no `updated` event followed
+            addon.onDeltaUpdate({deltas: [], meta: {[viewId]: {scrollCorrection: 80, scrollEpoch: 1, scrollTop: 1080}}});
+            next !== 'nothing' && deliver({scrollEpoch: 1, scrollTop: 1000});
+
+            addon.onMouseUp({});
+            expect(wrapper.scrollTop).toBe(1000)
+        })
+    }
+
     test('without pinning, a registration still applies corrections and never pins', () => {
         addon.unregister({id: 'grid'});
         addon.register({bodyIds: ['body'], id: 'grid', pin: false, verticalScrollbarId: 'scrollbar', viewId});
