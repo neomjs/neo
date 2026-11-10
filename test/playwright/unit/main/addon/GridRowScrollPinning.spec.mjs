@@ -223,19 +223,33 @@ test.describe('Neo.main.addon.GridRowScrollPinning — content-sized scroll corr
                 deliver(correction)
             }
 
-            // The thumb owns the offset: the correction is dropped, its epoch adopted, and the pin holds the moved rows
+            // The thumb owns the offset: the correction waits, its epoch is adopted, and the pin holds the moved rows
             expect(wrapper.scrollTop).toBe(1300);
             expect(Number(wrapper.dataset.scrollEpoch)).toBe(1);
             expect(pinOffset()).toBe(`${1300 - 1080}px`);
 
-            // Release, and the worker catches up with the offset the drag left: the pin lets go
+            // The thumb did not move after it: the release applies it, and the worker catches up, so the pin lets go
             addon.onMouseUp({});
-            deliver({scrollEpoch: 1, scrollTop: 1300});
+            expect(wrapper.scrollTop).toBe(1380);
+            deliver({scrollEpoch: 1, scrollTop: 1380});
 
             expect(pinOffset()).toBe('0px');
             expect(addon.registrations.get('grid').isPinningActive).toBe(false)
         })
     }
+
+    test('a thumb that moves after a held correction leaves it unapplied: the worker pages for the new place', () => {
+        addon.onMouseDown({currentTarget: scrollbar});
+        deliver({scrollCorrection: 80, scrollEpoch: 1, scrollTop: 1080});
+        expect(wrapper.scrollTop).toBe(1000);
+
+        // The thumb moves on, and that offset reaches the worker under the adopted epoch
+        wrapper.scrollTop = 1500;
+        addon.onScroll({target: wrapper});
+
+        addon.onMouseUp({});
+        expect(wrapper.scrollTop).toBe(1500)
+    });
 
     test('without pinning, a registration still applies corrections and never pins', () => {
         addon.unregister({id: 'grid'});

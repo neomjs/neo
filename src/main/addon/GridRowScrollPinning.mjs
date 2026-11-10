@@ -161,8 +161,9 @@ class GridRowScrollPinning extends Base {
      * stays `actual - worker`. The target is the offset before the deltas plus the correction, so scrolling done
      * while the worker computed survives. {@link #onDeltaUpdated} applies it once the deltas resized the bodies: a
      * grown extent admits it, and the clamp of a shrunk extent does not count twice. A correction that lands during a
-     * thumb drag is dropped: the thumb owns the scroll offset, and the pin holds the moved rows in view until the
-     * worker renders for the thumb's place. Each correction raises `scrollEpoch`, and an acknowledgement with an
+     * thumb drag waits: the thumb owns the scroll offset, and the pin holds the moved rows in view. The release
+     * applies it ({@link #onMouseUp}), unless the thumb moved on and the worker rendered for its place
+     * ({@link #onScroll}). Each correction raises `scrollEpoch`, and an acknowledgement with an
      * older epoch describes the geometry before it: adopting its `scrollTop` would displace the rows a second time,
      * so it is ignored. The view node carries the last epoch as `data-scroll-epoch`, a dropped correction's too, so a
      * scroll event tells the worker which corrections its offset includes or no longer awaits
@@ -203,6 +204,8 @@ class GridRowScrollPinning extends Base {
                 if (viewMeta.scrollCorrection && !state.isThumbDragging) {
                     state.scrollTarget = state.wrapperNode.scrollTop + viewMeta.scrollCorrection
                 } else {
+                    // The thumb owns the offset: the correction waits for the release
+                    viewMeta.scrollCorrection && (state.heldCorrection += viewMeta.scrollCorrection);
                     me.applyPinning(state.id)
                 }
             }
@@ -270,6 +273,13 @@ class GridRowScrollPinning extends Base {
 
         if (state) {
             state.isThumbDragging = false;
+
+            // A correction held since the thumb last moved: the worker still renders the place it described
+            if (state.heldCorrection) {
+                state.wrapperNode.scrollTop += state.heldCorrection;
+                state.heldCorrection          = 0
+            }
+
             me.applyPinning(state.id);
             me.activeDragId = null;
             me.notifyThumbDrag(state, false)
@@ -312,6 +322,8 @@ class GridRowScrollPinning extends Base {
         }
 
         if (state) {
+            // A moved thumb reports a new offset, and the worker pages for it: a held correction no longer applies
+            state.isThumbDragging && (state.heldCorrection = 0);
             me.applyPinning(state.id);
         }
     }
@@ -337,6 +349,7 @@ class GridRowScrollPinning extends Base {
                 scrollbarNode  : verticalScrollbarNode,
                 viewId,
                 wrapperNode,
+                heldCorrection : 0,
                 isPinningActive: false,
                 isThumbDragging: false,
                 pin,
