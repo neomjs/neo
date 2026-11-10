@@ -364,6 +364,7 @@
  "Neo.grid.Row": "Neo.component.Base",
  "Neo.grid.RowGeometry": "Neo.core.Base",
  "Neo.grid.ScrollManager": "Neo.core.Base",
+ "Neo.grid.ScrollPages": "Neo.core.Base",
  "Neo.grid.SearchToolbar": "Neo.toolbar.Base",
  "Neo.grid.VerticalScrollbar": "Neo.component.Base",
  "Neo.grid.View": "Neo.container.Base",

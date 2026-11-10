@@ -407,13 +407,14 @@ class GridContainer extends BaseContainer {
         });
 
         me.verticalScrollbar = Neo.create({
-            module     : VerticalScrollbar,
+            module         : VerticalScrollbar,
             appName,
-            parentId   : me.id,
-            rowGeometry: me.view.rowGeometry,
+            maxScrollHeight: me.view.maxScrollHeight,
+            parentId       : me.id,
+            rowGeometry    : me.view.rowGeometry,
             rowHeight,
             store,
-            theme      : me.theme,
+            theme          : me.theme,
             windowId
         });
 
@@ -1725,7 +1726,9 @@ class GridContainer extends BaseContainer {
             return
         }
 
-        let {scrollLeft, scrollTop} = scrollManager;
+        let {scrollLeft} = scrollManager,
+            // The main thread's offset: the logical one less the page offset
+            scrollTop    = scrollManager.scrollTop - view.pageOffset;
 
         scrollLeft > 0 && bar?.scrollLeft === 0 && Neo.main.DomAccess.scrollTo({
             direction: 'left', id: horizontalScrollbar.id, value: scrollLeft, windowId

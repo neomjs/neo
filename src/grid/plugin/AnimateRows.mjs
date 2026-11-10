@@ -227,11 +227,10 @@ class AnimateRows extends Base {
      * @protected
      */
     place(row) {
-        let {rowGeometry, rowHeight} = this.owner,
-            {rowIndex, vdom}         = row;
+        let {rowIndex, vdom} = row;
 
         vdom.style.opacity   = null;
-        vdom.style.transform = row.getRowTransform(rowGeometry ? rowGeometry.offsetAt(rowIndex) : rowIndex * rowHeight)
+        vdom.style.transform = row.getRowTransform(this.owner.getRowOffset(rowIndex))
     }
 
     /**
@@ -339,7 +338,7 @@ class AnimateRows extends Base {
                     style.opacity = 0;
                     moved.set(row, row.record)
                 } else if (from !== row.rowIndex) {
-                    style.transform = row.getRowTransform(from * rowHeight);
+                    style.transform = row.getRowTransform(from * rowHeight - owner.pageOffset);
                     moved.set(row, row.record)
                 }
             }

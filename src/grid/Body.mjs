@@ -333,6 +333,14 @@ class GridBody extends Component {
     }
 
     /**
+     * The view's page offset: 0 unless fixed rows scroll in pages, see {@link Neo.grid.View#pageOffset}
+     * @member {Number} pageOffset
+     */
+    get pageOffset() {
+        return this.gridContainer?.view?.pageOffset || 0
+    }
+
+    /**
      * @param config
      */
     construct(config) {
@@ -1118,7 +1126,7 @@ class GridBody extends Component {
     }
 
     /**
-     * @summary The height of all rows, without the scroll room {@link #updateScrollHeight} adds below the last one.
+     * @summary The height of all rows, without the scroll room {@link #getScrollExtent} adds below the last one.
      * Content-sized rows count their known geometry plus the estimate for rows a chunked load has not delivered.
      * A header drag ends its proxy here when the rows stop above the grid's bottom.
      * @returns {Number}
@@ -1360,6 +1368,27 @@ class GridBody extends Component {
     }
 
     /**
+     * @summary The offset in px a row renders at: its logical offset, `index × rowHeight` or the
+     * {@link #rowGeometry}'s, less the view's {@link #pageOffset}.
+     * @param {Number} rowIndex
+     * @returns {Number}
+     */
+    getRowOffset(rowIndex) {
+        let {rowGeometry, rowHeight} = this;
+        return (rowGeometry ? rowGeometry.offsetAt(rowIndex) : rowIndex * rowHeight) - this.pageOffset
+    }
+
+    /**
+     * @summary The logical scroll extent in px: {@link #getContentHeight} plus one row of scroll room below the last
+     * row
+     * @returns {Number}
+     */
+    getScrollExtent() {
+        let {rowGeometry, rowHeight} = this;
+        return this.getContentHeight() + (rowGeometry ? rowGeometry.estimate : rowHeight)
+    }
+
+    /**
      * @override
      * @returns {*}
      */
@@ -1485,12 +1514,16 @@ class GridBody extends Component {
 
         if (me.mounted && !postChunkLoad) {
             me.timeout(50)
-                .then(() => Neo.main.DomAccess.scrollTo({
-                    direction: 'top',
-                    id: me.gridContainer.view.id,
-                    value: 0,
-                    windowId
-                }))
+                .then(() => {
+                    let {view} = me.gridContainer;
+
+                    // Paged, the top lies on the first page: the view moves the rows and the offset there together
+                    if (view.paged) {
+                        view.scrollToOffset(0)
+                    } else {
+                        return Neo.main.DomAccess.scrollTo({direction: 'top', id: view.id, value: 0, windowId})
+                    }
+                })
                 .catch(reason => {
                     reason !== Neo.isDestroyed && !Neo.currentWorker?.isDeparture?.(reason, windowId) &&
                         console.error('grid.Body: scroll-to-top dispatch failed', {reason, windowId})
@@ -1577,11 +1610,7 @@ class GridBody extends Component {
                 scrollTop = (newIndex - me.availableRows) * me.rowHeight + lastRowGap
             }
 
-            Neo.main.DomAccess.scrollTo({
-                id: me.gridContainer.view.id,
-                value: scrollTop,
-                windowId: me.windowId
-            })
+            me.gridContainer.view.scrollToOffset(scrollTop)
         }
     }
 
@@ -1811,16 +1840,20 @@ class GridBody extends Component {
     }
 
     /**
-     * @summary Sizes the scroller to {@link #getContentHeight} plus one row of scroll room below the last row.
+     * @summary Sizes the scroller to {@link #getScrollExtent}, up to the view's
+     * {@link Neo.grid.View#maxScrollHeight}: fixed rows past it scroll in pages. The center body then lets the view
+     * re-derive its pages.
      * @param {Boolean} silent=false
      */
     updateScrollHeight(silent = false) {
-        let me                         = this,
-            countRecords               = me.#initialTotalSize || me.store?.count || 0,
-            { rowGeometry, rowHeight } = me;
+        let me           = this,
+            countRecords = me.#initialTotalSize || me.store?.count || 0,
+            // A body sized while its container creates the view knows no cap yet
+            view         = me.gridContainer?.view;
 
-        if (countRecords > 0 && rowHeight > 0) {
-            me.vdom.height = `${me.getContentHeight() + (rowGeometry ? rowGeometry.estimate : rowHeight)}px`;
+        if (countRecords > 0 && me.rowHeight > 0) {
+            me.vdom.height = `${Math.min(me.getScrollExtent(), view?.maxScrollHeight ?? Infinity)}px`;
+            view?.scrollPages && me.gridContainer.body === me && view.updateScrollPages();
             !silent && me.update()
         }
     }

@@ -77,11 +77,12 @@ class ScrollManager extends Base {
 
     /**
      * True while the grid needs the `GridRowScrollPinning` addon: to pin rows during thumb drags, or to apply the
-     * scroll corrections of content-sized rows, which it does with pinning off as well.
+     * scroll corrections of content-sized rows and of scroll pages, which it does with pinning off as well.
      * @member {Boolean} usesRowScrollAddon
      */
     get usesRowScrollAddon() {
-        return this.rowScrollPinning || !!this.gridContainer?.contentSizedRows
+        let {gridContainer} = this;
+        return this.rowScrollPinning || !!gridContainer?.contentSizedRows || !!gridContainer?.view?.paged
     }
 
     /**

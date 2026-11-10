@@ -12,11 +12,13 @@ import Neo            from '../../../../../src/Neo.mjs';
 import * as core      from '../../../../../src/core/_export.mjs';
 
 /**
- * The row scroll addon's handling of content-sized scroll corrections. A height change above the visible rows
- * arrives as `scrollCorrection` in the View's update meta: the addon moves the actual scroll offset by it once
- * the deltas resized the bodies, then pins, so the pin offset (`actual - worker`) keeps its value, and it ignores
- * an acknowledgement older than the last correction. The race arms hold that under the worst order: while
- * pinning is active, a correction and an older acknowledgement arrive in either order, then the thumb is released.
+ * The row scroll addon's handling of scroll corrections. A height change above the visible rows, or a crossing into
+ * another scroll page, arrives as `scrollCorrection` in the View's update meta: the addon moves the actual scroll
+ * offset by it once the deltas resized the bodies, then pins, so the pin offset (`actual - worker`) keeps its value,
+ * and it ignores an acknowledgement older than the last correction. During a thumb drag the thumb owns the offset:
+ * a correction landing then is dropped, its epoch adopted, and the pin holds the rows. The race arms hold that under
+ * the worst order: while pinning is active, a correction and an older acknowledgement arrive in either order, then
+ * the thumb is released.
  *
  * DOM nodes are stand-ins: the wrapper holds `scrollTop` and clamps it to its extent as a scroll container does,
  * a body holds the `--grid-row-pin-offset` property.
@@ -221,16 +223,70 @@ test.describe('Neo.main.addon.GridRowScrollPinning — content-sized scroll corr
                 deliver(correction)
             }
 
-            // The rows moved by 80px and so did the offset: no second displacement
-            expect(wrapper.scrollTop).toBe(1380);
-            expect(pinOffset()).toBe(`${1380 - 1080}px`);
+            // The thumb owns the offset: the correction waits, its epoch is adopted, and the pin holds the moved rows
+            expect(wrapper.scrollTop).toBe(1300);
+            expect(Number(wrapper.dataset.scrollEpoch)).toBe(1);
+            expect(pinOffset()).toBe(`${1300 - 1080}px`);
 
-            // Release, and the worker catches up with the offset the drag left: the pin lets go
+            // The thumb did not move after it: the release applies it, and the worker catches up, so the pin lets go
             addon.onMouseUp({});
+            expect(wrapper.scrollTop).toBe(1380);
             deliver({scrollEpoch: 1, scrollTop: 1380});
 
             expect(pinOffset()).toBe('0px');
             expect(addon.registrations.get('grid').isPinningActive).toBe(false)
+        })
+    }
+
+    test('a thumb that moves after a held correction leaves it unapplied: the worker pages for the new place', () => {
+        addon.onMouseDown({currentTarget: scrollbar});
+        deliver({scrollCorrection: 80, scrollEpoch: 1, scrollTop: 1080});
+        expect(wrapper.scrollTop).toBe(1000);
+
+        // The thumb moves on, and that offset reaches the worker under the adopted epoch
+        wrapper.scrollTop = 1500;
+        addon.onScroll({target: wrapper});
+
+        addon.onMouseUp({});
+        expect(wrapper.scrollTop).toBe(1500)
+    });
+
+    test('a render for the thumb\'s place, committed after a held correction, retires it', () => {
+        addon.onMouseDown({currentTarget: scrollbar});
+
+        // The thumb's offset reaches the worker before the correction of the place it left
+        wrapper.scrollTop = 1300;
+        addon.onScroll({target: wrapper});
+        deliver({scrollCorrection: -80, scrollEpoch: 1, scrollTop: 920});
+
+        // The worker then renders for the thumb's place: the rows sit where the thumb is
+        deliver({scrollEpoch: 1, scrollTop: 1300});
+        expect(pinOffset()).toBe('0px');
+
+        addon.onMouseUp({});
+        expect(wrapper.scrollTop).toBe(1300)
+    });
+
+    test('corrections that continue from where the last one left the rows add up until the release', () => {
+        addon.onMouseDown({currentTarget: scrollbar});
+
+        deliver({scrollCorrection: -80, scrollEpoch: 1, scrollTop: 920});
+        deliver({scrollCorrection: -20, scrollEpoch: 2, scrollTop: 900});
+
+        addon.onMouseUp({});
+        expect(wrapper.scrollTop).toBe(900)
+    });
+
+    for (const next of ['nothing', 'an unrelated batch that commits']) {
+        test(`a correction whose batch failed during a drag is not held, followed by ${next}`, () => {
+            addon.onMouseDown({currentTarget: scrollbar});
+
+            // The deltas threw, so no `updated` event followed
+            addon.onDeltaUpdate({deltas: [], meta: {[viewId]: {scrollCorrection: 80, scrollEpoch: 1, scrollTop: 1080}}});
+            next !== 'nothing' && deliver({scrollEpoch: 1, scrollTop: 1000});
+
+            addon.onMouseUp({});
+            expect(wrapper.scrollTop).toBe(1000)
         })
     }
 
@@ -245,9 +301,9 @@ test.describe('Neo.main.addon.GridRowScrollPinning — content-sized scroll corr
 
         expect(pinOffset()).not.toBe('300px');
 
-        deliver({scrollCorrection: 40, scrollEpoch: 1, scrollTop: 1040});
-        expect(wrapper.scrollTop).toBe(1340);
+        addon.onMouseUp({});
 
-        addon.onMouseUp({})
+        deliver({scrollCorrection: 40, scrollEpoch: 1, scrollTop: 1040});
+        expect(wrapper.scrollTop).toBe(1340)
     })
 });
