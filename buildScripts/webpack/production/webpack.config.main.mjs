@@ -62,7 +62,7 @@ export default {
     },
 
     plugins: [
-        mainAddonContextPlugin(insideNeo),
+        mainAddonContextPlugin(insideNeo, cwd),
         new WebpackHookPlugin({
             onBuildEnd: [
                 `${nodeCmd} ${copyFolder} -s ${faFrom} -t ${faTo}`,

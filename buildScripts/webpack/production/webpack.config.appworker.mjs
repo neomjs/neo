@@ -177,7 +177,7 @@ export default async function(env) {
         },
 
         plugins: [
-            workerContextRebasePlugin(insideNeo),
+            workerContextRebasePlugin(insideNeo, cwd),
             ...plugins
         ],
 

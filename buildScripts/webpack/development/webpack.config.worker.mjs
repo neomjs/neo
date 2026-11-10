@@ -34,7 +34,7 @@ export default env => {
         },
 
         plugins: [
-            workerContextRebasePlugin(insideNeo)
+            workerContextRebasePlugin(insideNeo, cwd)
         ],
 
         output: {

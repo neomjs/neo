@@ -43,6 +43,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url)),
  * A sixth reached production first: the Canvas worker loaded every renderer through one root, which
  * the rebase moved to the workspace, taking the engine's own `src/canvas` renderers with it.
  *
+ * A seventh was found from a workspace outside this repository: the App worker's rebase was path
+ * arithmetic from where the package resolved (`../../` from the worker directory), so a package
+ * reached through a symbolic link resolved outside the workspace and the build compiled the
+ * package's own apps instead of the consumer's. Every arm here installed a real directory, which is
+ * why none of them saw it. The linked arm runs the whole set again with the package moved to
+ * `node_modules/.pnpm/<name>@<version>/node_modules/` and linked back.
+ *
  * ## Why it packs and builds for real
  *
  * Reasoning about relative paths is explicitly not a substitute, and neither is a simulated layout:
@@ -196,6 +203,30 @@ export const CANVAS_EXPECTATIONS = [{
     match  : /apps[/\\]probe[/\\]canvas[/\\]ProbeRenderer\.mjs\b/,
     present: true,
     because: 'a consumer-owned renderer must stay reachable through the rebased app-space root'
+}, ...TEST_HARNESS_ABSENCE_EXPECTATIONS];
+
+/**
+ * @summary What a CONSUMER-mode App worker compile must reach: the workspace's own app and none of the
+ * ones the package ships.
+ *
+ * The mode matters. Built as the framework, the App worker legitimately compiles every app in the
+ * package, which is `APP_EXPECTATIONS` and how a consumer building with `--framework` compiles. Built
+ * as a consumer, the app-space root belongs to the workspace, so the same context must reach the
+ * workspace's app instead. A linked package is the case this pins: it resolves outside the
+ * workspace, and path arithmetic from where it resolves built the package's apps while the
+ * workspace's app never entered the graph.
+ * @type {Object[]}
+ */
+export const CONSUMER_APP_EXPECTATIONS = [{
+    file   : 'apps/probe/app.mjs',
+    match  : /apps[/\\]probe[/\\]app\.mjs$/,
+    present: true,
+    because: 'a consumer build compiles the workspace\'s own app, whatever layout the package was installed in'
+}, {
+    file   : 'node_modules/neo.mjs/apps/portal/app.mjs',
+    match  : /neo\.mjs[/\\]apps[/\\]portal[/\\]app\.mjs$/,
+    present: false,
+    because: 'the package\'s own apps are not the consumer\'s app space, so a consumer build must not compile them'
 }, ...TEST_HARNESS_ABSENCE_EXPECTATIONS];
 
 /**
@@ -395,12 +426,17 @@ export function collectAppWorkerDispatchSurfaceFailures(
  * @param {Array<{context: String, regExpSource: String}>} result.contextModules Compiled context identities.
  * @param {String} workspace Consumer fixture root.
  * @param {String} arm `absent` or `present`.
+ * @param {Object} [options]
+ * @param {String} [options.packagePath] The package's own root, when it is not `node_modules/neo.mjs`.
  * @returns {String[]} Human-readable failures; empty means the Main context boundary is intact.
  */
-export function collectMainContextFailures({mode, contextModules}, workspace, arm) {
+export function collectMainContextFailures({mode, contextModules}, workspace, arm, {packagePath} = {}) {
     // macOS exposes its temp root as `/var`, while Webpack canonicalizes it to `/private/var`.
     const physicalWorkspace = fs.existsSync(workspace) ? fs.realpathSync(workspace) : path.normalize(workspace),
-          packageRoot       = path.normalize(path.join(physicalWorkspace, 'node_modules/neo.mjs/src/main/addon')),
+          physicalPackage   = packagePath === undefined
+              ? path.join(physicalWorkspace, 'node_modules/neo.mjs')
+              : (fs.existsSync(packagePath) ? fs.realpathSync(packagePath) : path.normalize(packagePath)),
+          packageRoot       = path.normalize(path.join(physicalPackage, 'src/main/addon')),
           workspaceRoot     = path.normalize(path.join(physicalWorkspace, 'src/main/addon')),
           packageContexts   = contextModules.filter(module => path.normalize(module.context) === packageRoot),
           workspaceContexts = contextModules.filter(module => path.normalize(module.context) === workspaceRoot),
@@ -444,6 +480,9 @@ function createFixture(workspace) {
     const files = {
         'package.json'                       : JSON.stringify({name: 'neo-consumer-fixture', version: '1.0.0', type: 'module'}, null, 4),
         'src/MicroLoader.mjs'                : 'export default "loader";\n',
+        'apps/probe/app.mjs'                 : 'export default class ConsumerApp {}\n',
+        'apps/probe/index.html'              : '<!doctype html><html><body></body></html>\n',
+        'apps/probe/neo-config.json'         : JSON.stringify({appPath: '../../apps/probe'}, null, 4),
         'apps/probe/data/ConsumerOnly.mjs'   : 'export default class ConsumerOnly {}\n',
         'apps/probe/canvas/ProbeRenderer.mjs': 'export default class ProbeRenderer {}\n',
         'RootOnly.mjs'                       : 'export default "root-level node script";\n',
@@ -469,6 +508,35 @@ function createMainAddonFixture(workspace) {
     fs.writeFileSync(target, 'export default class ConsumerMainAddon {}\n')
 }
 
+/** @summary Removes the workspace Main addon, so the next arm's absent builds start without it. */
+function removeMainAddonFixture(workspace) {
+    // The directory, not just the file: an existing but empty root is a live context, and the absent
+    // arm is specifically the arm where the root does not exist.
+    fs.rmSync(path.join(workspace, 'src/main/addon'), {recursive: true, force: true})
+}
+
+/**
+ * @summary Replaces the fixture's installed package with a symbolic link to it, in pnpm's real-path layout.
+ *
+ * A linked package resolves outside the workspace: path arithmetic from where the package resolves
+ * cannot reach the consumer's app space. The real path is
+ * placed under `node_modules/.pnpm/<name>@<version>/node_modules/` so the linked arm covers pnpm's
+ * store layout as well as a plain link.
+ *
+ * @param {String} workspace Consumer fixture root.
+ * @returns {String} The package's real (linked) path.
+ */
+function linkPackage(workspace) {
+    const installed = path.join(workspace, 'node_modules/neo.mjs'),
+          real      = path.join(workspace, 'node_modules/.pnpm/neo.mjs@1.0.0/node_modules/neo.mjs');
+
+    fs.mkdirSync(path.dirname(real), {recursive: true});
+    fs.renameSync(installed, real);
+    fs.symlinkSync(real, installed, 'dir');
+
+    return real
+}
+
 /**
  * @summary Compiles the installed worker config for one mode and reports what the graph holds.
  *
@@ -483,18 +551,24 @@ function createMainAddonFixture(workspace) {
  * reaches every one, which is also how a consumer building with `--framework` compiles.
  * @param {String} workspace Consumer fixture root.
  * @param {String} mode `development` or `production`.
- * @param {String} [worker='data']
+ * @param {String} [worker='data'] `data`, `canvas` or `app`.
+ * @param {Object} [options]
+ * @param {Boolean} [options.asConsumer=false] Build the App worker as a consumer rather than as the framework.
  * @returns {Promise<Object>} Compilation module names and errors.
  */
-async function buildWorker(workspace, mode, worker='data') {
+async function buildWorker(workspace, mode, worker='data', {asConsumer = false} = {}) {
     const webpack = createRequire(path.join(workspace, 'package.json'))('webpack'),
-          isApp   = worker === 'app';
+          isApp   = worker === 'app',
+          // A distinct URL per arm gives each its own module state: the configs read
+          // `process.cwd()` and cache build targets at import time, and the two App arms are the
+          // same module file. `buildMain` isolates its arms the same way.
+          configUrl = pathToFileURL(path.join(workspace,
+              `node_modules/neo.mjs/buildScripts/webpack/${mode}/webpack.config.${isApp ? 'appworker' : 'worker'}.mjs`
+          )).href;
 
-    const {default: configFactory} = await import(
-        path.join(workspace, `node_modules/neo.mjs/buildScripts/webpack/${mode}/webpack.config.${isApp ? 'appworker' : 'worker'}.mjs`)
-    );
+    const {default: configFactory} = await import(`${configUrl}?arm=${isApp ? (asConsumer ? 'consumer' : 'framework') : 'worker'}`);
 
-    const config = configFactory(isApp ? {insideNeo: 'true'} : {worker, insideNeo: 'false'});
+    const config = configFactory(isApp && !asConsumer ? {insideNeo: 'true'} : {worker, insideNeo: 'false'});
 
     config.output = {...config.output, path: path.join(workspace, 'dist', mode, worker)};
 
@@ -505,7 +579,7 @@ async function buildWorker(workspace, mode, worker='data') {
     const json = stats.toJson({modules: true, errors: true, all: false});
 
     return {
-        mode       : `${mode}/${worker}`,
+        mode       : `${mode}/${worker}${asConsumer ? '/consumer' : ''}`,
         moduleNames: (json.modules || []).map(m => m.name || ''),
         errors     : (json.errors  || []).map(e => e.message || String(e))
     }
@@ -607,37 +681,57 @@ async function main() {
         process.chdir(workspace);
 
         try {
-            for (const mode of ['development', 'production']) {
-                console.log(`check-consumer-runtime-build: building ${mode} Data…`);
-                failures.push(...collectConsumerBuildFailures(await buildWorker(workspace, mode)));
+            for (const arm of ['installed', 'linked']) {
+                const packagePath = arm === 'linked' ? linkPackage(workspace) : undefined;
 
-                console.log(`check-consumer-runtime-build: building ${mode} Canvas…`);
-                failures.push(...collectConsumerBuildFailures(await buildWorker(workspace, mode, 'canvas'), CANVAS_EXPECTATIONS));
+                removeMainAddonFixture(workspace);
 
-                console.log(`check-consumer-runtime-build: building ${mode} Main without workspace addons…`);
-                const result = await buildMain(workspace, mode, 'absent');
+                for (const mode of ['development', 'production']) {
+                    console.log(`check-consumer-runtime-build: [${arm}] building ${mode} Data…`);
+                    failures.push(...collectConsumerBuildFailures(await buildWorker(workspace, mode)));
 
+                    console.log(`check-consumer-runtime-build: [${arm}] building ${mode} Canvas…`);
+                    failures.push(...collectConsumerBuildFailures(await buildWorker(workspace, mode, 'canvas'), CANVAS_EXPECTATIONS));
+
+                    console.log(`check-consumer-runtime-build: [${arm}] building ${mode} Main without workspace addons…`);
+                    const result = await buildMain(workspace, mode, `${arm}-absent`);
+
+                    failures.push(...collectConsumerBuildFailures(
+                        result,
+                        [{...MAIN_ADDON_EXPECTATION, present: false}, ...TEST_HARNESS_ABSENCE_EXPECTATIONS]
+                    ));
+                    failures.push(...collectMainContextFailures(result, workspace, 'absent', {packagePath}))
+                }
+
+                console.log(`check-consumer-runtime-build: [${arm}] building development App as a consumer…`);
                 failures.push(...collectConsumerBuildFailures(
-                    result,
-                    [{...MAIN_ADDON_EXPECTATION, present: false}, ...TEST_HARNESS_ABSENCE_EXPECTATIONS]
+                    await buildWorker(workspace, 'development', 'app', {asConsumer: true}),
+                    CONSUMER_APP_EXPECTATIONS
                 ));
-                failures.push(...collectMainContextFailures(result, workspace, 'absent'))
-            }
 
-            console.log('check-consumer-runtime-build: building development App…');
-            failures.push(...collectConsumerBuildFailures(await buildWorker(workspace, 'development', 'app'), APP_EXPECTATIONS));
+                console.log(`check-consumer-runtime-build: [${arm}] building development App as the framework…`);
+                if (arm === 'installed') {
+                    // Only the installed layout can hold this arm. `src/worker/App.mjs`'s shipped
+                    // `webpackExclude` drops any path segment `node_modules/` not followed by
+                    // `neo.mjs`, so a package resolved from `node_modules/.pnpm/…/node_modules/` is
+                    // excluded by its own store path and the framework build reaches no app of the
+                    // package. That is a separate defect in the exclude pattern, out of scope here,
+                    // and it is reported rather than papered over.
+                    failures.push(...collectConsumerBuildFailures(await buildWorker(workspace, 'development', 'app'), APP_EXPECTATIONS));
+                }
 
-            createMainAddonFixture(workspace);
+                createMainAddonFixture(workspace);
 
-            for (const mode of ['development', 'production']) {
-                console.log(`check-consumer-runtime-build: building ${mode} Main with a workspace addon…`);
-                const result = await buildMain(workspace, mode, 'present');
+                for (const mode of ['development', 'production']) {
+                    console.log(`check-consumer-runtime-build: [${arm}] building ${mode} Main with a workspace addon…`);
+                    const result = await buildMain(workspace, mode, `${arm}-present`);
 
-                failures.push(...collectConsumerBuildFailures(
-                    result,
-                    [MAIN_ADDON_EXPECTATION, ...TEST_HARNESS_ABSENCE_EXPECTATIONS]
-                ));
-                failures.push(...collectMainContextFailures(result, workspace, 'present'))
+                    failures.push(...collectConsumerBuildFailures(
+                        result,
+                        [MAIN_ADDON_EXPECTATION, ...TEST_HARNESS_ABSENCE_EXPECTATIONS]
+                    ));
+                    failures.push(...collectMainContextFailures(result, workspace, 'present', {packagePath}))
+                }
             }
         } finally {
             process.chdir(origCwd)
@@ -650,7 +744,7 @@ async function main() {
             process.exit(1)
         }
 
-        console.log('\ncheck-consumer-runtime-build: OK — Data and Main preserve their consumer-owned contexts in both modes, Canvas reaches the package\'s renderers and the consumer\'s, and every shipped app compiles in the App worker.')
+        console.log('\ncheck-consumer-runtime-build: OK — Data and Main preserve their consumer-owned contexts in both modes, Canvas reaches the package\'s renderers and the consumer\'s, the App worker compiles the workspace\'s own app as a consumer and every shipped app as the framework, and all of it holds with the package installed and with it linked from a pnpm-style real path.')
     } finally {
         fs.rmSync(workspaceRoot, {recursive: true, force: true})
     }

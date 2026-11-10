@@ -28,9 +28,13 @@ const
  * shape.
  *
  * @param {Boolean} insideNeo Building the Engine repository itself.
+ * @param {String} [workspaceRoot] The consumer workspace the build was started in, as its config holds it in
+ * `cwd`. The authored `../../../src/main/addon` reaches the workspace only while the package sits two
+ * directories under it, which a linked package does not. Omitted, that authored request is taken at face
+ * value, which is the behaviour a one-argument caller always had.
  * @returns {webpack.ContextReplacementPlugin}
  */
-export default function mainAddonContextPlugin(insideNeo) {
+export default function mainAddonContextPlugin(insideNeo, workspaceRoot) {
     return new webpack.ContextReplacementPlugin(/.*/, context => {
         if (context.resource !== undefined || !context.context) return;
         if (path.posix.normalize(context.request.replaceAll('\\', '/')) !== WORKSPACE_REQUEST) return;
@@ -40,9 +44,19 @@ export default function mainAddonContextPlugin(insideNeo) {
             return
         }
 
-        if (!fs.existsSync(path.resolve(context.context, WORKSPACE_REQUEST))) {
+        const workspaceRootResolved = workspaceRoot
+            ? path.resolve(workspaceRoot)
+            : path.resolve(context.context, WORKSPACE_REQUEST);
+
+        const workspaceAddon = path.relative(
+            context.context, path.join(workspaceRootResolved, 'src/main/addon')
+        ).split(path.sep).join('/');
+
+        if (!fs.existsSync(path.resolve(context.context, workspaceAddon))) {
             context.request = PACKAGE_REQUEST;
             context.regExp  = MATCHES_NOTHING
+        } else {
+            context.request = workspaceAddon.startsWith('.') ? workspaceAddon : `./${workspaceAddon}`
         }
     })
 }
