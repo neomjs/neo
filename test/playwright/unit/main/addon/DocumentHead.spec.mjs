@@ -151,7 +151,8 @@ test.describe('Neo.main.addon.DocumentHead metadata', () => {
         };
 
         try {
-            const {default: SeoService} = await import('../../../../../apps/portal/service/Seo.mjs');
+            const {default: SeoSingleton} = await import('../../../../../apps/portal/service/Seo.mjs');
+            const SeoService              = Neo.create(SeoSingleton.constructor);
             await SeoService.ready();
 
             const learnMeta = SeoService.getMetadata('/learn/benefits/Introduction');
