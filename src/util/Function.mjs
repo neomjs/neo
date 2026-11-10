@@ -97,15 +97,16 @@ export function createSequence(target, methodName, fn, scope) {
 }
 
 /**
- * @param {Function} callback
- * @param {Neo.core.Base} scope
- * @param {Number} delay=300
- * @returns {Function}
+ * @summary Debounces calls and exposes cancellation for instance teardown or reuse.
+ * @param {Function}      callback  The function to invoke
+ * @param {Neo.core.Base} scope     The receiver for the callback
+ * @param {Number}        delay=300 The debounce delay in milliseconds
+ * @returns {Function} A leading/trailing wrapper whose cancel() clears pending work and resets the delay
  */
 export function debounce(callback, scope, delay=300) {
     let debounceTimer;
 
-    return function(...args) {
+    const wrapper = function(...args) {
         // leading edge => trigger the first call right away
         if (!Neo.isNumber(debounceTimer)) {
             // we need to check if the scope (instance) did not get destroyed yet
@@ -122,7 +123,14 @@ export function debounce(callback, scope, delay=300) {
                 debounceTimer = setTimeout(() => {debounceTimer = null},  delay)
             },  delay)
         }
-    }
+    };
+
+    wrapper.cancel = () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = null
+    };
+
+    return wrapper
 }
 
 /**
@@ -171,17 +179,18 @@ export function resolveCallback(fn, scope=this) {
 }
 
 /**
- * @param {Function} callback
- * @param {Neo.core.Base} scope
- * @param {Number} delay=300
- * @returns {Function}
+ * @summary Throttles calls and exposes cancellation for instance teardown or reuse.
+ * @param {Function}      callback  The function to invoke
+ * @param {Neo.core.Base} scope     The receiver for the callback
+ * @param {Number}        delay=300 The throttle interval in milliseconds
+ * @returns {Function} A rate-limited wrapper whose cancel() clears pending work and resets the interval
  */
 export function throttle(callback, scope, delay=300) {
     let lastArgs,
         lastRan = 0,
         timeoutId;
 
-    return function(...args) {
+    const wrapper = function(...args) {
         const now = Date.now();
         lastArgs  = args;
 
@@ -200,7 +209,15 @@ export function throttle(callback, scope, delay=300) {
                 scope?.id && callback.apply(scope, lastArgs)
             }, delay - (now - lastRan))
         }
-    }
+    };
+
+    wrapper.cancel = () => {
+        clearTimeout(timeoutId);
+        timeoutId = lastArgs = null;
+        lastRan = 0
+    };
+
+    return wrapper
 }
 
 /**

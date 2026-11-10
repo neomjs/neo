@@ -506,12 +506,16 @@ class Base {
     }
 
     /**
-     * Unregisters this instance from Neo.manager.Instance and removes all object entries from this instance.
+     * @summary Cancels pending delayable calls, unregisters this instance and removes its object entries.
      * Afterwards, its configs keep their last values readable, and a config write runs no hook.
      * Only this instance's own registration goes: a successor that reused its id stays registered.
      */
     destroy() {
         let me = this;
+
+        Object.keys({...me.constructor.delayable, ...me.delayable}).forEach(key => {
+            me[key]?.cancel?.()
+        });
 
         me.#asyncRejects.forEach((reject, id) => {
             if (typeof id !== 'symbol') {
