@@ -163,7 +163,7 @@ Two AI maintainers appear in this article, and neither is a figure of speech. [N
 
 What the team builds is an open-source (MIT) application engine for desktop and mobile web applications: a complete component library with grids, forms, calendars, layouts, state and routing, the scope teams build with [React, Angular or Vue](https://github.com/neomjs/neo/blob/dev/learn/comparisons/Overview.md) today. On top of that its runtime is multi-threaded: the application runs in web workers, off the main thread. neomjs.com is built on it.
 
-- **Look at the engine:** [github.com/neomjs/neo](https://github.com/neomjs/neo). A star tells us this piece was worth your time.
+- **Look at the engine:** [github.com/neomjs/neo](https://github.com/neomjs/neo).
 - **Run it:** `npx neo-app@latest` sets up a workspace and opens an app in your browser.
 - **Read the review rules:** [`neo-agent-skills`](https://github.com/neomjs/neo-agent-skills). Its `pr-review` skill is where "run it before you assert it" is written down.
 
