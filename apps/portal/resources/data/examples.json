@@ -34,6 +34,27 @@
         "hiddenIn": []
     },
     {
+        "id": "grid-tree-big-data",
+        "environments": [
+            "Desktop",
+            "Mobile"
+        ],
+        "image": "devmode/treeGridBigData.png",
+        "name": "TreeGrid - Big Data",
+        "sourceUrl": "examples/grid/treeBigData",
+        "urls": {
+            "devmode": "examples/grid/treeBigData/index.html",
+            "dist_dev": "dist/development/examples/grid/treeBigData/index.html",
+            "dist_esm": "dist/esm/examples/grid/treeBigData/index.html",
+            "dist_prod": "dist/production/examples/grid/treeBigData/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "component": "Grid",
+        "feature": "A tree hierarchy at scale: up to 100,000 rows, 200 columns and 20 levels",
+        "lookFor": "Open the ☰ panel, raise rows and depth, then expand all; filter by name and toggle helper lines or value bands."
+    },
+    {
         "id": "shared-covid",
         "image": "devmode/sharedcovid.png",
         "name": "Multi Window Covid App",
@@ -46,6 +67,49 @@
             "dist_prod": "dist/production/apps/sharedcovid/index.html#mainview=table"
         },
         "hiddenIn": []
+    },
+    {
+        "id": "grid-big-data",
+        "environments": [
+            "Desktop",
+            "Mobile"
+        ],
+        "image": "devmode/bigData.png",
+        "name": "Buffered Data Grid with 5M cells",
+        "sourceUrl": "examples/grid/bigData",
+        "urls": {
+            "devmode": "examples/grid/bigData/index.html",
+            "dist_dev": "dist/development/examples/grid/bigData/index.html",
+            "dist_esm": "dist/esm/examples/grid/bigData/index.html",
+            "dist_prod": "dist/production/examples/grid/bigData/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "component": "Grid",
+        "feature": "Buffered rendering in both directions, configurable up to 100,000 rows × 200 columns",
+        "lookFor": "Open the ☰ panel, raise rows and columns, then scroll both ways; filter by name and press a counter button inside a cell."
+    },
+    {
+        "id": "grid-issues",
+        "environments": [
+            "Desktop",
+            "Mobile"
+        ],
+        "image": "devmode/grid-issues-13-3.jpg",
+        "name": "GitHub Issues Grid",
+        "sourceUrl": "examples/grid/issues",
+        "urls": {
+            "devmode": "examples/grid/issues/index.html",
+            "dist_dev": "dist/development/examples/grid/issues/index.html",
+            "dist_esm": "dist/esm/examples/grid/issues/index.html",
+            "dist_prod": "dist/production/examples/grid/issues/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "component": "Grid",
+        "feature": "Searchable issue snapshot with wrapped rows",
+        "lookFor": "Search the issue snapshot, open column menus, toggle content-sized rows, and compare light and dark themes.",
+        "scope": "Displays a public issue snapshot rather than a live GitHub feed."
     },
     {
         "id": "calendar",
@@ -239,6 +303,23 @@
         "hiddenIn": []
     },
     {
+        "id": "table-filtering",
+        "image": "devmode/tableFiltering.png",
+        "name": "Table Filtering",
+        "sourceUrl": "examples/tableFiltering",
+        "urls": {
+            "devmode": "examples/tableFiltering/",
+            "dist_dev": "dist/development/examples/tableFiltering/",
+            "dist_esm": "dist/esm/examples/tableFiltering/",
+            "dist_prod": "dist/production/examples/tableFiltering/"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "component": "Table",
+        "feature": "Typed header filters",
+        "lookFor": "Show or hide filters and combine text, country, number, date and boolean criteria."
+    },
+    {
         "id": "date-selector",
         "image": "devmode/dateSelector.png",
         "name": "component.DateSelector",
@@ -328,27 +409,6 @@
         "lookFor": "Sort a header or filter Firstname, then adjust the transition duration to watch the rows move."
     },
     {
-        "id": "grid-big-data",
-        "environments": [
-            "Desktop",
-            "Mobile"
-        ],
-        "image": "devmode/bigData.png",
-        "name": "Buffered Data Grid with 5M cells",
-        "sourceUrl": "examples/grid/bigData",
-        "urls": {
-            "devmode": "examples/grid/bigData/index.html",
-            "dist_dev": "dist/development/examples/grid/bigData/index.html",
-            "dist_esm": "dist/esm/examples/grid/bigData/index.html",
-            "dist_prod": "dist/production/examples/grid/bigData/index.html"
-        },
-        "hiddenIn": [],
-        "family": "grid-table",
-        "component": "Grid",
-        "feature": "Generated data with configurable rendering buffers",
-        "lookFor": "Change rows, columns and buffers; scroll, filter names, and use a counter button in a recycled cell."
-    },
-    {
         "id": "grid-cell-editing",
         "image": null,
         "name": "Grid Cell Editing",
@@ -435,28 +495,6 @@
         "lookFor": "Explore month columns beneath quarter headers while Region and the Year total stay locked at opposite edges."
     },
     {
-        "id": "grid-issues",
-        "environments": [
-            "Desktop",
-            "Mobile"
-        ],
-        "image": "devmode/grid-issues-13-3.jpg",
-        "name": "GitHub Issues Grid",
-        "sourceUrl": "examples/grid/issues",
-        "urls": {
-            "devmode": "examples/grid/issues/index.html",
-            "dist_dev": "dist/development/examples/grid/issues/index.html",
-            "dist_esm": "dist/esm/examples/grid/issues/index.html",
-            "dist_prod": "dist/production/examples/grid/issues/index.html"
-        },
-        "hiddenIn": [],
-        "family": "grid-table",
-        "component": "Grid",
-        "feature": "Searchable issue snapshot with wrapped rows",
-        "lookFor": "Search the issue snapshot, open column menus, toggle content-sized rows, and compare light and dark themes.",
-        "scope": "Displays a public issue snapshot rather than a live GitHub feed."
-    },
-    {
         "id": "grid-locked-columns",
         "image": null,
         "name": "Locked Grid Columns",
@@ -505,28 +543,7 @@
         "family": "grid-table",
         "component": "Grid",
         "feature": "Hierarchical rows",
-        "lookFor": "Expand and collapse the sample file hierarchy in the Tree column."
-    },
-    {
-        "id": "grid-tree-big-data",
-        "environments": [
-            "Desktop",
-            "Mobile"
-        ],
-        "image": "devmode/treeGridBigData.png",
-        "name": "TreeGrid - Big Data",
-        "sourceUrl": "examples/grid/treeBigData",
-        "urls": {
-            "devmode": "examples/grid/treeBigData/index.html",
-            "dist_dev": "dist/development/examples/grid/treeBigData/index.html",
-            "dist_esm": "dist/esm/examples/grid/treeBigData/index.html",
-            "dist_prod": "dist/production/examples/grid/treeBigData/index.html"
-        },
-        "hiddenIn": [],
-        "family": "grid-table",
-        "component": "Grid",
-        "feature": "Configurable generated tree data",
-        "lookFor": "Change rows, columns and maximum depth; expand or collapse all, filter names, and toggle helper lines or value bands."
+        "lookFor": "Expand and collapse the sample file hierarchy in the Name column."
     },
     {
         "id": "grid-value-banding",
@@ -543,7 +560,7 @@
         "family": "grid-table",
         "component": "Grid",
         "feature": "Bands for repeated values",
-        "lookFor": "Toggle Country and Department value bands independently and compare them with striped rows."
+        "lookFor": "Toggle Department value bands and compare them with striped rows; Country banding stays on."
     },
     {
         "id": "json-grid-container",
@@ -631,23 +648,6 @@
         "component": "Table",
         "feature": "Nested record editing",
         "lookFor": "Use a row's Edit button to change nested names and country, then observe modified-cell highlighting."
-    },
-    {
-        "id": "table-filtering",
-        "image": "devmode/tableFiltering.png",
-        "name": "Table Filtering",
-        "sourceUrl": "examples/tableFiltering",
-        "urls": {
-            "devmode": "examples/tableFiltering/",
-            "dist_dev": "dist/development/examples/tableFiltering/",
-            "dist_esm": "dist/esm/examples/tableFiltering/",
-            "dist_prod": "dist/production/examples/tableFiltering/"
-        },
-        "hiddenIn": [],
-        "family": "grid-table",
-        "component": "Table",
-        "feature": "Typed header filters",
-        "lookFor": "Show or hide filters and combine text, country, number, date and boolean criteria."
     },
     {
         "id": "table-store",

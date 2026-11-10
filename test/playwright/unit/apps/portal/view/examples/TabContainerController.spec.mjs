@@ -99,8 +99,14 @@ test.describe('Portal.view.examples.TabContainerController — route → activeI
 
 });
 
-const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'), 'utf8')),
-      modes   = ['devmode', 'dist_dev', 'dist_esm', 'dist_prod'];
+const catalog       = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'), 'utf8')),
+      modes         = ['devmode', 'dist_dev', 'dist_esm', 'dist_prod'],
+      newExampleIds = [
+          'grid-animated-row-sorting', 'grid-cell-editing', 'grid-container', 'grid-content-sized-rows',
+          'grid-covid', 'grid-header-groups', 'grid-locked-columns', 'grid-nested-record-fields',
+          'grid-tree', 'grid-value-banding', 'json-grid-container', 'table-cell-editing',
+          'table-container', 'table-covid', 'table-nested-record-fields', 'table-store', 'table-performance'
+      ];
 
 /**
  * @summary The canonical catalog survives the keyed Store and renders through the production List.
@@ -163,19 +169,30 @@ test.describe('Portal examples canonical catalog', () => {
             expect(record.lookFor, record.id).toBeTruthy()
         });
 
-        expect(ids.sort()).toEqual([
-            'grid-animated-row-sorting', 'grid-big-data', 'grid-cell-editing', 'grid-container',
-            'grid-content-sized-rows', 'grid-covid', 'grid-header-groups', 'grid-issues',
-            'grid-locked-columns', 'grid-nested-record-fields', 'grid-tree', 'grid-tree-big-data',
-            'grid-value-banding', 'json-grid-container', 'table-cell-editing', 'table-container',
-            'table-covid', 'table-filtering', 'table-nested-record-fields', 'table-performance', 'table-store'
-        ].sort());
+        expect(ids).toEqual(['grid-tree-big-data', 'grid-big-data', 'grid-issues', 'table-filtering', ...newExampleIds]);
+        ids.slice(0, 4).forEach(id => expect(store.get(id).image, id).toBeTruthy());
         expect(counts).toEqual({Grid: 14, Table: 7});
         expect(overview.store.url).toBe(ExamplesTabContainer.config.itemDefaults.store.url)
     });
 
-    test('leads with Workstation and keeps choreography last visible in every mode', () => {
+    test('preserves the complete established card order and inserts only new examples before choreography', () => {
         const {store} = createList(),
+              // The production catalog established this sequence before canonicalization. ESM alone
+              // placed OffscreenCanvas before Covid Gallery; the shared sequence follows production.
+              establishedIds = [
+                  'workstation', 'devindex', 'grid-tree-big-data', 'shared-covid', 'grid-big-data', 'grid-issues',
+                  'calendar', 'helix', 'multi-window-covid-gallery', 'offscreen-canvas', 'shared-offscreen-canvas',
+                  'multi-window-drag-drop', 'tab-container', 'state-provider', 'dialog-drag-drop',
+                  'colors-dashboard', 'covid-dashboard', 'covid-helix', 'covid-gallery', 'gallery',
+                  'table-filtering', 'date-selector', 'date-field', 'combobox-field', 'portal', 'liquid-glass'
+              ],
+              completeIds = [...establishedIds, ...newExampleIds, 'dock-choreography', 'realworld', 'realworld-v2'],
+              excluded = {
+                  devmode  : ['portal', 'liquid-glass', 'realworld', 'realworld-v2'],
+                  dist_dev : ['realworld', 'realworld-v2'],
+                  dist_esm : ['shared-offscreen-canvas', 'realworld', 'realworld-v2'],
+                  dist_prod: ['realworld', 'realworld-v2']
+              },
               cases   = [
                   ['devmode', 'apps/workstation/index.html', 'examples/dashboard/choreography/index.html'],
                   ['dist_dev', 'dist/development/apps/workstation/index.html', 'dist/development/examples/dashboard/choreography/index.html'],
@@ -183,13 +200,15 @@ test.describe('Portal examples canonical catalog', () => {
                   ['dist_prod', 'dist/production/apps/workstation/index.html', 'dist/production/examples/dashboard/choreography/index.html']
               ];
 
+        expect(store.items.map(record => record.id)).toEqual(completeIds);
+
         cases.forEach(([mode, workstationUrl, choreographyUrl]) => {
             list.catalogMode = mode;
+            list.environment = mode === 'devmode' ? 'development' : mode === 'dist_dev' ? 'dist/development' : 'dist/production';
 
             const visible = store.items.filter(record => !list.isHiddenItem(record));
 
-            expect(visible[0].id, mode).toBe('workstation');
-            expect(visible.at(-1).id, mode).toBe('dock-choreography');
+            expect(visible.map(record => record.id), mode).toEqual(completeIds.filter(id => !excluded[mode].includes(id)));
             expect(list.createLink(visible[0]).href).toBe(list.baseUrl + workstationUrl);
             expect(list.createLink(visible.at(-1)).href).toBe(list.baseUrl + choreographyUrl)
         })

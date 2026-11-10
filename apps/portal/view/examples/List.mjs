@@ -116,7 +116,8 @@ class List extends BaseList {
             imageStyle = index < 4 ? me.getBackgroundImageStyle(record) : null;
 
         return [
-            {cls: ['content', 'neo-relative'], data: {recordId: record.id}, removeDom: me.isHiddenItem(record), cn: [
+            {cls: ['content', 'neo-relative', ...(record.image && record.feature ? ['portal-example-image-card'] : [])],
+                data: {recordId: record.id}, removeDom: me.isHiddenItem(record), cn: [
                 {cls: ['neo-multi-window'], data: {neoTooltip: 'Multi Window Demo'}, removeDom: !record.sharedWorkers, cn: [
                     {cls: ['far', 'fa-window-restore']}
                 ]},

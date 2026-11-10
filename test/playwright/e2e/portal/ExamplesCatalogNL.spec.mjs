@@ -18,7 +18,7 @@ async function readList(app) {
  * @summary Exercises canonical catalog data through the Portal's Model, Store, cards and navigation.
  */
 test.describe('Portal example catalog', () => {
-    for (const viewport of [{width: 1440, height: 1000}, {width: 390, height: 844}]) {
+    for (const viewport of [{width: 1440, height: 1000}, {width: 390, height: 844}, {width: 844, height: 390}]) {
         test(`${viewport.width}px: Grid and Table features are visible and fit their cards`, async ({page, neuralLink}, testInfo) => {
             await page.setViewportSize(viewport);
             await page.goto(`${PORTAL}#/examples/grid`);
@@ -30,6 +30,18 @@ test.describe('Portal example catalog', () => {
             expect(list.id).toBe(await overview.getAttribute('id'));
             expect(list.properties.store.count).toBe(21);
             expect(list.properties.store.model.className).toBe('Portal.model.Example');
+            await expect(overview.locator('.neo-title').nth(0)).toHaveText('TreeGrid - Big Data');
+            await expect(overview.locator('.neo-title').nth(1)).toHaveText('Buffered Data Grid with 5M cells');
+            await expect(overview.locator('.neo-title').nth(2)).toHaveText('GitHub Issues Grid');
+
+            const covered = overview.locator('.portal-example-image-card .neo-item-bottom-position');
+            await expect(covered).toHaveCount(4);
+            const panels = await covered.evaluateAll(nodes => nodes.map(node => ({
+                alpha  : Number(getComputedStyle(node).backgroundColor.match(/[\d.]+/g).at(3)),
+                padding: parseFloat(getComputedStyle(node).padding)
+            })));
+            expect(panels.every(panel => panel.alpha >= 0.85 && panel.padding >= 12),
+                'photographed text has a separate dark caption surface').toBe(true);
 
             const animated = overview.locator('.neo-list-item').filter({hasText: 'Animated Row Sorting'});
             await expect(animated.locator('.portal-example-feature')).toHaveText('Animated sorting and filtering');
@@ -49,6 +61,12 @@ test.describe('Portal example catalog', () => {
             expect(geometry.every(row => row.fits), 'all captions stay inside their cards').toBe(true);
             expect(await overview.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
             await page.screenshot({path: testInfo.outputPath(`grid-overview-${viewport.width}.png`)});
+
+            if (viewport.width === 1440) {
+                const issues = overview.locator('.neo-list-item').filter({hasText: 'GitHub Issues Grid'});
+                await issues.scrollIntoViewIfNeeded();
+                await issues.screenshot({path: testInfo.outputPath('issues-caption-after-1440.png')})
+            }
 
             // A stable string identity also survives the lazy-cover path below the fold.
             await overview.locator('.neo-list-item').last().scrollIntoViewIfNeeded();

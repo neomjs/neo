@@ -260,9 +260,21 @@
         right: 20px;
     }
 
-    @media (max-width: 600px) {
+    .portal-example-image-card .neo-item-bottom-position {
+        background-color: rgba(0, 0, 0, 0.88);
+        border-radius   : 12px;
+        box-sizing      : border-box;
+        padding         : 16px;
+
+        .neo-inner-content,
+        .neo-title {
+            text-shadow: none;
+        }
+    }
+
+    @media (max-height: 400px), (max-width: 600px) {
         .neo-list-item:has(.portal-example-feature) {
-            height: 360px;
+            min-height: 400px;
         }
 
         .portal-example-placeholder {

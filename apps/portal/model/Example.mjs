@@ -13,6 +13,18 @@ class Example extends Model {
          */
         className: 'Portal.model.Example',
         /**
+         * One record owns an example's stable string `id`, presentation and destinations.
+         * `urls` maps `devmode`, `dist_dev`, `dist_esm` and `dist_prod` to explicit targets;
+         * List.catalogMode selects the key. A missing target hides the example in that mode.
+         * `sourceUrl` is the common source link; optional `sourceUrls` overrides it by mode.
+         * `hiddenIn` lists curated mode exclusions (empty by default); `hidden` hides every mode.
+         * `family` selects an overview through a Store filter, while `component` names its renderer.
+         * `feature` states what the example demonstrates and `lookFor` gives a concrete action.
+         * Optional `scope` qualifies external dependencies or limits of that demonstration.
+         * `image` names an existing published cover; null selects the typographic fallback.
+         * Relative destinations resolve against List.baseUrl or List.sourceBaseUrl; HTTP links
+         * remain explicit, including external apps whose mode routes differ from Engine paths.
+         *
          * @member {Object[]} fields
          * @protected
          */
