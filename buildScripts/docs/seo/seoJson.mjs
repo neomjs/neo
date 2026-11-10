@@ -213,16 +213,18 @@ export function extractMarkdownSeoMetadata(rawContent='', options={}) {
 /**
  * @summary Extracts the `familyDefinitions` config array from `apps/portal/view/examples/TabContainer.mjs`
  * via AST parsing so `TabContainer.mjs` remains the single source of truth without booting the UI runtime.
+ * Throws when `familyDefinitions` is missing, non-array, or contains non-literal/incomplete entries.
  * @param {String} [source='']
- * @returns {Array<{family: String|null, title: String, route: String, iconCls?: String}>}
+ * @returns {Array<{family: String|null, title: String, route: String}>}
  */
 export function extractExampleFamilyDefinitions(source='') {
     if (!source || typeof source !== 'string') {
-        return [];
+        throw new Error('Failed to extract familyDefinitions from TabContainer.mjs: source must be a non-empty string.');
     }
 
-    const ast         = acorn.parse(source, {ecmaVersion: 'latest', sourceType: 'module'});
-    const definitions = [];
+    const ast           = acorn.parse(source, {ecmaVersion: 'latest', sourceType: 'module'});
+    const definitions   = [];
+    let   foundProperty = false;
 
     function walk(node) {
         if (!node || typeof node !== 'object') {
@@ -233,36 +235,48 @@ export function extractExampleFamilyDefinitions(source='') {
 
         if (
             (node.type === 'Property' || node.type === 'PropertyDefinition') &&
-            keyName === 'familyDefinitions' &&
-            node.value?.type === 'ArrayExpression'
+            keyName === 'familyDefinitions'
         ) {
+            foundProperty = true;
+
+            if (node.value?.type !== 'ArrayExpression') {
+                throw new Error('Invalid familyDefinitions in TabContainer.mjs: expected an ArrayExpression.');
+            }
+
             for (const element of node.value.elements) {
                 if (element?.type !== 'ObjectExpression') {
-                    continue;
+                    throw new Error('Invalid familyDefinitions entry in TabContainer.mjs: expected an ObjectExpression.');
                 }
 
                 const entry = {};
 
                 for (const prop of element.properties) {
                     if (prop?.type !== 'Property') {
-                        continue;
+                        throw new Error('Invalid familyDefinitions property in TabContainer.mjs: expected a Property.');
                     }
 
                     const propKey = prop.key?.name ?? prop.key?.value;
 
-                    if (propKey && prop.value?.type === 'Literal') {
-                        entry[propKey] = prop.value.value;
+                    if (!propKey || prop.value?.type !== 'Literal') {
+                        throw new Error(`Invalid familyDefinitions property "${propKey || 'unknown'}" in TabContainer.mjs: expected a Literal value.`);
                     }
+
+                    entry[propKey] = prop.value.value;
                 }
 
-                if (entry.route && entry.title) {
-                    definitions.push({
-                        family : entry.family ?? null,
-                        iconCls: entry.iconCls,
-                        route  : entry.route,
-                        title  : entry.title
-                    });
+                const hasValidFamily = entry.family === null || (typeof entry.family === 'string' && entry.family.length > 0);
+                const hasValidRoute  = typeof entry.route === 'string' && entry.route.startsWith('/examples');
+                const hasValidTitle  = typeof entry.title === 'string' && entry.title.length > 0;
+
+                if (!hasValidFamily || !hasValidRoute || !hasValidTitle) {
+                    throw new Error('Incomplete familyDefinitions entry in TabContainer.mjs: each entry requires literal family, route, and title.');
                 }
+
+                definitions.push({
+                    family: entry.family,
+                    route : entry.route,
+                    title : entry.title
+                });
             }
 
             return;
@@ -279,30 +293,45 @@ export function extractExampleFamilyDefinitions(source='') {
 
     walk(ast);
 
+    if (!foundProperty || definitions.length === 0) {
+        throw new Error('Failed to extract familyDefinitions from TabContainer.mjs: no definitions found.');
+    }
+
     return definitions;
 }
 
 /**
  * @summary Builds a concise SEO description for a published `/examples/<family>` overview route
- * from its non-hidden `examples.json` catalog records.
+ * from its non-hidden `examples.json` catalog records, keeping only complete highlights that fit
+ * within 160 characters.
  * @param {String} title
  * @param {Object[]} [records=[]]
  * @returns {String}
  */
 function formatExampleFamilyDescription(title='', records=[]) {
     const count      = records.length;
-    const highlights = records
+    const prefix     = `Explore ${count} live Neo.mjs ${title} ${count === 1 ? 'example' : 'examples'}`;
+    const candidates = records
         .map(record => stripInlineMarkdown(record?.feature || record?.name || ''))
         .filter(Boolean)
         .slice(0, 3);
-    const summary    = highlights.length > 0
+    const highlights = [];
+
+    for (const item of candidates) {
+        const next = `${prefix}: ${[...highlights, item].join('; ')}.`;
+
+        if (next.length <= 160 || highlights.length === 0) {
+            highlights.push(item);
+        } else {
+            break;
+        }
+    }
+
+    const summary = highlights.length > 0
         ? `: ${highlights.join('; ')}.`
         : '.';
 
-    return truncateDescription(
-        `Explore ${count} live Neo.mjs ${title} ${count === 1 ? 'example' : 'examples'}${summary}`,
-        160
-    );
+    return truncateDescription(`${prefix}${summary}`, 160);
 }
 
 /**
@@ -312,15 +341,15 @@ function formatExampleFamilyDescription(title='', records=[]) {
  * @param {Object} [options={}]
  * @param {String} [options.examplesPath]
  * @param {String} [options.examplesTabContainerPath]
- * @param {Array<{family: String|null, title: String, route: String, iconCls?: String}>} [options.familyDefinitions]
+ * @param {Array<{family: String|null, title: String, route: String}>} [options.familyDefinitions]
  * @param {String} [options.root=ROOT_DIR]
- * @returns {Promise<Array<{family: String, filePath: String, iconCls?: String, records: Object[], route: String, title: String}>>}
+ * @returns {Promise<Array<{family: String, filePath: String, records: Object[], route: String, title: String}>>}
  */
 export async function getPublishedExampleFamilies(options={}) {
     const {
         root                     = ROOT_DIR,
         examplesPath             = path.resolve(root, 'apps/portal/resources/data/examples.json'),
-        examplesTabContainerPath,
+        examplesTabContainerPath = path.resolve(root, 'apps/portal/view/examples/TabContainer.mjs'),
         familyDefinitions
     } = options;
 
@@ -328,22 +357,9 @@ export async function getPublishedExampleFamilies(options={}) {
         return [];
     }
 
-    let definitions = Array.isArray(familyDefinitions) ? familyDefinitions : null;
-
-    if (!definitions) {
-        const candidatePath = examplesTabContainerPath || path.resolve(root, 'apps/portal/view/examples/TabContainer.mjs');
-        const resolvedPath  = (await fs.pathExists(candidatePath))
-            ? candidatePath
-            : path.resolve(ROOT_DIR, 'apps/portal/view/examples/TabContainer.mjs');
-
-        definitions = (await fs.pathExists(resolvedPath))
-            ? extractExampleFamilyDefinitions(await fs.readFile(resolvedPath, 'utf-8'))
-            : [];
-    }
-
-    if (definitions.length === 0) {
-        return [];
-    }
+    const definitions = Array.isArray(familyDefinitions)
+        ? familyDefinitions
+        : extractExampleFamilyDefinitions(await fs.readFile(examplesTabContainerPath, 'utf-8'));
 
     const examplesRaw = await fs.readJSON(examplesPath);
     const records     = (Array.isArray(examplesRaw) ? examplesRaw : Array.isArray(examplesRaw?.data) ? examplesRaw.data : [])

@@ -1,13 +1,20 @@
-import fs                                                                                                                                                      from 'fs-extra';
-import path                                                                                                                                                    from 'path';
-import {Command}                                                                                                                                               from 'commander';
-import {execFileSync}                                                                                                                                          from 'child_process';
-import fg                                                                                                                                                      from 'fast-glob';
-import semver                                                                                                                                                  from 'semver';
-import isEntryModule                                                                                                                                           from '../../util/isEntryModule.mjs';
-import {requireContentRoot}                                                                                                                                    from '../../util/contentRoot.mjs';
-import {sanitizeInput}                                                                                                                                         from '../../util/sanitizer.mjs';
-import {collectExampleFamilyRoutes, extractExampleFamilyDefinitions, extractMarkdownSeoMetadata, formatLearnSeoTitle, getPublishedExampleFamilies, getSeoJson} from './seoJson.mjs';
+import fs                   from 'fs-extra';
+import path                 from 'path';
+import {Command}            from 'commander';
+import {execFileSync}       from 'child_process';
+import fg                   from 'fast-glob';
+import semver               from 'semver';
+import isEntryModule        from '../../util/isEntryModule.mjs';
+import {requireContentRoot} from '../../util/contentRoot.mjs';
+import {sanitizeInput}      from '../../util/sanitizer.mjs';
+import {
+    collectExampleFamilyRoutes,
+    extractExampleFamilyDefinitions,
+    extractMarkdownSeoMetadata,
+    formatLearnSeoTitle,
+    getPublishedExampleFamilies,
+    getSeoJson
+} from './seoJson.mjs';
 
 export {collectExampleFamilyRoutes, extractExampleFamilyDefinitions, extractMarkdownSeoMetadata, formatLearnSeoTitle, getPublishedExampleFamilies, getSeoJson};
 

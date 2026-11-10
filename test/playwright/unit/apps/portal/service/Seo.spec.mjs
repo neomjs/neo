@@ -133,13 +133,13 @@ test.describe('Portal.service.Seo (#20688)', () => {
             const gridFamilyMeta = SeoService.getMetadata('/examples/grid');
             expect(gridFamilyMeta).toEqual({
                 title      : 'Neo.mjs Grid & Table Examples',
-                description: expect.stringContaining('Explore 21 live Neo.mjs Grid & Table examples'),
+                description: seoJson['/examples/grid'].description,
                 schemaType : 'CollectionPage',
                 route      : '/examples/grid'
             });
 
-            const unpopulatedFamilyMeta = SeoService.getMetadata('/examples/forms');
-            expect(unpopulatedFamilyMeta).toEqual({
+            const unlistedFamilyMeta = SeoService.getMetadata('/examples/unlisted-family');
+            expect(unlistedFamilyMeta).toEqual({
                 title      : 'Neo.mjs Examples',
                 description: 'A collection of examples for the Neo.mjs platform.',
                 route      : '/examples'
@@ -243,9 +243,9 @@ test.describe('Portal.service.Seo (#20688)', () => {
             expect(document.head.querySelector('script[type="application/ld+json"][data-schema-name="neo-route"]')).toBeNull();
             expect(document.head.querySelector('script[type="application/ld+json"][data-schema-name="neo-organism"]')).toBeTruthy();
 
-            // 4. Unpopulated /examples/<family> route canonicalizes to https://neomjs.com/examples
+            // 4. Unlisted /examples/* sub-route canonicalizes to https://neomjs.com/examples
             SeoService.onRouteChanged({
-                hashString: '/examples/forms',
+                hashString: '/examples/unlisted-family',
                 windowId  : 'neo-window-1'
             });
 
