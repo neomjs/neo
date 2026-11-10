@@ -57,6 +57,8 @@ class Seo extends Base {
      * @protected
      */
     afterSetIsReady(value, oldValue) {
+        super.afterSetIsReady(value, oldValue);
+
         if (value && this.#lastRoute) {
             this.#updateDocumentHeadIfNeeded(this.#lastRoute)
         }

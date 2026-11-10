@@ -152,8 +152,7 @@ test.describe('Neo.main.addon.DocumentHead metadata', () => {
 
         try {
             const {default: SeoService} = await import('../../../../../apps/portal/service/Seo.mjs');
-            await SeoService.initAsync();
-            SeoService.isReady = true;
+            await SeoService.ready();
 
             const learnMeta = SeoService.getMetadata('/learn/benefits/Introduction');
             expect(learnMeta).toEqual({

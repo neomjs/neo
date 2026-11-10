@@ -49,17 +49,39 @@ const TOP_LEVEL_SEO_METADATA = Object.freeze({
 });
 
 /**
+ * Repeatedly applies a regex replacement until the output stabilizes so nested
+ * multi-character sequences cannot survive a single pass.
+ * @param {String} text
+ * @param {RegExp} pattern
+ * @param {String} [replacement='']
+ * @returns {String}
+ */
+function replaceUntilStable(text='', pattern, replacement='') {
+    let current = String(text),
+        previous;
+
+    do {
+        previous = current;
+        current  = current.replace(pattern, replacement);
+    } while (current !== previous);
+
+    return current;
+}
+
+/**
  * Cleans inline Markdown formatting (links, code, emphasis, HTML tags) from a text snippet.
  * @param {String} text
  * @returns {String}
  */
 function stripInlineMarkdown(text='') {
-    return String(text)
+    const withoutMarkdown = String(text)
         .replace(/^@summary\s+/i, '')
         .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
         .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
-        .replace(/`([^`]+)`/g, '$1')
-        .replace(/<[^>]+>/g, '')
+        .replace(/`([^`]+)`/g, '$1');
+
+    return replaceUntilStable(withoutMarkdown, /<[^>]+>/g, '')
+        .replace(/[<>]/g, '')
         .replace(/(\*\*|__|\*|_)/g, '')
         .replace(/\s+/g, ' ')
         .trim();
@@ -101,10 +123,9 @@ export function extractMarkdownSeoMetadata(rawContent='', options={}) {
     } = options;
 
     const withoutFrontmatter = String(rawContent).replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '');
-    const withoutBlocks      = withoutFrontmatter
-        .replace(/```[\s\S]*?```/g, '')
-        .replace(/<!--[\s\S]*?-->/g, '')
-        .replace(/<details[\s\S]*?<\/details>/gi, '');
+    const withoutCodeBlocks  = withoutFrontmatter.replace(/```[\s\S]*?```/g, '');
+    const withoutComments    = replaceUntilStable(withoutCodeBlocks, /<!--[\s\S]*?-->/g, '');
+    const withoutBlocks      = replaceUntilStable(withoutComments, /<details[\s\S]*?<\/details>/gi, '');
 
     const h1Match   = withoutBlocks.match(/^#\s+(.+)$/m);
     const baseTitle = stripInlineMarkdown(h1Match ? h1Match[1] : fallbackTitle) || fallbackTitle;
