@@ -1,6 +1,7 @@
 [
     {
         "id": "workstation",
+        "featured": true,
         "environments": [
             "Desktop"
         ],
@@ -18,6 +19,7 @@
     },
     {
         "id": "devindex",
+        "featured": true,
         "environments": [
             "Desktop",
             "Mobile"
@@ -31,10 +33,14 @@
             "dist_esm": "https://neomjs.com/devindex/",
             "dist_prod": "https://neomjs.com/devindex/dist/production/apps/devindex/"
         },
-        "hiddenIn": []
+        "hiddenIn": [],
+        "feature": "GitHub contributor rankings in a buffered grid",
+        "lookFor": "Open Search, filter the contributor grid by username, and compare ranks and contribution totals.",
+        "scope": "Loads a published GitHub contributor dataset rather than querying GitHub live."
     },
     {
         "id": "grid-tree-big-data",
+        "featured": true,
         "environments": [
             "Desktop",
             "Mobile"
@@ -56,6 +62,7 @@
     },
     {
         "id": "shared-covid",
+        "featured": true,
         "image": "devmode/sharedcovid.png",
         "name": "Multi Window Covid App",
         "sharedWorkers": true,
@@ -70,6 +77,7 @@
     },
     {
         "id": "grid-big-data",
+        "featured": true,
         "environments": [
             "Desktop",
             "Mobile"
@@ -91,6 +99,7 @@
     },
     {
         "id": "grid-issues",
+        "featured": true,
         "environments": [
             "Desktop",
             "Mobile"
@@ -113,6 +122,7 @@
     },
     {
         "id": "calendar",
+        "featured": true,
         "image": "devmode/calendar-preview.png",
         "name": "Calendar",
         "sourceUrl": "src/calendar",
@@ -126,6 +136,7 @@
     },
     {
         "id": "helix",
+        "featured": true,
         "image": "devmode/helix.png",
         "name": "component.Helix",
         "sourceUrl": "examples/component/helix",
@@ -139,6 +150,7 @@
     },
     {
         "id": "multi-window-covid-gallery",
+        "featured": true,
         "image": "devmode/mwCoronaGallery.png",
         "name": "Multi Window Covid Gallery",
         "sharedWorkers": true,
@@ -153,6 +165,7 @@
     },
     {
         "id": "offscreen-canvas",
+        "featured": true,
         "image": "devmode/offscreenCanvas.png",
         "name": "OffscreenCanvas",
         "sourceUrl": "https://github.com/neomjs/offscreen-canvas/",
@@ -172,6 +185,7 @@
     },
     {
         "id": "shared-offscreen-canvas",
+        "featured": true,
         "image": "devmode/sharedOffscreenCanvas.png",
         "name": "Multi-Window OffscreenCanvas",
         "sourceUrl": "https://github.com/neomjs/shared-offscreen",
@@ -185,6 +199,7 @@
     },
     {
         "id": "multi-window-drag-drop",
+        "featured": true,
         "image": "devmode/multi_window_dd.png",
         "name": "Multi-Window Drag&Drop",
         "sharedWorkers": true,
@@ -199,6 +214,7 @@
     },
     {
         "id": "tab-container",
+        "featured": true,
         "image": "devmode/tabContainer.png",
         "name": "tab.Container",
         "sourceUrl": "examples/tab/container",
@@ -212,6 +228,7 @@
     },
     {
         "id": "state-provider",
+        "featured": true,
         "image": "devmode/model-component-example.png",
         "name": "State Provider Example",
         "sourceUrl": "examples/stateProvider/advanced",
@@ -225,6 +242,7 @@
     },
     {
         "id": "dialog-drag-drop",
+        "featured": true,
         "image": "devmode/dragdrop.png",
         "name": "Dialog drag&drop",
         "sourceUrl": "examples/dialog",
@@ -238,6 +256,7 @@
     },
     {
         "id": "colors-dashboard",
+        "featured": true,
         "image": "dist_prod/colorsApp.png",
         "name": "Colors Dashboard",
         "sharedWorkers": true,
@@ -252,6 +271,7 @@
     },
     {
         "id": "covid-dashboard",
+        "featured": true,
         "image": "devmode/covidDashboard.png",
         "name": "Covid Dashboard",
         "sourceUrl": "apps/covid",
@@ -261,10 +281,14 @@
             "dist_esm": "dist/esm/apps/covid/index.html#mainview=table",
             "dist_prod": "dist/production/apps/covid/index.html#mainview=table"
         },
-        "hiddenIn": []
+        "hiddenIn": [],
+        "feature": "Country statistics and country selection",
+        "lookFor": "Browse the country table and choose a country from the picker.",
+        "scope": "Uses static fallback snapshots by default; data is fetched from neomjs/pages."
     },
     {
         "id": "covid-helix",
+        "featured": true,
         "image": "devmode/coronaHelix.png",
         "name": "COVID-19 Helix",
         "sourceUrl": "examples/component/coronaHelix",
@@ -278,6 +302,7 @@
     },
     {
         "id": "covid-gallery",
+        "featured": true,
         "image": "devmode/coronaGallery.png",
         "name": "COVID-19 Gallery",
         "sourceUrl": "examples/component/coronaGallery",
@@ -291,6 +316,7 @@
     },
     {
         "id": "gallery",
+        "featured": true,
         "image": "devmode/gallery.png",
         "name": "component.Gallery",
         "sourceUrl": "examples/component/gallery",
@@ -304,6 +330,7 @@
     },
     {
         "id": "table-filtering",
+        "featured": true,
         "image": "devmode/tableFiltering.png",
         "name": "Table Filtering",
         "sourceUrl": "examples/tableFiltering",
@@ -321,6 +348,7 @@
     },
     {
         "id": "date-selector",
+        "featured": true,
         "image": "devmode/dateSelector.png",
         "name": "component.DateSelector",
         "sourceUrl": "examples/component/dateSelector",
@@ -334,6 +362,7 @@
     },
     {
         "id": "date-field",
+        "featured": true,
         "image": "devmode/dateField.png",
         "name": "form.field.Date",
         "sourceUrl": "examples/form/field/date",
@@ -347,6 +376,7 @@
     },
     {
         "id": "combobox-field",
+        "featured": true,
         "image": "devmode/selectField.png",
         "name": "form.field.ComboBox",
         "sourceUrl": "examples/form/field/combobox",
@@ -360,6 +390,7 @@
     },
     {
         "id": "portal",
+        "featured": true,
         "environments": [
             "Desktop",
             "Mobile"
@@ -374,10 +405,13 @@
             "dist_esm": "dist/esm/apps/portal/index.html",
             "dist_prod": "dist/production/apps/portal/index.html"
         },
-        "hiddenIn": []
+        "hiddenIn": [],
+        "feature": "Routed sections with lazy-loaded views",
+        "lookFor": "Open Learn, News, Examples or Connect from the header, then switch between the light and dark themes."
     },
     {
         "id": "liquid-glass",
+        "featured": true,
         "image": "devmode/liquid-glass.png",
         "name": "Liquid Glass effect",
         "sourceUrl": "https://github.com/neomjs/liquid-glass-demo/blob/main/apps/myapp/view/GlassComponent.mjs",
@@ -685,6 +719,7 @@
     },
     {
         "id": "dock-choreography",
+        "featured": true,
         "environments": [
             "Desktop"
         ],

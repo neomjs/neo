@@ -17,6 +17,11 @@
 .portal-shared-tab-header-toolbar.neo-tab-header-toolbar {
     background-color: var(--portal-tab-toolbar-bg);
 
+    &.neo-dock-left > .portal-examples-build-selector.neo-button {
+        flex   : none;
+        padding: 12px 6px;
+    }
+
     .neo-tab-header-button.neo-button {
         .neo-button-glyph {
             color: var(--portal-tab-text-color);
