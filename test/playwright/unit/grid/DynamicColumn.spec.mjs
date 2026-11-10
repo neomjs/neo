@@ -162,6 +162,51 @@ test.describe('Grid Dynamic Column Updates', () => {
         expect(index3).toBe('zEnd');
     });
 
+    test('Changing dataField re-keys grid.columns without changing its order (#20673)', () => {
+        const columns = grid.columns,
+              items   = [...columns.items],
+              column  = items[2];
+
+        expect(columns.get('y2020')).toBe(column);
+        expect(columns.get('c2020')).toBeNull();
+
+        column.dataField = 'c2020';
+
+        expect(columns.get('c2020')).toBe(column);
+        expect(columns.get('y2020')).toBeNull();
+        expect(columns.count).toBe(items.length);
+        items.forEach((item, index) => expect(columns.items[index]).toBe(item))
+    });
+
+    for (const visible of [true, false]) {
+        test(`Changing dataField re-keys ${visible ? 'visible' : 'filtered-out'} columns in allItems (#20673)`, () => {
+            const columns = grid.columns,
+                  items   = [...columns.items],
+                  column  = items[2];
+
+            columns.filters = [{property: 'text', value: visible ? '2020' : 'Name'}];
+
+            expect(columns.get('y2020')).toBe(visible ? column : null);
+            expect(columns.allItems.get('y2020')).toBe(column);
+
+            column.dataField = 'c2020';
+
+            expect(columns.get('c2020')).toBe(visible ? column : null);
+            expect(columns.get('y2020')).toBeNull();
+            expect(columns.allItems.get('c2020')).toBe(column);
+            expect(columns.allItems.get('y2020')).toBeNull();
+            expect(columns.allItems.count).toBe(items.length);
+            items.forEach((item, index) => expect(columns.allItems.items[index]).toBe(item));
+
+            columns.clearFilters();
+
+            expect(columns.get('c2020')).toBe(column);
+            expect(columns.get('y2020')).toBeNull();
+            expect(columns.count).toBe(items.length);
+            items.forEach((item, index) => expect(columns.items[index]).toBe(item))
+        })
+    }
+
     test('Replacing grid.columns at runtime destroys old Column & Button instances and skips intermediate onColumnsMutate', async () => {
         const oldColumnIds = grid.columns.items.map(col => col.id);
         const oldButtonIds = grid.headerToolbar.items.map(btn => btn.id);

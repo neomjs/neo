@@ -151,10 +151,21 @@ class Column extends Base {
         if (oldValue !== undefined) {
             let me            = this,
                 gridContainer = me.parent,
+                columns       = gridContainer?.columns,
                 body          = gridContainer?.body,
                 colPositions  = body?.columnPositions,
                 button        = gridContainer?.getButton(oldValue),
                 pos           = colPositions?.get(oldValue);
+
+            if (columns?.get(oldValue) === me) {
+                columns.map.delete(oldValue);
+                columns.map.set(value, me)
+            }
+
+            if (columns?.allItems?.get(oldValue) === me) {
+                columns.allItems.map.delete(oldValue);
+                columns.allItems.map.set(value, me)
+            }
 
             if (pos) {
                 // The columnPositions collection is keyed by 'dataField'.
