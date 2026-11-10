@@ -59,7 +59,38 @@ class Model extends Base {
          * @protected
          * @reactive
          */
-        view_: null
+        view_: null,
+        /**
+         * The window the registered view renders into. {@link #register} takes it from the view and follows it.
+         * @member {Number|String|null} windowId_=null
+         * @protected
+         * @reactive
+         */
+        windowId_: null
+    }
+
+    /**
+     * Ends the subscription to the registered view's `windowId`
+     * @member {Function|null} #unfollowWindow=null
+     * @private
+     */
+    #unfollowWindow = null
+
+    /**
+     * Triggered after the windowId config got changed.
+     *
+     * A selection model is not a component, but it hooks into the theme engine like one (the pattern of
+     * {@link Neo.grid.column.Base#afterSetWindowId}): a model class that ships SCSS theme files gets them
+     * inserted into the window of its view. The engine's own models ship none.
+     *
+     * A model renders no node of its own and its stylesheet is global once loaded, so every rule in such a
+     * file MUST sit under the model's {@link #cls}, which {@link #register} puts on the view's wrapper.
+     * @param {Number|String|null} value
+     * @param {Number|String|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        value && Neo.currentWorker.insertThemeFiles(value, this.__proto__)
     }
 
     /**
@@ -264,6 +295,8 @@ class Model extends Base {
     }
 
     /**
+     * @summary Binds this model to its view: the model's `cls` on the view's wrapper, the view's window
+     * (see {@link #afterSetWindowId}) and the DOM listeners.
      * @param {Neo.component.Base} component
      */
     register(component) {
@@ -276,6 +309,11 @@ class Model extends Base {
         }
 
         me.view = component;
+
+        me.#unfollowWindow?.();
+        me.#unfollowWindow = me.observeConfig(component, 'windowId', value => {me.windowId = value});
+        me.windowId        = component.windowId;
+
         me.addDomListener();
 
         component.fire('selectionModelChange', {
@@ -464,7 +502,11 @@ class Model extends Base {
             me.removeDomListeners()
         }
 
-        me.view = null
+        me.#unfollowWindow?.();
+        me.#unfollowWindow = null;
+
+        me.view     = null;
+        me.windowId = null
     }
 }
 
