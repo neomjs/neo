@@ -66,8 +66,9 @@ class Seo extends Base {
 
     /**
      * @summary Retrieves the SEO metadata (title, description, schemaType, and normalized route) for a given route hash.
-     * Supports nested routes by falling back to parent paths if an exact match is not found.
-     * e.g., '/news/blog/my-post' -> '/news/blog' -> '/news'
+     * Supports nested routes by falling back to parent paths if an exact match is not found
+     * (e.g., '/news/blog/my-post' -> '/news/blog' -> '/news'), canonicalizing unlisted '/examples/*'
+     * fallback routes to '/examples' to match `TabContainerController#onExamplesRoute`.
      * @param {String} route The route hash string (e.g., '/home', '/learn/benefits/Introduction').
      * @returns {Object|null} An object containing `title`, `description`, optional `schemaType`, and `route`, or `null` if not found.
      */
@@ -107,7 +108,7 @@ class Seo extends Base {
             if (metadata[lookupRoute]) {
                 return {
                     ...metadata[lookupRoute],
-                    route: normalizedRoute
+                    route: lookupRoute === '/examples' ? '/examples' : normalizedRoute
                 }
             }
         }

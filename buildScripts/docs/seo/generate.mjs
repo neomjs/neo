@@ -1,19 +1,22 @@
-import fs                                       from 'fs-extra';
-import path                                     from 'path';
-import {Command}                                from 'commander';
-import {execFileSync}                           from 'child_process';
-import fg                                       from 'fast-glob';
-import semver                                   from 'semver';
-import isEntryModule                            from '../../util/isEntryModule.mjs';
-import {requireContentRoot}                     from '../../util/contentRoot.mjs';
-import {sanitizeInput}                          from '../../util/sanitizer.mjs';
+import fs                   from 'fs-extra';
+import path                 from 'path';
+import {Command}            from 'commander';
+import {execFileSync}       from 'child_process';
+import fg                   from 'fast-glob';
+import semver               from 'semver';
+import isEntryModule        from '../../util/isEntryModule.mjs';
+import {requireContentRoot} from '../../util/contentRoot.mjs';
+import {sanitizeInput}      from '../../util/sanitizer.mjs';
 import {
+    collectExampleFamilyRoutes,
+    extractExampleFamilyDefinitions,
     extractMarkdownSeoMetadata,
     formatLearnSeoTitle,
+    getPublishedExampleFamilies,
     getSeoJson
 } from './seoJson.mjs';
 
-export {extractMarkdownSeoMetadata, formatLearnSeoTitle, getSeoJson};
+export {collectExampleFamilyRoutes, extractExampleFamilyDefinitions, extractMarkdownSeoMetadata, formatLearnSeoTitle, getPublishedExampleFamilies, getSeoJson};
 
 /**
  * @module buildScripts.docs.seo.generate
@@ -181,6 +184,10 @@ function getPriority(id) {
     }
 
     if (id.startsWith('/news/blog/')) {
+        return 0.9;
+    }
+
+    if (id.startsWith('/examples/') && !id.endsWith('.html')) {
         return 0.9;
     }
 
@@ -712,12 +719,15 @@ const collectDiscussionRoutes = root => collectNumberedCorpusRoutes(root, ['disc
  * Collects all routes (top-level + content routes).
  * @param {Object} roots
  * @param {String} roots.corpusRoot The conversation corpus root (`--corpus-root`); required, since the engine holds no corpus
+ * @param {String} [roots.examplesPath] Optional custom `examples.json` path (test seam)
+ * @param {String} [roots.examplesTabContainerPath] Optional custom `TabContainer.mjs` path (test seam)
+ * @param {Array}  [roots.familyDefinitions] Optional custom `familyDefinitions` array (test seam)
  * @param {Boolean} [roots.includeArchives=true] Whether to collect ticket, pull-request, and discussion archive routes
  * @param {Boolean} [roots.onlyArchives=false] Whether to collect ONLY ticket, pull-request, and discussion archive routes
  * @param {String} [roots.releaseNotesRoot] The release-notes root (`--release-notes`); required unless `onlyArchives` is true
  * @returns {Promise<Array<{id: String, filePath: String|null}>>}
  */
-async function collectAllRoutes({corpusRoot, includeArchives = true, onlyArchives = false, releaseNotesRoot}) {
+async function collectAllRoutes({corpusRoot, examplesPath, examplesTabContainerPath, familyDefinitions, includeArchives = true, onlyArchives = false, releaseNotesRoot}) {
     corpusRoot = requireContentRoot(corpusRoot, '--corpus-root', 'generate-seo-files');
 
     if (!onlyArchives) {
@@ -729,6 +739,7 @@ async function collectAllRoutes({corpusRoot, includeArchives = true, onlyArchive
 
     return (await Promise.all([
         shouldCollectCore     ? collectTopLevelRoutes()                : [],
+        shouldCollectCore     ? collectExampleFamilyRoutes({examplesPath, examplesTabContainerPath, familyDefinitions}) : [],
         shouldCollectCore     ? collectRoutesFromTree()                : [],
         shouldCollectCore     ? collectExampleRoutes()                 : [],
         shouldCollectCore     ? collectReleaseRoutes(releaseNotesRoot) : [],
@@ -781,7 +792,7 @@ export async function getContentRoutes(options={}) {
             if (category === 'file') {
                 return id; // Already has leading slash
             }
-            if (category === 'top-level') {
+            if (category === 'top-level' || category === 'example-family') {
                 return buildRouteFromId(id);
             }
             // category === 'tree'
@@ -815,7 +826,7 @@ export async function getContentRouteObjects(options={}) {
                 };
             }
 
-            if (category === 'top-level') {
+            if (category === 'top-level' || category === 'example-family') {
                 return {
                     route          : buildRouteFromId(id, null, false),
                     clientSideRoute: buildRouteFromId(id, null, true)
@@ -922,7 +933,7 @@ export async function getSitemapXml(options={}) {
         let url;
         if (category === 'file') {
             url = new URL(id, normalizedBaseUrl).toString();
-        } else if (category === 'top-level') {
+        } else if (category === 'top-level' || category === 'example-family') {
             const route = buildRouteFromId(id, null, false);
             url = new URL(route, normalizedBaseUrl).toString();
         } else { // tree
@@ -1109,14 +1120,15 @@ To access bundled versions, prefix paths with \`/dist/production/\`, \`/dist/dev
         }
     }
 
-    const topLevelRoutes   = allRoutes.filter(route => route.category === 'top-level');
-    const releaseRoutes    = allRoutes.filter(route => route.category === 'release-notes');
-    const blogRoutes       = allRoutes.filter(route => route.category === 'blog');
-    const ticketRoutes     = allRoutes.filter(route => route.category === 'tickets');
-    const pullRoutes       = allRoutes.filter(route => route.category === 'pull-requests');
-    const discussionRoutes = allRoutes.filter(route => route.category === 'discussions');
-    const exampleRoutes    = allRoutes.filter(route => route.category === 'file');
-    const contentRoutes    = allRoutes.filter(route => route.category === 'tree');
+    const topLevelRoutes      = allRoutes.filter(route => route.category === 'top-level');
+    const exampleFamilyRoutes = allRoutes.filter(route => route.category === 'example-family');
+    const releaseRoutes       = allRoutes.filter(route => route.category === 'release-notes');
+    const blogRoutes          = allRoutes.filter(route => route.category === 'blog');
+    const ticketRoutes        = allRoutes.filter(route => route.category === 'tickets');
+    const pullRoutes          = allRoutes.filter(route => route.category === 'pull-requests');
+    const discussionRoutes    = allRoutes.filter(route => route.category === 'discussions');
+    const exampleRoutes       = allRoutes.filter(route => route.category === 'file');
+    const contentRoutes       = allRoutes.filter(route => route.category === 'tree');
 
     content += `## Main Pages\n\n`;
     const topLevelUrls = topLevelRoutes.map(route => {
@@ -1137,12 +1149,12 @@ To access bundled versions, prefix paths with \`/dist/production/\`, \`/dist/dev
     });
     content += topLevelUrls.join('\n') + '\n\n';
 
-    if (exampleRoutes.length > 0) {
+    if (exampleFamilyRoutes.length > 0 || exampleRoutes.length > 0) {
         content += `## Demo Apps and Examples\n\n`;
-        const exampleUrls = exampleRoutes.map(route => {
-            const url = new URL(route.id, baseUrl).toString();
-            return `- [${route.name}](${url})`;
-        });
+        const exampleUrls = [
+            ...exampleFamilyRoutes.map(route => `- [${route.name}](${new URL(buildRouteFromId(route.id, null, false), baseUrl).toString()})`),
+            ...exampleRoutes.map(route => `- [${route.name}](${new URL(route.id, baseUrl).toString()})`)
+        ];
         content += exampleUrls.join('\n') + '\n\n';
     }
 
@@ -1432,12 +1444,15 @@ if (isEntryModule(import.meta.url)) {
 }
 
 export default {
+    collectExampleFamilyRoutes,
+    extractExampleFamilyDefinitions,
     extractMarkdownSeoMetadata,
     getContentRoutes,
     getContentRouteObjects,
     getContentUrls,
     getDisallowedReleaseNoteGithubLinks,
     getLatestSitemapLastmod,
+    getPublishedExampleFamilies,
     getSeoJson,
     getSitemapIndexXml,
     getSitemapXml,

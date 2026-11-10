@@ -788,5 +788,10 @@
         "title": "Neo.mjs v13.4.0 Release Notes",
         "description": "Release Type: A minor release, and the householding one. The open Engine issues went from 243 when 13.3.1 shipped to 5 at the cut on 2026-11-09, the fewest...",
         "schemaType": "TechArticle"
+    },
+    "/examples/grid": {
+        "title": "Neo.mjs Grid & Table Examples",
+        "description": "Explore 21 live Neo.mjs Grid & Table examples: A tree hierarchy at scale: up to 100,000 rows, 200 columns and 20 levels.",
+        "schemaType": "CollectionPage"
     }
 }
