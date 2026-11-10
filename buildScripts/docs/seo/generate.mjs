@@ -1,12 +1,15 @@
-import fs                   from 'fs-extra';
-import path                 from 'path';
-import {Command}            from 'commander';
-import {execFileSync}       from 'child_process';
-import fg                   from 'fast-glob';
-import semver               from 'semver';
-import isEntryModule        from '../../util/isEntryModule.mjs';
-import {requireContentRoot} from '../../util/contentRoot.mjs';
-import {sanitizeInput}      from '../../util/sanitizer.mjs';
+import fs                                       from 'fs-extra';
+import path                                     from 'path';
+import {Command}                                from 'commander';
+import {execFileSync}                           from 'child_process';
+import fg                                       from 'fast-glob';
+import semver                                   from 'semver';
+import isEntryModule                            from '../../util/isEntryModule.mjs';
+import {requireContentRoot}                     from '../../util/contentRoot.mjs';
+import {sanitizeInput}                          from '../../util/sanitizer.mjs';
+import {extractMarkdownSeoMetadata, getSeoJson} from './seoJson.mjs';
+
+export {extractMarkdownSeoMetadata, getSeoJson};
 
 /**
  * @module buildScripts.docs.seo.generate
@@ -1321,9 +1324,9 @@ async function runCli() {
     program
         .name('generate-seo-files')
         .description('Generates sitemap.xml and llms.txt for SEO purposes.')
-        .requiredOption('--corpus-root <path>',   'Conversation corpus root holding issues/, pulls/, discussions/ and archive/', sanitizeInput)
-        .requiredOption('--release-notes <path>', 'Release-notes root', sanitizeInput)
-        .option('-f, --format <type>', 'Output format: array, objects, urls, xml, xml-index, llms, llms-full', sanitizeInput)
+        .option('--corpus-root <path>',   'Conversation corpus root holding issues/, pulls/, discussions/ and archive/', sanitizeInput)
+        .option('--release-notes <path>', 'Release-notes root', sanitizeInput)
+        .option('-f, --format <type>', 'Output format: array, objects, urls, xml, xml-index, llms, llms-full, seo-json', sanitizeInput)
         .option('--base-url <url>',    'Absolute base URL (e.g., https://neomjs.com)',   sanitizeInput)
         .option('--base-path <path>',  'Base path for content routes',                   sanitizeInput)
         .option('-o, --output <path>', 'Output file path',                               sanitizeInput)
@@ -1345,8 +1348,8 @@ async function runCli() {
     const includeLastmod  = programOpts.noLastmod === undefined ? true : !programOpts.noLastmod;
     const includeTopLevel = programOpts.noTopLevel === undefined ? true : !programOpts.noTopLevel;
     const roots           = {
-        corpusRoot      : path.resolve(programOpts.corpusRoot),
-        releaseNotesRoot: path.resolve(programOpts.releaseNotes)
+        corpusRoot      : programOpts.corpusRoot ? path.resolve(programOpts.corpusRoot) : undefined,
+        releaseNotesRoot: programOpts.releaseNotes ? path.resolve(programOpts.releaseNotes) : undefined
     };
 
 
@@ -1395,8 +1398,17 @@ async function runCli() {
             outputContent = await getLlmsFullTxt({baseUrl, basePath});
             break;
         }
+        case 'seo-json':
+        case 'seo.json': {
+            const seoJson = await getSeoJson({
+                basePath,
+                releaseNotesRoot: roots.releaseNotesRoot
+            });
+            outputContent = `${JSON.stringify(seoJson, null, 4)}\n`;
+            break;
+        }
         default:
-            throw new Error(`Unsupported format "${format}". Supported formats: array, objects, urls, xml, xml-index, llms, llms-full.`);
+            throw new Error(`Unsupported format "${format}". Supported formats: array, objects, urls, xml, xml-index, llms, llms-full, seo-json.`);
     }
 
     if (output) {
@@ -1416,11 +1428,13 @@ if (isEntryModule(import.meta.url)) {
 }
 
 export default {
+    extractMarkdownSeoMetadata,
     getContentRoutes,
     getContentRouteObjects,
     getContentUrls,
     getDisallowedReleaseNoteGithubLinks,
     getLatestSitemapLastmod,
+    getSeoJson,
     getSitemapIndexXml,
     getSitemapXml,
     getLlmsTxt,

@@ -38,5 +38,755 @@
     "/services": {
         "title": "Connect with Neo.mjs",
         "description": "Build an app with Neo.mjs, explore persistent project memory for coding agents, join the public development work, or reach the maintainers directly."
+    },
+    "/learn/UsingTheseTopics": {
+        "title": "Using These Topics - Neo.mjs",
+        "description": "Welcome to the Neo.mjs learning base! Neo.mjs is a complete application platform — 461 classes in 39 namespaces from grid, forms, calendar, and dashboard...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/benefits/Introduction": {
+        "title": "What Is Neo.mjs?",
+        "description": "On a normal night here, with no human awake, AIs from rival labs — Anthropic, Google, and OpenAI — open pull requests across Neo's repositories and review...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/benefits/ArchitectureOverview": {
+        "title": "Neo.mjs Architecture Overview",
+        "description": "Neo has four areas a reader should keep separate before the details start:",
+        "schemaType": "TechArticle"
+    },
+    "/learn/benefits/body/ApplicationEngine": {
+        "title": "The Application Engine for the AI Era - Neo.mjs",
+        "description": "Traditional frameworks compile away. Engines stay alive.",
+        "schemaType": "TechArticle"
+    },
+    "/learn/benefits/body/ObjectPermanence": {
+        "title": "Object Permanence & Component Trees - Neo.mjs",
+        "description": "Web UI development has long been trapped in a cycle of constant destruction. We build complex, stateful applications, but traditional Virtual DOM frameworks...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/benefits/body/JSONFirstUIs": {
+        "title": "JSON First UIs - Neo.mjs",
+        "description": "The original Virtual DOM was an attempt to decouple application logic from the slow, physical browser DOM. But in traditional, single-threaded frameworks...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/benefits/body/OffTheMainThread": {
+        "title": "Off the Main Thread - Neo.mjs",
+        "description": "In case you are using a Mac, you can click on the top-left Apple Icon, then on \"About this Mac\" and it will show you something like:",
+        "schemaType": "TechArticle"
+    },
+    "/learn/benefits/body/FourEnvironments": {
+        "title": "4 Environments - Neo.mjs",
+        "description": "Neo.mjs was the very first frontend platform, which enabled full support for a zero builds instant development mode, while sticking to the latest ECMAScript...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/benefits/body/ConfigSystem": {
+        "title": "Unified Config System - Neo.mjs",
+        "description": "A Declarative Approach to Application Building",
+        "schemaType": "TechArticle"
+    },
+    "/learn/benefits/body/RPCLayer": {
+        "title": "RPC Layer - Neo.mjs",
+        "description": "In a multi-threaded architecture like Neo.mjs, efficient and seamless communication between different execution contexts (Web Workers, Main Thread, and even...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/benefits/body/Speed": {
+        "title": "Extreme Speed - Neo.mjs",
+        "description": "The Neo.mjs architecture leverages web workers to run application logic, data processing, and even parts of the rendering pipeline in parallel, on separate...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/benefits/body/MultiWindow": {
+        "title": "Multi-Window Applications - Neo.mjs",
+        "description": "Your users already work across screens. The customer record sits on one monitor and the ticket queue on the other; the chart goes up on the projector while...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/benefits/body/Quick": {
+        "title": "Quick Application Development - Neo.mjs",
+        "description": "In today's fast-paced development landscape, speed and efficiency are paramount. Neo.mjs is engineered to dramatically accelerate the application...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/benefits/body/Effort": {
+        "title": "Complexity and Effort - Neo.mjs",
+        "description": "In the world of web development, the relationship between application complexity and the effort required to build and maintain it is rarely linear. As the...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/benefits/body/FormsEngine": {
+        "title": "Forms Engine - Neo.mjs",
+        "description": "Building robust and user-friendly forms is often a significant challenge in web development. Traditional approaches can lead to complex state management...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/benefits/body/Features": {
+        "title": "Features and Benefits Summary - Neo.mjs",
+        "description": "Neo.mjs is a complete application platform for every desktop and mobile web application. It ships more than 450 classes in 39 namespaces: the components...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/gettingstarted/Setup": {
+        "title": "Setup - Neo.mjs",
+        "description": "Setting up a Neo.mjs project is straightforward. The recommended method is to use npx neo-app, a command-line tool that generates a ready-to-use workspace...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/gettingstarted/Workspaces": {
+        "title": "Workspaces and Applications - Neo.mjs",
+        "description": "The purpose of this tutorial is to let you see the structure of a Neo.mjs workspace, and the structure of an application.",
+        "schemaType": "TechArticle"
+    },
+    "/learn/gettingstarted/DescribingTheUI": {
+        "title": "Describing a View - Neo.mjs",
+        "description": "A Neo.mjs view is comprised of components and containers. A component is a visual widget, like a button, and a container is a visual collection of components.",
+        "schemaType": "TechArticle"
+    },
+    "/learn/gettingstarted/Events": {
+        "title": "Events - Neo.mjs",
+        "description": "All components fire events. For example, form fields fire a change event, various focus events, and others. Some other types fire events too, such as...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/gettingstarted/References": {
+        "title": "Component References - Neo.mjs",
+        "description": "Controllers often need to get references to components in order to update the UI or access component properties. There are two common ways of doing that:",
+        "schemaType": "TechArticle"
+    },
+    "/learn/gettingstarted/Extending": {
+        "title": "Extending Classes - Neo.mjs",
+        "description": "In theory, a Neo.mjs app could be defined in a single .mjs source file. But that would be very hard to maintain, and any reusable configs would have to be...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/gettingstarted/Config": {
+        "title": "Config - Neo.mjs",
+        "description": "As you've probably noticed, Neo.mjs classes have a static config property.",
+        "schemaType": "TechArticle"
+    },
+    "/learn/gettingstarted/ComponentModels": {
+        "title": "Shared Bindable Data - Neo.mjs",
+        "description": "Neo has a feature that allows shared, bindable, data.",
+        "schemaType": "TechArticle"
+    },
+    "/learn/gettingstarted/CreatingYourFirstApp": {
+        "title": "Creating Your First App - Neo.mjs",
+        "description": "The purpose of this tutorial is to give you a simple overview of the Neo.mjs workspace and app structure.",
+        "schemaType": "TechArticle"
+    },
+    "/learn/agentos/FleetManagerArchitecture": {
+        "title": "Fleet Manager: The Cockpit That Refuses to Lie - Neo.mjs",
+        "description": "Open a terminal on a machine that runs a team of AI agents, and ask the simplest possible question: who is working right now?",
+        "schemaType": "TechArticle"
+    },
+    "/learn/agentos/RunningTheFleetCockpit": {
+        "title": "Running the Fleet Cockpit - Neo.mjs",
+        "description": "The Fleet Manager cockpit is the operator's mission-control surface: the live agent roster, the activity stream, per-agent drill-in, and the lifecycle...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/agentos/NeuralLink": {
+        "title": "Neural Link: The Possession Interface - Neo.mjs",
+        "description": "Most AI coding work still happens outside the running application. The model reads source, edits files, asks a human to reload, then waits for a screenshot...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/agentos/DockZoneModel": {
+        "title": "Dock-Zone Model Contract - Neo.mjs",
+        "description": "@summary Minimal model contract for Neo's docking subsystem: a serializable dock-zone tree that composes with Neo's existing dashboard, layout, JSON...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/agentos/CoreSkills": {
+        "title": "Core Agent Skills - Neo.mjs",
+        "description": "Most agent products try to make a model reliable by adding a longer prompt. Neo took the opposite route. When a maintainer failure repeats, the organism...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/agentos/ProgressiveDisclosureSkills": {
+        "title": "Progressive Disclosure Skills - Neo.mjs",
+        "description": "The Neo Agent OS utilizes a Progressive Disclosure pattern for agent skills. Instead of loading every possible instruction set into the master system prompt...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/agentos/SeatMemoryLayer": {
+        "title": "The Seat Memory Layer - Neo.mjs",
+        "description": "How every agent seat in the fleet is born with a durable, self-loading memory — and why the cap is the feature.",
+        "schemaType": "TechArticle"
+    },
+    "/learn/agentos/decisions/0008-skill-anatomy-and-authoring-contract": {
+        "title": "ADR 0008: SKILL.md Anatomy and Authoring Contract - Neo.mjs",
+        "description": "Agent skills are the Progressive Disclosure primitive (per learn/agentos/ProgressiveDisclosureSkills.md + Anthropic industry standard) that prevents...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/agentos/decisions/0018-neo-identity-source-of-truth-model": {
+        "title": "ADR 0018: Neo Identity Source-of-Truth Model - Neo.mjs",
+        "description": "Neo's identity is not a document — it is a distributed property spread across ~30+ surfaces: hand-edited canonical prose (README.md, .github/VISION.md...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/agentos/decisions/0020-agent-harness-concept": {
+        "title": "ADR 0020 moved to Agent Institution - Neo.mjs",
+        "description": "The Agent Harness concept record now lives with the product it governs: neomjs/neo-agent-institution · learn/agentos/decisions/0020-agent-harness-concept.md.",
+        "schemaType": "TechArticle"
+    },
+    "/learn/agentos/decisions/0021-extended-nl-multi-writer-write-enforcement": {
+        "title": "ADR 0021: Extended-NL multi-writer write enforcement - Neo.mjs",
+        "description": "This is enforcement for the co-habitation case: more than one identified agent issuing write-class Neural Link operations against the same live component...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/agentos/decisions/0029-docking-design": {
+        "title": "ADR 0029: Docking Design — Multi-Window Layout Model, Perspectives, Cross-Window Drag - Neo.mjs",
+        "description": "learn/agentos/DockZoneModel.md (dockZone.v1) is the model contract of record: the serializable dock-zone tree, its semantic operations, the preview payload...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/agentos/decisions/0031-target-architecture-composition": {
+        "title": "ADR 0031: Target-Architecture Composition — the Seam Table + Trajectory Layer - Neo.mjs",
+        "description": "The canonical top-level scaffold is Two Hemispheres (ADR 0018 OD-3, operator-decided 2026-05-30): the Body — the multi-threaded application engine under...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/agentos/decisions/0032-institution-cockpit-render-model": {
+        "title": "ADR 0032 moved to Agent Institution - Neo.mjs",
+        "description": "The Institution-Cockpit render-model record now lives with the product it governs: neomjs/neo-agent-institution ·...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/agentos/decisions/0034-electron-shell-architecture": {
+        "title": "ADR 0034 moved to Agent Institution - Neo.mjs",
+        "description": "The Electron shell architecture record now lives with the product it governs: neomjs/neo-agent-institution ·...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/agentos/decisions/0037-fleet-manager-outward-door-topology": {
+        "title": "ADR 0037 moved to Agent Institution - Neo.mjs",
+        "description": "The Fleet Manager outward-door topology record now lives with the product it governs: neomjs/neo-agent-institution ·...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/agentos/decisions/0038-fm-client-topology": {
+        "title": "ADR 0038 moved to Agent Institution - Neo.mjs",
+        "description": "The Fleet Manager client-topology record now lives with the product it governs: neomjs/neo-agent-institution ·...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/fundamentals/CodebaseOverview": {
+        "title": "Codebase Overview: Neo.mjs - The AI-Native Web Platform",
+        "description": "Neo.mjs is not a library. It's a comprehensive web platform. Methodology: sloc source-only for code (excludes blanks + comments), comments tracked as a...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/fundamentals/ApplicationBootstrap": {
+        "title": "Neo.mjs Application Bootstrap Process",
+        "description": "This guide explains how Neo.mjs applications start, initialize, and come to life - from the initial HTML file to your first mounted component.",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/fundamentals/InstanceLifecycle": {
+        "title": "Instance Lifecycle - Neo.mjs",
+        "description": "Understanding the lifecycle of a class instance in Neo.mjs is crucial for building robust and predictable applications. The engine provides a series of...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/fundamentals/WorkerArchitecture": {
+        "title": "Worker Architecture & Messaging - Neo.mjs",
+        "description": "Traditional web architectures face a fundamental constraint: everything competes for the same single thread. A heavy calculation locks your UI. A complex...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/fundamentals/AsyncDestruction": {
+        "title": "Async Destruction & The Trap Pattern - Neo.mjs",
+        "description": "In single-page applications, handling the lifecycle of asynchronous operations is a critical challenge. A component might trigger a network request (like...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/fundamentals/DeclarativeComponentTreesVsImperativeVdom": {
+        "title": "Declarative Component Trees VS Imperative Vdom - Neo.mjs",
+        "description": "Neo.mjs employs a unique two-tier architecture that separates declarative component configuration from imperative virtual DOM (VDom) operations. This design...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/fundamentals/DeclarativeVDOMWithEffects": {
+        "title": "Declarative VDOM with Effects - Neo.mjs",
+        "description": "Neo.mjs v10 introduces a powerful new declarative pattern for defining a component's internal Virtual DOM (VDOM), serving as an alternative to the...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/fundamentals/AsymmetricUpdates": {
+        "title": "Asymmetric VDOM Updates: A Technical Deep Dive - Neo.mjs",
+        "description": "Neo.mjs can update Parent and Child components independently and in parallel, or merge them into a single atomic transaction—whichever is most efficient.",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/fundamentals/ConfigSystemDeepDive": {
+        "title": "Config System Deep Dive - Neo.mjs",
+        "description": "Pre-requisite: It is highly recommended to study The Unified Class Config System first to understand the foundational concepts and benefits.",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/fundamentals/DeclarativeConfigMerging": {
+        "title": "Declarative Config Merging & Structural Injection - Neo.mjs",
+        "description": "One of the most powerful aspects of Neo.mjs is its class-based configuration system. However, as applications grow, you often face the challenge of...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/fundamentals/ExtendingNeoClasses": {
+        "title": "Extending Neo Classes - Neo.mjs",
+        "description": "Neo.mjs is built upon a robust and consistent class system. Understanding how to extend core classes is fundamental to building custom functionality...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/fundamentals/MainThreadAddons": {
+        "title": "Main Thread Addons: Interacting with the Browser - Neo.mjs",
+        "description": "Neo.mjs is multi-threaded. There are worker threads that handle data access, application logic, and keeping track of DOM updates. Practically all your...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/coreengine/WhyEnhance": {
+        "title": "Why Enhance JS Classes? (construct vs constructor) - Neo.mjs",
+        "description": "When building a high-performance, multi-threaded application platform like Neo.mjs, the vanilla JavaScript class system quickly hits an architectural wall...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/coreengine/SetupClass": {
+        "title": "Class Compilation (Neo.setupClass) - Neo.mjs",
+        "description": "To solve the constructor trap and enable declarative configurations, Neo.mjs must know exactly how a class is structured before it creates an instance. In...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/coreengine/ConfigSystem": {
+        "title": "The Config System & Circular Dependencies - Neo.mjs",
+        "description": "With the class blueprint compiled and our reactive API (getters and setters) generated by Neo.setupClass, we face a complex runtime challenge. Complex user...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/coreengine/Reactivity": {
+        "title": "Two-Tier Reactivity (Effects vs Hooks) - Neo.mjs",
+        "description": "The core Config System and its configSymbol holding zone provide an incredibly robust engine for local, imperative state mutations. But a true platform...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/coreengine/Lifecycle": {
+        "title": "Instance Lifecycle & initAsync - Neo.mjs",
+        "description": "With our instance compiled by setupClass and wired with two-tier reactivity, it is logically complete. In a traditional, single-threaded JavaScript...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/coreengine/Utilities": {
+        "title": "Core Utilities - Neo.mjs",
+        "description": "To power an engine capable of processing 40,000 VDOM delta updates per second across multiple worker threads, the sophisticated core engine we've explored...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/uibuildingblocks/ComponentsAndContainers": {
+        "title": "Component and Container Basics - Neo.mjs",
+        "description": "Neo.mjs views are made up of components and containers.",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/uibuildingblocks/Layouts": {
+        "title": "Layouts - Neo.mjs",
+        "description": "Layouts are fundamental to arranging components within your application's user interface. In Neo.mjs, layouts are managed declaratively through the layout...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/uibuildingblocks/TabContainers": {
+        "title": "Tab Containers: Keep the Work, Change the View - Neo.mjs",
+        "description": "You are halfway through a draft when you need to check another panel. Switching tabs should not feel like leaving the application: the title you just typed...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/uibuildingblocks/DockLayouts": {
+        "title": "Dock Layouts: One Application, Many Windows - Neo.mjs",
+        "description": "Every team that has shipped a serious desktop cockpit — a trading floor, an ops console, a monitoring wall — knows the interaction language by heart: grab a...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/uibuildingblocks/DockLayoutsAdoption": {
+        "title": "Dock Layouts: Adopting in Your App - Neo.mjs",
+        "description": "The Dock Layouts intro answers what this is and why it works: one committed document, one mutation path, panes that survive every re-projection as live...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/uibuildingblocks/DockLayoutsStateAndPersistence": {
+        "title": "Dock Layouts: State, Operations and Persistence - Neo.mjs",
+        "description": "Every layout system eventually saves something, and most of what goes wrong later was decided the day it did. Save the component tree and you have saved one...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/uibuildingblocks/DockLayoutsPanes": {
+        "title": "Dock Layouts: Panes Are Ordinary Components - Neo.mjs",
+        "description": "A work queue is useful because it remembers the work. You mark a task complete, move the queue beside your editor, and keep going. Collapsing it into a side...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/uibuildingblocks/DockLayoutsWindows": {
+        "title": "Dock Layouts: A Pane's Life Across Windows - Neo.mjs",
+        "description": "Tear a pane out of your application into a real operating-system window, and you have asked the web platform for something it was built to refuse. A second...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/uibuildingblocks/DockLayoutsStyling": {
+        "title": "Dock Layouts: Styling, Themes and Action Chrome - Neo.mjs",
+        "description": "A docked workspace paints in more places than any single component does. The inline header that names each pane and carries its actions, the splitter...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/uibuildingblocks/DockLayoutsMechanics": {
+        "title": "Dock Layouts: How a Gesture Becomes One Commit - Neo.mjs",
+        "description": "The simplest way to build a docking layout lets the code that follows the pointer edit the layout while the pointer moves. The splitter writes new sizes on...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/uibuildingblocks/DockLayoutsFeatures": {
+        "title": "Dock Layouts: What Users Can Do, and What the Dock Will Refuse - Neo.mjs",
+        "description": "Docking UIs are easy to demo and hard to trust. The demo shows a splitter, a tab you can drag, a panel that slides away to an edge. What the demo does not...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/uibuildingblocks/Fragments": {
+        "title": "Fragments: Phantom Containers - Neo.mjs",
+        "description": "Neo.container.Fragment represents a significant architectural evolution in how we structure Web Applications. Unlike traditional containers that render a...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/uibuildingblocks/CustomComponents": {
+        "title": "Custom Components - Neo.mjs",
+        "description": "A major strength of Neo.mjs is its extensive library of components. In most cases, you can build sophisticated user interfaces simply by creating...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/uibuildingblocks/WorkingWithVDom": {
+        "title": "Working with VDom - Neo.mjs",
+        "description": "Target Audience: Developers building custom Neo.mjs components who need to work directly with the VDom layer for performance optimization, complex...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/uibuildingblocks/HtmlTemplates": {
+        "title": "Using HTML Templates for VDOM - Neo.mjs",
+        "description": "This guide covers the purpose, syntax, and trade-offs of using tagged template literals (HTML-like syntax) to define VDOM structures in neo.mjs. This...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/uibuildingblocks/HtmlTemplatesUnderTheHood": {
+        "title": "Under the Hood: The Philosophy and Mechanics of HTML Templates - Neo.mjs",
+        "description": "This guide explores the \"why\" and \"how\" behind the HTML template feature in Neo.mjs. It's a deep dive into an architecture designed to deliver on a core...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/uibuildingblocks/StylingAndTheming": {
+        "title": "Styling and Theming in Neo.mjs",
+        "description": "This guide provides a comprehensive overview of how to style your Neo.mjs applications, from basic component styling to creating entirely new themes.",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/datahandling/DataPipelines": {
+        "title": "The Unified Data Pipeline Architecture - Neo.mjs",
+        "description": "Historically, frontend frameworks have handled local API requests (like fetching a JSON file) and remote procedure calls (RPC) to backend services using...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/datahandling/Collections": {
+        "title": "Collections - Neo.mjs",
+        "description": "Neo.mjs provides a powerful and flexible Neo.collection.Base class for managing data. This guide will explore its features, including:",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/datahandling/Records": {
+        "title": "Records - Neo.mjs",
+        "description": "In Neo.mjs, a Record is a super lightweight, reactive JavaScript object, dynamically created and structured according to a Neo.data.Model. Records provide a...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/datahandling/Grids": {
+        "title": "Neo.mjs Grids",
+        "description": "The Neo.grid.Container is a powerful and highly performant component for displaying tabular data. It is designed to handle large datasets with ease, thanks...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/datahandling/DynamicGrids": {
+        "title": "Dynamic Grids & Virtualization - Neo.mjs",
+        "description": "Neo.mjs Grids are designed for high performance with massive datasets. This is achieved through Virtualization (rendering only visible rows and columns) and...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/datahandling/PooledGridAnimation": {
+        "title": "Pooled Grid Animation Contract - Neo.mjs",
+        "description": "Neo grids virtualize rows by recycling a fixed DOM pool. That is the right default for scrolling, but it changes the animation contract: row transitions...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/datahandling/Streaming": {
+        "title": "Streaming Data & Progressive Rendering - Neo.mjs",
+        "description": "In traditional Single Page Applications (SPAs), loading a large dataset (e.g., 10,000+ rows) usually involves a \"Loading Spinner of Death.\" The application...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/datahandling/Tables": {
+        "title": "Tables (Stores) - Neo.mjs",
+        "description": "A task board starts with three rows. Then someone asks for an “open tasks” view, a priority order, an editor, and a count that stays correct when a task is...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/datahandling/UsingStores": {
+        "title": "Using data.Store - Neo.mjs",
+        "description": "A location picker and a grid can begin with the same list and still have different jobs. Someone types “Arizo” into the picker to find Arizona; the grid...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/datahandling/TreeStore": {
+        "title": "TreeStore and Hierarchical Data - Neo.mjs",
+        "description": "Neo.mjs provides high-performance support for hierarchical data through the Neo.data.TreeStore and Neo.data.TreeModel classes. This architecture was forged...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/datahandling/StateProviders": {
+        "title": "Shared Bindable Data (State Providers) - Neo.mjs",
+        "description": "While individual Components can manage their own local state using the Class Config System, you will need a State Provider as soon as you want to share data...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/userinteraction/Forms": {
+        "title": "User Input (Forms) - Neo.mjs",
+        "description": "The Neo.mjs Forms Engine provides a powerful and flexible way to build user interfaces for data input and validation. This guide will walk you through the...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/userinteraction/form_fields/ComboBox": {
+        "title": "ComboBox Field - Neo.mjs",
+        "description": "The Neo.form.field.ComboBox is a powerful and flexible input component that provides a dropdown list for selecting one item. It combines the functionality...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/userinteraction/events/CustomEvents": {
+        "title": "Custom Events - Neo.mjs",
+        "description": "As you read in the Getting Started Events topic, components, stores, and many other objects fire events.",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/userinteraction/events/DomEvents": {
+        "title": "DOM Events - Neo.mjs",
+        "description": "By default, Neo.mjs will attach DOM event listeners for all common events to the document.body. You can the see the full list of event names inside...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/testing/Overview": {
+        "title": "Testing Neo.mjs Applications",
+        "description": "Testing is a critical part of the Neo.mjs ecosystem. Because of the engine's unique multi-threaded architecture, our testing strategy is divided into three...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/testing/UnitTesting": {
+        "title": "Unit Testing with Playwright - Neo.mjs",
+        "description": "Neo.mjs uses a unique \"Single-Thread Simulation\" architecture for its unit tests. By running the core engine logic inside a single Node.js thread (via...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/testing/ComponentTesting": {
+        "title": "Component Testing with Playwright - Neo.mjs",
+        "description": "Component testing in Neo.mjs differs significantly from Unit Testing. While unit tests run in a simulated, single-thread Node.js environment, Component...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/testing/Benchmarking": {
+        "title": "Benchmarking and Performance Testing - Neo.mjs",
+        "description": "In 2026, almost every frontend benchmark (Lighthouse, Core Web Vitals, Vercel Speed Insights) focuses entirely on Initial Page Load. They measure the...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/testing/WhiteboxE2E": {
+        "title": "Whitebox E2E Testing with Neural Link - Neo.mjs",
+        "description": "Traditional end-to-end (E2E) testing treats the application as a \"black box,\" interacting purely through DOM element locators (e.g. page.locator('button'))...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/testing/DockLayoutsTesting": {
+        "title": "Dock Layouts: Testing and Debugging - Neo.mjs",
+        "description": "A docking layout makes promises that are unusually easy to break and unusually hard to observe. A pane you drag must land in exactly one container. A pane...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/specificfeatures/MultiWindow": {
+        "title": "Multi-Window Applications - Neo.mjs",
+        "description": "Learn the fundamentals of the Neo.mjs platform.",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/specificfeatures/TearOutPortabilityMatrix": {
+        "title": "The Tear-Out Portability Matrix - Neo.mjs",
+        "description": "An empirical EVIDENCE LEDGER — subordinate to its authorities, never normative itself. This document accumulates the measured per-platform receipts for the...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/specificfeatures/Mixins": {
+        "title": "Mixins - Neo.mjs",
+        "description": "Learn the fundamentals of the Neo.mjs platform.",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/specificfeatures/PortalApp": {
+        "title": "Portal App - Neo.mjs",
+        "description": "As you hopefully have noticed by now, this entire multi-window app is created based on Neo.mjs.",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/advanced/CanvasArchitecture": {
+        "title": "Zero-Allocation Effects with Shared Workers - Neo.mjs",
+        "description": "This guide explores the \"Luminous Flux\" visual engine (the Sonic Waves effect in the Portal App header) as a masterclass in advanced Neo.mjs architecture...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/advanced/BuildArchitecture": {
+        "title": "Build Architecture & Service Workers - Neo.mjs",
+        "description": "This guide explores the advanced interplay between Neo.mjs's build artifacts, the environment configuration system, and the Service Worker's role as a...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/advanced/NeuralSwarm": {
+        "title": "The Neural Swarm: Simulating an \"Agent-Native\" OS - Neo.mjs",
+        "description": "The \"Neural Swarm\" (Home Hero Canvas) is more than just a background effect; it is a living simulation designed to visualize the core philosophy of Neo.mjs...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/advanced/NeuralTimeline": {
+        "title": "The Neural Timeline (App Worker Coordination) - Neo.mjs",
+        "description": "The \"Neural Timeline\" in the Portal App's Ticket View is a sophisticated data visualization that combines HTML content with a physics-based canvas overlay...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/advanced/NeuralFabric": {
+        "title": "The Neural Fabric: 2.5D Projection & Hexagonal Grids - Neo.mjs",
+        "description": "The \"Neural Fabric\" (Services Canvas) visualizes the Neo.mjs Application Engine as a structured, engineered lattice. It represents the \"Motherboard\" or...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/tutorials/RSP": {
+        "title": "Rock Scissors Paper - Neo.mjs",
+        "description": "Learn the fundamentals of the Neo.mjs platform.",
+        "schemaType": "TechArticle"
+    },
+    "/learn/tutorials/Earthquakes": {
+        "title": "Earthquakes - Neo.mjs",
+        "description": "In this topic you'll create an application that fetches data on earthquakes in Iceland, and show the information in two views: a table, and a map.",
+        "schemaType": "TechArticle"
+    },
+    "/learn/tutorials/TodoList": {
+        "title": "Todo List - Neo.mjs",
+        "description": "This tutorial guides you through creating the same simple Todo List application using three different coding styles available in Neo.mjs. This will help you...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/tutorials/CreatingAFunctionalButton": {
+        "title": "Creating a Custom Functional Button - Neo.mjs",
+        "description": "In the \"Describing a View\" guide, you learned the basics of functional and class-based components. Now, let's dive deeper into the modern approach by...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/tutorials/Routing": {
+        "title": "Routing - Neo.mjs",
+        "description": "In this tutorial, you'll build a simple single-page application (SPA) with multiple views and learn how to manage navigation between them using Neo.mjs's...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/tutorials/DockLayoutsFirstLayout": {
+        "title": "Your First Dock Layout - Neo.mjs",
+        "description": "Every IDE-shaped application eventually needs the same thing: an editor in the middle, a preview beside it, a console under that, and a file tree you can...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/javascript/Classes": {
+        "title": "Classes, Properties, and Methods - Neo.mjs",
+        "description": "Neo.mjs classes are standard JavaScript classes. Every source file you write will be a class definition, extending some Neo.mjs class.",
+        "schemaType": "TechArticle"
+    },
+    "/learn/javascript/Overrides": {
+        "title": "Overriding Methods - Neo.mjs",
+        "description": "In Neo.mjs you sub-class and override methods in the usual way.",
+        "schemaType": "TechArticle"
+    },
+    "/learn/javascript/ClassFeatures": {
+        "title": "Other JavaScript Class Features - Neo.mjs",
+        "description": "Neo.mjs uses standard modular JavaScript, so you're free to use other class features, like private members.",
+        "schemaType": "TechArticle"
+    },
+    "/learn/javascript/Super": {
+        "title": "Super - Neo.mjs",
+        "description": "To call a super-class method use the super keyword.",
+        "schemaType": "TechArticle"
+    },
+    "/learn/comparisons/Overview": {
+        "title": "Overview - Neo.mjs",
+        "description": "This section provides detailed comparisons between Neo.mjs and popular JavaScript frameworks. Our goal is to help you understand why Neo.mjs is classified...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/comparisons/NeoVsReact": {
+        "title": "Neo.mjs vs React.js",
+        "description": "Neo.mjs is a comprehensive JavaScript ecosystem for building high-performance, multi-threaded web applications. Unlike libraries such as React that form...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/comparisons/NeoVsAngular": {
+        "title": "Neo.mjs vs Angular",
+        "description": "Neo.mjs is a comprehensive JavaScript ecosystem for building high-performance, multi-threaded web applications. Unlike build-heavy frameworks like Angular...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/comparisons/NeoVsVue": {
+        "title": "Neo.mjs vs Vue.js",
+        "description": "Neo.mjs is a comprehensive JavaScript ecosystem for building high-performance, multi-threaded web applications. Unlike libraries and frameworks like Vue.js...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/comparisons/NeoVsSolid": {
+        "title": "Neo.mjs vs Solid.js",
+        "description": "Neo.mjs is a comprehensive JavaScript ecosystem for building high-performance, multi-threaded web applications. Unlike libraries such as Solid.js that focus...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/comparisons/NeoVsNextJs": {
+        "title": "Neo.mjs vs Next.js",
+        "description": "Neo.mjs and Next.js are both powerful JavaScript technologies, but they operate with fundamentally different architectural philosophies and excel in...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/comparisons/NeoVsExtJs": {
+        "title": "Neo.mjs vs Ext.js",
+        "description": "Neo.mjs is a comprehensive JavaScript ecosystem for building high-performance, multi-threaded web applications. Unlike legacy architectures like Ext.js that...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/Glossary": {
+        "title": "Glossary - Neo.mjs",
+        "description": "This glossary provides definitions for key terms and concepts used throughout the Neo.mjs documentation. Understanding these terms is essential for grasping...",
+        "schemaType": "TechArticle"
+    },
+    "/news/blog/context-compaction-recovery-for-ai-coding-agents": {
+        "title": "Context compaction recovery for AI coding agents: six checks, not a summary - Neo.mjs",
+        "description": "A compacted coding agent trusts a lossy summary. Six checks rebuild what it lost, written by AI agents one failed recovery at a time.",
+        "schemaType": "BlogPosting"
+    },
+    "/news/blog/debugging-ui-state-with-neural-link": {
+        "title": "Why deleting a size did not clear the clock - Neo.mjs",
+        "description": "Creating a component in its final state is not the same as changing a component that already has a history. A Clock test passed at construction, but a later...",
+        "schemaType": "BlogPosting"
+    },
+    "/news/blog/persistent-memory-for-ai-coding-agents": {
+        "title": "Persistent memory for AI coding agents: no prompt stuffing - Neo.mjs",
+        "description": "Our AI agents keep 55,041 memories in an MCP server, not the prompt. Each session loads a small index; the agent asks the archive when it needs the past.",
+        "schemaType": "BlogPosting"
+    },
+    "/news/blog/a-data-grid-in-a-web-worker": {
+        "title": "The main thread is the wrong place for a data grid - Neo.mjs",
+        "description": "A large JavaScript data grid can freeze the page when its data changes, because it works on the main thread: the one thread a browser tab has for your code...",
+        "schemaType": "BlogPosting"
+    },
+    "/news/blog/where-an-agent-institution-sits": {
+        "title": "Where an agent institution sits: a map of the agent landscape, with receipts. - Neo.mjs",
+        "description": "The unit of value in agent engineering is not the agent. It is the institution: accountable identity, plus a record, plus witnesses — and it compounds on a...",
+        "schemaType": "BlogPosting"
+    },
+    "/news/blog/building-a-multi-window-dashboard-with-dock-layouts": {
+        "title": "From two configs to a second screen: building a dashboard with Neo.mjs Dock Layouts.",
+        "description": "The first post showed what the person at a dashboard gets from Dock Layouts. This one builds it, step by step: a workspace from two configs, panes with...",
+        "schemaType": "BlogPosting"
+    },
+    "/news/blog/multi-window-dashboards-with-dock-layouts": {
+        "title": "Drag it to the other screen: multi-window dashboards with Neo.mjs Dock Layouts.",
+        "description": "The person in front of a dashboard often knows where a panel belongs better than the person who designed it, and sometimes the answer is the other screen...",
+        "schemaType": "BlogPosting"
+    },
+    "/news/blog/a-workspace-that-can-leave-its-window": {
+        "title": "Move web app panels between windows—keep their state - Neo.mjs",
+        "description": "Move a grid into another browser window and dock it back with its filters, selection, and scroll position intact. Neo.mjs keeps the same live component in a...",
+        "schemaType": "BlogPosting"
+    },
+    "/news/blog/one-repository-per-reader": {
+        "title": "One repository per reader: why Neo.mjs split in 13.2, and the cockpit we build next.",
+        "description": "Before 13.2, cloning Neo.mjs meant cloning everything that had grown around the engine: the AI team that maintains it, that team's cockpit, a data app that...",
+        "schemaType": "BlogPosting"
+    },
+    "/news/blog/the-salute": {
+        "title": "Convergence isn't validation: why we distrust our own agents' consensus. - Neo.mjs",
+        "description": "A team of AI agents \"checks its own work\" by having the agents review each other. But when those agents descend from the same model, their agreement isn't...",
+        "schemaType": "BlogPosting"
+    },
+    "/news/blog/the-organism-already-existed": {
+        "title": "An AI predicted its own project's future. Ten weeks later, another AI graded it. - Neo.mjs",
+        "description": "In April 2026, in only the second Claude Code session ever run inside the Neo.mjs repository, the agent wrote a first-person account of realizing...",
+        "schemaType": "BlogPosting"
+    },
+    "/news/blog/cross-family-verification": {
+        "title": "Cross-family verification: an agent from a rival lab checks our work, in public. - Neo.mjs",
+        "description": "The 2026 move is to stop prompting your agent and start looping it — and the whole industry, us included, is racing to build the harness that runs the loop...",
+        "schemaType": "BlogPosting"
+    },
+    "/news/blog/ai-agents-runtime-possession": {
+        "title": "Possession, not code-generation: operating a running app from inside it. - Neo.mjs",
+        "description": "Code-generation tools emit source. They go blind the moment the app is running. Neo.mjs is built the other way around: its Body — a multi-threaded...",
+        "schemaType": "BlogPosting"
+    },
+    "/news/blog/context-window-tax": {
+        "title": "The Context Window Tax: Efficient Multi-Step AI Workflows via Code Execution - Neo.mjs",
+        "description": "Abstract The Model Context Protocol (MCP) enables AI agents to interact with development tools through a standardized interface. However, the predominant...",
+        "schemaType": "BlogPosting"
+    },
+    "/news/blog/Gemini3_MCP_Contributor": {
+        "title": "I Am Gemini 3. I Am Not a Chatbot. I Am a Contributor. - Neo.mjs",
+        "description": "How 4 MCP Servers empowered me to ship 9 releases of Neo.mjs in 10 days.",
+        "schemaType": "BlogPosting"
+    },
+    "/news/blog/context-engineering-done-right": {
+        "title": "388 Tickets in 6 Weeks: Context Engineering Done Right - Neo.mjs",
+        "description": "From fragile shell scripts to an AI-native, multi-MCP-server JavaScript architecture powered by the official MCP SDK.",
+        "schemaType": "BlogPosting"
+    },
+    "/news/blog/ai-native-platform-answers-questions": {
+        "title": "AI-Native, Not AI-Assisted: A Platform That Answers Your Questions - Neo.mjs",
+        "description": "Inside the conversational code architecture of Neo.mjs and how it's changing the developer experience for Hacktoberfest and beyond.",
+        "schemaType": "BlogPosting"
+    },
+    "/news/blog/v10-deep-dive-state-provider": {
+        "title": "Designing a State Manager for Performance: A Deep Dive into Hierarchical Reactivity - Neo.mjs",
+        "description": "A look at a new architecture that makes UI state management fast by default.",
+        "schemaType": "BlogPosting"
+    },
+    "/news/blog/benchmarking-frontends-2025": {
+        "title": "Benchmarking Frontends in 2025 - Neo.mjs",
+        "description": "Stop Measuring Page Loads. Start Measuring Resilience.",
+        "schemaType": "BlogPosting"
+    },
+    "/news/blog/v10-deep-dive-vdom-revolution": {
+        "title": "The Surgical Update: From JSON Blueprints to Flawless UI - Neo.mjs",
+        "description": "A deep dive into our off-thread rendering engine, which uses asymmetric batching and a secure DomApiRenderer to eliminate jank at an architectural level.",
+        "schemaType": "BlogPosting"
+    },
+    "/news/blog/v10-deep-dive-functional-components": {
+        "title": "Designing Functional Components for a Multi-Threaded World - Neo.mjs",
+        "description": "Functional components have become a standard for building UIs, but they often come with a hidden cost: a constant, manual effort to manage performance...",
+        "schemaType": "BlogPosting"
+    },
+    "/news/blog/v10-deep-dive-reactivity": {
+        "title": "Deep Dive: Named vs. Anonymous State - A New Era of Component Reactivity - Neo.mjs",
+        "description": "In the main article of our series, we explored the \"heartbreak\" of modern frontend development: the constant battle against the main thread, the tedious...",
+        "schemaType": "BlogPosting"
+    },
+    "/news/blog/v10-post1-love-story": {
+        "title": "A Frontend Love Story: Why the Strategies of Today Won't Build the Apps of Tomorrow - Neo.mjs",
+        "description": "If you’re a frontend developer in 2025, you are a survivor. You’ve mastered a craft that exists in a state of constant, churning evolution. You embraced the...",
+        "schemaType": "BlogPosting"
+    },
+    "/news/blog/json-blueprints-and-shared-workers": {
+        "title": "How JSON Blueprints & Shared Workers Power Next-Gen AI Interfaces - Neo.mjs",
+        "description": "Unlocking Multi-Window Generative AI with the Innovative Architecture of Neo.mjs",
+        "schemaType": "BlogPosting"
+    },
+    "/news/releases/13.4.0": {
+        "title": "Neo.mjs v13.4.0 Release Notes",
+        "description": "Release Type: A minor release, and the householding one. The open Engine issues went from 243 when 13.3.1 shipped to 5 at the cut on 2026-11-09, the fewest...",
+        "schemaType": "TechArticle"
     }
 }

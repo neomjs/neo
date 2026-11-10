@@ -12,6 +12,7 @@ import createTicketIndex           from './index/tickets.mjs';
 import {
     getLlmsFullTxt,
     getLlmsTxt,
+    getSeoJson,
     getSitemapIndexXml,
     getSitemapXml
 } from './seo/generate.mjs';
@@ -40,7 +41,7 @@ const DEFAULT_BASE_URL = 'https://neomjs.com';
  */
 
 /**
- * Rebuilds all content-derived Portal indexes and SEO outputs.
+ * @summary Rebuilds all content-derived Portal indexes and SEO outputs.
  * @param {Object} options
  * @param {String} options.corpusRoot The conversation corpus root (`--corpus-root`), holding `issues/`, `pulls/`,
  * `discussions/` and `archive/`. Required: the engine holds no corpus.
@@ -48,6 +49,7 @@ const DEFAULT_BASE_URL = 'https://neomjs.com';
  * @param {String} [options.releaseNotesRoot] The release-notes root (`--release-notes`); defaults to the engine's
  * `.github/RELEASE_NOTES` under `root`.
  * @param {String} [options.baseUrl='https://neomjs.com'] Canonical site URL for SEO outputs.
+ * @param {String} [options.seoJsonPath] Target route-metadata JSON path (`apps/portal/resources/data/seo.json`).
  * @param {String} [options.sitemapPath] Target sitemap index path (`apps/portal/sitemap.xml`).
  * @param {String} [options.sitemapCorePath] Target core sitemap path (`apps/portal/sitemap-core.xml`).
  * @param {String} [options.sitemapArchivePath] Target archive sitemap path (`apps/portal/sitemap-archive.xml`).
@@ -60,6 +62,7 @@ const DEFAULT_BASE_URL = 'https://neomjs.com';
  * @param {Function} [options.createDiscussionIndexFn] Test seam for the discussion index builder.
  * @param {Function} [options.createPullRequestIndexFn] Test seam for the pull-request index builder.
  * @param {Function} [options.createTicketIndexFn] Test seam for the ticket index builder.
+ * @param {Function} [options.getSeoJsonFn] Test seam for `seo.json` generation.
  * @param {Function} [options.getSitemapXmlFn] Test seam for sitemap `<urlset>` generation.
  * @param {Function} [options.getSitemapIndexXmlFn] Test seam for sitemap `<sitemapindex>` generation.
  * @param {Function} [options.getLlmsTxtFn] Test seam for llms.txt / llms-all.txt generation.
@@ -73,6 +76,7 @@ async function rebuildContentIndexesAndSeo({
     root                     = process.cwd(),
     releaseNotesRoot         = getEngineReleaseNotesRoot(root),
     baseUrl                  = DEFAULT_BASE_URL,
+    seoJsonPath              = path.join(root, 'apps/portal/resources/data/seo.json'),
     sitemapPath              = path.join(root, 'apps/portal/sitemap.xml'),
     sitemapCorePath          = path.join(path.dirname(sitemapPath), 'sitemap-core.xml'),
     sitemapArchivePath       = path.join(path.dirname(sitemapPath), 'sitemap-archive.xml'),
@@ -85,6 +89,7 @@ async function rebuildContentIndexesAndSeo({
     createDiscussionIndexFn  = createDiscussionIndex,
     createPullRequestIndexFn = createPullRequestIndex,
     createTicketIndexFn      = createTicketIndex,
+    getSeoJsonFn             = getSeoJson,
     getSitemapXmlFn          = getSitemapXml,
     getSitemapIndexXmlFn     = getSitemapIndexXml,
     getLlmsTxtFn             = getLlmsTxt,
@@ -110,6 +115,14 @@ async function rebuildContentIndexesAndSeo({
     await createPullRequestIndexFn({corpusRoot});
     await createDiscussionIndexFn({corpusRoot});
     await createTicketIndexFn({corpusRoot});
+
+    const seoJson = await getSeoJsonFn({
+        releaseNotesRoot,
+        root,
+        seoJsonPath
+    });
+    writeFileSync(seoJsonPath, JSON.stringify(seoJson, null, 4) + '\n');
+    log(`Generated ${path.relative(root, seoJsonPath)}`);
 
     const sitemapCoreXml = await getSitemapXmlFn({
         baseUrl,
@@ -169,6 +182,7 @@ async function rebuildContentIndexesAndSeo({
         llmsAllPath,
         llmsFullPath,
         llmsPath,
+        seoJsonPath,
         sitemapArchivePath,
         sitemapCorePath,
         sitemapPath
