@@ -1,7 +1,7 @@
 import {expect, test} from '../../fixtures.mjs';
 
 const PORTAL = '/apps/portal/index.html',
-      FAMILY = '.portal-examples-grid-overview';
+      FAMILY = '.portal-examples-family-overview';
 
 /**
  * @summary Reads the mounted list from this page's App Worker, rather than a sibling Portal.
@@ -60,9 +60,43 @@ test.describe('Portal example catalog', () => {
     for (const viewport of [{width: 1440, height: 900}, {width: 390, height: 844}, {width: 844, height: 390}]) {
         test(`${viewport.width}px: Grid and Table features are visible and fit their cards`, async ({page, neuralLink}, testInfo) => {
             await page.setViewportSize(viewport);
-            await page.goto(`${PORTAL}#/examples/grid`);
+            const captureFeatured = viewport.width === 1440 || viewport.width === 390;
+            await page.goto(`${PORTAL}#/examples${captureFeatured ? '' : '/grid'}`);
             const app      = await neuralLink.connectToApp('Portal');
             const overview = page.locator(FAMILY);
+
+            if (captureFeatured) {
+                await expect(page.getByRole('tab')).toHaveText(['Featured', 'Grid & Table']);
+                const selectors = await app.queryComponent({reference: 'example-build-selector'}, ['id']);
+                const selector  = page.locator('.portal-examples-build-selector');
+                await expect(selector).toHaveAttribute('id', selectors[0].id);
+                await expect(selector.locator('.neo-button-glyph')).toBeVisible();
+                const tabClearance = await page.getByRole('tab').first().evaluate(node =>
+                    node.getBoundingClientRect().bottom - node.querySelector('.neo-button-glyph').getBoundingClientRect().bottom);
+                const control = await selector.evaluate(node => {
+                    const button = node.getBoundingClientRect(),
+                          glyph  = node.querySelector('.neo-button-glyph').getBoundingClientRect();
+
+                    return {
+                        glyphBottom: glyph.bottom,
+                        clearance  : button.bottom - glyph.bottom,
+                        viewport   : window.innerHeight
+                    }
+                });
+                expect(control.glyphBottom).toBeLessThan(control.viewport);
+                expect(control.clearance).toBeGreaterThanOrEqual(tabClearance - 1);
+                await testInfo.attach('build-selector-geometry', {body: JSON.stringify({...control, tabClearance}), contentType: 'application/json'});
+                await page.locator('.portal-examples-list:visible .preview-image').evaluateAll(async nodes => {
+                    await Promise.allSettled(nodes.slice(0, 3).map(async node => {
+                        const image = new Image();
+                        image.src = getComputedStyle(node).backgroundImage.match(/url\("([^"]+)"\)/)[1];
+                        await image.decode()
+                    }))
+                });
+                await page.screenshot({path: testInfo.outputPath(`featured-after-${viewport.width}.png`)});
+
+                await page.getByRole('tab', {name: 'Grid & Table', exact: true}).click();
+            }
 
             await expect(overview.locator('.portal-example-feature')).toHaveCount(21);
             const columns = await overview.evaluate(node => getComputedStyle(node).gridTemplateColumns.split(' ').length);

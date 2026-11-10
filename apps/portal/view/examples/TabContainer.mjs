@@ -107,7 +107,7 @@ class ExamplesTabContainer extends TabContainer {
         return {
             module         : List,
             bind           : {catalogMode: data => data.catalogMode},
-            cls            : featured ? [] : ['portal-examples-family-overview', ...(definition.family === 'grid-table' ? ['portal-examples-grid-overview'] : [])],
+            cls            : featured ? [] : ['portal-examples-family-overview'],
             fallbackIconCls: definition.iconCls,
             reference      : 'examples-' + (featured ? 'featured' : definition.route.slice('/examples/'.length)) + '-list',
             store          : {
