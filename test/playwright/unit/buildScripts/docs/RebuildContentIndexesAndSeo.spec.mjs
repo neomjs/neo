@@ -38,12 +38,17 @@ test.describe('rebuildContentIndexesAndSeo (#13260)', () => {
             corpusRoot,
             releaseNotesRoot,
             baseUrl                 : 'https://example.test',
+            seoJsonPath             : '/repo/apps/portal/resources/data/seo.json',
             sitemapPath             : '/repo/apps/portal/sitemap.xml',
             llmsPath                : '/repo/apps/portal/llms.txt',
             createReleaseIndexFn    : record('releases'),
             createPullRequestIndexFn: record('pulls'),
             createDiscussionIndexFn : record('discussions'),
             createTicketIndexFn     : record('tickets'),
+            getSeoJsonFn            : async (...args) => {
+                calls.push({name: 'seo-json', args});
+                return {'/home': {title: 'Neo.mjs'}};
+            },
             getSitemapXmlFn         : record('sitemap'),
             getSitemapIndexXmlFn    : record('sitemap-index'),
             getLlmsTxtFn            : record('llms'),
@@ -57,6 +62,7 @@ test.describe('rebuildContentIndexesAndSeo (#13260)', () => {
             'pulls',
             'discussions',
             'tickets',
+            'seo-json',
             'sitemap',
             'sitemap',
             'sitemap-index',
@@ -67,6 +73,11 @@ test.describe('rebuildContentIndexesAndSeo (#13260)', () => {
         expect(calls.find(call => call.name === 'releases').args[0]).toEqual({releaseNotesRoot});
         expect(calls.filter(call => ['pulls', 'discussions', 'tickets'].includes(call.name)).map(call => call.args[0]))
             .toEqual([{corpusRoot}, {corpusRoot}, {corpusRoot}]);
+        expect(calls.find(call => call.name === 'seo-json').args[0]).toEqual({
+            releaseNotesRoot,
+            root       : '/repo',
+            seoJsonPath: '/repo/apps/portal/resources/data/seo.json'
+        });
 
         const sitemapCalls = calls.filter(call => call.name === 'sitemap');
         expect(sitemapCalls[0].args[0]).toEqual({
@@ -111,18 +122,20 @@ test.describe('rebuildContentIndexesAndSeo (#13260)', () => {
         });
 
         expect(writes).toEqual([
-            {filePath: '/repo/apps/portal/sitemap-core.xml',    content: 'sitemap-result'},
-            {filePath: '/repo/apps/portal/sitemap-archive.xml', content: 'sitemap-result'},
-            {filePath: '/repo/apps/portal/sitemap.xml',         content: 'sitemap-index-result'},
-            {filePath: '/repo/apps/portal/llms.txt',            content: 'llms-result'},
-            {filePath: '/repo/apps/portal/llms-full.txt',       content: 'llms-full-result'},
-            {filePath: '/repo/apps/portal/llms-all.txt',        content: 'llms-result'}
+            {filePath: '/repo/apps/portal/resources/data/seo.json', content: `${JSON.stringify({'/home': {title: 'Neo.mjs'}}, null, 4)}\n`},
+            {filePath: '/repo/apps/portal/sitemap-core.xml',        content: 'sitemap-result'},
+            {filePath: '/repo/apps/portal/sitemap-archive.xml',     content: 'sitemap-result'},
+            {filePath: '/repo/apps/portal/sitemap.xml',             content: 'sitemap-index-result'},
+            {filePath: '/repo/apps/portal/llms.txt',                content: 'llms-result'},
+            {filePath: '/repo/apps/portal/llms-full.txt',           content: 'llms-full-result'},
+            {filePath: '/repo/apps/portal/llms-all.txt',            content: 'llms-result'}
         ]);
         expect(result).toEqual({
             baseUrl           : 'https://example.test',
             llmsAllPath       : '/repo/apps/portal/llms-all.txt',
             llmsFullPath      : '/repo/apps/portal/llms-full.txt',
             llmsPath          : '/repo/apps/portal/llms.txt',
+            seoJsonPath       : '/repo/apps/portal/resources/data/seo.json',
             sitemapArchivePath: '/repo/apps/portal/sitemap-archive.xml',
             sitemapCorePath   : '/repo/apps/portal/sitemap-core.xml',
             sitemapPath       : '/repo/apps/portal/sitemap.xml'
@@ -145,6 +158,7 @@ test.describe('rebuildContentIndexesAndSeo (#13260)', () => {
             createPullRequestIndexFn: record('pulls'),
             createDiscussionIndexFn : record('discussions'),
             createTicketIndexFn     : record('tickets'),
+            getSeoJsonFn            : async () => ({}),
             getSitemapXmlFn         : async () => '<xml />',
             getSitemapIndexXmlFn    : async () => '<sitemapindex />',
             getLlmsTxtFn            : async () => 'llms',
@@ -171,6 +185,7 @@ test.describe('rebuildContentIndexesAndSeo (#13260)', () => {
             createPullRequestIndexFn: record('pulls'),
             createDiscussionIndexFn : record('discussions'),
             createTicketIndexFn     : record('tickets'),
+            getSeoJsonFn            : record('seo-json'),
             getSitemapXmlFn         : record('sitemap'),
             getSitemapIndexXmlFn    : record('sitemap-index'),
             getLlmsTxtFn            : record('llms'),
@@ -203,6 +218,7 @@ test.describe('rebuildContentIndexesAndSeo (#13260)', () => {
                 createPullRequestIndexFn: record('pulls'),
                 createDiscussionIndexFn : record('discussions'),
                 createTicketIndexFn     : record('tickets'),
+                getSeoJsonFn            : record('seo-json'),
                 getSitemapXmlFn         : record('sitemap'),
                 getSitemapIndexXmlFn    : record('sitemap-index'),
                 getLlmsTxtFn            : record('llms'),
@@ -229,6 +245,8 @@ test.describe('rebuildContentIndexesAndSeo (#13260)', () => {
                 'pulls',
                 'discussions',
                 'tickets',
+                'seo-json',
+                'write',
                 'sitemap',
                 'write',
                 'sitemap',
@@ -260,6 +278,7 @@ test.describe('rebuildContentIndexesAndSeo (#13260)', () => {
             createPullRequestIndexFn: async () => {},
             createDiscussionIndexFn : async () => {},
             createTicketIndexFn     : async () => {},
+            getSeoJsonFn            : async () => ({}),
             getSitemapXmlFn         : async () => '<xml />',
             getSitemapIndexXmlFn    : async () => '<sitemapindex />',
             getLlmsTxtFn            : async () => 'llms',
