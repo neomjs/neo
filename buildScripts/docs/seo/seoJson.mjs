@@ -360,6 +360,23 @@ export async function getPublishedExampleFamilies(options={}) {
 }
 
 /**
+ * @summary Collects populated `/examples/<family>` overview routes from
+ * `apps/portal/view/examples/TabContainer.mjs` (`familyDefinitions`) and `apps/portal/resources/data/examples.json`.
+ * @param {Object} [options={}]
+ * @returns {Promise<Array<{category: String, filePath: String, id: String, name: String}>>}
+ */
+export async function collectExampleFamilyRoutes(options={}) {
+    const families = await getPublishedExampleFamilies(options);
+
+    return families.map(family => ({
+        category: 'example-family',
+        filePath: family.filePath,
+        id      : family.route,
+        name    : `${family.title} Examples`
+    }));
+}
+
+/**
  * @summary Generates the route-keyed SEO metadata map (`apps/portal/resources/data/seo.json`) covering
  * curated top-level routes preserved from `seoJsonPath`, `learn/tree.json` leaves (`/learn/*`),
  * `blog.json` leaves (`/news/blog/*`), release-note leaves (`/news/releases/*`), and populated

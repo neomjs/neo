@@ -1,19 +1,15 @@
-import fs                                       from 'fs-extra';
-import path                                     from 'path';
-import {Command}                                from 'commander';
-import {execFileSync}                           from 'child_process';
-import fg                                       from 'fast-glob';
-import semver                                   from 'semver';
-import isEntryModule                            from '../../util/isEntryModule.mjs';
-import {requireContentRoot}                     from '../../util/contentRoot.mjs';
-import {sanitizeInput}                          from '../../util/sanitizer.mjs';
-import {
-    extractMarkdownSeoMetadata,
-    formatLearnSeoTitle,
-    getSeoJson
-} from './seoJson.mjs';
+import fs                                                                                                                                                      from 'fs-extra';
+import path                                                                                                                                                    from 'path';
+import {Command}                                                                                                                                               from 'commander';
+import {execFileSync}                                                                                                                                          from 'child_process';
+import fg                                                                                                                                                      from 'fast-glob';
+import semver                                                                                                                                                  from 'semver';
+import isEntryModule                                                                                                                                           from '../../util/isEntryModule.mjs';
+import {requireContentRoot}                                                                                                                                    from '../../util/contentRoot.mjs';
+import {sanitizeInput}                                                                                                                                         from '../../util/sanitizer.mjs';
+import {collectExampleFamilyRoutes, extractExampleFamilyDefinitions, extractMarkdownSeoMetadata, formatLearnSeoTitle, getPublishedExampleFamilies, getSeoJson} from './seoJson.mjs';
 
-export {extractMarkdownSeoMetadata, formatLearnSeoTitle, getSeoJson};
+export {collectExampleFamilyRoutes, extractExampleFamilyDefinitions, extractMarkdownSeoMetadata, formatLearnSeoTitle, getPublishedExampleFamilies, getSeoJson};
 
 /**
  * @module buildScripts.docs.seo.generate
@@ -38,13 +34,6 @@ const GIT_LOG_CHUNK_SIZE                          = 200;
 const STATUS_RENAME_CODES                         = new Set(['R', 'C']);
 const RELEASE_NOTE_NEO_GITHUB_SOURCE_LINK_PATTERN = /https:\/\/github\.com\/neomjs\/neo\/(?:blob|tree)\/([^/\s)]+)\/[^\s)]+/g;
 const RELEASE_NOTE_DISALLOWED_SOURCE_REF_PATTERN  = /^(?:main|v\d+(?:\.\d+){0,2}(?:[-.\w]*)?)$/;
-
-import {
-    extractExampleFamilyDefinitions,
-    getPublishedExampleFamilies
-} from './seoJson.mjs';
-
-export {extractExampleFamilyDefinitions, getPublishedExampleFamilies};
 
 // Top-level routes that don't map to content files
 const TOP_LEVEL_ROUTES = [
@@ -554,23 +543,6 @@ async function collectRoutesFromTree() {
 }
 
 /**
- * @summary Collects populated `/examples/<family>` overview routes from
- * `apps/portal/view/examples/TabContainer.mjs` (`familyDefinitions`) and `apps/portal/resources/data/examples.json`.
- * @param {Object} [options={}]
- * @returns {Promise<Array<{category: String, filePath: String, id: String, name: String}>>}
- */
-export async function collectExampleFamilyRoutes(options={}) {
-    const families = await getPublishedExampleFamilies(options);
-
-    return families.map(family => ({
-        category: 'example-family',
-        filePath: family.filePath,
-        id      : family.route,
-        name    : `${family.title} Examples`
-    }));
-}
-
-/**
  * Collects top-level routes that don't have content files.
  * @returns {Promise<Array<{id: String, filePath: String|null}>>}
  */
@@ -748,15 +720,7 @@ const collectDiscussionRoutes = root => collectNumberedCorpusRoutes(root, ['disc
  * @param {String} [roots.releaseNotesRoot] The release-notes root (`--release-notes`); required unless `onlyArchives` is true
  * @returns {Promise<Array<{id: String, filePath: String|null}>>}
  */
-async function collectAllRoutes({
-    corpusRoot,
-    examplesPath,
-    examplesTabContainerPath,
-    familyDefinitions,
-    includeArchives = true,
-    onlyArchives = false,
-    releaseNotesRoot
-}) {
+async function collectAllRoutes({corpusRoot, examplesPath, examplesTabContainerPath, familyDefinitions, includeArchives = true, onlyArchives = false, releaseNotesRoot}) {
     corpusRoot = requireContentRoot(corpusRoot, '--corpus-root', 'generate-seo-files');
 
     if (!onlyArchives) {
@@ -768,11 +732,7 @@ async function collectAllRoutes({
 
     return (await Promise.all([
         shouldCollectCore     ? collectTopLevelRoutes()                : [],
-        shouldCollectCore     ? collectExampleFamilyRoutes({
-            examplesPath,
-            examplesTabContainerPath,
-            familyDefinitions
-        })                                                             : [],
+        shouldCollectCore     ? collectExampleFamilyRoutes({examplesPath, examplesTabContainerPath, familyDefinitions}) : [],
         shouldCollectCore     ? collectRoutesFromTree()                : [],
         shouldCollectCore     ? collectExampleRoutes()                 : [],
         shouldCollectCore     ? collectReleaseRoutes(releaseNotesRoot) : [],
@@ -1185,14 +1145,8 @@ To access bundled versions, prefix paths with \`/dist/production/\`, \`/dist/dev
     if (exampleFamilyRoutes.length > 0 || exampleRoutes.length > 0) {
         content += `## Demo Apps and Examples\n\n`;
         const exampleUrls = [
-            ...exampleFamilyRoutes.map(route => {
-                const url = new URL(buildRouteFromId(route.id, null, false), baseUrl).toString();
-                return `- [${route.name}](${url})`;
-            }),
-            ...exampleRoutes.map(route => {
-                const url = new URL(route.id, baseUrl).toString();
-                return `- [${route.name}](${url})`;
-            })
+            ...exampleFamilyRoutes.map(route => `- [${route.name}](${new URL(buildRouteFromId(route.id, null, false), baseUrl).toString()})`),
+            ...exampleRoutes.map(route => `- [${route.name}](${new URL(route.id, baseUrl).toString()})`)
         ];
         content += exampleUrls.join('\n') + '\n\n';
     }
