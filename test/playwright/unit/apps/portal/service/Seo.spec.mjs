@@ -130,6 +130,28 @@ test.describe('Portal.service.Seo (#20688)', () => {
                 route      : '/news/tickets/123'
             });
 
+            const gridFamilyMeta = SeoService.getMetadata('/examples/grid');
+            expect(gridFamilyMeta).toEqual({
+                title      : 'Neo.mjs Grid & Table Examples',
+                description: expect.stringContaining('Explore 21 live Neo.mjs Grid & Table examples'),
+                schemaType : 'CollectionPage',
+                route      : '/examples/grid'
+            });
+
+            const unpopulatedFamilyMeta = SeoService.getMetadata('/examples/forms');
+            expect(unpopulatedFamilyMeta).toEqual({
+                title      : 'Neo.mjs Examples',
+                description: 'A collection of examples for the Neo.mjs platform.',
+                route      : '/examples'
+            });
+
+            const legacyBuildMeta = SeoService.getMetadata('/examples/dist_prod');
+            expect(legacyBuildMeta).toEqual({
+                title      : 'Neo.mjs Examples',
+                description: 'A collection of examples for the Neo.mjs platform.',
+                route      : '/examples'
+            });
+
             // 1. /home resolves canonicalUrl and og:url to https://neomjs.com/
             SeoService.onRouteChanged({
                 hashString: '/home',
@@ -220,6 +242,22 @@ test.describe('Portal.service.Seo (#20688)', () => {
             });
             expect(document.head.querySelector('script[type="application/ld+json"][data-schema-name="neo-route"]')).toBeNull();
             expect(document.head.querySelector('script[type="application/ld+json"][data-schema-name="neo-organism"]')).toBeTruthy();
+
+            // 4. Unpopulated /examples/<family> route canonicalizes to https://neomjs.com/examples
+            SeoService.onRouteChanged({
+                hashString: '/examples/forms',
+                windowId  : 'neo-window-1'
+            });
+
+            await expect.poll(() => updates.length).toBe(4);
+
+            expect(updates[3].canonicalUrl).toBe('https://neomjs.com/examples');
+            expect(updates[3].title).toBe('Neo.mjs Examples');
+            expect(updates[3].tags).toContainEqual({
+                tag     : 'meta',
+                property: 'og:url',
+                content : 'https://neomjs.com/examples'
+            });
         } finally {
             globalThis.fetch  = originalFetch;
             Neo.currentWorker = originalCurrentWorker

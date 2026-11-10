@@ -39,6 +39,13 @@ const STATUS_RENAME_CODES                         = new Set(['R', 'C']);
 const RELEASE_NOTE_NEO_GITHUB_SOURCE_LINK_PATTERN = /https:\/\/github\.com\/neomjs\/neo\/(?:blob|tree)\/([^/\s)]+)\/[^\s)]+/g;
 const RELEASE_NOTE_DISALLOWED_SOURCE_REF_PATTERN  = /^(?:main|v\d+(?:\.\d+){0,2}(?:[-.\w]*)?)$/;
 
+import {
+    extractExampleFamilyDefinitions,
+    getPublishedExampleFamilies
+} from './seoJson.mjs';
+
+export {extractExampleFamilyDefinitions, getPublishedExampleFamilies};
+
 // Top-level routes that don't map to content files
 const TOP_LEVEL_ROUTES = [
     '/about-us',
@@ -181,6 +188,10 @@ function getPriority(id) {
     }
 
     if (id.startsWith('/news/blog/')) {
+        return 0.9;
+    }
+
+    if (id.startsWith('/examples/') && !id.endsWith('.html')) {
         return 0.9;
     }
 
@@ -543,6 +554,23 @@ async function collectRoutesFromTree() {
 }
 
 /**
+ * @summary Collects populated `/examples/<family>` overview routes from
+ * `apps/portal/view/examples/TabContainer.mjs` (`familyDefinitions`) and `apps/portal/resources/data/examples.json`.
+ * @param {Object} [options={}]
+ * @returns {Promise<Array<{category: String, filePath: String, id: String, name: String}>>}
+ */
+export async function collectExampleFamilyRoutes(options={}) {
+    const families = await getPublishedExampleFamilies(options);
+
+    return families.map(family => ({
+        category: 'example-family',
+        filePath: family.filePath,
+        id      : family.route,
+        name    : `${family.title} Examples`
+    }));
+}
+
+/**
  * Collects top-level routes that don't have content files.
  * @returns {Promise<Array<{id: String, filePath: String|null}>>}
  */
@@ -712,12 +740,23 @@ const collectDiscussionRoutes = root => collectNumberedCorpusRoutes(root, ['disc
  * Collects all routes (top-level + content routes).
  * @param {Object} roots
  * @param {String} roots.corpusRoot The conversation corpus root (`--corpus-root`); required, since the engine holds no corpus
+ * @param {String} [roots.examplesPath] Optional custom `examples.json` path (test seam)
+ * @param {String} [roots.examplesTabContainerPath] Optional custom `TabContainer.mjs` path (test seam)
+ * @param {Array}  [roots.familyDefinitions] Optional custom `familyDefinitions` array (test seam)
  * @param {Boolean} [roots.includeArchives=true] Whether to collect ticket, pull-request, and discussion archive routes
  * @param {Boolean} [roots.onlyArchives=false] Whether to collect ONLY ticket, pull-request, and discussion archive routes
  * @param {String} [roots.releaseNotesRoot] The release-notes root (`--release-notes`); required unless `onlyArchives` is true
  * @returns {Promise<Array<{id: String, filePath: String|null}>>}
  */
-async function collectAllRoutes({corpusRoot, includeArchives = true, onlyArchives = false, releaseNotesRoot}) {
+async function collectAllRoutes({
+    corpusRoot,
+    examplesPath,
+    examplesTabContainerPath,
+    familyDefinitions,
+    includeArchives = true,
+    onlyArchives = false,
+    releaseNotesRoot
+}) {
     corpusRoot = requireContentRoot(corpusRoot, '--corpus-root', 'generate-seo-files');
 
     if (!onlyArchives) {
@@ -729,6 +768,11 @@ async function collectAllRoutes({corpusRoot, includeArchives = true, onlyArchive
 
     return (await Promise.all([
         shouldCollectCore     ? collectTopLevelRoutes()                : [],
+        shouldCollectCore     ? collectExampleFamilyRoutes({
+            examplesPath,
+            examplesTabContainerPath,
+            familyDefinitions
+        })                                                             : [],
         shouldCollectCore     ? collectRoutesFromTree()                : [],
         shouldCollectCore     ? collectExampleRoutes()                 : [],
         shouldCollectCore     ? collectReleaseRoutes(releaseNotesRoot) : [],
@@ -781,7 +825,7 @@ export async function getContentRoutes(options={}) {
             if (category === 'file') {
                 return id; // Already has leading slash
             }
-            if (category === 'top-level') {
+            if (category === 'top-level' || category === 'example-family') {
                 return buildRouteFromId(id);
             }
             // category === 'tree'
@@ -815,7 +859,7 @@ export async function getContentRouteObjects(options={}) {
                 };
             }
 
-            if (category === 'top-level') {
+            if (category === 'top-level' || category === 'example-family') {
                 return {
                     route          : buildRouteFromId(id, null, false),
                     clientSideRoute: buildRouteFromId(id, null, true)
@@ -922,7 +966,7 @@ export async function getSitemapXml(options={}) {
         let url;
         if (category === 'file') {
             url = new URL(id, normalizedBaseUrl).toString();
-        } else if (category === 'top-level') {
+        } else if (category === 'top-level' || category === 'example-family') {
             const route = buildRouteFromId(id, null, false);
             url = new URL(route, normalizedBaseUrl).toString();
         } else { // tree
@@ -1109,14 +1153,15 @@ To access bundled versions, prefix paths with \`/dist/production/\`, \`/dist/dev
         }
     }
 
-    const topLevelRoutes   = allRoutes.filter(route => route.category === 'top-level');
-    const releaseRoutes    = allRoutes.filter(route => route.category === 'release-notes');
-    const blogRoutes       = allRoutes.filter(route => route.category === 'blog');
-    const ticketRoutes     = allRoutes.filter(route => route.category === 'tickets');
-    const pullRoutes       = allRoutes.filter(route => route.category === 'pull-requests');
-    const discussionRoutes = allRoutes.filter(route => route.category === 'discussions');
-    const exampleRoutes    = allRoutes.filter(route => route.category === 'file');
-    const contentRoutes    = allRoutes.filter(route => route.category === 'tree');
+    const topLevelRoutes      = allRoutes.filter(route => route.category === 'top-level');
+    const exampleFamilyRoutes = allRoutes.filter(route => route.category === 'example-family');
+    const releaseRoutes       = allRoutes.filter(route => route.category === 'release-notes');
+    const blogRoutes          = allRoutes.filter(route => route.category === 'blog');
+    const ticketRoutes        = allRoutes.filter(route => route.category === 'tickets');
+    const pullRoutes          = allRoutes.filter(route => route.category === 'pull-requests');
+    const discussionRoutes    = allRoutes.filter(route => route.category === 'discussions');
+    const exampleRoutes       = allRoutes.filter(route => route.category === 'file');
+    const contentRoutes       = allRoutes.filter(route => route.category === 'tree');
 
     content += `## Main Pages\n\n`;
     const topLevelUrls = topLevelRoutes.map(route => {
@@ -1137,12 +1182,18 @@ To access bundled versions, prefix paths with \`/dist/production/\`, \`/dist/dev
     });
     content += topLevelUrls.join('\n') + '\n\n';
 
-    if (exampleRoutes.length > 0) {
+    if (exampleFamilyRoutes.length > 0 || exampleRoutes.length > 0) {
         content += `## Demo Apps and Examples\n\n`;
-        const exampleUrls = exampleRoutes.map(route => {
-            const url = new URL(route.id, baseUrl).toString();
-            return `- [${route.name}](${url})`;
-        });
+        const exampleUrls = [
+            ...exampleFamilyRoutes.map(route => {
+                const url = new URL(buildRouteFromId(route.id, null, false), baseUrl).toString();
+                return `- [${route.name}](${url})`;
+            }),
+            ...exampleRoutes.map(route => {
+                const url = new URL(route.id, baseUrl).toString();
+                return `- [${route.name}](${url})`;
+            })
+        ];
         content += exampleUrls.join('\n') + '\n\n';
     }
 
@@ -1432,12 +1483,15 @@ if (isEntryModule(import.meta.url)) {
 }
 
 export default {
+    collectExampleFamilyRoutes,
+    extractExampleFamilyDefinitions,
     extractMarkdownSeoMetadata,
     getContentRoutes,
     getContentRouteObjects,
     getContentUrls,
     getDisallowedReleaseNoteGithubLinks,
     getLatestSitemapLastmod,
+    getPublishedExampleFamilies,
     getSeoJson,
     getSitemapIndexXml,
     getSitemapXml,

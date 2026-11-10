@@ -1,6 +1,7 @@
-import fg   from 'fast-glob';
-import fs   from 'fs-extra';
-import path from 'path';
+import * as acorn from 'acorn';
+import fg         from 'fast-glob';
+import fs         from 'fs-extra';
+import path       from 'path';
 
 /**
  * @module buildScripts.docs.seo.seoJson
@@ -210,12 +211,165 @@ export function extractMarkdownSeoMetadata(rawContent='', options={}) {
 }
 
 /**
+ * @summary Extracts the `familyDefinitions` config array from `apps/portal/view/examples/TabContainer.mjs`
+ * via AST parsing so `TabContainer.mjs` remains the single source of truth without booting the UI runtime.
+ * @param {String} [source='']
+ * @returns {Array<{family: String|null, title: String, route: String, iconCls?: String}>}
+ */
+export function extractExampleFamilyDefinitions(source='') {
+    if (!source || typeof source !== 'string') {
+        return [];
+    }
+
+    const ast         = acorn.parse(source, {ecmaVersion: 'latest', sourceType: 'module'});
+    const definitions = [];
+
+    function walk(node) {
+        if (!node || typeof node !== 'object') {
+            return;
+        }
+
+        const keyName = node.key?.name ?? node.key?.value;
+
+        if (
+            (node.type === 'Property' || node.type === 'PropertyDefinition') &&
+            keyName === 'familyDefinitions' &&
+            node.value?.type === 'ArrayExpression'
+        ) {
+            for (const element of node.value.elements) {
+                if (element?.type !== 'ObjectExpression') {
+                    continue;
+                }
+
+                const entry = {};
+
+                for (const prop of element.properties) {
+                    if (prop?.type !== 'Property') {
+                        continue;
+                    }
+
+                    const propKey = prop.key?.name ?? prop.key?.value;
+
+                    if (propKey && prop.value?.type === 'Literal') {
+                        entry[propKey] = prop.value.value;
+                    }
+                }
+
+                if (entry.route && entry.title) {
+                    definitions.push({
+                        family : entry.family ?? null,
+                        iconCls: entry.iconCls,
+                        route  : entry.route,
+                        title  : entry.title
+                    });
+                }
+            }
+
+            return;
+        }
+
+        for (const value of Object.values(node)) {
+            if (Array.isArray(value)) {
+                value.forEach(walk);
+            } else if (value && typeof value.type === 'string') {
+                walk(value);
+            }
+        }
+    }
+
+    walk(ast);
+
+    return definitions;
+}
+
+/**
+ * @summary Builds a concise SEO description for a published `/examples/<family>` overview route
+ * from its non-hidden `examples.json` catalog records.
+ * @param {String} title
+ * @param {Object[]} [records=[]]
+ * @returns {String}
+ */
+function formatExampleFamilyDescription(title='', records=[]) {
+    const count      = records.length;
+    const highlights = records
+        .map(record => stripInlineMarkdown(record?.feature || record?.name || ''))
+        .filter(Boolean)
+        .slice(0, 3);
+    const summary    = highlights.length > 0
+        ? `: ${highlights.join('; ')}.`
+        : '.';
+
+    return truncateDescription(
+        `Explore ${count} live Neo.mjs ${title} ${count === 1 ? 'example' : 'examples'}${summary}`,
+        160
+    );
+}
+
+/**
+ * @summary Returns the ordered example family definitions (`family !== null`) from
+ * `apps/portal/view/examples/TabContainer.mjs` that have at least one non-hidden record in
+ * `apps/portal/resources/data/examples.json`.
+ * @param {Object} [options={}]
+ * @param {String} [options.examplesPath]
+ * @param {String} [options.examplesTabContainerPath]
+ * @param {Array<{family: String|null, title: String, route: String, iconCls?: String}>} [options.familyDefinitions]
+ * @param {String} [options.root=ROOT_DIR]
+ * @returns {Promise<Array<{family: String, filePath: String, iconCls?: String, records: Object[], route: String, title: String}>>}
+ */
+export async function getPublishedExampleFamilies(options={}) {
+    const {
+        root                     = ROOT_DIR,
+        examplesPath             = path.resolve(root, 'apps/portal/resources/data/examples.json'),
+        examplesTabContainerPath,
+        familyDefinitions
+    } = options;
+
+    if (!(await fs.pathExists(examplesPath))) {
+        return [];
+    }
+
+    let definitions = Array.isArray(familyDefinitions) ? familyDefinitions : null;
+
+    if (!definitions) {
+        const candidatePath = examplesTabContainerPath || path.resolve(root, 'apps/portal/view/examples/TabContainer.mjs');
+        const resolvedPath  = (await fs.pathExists(candidatePath))
+            ? candidatePath
+            : path.resolve(ROOT_DIR, 'apps/portal/view/examples/TabContainer.mjs');
+
+        definitions = (await fs.pathExists(resolvedPath))
+            ? extractExampleFamilyDefinitions(await fs.readFile(resolvedPath, 'utf-8'))
+            : [];
+    }
+
+    if (definitions.length === 0) {
+        return [];
+    }
+
+    const examplesRaw = await fs.readJSON(examplesPath);
+    const records     = (Array.isArray(examplesRaw) ? examplesRaw : Array.isArray(examplesRaw?.data) ? examplesRaw.data : [])
+        .filter(record => record && !record.hidden);
+
+    return definitions
+        .filter(definition => definition?.family && definition?.route)
+        .map(definition => ({
+            ...definition,
+            filePath: examplesPath,
+            records : records.filter(record => record.family === definition.family)
+        }))
+        .filter(definition => definition.records.length > 0);
+}
+
+/**
  * @summary Generates the route-keyed SEO metadata map (`apps/portal/resources/data/seo.json`) covering
  * curated top-level routes preserved from `seoJsonPath`, `learn/tree.json` leaves (`/learn/*`),
- * `blog.json` leaves (`/news/blog/*`), and release-note leaves (`/news/releases/*`).
+ * `blog.json` leaves (`/news/blog/*`), release-note leaves (`/news/releases/*`), and populated
+ * `/examples/<family>` overview routes.
  * @param {Object} [options={}]
  * @param {String} [options.basePath='/learn']
  * @param {String} [options.blogIndexPath]
+ * @param {String} [options.examplesPath]
+ * @param {String} [options.examplesTabContainerPath]
+ * @param {Array<{family: String|null, title: String, route: String, iconCls?: String}>} [options.familyDefinitions]
  * @param {String} [options.learnDir]
  * @param {String} [options.releaseNotesRoot]
  * @param {String} [options.releasesPath]
@@ -226,14 +380,17 @@ export function extractMarkdownSeoMetadata(rawContent='', options={}) {
  */
 export async function getSeoJson(options={}) {
     const {
-        basePath         = DEFAULT_BASE_PATH,
-        root             = ROOT_DIR,
-        learnDir         = path.resolve(root, 'learn'),
-        treeFilePath     = path.join(learnDir, 'tree.json'),
-        blogIndexPath    = path.resolve(root, 'apps/portal/resources/data/blog.json'),
-        releasesPath     = path.resolve(root, 'apps/portal/resources/data/releases.json'),
-        releaseNotesRoot = path.resolve(root, '.github/RELEASE_NOTES'),
-        seoJsonPath      = path.resolve(root, 'apps/portal/resources/data/seo.json')
+        basePath                 = DEFAULT_BASE_PATH,
+        root                     = ROOT_DIR,
+        learnDir                 = path.resolve(root, 'learn'),
+        treeFilePath             = path.join(learnDir, 'tree.json'),
+        blogIndexPath            = path.resolve(root, 'apps/portal/resources/data/blog.json'),
+        examplesPath             = path.resolve(root, 'apps/portal/resources/data/examples.json'),
+        examplesTabContainerPath,
+        familyDefinitions,
+        releasesPath             = path.resolve(root, 'apps/portal/resources/data/releases.json'),
+        releaseNotesRoot         = path.resolve(root, '.github/RELEASE_NOTES'),
+        seoJsonPath              = path.resolve(root, 'apps/portal/resources/data/seo.json')
     } = options;
 
     const normalizedBase = basePath.startsWith('/') ? basePath : `/${basePath}`;
@@ -246,6 +403,7 @@ export async function getSeoJson(options={}) {
         for (const [route, meta] of Object.entries(existingSeo || {})) {
             if (
                 !route.startsWith(`${cleanBase}/`) &&
+                !route.startsWith('/examples/') &&
                 !route.startsWith('/news/blog/') &&
                 !route.startsWith('/news/releases/')
             ) {
@@ -358,6 +516,21 @@ export async function getSeoJson(options={}) {
                 schemaType: 'TechArticle'
             };
         }
+    }
+
+    const publishedFamilies = await getPublishedExampleFamilies({
+        examplesPath,
+        examplesTabContainerPath,
+        familyDefinitions,
+        root
+    });
+
+    for (const family of publishedFamilies) {
+        seo[family.route] = {
+            title      : `Neo.mjs ${family.title} Examples`,
+            description: formatExampleFamilyDescription(family.title, family.records),
+            schemaType : 'CollectionPage'
+        };
     }
 
     return seo;

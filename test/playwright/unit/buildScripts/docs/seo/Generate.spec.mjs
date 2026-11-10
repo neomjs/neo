@@ -10,15 +10,19 @@ import {
     extractMarkdownSeoMetadata,
     formatLearnSeoTitle,
     getContentRoutes,
+    getContentRouteObjects,
     getDisallowedReleaseNoteGithubLinks,
     getExistingSitemapLastmodMap,
     getLatestSitemapLastmod,
     getLlmsFullTxt,
     getLlmsTxt,
+    getPublishedExampleFamilies,
     getReleaseNotePriority,
     getSeoJson,
     getSitemapIndexXml,
-    getSitemapXml
+    getSitemapXml,
+    collectExampleFamilyRoutes,
+    extractExampleFamilyDefinitions
 } from '../../../../../../buildScripts/docs/seo/generate.mjs';
 
 test.describe('docs SEO generator release-note link guard', () => {
@@ -236,6 +240,132 @@ test.describe('docs SEO generator blog routes (#19501)', () => {
 
         await expect(collectBlogRoutes(indexPath)).rejects.toThrow('blog/missing-post')
     })
+});
+
+test.describe('docs SEO generator example family routes (#20727)', () => {
+    let corpusRoot, releaseNotesRoot, tempDir;
+
+    test.beforeEach(async () => {
+        tempDir          = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-seo-example-families-'));
+        corpusRoot       = path.join(tempDir, 'corpus');
+        releaseNotesRoot = path.join(tempDir, 'notes');
+
+        await fs.ensureDir(corpusRoot);
+        await fs.outputFile(path.join(releaseNotesRoot, 'v13.4.0.md'), '# Release 13.4.0');
+    });
+
+    test.afterEach(async () => {
+        await fs.remove(tempDir);
+    });
+
+    test('extracts familyDefinitions from TabContainer.mjs without duplicating the table and emits only populated families', async () => {
+        const tabContainerSource = await fs.readFile(
+            path.resolve(process.cwd(), 'apps/portal/view/examples/TabContainer.mjs'),
+            'utf-8'
+        );
+        const definitions = extractExampleFamilyDefinitions(tabContainerSource);
+
+        expect(definitions.map(item => ({family: item.family, route: item.route, title: item.title}))).toEqual([
+            {family: null,           route: '/examples',              title: 'Featured'},
+            {family: 'grid-table',   route: '/examples/grid',         title: 'Grid & Table'},
+            {family: 'forms',        route: '/examples/forms',        title: 'Forms'},
+            {family: 'multi-window', route: '/examples/multi-window', title: 'Multi-Window'},
+            {family: 'calendar',     route: '/examples/calendar',     title: 'Calendar'},
+            {family: 'components',   route: '/examples/components',   title: 'Components'},
+            {family: 'state',        route: '/examples/state',        title: 'State & Data'}
+        ]);
+
+        const examplesPath = path.join(tempDir, 'examples.json');
+        const seoJsonPath  = path.join(tempDir, 'seo.json');
+
+        await fs.writeJSON(examplesPath, [
+            {
+                id     : 'grid-big-data',
+                name   : 'Buffered Data Grid with 5M cells',
+                family : 'grid-table',
+                feature: 'Buffered rendering in both directions'
+            },
+            {
+                id     : 'hidden-forms-demo',
+                name   : 'Hidden Forms Demo',
+                family : 'forms',
+                hidden : true,
+                feature: 'Must not publish an empty family tab'
+            }
+        ]);
+        await fs.writeJSON(seoJsonPath, {
+            '/examples/forms': {
+                title      : 'Stale Forms Entry',
+                description: 'Must be removed when forms has 0 visible records.',
+                schemaType : 'CollectionPage'
+            }
+        });
+
+        const published = await getPublishedExampleFamilies({examplesPath, root: tempDir});
+        expect(published.map(item => item.route)).toEqual(['/examples/grid']);
+
+        const familyRoutes = await collectExampleFamilyRoutes({examplesPath, root: tempDir});
+        expect(familyRoutes).toEqual([
+            {
+                category: 'example-family',
+                filePath: examplesPath,
+                id      : '/examples/grid',
+                name    : 'Grid & Table Examples'
+            }
+        ]);
+
+        const seoJson = await getSeoJson({
+            blogIndexPath   : path.join(tempDir, 'no-blog.json'),
+            examplesPath,
+            learnDir        : path.join(tempDir, 'no-learn'),
+            releaseNotesRoot: path.join(tempDir, 'no-notes'),
+            releasesPath    : path.join(tempDir, 'no-releases.json'),
+            root            : tempDir,
+            seoJsonPath,
+            treeFilePath    : path.join(tempDir, 'no-tree.json')
+        });
+
+        expect(seoJson['/examples/grid']).toEqual({
+            title      : 'Neo.mjs Grid & Table Examples',
+            description: 'Explore 1 live Neo.mjs Grid & Table example: Buffered rendering in both directions.',
+            schemaType : 'CollectionPage'
+        });
+        expect(seoJson['/examples/forms']).toBeUndefined();
+        expect(seoJson['/examples/multi-window']).toBeUndefined();
+        expect(seoJson['/examples/calendar']).toBeUndefined();
+        expect(seoJson['/examples/components']).toBeUndefined();
+        expect(seoJson['/examples/state']).toBeUndefined();
+
+        const roots = {
+            baseUrl       : 'https://neomjs.com/',
+            corpusRoot,
+            examplesPath,
+            includeLastmod: false,
+            releaseNotesRoot
+        };
+
+        const [routes, routeObjects, sitemap, llmsTxt] = await Promise.all([
+            getContentRoutes(roots),
+            getContentRouteObjects(roots),
+            getSitemapXml(roots),
+            getLlmsTxt(roots)
+        ]);
+
+        expect(routes).toContain('/#/examples/grid');
+        expect(routes).not.toContain('/#/examples/forms');
+        expect(routeObjects).toContainEqual({
+            route          : '/examples/grid',
+            clientSideRoute: '/#/examples/grid'
+        });
+        expect(routeObjects).not.toContainEqual({
+            route          : '/examples/forms',
+            clientSideRoute: '/#/examples/forms'
+        });
+        expect(sitemap).toContain('<loc>https://neomjs.com/examples/grid</loc>\n    <priority>0.9</priority>');
+        expect(sitemap).not.toContain('<loc>https://neomjs.com/examples/forms</loc>');
+        expect(llmsTxt).toContain('- [Grid & Table Examples](https://neomjs.com/examples/grid)');
+        expect(llmsTxt).not.toContain('https://neomjs.com/examples/forms');
+    });
 });
 
 test.describe('docs SEO generator archive exclusion (#20089)', () => {
