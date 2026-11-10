@@ -981,7 +981,7 @@ test.describe('Grid wrapText measurement — tree cells', () => {
         projector = Neo.create(Row, {appName: grid.appName, parentId: grid.body.id, windowId: grid.windowId});
 
         expect(projector.applyRendererOutput({
-            cache : {gridBody: grid.body, gridContainer: grid, store, selectedCells: [], measureOnly: true},
+            cache : {gridBody: grid.body, gridContainer: grid, store, measureOnly: true},
             cellId: `${projector.id}__measure`, column: grid.columns.get('name'), columnIndex: 0,
             record: store.get(20), rowIndex: 20, silent: true
         })).toBe(null);

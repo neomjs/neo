@@ -156,7 +156,7 @@ class Row extends Component {
      * @returns {Object} VDOM object for the cell
      */
     applyRendererOutput({cache, cellId, column, columnIndex, isLastColumn, record, rowIndex, silent}) {
-        let {colspanField, editsCells, gridBody, gridContainer, highlightModifiedCells, selectedCells, selectionModel, store} = cache;
+        let {cellSelectionModel, colspanField, editsCells, gridBody, gridContainer, highlightModifiedCells, selectionModel, store} = cache;
 
         // Premeasurement projects declared text only, without constructing component cells or an edit surface. A
         // component column declares its cells' depth, also when it builds them from `defaults` like column.Tree.
@@ -300,10 +300,7 @@ class Row extends Component {
             style          : rendererOutput.style || {}
         };
 
-        if (selectedCells?.length > 0 && selectedCells.includes(gridBody.getLogicalCellId(record, dataField))) {
-            cellCls.push('neo-selected');
-            cellConfig['aria-selected'] = true
-        }
+        cellSelectionModel?.applyCellSelection(cellConfig, record, dataField);
 
         // Only a grid that edits has cells to tell apart: while its editing is on, the others are read-only
         if (editsCells && !column.editable) {
@@ -405,9 +402,9 @@ class Row extends Component {
                 mountedColumns, rowHeight, store
             }              = gridBody,
             // selection is the View's: a row paints its projection and never holds or mutates it
-            view           = gridContainer?.view,
-            selectedCells  = view?.selectedCells ?? [],
-            selectionModel = view?.selectionModel ?? null,
+            view               = gridContainer?.view,
+            cellSelectionModel = view?.cellSelectionModel ?? null,
+            selectionModel     = view?.selectionModel ?? null,
             {rowGeometry}  = gridBody,
             recordId       = gridBody.getRecordId(record),
             countColumns   = columns.getCount(),
@@ -416,7 +413,7 @@ class Row extends Component {
             editsCells     = !!cellEditing && !cellEditing.disabled,
             ariaColumnOffset = gridContainer.getAriaColumnOffset(gridBody.region),
             ariaRow        = gridBody.isAriaLeadRegion,
-            cache          = {ariaColumnOffset, colspanField, columnPositions, editSession, editsCells, gridBody, gridContainer, highlightModifiedCells, selectedCells, selectionModel, store};
+            cache          = {ariaColumnOffset, cellSelectionModel, colspanField, columnPositions, editSession, editsCells, gridBody, gridContainer, highlightModifiedCells, selectionModel, store};
 
         Object.assign(vdom, {
             data : {recordId, rowId: rowIndex},
