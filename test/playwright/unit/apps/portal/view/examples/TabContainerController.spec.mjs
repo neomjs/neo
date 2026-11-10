@@ -216,6 +216,44 @@ test.describe('Portal examples canonical catalog', () => {
         list = null
     });
 
+    for (const {name, initial, targets, config, expected} of [
+        {name: 'recovers delayed targets and stops at success', initial: 0, targets: [0, 5], expected: 2},
+        {name: 'does not retry an initially successful registration', initial: 5, targets: [], expected: 0},
+        {name: 'bounds retries when targets never arrive', initial: 0, targets: [], expected: 10},
+        {name: 'honors an instance retry budget', initial: 0, targets: [], config: {intersectionObserverReconnects: 2}, expected: 2},
+        {name: 'allows retries to be disabled', initial: 0, targets: [], config: {intersectionObserverReconnects: 0}, expected: 0}
+    ]) {
+        test(`observer ${name}`, async () => {
+            const instance = createList(config),
+                  original = Neo.main.addon.IntersectionObserver,
+                  calls    = [];
+
+            instance.timeout = async () => {};
+            Neo.main.addon.IntersectionObserver = {
+                register: async () => ({countTargets: initial}),
+                observe : async options => {
+                    calls.push(options);
+                    return {countTargets: targets[calls.length - 1] || 0}
+                }
+            };
+
+            try {
+                await instance.registerIntersectionObserver();
+
+                expect(calls).toHaveLength(expected);
+                calls.forEach(options => expect(options).toEqual({
+                    id: instance.id, observe: ['.content'], windowId: instance.windowId
+                }))
+            } finally {
+                if (original === undefined) {
+                    delete Neo.main.addon.IntersectionObserver
+                } else {
+                    Neo.main.addon.IntersectionObserver = original
+                }
+            }
+        })
+    }
+
     test('loads 46 logical examples with unique stable string identities', () => {
         const {store} = createList(),
               ids     = [];
