@@ -7,9 +7,13 @@ import semver                                   from 'semver';
 import isEntryModule                            from '../../util/isEntryModule.mjs';
 import {requireContentRoot}                     from '../../util/contentRoot.mjs';
 import {sanitizeInput}                          from '../../util/sanitizer.mjs';
-import {extractMarkdownSeoMetadata, getSeoJson} from './seoJson.mjs';
+import {
+    extractMarkdownSeoMetadata,
+    formatLearnSeoTitle,
+    getSeoJson
+} from './seoJson.mjs';
 
-export {extractMarkdownSeoMetadata, getSeoJson};
+export {extractMarkdownSeoMetadata, formatLearnSeoTitle, getSeoJson};
 
 /**
  * @module buildScripts.docs.seo.generate
