@@ -9,7 +9,7 @@
             "path": null
         },
         {
-            "date": "2026-11-12",
+            "date": "2026-11-10",
             "id": "blog/json-ld-xss-json-stringify-in-a-script-tag",
             "isLeaf": true,
             "name": "JSON.stringify is not safe inside a script tag: the JSON-LD XSS and its one-line fix",
