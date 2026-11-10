@@ -186,6 +186,32 @@ test.describe('Neo.form.field.Picker outside-pointer dismissal', () => {
 });
 
 /**
+ * A field can unmount with its picker open: a grid editor whose cell leaves the row pool does. The picker closes through
+ * `hidden`, whose `hiddenChange` is what `pickerIsMounted` follows, so no later close is a no-op and Escape is free.
+ */
+test.describe('Neo.form.field.Picker unmount', () => {
+    test('a field unmounted with its picker open closes it through hidden, and Escape passes on', async () => {
+        const field  = createField(),
+              escape = {};
+
+        field.mounted = true;
+        field.showPicker();
+        await field.picker.mountFlight;
+
+        expect(field.pickerIsMounted).toBe(true);
+
+        field.mounted = false;
+
+        expect(field.picker.hidden).toBe(true);
+        expect(field.pickerIsMounted, 'the field heard its picker close').toBe(false);
+        expect(field.onKeyDownEscape(escape), 'Escape passes on to the field host').toBeUndefined();
+        expect(escape.cancelBubble).toBeUndefined();
+
+        field.destroy()
+    })
+});
+
+/**
  * Enter opens a closed picker unless `showPickerOnEnter` is off, which is how a grid editor leaves Enter to the grid's
  * commit. Date and Time override `onKeyDownEnter` and reach the switch through `super`.
  */

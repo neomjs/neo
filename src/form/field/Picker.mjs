@@ -125,14 +125,14 @@ class Picker extends Text {
     }
 
     /**
-     * Triggered after the mounted config got changed
+     * Triggered after the mounted config got changed. Unmounting closes an open picker via `hidePicker()`
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
      */
     afterSetMounted(value, oldValue) {
         if (value === false && oldValue && this.pickerIsMounted) {
-            this.picker.hide()
+            this.hidePicker()
         }
 
         if (value === false && oldValue !== undefined) {
