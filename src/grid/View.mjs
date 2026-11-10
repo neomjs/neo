@@ -116,6 +116,7 @@ class View extends Base {
          * The current scroll top position of the grid view: the logical one, which counts every row, see
          * {@link #pageOffset}
          * @member {Number} scrollTop_=0
+         * @reactive
          */
         scrollTop_: 0,
         /**
