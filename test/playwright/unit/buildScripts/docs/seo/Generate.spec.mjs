@@ -8,6 +8,7 @@ import {
     assertStableReleaseNoteGithubLinks,
     collectBlogRoutes,
     extractMarkdownSeoMetadata,
+    formatLearnSeoTitle,
     getContentRoutes,
     getDisallowedReleaseNoteGithubLinks,
     getExistingSitemapLastmodMap,
@@ -498,5 +499,99 @@ test.describe('docs SEO generator archive exclusion (#20089)', () => {
             title      : 'Custom Guide - Neo.mjs',
             description: 'This paragraph explains how multi-threaded UI rendering keeps the main thread responsive under load.'
         });
+    });
+
+    test('formatLearnSeoTitle and getSeoJson apply /learn/* search-intent title qualifiers (#20715)', async () => {
+        expect(formatLearnSeoTitle('Overview', '/learn/comparisons/Overview')).toBe(
+            'JavaScript Framework Comparisons (React, Angular, Vue, Solid vs Neo.mjs) | Neo.mjs'
+        );
+        expect(formatLearnSeoTitle('Neo.mjs vs React.js', '/learn/comparisons/NeoVsReact')).toBe(
+            'Neo.mjs vs React.js — Multi-Threaded JavaScript UI Comparison | Neo.mjs'
+        );
+        expect(formatLearnSeoTitle('Extreme Speed', '/learn/benefits/body/Speed')).toBe(
+            'Extreme Speed — Multi-Threaded JavaScript Application Engine | Neo.mjs'
+        );
+        expect(formatLearnSeoTitle('The Application Engine for the AI Era', '/learn/benefits/body/ApplicationEngine')).toBe(
+            'The Application Engine for the AI Era - Neo.mjs'
+        );
+        expect(formatLearnSeoTitle('Core Agent Skills', '/learn/agentos/CoreSkills')).toBe(
+            'Core Agent Skills — AI Agent OS & Multi-Threaded Application Engine | Neo.mjs'
+        );
+        expect(formatLearnSeoTitle('Collections', '/learn/guides/datahandling/Collections')).toBe(
+            'Collections — Neo.mjs Developer Guide'
+        );
+        expect(formatLearnSeoTitle('Earthquakes', '/learn/tutorials/Earthquakes')).toBe(
+            'Earthquakes — Neo.mjs Tutorial | Neo.mjs'
+        );
+        expect(formatLearnSeoTitle('Setup', '/learn/gettingstarted/Setup')).toBe(
+            'Setup — Multi-Threaded JavaScript Application Engine | Neo.mjs'
+        );
+        expect(formatLearnSeoTitle('What Is Neo.mjs?', '/learn/benefits/Introduction')).toBe(
+            'What Is Neo.mjs?'
+        );
+        expect(formatLearnSeoTitle('Neural Link: The Possession Interface', '/learn/agentos/NeuralLink')).toBe(
+            'Neural Link: The Possession Interface - Neo.mjs'
+        );
+
+        const learnDir     = path.join(tempDir, 'learn-qualifiers');
+        const treeFilePath = path.join(learnDir, 'tree.json');
+        const seoJsonPath  = path.join(tempDir, 'seo-qualifiers.json');
+
+        await fs.writeJSON(seoJsonPath, {});
+        await fs.outputFile(path.join(learnDir, 'comparisons/Overview.md'), '# Overview\n\nFramework comparison matrix across modern JavaScript engines.');
+        await fs.outputFile(path.join(learnDir, 'comparisons/NeoVsReact.md'), '# Neo.mjs vs React.js\n\nComparing multi-threaded UI execution with React virtual DOM.');
+        await fs.outputFile(path.join(learnDir, 'benefits/body/Speed.md'), '# Extreme Speed\n\nOff-main-thread application worker execution keeps frames smooth.');
+        await fs.outputFile(path.join(learnDir, 'benefits/body/ApplicationEngine.md'), '# The Application Engine for the AI Era\n\nHeading already carries the category noun.');
+        await fs.outputFile(path.join(learnDir, 'agentos/CoreSkills.md'), '# Core Agent Skills\n\nProgressive disclosure skills for autonomous coding agents.');
+        await fs.outputFile(path.join(learnDir, 'guides/datahandling/Collections.md'), '# Collections\n\nIndexed, filterable, and sortable data collections.');
+        await fs.outputFile(path.join(learnDir, 'tutorials/Earthquakes.md'), '# Earthquakes\n\nStep-by-step multi-window geospatial application tutorial.');
+        await fs.outputFile(path.join(learnDir, 'gettingstarted/Setup.md'), '# Setup\n\nInstall and run a Neo.mjs workspace in under a minute.');
+        await fs.writeJSON(treeFilePath, {
+            data: [
+                {id: 'comparisons/Overview', isLeaf: true, name: 'Overview'},
+                {id: 'comparisons/NeoVsReact', isLeaf: true, name: 'Neo.mjs vs React.js'},
+                {id: 'benefits/body/Speed', isLeaf: true, name: 'Extreme Speed'},
+                {id: 'benefits/body/ApplicationEngine', isLeaf: true, name: 'Application Engine'},
+                {id: 'agentos/CoreSkills', isLeaf: true, name: 'Core Agent Skills'},
+                {id: 'guides/datahandling/Collections', isLeaf: true, name: 'Collections'},
+                {id: 'tutorials/Earthquakes', isLeaf: true, name: 'Earthquakes'},
+                {id: 'gettingstarted/Setup', isLeaf: true, name: 'Setup'}
+            ]
+        });
+
+        const fixtureSeo = await getSeoJson({
+            blogIndexPath   : path.join(tempDir, 'no-blog.json'),
+            learnDir,
+            releaseNotesRoot: path.join(tempDir, 'no-notes'),
+            releasesPath    : path.join(tempDir, 'no-releases.json'),
+            root            : tempDir,
+            seoJsonPath,
+            treeFilePath
+        });
+
+        expect(fixtureSeo['/learn/comparisons/Overview']?.title).toBe(
+            'JavaScript Framework Comparisons (React, Angular, Vue, Solid vs Neo.mjs) | Neo.mjs'
+        );
+        expect(fixtureSeo['/learn/comparisons/NeoVsReact']?.title).toBe(
+            'Neo.mjs vs React.js — Multi-Threaded JavaScript UI Comparison | Neo.mjs'
+        );
+        expect(fixtureSeo['/learn/benefits/body/Speed']?.title).toBe(
+            'Extreme Speed — Multi-Threaded JavaScript Application Engine | Neo.mjs'
+        );
+        expect(fixtureSeo['/learn/benefits/body/ApplicationEngine']?.title).toBe(
+            'The Application Engine for the AI Era - Neo.mjs'
+        );
+        expect(fixtureSeo['/learn/agentos/CoreSkills']?.title).toBe(
+            'Core Agent Skills — AI Agent OS & Multi-Threaded Application Engine | Neo.mjs'
+        );
+        expect(fixtureSeo['/learn/guides/datahandling/Collections']?.title).toBe(
+            'Collections — Neo.mjs Developer Guide'
+        );
+        expect(fixtureSeo['/learn/tutorials/Earthquakes']?.title).toBe(
+            'Earthquakes — Neo.mjs Tutorial | Neo.mjs'
+        );
+        expect(fixtureSeo['/learn/gettingstarted/Setup']?.title).toBe(
+            'Setup — Multi-Threaded JavaScript Application Engine | Neo.mjs'
+        );
     });
 });

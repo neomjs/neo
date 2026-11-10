@@ -40,7 +40,7 @@
         "description": "Build an app with Neo.mjs, explore persistent project memory for coding agents, join the public development work, or reach the maintainers directly."
     },
     "/learn/UsingTheseTopics": {
-        "title": "Using These Topics - Neo.mjs",
+        "title": "Using These Topics — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "Welcome to the Neo.mjs learning base! Neo.mjs is a complete application platform — 461 classes in 39 namespaces from grid, forms, calendar, and dashboard...",
         "schemaType": "TechArticle"
     },
@@ -60,107 +60,107 @@
         "schemaType": "TechArticle"
     },
     "/learn/benefits/body/ObjectPermanence": {
-        "title": "Object Permanence & Component Trees - Neo.mjs",
+        "title": "Object Permanence & Component Trees — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "Web UI development has long been trapped in a cycle of constant destruction. We build complex, stateful applications, but traditional Virtual DOM frameworks...",
         "schemaType": "TechArticle"
     },
     "/learn/benefits/body/JSONFirstUIs": {
-        "title": "JSON First UIs - Neo.mjs",
+        "title": "JSON First UIs — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "The original Virtual DOM was an attempt to decouple application logic from the slow, physical browser DOM. But in traditional, single-threaded frameworks...",
         "schemaType": "TechArticle"
     },
     "/learn/benefits/body/OffTheMainThread": {
-        "title": "Off the Main Thread - Neo.mjs",
+        "title": "Off the Main Thread — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "In case you are using a Mac, you can click on the top-left Apple Icon, then on \"About this Mac\" and it will show you something like:",
         "schemaType": "TechArticle"
     },
     "/learn/benefits/body/FourEnvironments": {
-        "title": "4 Environments - Neo.mjs",
+        "title": "4 Environments — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "Neo.mjs was the very first frontend platform, which enabled full support for a zero builds instant development mode, while sticking to the latest ECMAScript...",
         "schemaType": "TechArticle"
     },
     "/learn/benefits/body/ConfigSystem": {
-        "title": "Unified Config System - Neo.mjs",
+        "title": "Unified Config System — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "A Declarative Approach to Application Building",
         "schemaType": "TechArticle"
     },
     "/learn/benefits/body/RPCLayer": {
-        "title": "RPC Layer - Neo.mjs",
+        "title": "RPC Layer — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "In a multi-threaded architecture like Neo.mjs, efficient and seamless communication between different execution contexts (Web Workers, Main Thread, and even...",
         "schemaType": "TechArticle"
     },
     "/learn/benefits/body/Speed": {
-        "title": "Extreme Speed - Neo.mjs",
+        "title": "Extreme Speed — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "The Neo.mjs architecture leverages web workers to run application logic, data processing, and even parts of the rendering pipeline in parallel, on separate...",
         "schemaType": "TechArticle"
     },
     "/learn/benefits/body/MultiWindow": {
-        "title": "Multi-Window Applications - Neo.mjs",
+        "title": "Multi-Window Applications — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "Your users already work across screens. The customer record sits on one monitor and the ticket queue on the other; the chart goes up on the projector while...",
         "schemaType": "TechArticle"
     },
     "/learn/benefits/body/Quick": {
-        "title": "Quick Application Development - Neo.mjs",
+        "title": "Quick Application Development — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "In today's fast-paced development landscape, speed and efficiency are paramount. Neo.mjs is engineered to dramatically accelerate the application...",
         "schemaType": "TechArticle"
     },
     "/learn/benefits/body/Effort": {
-        "title": "Complexity and Effort - Neo.mjs",
+        "title": "Complexity and Effort — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "In the world of web development, the relationship between application complexity and the effort required to build and maintain it is rarely linear. As the...",
         "schemaType": "TechArticle"
     },
     "/learn/benefits/body/FormsEngine": {
-        "title": "Forms Engine - Neo.mjs",
+        "title": "Forms Engine — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "Building robust and user-friendly forms is often a significant challenge in web development. Traditional approaches can lead to complex state management...",
         "schemaType": "TechArticle"
     },
     "/learn/benefits/body/Features": {
-        "title": "Features and Benefits Summary - Neo.mjs",
+        "title": "Features and Benefits Summary — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "Neo.mjs is a complete application platform for every desktop and mobile web application. It ships more than 450 classes in 39 namespaces: the components...",
         "schemaType": "TechArticle"
     },
     "/learn/gettingstarted/Setup": {
-        "title": "Setup - Neo.mjs",
+        "title": "Setup — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "Setting up a Neo.mjs project is straightforward. The recommended method is to use npx neo-app, a command-line tool that generates a ready-to-use workspace...",
         "schemaType": "TechArticle"
     },
     "/learn/gettingstarted/Workspaces": {
-        "title": "Workspaces and Applications - Neo.mjs",
+        "title": "Workspaces and Applications — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "The purpose of this tutorial is to let you see the structure of a Neo.mjs workspace, and the structure of an application.",
         "schemaType": "TechArticle"
     },
     "/learn/gettingstarted/DescribingTheUI": {
-        "title": "Describing a View - Neo.mjs",
+        "title": "Describing a View — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "A Neo.mjs view is comprised of components and containers. A component is a visual widget, like a button, and a container is a visual collection of components.",
         "schemaType": "TechArticle"
     },
     "/learn/gettingstarted/Events": {
-        "title": "Events - Neo.mjs",
+        "title": "Events — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "All components fire events. For example, form fields fire a change event, various focus events, and others. Some other types fire events too, such as...",
         "schemaType": "TechArticle"
     },
     "/learn/gettingstarted/References": {
-        "title": "Component References - Neo.mjs",
+        "title": "Component References — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "Controllers often need to get references to components in order to update the UI or access component properties. There are two common ways of doing that:",
         "schemaType": "TechArticle"
     },
     "/learn/gettingstarted/Extending": {
-        "title": "Extending Classes - Neo.mjs",
+        "title": "Extending Classes — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "In theory, a Neo.mjs app could be defined in a single .mjs source file. But that would be very hard to maintain, and any reusable configs would have to be...",
         "schemaType": "TechArticle"
     },
     "/learn/gettingstarted/Config": {
-        "title": "Config - Neo.mjs",
+        "title": "Config — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "As you've probably noticed, Neo.mjs classes have a static config property.",
         "schemaType": "TechArticle"
     },
     "/learn/gettingstarted/ComponentModels": {
-        "title": "Shared Bindable Data - Neo.mjs",
+        "title": "Shared Bindable Data — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "Neo has a feature that allows shared, bindable, data.",
         "schemaType": "TechArticle"
     },
     "/learn/gettingstarted/CreatingYourFirstApp": {
-        "title": "Creating Your First App - Neo.mjs",
+        "title": "Creating Your First App — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "The purpose of this tutorial is to give you a simple overview of the Neo.mjs workspace and app structure.",
         "schemaType": "TechArticle"
     },
@@ -170,7 +170,7 @@
         "schemaType": "TechArticle"
     },
     "/learn/agentos/RunningTheFleetCockpit": {
-        "title": "Running the Fleet Cockpit - Neo.mjs",
+        "title": "Running the Fleet Cockpit — AI Agent OS & Multi-Threaded Application Engine | Neo.mjs",
         "description": "The Fleet Manager cockpit is the operator's mission-control surface: the live agent roster, the activity stream, per-agent drill-in, and the lifecycle...",
         "schemaType": "TechArticle"
     },
@@ -180,22 +180,22 @@
         "schemaType": "TechArticle"
     },
     "/learn/agentos/DockZoneModel": {
-        "title": "Dock-Zone Model Contract - Neo.mjs",
+        "title": "Dock-Zone Model Contract — AI Agent OS & Multi-Threaded Application Engine | Neo.mjs",
         "description": "@summary Minimal model contract for Neo's docking subsystem: a serializable dock-zone tree that composes with Neo's existing dashboard, layout, JSON...",
         "schemaType": "TechArticle"
     },
     "/learn/agentos/CoreSkills": {
-        "title": "Core Agent Skills - Neo.mjs",
+        "title": "Core Agent Skills — AI Agent OS & Multi-Threaded Application Engine | Neo.mjs",
         "description": "Most agent products try to make a model reliable by adding a longer prompt. Neo took the opposite route. When a maintainer failure repeats, the organism...",
         "schemaType": "TechArticle"
     },
     "/learn/agentos/ProgressiveDisclosureSkills": {
-        "title": "Progressive Disclosure Skills - Neo.mjs",
+        "title": "Progressive Disclosure Skills — AI Agent OS & Multi-Threaded Application Engine | Neo.mjs",
         "description": "The Neo Agent OS utilizes a Progressive Disclosure pattern for agent skills. Instead of loading every possible instruction set into the master system prompt...",
         "schemaType": "TechArticle"
     },
     "/learn/agentos/SeatMemoryLayer": {
-        "title": "The Seat Memory Layer - Neo.mjs",
+        "title": "The Seat Memory Layer — AI Agent OS & Multi-Threaded Application Engine | Neo.mjs",
         "description": "How every agent seat in the fleet is born with a durable, self-loading memory — and why the cap is the feature.",
         "schemaType": "TechArticle"
     },
@@ -210,7 +210,7 @@
         "schemaType": "TechArticle"
     },
     "/learn/agentos/decisions/0020-agent-harness-concept": {
-        "title": "ADR 0020 moved to Agent Institution - Neo.mjs",
+        "title": "ADR 0020 moved to Agent Institution — AI Agent OS & Multi-Threaded Application Engine | Neo.mjs",
         "description": "The Agent Harness concept record now lives with the product it governs: neomjs/neo-agent-institution · learn/agentos/decisions/0020-agent-harness-concept.md.",
         "schemaType": "TechArticle"
     },
@@ -230,22 +230,22 @@
         "schemaType": "TechArticle"
     },
     "/learn/agentos/decisions/0032-institution-cockpit-render-model": {
-        "title": "ADR 0032 moved to Agent Institution - Neo.mjs",
+        "title": "ADR 0032 moved to Agent Institution — AI Agent OS & Multi-Threaded Application Engine | Neo.mjs",
         "description": "The Institution-Cockpit render-model record now lives with the product it governs: neomjs/neo-agent-institution ·...",
         "schemaType": "TechArticle"
     },
     "/learn/agentos/decisions/0034-electron-shell-architecture": {
-        "title": "ADR 0034 moved to Agent Institution - Neo.mjs",
+        "title": "ADR 0034 moved to Agent Institution — AI Agent OS & Multi-Threaded Application Engine | Neo.mjs",
         "description": "The Electron shell architecture record now lives with the product it governs: neomjs/neo-agent-institution ·...",
         "schemaType": "TechArticle"
     },
     "/learn/agentos/decisions/0037-fleet-manager-outward-door-topology": {
-        "title": "ADR 0037 moved to Agent Institution - Neo.mjs",
+        "title": "ADR 0037 moved to Agent Institution — AI Agent OS & Multi-Threaded Application Engine | Neo.mjs",
         "description": "The Fleet Manager outward-door topology record now lives with the product it governs: neomjs/neo-agent-institution ·...",
         "schemaType": "TechArticle"
     },
     "/learn/agentos/decisions/0038-fm-client-topology": {
-        "title": "ADR 0038 moved to Agent Institution - Neo.mjs",
+        "title": "ADR 0038 moved to Agent Institution — AI Agent OS & Multi-Threaded Application Engine | Neo.mjs",
         "description": "The Fleet Manager client-topology record now lives with the product it governs: neomjs/neo-agent-institution ·...",
         "schemaType": "TechArticle"
     },
@@ -260,17 +260,17 @@
         "schemaType": "TechArticle"
     },
     "/learn/guides/fundamentals/InstanceLifecycle": {
-        "title": "Instance Lifecycle - Neo.mjs",
+        "title": "Instance Lifecycle — Neo.mjs Developer Guide",
         "description": "Understanding the lifecycle of a class instance in Neo.mjs is crucial for building robust and predictable applications. The engine provides a series of...",
         "schemaType": "TechArticle"
     },
     "/learn/guides/fundamentals/WorkerArchitecture": {
-        "title": "Worker Architecture & Messaging - Neo.mjs",
+        "title": "Worker Architecture & Messaging — Neo.mjs Developer Guide",
         "description": "Traditional web architectures face a fundamental constraint: everything competes for the same single thread. A heavy calculation locks your UI. A complex...",
         "schemaType": "TechArticle"
     },
     "/learn/guides/fundamentals/AsyncDestruction": {
-        "title": "Async Destruction & The Trap Pattern - Neo.mjs",
+        "title": "Async Destruction & The Trap Pattern — Neo.mjs Developer Guide",
         "description": "In single-page applications, handling the lifecycle of asynchronous operations is a critical challenge. A component might trigger a network request (like...",
         "schemaType": "TechArticle"
     },
@@ -280,7 +280,7 @@
         "schemaType": "TechArticle"
     },
     "/learn/guides/fundamentals/DeclarativeVDOMWithEffects": {
-        "title": "Declarative VDOM with Effects - Neo.mjs",
+        "title": "Declarative VDOM with Effects — Neo.mjs Developer Guide",
         "description": "Neo.mjs v10 introduces a powerful new declarative pattern for defining a component's internal Virtual DOM (VDOM), serving as an alternative to the...",
         "schemaType": "TechArticle"
     },
@@ -290,7 +290,7 @@
         "schemaType": "TechArticle"
     },
     "/learn/guides/fundamentals/ConfigSystemDeepDive": {
-        "title": "Config System Deep Dive - Neo.mjs",
+        "title": "Config System Deep Dive — Neo.mjs Developer Guide",
         "description": "Pre-requisite: It is highly recommended to study The Unified Class Config System first to understand the foundational concepts and benefits.",
         "schemaType": "TechArticle"
     },
@@ -300,7 +300,7 @@
         "schemaType": "TechArticle"
     },
     "/learn/guides/fundamentals/ExtendingNeoClasses": {
-        "title": "Extending Neo Classes - Neo.mjs",
+        "title": "Extending Neo Classes — Neo.mjs Developer Guide",
         "description": "Neo.mjs is built upon a robust and consistent class system. Understanding how to extend core classes is fundamental to building custom functionality...",
         "schemaType": "TechArticle"
     },
@@ -315,37 +315,37 @@
         "schemaType": "TechArticle"
     },
     "/learn/guides/coreengine/SetupClass": {
-        "title": "Class Compilation (Neo.setupClass) - Neo.mjs",
+        "title": "Class Compilation (Neo.setupClass) — Neo.mjs Developer Guide",
         "description": "To solve the constructor trap and enable declarative configurations, Neo.mjs must know exactly how a class is structured before it creates an instance. In...",
         "schemaType": "TechArticle"
     },
     "/learn/guides/coreengine/ConfigSystem": {
-        "title": "The Config System & Circular Dependencies - Neo.mjs",
+        "title": "The Config System & Circular Dependencies — Neo.mjs Developer Guide",
         "description": "With the class blueprint compiled and our reactive API (getters and setters) generated by Neo.setupClass, we face a complex runtime challenge. Complex user...",
         "schemaType": "TechArticle"
     },
     "/learn/guides/coreengine/Reactivity": {
-        "title": "Two-Tier Reactivity (Effects vs Hooks) - Neo.mjs",
+        "title": "Two-Tier Reactivity (Effects vs Hooks) — Neo.mjs Developer Guide",
         "description": "The core Config System and its configSymbol holding zone provide an incredibly robust engine for local, imperative state mutations. But a true platform...",
         "schemaType": "TechArticle"
     },
     "/learn/guides/coreengine/Lifecycle": {
-        "title": "Instance Lifecycle & initAsync - Neo.mjs",
+        "title": "Instance Lifecycle & initAsync — Neo.mjs Developer Guide",
         "description": "With our instance compiled by setupClass and wired with two-tier reactivity, it is logically complete. In a traditional, single-threaded JavaScript...",
         "schemaType": "TechArticle"
     },
     "/learn/guides/coreengine/Utilities": {
-        "title": "Core Utilities - Neo.mjs",
+        "title": "Core Utilities — Neo.mjs Developer Guide",
         "description": "To power an engine capable of processing 40,000 VDOM delta updates per second across multiple worker threads, the sophisticated core engine we've explored...",
         "schemaType": "TechArticle"
     },
     "/learn/guides/uibuildingblocks/ComponentsAndContainers": {
-        "title": "Component and Container Basics - Neo.mjs",
+        "title": "Component and Container Basics — Neo.mjs Developer Guide",
         "description": "Neo.mjs views are made up of components and containers.",
         "schemaType": "TechArticle"
     },
     "/learn/guides/uibuildingblocks/Layouts": {
-        "title": "Layouts - Neo.mjs",
+        "title": "Layouts — Neo.mjs Developer Guide",
         "description": "Layouts are fundamental to arranging components within your application's user interface. In Neo.mjs, layouts are managed declaratively through the layout...",
         "schemaType": "TechArticle"
     },
@@ -400,17 +400,17 @@
         "schemaType": "TechArticle"
     },
     "/learn/guides/uibuildingblocks/CustomComponents": {
-        "title": "Custom Components - Neo.mjs",
+        "title": "Custom Components — Neo.mjs Developer Guide",
         "description": "A major strength of Neo.mjs is its extensive library of components. In most cases, you can build sophisticated user interfaces simply by creating...",
         "schemaType": "TechArticle"
     },
     "/learn/guides/uibuildingblocks/WorkingWithVDom": {
-        "title": "Working with VDom - Neo.mjs",
+        "title": "Working with VDom — Neo.mjs Developer Guide",
         "description": "Target Audience: Developers building custom Neo.mjs components who need to work directly with the VDom layer for performance optimization, complex...",
         "schemaType": "TechArticle"
     },
     "/learn/guides/uibuildingblocks/HtmlTemplates": {
-        "title": "Using HTML Templates for VDOM - Neo.mjs",
+        "title": "Using HTML Templates for VDOM — Neo.mjs Developer Guide",
         "description": "This guide covers the purpose, syntax, and trade-offs of using tagged template literals (HTML-like syntax) to define VDOM structures in neo.mjs. This...",
         "schemaType": "TechArticle"
     },
@@ -425,17 +425,17 @@
         "schemaType": "TechArticle"
     },
     "/learn/guides/datahandling/DataPipelines": {
-        "title": "The Unified Data Pipeline Architecture - Neo.mjs",
+        "title": "The Unified Data Pipeline Architecture — Neo.mjs Developer Guide",
         "description": "Historically, frontend frameworks have handled local API requests (like fetching a JSON file) and remote procedure calls (RPC) to backend services using...",
         "schemaType": "TechArticle"
     },
     "/learn/guides/datahandling/Collections": {
-        "title": "Collections - Neo.mjs",
+        "title": "Collections — Neo.mjs Developer Guide",
         "description": "Neo.mjs provides a powerful and flexible Neo.collection.Base class for managing data. This guide will explore its features, including:",
         "schemaType": "TechArticle"
     },
     "/learn/guides/datahandling/Records": {
-        "title": "Records - Neo.mjs",
+        "title": "Records — Neo.mjs Developer Guide",
         "description": "In Neo.mjs, a Record is a super lightweight, reactive JavaScript object, dynamically created and structured according to a Neo.data.Model. Records provide a...",
         "schemaType": "TechArticle"
     },
@@ -445,57 +445,57 @@
         "schemaType": "TechArticle"
     },
     "/learn/guides/datahandling/DynamicGrids": {
-        "title": "Dynamic Grids & Virtualization - Neo.mjs",
+        "title": "Dynamic Grids & Virtualization — Neo.mjs Developer Guide",
         "description": "Neo.mjs Grids are designed for high performance with massive datasets. This is achieved through Virtualization (rendering only visible rows and columns) and...",
         "schemaType": "TechArticle"
     },
     "/learn/guides/datahandling/PooledGridAnimation": {
-        "title": "Pooled Grid Animation Contract - Neo.mjs",
+        "title": "Pooled Grid Animation Contract — Neo.mjs Developer Guide",
         "description": "Neo grids virtualize rows by recycling a fixed DOM pool. That is the right default for scrolling, but it changes the animation contract: row transitions...",
         "schemaType": "TechArticle"
     },
     "/learn/guides/datahandling/Streaming": {
-        "title": "Streaming Data & Progressive Rendering - Neo.mjs",
+        "title": "Streaming Data & Progressive Rendering — Neo.mjs Developer Guide",
         "description": "In traditional Single Page Applications (SPAs), loading a large dataset (e.g., 10,000+ rows) usually involves a \"Loading Spinner of Death.\" The application...",
         "schemaType": "TechArticle"
     },
     "/learn/guides/datahandling/Tables": {
-        "title": "Tables (Stores) - Neo.mjs",
+        "title": "Tables (Stores) — Neo.mjs Developer Guide",
         "description": "A task board starts with three rows. Then someone asks for an “open tasks” view, a priority order, an editor, and a count that stays correct when a task is...",
         "schemaType": "TechArticle"
     },
     "/learn/guides/datahandling/UsingStores": {
-        "title": "Using data.Store - Neo.mjs",
+        "title": "Using data.Store — Neo.mjs Developer Guide",
         "description": "A location picker and a grid can begin with the same list and still have different jobs. Someone types “Arizo” into the picker to find Arizona; the grid...",
         "schemaType": "TechArticle"
     },
     "/learn/guides/datahandling/TreeStore": {
-        "title": "TreeStore and Hierarchical Data - Neo.mjs",
+        "title": "TreeStore and Hierarchical Data — Neo.mjs Developer Guide",
         "description": "Neo.mjs provides high-performance support for hierarchical data through the Neo.data.TreeStore and Neo.data.TreeModel classes. This architecture was forged...",
         "schemaType": "TechArticle"
     },
     "/learn/guides/datahandling/StateProviders": {
-        "title": "Shared Bindable Data (State Providers) - Neo.mjs",
+        "title": "Shared Bindable Data (State Providers) — Neo.mjs Developer Guide",
         "description": "While individual Components can manage their own local state using the Class Config System, you will need a State Provider as soon as you want to share data...",
         "schemaType": "TechArticle"
     },
     "/learn/guides/userinteraction/Forms": {
-        "title": "User Input (Forms) - Neo.mjs",
+        "title": "User Input (Forms) — Neo.mjs Developer Guide",
         "description": "The Neo.mjs Forms Engine provides a powerful and flexible way to build user interfaces for data input and validation. This guide will walk you through the...",
         "schemaType": "TechArticle"
     },
     "/learn/guides/userinteraction/form_fields/ComboBox": {
-        "title": "ComboBox Field - Neo.mjs",
+        "title": "ComboBox Field — Neo.mjs Developer Guide",
         "description": "The Neo.form.field.ComboBox is a powerful and flexible input component that provides a dropdown list for selecting one item. It combines the functionality...",
         "schemaType": "TechArticle"
     },
     "/learn/guides/userinteraction/events/CustomEvents": {
-        "title": "Custom Events - Neo.mjs",
+        "title": "Custom Events — Neo.mjs Developer Guide",
         "description": "As you read in the Getting Started Events topic, components, stores, and many other objects fire events.",
         "schemaType": "TechArticle"
     },
     "/learn/guides/userinteraction/events/DomEvents": {
-        "title": "DOM Events - Neo.mjs",
+        "title": "DOM Events — Neo.mjs Developer Guide",
         "description": "By default, Neo.mjs will attach DOM event listeners for all common events to the document.body. You can the see the full list of event names inside...",
         "schemaType": "TechArticle"
     },
@@ -505,22 +505,22 @@
         "schemaType": "TechArticle"
     },
     "/learn/guides/testing/UnitTesting": {
-        "title": "Unit Testing with Playwright - Neo.mjs",
+        "title": "Unit Testing with Playwright — Neo.mjs Developer Guide",
         "description": "Neo.mjs uses a unique \"Single-Thread Simulation\" architecture for its unit tests. By running the core engine logic inside a single Node.js thread (via...",
         "schemaType": "TechArticle"
     },
     "/learn/guides/testing/ComponentTesting": {
-        "title": "Component Testing with Playwright - Neo.mjs",
+        "title": "Component Testing with Playwright — Neo.mjs Developer Guide",
         "description": "Component testing in Neo.mjs differs significantly from Unit Testing. While unit tests run in a simulated, single-thread Node.js environment, Component...",
         "schemaType": "TechArticle"
     },
     "/learn/guides/testing/Benchmarking": {
-        "title": "Benchmarking and Performance Testing - Neo.mjs",
+        "title": "Benchmarking and Performance Testing — Neo.mjs Developer Guide",
         "description": "In 2026, almost every frontend benchmark (Lighthouse, Core Web Vitals, Vercel Speed Insights) focuses entirely on Initial Page Load. They measure the...",
         "schemaType": "TechArticle"
     },
     "/learn/guides/testing/WhiteboxE2E": {
-        "title": "Whitebox E2E Testing with Neural Link - Neo.mjs",
+        "title": "Whitebox E2E Testing with Neural Link — Neo.mjs Developer Guide",
         "description": "Traditional end-to-end (E2E) testing treats the application as a \"black box,\" interacting purely through DOM element locators (e.g. page.locator('button'))...",
         "schemaType": "TechArticle"
     },
@@ -530,32 +530,32 @@
         "schemaType": "TechArticle"
     },
     "/learn/guides/specificfeatures/MultiWindow": {
-        "title": "Multi-Window Applications - Neo.mjs",
+        "title": "Multi-Window Applications — Neo.mjs Developer Guide",
         "description": "Learn the fundamentals of the Neo.mjs platform.",
         "schemaType": "TechArticle"
     },
     "/learn/guides/specificfeatures/TearOutPortabilityMatrix": {
-        "title": "The Tear-Out Portability Matrix - Neo.mjs",
+        "title": "The Tear-Out Portability Matrix — Neo.mjs Developer Guide",
         "description": "An empirical EVIDENCE LEDGER — subordinate to its authorities, never normative itself. This document accumulates the measured per-platform receipts for the...",
         "schemaType": "TechArticle"
     },
     "/learn/guides/specificfeatures/Mixins": {
-        "title": "Mixins - Neo.mjs",
+        "title": "Mixins — Neo.mjs Developer Guide",
         "description": "Learn the fundamentals of the Neo.mjs platform.",
         "schemaType": "TechArticle"
     },
     "/learn/guides/specificfeatures/PortalApp": {
-        "title": "Portal App - Neo.mjs",
+        "title": "Portal App — Neo.mjs Developer Guide",
         "description": "As you hopefully have noticed by now, this entire multi-window app is created based on Neo.mjs.",
         "schemaType": "TechArticle"
     },
     "/learn/guides/advanced/CanvasArchitecture": {
-        "title": "Zero-Allocation Effects with Shared Workers - Neo.mjs",
+        "title": "Zero-Allocation Effects with Shared Workers — Neo.mjs Developer Guide",
         "description": "This guide explores the \"Luminous Flux\" visual engine (the Sonic Waves effect in the Portal App header) as a masterclass in advanced Neo.mjs architecture...",
         "schemaType": "TechArticle"
     },
     "/learn/guides/advanced/BuildArchitecture": {
-        "title": "Build Architecture & Service Workers - Neo.mjs",
+        "title": "Build Architecture & Service Workers — Neo.mjs Developer Guide",
         "description": "This guide explores the advanced interplay between Neo.mjs's build artifacts, the environment configuration system, and the Service Worker's role as a...",
         "schemaType": "TechArticle"
     },
@@ -575,92 +575,92 @@
         "schemaType": "TechArticle"
     },
     "/learn/tutorials/RSP": {
-        "title": "Rock Scissors Paper - Neo.mjs",
+        "title": "Rock Scissors Paper — Neo.mjs Tutorial | Neo.mjs",
         "description": "Learn the fundamentals of the Neo.mjs platform.",
         "schemaType": "TechArticle"
     },
     "/learn/tutorials/Earthquakes": {
-        "title": "Earthquakes - Neo.mjs",
+        "title": "Earthquakes — Neo.mjs Tutorial | Neo.mjs",
         "description": "In this topic you'll create an application that fetches data on earthquakes in Iceland, and show the information in two views: a table, and a map.",
         "schemaType": "TechArticle"
     },
     "/learn/tutorials/TodoList": {
-        "title": "Todo List - Neo.mjs",
+        "title": "Todo List — Neo.mjs Tutorial | Neo.mjs",
         "description": "This tutorial guides you through creating the same simple Todo List application using three different coding styles available in Neo.mjs. This will help you...",
         "schemaType": "TechArticle"
     },
     "/learn/tutorials/CreatingAFunctionalButton": {
-        "title": "Creating a Custom Functional Button - Neo.mjs",
+        "title": "Creating a Custom Functional Button — Neo.mjs Tutorial | Neo.mjs",
         "description": "In the \"Describing a View\" guide, you learned the basics of functional and class-based components. Now, let's dive deeper into the modern approach by...",
         "schemaType": "TechArticle"
     },
     "/learn/tutorials/Routing": {
-        "title": "Routing - Neo.mjs",
+        "title": "Routing — Neo.mjs Tutorial | Neo.mjs",
         "description": "In this tutorial, you'll build a simple single-page application (SPA) with multiple views and learn how to manage navigation between them using Neo.mjs's...",
         "schemaType": "TechArticle"
     },
     "/learn/tutorials/DockLayoutsFirstLayout": {
-        "title": "Your First Dock Layout - Neo.mjs",
+        "title": "Your First Dock Layout — Neo.mjs Tutorial | Neo.mjs",
         "description": "Every IDE-shaped application eventually needs the same thing: an editor in the middle, a preview beside it, a console under that, and a file tree you can...",
         "schemaType": "TechArticle"
     },
     "/learn/javascript/Classes": {
-        "title": "Classes, Properties, and Methods - Neo.mjs",
+        "title": "Classes, Properties, and Methods — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "Neo.mjs classes are standard JavaScript classes. Every source file you write will be a class definition, extending some Neo.mjs class.",
         "schemaType": "TechArticle"
     },
     "/learn/javascript/Overrides": {
-        "title": "Overriding Methods - Neo.mjs",
+        "title": "Overriding Methods — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "In Neo.mjs you sub-class and override methods in the usual way.",
         "schemaType": "TechArticle"
     },
     "/learn/javascript/ClassFeatures": {
-        "title": "Other JavaScript Class Features - Neo.mjs",
+        "title": "Other JavaScript Class Features — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "Neo.mjs uses standard modular JavaScript, so you're free to use other class features, like private members.",
         "schemaType": "TechArticle"
     },
     "/learn/javascript/Super": {
-        "title": "Super - Neo.mjs",
+        "title": "Super — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "To call a super-class method use the super keyword.",
         "schemaType": "TechArticle"
     },
     "/learn/comparisons/Overview": {
-        "title": "Overview - Neo.mjs",
+        "title": "JavaScript Framework Comparisons (React, Angular, Vue, Solid vs Neo.mjs) | Neo.mjs",
         "description": "This section provides detailed comparisons between Neo.mjs and popular JavaScript frameworks. Our goal is to help you understand why Neo.mjs is classified...",
         "schemaType": "TechArticle"
     },
     "/learn/comparisons/NeoVsReact": {
-        "title": "Neo.mjs vs React.js",
+        "title": "Neo.mjs vs React.js — Multi-Threaded JavaScript UI Comparison | Neo.mjs",
         "description": "Neo.mjs is a comprehensive JavaScript ecosystem for building high-performance, multi-threaded web applications. Unlike libraries such as React that form...",
         "schemaType": "TechArticle"
     },
     "/learn/comparisons/NeoVsAngular": {
-        "title": "Neo.mjs vs Angular",
+        "title": "Neo.mjs vs Angular — Multi-Threaded JavaScript UI Comparison | Neo.mjs",
         "description": "Neo.mjs is a comprehensive JavaScript ecosystem for building high-performance, multi-threaded web applications. Unlike build-heavy frameworks like Angular...",
         "schemaType": "TechArticle"
     },
     "/learn/comparisons/NeoVsVue": {
-        "title": "Neo.mjs vs Vue.js",
+        "title": "Neo.mjs vs Vue.js — Multi-Threaded JavaScript UI Comparison | Neo.mjs",
         "description": "Neo.mjs is a comprehensive JavaScript ecosystem for building high-performance, multi-threaded web applications. Unlike libraries and frameworks like Vue.js...",
         "schemaType": "TechArticle"
     },
     "/learn/comparisons/NeoVsSolid": {
-        "title": "Neo.mjs vs Solid.js",
+        "title": "Neo.mjs vs Solid.js — Multi-Threaded JavaScript UI Comparison | Neo.mjs",
         "description": "Neo.mjs is a comprehensive JavaScript ecosystem for building high-performance, multi-threaded web applications. Unlike libraries such as Solid.js that focus...",
         "schemaType": "TechArticle"
     },
     "/learn/comparisons/NeoVsNextJs": {
-        "title": "Neo.mjs vs Next.js",
+        "title": "Neo.mjs vs Next.js — Multi-Threaded JavaScript UI Comparison | Neo.mjs",
         "description": "Neo.mjs and Next.js are both powerful JavaScript technologies, but they operate with fundamentally different architectural philosophies and excel in...",
         "schemaType": "TechArticle"
     },
     "/learn/comparisons/NeoVsExtJs": {
-        "title": "Neo.mjs vs Ext.js",
+        "title": "Neo.mjs vs Ext.js — Multi-Threaded JavaScript UI Comparison | Neo.mjs",
         "description": "Neo.mjs is a comprehensive JavaScript ecosystem for building high-performance, multi-threaded web applications. Unlike legacy architectures like Ext.js that...",
         "schemaType": "TechArticle"
     },
     "/learn/Glossary": {
-        "title": "Glossary - Neo.mjs",
+        "title": "Glossary — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "This glossary provides definitions for key terms and concepts used throughout the Neo.mjs documentation. Understanding these terms is essential for grasping...",
         "schemaType": "TechArticle"
     },
