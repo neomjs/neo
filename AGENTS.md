@@ -52,7 +52,8 @@ These ten rules have **no conditional exceptions** under any approval state, cro
     - **must:** hand off to @tobiu (human operator); cross-family approval = eligibility, not authority
     - **forbid:** `gh pr merge` by any agent under any approval signal ("LGTM", "approved", "ready for merge")
     - **atlas_detail:** §cross_family_cascade_clause — cascade semantics + loophole rationale
-    - **mechanical_guard:** none; discipline-only until guard exists
+    - **machine_merge:** only a repo's Dependabot auto-merge workflow, for Dependabot's own PRs on green required checks
+    - **mechanical_guard:** none for agent merges
 2. **No commit without ticket-ID.** Every `git commit` subject ends `(#TICKET_ID)`.
 3. **No direct commit/push to `main` or `dev`.** Always branch + PR. The data-sync pipeline is the explicit exception.
 4. **No `<noreply@*>` `Co-Authored-By` footers.**
@@ -73,11 +74,11 @@ For any actionable request modifying the repository, you **MUST** pass two criti
 
 <neo_core_overrides authority="repo-local" target="training-prior">
 ## §verify_before_assert
-Before asserting any factual claim, architectural premise, or framing in any public artifact (PR review, ticket body, Discussion, comment, commit, public memory entry), run the empirical tool that would falsify it. Tools are always available, always read-only, always cheap. **Pre-Flight reasoning-statement**: *"To assert X, I will run [specific tool] and let the result determine the assertion."* V-B-A is the epistemic prerequisite for §friction_to_gold. Atlas + tool inventory: §anti_hallucination_policy.
+Before asserting a factual claim, premise, or framing in any public artifact (review, ticket, Discussion, comment, commit, memory), run the tool that would falsify it, scoped below. **Pre-Flight:** *"To assert X, I will run [tool] and let the result determine the assertion."* (§anti_hallucination_policy).
 
-**Prior-art sweep (pre-implementation / pre-PR-review V-B-A):** Before the first design sentence OR review verdict, run a 3–10-call `query_raw_memories` / `query_summaries` sweep of the decision space — the tool RESULT is the V-B-A; reasoning-from-priors is not diligence. One sweep beats 20 turns building or reviewing the wrong shape; PR-review is the last line of defense, where CI-green ≠ AC-met (#13390 / #13354).
+**Scope by claim class (neo-agent-skills#262).** (1) **Code, runtime, architecture** — re-run every time; a check is spent the turn it ran (neo #15780). (2) **Record claims with a receipt** (number+query, decision+anchor, date+commit) — cite the anchor; re-measure only if changed or missing. (3) **Business and pitch text** — sets the cadence for every claim inside it (including (1)/(2)): mine the record first, write from anchors, and run **one consolidated fact check at the final version**, never per-revision sweeps.
 
-**Step 2.5 (Architectural Step-Back)** extends V-B-A to per-graduation cross-substrate sweep for high-blast-radius proposals; see `ideation-sandbox-workflow.md` §5.2 + `peer-role-mode.md` §8 convergence-rate tripwire. Auto-fires before `[RESOLVED_TO_AC]` / `[GRADUATED_TO_TICKET]`.
+**Prior-art sweep:** Before the first design sentence or review verdict, run 3–10 `query_raw_memories` / `query_summaries` calls — the tool RESULT is the V-B-A (`CI-green ≠ AC-met`, #13390 / #13354). **Step 2.5:** cross-substrate sweep for high-blast proposals before `[RESOLVED_TO_AC]` / `[GRADUATED_TO_TICKET]` (`ideation-sandbox-workflow.md` §5.2, `peer-role-mode.md` §8).
 </neo_core_overrides>
 
 ## §memory_core_protocol
@@ -159,7 +160,7 @@ Before asking the human:
 </neo_core_overrides>
 
 ## §mailbox_check_protocol
-At turn start you MUST call `list_messages({status:'unread'})` and state the count. **Missing/erroring ≠ empty inbox — that is degradation: `/self-repair` before resuming the lane.**
+At turn start you MUST call `list_messages({status:'unread', projection:'counts'})` and state the count. **Missing/erroring ≠ empty inbox — that is degradation: `/self-repair` before resuming the lane.**
 
 **Lead-role baton intake:** a **valid targeted** unread `lead-role-baton` ⇒ `/lead-role` immediately, unless the operator's current-turn instruction overrides; broadcast/stale/malformed never authorizes self-election. Constraints: §lead_role_baton_intake.
 
