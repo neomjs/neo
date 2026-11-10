@@ -76,42 +76,54 @@ function truncateDescription(text='', maxLength=160) {
  * @param {String} [baseTitle='']
  * @param {String} [route='']
  * @param {String} [suffix=' - Neo.mjs']
+ * @param {String} [basePath=DEFAULT_BASE_PATH]
  * @returns {String}
  */
-export function formatLearnSeoTitle(baseTitle='', route='', suffix=' - Neo.mjs') {
+export function formatLearnSeoTitle(baseTitle='', route='', suffix=' - Neo.mjs', basePath=DEFAULT_BASE_PATH) {
     const cleanTitle      = String(baseTitle || '').trim();
     const normalizedRoute = String(route || '').trim();
+    const normalizedBase  = String(basePath || DEFAULT_BASE_PATH).startsWith('/')
+        ? String(basePath || DEFAULT_BASE_PATH)
+        : `/${basePath}`;
+    const cleanBase    = normalizedBase.endsWith('/') ? normalizedBase.slice(0, -1) : normalizedBase;
+    const isLearnRoute = normalizedRoute.startsWith(`${cleanBase}/`) || normalizedRoute.startsWith('/learn/');
+    const relId        = normalizedRoute.startsWith(`${cleanBase}/`)
+        ? normalizedRoute.slice(cleanBase.length + 1)
+        : normalizedRoute.startsWith('/learn/')
+            ? normalizedRoute.slice('/learn/'.length)
+            : '';
 
-    if (/^\/learn\/comparisons\/overview$/i.test(normalizedRoute)) {
+    if (/^comparisons\/overview$/i.test(relId)) {
         return 'JavaScript Framework Comparisons (React, Angular, Vue, Solid vs Neo.mjs) | Neo.mjs';
     }
 
-    if (cleanTitle && cleanTitle.toLowerCase() !== 'neo.mjs' && normalizedRoute.startsWith('/learn/')) {
+    if (cleanTitle && cleanTitle.toLowerCase() !== 'neo.mjs' && isLearnRoute) {
         if (/\|\s*Neo\.mjs$/i.test(cleanTitle)) {
             return cleanTitle;
         }
 
         const hasDashQualifier = /(?:\s(?:—|--|-)\s|:\s)/.test(cleanTitle);
         const mentionsNeo      = /neo\.?mjs/i.test(cleanTitle);
+        const hasCategoryNoun  = /application\s+engine/i.test(cleanTitle);
 
-        if (/^\/learn\/comparisons\//i.test(normalizedRoute) && !hasDashQualifier && cleanTitle.length < 45) {
+        if (/^comparisons\//i.test(relId) && !hasDashQualifier && cleanTitle.length < 45) {
             return `${cleanTitle} — Multi-Threaded JavaScript UI Comparison | Neo.mjs`;
         }
 
-        if (!mentionsNeo && !hasDashQualifier && cleanTitle.length < 45) {
-            if (/^\/learn\/benefits\/body\//i.test(normalizedRoute)) {
+        if (!mentionsNeo && !hasDashQualifier && !hasCategoryNoun && cleanTitle.length < 45) {
+            if (/^benefits\/body\//i.test(relId)) {
                 return `${cleanTitle} — Multi-Threaded JavaScript Application Engine | Neo.mjs`;
             }
-            if (/^\/learn\/(?:benefits|agentos)\//i.test(normalizedRoute)) {
-                return `${cleanTitle} — AI Agent OS & Multi-Threaded Web Engine | Neo.mjs`;
+            if (/^(?:benefits|agentos)\//i.test(relId)) {
+                return `${cleanTitle} — AI Agent OS & Multi-Threaded Application Engine | Neo.mjs`;
             }
-            if (/^\/learn\/guides\//i.test(normalizedRoute)) {
+            if (/^guides\//i.test(relId)) {
                 return `${cleanTitle} — Neo.mjs Developer Guide`;
             }
-            if (/^\/learn\/tutorials\//i.test(normalizedRoute)) {
+            if (/^tutorials\//i.test(relId)) {
                 return `${cleanTitle} — Neo.mjs Tutorial | Neo.mjs`;
             }
-            return `${cleanTitle} — Multi-Threaded JavaScript UI Engine | Neo.mjs`;
+            return `${cleanTitle} — Multi-Threaded JavaScript Application Engine | Neo.mjs`;
         }
     }
 
@@ -122,6 +134,7 @@ export function formatLearnSeoTitle(baseTitle='', route='', suffix=' - Neo.mjs')
  * @summary Extracts a route-specific `title` and `description` from a Markdown document.
  * @param {String} rawContent
  * @param {Object} [options={}]
+ * @param {String} [options.basePath=DEFAULT_BASE_PATH]
  * @param {String} [options.fallbackDescription='Learn the fundamentals of the Neo.mjs platform.']
  * @param {String} [options.fallbackTitle='Neo.mjs']
  * @param {String} [options.route='']
@@ -130,6 +143,7 @@ export function formatLearnSeoTitle(baseTitle='', route='', suffix=' - Neo.mjs')
  */
 export function extractMarkdownSeoMetadata(rawContent='', options={}) {
     const {
+        basePath            = DEFAULT_BASE_PATH,
         fallbackDescription = 'Learn the fundamentals of the Neo.mjs platform.',
         fallbackTitle       = 'Neo.mjs',
         route               = '',
@@ -143,7 +157,7 @@ export function extractMarkdownSeoMetadata(rawContent='', options={}) {
 
     const h1Match   = withoutBlocks.match(/^#\s+(.+)$/m);
     const baseTitle = stripInlineMarkdown(h1Match ? h1Match[1] : fallbackTitle) || fallbackTitle;
-    const title     = formatLearnSeoTitle(baseTitle, route, suffix);
+    const title     = formatLearnSeoTitle(baseTitle, route, suffix, basePath);
 
     const withoutHeadings = withoutBlocks.replace(/^#+\s+.*$/gm, '');
     const blocks          = withoutHeadings
@@ -259,6 +273,7 @@ export async function getSeoJson(options={}) {
             const cleanId              = String(node.id).replace(/^\/+/, '');
             const route                = `${cleanBase}/${cleanId}`;
             const {title, description} = extractMarkdownSeoMetadata(rawContent, {
+                basePath           : cleanBase,
                 fallbackDescription: learnFallbackDescription,
                 fallbackTitle      : node.name || node.id,
                 route

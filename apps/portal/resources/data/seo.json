@@ -40,7 +40,7 @@
         "description": "Build an app with Neo.mjs, explore persistent project memory for coding agents, join the public development work, or reach the maintainers directly."
     },
     "/learn/UsingTheseTopics": {
-        "title": "Using These Topics — Multi-Threaded JavaScript UI Engine | Neo.mjs",
+        "title": "Using These Topics — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "Welcome to the Neo.mjs learning base! Neo.mjs is a complete application platform — 461 classes in 39 namespaces from grid, forms, calendar, and dashboard...",
         "schemaType": "TechArticle"
     },
@@ -55,7 +55,7 @@
         "schemaType": "TechArticle"
     },
     "/learn/benefits/body/ApplicationEngine": {
-        "title": "The Application Engine for the AI Era — Multi-Threaded JavaScript Application Engine | Neo.mjs",
+        "title": "The Application Engine for the AI Era - Neo.mjs",
         "description": "Traditional frameworks compile away. Engines stay alive.",
         "schemaType": "TechArticle"
     },
@@ -120,47 +120,47 @@
         "schemaType": "TechArticle"
     },
     "/learn/gettingstarted/Setup": {
-        "title": "Setup — Multi-Threaded JavaScript UI Engine | Neo.mjs",
+        "title": "Setup — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "Setting up a Neo.mjs project is straightforward. The recommended method is to use npx neo-app, a command-line tool that generates a ready-to-use workspace...",
         "schemaType": "TechArticle"
     },
     "/learn/gettingstarted/Workspaces": {
-        "title": "Workspaces and Applications — Multi-Threaded JavaScript UI Engine | Neo.mjs",
+        "title": "Workspaces and Applications — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "The purpose of this tutorial is to let you see the structure of a Neo.mjs workspace, and the structure of an application.",
         "schemaType": "TechArticle"
     },
     "/learn/gettingstarted/DescribingTheUI": {
-        "title": "Describing a View — Multi-Threaded JavaScript UI Engine | Neo.mjs",
+        "title": "Describing a View — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "A Neo.mjs view is comprised of components and containers. A component is a visual widget, like a button, and a container is a visual collection of components.",
         "schemaType": "TechArticle"
     },
     "/learn/gettingstarted/Events": {
-        "title": "Events — Multi-Threaded JavaScript UI Engine | Neo.mjs",
+        "title": "Events — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "All components fire events. For example, form fields fire a change event, various focus events, and others. Some other types fire events too, such as...",
         "schemaType": "TechArticle"
     },
     "/learn/gettingstarted/References": {
-        "title": "Component References — Multi-Threaded JavaScript UI Engine | Neo.mjs",
+        "title": "Component References — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "Controllers often need to get references to components in order to update the UI or access component properties. There are two common ways of doing that:",
         "schemaType": "TechArticle"
     },
     "/learn/gettingstarted/Extending": {
-        "title": "Extending Classes — Multi-Threaded JavaScript UI Engine | Neo.mjs",
+        "title": "Extending Classes — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "In theory, a Neo.mjs app could be defined in a single .mjs source file. But that would be very hard to maintain, and any reusable configs would have to be...",
         "schemaType": "TechArticle"
     },
     "/learn/gettingstarted/Config": {
-        "title": "Config — Multi-Threaded JavaScript UI Engine | Neo.mjs",
+        "title": "Config — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "As you've probably noticed, Neo.mjs classes have a static config property.",
         "schemaType": "TechArticle"
     },
     "/learn/gettingstarted/ComponentModels": {
-        "title": "Shared Bindable Data — Multi-Threaded JavaScript UI Engine | Neo.mjs",
+        "title": "Shared Bindable Data — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "Neo has a feature that allows shared, bindable, data.",
         "schemaType": "TechArticle"
     },
     "/learn/gettingstarted/CreatingYourFirstApp": {
-        "title": "Creating Your First App — Multi-Threaded JavaScript UI Engine | Neo.mjs",
+        "title": "Creating Your First App — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "The purpose of this tutorial is to give you a simple overview of the Neo.mjs workspace and app structure.",
         "schemaType": "TechArticle"
     },
@@ -170,7 +170,7 @@
         "schemaType": "TechArticle"
     },
     "/learn/agentos/RunningTheFleetCockpit": {
-        "title": "Running the Fleet Cockpit — AI Agent OS & Multi-Threaded Web Engine | Neo.mjs",
+        "title": "Running the Fleet Cockpit — AI Agent OS & Multi-Threaded Application Engine | Neo.mjs",
         "description": "The Fleet Manager cockpit is the operator's mission-control surface: the live agent roster, the activity stream, per-agent drill-in, and the lifecycle...",
         "schemaType": "TechArticle"
     },
@@ -180,22 +180,22 @@
         "schemaType": "TechArticle"
     },
     "/learn/agentos/DockZoneModel": {
-        "title": "Dock-Zone Model Contract — AI Agent OS & Multi-Threaded Web Engine | Neo.mjs",
+        "title": "Dock-Zone Model Contract — AI Agent OS & Multi-Threaded Application Engine | Neo.mjs",
         "description": "@summary Minimal model contract for Neo's docking subsystem: a serializable dock-zone tree that composes with Neo's existing dashboard, layout, JSON...",
         "schemaType": "TechArticle"
     },
     "/learn/agentos/CoreSkills": {
-        "title": "Core Agent Skills — AI Agent OS & Multi-Threaded Web Engine | Neo.mjs",
+        "title": "Core Agent Skills — AI Agent OS & Multi-Threaded Application Engine | Neo.mjs",
         "description": "Most agent products try to make a model reliable by adding a longer prompt. Neo took the opposite route. When a maintainer failure repeats, the organism...",
         "schemaType": "TechArticle"
     },
     "/learn/agentos/ProgressiveDisclosureSkills": {
-        "title": "Progressive Disclosure Skills — AI Agent OS & Multi-Threaded Web Engine | Neo.mjs",
+        "title": "Progressive Disclosure Skills — AI Agent OS & Multi-Threaded Application Engine | Neo.mjs",
         "description": "The Neo Agent OS utilizes a Progressive Disclosure pattern for agent skills. Instead of loading every possible instruction set into the master system prompt...",
         "schemaType": "TechArticle"
     },
     "/learn/agentos/SeatMemoryLayer": {
-        "title": "The Seat Memory Layer — AI Agent OS & Multi-Threaded Web Engine | Neo.mjs",
+        "title": "The Seat Memory Layer — AI Agent OS & Multi-Threaded Application Engine | Neo.mjs",
         "description": "How every agent seat in the fleet is born with a durable, self-loading memory — and why the cap is the feature.",
         "schemaType": "TechArticle"
     },
@@ -210,7 +210,7 @@
         "schemaType": "TechArticle"
     },
     "/learn/agentos/decisions/0020-agent-harness-concept": {
-        "title": "ADR 0020 moved to Agent Institution — AI Agent OS & Multi-Threaded Web Engine | Neo.mjs",
+        "title": "ADR 0020 moved to Agent Institution — AI Agent OS & Multi-Threaded Application Engine | Neo.mjs",
         "description": "The Agent Harness concept record now lives with the product it governs: neomjs/neo-agent-institution · learn/agentos/decisions/0020-agent-harness-concept.md.",
         "schemaType": "TechArticle"
     },
@@ -230,22 +230,22 @@
         "schemaType": "TechArticle"
     },
     "/learn/agentos/decisions/0032-institution-cockpit-render-model": {
-        "title": "ADR 0032 moved to Agent Institution — AI Agent OS & Multi-Threaded Web Engine | Neo.mjs",
+        "title": "ADR 0032 moved to Agent Institution — AI Agent OS & Multi-Threaded Application Engine | Neo.mjs",
         "description": "The Institution-Cockpit render-model record now lives with the product it governs: neomjs/neo-agent-institution ·...",
         "schemaType": "TechArticle"
     },
     "/learn/agentos/decisions/0034-electron-shell-architecture": {
-        "title": "ADR 0034 moved to Agent Institution — AI Agent OS & Multi-Threaded Web Engine | Neo.mjs",
+        "title": "ADR 0034 moved to Agent Institution — AI Agent OS & Multi-Threaded Application Engine | Neo.mjs",
         "description": "The Electron shell architecture record now lives with the product it governs: neomjs/neo-agent-institution ·...",
         "schemaType": "TechArticle"
     },
     "/learn/agentos/decisions/0037-fleet-manager-outward-door-topology": {
-        "title": "ADR 0037 moved to Agent Institution — AI Agent OS & Multi-Threaded Web Engine | Neo.mjs",
+        "title": "ADR 0037 moved to Agent Institution — AI Agent OS & Multi-Threaded Application Engine | Neo.mjs",
         "description": "The Fleet Manager outward-door topology record now lives with the product it governs: neomjs/neo-agent-institution ·...",
         "schemaType": "TechArticle"
     },
     "/learn/agentos/decisions/0038-fm-client-topology": {
-        "title": "ADR 0038 moved to Agent Institution — AI Agent OS & Multi-Threaded Web Engine | Neo.mjs",
+        "title": "ADR 0038 moved to Agent Institution — AI Agent OS & Multi-Threaded Application Engine | Neo.mjs",
         "description": "The Fleet Manager client-topology record now lives with the product it governs: neomjs/neo-agent-institution ·...",
         "schemaType": "TechArticle"
     },
@@ -605,22 +605,22 @@
         "schemaType": "TechArticle"
     },
     "/learn/javascript/Classes": {
-        "title": "Classes, Properties, and Methods — Multi-Threaded JavaScript UI Engine | Neo.mjs",
+        "title": "Classes, Properties, and Methods — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "Neo.mjs classes are standard JavaScript classes. Every source file you write will be a class definition, extending some Neo.mjs class.",
         "schemaType": "TechArticle"
     },
     "/learn/javascript/Overrides": {
-        "title": "Overriding Methods — Multi-Threaded JavaScript UI Engine | Neo.mjs",
+        "title": "Overriding Methods — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "In Neo.mjs you sub-class and override methods in the usual way.",
         "schemaType": "TechArticle"
     },
     "/learn/javascript/ClassFeatures": {
-        "title": "Other JavaScript Class Features — Multi-Threaded JavaScript UI Engine | Neo.mjs",
+        "title": "Other JavaScript Class Features — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "Neo.mjs uses standard modular JavaScript, so you're free to use other class features, like private members.",
         "schemaType": "TechArticle"
     },
     "/learn/javascript/Super": {
-        "title": "Super — Multi-Threaded JavaScript UI Engine | Neo.mjs",
+        "title": "Super — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "To call a super-class method use the super keyword.",
         "schemaType": "TechArticle"
     },
@@ -660,7 +660,7 @@
         "schemaType": "TechArticle"
     },
     "/learn/Glossary": {
-        "title": "Glossary — Multi-Threaded JavaScript UI Engine | Neo.mjs",
+        "title": "Glossary — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "This glossary provides definitions for key terms and concepts used throughout the Neo.mjs documentation. Understanding these terms is essential for grasping...",
         "schemaType": "TechArticle"
     },
