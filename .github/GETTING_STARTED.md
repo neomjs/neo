@@ -1,82 +1,72 @@
-# neo.mjs: Getting Started Guide
+# Neo.mjs: Getting Started Guide
 
-This guide covers two main paths for working with neo.mjs:
-1.  **Creating your own application**: The recommended approach for all developers building apps with the framework.
-2.  **Contributing to the framework**: For those who want to contribute code directly to the neo.mjs core.
+This guide covers the two main paths for working with Neo.mjs:
+1.  **Creating your own application**: The recommended approach for developers building apps with the engine.
+2.  **Contributing to the engine (or running the repo's examples & tests)**: For those working directly on a clone of `neomjs/neo`.
 
 ---
 
 ## 1. Creating your own application (Recommended)
-For most use cases, creating a dedicated workspace with `npx neo-app` is the best way to start. This script scaffolds a new project, automatically installs dependencies, runs the initial build, and can even start the development server for you.
+For building your own application, creating a dedicated workspace with `npx neo-app@latest` is the fastest way to start. This script scaffolds a new project, installs dependencies, runs the initial build, and starts the development server.
 
-A workspace provides the same structure as the main neo.mjs repository, but includes the framework as an NPM dependency, making it easier to manage.
+A workspace provides the same structure as the main Neo.mjs repository, while consuming `neo.mjs` as an npm dependency.
 
 ### Create a Workspace
 1.  Open your terminal and navigate to the directory where you want to create your project.
-2.  Run the following command:
+2.  Run:
     ```sh
     npx neo-app@latest
     ```
-3.  Follow the interactive prompts. The script will guide you through setting up your workspace and creating your first application.
+3.  Follow the interactive prompts to configure your workspace and first application.
 
-This single command handles the entire setup process, allowing you to start developing immediately.
+For a deeper walkthrough, see the **[Setup Guide](../learn/gettingstarted/Setup.md)**.
 
 ---
 
-## 2. Contributing to the framework or running examples
-If you want to contribute to the development of neo.mjs itself, or if you want to run the many demo applications and examples included in the main repository, you will need to set up the core repository locally. The examples are not included in workspaces created with `npx neo-app`.
+## 2. Contributing to the engine or running examples
+If you want to contribute to `neomjs/neo` itself, or explore the full suite of demo applications and examples included in the main repository, follow the **[Contributing Guide](../CONTRIBUTING.md)** — it is the canonical reference for setup, testing, issue claiming, and pull requests.
 
-### Fork and Clone the Repository
-1.  **Fork the repository**: First, create a fork of the `neomjs/neo` repository on GitHub to your own account.
-2.  **Clone your fork**: Clone your forked repository to your local machine.
-    ```sh
-    git clone https://github.com/YOUR_USERNAME/neo.git
-    ```
+### Quick Engine Setup Loop
+You need **Node.js 24 or newer**:
 
-### Local Setup
-1.  Navigate into the cloned repository folder:
-    ```sh
-    cd neo
-    ```
-2.  Install the required node modules:
-    ```sh
-    npm install
-    ```
-    This is the **Body path**: build tools, Body tests, and shared tooling — with no native compile. It is everything a frontend (Body) contributor needs.
+```sh
+git clone https://github.com/YOUR_USERNAME/neo.git
+cd neo
+npm install
+npm run bundle-browser-deps               # bundles third-party browser dependencies into dist/
+npm run build-themes -- -n -e dev -t all  # compiles development CSS themes into dist/development/css
+npm run server-start                      # starts the local web server at http://localhost:8080/
+```
 
-    Working on the **Agent OS (Brain)** — the `ai/` services, daemons, MCP servers, or the memory core — needs the Brain tier instead:
-    ```sh
-    npm install
-    npm run install-brain
-    ```
-    One documented command overlays the Brain set (`better-sqlite3`, `chromadb`, `@chroma-core/default-embed`; see `package.brain.json`) onto the base install, resolved from the committed exact closure (`package-lock.brain.json`) — the same checkout installs the same Brain graph on every machine. Note: a plain `npm install` or `npm ci` afterwards prunes the Brain set again — just re-run `npm run install-brain`. The unit-test runner skips the Brain projects with a clear message while the set is not installed.
-3.  Run all relevant build scripts at once:
-    ```sh
-    npm run build-all
-    ```
-    (See the <a href="https://github.com/neomjs/neo/blob/dev/buildScripts/README.md">Command-Line Interface</a> for further details.)
+> **Why those two build commands matter:** `dist/` is git-ignored on a fresh clone. `npm run bundle-browser-deps` populates the third-party browser bundles required by the engine and unit test suite, and `npm run build-themes -- -n -e dev -t all` compiles the CSS themes so apps render styled in development mode. Together they take under ten seconds.
 
-### Running the Examples
-1.  **Start the web server**:
+### Running Tests & Exploring Apps
+*   **Unit tests (no browser required):**
     ```sh
-    npm run server-start
+    npm run test-unit
     ```
-    A browser tab will open automatically. You can also manually access it at `http://localhost:8080/`. A local web server is required because modern browser security policies prevent JavaScript modules from loading directly from the local file system.
+    *(Always use the `npm run test-*` scripts rather than bare `npx playwright test`; see **[CONTRIBUTING.md](../CONTRIBUTING.md)** for `test-unit-tz`, `test-components`, and `test-e2e`.)*
+*   **Development Mode in the Browser (zero JS build):**
+    Once `npm run server-start` is running, open:
+    > `http://localhost:8080/apps/portal/`
+    >
+    > `http://localhost:8080/examples/`
 
-2.  **Explore the apps**:
-    *   **Development Mode**: You can run the docs and examples apps **without** any JS build directly in all major browsers (Chrome, Edge, Firefox, Safari).
-        > http://localhost:8080/neo/docs/
-        >
-        > http://localhost:8080/neo/examples/
-    *   **Distribution Versions**: These versions also work in all major browsers and represent the built state of the examples.
-        > http://localhost:8080/neo/dist/development/examples/
-        >
-        > http://localhost:8080/neo/dist/production/examples/
+### Working with AI Coding Agents & Skills
+*   **Materializing `.agents/skills`:** Running `npm install` automatically executes our `prepare` lifecycle script (`buildScripts/util/prepare.mjs` → `neo-agent-skills-materialize`), which symlinks our published `neo-agent-skills` workflows into `.agents/skills/` and `.claude/skills/`. If dependencies were installed with `--ignore-scripts`, run `npm run prepare` (or `npx neo-agent-skills-materialize`).
+*   **Contributor Agent Instructions:** Print the contributor-scoped `AGENTS.md` (no private MCP servers or accounts needed) with:
+    ```sh
+    npx -p neo-agent-skills neo-agent-skills-agents-md --repo neo --audience contributor
+    ```
+*   **Opening a Pull Request:** Before committing or opening a PR targeting `dev`, read **[CONTRIBUTING.md](../CONTRIBUTING.md)** (and `.agents/skills/pull-request/SKILL.md` when using an AI agent). Every PR description must include a standalone **`Resolves #<issue-id>`** line (`Fixes #N` and `Closes #N` are rejected by CI) and can be verified locally with:
+    ```sh
+    npx neo-agent-skills-pr-body --body-file <path-to-body.md> --close-target-only
+    ```
 
 ---
 
 ## Dive Deeper with Learning Resources
-Once you have your environment set up, you can dive deeper into the concepts and architecture of the framework. The learning resources provide a structured path to mastering neo.mjs.
+Once your environment is running, explore the architecture and guides in the learning section:
 
 **[Explore the Learning Resources](../learn/README.md)**
 
