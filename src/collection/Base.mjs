@@ -270,15 +270,18 @@ class Collection extends Base {
     }
 
     /**
-     * Triggered after the sourceId config got changed
+     * @summary Moves the borrowed mutation subscription when the source changes, including clearing it.
      * @param {Number|String} value
      * @param {Number|String} oldValue
      * @protected
      */
     afterSetSourceId(value, oldValue) {
+        const me = this;
+
+        oldValue && Neo.get(oldValue)?.un('mutate', me.onMutate, me);
+
         if (value) {
-            let me     = this,
-                source = Neo.get(value);
+            const source = Neo.get(value);
 
             me._items = source._items.slice();
             me.map    = new Map(source.map); // creates a clone of the original map
@@ -294,11 +297,6 @@ class Collection extends Base {
             };
 
             source.on(listenersConfig);
-
-            if (oldValue) {
-                source = Neo.get(oldValue);
-                source.un(listenersConfig)
-            }
         }
     }
 
@@ -700,11 +698,12 @@ class Collection extends Base {
     }
 
     /**
-     * Clears the map & items array before the super call
+     * @summary Detaches the borrowed source and clears owned maps and items before retirement.
      */
     destroy() {
         let me = this;
 
+        me.getSource()?.un('mutate', me.onMutate, me);
         me.allItems?.destroy();
 
         me.filters?.forEach(item => item?.destroy());
@@ -1326,11 +1325,14 @@ class Collection extends Base {
     }
 
     /**
+     * @summary Mirrors a source mutation unless this consumer retired during the same event broadcast.
      * @param {Object} opts
      * @protected
      */
     onMutate(opts) {
         let me = this;
+
+        if (me.isDestroying || me.isDestroyed) return;
 
         // todo: inspect the bubbling chain
         /*if (opts.preventBubbleUp) {

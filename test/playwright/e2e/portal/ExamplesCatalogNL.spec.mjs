@@ -18,7 +18,46 @@ async function readList(app) {
  * @summary Exercises canonical catalog data through the Portal's Model, Store, cards and navigation.
  */
 test.describe('Portal example catalog', () => {
-    for (const viewport of [{width: 1440, height: 1000}, {width: 390, height: 844}, {width: 844, height: 390}]) {
+    test('family navigation and the live build menu share one catalog and retain fallback routes', async ({page, neuralLink}) => {
+        await page.goto(`${PORTAL}#/examples`);
+        const app = await neuralLink.connectToApp('Portal');
+
+        await expect(page.getByRole('tab')).toHaveText(['Featured', 'Grid & Table']);
+        const matches = await app.queryComponent({className: 'Portal.view.examples.TabContainer'}, ['id', 'activeIndex']);
+        const view    = Array.isArray(matches) ? matches[0] : matches;
+        const sources = await app.queryComponent({className: 'Portal.view.examples.List'}, ['store']);
+        sources.forEach(item => expect(item.properties.store.sourceId).toEqual(expect.any(String)));
+        expect(new Set(sources.map(item => item.properties.store.sourceId)).size).toBe(1);
+
+        for (const [label, mode, prefix] of [
+            ['ESM', 'dist_esm', 'dist/esm/'],
+            ['Development build', 'dist_dev', 'dist/development/'],
+            ['Dev mode', 'devmode', ''],
+            ['Production', 'dist_prod', 'dist/production/']
+        ]) {
+            await page.getByRole('button', {name: /^Build: /}).click();
+            await page.locator('.neo-menu-list:visible .neo-list-item').filter({hasText: label}).click();
+            await expect.poll(async () => {
+                const lists = await app.queryComponent({className: 'Portal.view.examples.List'}, ['catalogMode']);
+                return lists.map(item => item.properties.catalogMode)
+            }).toEqual([mode, mode]);
+            await expect(page.locator('.portal-examples-list:visible').getByRole('link', {name: 'Workstation', exact: true}))
+                .toHaveAttribute('href', `https://neomjs.com/${prefix}apps/workstation/index.html`);
+
+            await page.getByRole('tab', {name: 'Grid & Table', exact: true}).click();
+            await expect(page.locator(FAMILY).getByRole('link', {name: 'Grid Cell Editing', exact: true}))
+                .toHaveAttribute('href', `https://neomjs.com/${prefix}examples/grid/cellEditing/index.html`);
+            await page.getByRole('tab', {name: 'Featured', exact: true}).click()
+        }
+
+        await page.goto(`${PORTAL}#/examples/forms`);
+        await expect(page.getByRole('tab')).toHaveText(['Featured', 'Grid & Table']);
+        await expect(page.locator('.portal-examples-list:visible').getByRole('link', {name: 'Workstation', exact: true})).toBeVisible();
+        const current = await app.getComponent(view.id, ['activeIndex']);
+        expect(current.activeIndex).toBe(0)
+    });
+
+    for (const viewport of [{width: 1440, height: 900}, {width: 390, height: 844}, {width: 844, height: 390}]) {
         test(`${viewport.width}px: Grid and Table features are visible and fit their cards`, async ({page, neuralLink}, testInfo) => {
             await page.setViewportSize(viewport);
             await page.goto(`${PORTAL}#/examples/grid`);
@@ -26,6 +65,8 @@ test.describe('Portal example catalog', () => {
             const overview = page.locator(FAMILY);
 
             await expect(overview.locator('.portal-example-feature')).toHaveCount(21);
+            const columns = await overview.evaluate(node => getComputedStyle(node).gridTemplateColumns.split(' ').length);
+            expect(columns).toBe(viewport.width === 1440 ? 3 : viewport.width === 390 ? 1 : 2);
             const list = await readList(app);
             expect(list.id).toBe(await overview.getAttribute('id'));
             expect(list.properties.store.count).toBe(21);
@@ -109,6 +150,7 @@ test.describe('Portal example catalog', () => {
 
         await page.goto(`${PORTAL}#/examples/devmode`);
         app = await neuralLink.connectToApp('Portal');
+        await page.getByRole('tab', {name: 'Grid & Table', exact: true}).click();
         await expect(page.locator('.portal-examples-list:visible .portal-example-feature')).toHaveCount(21);
         const gridList = await readList(app);
         await app.setProperties(gridList.id, {baseUrl: `${baseURL}/`});

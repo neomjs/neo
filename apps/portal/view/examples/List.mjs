@@ -30,15 +30,15 @@ class List extends BaseList {
         baseUrl: 'https://neomjs.com/',
         /**
          * Selects an explicit destination on the canonical example record.
-         * @member {String} catalogMode='devmode'
+         * @member {String} catalogMode_='dist_prod'
+         * @reactive
          */
-        catalogMode: 'devmode',
+        catalogMode_: 'dist_prod',
         /**
-         * The env of the example links.
-         * Valid values are 'development', 'dist/development', 'dist/production'
-         * @member {String} environment='development'
+         * Family-specific cover glyph used until the example has a published screenshot.
+         * @member {String} fallbackIconCls='fa fa-star'
          */
-        environment: 'development',
+        fallbackIconCls: 'fa fa-star',
         /**
          * Specify how many example item images to preload when intersecting
          * @member {Number} preloadImages=5
@@ -79,6 +79,29 @@ class List extends BaseList {
         }
 
         return basePath
+    }
+
+    /**
+     * @summary Derives link-window behavior from the selected mode, retaining ESM's production mapping.
+     * @returns {String}
+     */
+    get environment() {
+        return this.catalogMode === 'devmode' ? 'development'
+            : this.catalogMode === 'dist_dev' ? 'dist/development' : 'dist/production'
+    }
+
+    /**
+     * @summary Re-renders destinations and visibility when the shared build selection changes.
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetCatalogMode(value, oldValue) {
+        // The first lazy read can occur inside createItemContent; that render already consumes the initial value.
+        if (oldValue !== undefined && this.store?.isConstructed) {
+            this.createItems();
+            this.mounted && this.registerIntersectionObserver()
+        }
     }
 
     /**
@@ -123,7 +146,7 @@ class List extends BaseList {
                 ]},
                 {cls: ['neo-full-size', 'preview-image'], flag: `image-${record.id}`, style: imageStyle},
                 {cls: ['portal-example-placeholder'], removeDom: !!record.image, cn: [
-                    {cls: ['fa', 'fa-table']},
+                    {cls: me.fallbackIconCls.split(' ')},
                     {tag: 'span', text: record.component}
                 ]},
                 {cls: ['neo-absolute', 'neo-item-bottom-position'], cn: [

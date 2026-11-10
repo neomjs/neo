@@ -22,85 +22,170 @@ const
     repoRoot  = path.resolve(directory, '../../../../../../../'),
     dataRoot  = path.join(repoRoot, 'apps/portal/resources/data');
 
+let exampleView;
+
 /**
- * The examples tab routes resolve `activeIndex` through the controller's `tabItems` array.
- * Keep that array mirrored to `TabContainer.items`, which is now authored in the left-docked
- * top-to-bottom display order.
+ * @summary Constructs the real section with an owned in-memory catalog and no network fetch.
+ * @param {Object[]} [records=catalog]
+ * @param {String} [catalogMode='dist_prod']
+ * @returns {Portal.view.examples.TabContainer}
  */
-test.describe('Portal.view.examples.TabContainerController — route → activeIndex', () => {
-    function createController() {
-        const component = {
-            activeIndex  : null,
-            isConstructed: true,
-            on           : () => {}
-        };
+function createView(records=catalog, catalogMode='dist_prod') {
+    const defaults = ExamplesTabContainer.config.stateProvider;
 
-        const controller = Neo.create(TabContainerController, {component});
+    return exampleView = Neo.create(ExamplesTabContainer, {
+        appName      : 'PortalExamplesTabControllerTest',
+        windowId     : 1,
+        stateProvider: {
+            ...defaults,
+            data  : {catalogMode},
+            stores: {catalog: {...defaults.stores.catalog, data: structuredClone(records), isLoaded: true}}
+        }
+    })
+}
 
-        controller.getReference = reference => ({
-            store: {
-                getCount: () => 1,
-                load    : () => {
-                    throw new Error(`Unexpected load for ${reference}`)
-                }
-            }
-        });
-
-        return controller
-    }
-
-    test('keeps tab item ids mirrored to the authored display order', () => {
-        const
-            controller = createController(),
-            itemIds    = ExamplesTabContainer.config.items.map(item => item.header.route.replace('/examples/', ''));
-
-        expect(itemIds).toEqual(['dist_prod', 'dist_esm', 'dist_dev', 'devmode', 'grid']);
-        expect(controller.tabItems).toEqual(itemIds);
-
-        controller.destroy()
-    });
-
-    test('defaults to dist_prod at the top tab and resolves each route index', () => {
-        const controller = createController();
-
-        controller.onExamplesRoute();
-        expect(controller.component.activeIndex).toBe(0);
-
-        controller.onExamplesRoute({itemId: 'dist_esm'});
-        expect(controller.component.activeIndex).toBe(1);
-
-        controller.onExamplesRoute({itemId: 'dist_dev'});
-        expect(controller.component.activeIndex).toBe(2);
-
-        controller.onExamplesRoute({itemId: 'devmode'});
-        expect(controller.component.activeIndex).toBe(3);
-
-        controller.onExamplesRoute({itemId: 'grid'});
-        expect(controller.component.activeIndex).toBe(4);
-
-        controller.destroy()
-    });
-
-    test('updates route indexes when tabs are manually resorted', () => {
-        const controller = createController();
-
-        controller.onMoveTab({
-            fromIndex: 0,
-            toIndex  : 3
-        });
-
-        expect(controller.tabItems).toEqual(['dist_esm', 'dist_dev', 'devmode', 'dist_prod', 'grid']);
-
-        controller.onExamplesRoute({itemId: 'dist_prod'});
-        expect(controller.component.activeIndex).toBe(3);
-
-        controller.destroy()
-    });
-
+test.afterEach(() => {
+    exampleView?.destroy();
+    exampleView = null
 });
 
-const catalog       = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'), 'utf8')),
-      modes         = ['devmode', 'dist_dev', 'dist_esm', 'dist_prod'],
+test.describe('Portal examples family navigation', () => {
+    test('an initial shared ESM selection renders ESM destinations on both lists', () => {
+        const view = createView(catalog, 'dist_esm');
+
+        function hrefs(node) {
+            return [node.href, ...(node.cn || []).flatMap(hrefs)].filter(Boolean)
+        }
+
+        expect(hrefs(view.getCard(0).vdom)).toContain('https://neomjs.com/dist/esm/apps/workstation/index.html');
+        expect(hrefs(view.getCard(1).vdom)).toContain('https://neomjs.com/dist/esm/examples/grid/cellEditing/index.html')
+    });
+
+    for (const mode of ['dist_prod', 'dist_esm']) {
+        test(`an initial ${mode} selection renders family items once`, () => {
+            const view  = createView(catalog, mode),
+                  list  = view.getCard(1),
+                  items = list.getVdomRoot().cn;
+
+            expect(list.store.getCount()).toBe(21);
+            expect(items).toHaveLength(21);
+            expect(new Set(items.map(item => item.id)).size).toBe(21)
+        })
+    }
+
+    test('publishes only Featured and families with records from one definition source', () => {
+        const view = createView();
+
+        expect(view.getTabButtons().map(button => button.text)).toEqual(['Featured', 'Grid & Table']);
+        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/grid']);
+        expect(view.getCatalogStore().getCount()).toBe(46);
+        expect(view.getCard(0).store.getCount()).toBe(27);
+        expect(view.getCard(0).store.items.map(record => record.id)).toEqual(featuredExampleIds);
+        expect(view.getCard(1).store.getCount()).toBe(21);
+        expect(view.getCard(0).store.getSource()).toBe(view.getCatalogStore());
+        expect(view.getCard(1).store.getSource()).toBe(view.getCatalogStore());
+        expect(view.getCard(0).store.model).toBe(view.getCatalogStore().model);
+        expect(view.getCard(1).store.model).toBe(view.getCatalogStore().model);
+        expect(view.getTabBar().getActionItems()).toHaveLength(1);
+        expect(view.getTabBar().getAction('example-build').showOnFocus).toBe(false)
+        expect(view.getTabBar().getAction('example-build').getVdomRoot()['aria-label']).toBeUndefined()
+    });
+
+    test('resolves family routes and all legacy modes through the live headers', async () => {
+        const view       = createView(),
+              controller = view.getController();
+
+        await controller.onExamplesRoute();
+        expect(view.activeIndex).toBe(0);
+        expect(view.getCard(0).catalogMode).toBe('dist_prod');
+
+        for (const mode of view.buildModes) {
+            await controller.onExamplesRoute({itemId: mode.id});
+            expect(view.activeIndex).toBe(0);
+            expect(view.getCard(0).catalogMode).toBe(mode.id);
+            expect(view.getCard(1).catalogMode).toBe(mode.id)
+        }
+
+        await controller.onExamplesRoute({itemId: 'grid'});
+        expect(view.activeIndex).toBe(1);
+        await controller.onExamplesRoute({itemId: 'forms'});
+        expect(view.activeIndex).toBe(0);
+        await controller.onExamplesRoute({itemId: 'unknown'});
+        expect(view.activeIndex).toBe(0)
+    });
+
+    test('uses the framework-maintained indexes after actual header reordering', async () => {
+        const view = createView();
+
+        view.getTabBar().moveTo(0, 1);
+        await view.getController().onExamplesRoute({itemId: 'grid'});
+        expect(view.activeIndex).toBe(0);
+        await view.getController().onExamplesRoute();
+        expect(view.activeIndex).toBe(1)
+    });
+
+    test('concurrent initial routes share one load and only the latest route settles', async () => {
+        const view       = createView([]),
+              store      = view.getCatalogStore(),
+              controller = view.getController();
+        let complete, calls = 0;
+
+        store.isLoaded = false;
+        store.load = () => {
+            calls++;
+            return new Promise(resolve => {complete = resolve})
+        };
+
+        const first  = controller.onExamplesRoute({itemId: 'grid'}),
+              latest = controller.onExamplesRoute({itemId: 'dist_esm'});
+        expect(calls).toBe(1);
+        store.add(structuredClone(catalog));
+        store.isLoaded = true;
+        store.fire('load');
+        complete();
+        await Promise.all([first, latest]);
+
+        expect(view.activeIndex).toBe(0);
+        expect(view.getCard(0).catalogMode).toBe('dist_esm');
+        expect(view.getCard(1).catalogMode).toBe('dist_esm')
+    });
+
+    test('a newly published family needs no additional tab or controller entry', () => {
+        const view = createView([...catalog, {
+            ...catalog[0], id: 'test-forms-example', family: 'forms', featured: false,
+            feature: 'A form field', lookFor: 'Enter a value.'
+        }]);
+
+        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/grid', '/examples/forms']);
+        expect(view.getCard(2).store.getCount()).toBe(1);
+        expect(view.getCard(2).fallbackIconCls).toBe(view.familyDefinitions.find(item => item.family === 'forms').iconCls)
+    });
+
+    test('an arriving catalog populates the borrowed family stores and withdraws an empty family', () => {
+        const view = createView([]), store = view.getCatalogStore();
+
+        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples']);
+        store.add(structuredClone(catalog));
+        store.fire('load');
+        expect(view.getCard(0).store.getCount()).toBe(27);
+        expect(view.getCard(1).store.getCount()).toBe(21);
+
+        store.remove(store.items.filter(record => record.family === 'grid-table'));
+        store.fire('load');
+        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples'])
+    });
+});
+
+const catalog            = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'), 'utf8')),
+      modes              = ['devmode', 'dist_dev', 'dist_esm', 'dist_prod'],
+      featuredExampleIds = [
+          'workstation', 'devindex', 'grid-tree-big-data', 'shared-covid', 'grid-big-data', 'grid-issues',
+          'calendar', 'helix', 'multi-window-covid-gallery', 'offscreen-canvas', 'shared-offscreen-canvas',
+          'multi-window-drag-drop', 'tab-container', 'state-provider', 'dialog-drag-drop',
+          'colors-dashboard', 'covid-dashboard', 'covid-helix', 'covid-gallery', 'gallery',
+          'table-filtering', 'date-selector', 'date-field', 'combobox-field', 'portal', 'liquid-glass',
+          'dock-choreography'
+      ],
       newExampleIds = [
           'grid-animated-row-sorting', 'grid-cell-editing', 'grid-container', 'grid-content-sized-rows',
           'grid-covid', 'grid-header-groups', 'grid-locked-columns', 'grid-nested-record-fields',
@@ -145,47 +230,46 @@ test.describe('Portal examples canonical catalog', () => {
         });
 
         expect(new Set(ids).size).toBe(46);
-        expect(list.catalogMode).toBe('devmode')
+        expect(list.catalogMode).toBe('dist_prod')
+    });
+
+    test('every published family record has both a feature and an observation, with rejecting controls', () => {
+        function check(records) {
+            records.filter(record => record.family).forEach(record => {
+                expect(record.feature?.trim(), record.id + ' feature').toBeTruthy();
+                expect(record.lookFor?.trim(), record.id + ' lookFor').toBeTruthy()
+            })
+        }
+
+        check(catalog);
+        const example = catalog.find(record => record.family);
+        expect(() => check([{...example, feature: ''}])).toThrow();
+        expect(() => check([{...example, lookFor: ''}])).toThrow()
     });
 
     test('the overview selects the 21 Grid and Table identities from the same catalog', () => {
-        const overview = ExamplesTabContainer.config.items.find(item => item.header.route === '/examples/grid'),
-              {store}  = createList({store: {
-                  ...overview.store,
-                  autoLoad: false,
-                  data    : structuredClone(catalog)
-              }}),
-              ids      = [],
-              counts   = {Grid: 0, Table: 0};
-
-        expect(store.getCount()).toBe(21);
+        const view  = createView(),
+              store = view.getCard(1).store,
+              ids   = [], counts = {Grid: 0, Table: 0};
 
         store.forEach(record => {
             ids.push(record.id);
             expect(record.family).toBe('grid-table');
-            expect(['Grid', 'Table']).toContain(record.component);
             counts[record.component]++;
             expect(record.feature, record.id).toBeTruthy();
             expect(record.lookFor, record.id).toBeTruthy()
         });
 
         expect(ids).toEqual(['grid-tree-big-data', 'grid-big-data', 'grid-issues', 'table-filtering', ...newExampleIds]);
-        ids.slice(0, 4).forEach(id => expect(store.get(id).image, id).toBeTruthy());
         expect(counts).toEqual({Grid: 14, Table: 7});
-        expect(overview.store.url).toBe(ExamplesTabContainer.config.itemDefaults.store.url)
+        expect(store.getSource()).toBe(view.getCatalogStore())
     });
 
     test('preserves the complete established card order and inserts only new examples before choreography', () => {
         const {store} = createList(),
               // The production catalog established this sequence before canonicalization. ESM alone
               // placed OffscreenCanvas before Covid Gallery; the shared sequence follows production.
-              establishedIds = [
-                  'workstation', 'devindex', 'grid-tree-big-data', 'shared-covid', 'grid-big-data', 'grid-issues',
-                  'calendar', 'helix', 'multi-window-covid-gallery', 'offscreen-canvas', 'shared-offscreen-canvas',
-                  'multi-window-drag-drop', 'tab-container', 'state-provider', 'dialog-drag-drop',
-                  'colors-dashboard', 'covid-dashboard', 'covid-helix', 'covid-gallery', 'gallery',
-                  'table-filtering', 'date-selector', 'date-field', 'combobox-field', 'portal', 'liquid-glass'
-              ],
+              establishedIds = featuredExampleIds.slice(0, -1),
               completeIds = [...establishedIds, ...newExampleIds, 'dock-choreography', 'realworld', 'realworld-v2'],
               excluded = {
                   devmode  : ['portal', 'liquid-glass', 'realworld', 'realworld-v2'],
@@ -204,7 +288,7 @@ test.describe('Portal examples canonical catalog', () => {
 
         cases.forEach(([mode, workstationUrl, choreographyUrl]) => {
             list.catalogMode = mode;
-            list.environment = mode === 'devmode' ? 'development' : mode === 'dist_dev' ? 'dist/development' : 'dist/production';
+            expect(list.environment).toBe(mode === 'devmode' ? 'development' : mode === 'dist_dev' ? 'dist/development' : 'dist/production');
 
             const visible = store.items.filter(record => !list.isHiddenItem(record));
 

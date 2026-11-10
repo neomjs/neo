@@ -19,6 +19,7 @@ class Example extends Model {
          * `sourceUrl` is the common source link; optional `sourceUrls` overrides it by mode.
          * `hiddenIn` lists curated mode exclusions (empty by default); `hidden` hides every mode.
          * `family` selects an overview through a Store filter, while `component` names its renderer.
+         * `featured` independently marks a showcase record and defaults to false; it does not assign a family.
          * `feature` states what the example demonstrates and `lookFor` gives a concrete action.
          * Optional `scope` qualifies external dependencies or limits of that demonstration.
          * `image` names an existing published cover; null selects the typographic fallback.
@@ -48,6 +49,10 @@ class Example extends Model {
         }, {
             name: 'feature',
             type: 'String'
+        }, {
+            name        : 'featured',
+            type        : 'Boolean',
+            defaultValue: false
         }, {
             name        : 'hidden',
             type        : 'Boolean',

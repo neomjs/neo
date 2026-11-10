@@ -1,7 +1,7 @@
 import Component from '../../../../src/controller/Component.mjs';
-import NeoArray  from '../../../../src/util/Array.mjs';
 
 /**
+ * @summary Routes published families and shares one build selection without mirroring tab indexes.
  * @class Portal.view.examples.TabContainerController
  * @extends Neo.controller.Component
  */
@@ -22,48 +22,84 @@ class TabContainerController extends Component {
     }
 
     /**
-     * We need to store the current positions, since drag&drop resorting of tabs is enabled.
-     * The initial order mirrors `TabContainer.items` and the left-docked visual order.
-     * @member {String[]} tabItems
+     * Serializes route settlement after the catalog load.
+     * @member {Number} routeGeneration=0
      */
-    tabItems = ['dist_prod', 'dist_esm', 'dist_dev', 'devmode', 'grid']
+    routeGeneration = 0
 
     /**
-     *
+     * Shares the in-flight catalog read across concurrent routes.
+     * @member {Promise|null} catalogLoadPromise=null
+     */
+    catalogLoadPromise = null
+
+    /**
+     * @summary Reconciles family availability after the canonical catalog has loaded.
      */
     onComponentConstructed() {
-        let me = this;
+        const store = this.component.getCatalogStore();
 
-        me.component.on('moveTo', me.onMoveTab, me)
+        store.on('load', this.onCatalogLoad, this);
+        store.getCount() && this.onCatalogLoad()
     }
 
     /**
-     * @summary Activates the examples tab whose id is carried by the current route.
-     * @param {Object} params
-     * @param {Object} value
-     * @param {Object} oldValue
+     * @summary Publishes only families with records, deriving every header from the view's definitions.
      */
-    onExamplesRoute(params, value, oldValue) {
-        let me     = this,
-            itemId = params?.itemId || 'dist_prod',
-            index  = me.tabItems.indexOf(itemId),
-            store  = me.getReference(`examples-${itemId.replace('_', '-')}-list`).store;
+    onCatalogLoad() {
+        const view      = this.component,
+              families  = new Set(),
+              available = new Set();
 
-        if (store?.getCount() < 1) {
-            store.load()
+        view.getCatalogStore().forEach(record => families.add(record.family));
+        view.familyDefinitions.forEach(definition => {
+            if (definition.family === null || families.has(definition.family)) available.add(definition.route)
+        });
+
+        view.getTabButtons().slice().reverse().forEach(button => {
+            if (!available.has(button.route)) view.removeAt(button.index)
+        });
+
+        view.familyDefinitions.forEach((definition, rank) => {
+            if (available.has(definition.route) && !view.getTabButtons().some(button => button.route === definition.route)) {
+                const next = view.getTabButtons().find(button => view.familyDefinitions.findIndex(item => item.route === button.route) > rank);
+                view.insert(next ? next.index : view.getCount(), view.createFamilyItem(definition))
+            }
+        })
+    }
+
+    /**
+     * @summary Resolves old build routes to Featured and absent family routes to the same fallback.
+     * @param {Object} [params={}]
+     */
+    async onExamplesRoute(params={}) {
+        const view       = this.component,
+              generation = ++this.routeGeneration,
+              legacyMode = view.buildModes.find(mode => mode.id === params.itemId),
+              store      = view.getCatalogStore();
+
+        if (legacyMode) this.getStateProvider().setData({catalogMode: legacyMode.id});
+        if (!store.isLoaded) {
+            this.catalogLoadPromise ||= store.load().finally(() => {this.catalogLoadPromise = null});
+            await this.catalogLoadPromise
         }
+        if (this.isDestroyed || generation !== this.routeGeneration) return;
 
-        me.component.activeIndex = index
+        const route = !legacyMode && params.itemId ? '/examples/' + params.itemId : '/examples',
+              tab   = view.getTabButtons().find(button => button.route === route)
+                  || view.getTabButtons().find(button => button.route === '/examples');
+
+        view.activeIndex = tab.index
     }
 
     /**
-     * @summary Keeps route-to-index resolution aligned after manual tab resorting.
-     * @param {Object} data
-     * @param {Number} data.fromIndex
-     * @param {Number} data.toIndex
+     * @summary Updates every list through the section's shared build state.
+     * @param {Object} record Selected native menu record.
      */
-    onMoveTab({fromIndex, toIndex}) {
-        NeoArray.move(this.tabItems, fromIndex, toIndex)
+    onSelectBuild(record) {
+        if (this.component.buildModes.some(mode => mode.id === record.id)) {
+            this.getStateProvider().setData({catalogMode: record.id})
+        }
     }
 }
 

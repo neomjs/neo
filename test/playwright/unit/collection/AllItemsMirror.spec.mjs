@@ -242,6 +242,129 @@ test.describe('Neo.collection.Base — allItems mirrors inside the mutation', ()
         expect(derived.items.map(item => item.id), 'the addition, exactly once').toEqual(['a', 'b', 'c', 'd', 'e'])
     });
 
+    test.describe('sourceId lifecycle', () => {
+        const observations = new WeakMap(), duringDestroy = new WeakMap();
+
+        /** @summary Returns test-only delivery and late-write counters for one consumer. */
+        function observe(collection) {
+            if (!observations.has(collection)) observations.set(collection, {deliveries: 0, lateSplices: 0});
+            return observations.get(collection)
+        }
+
+        /** @summary Observes source delivery without changing the production lifecycle guard. */
+        class SourceLifecycleCollection extends Collection {
+            static config = {className: 'Test.Unit.Collection.AllItemsMirror.SourceLifecycleCollection'}
+
+            /** @summary Counts source delivery before delegating to the real consumer guard. */
+            onMutate(opts) {
+                observe(this).deliveries++;
+                super.onMutate(opts)
+            }
+
+            /** @summary Detects mutation work reached after retirement has begun. */
+            splice(...args) {
+                if (this.isDestroying || this.isDestroyed) observe(this).lateSplices++;
+                return super.splice(...args)
+            }
+
+            /** @summary Allows a source broadcast inside the controlled destruction window. */
+            destroy() {
+                const callback = duringDestroy.get(this);
+                duringDestroy.delete(this);
+                callback?.();
+                super.destroy()
+            }
+        }
+
+        SourceLifecycleCollection = Neo.setupClass(SourceLifecycleCollection);
+
+        /** @summary Registers a real source or consumer for the existing test cleanup. */
+        function create(sourceId, items=[]) {
+            const collection = Neo.create(SourceLifecycleCollection, {keyProperty: 'id', sourceId, items});
+            created.push(collection);
+            return collection
+        }
+
+        test('clearing a source detaches its callback and keeps the detached snapshot', () => {
+            const source = create(null, [{id: 'a'}]), consumer = create(source.id), sibling = create(source.id);
+
+            consumer.sourceId = null;
+            source.add({id: 'b'});
+
+            expect(observe(consumer).deliveries).toBe(0);
+            expect(consumer.items.map(item => item.id)).toEqual(['a']);
+            expect(source.count).toBe(2);
+            expect(sibling.items.map(item => item.id)).toEqual(['a', 'b'])
+        });
+
+        test('replacing a source detaches the previous callback and follows only the new source', () => {
+            const first    = create(null, [{id: 'a'}]), second = create(null, [{id: 'x'}]),
+                  consumer = create(first.id), sibling = create(first.id);
+
+            consumer.sourceId = second.id;
+            first.add({id: 'b'});
+
+            expect(observe(consumer).deliveries).toBe(0);
+            expect(consumer.items.map(item => item.id)).toEqual(['x']);
+            expect(sibling.count).toBe(2);
+
+            second.add({id: 'y'});
+
+            expect(observe(consumer).deliveries).toBe(1);
+            expect(consumer.items.map(item => item.id)).toEqual(['x', 'y']);
+            expect(first.items.map(item => item.id)).toEqual(['a', 'b'])
+        });
+
+        test('destroying a consumer releases its source callback without retiring the source or sibling', () => {
+            const source = create(null, [{id: 'a'}]), consumer = create(source.id), sibling = create(source.id);
+
+            consumer.destroy();
+            source.add({id: 'b'});
+
+            expect(observe(consumer)).toEqual({deliveries: 0, lateSplices: 0});
+            expect(source.count).toBe(2);
+            expect(sibling.count).toBe(2);
+            expect(source.isDestroyed).not.toBe(true);
+            expect(sibling.isDestroyed).not.toBe(true)
+        });
+
+        test('a callback captured before destruction cannot splice or write count after its consumer retires', () => {
+            const source = create(null, [{id: 'a'}]);
+            let consumer;
+
+            // Observable has already copied all handlers when this earlier listener retires the consumer.
+            source.on('mutate', () => consumer.destroy());
+            consumer = create(source.id);
+            const sibling = create(source.id);
+
+            source.add({id: 'b'});
+
+            expect(consumer.isDestroyed).toBe(true);
+            expect(observe(consumer)).toEqual({deliveries: 1, lateSplices: 0});
+            expect(source.count).toBe(2);
+            expect(sibling.count).toBe(2);
+
+            source.add({id: 'c'});
+            expect(observe(consumer)).toEqual({deliveries: 1, lateSplices: 0});
+            expect(sibling.count).toBe(3)
+        });
+
+        test('a source callback during destruction cannot splice before the source link is detached', () => {
+            const source = create(null, [{id: 'a'}]), consumer = create(source.id), sibling = create(source.id);
+
+            duringDestroy.set(consumer, () => {
+                expect(consumer.isDestroying).toBe(true);
+                expect(consumer.isDestroyed).not.toBe(true);
+                source.add({id: 'b'})
+            });
+            consumer.destroy();
+
+            expect(observe(consumer)).toEqual({deliveries: 1, lateSplices: 0});
+            expect(source.count).toBe(2);
+            expect(sibling.count).toBe(2)
+        })
+    });
+
     test('a row the filter hides, removed, leaves the projection too', () => {
         const store = Neo.create(Store, {
             autoInitRecords: true,
