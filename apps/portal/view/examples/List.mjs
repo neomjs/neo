@@ -40,6 +40,11 @@ class List extends BaseList {
          */
         environment: 'development',
         /**
+         * @summary Bounds delayed observe calls when card DOM is not ready at registration.
+         * @member {Number} intersectionObserverReconnects=10
+         */
+        intersectionObserverReconnects: 10,
+        /**
          * Specify how many example item images to preload when intersecting
          * @member {Number} preloadImages=5
          */
@@ -268,7 +273,7 @@ class List extends BaseList {
     }
 
     /**
-     *
+     * @summary Observes card visibility, retrying briefly until delayed targets arrive.
      */
     async registerIntersectionObserver() {
         let me   = this,
