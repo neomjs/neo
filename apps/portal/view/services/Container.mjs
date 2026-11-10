@@ -2,7 +2,7 @@ import Canvas    from './Canvas.mjs';
 import Container from '../../../../src/container/Base.mjs';
 
 /**
- * @summary Connects visitors with Neo's public tools, setup guides and development community.
+ * @summary Connects visitors with Neo's public tools, setup guides, development community and maintainers.
  *
  * This container uses a `fit` layout to layer the interactive `Portal.view.services.Canvas` (background)
  * beneath the scrollable content cards. It handles user interaction by capturing DOM events at the
@@ -13,7 +13,9 @@ import Container from '../../../../src/container/Base.mjs';
  * 1.  **Visual Layering:** Stacks the SharedWorker-driven canvas behind the UI content.
  * 2.  **Event Delegation:** Captures `mousemove` and `mouseleave` events and forwards them to the
  *     `Canvas` component to drive the "Neural Lattice" physics engine.
- * 3.  **Content Structure:** Offers practical next steps for building apps, adding agent memory and contributing.
+ * 3.  **Content Structure:** Offers practical next steps for building apps, adding agent memory and contributing,
+ *     and ends with a direct way to reach the maintainers: one public link and one private one, with no form,
+ *     inbox or offer.
  *
  * @class Portal.view.services.Container
  * @extends Neo.container.Base
@@ -125,6 +127,28 @@ class ServicesContainer extends Container {
                         }, {
                             tag : 'a', href: 'https://github.com/neomjs/neo/blob/dev/CONTRIBUTING.md',
                             text: 'Contribute a change', target: '_blank', rel: 'noopener noreferrer'
+                        }]}
+                    ]}
+                }]
+            }, {
+                ntype: 'container',
+                cls  : ['portal-glass-card'],
+                items: [{
+                    ntype: 'component',
+                    cls  : ['portal-content-box-headline'],
+                    tag  : 'h2',
+                    text : 'Talk to the maintainers'
+                }, {
+                    ntype: 'component',
+                    cls  : ['portal-content-box-content'],
+                    vdom : {cn: [
+                        {tag: 'p', text: 'Evaluating Neo for a product, or building one with a team? Ask in the public discussions, or write to Tobias Uhlig, Neo’s co-founder, when the question is about your own codebase or schedule.'},
+                        {tag: 'p', cls: ['portal-connect-links'], cn: [{
+                            tag : 'a', href: 'https://github.com/orgs/neomjs/discussions',
+                            text: 'Ask in the discussions', target: '_blank', rel: 'noopener noreferrer'
+                        }, {
+                            tag : 'a', href: 'https://www.linkedin.com/in/tobiasuhlig/',
+                            text: 'Message Tobias Uhlig on LinkedIn', target: '_blank', rel: 'noopener noreferrer'
                         }]}
                     ]}
                 }]
