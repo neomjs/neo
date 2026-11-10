@@ -314,6 +314,71 @@ test.describe('check-consumer-runtime-build — rule logic', () => {
         }
     });
 
+    test('both plugins rebase onto the workspace they were given, even when the package resolves outside it (#20697)', () => {
+        const fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-20697-')),
+              workspace  = path.join(fixtureDir, 'ws'),
+              workerDir  = path.join(fixtureDir, 'pkg', 'node_modules', 'neo.mjs', 'src', 'worker'),
+              srcDir     = path.join(fixtureDir, 'pkg', 'node_modules', 'neo.mjs', 'src'),
+              toWorker   = target => path.relative(workerDir, target).split(path.sep).join('/'),
+              toSrc      = target => path.relative(srcDir, target).split(path.sep).join('/');
+
+        try {
+            fs.mkdirSync(workerDir, {recursive: true});
+            fs.mkdirSync(path.join(workspace, 'apps'), {recursive: true});
+            fs.mkdirSync(path.join(workspace, 'src', 'main', 'addon'), {recursive: true});
+
+            // The workspace is not an ancestor of the package, so only the passed root can name its
+            // app space; anything inferred from where the package resolves names the fixture's own.
+            const rebaseCallback = workerContextRebasePlugin(false, workspace).newContentCallback,
+                  appContext     = {context: workerDir, request: '../../apps'},
+                  missingContext = {context: workerDir, request: '../../examples'};
+
+            rebaseCallback(appContext);
+            rebaseCallback(missingContext);
+
+            expect(appContext.request).toBe(toWorker(path.join(workspace, 'apps')));
+            expect(fs.existsSync(path.resolve(workerDir, appContext.request))).toBe(true);
+            expect(missingContext.request).toBe('../../examples');
+            expect(String(missingContext.regExp)).toBe('/(?!)/');
+
+            const mainCallback   = mainAddonContextPlugin(false, workspace).newContentCallback,
+                  presentContext = {context: srcDir, request: '../../../src/main/addon'},
+                  absentContext  = {context: srcDir, request: '../../../src/main/addon'};
+
+            mainCallback(presentContext);
+
+            expect(presentContext.request).toBe(toSrc(path.join(workspace, 'src', 'main', 'addon')));
+            expect(fs.existsSync(path.resolve(srcDir, presentContext.request))).toBe(true);
+            expect(presentContext.regExp).toBeUndefined();
+
+            fs.rmSync(path.join(workspace, 'src', 'main', 'addon'), {recursive: true, force: true});
+            mainCallback(absentContext);
+
+            expect(absentContext.request).toBe('../src/main/addon');
+            expect(String(absentContext.regExp)).toBe('/(?!)/')
+        } finally {
+            fs.rmSync(fixtureDir, {recursive: true, force: true})
+        }
+    });
+
+    test('mainAddonContextPlugin keeps a one-argument caller on the installed layout instead of doubling the addon segment (#20697)', () => {
+        const fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-20697-legacy-')),
+              srcDir     = path.join(fixtureDir, 'node_modules', 'neo.mjs', 'src'),
+              context    = {context: srcDir, request: '../../../src/main/addon'};
+
+        try {
+            fs.mkdirSync(path.join(fixtureDir, 'src', 'main', 'addon'), {recursive: true});
+
+            mainAddonContextPlugin(false).newContentCallback(context);
+
+            expect(context.request).toBe('../../../src/main/addon');
+            expect(fs.existsSync(path.resolve(srcDir, context.request))).toBe(true);
+            expect(context.regExp).toBeUndefined()
+        } finally {
+            fs.rmSync(fixtureDir, {recursive: true, force: true})
+        }
+    });
+
     test('negative control: a test-harness adapter or fixture module leaking into any compiled worker or Main bundle fails', () => {
         const adapterLeak = './node_modules/neo.mjs/test/playwright/dedicatedWorkerNeuralLink.mjs',
               fixtureLeak = './node_modules/neo.mjs/test/playwright/fixtures.mjs',

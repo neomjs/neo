@@ -37,6 +37,45 @@ function isPackageLocal(request) {
 }
 
 /**
+ * @summary Rebases one app-space context root onto the workspace the build was started in.
+ *
+ * A request is authored relative to the worker's own directory, so the path it names inside the package
+ * is the same one it names inside the workspace: `../..` is the package root here and the workspace root
+ * there, and `../../apps/probe` is `<package>/apps/probe` here and `<workspace>/apps/probe` there.
+ * Resolving it against the package root and re-pointing that relative path at the workspace root holds
+ * for an installed, a linked and a pnpm-stored package alike, because nothing is derived from where the
+ * package happens to resolve to.
+ *
+ * Answers `undefined` when the request names a tree outside the package, which no app-space root
+ * does. The caller then empties the root, exactly as it does for an optional root the consumer does
+ * not have.
+ *
+ * A call that supplies no workspace root keeps the original one-argument contract: the package is
+ * assumed to sit at `<workspace>/node_modules/neo.mjs`, so the workspace is four directories above
+ * the worker. Every consumer config passes `cwd`, so the assumption survives only for callers that
+ * never had a workspace to name — and it reproduces the `'../../' + request` prefix those callers
+ * used to get.
+ *
+ * @param {String} workerDir The worker's own directory, as webpack resolved it.
+ * @param {String} request A context request, relative to the worker's directory.
+ * @param {String} [workspaceRoot] The consumer workspace the build was started in.
+ * @returns {String|undefined}
+ * @private
+ */
+function rebaseToWorkspace(workerDir, request, workspaceRoot) {
+    const root        = workspaceRoot ? path.resolve(workspaceRoot) : path.resolve(workerDir, '../../../..'),
+          packageRoot = path.resolve(workerDir, '../..'),
+          inPackage   = path.relative(packageRoot, path.resolve(workerDir, request.replaceAll('\\', '/')));
+
+    if (inPackage.startsWith('..')) return;
+
+    const target  = path.join(root, inPackage),
+          rebased = path.relative(path.resolve(workerDir), target).split(path.sep).join('/');
+
+    return rebased.startsWith('.') ? rebased : `./${rebased}`
+}
+
+/**
  * @summary Rebases a worker's lazy context roots from the installed package out to the consumer workspace.
  *
  * A worker authors its dynamic-import roots relative to its own directory, which is correct while
@@ -60,9 +99,13 @@ function isPackageLocal(request) {
  * change exists to remove.
  *
  * @param {Boolean} insideNeo Building the framework repository itself, where no rebasing applies.
+ * @param {String} [workspaceRoot] The consumer workspace the build was started in, as its configs already
+ * hold it in `cwd`. Path arithmetic from where the package resolves cannot know the workspace, and a linked
+ * package does not resolve into the workspace at all. Omitted, the caller falls back to the fixed installed
+ * depth (`<workspace>/node_modules/neo.mjs`), which is what one-argument callers were always given.
  * @returns {webpack.ContextReplacementPlugin}
  */
-export default function workerContextRebasePlugin(insideNeo) {
+export default function workerContextRebasePlugin(insideNeo, workspaceRoot) {
     return new webpack.ContextReplacementPlugin(/.*/, context => {
         // afterResolve repeats the callback with the request already rebased.
         if (context.resource !== undefined) return;
@@ -73,9 +116,9 @@ export default function workerContextRebasePlugin(insideNeo) {
 
         if (isPackageLocal(context.request)) return;
 
-        const rebased = path.posix.join('../../', context.request.replaceAll('\\', '/'));
+        const rebased = rebaseToWorkspace(con, context.request, workspaceRoot);
 
-        if (fs.existsSync(path.resolve(con, rebased))) {
+        if (rebased !== undefined && fs.existsSync(path.resolve(con, rebased))) {
             context.request = rebased
         } else {
             context.regExp = MATCHES_NOTHING
