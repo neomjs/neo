@@ -709,7 +709,6 @@ async function main() {
                     CONSUMER_APP_EXPECTATIONS
                 ));
 
-                console.log(`check-consumer-runtime-build: [${arm}] building development App as the framework…`);
                 if (arm === 'installed') {
                     // Only the installed layout can hold this arm. `src/worker/App.mjs`'s shipped
                     // `webpackExclude` drops any path segment `node_modules/` not followed by
@@ -717,7 +716,10 @@ async function main() {
                     // excluded by its own store path and the framework build reaches no app of the
                     // package. That is a separate defect in the exclude pattern, out of scope here,
                     // and it is reported rather than papered over.
+                    console.log(`check-consumer-runtime-build: [${arm}] building development App as the framework…`);
                     failures.push(...collectConsumerBuildFailures(await buildWorker(workspace, 'development', 'app'), APP_EXPECTATIONS));
+                } else {
+                    console.log(`check-consumer-runtime-build: [${arm}] SKIPPED the development framework App arm: the package resolves from a pnpm store path, which src/worker/App.mjs's shipped webpackExclude excludes before it reaches any app of the package (separate defect, out of scope here).`)
                 }
 
                 createMainAddonFixture(workspace);
@@ -744,7 +746,7 @@ async function main() {
             process.exit(1)
         }
 
-        console.log('\ncheck-consumer-runtime-build: OK — Data and Main preserve their consumer-owned contexts in both modes, Canvas reaches the package\'s renderers and the consumer\'s, the App worker compiles the workspace\'s own app as a consumer and every shipped app as the framework, and all of it holds with the package installed and with it linked from a pnpm-style real path.')
+        console.log('\ncheck-consumer-runtime-build: OK — Data and Main preserve their consumer-owned contexts in both modes, Canvas reaches the package\'s renderers and the consumer\'s, the App worker compiles the workspace\'s own app as a consumer in both layouts and every shipped app as the framework with the package installed, and the rest holds with the package linked from a pnpm-style real path. The framework App arm runs installed only and is logged as skipped when linked.')
     } finally {
         fs.rmSync(workspaceRoot, {recursive: true, force: true})
     }

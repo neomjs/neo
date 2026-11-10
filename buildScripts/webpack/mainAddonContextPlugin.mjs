@@ -30,8 +30,9 @@ const
  * @param {Boolean} insideNeo Building the Engine repository itself.
  * @param {String} [workspaceRoot] The consumer workspace the build was started in, as its config holds it in
  * `cwd`. The authored `../../../src/main/addon` reaches the workspace only while the package sits two
- * directories under it, which a linked package does not. Omitted, that authored request is taken at face
- * value, which is the behaviour a one-argument caller always had.
+ * directories under it, which a linked package does not. Omitted, the caller falls back to the installed
+ * depth (`<workspace>/node_modules/neo.mjs`), the Main-side twin of the worker plugin's `../../../..`, so
+ * the request stays the workspace's instead of doubling the addon segment inside the package.
  * @returns {webpack.ContextReplacementPlugin}
  */
 export default function mainAddonContextPlugin(insideNeo, workspaceRoot) {
@@ -46,7 +47,7 @@ export default function mainAddonContextPlugin(insideNeo, workspaceRoot) {
 
         const workspaceRootResolved = workspaceRoot
             ? path.resolve(workspaceRoot)
-            : path.resolve(context.context, WORKSPACE_REQUEST);
+            : path.resolve(context.context, '../../..');
 
         const workspaceAddon = path.relative(
             context.context, path.join(workspaceRootResolved, 'src/main/addon')
