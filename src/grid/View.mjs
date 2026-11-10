@@ -244,6 +244,15 @@ class View extends Base {
     }
 
     /**
+     * The one model when it selects cells, else `null`. A row asks it for every cell it renders.
+     * @returns {Neo.selection.grid.BaseModel|null}
+     */
+    get cellSelectionModel() {
+        let {selectionModel} = this;
+        return selectionModel?.selectsCells ? selectionModel : null
+    }
+
+    /**
      * How far a scroll update has to reach past a row to repaint the cell CONTENTS: the deepest chain of
      * nested components any column's cells have reached, counting the cell itself as 1.
      *
@@ -280,8 +289,7 @@ class View extends Base {
      * @returns {String[]}
      */
     get selectedCells() {
-        let {selectionModel} = this;
-        return selectionModel?.selectsCells ? selectionModel.items : []
+        return this.cellSelectionModel?.items ?? []
     }
 
     /**
@@ -918,7 +926,7 @@ class View extends Base {
                 // The region's last column drops its right border, as in Row#createVdom: 1px of text width
                 let cellId = `${projector.id}__measure_${generation}_${index}_${columnIndex}`,
                     cell   = projector.applyRendererOutput({
-                        cache: {gridBody: body, gridContainer: me.gridContainer, store, selectedCells: [], measureOnly: true},
+                        cache: {gridBody: body, gridContainer: me.gridContainer, store, measureOnly: true},
                         cellId, column, columnIndex, isLastColumn: columnIndex === body.columnPositions.getCount() - 1,
                         record, rowIndex: index, silent: true
                     });
