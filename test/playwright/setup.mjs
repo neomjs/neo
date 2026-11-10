@@ -190,8 +190,10 @@ export function setup(options = {}) {
             }
             return rect;
         },
-        scrollIntoView: async () => {},
-        scrollTo      : async () => {}
+        // Blink's measured cap. A spec that pages a grid's rows sets a lower one on the grid's view.
+        getMaxScrollHeight: async () => 33554428,
+        scrollIntoView    : async () => {},
+        scrollTo          : async () => {}
     };
 
     // Production's App Worker always exposes the Stylesheet addon. Component-composition unit

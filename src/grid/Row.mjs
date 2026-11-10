@@ -79,6 +79,13 @@ class Row extends Component {
     }
 
     /**
+     * The view's page offset this row last rendered with, see {@link Neo.grid.View#pageOffset}
+     * @member {Number} renderedPageOffset=0
+     * @protected
+     */
+    renderedPageOffset = 0
+
+    /**
      * Triggered after an update of this row landed in the DOM, e.g. for a changed record. Content-sized rows
      * measure what it rendered.
      * @protected
@@ -415,13 +422,15 @@ class Row extends Component {
             ariaRow        = gridBody.isAriaLeadRegion,
             cache          = {ariaColumnOffset, cellSelectionModel, colspanField, columnPositions, editSession, editsCells, gridBody, gridContainer, highlightModifiedCells, selectionModel, store};
 
+        me.renderedPageOffset = gridBody.pageOffset;
+
         Object.assign(vdom, {
             data : {recordId, rowId: rowIndex},
             // Content-sized rows take height and offset from the view's geometry, fixed rows multiply
             style: {
                 display  : null, // Reset display in case it was hidden
                 height   : (rowGeometry ? rowGeometry.heightAt(rowIndex) : rowHeight) + 'px',
-                transform: me.getRowTransform(rowGeometry ? rowGeometry.offsetAt(rowIndex) : rowIndex * rowHeight)
+                transform: me.getRowTransform(gridBody.getRowOffset(rowIndex))
             }
         });
 
@@ -725,21 +734,23 @@ class Row extends Component {
     }
 
     /**
-     * Content-sized rows move when a row above them changes its height, while their record and index stay the
-     * same. True if the height or offset this row rendered no longer matches the view's row geometry.
+     * Rows move while their record and index stay the same: every row when the view crosses into another scroll page,
+     * and a content-sized row when a row above it changes its height. True if the page offset, height or offset this
+     * row rendered no longer matches the view's.
      * @returns {Boolean}
      * @protected
      */
     hasStaleGeometry() {
         let me            = this,
-            {rowGeometry} = me.parent,
+            gridBody      = me.parent,
+            {rowGeometry} = gridBody,
             {rowIndex}    = me,
             {style}       = me.vdom;
 
-        return !!(rowGeometry && me.record) && (
+        return !!me.record && (me.renderedPageOffset !== gridBody.pageOffset || !!rowGeometry && (
             style.height    !== rowGeometry.heightAt(rowIndex) + 'px' ||
-            style.transform !== me.getRowTransform(rowGeometry.offsetAt(rowIndex))
-        )
+            style.transform !== me.getRowTransform(gridBody.getRowOffset(rowIndex))
+        ))
     }
 
     /**

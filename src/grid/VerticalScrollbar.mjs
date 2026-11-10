@@ -55,6 +55,12 @@ class VerticalScrollbar extends Component {
          */
         baseCls: ['neo-grid-vertical-scrollbar'],
         /**
+         * The view's {@link Neo.grid.View#maxScrollHeight}. The grid view hands it over, so the extent matches the
+         * bodies' extent.
+         * @member {Number} maxScrollHeight=Infinity
+         */
+        maxScrollHeight: Infinity,
+        /**
          * The view's row geometry in content-sized mode, else `null`. The grid view hands it over, so the extent
          * matches the bodies' extent.
          * @member {Neo.grid.RowGeometry|null} rowGeometry=null
@@ -168,9 +174,11 @@ class VerticalScrollbar extends Component {
 
         if (countRecords > 0 && rowHeight > 0) {
             // Content-sized rows: the known geometry, plus the estimate for rows a chunked load has not delivered
-            me.vdom.cn[0].height = rowGeometry ?
-                `${rowGeometry.totalHeight + (countRecords - rowGeometry.count + 1) * rowGeometry.estimate}px` :
-                `${(countRecords + 1) * rowHeight}px`;
+            let extent = rowGeometry ?
+                rowGeometry.totalHeight + (countRecords - rowGeometry.count + 1) * rowGeometry.estimate :
+                (countRecords + 1) * rowHeight;
+
+            me.vdom.cn[0].height = `${Math.min(extent, me.maxScrollHeight)}px`;
             me.update()
         }
     }

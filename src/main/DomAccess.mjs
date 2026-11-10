@@ -80,6 +80,7 @@ class DomAccess extends Base {
                 'getChildNodeIds',
                 'getComputedStyle',
                 'getLayoutRect',
+                'getMaxScrollHeight',
                 'getNaturalRect',
                 'getOffscreenCanvas',
                 'getScrollingDimensions',
@@ -108,6 +109,12 @@ class DomAccess extends Base {
          */
         singleton: true
     }
+
+    /**
+     * The scroll extent cap {@link #getMaxScrollHeight} measured, 0 until its first call
+     * @member {Number} #maxScrollHeight=0
+     */
+    #maxScrollHeight = 0
 
     /**
      * @returns {HTMLElement}
@@ -576,6 +583,44 @@ class DomAccess extends Base {
         }
 
         return returnData
+    }
+
+    /**
+     * @summary The largest scroll extent in px this browser lays out, measured on the first call.
+     *
+     * A browser caps the extent of a scroll container however its content is split. Past the cap, Blink and WebKit
+     * clamp the extent to about 33.5M px, while Gecko drops it to nothing past 17.9M px. A binary search between a
+     * million px, which every engine lays out, and a billion, which none does, finds the cap with one hidden probe.
+     * Past 2^24 px layout values are float-rounded, so a height counts as laid out within a few px.
+     * @returns {Number}
+     */
+    getMaxScrollHeight() {
+        let me = this;
+
+        if (!me.#maxScrollHeight) {
+            let probe   = document.createElement('div'),
+                content = document.createElement('div'),
+                high    = 1e9,
+                low     = 1e6,
+                height;
+
+            probe.style.cssText = 'height:1px;overflow:hidden;position:absolute;visibility:hidden;width:1px';
+            probe.appendChild(content);
+            document.body.appendChild(probe);
+
+            while (high - low > 1) {
+                height               = Math.floor((low + high) / 2);
+                content.style.height = height + 'px';
+                probe.scrollHeight >= height - 16 ? (low = height) : (high = height)
+            }
+
+            // A clamping engine reports its cap a few px below the last height the search accepted
+            content.style.height = low + 'px';
+            me.#maxScrollHeight  = Math.min(low, probe.scrollHeight);
+            probe.remove()
+        }
+
+        return me.#maxScrollHeight
     }
 
     /**
