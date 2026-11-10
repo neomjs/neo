@@ -48,10 +48,12 @@ const
 
 /**
  * @param {Number} count
+ * @param {Object} [config={}]
  * @returns {Neo.data.Store}
  */
-function createStore(count) {
+function createStore(count, config = {}) {
     return Neo.create(Store, {
+        ...config,
         data       : Array.from({length: count}, (item, index) => ({id: index, name: `Row ${index}`})),
         keyProperty: 'id',
         model      : {fields: [{name: 'id', type: 'Integer'}, {name: 'name', type: 'String'}]}
@@ -133,6 +135,122 @@ test.describe('Grid scroll pages: the page math', () => {
         expect(pages.thumbPageAt(maxHeight - viewport)).toBe(last);
 
         pages.destroy()
+    });
+
+    test('at larger extent/cap ratios every logical offset still lands inside the physical range', () => {
+        // A page's offset grows by less than a page: near the end of a long range a page's rows reach past the
+        // physical range. A page before the last also leaves room to scroll on, since the browser stops at the limit.
+        for (const [extent, viewHeight] of [[40000040, 360], [40000040, 900], [4000040, 360], [4000040, 900]]) {
+            let pages   = Neo.create(ScrollPages, {extent, maxExtent: maxHeight, viewHeight}),
+                last    = pages.pageCount - 1,
+                limit   = maxHeight - viewHeight,
+                outside = [],
+                page, physical;
+
+            // Every offset of the last pages, where the pages drift furthest
+            for (let scrollTop = (last - 4) * pages.pageHeight; scrollTop <= extent - viewHeight; scrollTop++) {
+                page     = pages.pageAt(scrollTop);
+                physical = scrollTop - pages.offsetAt(page);
+
+                if (physical < 0 || physical > limit || (page < last && physical >= limit)) {
+                    outside.push(scrollTop)
+                }
+            }
+
+            expect(outside.length, `${extent} px over ${viewHeight} px, first at ${outside[0]}`).toBe(0);
+            pages.destroy()
+        }
+    })
+});
+
+test.describe('Grid scroll pages: a long range past the cap', () => {
+    const
+        longCount  = 1000000,
+        longExtent = (longCount + 1) * rowHeight,
+        limit      = maxHeight - viewport;
+
+    let grid, store;
+
+    /**
+     * Reports a main-thread scroll offset to the view, as a scroll event does
+     * @param {Number} scrollTop
+     * @param {String} [epoch='0']
+     */
+    const report = (scrollTop, epoch = '0') => grid.scrollManager.onContainerScroll({
+        scrollLeft: 0,
+        scrollTop,
+        target    : {data: {scrollEpoch: epoch}, id: grid.view.id, scrollTop}
+    });
+
+    test.beforeEach(async () => {
+        store = createStore(longCount, {autoInitRecords: false});
+        grid  = await createGrid(store);
+
+        grid.scrollManager.rowHoverSync = false;
+        grid.view.maxScrollHeight       = maxHeight;
+        await grid.view.promiseUpdate()
+    });
+
+    test.afterEach(async () => {
+        await expect.poll(() => grid.body.isScrolling).toBe(false);
+        grid?.destroy();
+        store?.destroy()
+    });
+
+    test('a keyboard jump to a row near the end lands on that row, inside the physical range', async () => {
+        let {view} = grid,
+            target = 39997960;
+
+        view.scrollToOffset(target);
+        await view.promiseUpdate();
+
+        expect(view.scrollTop).toBe(target);
+        expect(view.scrollTop - view.pageOffset).toBeLessThanOrEqual(limit)
+    });
+
+    test('after a thumb drag, a scroll that enters the last viewports moves 1:1, without a jump to the last page', async () => {
+        let {view} = grid,
+            thumb  = limit - 400,
+            logical;
+
+        view.isThumbDragging = true;
+        report(thumb);
+        await expect.poll(() => view.pageOffset).toBeGreaterThan(0);
+        view.isThumbDragging = false;
+
+        logical = view.scrollTop;
+        expect(view.pageOffset).toBeLessThan(longExtent - maxHeight);
+
+        report(thumb + 326);
+        await expect.poll(() => view.scrollTop).toBe(logical + 326)
+    });
+
+    test('a scroll the browser stops at the top of a low page moves 1:1, without a jump to the first page', async () => {
+        let {view} = grid;
+
+        // Twenty pages in, a page's range starts a few px into the physical range
+        view.scrollToOffset(40100);
+        await view.promiseUpdate();
+        expect(view.scrollTop - view.pageOffset).toBeLessThan(viewport);
+
+        let logical = view.scrollTop - (view.scrollTop - view.pageOffset);
+
+        // A wheel step past that start: the browser stops at 0
+        report(0, '1');
+        await expect.poll(() => view.scrollTop).toBe(logical)
+    });
+
+    test('a store load returns a paged grid to the top, also from a page a few px into the physical range', async () => {
+        let {view} = grid;
+
+        view.scrollToOffset(40100);
+        await view.promiseUpdate();
+
+        // The event a store fires once it holds new records
+        store.fire('load', {items: store.items});
+
+        await expect.poll(() => view.scrollTop).toBe(0);
+        expect(view.pageOffset).toBe(0)
     })
 });
 

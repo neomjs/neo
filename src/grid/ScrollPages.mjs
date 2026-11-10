@@ -96,12 +96,28 @@ class ScrollPages extends Base {
     }
 
     /**
-     * The page a logical offset lies on
+     * The page a logical offset lies on. A page's offset grows by less than a page, so near the end of a long range
+     * the rows of a page reach past the physical range: their offsets go to the next page. A page before the last also
+     * keeps its offsets below the end of the physical range, where the browser stops a scroll.
      * @param {Number} scrollTop The logical offset in px
      * @returns {Number}
      */
     pageAt(scrollTop) {
-        return this.paged ? Math.max(0, Math.min(this.pageCount - 1, Math.floor(scrollTop / this.pageHeight))) : 0
+        let me = this;
+
+        if (!me.paged) {
+            return 0
+        }
+
+        let last  = me.pageCount - 1,
+            limit = me.physicalExtent - me.viewHeight,
+            page  = Math.max(0, Math.min(last, Math.floor(scrollTop / me.pageHeight)));
+
+        while (page < last && scrollTop - me.offsetAt(page) >= limit) {
+            page++
+        }
+
+        return page
     }
 
     /**

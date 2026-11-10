@@ -1514,12 +1514,16 @@ class GridBody extends Component {
 
         if (me.mounted && !postChunkLoad) {
             me.timeout(50)
-                .then(() => Neo.main.DomAccess.scrollTo({
-                    direction: 'top',
-                    id: me.gridContainer.view.id,
-                    value: 0,
-                    windowId
-                }))
+                .then(() => {
+                    let {view} = me.gridContainer;
+
+                    // Paged, the top lies on the first page: the view moves the rows and the offset there together
+                    if (view.paged) {
+                        view.scrollToOffset(0)
+                    } else {
+                        return Neo.main.DomAccess.scrollTo({direction: 'top', id: view.id, value: 0, windowId})
+                    }
+                })
                 .catch(reason => {
                     reason !== Neo.isDestroyed && !Neo.currentWorker?.isDeparture?.(reason, windowId) &&
                         console.error('grid.Body: scroll-to-top dispatch failed', {reason, windowId})

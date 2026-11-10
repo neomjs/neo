@@ -199,6 +199,12 @@ class View extends Base {
      */
     #pendingCorrections = []
     /**
+     * The main thread's scroll offset after the last {@link #pageScroll}, its corrections included: a report that moves
+     * further than a viewport from it is a jump
+     * @member {Number} #physicalOffset=0
+     */
+    #physicalOffset = 0
+    /**
      * Content-sized rows past {@link #maxScrollHeight}: true once their error is logged, until they fit again
      * @member {Boolean} #refusedPages=false
      */
@@ -660,10 +666,11 @@ class View extends Base {
      *
      * - **A thumb drag** owns the physical offset. It picks its page in proportion, and the logical offset follows.
      *   The main thread drops a correction that lands during the drag, so the page comes from the offset it reported.
-     * - **The first or the last viewport** of the physical range picks the first or the last page. From another page
-     *   only a jump gets there: a load's reset to the top, Home or End.
-     * - **Any other scroll** keeps the logical offset. Crossing into another page moves the physical offset by the
-     *   difference of the two page offsets, as a scroll correction in the update that renders the moved rows.
+     * - **A jump to an end** of the physical range, a move of more than a viewport such as the browser's Home or End,
+     *   picks the first or the last page. A load returns to the top through {@link #scrollToOffset}.
+     * - **Any other scroll** keeps the logical offset, also one the browser stopped at an end of the physical range.
+     *   Crossing into another page moves the physical offset by the difference of the two page offsets, as a scroll
+     *   correction in the update that renders the moved rows.
      *
      * See {@link #updateScrollPages} for content-sized rows.
      * @param {Number} scrollTop The logical offset: the main thread's offset plus the current {@link #pageOffset}
@@ -675,20 +682,20 @@ class View extends Base {
             {pageOffset} = me,
             pages        = me.updateScrollPages(),
             physical     = scrollTop - pageOffset,
+            jumped       = Math.abs(physical - me.#physicalOffset) > pages.viewHeight,
+            logical      = scrollTop,
             offset, page;
 
         if (!me.paged) {
             me.pageOffset = 0;
-            return physical
-        }
-
-        if (me.isThumbDragging) {
+            logical       = physical
+        } else if (me.isThumbDragging) {
             // The main thread drops corrections during a drag, so the offset it reported is where the thumb is
             physical -= me.#pendingDistance();
             page      = pages.thumbPageAt(physical)
-        } else if (physical <= 0) {
+        } else if (jumped && physical <= 0) {
             page = 0
-        } else if (physical >= pages.physicalExtent - 2 * pages.viewHeight) {
+        } else if (jumped && physical >= pages.physicalExtent - pages.viewHeight) {
             page = pages.pageCount - 1
         } else {
             offset = pages.offsetAt(pages.pageAt(scrollTop));
@@ -697,12 +704,15 @@ class View extends Base {
                 me.#queueCorrection(pageOffset - offset);
                 me.pageOffset = offset
             }
-
-            return scrollTop
         }
 
-        me.pageOffset = pages.offsetAt(page);
-        return physical + me.pageOffset
+        if (page !== undefined) {
+            me.pageOffset = pages.offsetAt(page);
+            logical       = physical + me.pageOffset
+        }
+
+        me.#physicalOffset = logical - me.pageOffset;
+        return logical
     }
 
     /**
@@ -1428,7 +1438,7 @@ class View extends Base {
     scrollToOffset(scrollTop) {
         let me    = this,
             pages = me.updateScrollPages(),
-            offset;
+            distance, offset;
 
         if (!me.paged) {
             Neo.main.DomAccess.scrollTo({id: me.id, value: scrollTop, windowId: me.windowId});
@@ -1438,8 +1448,10 @@ class View extends Base {
         // A row near the end, top-aligned, asks for more than the range scrolls
         scrollTop = Math.max(0, Math.min(scrollTop, pages.extent - pages.viewHeight));
         offset    = pages.offsetAt(pages.pageAt(scrollTop));
+        distance  = scrollTop - offset - (me.scrollTop - me.pageOffset);
 
-        me.#queueCorrection(scrollTop - offset - (me.scrollTop - me.pageOffset));
+        // Every body resets a loaded store to the top: only the first of them moves the offset
+        distance && me.#queueCorrection(distance);
         me.pageOffset = offset;
         me.gridContainer.scrollManager.scrollTop = scrollTop;
         me.syncBodies(scrollTop)
