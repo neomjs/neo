@@ -66,6 +66,17 @@ The type does not change that. A script element whose type is not a JavaScript t
 
 `JSON.stringify` cannot help, because it has a different job. It escapes quotes, backslashes and control characters, which is what JSON requires. `JSON.stringify('<>&')` returns `"<>&"`. Its output is JSON. It was never specified to be safe inside HTML.
 
+The string is read three times, and only the last reader knows JSON:
+
+```mermaid
+flowchart LR
+    S["The server<br/>writes JSON<br/>between two<br/>script tags"]
+    T["1. Tokenizer<br/>ends the<br/>element at the<br/>first closing<br/>script tag"]
+    P["2. The type<br/>decides if<br/>the content<br/>runs"]
+    J["3. JSON parser<br/>reads what<br/>is left of<br/>the block"]
+    S --> T --> P --> J
+```
+
 The standard has [a section for exactly this](https://html.spec.whatwg.org/multipage/scripting.html#restrictions-for-contents-of-script-elements). It asks authors to escape `<!--`, `<script` and `</script` when they occur in script content, and calls the parsing of script blocks "a strange and exotic practice that acts unintuitively in the face of these sequences".
 
 ## The fix: one replace
