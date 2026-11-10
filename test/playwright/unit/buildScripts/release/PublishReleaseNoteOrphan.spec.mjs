@@ -58,6 +58,20 @@ test.describe('Release-note lifecycle', () => {
         expect(src).toContain("getReleaseNoteParts(read(['git', 'show', `${mergeCommit}:${notePathInRepo}`]))");
     });
 
+    test('the release commit sets the version first, before the note drop and before prepare.mjs carries it on', () => {
+        const
+            src        = publish(),
+            versionIdx = src.indexOf('npm version ${newVersion} --no-git-tag-version'),
+            dropIdx    = src.indexOf('dropReleasedNotes(newVersion);'),
+            prepareIdx = src.indexOf('node buildScripts/release/prepare.mjs');
+
+        expect(versionIdx, 'publish.mjs must set the version in the release commit').toBeGreaterThan(-1);
+        expect(dropIdx).toBeGreaterThan(versionIdx);
+        expect(prepareIdx).toBeGreaterThan(versionIdx);
+        // The version comes from --version or origin/dev, never from the checkout's package.json at load
+        expect(src).not.toMatch(/newVersion\s*=\s*fs\.readJsonSync/);
+    });
+
     test('every note sits flat in .github/RELEASE_NOTES, one file per version', () => {
         const entries = fs.readdirSync(notesDir, {withFileTypes: true});
 
