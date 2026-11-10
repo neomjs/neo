@@ -237,20 +237,26 @@ class DocumentHead extends Base {
     /**
      * Convenience shortcut to change multiple items inside one remote method access call.
      * @param {Object} data
-     * @param {String} [data.canonicalUrl] The canonical URL to set.
-     * @param {String} [data.description]  The new description for the document.
-     * @param {Object} [data.ldJson]       The JavaScript object to be stringified and set as the script's content.
-     * @param {Object} [data.tag]          The configuration for the tag, including the tag name and its attributes.
-     * @param {String} [data.title]        The new title for the document.
+     * @param {String}   [data.canonicalUrl] The canonical URL to set.
+     * @param {String}   [data.description]  The new description for the document.
+     * @param {Object}   [data.ldJson]       The JavaScript object to be stringified and set as the script's content, or `{name, value}` to target a named schema script.
+     * @param {Object}   [data.tag]          The configuration for the tag, including the tag name and its attributes.
+     * @param {Object[]} [data.tags]         An array of tag configurations to create or update via `setTag`.
+     * @param {String}   [data.title]        The new title for the document.
      */
-    update({canonicalUrl, description, ldJson, tag, title}) {
+    update({canonicalUrl, description, ldJson, tag, tags, title}) {
         let me = this;
 
         canonicalUrl && me.setCanonical({url: canonicalUrl});
         description  && me.setDescription({value: description});
-        ldJson       && me.setLdJson({value: ldJson});
+        ldJson       && me.setLdJson(ldJson.name && ldJson.value ? ldJson : {value: ldJson});
         tag          && me.setTag({value: tag});
-        title        && me.setTitle({value: title})
+
+        if (Array.isArray(tags)) {
+            tags.forEach(item => me.setTag({value: item}))
+        }
+
+        title && me.setTitle({value: title})
     }
 }
 

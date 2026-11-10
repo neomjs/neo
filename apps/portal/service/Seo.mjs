@@ -63,31 +63,46 @@ class Seo extends Base {
     }
 
     /**
-     * Retrieves the SEO metadata (title and description) for a given route hash.
+     * Retrieves the SEO metadata (title, description, schemaType, and normalized route) for a given route hash.
      * Supports nested routes by falling back to parent paths if an exact match is not found.
      * e.g., '/news/blog/my-post' -> '/news/blog' -> '/news'
-     * @param {String} route The route hash string (e.g., '/home', '/blog').
-     * @returns {Object|null} An object containing `title` and `description` for the route, or `null` if not found.
+     * @param {String} route The route hash string (e.g., '/home', '/learn/benefits/Introduction').
+     * @returns {Object|null} An object containing `title`, `description`, optional `schemaType`, and `route`, or `null` if not found.
      */
     getMetadata(route) {
         let metadata = this.#metadata,
-            parts;
+            lookupRoute, normalizedRoute, parts;
 
-        if (!metadata) return null;
+        if (!metadata || !route || typeof route !== 'string') {
+            return null
+        }
 
-        if (metadata[route]) {
-            return metadata[route]
+        normalizedRoute = route.startsWith('/') ? route : `/${route}`;
+
+        if (normalizedRoute.length > 1 && normalizedRoute.endsWith('/')) {
+            normalizedRoute = normalizedRoute.slice(0, -1)
+        }
+
+        if (metadata[normalizedRoute]) {
+            return {
+                ...metadata[normalizedRoute],
+                route: normalizedRoute
+            }
         }
 
         // Fallback logic for nested routes
-        parts = route.split('/');
+        lookupRoute = normalizedRoute;
+        parts       = lookupRoute.split('/');
 
         while (parts.length > 1) {
             parts.pop();
-            route = parts.join('/');
+            lookupRoute = parts.join('/');
 
-            if (metadata[route]) {
-                return metadata[route]
+            if (metadata[lookupRoute]) {
+                return {
+                    ...metadata[lookupRoute],
+                    route: normalizedRoute
+                }
             }
         }
 
@@ -130,18 +145,48 @@ class Seo extends Base {
     }
 
     /**
-     * This private method calls the `DocumentHead` main thread addon to update the document's
-     * title and meta-description for SEO purposes. It is the actual mechanism for applying
-     * the SEO changes to the browser's DOM.
-     * @param {Object} config The configuration object containing `description` and `title`.
-     * @param {String} config.description The new meta-description for the document.
-     * @param {String} config.title The new title for the document.
-     * @param {String} config.windowId The new title for the document.
+     * Calls the `DocumentHead` main thread addon to update the document's title, meta-description,
+     * canonical URL, Open Graph tags (`og:title`, `og:description`, `og:url`), and route-specific
+     * `ld+json` (`data-schema-name="neo-route"`).
+     * @param {Object} config
+     * @param {String} config.description             The new meta-description for the document.
+     * @param {String} [config.route]                 The normalized route path (e.g., '/learn/benefits/Introduction').
+     * @param {String} [config.schemaType='WebPage']  The Schema.org `@type` for the route's `ld+json` block.
+     * @param {String} config.title                   The new title for the document.
+     * @param {String} config.windowId                The target windowId.
      * @private
      */
-    async #updateDocumentHead({description, title, windowId}) {
-        let DocumentHead = await Neo.currentWorker.getAddon('DocumentHead', windowId);
-        await DocumentHead.update({description, title, windowId})
+    async #updateDocumentHead({description, route, schemaType='WebPage', title, windowId}) {
+        let DocumentHead = await Neo.currentWorker.getAddon('DocumentHead', windowId),
+            canonicalUrl = route ? `https://neomjs.com${route}` : undefined,
+            ldJson       = canonicalUrl ? {
+                name : 'neo-route',
+                value: {
+                    '@context': 'https://schema.org',
+                    '@type'   : schemaType,
+                    headline  : title,
+                    name      : title,
+                    description,
+                    url       : canonicalUrl,
+                    isPartOf  : {
+                        '@id': 'https://neomjs.com/#website'
+                    }
+                }
+            } : undefined,
+            tags = [
+                ...(title        ? [{tag: 'meta', property: 'og:title',       content: title}]        : []),
+                ...(description  ? [{tag: 'meta', property: 'og:description', content: description}]  : []),
+                ...(canonicalUrl ? [{tag: 'meta', property: 'og:url',         content: canonicalUrl}] : [])
+            ];
+
+        await DocumentHead.update({
+            canonicalUrl,
+            description,
+            ldJson,
+            tags: tags.length ? tags : undefined,
+            title,
+            windowId
+        })
     }
 
     /**
@@ -157,7 +202,8 @@ class Seo extends Base {
         let me = this;
 
         if (me.isReady) {
-            let metadata = me.getMetadata(config.hashString);
+            let route    = config?.hashString || (typeof config?.hash === 'string' ? config.hash : null),
+                metadata = route ? me.getMetadata(route) : null;
 
             if (metadata) {
                 me.#updateDocumentHead({...metadata, windowId: config.windowId});

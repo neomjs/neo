@@ -7,6 +7,7 @@ import fg             from 'fast-glob';
 import {
     assertStableReleaseNoteGithubLinks,
     collectBlogRoutes,
+    extractMarkdownSeoMetadata,
     getContentRoutes,
     getDisallowedReleaseNoteGithubLinks,
     getExistingSitemapLastmodMap,
@@ -14,6 +15,7 @@ import {
     getLlmsFullTxt,
     getLlmsTxt,
     getReleaseNotePriority,
+    getSeoJson,
     getSitemapIndexXml,
     getSitemapXml
 } from '../../../../../../buildScripts/docs/seo/generate.mjs';
@@ -394,5 +396,76 @@ test.describe('docs SEO generator archive exclusion (#20089)', () => {
         expect(llmsFull).toContain('# [Quick Start](https://neomjs.com/raw/learn/guides/QuickStart.md)');
         expect(llmsFull).toContain('Run zero-build ES modules.');
         expect(llmsFull).not.toContain('Missing Guide');
+    });
+
+    test('getSeoJson populates route-specific metadata for learn, blog, and release leaves while preserving top-level routes (#20688)', async () => {
+        const learnDir      = path.join(tempDir, 'learn');
+        const treeFilePath  = path.join(learnDir, 'tree.json');
+        const blogIndexPath = path.join(tempDir, 'blog.json');
+        const releasesPath  = path.join(tempDir, 'releases.json');
+        const blogPostPath  = path.join(tempDir, 'post.md');
+
+        await fs.outputFile(
+            path.join(learnDir, 'benefits/Introduction.md'),
+            '# What Is Neo.mjs?\n\n**On a normal night here, with no human awake, AIs from rival labs open pull requests across Neo repositories.**'
+        );
+        await fs.writeJSON(treeFilePath, {
+            data: [
+                {id: 'benefits/Introduction', isLeaf: true, name: 'Introduction'}
+            ]
+        });
+
+        await fs.outputFile(
+            blogPostPath,
+            '# Move web app panels between windows\n\n**Move a grid into another browser window and dock it back with its filters, selection, and scroll position intact.**'
+        );
+        await fs.writeJSON(blogIndexPath, {
+            data: [
+                {id: 'blog/a-workspace', isLeaf: true, name: 'Move web app panels', path: blogPostPath}
+            ]
+        });
+
+        await fs.writeJSON(releasesPath, [
+            {id: '13.3.1', isLeaf: true}
+        ]);
+
+        const seoJson = await getSeoJson({
+            blogIndexPath,
+            learnDir,
+            releaseNotesRoot,
+            releasesPath,
+            root: tempDir,
+            treeFilePath
+        });
+
+        expect(seoJson['/services']).toEqual({
+            title      : 'Connect with Neo.mjs',
+            description: 'Build an app with Neo.mjs, explore persistent project memory for coding agents, join the public development work, or reach the maintainers directly.'
+        });
+        expect(seoJson['/learn/benefits/Introduction']).toEqual({
+            title      : 'What Is Neo.mjs?',
+            description: 'On a normal night here, with no human awake, AIs from rival labs open pull requests across Neo repositories.',
+            schemaType : 'TechArticle'
+        });
+        expect(seoJson['/news/blog/a-workspace']).toEqual({
+            title      : 'Move web app panels between windows - Neo.mjs',
+            description: 'Move a grid into another browser window and dock it back with its filters, selection, and scroll position intact.',
+            schemaType : 'BlogPosting'
+        });
+        expect(seoJson['/news/releases/13.3.1']).toEqual({
+            title      : 'Neo.mjs v13.3.1 Release Notes',
+            description: 'Release notes and changelog for Neo.mjs v13.3.1.',
+            schemaType : 'TechArticle'
+        });
+        expect(seoJson['/news/releases/13.0.0']).toEqual({
+            title      : 'Release 13.0.0 - Neo.mjs',
+            description: 'Release notes and changelog for Neo.mjs v13.0.0.',
+            schemaType : 'TechArticle'
+        });
+
+        expect(extractMarkdownSeoMetadata('# Custom Guide\n\n> Short quote\n\nThis paragraph explains how multi-threaded UI rendering keeps the main thread responsive under load.')).toEqual({
+            title      : 'Custom Guide - Neo.mjs',
+            description: 'This paragraph explains how multi-threaded UI rendering keeps the main thread responsive under load.'
+        });
     });
 });
