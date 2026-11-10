@@ -1,0 +1,739 @@
+[
+    {
+        "id": "workstation",
+        "environments": [
+            "Desktop"
+        ],
+        "image": "devmode/workstation-13-2.jpg",
+        "name": "Workstation",
+        "sharedWorkers": true,
+        "sourceUrl": "apps/workstation",
+        "urls": {
+            "devmode": "apps/workstation/index.html",
+            "dist_dev": "dist/development/apps/workstation/index.html",
+            "dist_esm": "dist/esm/apps/workstation/index.html",
+            "dist_prod": "dist/production/apps/workstation/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "devindex",
+        "environments": [
+            "Desktop",
+            "Mobile"
+        ],
+        "image": "devmode/DevIndex.png",
+        "name": "GitHub Meritocracy Index",
+        "sourceUrl": "https://github.com/neomjs/devindex",
+        "urls": {
+            "devmode": "https://neomjs.com/devindex/",
+            "dist_dev": "https://neomjs.com/devindex/dist/development/apps/devindex/",
+            "dist_esm": "https://neomjs.com/devindex/",
+            "dist_prod": "https://neomjs.com/devindex/dist/production/apps/devindex/"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "grid-tree-big-data",
+        "environments": [
+            "Desktop",
+            "Mobile"
+        ],
+        "image": "devmode/treeGridBigData.png",
+        "name": "TreeGrid - Big Data",
+        "sourceUrl": "examples/grid/treeBigData",
+        "urls": {
+            "devmode": "examples/grid/treeBigData/index.html",
+            "dist_dev": "dist/development/examples/grid/treeBigData/index.html",
+            "dist_esm": "dist/esm/examples/grid/treeBigData/index.html",
+            "dist_prod": "dist/production/examples/grid/treeBigData/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "component": "Grid",
+        "feature": "A tree hierarchy at scale: up to 100,000 rows, 200 columns and 20 levels",
+        "lookFor": "Open the ☰ panel, raise rows and depth, then expand all; filter by name and toggle helper lines or value bands."
+    },
+    {
+        "id": "shared-covid",
+        "image": "devmode/sharedcovid.png",
+        "name": "Multi Window Covid App",
+        "sharedWorkers": true,
+        "sourceUrl": "apps/sharedcovid",
+        "urls": {
+            "devmode": "apps/sharedcovid/index.html#mainview=table",
+            "dist_dev": "dist/development/apps/sharedcovid/index.html#mainview=table",
+            "dist_esm": "dist/esm/apps/sharedcovid/index.html#mainview=table",
+            "dist_prod": "dist/production/apps/sharedcovid/index.html#mainview=table"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "grid-big-data",
+        "environments": [
+            "Desktop",
+            "Mobile"
+        ],
+        "image": "devmode/bigData.png",
+        "name": "Buffered Data Grid with 5M cells",
+        "sourceUrl": "examples/grid/bigData",
+        "urls": {
+            "devmode": "examples/grid/bigData/index.html",
+            "dist_dev": "dist/development/examples/grid/bigData/index.html",
+            "dist_esm": "dist/esm/examples/grid/bigData/index.html",
+            "dist_prod": "dist/production/examples/grid/bigData/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "component": "Grid",
+        "feature": "Buffered rendering in both directions, configurable up to 100,000 rows × 200 columns",
+        "lookFor": "Open the ☰ panel, raise rows and columns, then scroll both ways; filter by name and press a counter button inside a cell."
+    },
+    {
+        "id": "grid-issues",
+        "environments": [
+            "Desktop",
+            "Mobile"
+        ],
+        "image": "devmode/grid-issues-13-3.jpg",
+        "name": "GitHub Issues Grid",
+        "sourceUrl": "examples/grid/issues",
+        "urls": {
+            "devmode": "examples/grid/issues/index.html",
+            "dist_dev": "dist/development/examples/grid/issues/index.html",
+            "dist_esm": "dist/esm/examples/grid/issues/index.html",
+            "dist_prod": "dist/production/examples/grid/issues/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "component": "Grid",
+        "feature": "Searchable issue snapshot with wrapped rows",
+        "lookFor": "Search the issue snapshot, open column menus, toggle content-sized rows, and compare light and dark themes.",
+        "scope": "Displays a public issue snapshot rather than a live GitHub feed."
+    },
+    {
+        "id": "calendar",
+        "image": "devmode/calendar-preview.png",
+        "name": "Calendar",
+        "sourceUrl": "src/calendar",
+        "urls": {
+            "devmode": "examples/calendar/basic/index.html",
+            "dist_dev": "dist/development/examples/calendar/basic/index.html",
+            "dist_esm": "dist/esm/examples/calendar/basic/index.html",
+            "dist_prod": "dist/production/examples/calendar/basic/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "helix",
+        "image": "devmode/helix.png",
+        "name": "component.Helix",
+        "sourceUrl": "examples/component/helix",
+        "urls": {
+            "devmode": "examples/component/helix/index.html",
+            "dist_dev": "dist/development/examples/component/helix/index.html",
+            "dist_esm": "dist/esm/examples/component/helix/index.html",
+            "dist_prod": "dist/production/examples/component/helix/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "multi-window-covid-gallery",
+        "image": "devmode/mwCoronaGallery.png",
+        "name": "Multi Window Covid Gallery",
+        "sharedWorkers": true,
+        "sourceUrl": "examples/component/multiWindowCoronaGallery",
+        "urls": {
+            "devmode": "examples/component/multiWindowCoronaGallery/index.html",
+            "dist_dev": "dist/development/examples/component/multiWindowCoronaGallery/index.html",
+            "dist_esm": "dist/esm/examples/component/multiWindowCoronaGallery/index.html",
+            "dist_prod": "dist/production/examples/component/multiWindowCoronaGallery/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "offscreen-canvas",
+        "image": "devmode/offscreenCanvas.png",
+        "name": "OffscreenCanvas",
+        "sourceUrl": "https://github.com/neomjs/offscreen-canvas/",
+        "sourceUrls": {
+            "devmode": "https://github.com/neomjs/offscreen-canvas/",
+            "dist_dev": "https://github.com/neomjs/offscreen-canvas/tree/main/apps/myapp",
+            "dist_esm": "https://github.com/neomjs/offscreen-canvas/tree/main/apps/myapp",
+            "dist_prod": "https://github.com/neomjs/offscreen-canvas/tree/main/apps/myapp"
+        },
+        "urls": {
+            "devmode": "https://neomjs.github.io/pages2/workspace/neo-offscreen-canvas-demo/apps/myapp/index.html",
+            "dist_dev": "https://neomjs.github.io/pages2/workspace/neo-offscreen-canvas-demo/dist/development/apps/myapp/index.html",
+            "dist_esm": "https://neomjs.github.io/pages2/workspace/neo-offscreen-canvas-demo/dist/esm/apps/myapp/index.html",
+            "dist_prod": "https://neomjs.github.io/pages2/workspace/neo-offscreen-canvas-demo/dist/production/apps/myapp/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "shared-offscreen-canvas",
+        "image": "devmode/sharedOffscreenCanvas.png",
+        "name": "Multi-Window OffscreenCanvas",
+        "sourceUrl": "https://github.com/neomjs/shared-offscreen",
+        "sharedWorkers": true,
+        "urls": {
+            "devmode": "https://neomjs.github.io/pages2/workspace/neo-shared-offscreen-canvas-demo/apps/mainapp/index.html",
+            "dist_dev": "https://neomjs.github.io/pages2/workspace/neo-shared-offscreen-canvas-demo/dist/development/apps/mainapp/index.html",
+            "dist_prod": "https://neomjs.github.io/pages2/workspace/neo-shared-offscreen-canvas-demo/dist/production/apps/mainapp/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "multi-window-drag-drop",
+        "image": "devmode/multi_window_dd.png",
+        "name": "Multi-Window Drag&Drop",
+        "sharedWorkers": true,
+        "sourceUrl": "apps/shareddialog",
+        "urls": {
+            "devmode": "apps/shareddialog/index.html",
+            "dist_dev": "dist/development/apps/shareddialog/index.html",
+            "dist_esm": "dist/esm/apps/shareddialog/index.html",
+            "dist_prod": "dist/production/apps/shareddialog/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "tab-container",
+        "image": "devmode/tabContainer.png",
+        "name": "tab.Container",
+        "sourceUrl": "examples/tab/container",
+        "urls": {
+            "devmode": "examples/tab/container/index.html",
+            "dist_dev": "dist/development/examples/tab/container/index.html",
+            "dist_esm": "dist/esm/examples/tab/container/index.html",
+            "dist_prod": "dist/production/examples/tab/container/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "state-provider",
+        "image": "devmode/model-component-example.png",
+        "name": "State Provider Example",
+        "sourceUrl": "examples/stateProvider/advanced",
+        "urls": {
+            "devmode": "examples/stateProvider/advanced/index.html",
+            "dist_dev": "dist/development/examples/stateProvider/advanced/index.html",
+            "dist_esm": "dist/esm/examples/stateProvider/advanced/index.html",
+            "dist_prod": "dist/production/examples/stateProvider/advanced/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "dialog-drag-drop",
+        "image": "devmode/dragdrop.png",
+        "name": "Dialog drag&drop",
+        "sourceUrl": "examples/dialog",
+        "urls": {
+            "devmode": "examples/dialog/",
+            "dist_dev": "dist/development/examples/dialog/",
+            "dist_esm": "dist/esm/examples/dialog/",
+            "dist_prod": "dist/production/examples/dialog/"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "colors-dashboard",
+        "image": "dist_prod/colorsApp.png",
+        "name": "Colors Dashboard",
+        "sharedWorkers": true,
+        "sourceUrl": "apps/colors",
+        "urls": {
+            "devmode": "apps/colors/index.html",
+            "dist_dev": "dist/development/apps/colors/index.html",
+            "dist_esm": "dist/esm/apps/colors/index.html",
+            "dist_prod": "dist/production/apps/colors/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "covid-dashboard",
+        "image": "devmode/covidDashboard.png",
+        "name": "Covid Dashboard",
+        "sourceUrl": "apps/covid",
+        "urls": {
+            "devmode": "apps/covid/index.html",
+            "dist_dev": "dist/development/apps/covid/index.html#mainview=table",
+            "dist_esm": "dist/esm/apps/covid/index.html#mainview=table",
+            "dist_prod": "dist/production/apps/covid/index.html#mainview=table"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "covid-helix",
+        "image": "devmode/coronaHelix.png",
+        "name": "COVID-19 Helix",
+        "sourceUrl": "examples/component/coronaHelix",
+        "urls": {
+            "devmode": "examples/component/coronaHelix/index.html",
+            "dist_dev": "dist/development/examples/component/coronaHelix/index.html",
+            "dist_esm": "dist/esm/examples/component/coronaHelix/index.html",
+            "dist_prod": "dist/production/examples/component/coronaHelix/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "covid-gallery",
+        "image": "devmode/coronaGallery.png",
+        "name": "COVID-19 Gallery",
+        "sourceUrl": "examples/component/coronaGallery",
+        "urls": {
+            "devmode": "examples/component/coronaGallery/index.html",
+            "dist_dev": "dist/development/examples/component/coronaGallery/index.html",
+            "dist_esm": "dist/esm/examples/component/coronaGallery/index.html",
+            "dist_prod": "dist/production/examples/component/coronaGallery/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "gallery",
+        "image": "devmode/gallery.png",
+        "name": "component.Gallery",
+        "sourceUrl": "examples/component/gallery",
+        "urls": {
+            "devmode": "examples/component/gallery/index.html",
+            "dist_dev": "dist/development/examples/component/gallery/index.html",
+            "dist_esm": "dist/esm/examples/component/gallery/index.html",
+            "dist_prod": "dist/production/examples/component/gallery/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "table-filtering",
+        "image": "devmode/tableFiltering.png",
+        "name": "Table Filtering",
+        "sourceUrl": "examples/tableFiltering",
+        "urls": {
+            "devmode": "examples/tableFiltering/",
+            "dist_dev": "dist/development/examples/tableFiltering/",
+            "dist_esm": "dist/esm/examples/tableFiltering/",
+            "dist_prod": "dist/production/examples/tableFiltering/"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "component": "Table",
+        "feature": "Typed header filters",
+        "lookFor": "Show or hide filters and combine text, country, number, date and boolean criteria."
+    },
+    {
+        "id": "date-selector",
+        "image": "devmode/dateSelector.png",
+        "name": "component.DateSelector",
+        "sourceUrl": "examples/component/dateSelector",
+        "urls": {
+            "devmode": "examples/component/dateSelector/index.html",
+            "dist_dev": "dist/development/examples/component/dateSelector/index.html",
+            "dist_esm": "dist/esm/examples/component/dateSelector/index.html",
+            "dist_prod": "dist/production/examples/component/dateSelector/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "date-field",
+        "image": "devmode/dateField.png",
+        "name": "form.field.Date",
+        "sourceUrl": "examples/form/field/date",
+        "urls": {
+            "devmode": "examples/form/field/date/index.html",
+            "dist_dev": "dist/development/examples/form/field/date/index.html",
+            "dist_esm": "dist/esm/examples/form/field/date/index.html",
+            "dist_prod": "dist/production/examples/form/field/date/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "combobox-field",
+        "image": "devmode/selectField.png",
+        "name": "form.field.ComboBox",
+        "sourceUrl": "examples/form/field/combobox",
+        "urls": {
+            "devmode": "examples/form/field/combobox/index.html",
+            "dist_dev": "dist/development/examples/form/field/combobox/index.html",
+            "dist_esm": "dist/esm/examples/form/field/combobox/index.html",
+            "dist_prod": "dist/production/examples/form/field/combobox/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "portal",
+        "environments": [
+            "Desktop",
+            "Mobile"
+        ],
+        "image": "dist_prod/portalApp.png",
+        "name": "Portal App",
+        "sharedWorkers": true,
+        "sourceUrl": "apps/portal",
+        "urls": {
+            "devmode": "apps/portal/index.html",
+            "dist_dev": "dist/development/apps/portal/index.html",
+            "dist_esm": "dist/esm/apps/portal/index.html",
+            "dist_prod": "dist/production/apps/portal/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "liquid-glass",
+        "image": "devmode/liquid-glass.png",
+        "name": "Liquid Glass effect",
+        "sourceUrl": "https://github.com/neomjs/liquid-glass-demo/blob/main/apps/myapp/view/GlassComponent.mjs",
+        "urls": {
+            "devmode": "https://neomjs.github.io/pages2/workspace/neo-liquid-glass-demo/apps/myapp/index.html",
+            "dist_dev": "https://neomjs.github.io/pages2/workspace/neo-liquid-glass-demo/dist/development/apps/myapp/index.html",
+            "dist_esm": "https://neomjs.github.io/pages2/workspace/neo-liquid-glass-demo/dist/esm/apps/myapp/index.html",
+            "dist_prod": "https://neomjs.github.io/pages2/workspace/neo-liquid-glass-demo/dist/production/apps/myapp/index.html"
+        },
+        "hiddenIn": [
+            "devmode"
+        ]
+    },
+    {
+        "id": "grid-animated-row-sorting",
+        "image": null,
+        "name": "Animated Row Sorting",
+        "sourceUrl": "examples/grid/animatedRowSorting",
+        "urls": {
+            "devmode": "examples/grid/animatedRowSorting/index.html",
+            "dist_dev": "dist/development/examples/grid/animatedRowSorting/index.html",
+            "dist_esm": "dist/esm/examples/grid/animatedRowSorting/index.html",
+            "dist_prod": "dist/production/examples/grid/animatedRowSorting/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "component": "Grid",
+        "feature": "Animated sorting and filtering",
+        "lookFor": "Sort a header or filter Firstname, then adjust the transition duration to watch the rows move."
+    },
+    {
+        "id": "grid-cell-editing",
+        "image": null,
+        "name": "Grid Cell Editing",
+        "sourceUrl": "examples/grid/cellEditing",
+        "urls": {
+            "devmode": "examples/grid/cellEditing/index.html",
+            "dist_dev": "dist/development/examples/grid/cellEditing/index.html",
+            "dist_esm": "dist/esm/examples/grid/cellEditing/index.html",
+            "dist_prod": "dist/production/examples/grid/cellEditing/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "component": "Grid",
+        "feature": "Typed cell editors",
+        "lookFor": "Edit text, a stepped number, date or country; compare the protected GitHub ID and switch selection modes."
+    },
+    {
+        "id": "grid-container",
+        "image": null,
+        "name": "Grid Selection Modes",
+        "sourceUrl": "examples/grid/container",
+        "urls": {
+            "devmode": "examples/grid/container/index.html",
+            "dist_dev": "dist/development/examples/grid/container/index.html",
+            "dist_esm": "dist/esm/examples/grid/container/index.html",
+            "dist_prod": "dist/production/examples/grid/container/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "component": "Grid",
+        "feature": "Cell, row and column selection",
+        "lookFor": "Switch between cell, row, column and combined selection, then change the grid height."
+    },
+    {
+        "id": "grid-content-sized-rows",
+        "image": null,
+        "name": "Content-Sized Grid Rows",
+        "sourceUrl": "examples/grid/contentSizedRows",
+        "urls": {
+            "devmode": "examples/grid/contentSizedRows/index.html",
+            "dist_dev": "dist/development/examples/grid/contentSizedRows/index.html",
+            "dist_esm": "dist/esm/examples/grid/contentSizedRows/index.html",
+            "dist_prod": "dist/production/examples/grid/contentSizedRows/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "component": "Grid",
+        "feature": "Wrapped content with locked columns",
+        "lookFor": "Toggle content-sized rows, edit a summary, filter, or jump through 10,000 records; scroll to the wrapped Details column."
+    },
+    {
+        "id": "grid-covid",
+        "image": null,
+        "name": "COVID-19 Country Grid",
+        "sourceUrl": "examples/grid/covid",
+        "urls": {
+            "devmode": "examples/grid/covid/index.html",
+            "dist_dev": "dist/development/examples/grid/covid/index.html",
+            "dist_esm": "dist/esm/examples/grid/covid/index.html",
+            "dist_prod": "dist/production/examples/grid/covid/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "component": "Grid",
+        "feature": "API-loaded country statistics",
+        "lookFor": "Sort formatted numeric columns and compare country flags and colored measures.",
+        "scope": "Loads statistics from an external API; availability and data freshness depend on that service."
+    },
+    {
+        "id": "grid-header-groups",
+        "image": null,
+        "name": "Grouped Grid Headers",
+        "sourceUrl": "examples/grid/headerGroups",
+        "urls": {
+            "devmode": "examples/grid/headerGroups/index.html",
+            "dist_dev": "dist/development/examples/grid/headerGroups/index.html",
+            "dist_esm": "dist/esm/examples/grid/headerGroups/index.html",
+            "dist_prod": "dist/production/examples/grid/headerGroups/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "component": "Grid",
+        "feature": "Quarter and month column headers",
+        "lookFor": "Explore month columns beneath quarter headers while Region and the Year total stay locked at opposite edges."
+    },
+    {
+        "id": "grid-locked-columns",
+        "image": null,
+        "name": "Locked Grid Columns",
+        "sourceUrl": "examples/grid/lockedColumns",
+        "urls": {
+            "devmode": "examples/grid/lockedColumns/index.html",
+            "dist_dev": "dist/development/examples/grid/lockedColumns/index.html",
+            "dist_esm": "dist/esm/examples/grid/lockedColumns/index.html",
+            "dist_prod": "dist/production/examples/grid/lockedColumns/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "component": "Grid",
+        "feature": "Columns locked at both edges",
+        "lookFor": "Scroll the wide center while identity columns stay at the start and Updated stays at the end."
+    },
+    {
+        "id": "grid-nested-record-fields",
+        "image": null,
+        "name": "Nested Grid Records",
+        "sourceUrl": "examples/grid/nestedRecordFields",
+        "urls": {
+            "devmode": "examples/grid/nestedRecordFields/index.html",
+            "dist_dev": "dist/development/examples/grid/nestedRecordFields/index.html",
+            "dist_esm": "dist/esm/examples/grid/nestedRecordFields/index.html",
+            "dist_prod": "dist/production/examples/grid/nestedRecordFields/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "component": "Grid",
+        "feature": "Nested records and component cells",
+        "lookFor": "Open Edit to change nested user fields and watch modified-cell highlighting; compare header-only and full-column dragging."
+    },
+    {
+        "id": "grid-tree",
+        "image": null,
+        "name": "Tree Grid",
+        "sourceUrl": "examples/grid/tree",
+        "urls": {
+            "devmode": "examples/grid/tree/index.html",
+            "dist_dev": "dist/development/examples/grid/tree/index.html",
+            "dist_esm": "dist/esm/examples/grid/tree/index.html",
+            "dist_prod": "dist/production/examples/grid/tree/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "component": "Grid",
+        "feature": "Hierarchical rows",
+        "lookFor": "Expand and collapse the sample file hierarchy in the Name column."
+    },
+    {
+        "id": "grid-value-banding",
+        "image": null,
+        "name": "Grid Value Banding",
+        "sourceUrl": "examples/grid/valueBanding",
+        "urls": {
+            "devmode": "examples/grid/valueBanding/index.html",
+            "dist_dev": "dist/development/examples/grid/valueBanding/index.html",
+            "dist_esm": "dist/esm/examples/grid/valueBanding/index.html",
+            "dist_prod": "dist/production/examples/grid/valueBanding/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "component": "Grid",
+        "feature": "Bands for repeated values",
+        "lookFor": "Toggle Department value bands and compare them with striped rows; Country banding stays on."
+    },
+    {
+        "id": "json-grid-container",
+        "image": null,
+        "name": "JSON-Defined Grid",
+        "sourceUrl": "examples/serverside/gridContainer",
+        "urls": {
+            "devmode": "examples/serverside/gridContainer/index.html",
+            "dist_dev": "dist/development/examples/serverside/gridContainer/index.html",
+            "dist_esm": "dist/esm/examples/serverside/gridContainer/index.html",
+            "dist_prod": "dist/production/examples/serverside/gridContainer/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "component": "Grid",
+        "feature": "Grid configuration loaded on demand",
+        "lookFor": "Click Load Grid Container to create the grid from a fetched configuration document.",
+        "scope": "Loads a static JSON configuration with inline records; this example does not use a server-side row model."
+    },
+    {
+        "id": "table-cell-editing",
+        "image": null,
+        "name": "Table Cell Editing",
+        "sourceUrl": "examples/table/cellEditing",
+        "urls": {
+            "devmode": "examples/table/cellEditing/index.html",
+            "dist_dev": "dist/development/examples/table/cellEditing/index.html",
+            "dist_esm": "dist/esm/examples/table/cellEditing/index.html",
+            "dist_prod": "dist/production/examples/table/cellEditing/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "component": "Table",
+        "feature": "Typed editors in a table",
+        "lookFor": "Edit text, number, date and country cells; test the non-editable GitHub ID and disable editing."
+    },
+    {
+        "id": "table-container",
+        "image": null,
+        "name": "Table Configuration",
+        "sourceUrl": "examples/table/container",
+        "urls": {
+            "devmode": "examples/table/container/index.html",
+            "dist_dev": "dist/development/examples/table/container/index.html",
+            "dist_esm": "dist/esm/examples/table/container/index.html",
+            "dist_prod": "dist/production/examples/table/container/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "component": "Table",
+        "feature": "Selection modes and embedded controls",
+        "lookFor": "Switch selection models, toggle fit width or column dragging, and open a cell menu."
+    },
+    {
+        "id": "table-covid",
+        "image": null,
+        "name": "COVID-19 Country Table",
+        "sourceUrl": "examples/table/covid",
+        "urls": {
+            "devmode": "examples/table/covid/index.html",
+            "dist_dev": "dist/development/examples/table/covid/index.html",
+            "dist_esm": "dist/esm/examples/table/covid/index.html",
+            "dist_prod": "dist/production/examples/table/covid/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "component": "Table",
+        "feature": "API-loaded country statistics",
+        "lookFor": "Compare formatted statistics, country flags and colored values in the Table implementation.",
+        "scope": "Loads statistics from an external API; availability and data freshness depend on that service."
+    },
+    {
+        "id": "table-nested-record-fields",
+        "image": null,
+        "name": "Nested Table Records",
+        "sourceUrl": "examples/table/nestedRecordFields",
+        "urls": {
+            "devmode": "examples/table/nestedRecordFields/index.html",
+            "dist_dev": "dist/development/examples/table/nestedRecordFields/index.html",
+            "dist_esm": "dist/esm/examples/table/nestedRecordFields/index.html",
+            "dist_prod": "dist/production/examples/table/nestedRecordFields/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "component": "Table",
+        "feature": "Nested record editing",
+        "lookFor": "Use a row's Edit button to change nested names and country, then observe modified-cell highlighting."
+    },
+    {
+        "id": "table-store",
+        "image": null,
+        "name": "Table and Store Updates",
+        "sourceUrl": "examples/tableStore",
+        "urls": {
+            "devmode": "examples/tableStore/index.html",
+            "dist_dev": "dist/development/examples/tableStore/index.html",
+            "dist_esm": "dist/esm/examples/tableStore/index.html",
+            "dist_prod": "dist/production/examples/tableStore/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "component": "Table",
+        "feature": "Reactive Store updates",
+        "lookFor": "Change one cell or update every cell repeatedly; sort and drag headers, reset sorting, and switch selection modes."
+    },
+    {
+        "id": "table-performance",
+        "image": null,
+        "name": "Table Refresh Performance",
+        "sourceUrl": "examples/tablePerformance",
+        "urls": {
+            "devmode": "examples/tablePerformance/index.html",
+            "dist_dev": "dist/development/examples/tablePerformance/index.html",
+            "dist_esm": "dist/esm/examples/tablePerformance/index.html",
+            "dist_prod": "dist/production/examples/tablePerformance/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "component": "Table",
+        "feature": "Repeated table-data replacement",
+        "lookFor": "Set row counts and refresh intervals across three tables; compare docked-column arrangements and scrollbar styles."
+    },
+    {
+        "id": "dock-choreography",
+        "environments": [
+            "Desktop"
+        ],
+        "image": "devmode/dock-choreography-13-2.jpg",
+        "name": "Dock Choreography Demo",
+        "sharedWorkers": true,
+        "sourceUrl": "examples/dashboard/choreography",
+        "urls": {
+            "devmode": "examples/dashboard/choreography/index.html",
+            "dist_dev": "dist/development/examples/dashboard/choreography/index.html",
+            "dist_esm": "dist/esm/examples/dashboard/choreography/index.html",
+            "dist_prod": "dist/production/examples/dashboard/choreography/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "realworld",
+        "image": "devmode/realworldApp.png",
+        "name": "RealWorld App",
+        "sourceUrl": "apps/realworld",
+        "urls": {
+            "devmode": "apps/realworld/index.html",
+            "dist_dev": "dist/development/apps/realworld/index.html",
+            "dist_esm": "dist/esm/apps/realworld/index.html",
+            "dist_prod": "dist/production/apps/realworld/index.html"
+        },
+        "hiddenIn": [
+            "devmode",
+            "dist_dev",
+            "dist_esm",
+            "dist_prod"
+        ]
+    },
+    {
+        "id": "realworld-v2",
+        "image": "devmode/realworldApp2.png",
+        "name": "RealWorld App v2</br>(in progress)",
+        "sourceUrl": "apps/realworld2",
+        "urls": {
+            "devmode": "apps/realworld2/index.html#/gallery",
+            "dist_dev": "dist/development/apps/realworld2/index.html#/gallery",
+            "dist_esm": "dist/esm/apps/realworld2/index.html#/gallery",
+            "dist_prod": "dist/production/apps/realworld2/index.html#/gallery"
+        },
+        "hiddenIn": [
+            "devmode",
+            "dist_dev",
+            "dist_esm",
+            "dist_prod"
+        ]
+    }
+]

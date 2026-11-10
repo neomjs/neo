@@ -214,3 +214,109 @@
         }
     }
 }
+
+.portal-examples-list.neo-list {
+    .portal-example-feature,
+    .portal-example-look-for,
+    .portal-example-scope {
+        color      : #fff;
+        line-height: 1.45;
+        max-width  : 44rem;
+        text-shadow: 0 1px 3px #000;
+    }
+
+    .portal-example-feature {
+        font-size  : 18px;
+        font-weight: 600;
+        margin-top : 12px;
+    }
+
+    .portal-example-look-for {
+        font-size: 16px;
+        margin   : 8px 0 0;
+    }
+
+    .portal-example-scope {
+        font-size: 13px;
+        margin   : 8px 0 0;
+    }
+
+    .portal-example-placeholder {
+        align-items: center;
+        color      : #fff;
+        display    : flex;
+        font-size  : 24px;
+        gap        : 16px;
+        left       : 40px;
+        position   : absolute;
+        top        : 24px;
+
+        .fa {
+            font-size: 48px;
+        }
+    }
+
+    .neo-item-bottom-position {
+        right: 20px;
+    }
+
+    .portal-example-image-card .neo-item-bottom-position {
+        background-color: rgba(0, 0, 0, 0.88);
+        border-radius   : 12px;
+        box-sizing      : border-box;
+        padding         : 16px;
+
+        .neo-inner-content,
+        .neo-title {
+            text-shadow: none;
+        }
+    }
+
+    @media (max-height: 400px), (max-width: 600px) {
+        .neo-list-item:has(.portal-example-feature) {
+            min-height: 400px;
+        }
+
+        .portal-example-placeholder {
+            left: 12px;
+        }
+    }
+}
+
+.portal-examples-grid-overview.portal-examples-list.neo-list {
+    display              : grid;
+    gap                  : 16px;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+
+    .neo-list-item {
+        height       : 400px;
+        margin-bottom: 0;
+    }
+
+    .neo-title {
+        font-size: 24px;
+    }
+
+    .neo-item-bottom-position {
+        margin: 24px;
+        right : 0;
+    }
+
+    .neo-inner-content {
+        font-size: 12px;
+    }
+
+    .neo-inner-details {
+        font-size: 12px;
+    }
+
+    .neo-github-image {
+        font-size: 28px;
+        height   : 28px;
+        width    : 28px;
+    }
+
+    .neo-top-20 {
+        margin-top: 12px;
+    }
+}
