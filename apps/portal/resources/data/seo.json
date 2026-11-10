@@ -491,7 +491,7 @@
     },
     "/learn/guides/userinteraction/events/CustomEvents": {
         "title": "Custom Events - Neo.mjs",
-        "description": "As you read in the Getting Started > Events topic, components, stores, and many other objects fire events.",
+        "description": "As you read in the Getting Started Events topic, components, stores, and many other objects fire events.",
         "schemaType": "TechArticle"
     },
     "/learn/guides/userinteraction/events/DomEvents": {

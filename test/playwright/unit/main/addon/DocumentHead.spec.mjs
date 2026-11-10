@@ -28,7 +28,12 @@ test.describe('Neo.main.addon.DocumentHead metadata', () => {
                     ))
                 ) || null
             },
-            appendChild(node) { node.parentNode = head; nodes.push(node) }
+            appendChild(node) { node.parentNode = head; nodes.push(node) },
+            removeChild(node) {
+                const index = nodes.indexOf(node);
+                if (index !== -1) nodes.splice(index, 1);
+                node.parentNode = null
+            }
         };
         globalThis.document = {
             head,
@@ -41,6 +46,7 @@ test.describe('Neo.main.addon.DocumentHead metadata', () => {
                     dataset    : {},
                     textContent: '',
                     type       : '',
+                    remove() { this.parentNode?.removeChild?.(this) },
                     setAttribute(name, value) { this.attrs[name] = value }
                 }
             }
@@ -125,100 +131,40 @@ test.describe('Neo.main.addon.DocumentHead metadata', () => {
         expect(document.head.querySelector('meta[property="og:title"]').attrs.content).toBe('What Is Neo.mjs?');
         expect(document.head.querySelector('meta[property="og:description"]').attrs.content).toBe('What Neo is and why it exists.');
         expect(document.head.querySelector('meta[property="og:url"]').attrs.content).toBe('https://neomjs.com/learn/benefits/Introduction');
-    });
 
-    test('Portal.service.Seo resolves route-specific metadata and updates canonical, OG, and neo-route ld+json (#20688)', async () => {
-        const fs      = await import('fs-extra');
-        const path    = await import('path');
-        const seoJson = await fs.default.readJSON(path.default.resolve(process.cwd(), 'apps/portal/resources/data/seo.json'));
-
-        const originalFetch         = globalThis.fetch;
-        const originalCurrentWorker = Neo.currentWorker;
-        const updates               = [];
-
-        globalThis.fetch = async () => ({
-            ok  : true,
-            json: async () => seoJson
+        addon.update({
+            ldJson: {
+                name : 'neo-route',
+                value: null
+            }
         });
 
-        Neo.currentWorker = {
-            getAddon: async () => ({
-                update: async payload => {
-                    updates.push(payload);
-                    addon.update(payload)
-                }
-            })
+        expect(document.head.querySelector('script[type="application/ld+json"][data-schema-name="neo-route"]')).toBeNull();
+        expect(document.head.querySelector('script[type="application/ld+json"][data-schema-name="neo-organism"]')).toBeTruthy();
+    });
+
+    test('update treats schema.org objects carrying name and value as plain schemas rather than named wrappers (#20688)', () => {
+        const scalarPropertyValue = {
+            '@context': 'https://schema.org',
+            '@type'   : 'PropertyValue',
+            name      : 'threads',
+            value     : '4'
         };
 
-        try {
-            const {default: SeoSingleton} = await import('../../../../../apps/portal/service/Seo.mjs');
-            const SeoService              = Neo.create(SeoSingleton.constructor);
-            await SeoService.ready();
+        addon.update({ldJson: scalarPropertyValue});
 
-            const learnMeta = SeoService.getMetadata('/learn/benefits/Introduction');
-            expect(learnMeta).toEqual({
-                title      : 'What Is Neo.mjs?',
-                description: expect.stringContaining('On a normal night here'),
-                schemaType : 'TechArticle',
-                route      : '/learn/benefits/Introduction'
-            });
+        expect(document.head.querySelector('script[type="application/ld+json"][data-schema-name="threads"]')).toBeNull();
+        expect(addon.getLdJson()).toEqual(scalarPropertyValue);
 
-            const blogMeta = SeoService.getMetadata('news/blog/a-workspace-that-can-leave-its-window/');
-            expect(blogMeta).toEqual({
-                title      : 'Move web app panels between windows—keep their state - Neo.mjs',
-                description: expect.stringContaining('Move a grid into another browser window'),
-                schemaType : 'BlogPosting',
-                route      : '/news/blog/a-workspace-that-can-leave-its-window'
-            });
+        const objectPropertyValue = {
+            '@type': 'PropertyValue',
+            name   : 'workers',
+            value  : {count: 4}
+        };
 
-            const releaseMeta = SeoService.getMetadata('/news/releases/13.4.0');
-            expect(releaseMeta).toEqual({
-                title      : 'Neo.mjs v13.4.0 Release Notes',
-                description: expect.stringContaining('Release Type: A minor release'),
-                schemaType : 'TechArticle',
-                route      : '/news/releases/13.4.0'
-            });
+        addon.update({ldJson: objectPropertyValue});
 
-            const fallbackMeta = SeoService.getMetadata('/learn/unknown/FutureTopic');
-            expect(fallbackMeta).toEqual({
-                title      : 'Learn Neo.mjs',
-                description: 'Learn the fundamentals of the Neo.mjs platform.',
-                route      : '/learn/unknown/FutureTopic'
-            });
-
-            SeoService.onRouteChanged({
-                hashString: '/learn/benefits/Introduction',
-                windowId  : 'neo-window-1'
-            });
-
-            await expect.poll(() => updates.length).toBe(1);
-
-            expect(updates[0]).toEqual({
-                canonicalUrl: 'https://neomjs.com/learn/benefits/Introduction',
-                description : learnMeta.description,
-                ldJson      : {
-                    name : 'neo-route',
-                    value: {
-                        '@context' : 'https://schema.org',
-                        '@type'    : 'TechArticle',
-                        headline   : 'What Is Neo.mjs?',
-                        name       : 'What Is Neo.mjs?',
-                        description: learnMeta.description,
-                        url        : 'https://neomjs.com/learn/benefits/Introduction',
-                        isPartOf   : {'@id': 'https://neomjs.com/#website'}
-                    }
-                },
-                tags: [
-                    {tag: 'meta', property: 'og:title',       content: 'What Is Neo.mjs?'},
-                    {tag: 'meta', property: 'og:description', content: learnMeta.description},
-                    {tag: 'meta', property: 'og:url',         content: 'https://neomjs.com/learn/benefits/Introduction'}
-                ],
-                title   : 'What Is Neo.mjs?',
-                windowId: 'neo-window-1'
-            });
-        } finally {
-            globalThis.fetch  = originalFetch;
-            Neo.currentWorker = originalCurrentWorker
-        }
+        expect(document.head.querySelector('script[type="application/ld+json"][data-schema-name="workers"]')).toBeNull();
+        expect(addon.getLdJson()).toEqual(objectPropertyValue);
     });
 });

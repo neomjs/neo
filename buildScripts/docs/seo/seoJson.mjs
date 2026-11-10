@@ -2,54 +2,17 @@ import fg   from 'fast-glob';
 import fs   from 'fs-extra';
 import path from 'path';
 
+/**
+ * @module buildScripts.docs.seo.seoJson
+ * @summary Extracts route-specific SEO titles and descriptions from Markdown sources and builds
+ * `apps/portal/resources/data/seo.json` while preserving curated top-level entries from the file itself.
+ */
+
 const ROOT_DIR          = process.cwd();
 const DEFAULT_BASE_PATH = '/learn';
 
-const TOP_LEVEL_SEO_METADATA = Object.freeze({
-    '/about-us': {
-        title      : 'About Us - Neo.mjs',
-        description: 'Learn more about the team behind Neo.mjs.'
-    },
-    '/docs': {
-        title      : 'Neo.mjs Docs',
-        description: 'Official documentation for the Neo.mjs platform.'
-    },
-    '/examples': {
-        title      : 'Neo.mjs Examples',
-        description: 'A collection of examples for the Neo.mjs platform.'
-    },
-    '/home': {
-        title      : 'Neo.mjs',
-        description: 'Solve your toughest UI performance challenges with Neo.mjs: a multi-threaded JavaScript platform for extreme real-time web applications, complex dashboards, and unmatched developer productivity.'
-    },
-    '/learn': {
-        title      : 'Learn Neo.mjs',
-        description: 'Learn the fundamentals of the Neo.mjs platform.'
-    },
-    '/news': {
-        title      : 'Neo.mjs News',
-        description: 'Latest updates, blogs, and releases for the Neo.mjs platform.'
-    },
-    '/news/blog': {
-        title      : 'Neo.mjs Blog',
-        description: 'The official blog for the Neo.mjs platform.'
-    },
-    '/news/releases': {
-        title      : 'Neo.mjs Releases',
-        description: 'Release notes and changelogs for the Neo.mjs platform.'
-    },
-    '/news/videos': {
-        title      : 'Neo.mjs Videos',
-        description: 'Films and demos of the Neo.mjs platform, from the engine to the AI maintainers who build it.'
-    },
-    '/services': {
-        title      : 'Connect with Neo.mjs',
-        description: 'Build an app with Neo.mjs, explore persistent project memory for coding agents, join the public development work, or reach the maintainers directly.'
-    }
-});
-
 /**
- * Repeatedly applies a regex replacement until the output stabilizes so nested
+ * @summary Repeatedly applies a regex replacement until the output stabilizes so nested
  * multi-character sequences cannot survive a single pass.
  * @param {String} text
  * @param {RegExp} pattern
@@ -69,7 +32,7 @@ function replaceUntilStable(text='', pattern, replacement='') {
 }
 
 /**
- * Cleans inline Markdown formatting (links, code, emphasis, HTML tags) from a text snippet.
+ * @summary Cleans inline Markdown formatting (links, code, emphasis, HTML tags) from a text snippet.
  * @param {String} text
  * @returns {String}
  */
@@ -88,7 +51,7 @@ function stripInlineMarkdown(text='') {
 }
 
 /**
- * Truncates a description string at a word boundary to at most `maxLength` characters.
+ * @summary Truncates a description string at a word boundary to at most `maxLength` characters.
  * @param {String} text
  * @param {Number} [maxLength=160]
  * @returns {String}
@@ -107,7 +70,7 @@ function truncateDescription(text='', maxLength=160) {
 }
 
 /**
- * Extracts a route-specific `title` and `description` from a Markdown document.
+ * @summary Extracts a route-specific `title` and `description` from a Markdown document.
  * @param {String} rawContent
  * @param {Object} [options={}]
  * @param {String} [options.fallbackDescription='Learn the fundamentals of the Neo.mjs platform.']
@@ -182,9 +145,9 @@ export function extractMarkdownSeoMetadata(rawContent='', options={}) {
 }
 
 /**
- * Generates the route-keyed SEO metadata map (`apps/portal/resources/data/seo.json`) covering
- * curated top-level routes, `learn/tree.json` leaves (`/learn/*`), `blog.json` leaves (`/news/blog/*`),
- * and release-note leaves (`/news/releases/*`).
+ * @summary Generates the route-keyed SEO metadata map (`apps/portal/resources/data/seo.json`) covering
+ * curated top-level routes preserved from `seoJsonPath`, `learn/tree.json` leaves (`/learn/*`),
+ * `blog.json` leaves (`/news/blog/*`), and release-note leaves (`/news/releases/*`).
  * @param {Object} [options={}]
  * @param {String} [options.basePath='/learn']
  * @param {String} [options.blogIndexPath]
@@ -192,6 +155,7 @@ export function extractMarkdownSeoMetadata(rawContent='', options={}) {
  * @param {String} [options.releaseNotesRoot]
  * @param {String} [options.releasesPath]
  * @param {String} [options.root=ROOT_DIR]
+ * @param {String} [options.seoJsonPath]
  * @param {String} [options.treeFilePath]
  * @returns {Promise<Object<String, {title: String, description: String, schemaType?: String}>>}
  */
@@ -203,16 +167,30 @@ export async function getSeoJson(options={}) {
         treeFilePath     = path.join(learnDir, 'tree.json'),
         blogIndexPath    = path.resolve(root, 'apps/portal/resources/data/blog.json'),
         releasesPath     = path.resolve(root, 'apps/portal/resources/data/releases.json'),
-        releaseNotesRoot = path.resolve(root, '.github/RELEASE_NOTES')
+        releaseNotesRoot = path.resolve(root, '.github/RELEASE_NOTES'),
+        seoJsonPath      = path.resolve(root, 'apps/portal/resources/data/seo.json')
     } = options;
 
     const normalizedBase = basePath.startsWith('/') ? basePath : `/${basePath}`;
     const cleanBase      = normalizedBase.endsWith('/') ? normalizedBase.slice(0, -1) : normalizedBase;
     const seo            = {};
 
-    for (const [route, meta] of Object.entries(TOP_LEVEL_SEO_METADATA)) {
-        seo[route] = {...meta};
+    if (await fs.pathExists(seoJsonPath)) {
+        const existingSeo = await fs.readJSON(seoJsonPath);
+
+        for (const [route, meta] of Object.entries(existingSeo || {})) {
+            if (
+                !route.startsWith(`${cleanBase}/`) &&
+                !route.startsWith('/news/blog/') &&
+                !route.startsWith('/news/releases/')
+            ) {
+                seo[route] = {...meta};
+            }
+        }
     }
+
+    const learnFallbackDescription = seo[cleanBase]?.description || 'Learn the fundamentals of the Neo.mjs platform.';
+    const blogFallbackDescription  = seo['/news/blog']?.description || 'The official blog for the Neo.mjs platform.';
 
     if (await fs.pathExists(treeFilePath)) {
         const tree  = await fs.readJSON(treeFilePath);
@@ -230,7 +208,7 @@ export async function getSeoJson(options={}) {
             const cleanId              = String(node.id).replace(/^\/+/, '');
             const route                = `${cleanBase}/${cleanId}`;
             const {title, description} = extractMarkdownSeoMetadata(rawContent, {
-                fallbackDescription: TOP_LEVEL_SEO_METADATA['/learn'].description,
+                fallbackDescription: learnFallbackDescription,
                 fallbackTitle      : node.name || node.id
             });
 
@@ -259,7 +237,7 @@ export async function getSeoJson(options={}) {
             const slug                 = post.id.replace(/^blog\//, '');
             const route                = `/news/blog/${slug}`;
             const {title, description} = extractMarkdownSeoMetadata(rawContent, {
-                fallbackDescription: TOP_LEVEL_SEO_METADATA['/news/blog'].description,
+                fallbackDescription: blogFallbackDescription,
                 fallbackTitle      : post.name || slug
             });
 

@@ -403,7 +403,32 @@ test.describe('docs SEO generator archive exclusion (#20089)', () => {
         const treeFilePath  = path.join(learnDir, 'tree.json');
         const blogIndexPath = path.join(tempDir, 'blog.json');
         const releasesPath  = path.join(tempDir, 'releases.json');
+        const seoJsonPath   = path.join(tempDir, 'seo.json');
         const blogPostPath  = path.join(tempDir, 'post.md');
+
+        await fs.writeJSON(seoJsonPath, {
+            '/about-us': {
+                title      : 'About Us (Edited) - Neo.mjs',
+                description: 'Direct edit in seo.json survives regeneration.'
+            },
+            '/learn': {
+                title      : 'Learn Neo.mjs',
+                description: 'Learn the fundamentals of the Neo.mjs platform.'
+            },
+            '/news/blog': {
+                title      : 'Neo.mjs Blog',
+                description: 'The official blog for the Neo.mjs platform.'
+            },
+            '/services': {
+                title      : 'Connect with Neo.mjs',
+                description: 'Build an app with Neo.mjs, explore persistent project memory for coding agents, join the public development work, or reach the maintainers directly.'
+            },
+            '/learn/old/RemovedGuide': {
+                title      : 'Removed Guide - Neo.mjs',
+                description: 'Stale leaf that must not survive regeneration.',
+                schemaType : 'TechArticle'
+            }
+        });
 
         await fs.outputFile(
             path.join(learnDir, 'benefits/Introduction.md'),
@@ -435,6 +460,7 @@ test.describe('docs SEO generator archive exclusion (#20089)', () => {
             releaseNotesRoot,
             releasesPath,
             root: tempDir,
+            seoJsonPath,
             treeFilePath
         });
 
@@ -442,6 +468,11 @@ test.describe('docs SEO generator archive exclusion (#20089)', () => {
             title      : 'Connect with Neo.mjs',
             description: 'Build an app with Neo.mjs, explore persistent project memory for coding agents, join the public development work, or reach the maintainers directly.'
         });
+        expect(seoJson['/about-us']).toEqual({
+            title      : 'About Us (Edited) - Neo.mjs',
+            description: 'Direct edit in seo.json survives regeneration.'
+        });
+        expect(seoJson['/learn/old/RemovedGuide']).toBeUndefined();
         expect(seoJson['/learn/benefits/Introduction']).toEqual({
             title      : 'What Is Neo.mjs?',
             description: 'On a normal night here, with no human awake, AIs from rival labs open pull requests across Neo repositories.',

@@ -160,11 +160,11 @@ class DocumentHead extends Base {
     }
 
     /**
-     * Creates or updates a ld+json script tag with new structured data.
-     * Can target a specific script tag by name.
+     * @summary Creates, updates, or removes a ld+json script tag with structured data.
+     * Can target a specific script tag by name. Passing `value: null` removes an existing script tag.
      * @param {Object} data
      * @param {String} [data.name] The value for the 'data-schema-name' attribute to select a specific script.
-     * @param {Object} data.value The JavaScript object to be stringified and set as the script's content.
+     * @param {Object|Array|null} data.value The JavaScript object to be stringified and set as the script's content, or `null` to remove the matching script tag.
      */
     setLdJson({name, value}) {
         let selector = name
@@ -172,6 +172,13 @@ class DocumentHead extends Base {
             : 'script[type="application/ld+json"]';
 
         let script = document.head.querySelector(selector);
+
+        if (value === null) {
+            if (script) {
+                script.remove ? script.remove() : script.parentNode?.removeChild?.(script)
+            }
+            return
+        }
 
         if (!script) {
             script = document.createElement('script');
@@ -235,21 +242,29 @@ class DocumentHead extends Base {
     }
 
     /**
-     * Convenience shortcut to change multiple items inside one remote method access call.
+     * @summary Convenience shortcut to change multiple items inside one remote method access call.
      * @param {Object} data
      * @param {String}   [data.canonicalUrl] The canonical URL to set.
      * @param {String}   [data.description]  The new description for the document.
-     * @param {Object}   [data.ldJson]       The JavaScript object to be stringified and set as the script's content, or `{name, value}` to target a named schema script.
+     * @param {Object}   [data.ldJson]       The JavaScript object to be stringified and set as the script's content, or a `{name, value}` wrapper (without `@context` or `@type`) to target or clear a named schema script.
      * @param {Object}   [data.tag]          The configuration for the tag, including the tag name and its attributes.
      * @param {Object[]} [data.tags]         An array of tag configurations to create or update via `setTag`.
      * @param {String}   [data.title]        The new title for the document.
      */
     update({canonicalUrl, description, ldJson, tag, tags, title}) {
-        let me = this;
+        let me            = this,
+            isNamedLdJson = Boolean(
+                Neo.isObject(ldJson) &&
+                typeof ldJson.name === 'string' &&
+                ('value' in ldJson) &&
+                !('@context' in ldJson) &&
+                !('@type' in ldJson) &&
+                (Neo.isObject(ldJson.value) || Array.isArray(ldJson.value) || ldJson.value === null)
+            );
 
         canonicalUrl && me.setCanonical({url: canonicalUrl});
         description  && me.setDescription({value: description});
-        ldJson       && me.setLdJson(ldJson.name && ldJson.value ? ldJson : {value: ldJson});
+        ldJson       && me.setLdJson(isNamedLdJson ? ldJson : {value: ldJson});
         tag          && me.setTag({value: tag});
 
         if (Array.isArray(tags)) {

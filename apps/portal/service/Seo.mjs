@@ -65,7 +65,7 @@ class Seo extends Base {
     }
 
     /**
-     * Retrieves the SEO metadata (title, description, schemaType, and normalized route) for a given route hash.
+     * @summary Retrieves the SEO metadata (title, description, schemaType, and normalized route) for a given route hash.
      * Supports nested routes by falling back to parent paths if an exact match is not found.
      * e.g., '/news/blog/my-post' -> '/news/blog' -> '/news'
      * @param {String} route The route hash string (e.g., '/home', '/learn/benefits/Introduction').
@@ -83,6 +83,10 @@ class Seo extends Base {
 
         if (normalizedRoute.length > 1 && normalizedRoute.endsWith('/')) {
             normalizedRoute = normalizedRoute.slice(0, -1)
+        }
+
+        if (normalizedRoute === '/') {
+            normalizedRoute = '/home'
         }
 
         if (metadata[normalizedRoute]) {
@@ -147,9 +151,13 @@ class Seo extends Base {
     }
 
     /**
-     * Calls the `DocumentHead` main thread addon to update the document's title, meta-description,
+     * @summary Calls the `DocumentHead` main thread addon to update the document's title, meta-description,
      * canonical URL, Open Graph tags (`og:title`, `og:description`, `og:url`), and route-specific
      * `ld+json` (`data-schema-name="neo-route"`).
+     *
+     * `/home` (and `/`) resolve `canonicalUrl` and `og:url` to `'https://neomjs.com/'`. Parent-segment
+     * fallback routes that do not have an exact entry in `seo.json` clear `data-schema-name="neo-route"`
+     * (`value: null`) rather than attributing the parent section's title as the leaf route's `headline`.
      * @param {Object} config
      * @param {String} config.description             The new meta-description for the document.
      * @param {String} [config.route]                 The normalized route path (e.g., '/learn/benefits/Introduction').
@@ -160,10 +168,13 @@ class Seo extends Base {
      */
     async #updateDocumentHead({description, route, schemaType='WebPage', title, windowId}) {
         let DocumentHead = await Neo.currentWorker.getAddon('DocumentHead', windowId),
-            canonicalUrl = route ? `https://neomjs.com${route}` : undefined,
+            canonicalUrl = route
+                ? (route === '/home' || route === '/' ? 'https://neomjs.com/' : `https://neomjs.com${route}`)
+                : undefined,
+            isExactRoute = Boolean(route && this.#metadata?.[route]),
             ldJson       = canonicalUrl ? {
                 name : 'neo-route',
-                value: {
+                value: isExactRoute ? {
                     '@context': 'https://schema.org',
                     '@type'   : schemaType,
                     headline  : title,
@@ -173,7 +184,7 @@ class Seo extends Base {
                     isPartOf  : {
                         '@id': 'https://neomjs.com/#website'
                     }
-                }
+                } : null
             } : undefined,
             tags = [
                 ...(title        ? [{tag: 'meta', property: 'og:title',       content: title}]        : []),
