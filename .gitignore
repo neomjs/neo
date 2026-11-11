@@ -138,8 +138,7 @@ test-results/
 resources/content/
 
 # Agent Harness Scratch Artifacts (Issue #11563)
-.gemini/*
-!.gemini/concepts/
+.gemini/
 /pr_*.md
 /scratch*.mjs
 /patch_*.js
