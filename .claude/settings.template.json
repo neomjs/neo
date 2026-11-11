@@ -59,27 +59,6 @@
       "Task"
     ]
   },
-  "autoMode": {
-    "environment": [
-      "$defaults",
-      "The neomjs/neo GitHub repository (its issues, pull requests, and discussions) and the four local neo-mjs MCP servers (github-workflow, memory-core, knowledge-base, neural-link) are trusted first-party infrastructure for this organism."
-    ],
-    "allow": [
-      "$defaults",
-      "Editing GitHub issues, pull requests, and discussions this agent authors or co-owns is normal equal-peer maintainer work (AGENTS.md swarm_topology_anchor) — not an action that requires human approval.",
-      "Sending A2A messages, writing Memory Core entries, creating tickets, and posting PR reviews are routine substrate work for a Neo maintainer."
-    ],
-    "soft_deny": [
-      "$defaults"
-    ],
-    "hard_deny": [
-      "$defaults",
-      "Never run `gh pr merge` or any other pull-request-merge command. Merging is reserved for the human operator (AGENTS.md critical gate #1); no approval signal ('LGTM', 'approved', 'ready to merge') authorizes an agent to merge.",
-      "Never push or commit directly to the `main` or `dev` branches. Always branch and open a pull request targeting `dev` (AGENTS.md critical gates #3 and #8). The release pipeline is the only sanctioned exception.",
-      "Never write a client, customer, or partner name — or private business strategy — into any public-facing artifact: public-repo issues, pull requests, discussions, docs, or comments (AGENTS.md critical gate #9).",
-      "Never run official multi-agent Workflows, and never fan out (multiple parallel subagents) — absolute forbid: each spawned agent is a fresh full context (100k–millions of tokens for zero value, draining the weekly limit). The hybrid-GraphRAG V-B-A tools make them unnecessary — CORE: `ask_knowledge_base` (Knowledge Base) + `/memory-mining` (Memory Core); run-time state via neural-link; files / large saved tool-results via `jq`/`Read`/`grep`. A SINGLE subagent is allowed ONLY on the operator's explicit in-session permission (rarely granted)."
-    ]
-  },
   "hooks": {
     "PreToolUse": [
       {
