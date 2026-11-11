@@ -1,15 +1,20 @@
+import fs             from 'node:fs';
+import path           from 'node:path';
 import {test, expect} from '@playwright/test';
 
 import {
     CLAIM_WINDOW_DAYS,
     claimText,
+    decideClaim,
     decideReply,
     earlierClaim,
+    holders,
     isClaim,
     isWithdrawal,
     pickAlternatives,
     renderReply,
-    replyMarker
+    replyMarker,
+    staleAssignees
 } from '../../../../../buildScripts/util/claimResponse.mjs';
 
 const REPO_URL = 'https://github.com/neomjs/neo';
@@ -232,5 +237,251 @@ test.describe('buildScripts/util/claimResponse', () => {
 
         expect(reply).toContain('No other `good first issue` issue is free right now.');
         expect(reply).toContain(`${REPO_URL}/blob/dev/CONTRIBUTING.md`)
+    });
+
+    test.describe('decideClaim, single-issue cap, 7-day expiry, unassign release and workflow script', () => {
+        test('first in line with no other curated assignment gets assign: true and assignedBody while decideReply stays String|null', () => {
+            const decision = decideClaim({
+                candidates: CANDIDATES,
+                comment   : firstClaim,
+                comments  : [firstClaim],
+                issue     : gfiIssue(),
+                repoUrl   : REPO_URL
+            });
+
+            expect(decision.assign).toBe(true);
+            expect(decision.unassign).toEqual([]);
+            expect(decision.assignedBody).toContain('Assigned to you — you can start now.');
+            expect(decision.assignedBody).toContain(`reserves this issue for ${CLAIM_WINDOW_DAYS} days`);
+            expect(decision.assignedBody).toContain('first approve-worthy PR');
+            expect(decision.assignedBody).toContain(replyMarker('first-claimant'));
+            expect(decision.body).toContain("You're first in line, so you can start now.");
+            expect(typeof decideReply({comment: firstClaim, comments: [firstClaim], issue: gfiIssue(), repoUrl: REPO_URL})).toBe('string')
+        });
+
+        test(`an outside-contributor assignee holds at 6 days and lapses after ${CLAIM_WINDOW_DAYS} silent days unless they have an open PR or team status`, () => {
+            const
+                initialClaim  = comment('StaleClaimant', '2026-11-01T10:00:00Z', "I'd like to claim this issue."),
+                day6Claim     = comment('day6-newcomer', '2026-11-07T10:00:00Z', "I'd like to work on this."),
+                day8Claim     = comment('day8-newcomer', '2026-11-09T10:00:01Z', "I'd like to work on this."),
+                assignedIssue = gfiIssue({assignees: [{login: 'StaleClaimant'}]});
+
+            // 6 days silent: still holds
+            const day6Decision = decideClaim({
+                candidates: CANDIDATES,
+                comment   : day6Claim,
+                comments  : [initialClaim, day6Claim],
+                issue     : assignedIssue,
+                repoUrl   : REPO_URL
+            });
+
+            expect(day6Decision.assign).toBe(false);
+            expect(day6Decision.body).toContain("This one is taken: it's assigned to [StaleClaimant](https://github.com/StaleClaimant).");
+
+            // 8 days silent with no open PR: lapses and hands over with unassign: ['StaleClaimant']
+            expect(staleAssignees({
+                comment   : day8Claim,
+                comments  : [initialClaim, day8Claim],
+                issue     : assignedIssue,
+                repository: 'neomjs/neo'
+            })).toEqual(['StaleClaimant']);
+            expect(holders({
+                claimant  : 'day8-newcomer',
+                comment   : day8Claim,
+                comments  : [initialClaim, day8Claim],
+                issue     : assignedIssue,
+                repository: 'neomjs/neo'
+            })).toEqual([]);
+
+            const day8Decision = decideClaim({
+                candidates: CANDIDATES,
+                comment   : day8Claim,
+                comments  : [initialClaim, day8Claim],
+                issue     : assignedIssue,
+                repoUrl   : REPO_URL
+            });
+
+            expect(day8Decision.assign).toBe(true);
+            expect(day8Decision.unassign).toEqual(['StaleClaimant']);
+            expect(day8Decision.assignedBody).toContain('Thanks for claiming this, @day8-newcomer, and welcome! Assigned to you');
+
+            // 8 days silent on issue comments, but has an open PR into neomjs/neo: still holds
+            const withPrDecision = decideClaim({
+                candidates      : CANDIDATES,
+                comment         : day8Claim,
+                comments        : [initialClaim, day8Claim],
+                issue           : assignedIssue,
+                openPullRequests: [{number: 20799, author: 'StaleClaimant', repository: 'neomjs/neo'}],
+                repoUrl         : REPO_URL
+            });
+
+            expect(withPrDecision.assign).toBe(false);
+            expect(withPrDecision.body).toContain("it's assigned to [StaleClaimant](https://github.com/StaleClaimant) and #20799 is open for it.");
+
+            // 8 days since initial claim comment, but manually assigned 3 days ago: still holds
+            const recentAssignDecision = decideClaim({
+                candidates: CANDIDATES,
+                comment   : day8Claim,
+                comments  : [initialClaim, day8Claim],
+                events    : [{event: 'assigned', assignee: {login: 'StaleClaimant'}, created_at: '2026-11-06T10:00:00Z'}],
+                issue     : assignedIssue,
+                repoUrl   : REPO_URL
+            });
+
+            expect(recentAssignDecision.assign).toBe(false);
+
+            // Team assignees (both self-assigned with zero comments and MEMBER commenters) never lapse
+            const
+                teamComment = comment('neo-opus-grace', '2026-10-20T10:00:00Z', 'Taking this lane.', {association: 'MEMBER'}),
+                silentTeam  = gfiIssue({assignees: [{login: 'neo-opus-grace'}]}),
+                lateClaim   = comment('day20-newcomer', '2026-11-09T10:00:01Z', "I'd like to work on this.");
+
+            expect(decideClaim({comment: lateClaim, comments: [lateClaim], issue: silentTeam, repoUrl: REPO_URL}).assign).toBe(false);
+            expect(decideClaim({comment: lateClaim, comments: [teamComment, lateClaim], issue: silentTeam, repoUrl: REPO_URL}).assign).toBe(false)
+        });
+
+        test('a claimant who already holds another open curated issue gets assign: false and a cap reply', () => {
+            const decision = decideClaim({
+                comment       : secondClaim,
+                comments      : [secondClaim],
+                heldByClaimant: [20717, 19143],
+                issue         : gfiIssue({number: 19143}),
+                repoUrl       : REPO_URL
+            });
+
+            expect(decision.assign).toBe(false);
+            expect(decision.assignedBody).toBeUndefined();
+            expect(decision.body).toContain("Thanks, @second-claimant! You're already assigned to #20717");
+            expect(decision.body).not.toContain('#19143');
+            expect(decision.body).toContain(replyMarker('second-claimant'))
+        });
+
+        test('a maintainer unassignment event releases an earlier claim just like a withdrawal', () => {
+            const
+                sprayed    = comment('spray-account', '2026-11-11T02:34:01Z', "I'd love to work on it. Could you please assign it to me?"),
+                unassigned = {event: 'unassigned', assignee: {login: 'spray-account'}, created_at: '2026-11-11T03:00:00Z'},
+                next       = comment('newcomer', '2026-11-11T03:15:00Z', "I'd like to take this one.");
+
+            expect(earlierClaim({claimant: 'newcomer', comment: next, comments: [sprayed, next], events: []})?.user.login).toBe('spray-account');
+            expect(earlierClaim({claimant: 'newcomer', comment: next, comments: [sprayed, next], events: [unassigned]})).toBeNull();
+
+            const decision = decideClaim({
+                comment : next,
+                comments: [sprayed, next],
+                events  : [unassigned],
+                issue   : gfiIssue({number: 20717}),
+                repoUrl : REPO_URL
+            });
+
+            expect(decision.assign).toBe(true);
+            expect(decision.assignedBody).toContain('Thanks for claiming this, @newcomer, and welcome! Assigned to you')
+        });
+
+        test('workflow github-script auto-assigns verified first-in-line claims, falls back if assignment does not stick, and enforces the 1-issue cap', async () => {
+            const
+                workflowPath  = path.resolve(process.cwd(), '.github/workflows/claim-responder.yml'),
+                raw           = fs.readFileSync(workflowPath, 'utf8'),
+                scriptBlock   = raw.split('script: |\n')[1].split('\n').map(line => line.slice(12)).join('\n'),
+                AsyncFunction = Object.getPrototypeOf(async function () {}).constructor,
+                runStep       = new AsyncFunction('github', 'context', 'core', scriptBlock),
+                prevWorkspace = process.env.GITHUB_WORKSPACE;
+
+            process.env.GITHUB_WORKSPACE = process.cwd();
+
+            const runScenario = async ({assignedItems = [], addAssigneesImpl, claim = firstClaim, comments = [firstClaim], events = [], issue = gfiIssue({state: 'open'})}) => {
+                const posted = [], assignedCalls = [], unassignedCalls = [], warnings = [];
+
+                const github = {
+                    graphql : async () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: []}}}}),
+                    paginate: async fn => fn === github.rest.issues.listComments ? comments : events,
+                    rest    : {
+                        issues: {
+                            addAssignees   : async args => { assignedCalls.push(args); return addAssigneesImpl(args) },
+                            createComment  : async args => { posted.push(args); return {data: {}} },
+                            get            : async ()   => ({data: issue}),
+                            listComments   : Symbol('listComments'),
+                            listEvents     : Symbol('listEvents'),
+                            removeAssignees: async args => { unassignedCalls.push(args); return {data: {}} }
+                        },
+                        search: {
+                            issuesAndPullRequests: async ({q}) => ({
+                                data: {items: q.includes('assignee:') ? assignedItems : [{number: 20691}, {number: 20692}]}
+                            })
+                        }
+                    }
+                };
+
+                await runStep(
+                    github,
+                    {payload: {comment: claim, issue: {number: issue.number}}, repo: {owner: 'neomjs', repo: 'neo'}},
+                    {info: () => {}, warning: msg => warnings.push(msg)}
+                );
+
+                return {assignedCalls, posted, unassignedCalls, warnings}
+            };
+
+            try {
+                // 1. Verified auto-assignment -> posts assignedBody
+                const ok = await runScenario({
+                    addAssigneesImpl: async ({assignees}) => ({data: {assignees: assignees.map(login => ({login}))}})
+                });
+
+                expect(ok.assignedCalls).toEqual([{assignees: ['first-claimant'], issue_number: 19143, owner: 'neomjs', repo: 'neo'}]);
+                expect(ok.unassignedCalls).toEqual([]);
+                expect(ok.posted).toHaveLength(1);
+                expect(ok.posted[0].body).toContain('Assigned to you — you can start now.');
+                expect(ok.warnings).toEqual([]);
+
+                // 2. GitHub returns HTTP 201 with empty assignees -> posts fallback body without removing stale assignees
+                const
+                    staleClaim = comment('StaleClaimant', '2026-11-01T10:00:00Z', "I'd like to claim this issue."),
+                    freshClaim = comment('day8-newcomer', '2026-11-09T10:00:01Z', "I'd like to work on this."),
+                    staleIssue = gfiIssue({assignees: [{login: 'StaleClaimant'}], state: 'open'});
+
+                const dropped = await runScenario({
+                    addAssigneesImpl: async () => ({data: {assignees: []}}),
+                    claim           : freshClaim,
+                    comments        : [staleClaim, freshClaim],
+                    issue           : staleIssue
+                });
+
+                expect(dropped.assignedCalls).toHaveLength(1);
+                expect(dropped.unassignedCalls).toEqual([]);
+                expect(dropped.posted).toHaveLength(1);
+                expect(dropped.posted[0].body).toContain("You're first in line, so you can start now.");
+                expect(dropped.warnings).toHaveLength(1);
+
+                // 3. Claimant already holds another open curated issue -> skips addAssignees and posts cap reply
+                const capped = await runScenario({
+                    addAssigneesImpl: async () => { throw new Error('must not assign') },
+                    assignedItems   : [{number: 20717, labels: [{name: 'good first issue'}]}]
+                });
+
+                expect(capped.assignedCalls).toEqual([]);
+                expect(capped.unassignedCalls).toEqual([]);
+                expect(capped.posted).toHaveLength(1);
+                expect(capped.posted[0].body).toContain("You're already assigned to #20717");
+
+                // 4. Lapsed silent outside assignee (8 days quiet) -> assigns newcomer and removes StaleClaimant
+                const handedOver = await runScenario({
+                    addAssigneesImpl: async ({assignees}) => ({data: {assignees: assignees.map(login => ({login}))}}),
+                    claim           : freshClaim,
+                    comments        : [staleClaim, freshClaim],
+                    issue           : staleIssue
+                });
+
+                expect(handedOver.assignedCalls).toEqual([{assignees: ['day8-newcomer'], issue_number: 19143, owner: 'neomjs', repo: 'neo'}]);
+                expect(handedOver.unassignedCalls).toEqual([{assignees: ['StaleClaimant'], issue_number: 19143, owner: 'neomjs', repo: 'neo'}]);
+                expect(handedOver.posted).toHaveLength(1);
+                expect(handedOver.posted[0].body).toContain('Thanks for claiming this, @day8-newcomer, and welcome! Assigned to you');
+                expect(handedOver.warnings).toEqual([]);
+            } finally {
+                if (prevWorkspace === undefined) {
+                    delete process.env.GITHUB_WORKSPACE
+                } else {
+                    process.env.GITHUB_WORKSPACE = prevWorkspace
+                }
+            }
+        });
     });
 });

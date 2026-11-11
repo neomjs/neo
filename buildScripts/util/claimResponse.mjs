@@ -1,19 +1,22 @@
 /**
  * @module buildScripts/util/claimResponse
- * @summary Decides the automatic reply to a claim on a curated issue, which `.github/workflows/claim-responder.yml`
- * posts within a minute of the comment.
+ * @summary Decides the automatic reply and assignment for a claim on a curated issue, which
+ * `.github/workflows/claim-responder.yml` runs within a minute of the comment.
  *
  * @description Maintainers are not online around the clock, so a claim used to wait until a seat ran, and that
- * could be many hours. The reply closes that gap without deciding anything a maintainer owns:
+ * could be many hours. The responder closes that gap while bounding claim spraying:
  *
- * - **first in line:** nothing holds the issue, so the claimant can start now. A maintainer confirms the
- *   assignment when one is online, and the reply promises no time for that.
- * - **taken:** an assignee, an open pull request that resolves the issue, or an earlier claimant holds it. The reply
- *   names the holder and points at claimable issues with the same label.
+ * - **first in line:** nothing live holds the issue and the claimant holds no other open curated issue in the
+ *   repository, so the workflow assigns them (clearing any lapsed >7-day silent outside assignee) and they can start
+ *   now (`decideClaim` → `assign: true`).
+ * - **already holding one:** the claimant is already assigned to another open curated issue in the repository, so
+ *   `assign` stays `false` and the reply asks them to finish or step back from that issue first.
+ * - **taken:** a live assignee, an open pull request that resolves the issue, or an earlier unwithdrawn, un-unassigned
+ *   claimant holds it. The reply names the holder and points at claimable issues with the same label.
  *
- * The reply never assigns. Assignment stays with a maintainer, and that confirmation step is what screens out
- * accounts that spray claim templates across repositories. Everything here is a pure function of data the workflow
- * fetched, so the rules are unit-tested without GitHub.
+ * `decideReply` preserves the `String|null` return contract for cross-repository workflows that sparse-checkout this
+ * module before adopting `decideClaim`. Everything here is a pure function of data the workflow fetched, so the rules
+ * are unit-tested without GitHub.
  */
 
 /**
@@ -149,25 +152,29 @@ export function pickAlternatives({candidates = [], exclude, seed = '', count = 3
 
 /**
  * The earliest live claim by another outside contributor before `comment`: its claimant commented on the issue within
- * {@link CLAIM_WINDOW_DAYS} of it, with the claim or any later word such as a progress note, and gave nothing back by a
- * later withdrawal.
+ * {@link CLAIM_WINDOW_DAYS} of it, with the claim or any later word such as a progress note, and neither withdrew the
+ * claim nor was unassigned after it.
  * @param {Object} options
  * @param {String} options.claimant
  * @param {Object} options.comment The claim being answered: `id`, `created_at`
- * @param {Object[]} options.comments Every comment on the issue, in creation order
+ * @param {Object[]} [options.comments=[]] Every comment on the issue, in creation order
+ * @param {Object[]} [options.events=[]] Issue events (`event`, `assignee.login`, `created_at`)
  * @returns {Object|null} The earlier claim comment
  */
-export function earlierClaim({claimant, comment, comments = []}) {
+export function earlierClaim({claimant, comment, comments = [], events = []}) {
     const
-        self     = String(claimant).toLowerCase(),
-        at       = new Date(comment.created_at).getTime(),
-        before   = comments.filter(other => other.id !== comment.id && new Date(other.created_at).getTime() <= at),
-        lastWord = login => Math.max(...before
+        self         = String(claimant).toLowerCase(),
+        at           = new Date(comment.created_at).getTime(),
+        before       = comments.filter(other => other.id !== comment.id && new Date(other.created_at).getTime() <= at),
+        eventsBefore = events.filter(ev => new Date(ev.created_at).getTime() <= at),
+        lastWord     = login => Math.max(...before
             .filter(other => String(other.user?.login).toLowerCase() === login)
             .map(other => new Date(other.created_at).getTime()));
 
     return before.find(other => {
-        const login = String(other.user?.login).toLowerCase();
+        const
+            login   = String(other.user?.login).toLowerCase(),
+            claimed = new Date(other.created_at).getTime();
 
         return login !== self &&
             isOutsideHuman(other) &&
@@ -175,36 +182,129 @@ export function earlierClaim({claimant, comment, comments = []}) {
             at - lastWord(login) <= CLAIM_WINDOW_DAYS * DAY_MS &&
             !before.some(later =>
                 String(later.user?.login).toLowerCase() === login &&
-                new Date(later.created_at) > new Date(other.created_at) &&
+                new Date(later.created_at).getTime() > claimed &&
                 isWithdrawal(later.body)
+            ) &&
+            !eventsBefore.some(ev =>
+                ev.event === 'unassigned' &&
+                String(ev.assignee?.login).toLowerCase() === login &&
+                new Date(ev.created_at).getTime() > claimed
             )
     }) || null
 }
 
 /**
- * What holds the issue for everyone except `claimant`: its assignee, an open pull request into `repository` that
+ * Whether `login` is an outside contributor on `issue` rather than a team assignee.
+ * @param {String} login Lowercased login
+ * @param {Object} options
+ * @param {Object[]} [options.comments=[]]
+ * @param {Object} [options.issue]
+ * @returns {Boolean}
+ * @private
+ */
+function isOutsideAssignee(login, {comments = [], issue}) {
+    const ownComments = comments.filter(other => String(other.user?.login).toLowerCase() === login);
+
+    if (ownComments.some(other => !isOutsideHuman(other))) {
+        return false
+    }
+
+    if (ownComments.length > 0) {
+        return true
+    }
+
+    return String(issue?.user?.login).toLowerCase() === login &&
+        issue?.user?.type !== 'Bot' &&
+        !TEAM_ASSOCIATIONS.includes(issue?.author_association)
+}
+
+/**
+ * Outside-contributor assignees on `issue` whose {@link CLAIM_WINDOW_DAYS} window has elapsed without a comment, recent
+ * `assigned` event, or open pull request into `repository`. Team assignees never lapse.
+ * @param {Object} options
+ * @param {Object} options.comment The claim being evaluated (`id`, `created_at`)
+ * @param {Object[]} [options.comments=[]]
+ * @param {Object[]} [options.events=[]]
+ * @param {Object} [options.issue]
+ * @param {Object[]} [options.openPullRequests=[]]
+ * @param {String} options.repository `owner/name`
+ * @returns {String[]} Original-case logins of lapsed outside-contributor assignees
+ */
+export function staleAssignees({comment, comments = [], events = [], issue, openPullRequests = [], repository}) {
+    const
+        at           = new Date(comment.created_at).getTime(),
+        before       = comments.filter(other => other.id !== comment.id && new Date(other.created_at).getTime() <= at),
+        eventsBefore = events.filter(ev => new Date(ev.created_at).getTime() <= at),
+        repoLower    = String(repository).toLowerCase(),
+        stale        = [];
+
+    for (const assignee of issue?.assignees || []) {
+        const login = String(assignee.login).toLowerCase();
+
+        if (!isOutsideAssignee(login, {comments: before, issue})) {
+            continue
+        }
+
+        if (openPullRequests.some(pr =>
+            String(pr.repository).toLowerCase() === repoLower &&
+            String(pr.author).toLowerCase() === login
+        )) {
+            continue
+        }
+
+        const timestamps = [
+            ...before
+                .filter(other => String(other.user?.login).toLowerCase() === login)
+                .map(other => new Date(other.created_at).getTime()),
+            ...eventsBefore
+                .filter(ev => ev.event === 'assigned' && String(ev.assignee?.login).toLowerCase() === login)
+                .map(ev => new Date(ev.created_at).getTime()),
+            ...(String(issue?.user?.login).toLowerCase() === login && issue?.created_at
+                ? [new Date(issue.created_at).getTime()]
+                : [])
+        ].filter(Number.isFinite);
+
+        if (timestamps.length > 0 && at - Math.max(...timestamps) > CLAIM_WINDOW_DAYS * DAY_MS) {
+            stale.push(assignee.login)
+        }
+    }
+
+    return stale
+}
+
+/**
+ * What holds the issue for everyone except `claimant`: a live assignee (team assignees unconditionally; outside
+ * assignees within {@link CLAIM_WINDOW_DAYS} or with an open pull request), an open pull request into `repository` that
  * resolves it, or a live earlier claim. Each person is named once, and the claimant's own pull request holds nothing
  * against them. A pull request inside a fork, whose base is the fork, holds nothing either: it only mentions the issue.
  * Empty when the claimant is first in line.
  * @param {Object} options
  * @param {String} options.claimant
  * @param {Object} options.comment The claim itself: `id`, `created_at`
- * @param {Object[]} options.comments Every comment on the issue, including the claim
+ * @param {Object[]} [options.comments=[]] Every comment on the issue, including the claim
+ * @param {Object[]} [options.events=[]] Issue events (`event`, `assignee.login`, `created_at`)
  * @param {Object} options.issue `assignees[].login`
- * @param {Object[]} options.openPullRequests `number`, `author`, `repository` (its base) of open pull requests that
+ * @param {Object[]} [options.openPullRequests=[]] `number`, `author`, `repository` (its base) of open pull requests that
  * resolve the issue
  * @param {String} options.repository The repository the issue belongs to, `owner/name`
  * @returns {Object[]} Each `{kind: 'assignee'|'pull-request'|'earlier-claim', login?, number?}`
  */
-export function holders({claimant, comment, comments = [], issue, openPullRequests = [], repository}) {
+export function holders({claimant, comment, comments = [], events = [], issue, openPullRequests = [], repository}) {
     const
         self    = String(claimant).toLowerCase(),
+        lapsed  = new Set(staleAssignees({comment, comments, events, issue, openPullRequests, repository}).map(login => login.toLowerCase())),
         named   = new Set(),
         result  = [],
-        earlier = earlierClaim({claimant, comment, comments});
+        earlier = earlierClaim({claimant, comment, comments, events});
 
     for (const assignee of issue?.assignees || []) {
-        named.add(assignee.login.toLowerCase());
+        const login = assignee.login.toLowerCase();
+
+        if (lapsed.has(login)) {
+            continue
+        }
+
+        named.add(login);
         result.push({kind: 'assignee', login: assignee.login})
     }
 
@@ -226,26 +326,50 @@ export function holders({claimant, comment, comments = [], issue, openPullReques
 /**
  * The reply text for a claim, carrying its marker.
  * @param {Object} options
+ * @param {Boolean} [options.assigned=false] True when the workflow verified `addAssignees` succeeded
  * @param {String} options.claimant
- * @param {Object[]} options.holders From {@link holders}
- * @param {Number[]} options.alternatives From {@link pickAlternatives}
+ * @param {Number[]} [options.heldByClaimant=[]] Other open curated issue numbers already assigned to `claimant`
+ * @param {Object[]} [options.holders=[]] From {@link holders}
+ * @param {Number[]} [options.alternatives=[]] From {@link pickAlternatives}
  * @param {String} options.label The curated label the alternatives share
  * @param {String} options.repoUrl e.g. `https://github.com/neomjs/neo`
  * @returns {String}
  */
-export function renderReply({claimant, holders: held = [], alternatives = [], label, repoUrl}) {
+export function renderReply({assigned = false, claimant, heldByClaimant = [], holders: held = [], alternatives = [], label, repoUrl}) {
     const
         contributing = `${repoUrl}/blob/dev/CONTRIBUTING.md`,
         listUrl      = `${repoUrl}/issues?q=${encodeURIComponent(`is:issue is:open label:"${label}" no:assignee -linked:pr`)}`,
-        footer       = `<sub>An automatic reply. A maintainer follows up. [How claims work](${contributing})</sub>\n${replyMarker(claimant)}`;
+        footer       = `<sub>An automatic reply. [How claims work](${contributing})</sub>\n${replyMarker(claimant)}`;
 
     if (held.length < 1) {
+        if (heldByClaimant.length > 0) {
+            const
+                refs = heldByClaimant.map(number => `#${number}`),
+                list = refs.length > 1 ? `${refs.slice(0, -1).join(', ')} and ${refs.at(-1)}` : refs[0];
+
+            return [
+                `Thanks, @${claimant}! You're already assigned to ${list} — please finish or step back from that issue before claiming another curated one, so other contributors get a turn too.`,
+                '',
+                footer
+            ].join('\n')
+        }
+
+        if (assigned) {
+            return [
+                `Thanks for claiming this, @${claimant}, and welcome! Assigned to you — you can start now.`,
+                '',
+                `Your claim reserves this issue for ${CLAIM_WINDOW_DAYS} days (any comment here resets the clock; we still merge the first approve-worthy PR if another lands first or a claim goes quiet).`,
+                '',
+                footer
+            ].join('\n')
+        }
+
         return [
             `Thanks for claiming this, @${claimant}, and welcome! You're first in line, so you can start now.`,
             '',
             'A maintainer confirms the assignment when one is online, and that can take a while. You don\'t need to wait for it.',
             '',
-            footer
+            `<sub>An automatic reply. A maintainer follows up. [How claims work](${contributing})</sub>\n${replyMarker(claimant)}`
         ].join('\n')
     }
 
@@ -271,7 +395,7 @@ export function renderReply({claimant, holders: held = [], alternatives = [], la
 }
 
 /**
- * The one entry the workflow calls: the reply to post for `comment`, or null when it gets none.
+ * Decides both assignment eligibility and reply text for `comment`, or null when it gets no reply.
  *
  * No reply for: an issue without a curated label, a pull request, a team or bot author, the issue's assignee, a
  * comment that is not a claim, or a claimant this responder already answered on this issue.
@@ -279,13 +403,15 @@ export function renderReply({claimant, holders: held = [], alternatives = [], la
  * @param {Object} options.comment The new comment (REST shape)
  * @param {Object} options.issue The issue (REST shape)
  * @param {Object[]} [options.comments=[]] Every comment on the issue, including `comment`
+ * @param {Object[]} [options.events=[]] Issue events (`event`, `assignee.login`, `created_at`)
  * @param {Object[]} [options.openPullRequests=[]] `{number, author, repository}` of open pull requests that resolve
  * the issue, `repository` being each one's base
  * @param {Number[]} [options.candidates=[]] Claimable issue numbers with the issue's curated label
+ * @param {Number[]} [options.heldByClaimant=[]] Open curated issue numbers already assigned to `claimant`
  * @param {String} options.repoUrl
- * @returns {String|null}
+ * @returns {{assign: Boolean, assignedBody?: String, body: String, unassign?: String[]}|null}
  */
-export function decideReply({comment, issue, comments = [], openPullRequests = [], candidates = [], repoUrl}) {
+export function decideClaim({comment, issue, comments = [], events = [], openPullRequests = [], candidates = [], heldByClaimant = [], repoUrl}) {
     const
         claimant = comment?.user?.login,
         label    = curatedLabel(issue);
@@ -305,13 +431,45 @@ export function decideReply({comment, issue, comments = [], openPullRequests = [
         return null
     }
 
-    const held = holders({claimant, comment, comments, issue, openPullRequests, repository: new URL(repoUrl).pathname.slice(1)});
+    const
+        repository = new URL(repoUrl).pathname.slice(1),
+        held       = holders({claimant, comment, comments, events, issue, openPullRequests, repository}),
+        otherHeld  = [...new Set(heldByClaimant)].filter(number => number !== issue.number).sort((a, b) => a - b);
 
-    return renderReply({
-        alternatives: held.length > 0 ? pickAlternatives({candidates, exclude: issue.number, seed: claimant}) : [],
-        claimant,
-        holders     : held,
-        label,
-        repoUrl
-    })
+    if (held.length > 0) {
+        return {
+            assign: false,
+            body  : renderReply({
+                alternatives: pickAlternatives({candidates, exclude: issue.number, seed: claimant}),
+                claimant,
+                holders     : held,
+                label,
+                repoUrl
+            })
+        }
+    }
+
+    if (otherHeld.length > 0) {
+        return {
+            assign: false,
+            body  : renderReply({claimant, heldByClaimant: otherHeld, label, repoUrl})
+        }
+    }
+
+    return {
+        assign      : true,
+        assignedBody: renderReply({assigned: true, claimant, label, repoUrl}),
+        body        : renderReply({assigned: false, claimant, label, repoUrl}),
+        unassign    : staleAssignees({comment, comments, events, issue, openPullRequests, repository})
+    }
+}
+
+/**
+ * Legacy `String|null` entry preserved for cross-repository callers (`neo-agent-brain`, `neo-agent-institution`) that
+ * sparse-checkout this module from `neomjs/neo@dev`.
+ * @param {Object} options See {@link decideClaim}
+ * @returns {String|null}
+ */
+export function decideReply(options) {
+    return decideClaim(options)?.body || null
 }
