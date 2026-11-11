@@ -9,7 +9,7 @@ test.describe('Neo boot on an insecure HTTP origin', () => {
         page.on('pageerror', error => errors.push(error.message));
 
         // Keep the browser origin untrusted while proxying requests to the component server's localhost host.
-        await context.route('http://insecure.test/**', async route => {
+        await context.route(/^http:\/\/insecure\.test(?::\d+)?\//, async route => {
             const url = new URL(route.request().url());
 
             url.hostname = new URL(baseURL).hostname;
