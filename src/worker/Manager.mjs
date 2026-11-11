@@ -5,6 +5,7 @@ import CanvasGroups, {
 }                         from './CanvasGroups.mjs';
 import DomAccess          from '../main/DomAccess.mjs';
 import DomEvents          from '../main/DomEvents.mjs';
+import {generateUUID}     from '../util/UUID.mjs';
 import Message            from './Message.mjs';
 import Observable         from '../core/Observable.mjs';
 import RemoteMethodAccess from './mixin/RemoteMethodAccess.mjs';
@@ -105,11 +106,11 @@ class Manager extends Base {
          */
         webWorkersEnabled: false,
         /**
-         * Using crypto.randomUUID() as a unique window identifier
-         * @member {String} windowId=window.__NEO_SSR__?.windowId||crypto.randomUUID()
+         * Using the shared UUID helper for a unique window identifier
+         * @member {String} windowId=window.__NEO_SSR__?.windowId||generateUUID()
          * @protected
          */
-        windowId: window.__NEO_SSR__?.windowId || crypto.randomUUID(),
+        windowId: window.__NEO_SSR__?.windowId || generateUUID(),
         /**
          * The `sessionStorage` key carrying this window's topology identity — `{groupId, workspaceKey,
          * generationToken}` — across page loads. Read once per worker registration and sent with the

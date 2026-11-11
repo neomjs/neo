@@ -1,5 +1,6 @@
 import Neo                   from './Neo.mjs';
 import * as core             from './core/_export.mjs';
+import {generateUUID}       from './util/UUID.mjs';
 import ClassHierarchyManager from './manager/ClassHierarchy.mjs';
 import DomAccess             from './main/DomAccess.mjs'; // has to get imported before DeltaUpdates
 import DeltaUpdates          from './main/DeltaUpdates.mjs';
@@ -1348,7 +1349,7 @@ class Main extends core.Base {
         if (existingWin && !existingWin.win.closed) {
             targetName = existingWin.targetName
         } else {
-            targetName = crypto.randomUUID()
+            targetName = generateUUID()
         }
 
         // Same-origin children can connect to the shared worker immediately when the opener is
@@ -1374,13 +1375,13 @@ class Main extends core.Base {
             const
                 entry = {
                     nativeCapabilities: {...this.nativeWindowCapabilities, ...nativeCapabilities},
-                    nativeHandleKey   : crypto.randomUUID(),
+                    nativeHandleKey   : generateUUID(),
                     ownerWindowId     : WorkerManager.windowId,
                     targetName,
                     win               : openedWindow,
                     windowName
                 },
-                token   = crypto.randomUUID(),
+                token   = generateUUID(),
                 pending = {
                     entry,
                     expiresAt: Date.now() + this.nativeRouteTtl
