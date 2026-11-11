@@ -184,8 +184,9 @@ export const APP_EXPECTATIONS = [{
 
 /**
  * @summary What the Canvas worker's compile must reach: the engine renderers from the package (one a
- * consumer renderer extends) and a consumer renderer from app space. Matched without an end anchor,
- * because production concatenation names a renderer module `… + N modules`.
+ * consumer renderer extends), a consumer renderer from app space, and the renderer of an installed package
+ * that declares its worker modules, while a package that declares none stays out. Matched without an end
+ * anchor, because production concatenation names a renderer module `… + N modules`.
  * @type {Object[]}
  */
 export const CANVAS_EXPECTATIONS = [{
@@ -203,6 +204,16 @@ export const CANVAS_EXPECTATIONS = [{
     match  : /apps[/\\]probe[/\\]canvas[/\\]ProbeRenderer\.mjs\b/,
     present: true,
     because: 'a consumer-owned renderer must stay reachable through the rebased app-space root'
+}, {
+    file   : 'node_modules/neo-fixture-renderer/src/canvas/FixtureRenderer.mjs',
+    match  : /neo-fixture-renderer[/\\]src[/\\]canvas[/\\]FixtureRenderer\.mjs\b/,
+    present: true,
+    because: 'a package that names its canvas directory in its manifest under `neo.workerModules` ships a renderer the Canvas worker must load'
+}, {
+    file   : 'node_modules/neo-fixture-plain/src/canvas/PlainRenderer.mjs',
+    match  : /neo-fixture-plain[/\\]src[/\\]canvas[/\\]PlainRenderer\.mjs\b/,
+    present: false,
+    because: 'a package that declares no worker modules stays outside every worker context'
 }, ...TEST_HARNESS_ABSENCE_EXPECTATIONS];
 
 /**
@@ -516,7 +527,41 @@ function removeMainAddonFixture(workspace) {
 }
 
 /**
- * @summary Replaces the fixture's installed package with a symbolic link to it, in pnpm's real-path layout.
+ * @summary Two packages installed beside the engine, each shipping a renderer in `src/canvas`: one declares
+ * that directory under `neo.workerModules` in its manifest, the other declares nothing.
+ * @private
+ */
+const FIXTURE_PACKAGES = [
+    {name: 'neo-fixture-renderer', renderer: 'FixtureRenderer', neo: {workerModules: ['src/canvas']}},
+    {name: 'neo-fixture-plain',    renderer: 'PlainRenderer'}
+];
+
+/**
+ * @summary Installs `FIXTURE_PACKAGES` and lists them as the workspace's dependencies.
+ *
+ * Runs after the fixture's last `npm install`, which prunes any package its manifest does not name.
+ * @param {String} workspace Consumer fixture root.
+ */
+function installFixturePackages(workspace) {
+    const manifestPath = path.join(workspace, 'package.json'),
+          manifest     = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+
+    for (const {name, neo, renderer} of FIXTURE_PACKAGES) {
+        const root = path.join(workspace, 'node_modules', name);
+
+        fs.mkdirSync(path.join(root, 'src/canvas'), {recursive: true});
+        fs.writeFileSync(path.join(root, 'package.json'),
+            JSON.stringify({name, version: '1.0.0', type: 'module', ...(neo && {neo})}, null, 4));
+        fs.writeFileSync(path.join(root, `src/canvas/${renderer}.mjs`), `export default class ${renderer} {}\n`);
+
+        manifest.dependencies = {...manifest.dependencies, [name]: '1.0.0'}
+    }
+
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 4))
+}
+
+/**
+ * @summary Replaces one installed package of the fixture with a symbolic link to it, in pnpm's real-path layout.
  *
  * A linked package resolves outside the workspace: path arithmetic from where the package resolves
  * cannot reach the consumer's app space. The real path is
@@ -524,11 +569,12 @@ function removeMainAddonFixture(workspace) {
  * store layout as well as a plain link.
  *
  * @param {String} workspace Consumer fixture root.
+ * @param {String} [name='neo.mjs'] The installed package to link.
  * @returns {String} The package's real (linked) path.
  */
-function linkPackage(workspace) {
-    const installed = path.join(workspace, 'node_modules/neo.mjs'),
-          real      = path.join(workspace, 'node_modules/.pnpm/neo.mjs@1.0.0/node_modules/neo.mjs');
+function linkPackage(workspace, name='neo.mjs') {
+    const installed = path.join(workspace, 'node_modules', name),
+          real      = path.join(workspace, `node_modules/.pnpm/${name}@1.0.0/node_modules/${name}`);
 
     fs.mkdirSync(path.dirname(real), {recursive: true});
     fs.renameSync(installed, real);
@@ -658,6 +704,8 @@ async function main() {
         execFileSync('npm', ['install', '--include=dev', '--no-audit', '--no-fund', '--ignore-scripts'],
             {cwd: workspace, encoding: 'utf8', stdio: 'pipe'});
 
+        installFixturePackages(workspace);
+
         console.log('check-consumer-runtime-build: generating browser dependencies from the consumer workspace…');
         execFileSync(process.execPath, [path.join(installedRoot, 'buildScripts/build/all.mjs'),
             '-n', '-l', 'no', '-t', 'no', '-w', 'no', '-p', 'no', '-e', 'dev'],
@@ -683,6 +731,8 @@ async function main() {
         try {
             for (const arm of ['installed', 'linked']) {
                 const packagePath = arm === 'linked' ? linkPackage(workspace) : undefined;
+
+                arm === 'linked' && FIXTURE_PACKAGES.forEach(({name}) => linkPackage(workspace, name));
 
                 removeMainAddonFixture(workspace);
 
