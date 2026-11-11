@@ -70,6 +70,61 @@ test.describe('Neo.calendar.view.week.Component - Issue #19930 & #1069', () => {
         component.destroy();
     });
 
+    test('changing columnsBuffer or columnsVisible at runtime rebuilds columns and headers to match totalColumns (#20766)', async () => {
+        const component = Neo.create({
+            className      : 'Neo.calendar.view.week.Component',
+            appName,
+            calendarStore  : Neo.create('Neo.calendar.store.Calendars'),
+            currentDate    : new Date(2026, 4, 13),
+            enableDrag     : false,
+            endTime        : '24:00',
+            eventStore     : Neo.create('Neo.calendar.store.Events'),
+            intlFormat_time: new Intl.DateTimeFormat('en-US', {hour: '2-digit', minute: '2-digit'}),
+            startTime      : '00:00',
+            weekStartDay   : 0
+        });
+
+        component.timeout = () => Promise.resolve();
+
+        await component.initVnode();
+        component._mounted = true;
+        await component.afterSetMounted(true, false);
+
+        const getFlags     = () => component.getColumnContainer().cn.map(col => col.flag),
+              getHeaderIds = () => component.getHeaderContainer().cn.map(item => item.id),
+              expectLayout = (totalColumns, firstFlag, lastFlag) => {
+                  const flags = getFlags();
+
+                  expect(component.totalColumns).toBe(totalColumns);
+                  expect(flags.length).toBe(totalColumns);
+                  expect(flags[0]).toBe(firstFlag);
+                  expect(flags.at(-1)).toBe(lastFlag);
+                  expect(getHeaderIds()).toEqual(flags.map(flag => `${component.id}_ch_${flag}`))
+              };
+
+        expectLayout(21, '2026-05-03', '2026-05-23');
+
+        // Decrease: no stale trailing columns or headers
+        component.columnsBuffer = 5;
+        expectLayout(17, '2026-05-05', '2026-05-21');
+
+        component.columnsVisible = 5;
+        expectLayout(15, '2026-05-05', '2026-05-19');
+
+        // Later currentDate transitions use the new column count
+        component.currentDate = new Date(2026, 5, 3);
+        expectLayout(15, '2026-05-26', '2026-06-09');
+
+        // Increase: updateHeader() must not hit missing columns
+        expect(() => {component.columnsBuffer = 9}).not.toThrow();
+        expectLayout(23, '2026-05-22', '2026-06-13');
+
+        expect(() => {component.columnsVisible = 7}).not.toThrow();
+        expectLayout(25, '2026-05-22', '2026-06-15');
+
+        component.destroy();
+    });
+
     test('onScroll pages buffered columns at right and left edges, preserves deterministic column/header IDs, and ignores vertical scroll on the scroll container (#1069)', async () => {
         const component = Neo.create({
             className      : 'Neo.calendar.view.week.Component',

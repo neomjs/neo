@@ -327,7 +327,8 @@ class Component extends BaseComponent {
      * @protected
      */
     afterSetColumnsBuffer(value, oldValue) {
-        this.totalColumns = this.visibleColumns + 2 * value
+        this.totalColumns = this.columnsVisible + 2 * value;
+        oldValue !== undefined && this.rebuildColumns()
     }
 
     /**
@@ -337,7 +338,8 @@ class Component extends BaseComponent {
      * @protected
      */
     afterSetColumnsVisible(value, oldValue) {
-        this.totalColumns = 2 * this.columnsBuffer + value
+        this.totalColumns = 2 * this.columnsBuffer + value;
+        oldValue !== undefined && this.rebuildColumns()
     }
 
     /**
@@ -873,6 +875,23 @@ class Component extends BaseComponent {
                 })
             }
         }
+    }
+
+    /**
+     * @summary Re-creates all columns, headers and events after totalColumns changed.
+     * updateHeader() only creates columns once and afterwards updates them in place,
+     * so a different column count requires empty containers.
+     * @protected
+     */
+    rebuildColumns() {
+        let me = this;
+
+        me.getColumnContainer().cn = [];
+        me.getHeaderContainer().cn = [];
+        me.headerCreated           = false;
+
+        me.updateHeader(true, true);
+        me.updateEvents()
     }
 
     /**
