@@ -768,6 +768,7 @@ test.describe('Neo.app.SharedCanvas — the size message', () => {
 
         // Own data properties shadow the prototype's config accessors, which need a constructed instance.
         for (const [key, value] of Object.entries({
+            canvasId           : 'canvas-1',
             offscreenRegistered: true,
             ready              : async () => {},
             renderer           : {updateSize: async size => {sizes.push(size)}},
@@ -784,6 +785,6 @@ test.describe('Neo.app.SharedCanvas — the size message', () => {
             Neo.config.devicePixelRatio = previous
         }
 
-        expect(sizes).toEqual([{devicePixelRatio: 2, height: 100, width: 200, windowId: 'window-1'}])
+        expect(sizes).toEqual([{canvasId: 'canvas-1', devicePixelRatio: 2, height: 100, width: 200, windowId: 'window-1'}])
     })
 });

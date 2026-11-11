@@ -233,7 +233,7 @@ test.describe('SharedCanvas renderer admission', () => {
         graph.resolve();
         await registration;
         expect(host.isCanvasReady).toBe(false);
-        expect(calls.filter(([name]) => name === 'clearGraph')).toEqual([['clearGraph',{windowId:'admission-window'}]]);
+        expect(calls.filter(([name]) => name === 'clearGraph')).toEqual([['clearGraph',{canvasId:host.id,windowId:'admission-window'}]]);
     });
 
     test('a missing stub at the existing bound is failure rather than Canvas readiness', async () => {

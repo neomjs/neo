@@ -472,6 +472,7 @@ test.describe('Neo.main.DomEvents', () => {
 
         // App worker: the host forwards the payload the wire delivered (own data properties shadow the config accessors)
         for (const [key, value] of Object.entries({
+            canvasId     : 'canvas-1',
             canvasRect   : {left: 100, top: 50},
             isCanvasReady: true,
             renderer     : {updateMouseState: report => reports.push(report)},
