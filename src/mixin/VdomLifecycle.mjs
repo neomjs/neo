@@ -275,15 +275,59 @@ class VdomLifecycle extends Base {
             await me.timeout(1);
             VDomUpdate.awaitingCollectionSet.delete(me.id);
 
-            if (me.mergeIntoParentUpdate(me.parentId, 1, me.id) || me.isParentUpdating(me.parentId)) {
-                const postUpdates = VDomUpdate.postUpdateQueueMap.get(me.id) ?? null;
+            const merged = me.mergeIntoParentUpdate(me.parentId, 1, me.id);
+
+            if (merged || me.isParentUpdating(me.parentId)) {
+                const id          = me.id,
+                      postUpdates = VDomUpdate.postUpdateQueueMap.get(id) ?? null,
+                      preUpdate   = VDomUpdate.preUpdateMap.get(id) ?? null;
+                let failure;
 
                 postUpdates && VDomUpdate.postUpdateQueueMap.remove(postUpdates);
+                preUpdate   && VDomUpdate.preUpdateMap.delete(id);
                 inFlightScopes.clear();
-                VDomUpdate.unregisterInFlightUpdate(me.id);
+                VDomUpdate.unregisterInFlightUpdate(id);
                 me.isVdomUpdating  = false;
                 me.needsVdomUpdate = true;
-                VDomUpdate.triggerPostUpdates(me.id, postUpdates);
+
+                if (Neo.getComponent(id) === me && !me.isDestroyed) {
+                    try {
+                        VDomUpdate.triggerPostUpdates(id, postUpdates)
+                    } catch (error) {
+                        failure = {error}
+                    }
+                }
+
+                if (Neo.getComponent(id) === me && !me.isDestroyed) {
+                    try {
+                        VDomUpdate.executePreUpdates(id, preUpdate)
+                    } catch (error) {
+                        failure ||= {error}
+                    }
+                }
+
+                if (failure) {
+                    let reported = false;
+
+                    if (Neo.getComponent(id) === me && !me.isDestroyed && !me.isVdomUpdating) {
+                        reported = VDomUpdate.promiseCallbackMap.get(id)?.some(entry => typeof entry.reject === 'function');
+                        try {
+                            VDomUpdate.rejectPromiseCallbacks(id, failure.error)
+                        } catch (error) {
+                            console.error('vdom callback rejection failed', id, error)
+                        }
+                    }
+
+                    reported || console.error('vdom settlement failed', id, failure.error)
+                }
+
+                // Refresh merge depth if a silent preUpdate widened updateDepth without calling update()
+                if (preUpdate && merged && Neo.getComponent(id) === me && !me.isDestroyed && !me.isVdomUpdating) {
+                    if (!me.mergeIntoParentUpdate(me.parentId) && !me.silentVdomUpdate && me.needsVdomUpdate) {
+                        me.update()
+                    }
+                }
+
                 return
             }
 

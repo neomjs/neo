@@ -131,8 +131,9 @@ class DocumentOrderDom {
 }
 
 /**
- * @summary Verifies pre-collection merge coalescing, post-yield parent adoption, absorbed merged-callback
- * settlement, mid-flight incoming reparent unmount protection, and clean batch-rejection state in `VdomLifecycle`.
+ * @summary Verifies pre-collection merge coalescing, post-yield parent adoption, deferred `preUpdate` draining
+ * (including silent `updateDepth` escalation and error rejection), absorbed merged-callback settlement,
+ * mid-flight incoming reparent unmount protection, and clean batch-rejection state in `VdomLifecycle`.
  */
 test.describe('Neo.mixin.VdomLifecycle cross-container move flight races', () => {
     const origApplyDeltas = Neo.applyDeltas,
@@ -401,5 +402,90 @@ test.describe('Neo.mixin.VdomLifecycle cross-container move flight races', () =>
         expect(target.isVdomUpdating).toBe(false);
         expect(target.needsVdomUpdate).toBe(false);
         expect(VDomUpdate.isAwaitingCollection(target.id)).toBe(false)
+    });
+
+    test('drains deferred preUpdate before ancestor collection and propagates silent updateDepth escalation', async () => {
+        const {host, target} = await createHierarchy();
+        const nestedLeaf     = target.items[0].items[0];
+
+        const timeoutGate       = [];
+        let   interceptTimeouts = true;
+        Base.prototype.timeout = function(ms) {
+            if (interceptTimeouts && ms === 1) {
+                return new Promise(resolve => {
+                    timeoutGate.push({id: this.id, resolve})
+                })
+            }
+            return origTimeout.call(this, ms)
+        };
+
+        let batchCalls = 0;
+        VdomHelper.updateBatch = async function(data) {
+            batchCalls++;
+            return origUpdateBatch.call(this, data)
+        };
+
+        target.vdom.cls = ['entry-group-initial'];
+        const targetPromise = target.promiseUpdate();
+
+        expect(timeoutGate.map(entry => entry.id)).toEqual([target.id]);
+        expect(target.isVdomUpdating).toBe(true);
+
+        let sawUpdatingDuringPreUpdate = null;
+        VDomUpdate.registerPreUpdate(target.id, () => {
+            sawUpdatingDuringPreUpdate = target.isVdomUpdating;
+            nestedLeaf.vdom.cls        = ['deferred-leaf'];
+            target.updateDepth         = -1
+        });
+
+        host.vdom.cls = ['host-updated'];
+        const hostPromise = host.promiseUpdate();
+
+        // Wake target: it yields into host, starts host's pre-collection timeout(1), runs preUpdate, and refreshes merge depth
+        timeoutGate[0].resolve();
+        await flushMicrotasks();
+
+        expect(sawUpdatingDuringPreUpdate).toBe(false);
+        expect(VDomUpdate.preUpdateMap.has(target.id)).toBe(false);
+        expect(VDomUpdate.mergedCallbackMap.get(host.id)?.children.get(target.id)?.childUpdateDepth).toBe(-1);
+        expect(timeoutGate.map(entry => entry.id)).toEqual([target.id, host.id]);
+
+        interceptTimeouts = false;
+        timeoutGate[1].resolve();
+
+        await Promise.all([hostPromise, targetPromise]);
+
+        expect(batchCalls).toBe(1);
+        expect(host.vnode.className).toContain('host-updated');
+        expect(target.vnode.className).toContain('entry-group-initial');
+        expect(nestedLeaf.vnode.className).toContain('deferred-leaf')
+    });
+
+    test('a throwing preUpdate during pre-collection yield rejects parked child callbacks while ancestor still settles', async () => {
+        const {host, target} = await createHierarchy();
+        const error          = new Error('yielded pre-update failure'),
+              origError      = console.error;
+
+        console.error = () => {};
+
+        try {
+            target.vdom.cls = ['child-before-throw'];
+            const targetPromise = target.promiseUpdate();
+
+            VDomUpdate.registerPreUpdate(target.id, () => {
+                throw error
+            });
+
+            host.vdom.cls = ['host-survives'];
+            const hostPromise = host.promiseUpdate();
+
+            await expect(targetPromise).rejects.toBe(error);
+            await hostPromise;
+
+            expect(VDomUpdate.preUpdateMap.has(target.id)).toBe(false);
+            expect(host.vnode.className).toContain('host-survives')
+        } finally {
+            console.error = origError
+        }
     });
 });
