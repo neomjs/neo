@@ -1366,7 +1366,7 @@ class GraphScene extends Base {
     }
 
     /**
-     * @summary Pointer reports orbit the camera while the primary button is held; the base keeps the state.
+     * @summary Pointer reports orbit the camera while a primary press from this canvas is held; the base keeps the state.
      * @param {Object} data
      */
     updateMouseState(data) {
@@ -1374,7 +1374,7 @@ class GraphScene extends Base {
 
         super.updateMouseState(data);
 
-        if (!data.leave && (mouse.buttons & 1) && (mouse.dx || mouse.dy)) {
+        if (!data.leave && (mouse.pressedButtons & 1) && (mouse.dx || mouse.dy)) {
             me.flightPlan  = null;
             camera.yaw    += mouse.dx * orbitSpeed;
             camera.pitch   = Math.min(1.45, Math.max(-1.45, camera.pitch + mouse.dy * orbitSpeed));
