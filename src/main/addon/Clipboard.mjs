@@ -70,6 +70,18 @@ class Clipboard extends Base {
     }
 
     /**
+     * Native `Event` instances already claimed during a gesture so nested roots and local `DomEvents` listeners never double-fire.
+     * @member {WeakSet<Object>} #handledEvents=new WeakSet()
+     * @private
+     */
+    #handledEvents = new WeakSet()
+    /**
+     * Reverse index from registered DOM nodes to their target groups for innermost-first ancestor matching.
+     * @member {WeakMap<Object, Object>} #nodes=new WeakMap()
+     * @private
+     */
+    #nodes = new WeakMap()
+    /**
      * In-flight outbound clipboard writes keyed by `requestId`.
      * @member {Map<String, Object>} #pendingWrites=new Map()
      * @private
@@ -102,56 +114,37 @@ class Clipboard extends Base {
 
     /**
      * @summary Serializes the DOM ancestor chain for App Worker `DomEvent` delegation and bubbling.
-     * @param {Element|Node|Object|null} target
-     * @param {String} eventName
+     * @param {Element|Node|Object} target
      * @returns {Object[]}
      * @protected
      */
-    buildEventPath(target, eventName) {
-        const element = target?.nodeType === 3 ? (target.parentElement || target.parentNode) : target;
+    buildEventPath(target) {
+        const element = target.nodeType === 3 ? target.parentNode : target;
 
-        if (!element) {
-            return []
-        }
-
-        const domEvents = Neo.main?.DomEvents;
-
-        if (domEvents?.getPathFromElement && domEvents?.getTargetData) {
-            return domEvents.getPathFromElement(element).map(node => domEvents.getTargetData(node))
-        }
-
-        const path = [];
-
-        for (let node = element; node; node = node.parentNode) {
-            path.push({
-                cls              : node.classList ? [...node.classList] : [],
-                data             : {...node.dataset},
-                id               : Neo.config?.useDomIds === false ? node.dataset?.neoId : node.id,
-                isContentEditable: Boolean(node.isContentEditable),
-                role             : node.role,
-                tabIndex         : node.getAttribute?.('tabindex') ? node.tabIndex : null,
-                tagName          : node.tagName?.toLowerCase?.()
-            })
-        }
-
-        return path
+        return Neo.main.DomEvents.getPathFromElement(element).map(
+            node => Neo.main.DomEvents.getTargetData(node)
+        )
     }
 
     /**
-     * @summary Cancels pending outbound writes owned by a departing registration.
+     * @summary Cancels pending outbound writes once their last active registration owner unregisters.
      * @param {String|null} id
      * @param {String} ownerKey
      * @param {String} [reason='unregistered']
      * @protected
      */
     cancelPendingForOwner(id, ownerKey, reason='unregistered') {
-        for (const [requestId, pending] of [...this.#pendingWrites.entries()]) {
-            if ((id === null || pending.id === id) && pending.ownerKeys.has(ownerKey)) {
-                pending.ownerKeys.delete(ownerKey);
+        const suffix = `::${ownerKey}`;
 
-                if (pending.ownerKeys.size === 0) {
-                    this.cancelWrite({reason, requestId})
+        for (const [requestId, pending] of [...this.#pendingWrites.entries()]) {
+            for (const tokenKey of [...pending.ownerTokens]) {
+                if (id ? tokenKey === `${id}::${ownerKey}` : tokenKey.endsWith(suffix)) {
+                    pending.ownerTokens.delete(tokenKey)
                 }
+            }
+
+            if (pending.ownerTokens.size === 0) {
+                this.cancelWrite({reason, requestId})
             }
         }
     }
@@ -173,7 +166,10 @@ class Clipboard extends Base {
         }
 
         this.#pendingWrites.delete(requestId);
-        pending.timeoutId !== null && clearTimeout(pending.timeoutId);
+
+        if (pending.timeoutId !== null) {
+            clearTimeout(pending.timeoutId)
+        }
 
         const error = this.createAbortError(reason);
 
@@ -183,30 +179,43 @@ class Clipboard extends Base {
     }
 
     /**
-     * @summary Creates the rejection reason used to abort pending `ClipboardItem` MIME promises.
-     * @param {String} reason
-     * @returns {Error}
-     * @protected
+     * @summary Reports whether this addon owns a native `copy`, `cut`, or `paste` event so local `DomEvents` listeners do not double-fire.
+     * @param {ClipboardEvent|Event|Object|null} event
+     * @returns {Boolean}
      */
-    createAbortError(reason) {
-        return typeof DOMException === 'function'
-            ? new DOMException(reason, 'AbortError')
-            : new Error(reason)
+    claimsEvent(event) {
+        if (!event || (event.type !== 'copy' && event.type !== 'cut' && event.type !== 'paste')) {
+            return false
+        }
+
+        if (this.#handledEvents.has(event)) {
+            return true
+        }
+
+        if (
+            event.type !== 'paste' && (
+                typeof globalThis.navigator?.clipboard?.write !== 'function' ||
+                typeof globalThis.ClipboardItem !== 'function'
+            )
+        ) {
+            return false
+        }
+
+        if (event.currentTarget && this.#nodes.has(event.currentTarget)) {
+            return true
+        }
+
+        return this.getMatchingRegistrations(event.target).length > 0
     }
 
     /**
-     * @summary Removes the native `copy`, `cut`, and `paste` listeners from a target group's DOM node.
-     * @param {Object} group
+     * @summary Creates the `AbortError` rejection reason used to abort pending `ClipboardItem` MIME promises.
+     * @param {String} reason
+     * @returns {DOMException}
      * @protected
      */
-    detachTarget(group) {
-        const {listeners, node} = group;
-
-        if (node && listeners) {
-            Object.entries(listeners).forEach(([type, fn]) => {
-                node.removeEventListener?.(type, fn)
-            })
-        }
+    createAbortError(reason) {
+        return new DOMException(reason, 'AbortError')
     }
 
     /**
@@ -227,14 +236,37 @@ class Clipboard extends Base {
     }
 
     /**
-     * @summary Resolves an in-flight outbound clipboard write with text or multi-MIME payloads from the App Worker.
+     * @summary Removes the native capture-phase `copy`, `cut`, and `paste` listeners from a target group's DOM node.
+     * @param {Object} group
+     * @protected
+     */
+    detachTarget(group) {
+        const {listeners, node} = group;
+
+        this.#nodes.delete(node);
+
+        Object.entries(listeners).forEach(([type, fn]) => {
+            node.removeEventListener(type, fn, {capture: true})
+        })
+    }
+
+    /**
+     * @summary Resolves an in-flight outbound clipboard write and reports whether the browser committed every declared MIME representation.
+     *
+     * Every MIME type declared for the gesture must be supplied by the App Worker (`data.items[type]` neither
+     * `undefined` nor `null`, or `data.text` for `'text/plain'`). If any declared MIME type is omitted, all
+     * pending `ClipboardItem` promises are rejected so zero partial or empty representations are written and
+     * prior clipboard contents stay intact. Once all declared `Blob` payloads resolve, this method awaits the
+     * `navigator.clipboard.write()` promise opened during the user gesture and resolves to `true` only if the
+     * browser accepted the write.
+     *
      * @param {Object} [data={}]
-     * @param {Object} [data.items] Map of MIME type to string or `Blob` payload
+     * @param {Object} [data.items] Map of declared MIME type to string or `Blob` payload
      * @param {String} data.requestId
      * @param {String} [data.text] Shorthand payload for `'text/plain'`
-     * @returns {Boolean}
+     * @returns {Promise<Boolean>}
      */
-    fulfillWrite(data={}) {
+    async fulfillWrite(data={}) {
         const
             {items, requestId, text} = data,
             pending                  = requestId ? this.#pendingWrites.get(requestId) : null;
@@ -244,78 +276,93 @@ class Clipboard extends Base {
         }
 
         this.#pendingWrites.delete(requestId);
-        pending.timeoutId !== null && clearTimeout(pending.timeoutId);
+
+        if (pending.timeoutId !== null) {
+            clearTimeout(pending.timeoutId)
+        }
 
         const
-            hasItems = Boolean(items && typeof items === 'object' && Object.keys(items).length > 0),
-            hasText  = text !== undefined && text !== null;
+            hasItems = Boolean(items && typeof items === 'object'),
+            hasText  = text !== undefined && text !== null,
+            payloads = new Map();
 
-        if (!hasItems && !hasText) {
-            const error = this.createAbortError('empty clipboard payload');
+        for (const type of pending.resolvers.keys()) {
+            const rawValue = hasItems && Object.hasOwn(items, type) && items[type] !== undefined && items[type] !== null
+                ? items[type]
+                : (type === 'text/plain' && hasText ? text : undefined);
 
-            pending.resolvers.forEach(({reject}) => reject(error));
+            if (rawValue === undefined) {
+                const error = this.createAbortError(`Missing clipboard payload for ${type}`);
 
-            return false
+                pending.resolvers.forEach(({reject}) => reject(error));
+                await pending.writeSettled;
+
+                return false
+            }
+
+            payloads.set(
+                type,
+                rawValue instanceof Blob ? rawValue : new Blob([String(rawValue)], {type})
+            )
         }
 
         for (const [type, {resolve}] of pending.resolvers.entries()) {
-            const rawValue = hasItems && Object.hasOwn(items, type)
-                ? items[type]
-                : (type === 'text/plain' && hasText ? text : '');
-
-            const blob = rawValue instanceof Blob
-                ? rawValue
-                : new Blob([String(rawValue ?? '')], {type});
-
-            resolve(blob)
+            resolve(payloads.get(type))
         }
 
-        return true
+        return await pending.writeSettled
     }
 
     /**
-     * @summary Returns the registrations on `id` that accept `target` after editable-descendant filtering.
-     * @param {String} id
+     * @summary Collects active registrations from innermost to outermost ancestor along `target`'s DOM path.
      * @param {Element|Node|Object|null} target
      * @returns {Object[]}
      * @protected
      */
-    getActiveRegistrations(id, target) {
-        const group = this.#targets.get(id);
+    getMatchingRegistrations(target) {
+        const element = target?.nodeType === 3 ? target.parentNode : target;
 
-        if (!group || group.registrations.size === 0) {
+        if (!element || this.#targets.size === 0) {
             return []
         }
 
+        const
+            matches = [],
+            path    = Neo.main.DomEvents.getPathFromElement(element);
+
         let isEditable;
 
-        return [...group.registrations.values()].filter(registration => {
-            if (!registration.ignoreEditableTargets) {
-                return true
+        for (const node of path) {
+            const group = this.#nodes.get(node);
+
+            if (group) {
+                for (const registration of [...group.registrations.values()].reverse()) {
+                    if (!registration.ignoreEditableTargets) {
+                        matches.push(registration)
+                    } else {
+                        isEditable ??= this.isEditableTarget(element);
+
+                        if (!isEditable) {
+                            matches.push(registration)
+                        }
+                    }
+                }
             }
+        }
 
-            isEditable ??= this.isEditableTarget(target);
-
-            return !isEditable
-        })
+        return matches
     }
 
     /**
-     * @summary Determines whether an event target sits inside a native editable control (`<input>`, `<textarea>`, or `[contenteditable]`).
-     * @param {Element|Node|Object|null} target
+     * @summary Determines whether an element sits inside an enabled native editable control (`<input>`, `<textarea>`, or `[contenteditable]`).
+     * @param {Element|Object} element
      * @returns {Boolean}
      * @protected
      */
-    isEditableTarget(target) {
-        const element = target?.nodeType === 3 ? (target.parentElement || target.parentNode) : target;
-
-        if (!element) {
-            return false
-        }
-
+    isEditableTarget(element) {
         let contentEditableBlocked = false;
 
-        for (let node = element; node; node = node.parentElement || node.parentNode) {
+        for (let node = element; node; node = node.parentNode) {
             if (node.nodeType && node.nodeType !== 1) {
                 break
             }
@@ -354,16 +401,6 @@ class Clipboard extends Base {
             }
         }
 
-        if (!contentEditableBlocked && !element.parentElement && !element.parentNode) {
-            const editableAncestor = element.closest?.('[contenteditable]');
-
-            if (editableAncestor) {
-                const attr = String(editableAncestor.getAttribute?.('contenteditable') ?? editableAncestor.contentEditable ?? '').trim().toLowerCase();
-
-                return attr === '' || attr === 'true' || attr === 'plaintext-only'
-            }
-        }
-
         return false
     }
 
@@ -382,17 +419,12 @@ class Clipboard extends Base {
     }
 
     /**
-     * @summary Handles native `copy` and `cut` gestures by binding a pending `ClipboardItem` synchronously and notifying the App Worker.
-     * @param {String} id
+     * @summary Handles native `copy` and `cut` gestures once per event by binding a pending `ClipboardItem` synchronously and notifying the App Worker.
      * @param {ClipboardEvent|Event} event
      * @protected
      */
-    onCopyOrCut(id, event) {
-        const
-            target              = event?.target?.nodeType === 3 ? (event.target.parentElement || event.target.parentNode) : event?.target,
-            activeRegistrations = this.getActiveRegistrations(id, target);
-
-        if (activeRegistrations.length === 0) {
+    onCopyOrCut(event) {
+        if (this.#handledEvents.has(event)) {
             return
         }
 
@@ -404,16 +436,22 @@ class Clipboard extends Base {
             return
         }
 
+        const activeRegistrations = this.getMatchingRegistrations(event.target);
+
+        if (activeRegistrations.length === 0) {
+            return
+        }
+
+        this.#handledEvents.add(event);
         event.preventDefault();
 
         const
-            me               = this,
-            primary          = activeRegistrations.at(-1),
-            mimeTypes        = [...new Set(activeRegistrations.flatMap(reg => reg.mimeTypes))],
-            pendingTimeoutMs = Math.max(...activeRegistrations.map(reg => reg.pendingTimeoutMs)),
-            requestId        = `clipboard-req-${++me.#requestSequence}`,
-            itemMap          = {},
-            resolvers        = new Map();
+            me                            = this,
+            primary                       = activeRegistrations[0],
+            {mimeTypes, pendingTimeoutMs} = primary,
+            requestId                     = `clipboard-req-${++me.#requestSequence}`,
+            itemMap                       = {},
+            resolvers                     = new Map();
 
         for (const type of mimeTypes) {
             let rejectMime, resolveMime;
@@ -429,11 +467,13 @@ class Clipboard extends Base {
             itemMap[type] = promise
         }
 
+        let writeSettled;
+
         try {
-            const writePromise = clipboard.write([new ClipboardItemCtor(itemMap)]);
-            writePromise?.catch?.(Neo.emptyFn)
+            writeSettled = Promise.resolve(clipboard.write([new ClipboardItemCtor(itemMap)]))
+                .then(() => true, () => false)
         } catch {
-            return
+            writeSettled = Promise.resolve(false)
         }
 
         const timeoutId = pendingTimeoutMs > 0
@@ -444,11 +484,12 @@ class Clipboard extends Base {
 
         me.#pendingWrites.set(requestId, {
             componentId: primary.componentId,
-            id,
+            id         : primary.id,
             mimeTypes,
-            ownerKeys  : new Set(activeRegistrations.map(reg => reg.ownerKey)),
+            ownerTokens: new Set(activeRegistrations.map(reg => `${reg.id}::${reg.ownerKey}`)),
             resolvers,
-            timeoutId
+            timeoutId,
+            writeSettled
         });
 
         Neo.worker.Manager.sendMessage('app', {
@@ -456,33 +497,35 @@ class Clipboard extends Base {
             eventName: event.type,
             data     : {
                 componentId: primary.componentId,
-                id,
+                id         : primary.id,
                 mimeTypes,
-                path       : me.buildEventPath(target, event.type),
+                path       : me.buildEventPath(event.target),
                 requestId
             }
         })
     }
 
     /**
-     * @summary Handles native `paste` gestures by reading `event.clipboardData` synchronously and forwarding the payload to the App Worker.
-     * @param {String} id
+     * @summary Handles native `paste` gestures once per event by reading `event.clipboardData` synchronously and forwarding the payload to the App Worker.
      * @param {ClipboardEvent|Event} event
      * @protected
      */
-    onPaste(id, event) {
-        const
-            target              = event?.target?.nodeType === 3 ? (event.target.parentElement || event.target.parentNode) : event?.target,
-            activeRegistrations = this.getActiveRegistrations(id, target);
+    onPaste(event) {
+        if (this.#handledEvents.has(event)) {
+            return
+        }
+
+        const activeRegistrations = this.getMatchingRegistrations(event.target);
 
         if (activeRegistrations.length === 0) {
             return
         }
 
+        this.#handledEvents.add(event);
         event.preventDefault();
 
         const
-            primary       = activeRegistrations.at(-1),
+            primary       = activeRegistrations[0],
             mimeTypes     = [...new Set(activeRegistrations.flatMap(reg => reg.mimeTypes))],
             clipboardData = event.clipboardData,
             items         = {};
@@ -508,9 +551,9 @@ class Clipboard extends Base {
             eventName: 'paste',
             data     : {
                 componentId: primary.componentId,
-                id,
+                id         : primary.id,
                 items,
-                path       : this.buildEventPath(target, 'paste'),
+                path       : this.buildEventPath(event.target),
                 text
             }
         })
@@ -557,7 +600,7 @@ class Clipboard extends Base {
             node = me.resolveElement(id)
         }
 
-        if (!node || me.isDestroyed || me.#registrationTokens.get(tokenKey) !== token) {
+        if (!node) {
             return false
         }
 
@@ -570,13 +613,13 @@ class Clipboard extends Base {
 
         if (!group) {
             const listeners = {
-                copy : event => me.onCopyOrCut(id, event),
-                cut  : event => me.onCopyOrCut(id, event),
-                paste: event => me.onPaste(id, event)
+                copy : event => me.onCopyOrCut(event),
+                cut  : event => me.onCopyOrCut(event),
+                paste: event => me.onPaste(event)
             };
 
             Object.entries(listeners).forEach(([type, fn]) => {
-                node.addEventListener?.(type, fn)
+                node.addEventListener(type, fn, {capture: true})
             });
 
             group = {
@@ -586,6 +629,7 @@ class Clipboard extends Base {
                 registrations: new Map()
             };
 
+            me.#nodes.set(node, group);
             me.#targets.set(id, group)
         }
 
@@ -608,7 +652,7 @@ class Clipboard extends Base {
      * @protected
      */
     resolveElement(id) {
-        return Neo.main?.DomAccess?.getElement?.(id) ?? null
+        return Neo.main.DomAccess.getElement(id) ?? null
     }
 
     /**

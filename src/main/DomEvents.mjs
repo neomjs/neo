@@ -250,10 +250,17 @@ class DomEvents extends Base {
     }
 
     /**
-     * Local domEvent listener
+     * @summary Forwards local DOM events to the App Worker unless an active `Clipboard` addon registration owns the gesture.
      * @param {Event} event
      */
     domEventListener(event) {
+        if (
+            (event.type === 'copy' || event.type === 'cut' || event.type === 'paste') &&
+            Neo.main.addon?.Clipboard?.claimsEvent?.(event)
+        ) {
+            return
+        }
+
         let me       = this,
             {target} = event,
 

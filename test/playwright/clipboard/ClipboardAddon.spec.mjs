@@ -94,20 +94,22 @@ test.describe('Neo.main.addon.Clipboard (3-engine real clipboard)', () => {
         return await probe.inputValue()
     }
 
-    test('async worker copy, cancelled cut preservation, editable input bypass, and synchronous paste across engines', async ({page}) => {
-        // 1. Outbound copy fulfilled asynchronously (100ms worker turn delay) writes the worker payload
+    test('async worker copy, cancelled cut, editable bypass, synchronous paste, and truthful fulfillWrite outcomes across engines', async ({browserName, page}) => {
+        // 1. Outbound copy fulfilled asynchronously (100ms worker turn delay) writes the worker payload and resolves true
         await selectRowAndFocus(page);
         await page.keyboard.press(`${MOD}+c`);
 
-        await expect.poll(async () => {
-            const events = await page.evaluate(
-                id => Neo.worker.App.getConfigs({id, keys: 'receivedEvents'}),
-                surfaceId
-            );
-            return events.filter(entry => entry.type === 'copy').length
-        }).toBe(1);
+        await expect.poll(() =>
+            page.evaluate(id => Neo.worker.App.getConfigs({id, keys: 'lastFulfillResult'}), surfaceId)
+        ).toBe(true);
 
-        // Wait until the async worker fulfillment settles on the OS clipboard, verified by real paste
+        const copyCountAfterFirst = await page.evaluate(
+            id => Neo.worker.App.getConfigs({id, keys: 'receivedEvents'}).then(evts => evts.filter(e => e.type === 'copy').length),
+            surfaceId
+        );
+        expect(copyCountAfterFirst).toBe(1);
+
+        // Verify on the real OS clipboard via paste
         await expect.poll(() => readViaPasteIntoProbe(page)).toBe('neo-worker-clipboard-alpha');
 
         // 2. Outbound cut cancelled from the App Worker preserves prior clipboard contents cleanly
@@ -142,6 +144,61 @@ test.describe('Neo.main.addon.Clipboard (3-engine real clipboard)', () => {
                 surfaceId
             );
             return events.find(entry => entry.type === 'paste')?.text ?? null
-        }).toBe('native-editor-text')
+        }).toBe('native-editor-text');
+
+        // 5. Omitting a declared MIME type ('text/html') aborts the write, resolves false, and preserves OS clipboard
+        await page.evaluate(id => Neo.worker.App.setConfigs({
+            copyDelayMs      : 30,
+            copyItems        : null,
+            copyText         : 'incomplete-should-not-overwrite',
+            id,
+            lastFulfillResult: null,
+            mimeTypes        : ['text/plain', 'text/html']
+        }), surfaceId);
+
+        await expect.poll(() =>
+            page.evaluate(id => Neo.worker.App.getConfigs({id, keys: 'addonRegistered'}), surfaceId)
+        ).toBe(true);
+
+        await selectRowAndFocus(page);
+        await page.keyboard.press(`${MOD}+c`);
+
+        await expect.poll(() =>
+            page.evaluate(id => Neo.worker.App.getConfigs({id, keys: 'lastFulfillResult'}), surfaceId)
+        ).toBe(false);
+        expect(await readViaPasteIntoProbe(page)).toBe('native-editor-text');
+
+        // 6. Requesting an unsupported MIME type ('text/csv') reports the real browser write outcome truthfully
+        await page.evaluate(id => Neo.worker.App.setConfigs({
+            copyItems        : {'text/csv': 'a,b\n1,2', 'text/plain': 'csv-plain-payload'},
+            copyText         : null,
+            id,
+            lastFulfillResult: null,
+            mimeTypes        : ['text/plain', 'text/csv']
+        }), surfaceId);
+
+        await expect.poll(() =>
+            page.evaluate(id => Neo.worker.App.getConfigs({id, keys: 'addonRegistered'}), surfaceId)
+        ).toBe(true);
+
+        await selectRowAndFocus(page);
+        await page.keyboard.press(`${MOD}+c`);
+
+        await expect.poll(() =>
+            page.evaluate(id => Neo.worker.App.getConfigs({id, keys: 'lastFulfillResult'}), surfaceId)
+        ).not.toBeNull();
+
+        const csvFulfillResult = await page.evaluate(
+            id => Neo.worker.App.getConfigs({id, keys: 'lastFulfillResult'}),
+            surfaceId
+        );
+
+        if (browserName === 'chromium') {
+            expect(csvFulfillResult).toBe(false)
+        }
+
+        expect(await readViaPasteIntoProbe(page)).toBe(
+            csvFulfillResult ? 'csv-plain-payload' : 'native-editor-text'
+        )
     });
 });
