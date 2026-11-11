@@ -79,5 +79,19 @@ test.describe('buildScripts/docs/index/release.mjs', () => {
         expect(releases.find(entry => entry.id === '13.3.0').date).toBe('2026-11-01T10:00:00Z');
         expect(releases.find(entry => entry.id === '12.9.0').date).toBe('2026-10-01T09:00:00Z');
         expect(Object.hasOwn(releases.find(entry => entry.id === '13.4.0'), 'date')).toBe(false)
+    });
+
+    test('populates title from frontmatter.title, frontmatter.name, or H1 heading and omits title when none exist', async () => {
+        const releases = await index('titles', {
+            'v13.4.0.md': '---\ntagName: 13.4.0\ntitle: Explicit Frontmatter Title\nname: Secondary Name\n---\n# H1 Heading\n',
+            'v13.3.1.md': '---\ntagName: 13.3.1\nname: Neo.mjs v13.3.1 Release Notes\n---\n# Fallback Heading\n',
+            'v13.3.0.md': '---\ntagName: 13.3.0\n---\n# Heading Only Release Title\n\nBody text.\n',
+            'v13.2.0.md': '---\ntagName: 13.2.0\n---\nPlain paragraph without any H1 heading.\n'
+        });
+
+        expect(releases.find(entry => entry.id === '13.4.0').title).toBe('Explicit Frontmatter Title');
+        expect(releases.find(entry => entry.id === '13.3.1').title).toBe('Neo.mjs v13.3.1 Release Notes');
+        expect(releases.find(entry => entry.id === '13.3.0').title).toBe('Heading Only Release Title');
+        expect(Object.hasOwn(releases.find(entry => entry.id === '13.2.0'), 'title')).toBe(false);
     })
 });

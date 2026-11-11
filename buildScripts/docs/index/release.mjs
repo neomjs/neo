@@ -21,8 +21,9 @@ import {
  * section, allowing users to browse history grouped by Major Version.
  *
  * **Key Features:**
- * - **Metadata Extraction:** Parses frontmatter (`tagName`, `publishedAt`); the version falls back to the file name.
- *   A note without `publishedAt` is unreleased and gets no date.
+ * - **Metadata Extraction:** Parses frontmatter (`tagName`, `publishedAt`, `title`/`name`) and falls back to the
+ *   first `# ...` Markdown heading for `title` and the file name for `version`. A note without `publishedAt` is
+ *   unreleased and gets no date.
  * - **SemVer Grouping:** Automatically groups releases by Major Version (e.g., "v5", "v6") using `semver`.
  * - **Tree-Ready Output:** Generates a flat-tree structure with `parentId` references, optimized for `Neo.tree.List`.
  *
@@ -75,18 +76,27 @@ async function createReleaseIndex(options = {}) {
         const content  = await fs.readFile(filePath, 'utf8');
         const fileName = path.basename(filePath, '.md'); // e.g., 'v11.18.0'
 
-        let frontmatter = {};
+        let bodyContent = '',
+            frontmatter = {};
 
         try {
             const parsed = matter(content);
-            frontmatter  = parsed.data;
+            bodyContent  = parsed.content || '';
+            frontmatter  = parsed.data || {};
         } catch (e) {
             console.warn(`Failed to parse frontmatter for ${fileName}:`, e.message);
+            bodyContent = content;
         }
 
         // `publishedAt` is stamped when a note is released. A note without it is unreleased, and the file's
         // birthtime would only say when the file reached this checkout, so it gets no date.
-        const date = frontmatter.publishedAt;
+        const date     = frontmatter.publishedAt;
+        const rawTitle = String(
+            frontmatter.title ||
+            frontmatter.name ||
+            bodyContent.match(/^#\s+(.+)$/m)?.[1] ||
+            ''
+        ).trim();
 
         // Extract Version (Priority: frontmatter.tagName -> filename)
         let version = frontmatter.tagName;
@@ -100,6 +110,7 @@ async function createReleaseIndex(options = {}) {
         return {
             version: cleanVersion,
             ...(date && {date}),
+            ...(rawTitle && {title: rawTitle}),
             // Relative to the release-notes root, chunk-N segment included; the portal resolves it against the base it serves the notes from
             path: contentPath(inputDir, filePath)
         };

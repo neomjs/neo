@@ -24,6 +24,8 @@ import {
     collectExampleFamilyRoutes,
     extractExampleFamilyDefinitions
 } from '../../../../../../buildScripts/docs/seo/generate.mjs';
+import createReleaseIndex from '../../../../../../buildScripts/docs/index/release.mjs';
+import verifySeoArtifacts from '../../../../../../buildScripts/docs/seo/verify.mjs';
 
 test.describe('docs SEO generator release-note link guard', () => {
     test('getDisallowedReleaseNoteGithubLinks returns only mutable or release-ref Neo source links', () => {
@@ -485,6 +487,123 @@ test.describe('docs SEO generator archive exclusion (#20089)', () => {
         expect(archiveSitemap).not.toContain('https://neomjs.com/home');
     });
 
+    test('deduplicates multi-bucket corpus routes into one entry per loc with newest lastmod regardless of bucket order', async () => {
+        const dupCorpus    = path.join(tempDir, 'dup-corpus');
+        const isolatedRoot = path.join(tempDir, 'dup-root');
+        const releasesPath = path.join(isolatedRoot, 'apps/portal/resources/data/releases.json');
+        const seoJsonPath  = path.join(isolatedRoot, 'apps/portal/resources/data/seo.json');
+
+        await fs.outputFile(path.join(isolatedRoot, 'learn/guides/Setup.md'), '# Setup\n\nZero-build workspace setup guide for Neo.mjs.');
+        await fs.outputJson(path.join(isolatedRoot, 'learn/tree.json'), {
+            data: [{id: 'guides/Setup', isLeaf: true, name: 'Setup'}]
+        });
+        await fs.outputJson(path.join(isolatedRoot, 'apps/portal/resources/data/blog.json'), {data: []});
+        await fs.outputJson(seoJsonPath, {
+            '/about-us': {title: 'About Neo.mjs', description: 'About the Neo.mjs platform.'},
+            '/docs'    : {title: 'Neo.mjs API Docs', description: 'API documentation.'},
+            '/examples': {title: 'Neo.mjs Examples', description: 'Live examples.'},
+            '/home'    : {title: 'Neo.mjs', description: 'Multi-threaded UI engine and Agent OS.'},
+            '/news'    : {title: 'Neo.mjs News', description: 'Releases, blog, and updates.'},
+            '/services': {title: 'Connect with Neo.mjs', description: 'Connect with the maintainers.'}
+        });
+        await fs.outputFile(
+            path.join(releaseNotesRoot, 'v13.4.0.md'),
+            '---\ntagName: 13.4.0\nname: Neo.mjs v13.4.0 Release Notes\npublishedAt: "2026-11-09T13:34:10Z"\n---\n# Neo.mjs v13.4.0 Release Notes\n'
+        );
+        await createReleaseIndex({outputFile: releasesPath, releaseNotesRoot});
+
+        async function runCase({archiveDiscussionDate, activeDiscussionDate, v7IssueDate, v13IssueDate, activePullContent, archivePullContent}) {
+            await fs.emptyDir(dupCorpus);
+            await fs.outputFile(
+                path.join(dupCorpus, 'archive/discussions/v13.3.0/chunk-1/discussion-19427.md'),
+                `---\nnumber: 19427\ntitle: Repo ADRs\nupdatedAt: '${archiveDiscussionDate}'\n---\n# Repo ADRs\n`
+            );
+            await fs.outputFile(
+                path.join(dupCorpus, 'discussions/chunk-1/discussion-19427.md'),
+                `---\nnumber: 19427\ntitle: Repo ADRs\nupdatedAt: '${activeDiscussionDate}'\n---\n# Repo ADRs\n`
+            );
+            await fs.outputFile(
+                path.join(dupCorpus, 'archive/issues/v7.9.1/chunk-1/issue-174.md'),
+                `---\nid: 174\ntitle: DomEvent bubble\nlabels: [enhancement]\nupdatedAt: '${v7IssueDate}'\n---\n# Issue 174\n`
+            );
+            await fs.outputFile(
+                path.join(dupCorpus, 'archive/issues/v13.2.0/chunk-1/issue-174.md'),
+                `---\nid: 174\ntitle: DomEvent bubble\nlabels: [enhancement]\nupdatedAt: '${v13IssueDate}'\n---\n# Issue 174\n`
+            );
+            await fs.outputFile(path.join(dupCorpus, 'pulls/chunk-1/pr-20088.md'), activePullContent);
+            await fs.outputFile(path.join(dupCorpus, 'archive/pulls/v13.4.0/chunk-1/pr-20088.md'), archivePullContent);
+
+            const [seoJson, coreXml, archiveXml, llmsTxt, llmsFullTxt, llmsAllTxt, contentRoutes] = await Promise.all([
+                getSeoJson({releaseNotesRoot, releasesPath, root: isolatedRoot, seoJsonPath}),
+                getSitemapXml({baseUrl: 'https://neomjs.com', corpusRoot: dupCorpus, includeArchives: false, releaseNotesRoot, root: isolatedRoot}),
+                getSitemapXml({baseUrl: 'https://neomjs.com', corpusRoot: dupCorpus, includeArchives: true, onlyArchives: true, releaseNotesRoot, root: isolatedRoot}),
+                getLlmsTxt({baseUrl: 'https://neomjs.com', corpusRoot: dupCorpus, includeArchives: false, releaseNotesRoot, releasesPath, root: isolatedRoot}),
+                getLlmsFullTxt({baseUrl: 'https://neomjs.com', root: isolatedRoot}),
+                getLlmsTxt({baseUrl: 'https://neomjs.com', corpusRoot: dupCorpus, includeArchives: true, releaseNotesRoot, releasesPath, root: isolatedRoot}),
+                getContentRoutes({corpusRoot: dupCorpus, releaseNotesRoot, root: isolatedRoot})
+            ]);
+            const sitemapIndexXml = getSitemapIndexXml({
+                baseUrl : 'https://neomjs.com',
+                sitemaps: [
+                    {path: 'sitemap-core.xml',    xml: coreXml},
+                    {path: 'sitemap-archive.xml', xml: archiveXml}
+                ]
+            });
+
+            await verifySeoArtifacts({
+                baseUrl          : 'https://neomjs.com',
+                corpusRoot       : dupCorpus,
+                llmsAllTxt,
+                llmsFullTxt,
+                llmsTxt,
+                releaseNotesRoot,
+                root             : isolatedRoot,
+                seoJson,
+                sitemapArchiveXml: archiveXml,
+                sitemapCoreXml   : coreXml,
+                sitemapIndexXml
+            });
+
+            return {archiveXml, contentRoutes, llmsAllTxt};
+        }
+
+        // Order A: [older, newer] on sorted paths + [missing lastmod, valid lastmod]
+        const orderA = await runCase({
+            archiveDiscussionDate: '2026-10-13T21:19:47Z',
+            activeDiscussionDate : '2026-10-16T01:09:33Z',
+            v13IssueDate         : '2020-05-10T12:00:00Z',
+            v7IssueDate          : '2026-10-09T20:01:32Z',
+            archivePullContent   : '# PR 20088 without frontmatter date\n',
+            activePullContent    : '---\nnumber: 20088\ntitle: PR 20088\nupdatedAt: "2026-10-25T08:00:00Z"\n---\n# PR 20088\n'
+        });
+
+        // Order B: [newer, older] on sorted paths + [valid lastmod, missing lastmod]
+        const orderB = await runCase({
+            archiveDiscussionDate: '2026-10-16T01:09:33Z',
+            activeDiscussionDate : '2026-10-13T21:19:47Z',
+            v13IssueDate         : '2026-10-09T20:01:32Z',
+            v7IssueDate          : '2020-05-10T12:00:00Z',
+            archivePullContent   : '---\nnumber: 20088\ntitle: PR 20088\nupdatedAt: "2026-10-25T08:00:00Z"\n---\n# PR 20088\n',
+            activePullContent    : '# PR 20088 without frontmatter date\n'
+        });
+
+        for (const {archiveXml, contentRoutes, llmsAllTxt} of [orderA, orderB]) {
+            const locs = Array.from(archiveXml.matchAll(/<loc>(.*?)<\/loc>/g), match => match[1]);
+            expect(locs).toEqual([
+                'https://neomjs.com/news/tickets/174',
+                'https://neomjs.com/news/pulls/20088',
+                'https://neomjs.com/news/discussions/19427'
+            ]);
+            expect(archiveXml).toContain('<loc>https://neomjs.com/news/discussions/19427</loc>\n    <lastmod>2026-10-16T01:09:33Z</lastmod>');
+            expect(archiveXml).toContain('<loc>https://neomjs.com/news/tickets/174</loc>\n    <lastmod>2026-10-09T20:01:32Z</lastmod>');
+            expect(archiveXml).toContain('<loc>https://neomjs.com/news/pulls/20088</loc>\n    <lastmod>2026-10-25T08:00:00Z</lastmod>');
+            expect(contentRoutes.filter(route => route === '/#/news/discussions/19427')).toHaveLength(1);
+            expect(contentRoutes.filter(route => route === '/#/news/tickets/174')).toHaveLength(1);
+            expect(llmsAllTxt.match(/raw\/news\/discussions\/19427\.md/g)).toHaveLength(1);
+            expect(llmsAllTxt.match(/raw\/news\/tickets\/174\.md/g)).toHaveLength(1);
+        }
+    });
+
     test('getSitemapIndexXml emits a valid sitemapindex with newest child lastmod dates', () => {
         const coreXml = [
             '<urlset>',
@@ -516,18 +635,22 @@ test.describe('docs SEO generator archive exclusion (#20089)', () => {
         expect(indexXml).toContain('<loc>https://neomjs.com/sitemap-archive.xml</loc>\n    <lastmod>2026-10-25T01:00:00Z</lastmod>');
     });
 
-    test('getLlmsFullTxt concatenates markdown prose for learn/tree.json leaf guides', async () => {
-        const learnDir     = path.join(tempDir, 'learn');
-        const treeFilePath = path.join(learnDir, 'tree.json');
+    test('getLlmsFullTxt, getSeoJson, and getSitemapXml skip redirect leaves and fail closed on missing learn/tree.json leaf files', async () => {
+        const learnDir      = path.join(tempDir, 'learn');
+        const treeFilePath  = path.join(learnDir, 'tree.json');
+        const blogIndexPath = path.join(tempDir, 'blog.json');
+        const seoJsonPath   = path.join(tempDir, 'seo.json');
 
         await fs.outputFile(path.join(learnDir, 'benefits/Introduction.md'), '# Introduction\n\nNeo is an agent institution.');
         await fs.outputFile(path.join(learnDir, 'guides/QuickStart.md'), '# Quick Start\n\nRun zero-build ES modules.');
+        await fs.writeJSON(blogIndexPath, {data: []});
+        await fs.writeJSON(seoJsonPath, {});
         await fs.writeJSON(treeFilePath, {
             data: [
                 {id: 'benefits', isLeaf: false, name: 'Benefits'},
                 {id: 'benefits/Introduction', isLeaf: true, name: 'Introduction'},
                 {id: 'guides/QuickStart', isLeaf: true, name: 'Quick Start'},
-                {id: 'guides/Missing', isLeaf: true, name: 'Missing Guide'}
+                {id: 'ApiDocs', name: 'API Docs', route: '/docs'}
             ]
         });
 
@@ -543,7 +666,142 @@ test.describe('docs SEO generator archive exclusion (#20089)', () => {
         expect(llmsFull).toContain('Neo is an agent institution.');
         expect(llmsFull).toContain('# [Quick Start](https://neomjs.com/raw/learn/guides/QuickStart.md)');
         expect(llmsFull).toContain('Run zero-build ES modules.');
-        expect(llmsFull).not.toContain('Missing Guide');
+        expect(llmsFull).not.toContain('ApiDocs');
+
+        const validSeoJson = await getSeoJson({
+            blogIndexPath,
+            examplesPath: path.join(tempDir, 'no-examples.json'),
+            learnDir,
+            releaseNotesRoot,
+            releasesPath: path.join(tempDir, 'no-releases.json'),
+            root        : tempDir,
+            seoJsonPath,
+            treeFilePath
+        });
+        expect(validSeoJson['/learn/ApiDocs']).toBeUndefined();
+        expect(validSeoJson['/learn/benefits/Introduction']).toBeDefined();
+
+        await fs.writeJSON(treeFilePath, {
+            data: [
+                {id: 'benefits/Introduction', isLeaf: true, name: 'Introduction'},
+                {id: 'guides/Missing', isLeaf: true, name: 'Missing Guide'}
+            ]
+        });
+
+        await expect(getLlmsFullTxt({baseUrl: 'https://neomjs.com', learnDir, treeFilePath}))
+            .rejects.toThrow(/guides\/Missing/);
+        await expect(getSeoJson({
+            blogIndexPath,
+            examplesPath: path.join(tempDir, 'no-examples.json'),
+            learnDir,
+            releaseNotesRoot,
+            releasesPath: path.join(tempDir, 'no-releases.json'),
+            root        : tempDir,
+            seoJsonPath,
+            treeFilePath
+        })).rejects.toThrow(/guides\/Missing/);
+        await expect(getContentRoutes({
+            blogIndexPath,
+            corpusRoot,
+            examplesPath: path.join(tempDir, 'no-examples.json'),
+            learnDir,
+            releaseNotesRoot,
+            root        : tempDir,
+            treeFilePath
+        })).rejects.toThrow(/guides\/Missing/);
+        await expect(getSitemapXml({
+            baseUrl       : 'https://neomjs.com/',
+            blogIndexPath,
+            corpusRoot,
+            examplesPath  : path.join(tempDir, 'no-examples.json'),
+            includeLastmod: false,
+            learnDir,
+            releaseNotesRoot,
+            root          : tempDir,
+            treeFilePath
+        })).rejects.toThrow(/guides\/Missing/);
+    });
+
+    test('excludes both singular /childapp/ and plural /childapps/ popup helpers and honors isolated options.root + release titles', async () => {
+        const isolatedRoot = path.join(tempDir, 'isolated-root');
+        const releasesPath = path.join(isolatedRoot, 'apps/portal/resources/data/releases.json');
+
+        await fs.outputFile(path.join(isolatedRoot, 'learn/guides/Setup.md'), '# Setup\n\nZero-build workspace setup.');
+        await fs.outputJson(path.join(isolatedRoot, 'learn/tree.json'), {
+            data: [
+                {id: 'guides/Setup', isLeaf: true, name: 'Setup'},
+                {id: 'ApiDocs', name: 'API Docs', route: '/docs'}
+            ]
+        });
+        await fs.outputFile(path.join(isolatedRoot, 'learn/blog/hello.md'), '# Hello\n\nHermetic blog post.');
+        await fs.outputJson(path.join(isolatedRoot, 'apps/portal/resources/data/blog.json'), {
+            data: [
+                {id: 'blog/hello', isLeaf: true, name: 'Hello Neo', path: 'learn/blog/hello.md'}
+            ]
+        });
+        await fs.outputFile(
+            path.join(isolatedRoot, 'apps/sharedcovid/index.html'),
+            '<!DOCTYPE html><html><head><title>Shared Covid</title></head></html>'
+        );
+        await fs.outputFile(
+            path.join(isolatedRoot, 'apps/sharedcovid/childapps/header/index.html'),
+            '<!DOCTYPE html><html><head><title>Child Header</title></head></html>'
+        );
+        await fs.outputFile(
+            path.join(isolatedRoot, 'examples/component/multiWindowHelix/index.html'),
+            '<!DOCTYPE html><html><head><title>Multi Window Helix</title></head></html>'
+        );
+        await fs.outputFile(
+            path.join(isolatedRoot, 'examples/component/multiWindowHelix/childapp/index.html'),
+            '<!DOCTYPE html><html><head><title>Multi Window Helix Child</title></head></html>'
+        );
+        await fs.outputFile(
+            path.join(isolatedRoot, 'examples/component/multiWindowCoronaGallery/index.html'),
+            '<!DOCTYPE html><html><head><title>Multi Window Corona Gallery</title></head></html>'
+        );
+        await fs.outputFile(
+            path.join(isolatedRoot, 'examples/component/multiWindowCoronaGallery/childapp/index.html'),
+            '<!DOCTYPE html><html><head><title>Multi Window Corona Child</title></head></html>'
+        );
+        await fs.outputFile(
+            path.join(releaseNotesRoot, 'v13.4.0.md'),
+            '---\ntagName: 13.4.0\nname: Neo.mjs v13.4.0 Release Notes\npublishedAt: "2026-11-09T13:34:10Z"\n---\n# Neo.mjs v13.4.0 Release Notes\n'
+        );
+
+        await createReleaseIndex({outputFile: releasesPath, releaseNotesRoot});
+
+        const [sitemap, llmsTxt] = await Promise.all([
+            getSitemapXml({
+                baseUrl       : 'https://neomjs.com/',
+                corpusRoot,
+                includeLastmod: false,
+                releaseNotesRoot,
+                root          : isolatedRoot
+            }),
+            getLlmsTxt({
+                baseUrl: 'https://neomjs.com/',
+                corpusRoot,
+                releaseNotesRoot,
+                releasesPath,
+                root   : isolatedRoot
+            })
+        ]);
+
+        expect(sitemap).toContain('<loc>https://neomjs.com/apps/sharedcovid/index.html</loc>');
+        expect(sitemap).toContain('<loc>https://neomjs.com/examples/component/multiWindowHelix/index.html</loc>');
+        expect(sitemap).toContain('<loc>https://neomjs.com/examples/component/multiWindowCoronaGallery/index.html</loc>');
+        expect(sitemap).not.toContain('/childapp/');
+        expect(sitemap).not.toContain('/childapps/');
+        // Hermeticity check: real-repo guides absent from isolatedRoot must not leak through process.cwd()
+        expect(sitemap).not.toContain('/learn/benefits/ArchitectureOverview');
+
+        expect(llmsTxt).toContain('- [Multi Window Helix](https://neomjs.com/examples/component/multiWindowHelix/index.html)');
+        expect(llmsTxt).not.toContain('/childapp/');
+        expect(llmsTxt).not.toContain('/childapps/');
+        expect(llmsTxt).toContain('- [Hello Neo](https://neomjs.com/raw/learn/blog/hello.md)');
+        expect(llmsTxt).toContain('- [Setup](https://neomjs.com/raw/learn/guides/Setup.md)');
+        expect(llmsTxt).toContain('- [v13.4.0 (2026-11-09): Neo.mjs v13.4.0 Release Notes](https://neomjs.com/raw/news/releases/13.4.0.md)');
+        expect(llmsTxt).not.toContain(': Update](');
     });
 
     test('getSeoJson populates route-specific metadata for learn, blog, and release leaves while preserving top-level routes (#20688)', async () => {
