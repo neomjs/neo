@@ -545,4 +545,57 @@ test.describe('Neo.main.DomEvents', () => {
     test('a page entering the back/forward cache stays connected', () => {
         expect(departure([pagehide(true)])).toEqual([])
     });
+
+    test('domEventListener forwards plain copy, cut, and paste unless Neo.main.addon.Clipboard claims the event', () => {
+        const
+            manager     = Neo.worker.Manager,
+            oldSend     = manager.sendMessage,
+            oldAddon    = Neo.main.addon,
+            sent        = [],
+            target      = {attributes: [], classList: ['plain-node'], dataset: {}, getAttribute: () => null, id: 'plain-1', tagName: 'DIV'},
+            makeEvent   = type => ({
+                cancelable      : true,
+                composedPath    : () => [target],
+                defaultPrevented: false,
+                preventDefault() { this.defaultPrevented = true },
+                target,
+                timeStamp       : 10,
+                type
+            });
+
+        manager.sendMessage = (dest, msg) => sent.push({dest, msg});
+
+        try {
+            delete Neo.main.addon;
+
+            for (const type of ['copy', 'cut', 'paste']) {
+                const evt = makeEvent(type);
+                DomEvents.domEventListener(evt);
+                expect(evt.defaultPrevented).toBe(true)
+            }
+
+            expect(sent.map(entry => entry.msg.eventName)).toEqual(['copy', 'cut', 'paste']);
+
+            Neo.main.addon = {
+                Clipboard: {
+                    claimsEvent: evt => evt.target === target
+                }
+            };
+
+            const claimedCopy = makeEvent('copy');
+            DomEvents.domEventListener(claimedCopy);
+            expect(claimedCopy.defaultPrevented).toBe(false);
+            expect(sent.length).toBe(3);
+
+            const otherTarget = {...target, id: 'plain-2'};
+            const unclaimedPaste = {...makeEvent('paste'), composedPath: () => [otherTarget], target: otherTarget};
+            DomEvents.domEventListener(unclaimedPaste);
+            expect(unclaimedPaste.defaultPrevented).toBe(true);
+            expect(sent.length).toBe(4);
+            expect(sent[3].msg.eventName).toBe('paste')
+        } finally {
+            manager.sendMessage = oldSend;
+            oldAddon === undefined ? delete Neo.main.addon : (Neo.main.addon = oldAddon)
+        }
+    });
 });

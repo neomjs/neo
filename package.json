@@ -52,6 +52,7 @@
         "seat:start"                           : "node ./buildScripts/helpers/seatStart.mjs",
         "server-start"                         : "webpack serve -c ./buildScripts/webpack/webpack.server.config.mjs --open",
         "test"                                 : "playwright test -c test/playwright/playwright.config.mjs",
+        "test-clipboard"                       : "playwright test -c test/playwright/playwright.config.clipboard.mjs",
         "test-components"                      : "playwright test -c test/playwright/playwright.config.component.mjs",
         "test-e2e"                             : "playwright test -c test/playwright/playwright.config.e2e.mjs",
         "test-unit"                            : "playwright test -c test/playwright/playwright.config.unit.mjs",
