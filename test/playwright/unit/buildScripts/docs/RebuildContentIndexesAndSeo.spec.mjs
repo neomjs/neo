@@ -85,7 +85,8 @@ test.describe('rebuildContentIndexesAndSeo (#13260)', () => {
             corpusRoot,
             existingSitemapPath: '/repo/apps/portal/sitemap-core.xml',
             includeArchives    : false,
-            releaseNotesRoot
+            releaseNotesRoot,
+            root               : '/repo'
         });
         expect(sitemapCalls[1].args[0]).toEqual({
             baseUrl            : 'https://example.test',
@@ -93,7 +94,8 @@ test.describe('rebuildContentIndexesAndSeo (#13260)', () => {
             existingSitemapPath: '/repo/apps/portal/sitemap-archive.xml',
             includeArchives    : true,
             onlyArchives       : true,
-            releaseNotesRoot
+            releaseNotesRoot,
+            root               : '/repo'
         });
         expect(calls.find(call => call.name === 'sitemap-index').args[0]).toEqual({
             baseUrl : 'https://example.test',
@@ -108,13 +110,15 @@ test.describe('rebuildContentIndexesAndSeo (#13260)', () => {
             baseUrl        : 'https://example.test',
             corpusRoot,
             includeArchives: false,
-            releaseNotesRoot
+            releaseNotesRoot,
+            root           : '/repo'
         });
         expect(llmsCalls[1].args[0]).toEqual({
             baseUrl        : 'https://example.test',
             corpusRoot,
             includeArchives: true,
-            releaseNotesRoot
+            releaseNotesRoot,
+            root           : '/repo'
         });
         expect(calls.find(call => call.name === 'llms-full').args[0]).toEqual({
             baseUrl: 'https://example.test',
@@ -246,18 +250,18 @@ test.describe('rebuildContentIndexesAndSeo (#13260)', () => {
                 'discussions',
                 'tickets',
                 'seo-json',
-                'write',
                 'sitemap',
-                'write',
                 'sitemap',
-                'write',
                 'sitemap-index',
-                'write',
                 'llms',
-                'write',
                 'llms-full',
-                'write',
                 'llms',
+                'write',
+                'write',
+                'write',
+                'write',
+                'write',
+                'write',
                 'write'
             ],
             result: null
@@ -331,5 +335,70 @@ test.describe('rebuildContentIndexesAndSeo (#13260)', () => {
         })).rejects.toThrow('pull index failed');
 
         expect(writes).toEqual([]);
+    });
+
+    test('buffers all 7 SEO/LLM writes and writes nothing when verifySeoArtifactsFn rejects', async () => {
+        const writes = [];
+
+        await expect(rebuildContentIndexesAndSeo({
+            corpusRoot,
+            releaseNotesRoot,
+            createReleaseIndexFn    : async () => {},
+            createPullRequestIndexFn: async () => {},
+            createDiscussionIndexFn : async () => {},
+            createTicketIndexFn     : async () => {},
+            getSeoJsonFn            : async () => ({'/home': {title: 'Neo.mjs', description: 'Home'}}),
+            getSitemapXmlFn         : async () => '<urlset />',
+            getSitemapIndexXmlFn    : async () => '<sitemapindex />',
+            getLlmsTxtFn            : async () => 'llms',
+            getLlmsFullTxtFn        : async () => 'llms-full',
+            verifySeoArtifactsFn    : async () => { throw new Error('cross-artifact drift detected'); },
+            writeFileSync           : (filePath, content) => writes.push({filePath, content}),
+            log                     : () => {}
+        })).rejects.toThrow('cross-artifact drift detected');
+
+        expect(writes).toEqual([]);
+    });
+
+    test('generates and verifies a full real-checkout SEO/LLM bundle without touching tracked Portal artifacts', async () => {
+        const outDir       = path.join(tempDir, 'out');
+        const seoJsonPath  = path.join(outDir, 'seo.json');
+        const releasesPath = path.join(outDir, 'releases.json');
+        const sitemapPath  = path.join(outDir, 'sitemap.xml');
+        const llmsPath     = path.join(outDir, 'llms.txt');
+
+        await fs.mkdir(outDir, {recursive: true});
+        await fs.copyFile(path.resolve(process.cwd(), 'apps/portal/resources/data/seo.json'), seoJsonPath);
+        await fs.mkdir(path.join(corpusRoot, 'issues/chunk-1'), {recursive: true});
+        await fs.mkdir(path.join(corpusRoot, 'pulls/chunk-1'), {recursive: true});
+        await fs.mkdir(path.join(corpusRoot, 'discussions/chunk-1'), {recursive: true});
+        await fs.writeFile(path.join(corpusRoot, 'issues/chunk-1/issue-20774.md'), '# Ticket');
+        await fs.writeFile(path.join(corpusRoot, 'pulls/chunk-1/pr-20758.md'), '# Pull Request');
+        await fs.writeFile(path.join(corpusRoot, 'discussions/chunk-1/discussion-19733.md'), '# Discussion');
+
+        const result = await rebuildContentIndexesAndSeo({
+            corpusRoot,
+            root                    : process.cwd(),
+            releasesPath,
+            seoJsonPath,
+            sitemapPath,
+            llmsPath,
+            createPullRequestIndexFn: async () => {},
+            createDiscussionIndexFn : async () => {},
+            createTicketIndexFn     : async () => {},
+            log                     : () => {}
+        });
+
+        const [llmsTxt, sitemapCoreXml, sitemapArchiveXml] = await Promise.all([
+            fs.readFile(result.llmsPath, 'utf8'),
+            fs.readFile(result.sitemapCorePath, 'utf8'),
+            fs.readFile(result.sitemapArchivePath, 'utf8')
+        ]);
+
+        expect(llmsTxt).toContain('Neo.mjs v13.4.0 Release Notes');
+        expect(llmsTxt).not.toContain(': Update](');
+        expect(llmsTxt).not.toContain('/childapp/');
+        expect(sitemapCoreXml).not.toContain('/childapp/');
+        expect(sitemapArchiveXml).toContain('<loc>https://neomjs.com/news/tickets/20774</loc>');
     });
 });

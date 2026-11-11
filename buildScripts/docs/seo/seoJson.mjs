@@ -393,6 +393,46 @@ export async function collectExampleFamilyRoutes(options={}) {
 }
 
 /**
+ * @summary Reads `tree.json` and resolves every content leaf (`isLeaf !== false && !node.route`)
+ * to its `learn/<id>.md` file on disk, failing closed when a leaf markdown file is missing.
+ * Redirect leaves carrying an explicit `node.route` (e.g. `ApiDocs -> /docs`) are intentionally skipped.
+ * @param {Object} [options={}]
+ * @param {String} [options.learnDir]
+ * @param {String} [options.root=ROOT_DIR]
+ * @param {String} [options.treeFilePath]
+ * @returns {Promise<Array<{filePath: String, id: String, name: (String|undefined), node: Object}>>}
+ */
+export async function resolveLearnTreeLeaves(options={}) {
+    const {
+        root         = ROOT_DIR,
+        learnDir     = path.resolve(root, 'learn'),
+        treeFilePath = path.join(learnDir, 'tree.json')
+    } = options;
+
+    const tree   = await fs.readJSON(treeFilePath);
+    const nodes  = (Array.isArray(tree) ? tree : Array.isArray(tree?.data) ? tree.data : [])
+        .filter(node => node?.id && node.isLeaf !== false && !node.route);
+    const leaves = [];
+
+    for (const node of nodes) {
+        const filePath = path.join(learnDir, `${node.id}.md`);
+
+        if (!(await fs.pathExists(filePath))) {
+            throw new Error(`Learn tree leaf "${node.id}" has no markdown file at "${filePath}".`);
+        }
+
+        leaves.push({
+            filePath,
+            id  : node.id,
+            name: node.name,
+            node
+        });
+    }
+
+    return leaves;
+}
+
+/**
  * @summary Generates the route-keyed SEO metadata map (`apps/portal/resources/data/seo.json`) covering
  * curated top-level routes preserved from `seoJsonPath`, `learn/tree.json` leaves (`/learn/*`),
  * `blog.json` leaves (`/news/blog/*`), release-note leaves (`/news/releases/*`), and populated
@@ -402,14 +442,14 @@ export async function collectExampleFamilyRoutes(options={}) {
  * @param {String} [options.blogIndexPath]
  * @param {String} [options.examplesPath]
  * @param {String} [options.examplesTabContainerPath]
- * @param {Array<{family: String|null, title: String, route: String, iconCls?: String}>} [options.familyDefinitions]
+ * @param {Array<{family: (String|null), title: String, route: String, iconCls: (String|undefined)}>} [options.familyDefinitions]
  * @param {String} [options.learnDir]
  * @param {String} [options.releaseNotesRoot]
  * @param {String} [options.releasesPath]
  * @param {String} [options.root=ROOT_DIR]
  * @param {String} [options.seoJsonPath]
  * @param {String} [options.treeFilePath]
- * @returns {Promise<Object<String, {title: String, description: String, schemaType?: String}>>}
+ * @returns {Promise<Object<String, {title: String, description: String, schemaType: (String|undefined)}>>}
  */
 export async function getSeoJson(options={}) {
     const {
@@ -449,24 +489,16 @@ export async function getSeoJson(options={}) {
     const blogFallbackDescription  = seo['/news/blog']?.description || 'The official blog for the Neo.mjs platform.';
 
     if (await fs.pathExists(treeFilePath)) {
-        const tree  = await fs.readJSON(treeFilePath);
-        const nodes = (Array.isArray(tree) ? tree : Array.isArray(tree?.data) ? tree.data : [])
-            .filter(node => node?.id && node.isLeaf !== false);
+        const leaves = await resolveLearnTreeLeaves({learnDir, root, treeFilePath});
 
-        for (const node of nodes) {
-            const filePath = path.join(learnDir, `${node.id}.md`);
-
-            if (!(await fs.pathExists(filePath))) {
-                continue;
-            }
-
-            const rawContent           = await fs.readFile(filePath, 'utf-8');
-            const cleanId              = String(node.id).replace(/^\/+/, '');
+        for (const leaf of leaves) {
+            const rawContent           = await fs.readFile(leaf.filePath, 'utf-8');
+            const cleanId              = String(leaf.id).replace(/^\/+/, '');
             const route                = `${cleanBase}/${cleanId}`;
             const {title, description} = extractMarkdownSeoMetadata(rawContent, {
                 basePath           : cleanBase,
                 fallbackDescription: learnFallbackDescription,
-                fallbackTitle      : node.name || node.id,
+                fallbackTitle      : leaf.name || leaf.id,
                 route
             });
 

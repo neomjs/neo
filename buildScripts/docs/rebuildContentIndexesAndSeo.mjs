@@ -16,6 +16,7 @@ import {
     getSitemapIndexXml,
     getSitemapXml
 } from './seo/generate.mjs';
+import verifySeoArtifacts          from './seo/verify.mjs';
 import {
     getEngineReleaseNotesRoot,
     requireContentRoot
@@ -49,6 +50,7 @@ const DEFAULT_BASE_URL = 'https://neomjs.com';
  * @param {String} [options.releaseNotesRoot] The release-notes root (`--release-notes`); defaults to the engine's
  * `.github/RELEASE_NOTES` under `root`.
  * @param {String} [options.baseUrl='https://neomjs.com'] Canonical site URL for SEO outputs.
+ * @param {String} [options.releasesPath] Optional custom `releases.json` path (test seam).
  * @param {String} [options.seoJsonPath] Target route-metadata JSON path (`apps/portal/resources/data/seo.json`).
  * @param {String} [options.sitemapPath] Target sitemap index path (`apps/portal/sitemap.xml`).
  * @param {String} [options.sitemapCorePath] Target core sitemap path (`apps/portal/sitemap-core.xml`).
@@ -57,6 +59,7 @@ const DEFAULT_BASE_URL = 'https://neomjs.com';
  * @param {String} [options.llmsFullPath] Target full documentation atlas path (`apps/portal/llms-full.txt`).
  * @param {String} [options.llmsAllPath] Target exhaustive archive llms-all.txt path (`apps/portal/llms-all.txt`).
  * @param {Boolean} [options.includeLabelIndex=false] Also rebuild the remote GitHub label index.
+ * @param {Boolean} [options.verifyArtifacts] Explicitly enable or skip pre-write cross-artifact verification.
  * @param {Function} [options.createLabelIndexFn] Test seam for the label index builder.
  * @param {Function} [options.createReleaseIndexFn] Test seam for the release index builder.
  * @param {Function} [options.createDiscussionIndexFn] Test seam for the discussion index builder.
@@ -67,6 +70,7 @@ const DEFAULT_BASE_URL = 'https://neomjs.com';
  * @param {Function} [options.getSitemapIndexXmlFn] Test seam for sitemap `<sitemapindex>` generation.
  * @param {Function} [options.getLlmsTxtFn] Test seam for llms.txt / llms-all.txt generation.
  * @param {Function} [options.getLlmsFullTxtFn] Test seam for llms-full.txt generation.
+ * @param {Function} [options.verifySeoArtifactsFn] Test seam for pre-write cross-artifact verification.
  * @param {Function} [options.writeFileSync] Test seam for filesystem writes.
  * @param {Function} [options.log] Test seam for logging.
  * @returns {Promise<Object>} Generated artifact paths.
@@ -76,6 +80,7 @@ async function rebuildContentIndexesAndSeo({
     root                     = process.cwd(),
     releaseNotesRoot         = getEngineReleaseNotesRoot(root),
     baseUrl                  = DEFAULT_BASE_URL,
+    releasesPath,
     seoJsonPath              = path.join(root, 'apps/portal/resources/data/seo.json'),
     sitemapPath              = path.join(root, 'apps/portal/sitemap.xml'),
     sitemapCorePath          = path.join(path.dirname(sitemapPath), 'sitemap-core.xml'),
@@ -84,6 +89,7 @@ async function rebuildContentIndexesAndSeo({
     llmsFullPath             = path.join(path.dirname(llmsPath), 'llms-full.txt'),
     llmsAllPath              = path.join(path.dirname(llmsPath), 'llms-all.txt'),
     includeLabelIndex        = false,
+    verifyArtifacts,
     createLabelIndexFn       = null,
     createReleaseIndexFn     = createReleaseIndex,
     createDiscussionIndexFn  = createDiscussionIndex,
@@ -94,6 +100,7 @@ async function rebuildContentIndexesAndSeo({
     getSitemapIndexXmlFn     = getSitemapIndexXml,
     getLlmsTxtFn             = getLlmsTxt,
     getLlmsFullTxtFn         = getLlmsFullTxt,
+    verifySeoArtifactsFn     = verifySeoArtifacts,
     writeFileSync            = fs.writeFileSync,
     log                      = console.log
 } = {}) {
@@ -111,28 +118,26 @@ async function rebuildContentIndexesAndSeo({
     // included — projects a corpus that is already canonical. Keeping the pass out of this script
     // also keeps the engine's build pipeline free of `ai/**` imports, which the
     // `check-engine-brain-boundary` guard enforces.
-    await createReleaseIndexFn({releaseNotesRoot});
+    await createReleaseIndexFn(releasesPath ? {outputFile: releasesPath, releaseNotesRoot} : {releaseNotesRoot});
     await createPullRequestIndexFn({corpusRoot});
     await createDiscussionIndexFn({corpusRoot});
     await createTicketIndexFn({corpusRoot});
 
     const seoJson = await getSeoJsonFn({
         releaseNotesRoot,
+        ...(releasesPath && {releasesPath}),
         root,
         seoJsonPath
     });
-    writeFileSync(seoJsonPath, JSON.stringify(seoJson, null, 4) + '\n');
-    log(`Generated ${path.relative(root, seoJsonPath)}`);
 
     const sitemapCoreXml = await getSitemapXmlFn({
         baseUrl,
         corpusRoot,
         existingSitemapPath: sitemapCorePath,
         includeArchives    : false,
-        releaseNotesRoot
+        releaseNotesRoot,
+        root
     });
-    writeFileSync(sitemapCorePath, sitemapCoreXml);
-    log(`Generated ${path.relative(root, sitemapCorePath)}`);
 
     const sitemapArchiveXml = await getSitemapXmlFn({
         baseUrl,
@@ -140,10 +145,9 @@ async function rebuildContentIndexesAndSeo({
         existingSitemapPath: sitemapArchivePath,
         includeArchives    : true,
         onlyArchives       : true,
-        releaseNotesRoot
+        releaseNotesRoot,
+        root
     });
-    writeFileSync(sitemapArchivePath, sitemapArchiveXml);
-    log(`Generated ${path.relative(root, sitemapArchivePath)}`);
 
     const sitemapIndexXml = await getSitemapIndexXmlFn({
         baseUrl,
@@ -152,28 +156,71 @@ async function rebuildContentIndexesAndSeo({
             {path: path.basename(sitemapArchivePath), xml: sitemapArchiveXml}
         ]
     });
-    writeFileSync(sitemapPath, sitemapIndexXml);
-    log(`Generated ${path.relative(root, sitemapPath)}`);
 
     const llmsTxt = await getLlmsTxtFn({
         baseUrl,
         corpusRoot,
         includeArchives: false,
-        releaseNotesRoot
+        releaseNotesRoot,
+        ...(releasesPath && {releasesPath}),
+        root
     });
-    writeFileSync(llmsPath, llmsTxt);
-    log(`Generated ${path.relative(root, llmsPath)}`);
 
     const llmsFullTxt = await getLlmsFullTxtFn({baseUrl, root});
-    writeFileSync(llmsFullPath, llmsFullTxt);
-    log(`Generated ${path.relative(root, llmsFullPath)}`);
 
     const llmsAllTxt = await getLlmsTxtFn({
         baseUrl,
         corpusRoot,
         includeArchives: true,
-        releaseNotesRoot
+        releaseNotesRoot,
+        ...(releasesPath && {releasesPath}),
+        root
     });
+
+    const usesDefaultSeoGenerators =
+        getSeoJsonFn         === getSeoJson &&
+        getSitemapXmlFn      === getSitemapXml &&
+        getSitemapIndexXmlFn === getSitemapIndexXml &&
+        getLlmsTxtFn         === getLlmsTxt &&
+        getLlmsFullTxtFn     === getLlmsFullTxt;
+    const shouldVerify = verifyArtifacts ?? (usesDefaultSeoGenerators || verifySeoArtifactsFn !== verifySeoArtifacts);
+
+    if (shouldVerify) {
+        await verifySeoArtifactsFn({
+            baseUrl,
+            corpusRoot,
+            llmsAllTxt,
+            llmsFullTxt,
+            llmsTxt,
+            releaseNotesRoot,
+            root,
+            seoJson,
+            sitemapArchiveName: path.basename(sitemapArchivePath),
+            sitemapArchiveXml,
+            sitemapCoreName   : path.basename(sitemapCorePath),
+            sitemapCoreXml,
+            sitemapIndexXml
+        });
+    }
+
+    writeFileSync(seoJsonPath, JSON.stringify(seoJson, null, 4) + '\n');
+    log(`Generated ${path.relative(root, seoJsonPath)}`);
+
+    writeFileSync(sitemapCorePath, sitemapCoreXml);
+    log(`Generated ${path.relative(root, sitemapCorePath)}`);
+
+    writeFileSync(sitemapArchivePath, sitemapArchiveXml);
+    log(`Generated ${path.relative(root, sitemapArchivePath)}`);
+
+    writeFileSync(sitemapPath, sitemapIndexXml);
+    log(`Generated ${path.relative(root, sitemapPath)}`);
+
+    writeFileSync(llmsPath, llmsTxt);
+    log(`Generated ${path.relative(root, llmsPath)}`);
+
+    writeFileSync(llmsFullPath, llmsFullTxt);
+    log(`Generated ${path.relative(root, llmsFullPath)}`);
+
     writeFileSync(llmsAllPath, llmsAllTxt);
     log(`Generated ${path.relative(root, llmsAllPath)}`);
 

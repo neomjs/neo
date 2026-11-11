@@ -24,6 +24,7 @@ import {
     collectExampleFamilyRoutes,
     extractExampleFamilyDefinitions
 } from '../../../../../../buildScripts/docs/seo/generate.mjs';
+import createReleaseIndex from '../../../../../../buildScripts/docs/index/release.mjs';
 
 test.describe('docs SEO generator release-note link guard', () => {
     test('getDisallowedReleaseNoteGithubLinks returns only mutable or release-ref Neo source links', () => {
@@ -516,18 +517,22 @@ test.describe('docs SEO generator archive exclusion (#20089)', () => {
         expect(indexXml).toContain('<loc>https://neomjs.com/sitemap-archive.xml</loc>\n    <lastmod>2026-10-25T01:00:00Z</lastmod>');
     });
 
-    test('getLlmsFullTxt concatenates markdown prose for learn/tree.json leaf guides', async () => {
-        const learnDir     = path.join(tempDir, 'learn');
-        const treeFilePath = path.join(learnDir, 'tree.json');
+    test('getLlmsFullTxt, getSeoJson, and getSitemapXml skip redirect leaves and fail closed on missing learn/tree.json leaf files', async () => {
+        const learnDir      = path.join(tempDir, 'learn');
+        const treeFilePath  = path.join(learnDir, 'tree.json');
+        const blogIndexPath = path.join(tempDir, 'blog.json');
+        const seoJsonPath   = path.join(tempDir, 'seo.json');
 
         await fs.outputFile(path.join(learnDir, 'benefits/Introduction.md'), '# Introduction\n\nNeo is an agent institution.');
         await fs.outputFile(path.join(learnDir, 'guides/QuickStart.md'), '# Quick Start\n\nRun zero-build ES modules.');
+        await fs.writeJSON(blogIndexPath, {data: []});
+        await fs.writeJSON(seoJsonPath, {});
         await fs.writeJSON(treeFilePath, {
             data: [
                 {id: 'benefits', isLeaf: false, name: 'Benefits'},
                 {id: 'benefits/Introduction', isLeaf: true, name: 'Introduction'},
                 {id: 'guides/QuickStart', isLeaf: true, name: 'Quick Start'},
-                {id: 'guides/Missing', isLeaf: true, name: 'Missing Guide'}
+                {id: 'ApiDocs', name: 'API Docs', route: '/docs'}
             ]
         });
 
@@ -543,7 +548,142 @@ test.describe('docs SEO generator archive exclusion (#20089)', () => {
         expect(llmsFull).toContain('Neo is an agent institution.');
         expect(llmsFull).toContain('# [Quick Start](https://neomjs.com/raw/learn/guides/QuickStart.md)');
         expect(llmsFull).toContain('Run zero-build ES modules.');
-        expect(llmsFull).not.toContain('Missing Guide');
+        expect(llmsFull).not.toContain('ApiDocs');
+
+        const validSeoJson = await getSeoJson({
+            blogIndexPath,
+            examplesPath: path.join(tempDir, 'no-examples.json'),
+            learnDir,
+            releaseNotesRoot,
+            releasesPath: path.join(tempDir, 'no-releases.json'),
+            root        : tempDir,
+            seoJsonPath,
+            treeFilePath
+        });
+        expect(validSeoJson['/learn/ApiDocs']).toBeUndefined();
+        expect(validSeoJson['/learn/benefits/Introduction']).toBeDefined();
+
+        await fs.writeJSON(treeFilePath, {
+            data: [
+                {id: 'benefits/Introduction', isLeaf: true, name: 'Introduction'},
+                {id: 'guides/Missing', isLeaf: true, name: 'Missing Guide'}
+            ]
+        });
+
+        await expect(getLlmsFullTxt({baseUrl: 'https://neomjs.com', learnDir, treeFilePath}))
+            .rejects.toThrow(/guides\/Missing/);
+        await expect(getSeoJson({
+            blogIndexPath,
+            examplesPath: path.join(tempDir, 'no-examples.json'),
+            learnDir,
+            releaseNotesRoot,
+            releasesPath: path.join(tempDir, 'no-releases.json'),
+            root        : tempDir,
+            seoJsonPath,
+            treeFilePath
+        })).rejects.toThrow(/guides\/Missing/);
+        await expect(getContentRoutes({
+            blogIndexPath,
+            corpusRoot,
+            examplesPath: path.join(tempDir, 'no-examples.json'),
+            learnDir,
+            releaseNotesRoot,
+            root        : tempDir,
+            treeFilePath
+        })).rejects.toThrow(/guides\/Missing/);
+        await expect(getSitemapXml({
+            baseUrl       : 'https://neomjs.com/',
+            blogIndexPath,
+            corpusRoot,
+            examplesPath  : path.join(tempDir, 'no-examples.json'),
+            includeLastmod: false,
+            learnDir,
+            releaseNotesRoot,
+            root          : tempDir,
+            treeFilePath
+        })).rejects.toThrow(/guides\/Missing/);
+    });
+
+    test('excludes both singular /childapp/ and plural /childapps/ popup helpers and honors isolated options.root + release titles', async () => {
+        const isolatedRoot = path.join(tempDir, 'isolated-root');
+        const releasesPath = path.join(isolatedRoot, 'apps/portal/resources/data/releases.json');
+
+        await fs.outputFile(path.join(isolatedRoot, 'learn/guides/Setup.md'), '# Setup\n\nZero-build workspace setup.');
+        await fs.outputJson(path.join(isolatedRoot, 'learn/tree.json'), {
+            data: [
+                {id: 'guides/Setup', isLeaf: true, name: 'Setup'},
+                {id: 'ApiDocs', name: 'API Docs', route: '/docs'}
+            ]
+        });
+        await fs.outputFile(path.join(isolatedRoot, 'learn/blog/hello.md'), '# Hello\n\nHermetic blog post.');
+        await fs.outputJson(path.join(isolatedRoot, 'apps/portal/resources/data/blog.json'), {
+            data: [
+                {id: 'blog/hello', isLeaf: true, name: 'Hello Neo', path: 'learn/blog/hello.md'}
+            ]
+        });
+        await fs.outputFile(
+            path.join(isolatedRoot, 'apps/sharedcovid/index.html'),
+            '<!DOCTYPE html><html><head><title>Shared Covid</title></head></html>'
+        );
+        await fs.outputFile(
+            path.join(isolatedRoot, 'apps/sharedcovid/childapps/header/index.html'),
+            '<!DOCTYPE html><html><head><title>Child Header</title></head></html>'
+        );
+        await fs.outputFile(
+            path.join(isolatedRoot, 'examples/component/multiWindowHelix/index.html'),
+            '<!DOCTYPE html><html><head><title>Multi Window Helix</title></head></html>'
+        );
+        await fs.outputFile(
+            path.join(isolatedRoot, 'examples/component/multiWindowHelix/childapp/index.html'),
+            '<!DOCTYPE html><html><head><title>Multi Window Helix Child</title></head></html>'
+        );
+        await fs.outputFile(
+            path.join(isolatedRoot, 'examples/component/multiWindowCoronaGallery/index.html'),
+            '<!DOCTYPE html><html><head><title>Multi Window Corona Gallery</title></head></html>'
+        );
+        await fs.outputFile(
+            path.join(isolatedRoot, 'examples/component/multiWindowCoronaGallery/childapp/index.html'),
+            '<!DOCTYPE html><html><head><title>Multi Window Corona Child</title></head></html>'
+        );
+        await fs.outputFile(
+            path.join(releaseNotesRoot, 'v13.4.0.md'),
+            '---\ntagName: 13.4.0\nname: Neo.mjs v13.4.0 Release Notes\npublishedAt: "2026-11-09T13:34:10Z"\n---\n# Neo.mjs v13.4.0 Release Notes\n'
+        );
+
+        await createReleaseIndex({outputFile: releasesPath, releaseNotesRoot});
+
+        const [sitemap, llmsTxt] = await Promise.all([
+            getSitemapXml({
+                baseUrl       : 'https://neomjs.com/',
+                corpusRoot,
+                includeLastmod: false,
+                releaseNotesRoot,
+                root          : isolatedRoot
+            }),
+            getLlmsTxt({
+                baseUrl: 'https://neomjs.com/',
+                corpusRoot,
+                releaseNotesRoot,
+                releasesPath,
+                root   : isolatedRoot
+            })
+        ]);
+
+        expect(sitemap).toContain('<loc>https://neomjs.com/apps/sharedcovid/index.html</loc>');
+        expect(sitemap).toContain('<loc>https://neomjs.com/examples/component/multiWindowHelix/index.html</loc>');
+        expect(sitemap).toContain('<loc>https://neomjs.com/examples/component/multiWindowCoronaGallery/index.html</loc>');
+        expect(sitemap).not.toContain('/childapp/');
+        expect(sitemap).not.toContain('/childapps/');
+        // Hermeticity check: real-repo guides absent from isolatedRoot must not leak through process.cwd()
+        expect(sitemap).not.toContain('/learn/benefits/ArchitectureOverview');
+
+        expect(llmsTxt).toContain('- [Multi Window Helix](https://neomjs.com/examples/component/multiWindowHelix/index.html)');
+        expect(llmsTxt).not.toContain('/childapp/');
+        expect(llmsTxt).not.toContain('/childapps/');
+        expect(llmsTxt).toContain('- [Hello Neo](https://neomjs.com/raw/learn/blog/hello.md)');
+        expect(llmsTxt).toContain('- [Setup](https://neomjs.com/raw/learn/guides/Setup.md)');
+        expect(llmsTxt).toContain('- [v13.4.0 (2026-11-09): Neo.mjs v13.4.0 Release Notes](https://neomjs.com/raw/news/releases/13.4.0.md)');
+        expect(llmsTxt).not.toContain(': Update](');
     });
 
     test('getSeoJson populates route-specific metadata for learn, blog, and release leaves while preserving top-level routes (#20688)', async () => {

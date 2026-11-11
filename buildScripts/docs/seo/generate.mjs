@@ -13,10 +13,11 @@ import {
     extractMarkdownSeoMetadata,
     formatLearnSeoTitle,
     getPublishedExampleFamilies,
-    getSeoJson
+    getSeoJson,
+    resolveLearnTreeLeaves
 } from './seoJson.mjs';
 
-export {collectExampleFamilyRoutes, extractExampleFamilyDefinitions, extractMarkdownSeoMetadata, formatLearnSeoTitle, getPublishedExampleFamilies, getSeoJson};
+export {collectExampleFamilyRoutes, extractExampleFamilyDefinitions, extractMarkdownSeoMetadata, formatLearnSeoTitle, getPublishedExampleFamilies, getSeoJson, resolveLearnTreeLeaves};
 
 /**
  * @module buildScripts.docs.seo.generate
@@ -29,13 +30,7 @@ export {collectExampleFamilyRoutes, extractExampleFamilyDefinitions, extractMark
  * (`onlyArchives = true`) and `llms-all.txt` (`includeArchives = true`) preserve full long-tail discovery.
  */
 
-const ROOT_DIR       = process.cwd();
-const LEARN_DIR      = path.resolve(ROOT_DIR, 'learn');
-const PORTAL_DIR     = path.resolve(ROOT_DIR, 'apps/portal');
-const TREE_FILE_PATH = path.join(LEARN_DIR, 'tree.json');
-// Location of the JSON index we will generate in the next step
-const RELEASES_PATH                               = path.resolve(PORTAL_DIR, 'resources/data/releases.json');
-const BLOG_INDEX_PATH                             = path.resolve(PORTAL_DIR, 'resources/data/blog.json');
+const ROOT_DIR                                    = process.cwd();
 const DEFAULT_BASE_PATH                           = '/learn';
 const GIT_LOG_CHUNK_SIZE                          = 200;
 const STATUS_RENAME_CODES                         = new Set(['R', 'C']);
@@ -211,10 +206,11 @@ function getPriority(id) {
 /**
  * Normalizes an absolute file path into a git pathspec.
  * @param {String} filePath Absolute file or directory path
+ * @param {String} [root=ROOT_DIR] Repository root
  * @returns {String} Repository-relative POSIX path
  */
-function getGitPath(filePath) {
-    return path.relative(ROOT_DIR, filePath).split(path.sep).join('/');
+function getGitPath(filePath, root=ROOT_DIR) {
+    return path.relative(root, filePath).split(path.sep).join('/');
 }
 
 /**
@@ -233,15 +229,16 @@ export function getDisallowedReleaseNoteGithubLinks(content='') {
  * @param {Object} options
  * @param {String} options.filePath Absolute release-note markdown path
  * @param {String} options.content Markdown content to inspect
+ * @param {String} [options.root=ROOT_DIR] Repository root
  */
-export function assertStableReleaseNoteGithubLinks({filePath, content}) {
+export function assertStableReleaseNoteGithubLinks({filePath, content, root=ROOT_DIR}) {
     const links = getDisallowedReleaseNoteGithubLinks(content);
 
     if (links.length === 0) {
         return;
     }
 
-    const fileLabel = filePath ? getGitPath(filePath) : 'unknown release-note source';
+    const fileLabel = filePath ? getGitPath(filePath, root) : 'unknown release-note source';
     throw new Error([
         `Release-note SEO route source "${fileLabel}" contains non-canonical Neo source links.`,
         'Use the canonical dev branch for live public Neo source links; immutable commit permalinks are allowed:',
@@ -253,14 +250,15 @@ export function assertStableReleaseNoteGithubLinks({filePath, content}) {
  * Checks whether path-limited git history is reliable for sitemap lastmod data.
  * Shallow repositories report the shallow root commit for every path, which
  * turns hourly data-sync commits into site-wide lastmod churn.
+ * @param {String} [root=ROOT_DIR] Repository root
  * @returns {Boolean} True when git path history can be trusted
  */
-function hasReliableGitHistory() {
+function hasReliableGitHistory(root=ROOT_DIR) {
     try {
         const isShallow = execFileSync(
             'git',
             ['rev-parse', '--is-shallow-repository'],
-            {encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore']}
+            {cwd: root, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore']}
         ).trim();
 
         return isShallow !== 'true';
@@ -271,16 +269,17 @@ function hasReliableGitHistory() {
 
 /**
  * Gets working-tree paths changed relative to HEAD.
+ * @param {String} [root=ROOT_DIR] Repository root
  * @returns {Set<String>} Repository-relative POSIX paths
  */
-function getChangedGitPaths() {
+function getChangedGitPaths(root=ROOT_DIR) {
     const paths = new Set();
 
     try {
         const result = execFileSync(
             'git',
             ['status', '--porcelain=v1', '-z', '--untracked-files=all'],
-            {encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore']}
+            {cwd: root, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore']}
         );
 
         const entries = result.split('\0');
@@ -323,15 +322,16 @@ function formatLastmodDate(date) {
  * Gets the newest mtime for a changed source path.
  * @param {String} gitPath Repository-relative POSIX path
  * @param {Set<String>} changedGitPaths Changed path set from git status
- * @param {Boolean} isDirectory True if gitPath represents a directory
+ * @param {Boolean} [isDirectory=false] True if gitPath represents a directory
+ * @param {String} [root=ROOT_DIR] Repository root
  * @returns {String|null}
  */
-function getChangedLastmod(gitPath, changedGitPaths, isDirectory=false) {
+function getChangedLastmod(gitPath, changedGitPaths, isDirectory=false, root=ROOT_DIR) {
     let lastmod = null;
 
     function updateLastmod(changedGitPath) {
         try {
-            const filePath = path.join(ROOT_DIR, ...changedGitPath.split('/'));
+            const filePath = path.join(root, ...changedGitPath.split('/'));
             const mtime    = fs.statSync(filePath).mtime;
 
             if (!lastmod || mtime > lastmod) {
@@ -378,9 +378,10 @@ function chunkArray(items, size) {
 /**
  * Gets last modified dates for multiple files in a batch.
  * @param {String[]} filePaths - Array of absolute file paths
+ * @param {String} [root=ROOT_DIR] Repository root
  * @returns {Map<String, String>} Map of filePath -> ISO date string
  */
-function getGitLastModifiedBatch(filePaths) {
+function getGitLastModifiedBatch(filePaths, root=ROOT_DIR) {
     const dateMap     = new Map();
     const uniquePaths = Array.from(new Set(filePaths));
 
@@ -388,13 +389,13 @@ function getGitLastModifiedBatch(filePaths) {
         return dateMap;
     }
 
-    if (!hasReliableGitHistory()) {
+    if (!hasReliableGitHistory(root)) {
         console.warn('Git history is shallow or unavailable; preserving existing sitemap lastmod values where available.');
         return dateMap;
     }
 
     // A corpus root outside the working tree has no history here, and one such path fails its whole `git log` chunk
-    const pathDescriptors = uniquePaths.filter(filePath => !getGitPath(filePath).startsWith('../')).map(filePath => {
+    const pathDescriptors = uniquePaths.filter(filePath => !getGitPath(filePath, root).startsWith('../')).map(filePath => {
         let isDirectory = false;
 
         try {
@@ -405,7 +406,7 @@ function getGitLastModifiedBatch(filePaths) {
 
         return {
             filePath,
-            gitPath: getGitPath(filePath),
+            gitPath: getGitPath(filePath, root),
             isDirectory
         };
     });
@@ -429,7 +430,7 @@ function getGitLastModifiedBatch(filePaths) {
                 const result = execFileSync(
                     'git',
                     ['log', '--format=__NEO_DATE__%cI', '--name-only', '--', ...chunk.map(({gitPath}) => gitPath)],
-                    {encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore']}
+                    {cwd: root, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore']}
                 );
 
                 let currentDate = null;
@@ -502,61 +503,32 @@ export async function getExistingSitemapLastmodMap(sitemapPath) {
 }
 
 /**
- * Loads the tree.json structure and returns the raw node data.
- * @returns {Promise<Object[]>}
+ * Collects all tree-based routes that map to actual content files, failing closed when a leaf lacks its markdown file.
+ * @param {Object} [options={}]
+ * @returns {Promise<Array<{category: String, filePath: String, id: String, name: (String|undefined)}>>}
  */
-async function loadTreeNodes() {
-    const tree  = await fs.readJSON(TREE_FILE_PATH);
-    const nodes = Array.isArray(tree) ? tree : Array.isArray(tree?.data) ? tree.data : [];
-    return nodes.filter(node => node?.id);
-}
+async function collectRoutesFromTree(options={}) {
+    const leaves = await resolveLearnTreeLeaves(options);
 
-/**
- * Attempts to resolve a content file on disk that matches the provided tree id.
- * @param {String} id
- * @returns {Promise<String|null>} The absolute file path if found, otherwise null.
- */
-async function resolveContentFileFromId(id) {
-    const filePath = path.join(LEARN_DIR, id + '.md');
-
-    if (await fs.pathExists(filePath)) {
-        return filePath;
-    }
-
-    return null;
-}
-
-/**
- * Collects all tree-based routes that map to actual content files.
- * @returns {Promise<Array<{id: String, filePath: String}>>} Route data with file paths
- */
-async function collectRoutesFromTree() {
-    const nodes  = await loadTreeNodes();
-    const routes = [];
-
-    for (const node of nodes) {
-        if (!node?.id) continue;
-        const contentPath = await resolveContentFileFromId(node.id);
-        if (!contentPath) continue;
-        routes.push({
-            category: 'tree',
-            filePath: contentPath,
-            id      : node.id,
-            name    : node.name
-        });
-    }
-
-    return routes;
+    return leaves.map(({filePath, id, name}) => ({
+        category: 'tree',
+        filePath,
+        id,
+        name
+    }));
 }
 
 /**
  * Collects top-level routes that don't have content files.
+ * @param {String} [root=ROOT_DIR] Repository root
  * @returns {Promise<Array<{id: String, filePath: String|null}>>}
  */
-async function collectTopLevelRoutes() {
+async function collectTopLevelRoutes(root=ROOT_DIR) {
+    const viewportControllerPath = path.resolve(root, 'apps/portal/view/ViewportController.mjs');
+
     return TOP_LEVEL_ROUTES.map(route => ({
         category: 'top-level',
-        filePath: path.join(PORTAL_DIR, 'view/ViewportController.mjs'),
+        filePath: viewportControllerPath,
         id      : route
     }));
 }
@@ -579,22 +551,23 @@ function getNameFromExamplePath(examplePath) {
 
 /**
  * Collects all example routes by scanning the filesystem and reading their titles.
+ * @param {String} [root=ROOT_DIR] Repository root
  * @returns {Promise<Array<{id: String, filePath: String, name: String}>>}
  */
-async function collectExampleRoutes() {
+async function collectExampleRoutes(root=ROOT_DIR) {
     let files = await fg('{apps,examples}/**/index.html', {
-        cwd   : ROOT_DIR,
+        cwd   : root,
         ignore: ['**/node_modules/**']
     });
 
-    // Filter out paths containing "childapps"
-    files = files.filter(file => !file.includes('childapps'));
+    // Exclude multi-window popup helper entrypoints (/childapp/ and /childapps/)
+    files = files.filter(file => !/(?:^|\/)childapps?(?:\/|$)/.test(file));
 
     // Sort by path, which will put 'apps/' before 'examples/'
     files.sort((a, b) => a.localeCompare(b));
 
-    return Promise.all(files.map(async (file) => {
-        const filePath   = path.resolve(ROOT_DIR, file);
+    return Promise.all(files.map(async file => {
+        const filePath   = path.resolve(root, file);
         const content    = await fs.readFile(filePath, 'utf-8');
         const titleMatch = content.match(/<title>(.*?)<\/title>/i);
 
@@ -610,9 +583,10 @@ async function collectExampleRoutes() {
 /**
  * Collects all release notes by recursively scanning the declared release-notes root, including chunk-N archives.
  * @param {String} releaseNotesRoot
+ * @param {String} [root=ROOT_DIR] Repository root
  * @returns {Promise<Array<{id: String, filePath: String, name: String}>>}
  */
-async function collectReleaseRoutes(releaseNotesRoot) {
+async function collectReleaseRoutes(releaseNotesRoot, root=ROOT_DIR) {
     const files = await fg('**/*.md', {
         cwd   : releaseNotesRoot,
         ignore: ['**/node_modules/**']
@@ -624,13 +598,13 @@ async function collectReleaseRoutes(releaseNotesRoot) {
         const fileName = path.basename(file, '.md'); // e.g., 'v12.1.0'
         const version  = fileName.startsWith('v') ? fileName.substring(1) : fileName;
 
-        assertStableReleaseNoteGithubLinks({filePath, content});
+        assertStableReleaseNoteGithubLinks({filePath, content, root});
 
         return {
             category: 'release-notes',
             filePath,
             id      : `/news/releases/${version}`,
-            version : version
+            version
         };
     }));
 
@@ -659,14 +633,16 @@ async function collectReleaseRoutes(releaseNotesRoot) {
  * itself answers, and its markdown file dates the sitemap entry. A leaf whose file is missing fails,
  * naming the leaf.
  * @param {String} [blogIndexPath] The portal's blog index
+ * @param {String} [root=ROOT_DIR] Repository root
  * @returns {Promise<Array<{category: String, filePath: String, id: String, name: String}>>}
  */
-export async function collectBlogRoutes(blogIndexPath=BLOG_INDEX_PATH) {
-    const index = await fs.readJSON(blogIndexPath);
-    const posts = (Array.isArray(index?.data) ? index.data : []).filter(node => node.isLeaf && node.id);
+export async function collectBlogRoutes(blogIndexPath, root=ROOT_DIR) {
+    const resolvedIndexPath = blogIndexPath || path.resolve(root, 'apps/portal/resources/data/blog.json');
+    const index             = await fs.readJSON(resolvedIndexPath);
+    const posts             = (Array.isArray(index?.data) ? index.data : []).filter(node => node.isLeaf && node.id);
 
     return Promise.all(posts.map(async post => {
-        const filePath = post.path ? path.resolve(ROOT_DIR, post.path) : null;
+        const filePath = post.path ? path.resolve(root, post.path) : null;
 
         if (!filePath || !await fs.pathExists(filePath)) {
             throw new Error(`Blog post "${post.id}" has no markdown file at "${post.path}".`);
@@ -718,16 +694,20 @@ const collectDiscussionRoutes = root => collectNumberedCorpusRoutes(root, ['disc
 /**
  * Collects all routes (top-level + content routes).
  * @param {Object} roots
+ * @param {String} [roots.blogIndexPath] Optional custom `blog.json` path (test seam)
  * @param {String} roots.corpusRoot The conversation corpus root (`--corpus-root`); required, since the engine holds no corpus
  * @param {String} [roots.examplesPath] Optional custom `examples.json` path (test seam)
  * @param {String} [roots.examplesTabContainerPath] Optional custom `TabContainer.mjs` path (test seam)
  * @param {Array}  [roots.familyDefinitions] Optional custom `familyDefinitions` array (test seam)
  * @param {Boolean} [roots.includeArchives=true] Whether to collect ticket, pull-request, and discussion archive routes
+ * @param {String} [roots.learnDir] Optional custom `learn/` directory path (test seam)
  * @param {Boolean} [roots.onlyArchives=false] Whether to collect ONLY ticket, pull-request, and discussion archive routes
  * @param {String} [roots.releaseNotesRoot] The release-notes root (`--release-notes`); required unless `onlyArchives` is true
+ * @param {String} [roots.root=ROOT_DIR] Repository root
+ * @param {String} [roots.treeFilePath] Optional custom `tree.json` path (test seam)
  * @returns {Promise<Array<{id: String, filePath: String|null}>>}
  */
-async function collectAllRoutes({corpusRoot, examplesPath, examplesTabContainerPath, familyDefinitions, includeArchives = true, onlyArchives = false, releaseNotesRoot}) {
+async function collectAllRoutes({blogIndexPath, corpusRoot, examplesPath, examplesTabContainerPath, familyDefinitions, includeArchives = true, learnDir, onlyArchives = false, releaseNotesRoot, root = ROOT_DIR, treeFilePath}) {
     corpusRoot = requireContentRoot(corpusRoot, '--corpus-root', 'generate-seo-files');
 
     if (!onlyArchives) {
@@ -738,15 +718,15 @@ async function collectAllRoutes({corpusRoot, examplesPath, examplesTabContainerP
     const shouldCollectArchives = onlyArchives || includeArchives;
 
     return (await Promise.all([
-        shouldCollectCore     ? collectTopLevelRoutes()                : [],
-        shouldCollectCore     ? collectExampleFamilyRoutes({examplesPath, examplesTabContainerPath, familyDefinitions}) : [],
-        shouldCollectCore     ? collectRoutesFromTree()                : [],
-        shouldCollectCore     ? collectExampleRoutes()                 : [],
-        shouldCollectCore     ? collectReleaseRoutes(releaseNotesRoot) : [],
-        shouldCollectCore     ? collectBlogRoutes()                    : [],
-        shouldCollectArchives ? collectIssueRoutes(corpusRoot)         : [],
-        shouldCollectArchives ? collectPullRoutes(corpusRoot)          : [],
-        shouldCollectArchives ? collectDiscussionRoutes(corpusRoot)    : []
+        shouldCollectCore     ? collectTopLevelRoutes(root)                                                         : [],
+        shouldCollectCore     ? collectExampleFamilyRoutes({examplesPath, examplesTabContainerPath, familyDefinitions, root}) : [],
+        shouldCollectCore     ? collectRoutesFromTree({learnDir, root, treeFilePath})                               : [],
+        shouldCollectCore     ? collectExampleRoutes(root)                                                          : [],
+        shouldCollectCore     ? collectReleaseRoutes(releaseNotesRoot, root)                                        : [],
+        shouldCollectCore     ? collectBlogRoutes(blogIndexPath, root)                                              : [],
+        shouldCollectArchives ? collectIssueRoutes(corpusRoot)                                                      : [],
+        shouldCollectArchives ? collectPullRoutes(corpusRoot)                                                       : [],
+        shouldCollectArchives ? collectDiscussionRoutes(corpusRoot)                                                 : []
     ])).flat();
 }
 
@@ -882,20 +862,21 @@ export async function getContentUrls(options={}) {
  */
 export async function getSitemapXml(options={}) {
     const {
-              baseUrl,
-              basePath        = DEFAULT_BASE_PATH,
-              existingSitemapPath,
-              onlyArchives    = false,
-              includeArchives = onlyArchives,
-              includeLastmod  = true,
-              includeTopLevel = !onlyArchives
-          } = options;
+        baseUrl,
+        basePath        = DEFAULT_BASE_PATH,
+        existingSitemapPath,
+        onlyArchives    = false,
+        includeArchives = onlyArchives,
+        includeLastmod  = true,
+        includeTopLevel = !onlyArchives,
+        root            = ROOT_DIR
+    } = options;
 
     if (!baseUrl) {
         throw new Error('getSitemapXml requires a baseUrl option to produce absolute URLs.');
     }
 
-    const allRoutes      = await collectAllRoutes({...options, includeArchives, onlyArchives});
+    const allRoutes      = await collectAllRoutes({...options, includeArchives, onlyArchives, root});
     const filteredRoutes = allRoutes.filter(({id}) =>
         onlyArchives || includeTopLevel || !id.startsWith('/')
     );
@@ -920,12 +901,12 @@ export async function getSitemapXml(options={}) {
             })
             .filter(Boolean);
 
-        changedGitPaths = getChangedGitPaths();
-        lastModMap = getGitLastModifiedBatch(filePaths);
+        changedGitPaths = getChangedGitPaths(root);
+        lastModMap      = getGitLastModifiedBatch(filePaths, root);
 
         if (existingSitemapPath) {
             existingLastmodMap = await getExistingSitemapLastmodMap(existingSitemapPath);
-            changedGitPaths.delete(getGitPath(existingSitemapPath));
+            changedGitPaths.delete(getGitPath(existingSitemapPath, root));
         }
     }
 
@@ -945,9 +926,9 @@ export async function getSitemapXml(options={}) {
         if (filePath) {
             const key         = category === 'file' ? path.dirname(filePath) : filePath;
             const isDirectory = category === 'file';
-            const gitPath     = getGitPath(key);
+            const gitPath     = getGitPath(key, root);
 
-            const changedLastmod = getChangedLastmod(gitPath, changedGitPaths, isDirectory);
+            const changedLastmod = getChangedLastmod(gitPath, changedGitPaths, isDirectory, root);
 
             if (changedLastmod) {
                 lastmod = changedLastmod;
@@ -1005,7 +986,7 @@ export function getLatestSitemapLastmod(sitemapXml='') {
  * Formats a Sitemap Index (`<sitemapindex>`) referencing segmented child sitemaps (e.g., `sitemap-core.xml` and `sitemap-archive.xml`).
  * @param {Object} options
  * @param {String} options.baseUrl Absolute base URL required for sitemap index entries.
- * @param {Array<{path?: String, loc?: String, xml?: String, lastmod?: String}>} [options.sitemaps=[]] Child sitemap descriptors
+ * @param {Array<{path: (String|undefined), loc: (String|undefined), xml: (String|undefined), lastmod: (String|undefined)}>} [options.sitemaps=[]] Child sitemap descriptors
  * @returns {String}
  */
 export function getSitemapIndexXml(options={}) {
@@ -1056,8 +1037,14 @@ ${entriesXml}
  * @returns {Promise<String>}
  */
 export async function getLlmsTxt(options={}) {
-    const {baseUrl, basePath = DEFAULT_BASE_PATH, includeArchives = false} = options;
-    const allRoutes = await collectAllRoutes({...options, includeArchives});
+    const {
+        baseUrl,
+        basePath        = DEFAULT_BASE_PATH,
+        includeArchives = false,
+        root            = ROOT_DIR,
+        releasesPath    = path.resolve(root, 'apps/portal/resources/data/releases.json')
+    } = options;
+    const allRoutes = await collectAllRoutes({...options, includeArchives, root});
 
     // 1. The Dynamic Header: the category label, then the organism apex behind it, for LLM crawlers
     let content = `# Neo.mjs: An Agent Institution
@@ -1090,9 +1077,9 @@ To access bundled versions, prefix paths with \`/dist/production/\`, \`/dist/dev
 
     // 2. The Dynamic Injector: Latest Release Notes
     // This looks for a generated releases.json from the Portal build process
-    if (await fs.pathExists(RELEASES_PATH)) {
+    if (await fs.pathExists(releasesPath)) {
         try {
-            const releases = await fs.readJSON(RELEASES_PATH);
+            const releases = await fs.readJSON(releasesPath);
 
             if (Array.isArray(releases) && releases.length > 0) {
                 // Filter out directory nodes (leaf nodes only)
@@ -1138,7 +1125,7 @@ To access bundled versions, prefix paths with \`/dist/production/\`, \`/dist/dev
 
         let urlStr;
         if (route.filePath && route.filePath.endsWith('.md')) {
-            const relativePath = path.relative(ROOT_DIR, route.filePath).split(path.sep).join('/');
+            const relativePath = path.relative(root, route.filePath).split(path.sep).join('/');
             urlStr = new URL(`raw/${relativePath}`, baseUrl).toString();
         } else {
             const routeStr = buildRouteFromId(route.id, null, false);
@@ -1182,7 +1169,7 @@ To access bundled versions, prefix paths with \`/dist/production/\`, \`/dist/dev
     if (blogRoutes.length > 0) {
         content += `## Blog\n\n`;
         const mappedUrls = blogRoutes.map(route => {
-            const relativePath = path.relative(ROOT_DIR, route.filePath).split(path.sep).join('/');
+            const relativePath = path.relative(root, route.filePath).split(path.sep).join('/');
             const urlStr       = new URL(`raw/${relativePath}`, baseUrl).toString();
             return `- [${route.name}](${urlStr})`;
         });
@@ -1209,7 +1196,7 @@ To access bundled versions, prefix paths with \`/dist/production/\`, \`/dist/dev
             let urlStr;
             if (node.filePath && node.filePath.endsWith('.md')) {
                 // Ensure cross-platform path resolution matches the expected web path
-                const relativePath = path.relative(ROOT_DIR, node.filePath).split(path.sep).join('/');
+                const relativePath = path.relative(root, node.filePath).split(path.sep).join('/');
                 urlStr = new URL(`raw/${relativePath}`, baseUrl).toString();
             } else {
                 const route = buildRouteFromId(node.id, basePath, false);
@@ -1291,25 +1278,16 @@ export async function getLlmsFullTxt(options={}) {
     } = options;
 
     const normalizedBaseUrl = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
-    const tree              = await fs.readJSON(treeFilePath);
-    const nodes             = (Array.isArray(tree) ? tree : Array.isArray(tree?.data) ? tree.data : [])
-        .filter(node => node?.id && node.isLeaf !== false);
+    const leaves            = await resolveLearnTreeLeaves({learnDir, root, treeFilePath});
+    const sections          = [];
 
-    const sections = [];
-
-    for (const node of nodes) {
-        const filePath = path.join(learnDir, `${node.id}.md`);
-
-        if (!(await fs.pathExists(filePath))) {
-            continue;
-        }
-
-        const rawContent   = await fs.readFile(filePath, 'utf-8');
-        const cleanId      = node.id.replace(/^\//, '');
+    for (const leaf of leaves) {
+        const rawContent   = await fs.readFile(leaf.filePath, 'utf-8');
+        const cleanId      = leaf.id.replace(/^\//, '');
         const rawUrl       = new URL(`raw/learn/${cleanId}.md`, normalizedBaseUrl).toString();
-        const route        = buildRouteFromId(node.id, basePath, false);
+        const route        = buildRouteFromId(leaf.id, basePath, false);
         const canonicalUrl = new URL(route, normalizedBaseUrl).toString();
-        const title        = node.name || cleanId;
+        const title        = leaf.name || cleanId;
 
         sections.push([
             `# [${title}](${rawUrl})`,
@@ -1454,6 +1432,7 @@ export default {
     getLatestSitemapLastmod,
     getPublishedExampleFamilies,
     getSeoJson,
+    resolveLearnTreeLeaves,
     getSitemapIndexXml,
     getSitemapXml,
     getLlmsTxt,
