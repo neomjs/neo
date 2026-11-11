@@ -478,12 +478,14 @@ class VdomLifecycle extends Base {
             }
 
             /**
-             * Optional hook that fires immediately after the VDOM update resolves for each emitted root.
-             * Because of internal promise chaining (promiseForwardMessage), this hook fires *after*
-             * the Main Thread has painted the resulting DOM deltas.
+             * Optional hook invoked for each live emitted root after Main Thread DOM delta paint,
+             * initiator/replaced-scope destruction checks, and reply-completeness validation.
              */
             for (const id of emittedRoots) {
-                inFlightScopes.get(id)?.afterExecuteVdomUpdate?.()
+                const root = inFlightScopes.get(id);
+                if (root && !root.isDestroyed) {
+                    root.afterExecuteVdomUpdate?.()
+                }
             }
 
             // Component could be destroyed while the update is running: a stale success payload

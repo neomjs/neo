@@ -544,6 +544,38 @@ test.describe('Neo.mixin.VdomLifecycle yielded update merging', () => {
         await Promise.all([rootFlight, branchFlight, leafFlight]);
 
         expect(afterCalls).toEqual([root.id, branch.id]);
-        expect(leaf.vnode.textContent).toBe('leaf-absorbed')
+        expect(leaf.vnode.textContent).toBe('leaf-absorbed');
+
+        beforeCalls.length = 0;
+        afterCalls.length  = 0;
+
+        holdBatches(2);
+
+        busySibling.vdom.text = 'busy-flight-2';
+        const busyFlight2 = busySibling.promiseUpdate();
+
+        await gates[0].entered;
+
+        root.updateDepth = 1;
+        root.vdom.cls    = ['neo-container', 'root-depth-1-wave2'];
+        const rootFlight2 = root.promiseUpdate();
+
+        branch.updateDepth = 2;
+        branch.vdom.cls    = ['neo-container', 'branch-depth-2-wave2'];
+        const branchFlight2 = branch.promiseUpdate();
+
+        gates[0].release();
+        await busyFlight2;
+
+        await gates[1].entered;
+        expect(beforeCalls).toEqual([root.id, branch.id]);
+
+        branch.destroy(true, true);
+        await expect(branchFlight2).rejects.toBe(Neo.isDestroyed);
+
+        gates[1].release();
+        await rootFlight2;
+
+        expect(afterCalls).toEqual([root.id])
     })
 });
