@@ -18,11 +18,6 @@ permissions:
   issues: write        # auto-assignment and the reply comment
   pull-requests: read  # the issue's open linked pull requests
 
-concurrency:
-  group: claim-responder-${{ github.event.issue.number }}
-  cancel-in-progress: false
-  queue: max
-
 jobs:
   respond:
     if: >-
@@ -31,6 +26,10 @@ jobs:
       github.event.comment.user.type != 'Bot' &&
       !contains(fromJSON('["COLLABORATOR","MEMBER","OWNER"]'), github.event.comment.author_association) &&
       (contains(github.event.issue.labels.*.name, 'good first issue') || contains(github.event.issue.labels.*.name, 'help wanted'))
+    concurrency:
+      group: claim-responder
+      cancel-in-progress: false
+      queue: max
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -82,18 +81,21 @@ jobs:
               .filter(pullRequest => pullRequest.state === 'OPEN')
               .map(pullRequest => ({number: pullRequest.number, author: pullRequest.author?.login, repository: pullRequest.repository?.nameWithOwner}));
 
-            const [search, assignedSearch] = await Promise.all([
+            const [search, assignedIssues] = await Promise.all([
               github.rest.search.issuesAndPullRequests({
                 q       : `repo:${owner}/${repo} is:issue is:open label:"${label}" no:assignee -linked:pr`,
                 per_page: 50
               }),
-              github.rest.search.issuesAndPullRequests({
-                q       : `repo:${owner}/${repo} is:issue is:open assignee:"${comment.user.login}"`,
-                per_page: 20
+              github.paginate(github.rest.issues.listForRepo, {
+                assignee: comment.user.login,
+                owner,
+                per_page: 100,
+                repo,
+                state   : 'open'
               })
             ]);
 
-            const heldByClaimant = assignedSearch.data.items
+            const heldByClaimant = assignedIssues
               .filter(item => !item.pull_request && curatedLabel(item) && item.number !== issue.number)
               .map(item => item.number);
 

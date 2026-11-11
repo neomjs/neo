@@ -386,14 +386,22 @@ test.describe('buildScripts/util/claimResponse', () => {
                 runStep       = new AsyncFunction('github', 'context', 'core', scriptBlock),
                 prevWorkspace = process.env.GITHUB_WORKSPACE;
 
+            expect(raw).not.toMatch(/^concurrency:/m);
+            expect(raw).toMatch(/\n    if: >-[\s\S]*?\n    concurrency:\n      group: claim-responder\n      cancel-in-progress: false\n      queue: max\n/);
+
             process.env.GITHUB_WORKSPACE = process.cwd();
 
             const runScenario = async ({assignedItems = [], addAssigneesImpl, claim = firstClaim, comments = [firstClaim], events = [], issue = gfiIssue({state: 'open'})}) => {
-                const posted = [], assignedCalls = [], unassignedCalls = [], warnings = [];
+                const posted = [], assignedCalls = [], unassignedCalls = [], warnings = [], listForRepoCalls = [];
 
                 const github = {
                     graphql : async () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: []}}}}),
-                    paginate: async fn => fn === github.rest.issues.listComments ? comments : events,
+                    paginate: async (fn, args) => {
+                        if (fn === github.rest.issues.listComments) return comments;
+                        if (fn === github.rest.issues.listEvents)   return events;
+                        if (fn === github.rest.issues.listForRepo)  { listForRepoCalls.push(args); return assignedItems }
+                        throw new Error('unexpected paginate target')
+                    },
                     rest    : {
                         issues: {
                             addAssignees   : async args => { assignedCalls.push(args); return addAssigneesImpl(args) },
@@ -401,12 +409,14 @@ test.describe('buildScripts/util/claimResponse', () => {
                             get            : async ()   => ({data: issue}),
                             listComments   : Symbol('listComments'),
                             listEvents     : Symbol('listEvents'),
+                            listForRepo    : Symbol('listForRepo'),
                             removeAssignees: async args => { unassignedCalls.push(args); return {data: {}} }
                         },
                         search: {
-                            issuesAndPullRequests: async ({q}) => ({
-                                data: {items: q.includes('assignee:') ? assignedItems : [{number: 20691}, {number: 20692}]}
-                            })
+                            issuesAndPullRequests: async ({q}) => {
+                                expect(q).not.toContain('assignee:');
+                                return {data: {items: [{number: 20691}, {number: 20692}]}}
+                            }
                         }
                     }
                 };
@@ -417,7 +427,7 @@ test.describe('buildScripts/util/claimResponse', () => {
                     {info: () => {}, warning: msg => warnings.push(msg)}
                 );
 
-                return {assignedCalls, posted, unassignedCalls, warnings}
+                return {assignedCalls, listForRepoCalls, posted, unassignedCalls, warnings}
             };
 
             try {
@@ -427,6 +437,7 @@ test.describe('buildScripts/util/claimResponse', () => {
                 });
 
                 expect(ok.assignedCalls).toEqual([{assignees: ['first-claimant'], issue_number: 19143, owner: 'neomjs', repo: 'neo'}]);
+                expect(ok.listForRepoCalls).toEqual([{assignee: 'first-claimant', owner: 'neomjs', per_page: 100, repo: 'neo', state: 'open'}]);
                 expect(ok.unassignedCalls).toEqual([]);
                 expect(ok.posted).toHaveLength(1);
                 expect(ok.posted[0].body).toContain('Assigned to you — you can start now.');
@@ -475,6 +486,71 @@ test.describe('buildScripts/util/claimResponse', () => {
                 expect(handedOver.posted).toHaveLength(1);
                 expect(handedOver.posted[0].body).toContain('Thanks for claiming this, @day8-newcomer, and welcome! Assigned to you');
                 expect(handedOver.warnings).toEqual([]);
+
+                // 5. One account claims two free curated issues in sequence -> only the first is assigned (even when search lags)
+                const
+                    burstFirst  = comment('burst-claimant', '2026-11-11T02:34:01Z', "I'd love to work on this."),
+                    burstSecond = comment('burst-claimant', '2026-11-11T02:34:03Z', "I'd love to work on this too."),
+                    store       = new Map([
+                        [19143, gfiIssue({number: 19143, state: 'open'})],
+                        [20691, gfiIssue({number: 20691, state: 'open'})]
+                    ]),
+                    commentsByIssue = new Map([[19143, [burstFirst]], [20691, [burstSecond]]]),
+                    burstAssigned   = [],
+                    burstPosted     = [];
+
+                const sharedGithub = {
+                    graphql : async () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: []}}}}),
+                    paginate: async (fn, args) => {
+                        if (fn === sharedGithub.rest.issues.listComments) return commentsByIssue.get(args.issue_number) || [];
+                        if (fn === sharedGithub.rest.issues.listEvents)   return [];
+                        if (fn === sharedGithub.rest.issues.listForRepo) {
+                            return [...store.values()].filter(item =>
+                                item.state === args.state &&
+                                (item.assignees || []).some(a => a.login.toLowerCase() === args.assignee.toLowerCase())
+                            )
+                        }
+                        throw new Error('unexpected paginate target')
+                    },
+                    rest: {
+                        issues: {
+                            addAssignees   : async args => {
+                                burstAssigned.push(args);
+                                const target = store.get(args.issue_number);
+                                target.assignees = [...(target.assignees || []), ...args.assignees.map(login => ({login}))];
+                                return {data: target}
+                            },
+                            createComment  : async args => { burstPosted.push(args); return {data: {}} },
+                            get            : async ({issue_number}) => ({data: store.get(issue_number)}),
+                            listComments   : Symbol('listComments'),
+                            listEvents     : Symbol('listEvents'),
+                            listForRepo    : Symbol('listForRepo'),
+                            removeAssignees: async () => ({data: {}})
+                        },
+                        search: {
+                            // Lagging search index still shows both issues unassigned during the second run
+                            issuesAndPullRequests: async () => ({data: {items: [{number: 19143}, {number: 20691}, {number: 20692}]}})
+                        }
+                    }
+                };
+
+                await runStep(
+                    sharedGithub,
+                    {payload: {comment: burstFirst, issue: {number: 19143}}, repo: {owner: 'neomjs', repo: 'neo'}},
+                    {info: () => {}, warning: () => {}}
+                );
+                await runStep(
+                    sharedGithub,
+                    {payload: {comment: burstSecond, issue: {number: 20691}}, repo: {owner: 'neomjs', repo: 'neo'}},
+                    {info: () => {}, warning: () => {}}
+                );
+
+                expect(burstAssigned).toEqual([{assignees: ['burst-claimant'], issue_number: 19143, owner: 'neomjs', repo: 'neo'}]);
+                expect(burstPosted).toHaveLength(2);
+                expect(burstPosted[0]).toMatchObject({issue_number: 19143});
+                expect(burstPosted[0].body).toContain('Assigned to you — you can start now.');
+                expect(burstPosted[1]).toMatchObject({issue_number: 20691});
+                expect(burstPosted[1].body).toContain("You're already assigned to #19143");
             } finally {
                 if (prevWorkspace === undefined) {
                     delete process.env.GITHUB_WORKSPACE
