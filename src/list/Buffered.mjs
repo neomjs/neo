@@ -1,5 +1,6 @@
 import ComponentList from './Component.mjs';
 import TreeBuilder   from '../util/vdom/TreeBuilder.mjs';
+import VNodeUtil     from '../util/VNode.mjs';
 
 /**
  * @summary A fixed-height, Store-bound component list whose mounted rows stay bounded.
@@ -566,7 +567,7 @@ class Buffered extends ComponentList {
             }) : me.itemConfig;
 
         if (!config || Neo.typeOf(config) !== 'Object') {
-            component?.destroy();
+            component && me.retirePooledComponents([component]);
             me.items && delete me.items[poolIndex];
             return null
         }
@@ -574,7 +575,7 @@ class Buffered extends ComponentList {
         config = {...config, [me.recordProperty]: record};
 
         if (component && typeof config.module === 'function' && !(component instanceof config.module)) {
-            component.destroy();
+            me.retirePooledComponents([component]);
             delete me.items[poolIndex];
             component = null
         }
@@ -791,6 +792,26 @@ class Buffered extends ComponentList {
     }
 
     /**
+     * @summary Destroys pooled row components and unlinks them from this list's stored vnode in one walk.
+     * An ancestor's sync follows its reference to this list into that vnode, where a destroyed row would throw.
+     * Each row stays as the vnode it last rendered, so the next update removes its node, as in `Neo.grid.Body`.
+     * @param {Neo.component.Base[]} components
+     * @protected
+     */
+    retirePooledComponents(components) {
+        if (!components.length) return;
+
+        const retired = {};
+
+        for (const component of components) {
+            retired[component.id] = component.vnode;
+            component.destroy()
+        }
+
+        this.vnode && VNodeUtil.unlinkRetiredReferences(this.vnode, retired)
+    }
+
+    /**
      * @summary Delivers the App-Worker scroll model to this mounted main-thread list.
      *
      * Native scroll capture remains physical authority; programmatic index jumps and Store anchor
@@ -834,11 +855,7 @@ class Buffered extends ComponentList {
     trimComponentPool(poolSize) {
         let items = this.items || [];
 
-        for (let index = poolSize; index < items.length; index++) {
-            items[index]?.destroy();
-            delete items[index]
-        }
-
+        this.retirePooledComponents(items.slice(poolSize).filter(Boolean));
         items.length = Math.min(items.length, poolSize)
     }
 
