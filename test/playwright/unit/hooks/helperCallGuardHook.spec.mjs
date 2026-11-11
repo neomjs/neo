@@ -1,7 +1,9 @@
-import {test, expect}                 from '@playwright/test';
-import {spawnSync}                    from 'node:child_process';
-import {readFileSync}                 from 'node:fs';
-import {fileURLToPath, pathToFileURL} from 'node:url';
+import {test, expect}                                              from '@playwright/test';
+import {spawnSync}                                                 from 'node:child_process';
+import {mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync} from 'node:fs';
+import os                                                          from 'node:os';
+import path                                                        from 'node:path';
+import {fileURLToPath, pathToFileURL}                              from 'node:url';
 
 import {
     decideHelperCallGuard,
@@ -144,6 +146,50 @@ test.describe('helperCallGuardHook — Claude PreToolUse helper eligibility', ()
         }
 
         expect(new Set(errors.map(result => result.stderr.trim())).size).toBe(1)
+    });
+
+    test('a symlinked consumer installation still executes the ask and malformed-input paths', () => {
+        const root = mkdtempSync(path.join(os.tmpdir(), 'helper-guard-link-')),
+              link = path.join(root, 'node_modules', 'neo.mjs');
+
+        try {
+            mkdirSync(path.dirname(link), {recursive: true});
+            symlinkSync(path.resolve(path.dirname(hookPath), '../..'), link, process.platform === 'win32' ? 'junction' : 'dir');
+
+            const linkedHook = path.join(link, '.claude', 'hooks', 'helperCallGuardHook.mjs');
+
+            for (const args of [[linkedHook], ['--preserve-symlinks-main', linkedHook]]) {
+                const decision = spawnSync(process.execPath, args, {
+                    encoding: 'utf8',
+                    input   : JSON.stringify({tool_name: 'Agent', tool_input: {subagent_type: 'Explore'}})
+                }),
+                      malformed = spawnSync(process.execPath, args, {encoding: 'utf8', input: '{broken'});
+
+                expect(decision.status).toBe(0);
+                expect(JSON.parse(decision.stdout)).toEqual(ask);
+                expect(malformed.status).toBe(2);
+                expect(malformed.stdout).toBe('');
+                expect(malformed.stderr).toContain('tool call blocked');
+            }
+        } finally {
+            rmSync(root, {recursive: true, force: true});
+        }
+    });
+
+    test('an unreadable entrypoint identity blocks instead of silently skipping the guard', () => {
+        const root = mkdtempSync(path.join(os.tmpdir(), 'helper-guard-entry-'));
+
+        try {
+            const source = `process.argv[1] = ${JSON.stringify(path.join(root, 'missing.mjs'))};\n` +
+                `await import(${JSON.stringify(pathToFileURL(hookPath).href)});`,
+                  result = spawnSync(process.execPath, ['--input-type=module', '-e', source], {encoding: 'utf8'});
+
+            expect(result.status).toBe(2);
+            expect(result.stdout).toBe('');
+            expect(result.stderr).toContain('tool call blocked');
+        } finally {
+            rmSync(root, {recursive: true, force: true});
+        }
     });
 
     test('an unreadable stdin blocks the call instead of failing open', () => {

@@ -7,8 +7,8 @@
  * The hook holds no concurrency state and never grants permission. Invalid input or a guard
  * failure blocks the call with exit code 2; the handler's onFailure policy covers launch failures.
  */
-import {readFileSync}  from 'node:fs';
-import {pathToFileURL} from 'node:url';
+import {readFileSync, realpathSync} from 'node:fs';
+import {fileURLToPath}              from 'node:url';
 
 export const HELPER_CALL_GUARD_MESSAGE =
     'Automatic helpers require subagent_type "Explore" and an explicit model "haiku" or "sonnet". ' +
@@ -46,10 +46,14 @@ export function decideHelperCallGuard(hookPayload) {
 }
 
 /**
- * @summary Adapts stdin to the decision contract, blocking when input cannot be read or validated.
+ * @summary Resolves CLI identity before reading stdin; identity, input and decision errors block the call.
  */
 function main() {
     try {
+        if (realpathSync(process.argv[1]) !== realpathSync(fileURLToPath(import.meta.url))) {
+            return
+        }
+
         const decision = decideHelperCallGuard(JSON.parse(readFileSync(0, 'utf8')));
 
         if (decision) {
@@ -61,6 +65,6 @@ function main() {
     }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1]) {
     main();
 }
