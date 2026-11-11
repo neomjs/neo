@@ -33,16 +33,67 @@ const
  * husky provisions this repository's hooks and the materializer projects the skills façade into
  * `INIT_CWD`; inside someone else's install that is a cache clone's hooks and a foreign root's
  * façade — the Fleet Manager's pack stage died on exactly that symlink race.
+ *
+ * The last stage writes `AGENTS.md`, the same kind of projection: the maintainer rules generated
+ * from the installed skills package's sections, so a pin bump changes the rules a session loads
+ * without anyone committing a file. It runs what the checkout's {@link AGENTS_MD_SCRIPT} script
+ * declares, and `seat:start` runs it too ({@link runStage}): a Start whose lockfile is unchanged
+ * installs nothing, and the file must still be there.
  */
 
 /**
+ * @summary The script that declares this checkout's `AGENTS.md`: its repository set and output
+ * path. The lifecycle runs what it says instead of restating it, so an install and a Start write
+ * exactly what `npm run generate-agents-md` writes.
+ * @member {String} AGENTS_MD_SCRIPT
+ */
+export const AGENTS_MD_SCRIPT = 'generate-agents-md';
+
+/**
+ * @summary The arguments of the checkout's {@link AGENTS_MD_SCRIPT} script, the words after its
+ * bin. The script must be a plain call of `neo-agent-skills-agents-md`: anything a shell would
+ * have to interpret is refused, because the bin runs without a shell.
+ * @param {String} [root=repoRoot]
+ * @returns {String[]|null} `null` when the checkout declares no such script.
+ */
+export function agentsMdArgs(root=repoRoot) {
+    const manifestPath = path.join(root, 'package.json');
+
+    if (!existsSync(manifestPath)) {
+        return null
+    }
+
+    let script;
+
+    try {
+        script = JSON.parse(readFileSync(manifestPath, 'utf8')).scripts?.[AGENTS_MD_SCRIPT];
+    } catch (error) {
+        throw new Error(`prepare: cannot parse '${manifestPath}' (${error.message})`)
+    }
+
+    if (typeof script !== 'string') {
+        return null
+    }
+
+    const [binName, ...args] = script.trim().split(/\s+/);
+
+    if (binName !== 'neo-agent-skills-agents-md' || args.some(arg => /[^\w@%+=:,./-]/.test(arg))) {
+        throw new Error(`prepare: the '${AGENTS_MD_SCRIPT}' script must be a plain call of neo-agent-skills-agents-md, found '${script}'`)
+    }
+
+    return args
+}
+
+/**
  * @summary The lifecycle stages, in order. Each names the devDependency whose manifest declares
- * the bin it runs, so a failed stage reports which tool failed.
- * @type {{stage: String, packageName: String, binName: String}[]}
+ * the bin it runs, so a failed stage reports which tool failed. `args` reads a stage's arguments
+ * from the checkout; a `null` answer means the checkout does not declare the stage.
+ * @type {{stage: String, packageName: String, binName: String, args?: Function}[]}
  */
 const stages = [
     {stage: 'husky',       packageName: 'husky',            binName: 'husky'},
-    {stage: 'materialize', packageName: 'neo-agent-skills', binName: 'neo-agent-skills-materialize'}
+    {stage: 'materialize', packageName: 'neo-agent-skills', binName: 'neo-agent-skills-materialize'},
+    {stage: 'agents-md',   packageName: 'neo-agent-skills', binName: 'neo-agent-skills-agents-md', args: agentsMdArgs}
 ];
 
 /**
@@ -117,6 +168,46 @@ export function isDependencyBuild({env, root}) {
 }
 
 /**
+ * @summary Runs one lifecycle stage: its bin, resolved from its package's manifest, through `node`
+ * with the arguments the stage reads from the checkout. `seat:start` runs the `agents-md` stage
+ * through here, so a Start writes exactly what an install writes.
+ * @param {String} name The stage, e.g. `'agents-md'`
+ * @param {Object} [options]
+ * @param {String} [options.root=repoRoot]
+ * @param {Object} [options.env=process.env]
+ * @param {Function} [options.spawnFn=spawnSync]
+ * @returns {{skipped: String|null, stage: String, status: Number}}
+ */
+export function runStage(name, {root=repoRoot, env=process.env, spawnFn=spawnSync}={}) {
+    const entry = stages.find(({stage}) => stage === name);
+
+    if (!entry) {
+        throw new Error(`prepare: no stage '${name}'`)
+    }
+
+    const {stage, packageName, binName, args=() => []} = entry,
+          stageArgs = args(root);
+
+    if (stageArgs === null) {
+        return {skipped: 'not-declared', stage, status: 0}
+    }
+
+    const bin    = resolvePackageBin(packageName, binName, root),
+          result = spawnFn(process.execPath, [bin, ...stageArgs], {cwd: root, env, stdio: 'inherit'});
+
+    // A failure-to-LAUNCH is not a status: spawnSync signals it through `result.error` with
+    // `status: null`, and with `stdio: 'inherit'` no child exists to print anything — so reading
+    // only `status` would surface an install failure as a bare exit 1 with zero diagnostic, the
+    // same invisibility class this module exists to remove (and most likely to fire on the
+    // platform it serves).
+    if (result.error) {
+        throw new Error(`prepare: failed to launch '${path.basename(bin)}' (${result.error.code ?? result.error.message})`)
+    }
+
+    return {skipped: null, stage, status: result.status ?? 1}
+}
+
+/**
  * @summary Runs the prepare lifecycle: the lock-only guard, the dependency-build guard, then each
  * stage in order, stopping at the first failure. Seams are injected so the contract is testable
  * without mutating hooks or writing links.
@@ -135,26 +226,11 @@ export function runPrepare({root=repoRoot, env=process.env, spawnFn=spawnSync}={
         return {skipped: 'dependency-build', stage: 'guard', status: 0}
     }
 
-    // A failure-to-LAUNCH is not a status: spawnSync signals it through `result.error` with
-    // `status: null`, and with `stdio: 'inherit'` no child exists to print anything — so reading
-    // only `status` would surface an install failure as a bare exit 1 with zero diagnostic, the
-    // same invisibility class this module exists to remove (and most likely to fire on the
-    // platform it serves).
-    const spawnChecked = (file, args) => {
-        const result = spawnFn(file, args, {cwd: root, env, stdio: 'inherit'});
-
-        if (result.error) {
-            throw new Error(`prepare: failed to launch '${path.basename(args[0] ?? file)}' (${result.error.code ?? result.error.message})`)
-        }
-
-        return result
-    };
-
-    for (const {stage, packageName, binName} of stages) {
-        const result = spawnChecked(process.execPath, [resolvePackageBin(packageName, binName, root)]);
+    for (const {stage} of stages) {
+        const result = runStage(stage, {root, env, spawnFn});
 
         if (result.status !== 0) {
-            return {skipped: null, stage, status: result.status ?? 1}
+            return {skipped: null, stage, status: result.status}
         }
     }
 

@@ -1877,7 +1877,7 @@ Ready to explore the AI-native workflow?
 - [AI Quick Start](https://github.com/neomjs/neo/blob/dev/.github/AI_QUICK_START.md) - First session checklist
 - [Codebase Overview](https://github.com/neomjs/neo/blob/dev/learn/guides/fundamentals/CodebaseOverview.md) - What agents read at startup
 - [MCP Server Source Code](https://github.com/neomjs/neo-agent-brain/tree/dev/ai/mcp/server) - The full source code for all three MCP servers.
-- [Agent Protocol (AGENTS.md)](https://github.com/neomjs/neo/blob/dev/AGENTS.md) - The behavioral rules (inside the context window of each session)
+- [Agent Protocol (AGENTS.md)](https://github.com/neomjs/neo-agent-skills/tree/dev/agents-md) - The behavioral rules (inside the context window of each session), generated into each checkout from these sections
 - [Agent Startup (AGENTS_STARTUP.md)](https://github.com/neomjs/neo/blob/83e0c2fc78d047510ba0b8fb81fb46347f5c2e81/AGENTS_STARTUP.md) - Session initialization
 
 ---
