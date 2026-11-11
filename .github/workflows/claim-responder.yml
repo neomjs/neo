@@ -1,8 +1,9 @@
 # Answers a claim on a curated issue (`good first issue`, `help wanted`) within a minute, because no maintainer is
-# online around the clock. The reply says either "first in line, start now" or who holds the issue, plus claimable
-# alternatives. It never assigns: a maintainer confirms the assignment, and that step is also what screens out
-# accounts that spray claims. The rules live in buildScripts/util/claimResponse.mjs and its spec; this file only
-# fetches and posts.
+# online around the clock. When the claimant is first in line and holds no other open curated issue in the repository,
+# the workflow assigns them (removing any outside-contributor assignee whose 7-day window lapsed without an open PR) and
+# confirms they can start now; otherwise it names who holds the issue (or which curated issue the claimant already holds)
+# and offers claimable alternatives. Maintainers can unassign accounts that spray claims, releasing the hold. The rules
+# live in buildScripts/util/claimResponse.mjs and its spec; this file only fetches, assigns and posts.
 #
 # The comment is untrusted input. github-script reads it from the event payload, it is never interpolated into a shell
 # step, and the job checks out nothing but that module, from the default branch an `issue_comment` run uses.
@@ -14,13 +15,8 @@ on:
 
 permissions:
   contents: read       # the sparse checkout of the reply module
-  issues: write        # the reply comment
+  issues: write        # auto-assignment and the reply comment
   pull-requests: read  # the issue's open linked pull requests
-
-concurrency:
-  group: claim-responder-${{ github.event.issue.number }}
-  cancel-in-progress: false
-  queue: max
 
 jobs:
   respond:
@@ -30,6 +26,10 @@ jobs:
       github.event.comment.user.type != 'Bot' &&
       !contains(fromJSON('["COLLABORATOR","MEMBER","OWNER"]'), github.event.comment.author_association) &&
       (contains(github.event.issue.labels.*.name, 'good first issue') || contains(github.event.issue.labels.*.name, 'help wanted'))
+    concurrency:
+      group: claim-responder
+      cancel-in-progress: false
+      queue: max
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -44,18 +44,27 @@ jobs:
         uses: actions/github-script@v9
         with:
           script: |
-            const {curatedLabel, decideReply} = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/claimResponse.mjs`);
+            const {curatedLabel, decideClaim, isClaim, isOutsideHuman} = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/claimResponse.mjs`);
             const {owner, repo}                = context.repo;
             const {comment, issue: eventIssue} = context.payload;
-            const {data: issue}                = await github.rest.issues.get({owner, repo, issue_number: eventIssue.number});
-            const label                        = curatedLabel(issue);
+
+            if (!isOutsideHuman(comment) || !isClaim(comment.body)) {
+              core.info('No reply: not an outside contributor claim.');
+              return
+            }
+
+            const {data: issue} = await github.rest.issues.get({owner, repo, issue_number: eventIssue.number});
+            const label         = curatedLabel(issue);
 
             if (issue.state !== 'open' || !label) {
               core.info('No reply: issue is closed or no longer curated.');
               return
             }
 
-            const comments = await github.paginate(github.rest.issues.listComments, {owner, repo, issue_number: issue.number, per_page: 100});
+            const [comments, events] = await Promise.all([
+              github.paginate(github.rest.issues.listComments, {owner, repo, issue_number: issue.number, per_page: 100}),
+              github.paginate(github.rest.issues.listEvents,   {owner, repo, issue_number: issue.number, per_page: 100})
+            ]);
 
             const linked = await github.graphql(`query($owner: String!, $repo: String!, $number: Int!) {
               repository(owner: $owner, name: $repo) {
@@ -72,23 +81,75 @@ jobs:
               .filter(pullRequest => pullRequest.state === 'OPEN')
               .map(pullRequest => ({number: pullRequest.number, author: pullRequest.author?.login, repository: pullRequest.repository?.nameWithOwner}));
 
-            const search = await github.rest.search.issuesAndPullRequests({
-              q: `repo:${owner}/${repo} is:issue is:open label:"${label}" no:assignee -linked:pr`,
-              per_page: 50
-            });
+            const [search, assignedIssues] = await Promise.all([
+              github.rest.search.issuesAndPullRequests({
+                q       : `repo:${owner}/${repo} is:issue is:open label:"${label}" no:assignee -linked:pr`,
+                per_page: 50
+              }),
+              github.paginate(github.rest.issues.listForRepo, {
+                assignee: comment.user.login,
+                owner,
+                per_page: 100,
+                repo,
+                state   : 'open'
+              })
+            ]);
 
-            const body = decideReply({
+            const heldByClaimant = assignedIssues
+              .filter(item => !item.pull_request && curatedLabel(item) && item.number !== issue.number)
+              .map(item => item.number);
+
+            const decision = decideClaim({
               candidates: search.data.items.map(item => item.number),
               comment,
               comments,
+              events,
+              heldByClaimant,
               issue,
               openPullRequests,
               repoUrl   : `https://github.com/${owner}/${repo}`
             });
 
-            if (!body) {
-              core.info('No reply: not a claim, the assignee, or a claimant already answered here.');
+            if (!decision) {
+              core.info('No reply: the assignee, or a claimant already answered here.');
               return
+            }
+
+            let body = decision.body;
+
+            if (decision.assign) {
+              try {
+                const {data: updated} = await github.rest.issues.addAssignees({
+                  assignees   : [comment.user.login],
+                  issue_number: issue.number,
+                  owner,
+                  repo
+                });
+                const assigned = (updated?.assignees || []).some(
+                  assignee => String(assignee.login).toLowerCase() === String(comment.user.login).toLowerCase()
+                );
+
+                if (assigned && decision.assignedBody) {
+                  body = decision.assignedBody;
+
+                  if (decision.unassign?.length > 0) {
+                    try {
+                      await github.rest.issues.removeAssignees({
+                        assignees   : decision.unassign,
+                        issue_number: issue.number,
+                        owner,
+                        repo
+                      })
+                    } catch (unassignError) {
+                      core.warning(`Could not unassign lapsed claimant(s) ${decision.unassign.join(', ')}: ${unassignError.message}`)
+                    }
+                  }
+                } else {
+                  core.warning(`GitHub did not attach ${comment.user.login} as assignee; posting fallback reply.`)
+                }
+              } catch (error) {
+                core.warning(`Could not auto-assign ${comment.user.login}: ${error.message}`)
+              }
             }
 
             await github.rest.issues.createComment({owner, repo, issue_number: issue.number, body});

@@ -126,10 +126,11 @@ independently: this one as the `neo.mjs` npm package, the Brain as container ima
    This ensures that your idea fits the scope of the project and makes it less likely to get a rejected PR.
    We will do our best to reply to new tickets within 7d max. In case we don't, feel free to bump the ticket.
 3. **Claim before you start.** To work on an existing ticket, comment there. An automatic reply tells you whether you
-   are first in line. If you are, your claim reserves the ticket from that reply: start right away. A maintainer
-   confirms the claim by assigning you, and can release a claim from an account that sprays them. You can open a PR
-   without a claim, but we merge the first approve-worthy PR for a ticket, so if someone else holds it or gets there
-   first, your work may not land. A claim is what protects your time.
+   are first in line. On curated issues (`good first issue` and `help wanted`, one open curated claim at a time), a
+   first-in-line claim also assigns you automatically so the issue list shows it is taken: start right away. A
+   maintainer can unassign and release a claim from an account that sprays them. You can open a PR without a claim,
+   but we merge the first approve-worthy PR for a ticket, so if someone else holds it or gets there first, your work
+   may not land. A claim is what protects your time.
    To keep the project moving, a claim lasts 7 days, and any comment you leave on the ticket starts the 7 days again.
    After 7 days without a word from you, the ticket may go to another contributor.
 4. Please make sure that pull requests are always related to an issue inside our <a href="../../issues">Issues Tracker</a>.
