@@ -646,4 +646,36 @@ test.describe('Group native lifecycle (#18314)', () => {
         expect(released).toHaveLength(1);
         expect(released[0]).toMatchObject({committed: true, itemId: 'one', workspaceKey: key, data: {windowId: 'popup'}})
     });
+
+    test('a readmit unbind for an unowned reconnecting window releases nothing', async () => {
+        const windows  = owner('root'), preparing = deferred(), unbound = [], released = [];
+        let   prepares = 0;
+        windows.registerSource('view', effects({
+            prepare: () => ++prepares === 2 ? preparing.promise : true,
+            unbind : data => {
+                unbound.push(data.windowId);
+                return {retained: true, awaitingClosure: true, readmit: true}
+            },
+            released: data => released.push(data)
+        }));
+        const vessel = await windows.acquire('view', {itemId: 'one'}), key = vessel.workspaceKey;
+        manager.bind({...vessel, windowId: 'old'});
+        await expect.poll(() => windows.getConnection('view', key)).not.toBeNull();
+        windows.recordOwner('view', key, {...vessel, windowId: 'old'}, windows.getConnection('view', key));
+
+        release('old');
+        await expect.poll(() => windows.getAdmission('view', key)).toMatchObject({readmit: true});
+
+        manager.bind({...vessel, windowId: 'reloaded'});
+        await expect.poll(() => windows.getAdmission('view', key)?.connectingWindowId).toBe('reloaded');
+
+        release('reloaded');
+        preparing.resolve(true);
+
+        await expect.poll(() => unbound).toEqual(['old', 'reloaded']);
+        await expect.poll(() => windows.getAdmission('view', key)).toBeNull();
+        await Promise.resolve();
+        expect(released).toEqual([]);
+        expect(windows.getOwner('view', key).windowId).toBeNull()
+    });
 });
