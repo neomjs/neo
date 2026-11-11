@@ -15,7 +15,7 @@ the first release to be architected from the ground up for an **AI-Native** futu
 This isn't about bolting on a chatbot; it's about a new development model where AI is a foundational part of the
 architecture, designed to be understood, queried, and even enhanced by the platform itself. At the core of this new
 experience are two key innovations: a comprehensive, local **AI Knowledge Base** and a formalized
-**AI Agent Protocol** ([AGENTS.md](https://github.com/neomjs/neo/blob/dev/AGENTS.md)).
+**AI Agent Protocol** ([AGENTS.md](https://github.com/neomjs/neo-agent-skills/tree/dev/agents-md), generated from these sections).
 
 Together, they transform the developer experience from a monologue of reading docs into a dialogue with the platform itself.
 
