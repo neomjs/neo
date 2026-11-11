@@ -79,6 +79,17 @@ test.describe('Neo.list.Buffered — fixed-height component row windowing (#1755
 
     const data = count => Array.from({length: count}, (_, id) => ({id, name: `Record ${id}`}));
 
+    const createStore = count => Neo.create(Store, {
+        keyProperty: 'id',
+        data       : data(count),
+        model      : {
+            fields: [
+                {name: 'id',   type: 'Integer'},
+                {name: 'name', type: 'String'}
+            ]
+        }
+    });
+
     const createList = async ({
         bufferRowRange=2,
         count=5000,
@@ -88,16 +99,7 @@ test.describe('Neo.list.Buffered — fixed-height component row windowing (#1755
         selectionModel=null,
         store=null
     } = {}) => {
-        store ??= Neo.create(Store, {
-            keyProperty: 'id',
-            data       : data(count),
-            model      : {
-                fields: [
-                    {name: 'id',   type: 'Integer'},
-                    {name: 'name', type: 'String'}
-                ]
-            }
-        });
+        store ??= createStore(count);
 
         list = Neo.create(Buffered, {
             appName,
@@ -374,6 +376,68 @@ test.describe('Neo.list.Buffered — fixed-height component row windowing (#1755
             ['register',   {componentId: list.id, id: list.id, windowId: list.windowId}],
             ['unregister', {componentId: list.id, id: list.id, windowId: list.windowId}]
         ])
+    });
+
+    /**
+     * A shrink destroys rows the list's stored vnode names until its own repaint lands. An ancestor flight landing
+     * first follows its reference to the list into that vnode, where a destroyed row would fail the whole flight.
+     */
+    test('an ancestor flight landing after a pool shrink names no destroyed row (#20783)', async () => {
+        const
+            originalUpdateBatch = VdomHelper.updateBatch,
+            parent              = Neo.create(Container, {
+                appName,
+                id   : `list-buffered-parent-${++sequence}`,
+                items: [{
+                    module        : Buffered,
+                    bufferRowRange: 2,
+                    height        : 200,
+                    id            : `list-buffered-test-${sequence}`,
+                    itemConfig    : ({record}) => ({module: PooledRow, text: record.name}),
+                    itemHeight    : 20,
+                    store         : createStore(100),
+                    useInternalId : false
+                }]
+            });
+
+        list = parent.items[0];
+
+        try {
+            await parent.initVnode();
+            parent.mounted = true;
+            await list.createItems();
+            // A container's first update renders its new items in full; a routine one names the list by reference
+            await parent.promiseUpdate();
+            expect(parent.updateDepth, 'the next parent flight names the list by reference').toBe(1);
+
+            const excess = list.items.slice(7).filter(Boolean);
+
+            expect(excess, 'the pool holds rows past the shrunk size').toHaveLength(7);
+
+            // One worker round trip of latency, so the parent flight is still in the air when the pool shrinks
+            VdomHelper.updateBatch = async function(data) {
+                await new Promise(resolve => setTimeout(resolve, 20));
+                return originalUpdateBatch.call(this, data)
+            };
+
+            const flight = parent.promiseUpdate();
+
+            await parent.timeout(5);
+            expect(parent.isVdomUpdating, 'the parent flight is in the air').toBe(true);
+
+            list.onResize({rect: {height: 60}});
+            expect(excess.every(row => row.isDestroyed), 'the shrink destroyed the excess rows').toBe(true);
+
+            await flight;
+            await list.timeout(60);
+
+            expect(list.isVdomUpdating || list.needsVdomUpdate, 'the list repaint landed').toBe(false);
+            expect(list.vnode.childNodes, 'two spacers around the shrunk pool').toHaveLength(9)
+        } finally {
+            VdomHelper.updateBatch = originalUpdateBatch;
+            parent.destroy();
+            list = null
+        }
     });
 
     test('prepend and filter preserve the first visible logical record plus pixel offset', async () => {
