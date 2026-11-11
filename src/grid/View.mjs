@@ -1518,14 +1518,15 @@ class View extends Base {
     }
 
     /**
-     * Pushes synchronized scrolling coordinates (startIndex / scrollTop) into all active bodies
-     * (`bodyStart`, `body`, `bodyEnd`). Owned here because grid.View is the body orchestrator; the
-     * horizontal scroll position is read from the gridContainer macro layer, which retains the
-     * ScrollManager.
+     * @summary Pushes synchronized scrolling coordinates into all active bodies and flushes only when VDOM mutated.
+     *
+     * Owned here because grid.View is the body orchestrator; the horizontal scroll position is read from the
+     * gridContainer macro layer, which retains the ScrollManager.
      *
      * Preserves the row/cell pooling invariant: each body recomputes view data for a fixed node pool
      * via the silent `createViewData(true)` path — never inserting, removing, or moving DOM nodes
-     * while scrolling.
+     * while scrolling. Starts a VDOM flight only when `force` is true, a scroll correction is queued, or at least
+     * one body latched {@link Neo.grid.Body#hasSilentVdomChanges} during the pass.
      * In content-sized mode the start row and the last visible row come from the {@link #rowGeometry} instead of
      * dividing by `rowHeight`. Fixed rows past {@link #maxScrollHeight} pick their page first, see {@link #pageScroll}.
      * @param {Number} scrollTop The logical offset
@@ -1547,7 +1548,8 @@ class View extends Base {
             {body, scrollManager}             = container,
             {bodyEnd, bodyStart, rowGeometry} = me,
             {bufferRowRange, rowHeight}       = body,
-            newStartIndex                     = rowGeometry ? rowGeometry.indexAt(scrollTop) : Math.floor(scrollTop / rowHeight);
+            newStartIndex                     = rowGeometry ? rowGeometry.indexAt(scrollTop) : Math.floor(scrollTop / rowHeight),
+            bodies                            = [bodyStart, body, bodyEnd].filter(Boolean);
 
         let updateBody = _body => {
             let isCenter = _body === body;
@@ -1580,6 +1582,14 @@ class View extends Base {
         bodyEnd   && updateBody(bodyEnd);
 
         me.scrollTop = scrollTop;
+
+        if (!force && me.#scrollCorrection === 0 && !bodies.some(item => item.hasSilentVdomChanges)) {
+            return
+        }
+
+        for (const item of bodies) {
+            item.hasSilentVdomChanges = false
+        }
 
         // The scroll repaints a row's subtree as one silent transaction, so the depth has to reach the
         // cell CONTENTS, not the cell. `updateDepth` is 1-based and `TreeBuilder` decrements it only when
