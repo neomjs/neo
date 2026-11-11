@@ -135,39 +135,6 @@ Options:
 Automatically adds `@reactive` JSDoc tags to all reactive configuration properties (ending in `_`) across the codebase.
 *Note: This script has no CLI options.*
 
-## `npm run ai:defrag-kb` / `ai:defrag-memory`
-**Script:** `ai/scripts/maintenance/defragChromaDB.mjs`
-
-Maintenance tool to defragment and optimize Vector Database instances.
-
-```bash
-Usage: defragChromaDB [options]
-
-Options:
-  -t, --target <name>  Database target (knowledge-base, memory-core)
-  -h, --help           display help for command
-```
-
-## `npm run ai:download-kb`
-**Script:** `ai/scripts/maintenance/downloadKnowledgeBase.mjs`
-
-Downloads the pre-indexed Knowledge Base artifact matching the current `package.json` version from GitHub Releases.
-*Note: This script has no CLI options.*
-
-## `npm run ai:sync-kb`
-**Script:** `ai/scripts/maintenance/syncKnowledgeBase.mjs`
-
-Indexes the local codebase and updates the vector database.
-*Note: This script has no CLI options.*
-
-## `npm run ai:structure-map`
-**Script:** `ai/scripts/diagnostics/structureMap.mjs`
-
-Agent OS diagnostic that emits deterministic, sorted JSON for the current `ai/` folder structure. The epic-create, ticket-create, and PR-review skills use this as mandatory placement evidence for architecture-sensitive work; future architecture drift linting can consume the same JSON.
-
-```bash
-npm run --silent ai:structure-map -- --files --loc
-```
 
 ## `npm run build-all`
 **Script:** `buildScripts/build/all.mjs`
@@ -377,40 +344,11 @@ Watches the `resources/scss` directory and incrementally recompiles themes when 
 
 ---
 
-# Advanced Tools
+# Agent OS / AI tooling
 
-## `npm run ai:mcp-client`
-**Script:** `ai/mcp/client/mcp-cli.mjs`
-
-A CLI tool for manually interacting with MCP servers. Useful for testing tool execution in isolation without an IDE extension.
-
-```bash
-# Example: List tools on the GitHub server
-npm run ai:mcp-client -- --server github-workflow --list-tools
-```
-
-## `npm run ai:server`
-**Script:** `chroma run --path ./chroma-neo-knowledge-base`
-
-Manually starts the ChromaDB instance for the **Knowledge Base**.
-Useful for debugging vector store operations outside of the MCP client.
+The `ai:*` scripts (Knowledge Base and Memory Core maintenance, MCP servers and clients, the Neural Link bridge) moved to the
+[`neomjs/neo-agent-brain`](https://github.com/neomjs/neo-agent-brain) repository in the Agent OS split (#17791). This repository
+defines no `ai:*` npm scripts; run them from a Brain checkout (`npm --prefix <YOUR_BRAIN_REPO_PATH> run <script>`) and see that
+repository's docs for their usage.
 
 
-
-## `npm run ai:server-neural-link`
-**Script:** `ai/mcp/server/neural-link/run-bridge.mjs`
-
-Starts the WebSocket bridge for the Neural Link, enabling the browser to communicate with the AI agent.
-
----
-
-# Internal Infrastructure
-
-The following scripts are **automated entry points** used by IDE extensions (like the VSCode MCP Client). You generally **do not** need to run these manually.
-
-| NPM Command | Description |
-| :--- | :--- |
-| `ai:mcp-server-github-workflow` | StdIO entry point for the GitHub Agent. |
-| `ai:mcp-server-knowledge-base` | StdIO entry point for the Knowledge Base. |
-| `ai:mcp-server-memory-core` | StdIO entry point for the Memory Core. |
-| `ai:mcp-server-neural-link` | StdIO entry point for the Neural Link. |

@@ -45,22 +45,22 @@ For this workflow, an "AI agent" is a local AI assistant capable of executing sh
 
 This section covers the mandatory steps to set up the local AI environment.
 
-### Step 3.1: Knowledge Base Setup (Automatic)
+### Step 3.1: Repository Setup
 
-For most contributors, the Knowledge Base setup is fully automated. When you run `npm install` in the repository root, a `prepare` script automatically downloads the latest pre-built Knowledge Base artifact from the corresponding GitHub Release.
+Running `npm install` in the `neomjs/neo` (Engine) root materializes the repository tooling: the `prepare` script (see `buildScripts/util/prepare.mjs`) installs the `husky` git hooks and runs `neo-agent-skills-materialize`, which links `.agents/skills/` and `.claude/skills/` into place. It does **not** download a Knowledge Base or create a `.neo-ai-data` directory — Engine contributors need no ChromaDB, SQLite, Docker, or API keys.
 
 1.  **Install Dependencies**:
     ```bash
     npm install
     ```
-    Watch for the `> neo.mjs@... prepare` step. It should say: `✅ Download complete` and `🎉 Knowledge Base is ready!`.
+    Watch for the `> neo.mjs@... prepare` step. It runs `husky` and `neo-agent-skills-materialize`.
 
-2.  **Verify**: Check if the `.neo-ai-data` folder exists in your project root.
+2.  **Knowledge Base / Memory Core setup** (only if you work on the Agent OS itself): initialize a [`neomjs/neo-agent-brain`](https://github.com/neomjs/neo-agent-brain) checkout instead — run `npm --prefix <YOUR_BRAIN_REPO_PATH> install` there and follow its guides; every `ai:*` command in this document runs from that Brain checkout, not from `neomjs/neo`.
 
 **Troubleshooting (Manual Setup):**
-If the automatic download fails (e.g., due to network issues), you can trigger it manually:
+If the Knowledge Base needs a manual (re)download in the Brain checkout:
 ```bash
-npm run ai:download-kb
+npm --prefix <YOUR_BRAIN_REPO_PATH> run ai:download-kb
 ```
 
 ### Step 3.2: Obtain a Gemini API Key
@@ -104,7 +104,7 @@ To ensure your environment is accurately inherited across all local MCP sub-serv
 
 **Critical Rate Limit Warning (Manual Rebuilds):**
 The free tier of the Gemini API has a strict limit of **1,000 requests per day** for the embedding model.
-*   **Do NOT** run `npm run ai:sync-kb` (full rebuild) unless absolutely necessary. A full rebuild requires ~153 requests and takes ~25 minutes due to rate-limiting delays.
+*   **Do NOT** run `npm --prefix <YOUR_BRAIN_REPO_PATH> run ai:sync-kb` (full rebuild, in the `neomjs/neo-agent-brain` checkout) unless absolutely necessary. A full rebuild requires ~153 requests and takes ~25 minutes due to rate-limiting delays.
 *   The pre-built artifact saves you from this cost and delay.
 
 **Local Architecture (Ollama & MLX / OpenAI-Compatible):**
@@ -112,7 +112,7 @@ To completely bypass Gemini API limits and operate a 100% offline knowledge base
 
 ### Step 3.5: Advanced Configuration (Optional)
 
-You can tune the embedding process (e.g., for paid tier usage) by modifying `ai/mcp/server/knowledge-base/config.mjs` or by loading a custom config file.
+You can tune the embedding process (e.g., for paid tier usage) by modifying `ai/mcp/server/knowledge-base/config.mjs` (in your `neomjs/neo-agent-brain` checkout, from its `config.template.mjs`) or by loading a custom config file.
 
 *   **`batchSize`**: Number of documents per API request (Default: 50).
 *   **`batchDelay`**: Wait time between batches in ms (Default: 10000).
@@ -121,7 +121,7 @@ Higher batch sizes or lower delays may trigger `429 Too Many Requests` errors on
 
 **Model Compatibility Warning:**
 The pre-built Knowledge Base artifact is generated using **`gemini-embedding-001`**.
-If you change the `embeddingModel` in the configuration (e.g., to a newer model), the existing database will be incompatible. You **MUST** run `npm run ai:sync-kb` to rebuild the database from scratch with the new model. Querying with a mismatched model will return irrelevant results.
+If you change the `embeddingModel` in the configuration (e.g., to a newer model), the existing database will be incompatible. You **MUST** run `npm --prefix <YOUR_BRAIN_REPO_PATH> run ai:sync-kb` (in the `neomjs/neo-agent-brain` checkout) to rebuild the database from scratch with the new model. Querying with a mismatched model will return irrelevant results.
 
 ## 4. Choosing Your Agent Environment
 
@@ -318,17 +318,19 @@ If you run multiple harnesses against the same repository — e.g., Claude Deskt
 
 Cross-checkout and cross-worktree scenarios use granular links so shared state converges while process-control state remains clone-local:
 
-**Worktree-to-primary** (Claude Code creates a fresh git worktree per session at `.claude/worktrees/<name>/`):
+**Worktree-to-primary** (Claude Code creates a fresh git worktree per session at `.claude/worktrees/<name>/`), run from your `neomjs/neo-agent-brain` checkout:
 ```bash
-node ai/scripts/migrations/bootstrapWorktree.mjs --link-data
+node <YOUR_BRAIN_REPO_PATH>/ai/scripts/migrations/bootstrapWorktree.mjs --link-data
 ```
 The `--link-data` flag is idempotent; safe to re-run. It copies the gitignored config overlays and creates approved granular links below `.neo-ai-data/`; it does not replace the parent directory. The interactive CLI completes with `build-all`.
 
-**Cross-checkout** (e.g., a secondary Antigravity checkout at `/Users/Shared/antigravity/neomjs/neo/` pointing at the primary at `/Users/Shared/github/neomjs/neo/`):
+**Cross-checkout** (e.g., a secondary Antigravity checkout at `/Users/Shared/antigravity/neomjs/neo/` pointing at the primary at `/Users/Shared/github/neomjs/neo/`), run from your `neomjs/neo-agent-brain` checkout:
 ```bash
-node ai/scripts/migrations/bootstrapWorktree.mjs --link-data \
+node <YOUR_BRAIN_REPO_PATH>/ai/scripts/migrations/bootstrapWorktree.mjs --link-data \
   --canonical-root /Users/Shared/github/neomjs/neo
 ```
+
+The canonical root names the Brain runtime root holding `.neo-ai-data/sqlite/memory-core-graph.sqlite`.
 
 **Why this matters**: AgentIdentity nodes seeded in the primary checkout's graph are only visible to harnesses that share the same SQLite file. Without the approved links, each harness has its own empty graph, `bindAgentIdentity` returns null at boot, and A2A handshakes silently fail.
 
@@ -371,7 +373,7 @@ and understand your codebase.
 - **"Invalid API key" errors**: Check `.env` file has correct format: `GEMINI_API_KEY="your-key-here"`
 
 ### Agent Behavior Issues
-- **Agent doesn't save memories**: Memory Core may not be running. Ask the agent to perform a healthcheck on the `neo.mjs-memory-core` MCP server. If it's unhealthy, you can ask the agent to start the database or use other memory-core tools.
+- **Agent doesn't save memories**: Memory Core may not be running. Ask the agent to perform a healthcheck on the `neo-mjs-memory-core` MCP server. If it's unhealthy, you can ask the agent to start the database or use other memory-core tools.
 - **Agent makes incorrect assumptions**: It may be hallucinating - remind it to query the knowledge base
 
 ### Agent Identity Binding Issues (A2A Mailbox)
