@@ -91,7 +91,7 @@ test.describe('buildScripts/util/agentsMdPointer', () => {
         // A concurrent writer holds the config lock, so `git config` cannot write
         fs.writeFileSync(path.join(root, '.git/config.lock'), '');
 
-        expect(() => ensureAgentsMdFilter({root, git: gitIn(root)})).toThrow(/cannot register filter\.neo-agents-md\.clean and filter\.neo-agents-md\.required/);
+        expect(() => ensureAgentsMdFilter({root, git: gitIn(root)})).toThrow(/cannot register filter\.neo-agents-md\.clean, filter\.neo-agents-md\.smudge, and filter\.neo-agents-md\.required/);
         expect(fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8')).toBe(AGENTS_MD_POINTER);
         expect(indexHoldsPointer(root)).toBe(true)
     });
@@ -103,6 +103,25 @@ test.describe('buildScripts/util/agentsMdPointer', () => {
         fs.writeFileSync(path.join(root, '.git/config.lock'), '');
 
         expect(ensureAgentsMdFilter({root, git: gitIn(root)})).toBe('present')
+    });
+
+    test('with the filter registered, a checkout writes the pointer: a new worktree is clean', () => {
+        const root  = checkout(),
+              trees = fs.mkdtempSync(path.join(os.tmpdir(), 'agents-md-worktree-'));
+
+        roots.push(trees);
+        ensureAgentsMdFilter({root, git: gitIn(root)});
+
+        git(root, 'worktree', 'add', '--quiet', '--detach', path.join(trees, 'with-smudge'), 'HEAD');
+
+        expect(fs.readFileSync(path.join(trees, 'with-smudge/AGENTS.md'), 'utf8')).toBe(AGENTS_MD_POINTER);
+        expect(git(path.join(trees, 'with-smudge'), 'status', '--porcelain')).toBe('');
+
+        // The control: required, with no smudge, fails every write of the file into a working tree
+        git(root, 'config', '--local', '--unset', 'filter.neo-agents-md.smudge');
+
+        expect(runGit(root, ['worktree', 'add', '--detach', path.join(trees, 'without-smudge'), 'HEAD']).status).not.toBe(0);
+        expect(fs.existsSync(path.join(trees, 'without-smudge/AGENTS.md'))).toBe(false)
     });
 
     test('a registered filter that cannot run refuses to store the file, and the refresh says so', () => {

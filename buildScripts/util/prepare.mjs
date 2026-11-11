@@ -3,7 +3,12 @@ import {existsSync, readFileSync, realpathSync}                    from 'node:fs
 import path                                                        from 'node:path';
 import process                                                     from 'node:process';
 import {fileURLToPath}                                             from 'node:url';
-import {AGENTS_MD_CLEAN_COMMAND, AGENTS_MD_FILTER, AGENTS_MD_PATH} from './agentsMdPointer.mjs';
+import {
+    AGENTS_MD_CLEAN_COMMAND,
+    AGENTS_MD_FILTER,
+    AGENTS_MD_PATH,
+    AGENTS_MD_SMUDGE_COMMAND
+} from './agentsMdPointer.mjs';
 import isEntryModule                                               from './isEntryModule.mjs';
 
 const
@@ -102,11 +107,12 @@ export function runGit(root, args, env=process.env) {
 }
 
 /**
- * @summary Makes sure the clean filter that `.gitattributes` names for `AGENTS.md` is registered
- * and required before the generated rules are written. Required means git refuses to store a file
- * whose filter cannot run, rather than storing it raw. A registration that cannot be established
- * stops the stage before `AGENTS.md` is touched. A root that is not a git checkout has nothing to
- * register.
+ * @summary Makes sure the filter that `.gitattributes` names for `AGENTS.md` is registered and
+ * required before the generated rules are written. Required means git refuses to store a file
+ * whose filter cannot run, rather than storing it raw. It binds the checkout direction too, so the
+ * filter carries a smudge that writes the stored pointer unchanged. A registration that cannot be
+ * established stops the stage before `AGENTS.md` is touched. A root that is not a git checkout has
+ * nothing to register.
  * @param {Object} options
  * @param {String} options.root
  * @param {Function} options.git `args => {status, stdout}` in `root`
@@ -118,7 +124,11 @@ export function ensureAgentsMdFilter({root, git}) {
     }
 
     const
-        wanted  = {[`filter.${AGENTS_MD_FILTER}.clean`]: AGENTS_MD_CLEAN_COMMAND, [`filter.${AGENTS_MD_FILTER}.required`]: 'true'},
+        wanted  = {
+            [`filter.${AGENTS_MD_FILTER}.clean`]   : AGENTS_MD_CLEAN_COMMAND,
+            [`filter.${AGENTS_MD_FILTER}.smudge`]  : AGENTS_MD_SMUDGE_COMMAND,
+            [`filter.${AGENTS_MD_FILTER}.required`]: 'true'
+        },
         missing = () => Object.entries(wanted).filter(([key, value]) => git(['config', '--local', '--get', key]).stdout !== value);
 
     if (missing().length < 1) {
@@ -130,7 +140,7 @@ export function ensureAgentsMdFilter({root, git}) {
     const unset = missing().map(([key]) => key);
 
     if (unset.length > 0) {
-        throw new Error(`prepare: cannot register ${unset.join(' and ')}, so AGENTS.md is left as it is: without the filter git would store the generated rules`)
+        throw new Error(`prepare: cannot register ${new Intl.ListFormat('en').format(unset)}, so AGENTS.md is left as it is: without the filter git would store the generated rules`)
     }
 
     return 'registered'
