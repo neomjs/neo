@@ -23,7 +23,7 @@ async function runInAppWorker(page, source) {
 test.describe('Cross-container insert coalescing under yielded ancestor VDOM update', () => {
     test.setTimeout(90000);
 
-    test('moves card into preceding sibling container with one atomic moveNode and zero coherence findings across 5 worker-roundtrip trials', async ({page, neuralLink}) => {
+    test('moves entry into preceding sibling container with one atomic moveNode and zero coherence findings across 5 worker-roundtrip trials', async ({page, neuralLink}) => {
         const coherenceWarnings = [];
 
         page.on('console', msg => {
@@ -34,6 +34,7 @@ test.describe('Cross-container insert coalescing under yielded ancestor VDOM upd
             }
         });
 
+        await neuralLink.routeConfig(page, config => ({...config, useAiClient: true}));
         await page.goto('/examples/container/base/index.html');
 
         const nlApp = await neuralLink.connectToApp('Neo.examples.container.base');
@@ -44,8 +45,8 @@ test.describe('Cross-container insert coalescing under yielded ancestor VDOM upd
             Neo.config.useDeltaCoherenceRegistry = true;
             await Neo.main.DeltaUpdates.importDeltaInstruments();
 
-            Neo.config.logDeltaUpdates     = true;
-            window.__yieldedMoveCardDeltas = [];
+            Neo.config.logDeltaUpdates      = true;
+            window.__yieldedMoveEntryDeltas = [];
 
             const origLog = console.log.bind(console);
 
@@ -58,12 +59,12 @@ test.describe('Cross-container insert coalescing under yielded ancestor VDOM upd
                         const nodeId = delta.id || delta.vnode?.id;
 
                         if (
-                            nodeId === 'yielded-move-card' ||
-                            (typeof delta.outerHTML === 'string' && delta.outerHTML.includes('id="yielded-move-card"'))
+                            nodeId === 'yielded-move-entry' ||
+                            (typeof delta.outerHTML === 'string' && delta.outerHTML.includes('id="yielded-move-entry"'))
                         ) {
-                            window.__yieldedMoveCardDeltas.push({
+                            window.__yieldedMoveEntryDeltas.push({
                                 action  : delta.action,
-                                id      : nodeId || 'yielded-move-card',
+                                id      : nodeId || 'yielded-move-entry',
                                 index   : delta.index,
                                 parentId: delta.parentId
                             })
@@ -103,8 +104,8 @@ test.describe('Cross-container insert coalescing under yielded ancestor VDOM upd
                         id   : 'yielded-move-source',
                         items: [{
                             ntype: 'component',
-                            id   : 'yielded-move-card',
-                            text : 'Moved card'
+                            id   : 'yielded-move-entry',
+                            text : 'Moved entry'
                         }]
                     }, {
                         ntype: 'container',
@@ -125,12 +126,12 @@ test.describe('Cross-container insert coalescing under yielded ancestor VDOM upd
                       target   = Neo.getComponent('yielded-move-target'),
                       source   = Neo.getComponent('yielded-move-source'),
                       inflight = Neo.getComponent('yielded-move-inflight'),
-                      card     = Neo.getComponent('yielded-move-card');
+                      entry    = Neo.getComponent('yielded-move-entry');
 
                 inflight.cls = ['inflight-active'];
                 const pC = inflight.promiseUpdate();
 
-                target.insert(0, card);
+                target.insert(0, entry);
 
                 target.cls = ['target-active'];
                 const pB = target.promiseUpdate();
@@ -145,33 +146,33 @@ test.describe('Cross-container insert coalescing under yielded ancestor VDOM upd
         for (let trial = 1; trial <= 5; trial++) {
             await runInAppWorker(page, 'await Test.E2E.YieldedMoveCoalescing.mountTrial();');
 
-            await expect(page.locator('#yielded-move-source #yielded-move-card')).toHaveCount(1);
-            await expect(page.locator('#yielded-move-target #yielded-move-card')).toHaveCount(0);
+            await expect(page.locator('#yielded-move-source #yielded-move-entry')).toHaveCount(1);
+            await expect(page.locator('#yielded-move-target #yielded-move-entry')).toHaveCount(0);
 
             await page.evaluate(() => {
-                window.__yieldedMoveCardDeltas.length = 0
+                window.__yieldedMoveEntryDeltas.length = 0
             });
 
             await runInAppWorker(page, 'await Test.E2E.YieldedMoveCoalescing.runMoveWhileSiblingInFlight();');
 
-            const targetCount = await page.locator('#yielded-move-target #yielded-move-card').count(),
-                  sourceCount = await page.locator('#yielded-move-source #yielded-move-card').count(),
-                  cardDeltas  = await page.evaluate(() => window.__yieldedMoveCardDeltas.slice());
+            const targetCount = await page.locator('#yielded-move-target #yielded-move-entry').count(),
+                  sourceCount = await page.locator('#yielded-move-source #yielded-move-entry').count(),
+                  entryDeltas = await page.evaluate(() => window.__yieldedMoveEntryDeltas.slice());
 
             await expect(
-                page.locator('#yielded-move-target #yielded-move-card'),
-                `trial ${trial}: moved card must reside inside #yielded-move-target (target=${targetCount}, source=${sourceCount}, deltas=${JSON.stringify(cardDeltas)}, coherenceWarnings=${JSON.stringify(coherenceWarnings)})`
+                page.locator('#yielded-move-target #yielded-move-entry'),
+                `trial ${trial}: moved entry must reside inside #yielded-move-target (target=${targetCount}, source=${sourceCount}, deltas=${JSON.stringify(entryDeltas)}, coherenceWarnings=${JSON.stringify(coherenceWarnings)})`
             ).toHaveCount(1, {timeout: 2000});
 
-            await expect(page.locator('#yielded-move-source #yielded-move-card')).toHaveCount(0);
-            await expect(page.locator('[id="yielded-move-card"]')).toHaveCount(1);
+            await expect(page.locator('#yielded-move-source #yielded-move-entry')).toHaveCount(0);
+            await expect(page.locator('[id="yielded-move-entry"]')).toHaveCount(1);
             await expect(page.locator('#yielded-move-target')).toHaveClass(/target-active/);
             await expect(page.locator('#yielded-move-source')).toHaveClass(/source-empty/);
 
             expect(coherenceWarnings, `trial ${trial}: zero DeltaCoherenceRegistry findings`).toEqual([]);
-            expect(cardDeltas.filter(delta => delta.action === 'moveNode'), `trial ${trial}: atomic moveNode`).toHaveLength(1);
+            expect(entryDeltas.filter(delta => delta.action === 'moveNode'), `trial ${trial}: atomic moveNode`).toHaveLength(1);
             expect(
-                cardDeltas.filter(delta => delta.action === 'insertNode' || delta.action === 'removeNode'),
+                entryDeltas.filter(delta => delta.action === 'insertNode' || delta.action === 'removeNode'),
                 `trial ${trial}: no disjoint insertNode/removeNode split`
             ).toEqual([]);
 
