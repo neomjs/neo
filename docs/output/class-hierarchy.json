@@ -423,6 +423,7 @@
  "Neo.main.addon.AnalyticsByGoogle": "Neo.main.addon.Base",
  "Neo.main.addon.Base": "Neo.core.Base",
  "Neo.main.addon.CesiumJS": "Neo.main.addon.Base",
+ "Neo.main.addon.Clipboard": "Neo.main.addon.Base",
  "Neo.main.addon.CloneNode": "Neo.main.addon.Base",
  "Neo.main.addon.Cookie": "Neo.main.addon.Base",
  "Neo.main.addon.DockFlip": "Neo.main.addon.Base",
