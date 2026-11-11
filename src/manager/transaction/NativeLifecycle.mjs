@@ -300,7 +300,7 @@ class NativeLifecycle extends Base {
     /**
      * @summary Retains close authority until the platform acknowledges the exact native generation. The
      * vessel names its own key and generation, so a late close of an older resource for the same item never
-     * reaches the item's newer one.
+     * reaches the item's newer one; confirmed retirement releases a held key or marks the owner retired.
      * @param {String} sourceId
      * @param {Object} vessel
      * @param {Function} [close] The effect captured for this native generation.
@@ -320,7 +320,15 @@ class NativeLifecycle extends Base {
         source.retirements.get(key) === retirement && source.retirements.delete(key);
         const matches = entry => entry && (vessel.generationToken
             ? entry.generationToken === vessel.generationToken : entry.windowName === vessel.windowName);
-        matches(source.admissions.get(workspaceKey)) && source.admissions.delete(workspaceKey);
+        if (!retirement.released && matches(source.owners.get(workspaceKey))) {
+            source.owners.get(workspaceKey).retired = true
+        }
+        const admission = source.admissions.get(workspaceKey);
+        if (matches(admission)) {
+            admission.readmit
+                ? await this.releaseHeld(sourceId, workspaceKey, admission.releaseData, admission)
+                : source.admissions.delete(workspaceKey)
+        }
         matches(source.connections.get(workspaceKey)) && source.connections.delete(workspaceKey);
         return true
     }
@@ -442,26 +450,33 @@ class NativeLifecycle extends Base {
               itemId                = entry.itemId ?? admission?.itemId ?? null;
         source.connections.delete(workspaceKey);
         this.clearAdmission(sourceId, workspaceKey, admission);
+        let retired = Boolean(entry.retired);
         for (const [key, retirement] of source.retirements) {
             const vessel = retirement.vessel;
             if (retirement.workspaceKey === workspaceKey && (vessel.generationToken
                 ? vessel.generationToken === entry.generationToken : vessel.windowName === entry.windowName)) {
                 retirement.released = true;
+                retired = true;
                 source.retirements.delete(key)
             }
+        }
+        const holdForReadmit = Boolean(owned && retained && result?.readmit === true && !retired),
+              stayRetained   = retained && (result?.readmit !== true || holdForReadmit);
+        if (this.isCurrentRelease(data) && !stayRetained) {
+            data.releasedBinding.awaitingClosure = false
         }
         if (owned) source.owners.set(workspaceKey, {...entry, windowId: null});
         // A held render target, e.g. a reloading window: the same lineage binds again through admission, while
         // the source's `closed` answer or the lease ending first hands the item to `released` (releaseHeld).
-        if (owned && retained && result?.readmit === true) {
+        if (holdForReadmit) {
             const held = {
                 connected      : false, connectingWindowId: null, context: null, gestureToken: null, groupId: this.groupId,
-                generationToken: entry.generationToken ?? data.generationToken, itemId, readmit: true,
+                generationToken: entry.generationToken ?? data.generationToken, itemId, readmit: true, releaseData: data,
                 windowId       : null, windowName: entry.windowName ?? null, workspaceKey};
             source.admissions.set(workspaceKey, held);
             result.closed?.then(closed => closed === true && this.releaseHeld(sourceId, workspaceKey, data, held), () => {})
         }
-        if (source.active && !retained) await source.effects.released?.({data, itemId, workspaceKey, entry, admission, committed: !!owned})
+        if (source.active && !stayRetained) await source.effects.released?.({data, itemId, workspaceKey, entry, admission, committed: !!owned})
     }
 
     /**
@@ -478,8 +493,10 @@ class NativeLifecycle extends Base {
         const source = this.sources.get(sourceId);
         if (!admission?.readmit || admission.connected || admission.connectingWindowId ||
             source?.admissions.get(workspaceKey) !== admission) return false;
+        const envelope = data && Object.keys(data).length ? data : (admission.releaseData ?? {});
+        if (this.isCurrentRelease(envelope)) envelope.releasedBinding.awaitingClosure = false;
         this.clearAdmission(sourceId, workspaceKey, admission);
-        source.active && await source.effects.released?.({data, itemId: admission.itemId, workspaceKey,
+        source.active && await source.effects.released?.({data: envelope, itemId: admission.itemId, workspaceKey,
             entry: source.owners.get(workspaceKey), admission, committed: source.owners.has(workspaceKey)});
         return true
     }
