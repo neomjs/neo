@@ -84,6 +84,12 @@ class VDomUpdate extends Collection {
     }
 
     /**
+     * @summary Component IDs paused in the pre-collection macrotask yield of `executeVdomUpdate`.
+     * @member {Set<String>} awaitingCollectionSet=new Set()
+     * @protected
+     */
+    awaitingCollectionSet = new Set()
+    /**
      * A Map that tracks the in-flight update status of descendants for each component.
      * This "Reverse Lookup" map allows ancestor components to check if any of their
      * descendants are currently updating in O(1) time, without walking the tree downwards.
@@ -439,6 +445,35 @@ class VDomUpdate extends Collection {
     }
 
     /**
+     * @summary Whether any in-flight descendant of `ownerId` (excluding `excludeId`) has already passed collection.
+     * @param {String} ownerId The ancestor component `id`.
+     * @param {String} [excludeId] Waking descendant `id` to ignore.
+     * @returns {Boolean}
+     */
+    hasDispatchedDescendants(ownerId, excludeId) {
+        const map = this.descendantInFlightMap.get(ownerId);
+
+        if (map) {
+            for (const descendantId of map.keys()) {
+                if (descendantId !== excludeId && !this.awaitingCollectionSet.has(descendantId)) {
+                    return true
+                }
+            }
+        }
+
+        return false
+    }
+
+    /**
+     * @summary Whether an update initiator is still in its pre-collection yield and can accept merged descendants.
+     * @param {String} ownerId The component `id`.
+     * @returns {Boolean}
+     */
+    isAwaitingCollection(ownerId) {
+        return this.awaitingCollectionSet.has(ownerId)
+    }
+
+    /**
      * Retrieves the `updateDepth` for a component's update that is currently in-flight.
      * @param {String} ownerId The `id` of the component owning the update.
      * @returns {Number|undefined} The update depth, or `undefined` if no update is in-flight.
@@ -700,6 +735,7 @@ class VDomUpdate extends Collection {
      * @param {String} ownerId The `id` of the component owning the update.
      */
     unregisterInFlightUpdate(ownerId) {
+        this.awaitingCollectionSet.delete(ownerId);
         this.inFlightUpdateMap.delete(ownerId);
 
         // Disarm the wedge watchdog — the update settled (resolve OR reject), so it is not wedged.
