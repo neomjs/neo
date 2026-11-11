@@ -360,45 +360,96 @@ test.describe('rebuildContentIndexesAndSeo (#13260)', () => {
         expect(writes).toEqual([]);
     });
 
-    test('generates and verifies a full real-checkout SEO/LLM bundle without touching tracked Portal artifacts', async () => {
-        const outDir       = path.join(tempDir, 'out');
-        const seoJsonPath  = path.join(outDir, 'seo.json');
-        const releasesPath = path.join(outDir, 'releases.json');
-        const sitemapPath  = path.join(outDir, 'sitemap.xml');
-        const llmsPath     = path.join(outDir, 'llms.txt');
+    test('generates and verifies a full real-checkout SEO/LLM bundle over a multi-bucket corpus with unstubbed conversation index builders', async () => {
+        const outDir      = path.join(tempDir, 'out');
+        const seoJsonPath = path.join(outDir, 'seo.json');
+        const sitemapPath = path.join(outDir, 'sitemap.xml');
+        const llmsPath    = path.join(outDir, 'llms.txt');
 
         await fs.mkdir(outDir, {recursive: true});
         await fs.copyFile(path.resolve(process.cwd(), 'apps/portal/resources/data/seo.json'), seoJsonPath);
         await fs.mkdir(path.join(corpusRoot, 'issues/chunk-1'), {recursive: true});
+        await fs.mkdir(path.join(corpusRoot, 'archive/issues/v7.9.1/chunk-1'), {recursive: true});
+        await fs.mkdir(path.join(corpusRoot, 'archive/issues/v13.2.0/chunk-1'), {recursive: true});
         await fs.mkdir(path.join(corpusRoot, 'pulls/chunk-1'), {recursive: true});
         await fs.mkdir(path.join(corpusRoot, 'discussions/chunk-1'), {recursive: true});
-        await fs.writeFile(path.join(corpusRoot, 'issues/chunk-1/issue-20774.md'), '# Ticket');
-        await fs.writeFile(path.join(corpusRoot, 'pulls/chunk-1/pr-20758.md'), '# Pull Request');
-        await fs.writeFile(path.join(corpusRoot, 'discussions/chunk-1/discussion-19733.md'), '# Discussion');
+        await fs.mkdir(path.join(corpusRoot, 'archive/discussions/v13.3.0/chunk-1'), {recursive: true});
+
+        await fs.writeFile(
+            path.join(corpusRoot, 'issues/chunk-1/issue-20774.md'),
+            '---\nid: 20774\ntitle: Add pre-write SEO artifact verifier\nlabels:\n  - enhancement\nupdatedAt: "2026-11-11T12:00:00Z"\n---\n# Ticket 20774\n'
+        );
+        // Same ticket present in two release archives with distinct updatedAt timestamps
+        await fs.writeFile(
+            path.join(corpusRoot, 'archive/issues/v7.9.1/chunk-1/issue-174.md'),
+            '---\nid: 174\ntitle: DomEvent stop bubbling config\nlabels:\n  - enhancement\nupdatedAt: "2020-05-10T12:00:00Z"\nclosedAt: "2020-05-10T12:00:00Z"\n---\n# Ticket 174 (v7.9.1)\n'
+        );
+        await fs.writeFile(
+            path.join(corpusRoot, 'archive/issues/v13.2.0/chunk-1/issue-174.md'),
+            '---\nid: 174\ntitle: DomEvent stop bubbling config\nlabels:\n  - enhancement\nupdatedAt: "2026-10-09T20:01:32Z"\nclosedAt: "2026-10-09T20:01:31Z"\n---\n# Ticket 174 (v13.2.0)\n'
+        );
+        await fs.writeFile(
+            path.join(corpusRoot, 'pulls/chunk-1/pr-20758.md'),
+            '---\nnumber: 20758\ntitle: Refine Portal SEO pipeline\nupdatedAt: "2026-11-10T15:00:00Z"\nmergedAt: "2026-11-10T15:00:00Z"\n---\n# Pull Request 20758\n'
+        );
+        // Same discussion present in both active and release-archive chunks with distinct updatedAt timestamps
+        await fs.writeFile(
+            path.join(corpusRoot, 'discussions/chunk-1/discussion-19427.md'),
+            '---\nnumber: 19427\ntitle: Repository-owned ADRs\ncategory: Ideas\nupdatedAt: "2026-10-16T01:09:33Z"\nclosedAt: "2026-10-13T21:19:47Z"\n---\n# Discussion 19427 (active)\n'
+        );
+        await fs.writeFile(
+            path.join(corpusRoot, 'archive/discussions/v13.3.0/chunk-1/discussion-19427.md'),
+            '---\nnumber: 19427\ntitle: Repository-owned ADRs\ncategory: Ideas\nupdatedAt: "2026-10-13T21:19:47Z"\nclosedAt: "2026-10-13T21:19:47Z"\n---\n# Discussion 19427 (archive)\n'
+        );
 
         const result = await rebuildContentIndexesAndSeo({
             corpusRoot,
-            root                    : process.cwd(),
-            releasesPath,
+            dataDir: outDir,
+            root   : process.cwd(),
             seoJsonPath,
             sitemapPath,
             llmsPath,
-            createPullRequestIndexFn: async () => {},
-            createDiscussionIndexFn : async () => {},
-            createTicketIndexFn     : async () => {},
-            log                     : () => {}
+            log    : () => {}
         });
 
-        const [llmsTxt, sitemapCoreXml, sitemapArchiveXml] = await Promise.all([
+        const [
+            llmsTxt,
+            llmsAllTxt,
+            sitemapCoreXml,
+            sitemapArchiveXml,
+            ticketsIndex,
+            pullsIndex,
+            discussionsIndex
+        ] = await Promise.all([
             fs.readFile(result.llmsPath, 'utf8'),
+            fs.readFile(result.llmsAllPath, 'utf8'),
             fs.readFile(result.sitemapCorePath, 'utf8'),
-            fs.readFile(result.sitemapArchivePath, 'utf8')
+            fs.readFile(result.sitemapArchivePath, 'utf8'),
+            fs.readFile(path.join(outDir, 'tickets/index.json'), 'utf8').then(JSON.parse),
+            fs.readFile(path.join(outDir, 'pulls/index.json'), 'utf8').then(JSON.parse),
+            fs.readFile(path.join(outDir, 'discussions.json'), 'utf8').then(JSON.parse)
         ]);
+
+        expect(ticketsIndex.some(node => node.id === 'v13.2.0')).toBe(true);
+        expect(ticketsIndex.some(node => node.id === 'v7.9.1')).toBe(true);
+        expect(pullsIndex.some(node => node.id === 'Latest')).toBe(true);
+        expect(discussionsIndex.some(node => node.id === 'Ideas')).toBe(true);
 
         expect(llmsTxt).toContain('Neo.mjs v13.4.0 Release Notes');
         expect(llmsTxt).not.toContain(': Update](');
         expect(llmsTxt).not.toContain('/childapp/');
         expect(sitemapCoreXml).not.toContain('/childapp/');
-        expect(sitemapArchiveXml).toContain('<loc>https://neomjs.com/news/tickets/20774</loc>');
+
+        const archiveLocs = Array.from(sitemapArchiveXml.matchAll(/<loc>(.*?)<\/loc>/g), match => match[1]);
+        expect(archiveLocs).toEqual([
+            'https://neomjs.com/news/tickets/20774',
+            'https://neomjs.com/news/tickets/174',
+            'https://neomjs.com/news/pulls/20758',
+            'https://neomjs.com/news/discussions/19427'
+        ]);
+        expect(sitemapArchiveXml).toContain('<loc>https://neomjs.com/news/tickets/174</loc>\n    <lastmod>2026-10-09T20:01:32Z</lastmod>');
+        expect(sitemapArchiveXml).toContain('<loc>https://neomjs.com/news/discussions/19427</loc>\n    <lastmod>2026-10-16T01:09:33Z</lastmod>');
+        expect(llmsAllTxt.match(/raw\/news\/tickets\/174\.md/g)).toHaveLength(1);
+        expect(llmsAllTxt.match(/raw\/news\/discussions\/19427\.md/g)).toHaveLength(1);
     });
 });

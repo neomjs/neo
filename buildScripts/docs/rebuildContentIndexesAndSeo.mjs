@@ -50,6 +50,7 @@ const DEFAULT_BASE_URL = 'https://neomjs.com';
  * @param {String} [options.releaseNotesRoot] The release-notes root (`--release-notes`); defaults to the engine's
  * `.github/RELEASE_NOTES` under `root`.
  * @param {String} [options.baseUrl='https://neomjs.com'] Canonical site URL for SEO outputs.
+ * @param {String} [options.dataDir] Optional Portal data directory override for hermetic index and SEO runs.
  * @param {String} [options.releasesPath] Optional custom `releases.json` path (test seam).
  * @param {String} [options.seoJsonPath] Target route-metadata JSON path (`apps/portal/resources/data/seo.json`).
  * @param {String} [options.sitemapPath] Target sitemap index path (`apps/portal/sitemap.xml`).
@@ -80,8 +81,9 @@ async function rebuildContentIndexesAndSeo({
     root                     = process.cwd(),
     releaseNotesRoot         = getEngineReleaseNotesRoot(root),
     baseUrl                  = DEFAULT_BASE_URL,
-    releasesPath,
-    seoJsonPath              = path.join(root, 'apps/portal/resources/data/seo.json'),
+    dataDir,
+    releasesPath             = dataDir ? path.join(dataDir, 'releases.json') : undefined,
+    seoJsonPath              = path.join(dataDir || path.join(root, 'apps/portal/resources/data'), 'seo.json'),
     sitemapPath              = path.join(root, 'apps/portal/sitemap.xml'),
     sitemapCorePath          = path.join(path.dirname(sitemapPath), 'sitemap-core.xml'),
     sitemapArchivePath       = path.join(path.dirname(sitemapPath), 'sitemap-archive.xml'),
@@ -119,9 +121,25 @@ async function rebuildContentIndexesAndSeo({
     // also keeps the engine's build pipeline free of `ai/**` imports, which the
     // `check-engine-brain-boundary` guard enforces.
     await createReleaseIndexFn(releasesPath ? {outputFile: releasesPath, releaseNotesRoot} : {releaseNotesRoot});
-    await createPullRequestIndexFn({corpusRoot});
-    await createDiscussionIndexFn({corpusRoot});
-    await createTicketIndexFn({corpusRoot});
+    await createPullRequestIndexFn(dataDir ? {
+        chunkedOutputFile: path.join(dataDir, 'pulls/index.json'),
+        corpusRoot,
+        dataDir,
+        manifestFile     : path.join(dataDir, 'pulls/manifest.json'),
+        outputDir        : path.join(dataDir, 'pulls')
+    } : {corpusRoot});
+    await createDiscussionIndexFn(dataDir ? {
+        corpusRoot,
+        outputDir : path.join(dataDir, 'discussions'),
+        outputFile: path.join(dataDir, 'discussions.json')
+    } : {corpusRoot});
+    await createTicketIndexFn(dataDir ? {
+        chunkedOutputFile: path.join(dataDir, 'tickets/index.json'),
+        corpusRoot,
+        dataDir,
+        manifestFile     : path.join(dataDir, 'tickets/manifest.json'),
+        outputDir        : path.join(dataDir, 'tickets')
+    } : {corpusRoot});
 
     const seoJson = await getSeoJsonFn({
         releaseNotesRoot,
