@@ -1,2 +1,2 @@
-# Git keeps the pointer in AGENTS.md; the working copy holds the generated rules (buildScripts/util/agentsMdPointer.mjs).
+# Git keeps the pointer in AGENTS.md; the working copy holds the generated rules (neo-agent-skills-agents-md --pointer).
 /AGENTS.md filter=neo-agents-md
