@@ -69,7 +69,7 @@ class VdomLifecycle extends Base {
          */
         mounted_: false,
         /**
-         * Internal flag which will get set to true in case an update call arrives while another update is running
+         * Internal flag set to true while a component has a pending or deferred VDOM update
          * @member {Boolean} needsVdomUpdate_=false
          * @protected
          * @reactive
@@ -405,7 +405,8 @@ class VdomLifecycle extends Base {
             }
 
             // Absorbing a payload must not retire the scope that owns late writes and callbacks.
-            const protectedRoots = Object.keys(updates);
+            const emittedRoots   = Object.keys(updates),
+                  protectedRoots = [...emittedRoots];
             if (absorbedScopes) {
                 for (const id of absorbedScopes) protectedRoots.push(id)
             }
@@ -460,24 +461,30 @@ class VdomLifecycle extends Base {
              * This is useful for telemetry (e.g., Performance tracking) as it excludes the synchronous
              * queue wait time of the App worker and strictly measures the cross-thread roundtrip.
              */
-            me.beforeExecuteVdomUpdate?.();
+            for (const id of emittedRoots) {
+                inFlightScopes.get(id)?.beforeExecuteVdomUpdate?.()
+            }
 
             const response = await Promise.resolve(Neo.vdom.Helper.updateBatch(batchData));
-
-            /**
-             * Optional hook that fires immediately after the VDOM update resolves.
-             * Because of internal promise chaining (promiseForwardMessage), this hook fires *after*
-             * the Main Thread has painted the resulting DOM deltas.
-             */
-            me.afterExecuteVdomUpdate?.();
 
             if (me.isDestroyed) throw Neo.isDestroyed;
 
             discardReplacedScopes();
 
-            for (const id of Object.keys(updates)) {
+            for (const id of emittedRoots) {
                 if (inFlightScopes.has(id) && !Object.hasOwn(response.vnodes, id)) {
                     throw new Error('VDOM batch reply omitted an emitted root')
+                }
+            }
+
+            /**
+             * Optional hook invoked for each live emitted root after Main Thread DOM delta paint,
+             * initiator/replaced-scope destruction checks, and reply-completeness validation.
+             */
+            for (const id of emittedRoots) {
+                const root = inFlightScopes.get(id);
+                if (root && !root.isDestroyed) {
+                    root.afterExecuteVdomUpdate?.()
                 }
             }
 
@@ -1324,7 +1331,7 @@ class VdomLifecycle extends Base {
     }
 
     /**
-     * @summary Keeps late requests on an active root, otherwise merges or starts the component's next render.
+     * @summary Flags pending updates when busy, merged, or deferred; otherwise starts the component's next render.
      * Gets called after the vdom config gets changed in case the component is already mounted (delta updates).
      * @param {function} [resolve] used by promiseUpdate()
      * @param {function} [reject] used by promiseUpdate()
@@ -1391,36 +1398,38 @@ class VdomLifecycle extends Base {
             }
             else if (!vnode) {
                 // Every engine path that drops a vnode unmounts in the same step: this state is a breach to report
-                if (!me.isParentUpdating(parentId, resolve) && !me.isChildUpdating(resolve)) {
+                if (me.isParentUpdating(parentId, resolve) || me.isChildUpdating(resolve)) {
+                    me.needsVdomUpdate = true
+                } else {
                     console.error(`vdom update parked: "${me.id}" is mounted without a vnode, a state the engine should not leave. Nothing renders it from here, so this update and its promiseUpdate() wait for a render that reaches it. See https://github.com/neomjs/neo/issues/20043`)
                 }
             }
+            else if (me.isParentUpdating(parentId, resolve) || me.isChildUpdating(resolve)) {
+                me.needsVdomUpdate = true
+            }
             else {
-                if (
-                    !me.isParentUpdating(parentId, resolve)
-                    && !me.isChildUpdating(resolve)
-                ) {
-                    // Check for merged child updates and adjust the update depth accordingly
-                    // let adjustedDepth = VDomUpdate.getAdjustedUpdateDepth(me.id);
-                    //
-                    // if (adjustedDepth !== null) {
-                    //     me.updateDepth = adjustedDepth;
-                    // }
+                // Check for merged child updates and adjust the update depth accordingly
+                // let adjustedDepth = VDomUpdate.getAdjustedUpdateDepth(me.id);
+                //
+                // if (adjustedDepth !== null) {
+                //     me.updateDepth = adjustedDepth;
+                // }
 
-                    // Verify that the critical rendering path => CSS files for the new tree is in place.
-                    // Call-time `Neo.currentWorker` resolution, one read per invocation — the
-                    // initVnode deferral gate documents the import-order mechanism.
-                    const worker = Neo.currentWorker;
+                // Verify that the critical rendering path => CSS files for the new tree is in place.
+                // Call-time `Neo.currentWorker` resolution, one read per invocation — the
+                // initVnode deferral gate documents the import-order mechanism.
+                const worker = Neo.currentWorker;
 
-                    if (!config.isMiddleware && !config.unitTestMode && worker.countLoadingThemeFiles !== 0) {
-                        worker.on('themeFilesLoaded', function() {
-                            me.updateVdom(resolve, reject)
-                        }, me, {once: true})
-                    } else {
-                        // The {resolve, reject} pair is already parked under me.id above; the catch
-                        // settles it via VDomUpdate.rejectCallbacks, so no reject param is threaded here.
-                        me.executeVdomUpdate()
-                    }
+                if (!config.isMiddleware && !config.unitTestMode && worker.countLoadingThemeFiles !== 0) {
+                    me.needsVdomUpdate = true;
+
+                    worker.on('themeFilesLoaded', function() {
+                        me.updateVdom(resolve, reject)
+                    }, me, {once: true})
+                } else {
+                    // The {resolve, reject} pair is already parked under me.id above; the catch
+                    // settles it via VDomUpdate.rejectCallbacks, so no reject param is threaded here.
+                    me.executeVdomUpdate()
                 }
             }
         }

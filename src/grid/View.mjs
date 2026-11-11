@@ -352,11 +352,17 @@ class View extends Base {
     }
 
     /**
-     * Triggered after an update of this view landed in the DOM. Content-sized rows measure what it rendered.
+     * @summary Schedules a content-sized row measurement pass after this view, or a covering ancestor, renders into the DOM.
+     *
+     * Runs for both view-owned updates and structural ancestor updates (`updateDepth: -1`, e.g. `ariaWrapper`
+     * after a yielded sort) whose full-tree payload absorbs this view and its bodies without emitting `View`
+     * as a standalone root. Initial mount (`deltas === null`) is skipped.
+     * @param {Object[]|null} deltas
      * @protected
      */
-    afterExecuteVdomUpdate() {
-        this.rowGeometry && this.scheduleRowMeasure()
+    afterVnodeSync(deltas) {
+        super.afterVnodeSync(deltas);
+        deltas && this.rowGeometry && this.scheduleRowMeasure()
     }
 
     /**
