@@ -6,10 +6,10 @@
     "image"       : "json-ld-xss-json-stringify-in-a-script-tag/one-element-three-nodes.png",
     "name"        : "JSON.stringify is not safe inside a script tag: the JSON-LD XSS and its one-line fix",
     "provider"    : "Medium",
-    "publisher"   : "",
+    "publisher"   : "ITNEXT",
     "selectedInto": [],
     "type"        : "Blog Post",
-    "url"         : "https://tobiasuhlig.medium.com/json-stringify-is-not-safe-inside-a-script-tag-the-json-ld-xss-and-its-one-line-fix-3a4f6e3302b2?source=friends_link&sk=14368539c4f7e23f3c8f5cdac4b2d357"
+    "url"         : "https://itnext.io/json-stringify-is-not-safe-inside-a-script-tag-the-json-ld-xss-and-its-one-line-fix-3a4f6e3302b2?source=friends_link&sk=14368539c4f7e23f3c8f5cdac4b2d357"
 }, {
     "author"      : "Tobias Uhlig",
     "authorImage" : "author_TobiasUhlig.jpeg",
