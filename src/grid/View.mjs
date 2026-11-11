@@ -272,6 +272,16 @@ class View extends Base {
      * @member {Promise|null} #aheadFlight=null
      */
     #aheadFlight = null
+    /**
+     * Bodies whose silent mutations were collected into the active View payload, cleared once {@link #afterVnodeSync} lands.
+     * @member {Set<Neo.grid.Body>|null} #inFlightSilentBodies=null
+     */
+    #inFlightSilentBodies = null
+    /**
+     * Bodies whose {@link Neo.grid.Body#hasSilentVdomChanges} latch {@link #syncBodies} claimed for the next payload collection.
+     * @member {Set<Neo.grid.Body>} #pendingSilentBodies
+     */
+    #pendingSilentBodies = new Set()
 
     /**
      * The active bodies in visual order (`bodyStart`, `body`, `bodyEnd`) — the render/event delegates
@@ -362,6 +372,7 @@ class View extends Base {
      */
     afterVnodeSync(deltas) {
         super.afterVnodeSync(deltas);
+        this.#inFlightSilentBodies = null;
         deltas && this.rowGeometry && this.scheduleRowMeasure()
     }
 
@@ -909,6 +920,57 @@ class View extends Base {
      */
     getRecordId(record) {
         return this.gridContainer?.body?.getRecordId(record)
+    }
+
+    /**
+     * @summary Restores {@link Neo.grid.Body#hasSilentVdomChanges} when a View flight fails before {@link #afterVnodeSync}.
+     * @override
+     */
+    async executeVdomUpdate() {
+        let me = this;
+
+        await super.executeVdomUpdate();
+
+        if (!me.isDestroyed && (me.#inFlightSilentBodies || (!me.isVdomUpdating && !me.needsVdomUpdate && me.#pendingSilentBodies.size > 0))) {
+            let unlanded = me.#inFlightSilentBodies;
+
+            me.#inFlightSilentBodies = null;
+
+            if ((me.isVdomUpdating || me.needsVdomUpdate) && (me.updateDepth === -1 || me.denseUpdate)) {
+                unlanded?.forEach(body => !body.isDestroyed && me.#pendingSilentBodies.add(body))
+            } else {
+                unlanded?.forEach(body => {
+                    if (!body.isDestroyed) {
+                        body.hasSilentVdomChanges = true
+                    }
+                });
+                me.#pendingSilentBodies.forEach(body => {
+                    if (!body.isDestroyed) {
+                        body.hasSilentVdomChanges = true
+                    }
+                });
+                me.#pendingSilentBodies.clear()
+            }
+        }
+    }
+
+    /**
+     * @summary Transfers {@link #pendingSilentBodies} into {@link #inFlightSilentBodies} when collecting a dense or full payload.
+     * @override
+     * @param {Set<String>|null} mergedChildIds
+     * @param {Number} [depth]
+     * @param {Set<String>|null} [boundaryIds=null]
+     * @returns {Object}
+     */
+    getVdomUpdatePayload(mergedChildIds, depth, boundaryIds=null) {
+        let me = this;
+
+        if (me.#pendingSilentBodies.size > 0 && ((depth ?? me.updateDepth) === -1 || me.denseUpdate)) {
+            me.#inFlightSilentBodies = new Set(me.#pendingSilentBodies);
+            me.#pendingSilentBodies.clear()
+        }
+
+        return super.getVdomUpdatePayload(mergedChildIds, depth, boundaryIds)
     }
 
     /**
@@ -1583,12 +1645,24 @@ class View extends Base {
 
         me.scrollTop = scrollTop;
 
+        if (me.#inFlightSilentBodies && !me.isVdomUpdating && !me.isParentUpdating(me.parentId)) {
+            me.#inFlightSilentBodies.forEach(item => {
+                if (!item.isDestroyed) {
+                    item.hasSilentVdomChanges = true
+                }
+            });
+            me.#inFlightSilentBodies = null
+        }
+
         if (!force && me.#scrollCorrection === 0 && !bodies.some(item => item.hasSilentVdomChanges)) {
             return
         }
 
         for (const item of bodies) {
-            item.hasSilentVdomChanges = false
+            if (item.hasSilentVdomChanges) {
+                item.hasSilentVdomChanges = false;
+                me.#pendingSilentBodies.add(item)
+            }
         }
 
         // The scroll repaints a row's subtree as one silent transaction, so the depth has to reach the

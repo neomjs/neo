@@ -368,5 +368,127 @@ test.describe('grid.View#syncBodies zero-delta flight suppression', () => {
         } finally {
             VdomHelper.updateBatch = originalUpdateBatch
         }
+    });
+
+    test('restores hasSilentVdomChanges after a rejected View flight so the next in-buffer tick repaints before scroll end', async () => {
+        store = createStore(100);
+        grid  = Neo.create(GridContainer, {
+            appName  : 'GridSyncBodiesZeroDeltaTest',
+            body     : {bufferRowRange: 3},
+            height   : 400,
+            rowHeight: 40,
+            store,
+            width    : 600,
+            columns  : [
+                {dataField: 'id',   text: 'ID',   width: 100},
+                {dataField: 'name', text: 'Name', width: 200}
+            ]
+        });
+
+        await grid.initVnode();
+        grid.mounted = true;
+
+        await grid.headerToolbar.passSizeToBody();
+        grid.body.set({availableHeight: 360, containerWidth: 600});
+        await grid.timeout(50);
+        await settleView(grid);
+
+        const {body, scrollManager, view} = grid,
+              originalUpdateBatch         = VdomHelper.updateBatch,
+              originalConsoleError        = console.error,
+              batches                     = [],
+              scroll                      = scrollTop => scrollManager.onContainerScroll({
+                  scrollLeft: 0,
+                  scrollTop,
+                  target    : {id: view.id, scrollTop}
+              });
+        let rejectNext = false;
+
+        scrollManager.rowHoverSync = false;
+        console.error              = () => {};
+
+        VdomHelper.updateBatch = async function(data) {
+            const ids = Object.keys(data.updates);
+
+            if (rejectNext && ids.includes(view.id)) {
+                rejectNext = false;
+                batches.push('view-REJECTED');
+                throw new Error('simulated rejected scroll flight')
+            }
+
+            ids.includes(view.id) && batches.push('view');
+            return originalUpdateBatch.call(this, data)
+        };
+
+        try {
+            // 1. Start scroll inside initial buffer (flushes neo-is-scrolling)
+            scroll(20);
+            await settleView(grid);
+            expect(staleRows(body)).toEqual([]);
+            expect(batches).toEqual(['view']);
+
+            // 2. Cross buffer at scrollTop 240 and reject that flight
+            rejectNext = true;
+            scroll(240);
+            await settleView(grid);
+            expect(staleRows(body)).toHaveLength(3);
+            expect(body.hasSilentVdomChanges).toBe(true);
+            expect(batches).toEqual(['view', 'view-REJECTED']);
+
+            // 3. First tick inside the new buffer flies immediately and heals stale rows before scroll end
+            scroll(250);
+            await settleView(grid);
+            expect(body.isScrolling).toBe(true);
+            expect(staleRows(body)).toEqual([]);
+            expect(body.hasSilentVdomChanges).toBe(false);
+            expect(batches).toEqual(['view', 'view-REJECTED', 'view']);
+
+            // 4. Subsequent in-buffer ticks resume zero-delta flight suppression
+            scroll(260);
+            await grid.timeout(16);
+            scroll(270);
+            await grid.timeout(16);
+            expect(body.isScrolling).toBe(true);
+            expect(staleRows(body)).toEqual([]);
+            expect(batches).toEqual(['view', 'view-REJECTED', 'view']);
+
+            // 5. Queued-flight rejection: Flight 1 lands while Flight 2 is queued, Flight 2 rejects, next tick heals
+            let viewFlightIndex = 0;
+
+            VdomHelper.updateBatch = async function(data) {
+                const ids   = Object.keys(data.updates),
+                      index = ids.includes(view.id) ? ++viewFlightIndex : 0;
+
+                await new Promise(resolve => setTimeout(resolve, 20));
+
+                if (index === 2) {
+                    batches.push('view-REJECTED');
+                    throw new Error('simulated rejected queued scroll flight')
+                }
+
+                index > 0 && batches.push('view');
+                return originalUpdateBatch.call(this, data)
+            };
+
+            batches.length = 0;
+            scroll(480);
+            await grid.timeout(5);
+            expect(view.isVdomUpdating).toBe(true);
+
+            scroll(640);
+            await settleView(grid);
+            expect(batches).toEqual(['view', 'view-REJECTED']);
+            expect(staleRows(body).length).toBeGreaterThan(0);
+            expect(body.hasSilentVdomChanges).toBe(true);
+
+            scroll(650);
+            await settleView(grid);
+            expect(body.isScrolling).toBe(true);
+            expect(staleRows(body)).toEqual([]);
+            expect(batches).toEqual(['view', 'view-REJECTED', 'view'])
+        } finally {
+            VdomHelper.updateBatch = originalUpdateBatch;
+            console.error          = originalConsoleError
+        }
     })
 });

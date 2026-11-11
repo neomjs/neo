@@ -309,7 +309,13 @@ class GridBody extends Component {
      */
     #scrollEdgeAnnouncedFor = null
     /**
-     * @summary Latches silent VDOM mutations until {@link Neo.grid.View#syncBodies} or a full body update flushes them.
+     * @summary Tracks silent VDOM mutations collected into an in-flight body payload until {@link #afterVnodeSync} lands.
+     * @member {Boolean} #inFlightSilentVdomChanges=false
+     */
+    #inFlightSilentVdomChanges = false
+    /**
+     * @summary Latches silent VDOM mutations until a landed {@link Neo.grid.View#syncBodies} or full body update
+     * flushes them, restoring the latch if the flight rejects.
      * @member {Boolean} hasSilentVdomChanges=false
      * @protected
      */
@@ -961,8 +967,7 @@ class GridBody extends Component {
         }
 
         if (!silent) {
-            me.hasSilentVdomChanges = false;
-            me.updateDepth          = -1;
+            me.updateDepth = -1;
             me.update()
         }
     }
@@ -1329,8 +1334,7 @@ class GridBody extends Component {
             if (silent) {
                 me.hasSilentVdomChanges = true
             } else {
-                me.hasSilentVdomChanges = false;
-                me.updateDepth          = -1;
+                me.updateDepth = -1;
                 me.update()
             }
         }
@@ -1408,7 +1412,34 @@ class GridBody extends Component {
     }
 
     /**
-     * @summary Clears {@link #hasSilentVdomChanges} when this body collects a full or dense payload.
+     * @summary Clears {@link #inFlightSilentVdomChanges} once a vnode tree lands (and initial mount's pre-mount writes).
+     * @override
+     * @param {Object[]|null} deltas
+     * @protected
+     */
+    afterVnodeSync(deltas) {
+        super.afterVnodeSync(deltas);
+        this.#inFlightSilentVdomChanges = false;
+        deltas === null && (this.hasSilentVdomChanges = false)
+    }
+
+    /**
+     * @summary Restores {@link #hasSilentVdomChanges} when a standalone full or dense body flight fails to land.
+     * @override
+     */
+    async executeVdomUpdate() {
+        let me = this;
+
+        await super.executeVdomUpdate();
+
+        if (!me.isDestroyed && me.#inFlightSilentVdomChanges) {
+            me.#inFlightSilentVdomChanges = false;
+            me.hasSilentVdomChanges       = true
+        }
+    }
+
+    /**
+     * @summary Claims {@link #hasSilentVdomChanges} into {@link #inFlightSilentVdomChanges} on full or dense collection.
      * @override
      * @param {Set<String>|null} mergedChildIds
      * @param {Number} [depth]
@@ -1416,8 +1447,11 @@ class GridBody extends Component {
      * @returns {Object}
      */
     getVdomUpdatePayload(mergedChildIds, depth, boundaryIds=null) {
-        if ((depth ?? this.updateDepth) === -1 || this.denseUpdate) {
-            this.hasSilentVdomChanges = false
+        let me = this;
+
+        if (((depth ?? me.updateDepth) === -1 || me.denseUpdate) && me.hasSilentVdomChanges) {
+            me.#inFlightSilentVdomChanges = true;
+            me.hasSilentVdomChanges       = false
         }
 
         return super.getVdomUpdatePayload(mergedChildIds, depth, boundaryIds)
