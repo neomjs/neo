@@ -133,7 +133,8 @@ class DocumentOrderDom {
 /**
  * @summary Verifies pre-collection merge coalescing, post-yield parent adoption, deferred `preUpdate` draining
  * (including silent `updateDepth` escalation and error rejection), absorbed merged-callback settlement,
- * mid-flight incoming reparent unmount protection, and clean batch-rejection state in `VdomLifecycle`.
+ * ancestor collision walks past non-colliding intermediate scopes, mid-flight incoming reparent unmount
+ * protection, and clean batch-rejection state in `VdomLifecycle`.
  */
 test.describe('Neo.mixin.VdomLifecycle cross-container move flight races', () => {
     const origApplyDeltas = Neo.applyDeltas,
@@ -487,5 +488,99 @@ test.describe('Neo.mixin.VdomLifecycle cross-container move flight races', () =>
         } finally {
             console.error = origError
         }
+    });
+
+    test('isParentUpdating walks past a depth-1 intermediate scope to detect a colliding covering ancestor in flight', async () => {
+        const {host, target} = await createHierarchy(),
+              group          = host.items[1],
+              entry          = target.items[0],
+              addedSpanId    = uid('added-span');
+
+        // Settle one cycle on target so its post-mount updateDepth resets to 1, matching an active scroll container
+        target.vdom.cls = ['settled-once'];
+        await target.promiseUpdate();
+        expect(target.updateDepth).toBe(1);
+
+        const timeoutGate       = [];
+        let   interceptTimeouts = true;
+        Base.prototype.timeout = function(ms) {
+            if (interceptTimeouts && ms === 1) {
+                return new Promise(resolve => {
+                    timeoutGate.push({id: this.id, resolve})
+                })
+            }
+            return origTimeout.call(this, ms)
+        };
+
+        let groupFlightEnteredResolve,
+            releaseGroupFlight,
+            holdFirstGroupBatch = true,
+            batchCount          = 0;
+        const groupFlightEntered = new Promise(resolve => {groupFlightEnteredResolve = resolve}),
+              groupFlightHeld    = new Promise(resolve => {releaseGroupFlight = resolve}),
+              recordedDeltas     = [];
+
+        VdomHelper.updateBatch = async function(data) {
+            batchCount++;
+            const res = await origUpdateBatch.call(this, data);
+            recordedDeltas.push(...res.deltas);
+
+            if (holdFirstGroupBatch && Object.hasOwn(data.updates, group.id)) {
+                holdFirstGroupBatch = false;
+                groupFlightEnteredResolve();
+                await groupFlightHeld
+            }
+
+            return res
+        };
+
+        // 1. Intermediate parent starts a depth-1 cycle and absorbs a grandchild update before collection
+        target.vdom.cls = ['target-scrolling'];
+        const targetFlight = target.promiseUpdate();
+
+        entry.vdom.cn.push({tag: 'span', id: addedSpanId, cls: ['active'], text: 'step-1'});
+        entry.updateDepth = -1;
+        const entryStep1 = entry.promiseUpdate();
+
+        expect(VDomUpdate.mergedCallbackMap.get(target.id)?.children.has(entry.id)).toBe(true);
+
+        // 2. Covering ancestor queues a full-depth dense render; waking target yields into group
+        group.vdom.cls    = ['group', 'synced'];
+        group.updateDepth = -1;
+        group.denseUpdate = true;
+        const groupFlight = group.promiseUpdate();
+
+        timeoutGate[0].resolve();
+        await flushMicrotasks();
+
+        expect(timeoutGate.map(item => item.id)).toEqual([target.id, group.id]);
+
+        // 3. Dispatch group's covering batch and hold it in flight: target is registered in flight at depth 1
+        interceptTimeouts = false;
+        timeoutGate[1].resolve();
+        await groupFlightEntered;
+
+        expect(VDomUpdate.getInFlightUpdateDepth(target.id)).toBe(1);
+        expect(VDomUpdate.getInFlightUpdateDepth(group.id)).toBe(-1);
+        expect(entry.isVdomUpdating).toBe(false);
+
+        // 4. Grandchild updates again while group's batch is still in flight; it must defer to group, not race
+        entry.vdom.cn[1].cls = [];
+        entry.updateDepth    = -1;
+        const entryStep2 = entry.promiseUpdate();
+
+        await origTimeout.call(entry, 10);
+
+        expect(batchCount).toBe(1);
+        expect(VDomUpdate.postUpdateQueueMap.get(group.id)?.children.some(c => c.childId === entry.id)).toBe(true);
+
+        releaseGroupFlight();
+        await Promise.all([groupFlight, targetFlight, entryStep1, entryStep2]);
+
+        expect(batchCount).toBe(2);
+        expect(recordedDeltas.filter(d => d.action === 'insertNode' && d.vnode?.id === addedSpanId)).toHaveLength(1);
+        expect(recordedDeltas.filter(d => d.id === addedSpanId && d.cls?.remove?.includes('active'))).toHaveLength(1);
+        expect(dom.countById(addedSpanId)).toBe(1);
+        expect(entry.vnode.childNodes[1].className).toEqual([])
     });
 });

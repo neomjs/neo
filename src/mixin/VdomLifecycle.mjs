@@ -999,9 +999,9 @@ class VdomLifecycle extends Base {
     }
 
     /**
-     * Checks for vdom updates inside the parent chain and if found.
-     * Registers the component for a vdom update once done.
-     * @param {String} parentId=this.parentId
+     * @summary Traverses the full ancestor chain for colliding in-flight VDOM updates, continuing past non-colliding
+     * intermediate scopes so covering higher ancestors still defer this update via `postUpdateQueueMap`.
+     * @param {String|null} parentId=this.parentId
      * @param {Function} [resolve] Gets passed by updateVdom()
      * @param {Number} distance=1 Distance inside the component tree
      * @returns {Boolean}
@@ -1024,9 +1024,6 @@ class VdomLifecycle extends Base {
                         VDomUpdate.registerPostUpdate(parent.id, me.id, resolve);
                         return true
                     }
-
-                    // If an update is running and does not have a collision, we do not need to check further parents
-                    return false
                 }
 
                 // null, not undefined: an undefined argument takes the default and restarts the walk from this component
