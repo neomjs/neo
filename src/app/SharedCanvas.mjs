@@ -16,6 +16,10 @@ import Canvas from '../component/Canvas.mjs';
  * 5.  **Visibility**: Pausing the render loop while the host's window is hidden. A hidden window and the host's own
  *     `pause()` are separate reasons, and the loop runs only while neither holds.
  *
+ * Every call the host makes to its renderer carries `canvasId` beside `windowId`. The window routes the call to its
+ * canvas worker; the canvas lets one renderer class serve several hosts by keeping its state per canvas. A renderer
+ * that keeps one canvas, like `Neo.canvas.Base`, ignores `canvasId`.
+ *
  * Subclasses must define:
  * - `rendererClassName`: String name of the SharedWorker singleton (e.g. 'Neo.canvas.Header')
  * - `rendererImportPath`: Import path for the renderer module (e.g. 'src/canvas/Header.mjs')
@@ -79,7 +83,8 @@ class SharedCanvas extends Canvas {
      */
     rendererAdmitted = false
     /**
-     * The renderer and window whose graph this host started; clearing claims ownership before awaiting remote work.
+     * The renderer, canvas and window whose graph this host started; clearing claims ownership before awaiting remote
+     * work.
      * @member {Object|null} rendererGraph=null
      * @protected
      */
@@ -98,8 +103,8 @@ class SharedCanvas extends Canvas {
         let me = this;
 
         if (value) {
-            me.renderer?.setTheme({theme: me.resolveColorScheme(), windowId: me.windowId});
-            (me.hostPaused || me.windowHidden) && me.renderer?.pause({windowId: me.windowId});
+            me.renderer?.setTheme({canvasId: me.getCanvasId(), theme: me.resolveColorScheme(), windowId: me.windowId});
+            (me.hostPaused || me.windowHidden) && me.renderer?.pause({canvasId: me.getCanvasId(), windowId: me.windowId});
             me.fire('canvasReady')
         }
     }
@@ -150,10 +155,10 @@ class SharedCanvas extends Canvas {
                 throw new Error('Canvas component missing rendererClassName config')
             }
 
-            const graph = {renderer: me.renderer, windowId: me.windowId};
+            const graph = {canvasId: me.getCanvasId(), renderer: me.renderer, windowId: me.windowId};
 
             me.rendererGraph = graph;
-            await graph.renderer.initGraph({canvasId: me.getCanvasId(), windowId: graph.windowId});
+            await graph.renderer.initGraph({canvasId: graph.canvasId, windowId: graph.windowId});
 
             if (me.isDestroyed || me.rendererGraph !== graph || me.windowId !== graph.windowId) return;
 
@@ -173,7 +178,7 @@ class SharedCanvas extends Canvas {
         super.afterSetTheme(value, oldValue);
 
         if (this.isCanvasReady) {
-            this.renderer.setTheme({theme: this.resolveColorScheme(), windowId: this.windowId})
+            this.renderer.setTheme({canvasId: this.getCanvasId(), theme: this.resolveColorScheme(), windowId: this.windowId})
         }
     }
 
@@ -240,7 +245,7 @@ class SharedCanvas extends Canvas {
     }
 
     /**
-     * @summary Releases only the graph this host started, once, using its original renderer and window.
+     * @summary Releases only the graph this host started, once, using its original renderer, canvas and window.
      * @returns {Promise<void>}
      * @protected
      */
@@ -253,7 +258,7 @@ class SharedCanvas extends Canvas {
         me.isCanvasReady = false;
 
         try {
-            await graph.renderer.clearGraph({windowId: graph.windowId})
+            await graph.renderer.clearGraph({canvasId: graph.canvasId, windowId: graph.windowId})
         } catch (error) {
             if (error !== Neo.isDestroyed && !Neo.currentWorker.isDeparture(error, graph.windowId)) {
                 console.error('Neo.app.SharedCanvas: renderer cleanup failed', error)
@@ -395,7 +400,7 @@ class SharedCanvas extends Canvas {
                 }
             }
 
-            me.renderer.updateMouseState({...facts, ...extra, windowId: me.windowId})
+            me.renderer.updateMouseState({...facts, ...extra, canvasId: me.getCanvasId(), windowId: me.windowId})
         }
     }
 
@@ -430,7 +435,7 @@ class SharedCanvas extends Canvas {
      */
     onMouseLeave(data) {
         if (this.isCanvasReady) {
-            this.renderer.updateMouseState({leave: true, windowId: this.windowId})
+            this.renderer.updateMouseState({canvasId: this.getCanvasId(), leave: true, windowId: this.windowId})
         }
     }
 
@@ -514,7 +519,7 @@ class SharedCanvas extends Canvas {
         let me = this;
 
         if (me.isCanvasReady) {
-            me.renderer[me.hostPaused || me.windowHidden ? 'pause' : 'resume']({windowId: me.windowId})
+            me.renderer[me.hostPaused || me.windowHidden ? 'pause' : 'resume']({canvasId: me.getCanvasId(), windowId: me.windowId})
         }
     }
 
@@ -538,6 +543,7 @@ class SharedCanvas extends Canvas {
         if (rect) {
             me.canvasRect = pointerRect;
             me.offscreenRegistered && await me.renderer?.updateSize({
+                canvasId        : me.getCanvasId(),
                 devicePixelRatio: Neo.config.devicePixelRatio || 1,
                 height          : rect.height,
                 width           : rect.width,

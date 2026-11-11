@@ -122,7 +122,7 @@ test.describe('Neo.canvas.Base — pointer reports become mouse state and hooks'
 
 test.describe('Neo.app.SharedCanvas — the forwarders', () => {
     /**
-     * The forwarders read four things from the host; a bare prototype instance carries exactly those, so no worker,
+     * The forwarders read five things from the host; a bare prototype instance carries exactly those, so no worker,
      * renderer module or DOM is needed.
      * @returns {{host: Object, reports: Object[]}}
      */
@@ -132,6 +132,7 @@ test.describe('Neo.app.SharedCanvas — the forwarders', () => {
 
         // Own data properties shadow the prototype's config accessors, which need a constructed instance.
         for (const [key, value] of Object.entries({
+            canvasId     : 'canvas-1',
             canvasRect   : {left: 100, top: 50},
             isCanvasReady: true,
             renderer     : {updateMouseState: report => reports.push(report)},
@@ -143,7 +144,8 @@ test.describe('Neo.app.SharedCanvas — the forwarders', () => {
         return {host, reports}
     };
 
-    const modifiers = {altKey: false, ctrlKey: true, metaKey: false, shiftKey: false};
+    const address   = {canvasId: 'canvas-1', windowId: 'window-1'},
+          modifiers = {altKey: false, ctrlKey: true, metaKey: false, shiftKey: false};
 
     test('resize keeps viewport pointer origin separate from content-box renderer dimensions', async () => {
         const {host, reports} = createHost(), sizes = [], events = [], originalDpr = Neo.config.devicePixelRatio;
@@ -168,8 +170,8 @@ test.describe('Neo.app.SharedCanvas — the forwarders', () => {
                 await host.onDomResize(data);
                 host.onClick({clientX: viewportRect.left + 30, clientY: viewportRect.top + 20, button: 0, buttons: 0, ...modifiers});
 
-                expect(reports.at(-1)).toEqual({windowId: 'window-1', x: 30, y: 20, button: 0, buttons: 0, click: true, ...modifiers});
-                expect(sizes.at(-1)).toEqual({windowId: 'window-1', width: 640, height: 320, devicePixelRatio: 2});
+                expect(reports.at(-1)).toEqual({...address, x: 30, y: 20, button: 0, buttons: 0, click: true, ...modifiers});
+                expect(sizes.at(-1)).toEqual({...address, width: 640, height: 320, devicePixelRatio: 2});
                 expect(host.canvasRect).toBe(viewportRect);
                 expect(events.at(-1)).toEqual(['resize', data]);
                 expect(contentRect).toEqual({left: inset, top: inset, width: 640, height: 320})
@@ -180,7 +182,7 @@ test.describe('Neo.app.SharedCanvas — the forwarders', () => {
             await host.updateSize();
             expect(reads, 'the initial no-argument path still measures the canvas').toBe(1);
             expect(host.canvasRect).toBe(viewportRect);
-            expect(sizes.at(-1)).toEqual({windowId: 'window-1', width: 660, height: 340, devicePixelRatio: 2})
+            expect(sizes.at(-1)).toEqual({...address, width: 660, height: 340, devicePixelRatio: 2})
         } finally {
             Neo.config.devicePixelRatio = originalDpr
         }
@@ -194,9 +196,9 @@ test.describe('Neo.app.SharedCanvas — the forwarders', () => {
         host.onMouseUp({clientX: 140, clientY: 75, button: 0, buttons: 0, ...modifiers});
 
         expect(reports).toEqual([
-            {windowId: 'window-1', x: 30, y: 20, button: 0, buttons: 1, down: true, ...modifiers},
-            {windowId: 'window-1', x: 40, y: 25, buttons: 1, ...modifiers},
-            {windowId: 'window-1', x: 40, y: 25, button: 0, buttons: 0, up: true, ...modifiers}
+            {...address, x: 30, y: 20, button: 0, buttons: 1, down: true, ...modifiers},
+            {...address, x: 40, y: 25, buttons: 1, ...modifiers},
+            {...address, x: 40, y: 25, button: 0, buttons: 0, up: true, ...modifiers}
         ])
     });
 
@@ -206,7 +208,7 @@ test.describe('Neo.app.SharedCanvas — the forwarders', () => {
         host.onWheel({clientX: 130, clientY: 70, deltaX: 0, deltaY: 120, deltaZ: 0, deltaMode: 0, buttons: 0, ...modifiers});
 
         expect(reports).toEqual([{
-            windowId: 'window-1', x: 30, y: 20, buttons: 0, wheel: {deltaX: 0, deltaY: 120, deltaZ: 0, deltaMode: 0}, ...modifiers
+            ...address, x: 30, y: 20, buttons: 0, wheel: {deltaX: 0, deltaY: 120, deltaZ: 0, deltaMode: 0}, ...modifiers
         }])
     });
 
@@ -217,7 +219,7 @@ test.describe('Neo.app.SharedCanvas — the forwarders', () => {
         host.onMouseLeave({});
 
         expect(reports[0]).toMatchObject({windowId: 'window-1', x: 30, y: 20, click: true});
-        expect(reports[1]).toEqual({leave: true, windowId: 'window-1'})
+        expect(reports[1]).toEqual({leave: true, ...address})
     });
 
     test('a report without a pointer position carries none, so the worker keeps its last one', () => {
@@ -225,7 +227,7 @@ test.describe('Neo.app.SharedCanvas — the forwarders', () => {
 
         host.onWheel({deltaX: 0, deltaY: 120, deltaZ: 0, deltaMode: 0});
 
-        expect(reports).toEqual([{windowId: 'window-1', wheel: {deltaX: 0, deltaY: 120, deltaZ: 0, deltaMode: 0}}]);
+        expect(reports).toEqual([{...address, wheel: {deltaX: 0, deltaY: 120, deltaZ: 0, deltaMode: 0}}]);
 
         const renderer = Neo.create(PointerRenderer);
 
