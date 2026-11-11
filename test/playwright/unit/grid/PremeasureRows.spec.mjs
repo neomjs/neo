@@ -143,6 +143,30 @@ test.describe('Grid hidden row premeasurement', () => {
         expect(scheduled, 'the landed parent render still owes a measurement pass').toBeGreaterThan(0)
     });
 
+    test('a covering ancestor update schedules measurement when it absorbs the view and body updates', async () => {
+        const {ariaWrapper, headerToolbar, view} = grid,
+              headerButton                       = headerToolbar.items[0],
+              origViewAfter                      = view.afterExecuteVdomUpdate;
+        let   scheduled = 0, viewUpdates = 0, bodyUpdates = 0;
+
+        view.scheduleRowMeasure     = () => {scheduled++};
+        view.afterExecuteVdomUpdate = function() {viewUpdates++; return origViewAfter?.apply(this, arguments)};
+        view.bodies.forEach(body => {body.afterExecuteVdomUpdate = () => {bodyUpdates++}});
+
+        const buttonFlight = headerButton.promiseUpdate();
+        ariaWrapper.updateDepth = -1;
+        const wrapperFlight = ariaWrapper.promiseUpdate();
+
+        expect(ariaWrapper.needsVdomUpdate).toBe(true);
+        expect(view.setRowHeights(new Map([[view.getRecordId(store.getAt(0)), 100]]))).toBe(true);
+
+        await Promise.all([buttonFlight, wrapperFlight, view.promiseUpdate()]);
+
+        expect(viewUpdates, 'ariaWrapper owns this update, so View is not an emitted root').toBe(0);
+        expect(bodyUpdates, 'ariaWrapper owns this update, so Body post-update hooks do not run').toBe(0);
+        expect(scheduled, 'the covering ancestor render still owes a measurement pass').toBeGreaterThan(0)
+    });
+
     test('the unseen-row estimate rounds the mean without rounding a known height or lowering the minimum', () => {
         const {view} = grid, id = view.getRecordId(store.getAt(0));
         view.setRowHeights(new Map([[id, 85.4]]), true);
