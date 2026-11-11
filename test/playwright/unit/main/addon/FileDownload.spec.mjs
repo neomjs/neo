@@ -14,7 +14,6 @@ const {default: FileDownload} = await import('../../../../../src/main/addon/File
 
 const
     originalDocument = globalThis.document,
-    originalSetTimeout = globalThis.setTimeout,
     originalCreateObjectURL = URL.createObjectURL,
     originalRevokeObjectURL = URL.revokeObjectURL,
     documentRef = {
@@ -34,28 +33,21 @@ const
         }
     },
     createdBlobs = [],
-    pendingCallbacks = [],
     revokedUrls = [];
 
 test.describe('Neo.main.addon.FileDownload#saveText', () => {
     test.beforeEach(() => {
         globalThis.document = documentRef;
-        globalThis.setTimeout = callback => {
-            pendingCallbacks.push(callback);
-            return 0
-        };
         URL.createObjectURL = blob => {
             createdBlobs.push(blob);
             return `blob:file-download-${createdBlobs.length}`
         };
         URL.revokeObjectURL = url => revokedUrls.push(url);
         createdBlobs.length = 0;
-        pendingCallbacks.length = 0;
         revokedUrls.length = 0
     });
 
     test.afterEach(() => {
-        globalThis.setTimeout = originalSetTimeout;
         URL.createObjectURL = originalCreateObjectURL;
         URL.revokeObjectURL = originalRevokeObjectURL
     });
@@ -79,8 +71,8 @@ test.describe('Neo.main.addon.FileDownload#saveText', () => {
         expect(blob).toBeInstanceOf(Blob);
         expect(blob.type).toBe('text/csv');
         expect(await blob.text()).toBe(content);
-        expect(pendingCallbacks).toHaveLength(1);
-        pendingCallbacks[0]();
+
+        await new Promise(resolve => globalThis.setTimeout(resolve, 0));
         expect(revokedUrls).toEqual(['blob:file-download-1'])
     });
 
@@ -92,16 +84,17 @@ test.describe('Neo.main.addon.FileDownload#saveText', () => {
                 fileName: 'archive.bin',
                 mimeType: 'application/octet-stream'
             }),
-            blob = createdBlobs[0],
-            bytes = new Uint8Array(await blob.arrayBuffer());
+            blob = createdBlobs[0];
 
         expect(result).toBe(true);
         expect(blob).toBeInstanceOf(Blob);
         expect(blob.type).toBe('application/octet-stream');
         expect(blob.size).toBe(content.byteLength);
+
+        const bytes = new Uint8Array(await blob.arrayBuffer());
         expect(Array.from(bytes)).toEqual(Array.from(content));
-        expect(pendingCallbacks).toHaveLength(1);
-        pendingCallbacks[0]();
+
+        await new Promise(resolve => globalThis.setTimeout(resolve, 0));
         expect(revokedUrls).toEqual(['blob:file-download-1'])
     });
 });
