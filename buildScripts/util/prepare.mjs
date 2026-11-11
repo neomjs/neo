@@ -1,9 +1,10 @@
-import {spawnSync}                              from 'node:child_process';
-import {existsSync, readFileSync, realpathSync} from 'node:fs';
-import path                                     from 'node:path';
-import process                                  from 'node:process';
-import {fileURLToPath}                          from 'node:url';
-import isEntryModule                            from './isEntryModule.mjs';
+import {spawnSync}                                                 from 'node:child_process';
+import {existsSync, readFileSync, realpathSync}                    from 'node:fs';
+import path                                                        from 'node:path';
+import process                                                     from 'node:process';
+import {fileURLToPath}                                             from 'node:url';
+import {AGENTS_MD_CLEAN_COMMAND, AGENTS_MD_FILTER, AGENTS_MD_PATH} from './agentsMdPointer.mjs';
+import isEntryModule                                               from './isEntryModule.mjs';
 
 const
     __filename = fileURLToPath(import.meta.url),
@@ -36,9 +37,10 @@ const
  *
  * The last stage writes `AGENTS.md`, the same kind of projection: the maintainer rules generated
  * from the installed skills package's sections, so a pin bump changes the rules a session loads
- * without anyone committing a file. It runs what the checkout's {@link AGENTS_MD_SCRIPT} script
- * declares, and `seat:start` runs it too ({@link runStage}): a Start whose lockfile is unchanged
- * installs nothing, and the file must still be there.
+ * without anyone committing a file. Git keeps a pointer in that file; the stage registers the clean
+ * filter that keeps it there ({@link registerAgentsMdFilter}). It runs what the checkout's
+ * {@link AGENTS_MD_SCRIPT} script declares, and `seat:start` runs it too ({@link runStage}): a Start
+ * whose lockfile is unchanged installs nothing, and the rules must still be there.
  */
 
 /**
@@ -85,15 +87,63 @@ export function agentsMdArgs(root=repoRoot) {
 }
 
 /**
+ * @summary Registers the clean filter that `.gitattributes` names for `AGENTS.md`, so the generated
+ * rules in the working copy read as the committed pointer and `git status` stays clean. A root that is
+ * not a git checkout has nothing to register.
+ * @param {Object} options
+ * @param {String} options.root
+ * @param {Function} options.spawnFn
+ * @returns {Number|null} The `git config` exit status, or `null` outside a checkout.
+ */
+export function registerAgentsMdFilter({root, spawnFn}) {
+    if (!existsSync(path.join(root, '.git'))) {
+        return null
+    }
+
+    const {status} = spawnFn('git', ['config', '--local', `filter.${AGENTS_MD_FILTER}.clean`, AGENTS_MD_CLEAN_COMMAND], {cwd: root, stdio: 'ignore'});
+
+    if (status !== 0) {
+        console.warn(`prepare: could not register the ${AGENTS_MD_FILTER} filter (git config exited ${status}); git will show AGENTS.md as changed`)
+    }
+
+    return status
+}
+
+/**
+ * @summary Records the regenerated `AGENTS.md` in git's stat cache. Git trusts a changed size
+ * without reading the file, so a new generation would show as modified until the index sees it
+ * through the clean filter. Stages nothing.
+ * @param {Object} options
+ * @param {String} options.root
+ * @param {Function} options.spawnFn
+ * @returns {Number|null} The `git update-index` exit status, or `null` outside a checkout.
+ */
+export function refreshAgentsMd({root, spawnFn}) {
+    if (!existsSync(path.join(root, '.git'))) {
+        return null
+    }
+
+    return spawnFn('git', ['update-index', '-q', '--refresh', '--', AGENTS_MD_PATH], {cwd: root, stdio: 'ignore'}).status
+}
+
+/**
  * @summary The lifecycle stages, in order. Each names the devDependency whose manifest declares
  * the bin it runs, so a failed stage reports which tool failed. `args` reads a stage's arguments
- * from the checkout; a `null` answer means the checkout does not declare the stage.
- * @type {{stage: String, packageName: String, binName: String, args?: Function}[]}
+ * from the checkout; a `null` answer means the checkout does not declare the stage. `before` runs
+ * ahead of a declared stage's bin, and `after` once it succeeded.
+ * @type {{stage: String, packageName: String, binName: String, args?: Function, before?: Function, after?: Function}[]}
  */
 const stages = [
     {stage: 'husky',       packageName: 'husky',            binName: 'husky'},
     {stage: 'materialize', packageName: 'neo-agent-skills', binName: 'neo-agent-skills-materialize'},
-    {stage: 'agents-md',   packageName: 'neo-agent-skills', binName: 'neo-agent-skills-agents-md', args: agentsMdArgs}
+    {
+        stage      : 'agents-md',
+        packageName: 'neo-agent-skills',
+        binName    : 'neo-agent-skills-agents-md',
+        args       : agentsMdArgs,
+        before     : registerAgentsMdFilter,
+        after      : refreshAgentsMd
+    }
 ];
 
 /**
@@ -185,15 +235,18 @@ export function runStage(name, {root=repoRoot, env=process.env, spawnFn=spawnSyn
         throw new Error(`prepare: no stage '${name}'`)
     }
 
-    const {stage, packageName, binName, args=() => []} = entry,
+    const {stage, packageName, binName, args=() => [], before, after} = entry,
           stageArgs = args(root);
 
     if (stageArgs === null) {
         return {skipped: 'not-declared', stage, status: 0}
     }
 
-    const bin    = resolvePackageBin(packageName, binName, root),
-          result = spawnFn(process.execPath, [bin, ...stageArgs], {cwd: root, env, stdio: 'inherit'});
+    const bin = resolvePackageBin(packageName, binName, root);
+
+    before?.({root, spawnFn});
+
+    const result = spawnFn(process.execPath, [bin, ...stageArgs], {cwd: root, env, stdio: 'inherit'});
 
     // A failure-to-LAUNCH is not a status: spawnSync signals it through `result.error` with
     // `status: null`, and with `stdio: 'inherit'` no child exists to print anything — so reading
@@ -203,6 +256,8 @@ export function runStage(name, {root=repoRoot, env=process.env, spawnFn=spawnSyn
     if (result.error) {
         throw new Error(`prepare: failed to launch '${path.basename(bin)}' (${result.error.code ?? result.error.message})`)
     }
+
+    result.status === 0 && after?.({root, spawnFn});
 
     return {skipped: null, stage, status: result.status ?? 1}
 }

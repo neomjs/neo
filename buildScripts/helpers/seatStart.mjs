@@ -10,8 +10,8 @@ import {runStage}                     from '../util/prepare.mjs';
  * A Fleet Start fast-forwards the seat's checkout, installs its dependencies and then runs the
  * repository's `seat:start` script, after every install outcome, including one that installed
  * nothing because the lockfile was unchanged. So `AGENTS.md` is regenerated here on every Start,
- * through the same `agents-md` stage `prepare` runs: a file that was deleted, or left behind by a
- * fast-forward that untracked it, is back before the harness launches.
+ * through the same `agents-md` stage `prepare` runs: a deleted file, or the committed pointer a
+ * fast-forward wrote back, holds the rules again before the harness launches.
  *
  * The fast-forward is also the "pull with peer scss changes" after which the operator workflow
  * calls for `build-themes`, and nothing else rebuilds the compiled CSS. This entry point runs the

@@ -8,10 +8,12 @@ import {
     AGENTS_MD_SCRIPT,
     agentsMdArgs,
     isDependencyBuild,
+    registerAgentsMdFilter,
     resolvePackageBin,
     runPrepare,
     runStage
 } from '../../../../buildScripts/util/prepare.mjs';
+import {AGENTS_MD_CLEAN_COMMAND, AGENTS_MD_FILTER} from '../../../../buildScripts/util/agentsMdPointer.mjs';
 
 const
     __filename      = fileURLToPath(import.meta.url),
@@ -131,11 +133,11 @@ test.describe('buildScripts/util/prepare — the portable prepare lifecycle', ()
 
         try {
             for (const initCwd of [repoRoot, link]) {
-                const {calls, spawnFn} = recordingSpawn([0, 0, 0]),
+                const {calls, spawnFn} = recordingSpawn([0, 0, 0, 0, 0]),
                       result           = runPrepare({env: {INIT_CWD: initCwd}, spawnFn});
 
                 expect(result).toEqual({skipped: null, stage: 'agents-md', status: 0});
-                expect(calls.length).toBe(3);
+                expect(calls.length).toBe(5);
             }
 
             expect(isDependencyBuild({env: {}, root: repoRoot})).toBe(false);
@@ -146,8 +148,8 @@ test.describe('buildScripts/util/prepare — the portable prepare lifecycle', ()
         }
     });
 
-    test('husky runs, then the skills materializer, then AGENTS.md with the arguments of this checkout\'s own script', () => {
-        const {calls, spawnFn} = recordingSpawn([0, 0, 0]),
+    test('husky runs, then the skills materializer, then the pointer filter and AGENTS.md with the arguments of this checkout\'s own script', () => {
+        const {calls, spawnFn} = recordingSpawn([0, 0, 0, 0, 0]),
               result           = runPrepare({env: {}, spawnFn}),
               script           = JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8')).scripts[AGENTS_MD_SCRIPT];
 
@@ -155,10 +157,32 @@ test.describe('buildScripts/util/prepare — the portable prepare lifecycle', ()
         expect(calls.map(call => call.args)).toEqual([
             [resolveHuskyBin(repoRoot)],
             [resolvePackageBin('neo-agent-skills', 'neo-agent-skills-materialize', repoRoot)],
+            // Registered before the generator writes, so git never sees the generated rules as a change
+            ['config', '--local', `filter.${AGENTS_MD_FILTER}.clean`, AGENTS_MD_CLEAN_COMMAND],
             // The repository set and the output path are the script's, word for word: one declaration
-            [resolvePackageBin('neo-agent-skills', 'neo-agent-skills-agents-md', repoRoot), ...script.split(/\s+/).slice(1)]
+            [resolvePackageBin('neo-agent-skills', 'neo-agent-skills-agents-md', repoRoot), ...script.split(/\s+/).slice(1)],
+            // A new generation can change the size, which git trusts without reading the file
+            ['update-index', '-q', '--refresh', '--', 'AGENTS.md']
         ]);
-        expect(calls[2].opts.cwd).toBe(repoRoot);
+        expect([calls[2].file, calls[4].file]).toEqual(['git', 'git']);
+        expect(calls[3].opts.cwd).toBe(repoRoot);
+    });
+
+    test('the pointer filter is registered only in a git checkout', () => {
+        const {calls, spawnFn} = recordingSpawn([0]),
+              plain            = fs.mkdtempSync(path.join(os.tmpdir(), 'prepare-spec-')),
+              checkout         = fs.mkdtempSync(path.join(os.tmpdir(), 'prepare-spec-'));
+
+        fs.mkdirSync(path.join(checkout, '.git'));
+
+        try {
+            expect(registerAgentsMdFilter({root: plain, spawnFn}), 'outside a checkout').toBe(null);
+            expect(calls).toEqual([]);
+            expect(registerAgentsMdFilter({root: checkout, spawnFn})).toBe(0);
+            expect(calls.map(call => [call.file, call.opts.cwd])).toEqual([['git', checkout]])
+        } finally {
+            [plain, checkout].forEach(root => fs.rmSync(root, {force: true, recursive: true}))
+        }
     });
 
     test('a checkout that declares no generate-agents-md script skips the stage, and a shell-shaped one is refused', () => {
@@ -214,11 +238,11 @@ test.describe('buildScripts/util/prepare — the portable prepare lifecycle', ()
     });
 
     test('a failed AGENTS.md generation fails the install', () => {
-        const {calls, spawnFn} = recordingSpawn([0, 0, 1]),
+        const {calls, spawnFn} = recordingSpawn([0, 0, 0, 1]),
               result           = runPrepare({env: {}, spawnFn});
 
         expect(result).toEqual({skipped: null, stage: 'agents-md', status: 1});
-        expect(calls.length).toBe(3);
+        expect(calls.length).toBe(4);
     });
 
     test('a manifest without the named bin entry is a named error, even when it declares others', () => {

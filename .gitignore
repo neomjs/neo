@@ -155,9 +155,6 @@ resources/content/
 # projection, never committed bytes (neomjs/neo#17798).
 .agents/skills
 .claude/skills/
-# The maintainer rules are a projection of the same package: `prepare` and `seat:start` write
-# them through the `generate-agents-md` script (neomjs/neo#20748).
-/AGENTS.md
 
 # Agent OS seat hooks are generated-not-tracked projections under ADR 0040 §2.7.
 # Keep the Engine-owned contributor guards and Kimi hook-root README visible.
