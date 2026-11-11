@@ -37,10 +37,11 @@ const
  *
  * The last stage writes `AGENTS.md`, the same kind of projection: the maintainer rules generated
  * from the installed skills package's sections, so a pin bump changes the rules a session loads
- * without anyone committing a file. Git keeps a pointer in that file; the stage registers the clean
- * filter that keeps it there ({@link registerAgentsMdFilter}). It runs what the checkout's
- * {@link AGENTS_MD_SCRIPT} script declares, and `seat:start` runs it too ({@link runStage}): a Start
- * whose lockfile is unchanged installs nothing, and the rules must still be there.
+ * without anyone committing a file. Git keeps a pointer in that file, behind a required clean filter:
+ * the stage makes sure the filter is registered before it writes ({@link ensureAgentsMdFilter}), and
+ * afterwards lets the index re-read the file without staging anything ({@link refreshAgentsMd}). It
+ * runs what the checkout's {@link AGENTS_MD_SCRIPT} script declares, and `seat:start` runs it too
+ * ({@link runStage}): a Start whose lockfile is unchanged installs nothing, and the rules must still be there.
  */
 
 /**
@@ -87,43 +88,86 @@ export function agentsMdArgs(root=repoRoot) {
 }
 
 /**
- * @summary Registers the clean filter that `.gitattributes` names for `AGENTS.md`, so the generated
- * rules in the working copy read as the committed pointer and `git status` stays clean. A root that is
- * not a git checkout has nothing to register.
- * @param {Object} options
- * @param {String} options.root
- * @param {Function} options.spawnFn
- * @returns {Number|null} The `git config` exit status, or `null` outside a checkout.
+ * @summary Runs git in `root` and answers its exit status and trimmed stdout. A git that cannot be
+ * launched answers status `null`.
+ * @param {String} root
+ * @param {String[]} args
+ * @param {Object} [env=process.env]
+ * @returns {{status: Number|null, stdout: String}}
  */
-export function registerAgentsMdFilter({root, spawnFn}) {
-    if (!existsSync(path.join(root, '.git'))) {
-        return null
-    }
+export function runGit(root, args, env=process.env) {
+    const {error, status, stdout} = spawnSync('git', args, {cwd: root, encoding: 'utf8', env, stdio: ['ignore', 'pipe', 'pipe']});
 
-    const {status} = spawnFn('git', ['config', '--local', `filter.${AGENTS_MD_FILTER}.clean`, AGENTS_MD_CLEAN_COMMAND], {cwd: root, stdio: 'ignore'});
-
-    if (status !== 0) {
-        console.warn(`prepare: could not register the ${AGENTS_MD_FILTER} filter (git config exited ${status}); git will show AGENTS.md as changed`)
-    }
-
-    return status
+    return {status: error ? null : status, stdout: (stdout ?? '').trim()}
 }
 
 /**
- * @summary Records the regenerated `AGENTS.md` in git's stat cache. Git trusts a changed size
- * without reading the file, so a new generation would show as modified until the index sees it
- * through the clean filter. Stages nothing.
+ * @summary Makes sure the clean filter that `.gitattributes` names for `AGENTS.md` is registered
+ * and required before the generated rules are written. Required means git refuses to store a file
+ * whose filter cannot run, rather than storing it raw. A registration that cannot be established
+ * stops the stage before `AGENTS.md` is touched. A root that is not a git checkout has nothing to
+ * register.
  * @param {Object} options
  * @param {String} options.root
- * @param {Function} options.spawnFn
- * @returns {Number|null} The `git update-index` exit status, or `null` outside a checkout.
+ * @param {Function} options.git `args => {status, stdout}` in `root`
+ * @returns {String|null} `'present'` or `'registered'`, or `null` outside a checkout.
  */
-export function refreshAgentsMd({root, spawnFn}) {
+export function ensureAgentsMdFilter({root, git}) {
     if (!existsSync(path.join(root, '.git'))) {
         return null
     }
 
-    return spawnFn('git', ['update-index', '-q', '--refresh', '--', AGENTS_MD_PATH], {cwd: root, stdio: 'ignore'}).status
+    const
+        wanted  = {[`filter.${AGENTS_MD_FILTER}.clean`]: AGENTS_MD_CLEAN_COMMAND, [`filter.${AGENTS_MD_FILTER}.required`]: 'true'},
+        missing = () => Object.entries(wanted).filter(([key, value]) => git(['config', '--local', '--get', key]).stdout !== value);
+
+    if (missing().length < 1) {
+        return 'present'
+    }
+
+    missing().forEach(([key, value]) => git(['config', '--local', key, value]));
+
+    const unset = missing().map(([key]) => key);
+
+    if (unset.length > 0) {
+        throw new Error(`prepare: cannot register ${unset.join(' and ')}, so AGENTS.md is left as it is: without the filter git would store the generated rules`)
+    }
+
+    return 'registered'
+}
+
+/**
+ * @summary Lets the index re-read the regenerated `AGENTS.md` through the filter, so `git status`
+ * stays clean, without ever writing file content to the index. Git trusts a changed size without
+ * reading the file, so the entry is first re-set to its own blob with its cached stat cleared;
+ * the refresh then compares the file through the filter and records the stat only if it matches.
+ * A failing filter leaves the index as it was and fails the stage.
+ * @param {Object} options
+ * @param {String} options.root
+ * @param {Function} options.git `args => {status, stdout}` in `root`
+ * @returns {Number|null} The refresh's exit status, or `null` when there is nothing to refresh.
+ */
+export function refreshAgentsMd({root, git}) {
+    if (!existsSync(path.join(root, '.git'))) {
+        return null
+    }
+
+    const [mode, blob, stage] = git(['ls-files', '--stage', '--', AGENTS_MD_PATH]).stdout.split(/\s+/);
+
+    // Untracked here, or mid-merge: there is no single entry to refresh
+    if (!blob || stage !== '0') {
+        return null
+    }
+
+    git(['update-index', '--cacheinfo', `${mode},${blob},${AGENTS_MD_PATH}`]);
+
+    const {status} = git(['update-index', '-q', '--refresh']);
+
+    if (status !== 0) {
+        throw new Error(`prepare: git could not run the ${AGENTS_MD_FILTER} filter (update-index exited ${status}); the index keeps the pointer, and git shows AGENTS.md as changed until the filter runs`)
+    }
+
+    return status
 }
 
 /**
@@ -141,7 +185,7 @@ const stages = [
         packageName: 'neo-agent-skills',
         binName    : 'neo-agent-skills-agents-md',
         args       : agentsMdArgs,
-        before     : registerAgentsMdFilter,
+        before     : ensureAgentsMdFilter,
         after      : refreshAgentsMd
     }
 ];
@@ -226,9 +270,10 @@ export function isDependencyBuild({env, root}) {
  * @param {String} [options.root=repoRoot]
  * @param {Object} [options.env=process.env]
  * @param {Function} [options.spawnFn=spawnSync]
+ * @param {Function} [options.gitFn=runGit] `(root, args, env) => {status, stdout}`, for the stage's git steps
  * @returns {{skipped: String|null, stage: String, status: Number}}
  */
-export function runStage(name, {root=repoRoot, env=process.env, spawnFn=spawnSync}={}) {
+export function runStage(name, {root=repoRoot, env=process.env, spawnFn=spawnSync, gitFn=runGit}={}) {
     const entry = stages.find(({stage}) => stage === name);
 
     if (!entry) {
@@ -242,9 +287,11 @@ export function runStage(name, {root=repoRoot, env=process.env, spawnFn=spawnSyn
         return {skipped: 'not-declared', stage, status: 0}
     }
 
-    const bin = resolvePackageBin(packageName, binName, root);
+    const
+        bin = resolvePackageBin(packageName, binName, root),
+        git = gitArgs => gitFn(root, gitArgs, env);
 
-    before?.({root, spawnFn});
+    before?.({root, git});
 
     const result = spawnFn(process.execPath, [bin, ...stageArgs], {cwd: root, env, stdio: 'inherit'});
 
@@ -257,7 +304,7 @@ export function runStage(name, {root=repoRoot, env=process.env, spawnFn=spawnSyn
         throw new Error(`prepare: failed to launch '${path.basename(bin)}' (${result.error.code ?? result.error.message})`)
     }
 
-    result.status === 0 && after?.({root, spawnFn});
+    result.status === 0 && after?.({root, git});
 
     return {skipped: null, stage, status: result.status ?? 1}
 }
@@ -270,9 +317,10 @@ export function runStage(name, {root=repoRoot, env=process.env, spawnFn=spawnSyn
  * @param {String} [options.root=repoRoot]
  * @param {Object} [options.env=process.env]
  * @param {Function} [options.spawnFn=spawnSync]
+ * @param {Function} [options.gitFn=runGit]
  * @returns {{skipped: String|null, stage: String, status: Number}}
  */
-export function runPrepare({root=repoRoot, env=process.env, spawnFn=spawnSync}={}) {
+export function runPrepare({root=repoRoot, env=process.env, spawnFn=spawnSync, gitFn=runGit}={}) {
     if (env.npm_config_package_lock_only === 'true') {
         return {skipped: 'package-lock-only', stage: 'guard', status: 0}
     }
@@ -282,7 +330,7 @@ export function runPrepare({root=repoRoot, env=process.env, spawnFn=spawnSync}={
     }
 
     for (const {stage} of stages) {
-        const result = runStage(stage, {root, env, spawnFn});
+        const result = runStage(stage, {root, env, spawnFn, gitFn});
 
         if (result.status !== 0) {
             return {skipped: null, stage, status: result.status}

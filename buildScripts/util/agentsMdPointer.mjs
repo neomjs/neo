@@ -7,7 +7,8 @@ import isEntryModule from './isEntryModule.mjs';
  *
  * `prepare` and `seat:start` write the generated agent rules into `AGENTS.md`, the path every coding agent
  * reads. Git keeps only this pointer: `.gitattributes` routes `AGENTS.md` through the {@link AGENTS_MD_FILTER}
- * clean filter, which the `agents-md` stage registers, and the filter answers any working copy with the pointer.
+ * clean filter, which the `agents-md` stage registers as required, and the filter answers any working copy with
+ * the pointer. Required means a filter that cannot run makes git refuse to store the file, never store it raw.
  * `git status` stays clean, and a clone that never installed shows the pointer, which tells its reader where the
  * rules come from. It is Git LFS's pattern: a pointer in git, the content in the working copy.
  */

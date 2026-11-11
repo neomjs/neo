@@ -187,7 +187,7 @@ test.describe('buildScripts/helpers/seatStart (#20429)', () => {
             repoRoot: root,
             build   : async () => { builds++; materialize(root, 4000) },
             logger  : {log() {}}
-        })).rejects.toThrow(/AGENTS\.md was not generated \(prepare: neo-agent-skills package not found[\s\S]*Recovery: npm run generate-agents-md/);
+        })).rejects.toThrow(/AGENTS\.md is not ready \(prepare: neo-agent-skills package not found[\s\S]*Recovery: npm run generate-agents-md/);
 
         expect(builds).toBe(1)
     });
@@ -204,7 +204,7 @@ test.describe('buildScripts/helpers/seatStart (#20429)', () => {
             build     : async () => { throw new Error('sass exploded') },
             logger    : {log() {}},
             runStageFn: () => ({skipped: null, stage: 'agents-md', status: 2})
-        })).rejects.toThrow(/AGENTS\.md was not generated \(the generator exited 2\)[\s\S]*sass exploded/)
+        })).rejects.toThrow(/AGENTS\.md is not ready \(the generator exited 2\)[\s\S]*sass exploded/)
     });
 
     test('the entry point exits 0 at once on a current checkout', () => {
@@ -255,7 +255,7 @@ test.describe('buildScripts/helpers/seatStart (#20429)', () => {
         }
 
         expect(error?.status).toBe(1);
-        expect(error.stderr).toContain('[seat:start] AGENTS.md was not generated');
+        expect(error.stderr).toContain('[seat:start] AGENTS.md is not ready');
         expect(error.stderr).toContain('npm run generate-agents-md')
     })
 });

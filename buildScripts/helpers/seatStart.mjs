@@ -45,7 +45,7 @@ export async function seatStart({repoRoot = process.cwd(), build, logger = conso
             ? '[seat:start] AGENTS.md: this checkout declares no generate-agents-md script'
             : '[seat:start] AGENTS.md generated');
     } catch (error) {
-        failures.push(new Error(`AGENTS.md was not generated (${error.message}). Recovery: npm run generate-agents-md`))
+        failures.push(new Error(`AGENTS.md is not ready (${error.message}). Recovery: npm run generate-agents-md`))
     }
 
     try {

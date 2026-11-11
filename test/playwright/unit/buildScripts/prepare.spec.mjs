@@ -8,7 +8,7 @@ import {
     AGENTS_MD_SCRIPT,
     agentsMdArgs,
     isDependencyBuild,
-    registerAgentsMdFilter,
+    ensureAgentsMdFilter,
     resolvePackageBin,
     runPrepare,
     runStage
@@ -65,15 +65,27 @@ function installSkills(root, version) {
  * install.
  */
 test.describe('buildScripts/util/prepare — the portable prepare lifecycle', () => {
-    const recordingSpawn = results => {
+    const recordingSpawn = (results, events = []) => {
         const calls = [];
         return {
             calls,
             spawnFn: (file, args, opts) => {
                 calls.push({file, args, opts});
+                events.push(['spawn', path.basename(args[0] ?? file)]);
                 return {status: results[calls.length - 1] ?? 0}
             }
         };
+    };
+
+    // A checkout whose filter is already registered, as on any second install
+    const registeredGit = (events = []) => (root, args) => {
+        events.push(['git', ...args]);
+
+        if (args[0] === 'config' && args[2] === '--get') {
+            return {status: 0, stdout: args[3].endsWith('.clean') ? AGENTS_MD_CLEAN_COMMAND : 'true'}
+        }
+
+        return args[0] === 'ls-files' ? {status: 0, stdout: '100644 0123456789abcdef 0\tAGENTS.md'} : {status: 0, stdout: ''}
     };
 
     test('the lock-only guard short-circuits BEFORE anything runs', () => {
@@ -133,11 +145,11 @@ test.describe('buildScripts/util/prepare — the portable prepare lifecycle', ()
 
         try {
             for (const initCwd of [repoRoot, link]) {
-                const {calls, spawnFn} = recordingSpawn([0, 0, 0, 0, 0]),
-                      result           = runPrepare({env: {INIT_CWD: initCwd}, spawnFn});
+                const {calls, spawnFn} = recordingSpawn([0, 0, 0]),
+                      result           = runPrepare({env: {INIT_CWD: initCwd}, gitFn: registeredGit(), spawnFn});
 
                 expect(result).toEqual({skipped: null, stage: 'agents-md', status: 0});
-                expect(calls.length).toBe(5);
+                expect(calls.length).toBe(3);
             }
 
             expect(isDependencyBuild({env: {}, root: repoRoot})).toBe(false);
@@ -148,38 +160,52 @@ test.describe('buildScripts/util/prepare — the portable prepare lifecycle', ()
         }
     });
 
-    test('husky runs, then the skills materializer, then the pointer filter and AGENTS.md with the arguments of this checkout\'s own script', () => {
-        const {calls, spawnFn} = recordingSpawn([0, 0, 0, 0, 0]),
-              result           = runPrepare({env: {}, spawnFn}),
+    test('husky runs, then the skills materializer, then AGENTS.md between the filter check and the index refresh', () => {
+        const events           = [],
+              {calls, spawnFn} = recordingSpawn([0, 0, 0], events),
+              result           = runPrepare({env: {}, gitFn: registeredGit(events), spawnFn}),
               script           = JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8')).scripts[AGENTS_MD_SCRIPT];
 
         expect(result).toEqual({skipped: null, stage: 'agents-md', status: 0});
         expect(calls.map(call => call.args)).toEqual([
             [resolveHuskyBin(repoRoot)],
             [resolvePackageBin('neo-agent-skills', 'neo-agent-skills-materialize', repoRoot)],
-            // Registered before the generator writes, so git never sees the generated rules as a change
-            ['config', '--local', `filter.${AGENTS_MD_FILTER}.clean`, AGENTS_MD_CLEAN_COMMAND],
             // The repository set and the output path are the script's, word for word: one declaration
-            [resolvePackageBin('neo-agent-skills', 'neo-agent-skills-agents-md', repoRoot), ...script.split(/\s+/).slice(1)],
-            // A new generation can change the size, which git trusts without reading the file
-            ['update-index', '-q', '--refresh', '--', 'AGENTS.md']
+            [resolvePackageBin('neo-agent-skills', 'neo-agent-skills-agents-md', repoRoot), ...script.split(/\s+/).slice(1)]
         ]);
-        expect([calls[2].file, calls[4].file]).toEqual(['git', 'git']);
-        expect(calls[3].opts.cwd).toBe(repoRoot);
+        expect(calls[2].opts.cwd).toBe(repoRoot);
+        expect(events.slice(2)).toEqual([
+            // The filter must be there before the generator writes: a registered one is left alone
+            ['git', 'config', '--local', '--get', `filter.${AGENTS_MD_FILTER}.clean`],
+            ['git', 'config', '--local', '--get', `filter.${AGENTS_MD_FILTER}.required`],
+            ['spawn', 'generate-agents-md.mjs'],
+            // The entry is re-set to its own blob, so the refresh reads the file through the filter and stages nothing
+            ['git', 'ls-files', '--stage', '--', 'AGENTS.md'],
+            ['git', 'update-index', '--cacheinfo', '100644,0123456789abcdef,AGENTS.md'],
+            ['git', 'update-index', '-q', '--refresh']
+        ]);
     });
 
-    test('the pointer filter is registered only in a git checkout', () => {
-        const {calls, spawnFn} = recordingSpawn([0]),
-              plain            = fs.mkdtempSync(path.join(os.tmpdir(), 'prepare-spec-')),
-              checkout         = fs.mkdtempSync(path.join(os.tmpdir(), 'prepare-spec-'));
+    test('the pointer filter is checked only in a git checkout, and registered when it is missing', () => {
+        const plain    = fs.mkdtempSync(path.join(os.tmpdir(), 'prepare-spec-')),
+              checkout = fs.mkdtempSync(path.join(os.tmpdir(), 'prepare-spec-')),
+              config   = {},
+              calls    = [],
+              git      = args => {
+                  calls.push(args);
+                  if (args[2] === '--get') return {status: 0, stdout: config[args[3]] ?? ''};
+                  config[args[2]] = args[3];
+                  return {status: 0, stdout: ''}
+              };
 
         fs.mkdirSync(path.join(checkout, '.git'));
 
         try {
-            expect(registerAgentsMdFilter({root: plain, spawnFn}), 'outside a checkout').toBe(null);
+            expect(ensureAgentsMdFilter({root: plain, git}), 'outside a checkout').toBe(null);
             expect(calls).toEqual([]);
-            expect(registerAgentsMdFilter({root: checkout, spawnFn})).toBe(0);
-            expect(calls.map(call => [call.file, call.opts.cwd])).toEqual([['git', checkout]])
+            expect(ensureAgentsMdFilter({root: checkout, git})).toBe('registered');
+            expect(config).toEqual({[`filter.${AGENTS_MD_FILTER}.clean`]: AGENTS_MD_CLEAN_COMMAND, [`filter.${AGENTS_MD_FILTER}.required`]: 'true'});
+            expect(ensureAgentsMdFilter({root: checkout, git}), 'a second run finds it').toBe('present')
         } finally {
             [plain, checkout].forEach(root => fs.rmSync(root, {force: true, recursive: true}))
         }
@@ -237,12 +263,23 @@ test.describe('buildScripts/util/prepare — the portable prepare lifecycle', ()
         expect(calls.length).toBe(2);
     });
 
-    test('a failed AGENTS.md generation fails the install', () => {
-        const {calls, spawnFn} = recordingSpawn([0, 0, 0, 1]),
-              result           = runPrepare({env: {}, spawnFn});
+    test('a failed AGENTS.md generation fails the install, and the index is not touched', () => {
+        const events           = [],
+              {calls, spawnFn} = recordingSpawn([0, 0, 1], events),
+              result           = runPrepare({env: {}, gitFn: registeredGit(events), spawnFn});
 
         expect(result).toEqual({skipped: null, stage: 'agents-md', status: 1});
-        expect(calls.length).toBe(4);
+        expect(calls.length).toBe(3);
+        expect(events.some(([kind, command]) => kind === 'git' && command === 'update-index')).toBe(false);
+    });
+
+    test('a filter that cannot be registered stops the stage before AGENTS.md is written', () => {
+        // `git config` fails to write, e.g. while `.git/config.lock` is held: every read still finds nothing
+        const {calls, spawnFn} = recordingSpawn([0, 0, 0]),
+              gitFn            = (root, args) => ({status: args[2] === '--get' ? 1 : 255, stdout: ''});
+
+        expect(() => runPrepare({env: {}, gitFn, spawnFn})).toThrow(/cannot register filter\.neo-agents-md\.clean and filter\.neo-agents-md\.required, so AGENTS\.md is left as it is/);
+        expect(calls.map(call => path.basename(call.args[0]))).toEqual([path.basename(resolveHuskyBin(repoRoot)), path.basename(resolvePackageBin('neo-agent-skills', 'neo-agent-skills-materialize', repoRoot))])
     });
 
     test('a manifest without the named bin entry is a named error, even when it declares others', () => {
