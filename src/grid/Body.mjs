@@ -309,6 +309,18 @@ class GridBody extends Component {
      */
     #scrollEdgeAnnouncedFor = null
     /**
+     * @summary Tracks silent VDOM mutations collected into an in-flight body payload until {@link #afterVnodeSync} lands.
+     * @member {Boolean} #inFlightSilentVdomChanges=false
+     */
+    #inFlightSilentVdomChanges = false
+    /**
+     * @summary Latches silent VDOM mutations until a landed {@link Neo.grid.View#syncBodies} or full body update
+     * flushes them, restoring the latch if the flight rejects.
+     * @member {Boolean} hasSilentVdomChanges=false
+     * @protected
+     */
+    hasSilentVdomChanges = false
+    /**
      * @member {Object[]} items=[]
      */
     items = []
@@ -761,12 +773,14 @@ class GridBody extends Component {
      * @protected
      */
     createRowPool() {
-        let me = this,
+        let me           = this,
             countRecords = me.store.count,
-            windowSize = me.availableRows + 2 * me.bufferRowRange,
-            needed = Math.min(windowSize, Math.max(me.items.length, countRecords)),
-            current = me.items.length,
-            delta = needed - current,
+            windowSize   = me.availableRows + 2 * me.bufferRowRange,
+            needed       = Math.min(windowSize, Math.max(me.items.length, countRecords)),
+            current      = me.items.length,
+            delta        = needed - current,
+            vdomRoot     = me.getVdomRoot(),
+            prevMeasure  = vdomRoot.cn?.[current] ?? null,
             i;
 
         me.rowPoolSize = needed;
@@ -808,8 +822,12 @@ class GridBody extends Component {
         // Fixed-DOM-Order Strategy:
         // We ensure the VDOM children (cn) matches the full pool of items exactly.
         // We never remove or reorder these nodes. We only update their content and transform.
-        me.getVdomRoot().cn = me.items.map(item => item.createVdomReference())
-        me.rowMeasureVdom && me.getVdomRoot().cn.push(me.rowMeasureVdom)
+        vdomRoot.cn = me.items.map(item => item.createVdomReference());
+        me.rowMeasureVdom && vdomRoot.cn.push(me.rowMeasureVdom);
+
+        if (delta !== 0 || prevMeasure !== (me.rowMeasureVdom ?? null)) {
+            me.hasSilentVdomChanges = true
+        }
     }
 
     /**
@@ -856,6 +874,7 @@ class GridBody extends Component {
 
             // registerPreUpdate() keeps one callback per id, so a later deferral must not drop an earlier one's intent
             me.#deferredViewData = {force: force || !!pending?.force, silent: silent && (pending?.silent ?? true)};
+            silent && (me.hasSilentVdomChanges = true);
 
             Neo.manager.VDomUpdate.registerPreUpdate(me.id, () => {
                 let {force, silent} = me.#deferredViewData;
@@ -1311,9 +1330,13 @@ class GridBody extends Component {
             }
         });
 
-        if (dirty && !silent) {
-            me.updateDepth = -1;
-            me.update()
+        if (dirty) {
+            if (silent) {
+                me.hasSilentVdomChanges = true
+            } else {
+                me.updateDepth = -1;
+                me.update()
+            }
         }
     }
 
@@ -1386,6 +1409,52 @@ class GridBody extends Component {
     getScrollExtent() {
         let {rowGeometry, rowHeight} = this;
         return this.getContentHeight() + (rowGeometry ? rowGeometry.estimate : rowHeight)
+    }
+
+    /**
+     * @summary Clears {@link #inFlightSilentVdomChanges} once a vnode tree lands (and initial mount's pre-mount writes).
+     * @override
+     * @param {Object[]|null} deltas
+     * @protected
+     */
+    afterVnodeSync(deltas) {
+        super.afterVnodeSync(deltas);
+        this.#inFlightSilentVdomChanges = false;
+        deltas === null && (this.hasSilentVdomChanges = false)
+    }
+
+    /**
+     * @summary Restores {@link #hasSilentVdomChanges} when a standalone full or dense body flight fails to land.
+     * @override
+     */
+    async executeVdomUpdate() {
+        let me = this;
+
+        await super.executeVdomUpdate();
+
+        if (!me.isDestroyed && me.#inFlightSilentVdomChanges) {
+            me.#inFlightSilentVdomChanges = false;
+            me.hasSilentVdomChanges       = true
+        }
+    }
+
+    /**
+     * @summary Claims {@link #hasSilentVdomChanges} into {@link #inFlightSilentVdomChanges} on full or dense collection.
+     * @override
+     * @param {Set<String>|null} mergedChildIds
+     * @param {Number} [depth]
+     * @param {Set<String>|null} [boundaryIds=null]
+     * @returns {Object}
+     */
+    getVdomUpdatePayload(mergedChildIds, depth, boundaryIds=null) {
+        let me = this;
+
+        if (((depth ?? me.updateDepth) === -1 || me.denseUpdate) && me.hasSilentVdomChanges) {
+            me.#inFlightSilentVdomChanges = true;
+            me.hasSilentVdomChanges       = false
+        }
+
+        return super.getVdomUpdatePayload(mergedChildIds, depth, boundaryIds)
     }
 
     /**
@@ -1849,13 +1918,34 @@ class GridBody extends Component {
         let me           = this,
             countRecords = me.#initialTotalSize || me.store?.count || 0,
             // A body sized while its container creates the view knows no cap yet
-            view         = me.gridContainer?.view;
+            view         = me.gridContainer?.view,
+            height;
 
         if (countRecords > 0 && me.rowHeight > 0) {
-            me.vdom.height = `${Math.min(me.getScrollExtent(), view?.maxScrollHeight ?? Infinity)}px`;
+            height = `${Math.min(me.getScrollExtent(), view?.maxScrollHeight ?? Infinity)}px`;
+
+            if (me.vdom.height !== height) {
+                me.vdom.height = height;
+                silent && (me.hasSilentVdomChanges = true)
+            }
+
             view?.scrollPages && me.gridContainer.body === me && view.updateScrollPages();
             !silent && me.update()
         }
+    }
+
+    /**
+     * @summary Latches {@link #hasSilentVdomChanges} when a `setSilent` write mutates this body's VDOM.
+     * @override
+     * @param {Function} [resolve]
+     * @param {Function} [reject]
+     */
+    updateVdom(resolve, reject) {
+        if (this.silentVdomUpdate) {
+            this.hasSilentVdomChanges = true
+        }
+
+        super.updateVdom(resolve, reject)
     }
 
     /**

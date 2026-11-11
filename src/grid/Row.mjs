@@ -400,7 +400,7 @@ class Row extends Component {
             delete vdom.data?.recordId;
 
             vdom.style = {display: 'none'};
-            !silent && me.update();
+            silent ? (gridBody && (gridBody.hasSilentVdomChanges = true)) : me.update();
             return
         }
 
@@ -696,7 +696,7 @@ class Row extends Component {
             }
         }
 
-        !silent && me.update()
+        silent ? (gridBody && (gridBody.hasSilentVdomChanges = true)) : me.update()
     }
 
     /**
