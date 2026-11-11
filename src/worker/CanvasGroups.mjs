@@ -1,4 +1,5 @@
 import Base from '../core/Base.mjs';
+import {generateUUID} from '../util/UUID.mjs';
 
 /**
  * @summary The sessionStorage key a window keeps its canvas group id under.
@@ -75,13 +76,12 @@ class CanvasGroups extends Base {
     /**
      * @summary Mints a fresh group id without needing a secure context.
      *
-     * The group is resolved at every boot, before any worker exists. `crypto.randomUUID` exists only in a secure
-     * context, so an app served over plain http whose window id comes from SSR — which boots without it today —
-     * would throw here. `crypto.getRandomValues` has no such gate.
+     * The group is resolved at every boot, before any worker exists. The shared UUID helper uses
+     * `crypto.getRandomValues`, which is available on insecure HTTP origins as well as secure contexts.
      * @returns {String} 32 hex characters
      */
     static mint() {
-        return Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('')
+        return generateUUID().replaceAll('-', '')
     }
 
     /**

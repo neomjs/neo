@@ -252,13 +252,13 @@ test.describe('Pipeline telemetry preserves its business carriers', () => {
         expect(JSON.stringify(metricData(metrics[0]))).toBe(firstReceipt)
     });
 
-    test('enabled observations get distinct UUIDs while disabled profiling never calls randomUUID', async () => {
+    test('enabled observations get distinct UUIDs while disabled profiling never requests random values', async () => {
         const disabled = await makePipeline({}, {connection: {read: async () => 'plain'}});
         const enabled  = await makePipeline({telemetry: true}, {connection: {read: async () => 'profiled'}});
-        const metrics  = [], original = crypto.randomUUID;
+        const metrics  = [], original = crypto.getRandomValues;
         let   calls    = 0, disabledCalls;
         enabled.on('telemetry', metric => metrics.push(metric));
-        crypto.randomUUID = function(...args) {
+        crypto.getRandomValues = function(...args) {
             calls++;
             return original.apply(this, args)
         };
@@ -270,7 +270,7 @@ test.describe('Pipeline telemetry preserves its business carriers', () => {
             await enabled.read();
             await enabled.read()
         } finally {
-            crypto.randomUUID = original
+            crypto.getRandomValues = original
         }
 
         expect(disabledCalls).toBe(0);
