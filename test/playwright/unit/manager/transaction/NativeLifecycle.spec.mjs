@@ -567,4 +567,115 @@ test.describe('Group native lifecycle (#18314)', () => {
         expect(unbound).toEqual(['first', 'second']);
         roundTrip.resolve()
     });
+
+    test('retiring a bound readmitting vessel releases immediately when disconnect arrives during close', async () => {
+        const windows = owner('root'), closing = deferred(), unbound = [], released = [];
+        windows.registerSource('view', effects({
+            close : () => closing.promise,
+            unbind: data => {
+                unbound.push(data.windowId);
+                return {retained: true, awaitingClosure: true, readmit: true, closed: Promise.resolve(null)}
+            },
+            released: data => released.push(data)
+        }));
+        const vessel = await windows.acquire('view', {itemId: 'one'}), key = vessel.workspaceKey;
+        manager.bind({...vessel, windowId: 'popup'});
+        await expect.poll(() => windows.getConnection('view', key)).not.toBeNull();
+        windows.recordOwner('view', key, {...vessel, windowId: 'popup'}, windows.getConnection('view', key));
+
+        const retirement = windows.retire('view', windows.getOwner('view', key));
+        const data       = release('popup');
+        await expect.poll(() => released.length).toBe(1);
+
+        expect(unbound, 'synchronous detach still runs before disconnect cleanup').toEqual(['popup']);
+        expect(windows.getAdmission('view', key), 'retired vessel never enters readmit hold').toBeNull();
+        expect(data.releasedBinding.awaitingClosure).toBe(false);
+        expect(released[0]).toMatchObject({committed: true, itemId: 'one', workspaceKey: key, data: {windowId: 'popup'}});
+
+        closing.resolve(true);
+        expect(await retirement).toBe(true);
+        expect(released).toHaveLength(1)
+    });
+
+    test('retiring a bound readmitting vessel suppresses readmit hold when close settles before disconnect', async () => {
+        const windows = owner('root'), neverCloses = new Promise(() => {}), unbound = [], released = [];
+        windows.registerSource('view', effects({
+            close : async () => true,
+            unbind: data => {
+                unbound.push(data.windowId);
+                return {retained: true, awaitingClosure: true, readmit: true, closed: neverCloses}
+            },
+            released: data => released.push(data)
+        }));
+        const vessel = await windows.acquire('view', {itemId: 'one'}), key = vessel.workspaceKey;
+        manager.bind({...vessel, windowId: 'popup'});
+        await expect.poll(() => windows.getConnection('view', key)).not.toBeNull();
+        windows.recordOwner('view', key, {...vessel, windowId: 'popup'}, windows.getConnection('view', key));
+
+        expect(await windows.retire('view', windows.getOwner('view', key))).toBe(true);
+        expect(windows.getOwner('view', key).retired).toBe(true);
+
+        const data = release('popup');
+        await expect.poll(() => released.length).toBe(1);
+
+        expect(unbound).toEqual(['popup']);
+        expect(windows.getAdmission('view', key)).toBeNull();
+        expect(data.releasedBinding.awaitingClosure).toBe(false);
+        expect(released[0]).toMatchObject({committed: true, itemId: 'one', workspaceKey: key, data: {windowId: 'popup'}})
+    });
+
+    test('retiring a vessel already held for readmit releases the held key instead of stranding ownership', async () => {
+        const windows = owner('root'), released = [];
+        windows.registerSource('view', effects({
+            close   : async () => true,
+            unbind  : () => ({retained: true, awaitingClosure: true, readmit: true, closed: Promise.resolve(null)}),
+            released: data => released.push(data)
+        }));
+        const vessel = await windows.acquire('view', {itemId: 'one'}), key = vessel.workspaceKey;
+        manager.bind({...vessel, windowId: 'popup'});
+        await expect.poll(() => windows.getConnection('view', key)).not.toBeNull();
+        windows.recordOwner('view', key, {...vessel, windowId: 'popup'}, windows.getConnection('view', key));
+
+        const data = release('popup');
+        await expect.poll(() => windows.getAdmission('view', key)).toMatchObject({readmit: true});
+        expect(data.releasedBinding.awaitingClosure).toBe(true);
+
+        expect(await windows.retire('view', windows.getOwner('view', key))).toBe(true);
+        expect(windows.getAdmission('view', key)).toBeNull();
+        expect(data.releasedBinding.awaitingClosure).toBe(false);
+        expect(released).toHaveLength(1);
+        expect(released[0]).toMatchObject({committed: true, itemId: 'one', workspaceKey: key, data: {windowId: 'popup'}})
+    });
+
+    test('a readmit unbind for an unowned reconnecting window releases nothing', async () => {
+        const windows  = owner('root'), preparing = deferred(), unbound = [], released = [];
+        let   prepares = 0;
+        windows.registerSource('view', effects({
+            prepare: () => ++prepares === 2 ? preparing.promise : true,
+            unbind : data => {
+                unbound.push(data.windowId);
+                return {retained: true, awaitingClosure: true, readmit: true}
+            },
+            released: data => released.push(data)
+        }));
+        const vessel = await windows.acquire('view', {itemId: 'one'}), key = vessel.workspaceKey;
+        manager.bind({...vessel, windowId: 'old'});
+        await expect.poll(() => windows.getConnection('view', key)).not.toBeNull();
+        windows.recordOwner('view', key, {...vessel, windowId: 'old'}, windows.getConnection('view', key));
+
+        release('old');
+        await expect.poll(() => windows.getAdmission('view', key)).toMatchObject({readmit: true});
+
+        manager.bind({...vessel, windowId: 'reloaded'});
+        await expect.poll(() => windows.getAdmission('view', key)?.connectingWindowId).toBe('reloaded');
+
+        release('reloaded');
+        preparing.resolve(true);
+
+        await expect.poll(() => unbound).toEqual(['old', 'reloaded']);
+        await expect.poll(() => windows.getAdmission('view', key)).toBeNull();
+        await Promise.resolve();
+        expect(released).toEqual([]);
+        expect(windows.getOwner('view', key).windowId).toBeNull()
+    });
 });
