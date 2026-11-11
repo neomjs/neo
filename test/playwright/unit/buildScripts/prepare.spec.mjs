@@ -13,7 +13,7 @@ import {
     runPrepare,
     runStage
 } from '../../../../buildScripts/util/prepare.mjs';
-import {AGENTS_MD_CLEAN_COMMAND, AGENTS_MD_FILTER} from '../../../../buildScripts/util/agentsMdPointer.mjs';
+import {AGENTS_MD_CLEAN_COMMAND, AGENTS_MD_FILTER, AGENTS_MD_SMUDGE_COMMAND} from '../../../../buildScripts/util/agentsMdPointer.mjs';
 
 const
     __filename      = fileURLToPath(import.meta.url),
@@ -77,12 +77,19 @@ test.describe('buildScripts/util/prepare — the portable prepare lifecycle', ()
         };
     };
 
+    // The filter registration the stage wants, in the order it checks it
+    const registration = {
+        [`filter.${AGENTS_MD_FILTER}.clean`]   : AGENTS_MD_CLEAN_COMMAND,
+        [`filter.${AGENTS_MD_FILTER}.smudge`]  : AGENTS_MD_SMUDGE_COMMAND,
+        [`filter.${AGENTS_MD_FILTER}.required`]: 'true'
+    };
+
     // A checkout whose filter is already registered, as on any second install
     const registeredGit = (events = []) => (root, args) => {
         events.push(['git', ...args]);
 
         if (args[0] === 'config' && args[2] === '--get') {
-            return {status: 0, stdout: args[3].endsWith('.clean') ? AGENTS_MD_CLEAN_COMMAND : 'true'}
+            return {status: 0, stdout: registration[args[3]] ?? ''}
         }
 
         return args[0] === 'ls-files' ? {status: 0, stdout: '100644 0123456789abcdef 0\tAGENTS.md'} : {status: 0, stdout: ''}
@@ -176,8 +183,7 @@ test.describe('buildScripts/util/prepare — the portable prepare lifecycle', ()
         expect(calls[2].opts.cwd).toBe(repoRoot);
         expect(events.slice(2)).toEqual([
             // The filter must be there before the generator writes: a registered one is left alone
-            ['git', 'config', '--local', '--get', `filter.${AGENTS_MD_FILTER}.clean`],
-            ['git', 'config', '--local', '--get', `filter.${AGENTS_MD_FILTER}.required`],
+            ...Object.keys(registration).map(key => ['git', 'config', '--local', '--get', key]),
             ['spawn', 'generate-agents-md.mjs'],
             // The entry is re-set to its own blob, so the refresh reads the file through the filter and stages nothing
             ['git', 'ls-files', '--stage', '--', 'AGENTS.md'],
@@ -204,7 +210,7 @@ test.describe('buildScripts/util/prepare — the portable prepare lifecycle', ()
             expect(ensureAgentsMdFilter({root: plain, git}), 'outside a checkout').toBe(null);
             expect(calls).toEqual([]);
             expect(ensureAgentsMdFilter({root: checkout, git})).toBe('registered');
-            expect(config).toEqual({[`filter.${AGENTS_MD_FILTER}.clean`]: AGENTS_MD_CLEAN_COMMAND, [`filter.${AGENTS_MD_FILTER}.required`]: 'true'});
+            expect(config).toEqual(registration);
             expect(ensureAgentsMdFilter({root: checkout, git}), 'a second run finds it').toBe('present')
         } finally {
             [plain, checkout].forEach(root => fs.rmSync(root, {force: true, recursive: true}))
@@ -278,7 +284,7 @@ test.describe('buildScripts/util/prepare — the portable prepare lifecycle', ()
         const {calls, spawnFn} = recordingSpawn([0, 0, 0]),
               gitFn            = (root, args) => ({status: args[2] === '--get' ? 1 : 255, stdout: ''});
 
-        expect(() => runPrepare({env: {}, gitFn, spawnFn})).toThrow(/cannot register filter\.neo-agents-md\.clean and filter\.neo-agents-md\.required, so AGENTS\.md is left as it is/);
+        expect(() => runPrepare({env: {}, gitFn, spawnFn})).toThrow(/cannot register filter\.neo-agents-md\.clean, filter\.neo-agents-md\.smudge, and filter\.neo-agents-md\.required, so AGENTS\.md is left as it is/);
         expect(calls.map(call => path.basename(call.args[0]))).toEqual([path.basename(resolveHuskyBin(repoRoot)), path.basename(resolvePackageBin('neo-agent-skills', 'neo-agent-skills-materialize', repoRoot))])
     });
 

@@ -43,6 +43,13 @@ export const AGENTS_MD_PATH = 'AGENTS.md';
  */
 export const AGENTS_MD_CLEAN_COMMAND = 'node buildScripts/util/agentsMdPointer.mjs';
 
+/**
+ * @summary The filter's `smudge` command: a checkout writes the stored pointer unchanged. Git holds a required filter
+ * to both directions, so without it every checkout that writes `AGENTS.md` fails.
+ * @member {String} AGENTS_MD_SMUDGE_COMMAND
+ */
+export const AGENTS_MD_SMUDGE_COMMAND = 'cat';
+
 if (isEntryModule(import.meta.url)) {
     // Git writes the working copy to stdin. Drain it, so git never meets a closed pipe, then answer the pointer.
     process.stdin.resume();
