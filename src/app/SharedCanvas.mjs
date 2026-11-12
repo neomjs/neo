@@ -291,6 +291,7 @@ class SharedCanvas extends Canvas {
 
     /**
      * @summary Admits this host only after successful module loading and remote-stub registration.
+     * A window replacement discards the old attempt and continues this initialization flight for the current binding.
      * @returns {Promise<void>}
      */
     async initAsync() {
@@ -303,34 +304,39 @@ class SharedCanvas extends Canvas {
             return
         }
 
-        if (!me.isDestroyed) {
+        while (!me.isDestroyed) {
             let {windowId} = me;
 
             try {
                 await me.trap(Neo.worker.Manager.startWorker({name: 'canvas', windowId}));
                 await me.trap(Neo.currentWorker.whenCanvasReady(windowId))
             } catch (error) {
-                if (me.isDestroyed || me.windowId !== windowId || error === Neo.isDestroyed || Neo.currentWorker.isDeparture(error, windowId)) return;
+                if (me.isDestroyed || error === Neo.isDestroyed) return;
+                if (me.windowId !== windowId) continue;
+                if (Neo.currentWorker.isDeparture(error, windowId)) return;
 
                 console.error('Neo.app.SharedCanvas: canvas worker unavailable', error);
                 me.onCanvasLoadFailed('worker-unavailable', error.message);
                 return
             }
 
-            if (me.isDestroyed || me.windowId !== windowId) return;
+            if (me.isDestroyed) return;
+            if (me.windowId !== windowId) continue;
 
             let loaded;
 
             try {
                 loaded = await me.trap(Neo.worker.Canvas.loadModule({path: me.rendererImportPath, windowId}))
             } catch (error) {
-                if (me.isDestroyed || me.windowId !== windowId || error === Neo.isDestroyed) return;
+                if (me.isDestroyed || error === Neo.isDestroyed) return;
+                if (me.windowId !== windowId) continue;
 
                 me.onCanvasLoadFailed('module-load-failed', error.message);
                 return
             }
 
-            if (me.isDestroyed || me.windowId !== windowId) return;
+            if (me.isDestroyed) return;
+            if (me.windowId !== windowId) continue;
 
             if (loaded?.success !== true) {
                 me.onCanvasLoadFailed('module-load-failed', loaded?.error || 'Renderer module did not load');
@@ -349,14 +355,16 @@ class SharedCanvas extends Canvas {
                 throw error
             }
 
-            if (me.isDestroyed || me.windowId !== windowId) return;
+            if (me.isDestroyed) return;
+            if (me.windowId !== windowId) continue;
 
             if (!me.renderer) {
                 me.onCanvasLoadFailed('renderer-unavailable', 'Renderer remote stub did not register');
                 return
             }
 
-            me.rendererAdmitted = true
+            me.rendererAdmitted = true;
+            return
         }
     }
 
