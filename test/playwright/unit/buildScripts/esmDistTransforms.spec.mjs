@@ -122,6 +122,138 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
         })
     });
 
+    test.describe('rewriteMainAddonImports — package addons share the emitted Engine (#20821)', () => {
+        const workspaceRoot = path.resolve('/main-addon-workspace'),
+              engineRoot    = path.join(workspaceRoot, 'node_modules/neo.mjs'),
+              relativeRoot  = 'node_modules/@fixture/native-tools/src/main/addon',
+              sourceRoot    = path.join(workspaceRoot, relativeRoot),
+              outputRoot    = path.join(workspaceRoot, 'dist/esm'),
+              sourcePath    = path.join(sourceRoot, 'Probe.mjs'),
+              outputPath    = path.join(outputRoot, relativeRoot, 'Probe.mjs'),
+              packageRoots  = [{packageName: '@fixture/native-tools', sourceRoot, relativeRoot}],
+              options       = {sourcePath, outputPath, workspaceRoot, engineRoot, packageRoots},
+              resolveOutput = specifier => path.resolve(path.dirname(outputPath), specifier);
+
+        test('a scoped addon resolves Neo, Base and DeltaUpdates in the one flattened Engine tree', () => {
+            const source = [
+                "import Neo from '../../../../../neo.mjs/src/Neo.mjs';",
+                "import Base from '../../../../../neo.mjs/src/main/addon/Base.mjs';",
+                "import DeltaUpdates from '../../../../../neo.mjs/src/main/DeltaUpdates.mjs';"
+            ].join('\n');
+            const emitted    = transforms.rewriteMainAddonImports(source, options),
+                  specifiers = transforms.relativeSpecifiers(emitted),
+                  targets    = specifiers.map(entry => resolveOutput(entry.specifier));
+
+            expect(targets).toEqual([
+                path.join(outputRoot, 'src/Neo.mjs'),
+                path.join(outputRoot, 'src/main/addon/Base.mjs'),
+                path.join(outputRoot, 'src/main/DeltaUpdates.mjs')
+            ]);
+            expect(specifiers.every(entry => !entry.computed)).toBe(true);
+            expect(transforms.findUnresolvableImports(
+                [{outputPath, specifiers}], candidate => targets.includes(candidate),
+                (file, specifier) => path.resolve(path.dirname(file), specifier), workspaceRoot
+            )).toEqual([])
+        });
+
+        test('re-exports and computed Engine imports follow the copied Engine without altering expressions', () => {
+            const source = [
+                "export {default as Base} from '../../../../../neo.mjs/src/main/addon/Base.mjs';",
+                "export * from '../../../../../neo.mjs/src/Neo.mjs';",
+                'export const load = name => import(`../../../../../neo.mjs/src/main/${name}.mjs`);'
+            ].join('\n');
+            const emitted = transforms.rewriteMainAddonImports(source, options),
+                  entries = transforms.relativeSpecifiers(emitted);
+
+            expect(entries).toHaveLength(3);
+            expect(resolveOutput(entries[0].specifier)).toBe(path.join(outputRoot, 'src/main/addon/Base.mjs'));
+            expect(resolveOutput(entries[1].specifier)).toBe(path.join(outputRoot, 'src/Neo.mjs'));
+            expect(entries[2].computed).toBe(true);
+            expect(entries[2].specifier.endsWith('/${name}.mjs')).toBe(true);
+            expect(resolveOutput(transforms.computedSpecifierRoot(entries[2].specifier)))
+                .toBe(path.join(outputRoot, 'src/main'))
+        });
+
+        test('local and peer declared imports stay emitted while an undeclared dependency stays at its host path', () => {
+            const peerRelative = 'node_modules/@fixture/peer/src/native',
+                  peer         = {packageName: '@fixture/peer', sourceRoot: path.join(workspaceRoot, peerRelative), relativeRoot: peerRelative},
+                  source       = [
+                      "import Local from './support/Local.mjs';",
+                      "export {default as Peer} from '../../../../peer/src/native/Peer.mjs';",
+                      "import External from '../../../../plain/External.mjs';"
+                  ].join('\n'),
+                  emitted = transforms.rewriteMainAddonImports(source, {...options, packageRoots: [...packageRoots, peer]});
+
+            expect(transforms.relativeSpecifiers(emitted).map(entry => resolveOutput(entry.specifier))).toEqual([
+                path.join(outputRoot, relativeRoot, 'support/Local.mjs'),
+                path.join(outputRoot, peerRelative, 'Peer.mjs'),
+                path.join(workspaceRoot, 'node_modules/@fixture/plain/External.mjs')
+            ])
+        });
+
+        test('source-like strings and comments are untouched, and quoted interpolation markers remain literal', () => {
+            const sample     = "export {default} from '../../../../../neo.mjs/src/core/Base.mjs';",
+                  text       = `export const example = ${JSON.stringify(sample)};`,
+                  comment    = '// import Fake from "../../../../../neo.mjs/src/Neo.mjs";',
+                  expression = 'export const arbitrary = (base, name) => import(base + name);',
+                  source     = [text, comment, expression,
+                      "export const literal = () => import('../../../../../neo.mjs/src/main/${name}.mjs');"
+                  ].join('\n'),
+                  emitted = transforms.rewriteMainAddonImports(source, options),
+                  entries = transforms.relativeSpecifiers(emitted);
+
+            expect(emitted).toContain(text);
+            expect(emitted).toContain(comment);
+            expect(emitted).toContain(expression);
+            expect(entries).toHaveLength(1);
+            expect(entries[0].computed).toBe(false);
+            expect(resolveOutput(entries[0].specifier)).toBe(path.join(outputRoot, 'src/main/${name}.mjs'))
+        });
+
+        test('both Main package contexts target emitted node_modules while Engine and WS contexts keep their roots', () => {
+            const mainOutput = path.join(outputRoot, 'src/Main.mjs'),
+                  source     = [
+                      'const installed = name => import(`../../${name}.mjs`);',
+                      'const sourceTree = name => import(`../node_modules/${name}.mjs`);',
+                      'const workspace = name => import(`../../../src/main/addon/${name}.mjs`);',
+                      'const engine = name => import(`./main/addon/${name}.mjs`);'
+                  ].join('\n'),
+                  emitted = transforms.rewriteMainAddonImports(source, {
+                      ...options, sourcePath: path.join(engineRoot, 'src/Main.mjs'), outputPath: mainOutput
+                  }),
+                  entries = transforms.relativeSpecifiers(emitted);
+
+            expect(entries).toEqual([
+                computed('../node_modules/${name}.mjs'),
+                computed('../node_modules/${name}.mjs'),
+                computed('../../../src/main/addon/${name}.mjs'),
+                computed('./main/addon/${name}.mjs')
+            ]);
+            for (const entry of entries.slice(0, 2)) {
+                expect(path.resolve(path.dirname(mainOutput), entry.specifier.replace('${name}', '@fixture/native-tools/src/main/addon/Probe')))
+                    .toBe(outputPath)
+            }
+        });
+
+        test('ordinary workspace modules retain the established Engine and external-package rewrite', () => {
+            const source = [
+                "import Base from '../../node_modules/neo.mjs/src/core/Base.mjs';",
+                "export {default as Other} from '../../node_modules/other/index.mjs';",
+                "import Local from './Local.mjs';"
+            ].join('\n');
+
+            expect(transforms.rewriteMainAddonImports(source, {
+                ...options,
+                sourcePath: path.join(workspaceRoot, 'apps/probe/Viewport.mjs'),
+                outputPath: path.join(outputRoot, 'apps/probe/Viewport.mjs')
+            })).toBe([
+                "import Base from '../../src/core/Base.mjs';",
+                "export {default as Other} from '../../../../node_modules/other/index.mjs';",
+                "import Local from './Local.mjs';"
+            ].join('\n'))
+        })
+    });
+
     test.describe('rewriteNeoConfig — only a position-relative basePath may be compensated', () => {
         /**
          * The control arm: the relative shape must stay byte-identical. `../../` compensates for the

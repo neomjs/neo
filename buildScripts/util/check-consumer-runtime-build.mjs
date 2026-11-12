@@ -66,10 +66,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url)),
  * It does not assert bundle size, chunk counts, or anything about *this* repository's build — those
  * are observable here and belong to cheaper checks. Nor does it make a blanket byte-parity claim across
  * `DefaultConfig.mjs` additions (a dormant config key changes emitted bytes even when `false`). Instead,
- * it answers four consumer-only build questions plus the production-artifact isolation contract: does
+ * it answers consumer-only build questions plus the production-artifact isolation contract: does
  * Data resolve the consumer's modules and only those, does Canvas reach both the package's renderers
  * and the consumer's, does every app the package ships compile in the App worker, does Main preserve an
- * optional workspace addon root without leaking package addons into it, do the Playwright Neural Link
+ * optional workspace addon root without leaking Engine addons into it, does Main admit only package-declared
+ * addon roots without embedding build-host paths, do the Playwright Neural Link
  * harness modules stay out of every compiled runtime artifact, and does a flag-off App worker boot expose
  * the exact pre-change `remote` method surface? The App worker's context spans every shipped `app.mjs`,
  * so it reaches each importer without a list of them; one mode suffices, because a specifier that
@@ -165,6 +166,39 @@ const MAIN_ADDON_EXPECTATION = {
     present: true,
     because: 'a present workspace Main addon must remain reachable through the WS context'
 };
+
+/**
+ * @summary Main package admission is independent of workspace addons and worker-module declarations.
+ * @type {Object[]}
+ */
+export const MAIN_PACKAGE_EXPECTATIONS = [{
+    file   : 'node_modules/@fixture/native-hooks/src/main/addon/DeclaredMainAddon.mjs',
+    match  : /@fixture[/\\]native-hooks[/\\]src[/\\]main[/\\]addon[/\\]DeclaredMainAddon\.mjs\b/,
+    present: true,
+    because: 'a scoped dependency declaring neo.mainAddons must contribute its Main addon in either installation layout'
+}, {
+    file   : 'node_modules/@fixture/native-hooks/src/main/addon-sibling/UnrelatedMainModule.mjs',
+    match  : /@fixture[/\\]native-hooks[/\\]src[/\\]main[/\\]addon-sibling[/\\]UnrelatedMainModule\.mjs\b/,
+    present: false,
+    because: 'a sibling directory outside the declared Main root must not enter the Main graph'
+}, {
+    file   : 'node_modules/@fixture/undeclared-hooks/src/main/addon/UndeclaredMainAddon.mjs',
+    match  : /@fixture[/\\]undeclared-hooks[/\\]src[/\\]main[/\\]addon[/\\]UndeclaredMainAddon\.mjs\b/,
+    present: false,
+    because: 'an installed dependency without neo.mainAddons must not contribute a Main addon'
+}, {
+    file   : 'node_modules/@fixture/empty-hooks/src/main/addon/EmptyMainAddon.mjs',
+    match  : /@fixture[/\\]empty-hooks[/\\]src[/\\]main[/\\]addon[/\\]EmptyMainAddon\.mjs\b/,
+    present: false,
+    because: 'an empty neo.mainAddons declaration admits no Main addon roots'
+}];
+
+/** @summary The Main-only fixture packages; none declares worker modules. */
+const MAIN_PACKAGE_FIXTURES = [
+    {name: '@fixture/native-hooks',     addon: 'DeclaredMainAddon',   neo: {mainAddons: ['src/main/addon']}},
+    {name: '@fixture/undeclared-hooks', addon: 'UndeclaredMainAddon'},
+    {name: '@fixture/empty-hooks',      addon: 'EmptyMainAddon',      neo: {mainAddons: []}}
+];
 
 /**
  * @summary What the App worker's compile must reach, so an error-free build is not a context that reached nothing.
@@ -473,6 +507,28 @@ export function collectMainContextFailures({mode, contextModules}, workspace, ar
 }
 
 /**
+ * @summary Rejects Main JavaScript that embeds a build-host fixture path instead of a runtime-relative address.
+ * @param {Object} result
+ * @param {String} result.mode Build-mode/arm label.
+ * @param {Array<{name: String, source: String}>} result.assets Emitted Main JavaScript assets.
+ * @param {String[]} fixtureRoots Logical and physical consumer roots, covering macOS temp-directory aliases.
+ * @param {String} [fixtureMarker] Unique temporary-directory name, preserved by nested regex/URL escaping.
+ * @returns {String[]} One failure per leaking asset.
+ */
+export function collectMainAssetPathFailures({mode, assets}, fixtureRoots, fixtureMarker) {
+    const fragments = [...new Set(fixtureRoots.flatMap(root => {
+        const normalized = root.replaceAll('\\', '/');
+
+        return [root, normalized, JSON.stringify(root).slice(1, -1), encodeURI(normalized)]
+    }))];
+
+    fixtureMarker && fragments.push(fixtureMarker);
+
+    return assets.filter(({source}) => fragments.some(fragment => source.includes(fragment)))
+        .map(({name}) => `[${mode}] Main asset ${name} embeds an absolute consumer fixture path`)
+}
+
+/**
  * @summary Writes the consumer fixture: one app-space module, two exclusions, generated roots, and the
  * loader the App-worker config copies from every workspace.
  */
@@ -516,7 +572,48 @@ function removeMainAddonFixture(workspace) {
 }
 
 /**
- * @summary Replaces the fixture's installed package with a symbolic link to it, in pnpm's real-path layout.
+ * @summary Installs neutral Main-addon dependencies after npm's final pruning pass.
+ * @description Main already owns Neo.core.Base. These real addon classes reuse that class graph, expose a browser
+ * method through the usual Main-addon remote contract, and require no package-layout-specific Engine import.
+ * @param {String} workspace Consumer fixture root.
+ */
+function installMainPackageFixtures(workspace) {
+    const manifestPath = path.join(workspace, 'package.json'),
+          manifest     = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+
+    for (const {name, addon, neo} of MAIN_PACKAGE_FIXTURES) {
+        const root = path.join(workspace, 'node_modules', name);
+
+        fs.mkdirSync(path.join(root, 'src/main/addon'), {recursive: true});
+        fs.writeFileSync(path.join(root, 'package.json'),
+            JSON.stringify({name, version: '1.0.0', type: 'module', ...(neo && {neo})}, null, 4));
+        fs.writeFileSync(path.join(root, `src/main/addon/${addon}.mjs`), [
+            '/** @summary Neutral package-owned Main addon for the physical consumer build guard. */',
+            `class ${addon} extends Neo.core.Base {`,
+            '    static config = {',
+            `        className: 'ConsumerRuntimeMain.addon.${addon}',`,
+            '        isMainThreadAddon: true,',
+            "        remote: {app: ['readWindow']}",
+            '    }',
+            '    /** @summary Reads the window in which Main registered this addon. */',
+            '    readWindow() { return {name: window.name, title: document.title} }',
+            '}',
+            `export default Neo.setupClass(${addon});`,
+            ''
+        ].join('\n'));
+
+        manifest.dependencies = {...manifest.dependencies, [name]: '1.0.0'}
+    }
+
+    const sibling = path.join(workspace, 'node_modules/@fixture/native-hooks/src/main/addon-sibling/UnrelatedMainModule.mjs');
+
+    fs.mkdirSync(path.dirname(sibling), {recursive: true});
+    fs.writeFileSync(sibling, 'export default "not a declared Main addon root";\n');
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 4))
+}
+
+/**
+ * @summary Replaces one fixture package with a symbolic link to it, in pnpm's real-path layout.
  *
  * A linked package resolves outside the workspace: path arithmetic from where the package resolves
  * cannot reach the consumer's app space. The real path is
@@ -524,11 +621,12 @@ function removeMainAddonFixture(workspace) {
  * store layout as well as a plain link.
  *
  * @param {String} workspace Consumer fixture root.
+ * @param {String} [name='neo.mjs'] Installed Engine or Main-fixture package name.
  * @returns {String} The package's real (linked) path.
  */
-function linkPackage(workspace) {
-    const installed = path.join(workspace, 'node_modules/neo.mjs'),
-          real      = path.join(workspace, 'node_modules/.pnpm/neo.mjs@1.0.0/node_modules/neo.mjs');
+function linkPackage(workspace, name='neo.mjs') {
+    const installed = path.join(workspace, 'node_modules', name),
+          real      = path.join(workspace, 'node_modules/.pnpm', `${name.replaceAll('/', '+')}@1.0.0`, 'node_modules', name);
 
     fs.mkdirSync(path.dirname(real), {recursive: true});
     fs.renameSync(installed, real);
@@ -608,9 +706,12 @@ async function buildMain(workspace, mode, arm) {
     const json = stats.toJson({modules: true, errors: true, all: false});
 
     return {
-        mode          : `${mode}/main-${arm}`,
-        moduleNames   : (json.modules || []).map(m => m.name || ''),
-        errors        : (json.errors  || []).map(e => e.message || String(e)),
+        mode       : `${mode}/main-${arm}`,
+        moduleNames: (json.modules || []).map(m => m.name || ''),
+        errors     : (json.errors  || []).map(e => e.message || String(e)),
+        assets     : stats.hasErrors() ? [] : stats.compilation.getAssets()
+            .filter(({name}) => /\.(?:m?js)$/.test(name))
+            .map(({name}) => ({name, source: fs.readFileSync(path.join(config.output.path, name), 'utf8')})),
         contextModules: [...stats.compilation.modules]
             .filter(module => module.constructor?.name === 'ContextModule')
             .map(module => ({
@@ -658,6 +759,8 @@ async function main() {
         execFileSync('npm', ['install', '--include=dev', '--no-audit', '--no-fund', '--ignore-scripts'],
             {cwd: workspace, encoding: 'utf8', stdio: 'pipe'});
 
+        installMainPackageFixtures(workspace);
+
         console.log('check-consumer-runtime-build: generating browser dependencies from the consumer workspace…');
         execFileSync(process.execPath, [path.join(installedRoot, 'buildScripts/build/all.mjs'),
             '-n', '-l', 'no', '-t', 'no', '-w', 'no', '-p', 'no', '-e', 'dev'],
@@ -684,6 +787,7 @@ async function main() {
             for (const arm of ['installed', 'linked']) {
                 const packagePath = arm === 'linked' ? linkPackage(workspace) : undefined;
 
+                arm === 'linked' && linkPackage(workspace, '@fixture/native-hooks');
                 removeMainAddonFixture(workspace);
 
                 for (const mode of ['development', 'production']) {
@@ -698,9 +802,10 @@ async function main() {
 
                     failures.push(...collectConsumerBuildFailures(
                         result,
-                        [{...MAIN_ADDON_EXPECTATION, present: false}, ...TEST_HARNESS_ABSENCE_EXPECTATIONS]
+                        [{...MAIN_ADDON_EXPECTATION, present: false}, ...MAIN_PACKAGE_EXPECTATIONS, ...TEST_HARNESS_ABSENCE_EXPECTATIONS]
                     ));
-                    failures.push(...collectMainContextFailures(result, workspace, 'absent', {packagePath}))
+                    failures.push(...collectMainContextFailures(result, workspace, 'absent', {packagePath}));
+                    failures.push(...collectMainAssetPathFailures(result, [workspace, fs.realpathSync(workspace)], path.basename(workspaceRoot)))
                 }
 
                 console.log(`check-consumer-runtime-build: [${arm}] building development App as a consumer…`);
@@ -730,9 +835,10 @@ async function main() {
 
                     failures.push(...collectConsumerBuildFailures(
                         result,
-                        [MAIN_ADDON_EXPECTATION, ...TEST_HARNESS_ABSENCE_EXPECTATIONS]
+                        [MAIN_ADDON_EXPECTATION, ...MAIN_PACKAGE_EXPECTATIONS, ...TEST_HARNESS_ABSENCE_EXPECTATIONS]
                     ));
-                    failures.push(...collectMainContextFailures(result, workspace, 'present', {packagePath}))
+                    failures.push(...collectMainContextFailures(result, workspace, 'present', {packagePath}));
+                    failures.push(...collectMainAssetPathFailures(result, [workspace, fs.realpathSync(workspace)], path.basename(workspaceRoot)))
                 }
             }
         } finally {
@@ -746,7 +852,7 @@ async function main() {
             process.exit(1)
         }
 
-        console.log('\ncheck-consumer-runtime-build: OK — Data and Main preserve their consumer-owned contexts in both modes, Canvas reaches the package\'s renderers and the consumer\'s, the App worker compiles the workspace\'s own app as a consumer in both layouts and every shipped app as the framework with the package installed, and the rest holds with the package linked from a pnpm-style real path. The framework App arm runs installed only and is logged as skipped when linked.')
+        console.log('\ncheck-consumer-runtime-build: OK — Data and Main preserve their consumer-owned contexts in both modes; Main admits only declared package addon roots and emits no absolute fixture paths; Canvas reaches the package\'s renderers and the consumer\'s; the App worker compiles the workspace\'s own app as a consumer in both layouts and every shipped app as the framework with the package installed; and the rest holds with the Engine and declaring Main package linked from pnpm-style real paths. The framework App arm runs installed only and is logged as skipped when linked.')
     } finally {
         fs.rmSync(workspaceRoot, {recursive: true, force: true})
     }

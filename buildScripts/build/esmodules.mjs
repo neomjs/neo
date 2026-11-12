@@ -1,18 +1,19 @@
-import fs                   from 'fs-extra';
-import path                 from 'path';
-import {fileURLToPath}      from 'node:url';
-import * as Terser          from 'terser';
-import {BROWSER_BUNDLES}    from '../util/browserBundles.mjs';
-import {isDistAppAsset}     from '../util/distAppAssets.mjs';
-import {minifyHtml}         from '../util/minifyHtml.mjs';
-import {processFileContent} from '../util/astTemplateProcessor.mjs';
+import fs                      from 'fs-extra';
+import path                    from 'path';
+import {fileURLToPath}         from 'node:url';
+import * as Terser             from 'terser';
+import {BROWSER_BUNDLES}       from '../util/browserBundles.mjs';
+import {isDistAppAsset}        from '../util/distAppAssets.mjs';
+import {minifyHtml}            from '../util/minifyHtml.mjs';
+import {mainAddonPackageRoots} from '../util/mainAddonPackages.mjs';
+import {processFileContent}    from '../util/astTemplateProcessor.mjs';
 
 import {
     esmOutputRoot,
     findUnresolvableImports,
     relativeSpecifiers,
     resolveSourceRoots,
-    rewriteImportPaths,
+    rewriteMainAddonImports,
     rewriteNeoConfig
 } from '../util/esmDistTransforms.mjs';
 
@@ -30,12 +31,15 @@ const
     /** Files that threw. Collected rather than logged, so the build can refuse to exit 0. */
     failures       = [];
 
-let inputDirectories;
+let inputDirectories, packageRoots;
 
 // A rejected source root is a manifest mistake, not an engine crash: the developer who typed the
 // path is the one who has to read this, and a stack trace through buildScripts tells them nothing.
 try {
-    inputDirectories = resolveSourceRoots({insideNeo, packageJson})
+    packageRoots = mainAddonPackageRoots(root);
+    inputDirectories = [...new Set([
+        ...resolveSourceRoots({insideNeo, packageJson}), ...packageRoots.map(entry => entry.relativeRoot)
+    ])]
 } catch (error) {
     console.error(`\ndist/esm: ${error.message}`);
     process.exit(1)
@@ -63,7 +67,7 @@ async function minifyDirectory(inputDir, outputDir) {
 
             if (dirent.name.endsWith('.mjs') || dirent.name.endsWith('.json') || dirent.name.endsWith('.html')) {
                 const content = fs.readFileSync(inputPath, 'utf8');
-                await minifyFile(content, outputPath);
+                await minifyFile(content, outputPath, inputPath);
             } else if (isDistAppAsset(dirent.name) || normalizedInput.includes('/resources/')) {
                 fs.mkdirSync(path.dirname(outputPath), {recursive: true});
                 fs.copyFileSync(inputPath, outputPath);
@@ -72,7 +76,7 @@ async function minifyDirectory(inputDir, outputDir) {
     }
 }
 
-async function minifyFile(content, outputPath) {
+async function minifyFile(content, outputPath, sourcePath) {
     fs.mkdirSync(path.dirname(outputPath), {recursive: true});
 
     try {
@@ -88,7 +92,10 @@ async function minifyFile(content, outputPath) {
             fs.writeFileSync(outputPath, minifiedContent);
             console.log(`Minified HTML: ${outputPath}`)
         } else if (outputPath.endsWith('.mjs')) {
-            let adjustedContent = rewriteImportPaths(content);
+            let adjustedContent = rewriteMainAddonImports(content, {
+                sourcePath, outputPath, workspaceRoot: root,
+                engineRoot: insideNeo ? root : path.join(root, 'node_modules/neo.mjs'), packageRoots
+            });
 
             // AST-based processing for html templates
             const result = processFileContent(adjustedContent, outputPath);
@@ -120,7 +127,7 @@ const promises = [];
 const swPath   = path.resolve(root, 'ServiceWorker.mjs');
 
 if (fs.existsSync(swPath)) {
-    promises.push(minifyFile(fs.readFileSync(swPath, 'utf8'), path.resolve(root, outputBasePath, 'ServiceWorker.mjs')));
+    promises.push(minifyFile(fs.readFileSync(swPath, 'utf8'), path.resolve(root, outputBasePath, 'ServiceWorker.mjs'), swPath));
 }
 
 inputDirectories.forEach(folder => {
