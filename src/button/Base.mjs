@@ -122,10 +122,10 @@ class Button extends Component {
         menu_: null,
         /**
          * The pressed state of the Button
-         * @member {Boolean} pressed_=false
+         * @member {Boolean|null} pressed_=null
          * @reactive
          */
-        pressed_: false,
+        pressed_: null,
         /**
          * Change the browser hash value on click.
          * Use route for internal navigation and url for external links. Do not use both on the same instance.
@@ -377,15 +377,25 @@ class Button extends Component {
 
     /**
      * Triggered after the pressed config got changed
-     * @param {Boolean} value    The new value of the pressed config.
-     * @param {Boolean} oldValue The old value of the pressed config.
+     * @param {Boolean|null} value    The new value of the pressed config.
+     * @param {Boolean|null} oldValue The old value of the pressed config.
      * @protected
      */
     afterSetPressed(value, oldValue) {
-        let cls = this.cls;
+        let me       = this,
+            cls      = me.cls,
+            vdomRoot = me.getVdomRoot();
 
         NeoArray.toggle(cls, 'pressed', value === true);
-        this.cls = cls
+
+        if (Neo.isBoolean(value)) {
+            vdomRoot['aria-pressed'] = String(value)
+        } else {
+            delete vdomRoot['aria-pressed']
+        }
+
+        me.cls = cls;
+        me.update()
     }
 
     /**

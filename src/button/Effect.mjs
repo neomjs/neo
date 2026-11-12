@@ -101,10 +101,10 @@ class EffectButton extends Component {
         menu_: null,
         /**
          * The pressed state of the Button
-         * @member {Boolean} pressed_=false
+         * @member {Boolean|null} pressed_=null
          * @reactive
          */
-        pressed_: false,
+        pressed_: null,
         /**
          * Change the browser hash value on click.
          * Use route for internal navigation and url for external links. Do not use both on the same instance.
@@ -212,7 +212,7 @@ class EffectButton extends Component {
         let vdomCls = [...this.baseCls, ...this.cls];
 
         NeoArray.toggle(vdomCls, 'no-text', !this.text);
-        NeoArray.toggle(vdomCls, 'pressed', this.pressed);
+        NeoArray.toggle(vdomCls, 'pressed', this.pressed === true);
         vdomCls.push('icon-' + this.iconPosition);
 
         return vdomCls;
@@ -231,13 +231,14 @@ class EffectButton extends Component {
 
         return {
             tag,
-            cls    : this.getVdomCls(),
-            href   : link ? (link.startsWith('#') ? link : '#' + link) : null,
-            id     : me.id,
-            style  : me.style,
-            target : me.url ? me.urlTarget : null,
-            type   : tag === 'button' ? 'button' : null,
-            cn     : this.getVdomChildren()
+            'aria-pressed': Neo.isBoolean(me.pressed) ? String(me.pressed) : null,
+            cls           : this.getVdomCls(),
+            href          : link ? (link.startsWith('#') ? link : '#' + link) : null,
+            id            : me.id,
+            style         : me.style,
+            target        : me.url ? me.urlTarget : null,
+            type          : tag === 'button' ? 'button' : null,
+            cn            : this.getVdomChildren()
         };
     }
 
