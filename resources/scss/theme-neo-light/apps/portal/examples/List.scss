@@ -1,0 +1,10 @@
+:where(.neo-theme-neo-light) {
+    --portal-examples-list-caption-start: color-mix(in srgb, var(--portal-headline-primary) 25%, var(--portal-bg-main));
+    --portal-examples-list-caption-end  : color-mix(in srgb, var(--portal-bg-main) 90%, var(--portal-headline-primary));
+    --portal-examples-list-lip-start    : color-mix(in srgb, var(--portal-examples-list-caption-start) 55%, transparent);
+    --portal-examples-list-lip-border   : color-mix(in srgb, var(--sem-color-text-neutral-default) 18%, transparent);
+    --portal-examples-list-text         : var(--sem-color-text-neutral-default);
+    --portal-examples-list-link-hover   : var(--portal-headline-primary);
+    --portal-examples-list-gradient-start: var(--portal-examples-list-caption-start);
+    --portal-examples-list-gradient-end  : var(--portal-examples-list-caption-end);
+}
