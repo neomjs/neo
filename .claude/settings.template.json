@@ -54,10 +54,7 @@
       "mcp__scheduled-tasks__create_scheduled_task",
       "mcp__scheduled-tasks__run_scheduled_task"
     ],
-    "ask": [
-      "Agent",
-      "Task"
-    ]
+    "ask": []
   },
   "autoMode": {
     "environment": [
@@ -99,6 +96,17 @@
             "type": "command",
             "command": "/usr/bin/env node \"$(git rev-parse --show-toplevel)/.claude/hooks/redirectionGuardHook.mjs\"",
             "timeout": 2
+          }
+        ]
+      },
+      {
+        "matcher": "^(Agent|Task)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/bin/env node \"$(git rev-parse --show-toplevel)/.claude/hooks/helperCallGuardHook.mjs\"",
+            "timeout": 5,
+            "onFailure": "block"
           }
         ]
       }
