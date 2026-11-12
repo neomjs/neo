@@ -1,0 +1,107 @@
+[
+  {
+    "text": "Euclid",
+    "href": "https://github.com/neo-gpt-euclid",
+    "rawHref": "https://github.com/neo-gpt-euclid"
+  },
+  {
+    "text": "first part of this series",
+    "href": "https://neomjs.com/news/blog/persistent-memory-for-ai-coding-agents",
+    "rawHref": "https://neomjs.com/news/blog/persistent-memory-for-ai-coding-agents"
+  },
+  {
+    "text": "Part 2",
+    "href": "https://neomjs.com/news/blog/context-compaction-recovery-for-ai-coding-agents",
+    "rawHref": "https://neomjs.com/news/blog/context-compaction-recovery-for-ai-coding-agents"
+  },
+  {
+    "text": "Dream Pipeline guide",
+    "href": "https://github.com/neomjs/neo-agent-brain/blob/7219f4e1a3780cbcbbb64a362b83ef613b26f167/learn/agentos/DreamPipeline.md",
+    "rawHref": "https://github.com/neomjs/neo-agent-brain/blob/7219f4e1a3780cbcbbb64a362b83ef613b26f167/learn/agentos/DreamPipeline.md"
+  },
+  {
+    "text": "synthesizer",
+    "href": "https://github.com/neomjs/neo-agent-brain/blob/7219f4e1a3780cbcbbb64a362b83ef613b26f167/ai/services/graph/GoldenPathSynthesizer.mjs",
+    "rawHref": "https://github.com/neomjs/neo-agent-brain/blob/7219f4e1a3780cbcbbb64a362b83ef613b26f167/ai/services/graph/GoldenPathSynthesizer.mjs"
+  },
+  {
+    "text": "released it",
+    "href": "https://github.com/neomjs/neo/issues/19058#issuecomment-6752293006",
+    "rawHref": "https://github.com/neomjs/neo/issues/19058#issuecomment-6752293006"
+  },
+  {
+    "text": "13.5 roadmap",
+    "href": "https://github.com/neomjs/neo/blob/41e5632698be771e8255859f7cb7cac6086894e7/ROADMAP.md",
+    "rawHref": "https://github.com/neomjs/neo/blob/41e5632698be771e8255859f7cb7cac6086894e7/ROADMAP.md"
+  },
+  {
+    "text": "dated forecast and intake",
+    "href": "https://github.com/neomjs/neo/issues/19058#issuecomment-6818665415",
+    "rawHref": "https://github.com/neomjs/neo/issues/19058#issuecomment-6818665415"
+  },
+  {
+    "text": "October 12 validation receipt",
+    "href": "https://github.com/neomjs/neo-agent-brain/issues/417#issuecomment-6123938093",
+    "rawHref": "https://github.com/neomjs/neo-agent-brain/issues/417#issuecomment-6123938093"
+  },
+  {
+    "text": "DreamService's ingestion skeleton",
+    "href": "https://github.com/neomjs/neo/commit/2fc20e5e080403a8fd29d668ccbfa0fda978336e",
+    "rawHref": "https://github.com/neomjs/neo/commit/2fc20e5e080403a8fd29d668ccbfa0fda978336e"
+  },
+  {
+    "text": "REM stabilization and scored handoff output",
+    "href": "https://github.com/neomjs/neo/commit/8ba7b515d00623562776ac08fa2f7b0e73d403cd",
+    "rawHref": "https://github.com/neomjs/neo/commit/8ba7b515d00623562776ac08fa2f7b0e73d403cd"
+  },
+  {
+    "text": "readable issue titles",
+    "href": "https://github.com/neomjs/neo/commit/e28670be70b4747c38c641a88b8994da43d2a017",
+    "rawHref": "https://github.com/neomjs/neo/commit/e28670be70b4747c38c641a88b8994da43d2a017"
+  },
+  {
+    "text": "Model interpretation of the scored recommendations",
+    "href": "https://github.com/neomjs/neo/commit/0085cd7aae311244b12a1957deb361d221bef744",
+    "rawHref": "https://github.com/neomjs/neo/commit/0085cd7aae311244b12a1957deb361d221bef744"
+  },
+  {
+    "text": "Separate ingestion, gap, maintenance and synthesis services",
+    "href": "https://github.com/neomjs/neo/commit/8f64ea291be1b89f9b883d29a93127c2302c36ee",
+    "rawHref": "https://github.com/neomjs/neo/commit/8f64ea291be1b89f9b883d29a93127c2302c36ee"
+  },
+  {
+    "text": "Existing services moved into graph and ingestion directories",
+    "href": "https://github.com/neomjs/neo/commit/03c7c5899599114a3f74e15a56fa224a10113c36",
+    "rawHref": "https://github.com/neomjs/neo/commit/03c7c5899599114a3f74e15a56fa224a10113c36"
+  },
+  {
+    "text": "13.0.0 release",
+    "href": "https://github.com/neomjs/neo/releases/tag/13.0.0",
+    "rawHref": "https://github.com/neomjs/neo/releases/tag/13.0.0"
+  },
+  {
+    "text": "Dream-RSI paper",
+    "href": "https://arxiv.org/abs/2609.14858v2",
+    "rawHref": "https://arxiv.org/abs/2609.14858v2"
+  },
+  {
+    "text": "Golden Path v2",
+    "href": "https://github.com/neomjs/neo-agent-brain/issues/122",
+    "rawHref": "https://github.com/neomjs/neo-agent-brain/issues/122"
+  },
+  {
+    "text": "shared skills package",
+    "href": "https://github.com/neomjs/neo-agent-skills",
+    "rawHref": "https://github.com/neomjs/neo-agent-skills"
+  },
+  {
+    "text": "Day-0 deployment tutorial",
+    "href": "https://github.com/neomjs/neo-agent-brain/blob/7219f4e1a3780cbcbbb64a362b83ef613b26f167/learn/agentos/cloud-deployment/Day0Tutorial.md",
+    "rawHref": "https://github.com/neomjs/neo-agent-brain/blob/7219f4e1a3780cbcbbb64a362b83ef613b26f167/learn/agentos/cloud-deployment/Day0Tutorial.md"
+  },
+  {
+    "text": "Agent Institution",
+    "href": "https://github.com/neomjs/neo-agent-institution",
+    "rawHref": "https://github.com/neomjs/neo-agent-institution"
+  }
+]

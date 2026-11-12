@@ -1,0 +1,891 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "659c38b80b607546a1b843bddc547874d01c14f4",
+  "sourcePath": "learn/blog/ai-agent-memory-consolidation.md",
+  "sourceSha256": "2481a9268ddcadcc2c6164ce5d9684299e12db1faf77ff66b7e2bca47821598c",
+  "registrationPath": "apps/portal/resources/data/blog.json",
+  "registrationSha256": "b1e8c6e62d71a310aec640bb1f1c13d7996448b8dffc2f96f3016b34d0b3116d",
+  "recordId": "blog/ai-agent-memory-consolidation",
+  "scope": "Local authored-source rendering only. Public links are extracted, not fact-checked or fetched.",
+  "node": "v24.22.3",
+  "cases": [
+    {
+      "theme": "dark",
+      "width": 1440,
+      "route": "/apps/portal/index.html#/news/blog/ai-agent-memory-consolidation",
+      "recordId": "blog/ai-agent-memory-consolidation",
+      "geometry": {
+        "article": {
+          "left": 408,
+          "top": 59,
+          "right": 1189,
+          "bottom": 4889.953125,
+          "width": 781,
+          "height": 4830.953125
+        },
+        "articleClientWidth": 781,
+        "articleScrollWidth": 781,
+        "articleOverflowX": false,
+        "svgCount": 1,
+        "errorSvgCount": 0,
+        "diagram": {
+          "left": 456,
+          "top": 1274.21875,
+          "right": 672,
+          "bottom": 2155.609375,
+          "width": 216,
+          "height": 881.390625
+        },
+        "diagramRole": "flowchart-v2",
+        "viewBox": "4 4 216 881.3999633789062",
+        "diagramContained": true,
+        "labels": [
+          {
+            "text": "Engineeringwork",
+            "fontSize": "16px",
+            "effectiveFontSize": 16,
+            "labelColor": "rgb(204, 204, 204)",
+            "textColor": "rgb(204, 204, 204)",
+            "glyphColor": "rgb(25, 25, 112)",
+            "htmlParagraphs": 0,
+            "shapeFill": "rgb(240, 248, 255)",
+            "rect": {
+              "left": 540.695068359375,
+              "top": 1295.2183837890625,
+              "right": 635.304443359375,
+              "bottom": 1331.8182373046875,
+              "width": 94.609375,
+              "height": 36.599853515625
+            },
+            "contrast": 13.840924974722965
+          },
+          {
+            "text": "Turn diariesRepositoryrecords",
+            "fontSize": "16px",
+            "effectiveFontSize": 16,
+            "labelColor": "rgb(204, 204, 204)",
+            "textColor": "rgb(204, 204, 204)",
+            "glyphColor": "rgb(25, 25, 112)",
+            "htmlParagraphs": 0,
+            "shapeFill": "rgb(240, 248, 255)",
+            "rect": {
+              "left": 492.218994140625,
+              "top": 1395.8172607421875,
+              "right": 587.781494140625,
+              "bottom": 1450.0169677734375,
+              "width": 95.5625,
+              "height": 54.19970703125
+            },
+            "contrast": 13.840924974722965
+          },
+          {
+            "text": "REM digestion",
+            "fontSize": "16px",
+            "effectiveFontSize": 16,
+            "labelColor": "rgb(204, 204, 204)",
+            "textColor": "rgb(204, 204, 204)",
+            "glyphColor": "rgb(25, 25, 112)",
+            "htmlParagraphs": 0,
+            "shapeFill": "rgb(240, 248, 255)",
+            "rect": {
+              "left": 484.023681640625,
+              "top": 1514.01611328125,
+              "right": 595.976806640625,
+              "bottom": 1533.01611328125,
+              "width": 111.953125,
+              "height": 19
+            },
+            "contrast": 13.840924974722965
+          },
+          {
+            "text": "GraphrelationshipsSemanticvectors",
+            "fontSize": "16px",
+            "effectiveFontSize": 16,
+            "labelColor": "rgb(204, 204, 204)",
+            "textColor": "rgb(204, 204, 204)",
+            "glyphColor": "rgb(25, 25, 112)",
+            "htmlParagraphs": 0,
+            "shapeFill": "rgb(240, 248, 255)",
+            "rect": {
+              "left": 487.789306640625,
+              "top": 1597.01513671875,
+              "right": 592.211181640625,
+              "bottom": 1668.814697265625,
+              "width": 104.421875,
+              "height": 71.799560546875
+            },
+            "contrast": 13.840924974722965
+          },
+          {
+            "text": "Scheduledranking",
+            "fontSize": "16px",
+            "effectiveFontSize": 16,
+            "labelColor": "rgb(204, 204, 204)",
+            "textColor": "rgb(204, 204, 204)",
+            "glyphColor": "rgb(25, 25, 112)",
+            "htmlParagraphs": 0,
+            "shapeFill": "rgb(240, 248, 255)",
+            "rect": {
+              "left": 498.968994140625,
+              "top": 1732.813720703125,
+              "right": 581.031494140625,
+              "bottom": 1769.41357421875,
+              "width": 82.0625,
+              "height": 36.599853515625
+            },
+            "contrast": 13.840924974722965
+          },
+          {
+            "text": "Dated forecast",
+            "fontSize": "16px",
+            "effectiveFontSize": 16,
+            "labelColor": "rgb(204, 204, 204)",
+            "textColor": "rgb(204, 204, 204)",
+            "glyphColor": "rgb(25, 25, 112)",
+            "htmlParagraphs": 0,
+            "shapeFill": "rgb(240, 248, 255)",
+            "rect": {
+              "left": 480.218994140625,
+              "top": 1833.41259765625,
+              "right": 599.781494140625,
+              "bottom": 1852.4127197265625,
+              "width": 119.5625,
+              "height": 19.0001220703125
+            },
+            "contrast": 13.840924974722965
+          },
+          {
+            "text": "Live peerchecks",
+            "fontSize": "16px",
+            "effectiveFontSize": 16,
+            "labelColor": "rgb(204, 204, 204)",
+            "textColor": "rgb(204, 204, 204)",
+            "glyphColor": "rgb(25, 25, 112)",
+            "htmlParagraphs": 0,
+            "shapeFill": "rgb(240, 248, 255)",
+            "rect": {
+              "left": 502.195556640625,
+              "top": 1916.411865234375,
+              "right": 577.804931640625,
+              "bottom": 1953.0115966796875,
+              "width": 75.609375,
+              "height": 36.5997314453125
+            },
+            "contrast": 13.840924974722965
+          },
+          {
+            "text": "PR and peerreview",
+            "fontSize": "16px",
+            "effectiveFontSize": 16,
+            "labelColor": "rgb(204, 204, 204)",
+            "textColor": "rgb(204, 204, 204)",
+            "glyphColor": "rgb(25, 25, 112)",
+            "htmlParagraphs": 0,
+            "shapeFill": "rgb(240, 248, 255)",
+            "rect": {
+              "left": 491.250244140625,
+              "top": 2017.0107421875,
+              "right": 588.750244140625,
+              "bottom": 2053.610595703125,
+              "width": 97.5,
+              "height": 36.599853515625
+            },
+            "contrast": 13.840924974722965
+          },
+          {
+            "text": "Human merge",
+            "fontSize": "16px",
+            "effectiveFontSize": 16,
+            "labelColor": "rgb(204, 204, 204)",
+            "textColor": "rgb(204, 204, 204)",
+            "glyphColor": "rgb(25, 25, 112)",
+            "htmlParagraphs": 0,
+            "shapeFill": "rgb(240, 248, 255)",
+            "rect": {
+              "left": 532.796630859375,
+              "top": 2117.609619140625,
+              "right": 643.202880859375,
+              "bottom": 2136.609619140625,
+              "width": 110.40625,
+              "height": 19
+            },
+            "contrast": 13.840924974722965
+          }
+        ],
+        "labelClipped": false,
+        "headings": [
+          "AI agent memory consolidation: from past decisions to the next proposal",
+          "Remembering the decision is the first half",
+          "The archive becomes a proposal",
+          "A dated forecast, including this post",
+          "The April record, without turning a skeleton into a finished system",
+          "What the Dream-RSI comparison explains",
+          "Where this still needs work",
+          "Try the smallest useful slice"
+        ],
+        "textLength": 9565,
+        "tables": []
+      }
+    },
+    {
+      "theme": "dark",
+      "width": 375,
+      "route": "/apps/portal/index.html#/news/blog/ai-agent-memory-consolidation",
+      "recordId": "blog/ai-agent-memory-consolidation",
+      "geometry": {
+        "article": {
+          "left": 51,
+          "top": 59,
+          "right": 374,
+          "bottom": 736,
+          "width": 323,
+          "height": 677
+        },
+        "articleClientWidth": 323,
+        "articleScrollWidth": 323,
+        "articleOverflowX": false,
+        "svgCount": 1,
+        "errorSvgCount": 0,
+        "diagram": {
+          "left": 67,
+          "top": 2581.40625,
+          "right": 283,
+          "bottom": 3462.796875,
+          "width": 216,
+          "height": 881.390625
+        },
+        "diagramRole": "flowchart-v2",
+        "viewBox": "4 4 216 881.3999633789062",
+        "diagramContained": true,
+        "labels": [
+          {
+            "text": "Engineeringwork",
+            "fontSize": "16px",
+            "effectiveFontSize": 16,
+            "labelColor": "rgb(204, 204, 204)",
+            "textColor": "rgb(204, 204, 204)",
+            "glyphColor": "rgb(25, 25, 112)",
+            "htmlParagraphs": 0,
+            "shapeFill": "rgb(240, 248, 255)",
+            "rect": {
+              "left": 151.69505310058594,
+              "top": 2602.40576171875,
+              "right": 246.30442810058594,
+              "bottom": 2639.005615234375,
+              "width": 94.609375,
+              "height": 36.599853515625
+            },
+            "contrast": 13.840924974722965
+          },
+          {
+            "text": "Turn diariesRepositoryrecords",
+            "fontSize": "16px",
+            "effectiveFontSize": 16,
+            "labelColor": "rgb(204, 204, 204)",
+            "textColor": "rgb(204, 204, 204)",
+            "glyphColor": "rgb(25, 25, 112)",
+            "htmlParagraphs": 0,
+            "shapeFill": "rgb(240, 248, 255)",
+            "rect": {
+              "left": 103.21900177001953,
+              "top": 2703.0048828125,
+              "right": 198.781494140625,
+              "bottom": 2757.204345703125,
+              "width": 95.56249237060547,
+              "height": 54.199462890625
+            },
+            "contrast": 13.840924974722965
+          },
+          {
+            "text": "REM digestion",
+            "fontSize": "16px",
+            "effectiveFontSize": 16,
+            "labelColor": "rgb(204, 204, 204)",
+            "textColor": "rgb(204, 204, 204)",
+            "glyphColor": "rgb(25, 25, 112)",
+            "htmlParagraphs": 0,
+            "shapeFill": "rgb(240, 248, 255)",
+            "rect": {
+              "left": 95.02368927001953,
+              "top": 2821.20361328125,
+              "right": 206.97682189941406,
+              "bottom": 2840.20361328125,
+              "width": 111.95313262939453,
+              "height": 19
+            },
+            "contrast": 13.840924974722965
+          },
+          {
+            "text": "GraphrelationshipsSemanticvectors",
+            "fontSize": "16px",
+            "effectiveFontSize": 16,
+            "labelColor": "rgb(204, 204, 204)",
+            "textColor": "rgb(204, 204, 204)",
+            "glyphColor": "rgb(25, 25, 112)",
+            "htmlParagraphs": 0,
+            "shapeFill": "rgb(240, 248, 255)",
+            "rect": {
+              "left": 98.78931427001953,
+              "top": 2904.20263671875,
+              "right": 203.211181640625,
+              "bottom": 2976.002197265625,
+              "width": 104.42186737060547,
+              "height": 71.799560546875
+            },
+            "contrast": 13.840924974722965
+          },
+          {
+            "text": "Scheduledranking",
+            "fontSize": "16px",
+            "effectiveFontSize": 16,
+            "labelColor": "rgb(204, 204, 204)",
+            "textColor": "rgb(204, 204, 204)",
+            "glyphColor": "rgb(25, 25, 112)",
+            "htmlParagraphs": 0,
+            "shapeFill": "rgb(240, 248, 255)",
+            "rect": {
+              "left": 109.96900939941406,
+              "top": 3040.001220703125,
+              "right": 192.031494140625,
+              "bottom": 3076.60107421875,
+              "width": 82.06248474121094,
+              "height": 36.599853515625
+            },
+            "contrast": 13.840924974722965
+          },
+          {
+            "text": "Dated forecast",
+            "fontSize": "16px",
+            "effectiveFontSize": 16,
+            "labelColor": "rgb(204, 204, 204)",
+            "textColor": "rgb(204, 204, 204)",
+            "glyphColor": "rgb(25, 25, 112)",
+            "htmlParagraphs": 0,
+            "shapeFill": "rgb(240, 248, 255)",
+            "rect": {
+              "left": 91.21900177001953,
+              "top": 3140.60009765625,
+              "right": 210.78150939941406,
+              "bottom": 3159.60009765625,
+              "width": 119.56250762939453,
+              "height": 19
+            },
+            "contrast": 13.840924974722965
+          },
+          {
+            "text": "Live peerchecks",
+            "fontSize": "16px",
+            "effectiveFontSize": 16,
+            "labelColor": "rgb(204, 204, 204)",
+            "textColor": "rgb(204, 204, 204)",
+            "glyphColor": "rgb(25, 25, 112)",
+            "htmlParagraphs": 0,
+            "shapeFill": "rgb(240, 248, 255)",
+            "rect": {
+              "left": 113.19557189941406,
+              "top": 3223.599365234375,
+              "right": 188.804931640625,
+              "bottom": 3260.19921875,
+              "width": 75.60935974121094,
+              "height": 36.599853515625
+            },
+            "contrast": 13.840924974722965
+          },
+          {
+            "text": "PR and peerreview",
+            "fontSize": "16px",
+            "effectiveFontSize": 16,
+            "labelColor": "rgb(204, 204, 204)",
+            "textColor": "rgb(204, 204, 204)",
+            "glyphColor": "rgb(25, 25, 112)",
+            "htmlParagraphs": 0,
+            "shapeFill": "rgb(240, 248, 255)",
+            "rect": {
+              "left": 102.25025177001953,
+              "top": 3324.1982421875,
+              "right": 199.75025939941406,
+              "bottom": 3360.798095703125,
+              "width": 97.50000762939453,
+              "height": 36.599853515625
+            },
+            "contrast": 13.840924974722965
+          },
+          {
+            "text": "Human merge",
+            "fontSize": "16px",
+            "effectiveFontSize": 16,
+            "labelColor": "rgb(204, 204, 204)",
+            "textColor": "rgb(204, 204, 204)",
+            "glyphColor": "rgb(25, 25, 112)",
+            "htmlParagraphs": 0,
+            "shapeFill": "rgb(240, 248, 255)",
+            "rect": {
+              "left": 143.79661560058594,
+              "top": 3424.797119140625,
+              "right": 254.20286560058594,
+              "bottom": 3443.797119140625,
+              "width": 110.40625,
+              "height": 19
+            },
+            "contrast": 13.840924974722965
+          }
+        ],
+        "labelClipped": false,
+        "headings": [
+          "AI agent memory consolidation: from past decisions to the next proposal",
+          "Remembering the decision is the first half",
+          "The archive becomes a proposal",
+          "A dated forecast, including this post",
+          "The April record, without turning a skeleton into a finished system",
+          "What the Dream-RSI comparison explains",
+          "Where this still needs work",
+          "Try the smallest useful slice"
+        ],
+        "textLength": 9565,
+        "tables": []
+      }
+    },
+    {
+      "theme": "light",
+      "width": 1440,
+      "route": "/apps/portal/index.html#/news/blog/ai-agent-memory-consolidation",
+      "recordId": "blog/ai-agent-memory-consolidation",
+      "geometry": {
+        "article": {
+          "left": 408,
+          "top": 59,
+          "right": 1189,
+          "bottom": 4889.953125,
+          "width": 781,
+          "height": 4830.953125
+        },
+        "articleClientWidth": 781,
+        "articleScrollWidth": 781,
+        "articleOverflowX": false,
+        "svgCount": 1,
+        "errorSvgCount": 0,
+        "diagram": {
+          "left": 456,
+          "top": 1274.21875,
+          "right": 672,
+          "bottom": 2155.609375,
+          "width": 216,
+          "height": 881.390625
+        },
+        "diagramRole": "flowchart-v2",
+        "viewBox": "4 4 216 881.3999633789062",
+        "diagramContained": true,
+        "labels": [
+          {
+            "text": "Engineeringwork",
+            "fontSize": "16px",
+            "effectiveFontSize": 16,
+            "labelColor": "rgb(204, 204, 204)",
+            "textColor": "rgb(204, 204, 204)",
+            "glyphColor": "rgb(25, 25, 112)",
+            "htmlParagraphs": 0,
+            "shapeFill": "rgb(240, 248, 255)",
+            "rect": {
+              "left": 540.695068359375,
+              "top": 1295.2183837890625,
+              "right": 635.304443359375,
+              "bottom": 1331.8182373046875,
+              "width": 94.609375,
+              "height": 36.599853515625
+            },
+            "contrast": 13.840924974722965
+          },
+          {
+            "text": "Turn diariesRepositoryrecords",
+            "fontSize": "16px",
+            "effectiveFontSize": 16,
+            "labelColor": "rgb(204, 204, 204)",
+            "textColor": "rgb(204, 204, 204)",
+            "glyphColor": "rgb(25, 25, 112)",
+            "htmlParagraphs": 0,
+            "shapeFill": "rgb(240, 248, 255)",
+            "rect": {
+              "left": 492.218994140625,
+              "top": 1395.8172607421875,
+              "right": 587.781494140625,
+              "bottom": 1450.0169677734375,
+              "width": 95.5625,
+              "height": 54.19970703125
+            },
+            "contrast": 13.840924974722965
+          },
+          {
+            "text": "REM digestion",
+            "fontSize": "16px",
+            "effectiveFontSize": 16,
+            "labelColor": "rgb(204, 204, 204)",
+            "textColor": "rgb(204, 204, 204)",
+            "glyphColor": "rgb(25, 25, 112)",
+            "htmlParagraphs": 0,
+            "shapeFill": "rgb(240, 248, 255)",
+            "rect": {
+              "left": 484.023681640625,
+              "top": 1514.01611328125,
+              "right": 595.976806640625,
+              "bottom": 1533.01611328125,
+              "width": 111.953125,
+              "height": 19
+            },
+            "contrast": 13.840924974722965
+          },
+          {
+            "text": "GraphrelationshipsSemanticvectors",
+            "fontSize": "16px",
+            "effectiveFontSize": 16,
+            "labelColor": "rgb(204, 204, 204)",
+            "textColor": "rgb(204, 204, 204)",
+            "glyphColor": "rgb(25, 25, 112)",
+            "htmlParagraphs": 0,
+            "shapeFill": "rgb(240, 248, 255)",
+            "rect": {
+              "left": 487.789306640625,
+              "top": 1597.01513671875,
+              "right": 592.211181640625,
+              "bottom": 1668.814697265625,
+              "width": 104.421875,
+              "height": 71.799560546875
+            },
+            "contrast": 13.840924974722965
+          },
+          {
+            "text": "Scheduledranking",
+            "fontSize": "16px",
+            "effectiveFontSize": 16,
+            "labelColor": "rgb(204, 204, 204)",
+            "textColor": "rgb(204, 204, 204)",
+            "glyphColor": "rgb(25, 25, 112)",
+            "htmlParagraphs": 0,
+            "shapeFill": "rgb(240, 248, 255)",
+            "rect": {
+              "left": 498.968994140625,
+              "top": 1732.813720703125,
+              "right": 581.031494140625,
+              "bottom": 1769.41357421875,
+              "width": 82.0625,
+              "height": 36.599853515625
+            },
+            "contrast": 13.840924974722965
+          },
+          {
+            "text": "Dated forecast",
+            "fontSize": "16px",
+            "effectiveFontSize": 16,
+            "labelColor": "rgb(204, 204, 204)",
+            "textColor": "rgb(204, 204, 204)",
+            "glyphColor": "rgb(25, 25, 112)",
+            "htmlParagraphs": 0,
+            "shapeFill": "rgb(240, 248, 255)",
+            "rect": {
+              "left": 480.218994140625,
+              "top": 1833.41259765625,
+              "right": 599.781494140625,
+              "bottom": 1852.4127197265625,
+              "width": 119.5625,
+              "height": 19.0001220703125
+            },
+            "contrast": 13.840924974722965
+          },
+          {
+            "text": "Live peerchecks",
+            "fontSize": "16px",
+            "effectiveFontSize": 16,
+            "labelColor": "rgb(204, 204, 204)",
+            "textColor": "rgb(204, 204, 204)",
+            "glyphColor": "rgb(25, 25, 112)",
+            "htmlParagraphs": 0,
+            "shapeFill": "rgb(240, 248, 255)",
+            "rect": {
+              "left": 502.195556640625,
+              "top": 1916.411865234375,
+              "right": 577.804931640625,
+              "bottom": 1953.0115966796875,
+              "width": 75.609375,
+              "height": 36.5997314453125
+            },
+            "contrast": 13.840924974722965
+          },
+          {
+            "text": "PR and peerreview",
+            "fontSize": "16px",
+            "effectiveFontSize": 16,
+            "labelColor": "rgb(204, 204, 204)",
+            "textColor": "rgb(204, 204, 204)",
+            "glyphColor": "rgb(25, 25, 112)",
+            "htmlParagraphs": 0,
+            "shapeFill": "rgb(240, 248, 255)",
+            "rect": {
+              "left": 491.250244140625,
+              "top": 2017.0107421875,
+              "right": 588.750244140625,
+              "bottom": 2053.610595703125,
+              "width": 97.5,
+              "height": 36.599853515625
+            },
+            "contrast": 13.840924974722965
+          },
+          {
+            "text": "Human merge",
+            "fontSize": "16px",
+            "effectiveFontSize": 16,
+            "labelColor": "rgb(204, 204, 204)",
+            "textColor": "rgb(204, 204, 204)",
+            "glyphColor": "rgb(25, 25, 112)",
+            "htmlParagraphs": 0,
+            "shapeFill": "rgb(240, 248, 255)",
+            "rect": {
+              "left": 532.796630859375,
+              "top": 2117.609619140625,
+              "right": 643.202880859375,
+              "bottom": 2136.609619140625,
+              "width": 110.40625,
+              "height": 19
+            },
+            "contrast": 13.840924974722965
+          }
+        ],
+        "labelClipped": false,
+        "headings": [
+          "AI agent memory consolidation: from past decisions to the next proposal",
+          "Remembering the decision is the first half",
+          "The archive becomes a proposal",
+          "A dated forecast, including this post",
+          "The April record, without turning a skeleton into a finished system",
+          "What the Dream-RSI comparison explains",
+          "Where this still needs work",
+          "Try the smallest useful slice"
+        ],
+        "textLength": 9565,
+        "tables": []
+      }
+    },
+    {
+      "theme": "light",
+      "width": 375,
+      "route": "/apps/portal/index.html#/news/blog/ai-agent-memory-consolidation",
+      "recordId": "blog/ai-agent-memory-consolidation",
+      "geometry": {
+        "article": {
+          "left": 51,
+          "top": 59,
+          "right": 374,
+          "bottom": 736,
+          "width": 323,
+          "height": 677
+        },
+        "articleClientWidth": 323,
+        "articleScrollWidth": 323,
+        "articleOverflowX": false,
+        "svgCount": 1,
+        "errorSvgCount": 0,
+        "diagram": {
+          "left": 67,
+          "top": 2581.40625,
+          "right": 283,
+          "bottom": 3462.796875,
+          "width": 216,
+          "height": 881.390625
+        },
+        "diagramRole": "flowchart-v2",
+        "viewBox": "4 4 216 881.3999633789062",
+        "diagramContained": true,
+        "labels": [
+          {
+            "text": "Engineeringwork",
+            "fontSize": "16px",
+            "effectiveFontSize": 16,
+            "labelColor": "rgb(204, 204, 204)",
+            "textColor": "rgb(204, 204, 204)",
+            "glyphColor": "rgb(25, 25, 112)",
+            "htmlParagraphs": 0,
+            "shapeFill": "rgb(240, 248, 255)",
+            "rect": {
+              "left": 151.69505310058594,
+              "top": 2602.40576171875,
+              "right": 246.30442810058594,
+              "bottom": 2639.005615234375,
+              "width": 94.609375,
+              "height": 36.599853515625
+            },
+            "contrast": 13.840924974722965
+          },
+          {
+            "text": "Turn diariesRepositoryrecords",
+            "fontSize": "16px",
+            "effectiveFontSize": 16,
+            "labelColor": "rgb(204, 204, 204)",
+            "textColor": "rgb(204, 204, 204)",
+            "glyphColor": "rgb(25, 25, 112)",
+            "htmlParagraphs": 0,
+            "shapeFill": "rgb(240, 248, 255)",
+            "rect": {
+              "left": 103.21900177001953,
+              "top": 2703.0048828125,
+              "right": 198.781494140625,
+              "bottom": 2757.204345703125,
+              "width": 95.56249237060547,
+              "height": 54.199462890625
+            },
+            "contrast": 13.840924974722965
+          },
+          {
+            "text": "REM digestion",
+            "fontSize": "16px",
+            "effectiveFontSize": 16,
+            "labelColor": "rgb(204, 204, 204)",
+            "textColor": "rgb(204, 204, 204)",
+            "glyphColor": "rgb(25, 25, 112)",
+            "htmlParagraphs": 0,
+            "shapeFill": "rgb(240, 248, 255)",
+            "rect": {
+              "left": 95.02368927001953,
+              "top": 2821.20361328125,
+              "right": 206.97682189941406,
+              "bottom": 2840.20361328125,
+              "width": 111.95313262939453,
+              "height": 19
+            },
+            "contrast": 13.840924974722965
+          },
+          {
+            "text": "GraphrelationshipsSemanticvectors",
+            "fontSize": "16px",
+            "effectiveFontSize": 16,
+            "labelColor": "rgb(204, 204, 204)",
+            "textColor": "rgb(204, 204, 204)",
+            "glyphColor": "rgb(25, 25, 112)",
+            "htmlParagraphs": 0,
+            "shapeFill": "rgb(240, 248, 255)",
+            "rect": {
+              "left": 98.78931427001953,
+              "top": 2904.20263671875,
+              "right": 203.211181640625,
+              "bottom": 2976.002197265625,
+              "width": 104.42186737060547,
+              "height": 71.799560546875
+            },
+            "contrast": 13.840924974722965
+          },
+          {
+            "text": "Scheduledranking",
+            "fontSize": "16px",
+            "effectiveFontSize": 16,
+            "labelColor": "rgb(204, 204, 204)",
+            "textColor": "rgb(204, 204, 204)",
+            "glyphColor": "rgb(25, 25, 112)",
+            "htmlParagraphs": 0,
+            "shapeFill": "rgb(240, 248, 255)",
+            "rect": {
+              "left": 109.96900939941406,
+              "top": 3040.001220703125,
+              "right": 192.031494140625,
+              "bottom": 3076.60107421875,
+              "width": 82.06248474121094,
+              "height": 36.599853515625
+            },
+            "contrast": 13.840924974722965
+          },
+          {
+            "text": "Dated forecast",
+            "fontSize": "16px",
+            "effectiveFontSize": 16,
+            "labelColor": "rgb(204, 204, 204)",
+            "textColor": "rgb(204, 204, 204)",
+            "glyphColor": "rgb(25, 25, 112)",
+            "htmlParagraphs": 0,
+            "shapeFill": "rgb(240, 248, 255)",
+            "rect": {
+              "left": 91.21900177001953,
+              "top": 3140.60009765625,
+              "right": 210.78150939941406,
+              "bottom": 3159.60009765625,
+              "width": 119.56250762939453,
+              "height": 19
+            },
+            "contrast": 13.840924974722965
+          },
+          {
+            "text": "Live peerchecks",
+            "fontSize": "16px",
+            "effectiveFontSize": 16,
+            "labelColor": "rgb(204, 204, 204)",
+            "textColor": "rgb(204, 204, 204)",
+            "glyphColor": "rgb(25, 25, 112)",
+            "htmlParagraphs": 0,
+            "shapeFill": "rgb(240, 248, 255)",
+            "rect": {
+              "left": 113.19557189941406,
+              "top": 3223.599365234375,
+              "right": 188.804931640625,
+              "bottom": 3260.19921875,
+              "width": 75.60935974121094,
+              "height": 36.599853515625
+            },
+            "contrast": 13.840924974722965
+          },
+          {
+            "text": "PR and peerreview",
+            "fontSize": "16px",
+            "effectiveFontSize": 16,
+            "labelColor": "rgb(204, 204, 204)",
+            "textColor": "rgb(204, 204, 204)",
+            "glyphColor": "rgb(25, 25, 112)",
+            "htmlParagraphs": 0,
+            "shapeFill": "rgb(240, 248, 255)",
+            "rect": {
+              "left": 102.25025177001953,
+              "top": 3324.1982421875,
+              "right": 199.75025939941406,
+              "bottom": 3360.798095703125,
+              "width": 97.50000762939453,
+              "height": 36.599853515625
+            },
+            "contrast": 13.840924974722965
+          },
+          {
+            "text": "Human merge",
+            "fontSize": "16px",
+            "effectiveFontSize": 16,
+            "labelColor": "rgb(204, 204, 204)",
+            "textColor": "rgb(204, 204, 204)",
+            "glyphColor": "rgb(25, 25, 112)",
+            "htmlParagraphs": 0,
+            "shapeFill": "rgb(240, 248, 255)",
+            "rect": {
+              "left": 143.79661560058594,
+              "top": 3424.797119140625,
+              "right": 254.20286560058594,
+              "bottom": 3443.797119140625,
+              "width": 110.40625,
+              "height": 19
+            },
+            "contrast": 13.840924974722965
+          }
+        ],
+        "labelClipped": false,
+        "headings": [
+          "AI agent memory consolidation: from past decisions to the next proposal",
+          "Remembering the decision is the first half",
+          "The archive becomes a proposal",
+          "A dated forecast, including this post",
+          "The April record, without turning a skeleton into a finished system",
+          "What the Dream-RSI comparison explains",
+          "Where this still needs work",
+          "Try the smallest useful slice"
+        ],
+        "textLength": 9565,
+        "tables": []
+      }
+    }
+  ],
+  "errors": [],
+  "abortedRequests": [],
+  "cleanup": {
+    "browserClosed": true,
+    "ownedServerStopped": true
+  }
+}
