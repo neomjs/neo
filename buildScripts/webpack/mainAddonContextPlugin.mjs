@@ -43,7 +43,7 @@ function admitPackageAddons(context, workspaceRoot) {
 /**
  * @summary Resolves workspace-owned and declared installed-package Main-addon contexts without mixing their roots.
  *
- * `Main.mjs` has two intentionally distinct dynamic roots. `./main/addon` owns Engine addons;
+ * The existing roots stay distinct: `./main/addon` owns Engine addons;
  * `../../../src/main/addon` owns modules selected through the `WS/` prefix from a consuming
  * workspace. Inside this repository both roots physically coincide, so the workspace request is
  * rewritten to the package root exactly as before. In an installed consumer the authored request
