@@ -385,6 +385,236 @@ test.describe('Neo.mixin.VdomLifecycle cross-container move flight races', () =>
         expect(dom.getElementById(moving.id).dataset.witness).toBe('same-node')
     });
 
+    test('a target waking before collection joins the full-depth move queued behind a dispatched response (#20762)', async () => {
+        const {host, target, source, moving} = await createHierarchy(),
+              originalNode                   = dom.getElementById(moving.id),
+              recordedDeltas                 = [],
+              settled                        = [],
+              flights                        = [];
+
+        let releaseMovingFlight, movingFlightEnteredResolve, targetTimeoutResolve, holdMoving = true;
+        const movingFlightHeld    = new Promise(resolve => {releaseMovingFlight = resolve}),
+              movingFlightEntered = new Promise(resolve => {movingFlightEnteredResolve = resolve}),
+              targetTimeout       = new Promise(resolve => {targetTimeoutResolve = resolve});
+
+        // Observe completion without delaying or replacing the lifecycle's real timeout Promise.
+        Base.prototype.timeout = function(ms, ...args) {
+            const result = origTimeout.call(this, ms, ...args);
+            if (this === target && ms === 1) result.then(targetTimeoutResolve, targetTimeoutResolve);
+            return result
+        };
+
+        VdomHelper.updateBatch = async function(data) {
+            const res = await origUpdateBatch.call(this, data);
+            recordedDeltas.push(...res.deltas);
+
+            if (holdMoving && Object.hasOwn(data.updates, moving.id)) {
+                holdMoving = false;
+                movingFlightEnteredResolve();
+                await movingFlightHeld
+            }
+
+            return res
+        };
+
+        try {
+            moving.cls = ['dispatched-moving-entry'];
+            const movingFlight = moving.promiseUpdate().then(() => settled.push('moving'));
+            flights.push(movingFlight);
+            await movingFlightEntered;
+
+            expect(moving.isVdomUpdating).toBe(true);
+            expect(VDomUpdate.isAwaitingCollection(moving.id)).toBe(false);
+
+            // Both writes happen in one synchronous turn. The target's real timeout(1) runs
+            // normally; insert() itself queues the full-depth common ancestor behind the flights.
+            target.style = {minHeight: '1px'};
+            const targetFlight = target.promiseUpdate().then(() => settled.push('target'));
+            flights.push(targetFlight);
+            expect(VDomUpdate.isAwaitingCollection(target.id)).toBe(true);
+
+            target.insert(0, moving);
+            const hostFlight = host.promiseUpdate().then(() => settled.push('host'));
+            flights.push(hostFlight);
+
+            expect(host.updateDepth).toBe(-1);
+            expect(host.needsVdomUpdate).toBe(true);
+            expect(host.isVdomUpdating).toBe(false);
+            expect(VDomUpdate.hasDispatchedDescendants(host.id, target.id)).toBe(true);
+
+            // Let the target's pre-collection continuation run while the genuine moving response
+            // remains pending. A correct merge settles the target only after that response releases.
+            await targetTimeout;
+            await flushMicrotasks();
+            releaseMovingFlight();
+            await Promise.all(flights);
+
+            expect(settled.sort()).toEqual(['host', 'moving', 'target']);
+            expect.soft(recordedDeltas.filter(d => d.action === 'insertNode' && d.vnode?.id === moving.id)).toHaveLength(0);
+            expect(recordedDeltas.filter(d => d.action === 'removeNode' && d.id === moving.id)).toHaveLength(0);
+            expect.soft(recordedDeltas.filter(d => d.action === 'moveNode' && d.id === moving.id)).toHaveLength(1);
+            expect.soft(dom.countById(moving.id)).toBe(1);
+            expect.soft(dom.childIds(source.id)).not.toContain(moving.id);
+            expect(dom.childIds(target.id)[0]).toBe(moving.id);
+            expect(dom.getElementById(target.id).children[0] === originalNode, 'the destination keeps the original node identity').toBe(true);
+            expect(originalNode.dataset.witness).toBe('same-node')
+        } finally {
+            releaseMovingFlight();
+            await Promise.allSettled(flights)
+        }
+    });
+
+    test('a shallow initiator carrying a merged full-depth target keeps the move in its common ancestor (#20762)', async () => {
+        const {host, target, source, moving} = await createHierarchy(),
+              carrier                        = target.parent,
+              originalNode                   = dom.getElementById(moving.id),
+              recordedDeltas                 = [],
+              settled                        = [],
+              flights                        = [];
+
+        // Let a real cycle reset the intermediate parent's own depth to one.
+        carrier.cls = ['primed-carrier'];
+        await carrier.promiseUpdate();
+        expect(carrier.updateDepth).toBe(1);
+
+        let releaseMovingFlight, movingFlightEnteredResolve, carrierTimeoutResolve, holdMoving = true;
+        const movingFlightHeld    = new Promise(resolve => {releaseMovingFlight = resolve}),
+              movingFlightEntered = new Promise(resolve => {movingFlightEnteredResolve = resolve}),
+              carrierTimeout      = new Promise(resolve => {carrierTimeoutResolve = resolve});
+
+        Base.prototype.timeout = function(ms, ...args) {
+            const result = origTimeout.call(this, ms, ...args);
+            if (this === carrier && ms === 1) result.then(carrierTimeoutResolve, carrierTimeoutResolve);
+            return result
+        };
+
+        VdomHelper.updateBatch = async function(data) {
+            const res = await origUpdateBatch.call(this, data);
+            recordedDeltas.push(...res.deltas);
+
+            if (holdMoving && Object.hasOwn(data.updates, moving.id)) {
+                holdMoving = false;
+                movingFlightEnteredResolve();
+                await movingFlightHeld
+            }
+
+            return res
+        };
+
+        try {
+            moving.cls = ['dispatched-moving-entry'];
+            const movingFlight = moving.promiseUpdate().then(() => settled.push('moving'));
+            flights.push(movingFlight);
+            await movingFlightEntered;
+
+            // The intermediate parent owns a real pre-collection flight. A target config write
+            // merges into it; public insert() widens the target and queues the common ancestor.
+            carrier.style = {minHeight: '1px'};
+            const carrierFlight = carrier.promiseUpdate().then(() => settled.push('carrier'));
+            flights.push(carrierFlight);
+            target.style = {minHeight: '1px'};
+            target.insert(0, moving);
+            const targetFlight = target.promiseUpdate().then(() => settled.push('target')),
+                  hostFlight   = host.promiseUpdate().then(() => settled.push('host'));
+            flights.push(targetFlight, hostFlight);
+
+            expect(carrier.updateDepth).toBe(1);
+            expect(VDomUpdate.isAwaitingCollection(carrier.id)).toBe(true);
+            expect(target.updateDepth).toBe(-1);
+            expect(VDomUpdate.mergedCallbackMap.get(carrier.id)?.children.get(target.id)?.childUpdateDepth).toBe(-1);
+            expect(host.updateDepth).toBe(-1);
+            expect(host.needsVdomUpdate).toBe(true);
+            expect(host.isVdomUpdating).toBe(false);
+            expect(VDomUpdate.hasDispatchedDescendants(host.id, carrier.id)).toBe(true);
+
+            await carrierTimeout;
+            await flushMicrotasks();
+            releaseMovingFlight();
+            await Promise.all(flights);
+
+            expect(settled.sort()).toEqual(['carrier', 'host', 'moving', 'target']);
+            expect.soft(recordedDeltas.filter(d => d.action === 'insertNode' && d.vnode?.id === moving.id)).toHaveLength(0);
+            expect(recordedDeltas.filter(d => d.action === 'removeNode' && d.id === moving.id)).toHaveLength(0);
+            expect.soft(recordedDeltas.filter(d => d.action === 'moveNode' && d.id === moving.id)).toHaveLength(1);
+            expect.soft(dom.countById(moving.id)).toBe(1);
+            expect.soft(dom.childIds(source.id)).not.toContain(moving.id);
+            expect(dom.childIds(target.id)[0]).toBe(moving.id);
+            expect(dom.getElementById(target.id).children[0] === originalNode, 'the destination keeps the original node identity').toBe(true);
+            expect(originalNode.dataset.witness).toBe('same-node')
+        } finally {
+            releaseMovingFlight();
+            await Promise.allSettled(flights)
+        }
+    });
+
+    test('a shallow queued ancestor does not capture a target behind unrelated dispatched work (#20762)', async () => {
+        const {host, bodies, target} = await createHierarchy(),
+              busy                   = bodies[3].items[0],
+              targetNode             = dom.getElementById(target.id),
+              recordedDeltas         = [],
+              settled                = [],
+              flights                = [];
+
+        // An ordinary completed cycle resets the next host update to its default shallow depth.
+        host.cls = ['primed-host'];
+        await host.promiseUpdate();
+        expect(host.updateDepth).toBe(1);
+
+        let releaseBusyFlight, busyFlightEnteredResolve, holdBusy = true;
+        const busyFlightHeld    = new Promise(resolve => {releaseBusyFlight = resolve}),
+              busyFlightEntered = new Promise(resolve => {busyFlightEnteredResolve = resolve});
+
+        VdomHelper.updateBatch = async function(data) {
+            const res = await origUpdateBatch.call(this, data);
+            recordedDeltas.push(...res.deltas);
+
+            if (holdBusy && Object.hasOwn(data.updates, busy.id)) {
+                holdBusy = false;
+                busyFlightEnteredResolve();
+                await busyFlightHeld
+            }
+
+            return res
+        };
+
+        try {
+            busy.cls = ['dispatched-unrelated-entry'];
+            const busyFlight = busy.promiseUpdate().then(() => settled.push('busy'));
+            flights.push(busyFlight);
+            await busyFlightEntered;
+
+            target.cls = ['independent-target'];
+            const targetFlight = target.promiseUpdate().then(() => settled.push('target'));
+            flights.push(targetFlight);
+
+            host.cls = ['pending-shallow-host'];
+            const hostFlight = host.promiseUpdate().then(() => settled.push('host'));
+            flights.push(hostFlight);
+
+            expect(host.updateDepth).toBe(1);
+            expect(host.needsVdomUpdate).toBe(true);
+            expect(host.isVdomUpdating).toBe(false);
+            expect(VDomUpdate.hasDispatchedDescendants(host.id, target.id)).toBe(true);
+
+            await expect.poll(() => [...settled], {timeout: 1000}).toEqual(['target']);
+            const settledWhileBusy = [...settled];
+
+            releaseBusyFlight();
+            await Promise.all(flights);
+
+            expect(settledWhileBusy, 'the target can render independently of the shallow pending ancestor').toEqual(['target']);
+            expect(settled.sort()).toEqual(['busy', 'host', 'target']);
+            expect(target.vnode.className).toContain('independent-target');
+            expect(host.vnode.className).toContain('pending-shallow-host');
+            expect(recordedDeltas.filter(d => ['insertNode', 'moveNode', 'removeNode'].includes(d.action))).toEqual([]);
+            expect(dom.countById(target.id)).toBe(1);
+            expect(dom.getElementById(target.id)).toBe(targetNode)
+        } finally {
+            releaseBusyFlight();
+            await Promise.allSettled(flights)
+        }
+    });
+
     test('a rejected updateBatch without subsequent writes clears awaitingCollectionSet and does not retry in catch', async () => {
         const {target}      = await createHierarchy();
         let   batchAttempts = 0;
