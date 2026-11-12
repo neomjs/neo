@@ -513,6 +513,11 @@ test.describe('Neo.calendar.view.month.Component headerHeight lifecycle', () => 
             // yet the view still restores itself after the proxy teardown
             recordChanges.length = 0;
 
+            const createContentCalls = {count: 0},
+                  origCreateContent  = component.createContent.bind(component);
+
+            component.createContent = (...args) => {createContentCalls.count++; return origCreateContent(...args)};
+
             await plugin.onEventDragStart({
                 clientX: 25,
                 clientY: 30,
