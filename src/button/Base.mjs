@@ -121,11 +121,12 @@ class Button extends Component {
          */
         menu_: null,
         /**
-         * The pressed state of the Button
-         * @member {Boolean} pressed_=false
+         * The pressed state of the Button. `null` marks a plain button (no toggle semantics),
+         * a Boolean value renders the `aria-pressed` attribute for assistive technology.
+         * @member {Boolean|null} pressed_=null
          * @reactive
          */
-        pressed_: false,
+        pressed_: null,
         /**
          * Change the browser hash value on click.
          * Use route for internal navigation and url for external links. Do not use both on the same instance.
@@ -377,15 +378,24 @@ class Button extends Component {
 
     /**
      * Triggered after the pressed config got changed
-     * @param {Boolean} value    The new value of the pressed config.
-     * @param {Boolean} oldValue The old value of the pressed config.
+     * @param {Boolean|null} value    The new value of the pressed config.
+     * @param {Boolean|null} oldValue The old value of the pressed config.
      * @protected
      */
     afterSetPressed(value, oldValue) {
-        let cls = this.cls;
+        let cls      = this.cls,
+            vdomRoot = this.getVdomRoot();
 
         NeoArray.toggle(cls, 'pressed', value === true);
-        this.cls = cls
+        this.cls = cls;
+
+        if (value === null) {
+            delete vdomRoot['aria-pressed']
+        } else {
+            vdomRoot['aria-pressed'] = String(value === true)
+        }
+
+        this.update()
     }
 
     /**
