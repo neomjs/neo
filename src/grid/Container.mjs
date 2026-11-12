@@ -1514,6 +1514,44 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * @summary Expands a collapsed parent row or collapses an expanded one, and fires the matching event.
+     *
+     * The single home of the tree toggle: the toggle icon of {@link Neo.grid.column.component.Tree} and the
+     * `Left` / `Right` keys of {@link Neo.selection.grid.RowModel} both end up here, so the store call and the
+     * `expand` / `collapse` event cannot drift apart. Does nothing in a grid without a tree store, on a leaf, or
+     * when `expand` is passed and the record is already expanded (and vice versa).
+     * @param {Neo.data.Record|Object} record
+     * @param {Boolean} [expand] Pass `true` to only expand, `false` to only collapse; omit to toggle.
+     * @returns {Boolean} `true` if the record changed its expansion state
+     */
+    toggleTreeNode(record, expand) {
+        let me      = this,
+            {store} = me;
+
+        if (!me.isTreeGrid || !store || !record || record.isLeaf) {
+            return false
+        }
+
+        if (expand === undefined) {
+            expand = record.collapsed
+        }
+
+        if (expand !== record.collapsed) {
+            return false
+        }
+
+        if (expand) {
+            store.expand(record);
+            me.fire('expand', {record})
+        } else {
+            store.collapse(record);
+            me.fire('collapse', {record})
+        }
+
+        return true
+    }
+
+    /**
      *
      */
     onConstructed() {
