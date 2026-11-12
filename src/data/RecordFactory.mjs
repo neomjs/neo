@@ -41,6 +41,7 @@ class RecordFactory extends Base {
      * @private
      */
     #recordClasses = new WeakMap()
+    #preparedFields = null
 
     /**
      * @summary Resolves field mappings (dot and `[index]` segments, preserving falsy leaves and yielding `undefined` when absent so `defaultValue` applies) and assigns model default values.
@@ -305,6 +306,13 @@ class RecordFactory extends Base {
                      * @returns {Object}
                      */
                     notifyChange(data, silent=false) {
+                        const frame = instance.#preparedFields?.get(this);
+                        if (frame) {
+                            if (frame.expected !== data.fields || silent) throw new Error('Record is adopting prepared fields');
+                            frame.expected = null;
+                            data = {...data, changedFields: frame.changes};
+                            silent = true
+                        }
                         const param = {...data, silent}
                         instance.setRecordFields(param);
                         return param
@@ -379,6 +387,98 @@ class RecordFactory extends Base {
      */
     isRecord(record) {
         return record?.isRecord || false
+    }
+
+    /**
+     * @summary Adopts non-key fields silently through each record's native writer, then publishes
+     * their native change payloads. A failing conversion or seal restores the fields, including calculated
+     * values, dirty state and version. The synchronous seal finishes any owner-managed work before the
+     * first observer runs. Converters may normalize or retain the previous value; native deltas describe
+     * what changed. An override that bypasses the admitted native write rejects the operation.
+     * The seal must throw to refuse. Its owner manages membership and any external side effects.
+     * @param {Neo.data.Model} model
+     * @param {Object[]} updates Distinct current records of this model. The store owner manages membership.
+     * @param {Object} updates[].record The original record instance.
+     * @param {Object} updates[].fields Declared field names and their inputs. Use dotted names for nested fields.
+     * @param {Function} [seal] Synchronous final adoption. Participating records reject further writes here.
+     * @returns {Error[]} Post-commit notification errors; published state stays committed.
+     */
+    applyPreparedFields(model, updates, seal=Neo.emptyFn) {
+        if (Object.prototype.toString.call(seal) === '[object AsyncFunction]') {
+            throw new TypeError('Field adoption must be synchronous')
+        }
+        const Record = this.#recordClasses.get(model), store = Neo.get(model.storeId), key = store?.getKeyProperty() ?? 'id';
+        const seen   = new Set(), checkpoints = updates.map(({record, fields: input}) => {
+            if (!input || typeof input !== 'object' || Array.isArray(input)) throw new TypeError('Expected a field map');
+            const fields = Object.freeze({...input});
+            if (!Record || !(record instanceof Record) || (store && (store.allItems || store).get(store.getKey(record)) !== record) ||
+                seen.has(record) || this.#preparedFields?.has(record) ||
+                Object.hasOwn(fields, key)) {
+                throw new TypeError('Expected non-key fields on a record of this model')
+            }
+            seen.add(record);
+            const slots = [];
+            for (const name of new Set([...Object.keys(fields), ...model.calculatedFieldsMap.keys()])) {
+                if (!model.getField(name) || name === key) throw new TypeError('Expected a declared, non-key field');
+                const path  = model.hasNestedFields ? name.split('.') : [name];
+                let   owner = record[dataSymbol], i = 0;
+                // If a nested scope is absent, the write creates it. Restore its prior absence
+                // instead of leaving an empty tree where a failed edit first created one.
+                while (i < path.length - 1 && owner[path[i]] && typeof owner[path[i]] === 'object') {
+                    owner = owner[path[i++]]
+                }
+                const field = path[i];
+                slots.push({owner, field, existed: Object.hasOwn(owner, field), value: owner[field]})
+            }
+            return {record, fields, slots, changes: [], expected: null, version: record.version, modified: record[isModifiedSymbol]}
+        });
+        const preparing = this.#preparedFields ??= new Map();
+        for (const frame of checkpoints) preparing.set(frame.record, frame);
+        try {
+            for (const frame of checkpoints) {
+                const {record, fields} = frame;
+                frame.expected = fields;
+                try {
+                    record.set(fields);
+                    if (frame.expected) throw new Error('Record bypassed the prepared native field write')
+                } finally { frame.expected = null }
+            }
+            const result = seal();
+            if (result && typeof result.then === 'function') {
+                Promise.resolve(result).catch(() => {});
+                throw new TypeError('Field adoption must be synchronous')
+            }
+        } catch (error) {
+            for (const {record, slots, version, modified} of checkpoints.reverse()) {
+                for (const {owner, field, existed, value} of slots.reverse()) {
+                    if (existed) owner[field] = value;
+                    else delete owner[field]
+                }
+                record[versionSymbol] = version;
+                if (!model.trackModifiedFields) record[isModifiedSymbol] = modified
+            }
+            throw error
+        } finally {
+            for (const {record} of checkpoints) preparing.delete(record);
+            if (!preparing.size && this.#preparedFields === preparing) this.#preparedFields = null
+        }
+        const errors = [];
+        for (const {record, changes} of checkpoints) {
+            if (changes.length) {
+                try { this.onRecordChange({model, record, fields: changes}) } catch (error) { errors.push(error) }
+            }
+        }
+        return errors
+    }
+
+    /**
+     * @summary Identifies the exact prepared write at a native record's notifyChange admission hook.
+     * @param {Object} record
+     * @param {Object} fields
+     * @returns {Boolean}
+     */
+    isApplyingPreparedFields(record, fields) {
+        return !!fields && this.#preparedFields?.get(record)?.expected === fields
     }
 
     /**
@@ -531,6 +631,10 @@ class RecordFactory extends Base {
      * @param {Boolean}        data.useOriginalData=false true will apply changes to the originalData symbol
      */
     setRecordFields({changedFields=[], fields, model, record, silent=false, useOriginalData=false}) {
+        const frame = this.#preparedFields?.get(record);
+        if (frame && (useOriginalData || !silent || changedFields !== frame.changes)) {
+            throw new Error('Only the admitted native field write may change this record')
+        }
         let me = this,
             {calculatedFieldsMap, fieldsMap, trackModifiedFields} = model,
             fieldExists, hasChangedFields, oldValue;
