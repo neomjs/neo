@@ -10,8 +10,10 @@
         margin       : 0 auto 10px;
         max-width    : 800px;
         min-height   : 400px;
+        outline      : 1px solid transparent;
         overflow     : hidden;
         padding      : 0;
+        transition   : outline-color var(--motion-fast) var(--ease-out-soft);
         white-space  : normal;
         width        : 100%;
 
@@ -169,6 +171,7 @@
         width          : 2em;
     }
 
+    // Reproject at the phone breakpoint immediately rather than animate the image/caption layout.
     @media (max-width: 600px) {
         padding: 5px 5px 0;
 

@@ -67,7 +67,7 @@ async function expectCaptionLayout(list, width) {
 }
 
 /**
- * @summary Measures ordinary caption text against the actual composited paint in its lower padding.
+ * @summary Measures ordinary caption text against the actual composited paint in its opaque padding.
  * @param {Object} caption Caption locator.
  * @param {Object} testInfo Playwright evidence writer.
  * @param {String} name Attachment name.
@@ -76,21 +76,26 @@ async function expectCaptionLayout(list, width) {
 async function expectCaptionContrast(caption, testInfo, name) {
     const screenshot = await caption.screenshot(),
           decoded    = decodePng(screenshot),
+          lipHeight  = await caption.evaluate(node => {
+              const style = getComputedStyle(node, '::before');
+              return style.display === 'none' ? 0 : parseFloat(style.height)
+          }),
           colors     = await caption.locator('a, .portal-example-feature, p, .neo-inner-details').evaluateAll(nodes =>
               nodes.map(node => getComputedStyle(node).color.match(/[\d.]+/g).map(Number)));
     const luminance = color => color.slice(0, 3).map(value => {
         value /= 255;
         return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
     }).reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0);
-    const contrasts = [0.12, 0.5, 0.88].flatMap(fraction => {
-        const offset     = ((decoded.height - 8) * decoded.width + Math.floor(decoded.width * fraction)) * decoded.channels,
+    const rows      = [Math.min(decoded.height - 1, Math.floor(lipHeight + 6)), decoded.height - 8];
+    const contrasts = rows.flatMap(row => [0.12, 0.5, 0.88].flatMap(fraction => {
+        const offset     = (row * decoded.width + Math.floor(decoded.width * fraction)) * decoded.channels,
               background = luminance([...decoded.pixels.subarray(offset, offset + 3)]);
         return colors.map(color => {
             expect(color[3] ?? 1, 'text color has no alpha reduction').toBe(1);
             const foreground = luminance(color);
             return (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05)
         })
-    });
+    }));
     expect(Math.min(...contrasts), 'ordinary caption text contrasts with the rendered surface').toBeGreaterThanOrEqual(4.5);
     await testInfo.attach(name, {body: screenshot, contentType: 'image/png'})
 }
