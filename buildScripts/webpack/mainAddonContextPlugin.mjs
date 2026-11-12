@@ -1,14 +1,47 @@
-import fs      from 'fs';
-import path    from 'path';
-import webpack from 'webpack';
+import fs                      from 'fs';
+import path                    from 'path';
+import webpack                 from 'webpack';
+import {mainAddonPackageRoots} from '../util/mainAddonPackages.mjs';
 
 const
     MATCHES_NOTHING   = /(?!)/,
     PACKAGE_REQUEST   = '../src/main/addon',
     WORKSPACE_REQUEST = '../../../src/main/addon';
 
+/** @summary Escapes a filesystem path for a context admission expression. @param {String} value @returns {String} */
+const escapePattern = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 /**
- * @summary Resolves the optional workspace-owned Main-addon context without leaking package addons.
+ * @summary Restricts a package context to declared roots and prunes every unrelated dependency directory.
+ * @param {Object} context The unresolved Main import context.
+ * @param {String} workspaceRoot The consuming workspace, never inferred from a linked package's real path.
+ */
+function admitPackageAddons(context, workspaceRoot) {
+    const root        = fs.realpathSync(path.join(workspaceRoot, 'node_modules')),
+          roots       = mainAddonPackageRoots(workspaceRoot),
+          directories = new Set(),
+          allowed     = [];
+
+    for (const entry of roots) {
+        const relative = entry.relativeRoot.substring('node_modules/'.length),
+              folder   = path.join(root, relative);
+        allowed.push(escapePattern(folder) + '(?:[/\\\\]|$)');
+        for (let parent = path.dirname(folder); parent !== root; parent = path.dirname(parent)) {
+            directories.add(escapePattern(parent) + '$')
+        }
+    }
+
+    const request = path.relative(context.context, root).split(path.sep).join('/');
+    context.request = request.startsWith('.') ? request : './' + request;
+    context.regExp = roots.length
+        ? new RegExp('^\\./(?:' + roots.map(entry => escapePattern(entry.relativeRoot.substring(13))).join('|') + ')/.*\\.mjs$')
+        : MATCHES_NOTHING;
+    context.exclude = roots.length ? new RegExp('^(?!(?:' + [...allowed, ...directories].join('|') + '))') : /.*/;
+    context.recursive = roots.length > 0
+}
+
+/**
+ * @summary Resolves workspace-owned and declared installed-package Main-addon contexts without mixing their roots.
  *
  * `Main.mjs` has two intentionally distinct dynamic roots. `./main/addon` owns Engine addons;
  * `../../../src/main/addon` owns modules selected through the `WS/` prefix from a consuming
@@ -38,7 +71,20 @@ const
 export default function mainAddonContextPlugin(insideNeo, workspaceRoot) {
     return new webpack.ContextReplacementPlugin(/.*/, context => {
         if (context.resource !== undefined || !context.context) return;
-        if (path.posix.normalize(context.request.replaceAll('\\', '/')) !== WORKSPACE_REQUEST) return;
+
+        const request = path.posix.normalize(context.request.replaceAll('\\', '/'));
+        if (request === '../..' || request === '../node_modules') {
+            const workspace = workspaceRoot ? path.resolve(workspaceRoot) :
+                      path.resolve(context.context, insideNeo ? '..' : '../../..'),
+                  sourceRoot = path.join(workspace, insideNeo ? 'src' : 'node_modules/neo.mjs/src');
+
+            if (fs.existsSync(sourceRoot) && fs.realpathSync(context.context) === fs.realpathSync(sourceRoot)) {
+                admitPackageAddons(context, workspace)
+            }
+            return
+        }
+
+        if (request !== WORKSPACE_REQUEST) return;
 
         if (insideNeo) {
             context.request = PACKAGE_REQUEST;

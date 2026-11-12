@@ -37,7 +37,7 @@ Google Maps like any other component, so Neo.mjs also provides a component wrapp
 
 When your code in the App Worker calls an addon method, a sophisticated, promise-based communication
 happens automatically behind the scenes. This communication is powered by the `RemoteMethodAccess`
-(RMA) mixin. 
+(RMA) mixin.
 
 *(Note: While this guide focuses on using RMA to reach Main Thread Singletons, the RMA architecture
 has evolved to also support "Instance-to-Instance" routing between any two worker threads, such as an
@@ -246,18 +246,15 @@ Let's say you want to add a custom prefix to all keys stored in `localStorage` f
 You can extend the `Neo.main.addon.LocalStorage` and override its `readLocalStorageItem` and
 `updateLocalStorageItem` methods.
 
-First, create your custom addon (e.g., `workspace/src/addon/CustomLocalStorage.mjs`):
+First, create your custom addon (e.g., `workspace/src/main/addon/CustomLocalStorage.mjs`):
 
 ```javascript readonly
-// workspace/src/addon/CustomLocalStorage.mjs
+// workspace/src/main/addon/CustomLocalStorage.mjs
 import LocalStorage from '../../../node_modules/neo.mjs/src/main/addon/LocalStorage.mjs';
 
 class CustomLocalStorage extends LocalStorage {
     static config = {
         className: 'MyApp.main.addon.CustomLocalStorage',
-        // This is optional, Neo.Main will always convert main thread addons into singletons.
-        // If you want to keep your class open to further extensions, you can use the "semi-singleton" pattern too.
-        singleton: true,
         // No need to redefine remote config, it's inherited
     }
 
@@ -292,10 +289,62 @@ directory of your workspace (the output of `npx neo-app`).
 }
 ```
 
-Now, any call to `Neo.main.addon.CustomLocalStorage.readLocalStorageItem()` or `updateLocalStorageItem()`
+Now, any call to `MyApp.main.addon.CustomLocalStorage.readLocalStorageItem()` or `updateLocalStorageItem()`
 from your app worker will actually be routed to your `CustomLocalStorage` instance on the main thread,
 automatically applying your custom key prefix. This demonstrates how easily you can swap out or extend
 engine-provided functionality with your own custom implementations.
+
+### Shipping an addon in a package
+
+A component package may need a native observer, a browser API or a third-party library on Main.
+Keep that addon with the package that owns it. The consuming application installs the package
+and selects its addon; it does not copy the implementation into its workspace.
+
+The package declares its addon directories in its own `package.json`:
+
+```json readonly
+{
+    "name": "@example/native-hooks",
+    "neo": {
+        "mainAddons": ["src/main/addon"]
+    }
+}
+```
+
+The build reads this declaration from installed direct dependencies, devDependencies and optionalDependencies.
+Each entry is a package-relative directory. Missing declarations and empty arrays add no package modules;
+absolute paths, upward traversal and roots that resolve outside the package are rejected. Engine addons and
+the workspace's optional `WS/` directory keep their existing meaning.
+
+Select the package addon with an extension-free path from `node_modules`:
+
+```json readonly
+{
+    "mainThreadAddons": [
+        "node_modules/@example/native-hooks/src/main/addon/AnchorObserver"
+    ]
+}
+```
+
+An App-worker component can load the same addon when it first needs it, targeting its own window:
+
+```javascript readonly
+await Neo.Main.importAddon({
+    name: 'node_modules/@example/native-hooks/src/main/addon/AnchorObserver',
+    windowId: this.windowId
+});
+```
+
+That path selects the module. The package's declared class name addresses its remote methods; a package
+path is not the short registry name accepted by `App.getAddon()`. Main creates one instance of the class
+per window and waits for its remote registration. A library loaded by that addon can still be initializing,
+as the next section explains. Export the addon class without instantiating it at module-import time, so Main
+owns its lifetime and the class remains extensible.
+
+The same package path works in raw development and in development/production Main bundles. The ESM build
+copies declared addon roots into its emitted dependency tree and rewrites their Engine imports to its one
+emitted Engine. Package dependencies outside those copied roots retain their host location. This keeps the
+addon and the page on the same class system while preserving the package's ownership of its native work.
 
 ## Asynchronous Initialization: `initAsync` and the `isReady` config
 

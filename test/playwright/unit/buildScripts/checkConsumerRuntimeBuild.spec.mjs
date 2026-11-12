@@ -4,6 +4,7 @@ import os                        from 'node:os';
 import path                      from 'node:path';
 import {createRequire}           from 'node:module';
 import mainAddonContextPlugin    from '../../../../buildScripts/webpack/mainAddonContextPlugin.mjs';
+import {mainAddonPackageRoots}   from '../../../../buildScripts/util/mainAddonPackages.mjs';
 import workerContextRebasePlugin from '../../../../buildScripts/webpack/workerContextRebasePlugin.mjs';
 
 const require           = createRequire(import.meta.url),
@@ -22,12 +23,41 @@ const require           = createRequire(import.meta.url),
  * the failure DIRECTIONS, and the workflow asserts the behaviour.
  */
 test.describe('check-consumer-runtime-build — rule logic', () => {
+    test('Main addon roots in a linked package cannot traverse or symlink outside that package (#20821)', () => {
+        const fixture   = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-main-addon-roots-')),
+              workspace = path.join(fixture, 'workspace'),
+              installed = path.join(workspace, 'node_modules/@fixture/native-tools'),
+              physical  = path.join(fixture, 'linked-package'),
+              outside   = path.join(fixture, 'outside'),
+              manifest  = roots => fs.writeFileSync(path.join(physical, 'package.json'), JSON.stringify({neo: {mainAddons: roots}}));
+
+        try {
+            fs.mkdirSync(path.dirname(installed), {recursive: true});
+            fs.mkdirSync(path.join(physical, 'src/main/addon'), {recursive: true});
+            fs.mkdirSync(outside);
+            fs.symlinkSync(physical, installed, 'junction');
+            fs.symlinkSync(outside, path.join(physical, 'escaped-addon'), 'junction');
+            fs.writeFileSync(path.join(workspace, 'package.json'), JSON.stringify({dependencies: {'@fixture/native-tools': '1.0.0'}}));
+
+            manifest(['src/main/addon']);
+            expect(mainAddonPackageRoots(workspace)[0].sourceRoot).toBe(path.join(installed, 'src/main/addon'));
+
+            manifest(['../outside']);
+            expect(() => mainAddonPackageRoots(workspace)).toThrow(/invalid neo\.mainAddons root/);
+            manifest(['escaped-addon']);
+            expect(() => mainAddonPackageRoots(workspace)).toThrow(/leaves its package/)
+        } finally {
+            fs.rmSync(fixture, {recursive: true, force: true})
+        }
+    });
+
     let APP_EXPECTATIONS,
         CANVAS_EXPECTATIONS,
         EXPECTED_APP_WORKER_REMOTE,
         TEST_HARNESS_ABSENCE_EXPECTATIONS,
         collectAppWorkerDispatchSurfaceFailures,
         collectConsumerBuildFailures,
+        collectMainAssetPathFailures,
         collectMainContextFailures,
         findMissingBrowserArtifacts,
         probeAppWorkerDispatchSurface,
@@ -66,6 +96,7 @@ test.describe('check-consumer-runtime-build — rule logic', () => {
             TEST_HARNESS_ABSENCE_EXPECTATIONS,
             collectAppWorkerDispatchSurfaceFailures,
             collectConsumerBuildFailures,
+            collectMainAssetPathFailures,
             collectMainContextFailures,
             findMissingBrowserArtifacts,
             probeAppWorkerDispatchSurface,
@@ -226,6 +257,37 @@ test.describe('check-consumer-runtime-build — rule logic', () => {
         expect(failures).toHaveLength(2);
         expect(failures[0]).toContain('live workspace roots');
         expect(failures[1]).toContain('empty package fallbacks')
+    });
+
+    test('Main assets containing runtime-relative package names and import.meta.url pass', () => {
+        expect(collectMainAssetPathFailures({
+            mode  : 'development/main-present',
+            assets: [{
+                name  : 'main.mjs',
+                source: 'const here = import.meta.url; import("./chunks/main/addon.js");'
+            }, {
+                name  : 'chunks/main/addon.js',
+                source: 'const addon = "node_modules/@fixture/native-hooks/src/main/addon/DeclaredMainAddon";'
+            }]
+        }, ['/var/fixture/workspace', '/private/var/fixture/workspace'])).toEqual([])
+    });
+
+    test('Main assets embedding logical, physical, URL-encoded or escaped Windows fixture paths fail', () => {
+        const windowsRoot = String.raw`C:\fixtures\consumer workspace`,
+              fixtures    = [
+                  {roots: ['/var/fixture/workspace', '/private/var/fixture/workspace'], source: 'file:///var/fixture/workspace/src/Main.mjs'},
+                  {roots: ['/var/fixture/workspace', '/private/var/fixture/workspace'], source: 'file:///private/var/fixture/workspace/src/Main.mjs'},
+                  {roots: ['/tmp/consumer workspace'], source: 'file:///tmp/consumer%20workspace/src/Main.mjs'},
+                  {roots: [windowsRoot], source: JSON.stringify(`${windowsRoot}\\src\\Main.mjs`)},
+                  {roots: [windowsRoot], source: 'file:///C:/fixtures/consumer%20workspace/src/Main.mjs'}
+              ];
+
+        for (const {roots, source} of fixtures) {
+            expect(collectMainAssetPathFailures({
+                mode  : 'production/main-linked',
+                assets: [{name: 'main.mjs', source}, {name: 'chunks/main/safe.js', source: 'import.meta.url'}]
+            }, roots)).toEqual(['[production/main-linked] Main asset main.mjs embeds an absolute consumer fixture path'])
+        }
     });
 
     test('an App compile that reached the shipped apps and the bundled marked passes', () => {

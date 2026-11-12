@@ -55,6 +55,13 @@ export default {
 
     externalsType: 'module',
 
+    // Addon module identity belongs to the running page, as it does in the production Main build.
+    module: {
+        parser: {
+            javascript: {importMeta: false}
+        }
+    },
+
     plugins: [
         mainAddonContextPlugin(insideNeo, cwd),
         new WebpackHookPlugin({
