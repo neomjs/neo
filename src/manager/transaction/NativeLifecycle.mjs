@@ -490,7 +490,8 @@ class NativeLifecycle extends Base {
             source.admissions.set(workspaceKey, held);
             result.closed?.then(closed => closed === true && this.releaseHeld(sourceId, workspaceKey, data, held), () => {})
         }
-        if (source.active && !stayRetained) await source.effects.released?.({data, itemId, workspaceKey, entry, admission, committed})
+        if (source.active && !stayRetained) await source.effects.released?.({data, itemId, workspaceKey,
+            entry: committed ? source.owners.get(workspaceKey) : entry, admission, committed})
     }
 
     /**
