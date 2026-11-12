@@ -528,6 +528,33 @@ test.describe('Group native lifecycle (#18314)', () => {
         expect(released).toEqual([])
     });
 
+    test('a held lineage that disconnects again while its rebind is preparing stays held (#20773)', async () => {
+        const windows  = owner('root'), preparing = deferred(), released = [];
+        let   prepares = 0;
+        windows.registerSource('view', effects({
+            prepare : () => ++prepares === 2 ? preparing.promise : true,
+            unbind  : () => ({retained: true, awaitingClosure: true, readmit: true}),
+            released: data => released.push(data)
+        }));
+        const vessel = await windows.acquire('view', {itemId: 'one'}), key = vessel.workspaceKey;
+        manager.bind({...vessel, windowId: 'old'});
+        await expect.poll(() => windows.getConnection('view', key)).not.toBeNull();
+        windows.recordOwner('view', key, {...vessel, windowId: 'old'}, windows.getConnection('view', key));
+
+        release('old');
+        await expect.poll(() => windows.getAdmission('view', key)).toMatchObject({readmit: true});
+
+        manager.bind({...vessel, windowId: 'reloaded'});
+        await expect.poll(() => windows.getAdmission('view', key)?.connectingWindowId).toBe('reloaded');
+
+        release('reloaded');
+        preparing.resolve(true);
+
+        await expect.poll(() => windows.getAdmission('view', key)).toMatchObject({readmit: true, connected: false, connectingWindowId: null});
+        expect(released).toEqual([]);
+        expect(windows.getOwner('view', key).windowId).toBeNull()
+    });
+
     test('a held key whose lineage never binds again is released at lease expiry, with no close (#20144)', async () => {
         const windows = owner('root'), closed = [], released = deferred();
         windows.registerSource('view', effects({
@@ -673,7 +700,7 @@ test.describe('Group native lifecycle (#18314)', () => {
         preparing.resolve(true);
 
         await expect.poll(() => unbound).toEqual(['old', 'reloaded']);
-        await expect.poll(() => windows.getAdmission('view', key)).toBeNull();
+        await expect.poll(() => windows.getAdmission('view', key)).toMatchObject({readmit: true, connected: false, connectingWindowId: null});
         await Promise.resolve();
         expect(released).toEqual([]);
         expect(windows.getOwner('view', key).windowId).toBeNull()
