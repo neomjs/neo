@@ -322,6 +322,9 @@ class MainContainer extends DockWorkspace {
             if (!button || button.isDestroyed) {
                 button = toolbar.insert(targetIndex, {
                     handler  : () => me.restorePerspective(layout.layoutId),
+                    // A perspective button is a toggle: it is declared as one so it carries
+                    // `aria-pressed`, and so the untouched state is a state rather than an absence.
+                    pressed  : false,
                     reference: `dock-snapshot-${layout.layoutId}`,
                     text     : layout.title
                 }, true)

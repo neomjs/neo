@@ -121,11 +121,12 @@ class Button extends Component {
          */
         menu_: null,
         /**
-         * The pressed state of the Button
-         * @member {Boolean} pressed_=false
+         * The pressed state of the Button. `null` (the default) means the button is not a toggle and renders no
+         * `aria-pressed`; a Boolean renders the value, so assistive technology announces the toggle state.
+         * @member {Boolean|null} pressed_=null
          * @reactive
          */
-        pressed_: false,
+        pressed_: null,
         /**
          * Change the browser hash value on click.
          * Use route for internal navigation and url for external links. Do not use both on the same instance.
@@ -377,15 +378,17 @@ class Button extends Component {
 
     /**
      * Triggered after the pressed config got changed
-     * @param {Boolean} value    The new value of the pressed config.
-     * @param {Boolean} oldValue The old value of the pressed config.
+     * @param {Boolean|null} value    The new value of the pressed config.
+     * @param {Boolean|null} oldValue The old value of the pressed config.
      * @protected
      */
     afterSetPressed(value, oldValue) {
         let cls = this.cls;
 
         NeoArray.toggle(cls, 'pressed', value === true);
-        this.cls = cls
+
+        this.cls = cls;
+        this.syncAriaPressedState()
     }
 
     /**
@@ -656,6 +659,31 @@ class Button extends Component {
             text         : me.text,
             url          : me.url,
             urlTarget    : me.urlTarget
+        }
+    }
+
+    /**
+     * @summary Projects the pressed state onto `aria-pressed`, for toggle buttons only.
+     *
+     * The WAI-ARIA button pattern exposes a toggle button's state through `aria-pressed`; a plain button carries
+     * neither the attribute nor the announcement. `pressed` therefore defaults to `null` ("not a toggle"), and only
+     * a Boolean projects an attribute. The projection happens in the same transition that toggles the `pressed`
+     * class, so the attribute and the class cannot drift — the failure the grid search toolbar worked around by
+     * writing the attribute by hand next to `set({pressed})`.
+     *
+     * The key is removed only when it is present. A `delete` of an absent key on the vdom root changes the object's
+     * shape, and the vdom engine diffs shapes: touching it on every plain button's construction pass cost the grid
+     * header toolbar its scroll sync.
+     *
+     * @protected
+     */
+    syncAriaPressedState() {
+        let vdomRoot = this.getVdomRoot();
+
+        if (typeof this.pressed === 'boolean') {
+            vdomRoot['aria-pressed'] = String(this.pressed)
+        } else if ('aria-pressed' in vdomRoot) {
+            delete vdomRoot['aria-pressed']
         }
     }
 

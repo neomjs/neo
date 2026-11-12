@@ -63,8 +63,8 @@ class SearchToolbar extends Toolbar {
                 handler: () => me.updateScopeMenu(),
                 menu   : {cls: ['neo-grid-search-scope-menu'], items: []}
             }, {
-                module : Button, reference: 'case', text: 'Aa', ui: 'ghost',
-                tooltip: 'Match case', vdom: {'aria-label': 'Match case', 'aria-pressed': 'false'},
+                module : Button, reference: 'case', text: 'Aa', ui: 'ghost', pressed: false,
+                tooltip: 'Match case', vdom: {'aria-label': 'Match case'},
                 handler: () => me.writeSearch({caseSensitive: !me.getSearchFilter()?.caseSensitive})
             }]
         }, {
@@ -259,7 +259,6 @@ class SearchToolbar extends Toolbar {
         try {
             query.set({value: filter?.value ?? '', disabled: !me.store});
             const caseButton = me.getItem('case');
-            caseButton.vdom['aria-pressed'] = String(filter?.caseSensitive === true);
             caseButton.set({pressed: filter?.caseSensitive === true, disabled: !me.store});
             me.getItem('scope').set({text: me.getScopeLabel(fields), disabled: !me.store});
             const hasHeaders = effective.some(item => ['header-inline', 'header-picker'].includes(item.ownerRole));
