@@ -3,5 +3,7 @@
     --portal-headline-primary   : var(--sem-color-text-primary-default);
     --portal-scrollbar-thumb    : var(--sem-color-surface-primary-default);
     --portal-scrollbar-track    : var(--sem-color-bg-neutral-hover);
-    --portal-transition-duration: 300ms;
+    // Alias, not a literal: the motion vocabulary's reduced-motion collapse reaches this tier (the
+    // dashboard dock's --dock-transition-* set is the same pattern).
+    --portal-transition-duration: var(--motion-panel);
 }

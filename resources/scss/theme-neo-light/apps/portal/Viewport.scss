@@ -3,5 +3,7 @@
     --portal-headline-primary   : #3e63dd;
     --portal-scrollbar-thumb    : #3e63dd;
     --portal-scrollbar-track    : #f0f0f0;
-    --portal-transition-duration: 300ms;
+    // Alias, not a literal: the motion vocabulary's reduced-motion collapse reaches this tier (the
+    // dashboard dock's --dock-transition-* set is the same pattern).
+    --portal-transition-duration: var(--motion-panel);
 }
