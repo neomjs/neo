@@ -1787,13 +1787,15 @@ class Store extends Collection {
         let me    = this,
             field = me.model.getField(fieldName),
             isRaw = !RecordFactory.isRecord(item),
-            ownValues, value;
+            entry, map, value;
 
         if (!field) {
             if (typeof fieldName === 'string' && fieldName.includes('.')) {
-                let rootField = fieldName.split('.')[0];
+                let rootField = fieldName.split('.')[0],
+                    root      = me.model.getField(rootField);
 
-                if (isRaw && !Object.hasOwn(item, rootField) && me.model.getField(rootField)) {
+                // a path reads through its root's value, also when the row holds a converted or calculated root
+                if (isRaw && root && (!Object.hasOwn(item, rootField) || root.convert || root.calculate)) {
                     me.resolveField(item, rootField)
                 }
 
@@ -1807,39 +1809,32 @@ class Store extends Collection {
             return item[fieldName]
         }
 
-        ownValues = item[ownValuesSymbol];
+        map   = item[ownValuesSymbol];
+        entry = map && Object.hasOwn(map, fieldName) ? map[fieldName] : null;
 
-        if (ownValues && Object.hasOwn(ownValues, fieldName)) {
-            return item[fieldName]
+        // a kept value the caller has replaced since is the row's data again
+        if (entry && Object.is(item[fieldName], entry[1])) {
+            return entry[1]
         }
 
-        if (field.depends) {
-            let deps = field.depends,
-                i    = 0,
-                len  = deps.length,
-                dep;
-
-            for (; i < len; i++) {
-                dep = deps[i];
-                if (item[dep] === undefined) {
-                    item[dep] = me.resolveField(item, dep);
-                }
+        for (const dep of field.depends || []) {
+            if (item[dep] === undefined) {
+                item[dep] = me.resolveField(item, dep)
             }
         }
 
-        if (field.calculate) {
-            value = field.calculate(item)
-        } else {
-            value = RecordFactory.getFieldDatum(item, field, fieldName);
-            value = value === noValueSymbol ? undefined : RecordFactory.parseRecordValue({record: item, field, value})
-        }
+        map = item[ownValuesSymbol]; // `depends` may have written one
+
+        // from the row's own data: a value kept for another field is no mapping source
+        value = field.calculate ? field.calculate(item) :
+            RecordFactory.deriveFieldValue(map ? RecordFactory.restoreOwnValues({...item}) : item, field, fieldName);
 
         if (!fieldName.includes('.') || field.calculate || field.convert || field.mapping || Object.hasOwn(field, 'defaultValue')) {
-            // `depends` resolution may have created it
-            ownValues ??= item[ownValuesSymbol] ??= {};
+            entry = [Object.hasOwn(item, fieldName) ? item[fieldName] : noValueSymbol, value];
 
-            ownValues[fieldName] = Object.hasOwn(item, fieldName) ? item[fieldName] : noValueSymbol;
-            item[fieldName]      = value
+            // a new map, never a write into one that a spread copy of the row may share
+            item[ownValuesSymbol] = map ? {...map, [fieldName]: entry} : {[fieldName]: entry};
+            item[fieldName]       = value
         }
 
         return value
@@ -1847,9 +1842,10 @@ class Store extends Collection {
 
     /**
      * @summary Resolves model fields for a raw row on a copy, leaving the store's row unchanged.
-     * Each name that is a model field, or a dotted path below one, is resolved on the copy through `resolveField()`,
-     * so a reader of the copy gets what the row's record holds. A record, a missing row and a row asked for no model
-     * field are returned as they are.
+     * Each name that is a model field, or a dotted path below one (resolved through its root field), gets the value
+     * the row's record holds. Every value derives from the row's own data, so the order of the names never matters.
+     * Nested objects on a written path are copied. A record, a missing row and a row asked for no model field are
+     * returned as they are.
      * @param {Neo.data.Record|Object|null} item The raw row or Record
      * @param {String[]} fieldNames The model fields, or dotted paths below them, to resolve
      * @returns {Neo.data.Record|Object|null} The resolved copy, or the original item when no resolution is needed
@@ -1857,18 +1853,25 @@ class Store extends Collection {
     resolveRow(item, fieldNames) {
         let me    = this,
             model = me.model,
-            resolvedItem;
+            own, resolvedItem;
 
         if (!item || !model || RecordFactory.isRecord(item)) {
             return item
         }
 
-        for (const fieldName of new Set(fieldNames)) {
-            if (typeof fieldName === 'string' && (model.getField(fieldName) || model.getField(fieldName.split('.')[0]))) {
-                // The copy gets its own record of kept names, so resolving on it leaves the row's alone
-                resolvedItem ??= {...item, [ownValuesSymbol]: {...item[ownValuesSymbol]}};
+        for (let name of new Set(fieldNames)) {
+            let field = typeof name === 'string' && (model.getField(name) || model.getField(name = name.split('.')[0]));
 
-                me.resolveField(resolvedItem, fieldName)
+            if (field) {
+                own          ??= RecordFactory.restoreOwnValues({...item});
+                resolvedItem ??= {...own};
+
+                let path   = name.split('.'),
+                    leaf   = path.pop(),
+                    target = resolvedItem;
+
+                path.forEach(key => target = target[key] = {...target[key]});
+                target[leaf] = field.calculate ? me.resolveField({...own}, name) : RecordFactory.deriveFieldValue(own, field, name)
             }
         }
 

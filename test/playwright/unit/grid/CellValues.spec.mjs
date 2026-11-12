@@ -318,6 +318,43 @@ test.describe('Neo.grid.Container#getCellValues', () => {
         expect(grid.getCellValues({mode: 'raw', records: [store.get(52)]})).toEqual([['x', 52]])
     });
 
+    test('a Turbo Mode row reads the same values in any column order, and they equal its record\'s', async () => {
+        store = Neo.create(Store, {
+            autoInitRecords: false,
+            data           : Array.from({length: 60}, (_, i) => ({
+                id     : i + 1,
+                amount : String(i + 1).padStart(3, '0'),
+                details: JSON.stringify({city: `City ${i + 1}`}),
+                address: {code: String(i + 1).padStart(3, '0')}
+            })),
+            keyProperty: 'id',
+            model      : {fields: [
+                {name: 'id',      type: 'Integer'},
+                {name: 'amount',  type: 'Integer'},
+                {name: 'code',    mapping: 'amount'},
+                {name: 'details', convert: value => typeof value === 'string' ? JSON.parse(value) : value},
+                {name: 'address', fields: [{name: 'code', type: 'Integer'}]}
+            ]}
+        });
+        grid = await createGrid(store, [
+            {dataField: 'amount',       text: 'Amount'},
+            {dataField: 'code',         text: 'Code'},
+            {dataField: 'details.city', text: 'City'},
+            {dataField: 'address.code', text: 'Address code'}
+        ]);
+
+        const
+            raw      = store.items.find(item => item.id === 7 && typeof item.get !== 'function'),
+            fields   = ['amount', 'code', 'details.city', 'address.code'],
+            expected = [7, '007', 'City 7', 7],
+            read     = names => grid.getCellValues({dataFields: names, mode: 'raw', records: [raw]})[0];
+
+        expect(read(fields)).toEqual(expected);
+        expect(read([...fields].reverse())).toEqual([...expected].reverse());
+        expect(raw.address).toEqual({code: '007'});
+        expect(grid.getCellValues({dataFields: fields, mode: 'raw', records: [store.get(7)]})[0]).toEqual(expected)
+    });
+
     test('a column pointed at another field at runtime is read under its new dataField', async () => {
         store = createStore([{id: 1, first: 'one', second: 'two'}], [{name: 'first', type: 'String'}, {name: 'second', type: 'String'}]);
         grid  = await createGrid(store, [{dataField: 'first', text: 'Value'}]);

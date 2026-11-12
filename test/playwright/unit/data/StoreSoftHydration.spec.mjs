@@ -116,6 +116,51 @@ test.describe('Neo.data.Store Soft Hydration and the record of the same row', ()
         expect(store.get(53).n).toBe(7)
     });
 
+    test('a field mapped to another typed field reads that field\'s own datum, not its kept value', async () => {
+        const store = await makeStore([{name: 'amount', type: 'Integer'}, {name: 'code', mapping: 'amount'}],
+                                      rowsOf(60, i => ({amount: String(i).padStart(3, '0')}))),
+              raw   = store._items[6];
+
+        expect(store.resolveField(raw, 'amount')).toBe(7);
+        expect(store.resolveField(raw, 'code')).toBe('007');
+        expect(store.get(7).code).toBe('007');
+        expect(store.get(7).amount).toBe(7)
+    });
+
+    test('an explicit write after Soft Hydration survives hydration: same row, spread copy, new key', async () => {
+        const store = await makeStore([{name: 'qty', mapping: 'q', type: 'Integer'}],
+                                      rowsOf(3, i => ({q: `0${i}`})));
+
+        store.sorters = [{property: 'qty', direction: 'DESC'}];
+        expect(recordCount(store)).toBe(0);
+
+        const raw = store._items.find(item => item.id === 2);
+
+        expect(raw.qty).toBe(2);
+
+        store.add({...raw, id: 71, qty: '31'}, false);
+        expect(store.get(71).qty).toBe(31);
+
+        raw.qty = '41';
+        expect(store.get(2).qty).toBe(41);
+
+        // the untouched rows keep the double-conversion repair
+        expect(store.get(1).qty).toBe(1);
+        expect(store.get(3).qty).toBe(3)
+    });
+
+    test('a spread copy with an explicit value replaces the store\'s data and keeps that value', async () => {
+        const store = await makeStore([{name: 'qty', mapping: 'q', type: 'Integer'}], [{id: 70, q: '07'}]);
+
+        store.sorters = [{property: 'qty', direction: 'ASC'}];
+
+        const raw = store._items[0];
+
+        expect(raw.qty).toBe(7);
+        store.data = [{...raw, qty: '31'}];
+        expect(store.get(70).qty).toBe(31)
+    });
+
     test('a record passed in answers its own value', async () => {
         const store = await makeStore([{name: 'ms', convert: v => v * 1000}, {name: 'geo', mapping: 'address'}],
                                        rowsOf(60, i => ({ms: i, address: {city: `City ${i}`}}))),

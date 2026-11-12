@@ -214,20 +214,9 @@ class RecordFactory extends Base {
                             me[internalId] = config[internalId]
                         }
 
-                        // Soft Hydration (`Neo.data.Store#resolveField()`) keeps derived values on a raw row under
-                        // field names. The row's own values return first, so the record parses the row's data.
+                        // the record parses the row's own data, never a value Soft Hydration kept on it
                         if (Object.hasOwn(config, ownValuesSymbol)) {
-                            const ownValues = config[ownValuesSymbol];
-
-                            for (const fieldName in ownValues) {
-                                if (ownValues[fieldName] === noValueSymbol) {
-                                    delete config[fieldName]
-                                } else {
-                                    config[fieldName] = ownValues[fieldName]
-                                }
-                            }
-
-                            delete config[ownValuesSymbol]
+                            instance.restoreOwnValues(config)
                         }
 
                         config = instance.assignDefaultValues(config, model);
@@ -375,6 +364,21 @@ class RecordFactory extends Base {
     }
 
     /**
+     * @summary The value a record of `data` holds for one field without `calculate`: {@link #getFieldDatum} passed
+     * through {@link #parseRecordValue} (convert, type). It writes nothing, so every field read from the same `data`
+     * sees the same input.
+     * @param {Object} data A raw row's own data
+     * @param {Object} field
+     * @param {String} fieldName The field's key in the model's `fieldsMap`
+     * @returns {*} The value, or `undefined` when a record of `data` holds none
+     */
+    deriveFieldValue(data, field, fieldName) {
+        const datum = this.getFieldDatum(data, field, fieldName);
+
+        return datum === noValueSymbol ? undefined : this.parseRecordValue({record: data, field, value: datum})
+    }
+
+    /**
      * @summary A field's `defaultValue`, called when it is a function: what a record holds where its data gives none.
      * @param {Object} field
      * @returns {*}
@@ -460,6 +464,37 @@ class RecordFactory extends Base {
         source = ns.length > 0 ? Neo.nsWithArrays(ns, false, data) : data;
 
         return source && Object.hasOwn(source, key) ? source[key] : noValueSymbol
+    }
+
+    /**
+     * @summary Puts a raw row's own values back where Soft Hydration (`Neo.data.Store#resolveField()`) kept derived
+     * ones, and drops its record of them. A kept value the caller has replaced since stays: an explicit write wins.
+     *
+     * `data[Symbol.for('ownValues')]` maps each kept field name to `[ownValue, keptValue]`, `ownValue` being
+     * `Symbol.for('noValue')` when the row had none. A spread copy of the row carries the same map.
+     * @param {Object} data
+     * @returns {Object} data
+     */
+    restoreOwnValues(data) {
+        const ownValues = data[ownValuesSymbol];
+
+        if (ownValues) {
+            for (const fieldName in ownValues) {
+                const [ownValue, keptValue] = ownValues[fieldName];
+
+                if (Object.is(data[fieldName], keptValue)) {
+                    if (ownValue === noValueSymbol) {
+                        delete data[fieldName]
+                    } else {
+                        data[fieldName] = ownValue
+                    }
+                }
+            }
+
+            delete data[ownValuesSymbol]
+        }
+
+        return data
     }
 
     /**
