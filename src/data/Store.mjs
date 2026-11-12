@@ -1751,7 +1751,7 @@ class Store extends Collection {
     }
 
     /**
-     * @summary Resolves a model field on a raw data object without creating a Record.
+     * @summary Helper to resolve a field value from a raw data object using the Model definition.
      * Handles mapping, calculate, and convert.
      *
      * **Limitations & "Turbo-Safe" Requirement:**
@@ -1770,6 +1770,7 @@ class Store extends Collection {
      * @param {Object} item The raw data object
      * @param {String} fieldName The canonical field name
      * @returns {*} The resolved value
+     * @protected
      */
     resolveField(item, fieldName) {
         let me    = this,
@@ -1840,6 +1841,32 @@ class Store extends Collection {
         }
 
         return value
+    }
+
+    /**
+     * @summary Resolves model fields for a raw row on a copy, leaving the store's row unchanged.
+     * Records and rows from models without complex fields are returned as-is. Only non-dotted model field names are
+     * resolved; other names are left for the caller to read as properties.
+     * @param {Neo.data.Record|Object|null} item The raw row or Record
+     * @param {String[]} fieldNames The model fields to resolve
+     * @returns {Neo.data.Record|Object|null} The resolved copy, or the original item when no resolution is needed
+     */
+    resolveRow(item, fieldNames) {
+        let me = this;
+
+        if (!item || RecordFactory.isRecord(item) || !me.model?.hasComplexFields) {
+            return item
+        }
+
+        let resolvedItem = {...item};
+
+        for (const fieldName of new Set(fieldNames)) {
+            if (typeof fieldName === 'string' && !fieldName.includes('.') && me.model.getField(fieldName)) {
+                me.resolveField(resolvedItem, fieldName)
+            }
+        }
+
+        return resolvedItem
     }
 
     /**

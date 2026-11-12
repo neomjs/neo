@@ -192,6 +192,7 @@ test.describe('Neo.grid.Container#getCellValues', () => {
                     {name: 'value',  type: 'Integer'},
                     {name: 'double', calculate: data => data.value * 2},
                     {name: 'city',   mapping: 'address.city'},
+                    {name: 'load',   mapping: 'address.load'},
                     {name: 'upper',  convert: value => String(value).toUpperCase()}
                 ]
             }
@@ -207,6 +208,11 @@ test.describe('Neo.grid.Container#getCellValues', () => {
               recordCountBefore = store.items.filter(item => typeof item.get === 'function').length;
 
         expect(raw).toBeDefined();
+        const detached = {load: 1};
+
+        expect(grid.centerColumns[0].getRecordValue(detached, 'load')).toBe(1);
+        expect(detached).toEqual({load: 1});
+
         expect(grid.getCellValues({mode: 'raw', records: [raw]})).toEqual([[52, 104, 'City 52', 'AB']]);
         expect(grid.getCellValues({mode: 'export', records: [raw]})).toEqual([[52, 104, 'City 52', 'AB']]);
         expect(store.items.filter(item => typeof item.get === 'function').length).toBe(recordCountBefore);
@@ -229,6 +235,47 @@ test.describe('Neo.grid.Container#getCellValues', () => {
         const record = store.get(52);
 
         expect(grid.getCellValues({mode: 'raw', records: [record]})).toEqual([[52, 104, 'City 52', 'AB']]);
+    });
+
+    test('resolves non-idempotent conversions on copies across repeated walks', async () => {
+        store = Neo.create(Store, {
+            autoInitRecords: false,
+            data           : Array.from({length: 60}, (_, i) => {
+                const id = i + 1;
+
+                return {id, scaled: id, metrics: {value: id}}
+            }),
+            keyProperty: 'id',
+            model      : {
+                fields: [
+                    {name: 'id',           type: 'Integer'},
+                    {name: 'scaled',       convert: value => value * 1000},
+                    {name: 'mappedScaled', mapping: 'metrics.value', convert: value => value * 1000}
+                ]
+            }
+        });
+        grid = await createGrid(store, [
+            {dataField: 'scaled',       text: 'Scaled'},
+            {dataField: 'mappedScaled', text: 'Mapped'}
+        ]);
+
+        const raw = store.items.find(item => item.id === 52 && typeof item.get !== 'function');
+
+        expect(raw).toBeDefined();
+
+        const keys = Object.keys(raw),
+              recordCountBefore = store.items.filter(item => typeof item.get === 'function').length;
+
+        expect(grid.getCellValues({mode: 'raw', records: [raw]})).toEqual([[52000, 52000]]);
+        expect(grid.getCellValues({mode: 'raw', records: [raw]})).toEqual([[52000, 52000]]);
+        expect(Object.keys(raw)).toEqual(keys);
+        expect(raw.scaled).toBe(52);
+        expect(Object.hasOwn(raw, 'mappedScaled')).toBe(false);
+        expect(store.items.filter(item => typeof item.get === 'function').length).toBe(recordCountBefore);
+
+        const record = store.get(52);
+
+        expect([record.get('scaled'), record.get('mappedScaled')]).toEqual([52000, 52000])
     });
 
     test('a column pointed at another field at runtime is read under its new dataField', async () => {
