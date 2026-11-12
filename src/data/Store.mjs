@@ -1844,6 +1844,32 @@ class Store extends Collection {
     }
 
     /**
+     * @summary Resolves model fields for a raw row on a copy, leaving the store's row unchanged.
+     * Records and rows from models without complex fields are returned as-is. Only non-dotted model field names are
+     * resolved; other names are left for the caller to read as properties.
+     * @param {Neo.data.Record|Object|null} item The raw row or Record
+     * @param {String[]} fieldNames The model fields to resolve
+     * @returns {Neo.data.Record|Object|null} The resolved copy, or the original item when no resolution is needed
+     */
+    resolveRow(item, fieldNames) {
+        let me = this;
+
+        if (!item || RecordFactory.isRecord(item) || !me.model?.hasComplexFields) {
+            return item
+        }
+
+        let resolvedItem = {...item};
+
+        for (const fieldName of new Set(fieldNames)) {
+            if (typeof fieldName === 'string' && !fieldName.includes('.') && me.model.getField(fieldName)) {
+                me.resolveField(resolvedItem, fieldName)
+            }
+        }
+
+        return resolvedItem
+    }
+
+    /**
      * Backend-first create over the remotes-api.
      *
      * If `api.create` is configured, the record is persisted to the backend **first** and only inserted

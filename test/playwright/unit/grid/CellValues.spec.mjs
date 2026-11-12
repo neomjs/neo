@@ -159,13 +159,123 @@ test.describe('Neo.grid.Container#getCellValues', () => {
             {dataField: 'address.zip', text: 'Zip'}
         ]);
 
+        let resolveFieldCalls = 0,
+            resolveField      = store.resolveField;
+
+        store.resolveField = function(...args) {
+            resolveFieldCalls++;
+            return resolveField.apply(this, args)
+        };
+
         const values = grid.getCellValues({mode: 'raw', records: [row, store.get(1)]});
 
         expect(values[0][0]).toBe('Cy');
         expect(values[0][1]).toBe(row.address);
         expect(values[0][2]).toBeUndefined();
         expect(values[1][0]).toBe('Ada');
-        expect(values[1][1]).toEqual({city: 'Berlin'})
+        expect(values[1][1]).toEqual({city: 'Berlin'});
+        expect(resolveFieldCalls).toBe(0)
+    });
+
+    test('resolves complex model fields from Turbo Mode rows without hydrating them', async () => {
+        store = Neo.create(Store, {
+            autoInitRecords: false,
+            data           : Array.from({length: 60}, (_, i) => {
+                const id = i + 1;
+
+                return {id, value: id, address: {city: `City ${id}`}, alias: `Alias ${id}`, upper: 'ab'}
+            }),
+            keyProperty: 'id',
+            model      : {
+                fields: [
+                    {name: 'id',     type: 'Integer'},
+                    {name: 'value',  type: 'Integer'},
+                    {name: 'double', calculate: data => data.value * 2},
+                    {name: 'city',   mapping: 'address.city'},
+                    {name: 'load',   mapping: 'address.load'},
+                    {name: 'upper',  convert: value => String(value).toUpperCase()}
+                ]
+            }
+        });
+        grid = await createGrid(store, [
+            {dataField: 'value',       text: 'Value'},
+            {dataField: 'double',      text: 'Double'},
+            {dataField: 'city',        text: 'City'},
+            {dataField: 'upper',       text: 'Upper'}
+        ]);
+
+        const raw = store.items.find(item => item.id === 52 && typeof item.get !== 'function'),
+              recordCountBefore = store.items.filter(item => typeof item.get === 'function').length;
+
+        expect(raw).toBeDefined();
+        const detached = {load: 1};
+
+        expect(grid.centerColumns[0].getRecordValue(detached, 'load')).toBe(1);
+        expect(detached).toEqual({load: 1});
+
+        expect(grid.getCellValues({mode: 'raw', records: [raw]})).toEqual([[52, 104, 'City 52', 'AB']]);
+        expect(grid.getCellValues({mode: 'export', records: [raw]})).toEqual([[52, 104, 'City 52', 'AB']]);
+        expect(store.items.filter(item => typeof item.get === 'function').length).toBe(recordCountBefore);
+
+        grid.centerColumns[0].dataField = 'alias';
+        expect(grid.getCellValues({dataFields: ['alias'], mode: 'raw', records: [raw]})).toEqual([['Alias 52']]);
+
+        grid.centerColumns[0].dataField = 'address.city';
+        expect(grid.getCellValues({dataFields: ['address.city'], mode: 'raw', records: [raw]})).toEqual([['City 52']]);
+
+        grid.centerColumns[0].dataField = 'value';
+        expect(grid.getCellValues({mode: 'raw'})[51]).toEqual([52, 104, 'City 52', 'AB']);
+        expect(store.items.filter(item => typeof item.get === 'function').length).toBe(recordCountBefore);
+
+        const csvLines = grid.toCsv().split('\r\n');
+
+        expect(csvLines[52]).toBe('52,104,City 52,AB');
+        expect(store.items.filter(item => typeof item.get === 'function').length).toBe(recordCountBefore);
+
+        const record = store.get(52);
+
+        expect(grid.getCellValues({mode: 'raw', records: [record]})).toEqual([[52, 104, 'City 52', 'AB']]);
+    });
+
+    test('resolves non-idempotent conversions on copies across repeated walks', async () => {
+        store = Neo.create(Store, {
+            autoInitRecords: false,
+            data           : Array.from({length: 60}, (_, i) => {
+                const id = i + 1;
+
+                return {id, scaled: id, metrics: {value: id}}
+            }),
+            keyProperty: 'id',
+            model      : {
+                fields: [
+                    {name: 'id',           type: 'Integer'},
+                    {name: 'scaled',       convert: value => value * 1000},
+                    {name: 'mappedScaled', mapping: 'metrics.value', convert: value => value * 1000}
+                ]
+            }
+        });
+        grid = await createGrid(store, [
+            {dataField: 'scaled',       text: 'Scaled'},
+            {dataField: 'mappedScaled', text: 'Mapped'}
+        ]);
+
+        const raw = store.items.find(item => item.id === 52 && typeof item.get !== 'function');
+
+        expect(raw).toBeDefined();
+
+        const keys = Object.keys(raw),
+              recordCountBefore = store.items.filter(item => typeof item.get === 'function').length;
+
+        expect(grid.getCellValues({mode: 'raw', records: [raw]})).toEqual([[52000, 52000]]);
+        expect(grid.getCellValues({mode: 'raw', records: [raw]})).toEqual([[52000, 52000]]);
+        expect(Object.keys(raw)).toEqual(keys);
+        expect(raw.scaled).toBe(52);
+        expect(Object.hasOwn(raw, 'mappedScaled')).toBe(false);
+        expect(store.items.filter(item => typeof item.get === 'function').length).toBe(recordCountBefore);
+
+        const record = store.get(52);
+
+        expect([record.get('scaled'), record.get('mappedScaled')]).toEqual([52000, 52000])
     });
 
     test('a column pointed at another field at runtime is read under its new dataField', async () => {
