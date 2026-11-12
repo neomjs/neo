@@ -114,11 +114,11 @@ and links its live milestone. Follow that milestone for the current open work. T
 independently: this one as the `neo.mjs` npm package, the Brain as container images, the shared agent skills as
 `neo-agent-skills` on npm. A fix you land here ships with the next engine release.
 
-1. **Looking for somewhere to start?** For a first PR, take an issue labelled <a href="../../issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22">good first issue</a>:
-   comment on one to claim it (see 3). No approval round needed; they are already approved.
-   **After your first merged PR**, move on to <a href="../../issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22">help wanted</a>
-   or an unassigned issue in the roadmap's milestone, the same way. Good first issues stay reserved for first-time
-   contributors.
+1. **Looking for somewhere to start?** Take an issue labelled <a href="../../issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22">good first issue</a>
+   or <a href="../../issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22">help wanted</a>: comment on one to claim it (see 3).
+   No approval round needed; they are already approved. Most carry both labels, and both are open to you whether this
+   is your first pull request or your tenth. Good first issue means the ticket holds everything you need to finish it;
+   it is no promise that the work is small. An unassigned issue in the roadmap's milestone works the same way.
 
    **The listed issues are already claimed, or nothing fits?** Ask in <a href="https://github.com/neomjs/neo/discussions/categories/q-a">Q&A</a>.
    Tell us which example you tried and what area you would like to work on, so we can help you find an existing Engine issue.
