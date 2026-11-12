@@ -121,14 +121,23 @@ class App extends Base {
     /**
      * @param {String} windowId
      * @param {Array|Object} deltas
+     * @param {Object} [meta] The VDOM update context the reply carries (the `scrollTop` the vnodes were
+     * calculated against, a grid's scroll epoch). Forwarded beside the deltas, because `Neo.main.DeltaUpdates`
+     * reads `meta` from the same object as the deltas, on the `update` event that precedes their application.
      * @returns {Promise<*>}
      */
-    applyDeltas(windowId, deltas) {
+    applyDeltas(windowId, deltas, meta) {
         if (!Array.isArray(deltas)) {
             deltas = [deltas]
         }
 
-        return this.promiseMessage(windowId, {action: 'updateVdom', deltas})
+        const message = {action: 'updateVdom', deltas};
+
+        if (meta) {
+            message.meta = meta
+        }
+
+        return this.promiseMessage(windowId, message)
     }
 
     /**

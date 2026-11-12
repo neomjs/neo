@@ -537,6 +537,17 @@ class VdomLifecycle extends Base {
                 }
             }
 
+            // Component could be destroyed while the update is running: a stale success payload
+            // from a destroyed flight must never apply deltas or distribute vnodes.
+            //
+            // Without a VDom worker this worker handles the reply instead of main, so the deltas — and the `meta`
+            // the worker path forwards alongside them — are applied BEFORE the `afterExecuteVdomUpdate` loop.
+            // That hook promises "after Main Thread DOM delta paint", and skipping the meta here left
+            // `DeltaUpdates#update` listeners (grid scroll pinning, list motion) blind in this configuration.
+            if (me.id && !me.isDestroyed && !Neo.config.useVdomWorker && response.deltas?.length > 0) {
+                await Neo.applyDeltas(me.windowId, response.deltas, response.meta)
+            }
+
             /**
              * Optional hook invoked for each live emitted root after Main Thread DOM delta paint,
              * initiator/replaced-scope destruction checks, and reply-completeness validation.
@@ -548,14 +559,7 @@ class VdomLifecycle extends Base {
                 }
             }
 
-            // Component could be destroyed while the update is running: a stale success payload
-            // from a destroyed flight must never apply deltas or distribute vnodes.
             if (me.id && !me.isDestroyed) {
-                // When not using a VdomWorker, we need to apply the deltas inside the App worker
-                if (!Neo.config.useVdomWorker && response.deltas?.length > 0) {
-                    await Neo.applyDeltas(me.windowId, response.deltas)
-                }
-
                 // Adopt every root before any callback or post-update can start another flight.
                 const completed = new Map();
                 for (const id in response.vnodes) {
@@ -827,6 +831,41 @@ class VdomLifecycle extends Base {
     }
 
     /**
+     * @summary Creates a vnode tree and performs the mount the VDom worker would otherwise perform.
+     *
+     * Without a VDom worker `Neo.vdom.Helper.create` is a local call, so nothing turns an `autoMount` flag into
+     * the `insertNode` delta that `worker/Manager` sends on the worker path. This is the one place that does it,
+     * shared by {@link Neo.mixin.VdomLifecycle#initVnode} and by a component creating a detached vnode outside the
+     * lifecycle (`Neo.component.Helix`).
+     *
+     * @param {Object} config The `Neo.vdom.Helper.create` options
+     * @param {Object} config.vdom The vdom tree to create; its `id` names the inserted node
+     * @param {String} [config.appName]
+     * @param {Boolean} [config.autoMount]
+     * @param {String} [config.parentId]
+     * @param {Number} [config.parentIndex]
+     * @param {String} [config.windowId] Defaults to the calling component's window
+     * @returns {Promise<Object>} The `Neo.vdom.Helper.create` reply, with the insert already applied when needed
+     * @protected
+     */
+    async createVdom(config) {
+        const data = await Promise.resolve(Neo.vdom.Helper.create(config));
+
+        if (config.autoMount && !Neo.config.useVdomWorker) {
+            await Neo.applyDeltas(config.windowId ?? this.windowId, [{
+                action   : 'insertNode',
+                id       : config.vdom.id,
+                index    : config.parentIndex,
+                outerHTML: data.outerHTML,
+                parentId : config.parentId,
+                vnode    : data.vnode
+            }])
+        }
+
+        return data
+    }
+
+    /**
      * Creates the vnode tree for this component and mounts the component in case
      * - you pass true for the mount param
      * - or the autoMount config is set to true
@@ -891,29 +930,18 @@ class VdomLifecycle extends Base {
                 // The first render collects here, exactly as a flight does in collectScopes()
                 VDomUpdate.claimPromiseCallbacks(me.id);
 
-                const data = await Promise.resolve(Neo.vdom.Helper.create({
+                const data = await me.createVdom({
                     appName    : me.appName,
                     autoMount,
                     parentId   : autoMount ? me.getMountedParentId()    : undefined,
                     parentIndex: autoMount ? me.getMountedParentIndex() : undefined,
                     vdom       : TreeBuilder.getVdomTree(me.vdom, -1),
                     windowId   : me.windowId
-                }));
+                });
 
                 me.onInitVnode(data.vnode, useVdomWorker ? autoMount : false);
 
                 if (autoMount && !useVdomWorker) {
-                    // When running without a VdomWorker, Helper.create is local and returns a plain object.
-                    // We must manually send the insertNode delta to the main thread.
-                    await Neo.applyDeltas(me.windowId, [{
-                        action   : 'insertNode',
-                        id       : me.id,
-                        index    : me.getMountedParentIndex(),
-                        outerHTML: data.outerHTML,
-                        parentId : me.getMountedParentId(),
-                        vnode    : data.vnode
-                    }]);
-
                     me.mounted = true
                 }
 
