@@ -17,3 +17,13 @@ The root-executed final acceptance probe covers blur/no-blur, dark/light and bot
 Each of eight catalog traversals sets the actual scroll owner's position across 100 requestAnimationFrame callbacks. All raw intervals and their distributions are retained; this is a synthetic local Chrome observation, not native-wheel, cross-device or deployed performance acceptance. No invented performance threshold was applied. The initial global network-idle readiness timed out; it was replaced by the precise readiness checks above, without a source change.
 
 Run the retained scripts from an Engine checkout with its dependencies and generated development themes; their original machine paths in the earlier capture recipe identify this local run only. The final probe is cwd-relative. The complete JSON receipts retain the inputs, source digests and cleanup result. All owned servers and browsers were closed. No generated styles or PNGs belong in the product merge branch.
+
+## Motion and contrast review repair
+
+Product repair commit: 52349302ba367545e385394db20d091b01381d53. The original source board above remains the before/after evidence for the unchanged card composition. This addition records the outline timing and stronger contrast oracle.
+
+The shared motion vocabulary resolves outline-color to 0.12s with cubic-bezier(0.22,1,0.36,1), and 0s under prefers-reduced-motion, in both themes and both catalogs. A transparent 1px outline is present at rest. The phone breakpoint deliberately reprojects immediately; hover/focus feedback replaces the former placeholder gradient shift and suppressed outline.
+
+Development themes and the owning E2E passed (10/10, zero retries, one worker, Node24.22.3). The eight-case blur/no-blur probe now samples below the lip and near the caption bottom. Weakest measured text contrast is 10.953749:1. Geometry/copy invariants remain true. No browser errors; 16 navigation-aborted worker requests match the prior run. Browsers and both owned ports were closed.
+
+The receipts record the pre-commit parent and tested stylesheet digests; those digests match the committed styles. Final spec JSDoc/alignment was polished by the author/commit hook after the local run; the PR's hosted CI executes the committed spec. The original source-capture recipe was not rerun against a different baseline.

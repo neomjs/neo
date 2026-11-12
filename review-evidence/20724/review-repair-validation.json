@@ -1,0 +1,223 @@
+{
+  "e2ePassed": 10,
+  "e2eRetries": 0,
+  "e2eSeconds": 20.7,
+  "e2eExitCode": 0,
+  "themeBuildExitCode": 0,
+  "acceptanceExitCode": 0,
+  "e2eSpecSha256": "688b6cf90f7b7b82d4b913bf54c1c8197783ef16f96e0c4f2126708ea95b3376",
+  "priorReceipt": "/private/tmp/neo-20724-source/final-acceptance-receipt-previous-head-41e5632698be-1794470733625.json",
+  "priorAbortedRequestCount": 16,
+  "ownedPortChecks": [
+    {
+      "port": "58614",
+      "listenerAbsent": true
+    },
+    {
+      "port": "58844",
+      "listenerAbsent": true
+    }
+  ],
+  "executedCommands": [
+    "env PATH=/private/tmp/neo-657-npm-cache/_npx/387698761821791d/node_modules/node/bin:$PATH /private/tmp/neo-657-npm-cache/_npx/387698761821791d/node_modules/node/bin/node buildScripts/build/themes.mjs -f -n -e dev -t all > /private/tmp/neo-20724-source/themes-review-repair.log 2>&1",
+    "env -u NEO_AGENTOS_RUNTIME_ROOT PATH=/private/tmp/neo-657-npm-cache/_npx/387698761821791d/node_modules/node/bin:$PATH NEO_E2E_RUN_ID=20724-review-repair /private/tmp/neo-657-npm-cache/_npx/387698761821791d/node_modules/node/bin/node node_modules/playwright/cli.js test test/playwright/e2e/portal/ExamplesCatalogNL.spec.mjs -c test/playwright/playwright.config.e2e.mjs --workers=1 --retries=0 > /private/tmp/neo-20724-source/e2e-review-repair.log 2>&1",
+    "env -u NEO_AGENTOS_RUNTIME_ROOT PATH=/private/tmp/neo-657-npm-cache/_npx/387698761821791d/node_modules/node/bin:$PATH /private/tmp/neo-657-npm-cache/_npx/387698761821791d/node_modules/node/bin/node /private/tmp/neo-20724-source/final-acceptance.cjs > /private/tmp/neo-20724-source/acceptance-review-repair.log 2>&1"
+  ],
+  "head": "1aa4bcd742ce510de17f73c98d0cbc3eaceaa6fb",
+  "passed": true,
+  "minContrast": 10.953749024842724,
+  "caseCount": 8,
+  "frameCount": 800,
+  "motion": [
+    {
+      "variant": "blur",
+      "theme": "dark",
+      "section": "featured",
+      "normal": {
+        "reducedPreference": false,
+        "transitionProperty": "outline-color",
+        "transitionDuration": "0.12s",
+        "transitionTimingFunction": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "outlineColor": "rgba(0, 0, 0, 0)",
+        "outlineWidth": "1px",
+        "outlineTransitionSeconds": 0.12
+      },
+      "reduced": {
+        "reducedPreference": true,
+        "transitionProperty": "outline-color",
+        "transitionDuration": "0s",
+        "transitionTimingFunction": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "outlineColor": "rgba(0, 0, 0, 0)",
+        "outlineWidth": "1px",
+        "outlineTransitionSeconds": 0
+      }
+    },
+    {
+      "variant": "blur",
+      "theme": "dark",
+      "section": "family",
+      "normal": {
+        "reducedPreference": false,
+        "transitionProperty": "outline-color",
+        "transitionDuration": "0.12s",
+        "transitionTimingFunction": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "outlineColor": "rgba(0, 0, 0, 0)",
+        "outlineWidth": "1px",
+        "outlineTransitionSeconds": 0.12
+      },
+      "reduced": {
+        "reducedPreference": true,
+        "transitionProperty": "outline-color",
+        "transitionDuration": "0s",
+        "transitionTimingFunction": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "outlineColor": "rgba(0, 0, 0, 0)",
+        "outlineWidth": "1px",
+        "outlineTransitionSeconds": 0
+      }
+    },
+    {
+      "variant": "blur",
+      "theme": "light",
+      "section": "featured",
+      "normal": {
+        "reducedPreference": false,
+        "transitionProperty": "outline-color",
+        "transitionDuration": "0.12s",
+        "transitionTimingFunction": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "outlineColor": "rgba(0, 0, 0, 0)",
+        "outlineWidth": "1px",
+        "outlineTransitionSeconds": 0.12
+      },
+      "reduced": {
+        "reducedPreference": true,
+        "transitionProperty": "outline-color",
+        "transitionDuration": "0s",
+        "transitionTimingFunction": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "outlineColor": "rgba(0, 0, 0, 0)",
+        "outlineWidth": "1px",
+        "outlineTransitionSeconds": 0
+      }
+    },
+    {
+      "variant": "blur",
+      "theme": "light",
+      "section": "family",
+      "normal": {
+        "reducedPreference": false,
+        "transitionProperty": "outline-color",
+        "transitionDuration": "0.12s",
+        "transitionTimingFunction": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "outlineColor": "rgba(0, 0, 0, 0)",
+        "outlineWidth": "1px",
+        "outlineTransitionSeconds": 0.12
+      },
+      "reduced": {
+        "reducedPreference": true,
+        "transitionProperty": "outline-color",
+        "transitionDuration": "0s",
+        "transitionTimingFunction": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "outlineColor": "rgba(0, 0, 0, 0)",
+        "outlineWidth": "1px",
+        "outlineTransitionSeconds": 0
+      }
+    },
+    {
+      "variant": "no-blur",
+      "theme": "dark",
+      "section": "featured",
+      "normal": {
+        "reducedPreference": false,
+        "transitionProperty": "outline-color",
+        "transitionDuration": "0.12s",
+        "transitionTimingFunction": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "outlineColor": "rgba(0, 0, 0, 0)",
+        "outlineWidth": "1px",
+        "outlineTransitionSeconds": 0.12
+      },
+      "reduced": {
+        "reducedPreference": true,
+        "transitionProperty": "outline-color",
+        "transitionDuration": "0s",
+        "transitionTimingFunction": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "outlineColor": "rgba(0, 0, 0, 0)",
+        "outlineWidth": "1px",
+        "outlineTransitionSeconds": 0
+      }
+    },
+    {
+      "variant": "no-blur",
+      "theme": "dark",
+      "section": "family",
+      "normal": {
+        "reducedPreference": false,
+        "transitionProperty": "outline-color",
+        "transitionDuration": "0.12s",
+        "transitionTimingFunction": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "outlineColor": "rgba(0, 0, 0, 0)",
+        "outlineWidth": "1px",
+        "outlineTransitionSeconds": 0.12
+      },
+      "reduced": {
+        "reducedPreference": true,
+        "transitionProperty": "outline-color",
+        "transitionDuration": "0s",
+        "transitionTimingFunction": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "outlineColor": "rgba(0, 0, 0, 0)",
+        "outlineWidth": "1px",
+        "outlineTransitionSeconds": 0
+      }
+    },
+    {
+      "variant": "no-blur",
+      "theme": "light",
+      "section": "featured",
+      "normal": {
+        "reducedPreference": false,
+        "transitionProperty": "outline-color",
+        "transitionDuration": "0.12s",
+        "transitionTimingFunction": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "outlineColor": "rgba(0, 0, 0, 0)",
+        "outlineWidth": "1px",
+        "outlineTransitionSeconds": 0.12
+      },
+      "reduced": {
+        "reducedPreference": true,
+        "transitionProperty": "outline-color",
+        "transitionDuration": "0s",
+        "transitionTimingFunction": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "outlineColor": "rgba(0, 0, 0, 0)",
+        "outlineWidth": "1px",
+        "outlineTransitionSeconds": 0
+      }
+    },
+    {
+      "variant": "no-blur",
+      "theme": "light",
+      "section": "family",
+      "normal": {
+        "reducedPreference": false,
+        "transitionProperty": "outline-color",
+        "transitionDuration": "0.12s",
+        "transitionTimingFunction": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "outlineColor": "rgba(0, 0, 0, 0)",
+        "outlineWidth": "1px",
+        "outlineTransitionSeconds": 0.12
+      },
+      "reduced": {
+        "reducedPreference": true,
+        "transitionProperty": "outline-color",
+        "transitionDuration": "0s",
+        "transitionTimingFunction": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "outlineColor": "rgba(0, 0, 0, 0)",
+        "outlineWidth": "1px",
+        "outlineTransitionSeconds": 0
+      }
+    }
+  ],
+  "browserErrors": 0,
+  "abortedRequests": 16,
+  "cleanup": {
+    "browserClosed": true,
+    "ownedServerStopped": true
+  }
+}
