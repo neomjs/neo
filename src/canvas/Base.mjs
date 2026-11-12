@@ -66,6 +66,15 @@ class Base extends NeoBase {
     }
 
     /**
+     * Maps a DOM `MouseEvent.button` index to its `MouseEvent.buttons` bitmask (`0` for out-of-range values).
+     * @param {Number} button
+     * @returns {Number}
+     */
+    static buttonBit(button) {
+        return button === 1 ? 4 : button === 2 ? 2 : button >= 0 && button < 31 ? 1 << button : 0
+    }
+
+    /**
      * The pointer state of a renderer nobody is pointing at: off-canvas, no button held, no movement, no modifier.
      * The position starts off-screen so a first frame never reacts to a cursor at (0, 0). A subclass that tracks
      * more per pointer extends the shape here.
@@ -108,7 +117,7 @@ class Base extends NeoBase {
      * report (`dx`, `dy`, both 0 on the first report after a leave), the held buttons (`MouseEvent.buttons`),
      * the subset pressed on this canvas (`pressedButtons`), and the
      * four modifier keys. Off-screen with nothing held until the first report, and again after a leave.
-     * @member {Object} mouse={x: -1000, y: -1000, dx: 0, dy: 0, buttons: 0, altKey: false, ctrlKey: false, metaKey: false, shiftKey: false}
+     * @member {Object} mouse={x:-1000,y:-1000,dx:0,dy:0,buttons:0,pressedButtons:0,altKey:false,ctrlKey:false,metaKey:false,shiftKey:false}
      */
     mouse = this.constructor.idleMouseState()
     /**
@@ -185,9 +194,9 @@ class Base extends NeoBase {
     onMouseClick(data) {}
 
     /**
-     * Hook for subclasses: a button went down on the canvas. `mouse.buttons` and `mouse.pressedButtons` already holds the new state, so a
-     * drag gesture starts here and reads (reading `mouse.pressedButtons` for presses that originated on this
-     * canvas) `mouse.dx` / `mouse.dy` on the moves that follow.
+     * Hook for subclasses: a button went down on the canvas. `mouse.buttons` and `mouse.pressedButtons` already
+     * hold the new state, so a drag gesture starts here and reads `mouse.dx` / `mouse.dy` on the moves that follow
+     * (checking `mouse.pressedButtons` for presses that originated on this canvas).
      * @param {Object} data The forwarded payload (`x`, `y`, `button`, `buttons`, the modifiers)
      */
     onMouseDown(data) {}
@@ -300,7 +309,7 @@ class Base extends NeoBase {
 
         if (data.down) {
             let bit = typeof data.button === 'number'
-                ? (data.button === 1 ? 4 : data.button === 2 ? 2 : 1 << data.button)
+                ? me.constructor.buttonBit(data.button)
                 : ((mouse.buttons & ~prevButtons) || mouse.buttons);
 
             mouse.pressedButtons |= bit
@@ -308,7 +317,7 @@ class Base extends NeoBase {
 
         if (data.up) {
             if (typeof data.button === 'number') {
-                mouse.pressedButtons &= ~(data.button === 1 ? 4 : data.button === 2 ? 2 : 1 << data.button)
+                mouse.pressedButtons &= ~me.constructor.buttonBit(data.button)
             } else if (data.buttons === undefined) {
                 mouse.pressedButtons = 0
             }

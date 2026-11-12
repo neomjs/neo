@@ -401,7 +401,8 @@ test.describe('Neo.canvas.GraphScene — the renderer without a GL context', () 
         expect([renderer.gl.canvas.width, renderer.gl.canvas.height], 'a lost context is not resized').toEqual([400, 200]);
         expect(renderer.canvasSize, 'the size waits for the restore').toMatchObject({width: 100, height: 50})
     });
-        test('held pointer moves orbit only for a primary press on this canvas and stop after up, leave, or buttons 0', () => {
+
+    test('held pointer moves orbit only for a primary press on this canvas and stop after up, leave, or buttons 0', () => {
         renderer.context = createContext(400, 200);
         renderer.setScene({positions: [0, 0, 0,  2, 1, 0], windowId: 'window-1'});
 

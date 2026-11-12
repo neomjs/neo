@@ -118,8 +118,8 @@ test.describe('Neo.canvas.Base — pointer reports become mouse state and hooks'
 
         expect(renderer.mouse).toEqual(idle)
     });
-        test.describe('Neo.app.SharedCanvas — the forwarders', () => {
-        test('pressedButtons tracks only presses that started on this canvas until up, leave, or buttons drops them', () => {
+
+    test('pressedButtons tracks only presses that started on this canvas until up, leave, or buttons drops them', () => {
         let seenInDown;
 
         const origDown = renderer.onMouseDown.bind(renderer);
@@ -144,6 +144,19 @@ test.describe('Neo.canvas.Base — pointer reports become mouse state and hooks'
         expect(renderer.mouse.pressedButtons).toBe(0);
 
         renderer.updateMouseState({x: 20, y: 25, buttons: 1});
+        expect(renderer.mouse.pressedButtons).toBe(0);
+
+        // 3b. Auxiliary press (button: 1) maps to bit 4, and out-of-range button (-1) is ignored
+        renderer.updateMouseState({x: 20, y: 25, button: 1, buttons: 4, down: true});
+        expect(renderer.mouse.pressedButtons).toBe(4);
+
+        renderer.updateMouseState({x: 20, y: 25, button: -1, down: true});
+        expect(renderer.mouse.pressedButtons).toBe(4);
+
+        renderer.updateMouseState({x: 20, y: 25, button: -1, up: true});
+        expect(renderer.mouse.pressedButtons).toBe(4);
+
+        renderer.updateMouseState({x: 20, y: 25, button: 1, buttons: 0, up: true});
         expect(renderer.mouse.pressedButtons).toBe(0);
 
         // 4. Primary press on canvas sets bit 1; wheel without buttons keeps it; buttons: 0 without up clears it
@@ -176,6 +189,7 @@ test.describe('Neo.canvas.Base — pointer reports become mouse state and hooks'
     });
 });
 
+test.describe('Neo.app.SharedCanvas — the forwarders', () => {
     /**
      * The forwarders read four things from the host; a bare prototype instance carries exactly those, so no worker,
      * renderer module or DOM is needed.
