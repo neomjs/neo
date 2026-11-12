@@ -174,6 +174,12 @@ test.describe('Neo.grid.Container#getCellValues', () => {
         expect(values[0][2]).toBeUndefined();
         expect(values[1][0]).toBe('Ada');
         expect(values[1][1]).toEqual({city: 'Berlin'});
+        // the plain row is resolved on a copy and stays as it was
+        expect(row).toEqual({name: 'Cy', address: {city: 'Oslo'}});
+
+        // a record is read, never resolved
+        resolveFieldCalls = 0;
+        grid.getCellValues({mode: 'raw', records: [store.get(1)]});
         expect(resolveFieldCalls).toBe(0)
     });
 
@@ -276,6 +282,40 @@ test.describe('Neo.grid.Container#getCellValues', () => {
         const record = store.get(52);
 
         expect([record.get('scaled'), record.get('mappedScaled')]).toEqual([52000, 52000])
+    });
+
+    test('a Turbo Mode row reads a path below a mapped field as its record does', async () => {
+        store = Neo.create(Store, {
+            autoInitRecords: false,
+            data           : Array.from({length: 60}, (_, i) => ({id: i + 1, address: {city: `City ${i + 1}`}})),
+            keyProperty    : 'id',
+            model          : {fields: [{name: 'id', type: 'Integer'}, {name: 'geo', mapping: 'address'}]}
+        });
+        grid = await createGrid(store, [{dataField: 'geo.city', text: 'City'}]);
+
+        const raw = store.items.find(item => item.id === 52 && typeof item.get !== 'function');
+
+        expect(grid.getCellValues({mode: 'raw', records: [raw]})).toEqual([['City 52']]);
+        expect(Object.hasOwn(raw, 'geo')).toBe(false);
+        expect(grid.getCellValues({mode: 'raw', records: [store.get(52)]})).toEqual([['City 52']])
+    });
+
+    test('a Turbo Mode row of a model without complex fields reads defaults and types as its record does', async () => {
+        store = Neo.create(Store, {
+            autoInitRecords: false,
+            data           : Array.from({length: 60}, (_, i) => ({id: i + 1, n: String(i + 1)})),
+            keyProperty    : 'id',
+            model          : {fields: [{name: 'id', type: 'Integer'}, {name: 'flag', defaultValue: 'x'}, {name: 'n', type: 'Integer'}]}
+        });
+        grid = await createGrid(store, [{dataField: 'flag', text: 'Flag'}, {dataField: 'n', text: 'N'}]);
+
+        const raw = store.items.find(item => item.id === 52 && typeof item.get !== 'function');
+
+        expect(store.model.hasComplexFields).toBe(false);
+        expect(grid.getCellValues({mode: 'raw', records: [raw]})).toEqual([['x', 52]]);
+        expect(Object.keys(raw)).toEqual(['id', 'n']);
+        expect(raw.n).toBe('52');
+        expect(grid.getCellValues({mode: 'raw', records: [store.get(52)]})).toEqual([['x', 52]])
     });
 
     test('a column pointed at another field at runtime is read under its new dataField', async () => {

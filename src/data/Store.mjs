@@ -11,6 +11,8 @@ import StoreManager    from '../manager/Store.mjs';
 
 const
     initialIndexSymbol   = Symbol.for('initialIndex'),
+    noValueSymbol        = Symbol.for('noValue'),
+    ownValuesSymbol      = Symbol.for('ownValues'),
     updatingIndexSymbol  = Symbol.for('updatingIndex'),
     pushInsertStrategies = new Set(['insert', 'reload', 'reloadWhenUncertain', 'upsert']),
     // Model field types whose values a SearchFilter can match as text without a fieldText hook
@@ -61,8 +63,11 @@ const
  *
  * When operating in Turbo Mode (`autoInitRecords: false`), the Store sorts and filters using raw JSON objects.
  * If a sort or filter operation requires a calculated field that isn't present on the raw object, the Store
- * performs **Soft Hydration** via `resolveField()`. It dynamically calculates the field value and auto-caches
- * it on the raw object.
+ * performs **Soft Hydration** via `resolveField()`. It derives the field's value the way the row's record will
+ * (`Neo.data.RecordFactory#getFieldDatum()` and `parseRecordValue()`) and keeps it on the raw object under the
+ * field's name, where sorters and filters read it. The row remembers its own value under that name, and the
+ * record created from it later parses that, never the kept one: a row's record never depends on what read the
+ * row before it.
  *
  * If a calculated field relies on other calculated fields, the Model definition must declare a `depends: []` array.
  * The Store uses this array to recursively resolve and cache all dependencies before executing the main calculation,
@@ -1751,11 +1756,17 @@ class Store extends Collection {
     }
 
     /**
-     * @summary Helper to resolve a field value from a raw data object using the Model definition.
-     * Handles mapping, calculate, and convert.
+     * @summary Resolves a field of a raw Turbo Mode row to the value the row's record will hold, and keeps it on
+     * the row under the field's name, where sorters and filters read it (Soft Hydration).
+     *
+     * The value is the field's `calculate`, or `Neo.data.RecordFactory#getFieldDatum()` passed through
+     * `parseRecordValue()` (convert, type). A field kept on the row answers the kept value, so a second call answers
+     * what the first did. The row remembers its own value under each kept name (`Symbol.for('ownValues')`), and the
+     * record created from the row parses that instead. A record passed in answers its own value.
      *
      * **Limitations & "Turbo-Safe" Requirement:**
-     * This method resolves a *single* field in isolation. It does **not** recursively resolve dependencies.
+     * This method resolves a *single* field. Of the fields it reads, only those named in the field's `depends` are
+     * resolved first.
      *
      * If Field A relies on Field B (e.g., via `calculate` or `convert`), and Field B is also a mapped/calculated field:
      * - **On a Record:** Field B is accessible via its getter.
@@ -1767,7 +1778,7 @@ class Store extends Collection {
      * @example
      * calculate: data => (data.mappedName || data.rawKey) + 1
      *
-     * @param {Object} item The raw data object
+     * @param {Neo.data.Record|Object} item The raw data object, or a record
      * @param {String} fieldName The canonical field name
      * @returns {*} The resolved value
      * @protected
@@ -1775,13 +1786,14 @@ class Store extends Collection {
     resolveField(item, fieldName) {
         let me    = this,
             field = me.model.getField(fieldName),
-            value;
+            isRaw = !RecordFactory.isRecord(item),
+            ownValues, value;
 
         if (!field) {
             if (typeof fieldName === 'string' && fieldName.includes('.')) {
                 let rootField = fieldName.split('.')[0];
 
-                if (!RecordFactory.isRecord(item) && !Object.hasOwn(item, rootField) && me.model.getField(rootField)) {
+                if (isRaw && !Object.hasOwn(item, rootField) && me.model.getField(rootField)) {
                     me.resolveField(item, rootField)
                 }
 
@@ -1791,7 +1803,17 @@ class Store extends Collection {
             return undefined
         }
 
-        if (!RecordFactory.isRecord(item) && field.depends) {
+        if (!isRaw) {
+            return item[fieldName]
+        }
+
+        ownValues = item[ownValuesSymbol];
+
+        if (ownValues && Object.hasOwn(ownValues, fieldName)) {
+            return item[fieldName]
+        }
+
+        if (field.depends) {
             let deps = field.depends,
                 i    = 0,
                 len  = deps.length,
@@ -1808,36 +1830,16 @@ class Store extends Collection {
         if (field.calculate) {
             value = field.calculate(item)
         } else {
-            // Handle Mapping
-            if (field.mapping) {
-                let ns     = field.mapping.split('.'),
-                    key    = ns.pop(),
-                    source = ns.length > 0 ? Neo.ns(ns, false, item) : item;
-
-                if (source && Object.hasOwn(source, key)) {
-                    value = source[key]
-                }
-            } else {
-                value = item[fieldName];
-
-                if (value === undefined && fieldName.includes('.')) {
-                    value = Neo.ns(fieldName, false, item)
-                }
-            }
-
-            // Handle Convert
-            if (field.convert) {
-                value = field.convert(value, item)
-            }
-
-            // Handle Default Value
-            if (value === undefined && Object.hasOwn(field, 'defaultValue')) {
-                value = Neo.isFunction(field.defaultValue) ? field.defaultValue() : field.defaultValue
-            }
+            value = RecordFactory.getFieldDatum(item, field, fieldName);
+            value = value === noValueSymbol ? undefined : RecordFactory.parseRecordValue({record: item, field, value})
         }
 
-        if (!RecordFactory.isRecord(item) && (!fieldName.includes('.') || field.calculate || field.convert || field.mapping || Object.hasOwn(field, 'defaultValue'))) {
-            item[fieldName] = value;
+        if (!fieldName.includes('.') || field.calculate || field.convert || field.mapping || Object.hasOwn(field, 'defaultValue')) {
+            // `depends` resolution may have created it
+            ownValues ??= item[ownValuesSymbol] ??= {};
+
+            ownValues[fieldName] = Object.hasOwn(item, fieldName) ? item[fieldName] : noValueSymbol;
+            item[fieldName]      = value
         }
 
         return value
@@ -1845,28 +1847,32 @@ class Store extends Collection {
 
     /**
      * @summary Resolves model fields for a raw row on a copy, leaving the store's row unchanged.
-     * Records and rows from models without complex fields are returned as-is. Only non-dotted model field names are
-     * resolved; other names are left for the caller to read as properties.
+     * Each name that is a model field, or a dotted path below one, is resolved on the copy through `resolveField()`,
+     * so a reader of the copy gets what the row's record holds. A record, a missing row and a row asked for no model
+     * field are returned as they are.
      * @param {Neo.data.Record|Object|null} item The raw row or Record
-     * @param {String[]} fieldNames The model fields to resolve
+     * @param {String[]} fieldNames The model fields, or dotted paths below them, to resolve
      * @returns {Neo.data.Record|Object|null} The resolved copy, or the original item when no resolution is needed
      */
     resolveRow(item, fieldNames) {
-        let me = this;
+        let me    = this,
+            model = me.model,
+            resolvedItem;
 
-        if (!item || RecordFactory.isRecord(item) || !me.model?.hasComplexFields) {
+        if (!item || !model || RecordFactory.isRecord(item)) {
             return item
         }
 
-        let resolvedItem = {...item};
-
         for (const fieldName of new Set(fieldNames)) {
-            if (typeof fieldName === 'string' && !fieldName.includes('.') && me.model.getField(fieldName)) {
+            if (typeof fieldName === 'string' && (model.getField(fieldName) || model.getField(fieldName.split('.')[0]))) {
+                // The copy gets its own record of kept names, so resolving on it leaves the row's alone
+                resolvedItem ??= {...item, [ownValuesSymbol]: {...item[ownValuesSymbol]}};
+
                 me.resolveField(resolvedItem, fieldName)
             }
         }
 
-        return resolvedItem
+        return resolvedItem || item
     }
 
     /**
