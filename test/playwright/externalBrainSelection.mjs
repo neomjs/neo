@@ -98,6 +98,7 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'rendering/NestedComponentsNL.spec.mjs',
     'rendering/SparseUpdatesNL.spec.mjs',
     'rendering/StoreLoadingNL.spec.mjs',
+    'rendering/TooltipMountFlightNL.spec.mjs',
     'rendering/YieldedMoveCoalescingNL.spec.mjs',
     'tab/TabHeaderActionsNL.spec.mjs',
     'workstation/DockSplitterZoneIdNL.spec.mjs',

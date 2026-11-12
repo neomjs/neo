@@ -66,6 +66,7 @@ export const RUN_PATHS = [
     'test/playwright/e2e/rendering/NestedComponentsNL.spec.mjs',
     'test/playwright/e2e/rendering/SparseUpdatesNL.spec.mjs',
     'test/playwright/e2e/rendering/StoreLoadingNL.spec.mjs',
+    'test/playwright/e2e/rendering/TooltipMountFlightNL.spec.mjs',
     'test/playwright/e2e/rendering/ViewTransitionReveal.spec.mjs',
     'test/playwright/e2e/rendering/YieldedMoveCoalescingNL.spec.mjs',
     'test/playwright/e2e/tab',
