@@ -767,6 +767,13 @@ class Collection extends Base {
             me[updatingIndex]--
         }
 
+        // `splice()` assigns `count` only when no bracket is open, so the outermost close owns the
+        // assignment: the bracket defers events, never the `count_` cache that the class documents as
+        // `items.length`. Silent batches included — silence suppresses events, not the item count.
+        if (me[updatingIndex] === 0) {
+            me.count = me._items.length
+        }
+
         if (endSilentUpdateMode) {
             me[silentUpdateMode] = false
         } else {
