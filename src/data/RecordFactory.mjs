@@ -41,7 +41,18 @@ class RecordFactory extends Base {
      * @private
      */
     #recordClasses = new WeakMap()
+    /**
+     * @summary Active admission frames, present only while prepared field sets are being adopted.
+     * @member {Map|null} #preparedFields=null
+     * @private
+     */
     #preparedFields = null
+    /**
+     * @summary Subscribers to committed changes, keyed by the record so store-less records can publish too.
+     * @member {WeakMap} #recordObservers
+     * @private
+     */
+    #recordObservers = new WeakMap()
 
     /**
      * @summary Resolves field mappings (dot and `[index]` segments, preserving falsy leaves and yielding `undefined` when absent so `defaultValue` applies) and assigns model default values.
@@ -293,11 +304,9 @@ class RecordFactory extends Base {
                     }
 
                     /**
-                     * The single source of truth for record field changes.
-                     * Executes instance.setRecordFields(), and can get used via:
-                     * - Neo.util.Function:createSequence()
-                     * - Neo.util.Function:intercept(),
-                     * to "listen" to field changes
+                     * @summary Admits a native write. An interceptor sees the proposed fields before conversion.
+                     * A sequence sees that the method ran, including attempts a prepared edit may later refuse.
+                     * Subscribe through RecordFactory.observeRecord() for changes that have committed.
                      * @param {Object}         data
                      * @param {Object}         data.fields
                      * @param {Neo.data.Model} data.model
@@ -401,13 +410,14 @@ class RecordFactory extends Base {
      * @param {Object} updates[].record The original record instance.
      * @param {Object} updates[].fields Declared field names and their inputs. Use dotted names for nested fields.
      * @param {Function} [seal] Synchronous final adoption. Participating records reject further writes here.
-     * @returns {Error[]} Post-commit notification errors; published state stays committed.
+     * @returns {Error[]} Errors for the caller to surface. Individual record notifications continue after a
+     * subscriber throws. Binding effects flush through the ordinary reactive batch, whose error is also returned.
      */
     applyPreparedFields(model, updates, seal=Neo.emptyFn) {
         if (Object.prototype.toString.call(seal) === '[object AsyncFunction]') {
             throw new TypeError('Field adoption must be synchronous')
         }
-        const Record = this.#recordClasses.get(model), store = Neo.get(model.storeId), key = store?.getKeyProperty() ?? 'id';
+        const Record = this.#recordClasses.get(model), store = Neo.get(model.storeId), key = store?.getKeyProperty() ?? model.keyProperty;
         const seen   = new Set(), checkpoints = updates.map(({record, fields: input}) => {
             if (!input || typeof input !== 'object' || Array.isArray(input)) throw new TypeError('Expected a field map');
             const fields = Object.freeze({...input});
@@ -463,16 +473,23 @@ class RecordFactory extends Base {
             if (!preparing.size && this.#preparedFields === preparing) this.#preparedFields = null
         }
         const errors = [];
-        for (const {record, changes} of checkpoints) {
-            if (changes.length) {
-                try { this.onRecordChange({model, record, fields: changes}) } catch (error) { errors.push(error) }
-            }
+        try {
+            Neo.batch(() => {
+                for (const {record, changes} of checkpoints) {
+                    if (changes.length) {
+                        this.onRecordChange({model, record, fields: changes}, errors)
+                    }
+                }
+            })
+        } catch (error) {
+            errors.push(error)
         }
         return errors
     }
 
     /**
-     * @summary Identifies the exact prepared write at a native record's notifyChange admission hook.
+     * @summary Identifies the exact prepared fields before a notifyChange interceptor delegates to the native
+     * write. The admission is consumed there; a sequence running afterwards observes a method call.
      * @param {Object} record
      * @param {Object} fields
      * @returns {Boolean}
@@ -488,9 +505,52 @@ class RecordFactory extends Base {
      * @param {Object[]} opts.fields Each field object contains the keys: name, oldValue, value
      * @param {Neo.data.Model} opts.model The model instance of the changed record
      * @param {Object} opts.record
+     * @param {Error[]} [errors] Prepared publication collects subscriber errors; ordinary writes propagate them.
      */
-    onRecordChange(opts) {
-        Neo.get(opts.model.storeId)?.onRecordChange(opts)
+    onRecordChange(opts, errors) {
+        try {
+            Neo.get(opts.model.storeId)?.onRecordChange(opts)
+        } catch (error) {
+            if (!errors) throw error;
+            errors.push(error)
+        }
+        const observers = this.#recordObservers.get(opts.record);
+        if (observers) {
+            for (const listener of [...observers]) {
+                if (observers.has(listener)) {
+                    try {
+                        listener(opts)
+                    } catch (error) {
+                        if (!errors) throw error;
+                        errors.push(error)
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * @summary Subscribes to committed native field changes on one record, with or without an owning store.
+     * Ordinary non-silent writes publish immediately; prepared writes publish after their seal succeeds.
+     * @param {Object} record
+     * @param {Function} listener Receives the record, its model and its native old/new field deltas.
+     * @returns {Function} Removes this subscription.
+     */
+    observeRecord(record, listener) {
+        if (!this.isRecord(record) || typeof listener !== 'function') {
+            throw new TypeError('Expected a record and a field change listener')
+        }
+        let observers = this.#recordObservers.get(record);
+        if (!observers) {
+            this.#recordObservers.set(record, observers = new Set())
+        }
+        const subscription = change => listener(change);
+        observers.add(subscription);
+        return () => {
+            if (observers.delete(subscription) && !observers.size) {
+                this.#recordObservers.delete(record)
+            }
+        }
     }
 
     /**

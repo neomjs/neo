@@ -18,13 +18,7 @@ import Store           from '../../../../src/data/Store.mjs';
 import RecordFactory   from '../../../../src/data/RecordFactory.mjs';
 
 /**
- * @summary Unit tests for Neo.data.RecordFactory versioning logic.
- *
- * Verifies that:
- * 1. Records are initialized with version 0 or 1.
- * 2. Version increments when fields are modified.
- * 3. Version does not increment for redundant updates (identical values).
- * 4. Version increments only once for bulk updates (record.set()).
+ * @summary Covers native field parsing, versioning, prepared write admission and commit-time publication.
  */
 test.describe('Neo.data.RecordFactory', () => {
     let model;
@@ -121,14 +115,17 @@ test.describe('Neo.data.RecordFactory', () => {
         const rows   = [{id: 'a', name: 'A'}, {id: 'b', name: 'B'}];
         const store  = Neo.create(Store, {model, data: rows});
         const a      = store.get('a'), b = store.get('b'), fault = Error('observer');
-        const values = [];
+        const values = [], recordValues = [], recordFault = Error('record observer');
         store.on('recordChange', ({record}) => {
             values.push([record.id, a.name, b.name]);
             if (record === a) throw fault
         });
+        RecordFactory.observeRecord(a, () => { throw recordFault });
+        RecordFactory.observeRecord(a, () => recordValues.push([a.name, b.name]));
         const updates = [a, b].map(record => ({record, fields: {name: record.name.toLowerCase()}}));
-        expect(RecordFactory.applyPreparedFields(store.model, updates)).toEqual([fault]);
+        expect(RecordFactory.applyPreparedFields(store.model, updates)).toEqual([fault, recordFault]);
         expect(values).toEqual([['a','a','b'], ['b','a','b']]);
+        expect(recordValues).toEqual([['a', 'b']]);
         const detached   = RecordFactory.createRecord(store.model, {id:'a', name:'detached'});
         const otherModel = Neo.create(Model, {fields: [{name:'id'}, {name:'name'}]});
         const foreign    = RecordFactory.createRecord(otherModel, {id:'foreign', name:'foreign'});
@@ -155,6 +152,36 @@ test.describe('Neo.data.RecordFactory', () => {
         expect(() => RecordFactory.applyPreparedFields(model, nameEdit, () =>
             RecordFactory.setRecordFields({model, record: row, fields: {id:'b'}}))).toThrow('admitted native');
         expect(row.id).toBe('a')
+    });
+
+    test('a store-less model protects its own key and can edit an ordinary field named id', () => {
+        const schema = Neo.create(Model, {keyProperty: 'code', fields: [{name:'code'}, {name:'id'}]});
+        const record = RecordFactory.createRecord(schema, {code:'k', id:1});
+        expect(() => RecordFactory.applyPreparedFields(schema, [{record, fields: {code:'new'}}])).toThrow('non-key');
+        expect(RecordFactory.applyPreparedFields(schema, [{record, fields: {id:2}}])).toEqual([]);
+        expect([record.code, record.id]).toEqual(['k', 2]);
+        schema.destroy()
+    });
+
+    test('observers receive sealed changes once and can remove or add subscriptions during publication', () => {
+        const record  = RecordFactory.createRecord(model, {id:'a', name:'A'}), seen = [];
+        const updates = [{record, fields:{name:'B'}}];
+        let stopLater;
+        const stopFirst = RecordFactory.observeRecord(record, ({fields}) => {
+            seen.push(['first', fields[0].oldValue, fields[0].value]);
+            stopLater();
+            RecordFactory.observeRecord(record, () => seen.push(['new']))
+        });
+        stopLater = RecordFactory.observeRecord(record, () => seen.push(['removed']));
+        expect(() => RecordFactory.applyPreparedFields(model, updates, () => { throw Error('refused') })).toThrow('refused');
+        expect(seen).toEqual([]);
+        record.setSilent({name:'silent'});
+        expect(seen).toEqual([]);
+        expect(RecordFactory.applyPreparedFields(model, updates)).toEqual([]);
+        expect(seen).toEqual([['first','silent','B']]);
+        stopFirst();
+        record.set({name:'C'});
+        expect(seen).toEqual([['first','silent','B'], ['new']])
     });
 
     test('Record version starts at 0 (or 1 depending on defaults) with empty data', () => {
