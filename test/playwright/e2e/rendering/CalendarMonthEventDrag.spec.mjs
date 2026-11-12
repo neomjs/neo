@@ -188,5 +188,107 @@ test.describe('Neo.calendar event drag, drop, and Escape cancel', () => {
         await expect(page.locator(`#${dragTargets.sourceDayId} #${dragTargets.eventId}`)).toHaveCount(0);
         expect(await readRecordDates(dragTargets.monthId, dragTargets.eventId)).not.toEqual(initialMonthDates);
     });
+
+    
+    for (const timezoneId of ['Europe/Berlin', 'Pacific/Auckland']) {
+        test.describe(`week-view drop in ${timezoneId}`, () => {
+            test.use({timezoneId, viewport: {width: 1280, height: 720}});
+
+            test('a week-view drop lands on the target column', async ({page}) => {
+                await page.goto('/examples/calendar/basic/index.html');
+
+                const weekLocator = page.locator('.neo-calendar-weekcomponent').first();
+                await expect(weekLocator.locator('.neo-event').first()).toBeVisible();
+
+                await expect.poll(() => page.evaluate(() => {
+                    const week     = document.querySelector('.neo-calendar-weekcomponent'),
+                        scroller = week?.querySelector('.neo-c-w-scrollcontainer'),
+                        colCnt   = week?.querySelector('.neo-c-w-column-container');
+
+                    if (!scroller || !colCnt) return false;
+
+                    const expectedScrollLeft = colCnt.getBoundingClientRect().width / 3;
+                    return expectedScrollLeft > 0 && Math.abs(scroller.scrollLeft - expectedScrollLeft) < 2;
+                }), {message: 'the week view scrolled to its active week'}).toBe(true);
+
+                const getAppWorker = () => page.workers().find(w => w.url().includes('worker/App'));
+                const weekId       = await weekLocator.getAttribute('id');
+
+                await expect.poll(() => getAppWorker().evaluate(id =>
+                    (globalThis.Neo.manager.DomEvent.items?.[id]?.['drag:start']?.length ?? 0) > 0, weekId
+                )).toBe(true);
+
+                const measure = eventId => page.evaluate(({weekId, eventId}) => {
+                    const weekCmp       = document.getElementById(weekId),
+                        activeColumns = [...weekCmp.querySelectorAll('.neo-c-w-column')].slice(7, 14),
+                        centerOf      = el => {
+                            const r = el.getBoundingClientRect();
+                            return {x: r.left + r.width / 2, y: r.top + r.height / 2};
+                        },
+                        isHittable    = el => {
+                            const {x, y} = centerOf(el);
+                            return document.elementFromPoint(x, y)?.closest('.neo-event') === el;
+                        },
+                        candidates    = eventId
+                            ? [document.getElementById(eventId)].filter(Boolean)
+                            : activeColumns.flatMap(col => [...col.querySelectorAll('.neo-event')]),
+                        eventEl       = candidates.find(isHittable);
+
+                    if (!eventEl) return {hit: false};
+
+                    const sourceCol = eventEl.closest('.neo-c-w-column'),
+                        sourceIdx = activeColumns.indexOf(sourceCol),
+                        targetCol = activeColumns[sourceIdx + 1] || activeColumns[sourceIdx - 1],
+                        start     = centerOf(eventEl),
+                        end       = centerOf(targetCol);
+
+                    return {
+                        hit        : true,
+                        eventId    : eventEl.id,
+                        sourceColId: sourceCol.id,
+                        targetColId: targetCol.id,
+                        startX     : start.x,
+                        startY     : start.y,
+                        endX       : end.x,
+                        endY       : start.y
+                    };
+                }, {weekId, eventId});
+
+                let drag;
+
+                // Pick a hittable event in the active week
+                await expect.poll(async () => (drag = await measure()).hit,
+                    {message: `${timezoneId}: an event in the active week is hittable`}).toBe(true);
+
+                // Warm-up drag, cancelled with Escape
+                await page.mouse.move(drag.startX, drag.startY);
+                await page.mouse.down();
+                await page.mouse.move(drag.endX, drag.endY, {steps: 15});
+                await expect(page.locator('.neo-dragproxy')).toHaveCount(1);
+                await page.keyboard.press('Escape');
+                await page.mouse.up();
+                await expect(page.locator('.neo-dragproxy')).toHaveCount(0);
+                await expect(page.locator('body')).not.toHaveClass(/neo-cursor-move/);
+                await expect(page.locator(`#${drag.sourceColId} #${drag.eventId}`)).toHaveCount(1);
+
+                // Escape re-renders the week view: measure the same event again
+                const eventId = drag.eventId;
+                await expect.poll(async () => (drag = await measure(eventId)).hit,
+                    {message: `${timezoneId}: the event is hittable after the cancel`}).toBe(true);
+
+                // Real drag, dropped
+                await page.mouse.move(drag.startX, drag.startY);
+                await page.mouse.down();
+                await page.mouse.move(drag.endX, drag.endY, {steps: 15});
+                await expect(page.locator('.neo-dragproxy')).toHaveCount(1);
+                await page.mouse.up();
+                await expect(page.locator('.neo-dragproxy')).toHaveCount(0);
+
+                await expect(page.locator(`#${drag.targetColId} #${drag.eventId}`), timezoneId).toHaveCount(1);
+                await expect(page.locator(`#${drag.sourceColId} #${drag.eventId}`), timezoneId).toHaveCount(0);
+            });
+        });
+    }
 });
+
 
