@@ -322,6 +322,7 @@ class MainContainer extends DockWorkspace {
             if (!button || button.isDestroyed) {
                 button = toolbar.insert(targetIndex, {
                     handler  : () => me.restorePerspective(layout.layoutId),
+                    pressed  : false, // a snapshot button is a toggle: declare the resting side
                     reference: `dock-snapshot-${layout.layoutId}`,
                     text     : layout.title
                 }, true)
