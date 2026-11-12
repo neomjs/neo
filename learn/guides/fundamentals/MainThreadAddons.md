@@ -343,8 +343,14 @@ owns its lifetime and the class remains extensible.
 
 The same package path works in raw development and in development/production Main bundles. The ESM build
 copies declared addon roots into its emitted dependency tree and rewrites their Engine imports to its one
-emitted Engine. Package dependencies outside those copied roots retain their host location. This keeps the
-addon and the page on the same class system while preserving the package's ownership of its native work.
+emitted Engine. To keep the addon and the page on the same class system, every package module reached by
+the addon that imports Engine must live inside a declared `neo.mainAddons` root, including helpers.
+
+Dependencies outside those roots retain their host location. For example, an addon in `src/main/addon`
+can import `../../shared/Helper.mjs`, but that helper remains in the host package. If it imports Engine,
+it can load a second Engine graph. Declare `src/shared` as another addon root or move the helper into an
+existing declared root so its Engine imports are rewritten too. This is a package-authoring requirement:
+the ESM build does not inspect imports inside host dependencies to enforce it.
 
 ## Asynchronous Initialization: `initAsync` and the `isReady` config
 

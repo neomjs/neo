@@ -69,8 +69,21 @@ function admitPackageAddons(context, workspaceRoot) {
  * @returns {webpack.ContextReplacementPlugin}
  */
 export default function mainAddonContextPlugin(insideNeo, workspaceRoot) {
+    const packageExcludes = new WeakSet();
+
     return new webpack.ContextReplacementPlugin(/.*/, context => {
-        if (context.resource !== undefined || !context.context) return;
+        if (context.resource !== undefined) {
+            if (packageExcludes.has(context.exclude)) {
+                const {exclude, resolveDependencies} = context;
+
+                // Pruning needs absolute paths; webpack's emitted context identity must not carry them.
+                delete context.exclude;
+                context.resolveDependencies = (fs, options, callback) =>
+                    resolveDependencies(fs, {...options, exclude}, callback)
+            }
+            return
+        }
+        if (!context.context) return;
 
         const request = path.posix.normalize(context.request.replaceAll('\\', '/'));
         if (request === '../..' || request === '../node_modules') {
@@ -79,7 +92,8 @@ export default function mainAddonContextPlugin(insideNeo, workspaceRoot) {
                   sourceRoot = path.join(workspace, insideNeo ? 'src' : 'node_modules/neo.mjs/src');
 
             if (fs.existsSync(sourceRoot) && fs.realpathSync(context.context) === fs.realpathSync(sourceRoot)) {
-                admitPackageAddons(context, workspace)
+                admitPackageAddons(context, workspace);
+                packageExcludes.add(context.exclude)
             }
             return
         }

@@ -51,6 +51,41 @@ test.describe('check-consumer-runtime-build — rule logic', () => {
         }
     });
 
+    test('package traversal prunes unrelated directories even when a workspace ancestor matches a declared root', () => {
+        const fixture   = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'neo-context-identity-'))),
+              workspace = path.join(fixture, '@fixture/hooks/src/addon/workspace'),
+              modules   = path.join(workspace, 'node_modules'),
+              engine    = path.join(modules, 'neo.mjs/src'),
+              addon     = path.join(modules, '@fixture/hooks/src/addon');
+
+        try {
+            fs.mkdirSync(engine, {recursive: true});
+            fs.mkdirSync(addon, {recursive: true});
+            fs.writeFileSync(path.join(workspace, 'package.json'), JSON.stringify({dependencies: {'@fixture/hooks': '1.0.0'}}));
+            fs.writeFileSync(path.join(modules, '@fixture/hooks/package.json'), JSON.stringify({neo: {mainAddons: ['src/addon']}}));
+
+            const callback   = mainAddonContextPlugin(false, workspace).newContentCallback,
+                  unresolved = {context: engine, request: '../..'};
+            callback(unresolved);
+
+            let traversed;
+            const resolved = {...unresolved, resource: modules,
+                resolveDependencies: (fs, options, done) => {traversed = options; done(null, [])}};
+            callback(resolved);
+
+            expect(resolved.exclude, 'absolute pruning expressions must not become emitted context identities').toBeUndefined();
+            resolved.resolveDependencies(null, resolved, () => {});
+            expect(traversed.exclude.test(addon)).toBe(false);
+            expect(traversed.exclude.test(path.join(addon, 'Native.mjs'))).toBe(false);
+            expect(traversed.exclude.test(path.join(modules, 'unrelated'))).toBe(true);
+            expect(traversed.exclude.test(path.join(modules, '@fixture/hooks/src/outside'))).toBe(true);
+            expect(resolved.regExp.test('./@fixture/hooks/src/addon/Native.mjs')).toBe(true);
+            expect(resolved.regExp.test('./unrelated/Native.mjs')).toBe(false)
+        } finally {
+            fs.rmSync(fixture, {recursive: true, force: true})
+        }
+    });
+
     let APP_EXPECTATIONS,
         CANVAS_EXPECTATIONS,
         EXPECTED_APP_WORKER_REMOTE,
@@ -287,6 +322,20 @@ test.describe('check-consumer-runtime-build — rule logic', () => {
                 mode  : 'production/main-linked',
                 assets: [{name: 'main.mjs', source}, {name: 'chunks/main/safe.js', source: 'import.meta.url'}]
             }, roots)).toEqual(['[production/main-linked] Main asset main.mjs embeds an absolute consumer fixture path'])
+        }
+    });
+
+    test('Main context identifiers retain the unique fixture marker through regex and URL escaping', () => {
+        const marker     = 'neo-consumer-AbC123',
+              root       = `/private/tmp/${marker}/apps/workspace`,
+              expression = new RegExp(`^(?!${root}/node_modules/@fixture/hooks)`).source;
+
+        for (const source of [expression, encodeURI(expression), JSON.stringify(encodeURI(expression))]) {
+            expect(collectMainAssetPathFailures({
+                mode: 'development/main-installed', assets: [{name: 'main.mjs', source}]
+            }, [root], marker)).toEqual([
+                '[development/main-installed] Main asset main.mjs embeds an absolute consumer fixture path'
+            ])
         }
     });
 

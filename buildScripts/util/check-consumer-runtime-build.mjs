@@ -512,14 +512,17 @@ export function collectMainContextFailures({mode, contextModules}, workspace, ar
  * @param {String} result.mode Build-mode/arm label.
  * @param {Array<{name: String, source: String}>} result.assets Emitted Main JavaScript assets.
  * @param {String[]} fixtureRoots Logical and physical consumer roots, covering macOS temp-directory aliases.
+ * @param {String} [fixtureMarker] Unique temporary-directory name, preserved by nested regex/URL escaping.
  * @returns {String[]} One failure per leaking asset.
  */
-export function collectMainAssetPathFailures({mode, assets}, fixtureRoots) {
+export function collectMainAssetPathFailures({mode, assets}, fixtureRoots, fixtureMarker) {
     const fragments = [...new Set(fixtureRoots.flatMap(root => {
         const normalized = root.replaceAll('\\', '/');
 
         return [root, normalized, JSON.stringify(root).slice(1, -1), encodeURI(normalized)]
     }))];
+
+    fixtureMarker && fragments.push(fixtureMarker);
 
     return assets.filter(({source}) => fragments.some(fragment => source.includes(fragment)))
         .map(({name}) => `[${mode}] Main asset ${name} embeds an absolute consumer fixture path`)
@@ -802,7 +805,7 @@ async function main() {
                         [{...MAIN_ADDON_EXPECTATION, present: false}, ...MAIN_PACKAGE_EXPECTATIONS, ...TEST_HARNESS_ABSENCE_EXPECTATIONS]
                     ));
                     failures.push(...collectMainContextFailures(result, workspace, 'absent', {packagePath}));
-                    failures.push(...collectMainAssetPathFailures(result, [workspace, fs.realpathSync(workspace)]))
+                    failures.push(...collectMainAssetPathFailures(result, [workspace, fs.realpathSync(workspace)], path.basename(workspaceRoot)))
                 }
 
                 console.log(`check-consumer-runtime-build: [${arm}] building development App as a consumer…`);
@@ -835,7 +838,7 @@ async function main() {
                         [MAIN_ADDON_EXPECTATION, ...MAIN_PACKAGE_EXPECTATIONS, ...TEST_HARNESS_ABSENCE_EXPECTATIONS]
                     ));
                     failures.push(...collectMainContextFailures(result, workspace, 'present', {packagePath}));
-                    failures.push(...collectMainAssetPathFailures(result, [workspace, fs.realpathSync(workspace)]))
+                    failures.push(...collectMainAssetPathFailures(result, [workspace, fs.realpathSync(workspace)], path.basename(workspaceRoot)))
                 }
             }
         } finally {
