@@ -1751,7 +1751,7 @@ class Store extends Collection {
     }
 
     /**
-     * @summary Helper to resolve a field value from a raw data object using the Model definition.
+     * @summary Resolves a model field on a raw data object without creating a Record.
      * Handles mapping, calculate, and convert.
      *
      * **Limitations & "Turbo-Safe" Requirement:**
@@ -1770,7 +1770,6 @@ class Store extends Collection {
      * @param {Object} item The raw data object
      * @param {String} fieldName The canonical field name
      * @returns {*} The resolved value
-     * @protected
      */
     resolveField(item, fieldName) {
         let me    = this,

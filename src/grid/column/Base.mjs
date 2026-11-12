@@ -335,9 +335,10 @@ class Column extends Base {
     /**
      * @summary Reads a field's value from a row record, resolving a dotted path such as `metrics.load`.
      *
-     * A record resolves the path through `Record#get`. In Turbo Mode (`autoInitRecords: false`) a row can
-     * be a plain object without `get`, and `Neo.ns` resolves the same path on it. Column types that read
-     * a value themselves use this, so a nested `dataField` reaches them the way it reaches a plain cell.
+     * A record resolves the path through `Record#get`. In Turbo Mode (`autoInitRecords: false`), a named model field
+     * on a raw row in a store with complex fields resolves through {@link Neo.data.Store#resolveField} without
+     * creating a Record. A dotted or non-model field still resolves through `Neo.ns`. Column types that read a value
+     * themselves use this, so a nested `dataField` reaches them the way it reaches a plain cell.
      * @param {Neo.data.Record|Object|null} record
      * @param {String} [field=this.dataField]
      * @returns {*} The value at the path, or `undefined` when the record or a segment is missing
@@ -347,7 +348,18 @@ class Column extends Base {
             return undefined
         }
 
-        return typeof record.get === 'function' ? record.get(field) : Neo.ns(field, false, record)
+        if (typeof record.get === 'function') {
+            return record.get(field)
+        }
+
+        let store = this.parent?.store;
+
+        if (typeof field === 'string' && !field.includes('.') &&
+            store?.model?.hasComplexFields && store.model.getField(field)) {
+            return store.resolveField(record, field)
+        }
+
+        return Neo.ns(field, false, record)
     }
 
     /**
