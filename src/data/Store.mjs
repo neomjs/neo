@@ -64,10 +64,10 @@ const
  * When operating in Turbo Mode (`autoInitRecords: false`), the Store sorts and filters using raw JSON objects.
  * If a sort or filter operation requires a calculated field that isn't present on the raw object, the Store
  * performs **Soft Hydration** via `resolveField()`. It derives the field's value the way the row's record will
- * (`Neo.data.RecordFactory#getFieldDatum()` and `parseRecordValue()`) and keeps it on the raw object under the
- * field's name, where sorters and filters read it. The row remembers its own value under that name, and the
- * record created from it later parses that, never the kept one: a row's record never depends on what read the
- * row before it.
+ * (`Neo.data.RecordFactory#deriveRecordData()`: the record's own mapping and default pass, on a copy) and keeps
+ * it on the raw object under the field's name, where sorters and filters read it. The row remembers its own value
+ * under that name, and the record created from it later parses that, never the kept one: a row's record never
+ * depends on what read the row before it.
  *
  * If a calculated field relies on other calculated fields, the Model definition must declare a `depends: []` array.
  * The Store uses this array to recursively resolve and cache all dependencies before executing the main calculation,
@@ -1759,10 +1759,10 @@ class Store extends Collection {
      * @summary Resolves a field of a raw Turbo Mode row to the value the row's record will hold, and keeps it on
      * the row under the field's name, where sorters and filters read it (Soft Hydration).
      *
-     * The value is the field's `calculate`, or `Neo.data.RecordFactory#getFieldDatum()` passed through
-     * `parseRecordValue()` (convert, type). A field kept on the row answers the kept value, so a second call answers
-     * what the first did. The row remembers its own value under each kept name (`Symbol.for('ownValues')`), and the
-     * record created from the row parses that instead. A record passed in answers its own value.
+     * The value is the field's `calculate`, or its datum in `Neo.data.RecordFactory#deriveRecordData()` passed
+     * through `parseRecordValue()` (convert, type). A field kept on the row answers the kept value, so a second call
+     * answers what the first did. The row remembers its own value under each kept name (`Symbol.for('ownValues')`),
+     * and the record created from the row parses that instead. A record passed in answers its own value.
      *
      * **Limitations & "Turbo-Safe" Requirement:**
      * This method resolves a *single* field. Of the fields it reads, only those named in the field's `depends` are
@@ -1825,9 +1825,8 @@ class Store extends Collection {
 
         map = item[ownValuesSymbol]; // `depends` may have written one
 
-        // from the row's own data: a value kept for another field is no mapping source
         value = field.calculate ? field.calculate(item) :
-            RecordFactory.deriveFieldValue(map ? RecordFactory.restoreOwnValues({...item}) : item, field, fieldName);
+            RecordFactory.deriveFieldValue(RecordFactory.deriveRecordData(item, me.model), field, fieldName);
 
         if (!fieldName.includes('.') || field.calculate || field.convert || field.mapping || Object.hasOwn(field, 'defaultValue')) {
             entry = [Object.hasOwn(item, fieldName) ? item[fieldName] : noValueSymbol, value];
@@ -1853,7 +1852,7 @@ class Store extends Collection {
     resolveRow(item, fieldNames) {
         let me    = this,
             model = me.model,
-            own, resolvedItem;
+            own, recordData, resolvedItem;
 
         if (!item || !model || RecordFactory.isRecord(item)) {
             return item
@@ -1871,7 +1870,13 @@ class Store extends Collection {
                     target = resolvedItem;
 
                 path.forEach(key => target = target[key] = {...target[key]});
-                target[leaf] = field.calculate ? me.resolveField({...own}, name) : RecordFactory.deriveFieldValue(own, field, name)
+
+                if (field.calculate) {
+                    target[leaf] = me.resolveField({...own}, name)
+                } else {
+                    recordData ??= RecordFactory.deriveRecordData(item, model);
+                    target[leaf]   = RecordFactory.deriveFieldValue(recordData, field, name)
+                }
             }
         }
 

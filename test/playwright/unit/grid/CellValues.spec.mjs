@@ -355,6 +355,37 @@ test.describe('Neo.grid.Container#getCellValues', () => {
         expect(grid.getCellValues({dataFields: fields, mode: 'raw', records: [store.get(7)]})[0]).toEqual(expected)
     });
 
+    test('a mapping reads what the record\'s earlier fields assigned: a default, a mapped value, nothing from a later field', async () => {
+        store = Neo.create(Store, {
+            autoInitRecords: false,
+            data           : Array.from({length: 60}, (_, i) => ({id: i + 1, raw: {amt: i + 1}})),
+            keyProperty    : 'id',
+            model          : {fields: [
+                {name: 'id',     type: 'Integer'},
+                {name: 'amount', defaultValue: 'D'},
+                {name: 'code',   mapping: 'amount'},
+                {name: 'total',  mapping: 'raw.amt'},
+                {name: 'sum',    mapping: 'total'},
+                {name: 'early',  mapping: 'late'},
+                {name: 'late',   defaultValue: 'L'}
+            ]}
+        });
+        const fields = ['amount', 'code', 'total', 'sum', 'early', 'late'];
+
+        grid = await createGrid(store, fields.map(dataField => ({dataField, text: dataField})));
+
+        const
+            raw      = store.items.find(item => item.id === 7 && typeof item.get !== 'function'),
+            expected = ['D', 'D', 7, 7, undefined, 'L'],
+            read     = names => grid.getCellValues({dataFields: names, mode: 'raw', records: [raw]})[0];
+
+        expect(read(fields)).toEqual(expected);
+        expect(read([...fields].reverse())).toEqual([...expected].reverse());
+        expect(Object.keys(raw)).toEqual(['id', 'raw']);
+        expect(raw.raw).toEqual({amt: 7});
+        expect(grid.getCellValues({dataFields: fields, mode: 'raw', records: [store.get(7)]})[0]).toEqual(expected)
+    });
+
     test('a column pointed at another field at runtime is read under its new dataField', async () => {
         store = createStore([{id: 1, first: 'one', second: 'two'}], [{name: 'first', type: 'String'}, {name: 'second', type: 'String'}]);
         grid  = await createGrid(store, [{dataField: 'first', text: 'Value'}]);

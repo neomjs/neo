@@ -55,15 +55,31 @@ class RecordFactory extends Base {
             if (field.virtual) return;
 
             if (field.mapping && !Object.hasOwn(data, fieldName)) {
-                const value = this.readMapping(data, field.mapping);
+                let ns  = field.mapping.split('.'),
+                    key = ns.pop(),
+                    source;
 
-                if (value !== noValueSymbol) {
-                    data[fieldName] = value
+                if (key.endsWith(']')) {
+                    const value = Neo.nsWithArrays(field.mapping, false, data);
+
+                    if (value !== undefined) {
+                        data[fieldName] = value
+                    }
+                } else {
+                    if (ns.length > 0) {
+                        source = Neo.nsWithArrays(ns, false, data)
+                    } else {
+                        source = data
+                    }
+
+                    if (source && Object.hasOwn(source, key)) {
+                        data[fieldName] = source[key]
+                    }
                 }
             }
 
             if (Object.hasOwn(field, 'defaultValue')) {
-                const defaultValue = this.getDefaultValue(field);
+                const defaultValue = Neo.isFunction(field.defaultValue) ? field.defaultValue() : field.defaultValue;
 
                 // We could always use Neo.assignToNs() => the check is just for improving the performance
                 if (model.hasNestedFields) {
@@ -364,63 +380,37 @@ class RecordFactory extends Base {
     }
 
     /**
-     * @summary The value a record of `data` holds for one field without `calculate`: {@link #getFieldDatum} passed
-     * through {@link #parseRecordValue} (convert, type). It writes nothing, so every field read from the same `data`
-     * sees the same input.
-     * @param {Object} data A raw row's own data
-     * @param {Object} field
-     * @param {String} fieldName The field's key in the model's `fieldsMap`
-     * @returns {*} The value, or `undefined` when a record of `data` holds none
-     */
-    deriveFieldValue(data, field, fieldName) {
-        const datum = this.getFieldDatum(data, field, fieldName);
-
-        return datum === noValueSymbol ? undefined : this.parseRecordValue({record: data, field, value: datum})
-    }
-
-    /**
-     * @summary A field's `defaultValue`, called when it is a function: what a record holds where its data gives none.
-     * @param {Object} field
-     * @returns {*}
-     */
-    getDefaultValue(field) {
-        return Neo.isFunction(field.defaultValue) ? field.defaultValue() : field.defaultValue
-    }
-
-    /**
-     * @summary The datum a record of `data` parses for one field, before `convert` and the type parse.
-     *
-     * The data's own value under the field's name, else what the field's `mapping` reaches, else the value at a nested
-     * field's path; the field's `defaultValue` where that leaves `undefined`. This is the order `assignDefaultValues()`
-     * writes in. `Neo.data.Store#resolveField()` reads a raw Turbo Mode row through it and `parseRecordValue()`, so a
-     * raw row and its record derive a field from the same code.
-     * @param {Object} data
+     * @summary The value a record holds for one field without `calculate`: the field's datum in
+     * {@link #deriveRecordData}'s result, passed through {@link #parseRecordValue} (convert, type).
+     * @param {Object} recordData The result of `deriveRecordData()`
      * @param {Object} field
      * @param {String} fieldName The field's key in the model's `fieldsMap`: a nested field's path
-     * @returns {*} The datum, or `Symbol.for('noValue')` when a record of `data` holds no value for the field
+     * @returns {*} The value, or `undefined` when the record holds none
      */
-    getFieldDatum(data, field, fieldName) {
-        let value = noValueSymbol;
-
-        if (Object.hasOwn(data, fieldName)) {
-            value = data[fieldName]
-        } else if (field.mapping) {
-            value = this.readMapping(data, field.mapping)
-        }
+    deriveFieldValue(recordData, field, fieldName) {
+        let value = Object.hasOwn(recordData, fieldName) ? recordData[fieldName] : noValueSymbol;
 
         if (value === noValueSymbol && fieldName.includes('.')) {
-            const nestedValue = Neo.ns(fieldName, false, data);
-
-            if (nestedValue !== undefined) {
-                value = nestedValue
-            }
+            value = Neo.ns(fieldName, false, recordData) ?? noValueSymbol
         }
 
-        if ((value === noValueSymbol || value === undefined) && Object.hasOwn(field, 'defaultValue')) {
-            value = this.getDefaultValue(field)
-        }
+        return value === noValueSymbol ? undefined : this.parseRecordValue({record: recordData, field, value})
+    }
 
-        return value
+    /**
+     * @summary The data a record created from `data` parses: the row's own values (Soft Hydration's kept ones
+     * restored) after the record's own {@link #assignDefaultValues} pass, run on a copy, so `data` and its nested
+     * objects stay unchanged. A mapping reads what the model's earlier fields assigned, as it does in the record.
+     *
+     * `Neo.data.Store` derives a raw Turbo Mode row's fields from it, so a row and its record share one derivation.
+     * @param {Object}         data A raw row
+     * @param {Neo.data.Model} model
+     * @returns {Object} A new object
+     */
+    deriveRecordData(data, model) {
+        const own = this.restoreOwnValues({...data});
+
+        return this.assignDefaultValues(model.hasNestedFields ? Neo.clone(own, true) : own, model)
     }
 
     /**
@@ -442,28 +432,6 @@ class RecordFactory extends Base {
      */
     onRecordChange(opts) {
         Neo.get(opts.model.storeId)?.onRecordChange(opts)
-    }
-
-    /**
-     * @summary The value a field's `mapping` reaches in a data object: dot and `[index]` segments, a falsy leaf kept.
-     * @param {Object} data
-     * @param {String} mapping
-     * @returns {*} The value, or `Symbol.for('noValue')` when the mapping reaches no key
-     */
-    readMapping(data, mapping) {
-        let ns  = mapping.split('.'),
-            key = ns.pop(),
-            source, value;
-
-        if (key.endsWith(']')) {
-            value = Neo.nsWithArrays(mapping, false, data);
-
-            return value === undefined ? noValueSymbol : value
-        }
-
-        source = ns.length > 0 ? Neo.nsWithArrays(ns, false, data) : data;
-
-        return source && Object.hasOwn(source, key) ? source[key] : noValueSymbol
     }
 
     /**

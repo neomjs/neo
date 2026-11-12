@@ -7,7 +7,7 @@
  * Raw rows are read from `store._items`: `get()` and `getAt()` create the record.
  *
  * @see Neo.data.Store#resolveField
- * @see Neo.data.RecordFactory#getFieldDatum
+ * @see Neo.data.RecordFactory#deriveRecordData
  */
 import {setup} from '../../setup.mjs';
 
@@ -125,6 +125,18 @@ test.describe('Neo.data.Store Soft Hydration and the record of the same row', ()
         expect(store.resolveField(raw, 'code')).toBe('007');
         expect(store.get(7).code).toBe('007');
         expect(store.get(7).amount).toBe(7)
+    });
+
+    test('a mapping onto a field the datum lacks reads that field\'s default, as the record does', async () => {
+        const store = await makeStore(
+                [{name: 'amount', defaultValue: 'D'}, {name: 'code', mapping: 'amount'}],
+                rowsOf(60, () => ({}))
+              ),
+              raw   = store._items[51];
+
+        expect(store.resolveField(raw, 'code')).toBe('D');
+        expect(Object.hasOwn(raw, 'amount')).toBe(false);
+        expect([store.get(52).amount, store.get(52).code]).toEqual(['D', 'D'])
     });
 
     test('an explicit write after Soft Hydration survives hydration: same row, spread copy, new key', async () => {
