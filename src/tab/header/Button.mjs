@@ -114,20 +114,20 @@ class Button extends BaseButton {
     }
 
     /**
-     * Triggered after the pressed config got changed. Every tab states its selection, so an
-     * inactive tab reads `aria-selected="false"` rather than nothing.
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
+     * Triggered after the pressed config got changed. A tab header states its selection through
+     * `aria-selected` and never renders `aria-pressed`, which ARIA only allows on `role="button"`.
+     * Every tab states its selection, so an inactive tab reads `aria-selected="false"` rather than
+     * nothing, and an untouched tab (`pressed` is `null`) reads `false` as well.
+     * @param {Boolean|null} value
+     * @param {Boolean|null} oldValue
      * @protected
      */
     afterSetPressed(value, oldValue) {
-        super.afterSetPressed(value, oldValue);
-
         let me = this;
 
-        me.vdom['aria-selected'] = value;
+        me.vdom['aria-selected'] = value === true;
 
-        me.update()
+        me.updatePressedCls(value === true)
     }
 
     /**

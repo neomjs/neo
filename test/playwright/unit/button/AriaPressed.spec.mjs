@@ -20,6 +20,8 @@ import {test, expect} from '@playwright/test';
 import Neo                from '../../../../src/Neo.mjs';
 import * as core          from '../../../../src/core/_export.mjs';
 import Button             from '../../../../src/button/Base.mjs';
+import Component          from '../../../../src/component/Base.mjs';
+import TabContainer       from '../../../../src/tab/Container.mjs';
 import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
 import VdomHelper         from '../../../../src/vdom/Helper.mjs';
 
@@ -53,5 +55,41 @@ test.describe('Neo.button.Base aria-pressed (Node.js)', () => {
         await button.set({pressed: null});
         expect(button.vdom['aria-pressed']).toBeUndefined();
         button.destroy();
+    });
+
+    test('a null->false transition renders aria-pressed="false"', async () => {
+        const button = Neo.create(Button, {appName, text: 'Declared toggle'});
+        await button.initVnode();
+        button.mounted = true;
+
+        await button.set({pressed: false});
+        expect(button.vdom['aria-pressed']).toBe('false');
+        button.destroy();
+    });
+
+    test('a tab header renders aria-selected and no aria-pressed', async () => {
+        const tabs = Neo.create(TabContainer, {
+            appName,
+            items: [
+                {header: {text: 'One'}, module: Component},
+                {header: {text: 'Two'}, module: Component}
+            ]
+        });
+        const [first, second] = tabs.getTabButtons();
+
+        expect(first.vdom.role).toBe('tab');
+        expect(first.vdom['aria-pressed'], 'ARIA allows aria-pressed on role="button" only').toBeUndefined();
+        expect(first.vdom['aria-selected']).toBe(true);
+        expect(second.vdom['aria-pressed']).toBeUndefined();
+        expect(second.vdom['aria-selected']).toBe(false);
+
+        tabs.activeIndex = 1;
+
+        await expect.poll(() => second.vdom['aria-selected']).toBe(true);
+        expect(first.vdom['aria-selected']).toBe(false);
+        expect(first.vdom['aria-pressed']).toBeUndefined();
+        expect(second.vdom['aria-pressed']).toBeUndefined();
+
+        tabs.destroy();
     });
 });

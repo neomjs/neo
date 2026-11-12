@@ -383,11 +383,7 @@ class Button extends Component {
      * @protected
      */
     afterSetPressed(value, oldValue) {
-        let cls      = this.cls,
-            vdomRoot = this.getVdomRoot();
-
-        NeoArray.toggle(cls, 'pressed', value === true);
-        this.cls = cls;
+        let vdomRoot = this.getVdomRoot();
 
         if (value === null) {
             delete vdomRoot['aria-pressed']
@@ -395,7 +391,30 @@ class Button extends Component {
             vdomRoot['aria-pressed'] = String(value === true)
         }
 
-        this.update()
+        this.updatePressedCls(value === true)
+    }
+
+    /**
+     * Toggles the pressed CSS class and publishes it together with the `aria-pressed` state
+     * written by `afterSetPressed`, so one transition sends one update. Subclasses with a role
+     * other than `button` (e.g. tab headers, which state their selection through `aria-selected`)
+     * skip the `aria-pressed` projection while reusing this.
+     * @param {Boolean} pressed
+     * @protected
+     */
+    updatePressedCls(pressed) {
+        let cls    = this.cls,
+            hadCls = NeoArray.hasItem(cls, 'pressed');
+
+        NeoArray.toggle(cls, 'pressed', pressed);
+
+        if (hadCls === pressed) {
+            // a null <-> false transition does not change the class list, so the cls
+            // assignment would not fire afterSetCls — send the update directly
+            this.update()
+        } else {
+            this.cls = cls // afterSetCls publishes the class change and the attribute together
+        }
     }
 
     /**
