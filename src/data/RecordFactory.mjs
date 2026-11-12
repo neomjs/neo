@@ -6,7 +6,9 @@ const
     dataSymbol         = Symbol.for('data'),
     initialIndexSymbol = Symbol.for('initialIndex'),
     isModifiedSymbol   = Symbol.for('isModified'),
+    noValueSymbol      = Symbol.for('noValue'),
     originalDataSymbol = Symbol.for('originalData'),
+    ownValuesSymbol    = Symbol.for('ownValues'),
     versionSymbol      = Symbol.for('version');
 
 let instance;
@@ -228,6 +230,11 @@ class RecordFactory extends Base {
                             me[internalId] = config[internalId]
                         }
 
+                        // the record parses the row's own data, never a value Soft Hydration kept on it
+                        if (Object.hasOwn(config, ownValuesSymbol)) {
+                            instance.restoreOwnValues(config)
+                        }
+
                         config = instance.assignDefaultValues(config, model);
 
                         if (model.trackModifiedFields) {
@@ -373,6 +380,40 @@ class RecordFactory extends Base {
     }
 
     /**
+     * @summary The value a record holds for one field without `calculate`: the field's datum in
+     * {@link #deriveRecordData}'s result, passed through {@link #parseRecordValue} (convert, type).
+     * @param {Object} recordData The result of `deriveRecordData()`
+     * @param {Object} field
+     * @param {String} fieldName The field's key in the model's `fieldsMap`: a nested field's path
+     * @returns {*} The value, or `undefined` when the record holds none
+     */
+    deriveFieldValue(recordData, field, fieldName) {
+        let value = Object.hasOwn(recordData, fieldName) ? recordData[fieldName] : noValueSymbol;
+
+        if (value === noValueSymbol && fieldName.includes('.')) {
+            value = Neo.ns(fieldName, false, recordData) ?? noValueSymbol
+        }
+
+        return value === noValueSymbol ? undefined : this.parseRecordValue({record: recordData, field, value})
+    }
+
+    /**
+     * @summary The data a record created from `data` parses: the row's own values (Soft Hydration's kept ones
+     * restored) after the record's own {@link #assignDefaultValues} pass, run on a copy, so `data` and its nested
+     * objects stay unchanged. A mapping reads what the model's earlier fields assigned, as it does in the record.
+     *
+     * `Neo.data.Store` derives a raw Turbo Mode row's fields from it, so a row and its record share one derivation.
+     * @param {Object}         data A raw row
+     * @param {Neo.data.Model} model
+     * @returns {Object} A new object
+     */
+    deriveRecordData(data, model) {
+        const own = this.restoreOwnValues({...data});
+
+        return this.assignDefaultValues(model.hasNestedFields ? Neo.clone(own, true) : own, model)
+    }
+
+    /**
      * Tests if a given object is an instance of a class created by this factory
      * @param {Object} record
      * @returns {Boolean}
@@ -391,6 +432,37 @@ class RecordFactory extends Base {
      */
     onRecordChange(opts) {
         Neo.get(opts.model.storeId)?.onRecordChange(opts)
+    }
+
+    /**
+     * @summary Puts a raw row's own values back where Soft Hydration (`Neo.data.Store#resolveField()`) kept derived
+     * ones, and drops its record of them. A kept value the caller has replaced since stays: an explicit write wins.
+     *
+     * `data[Symbol.for('ownValues')]` maps each kept field name to `[ownValue, keptValue]`, `ownValue` being
+     * `Symbol.for('noValue')` when the row had none. A spread copy of the row carries the same map.
+     * @param {Object} data
+     * @returns {Object} data
+     */
+    restoreOwnValues(data) {
+        const ownValues = data[ownValuesSymbol];
+
+        if (ownValues) {
+            for (const fieldName in ownValues) {
+                const [ownValue, keptValue] = ownValues[fieldName];
+
+                if (Object.is(data[fieldName], keptValue)) {
+                    if (ownValue === noValueSymbol) {
+                        delete data[fieldName]
+                    } else {
+                        data[fieldName] = ownValue
+                    }
+                }
+            }
+
+            delete data[ownValuesSymbol]
+        }
+
+        return data
     }
 
     /**

@@ -1419,7 +1419,8 @@ class GridContainer extends BaseContainer {
      * `mode: 'export'` yields the column's `exportRenderer({record, value})` when it has one, else the record's
      * value. `undefined` becomes `null`, and an object or array that is not a `Date` becomes its JSON text, so a
      * serializer formats only strings, numbers, booleans, dates and `null`. `mode: 'raw'` skips export formatting;
-     * for a raw Turbo Mode row, the Store resolves requested complex model fields on a copy before the column reads it.
+     * for a raw Turbo Mode row, the Store resolves the requested model fields on a copy (`Neo.data.Store#resolveRow()`),
+     * so the column reads what the row's record holds.
      *
      * @example
      *     grid.getCellValues();                                          // every record × every column
