@@ -65,8 +65,10 @@ class NativeLifecycle extends Base {
      * @param {Function} [effects.ownerChanged] Observes the ownership write, never owns its registry.
      * @param {Function} [effects.unbind] Unbinds projection; false or {retained: true} retains semantic ownership,
      *     and {retained: true, readmit: true} also holds an unretired bound key for its own lineage to bind again —
-     *     until an optional `closed` promise resolves true, `retire()` confirms closure, or the lease ends (a bound
-     *     generation retired via `retire()` is never held and reaches `released` at once).
+     *     including while such a hold's rebind is preparing, where a window departing again re-asks and a repeated
+     *     `readmit` answer places a fresh hold — until an optional `closed` promise resolves true, `retire()`
+     *     confirms closure, or the lease ends (a bound generation retired via `retire()` is never held and reaches
+     *     `released` at once).
      * @param {Function} [effects.released] Handles a released resource which was not retained, or a held one
      *     whose lineage did not bind again before its lease ended.
      * @param {Function} [effects.bindingExpired] Observes a formerly bound release awaiting native closure.
@@ -432,7 +434,9 @@ class NativeLifecycle extends Base {
      * @summary Releases one source's records of the departed window, and hands its item to `released` unless held.
      * A bound generation retired via `retire()` (`entry.retired` or an active `retirements` entry) still runs
      * `unbind` first, is never held for `readmit`, clears `awaitingClosure`, and reaches `released` at once; an
-     * unretired `readmit` hold captures `releaseData` for `releaseHeld`.
+     * unretired `readmit` hold captures `releaseData` for `releaseHeld`. The departed window can itself be a
+     * readmit hold's connecting one: a repeated `readmit` answer re-holds the key under a fresh record that
+     * cancels the departed rebind, any other answer releases the committed item.
      * @param {String} sourceId
      * @param {Object} source
      * @param {Object} data The generation that actually disconnected.
@@ -465,8 +469,13 @@ class NativeLifecycle extends Base {
                 source.retirements.delete(key)
             }
         }
-        const holdForReadmit = Boolean(owned && retained && result?.readmit === true && !retired),
-              stayRetained   = retained && !(owned && result?.readmit === true && retired);
+        // A readmit hold's connecting window can depart before its `prepare` settles: the committed item still
+        // owns its key with no window, so a repeated `readmit` answer holds it again under a fresh record —
+        // cancelling the departed rebind — and any other answer hands the item to `released`.
+        const reconnecting   = !owned && admission === entry && admission.readmit && source.owners.has(workspaceKey),
+              committed      = Boolean(owned || reconnecting),
+              holdForReadmit = Boolean((owned || reconnecting) && retained && result?.readmit === true && !retired),
+              stayRetained   = retained && !((owned || reconnecting) && result?.readmit === true && retired);
         if (this.isCurrentRelease(data) && !stayRetained) {
             data.releasedBinding.awaitingClosure = false
         }
@@ -481,7 +490,8 @@ class NativeLifecycle extends Base {
             source.admissions.set(workspaceKey, held);
             result.closed?.then(closed => closed === true && this.releaseHeld(sourceId, workspaceKey, data, held), () => {})
         }
-        if (source.active && !stayRetained) await source.effects.released?.({data, itemId, workspaceKey, entry, admission, committed: !!owned})
+        if (source.active && !stayRetained) await source.effects.released?.({data, itemId, workspaceKey,
+            entry: committed ? source.owners.get(workspaceKey) : entry, admission, committed})
     }
 
     /**
