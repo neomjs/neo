@@ -19,6 +19,14 @@ import {
 
 const REPO_URL = 'https://github.com/neomjs/neo';
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * An ISO timestamp `days` after `base`, so a holding or lapsing case tracks {@link CLAIM_WINDOW_DAYS} instead of
+ * repeating its number. A case that hard-codes the offset silently tests the old window after the constant moves.
+ */
+const daysAfter = (base, days) => new Date(Date.parse(base) + days * DAY_MS).toISOString();
+
 let nextId = 1;
 
 /**
@@ -175,9 +183,10 @@ test.describe('buildScripts/util/claimResponse', () => {
 
         test(`an unassigned earlier claim holds for ${CLAIM_WINDOW_DAYS} days, then lapses`, () => {
             const
-                participleClaim = comment('participle-claimant', '2026-09-25T12:00:00Z', 'Claiming #19143. Working on the fix.'),
-                recent          = comment('newcomer', '2026-09-26T15:00:00Z', 'Can I take this?'),
-                late            = comment('newcomer', '2026-10-01T15:41:00Z', 'Can I take this?');
+                claimAt         = '2026-09-23T15:40:38Z',
+                participleClaim = comment('participle-claimant', daysAfter(claimAt, 0), 'Claiming #19143. Working on the fix.'),
+                recent          = comment('newcomer', daysAfter(claimAt, CLAIM_WINDOW_DAYS - 1), 'Can I take this?'),
+                late            = comment('newcomer', daysAfter(claimAt, CLAIM_WINDOW_DAYS + 1), 'Can I take this?');
 
             expect(decideReply({comment: recent, comments: [firstClaim, recent], issue: gfiIssue(), candidates: CANDIDATES, repoUrl: REPO_URL})).toContain('This one is taken: [first-claimant](https://github.com/first-claimant) asked first.');
             expect(decideReply({comment: recent, comments: [participleClaim, recent], issue: gfiIssue(), candidates: CANDIDATES, repoUrl: REPO_URL})).toContain('This one is taken: [participle-claimant](https://github.com/participle-claimant) asked first.');
@@ -186,10 +195,12 @@ test.describe('buildScripts/util/claimResponse', () => {
 
         test(`any later comment from the claimant keeps the claim: the ${CLAIM_WINDOW_DAYS} days run from their latest word`, () => {
             const
-                claim    = comment('slow-claimant', '2026-10-31T10:00:00Z', "I'd like to work on this."),
-                progress = comment('slow-claimant', '2026-11-07T10:00:00Z', 'Implementation is complete; tests are in progress.'),
-                second   = comment('newcomer', '2026-11-08T10:00:00Z', "I'd like to work on this."),
-                silent   = comment('newcomer', '2026-11-14T10:00:01Z', "I'd like to work on this.");
+                claimAt  = '2026-10-31T10:00:00Z',
+                claim    = comment('slow-claimant', claimAt, "I'd like to work on this."),
+                progressAt = daysAfter(claimAt, CLAIM_WINDOW_DAYS * 2),
+                progress = comment('slow-claimant', progressAt, 'Implementation is complete; tests are in progress.'),
+                second   = comment('newcomer', daysAfter(progressAt, 1), "I'd like to work on this."),
+                silent   = comment('newcomer', daysAfter(progressAt, CLAIM_WINDOW_DAYS + 1), "I'd like to work on this.");
 
             expect(isClaim(progress.body)).toBe(false);
             expect(decideReply({comment: second, comments: [claim, progress, second], issue: gfiIssue(), candidates: CANDIDATES, repoUrl: REPO_URL})).toContain('This one is taken: [slow-claimant](https://github.com/slow-claimant) asked first.');
@@ -239,7 +250,30 @@ test.describe('buildScripts/util/claimResponse', () => {
         expect(reply).toContain(`${REPO_URL}/blob/dev/CONTRIBUTING.md`)
     });
 
-    test.describe('decideClaim, single-issue cap, 7-day expiry, unassign release and workflow script', () => {
+    test.describe(`decideClaim, single-issue cap, ${CLAIM_WINDOW_DAYS}-day expiry, unassign release and workflow script`, () => {
+        test('the window is three days: a claim four days old has lapsed, and the reply names the window', () => {
+            const
+                claimAt    = '2026-11-01T10:00:00Z',
+                oldClaim   = comment('StaleClaimant', claimAt, "I'd like to claim this issue."),
+                day4Claim  = comment('day4-newcomer', daysAfter(claimAt, 4), "I'd like to work on this."),
+                staleIssue = gfiIssue({assignees: [{login: 'StaleClaimant'}]});
+
+            // The ticket's decision, not the current constant: seven days would keep this issue parked
+            expect(CLAIM_WINDOW_DAYS).toBe(3);
+            expect(staleAssignees({
+                comment   : day4Claim,
+                comments  : [oldClaim, day4Claim],
+                issue     : staleIssue,
+                repository: 'neomjs/neo'
+            })).toEqual(['StaleClaimant']);
+            expect(decideClaim({
+                comment   : day4Claim,
+                comments  : [oldClaim, day4Claim],
+                issue     : staleIssue,
+                repoUrl   : REPO_URL
+            }).assignedBody).toContain('reserves this issue for 3 days')
+        });
+
         test('first in line with no other curated assignment gets assign: true and assignedBody while decideReply stays String|null', () => {
             const decision = decideClaim({
                 candidates: CANDIDATES,
@@ -259,14 +293,15 @@ test.describe('buildScripts/util/claimResponse', () => {
             expect(typeof decideReply({comment: firstClaim, comments: [firstClaim], issue: gfiIssue(), repoUrl: REPO_URL})).toBe('string')
         });
 
-        test(`an outside-contributor assignee holds at 6 days and lapses after ${CLAIM_WINDOW_DAYS} silent days unless they have an open PR or team status`, () => {
+        test(`an outside-contributor assignee holds until day ${CLAIM_WINDOW_DAYS - 1} and lapses after ${CLAIM_WINDOW_DAYS} silent days unless they have an open PR or team status`, () => {
             const
-                initialClaim  = comment('StaleClaimant', '2026-11-01T10:00:00Z', "I'd like to claim this issue."),
-                day6Claim     = comment('day6-newcomer', '2026-11-07T10:00:00Z', "I'd like to work on this."),
-                day8Claim     = comment('day8-newcomer', '2026-11-09T10:00:01Z', "I'd like to work on this."),
+                claimAt       = '2026-11-01T10:00:00Z',
+                initialClaim  = comment('StaleClaimant', claimAt, "I'd like to claim this issue."),
+                day6Claim     = comment('holding-newcomer', daysAfter(claimAt, CLAIM_WINDOW_DAYS - 1), "I'd like to work on this."),
+                day8Claim     = comment('lapsed-newcomer', daysAfter(claimAt, CLAIM_WINDOW_DAYS + 1), "I'd like to work on this."),
                 assignedIssue = gfiIssue({assignees: [{login: 'StaleClaimant'}]});
 
-            // 6 days silent: still holds
+            // One day short of the window: still holds
             const day6Decision = decideClaim({
                 candidates: CANDIDATES,
                 comment   : day6Claim,
@@ -278,7 +313,7 @@ test.describe('buildScripts/util/claimResponse', () => {
             expect(day6Decision.assign).toBe(false);
             expect(day6Decision.body).toContain("This one is taken: it's assigned to [StaleClaimant](https://github.com/StaleClaimant).");
 
-            // 8 days silent with no open PR: lapses and hands over with unassign: ['StaleClaimant']
+            // Past the window with no open PR: lapses and hands over with unassign: ['StaleClaimant']
             expect(staleAssignees({
                 comment   : day8Claim,
                 comments  : [initialClaim, day8Claim],
@@ -303,9 +338,9 @@ test.describe('buildScripts/util/claimResponse', () => {
 
             expect(day8Decision.assign).toBe(true);
             expect(day8Decision.unassign).toEqual(['StaleClaimant']);
-            expect(day8Decision.assignedBody).toContain('Thanks for claiming this, @day8-newcomer, and welcome! Assigned to you');
+            expect(day8Decision.assignedBody).toContain('Thanks for claiming this, @lapsed-newcomer, and welcome! Assigned to you');
 
-            // 8 days silent on issue comments, but has an open PR into neomjs/neo: still holds
+            // Past the window on issue comments, but has an open PR into neomjs/neo: still holds
             const withPrDecision = decideClaim({
                 candidates      : CANDIDATES,
                 comment         : day8Claim,
@@ -318,12 +353,12 @@ test.describe('buildScripts/util/claimResponse', () => {
             expect(withPrDecision.assign).toBe(false);
             expect(withPrDecision.body).toContain("it's assigned to [StaleClaimant](https://github.com/StaleClaimant) and #20799 is open for it.");
 
-            // 8 days since initial claim comment, but manually assigned 3 days ago: still holds
+            // Past the window since the initial claim comment, but manually assigned inside it: still holds
             const recentAssignDecision = decideClaim({
                 candidates: CANDIDATES,
                 comment   : day8Claim,
                 comments  : [initialClaim, day8Claim],
-                events    : [{event: 'assigned', assignee: {login: 'StaleClaimant'}, created_at: '2026-11-06T10:00:00Z'}],
+                events    : [{event: 'assigned', assignee: {login: 'StaleClaimant'}, created_at: daysAfter(claimAt, CLAIM_WINDOW_DAYS - 1)}],
                 issue     : assignedIssue,
                 repoUrl   : REPO_URL
             });
@@ -445,8 +480,9 @@ test.describe('buildScripts/util/claimResponse', () => {
 
                 // 2. GitHub returns HTTP 201 with empty assignees -> posts fallback body without removing stale assignees
                 const
-                    staleClaim = comment('StaleClaimant', '2026-11-01T10:00:00Z', "I'd like to claim this issue."),
-                    freshClaim = comment('day8-newcomer', '2026-11-09T10:00:01Z', "I'd like to work on this."),
+                    staleAt    = '2026-11-01T10:00:00Z',
+                    staleClaim = comment('StaleClaimant', staleAt, "I'd like to claim this issue."),
+                    freshClaim = comment('lapsed-newcomer', daysAfter(staleAt, CLAIM_WINDOW_DAYS + 1), "I'd like to work on this."),
                     staleIssue = gfiIssue({assignees: [{login: 'StaleClaimant'}], state: 'open'});
 
                 const dropped = await runScenario({
@@ -473,7 +509,7 @@ test.describe('buildScripts/util/claimResponse', () => {
                 expect(capped.posted).toHaveLength(1);
                 expect(capped.posted[0].body).toContain("You're already assigned to #20717");
 
-                // 4. Lapsed silent outside assignee (8 days quiet) -> assigns newcomer and removes StaleClaimant
+                // 4. Lapsed silent outside assignee (past the claim window) -> assigns newcomer and removes StaleClaimant
                 const handedOver = await runScenario({
                     addAssigneesImpl: async ({assignees}) => ({data: {assignees: assignees.map(login => ({login}))}}),
                     claim           : freshClaim,
@@ -481,10 +517,10 @@ test.describe('buildScripts/util/claimResponse', () => {
                     issue           : staleIssue
                 });
 
-                expect(handedOver.assignedCalls).toEqual([{assignees: ['day8-newcomer'], issue_number: 19143, owner: 'neomjs', repo: 'neo'}]);
+                expect(handedOver.assignedCalls).toEqual([{assignees: ['lapsed-newcomer'], issue_number: 19143, owner: 'neomjs', repo: 'neo'}]);
                 expect(handedOver.unassignedCalls).toEqual([{assignees: ['StaleClaimant'], issue_number: 19143, owner: 'neomjs', repo: 'neo'}]);
                 expect(handedOver.posted).toHaveLength(1);
-                expect(handedOver.posted[0].body).toContain('Thanks for claiming this, @day8-newcomer, and welcome! Assigned to you');
+                expect(handedOver.posted[0].body).toContain('Thanks for claiming this, @lapsed-newcomer, and welcome! Assigned to you');
                 expect(handedOver.warnings).toEqual([]);
 
                 // 5. One account claims two free curated issues in sequence -> only the first is assigned (even when search lags)
