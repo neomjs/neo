@@ -240,6 +240,11 @@ class Observable extends Base {
      */
     delayedCallback(cb, args, delay) {
         this.timeout(delay).then(() => {
+            // A scope can get destroyed while the delay is pending.
+            if (cb.scope?.isDestroyed) {
+                return
+            }
+
             cb.fn.apply(cb.scope, args)
         })
     }
@@ -265,8 +270,8 @@ class Observable extends Base {
                 // look in the ownership hierarchy from me.
                 const cb = resolveCallback(handler.fn, handler.scope || me);
 
-                // remove the listener if the scope no longer exists
-                if (cb.scope && !cb.scope.id) {
+                // remove the listener if the scope no longer exists or got destroyed
+                if (cb.scope && (!cb.scope.id || cb.scope.isDestroyed)) {
                     NeoArray.remove(listeners[name], handler)
                 } else {
                     if (!me.suspendEvents) {
