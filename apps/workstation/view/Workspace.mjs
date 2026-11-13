@@ -2,10 +2,16 @@ import Container                           from '../../../src/container/Base.mjs
 import VesselWorkspace                     from './VesselWorkspace.mjs';
 import Feed                                from '../store/Feed.mjs';
 import FeedPane                            from './FeedPane.mjs';
+import GanttPane                           from './GanttPane.mjs';
+import People                              from '../store/People.mjs';
+import PlanLinks                           from '../store/PlanLinks.mjs';
+import PlanTasks                           from '../store/PlanTasks.mjs';
 import ResidentComponent                   from './ResidentComponent.mjs';
+import SchedulerPane                       from './SchedulerPane.mjs';
 import StatusComponent                     from './StatusComponent.mjs';
 import Scale                               from '../store/Scale.mjs';
 import ScalePane                           from './ScalePane.mjs';
+import WorkItems                           from '../store/WorkItems.mjs';
 import DockDropIndicators                  from '../../../src/dashboard/dock/interaction/DropIndicators.mjs';
 import PerspectiveLibrary                  from '../../../src/dashboard/dock/persistence/PerspectiveLibrary.mjs';
 import TopologyLibrary                     from '../../../src/dashboard/dock/persistence/TopologyLibrary.mjs';
@@ -25,13 +31,35 @@ import '../../../src/tab/Container.mjs';
 import '../../../src/toolbar/Base.mjs';
 
 /**
+ * The planning arrangement: the team's schedule above the release plan.
+ * @type {Object}
+ */
+const planningDocument = Object.freeze({
+    schema: 'neo.dock.zone.v1',
+    root  : 'root',
+    items : {
+        scheduler: {title: 'Team schedule'},
+        gantt    : {title: 'Release plan'}
+    },
+    nodes: {
+        root            : {type: 'edge-zone', zones: {center: {nodeId: 'planning-split'}}},
+        'planning-split': {type: 'split', orientation: 'vertical', children: ['schedule-tabs', 'plan-tabs'], sizes: [0.415, 0.585]},
+        'schedule-tabs' : {type: 'tabs', items: ['scheduler'], activeItemId: 'scheduler'},
+        'plan-tabs'     : {type: 'tabs', items: ['gantt'], activeItemId: 'gantt'}
+    }
+});
+
+/**
  * @summary Workstation: the dense, themed, living-data workstation showcase.
  *
- * The workspace owns one committed `dockZone.v1` document, one root StateProvider, two
+ * The workspace owns one committed `dockZone.v1` document, one root StateProvider and the
  * provider-created Store<Model> instances; the Feed store owns its one producer. Pane instances are cached
  * and parked across coarse dock projections, so split/return/overflow operations preserve
  * the owning grid and store identities. Built-in grid and Sparkline families own pooling,
  * hydration, and OffscreenCanvas registration; this class owns only composition and story.
+ *
+ * Two arrangements are declared: the shipped operations room and the planning desk, whose panes
+ * share the provider's plan stores.
  *
  * @class Workstation.view.Workspace
  * @extends Workstation.view.VesselWorkspace
@@ -73,13 +101,13 @@ class Workspace extends VesselWorkspace {
          */
         layout: {ntype: 'vbox', align: 'stretch'},
         /**
-         * The shipped arrangement, declared rather than supplied: `construct` keeps supplying the saved
-         * main document, so `dock.perspective.modified` reads live-versus-shipped while a torn-out
-         * pane stays owned by its vessel. A cold boot without a saved main document starts from
-         * `shipped`, and {@link #resetTopology} restores it, so a subclass declares its own here.
-         * @member {Object} perspectives={shipped: initialDocument}
+         * The declared arrangements: `construct` keeps supplying the saved main document, so
+         * `dock.perspective.modified` reads live-versus-declared while a torn-out pane stays owned by
+         * its vessel. A cold boot without a saved main document starts from `shipped`, and
+         * {@link #resetTopology} restores the active one, so a subclass declares its own here.
+         * @member {Object} perspectives={shipped: initialDocument, planning: planningDocument}
          */
-        perspectives: {shipped: initialDocument},
+        perspectives: {shipped: initialDocument, planning: planningDocument},
         /**
          * @member {String} activePerspective='shipped'
          */
@@ -94,7 +122,8 @@ class Workspace extends VesselWorkspace {
          */
         previewLanguage_: null,
         /**
-         * The one root provider owns both stores; cached panes receive these exact instances.
+         * The one root provider owns every store; cached panes receive these exact instances, in any
+         * window. The planning panes share `workItems`, the record store both the schedule and the board show.
          * @member {Object} stateProvider
          */
         stateProvider: {
@@ -104,8 +133,12 @@ class Workspace extends VesselWorkspace {
                 tour         : initialTourState
             },
             stores: {
-                feed : {module: Feed},
-                scale: {module: Scale}
+                feed     : {module: Feed},
+                people   : {module: People},
+                planLinks: {module: PlanLinks},
+                planTasks: {module: PlanTasks},
+                scale    : {module: Scale},
+                workItems: {module: WorkItems}
             }
         },
         /**
@@ -158,13 +191,13 @@ class Workspace extends VesselWorkspace {
     }
 
     /**
-     * @summary Returns the workspace to the arrangement the app ships with, in one undoable commit.
+     * @summary Returns the workspace to a declared arrangement, by default the one it is in, in one undoable commit.
      *
-     * @description The shipped document, the captured `shipped` perspective, is committed for `main`,
-     * and every other workspace gives back the panes it owns — in the SAME write. Both halves matter:
+     * @description The arrangement's captured document is committed for `main`, and every other
+     * workspace gives back the panes it lists — in the SAME write. Both halves matter:
      *
      * - **Give the panes back, do not just restore main.** A pane torn into a window is still listed
-     *   by the shipped document, so restoring that document beside an untouched popup would leave it
+     *   by the declared document, so restoring that document beside an untouched popup would leave it
      *   owned twice — an invalid topology `Persistence` refuses to capture, making a reset that
      *   reports success unpersistable.
      * - **A workspace left with nothing becomes the empty edge-root, not a pruned tree.** Detaching
@@ -185,29 +218,37 @@ class Workspace extends VesselWorkspace {
      *
      * Not `startBlankRoot()`: that admits `{topologyIdentity: {}}` for the load-failure path, and
      * blank is not default.
+     *
+     * Naming another arrangement switches to it: the same write then carries the arrangement's name
+     * ({@link #commitArrangement}), so undo restores both and a save records it.
+     * @param {String} [name] A declared perspective; defaults to the active one
      * @returns {Promise<{errors: String[], reset: Boolean, transactionId: String|null}>}
      */
-    async resetTopology() {
+    async resetTopology(name) {
         const me         = this,
               workspaces = me.getDockTopologyWorkspaces();
 
-        // Not a defensive guard: with no main workspace registered there is no entry for the shipped
+        // Not a defensive guard: with no main workspace registered there is no entry for the declared
         // document to replace, so the commit would ADD a key and be refused for naming something
         // unregistered. Refusing here names the actual cause instead of the seam's generic shape.
         if (!Object.hasOwn(workspaces, Workspace.MAIN_WORKSPACE_ID)) {
             return {errors: ['the main workspace is not registered'], reset: false, transactionId: null}
         }
 
-        const shippedDocument = me.perspectiveSelection.document('shipped'),
-              shipped         = new Set(Object.keys(shippedDocument.items ?? {})),
-              next            = {[Workspace.MAIN_WORKSPACE_ID]: shippedDocument},
-              refusals        = [];
+        const active   = me.perspectiveSelection.committedName,
+              declared = me.perspectiveSelection.document(name ??= active);
+
+        if (!declared) return {errors: [`"${name}" is not a declared arrangement`], reset: false, transactionId: null};
+
+        const listed   = new Set(Object.keys(declared.items ?? {})),
+              next     = {[Workspace.MAIN_WORKSPACE_ID]: declared},
+              refusals = [];
 
         for (const [workspaceKey, document] of Object.entries(workspaces)) {
             if (workspaceKey === Workspace.MAIN_WORKSPACE_ID) continue;
 
             const owned   = Object.keys(document?.items ?? {}),
-                  reclaim = owned.filter(itemId => shipped.has(itemId));
+                  reclaim = owned.filter(itemId => listed.has(itemId));
 
             if (!reclaim.length) {
                 next[workspaceKey] = document;
@@ -234,12 +275,13 @@ class Workspace extends VesselWorkspace {
             result.errors.length ? refusals.push(...result.errors) : next[workspaceKey] = result.document
         }
 
-        // A workspace that cannot give a shipped pane back is a refusal, not something to commit
+        // A workspace that cannot give a declared pane back is a refusal, not something to commit
         // around: committing the rest would restore main while leaving the duplicate in place.
         if (refusals.length) return {errors: refusals, reset: false, transactionId: null};
 
-        const {errors, transactionId} = await me.commitDockTopologyWorkspaces(next,
-            {name: 'default', provenance: {origin: 'human'}});
+        const {errors, transactionId} = name === active
+            ? await me.commitDockTopologyWorkspaces(next, {name: 'default', provenance: {origin: 'human'}})
+            : await me.commitArrangement(next, name);
 
         // Bound participants settle their own projections. Headless owners retain the committed
         // document, but their rendering waits for a future mount and cannot gate this reset.
@@ -249,6 +291,42 @@ class Workspace extends VesselWorkspace {
         ].map(promise => Promise.resolve(promise).catch(() => {})));
 
         return {errors, reset: !errors.length, transactionId: transactionId ?? null}
+    }
+
+    /**
+     * @summary Commits the documents of another declared arrangement together with its name, as one Group row.
+     *
+     * @description The engine's perspective selection owns the name as a Group participant and adopts it
+     * from the write that names it. Writing the documents and the name together keeps the switch a single
+     * history row, and the descriptor names both sides of it, so undo projects the previous arrangement
+     * by name as well as by document.
+     * @param {Object} workspaces One document per registered workspace key
+     * @param {String} name The declared arrangement the write switches to
+     * @returns {Promise<Object>} `{errors, transactionId}`; a rolled-back write names its cause in `errors`
+     * @protected
+     */
+    async commitArrangement(workspaces, name) {
+        const me        = this,
+              selection = me.perspectiveSelection;
+
+        try {
+            await selection.attachGroup();
+
+            const result = await TransactionManager.write({
+                cause  : 'perspective',
+                changes: [
+                    ...Object.entries(workspaces).map(([workspaceKey, input]) => ({workspaceKey, input})),
+                    me.perspectiveOriginChange({declaredPerspective: name})
+                ],
+                descriptor: {operation: 'restorePerspective', workspaceKey: selection.workspaceKey(), before: selection.committedName, after: name},
+                groupId   : me.topologyGroupId,
+                provenance: {origin: 'human'}
+            });
+
+            return {errors: [], transactionId: result.transactionId}
+        } catch (error) {
+            return {errors: [`arrangement commit rolled back: ${error.message}`]}
+        }
     }
 
 
@@ -586,7 +664,8 @@ class Workspace extends VesselWorkspace {
     }
 
     /**
-     * @summary Creates one view; data panes borrow the provider's stores.
+     * @summary Creates one view; data panes borrow the provider's stores, and the planning panes open on
+     * the window around the day their plan was seeded from.
      * @param {String} itemId
      * @param {Object} item
      * @returns {Neo.component.Base}
@@ -596,6 +675,27 @@ class Workspace extends VesselWorkspace {
         const provider = this.getStateProvider();
         if (itemId === 'scale') return Neo.create(ScalePane, {store: provider.getStore('scale')});
         if (itemId === 'feed') return Neo.create(FeedPane, {store: provider.getStore('feed')});
+
+        if (itemId === 'scheduler') {
+            const workItems = provider.getStore('workItems');
+
+            return Neo.create(SchedulerPane, {
+                eventStore: workItems,
+                store     : provider.getStore('people'),
+                timeAxis  : SchedulerPane.createTimeAxis(workItems.baseDate)
+            })
+        }
+
+        if (itemId === 'gantt') {
+            const tasks = provider.getStore('planTasks');
+
+            return Neo.create(GanttPane, {
+                dependencyStore: provider.getStore('planLinks'),
+                store          : tasks,
+                timeAxis       : GanttPane.createTimeAxis(tasks.baseDate)
+            })
+        }
+
         return Neo.create(ResidentComponent, {itemId, title: item?.title ?? itemId})
     }
 

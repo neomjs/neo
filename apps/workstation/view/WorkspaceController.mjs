@@ -148,6 +148,28 @@ class WorkspaceController extends Controller {
         return this.component.toggleWorkspaceTheme(data)
     }
 
+    /** @summary Brings the viewer to the shipped operations arrangement. @returns {Promise<Object>|null} */
+    onShowOperations() {
+        return this.selectArrangement('shipped')
+    }
+
+    /** @summary Brings the viewer to the planning arrangement. @returns {Promise<Object>|null} */
+    onShowPlanning() {
+        return this.selectArrangement('planning')
+    }
+
+    /**
+     * @summary Switches the workspace to a declared arrangement, taking its panes back from their windows.
+     * The arrangement the viewer is in stays as they left it: restoring it is Reset to default's job.
+     * @param {String} name A declared perspective
+     * @returns {Promise<Object>|null} The reset receipt, or null when `name` is already active
+     */
+    selectArrangement(name) {
+        const workspace = this.component;
+
+        return workspace.activePerspective === name ? null : workspace.resetTopology(name)
+    }
+
 
     /**
      * @summary Presents an already hydrated participant without changing its document or history.

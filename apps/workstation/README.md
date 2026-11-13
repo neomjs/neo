@@ -2,7 +2,8 @@
 
 Workstation is Neo.mjs's standalone dense-workspace flagship: twenty live panes, a renderer-rich
 100,000-record grid, a capped feed ingesting ten records per second, real tab overflow, semantic
-split-and-return docking, and a deterministic tour across dark and light themes.
+split-and-return docking, and a deterministic tour across dark and light themes. A second
+arrangement, **Planning**, puts a team schedule and a release plan on one set of records.
 
 It is an independent application under `apps/workstation/` with its own boot surface and theme.
 
@@ -24,18 +25,20 @@ Its playback controller, runner and gesture drivers are created only when reques
 
 ## Composition and ownership
 
-[`view/Workspace.mjs`](view/Workspace.mjs) is the composition entrypoint. It declares the shipped
-perspective and root provider, selects the three pane classes, and keeps the app's topology and
-theme commands beside the state they use. Its constructor assembles the ordinary views and starts
-the existing Feed store. No tour driver is needed for that boot.
+[`view/Workspace.mjs`](view/Workspace.mjs) is the composition entrypoint. It declares the two
+arrangements (the shipped perspective and `planning`) and the root provider, selects the pane
+classes, and keeps the app's topology and theme commands beside the state they use. Its constructor
+assembles the ordinary views and starts the existing Feed store. No tour driver is needed for that boot.
 
 | Owner | Responsibility |
 |---|---|
 | `view/VesselWorkspace.mjs` | App-specific Group and native-vessel policy, window presentation and receipts; consumes the engine's shared popup return and replay. |
 | `view/TopologyToolbar.mjs` | Topology controls and live Group history bindings; borrows the workspace's commands and provider. |
-| `view/TourToolbar.mjs`, `view/StatusComponent.mjs` | Lightweight playback chrome and a readout bound directly to the existing stores. |
+| `view/TourToolbar.mjs`, `view/StatusComponent.mjs` | Lightweight playback chrome, the arrangement switch, and a readout bound directly to the existing stores. |
 | `view/FeedPane.mjs`, `view/ScalePane.mjs`, `view/ResidentComponent.mjs` | The data views and resident presentation, with the same pane identities across docking. |
+| `view/SchedulerPane.mjs`, `view/GanttPane.mjs` | The planning panes: the team's work items by person and day, and the release plan with its cascading links. |
 | `store/Feed.mjs` | One explicit-start producer, five records every 500 ms, monotonic IDs and the newest-first 500-record cap. Its timer retires with the store. |
+| `store/plan.mjs`, `store/WorkItems.mjs`, `store/People.mjs`, `store/PlanTasks.mjs`, `store/PlanLinks.mjs` | The seeded plan, as whole-day offsets from one UTC day, and the stores it seeds. `WorkItems` is the one record store the schedule and the board read. |
 
 The root provider owns stores it creates. Panes, toolbars and popup header providers borrow that
 same store authority; a passed-in store remains its creator's responsibility. Native resources
@@ -89,9 +92,14 @@ creates a fresh controller. The workspace and its stores remain owned by the ord
 
 ## Layout controls and persistence
 
-Two rows keep the workspace chrome compact: tour and theme controls above, live store statistics
-beside **Reset to default**, **Undo** and **Redo** below. Undo and Redo retain their reactive step
-badges. Opening more popup participants adds no controls or rows.
+Two rows keep the workspace chrome compact: tour, arrangement and theme controls above, live store
+statistics beside **Reset to default**, **Undo** and **Redo** below. Undo and Redo retain their
+reactive step badges. Opening more popup participants adds no controls or rows.
+
+**Operations** and **Planning** switch between the declared arrangements. A switch is one Group
+commit that names the arrangement, so **Undo** returns the previous one and a save records it; the
+arrangement's panes come back from their windows in the same commit. **Reset to default** restores
+the arrangement the workspace is in. A tour always starts from the shipped arrangement.
 
 Group commits automatically store the complete keyed topology in IndexedDB, separately from undo history.
 Each logical root has its own collection. Cold boot uses its saved active layout; `?layout=<id>`
@@ -104,7 +112,7 @@ surviving original tab homes keep their positions, and other panes join an exist
 **Undo** reopens the popup with its panes; **Redo** returns them and closes it again. Reloading a
 popup does not return its panes. If an opener reload lost the native handle, recovery waits for
 the popup's reconnect lease to expire. Cold-restored popups remain retained participants until
-opened or restored. **Reset to default** restores the shipped arrangement. Cold boot starts with empty history.
+opened or restored. Cold boot starts with empty history.
 Popup hosts select the engine's `nativeWindowClosePolicy: 'return'` and the `main` binding as their
 destination. `WorkspaceSet.returnWorkspace` owns the paired document write, while
 `NativeVesselTransaction` observes closure and replays native effects. Workstation supplies its

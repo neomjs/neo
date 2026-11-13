@@ -69,6 +69,28 @@ class TourToolbar extends Toolbar {
             reference: 'tour-continue',
             text     : 'Continue'
         }, {
+            // The declared arrangements, one pressed: the workspace's committed perspective
+            cls      : ['workstation-arrangement-switch'],
+            layout   : {ntype: 'hbox', align: 'center'},
+            ntype    : 'container',
+            reference: 'arrangement-switch',
+            role     : 'group',
+            items    : [{
+                bind     : {pressed: data => data.dock.perspective.active === 'shipped'},
+                handler  : 'onShowOperations',
+                iconCls  : 'fa fa-gauge-high',
+                ntype    : 'button',
+                reference: 'arrangement-operations',
+                text     : 'Operations'
+            }, {
+                bind     : {pressed: data => data.dock.perspective.active === 'planning'},
+                handler  : 'onShowPlanning',
+                iconCls  : 'fa fa-calendar-days',
+                ntype    : 'button',
+                reference: 'arrangement-planning',
+                text     : 'Planning'
+            }]
+        }, {
             cls      : ['workstation-theme-button'],
             handler  : 'onToggleWorkspaceTheme',
             iconCls  : 'fa fa-sun',
