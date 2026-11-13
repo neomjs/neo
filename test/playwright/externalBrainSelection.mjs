@@ -133,6 +133,7 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'workstation/WorkstationNestedColumnResizeNL.spec.mjs',
     'workstation/WorkstationOffSocketContractNL.spec.mjs',
     'workstation/WorkstationOwnPaneEdgeDropNL.spec.mjs',
+    'workstation/WorkstationPlanningDeskNL.spec.mjs',
     'workstation/WorkstationPopOutHoverSyncNL.spec.mjs',
     'workstation/WorkstationPopOutPaneIdentityNL.spec.mjs',
     'workstation/WorkstationPopOutSparklinesNL.spec.mjs',
