@@ -235,6 +235,45 @@
         font-family  : var(--workstation-font-mono);
         margin       : 0;
     }
+
+    // The declared arrangements as one segmented control: the pressed segment is the arrangement
+    // the workspace is in, so the pressed state carries the fill rather than the border alone.
+    .workstation-arrangement-switch {
+        background   : var(--workstation-panel-2);
+        border       : 1px solid var(--workstation-line);
+        border-radius: 8px;
+        flex         : none;
+        gap          : 2px;
+        padding      : 2px;
+
+        .neo-button {
+            --button-background-color       : transparent;
+            --button-background-color-active: color-mix(in srgb, var(--workstation-signal) 18%, transparent);
+            --button-background-color-hover : color-mix(in srgb, var(--workstation-signal) 10%, transparent);
+            --button-border                 : 1px solid transparent;
+            --button-border-active          : 1px solid transparent;
+            --button-border-hover           : 1px solid transparent;
+            --button-border-pressed         : 1px solid color-mix(in srgb, var(--workstation-signal) 55%, var(--workstation-line));
+            --button-glyph-color            : var(--workstation-ink-faint);
+            --button-glyph-color-active     : var(--workstation-signal);
+            --button-glyph-color-hover      : var(--workstation-signal);
+            --button-height                 : 28px;
+            --button-ripple-background-color: color-mix(in srgb, var(--workstation-signal) 28%, transparent);
+            --button-text-color             : var(--workstation-ink-dim);
+            --button-text-color-active      : var(--workstation-ink);
+            --button-text-color-hover       : var(--workstation-ink);
+            border-radius: 6px;
+            font-family  : var(--workstation-font-mono);
+            margin       : 0;
+
+            &.pressed {
+                --button-background-color      : color-mix(in srgb, var(--workstation-signal) 16%, var(--workstation-panel));
+                --button-background-color-hover: color-mix(in srgb, var(--workstation-signal) 20%, var(--workstation-panel));
+                --button-glyph-color           : var(--workstation-signal);
+                --button-text-color            : var(--workstation-ink);
+            }
+        }
+    }
 }
 
 .workstation-workspace .neo-button.workstation-tour-play,
