@@ -7,25 +7,36 @@ import Neo            from '../../../../../src/Neo.mjs';
 import * as core      from '../../../../../src/core/_export.mjs';
 import HighlightJs    from '../../../../../src/util/HighlightJs.mjs';
 
-const originalDocument = globalThis.document,
-    previousDomAccess  = Neo.main?.DomAccess;
+const importDocument  = globalThis.document,
+    previousDomAccess = Neo.main?.DomAccess;
+let DomAccess, HighlightJS;
+
+// Main imports need a DOM facade while they initialize; it is not the lifetime of a test group.
 globalThis.document = new EventTarget();
 globalThis.document.baseURI = 'https://example.test/apps/demo/index.html';
 previousDomAccess && delete Neo.main.DomAccess;
-const {default: DomAccess}   = await import('../../../../../src/main/DomAccess.mjs');
-const {default: HighlightJS} = await import('../../../../../src/main/addon/HighlightJS.mjs');
+try {
+    ({default: DomAccess}   = await import('../../../../../src/main/DomAccess.mjs'));
+    ({default: HighlightJS} = await import('../../../../../src/main/addon/HighlightJS.mjs'))
+} finally {
+    importDocument === undefined ? delete globalThis.document : globalThis.document = importDocument;
+    previousDomAccess && (Neo.main.DomAccess = previousDomAccess)
+}
 
 test.describe('Neo.main.addon.HighlightJS resources and line lifetime', () => {
-    let originalBase, originalHljs, originalLoad, originalScript, originalStylesheet, originalUtilHljs, originalGetElement;
+    let originalBase, originalHljs, originalLoad, originalScript, originalStylesheet, originalUtilHljs, originalDocument;
 
+    // A parallel worker can re-enter this cached module after another group has finished.
     test.beforeEach(() => {
+        originalDocument = globalThis.document;
+        globalThis.document = new EventTarget();
+        globalThis.document.baseURI = 'https://example.test/apps/demo/index.html';
         originalBase       = Neo.config.basePath;
         originalHljs       = globalThis.hljs;
         originalLoad       = HighlightJs.load;
         originalScript     = DomAccess.loadScript;
         originalStylesheet = Neo.main.addon.Stylesheet;
         originalUtilHljs   = HighlightJs.hljs;
-        originalGetElement = document.getElementById;
         Neo.config.basePath = '../../';
     });
 
@@ -33,15 +44,10 @@ test.describe('Neo.main.addon.HighlightJS resources and line lifetime', () => {
         Neo.config.basePath             = originalBase;
         HighlightJs.load                = originalLoad;
         HighlightJs.hljs                = originalUtilHljs;
-        originalGetElement === undefined ? delete document.getElementById : document.getElementById = originalGetElement;
         DomAccess.loadScript            = originalScript;
         Neo.main.addon.Stylesheet       = originalStylesheet;
-        originalHljs === undefined ? delete globalThis.hljs : globalThis.hljs = originalHljs
-    });
-
-    test.afterAll(() => {
-        originalDocument === undefined ? delete globalThis.document : globalThis.document = originalDocument;
-        previousDomAccess && (Neo.main.DomAccess = previousDomAccess)
+        originalHljs === undefined ? delete globalThis.hljs : globalThis.hljs = originalHljs;
+        originalDocument === undefined ? delete globalThis.document : globalThis.document = originalDocument
     });
 
     test('default loads the shared module before the line-number plugin', async () => {
