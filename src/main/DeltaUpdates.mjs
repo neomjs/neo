@@ -97,6 +97,14 @@ class DeltaUpdates extends Base {
      */
     pendingLayoutHeals = null
     /**
+     * Native nodes moved in the current batch. Before moving the same node again, commit its
+     * current layout so the browser retains descendant scroll offsets across the second move.
+     * Different-node reorders still defer their single parent rebuild to flushLayoutHeals().
+     * @member {Set|null} pendingNativeMoves=null
+     * @protected
+     */
+    pendingNativeMoves = null
+    /**
      * The id of the node {@link #removeNode} is removing, for the duration of its `remove()` call. A
      * browser that blurs a removed node fires `focusout` synchronously inside that call, and
      * `Neo.main.DomEvents` stamps the event with this id.
@@ -650,12 +658,16 @@ class DeltaUpdates extends Base {
         if (node && parentNode) {
             // Only proceed if the node is not already at its target position.
             // Note: For DocumentFragments (nodeType 11), we always move, as the fragment wrapper is transient.
-            if (node !== siblingRef) {
+            if (node.nodeType === 11 || (node !== siblingRef &&
+                !(node.parentNode === parentNode && node.nextSibling === (siblingRef || null)))) {
                 if (this.nativeMoveBefore === null) {
                     this.nativeMoveBefore = typeof parentNode.moveBefore === 'function'
                 }
 
                 if (this.nativeMoveBefore) {
+                    const moved = this.pendingNativeMoves ||= new Set();
+                    if (moved.has(node)) node.getBoundingClientRect?.();
+                    moved.add(node);
                     parentNode.moveBefore(node, siblingRef || null);
 
                     // Chromium (observed in 146 & 149) can leave the parent's box-tree sibling chain
@@ -714,6 +726,7 @@ class DeltaUpdates extends Base {
      * @protected
      */
     flushLayoutHeals() {
+        this.pendingNativeMoves = null;
         const parents = this.pendingLayoutHeals;
 
         if (!parents) return;

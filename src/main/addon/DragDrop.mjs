@@ -226,6 +226,7 @@ class DragDrop extends Base {
             scope     : me
         });
 
+        Neo.main.DeltaUpdates.on({update: me.onDeltaUpdate, scope: me});
         me.addGlobalEventListeners();
 
         if (Neo.config.hasMouseEvents || Neo.config.hasTouchEvents) {
@@ -235,6 +236,34 @@ class DragDrop extends Base {
                 return me.pointerSensor
             })
         }
+    }
+
+    /**
+     * @summary Releases this addon's terminal-batch listener.
+     */
+    destroy() {
+        Neo.main.DeltaUpdates.un({update: this.onDeltaUpdate, scope: this});
+        super.destroy()
+    }
+
+    /**
+     * @summary Prepends a live SortZone's return and cleanup to its covering render batch.
+     * Descriptors remain opaque to the VDom worker. Clone them before Main's normal dispatch
+     * mutates them; this listener performs no DOM work or geometry reads.
+     * @param {Object} data The delta batch, including owner-keyed metadata.
+     * @protected
+     */
+    onDeltaUpdate(data) {
+        const terminal = [];
+        for (const [ownerId, meta] of Object.entries(data.meta || {})) {
+            if (meta != null && Object.hasOwn(meta, 'sortZoneTerminal')) {
+                if (!Array.isArray(meta.sortZoneTerminal)) {
+                    throw new TypeError(`SortZone terminal metadata for "${ownerId}" must be an array`)
+                }
+                terminal.push(...structuredClone(meta.sortZoneTerminal))
+            }
+        }
+        if (terminal.length) data.deltas.unshift(...terminal)
     }
 
     /**
