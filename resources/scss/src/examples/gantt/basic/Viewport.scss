@@ -7,7 +7,7 @@
     border-bottom: 1px solid var(--project-border);
 
     .project-title { color: var(--project-title); font-size: 18px; font-weight: 700; }
-    .project-subtitle { color: var(--project-muted); font-size: 12px; }
+    .project-subtitle, .project-save-status { color: var(--project-muted); font-size: 12px; }
     .project-control {
         --button-text-color: var(--project-muted);
         --button-text-color-hover: var(--project-title);

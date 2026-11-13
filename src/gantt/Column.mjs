@@ -8,14 +8,24 @@ import TimelineColumn from '../timeline/Column.mjs';
 class Column extends TimelineColumn {
     static config = {className: 'Neo.gantt.Column'}
 
+    /**
+     * @summary Adds task-kind styling, a link terminal and the current link-target highlight to a timeline bar.
+     * @param {Object} descriptor Task bar geometry and record.
+     * @param {Object} context Renderer context containing the Gantt and row record.
+     * @returns {Object} Bar VDOM with the Gantt affordances.
+     */
     buildBarVdom(descriptor, context) {
         const node   = super.buildBarVdom(descriptor, context);
         const record = descriptor.bar;
-        if (record?.isLeaf === false) node.cls.push('neo-gantt-bar-summary');
-        if (record?.milestone) node.cls.push('neo-gantt-bar-milestone');
-        if (context.gridContainer?.canLinkTasks?.(context.record) && Array.isArray(node.cn)) {
+        if (record.isLeaf === false) node.cls.push('neo-gantt-bar-summary');
+        if (record.milestone) node.cls.push('neo-gantt-bar-milestone');
+        const grid = context.gridContainer;
+        if (!grid) return node;
+        if (grid.eventDragZone?.taskPreviewRecord === record) node.cls.push('neo-gantt-task-source');
+        if (grid.eventDragZone?.linkTarget === record) node.cls.push('neo-gantt-link-target');
+        if (grid.canLinkTasks(context.record)) {
             node.cls = [].concat(node.cls || [], 'neo-gantt-linkable');
-            if (context.gridContainer.isKeyboardLinkSource(context.record, node.id)) {
+            if (grid.isKeyboardLinkSource(context.record, node.id)) {
                 node.cls.push('neo-gantt-link-armed')
             }
             node['aria-keyshortcuts'] = 'L';

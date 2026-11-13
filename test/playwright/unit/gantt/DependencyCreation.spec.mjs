@@ -59,6 +59,29 @@ test('summary and milestone bars identify the record they represent', () => {
     }
 });
 
+test('link feedback follows the live graph before the pointer is released', async () => {
+    const gantt     = chart(['source', 'group', 'target'], [0, 6]);
+    const edges     = gantt.dependencyStore, zone = gantt.eventDragZone;
+    const sourceBar = bar(gantt, 'source'), port = sourceBar.cn.find(node => node.data?.linkFrom);
+    const path      = [{...port, rect: {left: 10, top: 10, width: 10, height: 10}}, sourceBar, root(gantt)];
+    const data      = {clientX: 100, clientY: 80, path, targetPath: [bar(gantt, 'target'), root(gantt)]};
+    try {
+        await gantt.onBarDragStart({clientX: 15, clientY: 15, path});
+        zone.dragMove(data);
+        expect(zone.linkTarget).toBe(gantt.store.get('target'));
+        expect(edges.getCount()).toBe(0);
+
+        // A reverse edge added in another view makes this offer cyclic while the pointer stays still.
+        edges.add({id: 'reverse', fromId: 'target', toId: 'source', type: 'FS'});
+        expect(zone.linkTarget).toBeNull();
+        zone.dragEnd(data);
+        expect(edges.getCount()).toBe(1);
+        expect(edges.getSuccessors('source')).toEqual([])
+    } finally {
+        gantt.destroy()
+    }
+});
+
 class CustomTerminalZone extends GanttEventDragZone {
     static config = {className: 'Test.gantt.CustomTerminalZone'}
 

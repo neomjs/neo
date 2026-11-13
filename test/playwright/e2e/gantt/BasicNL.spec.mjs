@@ -123,3 +123,107 @@ test('a linked project edit and a new dependency survive reload', async ({page, 
     await expectArrowEnds(arrow, '.neo-timeline-bar[data-event-id="survey"]', '.neo-timeline-bar[data-event-id="design"]');
     await expectArrowEnds(newArrow, '.neo-timeline-bar[data-event-id="materials"]', '.neo-timeline-bar[data-event-id="build"]')
 });
+
+test('task and link previews follow the pointer without mutating the plan until release', async ({page, neuralLink}) => {
+    await page.goto('/examples/gantt/basic/index.html');
+    const survey    = page.locator('.neo-timeline-bar[data-event-id="survey"]');
+    const design    = page.locator('.neo-timeline-bar[data-event-id="design"]');
+    const materials = page.locator('.neo-timeline-bar[data-event-id="materials"]');
+    const build     = page.locator('.neo-timeline-bar[data-event-id="build"]');
+    await expect(survey).toBeVisible();
+    await expect(page.getByText('Edits stay on this device')).toBeVisible();
+    const app     = await neuralLink.connectToApp('GanttBasic');
+    const [gantt] = await app.findInstances({className:'Neo.gantt.Container'}, ['id']);
+    const read    = id => app.callMethod(gantt.id, 'resolveTaskRecord', [id]);
+
+    const beforeMove = await read('survey'), source = await survey.boundingBox();
+    const proxy      = page.locator('.neo-dragproxy');
+    await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(source.x + source.width / 2 + 18, source.y + source.height / 2, {steps:12});
+    await expect(proxy).toBeVisible();
+    await expect(survey).toHaveClass(/neo-gantt-task-source/);
+    await expect(survey.locator('.neo-timeline-bar-label')).toBeHidden();
+    await expect(design).not.toHaveClass(/neo-gantt-task-source/);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+    await expect(proxy).toHaveCount(0);
+    await expect(survey).not.toHaveClass(/neo-gantt-task-source/);
+    expect([(await read('survey')).startDate, (await read('survey')).endDate])
+        .toEqual([beforeMove.startDate, beforeMove.endDate]);
+
+    await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(source.x + source.width / 2 + 36, source.y + source.height / 2, {steps:12});
+    await expect(proxy).toBeVisible();
+    await expect(survey).toHaveClass(/neo-gantt-task-source/);
+    await expect(proxy.locator('.neo-timeline-bar')).toContainText('Survey the site');
+    await expect.poll(async () => (await proxy.boundingBox())?.x).toBeGreaterThan(source.x + 20);
+    const movePreview = await proxy.boundingBox();
+    expect([(await read('survey')).startDate, (await read('survey')).endDate])
+        .toEqual([beforeMove.startDate, beforeMove.endDate]);
+    await page.mouse.up();
+    await expect(proxy).toHaveCount(0);
+    await expect(survey).not.toHaveClass(/neo-gantt-task-source/);
+    await expect.poll(async () => (await survey.boundingBox())?.x).toBeCloseTo(movePreview.x, 0);
+
+    const beforeResize = await read('design'), designRect = await design.boundingBox();
+    const edge         = await design.locator('.neo-resizable-end').boundingBox();
+    await page.mouse.move(edge.x + edge.width / 2, designRect.y + designRect.height * .8);
+    await page.mouse.down();
+    await page.mouse.move(edge.x + edge.width / 2 + 18, designRect.y + designRect.height * .8, {steps:12});
+    await expect(proxy).toBeVisible();
+    await expect(design).toHaveClass(/neo-gantt-task-source/);
+    await expect.poll(async () => (await proxy.boundingBox())?.width).toBeGreaterThan(designRect.width + 10);
+    const resizePreview = await proxy.boundingBox();
+    expect([(await read('design')).startDate, (await read('design')).endDate])
+        .toEqual([beforeResize.startDate, beforeResize.endDate]);
+    await page.mouse.up();
+    await expect(proxy).toHaveCount(0);
+    await expect(design).not.toHaveClass(/neo-gantt-task-source/);
+    await expect.poll(async () => (await design.boundingBox())?.width).toBeCloseTo(resizePreview.width, 0);
+    expect((await read('design')).startDate).toBe(beforeResize.startDate);
+
+    const startLink = async () => {
+        await materials.hover();
+        const port = materials.locator('.neo-gantt-link-terminal');
+        await expect(port).toBeVisible();
+        const a = await port.boundingBox(), b = await build.boundingBox();
+        await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, {steps:16});
+        await expect(build).toHaveClass(/neo-gantt-link-target/)
+    };
+    await startLink();
+    await expect(page.locator('[data-from-id="materials"][data-to-id="build"]')).toHaveCount(0);
+    // Returning to a predecessor would make a cycle; it must not retain an eligible highlight.
+    const invalid = await design.boundingBox();
+    await page.mouse.move(invalid.x + invalid.width / 2, invalid.y + invalid.height / 2, {steps:12});
+    await expect(build).not.toHaveClass(/neo-gantt-link-target/);
+    await expect(design).not.toHaveClass(/neo-gantt-link-target/);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+    await expect(page.locator('.neo-gantt-link-target')).toHaveCount(0);
+    await expect(page.locator('.neo-gantt-link-preview')).toHaveCount(0);
+    await startLink();
+    await page.mouse.up();
+    await expect(page.locator('[data-from-id="materials"][data-to-id="build"]')).toBeVisible();
+    await expect(page.locator('.neo-gantt-link-target')).toHaveCount(0);
+    await expect(page.locator('.neo-gantt-link-preview')).toHaveCount(0);
+
+    // Destroying an active zone must retire the floating preview without committing.
+    const beforeDestroy = await read('build'), last = await build.boundingBox();
+    await page.mouse.move(last.x + last.width / 2, last.y + last.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(last.x + last.width / 2 + 36, last.y + last.height / 2, {steps:12});
+    await expect(proxy).toBeVisible();
+    await expect(build).toHaveClass(/neo-gantt-task-source/);
+    const [zone] = await app.findInstances({className:'Neo.gantt.EventDragZone'}, ['id']);
+    await app.callMethod(zone.id, 'destroy', []);
+    await page.mouse.up();
+    await expect(proxy).toHaveCount(0);
+    await expect(build).not.toHaveClass(/neo-gantt-task-source/);
+    await expect(page.locator('.neo-gantt')).not.toHaveClass(/neo-is-dragging/);
+    expect([(await read('build')).startDate, (await read('build')).endDate])
+        .toEqual([beforeDestroy.startDate, beforeDestroy.endDate])
+});

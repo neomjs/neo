@@ -237,7 +237,7 @@ class Cascade extends Base {
             const succ = chart.resolveTaskRecord(succId);
             if (succ) {
                 const
-                    useWorking   = Boolean(chart.useWorkingTime && axis?.hasWorkingCalendar?.()),
+                    useWorking   = Boolean(chart.useWorkingTime && axis?.hasWorkingCalendar()),
                     succStart    = new Date(succ[chart.startDateField]).getTime(),
                     succEnd      = new Date(succ[chart.endDateField]).getTime(),
                     isMilestone  = Boolean(succ.milestone) || succEnd === succStart,
@@ -307,28 +307,8 @@ class Cascade extends Base {
                     }
 
                     if (Number.isFinite(maxReqStart) && governingEdge) {
-                        let nextStart = maxReqStart,
-                            nextEnd   = maxReqEnd;
-
-                        if (axis) {
-                            const
-                                axisStartMs = axis.start.getTime(),
-                                axisEndMs   = axis.end.getTime();
-
-                            if (useWorking) {
-                                if (nextStart < axisStartMs) {
-                                    nextStart = axis.snapToWorkingTime(axisStartMs, 1).getTime();
-                                    nextEnd   = axis.addWorkingMs(nextStart, durationMs).getTime()
-                                }
-                                if (nextEnd > axisEndMs) {
-                                    nextEnd   = axisEndMs;
-                                    nextStart = Math.max(axisStartMs, axis.addWorkingMs(nextEnd, -durationMs).getTime())
-                                }
-                            } else {
-                                nextStart = Math.max(axisStartMs, Math.min(nextStart, Math.max(axisStartMs, axisEndMs - durationMs)));
-                                nextEnd   = nextStart + durationMs
-                            }
-                        }
+                        // Axis bounds limit the viewport, not the successor's dependency constraints.
+                        const nextStart = maxReqStart, nextEnd = maxReqEnd;
 
                         if (nextStart !== succStart || nextEnd !== succEnd) {
                             const

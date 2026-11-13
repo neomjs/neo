@@ -33,7 +33,7 @@ class ProjectViewport extends Viewport {
                 {module:Label, cls:['project-title'], text:'Community garden plan'},
                 {module:Label, cls:['project-subtitle'], text:'November · UTC'},
                 '->',
-                {module:Label, reference:'save-status', text:''},
+                {module:Label, cls:['project-save-status'], reference:'save-status', text:''},
                 {module:Button, ui:'secondary', cls:['project-control'], text:'Working time', reference:'working', pressed:false, handler:'up.onWorking'},
                 {module:Button, ui:'secondary', cls:['project-control'], text:'Day', reference:'day', pressed:false, handler:'up.onDay'},
                 {module:Button, ui:'secondary', cls:['project-control'], text:'Week', reference:'week', pressed:true, handler:'up.onWeek'}

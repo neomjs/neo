@@ -24,7 +24,7 @@ class Body extends GridBody {
         super.createViewData(silent, force);
         const chart = this.gridContainer;
         if (this === chart?.body) {
-            chart.dependencyLayer?.syncScrollPage?.(this);
+            chart.dependencyLayer?.syncScrollPage(this);
             chart.checkKeyboardLinkSource()
         }
     }
@@ -36,8 +36,7 @@ class Body extends GridBody {
     }
 
     /**
-     * @summary Appends a VDOM component reference (`{componentId}`) for the owning Gantt's
-     * {@link Neo.gantt.DependencyLayer} after the pooled row references without touching `rowMeasureVdom`.
+     * @summary Mounts the chart's {@link Neo.gantt.DependencyLayer} after the center body's pooled rows.
      */
     createRowPool() {
         super.createRowPool();
@@ -47,7 +46,7 @@ class Body extends GridBody {
         }
 
         const
-            layer  = this.gridContainer.ensureDependencyLayer?.(),
+            layer  = this.gridContainer.ensureDependencyLayer(),
             rootCn = this.getVdomRoot()?.cn;
 
         if (layer && Array.isArray(rootCn) && !rootCn.some(node => node?.componentId === layer.id)) {

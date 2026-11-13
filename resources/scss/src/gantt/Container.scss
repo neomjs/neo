@@ -21,6 +21,16 @@
         outline-offset: 2px;
     }
 
+    .neo-timeline-bar.neo-gantt-link-target {
+        outline: 2px solid var(--neo-gantt-arrow-color);
+        outline-offset: 2px;
+    }
+
+    .neo-timeline-bar.neo-gantt-task-source {
+        opacity: .25;
+        .neo-timeline-bar-label { visibility: hidden; }
+    }
+
     .neo-timeline-bar.neo-gantt-linkable { overflow: visible; }
 
     // The finish terminal is the bar's output port: a dot attached to the finish edge from outside, shown while its
@@ -36,7 +46,9 @@
         right        : -10px;
         top          : calc(50% - 5px);
         transform    : scale(.5);
-        transition   : box-shadow .12s ease-out, opacity .12s ease-out, transform .12s ease-out;
+        transition   : box-shadow var(--motion-fast) var(--ease-out-soft),
+                       opacity var(--motion-fast) var(--ease-out-soft),
+                       transform var(--motion-fast) var(--ease-out-soft);
         width        : 10px;
         z-index      : 3;
 
@@ -143,6 +155,18 @@
         }
 
     }
+}
+
+// Keep task rows and bars available to the pointer sensor during the body-rooted preview.
+body:has(.neo-gantt.neo-is-dragging) .neo-gantt.neo-is-dragging {
+    .neo-grid-row, .neo-grid-cell, .neo-timeline-track, .neo-timeline-bar {
+        pointer-events: auto !important;
+    }
+}
+
+// The body-rooted proxy contains a clone of the rendered bar, including custom and task-kind classes.
+.neo-gantt-task-proxy {
+    box-shadow: 0 5px 18px rgba(0, 0, 0, .28);
 }
 
 // Mounted under the document body, so it reads the arrow colour where the theme class sits.

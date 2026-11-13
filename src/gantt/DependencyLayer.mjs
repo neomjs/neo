@@ -15,7 +15,8 @@ const ARROW_STUB_PX = 12;
  * and whose horizontal span intersects `[scrollLeft - bufferPx, scrollLeft + viewportWidth + bufferPx]` are projected
  * into `<path class="neo-gantt-dependency-arrow">` descriptors.
  *
- * SVG is serialized with escaped attributes so the browser creates nodes in the SVG namespace.
+ * The layer replaces the visible arrows and their marker definitions together as one SVG fragment.
+ * It escapes record-derived attributes and skips the DOM update when the fragment and its bounds are unchanged.
  * @class Neo.gantt.DependencyLayer
  * @extends Neo.component.Base
  * @see Neo.gantt.Container

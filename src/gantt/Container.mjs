@@ -2,8 +2,6 @@ import ClassSystemUtil    from '../util/ClassSystem.mjs';
 import Component          from '../component/Base.mjs';
 import SchedulerContainer from '../scheduler/Container.mjs';
 import TimeAxis           from '../timeline/TimeAxis.mjs';
-import TimelineColumn     from '../timeline/Column.mjs';
-import TreeColumn         from '../grid/column/Tree.mjs';
 import Body               from './Body.mjs';
 import Cascade            from './Cascade.mjs';
 import Column             from './Column.mjs';
@@ -17,6 +15,11 @@ const GanttColumn = Column, GanttBody = Body,
 
 /**
  * @summary Task tree and dependency timeline with a single task-edit writer.
+ * @description A row is a task from the tree store. A parent shows its stored dates, so its span can be
+ * edited independently of its children. When a date edit triggers a cascade, each reachable successor
+ * starts at the latest start required by its incoming links. A shorter predecessor can pull work earlier;
+ * a longer one can push work beyond the visible axis. The working calendar, when enabled, determines
+ * the elapsed span of the task's working duration. See {@link #moveTask} and {@link #schedule}.
  * @class Neo.gantt.Container
  * @extends Neo.scheduler.Container
  */
@@ -41,10 +44,24 @@ class Container extends SchedulerContainer {
         /** @member {Number} minBarWidthPx=6 Minimum visible width for a task bar. */
         minBarWidthPx: 6,
         /**
-         * Optional borrowed service for task edits. It may provide `handlesTask(key)`, `moveTask(key, changes)`,
-         * `linkTasks(edge)`, `onCommit(listener)`, and `onDecisionSettled(id, listener)`. It owns its writes and may
-         * return a committed, pending, refused, or unchanged receipt; the chart never repeats a service's write.
-         * @member {Object|null} schedule_=null
+         * Optional service borrowed from the application. It writes accepted edits into the same task and
+         * dependency stores the chart displays. If supplied, its `store` and `dependencyStore` must be the
+         * same instances as the chart's. Each hook is optional:
+         *
+         * - `handlesTask(key)` selects service-owned tasks; false uses the ordinary cascade.
+         * - `moveTask(key, changes)` applies an edit and returns its receipt; `linkTasks(edge)` handles a link.
+         *   If a method is absent, the chart handles that operation.
+         * - `onCommit(listener)` returns an unsubscribe function and notifies after a committed batch.
+         *   `isPublishing` marks the batch's notification phase so subscribed charts defer intermediate redraws.
+         * - `onDecisionSettled(id, listener)` returns an unsubscribe function or null and delivers a pending
+         *   decision's terminal receipt once. The originating chart publishes a committed edit if its owner,
+         *   stores and record still match.
+         *
+         * A task-edit receipt has status `committed`, `pending`, `refused`, or `unchanged`. A commit can carry
+         * `updates`, `previous`, `cascaded` entries (`taskId`, `changes`, `previous`), `cycles`, and
+         * `notificationErrors`; a pending receipt carries `pending.id`. A refusal can carry a `message` for
+         * the editor. Settled receipts can also identify their `taskId` and `action`.
+         * @member {Neo.gantt.Container.GanttScheduleService|null} schedule_=null
          * @reactive
          */
         schedule_: null,
@@ -72,7 +89,6 @@ class Container extends SchedulerContainer {
 
     /** @summary Constructs the chart and binds its overlay to the timeline. */
     construct(config) {
-        void TreeColumn;
         super.construct(config);
         this.ensureDependencyLayer();
         if (this.dependencyCreation) this.#ensureKeyboardLinkStatus();
@@ -391,67 +407,47 @@ class Container extends SchedulerContainer {
     /** @summary Cascades dependency changes and reports cycles. */
     runDependencyCascade(...args) { return Cascade.runDependencyCascade(this, ...args) }
 
-    /** @summary Builds task-tree and timeline column descriptors. */
-    buildSchedulerColumns(extraColumns=null) {
-        void TreeColumn;
+    /**
+     * @summary Returns the task-tree column descriptors.
+     * @returns {Object[]}
+     * @protected
+     */
+    getTimelineLockedColumns() { return this.taskColumns }
 
-        const
-            me          = this,
-            taskColumns = Array.isArray(me.taskColumns) ? me.taskColumns : [],
-            built       = [];
+    /**
+     * @summary Uses the task-specific timeline column.
+     * @returns {Function}
+     * @protected
+     */
+    getTimelineColumnClass() { return GanttColumn }
 
-        for (const col of taskColumns) {
-            if (col && typeof col === 'object') {
-                built.push({
-                    locked: 'start',
-                    ...col
-                })
-            }
-        }
+    /**
+     * @summary Task rows supply their own bars.
+     * @returns {null}
+     * @protected
+     */
+    getTimelineColumnStore() { return null }
 
-        if (Array.isArray(extraColumns)) {
-            for (const col of extraColumns) {
-                if (
-                    col &&
-                    typeof col === 'object' &&
-                    col.dataField !== me.timelineDataField &&
-                    col.module !== TimelineColumn &&
-                    !(col instanceof TimelineColumn) &&
-                    !built.some(existing => existing.dataField === col.dataField)
-                ) {
-                    built.push({...col})
-                }
-            }
-        }
+    /**
+     * @summary Returns the task store edited by timeline gestures.
+     * @returns {Neo.gantt.TaskStore|null}
+     * @protected
+     */
+    getTimelineRecordStore() { return this.store }
 
-        built.push({
-            module            : GanttColumn,
-            ntype             : 'timeline-header',
-            barCls            : me.barCls,
-            barMarginPct      : me.barMarginPct,
-            barRenderer       : me.barRenderer,
-            bufferPx          : me.bufferPx,
-            dataField         : me.timelineDataField,
-            endDateField      : me.endDateField,
-            eventStore        : null,
-            majorFormatter    : me.majorFormatter,
-            majorTickStep     : me.majorTickStep,
-            majorTickUnit     : me.majorTickUnit,
-            minBarWidthPx     : me.minBarWidthPx,
-            minorFormatter    : me.minorFormatter,
-            percentDoneField  : me.percentDoneField,
-            resizableBars     : me.resizableBars,
-            showNonWorkingTime: me.showNonWorkingTime,
-            startDateField    : me.startDateField,
-            text              : me.timelineText,
-            timeAxis          : me.timeAxis,
-            titleField        : me.titleField,
-            viewportWidth     : me.viewportWidth,
-            ...me.timelineColumnConfig
-        });
+    /**
+     * @summary Uses the task gesture zone.
+     * @returns {Function}
+     * @protected
+     */
+    getEventDragZoneClass() { return EventDragZone }
 
-        return built
-    }
+    /**
+     * @summary Leaves gesture defaults to the task zone.
+     * @returns {Object}
+     * @protected
+     */
+    getEventDragZoneDefaults() { return {} }
 
     /** @summary Creates the dependency overlay and mounts it in the center body. */
     ensureDependencyLayer() {
@@ -485,39 +481,6 @@ class Container extends SchedulerContainer {
         return me.dependencyLayer
     }
 
-    /** @summary Creates the task gesture zone or updates its borrowed inputs. */
-    ensureEventDragZone() {
-        const me = this;
-
-        if (!me.eventDragZone || me.eventDragZone.isDestroyed) {
-            me.eventDragZone = Neo.create({
-                module                          : EventDragZone,
-                appName                         : me.appName,
-                axis                            : me.timeAxis,
-                dragElement                     : me.vdom,
-                enableResizingAcrossOppositeEdge: me.enableResizingAcrossOppositeEdge,
-                minimumDuration                 : me.minimumDuration,
-                orientation                     : 'horizontal',
-                owner                           : me,
-                store                           : me.store,
-                useProxy                        : false,
-                windowId                        : me.windowId,
-                ...me.eventDragZoneConfig
-            })
-        } else {
-            me.eventDragZone.set({
-                appName                         : me.appName,
-                axis                            : me.timeAxis,
-                enableResizingAcrossOppositeEdge: me.enableResizingAcrossOppositeEdge,
-                minimumDuration                 : me.minimumDuration,
-                store                           : me.store,
-                windowId                        : me.windowId
-            })
-        }
-
-        return me.eventDragZone
-    }
-
     /** @summary Configures the shared editor for task records. */
     getDefaultEditorConfig() {
         return {
@@ -540,36 +503,32 @@ class Container extends SchedulerContainer {
             keyProp = store.keyProperty || 'id',
             seen    = new Set();
 
-        if (typeof store.getChildren === 'function' && typeof store.collectAllDescendants === 'function') {
-            const roots = store.getChildren('root');
+        const roots = store.getChildren('root');
 
-            if (Array.isArray(roots) && roots.length > 0) {
-                const rawNodes = [];
+        if (roots.length > 0) {
+            const rawNodes = [];
 
-                for (const root of roots) {
-                    store.collectAllDescendants(root, rawNodes)
-                }
+            for (const root of roots) {
+                store.collectAllDescendants(root, rawNodes)
+            }
 
-                for (const node of rawNodes) {
-                    const
-                        record = typeof store.hydrateRecord === 'function'
-                            ? store.hydrateRecord(node)
-                            : (store.get(node?.[keyProp] ?? node) || node),
-                        id     = record?.[keyProp];
+            for (const node of rawNodes) {
+                const
+                    record = store.hydrateRecord(node),
+                    id     = record?.[keyProp];
 
-                    if (record && id !== undefined && id !== null) {
-                        const key = String(id);
-                        if (!seen.has(key)) {
-                            seen.add(key);
-                            records.push(record)
-                        }
+                if (record && id !== undefined && id !== null) {
+                    const key = String(id);
+                    if (!seen.has(key)) {
+                        seen.add(key);
+                        records.push(record)
                     }
                 }
             }
         }
 
         if (records.length === 0) {
-            const count = typeof store.getCount === 'function' ? store.getCount() : 0;
+            const count = store.getCount();
 
             for (let i = 0; i < count; i++) {
                 const
@@ -654,77 +613,17 @@ class Container extends SchedulerContainer {
         return this.openEventEditor(taskIdOrRecord, barId)
     }
 
-    /** @summary Begins a task move, resize, or dependency-link gesture. */
-    async onBarDragStart(data={}) {
-        const me = this;
-
-        if ((!me.barDraggable && !me.dependencyCreation) || !me.timeAxis || !me.store) {
-            return
-        }
-
-        const
-            path                             = data.path || data.targetPath || [],
-            {barNode, resizeEdge, trackNode} = me.extractBarTarget(path),
-            taskId                           = barNode?.data?.eventId,
-            record                           = me.resolveTaskRecord(taskId);
-
-        if (!barNode || !record || (resizeEdge && !me.resizableBars)) {
-            return
-        }
-
-        const zone = me.ensureEventDragZone(), terminal = zone.getLinkTerminal?.(path) ?? null;
-        if (terminal ? !me.dependencyCreation : !me.barDraggable) return;
-        me.#setKeyboardLinkSource(null);
-
-        let trackOrigin = 0;
-
-        if (Number.isFinite(trackNode?.rect?.left)) {
-            trackOrigin = trackNode.rect.left
-        } else if (Number.isFinite(trackNode?.rect?.x)) {
-            trackOrigin = trackNode.rect.x
-        } else if (Number.isFinite(barNode?.rect?.left)) {
-            trackOrigin = barNode.rect.left - me.timeAxis.dateToOffset(record[me.startDateField])
-        }
-
-        zone.set({
-            axis       : me.timeAxis,
-            dragElement: barNode,
-            eventRecord: record,
-            resizeEdge,
-            store      : me.store,
-            trackOrigin
-        });
-
-        await zone.dragStart(data, terminal)
-    }
-
-    /** @summary Resolves timeline events through the task store. */
-    resolveEventRecord(taskIdOrRecord) {
-        return this.resolveTaskRecord(taskIdOrRecord)
+    /** @summary Admits task move and dependency-link gestures. */
+    getBarDragContext(zone, path) {
+        const terminal = zone.getLinkTerminal(path);
+        if (terminal ? !this.dependencyCreation : !this.barDraggable) return null;
+        this.#setKeyboardLinkSource(null);
+        return {terminal: terminal || null}
     }
 
     /** @summary Resolves a task key or verifies a record belongs to the task store. */
     resolveTaskRecord(taskIdOrRecord) {
-        const store = this.store;
-        if (!store || taskIdOrRecord === null || taskIdOrRecord === undefined) {
-            return null
-        }
-
-        if (typeof taskIdOrRecord === 'object') {
-            const key = taskIdOrRecord[store.keyProperty || 'id'];
-            if (key === null || key === undefined) {
-                return null
-            }
-            return store.get(key) === taskIdOrRecord ? taskIdOrRecord : null
-        }
-
-        let record = store.get(taskIdOrRecord) || null;
-
-        if (!record && typeof taskIdOrRecord === 'string' && /^-?\d+$/.test(taskIdOrRecord)) {
-            record = store.get(Number(taskIdOrRecord)) || null
-        }
-
-        return record
+        return this.resolveEventRecord(taskIdOrRecord)
     }
 
     /** @summary Updates the axis scale and dependency projection. */
@@ -742,22 +641,8 @@ class Container extends SchedulerContainer {
      * @returns {Object|null} Updates and cascade details, an external service receipt, or null for a no-op.
      */
     moveTask(taskIdOrRecord, changes={}, meta={}) {
-        if (
-            arguments.length === 1 &&
-            taskIdOrRecord &&
-            typeof taskIdOrRecord === 'object' &&
-            !taskIdOrRecord.isModel &&
-            (
-                taskIdOrRecord.record !== undefined ||
-                taskIdOrRecord.key    !== undefined ||
-                taskIdOrRecord.taskId !== undefined
-            )
-        ) {
-            const {record: optRecord, key, taskId, meta: optMeta, ...rest} = taskIdOrRecord;
-            taskIdOrRecord = optRecord ?? key ?? taskId;
-            changes        = rest;
-            meta           = optMeta || {}
-        }
+        ({eventIdOrRecord: taskIdOrRecord, changes, meta} =
+            this.normalizeMoveEventArgs(taskIdOrRecord, changes, meta, arguments.length, 'taskId'));
 
         const
             me     = this,
@@ -808,7 +693,7 @@ class Container extends SchedulerContainer {
         const
             isMilestone = Boolean(record.milestone),
             minMs       = isMilestone ? 0 : Math.max(1, me.minimumDuration || axis?.snapMinutes || 15) * MS_PER_MINUTE,
-            useWorking  = Boolean(me.useWorkingTime && axis?.hasWorkingCalendar?.());
+            useWorking  = Boolean(me.useWorkingTime && axis?.hasWorkingCalendar());
 
         if (hasStartInput || hasEndInput) {
             if (useWorking) {
@@ -1057,5 +942,82 @@ class Container extends SchedulerContainer {
         return {updates, cascaded, cycles}
     }
 }
+
+/**
+ * @typedef {Object} GanttScheduleService
+ * @memberof Neo.gantt.Container
+ * @property {Neo.gantt.TaskStore} [store] When supplied, must be the identical instance bound to the chart.
+ * @property {Neo.gantt.DependencyStore} [dependencyStore] When supplied, must also match by identity.
+ * @property {Function} [handlesTask] `handlesTask(key) => Boolean`. Return false to use the ordinary cascade.
+ * @property {Function} [moveTask] `moveTask(key, changes) => GanttScheduleReceipt`. Receives the store key
+ * and a normalized field patch. Apply accepted writes before returning a committed receipt.
+ * @property {Function} [linkTasks] `linkTasks(edge) => Object`. Admits or refuses a link between the
+ * resolved `fromId` and `toId`. The chart returns the service's result to the caller.
+ * @property {Function} [onCommit] `onCommit(listener) => unsubscribe`. Notify after a batch of writes
+ * is committed so every attached chart refreshes its analysis and dependency overlay.
+ * @property {Boolean} [isPublishing] Set while publishing such a batch to defer intermediate redraws
+ * in charts subscribed through `onCommit`.
+ * @property {Function} [onDecisionSettled] `onDecisionSettled(id, listener) => unsubscribe | null`.
+ * Deliver the terminal receipt for that decision once. The originating chart publishes a committed
+ * task change if the same service, stores and record still apply.
+ */
+
+/**
+ * @typedef {Object} GanttScheduleReceipt
+ * @memberof Neo.gantt.Container
+ * @property {'committed'|'pending'|'refused'|'unchanged'} status Outcome of the proposed edit.
+ * @property {Object} [updates] Committed fields of the edited task, keyed by model field.
+ * @property {Object} [previous] Previous values for the fields in `updates`.
+ * @property {Object[]} [cascaded] Changed successors as `{taskId, changes, previous}`.
+ * @property {String[]} [cycles] Dependency identifiers reported by the service.
+ * @property {Object} [pending] Deferred decision. Its `id` is passed to `onDecisionSettled`.
+ * @property {String|Number} [pending.id] Token for this pending decision.
+ * @property {String|Number} [taskId] Originating task key on a settled receipt, if supplied.
+ * @property {String} [action] Originating command on a settled receipt, e.g. `moveTask`.
+ * @property {String} [message] Explanation the task editor can display after a refusal.
+ * @property {Array<Error|String>} [notificationErrors] Observer errors reported after a committed service edit.
+ */
+
+/**
+ * Fires once after a task edit and its dependent changes have been applied.
+ * @event taskChange
+ * @memberof Neo.gantt.Container
+ * @instance
+ * @param {Object} data
+ * @param {Neo.data.Model} data.record Edited task.
+ * @param {Object} data.changes Changed primary fields. `updates` is an alias for this object.
+ * @param {Object} data.updates Changed primary fields.
+ * @param {Object} data.previous Previous values of those fields.
+ * @param {Object[]} data.cascaded Successors with their `record`, `changes` and `previous` fields.
+ * @param {Object} data.changesById All changed fields indexed by task store key.
+ * @param {Object} data.previousById Previous values indexed by the same keys.
+ * @param {String[]} data.cycles Dependency identifiers encountered in cycles during this edit.
+ * @param {Date} data.startDate Resulting start of the edited task.
+ * @param {Date} data.endDate Resulting end of the edited task.
+ * @param {String} data.action Edit action, e.g. `move` or `resize`.
+ * @param {String} data.source Origin of the edit, e.g. `api`, `editor` or `keyboard`.
+ * @param {'start'|'end'|null} data.resizeEdge The edge moved for a resize.
+ */
+
+/**
+ * Fires when the ordinary cascade encounters a cycle reachable from the edited task.
+ * @event dependencyCycle
+ * @memberof Neo.gantt.Container
+ * @instance
+ * @param {Object} data
+ * @param {Neo.data.Model} data.record The task whose edit started the cascade.
+ * @param {String[]} data.cycles Identifiers of the dependency edges reported by the cascade.
+ */
+
+/**
+ * Fires when a pointer or keyboard edit receives a service outcome other than a commit.
+ * The task editor instead receives the receipt directly from `commitTimelineEdit`.
+ * @event scheduleResult
+ * @memberof Neo.gantt.Container
+ * @instance
+ * @param {Object} data
+ * @param {Neo.data.Model} data.record The task whose edit was attempted.
+ * @param {Neo.gantt.Container.GanttScheduleReceipt} data.result The service outcome.
+ */
 
 export default Neo.setupClass(Container);

@@ -453,9 +453,10 @@ class Container extends GridContainer {
         }
 
         if (descriptor.column && column) {
-            const colProp = typeof descriptor.column === 'string' ? descriptor.column : configName;
-            if (!descriptor.always || column[colProp] !== value) {
-                column[colProp] = value
+            const colProp  = typeof descriptor.column === 'string' ? descriptor.column : configName;
+            const colValue = configName === 'eventStore' ? this.getTimelineColumnStore() : value;
+            if (!descriptor.always || column[colProp] !== colValue) {
+                column[colProp] = colValue
             }
             if (descriptor.header && column.headerComponent) {
                 const headerProp = typeof descriptor.header === 'string' ? descriptor.header : configName;
@@ -467,7 +468,7 @@ class Container extends GridContainer {
         }
 
         if (descriptor.dragZone && this.eventDragZone) {
-            this.eventDragZone[descriptor.dragZone] = value
+            this.eventDragZone[descriptor.dragZone] = configName === 'eventStore' ? this.getTimelineRecordStore() : value
         }
     }
 
@@ -502,15 +503,59 @@ class Container extends GridContainer {
     }
 
     /**
-     * @summary Assembles the locked resource column descriptors followed by the center {@link Neo.timeline.Column} descriptor.
-     * @param {Object[]|null} [extraColumns=null]
+     * @summary Returns the descriptors for the locked resource columns.
+     * @returns {Object[]}
+     * @protected
+     */
+    getTimelineLockedColumns() { return this.resourceColumns }
+
+    /**
+     * @summary Returns the timeline column class used by this family.
+     * @returns {Function}
+     * @protected
+     */
+    getTimelineColumnClass() { return TimelineColumn }
+
+    /**
+     * @summary Returns the store whose records the timeline edits.
+     * @returns {Neo.data.Store|null}
+     * @protected
+     */
+    getTimelineRecordStore() { return this.eventStore }
+
+    /**
+     * @summary Returns the gesture zone class used by this family.
+     * @returns {Function}
+     * @protected
+     */
+    getEventDragZoneClass() { return SchedulerEventDragZone }
+
+    /**
+     * @summary Returns the family defaults used when creating its gesture zone.
+     * @returns {Object}
+     * @protected
+     */
+    getEventDragZoneDefaults() { return {useProxy: false} }
+
+    /**
+     * @summary Returns the event store projected by the timeline column.
+     * @returns {Neo.data.Store|null}
+     * @protected
+     */
+    getTimelineColumnStore() { return this.eventStore }
+
+    /**
+     * @summary Assembles the locked and timeline column descriptors.
+     * @param {Object[]|null} [extraColumns=null] Additional columns.
      * @returns {Object[]}
      * @protected
      */
     buildSchedulerColumns(extraColumns=null) {
         const
             me              = this,
-            resourceColumns = Array.isArray(me.resourceColumns) ? me.resourceColumns : [],
+            lockedColumns   = me.getTimelineLockedColumns(),
+            resourceColumns = Array.isArray(lockedColumns) ? lockedColumns : [],
+            columnClass     = me.getTimelineColumnClass(),
             built           = [];
 
         for (const col of resourceColumns) {
@@ -529,6 +574,7 @@ class Container extends GridContainer {
                     typeof col === 'object' &&
                     col.dataField !== me.timelineDataField &&
                     col.module !== TimelineColumn &&
+                    col.module !== columnClass &&
                     !(col instanceof TimelineColumn) &&
                     !built.some(existing => existing.dataField === col.dataField)
                 ) {
@@ -538,7 +584,7 @@ class Container extends GridContainer {
         }
 
         built.push({
-            module            : TimelineColumn,
+            module            : columnClass,
             ntype             : 'timeline-header',
             barCls            : me.barCls,
             barMarginPct      : me.barMarginPct,
@@ -546,7 +592,7 @@ class Container extends GridContainer {
             bufferPx          : me.bufferPx,
             dataField         : me.timelineDataField,
             endDateField      : me.endDateField,
-            eventStore        : me.eventStore,
+            eventStore        : me.getTimelineColumnStore(),
             majorFormatter    : me.majorFormatter,
             majorTickStep     : me.majorTickStep,
             majorTickUnit     : me.majorTickUnit,
@@ -646,7 +692,7 @@ class Container extends GridContainer {
 
         if (!me.eventDragZone || me.eventDragZone.isDestroyed) {
             me.eventDragZone = Neo.create({
-                module                          : SchedulerEventDragZone,
+                module                          : me.getEventDragZoneClass(),
                 appName                         : me.appName,
                 axis                            : me.timeAxis,
                 dragElement                     : me.vdom,
@@ -654,9 +700,9 @@ class Container extends GridContainer {
                 minimumDuration                 : me.minimumDuration,
                 orientation                     : 'horizontal',
                 owner                           : me,
-                store                           : me.eventStore,
-                useProxy                        : false,
+                store                           : me.getTimelineRecordStore(),
                 windowId                        : me.windowId,
+                ...me.getEventDragZoneDefaults(),
                 ...me.eventDragZoneConfig
             })
         } else {
@@ -665,7 +711,7 @@ class Container extends GridContainer {
                 axis                            : me.timeAxis,
                 enableResizingAcrossOppositeEdge: me.enableResizingAcrossOppositeEdge,
                 minimumDuration                 : me.minimumDuration,
-                store                           : me.eventStore,
+                store                           : me.getTimelineRecordStore(),
                 windowId                        : me.windowId
             })
         }
@@ -802,7 +848,7 @@ class Container extends GridContainer {
      * @returns {{eventIdOrRecord: *, changes: Object, meta: Object}}
      * @protected
      */
-    normalizeMoveEventArgs(eventIdOrRecord, changes={}, meta={}, argCount=arguments.length) {
+    normalizeMoveEventArgs(eventIdOrRecord, changes={}, meta={}, argCount=arguments.length, idField='eventId') {
         if (
             argCount === 1 &&
             eventIdOrRecord &&
@@ -811,11 +857,11 @@ class Container extends GridContainer {
             (
                 eventIdOrRecord.record  !== undefined ||
                 eventIdOrRecord.key     !== undefined ||
-                eventIdOrRecord.eventId !== undefined
+                eventIdOrRecord[idField] !== undefined
             )
         ) {
-            const {record: optRecord, key, eventId, meta: optMeta, ...rest} = eventIdOrRecord;
-            eventIdOrRecord = optRecord ?? key ?? eventId;
+            const {record: optRecord, key, [idField]: id, meta: optMeta, ...rest} = eventIdOrRecord;
+            eventIdOrRecord = optRecord ?? key ?? id;
             changes         = rest;
             meta            = optMeta || {}
         }
@@ -1035,19 +1081,47 @@ class Container extends GridContainer {
     }
 
     /**
-     * @summary Handles delegated `drag:start` events on `.neo-timeline-bar` and its `.neo-resizable-*` handles.
-     * @param {Object} data
+     * @summary Returns gesture context when a bar gesture is enabled for this family.
+     * @param {Neo.timeline.draggable.EventDragZone} zone Gesture zone.
+     * @param {Object[]} path Pointer path.
+     * @returns {Object|null}
+     * @protected
+     */
+    getBarDragContext(zone, path) { return this.barDraggable ? {} : null }
+
+    /**
+     * @summary Configures the floating preview for a bar gesture.
+     * @param {Neo.timeline.draggable.EventDragZone} zone Gesture zone.
+     * @param {Object} barNode Dragged bar VDOM.
+     * @param {Neo.data.Model} record Dragged record.
+     * @protected
+     */
+    configureEventDragPreview(zone, barNode, record) {
+        const barClasses = Array.isArray(barNode.cls) ? barNode.cls : String(barNode.cls || '').split(/\s+/);
+        zone.dragProxyConfig = {
+            ...zone.dragProxyConfig,
+            vdom: {
+                cls : ['neo-scheduler-drag-preview', ...barClasses.filter(cls => cls.startsWith('neo-scheduler-bar-'))],
+                text: String(record[this.titleField] ?? '')
+            }
+        }
+    }
+
+    /**
+     * @summary Handles delegated drag starts on timeline bars and resize handles.
+     * @param {Object} data Pointer event data.
      * @protected
      */
     async onBarDragStart(data={}) {
         const me = this;
 
-        if (!me.barDraggable || !me.timeAxis || !me.eventStore) {
+        if ((!me.barDraggable && !me.eventDragZone) || !me.timeAxis || !me.getTimelineRecordStore()) {
             return
         }
 
         const
-            {barNode, resizeEdge, trackNode} = me.extractBarTarget(data.path || data.targetPath || []),
+            path                             = data.path || data.targetPath || [],
+            {barNode, resizeEdge, trackNode} = me.extractBarTarget(path),
             eventId                          = barNode?.data?.eventId,
             record                           = me.resolveEventRecord(eventId);
 
@@ -1055,7 +1129,9 @@ class Container extends GridContainer {
             return
         }
 
-        const zone = me.ensureEventDragZone();
+        const zone    = me.ensureEventDragZone();
+        const gesture = me.getBarDragContext(zone, path);
+        if (!gesture) return;
 
         let trackOrigin = 0;
 
@@ -1072,22 +1148,15 @@ class Container extends GridContainer {
             dragElement: barNode,
             eventRecord: record,
             resizeEdge,
-            store      : me.eventStore,
+            store      : me.getTimelineRecordStore(),
             trackOrigin
         });
 
         if (zone.useProxy) {
-            const barClasses = Array.isArray(barNode.cls) ? barNode.cls : String(barNode.cls || '').split(/\s+/);
-            zone.dragProxyConfig = {
-                ...zone.dragProxyConfig,
-                vdom: {
-                    cls : ['neo-scheduler-drag-preview', ...barClasses.filter(cls => cls.startsWith('neo-scheduler-bar-'))],
-                    text: String(record[me.titleField] ?? '')
-                }
-            }
+            me.configureEventDragPreview(zone, barNode, record)
         }
 
-        await zone.dragStart(data)
+        await zone.dragStart(data, gesture.terminal)
     }
 
     /**
@@ -1217,7 +1286,7 @@ class Container extends GridContainer {
      * @returns {Neo.data.Model|null}
      */
     resolveEventRecord(eventIdOrRecord) {
-        const store = this.eventStore;
+        const store = this.getTimelineRecordStore();
         if (!store || eventIdOrRecord === null || eventIdOrRecord === undefined) {
             return null
         }
