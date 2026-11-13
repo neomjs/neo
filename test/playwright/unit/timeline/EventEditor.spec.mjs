@@ -3,9 +3,10 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import '../../../../src/core/_export.mjs';
 import '../../../../src/manager/Instance.mjs';
-import EventEditor from '../../../../src/timeline/EventEditor.mjs';
-import Events      from '../../../../src/timeline/store/Events.mjs';
-import TimeAxis    from '../../../../src/timeline/TimeAxis.mjs';
+import EventEditor    from '../../../../src/timeline/EventEditor.mjs';
+import Events         from '../../../../src/timeline/store/Events.mjs';
+import TimeAxis       from '../../../../src/timeline/TimeAxis.mjs';
+import TimeAxisHeader from '../../../../src/timeline/TimeAxisHeader.mjs';
 
 const appName = 'TimelineEditorTest';
 setup({
@@ -16,6 +17,31 @@ setup({
 test.beforeEach(() => {
     for (const name of ['selectNode', 'syncModalMask', 'trapFocus']) {
         if (!Neo.main.DomAccess[name]) Neo.main.DomAccess[name] = () => {}
+    }
+});
+
+test('header labels and editor input use the same custom axis clock', () => {
+    const
+        axis    = Neo.create(TimeAxis, {timeZone: null}),
+        header  = Neo.create(TimeAxisHeader, {appName, timeAxis: axis}),
+        editor  = Neo.create(EventEditor, {appName, owner: {timeAxis: axis}}),
+        instant = new Date('2026-11-09T02:00Z'),
+        wall    = new Date('2031-04-05T16:17Z'),
+        tick    = {date: instant, unit: 'hour'};
+
+    // Supply a civil clock that cannot be mistaken for the host's timezone.
+    axis.wallTime = value => +value === +instant ? wall : value;
+    axis.fromWallTime = value => +value === +wall ? instant : value;
+    try {
+        expect(header.formatMajorTick(tick)).toBe('2031-04-05 16:00');
+        expect(header.formatMinorTick(tick)).toBe('16:17');
+        const displayed = editor.formatLocalDateTime(instant);
+        expect(displayed).toBe('2031-04-05T16:17');
+        expect(+editor.parseDateValue(displayed)).toBe(+instant)
+    } finally {
+        editor.destroy();
+        header.destroy();
+        axis.destroy()
     }
 });
 
