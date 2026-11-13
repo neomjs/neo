@@ -76,13 +76,14 @@ test.describe('Portal examples family navigation', () => {
     test('publishes only Featured and families with records from one definition source', () => {
         const view = createView();
 
-        expect(view.getTabButtons().map(button => button.text)).toEqual(['Featured', 'Grid & Table', 'Forms']);
-        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/grid', '/examples/forms']);
-        expect(view.getCatalogStore().getCount()).toBe(67);
+        expect(view.getTabButtons().map(button => button.text)).toEqual(['Featured', 'Grid & Table', 'Forms', 'Multi-Window']);
+        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/grid', '/examples/forms', '/examples/multi-window']);
+        expect(view.getCatalogStore().getCount()).toBe(72);
         expect(view.getCard(0).store.getCount()).toBe(27);
         expect(view.getCard(0).store.items.map(record => record.id)).toEqual(featuredExampleIds);
         expect(view.getCard(1).store.getCount()).toBe(21);
         expect(view.getCard(2).store.getCount()).toBe(24);
+        expect(view.getCard(3).store.getCount()).toBe(12);
         expect(view.getCard(0).store.getSource()).toBe(view.getCatalogStore());
         expect(view.getCard(1).store.getSource()).toBe(view.getCatalogStore());
         expect(view.getCard(0).store.model).toBe(view.getCatalogStore().model);
@@ -111,6 +112,8 @@ test.describe('Portal examples family navigation', () => {
         expect(view.activeIndex).toBe(1);
         await controller.onExamplesRoute({itemId: 'forms'});
         expect(view.activeIndex).toBe(2);
+        await controller.onExamplesRoute({itemId: 'multi-window'});
+        expect(view.activeIndex).toBe(3);
         await controller.onExamplesRoute({itemId: 'unknown'});
         expect(view.activeIndex).toBe(0)
     });
@@ -153,13 +156,13 @@ test.describe('Portal examples family navigation', () => {
 
     test('a newly published family needs no additional tab or controller entry', () => {
         const view = createView([...catalog, {
-            ...catalog[0], id: 'test-multi-window-example', family: 'multi-window', featured: false,
-            feature: 'A window', lookFor: 'Move it.'
+            ...catalog[0], id: 'test-calendar-example', family: 'calendar', featured: false,
+            feature: 'A calendar', lookFor: 'Select a date.'
         }]);
 
-        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/grid', '/examples/forms', '/examples/multi-window']);
-        expect(view.getCard(3).store.getCount()).toBe(1);
-        expect(view.getCard(3).fallbackIconCls).toBe(view.familyDefinitions.find(item => item.family === 'multi-window').iconCls)
+        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/grid', '/examples/forms', '/examples/multi-window', '/examples/calendar']);
+        expect(view.getCard(4).store.getCount()).toBe(1);
+        expect(view.getCard(4).fallbackIconCls).toBe(view.familyDefinitions.find(item => item.family === 'calendar').iconCls)
     });
 
     test('an arriving catalog populates the borrowed family stores and withdraws an empty family', () => {
@@ -174,7 +177,7 @@ test.describe('Portal examples family navigation', () => {
 
         store.remove(store.items.filter(record => record.family === 'grid-table'));
         store.fire('load');
-        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/forms'])
+        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/forms', '/examples/multi-window'])
     });
 });
 
@@ -200,6 +203,10 @@ const catalog            = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examp
           'text-field', 'textarea-field', 'time-field', 'url-field', 'copy-to-clipboard-trigger',
           'fieldset', 'field-with-prefix', 'fields-runtime-triggers', 'layout-form',
           'date-selector-container', 'form-app'
+      ],
+      multiWindowExampleIds = [
+          'dock-layouts', 'dock-cross-window', 'dock-tear-out',
+          'multi-window-helix', 'multi-window-state-provider'
       ];
 
 /**
@@ -263,12 +270,12 @@ test.describe('Portal examples canonical catalog', () => {
         })
     }
 
-    test('loads 67 logical examples with unique stable string identities', () => {
+    test('loads 72 logical examples with unique stable string identities', () => {
         const {store} = createList(),
               ids     = [];
 
-        expect(catalog).toHaveLength(67);
-        expect(store.getCount()).toBe(67);
+        expect(catalog).toHaveLength(72);
+        expect(store.getCount()).toBe(72);
 
         store.forEach(record => {
             expect(typeof record.id, record.name).toBe('string');
@@ -276,7 +283,7 @@ test.describe('Portal examples canonical catalog', () => {
             ids.push(record.id)
         });
 
-        expect(new Set(ids).size).toBe(67);
+        expect(new Set(ids).size).toBe(72);
         expect(list.catalogMode).toBe('dist_prod')
     });
 
@@ -312,12 +319,34 @@ test.describe('Portal examples canonical catalog', () => {
         expect(store.getSource()).toBe(view.getCatalogStore())
     });
 
-    test('preserves the complete established card order and inserts only new examples before choreography', () => {
+    test('the Multi-Window overview borrows the catalog records and respects each build destination', () => {
+        const view = createView(), store = view.getCard(3).store;
+
+        expect(store.getSource()).toBe(view.getCatalogStore());
+        expect(store.items.map(record => record.id)).toEqual([
+            'workstation', 'shared-covid', 'multi-window-covid-gallery', 'shared-offscreen-canvas',
+            'multi-window-drag-drop', 'colors-dashboard', 'dock-choreography', ...multiWindowExampleIds
+        ]);
+
+        for (const mode of modes) {
+            const list = view.getCard(3);
+
+            list.catalogMode = mode;
+            expect(store.items.filter(record => !list.isHiddenItem(record)).map(record => record.id)).toEqual(
+                store.items.map(record => record.id).filter(id => mode !== 'dist_esm' || id !== 'shared-offscreen-canvas')
+            )
+        }
+
+        expect(store.get('dock-layouts').sharedWorkers).toBe(false);
+        expect(store.get('dock-tear-out').sharedWorkers).toBe(true)
+    });
+
+    test('preserves the established order and inserts the Multi-Window block after choreography', () => {
         const {store} = createList(),
               // The production catalog established this sequence before canonicalization. ESM alone
               // placed OffscreenCanvas before Covid Gallery; the shared sequence follows production.
               establishedIds = featuredExampleIds.slice(0, -1),
-              completeIds = [...establishedIds, ...newExampleIds, ...formExampleIds, 'dock-choreography', 'realworld', 'realworld-v2'],
+              completeIds = [...establishedIds, ...newExampleIds, ...formExampleIds, 'dock-choreography', ...multiWindowExampleIds, 'realworld', 'realworld-v2'],
               excluded = {
                   devmode  : ['portal', 'liquid-glass', 'realworld', 'realworld-v2'],
                   dist_dev : ['realworld', 'realworld-v2'],
@@ -341,7 +370,7 @@ test.describe('Portal examples canonical catalog', () => {
 
             expect(visible.map(record => record.id), mode).toEqual(completeIds.filter(id => !excluded[mode].includes(id)));
             expect(list.createLink(visible[0]).href).toBe(list.baseUrl + workstationUrl);
-            expect(list.createLink(visible.at(-1)).href).toBe(list.baseUrl + choreographyUrl)
+            expect(list.createLink(store.get('dock-choreography')).href).toBe(list.baseUrl + choreographyUrl)
         })
     });
 
@@ -416,7 +445,7 @@ test.describe('Portal examples canonical catalog', () => {
     test('renders catalog captions and honest scope beside the real example links', () => {
         const {store} = createList();
 
-        store.items.filter(record => record.family === 'grid-table').forEach(record => {
+        store.items.filter(record => record.family).forEach(record => {
             const content     = list.createItemContent(record, 0)[0],
                   details     = content.cn.find(node => node.cls?.includes('neo-item-bottom-position')),
                   feature     = details.cn.find(node => node.cls?.includes('portal-example-feature')),
