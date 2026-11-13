@@ -65,6 +65,76 @@ test.describe('Docs mixin members', () => {
         await page.screenshot({path: test.info().outputPath('docs-apps-navigation.png')})
     });
 
+
+    test('a line request delivered after its source tab leaves ignores the removed leaf (#20869)', async ({page, neuralLink}, testInfo) => {
+        await neuralLink.routeConfig(page, config => ({...config, useAiClient: true}));
+        await page.goto('/docs/index.html');
+        const app      = await neuralLink.connectToApp('Docs'), className = 'Docs.app.view.MainContainer',
+              sourceId = `${className}__source`, source = page.locator(`[id="${sourceId}"]`);
+        let controllerId, receipt;
+
+        await expect.poll(async () => {
+            const [view] = await app.queryComponent({className: 'Docs.view.MainContainer'}, ['controller.id']);
+            controllerId = view?.properties['controller.id'];
+            return Boolean(controllerId)
+        }).toBe(true);
+        const openSource = lineNumber => app.callMethod(controllerId, 'onViewSourceRoute', [{className, lineNumber}]);
+
+        await openSource('1');
+        await expect(source.locator('[data-line-number="1"]').first().locator('..')).toHaveClass(/neo-highlighted-line/);
+        const codeId = await source.locator('pre code').getAttribute('id');
+        expect(codeId).toBeTruthy();
+
+        await page.evaluate(vnodeId => {
+            const addon   = Neo.main.addon.HighlightJS, original = addon.syntaxHighlightLine,
+                  witness = window.__docsLateLine = {captured: [], executed: [], releases: [], holding: true};
+            addon.syntaxHighlightLine = function(data) {
+                if (!witness.holding || data.vnodeId !== vnodeId || data.addLine !== 20) {
+                    return original.apply(this, arguments)
+                }
+                witness.captured.push({vnodeId: data.vnodeId, present: Boolean(document.getElementById(data.vnodeId))});
+                return new Promise(resolve => witness.releases.push(resolve)).then(() => {
+                    witness.executed.push({vnodeId: data.vnodeId, present: Boolean(document.getElementById(data.vnodeId))});
+                    return original.call(this, data)
+                })
+            };
+            witness.release = () => {witness.holding = false; witness.releases.splice(0).forEach(resolve => resolve())};
+            witness.restore = () => {witness.release(); addon.syntaxHighlightLine = original};
+            witness.read = () => ({captured: witness.captured, executed: witness.executed, pending: witness.releases.length})
+        }, codeId);
+
+        try {
+            await openSource('20');
+            await expect.poll(() => page.evaluate(() => window.__docsLateLine.captured.length)).toBeGreaterThan(0);
+            expect(await page.evaluate(() => window.__docsLateLine.captured.every(call => call.present))).toBe(true);
+
+            // The real class route activates another card; the normal layout removes inactive source DOM.
+            await app.callMethod(controllerId, 'onViewClassRoute', [{className}]);
+            await expect(source).toHaveCount(0);
+            expect(await page.evaluate(id => document.getElementById(id) === null, codeId)).toBe(true);
+            await page.evaluate(() => window.__docsLateLine.release());
+            await expect.poll(() => page.evaluate(() => {
+                const witness = window.__docsLateLine;
+                return witness.executed.length === witness.captured.length
+            })).toBe(true);
+            receipt = await page.evaluate(() => window.__docsLateLine.read());
+            expect(receipt.executed.every(call => !call.present)).toBe(true);
+            expect(receipt.pending).toBe(0);
+
+            // Reactivating the same retained view must still highlight a current line normally.
+            await openSource('2');
+            await expect(source.locator('[data-line-number="2"]').first().locator('..')).toHaveClass(/neo-highlighted-line/);
+            expect(await page.evaluate(() => window.__docsLateLine.read())).toEqual(receipt)
+        } finally {
+            receipt ||= await page.evaluate(() => window.__docsLateLine.read());
+            await page.evaluate(() => {
+                window.__docsLateLine.restore();
+                delete window.__docsLateLine
+            });
+            await testInfo.attach('late-source-line.json', {body: JSON.stringify(receipt), contentType: 'application/json'})
+        }
+    });
+
     test('Store exposes Observable through one toggle, filters its members, and opens their source', async ({page, neuralLink}) => {
         await neuralLink.routeConfig(page, config => ({...config, useAiClient: true}));
         await page.goto('/docs/index.html');

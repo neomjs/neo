@@ -1653,6 +1653,8 @@ class Store extends Collection {
      * @summary Reapplies opted-in local filters and sorters before publishing the record's settled index.
      * Gets triggered after changing the value of a record field.
      * E.g. myRecord.foo = 'bar';
+     * The published `index` is an enumerable getter: listeners that never read it pay no scan, and
+     * one that reads after an earlier listener re-sorted the store gets the record's current position.
      * @param {Object} data
      * @param {Object[]} data.fields Each field object contains the keys: name, oldValue, value
      * @param {Neo.data.Model} data.model The model instance of the changed record
@@ -1676,10 +1678,10 @@ class Store extends Collection {
             }
         }
 
-        this.fire('recordChange', {
-            ...data,
-            index: this.indexOf(data.record)
-        })
+        const event = {...data};
+
+        Object.defineProperty(event, 'index', {enumerable: true, get: () => this.indexOf(data.record)});
+        this.fire('recordChange', event)
     }
 
     /**
