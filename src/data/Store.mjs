@@ -1402,7 +1402,10 @@ class Store extends Collection {
      * @summary The model a raw row derives its fields from and becomes a record of: `this.model`, unless a subclass
      * holds rows of another shape. A store that projects rows of its own, such as a group whose fields hold
      * aggregates, answers those with their own model, so the leaf fields' `calculate`, `convert`, `mapping` and
-     * `type` never parse them. `createRecord()`, `hydrateRecord()`, `resolveField()` and `resolveRow()` ask it.
+     * `type` never parse them. `createRecord()`, `hydrateRecord()`, `resolveField()` and `resolveRow()` ask it, for
+     * a raw row only: a record owns its fields, so an override may tell its rows apart by raw data alone. A model
+     * an override answers names this store (`storeId`), as `this.model` does: a record's change reaches the store
+     * its model names, and no other.
      * @param {Object|null} item A raw row
      * @returns {Neo.data.Model}
      * @protected
@@ -1800,10 +1803,14 @@ class Store extends Collection {
      * @protected
      */
     resolveField(item, fieldName) {
+        // a record owns its fields: a name it holds answers itself, any other reads as a path through it
+        if (RecordFactory.isRecord(item)) {
+            return typeof fieldName === 'string' && !(fieldName in item) ? Neo.ns(fieldName, false, item) : item[fieldName]
+        }
+
         let me    = this,
             model = me.modelOf(item),
             field = model.getField(fieldName),
-            isRaw = !RecordFactory.isRecord(item),
             entry, map, value;
 
         if (!field) {
@@ -1812,7 +1819,7 @@ class Store extends Collection {
                     root      = model.getField(rootField);
 
                 // a path reads through its root's value, also when the row holds a converted or calculated root
-                if (isRaw && root && (!Object.hasOwn(item, rootField) || root.convert || root.calculate)) {
+                if (root && (!Object.hasOwn(item, rootField) || root.convert || root.calculate)) {
                     me.resolveField(item, rootField)
                 }
 
@@ -1820,10 +1827,6 @@ class Store extends Collection {
             }
 
             return undefined
-        }
-
-        if (!isRaw) {
-            return item[fieldName]
         }
 
         map   = item[ownValuesSymbol];
@@ -1869,10 +1872,10 @@ class Store extends Collection {
      */
     resolveRow(item, fieldNames) {
         let me    = this,
-            model = me.modelOf(item),
+            model = item && !RecordFactory.isRecord(item) && me.modelOf(item),
             own, recordData, resolvedItem;
 
-        if (!item || !model || RecordFactory.isRecord(item)) {
+        if (!model) {
             return item
         }
 
