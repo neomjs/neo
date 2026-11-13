@@ -78,13 +78,15 @@ test.describe('Portal examples family navigation', () => {
 
         expect(view.getTabButtons().map(button => button.text)).toEqual(['Featured', 'Grid & Table', 'Forms', 'Multi-Window', 'Calendar']);
         expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/grid', '/examples/forms', '/examples/multi-window', '/examples/calendar']);
-        expect(view.getCatalogStore().getCount()).toBe(74);
+        expect(view.getCatalogStore().getCount()).toBe(75);
         expect(view.getCard(0).store.getCount()).toBe(27);
         expect(view.getCard(0).store.items.map(record => record.id)).toEqual(featuredExampleIds);
         expect(view.getCard(1).store.getCount()).toBe(21);
         expect(view.getCard(2).store.getCount()).toBe(24);
         expect(view.getCard(3).store.getCount()).toBe(12);
-        expect(view.getCard(4).store.items.map(record => record.id)).toEqual(['gantt-basic', 'scheduler-basic']);
+        expect(view.getCard(4).store.items.map(record => record.id)).toEqual([
+            'calendar', 'calendar-weekview', 'gantt-basic', 'scheduler-basic'
+        ]);
         expect(view.getCard(0).store.getSource()).toBe(view.getCatalogStore());
         expect(view.getCard(1).store.getSource()).toBe(view.getCatalogStore());
         expect(view.getCard(0).store.model).toBe(view.getCatalogStore().model);
@@ -271,12 +273,12 @@ test.describe('Portal examples canonical catalog', () => {
         })
     }
 
-    test('loads 74 logical examples with unique stable string identities', () => {
+    test('loads 75 logical examples with unique stable string identities', () => {
         const {store} = createList(),
               ids     = [];
 
-        expect(catalog).toHaveLength(74);
-        expect(store.getCount()).toBe(74);
+        expect(catalog).toHaveLength(75);
+        expect(store.getCount()).toBe(75);
 
         store.forEach(record => {
             expect(typeof record.id, record.name).toBe('string');
@@ -284,8 +286,50 @@ test.describe('Portal examples canonical catalog', () => {
             ids.push(record.id)
         });
 
-        expect(new Set(ids).size).toBe(74);
+        expect(new Set(ids).size).toBe(75);
         expect(list.catalogMode).toBe('dist_prod')
+    });
+
+    test('catalogs the basic and dedicated week-view Calendar examples in order', () => {
+        const index = catalog.findIndex(record => record.id === 'calendar'),
+              [basic, weekview] = catalog.slice(index, index + 2),
+              urls = {
+                  devmode : 'examples/calendar',
+                  dist_dev: 'dist/development/examples/calendar',
+                  dist_esm: 'dist/esm/examples/calendar',
+                  dist_prod: 'dist/production/examples/calendar'
+              };
+
+        expect([basic?.id, weekview?.id]).toEqual(['calendar', 'calendar-weekview']);
+        expect(basic).toMatchObject({
+            family   : 'calendar',
+            component: 'Calendar',
+            feature  : expect.any(String),
+            lookFor  : expect.any(String)
+        });
+        expect(weekview).toMatchObject({
+            id       : 'calendar-weekview',
+            name     : 'Calendar Week View',
+            family   : 'calendar',
+            component: 'Calendar',
+            feature  : expect.any(String),
+            lookFor  : expect.any(String),
+            featured : false,
+            image    : null,
+            sourceUrl: 'examples/calendar/weekview',
+            urls     : {
+                devmode : `${urls.devmode}/weekview/index.html`,
+                dist_dev: `${urls.dist_dev}/weekview/index.html`,
+                dist_esm: `${urls.dist_esm}/weekview/index.html`,
+                dist_prod: `${urls.dist_prod}/weekview/index.html`
+            }
+        });
+        expect(basic.urls).toEqual({
+            devmode : `${urls.devmode}/basic/index.html`,
+            dist_dev: `${urls.dist_dev}/basic/index.html`,
+            dist_esm: `${urls.dist_esm}/basic/index.html`,
+            dist_prod: `${urls.dist_prod}/basic/index.html`
+        })
     });
 
     test('every published family record has both a feature and an observation, with rejecting controls', () => {
@@ -347,7 +391,11 @@ test.describe('Portal examples canonical catalog', () => {
               // The production catalog established this sequence before canonicalization. ESM alone
               // placed OffscreenCanvas before Covid Gallery; the shared sequence follows production.
               establishedIds = featuredExampleIds.slice(0, -1),
-              completeIds = [...establishedIds, ...newExampleIds, ...formExampleIds, 'gantt-basic', 'scheduler-basic', 'dock-choreography', ...multiWindowExampleIds, 'realworld', 'realworld-v2'],
+              calendarIndex = establishedIds.indexOf('calendar'),
+              orderedEstablishedIds = [
+                  ...establishedIds.slice(0, calendarIndex + 1), 'calendar-weekview', ...establishedIds.slice(calendarIndex + 1)
+              ],
+              completeIds = [...orderedEstablishedIds, ...newExampleIds, ...formExampleIds, 'gantt-basic', 'scheduler-basic', 'dock-choreography', ...multiWindowExampleIds, 'realworld', 'realworld-v2'],
               excluded = {
                   devmode  : ['portal', 'liquid-glass', 'realworld', 'realworld-v2'],
                   dist_dev : ['realworld', 'realworld-v2'],
