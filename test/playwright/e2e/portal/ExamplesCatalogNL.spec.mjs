@@ -137,6 +137,7 @@ test.describe('Portal example catalog', () => {
         }
 
         await page.goto(`${PORTAL}#/examples/calendar`);
+        await expect(page.locator(FAMILY).getByRole('link', {name: 'Community Garden Plan', exact: true})).toBeVisible();
         await expect(page.locator(FAMILY).getByRole('link', {name: 'Studio Bookings', exact: true})).toBeVisible();
 
         await page.goto(`${PORTAL}#/examples/forms`);

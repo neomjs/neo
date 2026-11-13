@@ -796,7 +796,7 @@
     },
     "/examples/calendar": {
         "title": "Neo.mjs Calendar Examples",
-        "description": "Explore 1 live Neo.mjs Calendar example: Resource bookings on an editable timeline.",
+        "description": "Explore 2 live Neo.mjs Calendar examples: A project plan with linked, editable tasks; Resource bookings on an editable timeline.",
         "schemaType": "CollectionPage"
     }
 }

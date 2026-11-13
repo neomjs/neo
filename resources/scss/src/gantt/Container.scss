@@ -1,0 +1,182 @@
+// Neo.gantt.Container: hierarchical task tree + timeline track + SVG dependency overlay on the multi-body grid.
+.neo-gantt {
+    .neo-gantt-link-status {
+        position: absolute;
+        bottom: 0;
+        inset-inline-start: 0;
+        max-width: 100%;
+        pointer-events: none;
+        z-index: 5;
+
+        &:not(:empty) {
+            background: var(--sem-color-surface-neutral-default, Canvas);
+            border: 1px solid var(--neo-gantt-arrow-color);
+            color: var(--sem-color-text-neutral-default, CanvasText);
+            padding: 4px 8px;
+        }
+    }
+
+    .neo-timeline-bar.neo-gantt-link-armed {
+        outline: 2px solid var(--neo-gantt-arrow-color);
+        outline-offset: 2px;
+    }
+
+    .neo-timeline-bar.neo-gantt-linkable { overflow: visible; }
+
+    // The finish terminal is the bar's output port: a dot attached to the finish edge from outside, shown while its
+    // bar is hovered or focused. An existing arrow runs through its centre.
+    .neo-gantt-link-terminal {
+        background   : currentColor;
+        border-radius: 50%;
+        box-shadow   : 0 0 0 2px var(--sem-color-surface-neutral-default, Canvas);
+        color        : var(--neo-gantt-arrow-color);
+        cursor       : crosshair;
+        height       : 10px;
+        opacity      : 0;
+        position     : absolute;
+        right        : -13px;
+        top          : calc(50% - 5px);
+        transform    : scale(.5);
+        transition   : box-shadow .12s ease-out, opacity .12s ease-out, transform .12s ease-out;
+        width        : 10px;
+        z-index      : 3;
+
+        // The hit area starts at the bar's edge and grows outward, so the resize strip inside the bar stays free.
+        &::after {
+            content : '';
+            inset   : -6px -10px -6px -3px;
+            position: absolute;
+        }
+    }
+
+    // Without hover there is no way to reveal the terminal, so it stays visible.
+    @media (hover: none) {
+        .neo-gantt-link-terminal {
+            opacity  : 1;
+            transform: scale(1);
+        }
+    }
+
+    .neo-timeline-bar:hover > .neo-gantt-link-terminal,
+    .neo-timeline-bar:focus-visible > .neo-gantt-link-terminal,
+    .neo-timeline-bar.neo-gantt-link-armed > .neo-gantt-link-terminal {
+        opacity  : 1;
+        transform: scale(1);
+    }
+
+    .neo-timeline-bar > .neo-gantt-link-terminal:hover {
+        box-shadow: 0 0 0 2px var(--sem-color-surface-neutral-default, Canvas),
+                    0 0 0 6px color-mix(in srgb, currentColor 35%, transparent);
+        transform : scale(1.3);
+    }
+
+    // While a link is drawn the preview carries the origin, and no bar offers a terminal of its own.
+    &.neo-gantt-link-drawing .neo-timeline-bar > .neo-gantt-link-terminal {
+        opacity: 0;
+    }
+    .neo-grid-header-toolbar {
+        align-items: stretch;
+        min-height : 56px;
+        .neo-grid-header-button { height: 100%; }
+    }
+
+    .neo-grid-row {
+        .neo-grid-cell.neo-locked-start {
+            align-items : center;
+            border-right: 1px solid var(--neo-gantt-divider-color);
+            display     : flex;
+            font-weight : 500;
+        }
+
+        .neo-timeline-cell {
+            height : 100%;
+            padding: 0 !important;
+            width  : 100%;
+        }
+    }
+
+    .neo-gantt-dependency-layer {
+        left          : 0;
+        overflow      : visible;
+        pointer-events: none;
+        position      : absolute;
+        top           : 0;
+        transform     : translateX(calc(var(--grid-scroll-left, 0px) * -1));
+        z-index       : 4;
+    }
+
+    .neo-gantt-dependency-svg {
+        display       : block;
+        overflow      : visible;
+        pointer-events: none;
+    }
+
+    .neo-gantt-dependency-arrow {
+        fill           : none;
+        stroke         : var(--neo-gantt-arrow-color);
+        stroke-linejoin: round;
+        stroke-width   : 1.75px;
+
+        &.neo-gantt-dependency-arrow-highlighted {
+            stroke: var(--neo-gantt-highlight-color);
+            stroke-width: 2.25px;
+        }
+    }
+
+    .neo-gantt-dependency-arrowhead {
+        fill: var(--neo-gantt-arrow-color);
+
+        &.neo-gantt-dependency-arrowhead-highlighted { fill: var(--neo-gantt-highlight-color); }
+    }
+
+    .neo-timeline-bar {
+        &.neo-gantt-bar-summary {
+            background  : var(--neo-gantt-summary-bg);
+            border-color: var(--neo-gantt-summary-border);
+            font-weight : 600;
+        }
+
+        &.neo-gantt-bar-milestone {
+            background   : var(--neo-gantt-milestone-bg);
+            border-color : var(--neo-gantt-milestone-border);
+            border-radius: 999px;
+        }
+
+    }
+}
+
+// Mounted under the document body, so it reads the arrow colour where the theme class sits.
+.neo-gantt-link-preview {
+    border-top      : 2px dashed currentColor;
+    color           : var(--neo-gantt-arrow-color, inherit);
+    height          : 0;
+    pointer-events  : none;
+    position        : fixed;
+    transform-origin: left center;
+    z-index         : 10000;
+
+    // The origin: stands in for the source terminal while the pointer is away from its bar.
+    &::before {
+        background   : currentColor;
+        border-radius: 50%;
+        box-shadow   : 0 0 0 2px var(--sem-color-surface-neutral-default, Canvas),
+                       0 0 0 6px color-mix(in srgb, currentColor 35%, transparent);
+        content      : '';
+        height       : 10px;
+        left         : -5px;
+        position     : absolute;
+        top          : -6px;
+        width        : 10px;
+    }
+
+    // The arrowhead at the pointer end.
+    &::after {
+        border-bottom: 5px solid transparent;
+        border-left  : 8px solid currentColor;
+        border-top   : 5px solid transparent;
+        content      : '';
+        position     : absolute;
+        right        : -1px;
+        top          : -6px;
+    }
+}

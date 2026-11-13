@@ -1,0 +1,32 @@
+.project-toolbar.neo-toolbar {
+    align-items: center;
+    gap: 8px;
+    min-height: 64px;
+    padding: 12px 24px;
+    background: var(--project-header-bg);
+    border-bottom: 1px solid var(--project-border);
+
+    .project-title { color: var(--project-title); font-size: 18px; font-weight: 700; }
+    .project-subtitle { color: var(--project-muted); font-size: 12px; }
+    .project-control {
+        --button-text-color: var(--project-muted);
+        --button-text-color-hover: var(--project-title);
+        --button-text-color-active: var(--project-title);
+        --button-background-color-hover: var(--project-hover);
+        background: var(--project-control);
+        border: 1px solid var(--project-border);
+        border-radius: 6px;
+        min-height: 34px;
+        padding: 0 12px;
+
+        &.pressed {
+            --button-text-color: var(--project-selected-text);
+            --button-text-color-hover: var(--project-selected-text);
+            --button-text-color-active: var(--project-selected-text);
+            --button-background-color-hover: var(--project-selected);
+            background: var(--project-selected);
+            .neo-button-text { color: var(--project-selected-text); }
+        }
+        &:focus-visible { outline: 2px solid var(--project-focus); outline-offset: 2px; }
+    }
+}
