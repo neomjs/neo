@@ -596,7 +596,8 @@ class SortZone extends DragZone {
         // One latch per gesture: a newer drag's start lifts it, so that drag's own end gets through
         latch = me.dragEndLatch = {};
 
-        me.dragEndActive = true;
+        me.dragEndActive  = true;
+        me.isOverDragging = false;
 
         try {
             // Queued behind the drag's start: the end tears down what the start builds

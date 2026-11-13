@@ -449,6 +449,64 @@ test.describe('Neo.draggable.container.SortZone', () => {
         })
     }
 
+    for (const pollTiming of ['inside the end wait', 'after the end']) {
+        test(`a normal release keeps its landing when an armed poll fires ${pollTiming} (#20856)`, async () => {
+            const probe   = await prepareContinuation('poll'), commits = [],
+                  endWait = Promise.withResolvers(), endWaitEntered = Promise.withResolvers();
+            let moving, ending;
+
+            try {
+                await probe.start(0);
+                moving = sortZone.onDragMove({clientX: 50, clientY: 310});
+                await expect.poll(() => probe.pending.length).toBe(1);
+                expect(sortZone.currentIndex).toBe(1);
+                expect(sortZone.isOverDragging, 'release while another poll is armed, before the edge').toBe(true);
+
+                const release = probe.snapshot(), timeout = sortZone.timeout,
+                      moveTo  = sortZone.moveTo.bind(sortZone);
+                sortZone.moveTo = (from, to) => {commits.push({from, to}); moveTo(from, to)};
+                sortZone.timeout = milliseconds => {
+                    if (milliseconds === 10) {
+                        endWaitEntered.resolve();
+                        return endWait.promise
+                    }
+                    // The end pipeline's final wait is not the move's already-held poll.
+                    return milliseconds === 30 && sortZone.dragEndActive ? Promise.resolve() : timeout(milliseconds)
+                };
+
+                ending = sortZone.onDragEnd({});
+                const armedAtRelease = sortZone.isOverDragging;
+                await endWaitEntered.promise;
+                expect(sortZone.itemRects, 'the end has not reset the snapshot yet').not.toBeNull();
+                expect(commits).toEqual([]);
+
+                if (pollTiming === 'inside the end wait') {
+                    probe.pending[0].resolve();
+                    await moving;
+                    expect.soft(probe.snapshot(), 'the released poll cannot step, switch or style the release snapshot').toEqual(release);
+                    expect.soft(probe.scrolls.map(({index}) => index), 'no owner scroll follows release').toEqual([1]);
+                    expect.soft(armedAtRelease, 'normal release disarms polling synchronously').toBe(false)
+                }
+
+                endWait.resolve();
+                await ending;
+                expect.soft(commits, 'the actual owner reorder commits the release slot').toEqual([{from: 0, to: 1}]);
+                expect.soft(container.items.map(item => item.id)).toEqual(['btnB', 'btnA', 'sep1', 'btnC', 'btnD']);
+
+                probe.pending[0].resolve();
+                await moving;
+                expect(sortZone.itemRects).toBeNull();
+                expect(probe.scrolls.map(({index}) => index)).toEqual([1]);
+                expect(commits).toEqual([{from: 0, to: 1}])
+            } finally {
+                endWait.resolve();
+                probe.pending.forEach(flight => flight.resolve());
+                await Promise.allSettled([moving, ending].filter(Boolean));
+                if (sortZone.itemRects) await sortZone.onDragCancel({key: 'Escape'})
+            }
+        })
+    }
+
     test('a drag whose item owned focus hands it back at the terminal as a pointer focus, committed or cancelled; an item without focus gets none (#19281)', async () => {
         await new Promise(resolve => setTimeout(resolve, 10));
         sortZone = container.sortZone;
