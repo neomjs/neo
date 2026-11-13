@@ -126,6 +126,46 @@ test.describe('Neo.timeline.Column', () => {
         axis.destroy();
     });
 
+    test('keeps a visible bar in its row-wide lane as overlapping bars leave the window', () => {
+        const axis = Neo.create(TimeAxis, {
+            start: '2026-11-09T00:00:00Z', end: '2026-11-09T12:00:00Z', pxPerMinute: 1
+        });
+        const eventStore = Neo.create(EventStore, {data: [
+            {id: 'a', resourceId: 'r', startDate: '2026-11-09T01:00:00Z', endDate: '2026-11-09T03:00:00Z'},
+            {id: 'b', resourceId: 'r', startDate: '2026-11-09T02:00:00Z', endDate: '2026-11-09T05:00:00Z'}
+        ]});
+        const col    = Neo.create(TimelineColumn, {appName, timeAxis: axis, eventStore, bufferPx: 0, viewportWidth: 180});
+        const render = () => col.cellRenderer({record: {id: 'r'}, row: {id: 'row'}}).cn[0].cn;
+
+        try {
+            const first = render();
+            expect(first.map(bar => bar.data.eventId)).toEqual(['a', 'b']);
+            const before = first[1];
+            expect([before.data.lane, before.data.laneCount, before.style.top, before.style.height]).toEqual(['1', '2', '50%', '42%']);
+
+            col.scrollLeft = 180;
+            const second = render();
+            expect(second.map(bar => bar.data.eventId)).toEqual(['b']);
+            expect([second[0].data.lane, second[0].data.laneCount, second[0].style.top, second[0].style.height])
+                .toEqual([before.data.lane, before.data.laneCount, before.style.top, before.style.height]);
+        } finally {
+            col.destroy(); eventStore.destroy(); axis.destroy()
+        }
+    });
+
+    test('renders an inline milestone at the visible window start', () => {
+        const axis = Neo.create(TimeAxis, {start: '2026-11-09T00:00:00Z', end: '2026-11-09T12:00:00Z', pxPerMinute: 1});
+        const col  = Neo.create(TimelineColumn, {appName, timeAxis: axis, scrollLeft: 180, bufferPx: 0, viewportWidth: 180});
+
+        try {
+            const bars = col.cellRenderer({
+                record: {id: 'milestone', startDate: '2026-11-09T03:00:00Z', endDate: '2026-11-09T03:00:00Z'},
+                row   : {id: 'row'}
+            }).cn[0].cn;
+            expect(bars.map(bar => bar.data.eventId)).toEqual(['milestone'])
+        } finally { col.destroy(); axis.destroy() }
+    });
+
     test('renders inline task records with percentDone progress fill when the row is its own event', () => {
         const axis = Neo.create(TimeAxis, {
             start      : new Date(2026, 10, 9, 8, 0, 0, 0),

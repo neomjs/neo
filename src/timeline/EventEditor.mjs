@@ -6,6 +6,7 @@ import SelectField   from '../form/field/Select.mjs';
 import TextField     from '../form/field/Text.mjs';
 import Toolbar       from '../toolbar/Base.mjs';
 import TimeAxis      from './TimeAxis.mjs';
+import Events        from './store/Events.mjs';
 
 /**
  * @summary Reusable modal editor for a timeline record.
@@ -134,6 +135,7 @@ class EventEditor extends Dialog {
     }
 
     /**
+     * @summary Creates the form and fills it when the editor starts with a bound record.
      * @param {Object} config
      */
     construct(config) {
@@ -436,12 +438,12 @@ class EventEditor extends Dialog {
             }
         }
 
-        if (resInput && me.shouldShowResourceField() && !me.isSameFieldValue(resInput.value, me.initialValues.resourceId)) {
+        if (resInput && me.shouldShowResourceField() && !Events.sameResourceId(resInput.value, me.initialValues.resourceId)) {
             const
                 nextRes = resInput.value,
                 prevRes = record.resourceId;
 
-            if (nextRes !== undefined && String(nextRes ?? '') !== String(prevRes ?? '')) {
+            if (nextRes !== undefined && !Events.sameResourceId(nextRes, prevRes)) {
                 changes.resourceId = nextRes
             }
         }
@@ -536,13 +538,13 @@ class EventEditor extends Dialog {
                 id   = owner?.timelineColumn?.getResourceId?.(item) ?? item?.[resKeyField] ?? item?.id,
                 name = item?.name ?? item?.title ?? (id != null ? String(id) : '');
 
-            if (id != null && !seen.has(id)) {
-                seen.set(id, {id, name: String(name)})
+            if (id != null && !seen.has(String(id))) {
+                seen.set(String(id), {id, name: String(name)})
             }
         });
 
-        if (record?.resourceId != null && !seen.has(record.resourceId)) {
-            seen.set(record.resourceId, {id: record.resourceId, name: String(record.resourceId)})
+        if (record?.resourceId != null && !seen.has(String(record.resourceId))) {
+            seen.set(String(record.resourceId), {id: record.resourceId, name: String(record.resourceId)})
         }
 
         return [...seen.values()]
@@ -813,10 +815,15 @@ class EventEditor extends Dialog {
         const uniqueFields = new Set(me.form?.items || []);
 
         uniqueFields.forEach(field => {
-            const
-                name      = field.name,
-                rawValue  = record ? record[name] : null,
-                formatted = record ? me.formatFieldValue(name, rawValue) : '';
+            const name = field.name, rawValue = record ? record[name] : null;
+            let formatted;
+            if (field === resInput) {
+                // The Select binds the option's typed key. Keep the record's original key until the user changes it.
+                const option = field.options?.find(item => Events.sameResourceId(item.id, rawValue));
+                formatted = option?.id ?? rawValue ?? null
+            } else {
+                formatted = record ? me.formatFieldValue(name, rawValue) : ''
+            }
 
             me.initialValues[name] = formatted;
             field.value            = formatted

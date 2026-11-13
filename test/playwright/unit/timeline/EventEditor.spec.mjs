@@ -20,6 +20,73 @@ test.beforeEach(() => {
     }
 });
 
+test('resource options collapse equivalent numeric and string keys without losing the label', () => {
+    const editor = Neo.create(EventEditor, {
+        appName, owner: {store: {items: [{id: 7, name: 'Seven'}]}}
+    });
+    try {
+        expect(editor.getResourceOptions({resourceId: '7'})).toEqual([{id: 7, name: 'Seven'}]);
+        expect(editor.getResourceOptions({resourceId: ''})).toEqual([
+            {id: 7, name: 'Seven'}, {id: '', name: ''}
+        ])
+    } finally { editor.destroy() }
+});
+
+test('resource edit does not rewrite an equivalent string key and accepts a different key', () => {
+    const
+        store = Neo.create(Events, {data: [{
+            id       : 'resource-edit', resourceId: '7', title: 'Item',
+            startDate: '2026-11-10T12:00Z', endDate: '2026-11-10T13:00Z'
+        }]}),
+        record = store.get('resource-edit'),
+        editor = Neo.create(EventEditor, {appName, owner: {store: {items: [{id: 7, name: 'Seven'}, {id: 8, name: 'Eight'}]}}});
+    try {
+        editor.openForRecord(record);
+        editor.setFieldValue('resourceId', 7);
+        expect(editor.getChanges()).not.toHaveProperty('resourceId');
+        editor.setFieldValue('resourceId', 8);
+        expect(editor.getChanges().resourceId).toBe(8)
+    } finally { editor.destroy(); store.destroy() }
+});
+
+test('the resource select resolves typed keys and distinguishes absent from an empty key', () => {
+    const
+        record = {resourceId: '7', title: 'Item', startDate: new Date('2026-11-10T12:00Z'),
+            endDate: new Date('2026-11-10T13:00Z')},
+        editor = Neo.create(EventEditor, {appName, owner: {store: {items: [
+            {id: 7, name: 'Seven'}, {id: '', name: 'Empty'}
+        ]}}});
+    try {
+        editor.openForRecord(record);
+        const select = editor.getField('resourceId');
+        expect(select.value).toBe(7);
+        expect(select.getSelectedRecord()?.name).toBe('Seven');
+        expect(select.getSubmitValue()).toBe(7);
+        expect(editor.getChanges()).not.toHaveProperty('resourceId');
+
+        record.resourceId = null;
+        editor.openForRecord(record);
+        expect(select.value).toBeNull();
+        expect(select.getSelectedRecord()).toBeNull();
+        expect(editor.getChanges()).not.toHaveProperty('resourceId');
+        editor.setFieldValue('resourceId', '');
+        expect(select.getSelectedRecord()?.name).toBe('Empty');
+        expect(editor.getChanges().resourceId).toBe('');
+
+        record.resourceId = '';
+        editor.openForRecord(record);
+        expect(select.getSelectedRecord()?.name).toBe('Empty');
+        editor.setFieldValue('resourceId', null);
+        expect(editor.getChanges().resourceId).toBeNull();
+
+        record.resourceId = 7;
+        editor.openForRecord(record);
+        expect(select.getSelectedRecord()?.name).toBe('Seven');
+        expect(editor.getChanges()).not.toHaveProperty('resourceId');
+        expect(record.resourceId).toBe(7)
+    } finally { editor.destroy() }
+});
+
 test('header labels and editor input use the same custom axis clock', () => {
     const
         axis    = Neo.create(TimeAxis, {timeZone: null}),

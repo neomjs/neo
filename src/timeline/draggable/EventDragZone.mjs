@@ -1,5 +1,6 @@
 import DateUtil from '../../util/Date.mjs';
 import DragZone from '../../draggable/DragZone.mjs';
+import Events   from '../store/Events.mjs';
 
 const MS_PER_MINUTE = 60_000;
 
@@ -235,7 +236,7 @@ class EventDragZone extends DragZone {
                 endDate  : pending.endDate
             };
 
-            if (pending.resourceId !== undefined && String(pending.resourceId) !== String(record.resourceId)) {
+            if (pending.resourceId !== undefined && !Events.sameResourceId(pending.resourceId, record.resourceId)) {
                 updates.resourceId = pending.resourceId
             }
 

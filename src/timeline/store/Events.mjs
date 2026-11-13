@@ -13,6 +13,36 @@ import Store      from '../../data/Store.mjs';
  * @extends Neo.data.Store
  */
 class Events extends Store {
+    /**
+     * @summary Compares resource identifiers across numeric model keys and string DOM values.
+     * Null and undefined represent an absent key; an empty string remains distinct.
+     * @param {*} a
+     * @param {*} b
+     * @returns {Boolean}
+     */
+    static sameResourceId(a, b) {
+        return a == null || b == null ? a == null && b == null : String(a) === String(b)
+    }
+
+    /**
+     * @summary Tests millisecond bounds against a half-open window, including milestones and point queries.
+     * @param {Number} start Event start
+     * @param {Number} end Event end
+     * @param {Number} windowStart Window start
+     * @param {Number} windowEnd Window end
+     * @returns {Boolean}
+     */
+    static intersectsRange(start, end, windowStart, windowEnd) {
+        if (!Number.isFinite(start) || !Number.isFinite(end) || !Number.isFinite(windowStart) ||
+            !Number.isFinite(windowEnd) || windowEnd < windowStart) return false;
+
+        if (start === end) {
+            return start >= windowStart && (start < windowEnd || windowStart === windowEnd && start === windowStart)
+        }
+        if (windowStart === windowEnd) return start <= windowStart && end > windowStart;
+        return start < windowEnd && end > windowStart
+    }
+
     static config = {
         /**
          * @member {String} className='Neo.timeline.store.Events'
@@ -66,7 +96,7 @@ class Events extends Store {
         for (let i = 0; i < count; i++) {
             const record = store.getAt(i);
 
-            if (!record || (filterRes && record.resourceId !== resourceId)) {
+            if (!record || (filterRes && !Events.sameResourceId(record.resourceId, resourceId))) {
                 continue
             }
 
@@ -74,19 +104,7 @@ class Events extends Store {
                 recStart = record.startDate instanceof Date ? record.startDate.getTime() : new Date(record.startDate).getTime(),
                 recEnd   = record.endDate   instanceof Date ? record.endDate.getTime()   : new Date(record.endDate).getTime();
 
-            if (!Number.isFinite(recStart) || !Number.isFinite(recEnd)) {
-                continue
-            }
-
-            // Zero-duration milestones match when [startMs, endMs) contains recStart;
-            // positive-duration intervals match when recStart < endMs && recEnd > startMs (or contain the instant when startMs === endMs).
-            const overlaps = recStart === recEnd
-                ? (recStart >= startMs && recStart < endMs) || (startMs === endMs && recStart === startMs)
-                : startMs === endMs
-                    ? (recStart <= startMs && recEnd > startMs)
-                    : (recStart < endMs && recEnd > startMs);
-
-            if (overlaps) {
+            if (Events.intersectsRange(recStart, recEnd, startMs, endMs)) {
                 result.push(record)
             }
         }

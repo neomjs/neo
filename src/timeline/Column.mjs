@@ -14,8 +14,8 @@ import TimeAxisHeader  from './TimeAxisHeader.mjs';
  * @extends Neo.grid.column.Base
  * @see Neo.timeline.TimeAxis
  * @see Neo.timeline.TimeAxisHeader
- * @see Neo.util.IntervalPacker
- * @see Neo.store.Events
+ * @see Neo.timeline.util.IntervalPacker
+ * @see Neo.timeline.store.Events
  */
 class Column extends BaseColumn {
     static config = {
@@ -86,9 +86,9 @@ class Column extends BaseColumn {
          */
         endDateField_: 'endDate',
         /**
-         * Optional {@link Neo.store.Events} providing multi-event records per resource row.
+         * Optional {@link Neo.timeline.store.Events} providing event records for each resource row.
          * When `null`, `getRowBars()` falls back to reading inline `startDateField` / `endDateField` on the row record.
-         * @member {Neo.store.Events|Object|null} eventStore_=null
+         * @member {Neo.timeline.store.Events|Object|null} eventStore_=null
          * @reactive
          */
         eventStore_: null,
@@ -146,7 +146,7 @@ class Column extends BaseColumn {
         resizable_: false,
         /**
          * When `true`, renders `.neo-resizable-start` and `.neo-resizable-end` handles inside each bar for
-         * {@link Neo.timeline.EventDragZone} start/end resize gestures.
+         * {@link Neo.timeline.draggable.EventDragZone} start/end resize gestures.
          * @member {Boolean} resizableBars_=true
          * @reactive
          */
@@ -237,11 +237,17 @@ class Column extends BaseColumn {
     #gridCleanups = []
 
     /**
-     * Listener cleanup references for `eventStore`.
-     * @member {Function[]} #storeCleanups=[]
+     * Detaches all four listeners registered with the current event store.
+     * @member {Function|null} #unbindEventStore=null
      * @private
      */
-    #storeCleanups = []
+    #unbindEventStore = null
+
+    /** @type {WeakSet<Neo.timeline.TimeAxis>} */
+    #ownedAxes = new WeakSet()
+
+    /** @type {WeakSet<Neo.timeline.store.Events>} */
+    #ownedStores = new WeakSet()
 
     /**
      * True once `#projectedMinPx` and `#projectedMaxPx` hold a valid projected window.
@@ -272,7 +278,7 @@ class Column extends BaseColumn {
     #projectedMinPx = 0
 
     /**
-     * Effective center viewport width in pixels.
+     * @summary Returns the horizontal space available to the timeline after accounting for locked grid bodies.
      * @returns {Number}
      */
     get effectiveViewportWidth() {
@@ -294,7 +300,7 @@ class Column extends BaseColumn {
     }
 
     /**
-     * Resolves the {@link Neo.timeline.TimeAxisHeader} instance inside `gridContainer.headerToolbar`.
+     * @summary Resolves this column’s {@link Neo.timeline.TimeAxisHeader} from the grid header toolbar.
      * @returns {Neo.timeline.TimeAxisHeader|null}
      */
     get headerComponent() {
@@ -306,16 +312,18 @@ class Column extends BaseColumn {
     }
 
     /**
-     * @summary Coerces `eventStore` config objects into a `Neo.store.Events` instance.
-     * @param {Neo.store.Events|Object|null} value
-     * @returns {Neo.store.Events|null}
+     * @summary Coerces `eventStore` config objects into a `Neo.timeline.store.Events` instance.
+     * @param {Neo.timeline.store.Events|Object|null} value
+     * @returns {Neo.timeline.store.Events|null}
      * @protected
      */
     beforeSetEventStore(value) {
         if (!value) {
             return null
         }
-        return ClassSystemUtil.beforeSetInstance(value, EventStore)
+        const store = ClassSystemUtil.beforeSetInstance(value, EventStore);
+        if (store !== value) this.#ownedStores.add(store);
+        return store
     }
 
     /**
@@ -328,7 +336,9 @@ class Column extends BaseColumn {
         if (!value) {
             return null
         }
-        return ClassSystemUtil.beforeSetInstance(value, TimeAxis)
+        const axis = ClassSystemUtil.beforeSetInstance(value, TimeAxis);
+        if (axis !== value) this.#ownedAxes.add(axis);
+        return axis
     }
 
     /**
@@ -364,28 +374,31 @@ class Column extends BaseColumn {
 
     /**
      * @summary Subscribes to `eventStore` load/filter/recordChange events and refreshes mounted rows.
-     * @param {Neo.store.Events|null} value
-     * @param {Neo.store.Events|null} oldValue
+     * @param {Neo.timeline.store.Events|null} value
+     * @param {Neo.timeline.store.Events|null} oldValue
      * @protected
      */
     afterSetEventStore(value, oldValue) {
         const me = this;
 
-        me.#storeCleanups.forEach(cleanup => cleanup());
-        me.#storeCleanups = [];
+        me.#unbindEventStore?.();
+        me.#unbindEventStore = null;
 
         if (value) {
             const onStoreMutate = () => me.refreshMountedRows();
 
-            const listenerId = value.on({
+            const listeners = {
                 filter      : onStoreMutate,
                 load        : onStoreMutate,
                 mutate      : onStoreMutate,
                 recordChange: onStoreMutate
-            });
+            };
 
-            me.#storeCleanups.push(() => value.un(listenerId))
+            value.on(listeners);
+            me.#unbindEventStore = () => value.un(listeners)
         }
+
+        if (oldValue && oldValue !== value && me.#ownedStores.has(oldValue)) oldValue.destroy();
 
         if (oldValue !== undefined && me.isConstructed) {
             me.refreshMountedRows()
@@ -449,6 +462,8 @@ class Column extends BaseColumn {
         if (me.headerComponent && me.headerComponent.timeAxis !== value) {
             me.headerComponent.timeAxis = value
         }
+
+        if (oldValue && oldValue !== value && me.#ownedAxes.has(oldValue)) oldValue.destroy();
 
         if (oldValue !== undefined && me.isConstructed) {
             me.onTimeAxisChange()
@@ -759,16 +774,20 @@ class Column extends BaseColumn {
      * @param {...any} args
      */
     destroy(...args) {
+        const axis = this.timeAxis, store = this.eventStore, header = this.headerComponent;
         this.#axisCleanups.forEach(cleanup => cleanup());
         this.#axisCleanups = [];
 
         this.#gridCleanups.forEach(cleanup => cleanup());
         this.#gridCleanups = [];
 
-        this.#storeCleanups.forEach(cleanup => cleanup());
-        this.#storeCleanups = [];
+        this.#unbindEventStore?.();
+        this.#unbindEventStore = null;
 
-        super.destroy(...args)
+        if (axis && this.#ownedAxes.has(axis) && header?.timeAxis === axis) header.timeAxis = null;
+        super.destroy(...args);
+        if (axis && this.#ownedAxes.has(axis)) axis.destroy();
+        if (store && this.#ownedStores.has(store)) store.destroy()
     }
 
     /**
@@ -847,7 +866,7 @@ class Column extends BaseColumn {
     }
 
     /**
-     * @summary Computes the positioned, lane-packed bar descriptors for `record` intersecting `[visibleStart, visibleEnd]`.
+     * @summary Packs the row across the axis, then returns bars intersecting the visible window.
      * @param {Object} record Resource or inline event row record
      * @param {Date} [visibleStart]
      * @param {Date} [visibleEnd]
@@ -879,21 +898,15 @@ class Column extends BaseColumn {
 
         if (me.eventStore) {
             rawEvents = typeof me.eventStore.getRangeRecords === 'function'
-                ? me.eventStore.getRangeRecords(range.visibleStart, range.visibleEnd, resourceId)
-                : EventStore.getRangeRecords(me.eventStore, range.visibleStart, range.visibleEnd, resourceId)
+                ? me.eventStore.getRangeRecords(timeAxis.start, timeAxis.end, resourceId)
+                : EventStore.getRangeRecords(me.eventStore, timeAxis.start, timeAxis.end, resourceId)
         } else {
             const
                 rawStart = record[me.startDateField] ?? record.get?.(me.startDateField),
                 rawEnd   = record[me.endDateField]   ?? record.get?.(me.endDateField);
 
             if (rawStart != null && rawEnd != null) {
-                const
-                    startDate = rawStart instanceof Date ? rawStart : new Date(rawStart),
-                    endDate   = rawEnd   instanceof Date ? rawEnd   : new Date(rawEnd);
-
-                if (endDate.getTime() > visStartMs && startDate.getTime() < visEndMs) {
-                    rawEvents = [record]
-                }
+                rawEvents = [record]
             }
         }
 
@@ -921,10 +934,18 @@ class Column extends BaseColumn {
             }
 
             const
-                startDate      = rawStart instanceof Date ? rawStart : new Date(rawStart),
-                endDate        = rawEnd   instanceof Date ? rawEnd   : new Date(rawEnd),
-                clampedStartMs = Math.max(axisStart, Math.min(axisEnd, startDate.getTime())),
-                clampedEndMs   = Math.max(clampedStartMs, Math.min(axisEnd, endDate.getTime())),
+                startDate = rawStart instanceof Date ? rawStart : new Date(rawStart),
+                endDate   = rawEnd   instanceof Date ? rawEnd   : new Date(rawEnd),
+                startMs   = startDate.getTime(),
+                endMs     = endDate.getTime();
+
+            if (!EventStore.intersectsRange(startMs, endMs, visStartMs, visEndMs)) {
+                continue
+            }
+
+            const
+                clampedStartMs = Math.max(axisStart, Math.min(axisEnd, startMs)),
+                clampedEndMs   = Math.max(clampedStartMs, Math.min(axisEnd, endMs)),
                 left           = timeAxis.dateToOffset(clampedStartMs),
                 right          = timeAxis.dateToOffset(clampedEndMs),
                 width          = Math.max(minWidth, right - left),

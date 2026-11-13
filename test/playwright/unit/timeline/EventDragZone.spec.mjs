@@ -35,6 +35,23 @@ test.describe('Neo.timeline.draggable.EventDragZone', () => {
         }
     });
 
+    test('matches DOM resource keys to numeric model keys and keeps empty distinct from absent', () => {
+        const commits = [];
+        const zone    = Neo.create(EventDragZone, {
+            appName, eventRecord: {resourceId: 7},
+            owner: {commitTimelineEdit: (item, changes) => { commits.push(changes); return changes }}
+        });
+        try {
+            zone.pendingDrop = {startDate: new Date(0), endDate: new Date(1), resourceId: '7'};
+            zone.dragEnd();
+            expect(commits[0]).not.toHaveProperty('resourceId');
+            zone.eventRecord = {resourceId: null};
+            zone.pendingDrop = {startDate: new Date(0), endDate: new Date(1), resourceId: ''};
+            zone.dragEnd();
+            expect(commits[1].resourceId).toBe('')
+        } finally { zone.destroy() }
+    });
+
     test('extends Neo.draggable.DragZone, runs base DragZone#dragStart, and commits one reactive record.set on drop', async () => {
         expect(core.Base.prototype.isPrototypeOf(EventDragZone.prototype)).toBe(true);
         expect(DragZone.prototype.isPrototypeOf(EventDragZone.prototype)).toBe(true);

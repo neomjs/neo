@@ -400,7 +400,7 @@ class TimeAxis extends Base {
     }
 
     /**
-     * Total span of `[start, end]` in milliseconds (`>= 0`).
+     * @summary Returns the nonnegative duration of the axis in milliseconds.
      * @returns {Number}
      */
     get totalMs() {
@@ -408,7 +408,7 @@ class TimeAxis extends Base {
     }
 
     /**
-     * Total span of `[start, end]` in minutes (`>= 0`).
+     * @summary Returns the axis duration in minutes.
      * @returns {Number}
      */
     get totalMinutes() {
@@ -416,7 +416,7 @@ class TimeAxis extends Base {
     }
 
     /**
-     * Effective scale in pixels per minute, derived from `size` when set or `pxPerMinute` otherwise.
+     * @summary Resolves pixels per minute from the configured size or explicit scale.
      * @returns {Number}
      */
     get effectivePxPerMinute() {
@@ -428,7 +428,7 @@ class TimeAxis extends Base {
     }
 
     /**
-     * Scale factor in pixels per millisecond.
+     * @summary Returns the scale used to convert millisecond intervals to pixel offsets.
      * @returns {Number}
      */
     get pxPerMs() {
@@ -436,7 +436,7 @@ class TimeAxis extends Base {
     }
 
     /**
-     * Total pixel span across `[start, end]`.
+     * @summary Returns the width of the complete axis in pixels.
      * @returns {Number}
      */
     get totalSize() {

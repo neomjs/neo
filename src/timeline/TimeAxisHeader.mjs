@@ -182,6 +182,9 @@ class TimeAxisHeader extends Component {
      */
     #axisCleanups = []
 
+    /** @type {WeakSet<Neo.timeline.TimeAxis>} */
+    #ownedAxes = new WeakSet()
+
     /**
      * Cleanup functions for active parent `headerToolbar` / `gridContainer` config subscriptions.
      * @member {Function[]} #gridCleanups=[]
@@ -211,7 +214,7 @@ class TimeAxisHeader extends Component {
     #projectedMinPx = 0
 
     /**
-     * Effective center viewport width in pixels.
+     * @summary Returns the visible width of the timeline header between the locked grid bodies.
      * @returns {Number}
      */
     get effectiveViewportWidth() {
@@ -243,7 +246,9 @@ class TimeAxisHeader extends Component {
         if (!value) {
             return null
         }
-        return ClassSystemUtil.beforeSetInstance(value, TimeAxis)
+        const axis = ClassSystemUtil.beforeSetInstance(value, TimeAxis);
+        if (axis !== value) this.#ownedAxes.add(axis);
+        return axis
     }
 
     /**
@@ -378,9 +383,22 @@ class TimeAxisHeader extends Component {
             }
         }
 
+        if (oldValue && oldValue !== value && me.#ownedAxes.has(oldValue)) oldValue.destroy();
+
         if (me.isConstructed) {
             me.project()
         }
+    }
+
+    /** @summary Releases subscriptions and an axis created by this header. */
+    destroy(...args) {
+        const axis = this.timeAxis;
+        this.#axisCleanups.forEach(cleanup => cleanup());
+        this.#axisCleanups = [];
+        this.#gridCleanups.forEach(cleanup => cleanup());
+        this.#gridCleanups = [];
+        super.destroy(...args);
+        if (axis && this.#ownedAxes.has(axis)) axis.destroy()
     }
 
     /**
