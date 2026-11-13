@@ -834,11 +834,12 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     * @summary Keeps the ScrollManager realm aligned on initial attachment and later window transfers.
+     * @summary Keeps the ScrollManager realm and the columns aligned on initial attachment and later window transfers.
      *
      * Grids can be constructed while detached, so their first real `windowId` transition is
      * `null` → id. Forwarding only when `oldValue` was truthy left the ScrollManager permanently
      * windowless and routed its main-thread addon registrations through the first-port fallback.
+     * Columns are not components, so no container cascade reaches them; each loads its theme files when its id arrives.
      * Triggered after the windowId config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
@@ -848,6 +849,8 @@ class GridContainer extends BaseContainer {
         super.afterSetWindowId(value, oldValue);
 
         let {scrollManager} = this;
+
+        this._columns?.items?.forEach(column => {column.windowId = value});
 
         if (scrollManager) {
             scrollManager.windowId = value
