@@ -93,6 +93,7 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'rendering/ContextMenuNL.spec.mjs',
     'rendering/DeltaCoherenceRegistryNL.spec.mjs',
     'rendering/FocusHistoryMultiWindowNL.spec.mjs',
+    'rendering/GraphScene.spec.mjs',
     'rendering/MarkdownStreamingCoherenceNL.spec.mjs',
     'rendering/NativeSelectNL.spec.mjs',
     'rendering/NestedComponentsNL.spec.mjs',
