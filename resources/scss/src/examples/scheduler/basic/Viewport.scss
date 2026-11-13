@@ -1,0 +1,37 @@
+.studio-toolbar.neo-toolbar {
+    align-items: center;
+    gap: 12px;
+    min-height: 76px;
+    padding: 12px 24px;
+    background: var(--studio-header-bg);
+    border-bottom: 1px solid var(--studio-border);
+
+    .studio-title { color: var(--studio-title); font-size: 19px; font-weight: 700; letter-spacing: -.02em; margin-left: 20px; }
+    .studio-date { color: var(--studio-muted); font-size: 13px; }
+    .studio-save-status { color: var(--studio-muted); font-size: 12px; }
+    .studio-zoom {
+        --button-text-color: var(--studio-muted);
+        --button-text-color-hover: var(--studio-title);
+        --button-text-color-active: var(--studio-title);
+        --button-background-color-hover: var(--studio-hover-bg);
+        --button-border-hover: 1px solid var(--studio-border);
+        background: var(--studio-control-bg);
+        border: 1px solid var(--studio-border);
+        border-radius: 0;
+        color: var(--studio-muted);
+        min-height: 34px;
+        min-width: 54px;
+        padding: 0 12px;
+
+        &.pressed {
+            --button-text-color: var(--studio-selected-text);
+            --button-text-color-hover: var(--studio-selected-text);
+            --button-text-color-active: var(--studio-selected-text);
+            --button-background-color-hover: var(--studio-selected-bg);
+            background: var(--studio-selected-bg);
+        }
+        &:focus-visible { outline: 2px solid var(--studio-focus); outline-offset: 2px; }
+    }
+    .studio-zoom-first { border-radius: 6px 0 0 6px; margin-right: -12px; }
+    .studio-zoom-last { border-radius: 0 6px 6px 0; }
+}

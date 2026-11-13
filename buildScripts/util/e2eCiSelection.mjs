@@ -69,6 +69,7 @@ export const RUN_PATHS = [
     'test/playwright/e2e/rendering/TooltipMountFlightNL.spec.mjs',
     'test/playwright/e2e/rendering/ViewTransitionReveal.spec.mjs',
     'test/playwright/e2e/rendering/YieldedMoveCoalescingNL.spec.mjs',
+    'test/playwright/e2e/scheduler',
     'test/playwright/e2e/tab',
     'test/playwright/e2e/table',
     'test/playwright/e2e/workstation/DockSplitterZoneIdNL.spec.mjs',

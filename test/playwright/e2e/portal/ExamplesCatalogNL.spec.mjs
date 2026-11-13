@@ -108,7 +108,7 @@ test.describe('Portal example catalog', () => {
         await page.goto(`${PORTAL}#/examples`);
         const app = await neuralLink.connectToApp('Portal');
 
-        await expect(page.getByRole('tab')).toHaveText(['Featured', 'Grid & Table', 'Forms']);
+        await expect(page.getByRole('tab')).toHaveText(['Featured', 'Grid & Table', 'Forms', 'Calendar']);
         const matches = await app.queryComponent({className: 'Portal.view.examples.TabContainer'}, ['id', 'activeIndex']);
         const view    = Array.isArray(matches) ? matches[0] : matches;
         const sources = await app.queryComponent({className: 'Portal.view.examples.List'}, ['store']);
@@ -126,7 +126,7 @@ test.describe('Portal example catalog', () => {
             await expect.poll(async () => {
                 const lists = await app.queryComponent({className: 'Portal.view.examples.List'}, ['catalogMode']);
                 return lists.map(item => item.properties.catalogMode)
-            }).toEqual([mode, mode, mode]);
+            }).toEqual([mode, mode, mode, mode]);
             await expect(page.locator('.portal-examples-list:visible').getByRole('link', {name: 'Workstation', exact: true}))
                 .toHaveAttribute('href', `https://neomjs.com/${prefix}apps/workstation/index.html`);
 
@@ -136,14 +136,17 @@ test.describe('Portal example catalog', () => {
             await page.getByRole('tab', {name: 'Featured', exact: true}).click()
         }
 
+        await page.goto(`${PORTAL}#/examples/calendar`);
+        await expect(page.locator(FAMILY).getByRole('link', {name: 'Studio Bookings', exact: true})).toBeVisible();
+
         await page.goto(`${PORTAL}#/examples/forms`);
-        await expect(page.getByRole('tab')).toHaveText(['Featured', 'Grid & Table', 'Forms']);
+        await expect(page.getByRole('tab')).toHaveText(['Featured', 'Grid & Table', 'Forms', 'Calendar']);
         await expect(page.locator(`${FAMILY} .portal-example-feature`)).toHaveCount(24);
         const forms = await app.getComponent(view.id, ['activeIndex']);
         expect(forms.activeIndex).toBe(2);
 
         await page.goto(`${PORTAL}#/examples/unknown`);
-        await expect(page.getByRole('tab')).toHaveText(['Featured', 'Grid & Table', 'Forms']);
+        await expect(page.getByRole('tab')).toHaveText(['Featured', 'Grid & Table', 'Forms', 'Calendar']);
         await expect(page.locator('.portal-examples-list:visible').getByRole('link', {name: 'Workstation', exact: true})).toBeVisible();
         const current = await app.getComponent(view.id, ['activeIndex']);
         expect(current.activeIndex).toBe(0)
@@ -161,7 +164,7 @@ test.describe('Portal example catalog', () => {
                 await expect(page.locator(`.neo-viewport.${theme}`)).toBeVisible();
 
                 if (captureFeatured) {
-                    await expect(page.getByRole('tab')).toHaveText(['Featured', 'Grid & Table', 'Forms']);
+                    await expect(page.getByRole('tab')).toHaveText(['Featured', 'Grid & Table', 'Forms', 'Calendar']);
                     const selectors = await app.queryComponent({reference: 'example-build-selector'}, ['id']);
                     const selector  = page.locator('.portal-examples-build-selector');
                     await expect(selector).toHaveAttribute('id', selectors[0].id);
