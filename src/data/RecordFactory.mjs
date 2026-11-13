@@ -145,11 +145,7 @@ class RecordFactory extends Base {
                             return this[dataSymbol][fieldName]
                         },
                         set(value) {
-                            this.notifyChange({
-                                fields: {[fieldPath]: instance.parseRecordValue({record: this, field, value})},
-                                model,
-                                record: this
-                            })
+                            this.notifyChange({fields: {[fieldPath]: value}, model, record: this})
                         }
                     }
                 }
