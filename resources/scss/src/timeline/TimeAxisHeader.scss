@@ -1,0 +1,61 @@
+// Neo.timeline.TimeAxisHeader: two-tier horizontal time scale inside Neo.grid.header.Toolbar.
+// Renders only viewport-visible major and minor ticks positioned at their exact TimeAxis offsets.
+.neo-timeline-header.neo-grid-header-button {
+    background    : var(--neo-timeline-header-background);
+    border-bottom : 1px solid var(--neo-timeline-border-color);
+    box-sizing    : border-box;
+    color         : var(--neo-timeline-header-color);
+    display       : flex;
+    flex-direction: column;
+    height        : var(--neo-timeline-header-height, 44px);
+    overflow      : hidden;
+    padding       : 0;
+    position      : relative;
+    user-select   : none;
+
+    .neo-timeline-header-row {
+        box-sizing: border-box;
+        flex      : 1 1 50%;
+        overflow  : hidden;
+        position  : relative;
+        width     : 100%;
+    }
+
+    .neo-timeline-header-major {
+        border-bottom: 1px solid var(--neo-timeline-border-color);
+        font-size    : 11px;
+        font-weight  : 600;
+    }
+
+    .neo-timeline-header-minor {
+        color    : var(--neo-timeline-header-muted-color);
+        font-size: 11px;
+    }
+
+    .neo-timeline-non-working {
+        background    : var(--neo-timeline-non-working-bg);
+        border-left   : 1px solid var(--neo-timeline-non-working-border);
+        border-right  : 1px solid var(--neo-timeline-non-working-border);
+        bottom        : 0;
+        box-sizing    : border-box;
+        pointer-events: none;
+        position      : absolute;
+        top           : 0;
+        z-index       : 0;
+    }
+
+    .neo-timeline-tick {
+        align-items  : center;
+        border-right : 1px solid var(--neo-timeline-tick-border-color);
+        bottom       : 0;
+        box-sizing   : border-box;
+        display      : flex;
+        overflow     : hidden;
+        padding      : 0 6px;
+        position     : absolute;
+        text-overflow: ellipsis;
+        top          : 0;
+        white-space  : nowrap;
+        z-index      : 1;
+    }
+}

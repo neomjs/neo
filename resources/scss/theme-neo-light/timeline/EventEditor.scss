@@ -1,0 +1,13 @@
+:where(.neo-theme-neo-light) { // .neo-timeline-event-editor
+    --neo-timeline-editor-width                : 440px;
+    --neo-timeline-editor-background           : #ffffff;
+    --neo-timeline-editor-border-color         : #d5dbe3;
+    --neo-timeline-editor-color                : #111827;
+    --neo-timeline-editor-radius               : 8px;
+    --neo-timeline-editor-shadow               : 0 12px 32px rgba(15, 23, 42, 0.16);
+    --neo-timeline-editor-font-family          : system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --neo-timeline-editor-font-size            : 14px;
+    --neo-timeline-editor-accent-color         : #0f9f8f;
+    --neo-timeline-editor-accent-contrast-color: #ffffff;
+    --neo-timeline-editor-cancel-background    : #dde3ea;
+}
