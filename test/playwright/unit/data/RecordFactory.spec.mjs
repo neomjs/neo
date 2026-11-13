@@ -191,6 +191,53 @@ test.describe('Neo.data.RecordFactory', () => {
         expect(record.version).toBe(0);
     });
 
+    test('a field setter converts the assigned value once, like record.set() (#20848)', () => {
+        const schema = Neo.create(Model, {fields: [
+            {name: 'id'},
+            {name: 'ms', convert: value => value * 1000},
+            {name: 'address', fields: [{name: 'zip', convert: value => value * 10}]}
+        ]});
+        const store = Neo.create(Store, {model: schema, data: ['setter', 'set'].map(id =>
+            ({id, ms: 1, address: {zip: 1}}))});
+        const setter = store.get('setter'), other = store.get('set'), seen = new Map();
+        store.on('recordChange', ({record, fields}) => seen.set(record.id, fields));
+
+        setter.ms = 4;
+        other.set({ms: 4});
+        expect([setter.ms, other.ms]).toEqual([4000, 4000]);
+        expect(seen.get('setter')).toEqual([{name: 'ms', oldValue: 1000, value: 4000}]);
+        expect(seen.get('setter')).toEqual(seen.get('set'));
+
+        seen.clear();
+        setter['address.zip'] = 4;
+        other.set({address: {zip: 4}});
+        expect([setter.get('address.zip'), other.get('address.zip')]).toEqual([40, 40]);
+        expect(seen.get('setter')).toEqual([{name: 'address.zip', oldValue: 10, value: 40}]);
+        expect(seen.get('setter')).toEqual(seen.get('set'));
+        store.destroy()
+    });
+
+    test('a field setter still leaves the record unchanged for a refused value (#20848)', () => {
+        const schema = Neo.create(Model, {fields: [
+            {name: 'id'},
+            {name: 'ms',    convert: value => value * 1000, maxLength: 7},
+            {name: 'code',  minLength: 2},
+            {name: 'owner', nullable: false}
+        ]});
+        const store  = Neo.create(Store, {model: schema, data: [{id: 'a', ms: 1, code: 'ab', owner: 'me'}]});
+        const record = store.get('a'), seen = [];
+        store.on('recordChange', ({fields}) => seen.push(fields));
+        const before = {data: record.toJSON(), version: record.version};
+
+        record.ms    = 50000; // 50000000 is longer than maxLength
+        record.code  = 'x';
+        record.owner = null;
+
+        expect({data: record.toJSON(), version: record.version}).toEqual(before);
+        expect(seen).toEqual([]);
+        store.destroy()
+    });
+
     test('Record version increments on property change', () => {
         const record = RecordFactory.createRecord(model, {
             id  : '1',
