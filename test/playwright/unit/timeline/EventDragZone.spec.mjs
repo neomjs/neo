@@ -24,6 +24,16 @@ import EventStore     from '../../../../src/timeline/store/Events.mjs';
 import TimeAxis       from '../../../../src/timeline/TimeAxis.mjs';
 
 test.describe('Neo.timeline.draggable.EventDragZone', () => {
+    test('computes horizontal and vertical proxy geometry from the snapped interval', () => {
+        const axis = Neo.create(TimeAxis, {start: '2026-11-09T00:00Z', end: '2026-11-10T00:00Z', pxPerMinute: 1});
+        const zone = Neo.create(EventDragZone, {axis});
+        const next = {startDate: new Date('2026-11-09T02:00Z'), endDate: new Date('2026-11-09T05:00Z')};
+        try {
+            expect(zone.getDragProxyStyle(next, {})).toEqual({left: '120px', width: '180px'});
+            zone.orientation = 'vertical';
+            expect(zone.getDragProxyStyle(next, {})).toEqual({top: '120px', height: '180px'})
+        } finally { zone.destroy(); axis.destroy() }
+    });
     let setConfigsCalls = 0;
 
     test.beforeEach(() => {

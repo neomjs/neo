@@ -494,6 +494,8 @@
  "Neo.plugin.Resizable": "Neo.plugin.Base",
  "Neo.plugin.Responsive": "Neo.plugin.Base",
  "Neo.remotes.Api": "Neo.core.Base",
+ "Neo.scheduler.Container": "Neo.grid.Container",
+ "Neo.scheduler.EventDragZone": "Neo.timeline.draggable.EventDragZone",
  "Neo.selection.AccordionModel": "Neo.selection.Model",
  "Neo.selection.CircleModel": "Neo.selection.Model",
  "Neo.selection.DateSelectorModel": "Neo.selection.Model",
