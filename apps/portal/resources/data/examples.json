@@ -1121,6 +1121,23 @@
         "lookFor": "Open pages from the side navigation and step through their fields."
     },
     {
+        "id": "gantt-basic",
+        "image": null,
+        "name": "Community Garden Plan",
+        "sourceUrl": "examples/gantt/basic",
+        "urls": {
+            "devmode": "examples/gantt/basic/index.html",
+            "dist_dev": "dist/development/examples/gantt/basic/index.html",
+            "dist_esm": "dist/esm/examples/gantt/basic/index.html",
+            "dist_prod": "dist/production/examples/gantt/basic/index.html"
+        },
+        "hiddenIn": [],
+        "family": "calendar",
+        "component": "Gantt",
+        "feature": "A project plan with linked, editable tasks",
+        "lookFor": "Move a task and follow its dependencies. Create a link, then reload to see the saved plan."
+    },
+    {
         "id": "scheduler-basic",
         "image": null,
         "name": "Studio Bookings",
