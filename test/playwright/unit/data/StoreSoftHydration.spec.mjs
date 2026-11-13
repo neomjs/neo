@@ -2,10 +2,12 @@
  * @file test/playwright/unit/data/StoreSoftHydration.spec.mjs
  * @summary Pins Soft Hydration against the record of the same row: in Turbo Mode, `Neo.data.Store#resolveField()`
  * answers what the row's record holds, a second read answers what the first did, and a record created after any
- * read holds what an unread row's record holds.
+ * read holds what an unread row's record holds. A row of another shape derives and hydrates by the model
+ * `modelOf()` answers for it.
  *
  * Raw rows are read from `store._items`: `get()` and `getAt()` create the record.
  *
+ * @see Neo.data.Store#modelOf
  * @see Neo.data.Store#resolveField
  * @see Neo.data.RecordFactory#deriveRecordData
  */
@@ -18,6 +20,59 @@ import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
 import Model          from '../../../../src/data/Model.mjs';
 import Store          from '../../../../src/data/Store.mjs';
+import TreeModel      from '../../../../src/data/TreeModel.mjs';
+import TreeStore      from '../../../../src/data/TreeStore.mjs';
+
+/**
+ * A store whose rows marked `total` are of another shape: their fields hold computed totals, not data.
+ * @class Test.Unit.Data.StoreSoftHydration.ShapeStore
+ * @extends Neo.data.Store
+ */
+class ShapeStore extends Store {
+    static config = {
+        className: 'Test.Unit.Data.StoreSoftHydration.ShapeStore'
+    }
+
+    /**
+     * @member {Neo.data.Model|null} shape=null The model of the marked rows
+     */
+    shape = null
+
+    /**
+     * @param {Object|null} item
+     * @returns {Neo.data.Model}
+     */
+    modelOf(item) {
+        return item?.total ? this.shape : super.modelOf(item)
+    }
+}
+
+/**
+ * The same shape in a tree, whose maps hydration heals.
+ * @class Test.Unit.Data.StoreSoftHydration.ShapeTreeStore
+ * @extends Neo.data.TreeStore
+ */
+class ShapeTreeStore extends TreeStore {
+    static config = {
+        className: 'Test.Unit.Data.StoreSoftHydration.ShapeTreeStore'
+    }
+
+    /**
+     * @member {Neo.data.Model|null} shape=null The model of the marked rows
+     */
+    shape = null
+
+    /**
+     * @param {Object|null} item
+     * @returns {Neo.data.Model}
+     */
+    modelOf(item) {
+        return item?.total ? this.shape : super.modelOf(item)
+    }
+}
+
+Neo.setupClass(ShapeStore);
+Neo.setupClass(ShapeTreeStore);
 
 const
     // a parser: it cannot run on its own output
@@ -180,6 +235,113 @@ test.describe('Neo.data.Store Soft Hydration and the record of the same row', ()
 
         expect(store.resolveField(record, 'ms')).toBe(52000);
         expect(store.resolveField(record, 'ms')).toBe(52000);
-        expect(store.resolveField(record, 'geo')).toEqual({city: 'City 52'})
+        expect(store.resolveField(record, 'geo')).toEqual({city: 'City 52'});
+        expect(store.resolveField(record, 'geo.city')).toBe('City 52');
+        expect(store.resolveField(record, 'address')).toBe(undefined)
+    })
+});
+
+test.describe('Neo.data.Store#modelOf — a row of another shape', () => {
+    let owned;
+
+    test.beforeEach(() => owned = []);
+    test.afterEach(() => owned.reverse().forEach(instance => instance.destroy()));
+
+    // A leaf's fields parse their data; the marked row's fields hold computed totals and parse nothing.
+    // `count` is the marked row's alone, and its marker `total` is a field of neither model.
+    const
+        leafFields  = [{name: 'id', type: 'Integer'}, {name: 'p', type: 'Integer'}, {name: 'ms', convert: v => v * 1000}],
+        shapeFields = [{name: 'id', type: 'Integer'}, {name: 'p'}, {name: 'ms'}, {name: 'count'}],
+        rows        = () => [{id: 1, p: 2, ms: 1}, {id: 2, total: true, p: 2.5, ms: 3000, count: 4}];
+
+    /**
+     * @param {Boolean} autoInitRecords
+     * @returns {Promise<Test.Unit.Data.StoreSoftHydration.ShapeStore>}
+     */
+    const makeStore = async autoInitRecords => {
+        const shape = Neo.create(Model, {fields: shapeFields}),
+              store = Neo.create(ShapeStore, {autoInitRecords, model: {module: Model, fields: leafFields}, shape, data: rows()});
+
+        shape.storeId = store.id; // as the store's own model: a record's change reaches the store its model names
+        owned.push(shape, store);
+        await store.ready();
+        return store
+    };
+
+    test('without an override, every row is of the store\'s model', async () => {
+        const store = Neo.create(Store, {model: {module: Model, fields: leafFields}});
+
+        owned.push(store);
+        expect(store.modelOf({id: 1})).toBe(store.model);
+        expect(store.modelOf(null)).toBe(store.model)
+    });
+
+    test('Turbo Mode: a marked row reads, resolves and hydrates by its own model; a leaf by the store\'s', async () => {
+        const store = await makeStore(false), [leaf, total] = store._items;
+
+        expect(store.resolveField(total, 'ms')).toBe(3000);
+        expect(store.resolveRow(total, ['p', 'ms'])).toMatchObject({p: 2.5, ms: 3000});
+        expect(store.resolveField(leaf, 'ms')).toBe(1000);
+        expect(store.resolveRow(leaf, ['p'])).toMatchObject({p: 2});
+
+        const record = store.get(2);
+
+        expect(record.isRecord).toBe(true);
+        expect([record.p, record.ms]).toEqual([2.5, 3000]);
+        expect([store.get(1).p, store.get(1).ms]).toEqual([2, 1000])
+    });
+
+    test('with records, a marked row is created as a record of its own model', async () => {
+        const store = await makeStore(true);
+
+        expect([store.get(2).p, store.get(2).ms]).toEqual([2.5, 3000]);
+        expect([store.get(1).p, store.get(1).ms]).toEqual([2, 1000]);
+        expect(store.resolveField(store.get(2), 'count')).toBe(4)
+    });
+
+    test('a record answers its own fields: the store never asks which model a record is of', async () => {
+        const store = await makeStore(false), total = store._items[1], asked = [];
+
+        expect(store.resolveField(total, 'count')).toBe(4);
+        expect(store.resolveRow(total, ['count']).count).toBe(4);
+
+        const record = store.get(2), modelOf = store.modelOf;
+
+        store.modelOf = item => (asked.push(item), modelOf.call(store, item));
+
+        expect([record.count, record.get('count'), store.resolveField(record, 'count')]).toEqual([4, 4, 4]);
+        expect(store.resolveField(record, 'ms')).toBe(3000);
+        expect(store.resolveRow(record, ['count'])).toBe(record);
+        expect(store.resolveRow(null, ['count'])).toBe(null);
+        expect(asked).toEqual([])
+    });
+
+    test('a write to a marked record reaches the store its model names', async () => {
+        const store = await makeStore(true), heard = [];
+
+        store.on('recordChange', ({fields, model, record}) => heard.push([model === store.shape, record.id, fields[0].name, fields[0].value]));
+        store.get(2).count = 5;
+
+        expect(heard).toEqual([[true, 2, 'count', 5]])
+    });
+
+    test('a tree heals its maps for a marked node hydrated by its own model', async () => {
+        const shape = Neo.create(TreeModel, {fields: [{name: 'p'}]}),
+              tree  = Neo.create(ShapeTreeStore, {
+                  autoInitRecords: false,
+                  model          : {module: TreeModel, fields: [{name: 'p', type: 'Integer'}]},
+                  shape,
+                  data           : [{id: 'g', isLeaf: false, p: 2.5, parentId: null, total: true}, {id: 'a', isLeaf: true, p: 2, parentId: 'g'}]
+              });
+
+        owned.push(shape, tree);
+        await tree.ready();
+
+        const [group] = tree.getChildren('root');
+
+        expect(group.p).toBe(2.5);
+        expect(tree.getChildren('root')[0]).toBe(group);
+        expect(tree.get('g').p).toBe(2.5);
+        expect(tree.getChildren('g')[0].p).toBe(2)
     })
 });

@@ -728,7 +728,8 @@ class Store extends Collection {
     }
 
     /**
-     * @summary Converts raw data object(s) into `Neo.data.Record` instance(s), stamping missing keys with `this.keyPropertyIndex--`.
+     * @summary Converts raw data object(s) into `Neo.data.Record` instance(s) of each row's model (`modelOf()`),
+     * stamping missing keys with `this.keyPropertyIndex--`.
      * @param {Object|Object[]} config
      * @returns {Neo.data.Record|Neo.data.Record[]} Array in case an array was passed
      */
@@ -761,7 +762,7 @@ class Store extends Collection {
                         }
                     }
 
-                    config[i] = RecordFactory.createRecord(me.model, item)
+                    config[i] = RecordFactory.createRecord(me.modelOf(item), item)
                 }
             }
         }
@@ -1043,7 +1044,8 @@ class Store extends Collection {
     }
 
     /**
-     * @summary Lazily instantiates a raw data object into a `Neo.data.Record` instance and heals internal maps.
+     * @summary Lazily instantiates a raw data object into a `Neo.data.Record` instance of its model (`modelOf()`)
+     * and heals internal maps.
      * @param {Object} item The raw data object or Record
      * @param {Number} [index] Optional index in the items array (for performance)
      * @returns {Neo.data.Record|Object|null} The hydrated Record (or original item if already a record or null)
@@ -1055,7 +1057,7 @@ class Store extends Collection {
         if (item && !RecordFactory.isRecord(item)) {
             const
                 rawKey = me.getKey(item),
-                record = RecordFactory.createRecord(me.model, item),
+                record = RecordFactory.createRecord(me.modelOf(item), item),
                 pk     = me.getKey(record); // Use the actual PK from the record
 
             // For get(), index is omitted, so we find it. For getAt(), we pass it in.
@@ -1394,6 +1396,22 @@ class Store extends Collection {
                 return null
             }
         }
+    }
+
+    /**
+     * @summary The model a raw row derives its fields from and becomes a record of: `this.model`, unless a subclass
+     * holds rows of another shape. A store that projects rows of its own, such as a group whose fields hold
+     * aggregates, answers those with their own model, so the leaf fields' `calculate`, `convert`, `mapping` and
+     * `type` never parse them. `createRecord()`, `hydrateRecord()`, `resolveField()` and `resolveRow()` ask it, for
+     * a raw row only: a record owns its fields, so an override may tell its rows apart by raw data alone. A model
+     * an override answers names this store (`storeId`), as `this.model` does: a record's change reaches the store
+     * its model names, and no other.
+     * @param {Object|null} item A raw row
+     * @returns {Neo.data.Model}
+     * @protected
+     */
+    modelOf(item) {
+        return this.model
     }
 
     /**
@@ -1756,8 +1774,9 @@ class Store extends Collection {
     }
 
     /**
-     * @summary Resolves a field of a raw Turbo Mode row to the value the row's record will hold, and keeps it on
-     * the row under the field's name, where sorters and filters read it (Soft Hydration).
+     * @summary Resolves a field of a raw Turbo Mode row, by the row's model (`modelOf()`), to the value the row's
+     * record will hold, and keeps it on the row under the field's name, where sorters and filters read it (Soft
+     * Hydration).
      *
      * The value is the field's `calculate`, or its datum in `Neo.data.RecordFactory#deriveRecordData()` passed
      * through `parseRecordValue()` (convert, type). A field kept on the row answers the kept value, so a second call
@@ -1784,18 +1803,23 @@ class Store extends Collection {
      * @protected
      */
     resolveField(item, fieldName) {
+        // a record owns its fields: a name it holds answers itself, any other reads as a path through it
+        if (RecordFactory.isRecord(item)) {
+            return typeof fieldName === 'string' && !(fieldName in item) ? Neo.ns(fieldName, false, item) : item[fieldName]
+        }
+
         let me    = this,
-            field = me.model.getField(fieldName),
-            isRaw = !RecordFactory.isRecord(item),
+            model = me.modelOf(item),
+            field = model.getField(fieldName),
             entry, map, value;
 
         if (!field) {
             if (typeof fieldName === 'string' && fieldName.includes('.')) {
                 let rootField = fieldName.split('.')[0],
-                    root      = me.model.getField(rootField);
+                    root      = model.getField(rootField);
 
                 // a path reads through its root's value, also when the row holds a converted or calculated root
-                if (isRaw && root && (!Object.hasOwn(item, rootField) || root.convert || root.calculate)) {
+                if (root && (!Object.hasOwn(item, rootField) || root.convert || root.calculate)) {
                     me.resolveField(item, rootField)
                 }
 
@@ -1803,10 +1827,6 @@ class Store extends Collection {
             }
 
             return undefined
-        }
-
-        if (!isRaw) {
-            return item[fieldName]
         }
 
         map   = item[ownValuesSymbol];
@@ -1826,7 +1846,7 @@ class Store extends Collection {
         map = item[ownValuesSymbol]; // `depends` may have written one
 
         value = field.calculate ? field.calculate(item) :
-            RecordFactory.deriveFieldValue(RecordFactory.deriveRecordData(item, me.model), field, fieldName);
+            RecordFactory.deriveFieldValue(RecordFactory.deriveRecordData(item, model), field, fieldName);
 
         if (!fieldName.includes('.') || field.calculate || field.convert || field.mapping || Object.hasOwn(field, 'defaultValue')) {
             entry = [Object.hasOwn(item, fieldName) ? item[fieldName] : noValueSymbol, value];
@@ -1840,7 +1860,8 @@ class Store extends Collection {
     }
 
     /**
-     * @summary Resolves model fields for a raw row on a copy, leaving the store's row unchanged.
+     * @summary Resolves model fields for a raw row on a copy, by the row's model (`modelOf()`), leaving the store's
+     * row unchanged.
      * Each name that is a model field, or a dotted path below one (resolved through its root field), gets the value
      * the row's record holds. Every value derives from the row's own data, so the order of the names never matters.
      * Nested objects on a written path are copied. A record, a missing row and a row asked for no model field are
@@ -1851,10 +1872,10 @@ class Store extends Collection {
      */
     resolveRow(item, fieldNames) {
         let me    = this,
-            model = me.model,
+            model = item && !RecordFactory.isRecord(item) && me.modelOf(item),
             own, recordData, resolvedItem;
 
-        if (!item || !model || RecordFactory.isRecord(item)) {
+        if (!model) {
             return item
         }
 
