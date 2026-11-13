@@ -812,7 +812,7 @@
         "family": "forms",
         "component": "FileUploadField",
         "feature": "A file upload field wired to upload, status, download and delete endpoints",
-        "lookFor": "Choose a file and watch it stage on the field with its progress wiring.",
+        "lookFor": "Choose a file and watch it stage on the field; the upload itself needs the local test server (see scope).",
         "scope": "The upload, status and delete endpoints expect the local test server on 127.0.0.1:3000."
     },
     {
