@@ -1422,6 +1422,99 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         expect(plugin.remountArming, 'the latch stays untouched').toBe(false)
     });
 
+    test('initial floating mount remains single while themes are loading and a retired control cannot displace its replacement', async () => {
+        const plugin = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]);
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        const worker   = Neo.currentWorker, callbacks = [], controls = [], originalCreate = Neo.create,
+            originalOn = worker.on, originalCount = worker.countLoadingThemeFiles, originalMode = Neo.config.unitTestMode,
+            hidden     = [{text: 'Agents', index: 0}], tab = {activeIndex: 0};
+        worker.countLoadingThemeFiles = 1;
+        worker.on = (event, callback) => {
+            if (event === 'themeFilesLoaded') callbacks.push(callback)
+        };
+        Neo.create = (config, ...args) => {
+            if (!config?.cls?.includes('neo-tab-overflow-control')) return originalCreate(config, ...args);
+            const control = originalCreate(Component, {appName: 'test-app', parentId: 'document.body', windowId: 1,
+                autoMount: true});
+            controls.push(control);
+            if (config.autoInitVnode) control.initVnode();
+            return control
+        };
+
+        try {
+            Neo.config.unitTestMode = false;
+            plugin.syncControl(hidden, tab);
+            plugin.syncControl(hidden, tab);
+            expect(callbacks, 'initial creation and repeated projection share one mount attempt').toHaveLength(1);
+
+            const retired = plugin.control;
+            plugin.syncControl([], tab);
+            plugin.syncControl(hidden, tab);
+            const replacement = plugin.control;
+            expect(replacement).not.toBe(retired);
+            expect(callbacks, 'replacement has its own one attempt').toHaveLength(2);
+            Neo.config.unitTestMode = originalMode;
+            worker.countLoadingThemeFiles = 0;
+            callbacks[0]();
+            await new Promise(resolve => setTimeout(resolve, 0));
+            expect(plugin.control, 'settling the retired mount keeps the replacement').toBe(replacement);
+            expect(retired.isDestroyed, 'the retired control is released after its mount settles').toBe(true)
+        } finally {
+            Neo.config.unitTestMode = originalMode;
+            Neo.create = originalCreate;
+            worker.on = originalOn;
+            worker.countLoadingThemeFiles = originalCount;
+            plugin.destroy();
+            controls.forEach(control => !control.isDestroyed && control.destroy())
+        }
+    });
+
+    test('retiring a floating control during insertion removes its late node without affecting its replacement', async () => {
+        const plugin = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]);
+        await new Promise(resolve => setTimeout(resolve, 0));
+        const originalCreate = Neo.create, controls = [], live = new Set(), hidden = [{text: 'Agents', index: 0}],
+            tab              = {activeIndex: 0};
+        Neo.create = (config, ...args) => {
+            if (!config?.cls?.includes('neo-tab-overflow-control')) return originalCreate(config, ...args);
+            const control = {
+                id: `control-${controls.length}`, mounted: false, isVnodeInitializing: false, isDestroyed: false,
+                addDomListeners() {}, alignTo() {},
+                initVnode() {
+                    this.attempts = (this.attempts || 0) + 1;
+                    return new Promise(resolve => { this.land = () => { live.add(this.id); this.mounted = true; resolve() } })
+                },
+                destroy() { this.isDestroyed = true; live.delete(this.id) }
+            };
+            controls.push(control);
+            if (config.autoInitVnode) control.initVnode();
+            return control
+        };
+
+        try {
+            plugin.syncControl(hidden, tab);
+            const retired = plugin.control;
+            plugin.syncControl(hidden, tab);
+            expect(retired.attempts, 'a held initial insertion is not repeated').toBe(1);
+            plugin.syncControl([], tab);
+            plugin.syncControl(hidden, tab);
+            const replacement = plugin.control;
+            expect(replacement).not.toBe(retired);
+            expect(replacement.attempts).toBe(1);
+            retired.land();
+            await new Promise(resolve => setTimeout(resolve, 0));
+            expect(retired.isDestroyed).toBe(true);
+            expect(live.has(retired.id), 'a retired insert leaves no orphan').toBe(false);
+            expect(plugin.control).toBe(replacement);
+            replacement.land();
+            await new Promise(resolve => setTimeout(resolve, 0));
+            expect([...live]).toEqual([replacement.id])
+        } finally {
+            Neo.create = originalCreate;
+            plugin.destroy()
+        }
+    });
+
     test('re-arm vs the REAL producer: a theme-file deferral holds the latch across syncs — no listener stacking (#16434)', async () => {
         // The deferred initVnode branch settles only when the re-entered attempt settles
         // (VdomLifecycle chains through the once-listener). The latch therefore spans the

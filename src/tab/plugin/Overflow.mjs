@@ -290,12 +290,14 @@ class Overflow extends Plugin {
      * @member {Boolean} queuedRecapture=false
      */
     queuedRecapture = false
-    /**
-     * A re-mount attempt for a transiently unmounted control is in flight — see `syncControl`.
-     * Prevents overlapping re-arms when syncs land faster than the mount round-trip settles.
-     * @member {Boolean} remountArming=false
-     */
-    remountArming = false
+    /** The floating controls whose initial mount or remount has yet to settle. */
+    #mountingControls = new WeakSet()
+
+    /** @summary Whether the current floating control has a pending mount. */
+    get remountArming() {
+        return this.#mountingControls.has(this.control)
+    }
+
     /**
      * A projection requested while the tab SortZone owned a gesture.
      * @member {Boolean} sortDragProjectionQueued=false
@@ -1591,7 +1593,7 @@ class Overflow extends Plugin {
                 me.menuRecaptureQueued    = false;
                 me.observedMenuList       = null;
                 // The measurement belongs to the torn-down embodiment; the next control re-measures.
-                control.destroy(true)
+                if (!me.#mountingControls.has(control)) control.destroy(true)
             }
             return
         }
@@ -1634,58 +1636,23 @@ class Overflow extends Plugin {
                 }
             }
 
-            // Re-arm a transiently unmounted control. A floating instance mounts once at
-            // create; any later unmount (a re-projection wave, a tour reset) previously
-            // ratcheted into a permanent wedge — every following sync only mutated menu
-            // items on the unmounted instance, and the overflow surface was gone for the
-            // document's lifetime. The mount path itself is starvation-proof (message-driven
-            // vnode create + insert; verified live in a fully hidden document), so
-            // re-attempting here makes the surface self-healing against any transient
-            // un-mounter. The latch bounds it to one in-flight attempt — which relies on
-            // initVnode's lifecycle contract: its promise settles only when the REAL attempt
-            // settles (a theme-file deferral chains through the re-entered attempt), and a
-            // rejection releases isVnodeInitializing before rethrowing, so the guard above
-            // re-opens and a later sync retries. The align follows only a successful mount
-            // (mirroring the sync-time re-align below).
             if (me.projectAsAction) {
                 if (me.control.hidden) {
                     me.control.hidden = false
                 } else if (me.control.vdom?.removeDom) {
                     me.control.show()
                 }
-            } else if (!me.control.mounted && !me.control.isVnodeInitializing && !me.remountArming) {
-                me.remountArming = true;
-
-                me.control.initVnode(true)
-                    .then(() => {
-                        const {control} = me;
-                        control && !control.isDestroyed && control.mounted && control.alignTo()
-                    })
-                    .catch(() => {})
-                    .finally(() => {
-                        me.remountArming = false
-                    })
             }
         } else {
-            // OUT-OF-COLLECTION mount: a floating button rooted directly at document.body, NOT a trailing
-            // toolbar item. Ordinary toolbar actions are members of `owner.items` but excluded through the
-            // tab toolbar's semantic subset; the independently mounted overflow embodiment stays outside
-            // both collections.
-            //
-            // `Neo.create` with `floating:true` + `parentId:'document.body'` roots at document.body directly
-            // (verified: `Container.createItem` is the only path that injects `parentId=owner.id`, and we
-            // bypass it). `parentComponent` restores logical TabContainer focus ancestry while the physical
-            // root stays on document.body. The `initVnode(true)` autoMount reaches the DOM via the merged
-            // hidden-document render-queue drain — before it, the insertNode reply parked behind a
-            // suspended requestAnimationFrame in an offscreen / hidden document.
+            // The toolbar owns focus ancestry; the floating button mounts under document.body.
+            // The same mount guard handles its first insertion and recovery after a later unmount.
             me.control = Neo.create({
                 module         : Button,
                 // Align to the main-axis slot immediately before actions (or the owner edge without actions).
                 // Without an align target a floating component stays at its off-screen default.
                 align        : me.getControlAlign(),
                 appName      : me.owner.appName,
-                autoInitVnode: true,
-                autoMount    : true,
+                autoInitVnode: false,
                 cls          : ['neo-tab-overflow-control'],
                 floating     : true,
                 iconCls      : me.getMainAxisConfig().dimension === 'height'
@@ -1722,10 +1689,33 @@ class Overflow extends Plugin {
                 ? 'fa fa-ellipsis-vertical'
                 : 'fa fa-ellipsis';
 
-            if (!me.projectAsAction && me.control.mounted) {
-                me.control.align = me.getControlAlign();
-                me.control.alignTo()
+            if (!me.projectAsAction) {
+                const control = me.control;
+                if (control.mounted) {
+                    control.align = me.getControlAlign();
+                    control.alignTo()
+                } else if (!control.isVnodeInitializing && !me.remountArming) {
+                    me.mountFloatingControl(control)
+                }
             }
+        }
+    }
+
+    /**
+     * @summary Mounts a floating control once across theme loading and DOM insertion.
+     * @param {Neo.button.Base} control The button owned by this projection.
+     */
+    async mountFloatingControl(control) {
+        this.#mountingControls.add(control);
+        try {
+            await control.initVnode(true);
+            if (this.control === control && control.mounted) control.alignTo()
+        } catch {
+            // The next projection retries a failed mount.
+        } finally {
+            this.#mountingControls.delete(control);
+            // A retired control can have an insert in flight; remove it after that insert settles.
+            if (this.control !== control && !control.isDestroyed) control.destroy(true)
         }
     }
 
@@ -1761,7 +1751,7 @@ class Overflow extends Plugin {
         if (me.control && !me.control.isDestroyed) {
             if (me.control.isToolbarActionContribution === true) {
                 me.owner.removeActionContribution(me.control)
-            } else {
+            } else if (!me.#mountingControls.has(me.control)) {
                 me.control.destroy(true)
             }
         }
