@@ -5,7 +5,7 @@ import * as Terser             from 'terser';
 import {BROWSER_BUNDLES}       from '../util/browserBundles.mjs';
 import {isDistAppAsset}        from '../util/distAppAssets.mjs';
 import {minifyHtml}            from '../util/minifyHtml.mjs';
-import {mainAddonPackageRoots} from '../util/mainAddonPackages.mjs';
+import {mainAddonPackageRoots} from '../util/declaredPackageRoots.mjs';
 import {processFileContent}    from '../util/astTemplateProcessor.mjs';
 
 import {

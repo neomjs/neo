@@ -78,8 +78,16 @@ class Canvas extends Base {
      * inside the package wherever it is installed. Every other path is app space, whose root a consumer
      * build rebases to its workspace, so a root shared with the engine renderers would lose them.
      *
+     * A renderer an installed package ships is addressed as `node_modules/<package>/<path>`, in development and
+     * in a build alike. It imports through the directory that holds the engine package, which is the
+     * workspace's `node_modules` once the engine is installed, so it loads only from a consumer workspace, never
+     * from the Engine repository itself. A build admits a package only for the directories its `package.json`
+     * names under `neo.canvasModules`, e.g. `"neo": {"canvasModules": ["src/canvas"]}`, and only while the
+     * workspace lists the package among its dependencies. Any other package path answers `{success: false}`.
+     *
      * @param {Object} data
-     * @param {String} data.path The path to the module to load (e.g., 'src/canvas/Header.mjs' or 'apps/MyApp/canvas/MyShape.mjs').
+     * @param {String} data.path The path to the module to load (e.g., 'src/canvas/Header.mjs',
+     * 'apps/MyApp/canvas/MyShape.mjs' or 'node_modules/my-charts/src/canvas/Sparkline.mjs').
      * @returns {Promise<Object>} {success: true, path} or {success: false, path, error}
      */
     async loadModule({path}) {
@@ -92,6 +100,13 @@ class Canvas extends Base {
                 await import(
                     /* webpackMode: "lazy" */
                     `../canvas/${path.slice(11)}.mjs`
+                )
+            } else if (path.startsWith('node_modules/')) {
+                await import(
+                    // Scans nothing in the Engine's own build; canvasModuleContextPlugin admits a consumer's declared roots
+                    /* webpackExclude: /[\s\S]/ */
+                    /* webpackMode: "lazy" */
+                    `../../../${path.slice(13)}.mjs`
                 )
             } else {
                 await import(

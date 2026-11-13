@@ -218,8 +218,9 @@ export const APP_EXPECTATIONS = [{
 
 /**
  * @summary What the Canvas worker's compile must reach: the engine renderers from the package (one a
- * consumer renderer extends) and a consumer renderer from app space. Matched without an end anchor,
- * because production concatenation names a renderer module `… + N modules`.
+ * consumer renderer extends), a consumer renderer from app space, and the renderer of an installed package
+ * that declares its worker modules, while a package that declares none stays out. Matched without an end
+ * anchor, because production concatenation names a renderer module `… + N modules`.
  * @type {Object[]}
  */
 export const CANVAS_EXPECTATIONS = [{
@@ -237,6 +238,16 @@ export const CANVAS_EXPECTATIONS = [{
     match  : /apps[/\\]probe[/\\]canvas[/\\]ProbeRenderer\.mjs\b/,
     present: true,
     because: 'a consumer-owned renderer must stay reachable through the rebased app-space root'
+}, {
+    file   : 'node_modules/neo-fixture-renderer/src/canvas/FixtureRenderer.mjs',
+    match  : /neo-fixture-renderer[/\\]src[/\\]canvas[/\\]FixtureRenderer\.mjs\b/,
+    present: true,
+    because: 'a package that names its canvas directory in its manifest under `neo.canvasModules` ships a renderer the Canvas worker must load'
+}, {
+    file   : 'node_modules/neo-fixture-plain/src/canvas/PlainRenderer.mjs',
+    match  : /neo-fixture-plain[/\\]src[/\\]canvas[/\\]PlainRenderer\.mjs\b/,
+    present: false,
+    because: 'a package that declares no worker modules stays outside every worker context'
 }, ...TEST_HARNESS_ABSENCE_EXPECTATIONS];
 
 /**
@@ -572,6 +583,40 @@ function removeMainAddonFixture(workspace) {
 }
 
 /**
+ * @summary Two packages installed beside the engine, each shipping a renderer in `src/canvas`: one declares
+ * that directory under `neo.canvasModules` in its manifest, the other declares nothing.
+ * @private
+ */
+const FIXTURE_PACKAGES = [
+    {name: 'neo-fixture-renderer', renderer: 'FixtureRenderer', neo: {canvasModules: ['src/canvas']}},
+    {name: 'neo-fixture-plain',    renderer: 'PlainRenderer'}
+];
+
+/**
+ * @summary Installs `FIXTURE_PACKAGES` and lists them as the workspace's dependencies.
+ *
+ * Runs after the fixture's last `npm install`, which prunes any package its manifest does not name.
+ * @param {String} workspace Consumer fixture root.
+ */
+function installFixturePackages(workspace) {
+    const manifestPath = path.join(workspace, 'package.json'),
+          manifest     = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+
+    for (const {name, neo, renderer} of FIXTURE_PACKAGES) {
+        const root = path.join(workspace, 'node_modules', name);
+
+        fs.mkdirSync(path.join(root, 'src/canvas'), {recursive: true});
+        fs.writeFileSync(path.join(root, 'package.json'),
+            JSON.stringify({name, version: '1.0.0', type: 'module', ...(neo && {neo})}, null, 4));
+        fs.writeFileSync(path.join(root, `src/canvas/${renderer}.mjs`), `export default class ${renderer} {}\n`);
+
+        manifest.dependencies = {...manifest.dependencies, [name]: '1.0.0'}
+    }
+
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 4))
+}
+
+/**
  * @summary Installs neutral Main-addon dependencies after npm's final pruning pass.
  * @description Main already owns Neo.core.Base. These real addon classes reuse that class graph, expose a browser
  * method through the usual Main-addon remote contract, and require no package-layout-specific Engine import.
@@ -621,7 +666,7 @@ function installMainPackageFixtures(workspace) {
  * store layout as well as a plain link.
  *
  * @param {String} workspace Consumer fixture root.
- * @param {String} [name='neo.mjs'] Installed Engine or Main-fixture package name.
+ * @param {String} [name='neo.mjs'] Installed Engine or fixture package name.
  * @returns {String} The package's real (linked) path.
  */
 function linkPackage(workspace, name='neo.mjs') {
@@ -759,6 +804,7 @@ async function main() {
         execFileSync('npm', ['install', '--include=dev', '--no-audit', '--no-fund', '--ignore-scripts'],
             {cwd: workspace, encoding: 'utf8', stdio: 'pipe'});
 
+        installFixturePackages(workspace);
         installMainPackageFixtures(workspace);
 
         console.log('check-consumer-runtime-build: generating browser dependencies from the consumer workspace…');
@@ -787,6 +833,7 @@ async function main() {
             for (const arm of ['installed', 'linked']) {
                 const packagePath = arm === 'linked' ? linkPackage(workspace) : undefined;
 
+                arm === 'linked' && FIXTURE_PACKAGES.forEach(({name}) => linkPackage(workspace, name));
                 arm === 'linked' && linkPackage(workspace, '@fixture/native-hooks');
                 removeMainAddonFixture(workspace);
 
@@ -852,7 +899,7 @@ async function main() {
             process.exit(1)
         }
 
-        console.log('\ncheck-consumer-runtime-build: OK — Data and Main preserve their consumer-owned contexts in both modes; Main admits only declared package addon roots and emits no absolute fixture paths; Canvas reaches the package\'s renderers and the consumer\'s; the App worker compiles the workspace\'s own app as a consumer in both layouts and every shipped app as the framework with the package installed; and the rest holds with the Engine and declaring Main package linked from pnpm-style real paths. The framework App arm runs installed only and is logged as skipped when linked.')
+        console.log('\ncheck-consumer-runtime-build: OK — Data and Main preserve their consumer-owned contexts in both modes; Main admits only declared package addon roots and emits no absolute fixture paths; Canvas reaches the Engine\'s renderers, the consumer\'s and those of a package that declares `neo.canvasModules`, while a package that declares nothing stays out; the App worker compiles the workspace\'s own app as a consumer in both layouts and every shipped app as the framework with the package installed; and the rest holds with the Engine and declaring Main package linked from pnpm-style real paths. The framework App arm runs installed only and is logged as skipped when linked.')
     } finally {
         fs.rmSync(workspaceRoot, {recursive: true, force: true})
     }
