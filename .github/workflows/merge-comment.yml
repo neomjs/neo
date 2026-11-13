@@ -1,6 +1,7 @@
 # Comments once on each pull request from outside the team when it merges: the author's standing, up to two open
-# curated issues to take next, an invitation at a new rung, and once the badges are served, the badge line. The words
-# live in buildScripts/util/contributorStanding.mjs and its spec; this file only fetches and posts.
+# curated issues to take next, an invitation at a new rung, and once the badges are served, the badge line, unless the
+# account is on the opt-out list of neomjs/pages. The words live in buildScripts/util/contributorStanding.mjs and its
+# spec; this file only fetches and posts.
 #
 # `pull_request_target` runs this file from the default branch, with a token that can comment on a fork's pull request
 # and without waiting for run approval. The job therefore checks out nothing but the two modules, never the pull
@@ -64,8 +65,8 @@ jobs:
             const dispatched    = context.eventName === 'workflow_dispatch';
 
             try {
-              const {BADGES_SINCE, decideMergeComment} = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/contributorStanding.mjs`);
-              const {CURATED_LABELS}                   = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/claimResponse.mjs`);
+              const {BADGES_SINCE, decideMergeComment, parseOptOut} = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/contributorStanding.mjs`);
+              const {CURATED_LABELS}                                = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/claimResponse.mjs`);
 
               const pullRequest = dispatched
                 ? (await github.rest.pulls.get({owner, repo, pull_number: Number(context.payload.inputs.pr)})).data
@@ -101,6 +102,17 @@ jobs:
                 candidates.push(...(await search(`repo:${owner}/${repo} is:issue is:open label:"${label}" no:assignee -linked:pr`, 50)).items)
               }
 
+              // Pages writes no folder for an account on its opt-out list. Only a merge since the launch reads it, and a
+              // list that cannot be read (404 until Pages serves it) offers no badge, with a warning
+              const launched = launch !== null && mergedAt >= launch;
+              const optOut   = launched
+                ? await github.rest.repos.getContent({owner, repo: 'pages', path: 'badges/optout.json', ref: 'main'})
+                  .then(({data}) => parseOptOut(Buffer.from(data.content, 'base64').toString('utf8')))
+                  .catch(() => null)
+                : null;
+
+              if (launched && optOut === null) core.warning('No badge in the merge comment: the opt-out list of neomjs/pages is unreadable.');
+
               const [closing, files, comments] = await Promise.all([
                 github.graphql(`query($owner: String!, $repo: String!, $number: Int!) {
                   repository(owner: $owner, name: $repo) {
@@ -119,6 +131,7 @@ jobs:
                 comments,
                 mergedBefore,
                 mergedSinceLaunchBefore,
+                optOut,
                 paths       : files.data.map(file => file.filename),
                 pullRequest,
                 repoUrl     : `https://github.com/${owner}/${repo}`

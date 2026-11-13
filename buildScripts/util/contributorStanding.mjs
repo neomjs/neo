@@ -119,6 +119,22 @@ export function badgeLine(login, id, form = 'card') {
 }
 
 /**
+ * @summary The accounts that asked for no badge, from the text of `badges/optout.json` in `neomjs/pages`: a JSON array
+ * of numeric account ids, for which the badge generator writes no folder.
+ * @param {String} text
+ * @returns {Number[]|null} null for anything else, which {@link decideMergeComment} reads as unknown
+ */
+export function parseOptOut(text) {
+    try {
+        const ids = JSON.parse(text);
+
+        return Array.isArray(ids) && ids.every(Number.isInteger) ? ids : null
+    } catch {
+        return null
+    }
+}
+
+/**
  * @summary Up to two open curated issues to suggest after a merge. An issue that shares a label with the merged work
  * comes first, and that label is its reason; the curated, type and `ai` labels say nothing about the work and never
  * count. The order is rotated by `seed`, so two contributors merged in the same hour are not sent to one issue.
@@ -183,7 +199,8 @@ function renderNext(issues, repoUrl) {
  * The first merge and each new rung get the full form: thanks, standing, next issues, an invitation and a star. A
  * merge between rungs gets standing and next issues. While `badgesSince` is null no form mentions the badge. Once it
  * is set, the account's first merge since then hands over the badge line, whichever form it gets, and a later new
- * rung says that the badge shows it.
+ * rung says that the badge shows it. An account on the Pages opt-out list has no folder, so its comment names no
+ * badge, and neither does any comment while that list is unknown.
  * @param {Object} options
  * @param {Object} options.pullRequest REST shape: `number`, `merged`, `merged_at`, `author_association`, `user.login`,
  * `user.id`, `user.type`
@@ -195,10 +212,12 @@ function renderNext(issues, repoUrl) {
  * @param {String[]} [options.paths=[]] The files the pull request changed
  * @param {String} options.repoUrl e.g. `https://github.com/neomjs/neo`
  * @param {String|null} [options.badgesSince=BADGES_SINCE]
+ * @param {Number[]|null} [options.optOut=null] The ids on the Pages opt-out list (see {@link parseOptOut}), or null
+ * while it is unread
  * @returns {{body: String}|null}
  * @throws {TypeError} When `mergedBefore` is not a count, so the workflow warns instead of posting a wrong standing
  */
-export function decideMergeComment({pullRequest, mergedBefore, mergedSinceLaunchBefore = 0, comments = [], candidates = [], closedLabels = [], paths = [], repoUrl, badgesSince = BADGES_SINCE}) {
+export function decideMergeComment({pullRequest, mergedBefore, mergedSinceLaunchBefore = 0, comments = [], candidates = [], closedLabels = [], paths = [], repoUrl, badgesSince = BADGES_SINCE, optOut = null}) {
     if (!pullRequest?.merged || !isOutsideHuman(pullRequest)) {
         return null
     }
@@ -221,12 +240,14 @@ export function decideMergeComment({pullRequest, mergedBefore, mergedSinceLaunch
         atRung                  = RUNGS.some(entry => entry.merges === count),
         suggested               = nextIssues({closedLabels, candidates, seed: login}),
         standingLine            = `**Standing:** ${rung.name} (${count} merged).${next ? ` ${remaining} more reach ${next.name}.` : ''}`,
-        // The generator writes a folder only for a merge since the launch, so an earlier one, re-run, names no badge
-        launched                = Boolean(badgesSince) && Date.parse(pullRequest.merged_at) >= Date.parse(badgesSince),
-        badgeOffer              = launched && mergedSinceLaunchBefore === 0
+        // The generator writes a folder only for a merge since the launch, so an earlier one, re-run, names no badge,
+        // and none for an account on the opt-out list, which an unread list may hold
+        hasFolder               = Boolean(badgesSince) && Date.parse(pullRequest.merged_at) >= Date.parse(badgesSince) &&
+                                  Array.isArray(optOut) && !optOut.includes(Number(id)),
+        badgeOffer              = hasFolder && mergedSinceLaunchBefore === 0
             ? `**Your badge**, if you would like to show it, exists within the hour at ${BADGE_ROOT}/${badgeFolder(login, id)}/ with three forms to choose from. The card's line:\n\`${badgeLine(login, id)}\``
             : null,
-        badge                   = badgeOffer || (launched && atRung ? 'Your badge shows it within the hour.' : null),
+        badge                   = badgeOffer || (hasFolder && atRung ? 'Your badge shows it within the hour.' : null),
         nextLine                = suggested.length > 0 ? renderNext(suggested, repoUrl) : null;
 
     const paragraphs = atRung ? [

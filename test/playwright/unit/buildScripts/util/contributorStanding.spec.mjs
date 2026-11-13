@@ -13,6 +13,7 @@ import {
     invitation,
     mergeMarker,
     nextIssues,
+    parseOptOut,
     standing
 } from '../../../../../buildScripts/util/contributorStanding.mjs';
 
@@ -39,12 +40,14 @@ const candidate = (number, ...labels) => ({number, labels: labels.map(name => ({
 const CANDIDATES = [candidate(20701, 'good first issue', 'grid'), candidate(20702, 'help wanted', 'enhancement')];
 
 /**
- * The comment for `mergedBefore` earlier merges, with two candidates and the merged work labelled `grid`.
+ * The comment for `mergedBefore` earlier merges, with two candidates, the merged work labelled `grid` and an empty
+ * opt-out list.
  */
 const comment = (mergedBefore, options = {}) => decideMergeComment({
     candidates  : CANDIDATES,
     closedLabels: ['grid', 'bug'],
     mergedBefore,
+    optOut      : [],
     paths       : ENGINE,
     pullRequest : pullRequest(),
     repoUrl     : REPO_URL,
@@ -105,6 +108,13 @@ test.describe('buildScripts/util/contributorStanding', () => {
         expect(() => badgeFolder('outside-dev', 'x42')).toThrow(TypeError);
         expect(() => badgeFolder('outside-dev', undefined)).toThrow(TypeError);
         expect(badgeFolder('outside-dev', '4242')).toBe('outside-dev-4242')
+    });
+
+    test('the opt-out list reads as numeric account ids, and anything else as unknown', () => {
+        expect(parseOptOut('[]')).toEqual([]);
+        expect(parseOptOut('[990000004, 4242]')).toEqual([990000004, 4242]);
+
+        ['', 'not json', 'null', '{"ids": [4242]}', '["4242"]', '[4242, null]', '[42.5]'].forEach(text => expect(parseOptOut(text)).toBeNull())
     });
 
     test('the module imports claimResponse.mjs and nothing else: its readers check out exactly those two files', () => {
@@ -217,6 +227,15 @@ test.describe('buildScripts/util/contributorStanding', () => {
             expect(comment(0, {badgesSince: '2026-11-14T10:00:00Z'})).toContain('**Your badge**')
         });
 
+        test('an account on the Pages opt-out list is offered no badge, and neither is anyone while the list is unknown', () => {
+            expect(comment(0, {badgesSince: LAUNCH, optOut: [990000004]})).toContain('**Your badge**');
+            expect(comment(0, {badgesSince: LAUNCH, optOut: [4242]})).not.toContain('badge');
+            expect(comment(9, {badgesSince: LAUNCH, mergedSinceLaunchBefore: 2, optOut: [4242]})).not.toContain('badge');
+            expect(comment(0, {badgesSince: LAUNCH, optOut: null})).not.toContain('badge');
+            // A caller that read no list offers no badge
+            expect(decideMergeComment({badgesSince: LAUNCH, mergedBefore: 0, pullRequest: pullRequest(), repoUrl: REPO_URL}).body).not.toContain('badge')
+        });
+
         test('a count that is not one throws, so the workflow warns instead of posting a wrong standing', () => {
             expect(() => comment(undefined)).toThrow(TypeError);
             expect(() => comment(-1)).toThrow(TypeError)
@@ -233,8 +252,8 @@ test.describe('buildScripts/util/contributorStanding', () => {
         /**
          * Runs the workflow's script against a stand-in GitHub, recording every query, post and warning.
          */
-        const run = async ({comments = [], eventName = 'pull_request_target', incomplete = () => false, inputs, searchError} = {}) => {
-            const calls = {inFlight: 0, peakSearches: 0, posted: [], queries: [], summary: [], warnings: []};
+        const run = async ({comments = [], eventName = 'pull_request_target', incomplete = () => false, inputs, optOutText, searchError} = {}) => {
+            const calls = {contents: [], inFlight: 0, peakSearches: 0, posted: [], queries: [], summary: [], warnings: []};
 
             const github = {
                 graphql : async () => ({repository: {pullRequest: {closingIssuesReferences: {nodes: [{labels: {nodes: [{name: 'grid'}]}}]}}}}),
@@ -250,6 +269,16 @@ test.describe('buildScripts/util/contributorStanding', () => {
                     pulls : {
                         get      : async () => ({data: pullRequest()}),
                         listFiles: async () => ({data: ENGINE.map(filename => ({filename}))})
+                    },
+                    repos : {
+                        // The Pages opt-out list answers Not Found unless the arm passes its text
+                        getContent: async ({owner, repo, path: file, ref}) => {
+                            calls.contents.push(`${owner}/${repo}@${ref}:${file}`);
+
+                            if (optOutText === undefined) throw Object.assign(new Error('Not Found'), {status: 404});
+
+                            return {data: {content: Buffer.from(optOutText).toString('base64'), encoding: 'base64'}}
+                        }
                     },
                     search: {
                         issuesAndPullRequests: async ({q}) => {
@@ -284,6 +313,24 @@ test.describe('buildScripts/util/contributorStanding', () => {
             );
 
             return calls
+        };
+
+        /**
+         * A workspace whose module has had the badges live since LAUNCH, so the script takes its post-launch path.
+         */
+        const launchedWorkspace = () => {
+            const
+                dir    = fs.mkdtempSync(path.join(os.tmpdir(), 'merge-comment-')),
+                util   = path.join(dir, 'buildScripts/util'),
+                source = fs.readFileSync(path.resolve(process.cwd(), 'buildScripts/util/contributorStanding.mjs'), 'utf8'),
+                live   = source.replace('export const BADGES_SINCE = null;', `export const BADGES_SINCE = '${LAUNCH}';`);
+
+            expect(live).not.toBe(source);
+            fs.mkdirSync(util, {recursive: true});
+            fs.copyFileSync(path.resolve(process.cwd(), 'buildScripts/util/claimResponse.mjs'), path.join(util, 'claimResponse.mjs'));
+            fs.writeFileSync(path.join(util, 'contributorStanding.mjs'), live);
+
+            return dir
         };
 
         let workspace;
@@ -359,6 +406,42 @@ test.describe('buildScripts/util/contributorStanding', () => {
             }
 
             expect(raw).toMatch(/uses: actions\/checkout@v7\n(?: +#.*\n)* +continue-on-error: true\n/)
+        });
+
+        test('the Pages opt-out list is read only after the launch, and decides the badge: an empty list offers it, a listed account and an unreadable list do not', async () => {
+            expect((await run()).contents).toEqual([]);
+
+            const launched = launchedWorkspace();
+
+            process.env.GITHUB_WORKSPACE = launched;
+
+            try {
+                const
+                    open    = await run({optOutText: '[]'}),
+                    listed  = await run({optOutText: '[4242]'}),
+                    missing = await run(),
+                    garbled = await run({optOutText: '["4242"]'});
+
+                expect(open.contents).toEqual(['neomjs/pages@main:badges/optout.json']);
+                expect(open.queries.slice(0, 2)).toEqual([
+                    'org:neomjs is:public is:pr is:merged author:Outside-Dev merged:<2026-11-14T10:00:00+00:00',
+                    'org:neomjs is:public is:pr is:merged author:Outside-Dev merged:2026-11-01T00:00:00+00:00..2026-11-14T09:59:59+00:00'
+                ]);
+                expect(open.posted[0].body).toBe(comment(0, {badgesSince: LAUNCH}));
+                expect(open.posted[0].body).toContain('**Your badge**');
+                expect(open.warnings).toEqual([]);
+
+                expect(listed.posted[0].body).toBe(comment(0));
+                expect(listed.warnings).toEqual([]);
+
+                for (const unreadable of [missing, garbled]) {
+                    expect(unreadable.posted[0].body).toBe(comment(0));
+                    expect(unreadable.warnings).toEqual(['No badge in the merge comment: the opt-out list of neomjs/pages is unreadable.'])
+                }
+            } finally {
+                process.env.GITHUB_WORKSPACE = process.cwd();
+                fs.rmSync(launched, {force: true, recursive: true})
+            }
         });
 
         test('a dispatch renders into the job summary and posts only with post', async () => {
