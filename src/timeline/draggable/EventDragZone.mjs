@@ -296,17 +296,9 @@ class EventDragZone extends DragZone {
         };
 
         if (me.dragProxy) {
-            const
-                startPx = axis.dateToOffset(next.startDate),
-                endPx   = axis.dateToOffset(next.endDate),
-                spanPx  = Math.max(1, endPx - startPx),
-                style   = me.orientation === 'horizontal'
-                    ? {left: `${startPx}px`, width: `${spanPx}px`}
-                    : {top : `${startPx}px`, height: `${spanPx}px`};
-
             Neo.applyDeltas(me.windowId, [{
-                id: me.dragProxy.id,
-                style
+                id   : me.dragProxy.id,
+                style: me.getDragProxyStyle(next, data)
             }])
         }
 
@@ -314,6 +306,21 @@ class EventDragZone extends DragZone {
             ...data,
             ...me.pendingDrop
         })
+    }
+
+    /**
+     * @summary Computes proxy geometry for a snapped drop in the active axis coordinates.
+     * @param {Object} next Candidate dates and resource.
+     * @param {Object} data Pointer event data.
+     * @returns {Object} Style delta for the drag proxy.
+     */
+    getDragProxyStyle(next, data) {
+        const start = this.axis.dateToOffset(next.startDate),
+              end   = this.axis.dateToOffset(next.endDate),
+              span  = Math.max(1, end - start);
+        return this.orientation === 'horizontal'
+            ? {left: `${start}px`, width: `${span}px`}
+            : {top: `${start}px`, height: `${span}px`}
     }
 
     /**

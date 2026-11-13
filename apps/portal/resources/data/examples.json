@@ -1121,6 +1121,23 @@
         "lookFor": "Open pages from the side navigation and step through their fields."
     },
     {
+        "id": "scheduler-basic",
+        "image": null,
+        "name": "Studio Bookings",
+        "sourceUrl": "examples/scheduler/basic",
+        "urls": {
+            "devmode": "examples/scheduler/basic/index.html",
+            "dist_dev": "dist/development/examples/scheduler/basic/index.html",
+            "dist_esm": "dist/esm/examples/scheduler/basic/index.html",
+            "dist_prod": "dist/production/examples/scheduler/basic/index.html"
+        },
+        "hiddenIn": [],
+        "family": "calendar",
+        "component": "Scheduler",
+        "feature": "Resource bookings on an editable timeline",
+        "lookFor": "Move a booking to another studio or time. Reload after it saves to see the same booking in its new slot."
+    },
+    {
         "id": "dock-choreography",
         "family": "multi-window",
         "component": "Dock Workspace",

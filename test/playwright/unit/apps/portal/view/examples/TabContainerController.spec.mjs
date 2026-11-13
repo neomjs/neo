@@ -76,14 +76,15 @@ test.describe('Portal examples family navigation', () => {
     test('publishes only Featured and families with records from one definition source', () => {
         const view = createView();
 
-        expect(view.getTabButtons().map(button => button.text)).toEqual(['Featured', 'Grid & Table', 'Forms', 'Multi-Window']);
-        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/grid', '/examples/forms', '/examples/multi-window']);
-        expect(view.getCatalogStore().getCount()).toBe(72);
+        expect(view.getTabButtons().map(button => button.text)).toEqual(['Featured', 'Grid & Table', 'Forms', 'Multi-Window', 'Calendar']);
+        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/grid', '/examples/forms', '/examples/multi-window', '/examples/calendar']);
+        expect(view.getCatalogStore().getCount()).toBe(73);
         expect(view.getCard(0).store.getCount()).toBe(27);
         expect(view.getCard(0).store.items.map(record => record.id)).toEqual(featuredExampleIds);
         expect(view.getCard(1).store.getCount()).toBe(21);
         expect(view.getCard(2).store.getCount()).toBe(24);
         expect(view.getCard(3).store.getCount()).toBe(12);
+        expect(view.getCard(4).store.items.map(record => record.id)).toEqual(['scheduler-basic']);
         expect(view.getCard(0).store.getSource()).toBe(view.getCatalogStore());
         expect(view.getCard(1).store.getSource()).toBe(view.getCatalogStore());
         expect(view.getCard(0).store.model).toBe(view.getCatalogStore().model);
@@ -156,13 +157,13 @@ test.describe('Portal examples family navigation', () => {
 
     test('a newly published family needs no additional tab or controller entry', () => {
         const view = createView([...catalog, {
-            ...catalog[0], id: 'test-calendar-example', family: 'calendar', featured: false,
-            feature: 'A calendar', lookFor: 'Select a date.'
+            ...catalog[0], id: 'test-components-example', family: 'components', featured: false,
+            feature: 'A component', lookFor: 'Inspect it.'
         }]);
 
-        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/grid', '/examples/forms', '/examples/multi-window', '/examples/calendar']);
-        expect(view.getCard(4).store.getCount()).toBe(1);
-        expect(view.getCard(4).fallbackIconCls).toBe(view.familyDefinitions.find(item => item.family === 'calendar').iconCls)
+        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/grid', '/examples/forms', '/examples/multi-window', '/examples/calendar', '/examples/components']);
+        expect(view.getCard(5).store.getCount()).toBe(1);
+        expect(view.getCard(5).fallbackIconCls).toBe(view.familyDefinitions.find(item => item.family === 'components').iconCls)
     });
 
     test('an arriving catalog populates the borrowed family stores and withdraws an empty family', () => {
@@ -177,7 +178,7 @@ test.describe('Portal examples family navigation', () => {
 
         store.remove(store.items.filter(record => record.family === 'grid-table'));
         store.fire('load');
-        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/forms', '/examples/multi-window'])
+        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/forms', '/examples/multi-window', '/examples/calendar'])
     });
 });
 
@@ -270,12 +271,12 @@ test.describe('Portal examples canonical catalog', () => {
         })
     }
 
-    test('loads 72 logical examples with unique stable string identities', () => {
+    test('loads 73 logical examples with unique stable string identities', () => {
         const {store} = createList(),
               ids     = [];
 
-        expect(catalog).toHaveLength(72);
-        expect(store.getCount()).toBe(72);
+        expect(catalog).toHaveLength(73);
+        expect(store.getCount()).toBe(73);
 
         store.forEach(record => {
             expect(typeof record.id, record.name).toBe('string');
@@ -283,7 +284,7 @@ test.describe('Portal examples canonical catalog', () => {
             ids.push(record.id)
         });
 
-        expect(new Set(ids).size).toBe(72);
+        expect(new Set(ids).size).toBe(73);
         expect(list.catalogMode).toBe('dist_prod')
     });
 
@@ -346,7 +347,7 @@ test.describe('Portal examples canonical catalog', () => {
               // The production catalog established this sequence before canonicalization. ESM alone
               // placed OffscreenCanvas before Covid Gallery; the shared sequence follows production.
               establishedIds = featuredExampleIds.slice(0, -1),
-              completeIds = [...establishedIds, ...newExampleIds, ...formExampleIds, 'dock-choreography', ...multiWindowExampleIds, 'realworld', 'realworld-v2'],
+              completeIds = [...establishedIds, ...newExampleIds, ...formExampleIds, 'scheduler-basic', 'dock-choreography', ...multiWindowExampleIds, 'realworld', 'realworld-v2'],
               excluded = {
                   devmode  : ['portal', 'liquid-glass', 'realworld', 'realworld-v2'],
                   dist_dev : ['realworld', 'realworld-v2'],

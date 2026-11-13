@@ -793,5 +793,10 @@
         "title": "Neo.mjs Grid & Table Examples",
         "description": "Explore 21 live Neo.mjs Grid & Table examples: A tree hierarchy at scale: up to 100,000 rows, 200 columns and 20 levels.",
         "schemaType": "CollectionPage"
+    },
+    "/examples/calendar": {
+        "title": "Neo.mjs Calendar Examples",
+        "description": "Explore 1 live Neo.mjs Calendar example: Resource bookings on an editable timeline.",
+        "schemaType": "CollectionPage"
     }
 }
