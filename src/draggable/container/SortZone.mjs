@@ -670,16 +670,17 @@ class SortZone extends DragZone {
                 const
                     component = me.dragComponent,
                     deltas    = [],
-                    index     = me.sortableItems.indexOf(me.dragPlaceholder);
+                    index     = owner.items.indexOf(component);
 
-                if (component && index > -1) {
-                    if (!me.isWindowDragging) {
+                if (me.sortableItems.includes(me.dragPlaceholder)) {
+                    // A component that left the owner has no restore slot, but its placeholder still needs cleanup.
+                    if (index > -1 && !me.isWindowDragging) {
                         // Only move DOM if not window dragging or if it's a remote drag being finalized locally
                         if (!me.isRemoteDragging || (me.isRemoteDragging && !me.isWindowDragging)) {
                              deltas.push({
                                 action: 'moveNode',
                                 id    : component.id,
-                                index,    // Visually correct index (where placeholder is)
+                                index,    // Native siblings use owner order, including items excluded from sorting.
                                 parentId: owner.getVdomItemsRoot().id
                             })
                         }
