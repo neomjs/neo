@@ -401,6 +401,70 @@ test.describe('Neo.canvas.GraphScene — the renderer without a GL context', () 
         expect([renderer.gl.canvas.width, renderer.gl.canvas.height], 'a lost context is not resized').toEqual([400, 200]);
         expect(renderer.canvasSize, 'the size waits for the restore').toMatchObject({width: 100, height: 50})
     });
+
+    test('held pointer moves orbit only for a primary press on this canvas and stop after up, leave, or buttons 0', () => {
+        renderer.context = createContext(400, 200);
+        renderer.setScene({positions: [0, 0, 0,  2, 1, 0], windowId: 'window-1'});
+
+        const
+            initialYaw   = renderer.camera.yaw,
+            initialPitch = renderer.camera.pitch;
+
+        // 1. Move with buttons: 1 and no down (drag from outside canvas) changes nothing
+        renderer.updateMouseState({x: 10, y: 20, buttons: 1});
+        renderer.updateMouseState({x: 60, y: 40, buttons: 1});
+
+        expect(renderer.camera.yaw).toBe(initialYaw);
+        expect(renderer.camera.pitch).toBe(initialPitch);
+        expect(renderer.camera.touched).toBe(false);
+        expect(renderer.flightPlan).toBeNull();
+
+        // Same during an active flight: flightPlan survives
+        renderer.flyTo({index: 0, distance: 1, duration: 100});
+        const activeFlight = renderer.flightPlan;
+
+        renderer.updateMouseState({x: 90, y: 50, buttons: 1});
+        expect(renderer.flightPlan).toBe(activeFlight);
+        expect(renderer.camera.yaw).toBe(initialYaw);
+        expect(renderer.camera.pitch).toBe(initialPitch);
+
+        // 2. Press on canvas followed by moves orbits and ends the flight
+        renderer.updateMouseState({x: 20, y: 20, buttons: 0});
+        renderer.updateMouseState({x: 20, y: 20, button: 0, buttons: 1, down: true});
+        renderer.updateMouseState({x: 70, y: 50, buttons: 1});
+
+        expect(renderer.flightPlan).toBeNull();
+        expect(renderer.camera.touched).toBe(true);
+        expect(renderer.camera.yaw).toBeCloseTo(initialYaw + 50 * renderer.orbitSpeed, 10);
+        expect(renderer.camera.pitch).toBeCloseTo(initialPitch + 30 * renderer.orbitSpeed, 10);
+
+        // 3a. After up, a held move without a new down does not orbit
+        let lockedYaw   = renderer.camera.yaw,
+            lockedPitch = renderer.camera.pitch;
+
+        renderer.updateMouseState({x: 70, y: 50, button: 0, buttons: 0, up: true});
+        renderer.updateMouseState({x: 110, y: 70, buttons: 1});
+
+        expect(renderer.camera.yaw).toBe(lockedYaw);
+        expect(renderer.camera.pitch).toBe(lockedPitch);
+
+        // 3b. After leave, a later held move without a new down does not orbit
+        renderer.updateMouseState({x: 110, y: 70, button: 0, buttons: 1, down: true});
+        renderer.updateMouseState({leave: true});
+        renderer.updateMouseState({x: 30, y: 20, buttons: 1});
+        renderer.updateMouseState({x: 80, y: 60, buttons: 1});
+
+        expect(renderer.camera.yaw).toBe(lockedYaw);
+        expect(renderer.camera.pitch).toBe(lockedPitch);
+
+        // 3c. After a report with buttons: 0 (no up), a later held move does not orbit
+        renderer.updateMouseState({x: 80, y: 60, button: 0, buttons: 1, down: true});
+        renderer.updateMouseState({x: 30, y: 25, buttons: 0});
+        renderer.updateMouseState({x: 90, y: 75, buttons: 1});
+
+        expect(renderer.camera.yaw).toBe(lockedYaw);
+        expect(renderer.camera.pitch).toBe(lockedPitch)
+    });
 });
 
 test.describe('Neo.canvas.GraphScene — the level of detail', () => {
