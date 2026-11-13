@@ -2,8 +2,9 @@ import {setup}        from '../../setup.mjs';
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import '../../../../src/core/_export.mjs';
-import EventDragZone from '../../../../src/gantt/EventDragZone.mjs';
-import Gantt         from '../../../../src/gantt/Container.mjs';
+import EventDragZone   from '../../../../src/gantt/EventDragZone.mjs';
+import Gantt           from '../../../../src/gantt/Container.mjs';
+import DependencyStore from '../../../../src/gantt/DependencyStore.mjs';
 
 setup({neoConfig:{unitTestMode:true, allowVdomUpdatesInTests:false, useDomApiRenderer:false},
     appConfig:{name:'GanttTaskPreviewUnitTest', isMounted:()=>true, vnodeInitialising:false}});
@@ -60,6 +61,41 @@ test('a failed drag handshake leaves no task or link feedback behind', async () 
         expect(gantt.store.get('task').startDate.toISOString()).toBe('2026-11-09T01:00:00.000Z')
     } finally {
         gantt.destroy();
+        Neo.main.addon.DragDrop = previous
+    }
+});
+
+test('replacing the dependency store rechecks a stationary link target', async () => {
+    Neo.ns('Neo.main.addon.DragDrop', true);
+    const previous = Neo.main.addon.DragDrop;
+    Neo.main.addon.DragDrop = {setConfigs:async () => ({})};
+    const gantt = Neo.create(Gantt, {
+        appName:'GanttTaskPreviewUnitTest', dependencyCreation:true,
+        store:{data:[
+            {id:'a',isLeaf:true,title:'A',startDate:'2026-11-09T01:00:00Z',endDate:'2026-11-09T02:00:00Z'},
+            {id:'b',isLeaf:true,title:'B',startDate:'2026-11-09T02:00:00Z',endDate:'2026-11-09T03:00:00Z'}
+        ]}, dependencyStore:{data:[]},
+        timeAxis:{start:'2026-11-09',end:'2026-11-10',timeZone:'UTC',pxPerMinute:1}
+    });
+    const next = Neo.create(DependencyStore, {data:[{id:'reverse',fromId:'b',toId:'a',type:'FS'}]});
+    try {
+        const bar = id => gantt.timelineColumn.cellRenderer({
+            record:gantt.store.get(id), row:{id:'row-'+id}, gridContainer:gantt
+        }).cn[0].cn.find(node => node.cls.includes('neo-timeline-bar'));
+        const source = bar('a'), terminal = source.cn.find(node => node.data?.linkFrom);
+        const path   = [{...terminal,rect:{left:10,top:10,width:10,height:10}},source,{id:gantt.id,cls:['neo-gantt']}];
+        await gantt.onBarDragStart({clientX:15,clientY:15,path});
+        gantt.eventDragZone.dragMove({clientX:100,clientY:80,targetPath:[bar('b'),{id:gantt.id,cls:['neo-gantt']}]});
+        expect(gantt.eventDragZone.linkTarget).toBe(gantt.store.get('b'));
+        expect(gantt.cls).toContain('neo-gantt-link-over');
+        expect(gantt.eventDragZone.preview.style.borderTopStyle).toBe('solid');
+        gantt.dependencyStore = next;
+        expect(gantt.eventDragZone.linkTarget).toBeNull();
+        expect(gantt.cls).not.toContain('neo-gantt-link-over');
+        expect(gantt.eventDragZone.preview.style.borderTopStyle).toBe('dashed')
+    } finally {
+        gantt.destroy();
+        if (!next.isDestroyed) next.destroy();
         Neo.main.addon.DragDrop = previous
     }
 });

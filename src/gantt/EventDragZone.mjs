@@ -25,6 +25,8 @@ class GanttEventDragZone extends EventDragZone {
     #cachedTarget = null
     #cachedRefusal = null
     #admissionValid = false
+    #ownerAdmissionCleanup = null
+    #lastLinkData = null
 
     /**
      * @summary Finds a finish endpoint in the pointer path. A configured drag zone may provide its own terminal.
@@ -49,7 +51,11 @@ class GanttEventDragZone extends EventDragZone {
         const useProxy = this.useProxy;
         if (this.linkSource) {
             this.useProxy = false;
-            this.syncAdmissionStore()
+            this.syncAdmissionStore();
+            this.#ownerAdmissionCleanup = this.observeConfig(this.owner, 'dependencyStore', () => {
+                this.syncAdmissionStore();
+                this.refreshLinkFeedback()
+            })
         } else if (useProxy) {
             const row    = this.owner.body.items.find(item => item.record === this.eventRecord);
             const source = row && VDom.find(row.vdom, this.dragElement.id)?.vdom;
@@ -121,10 +127,19 @@ class GanttEventDragZone extends EventDragZone {
      */
     dragMove(data = {}) {
         if (!this.linkSource) return super.dragMove(data);
-        const target = this.dropTask(data), origin = this.linkOrigin;
-        if (origin && this.preview) {
+        this.#candidateTarget = this.dropTask(data);
+        this.#lastLinkData = data;
+        this.refreshLinkFeedback()
+    }
+
+    /**
+     * @summary Reconciles the target ring, chart state and line style against current link admission.
+     * @returns {void}
+     */
+    refreshLinkFeedback() {
+        const target = this.#candidateTarget, origin = this.linkOrigin, data = this.#lastLinkData;
+        if (origin && this.preview && data) {
             const dx       = data.clientX - origin.x, dy = data.clientY - origin.y;
-            this.#candidateTarget = target;
             const eligible = this.isEligibleLinkTarget(target);
             this.setLinkTarget(eligible ? target : null);
             if (this.owner.cls.includes('neo-gantt-link-over') !== eligible) {
@@ -145,14 +160,13 @@ class GanttEventDragZone extends EventDragZone {
     syncAdmissionStore() {
         const store = this.owner.dependencyStore;
         if (store === this.#admissionStore) return;
-        this.#admissionStore?.un(this.#admissionListeners);
+        if (this.#admissionStore && !this.#admissionStore.isDestroyed) this.#admissionStore.un(this.#admissionListeners);
         this.#admissionStore = store;
         this.#admissionValid = false;
         if (store) {
             const changed = () => {
                 this.#admissionValid = false;
-                const target = this.#candidateTarget;
-                this.setLinkTarget(this.isEligibleLinkTarget(target) ? target : null)
+                this.refreshLinkFeedback()
             };
             this.#admissionListeners = {mutate:changed, recordChange:changed, filter:changed};
             store.on(this.#admissionListeners)
@@ -168,7 +182,9 @@ class GanttEventDragZone extends EventDragZone {
      */
     isEligibleLinkTarget(target) {
         this.syncAdmissionStore();
-        if (!target || !this.owner.canLinkTasks(this.linkSource, target) || !this.#admissionStore) return false;
+        if (!target || this.owner.resolveTaskRecord(this.linkSource) !== this.linkSource ||
+            this.owner.resolveTaskRecord(target) !== target ||
+            !this.owner.canLinkTasks(this.linkSource, target) || !this.#admissionStore) return false;
         if (!this.#admissionValid || this.#cachedTarget !== target) {
             const input = {fromId:this.owner.store.getKey(this.linkSource), toId:this.owner.store.getKey(target)};
             this.#cachedRefusal = typeof this.#admissionStore.getFinishToStartRefusal === 'function'
@@ -243,8 +259,11 @@ class GanttEventDragZone extends EventDragZone {
 
     /** @summary Removes only this gesture's floating line on drop, cancel, failure, or teardown. */
     clearLinkPreview() {
-        this.#admissionStore?.un(this.#admissionListeners);
+        this.#ownerAdmissionCleanup?.();
+        this.#ownerAdmissionCleanup = null;
+        if (this.#admissionStore && !this.#admissionStore.isDestroyed) this.#admissionStore.un(this.#admissionListeners);
         this.#admissionStore = this.#admissionListeners = this.#candidateTarget = this.#cachedTarget = null;
+        this.#lastLinkData = null;
         this.#admissionValid = false;
         this.setLinkTarget(null);
         if (this.linkOrigin && !this.owner.isDestroyed) {
