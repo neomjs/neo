@@ -76,12 +76,13 @@ test.describe('Portal examples family navigation', () => {
     test('publishes only Featured and families with records from one definition source', () => {
         const view = createView();
 
-        expect(view.getTabButtons().map(button => button.text)).toEqual(['Featured', 'Grid & Table']);
-        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/grid']);
-        expect(view.getCatalogStore().getCount()).toBe(46);
+        expect(view.getTabButtons().map(button => button.text)).toEqual(['Featured', 'Grid & Table', 'Forms']);
+        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/grid', '/examples/forms']);
+        expect(view.getCatalogStore().getCount()).toBe(67);
         expect(view.getCard(0).store.getCount()).toBe(27);
         expect(view.getCard(0).store.items.map(record => record.id)).toEqual(featuredExampleIds);
         expect(view.getCard(1).store.getCount()).toBe(21);
+        expect(view.getCard(2).store.getCount()).toBe(24);
         expect(view.getCard(0).store.getSource()).toBe(view.getCatalogStore());
         expect(view.getCard(1).store.getSource()).toBe(view.getCatalogStore());
         expect(view.getCard(0).store.model).toBe(view.getCatalogStore().model);
@@ -109,7 +110,7 @@ test.describe('Portal examples family navigation', () => {
         await controller.onExamplesRoute({itemId: 'grid'});
         expect(view.activeIndex).toBe(1);
         await controller.onExamplesRoute({itemId: 'forms'});
-        expect(view.activeIndex).toBe(0);
+        expect(view.activeIndex).toBe(2);
         await controller.onExamplesRoute({itemId: 'unknown'});
         expect(view.activeIndex).toBe(0)
     });
@@ -152,13 +153,13 @@ test.describe('Portal examples family navigation', () => {
 
     test('a newly published family needs no additional tab or controller entry', () => {
         const view = createView([...catalog, {
-            ...catalog[0], id: 'test-forms-example', family: 'forms', featured: false,
-            feature: 'A form field', lookFor: 'Enter a value.'
+            ...catalog[0], id: 'test-multi-window-example', family: 'multi-window', featured: false,
+            feature: 'A window', lookFor: 'Move it.'
         }]);
 
-        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/grid', '/examples/forms']);
-        expect(view.getCard(2).store.getCount()).toBe(1);
-        expect(view.getCard(2).fallbackIconCls).toBe(view.familyDefinitions.find(item => item.family === 'forms').iconCls)
+        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/grid', '/examples/forms', '/examples/multi-window']);
+        expect(view.getCard(3).store.getCount()).toBe(1);
+        expect(view.getCard(3).fallbackIconCls).toBe(view.familyDefinitions.find(item => item.family === 'multi-window').iconCls)
     });
 
     test('an arriving catalog populates the borrowed family stores and withdraws an empty family', () => {
@@ -169,10 +170,11 @@ test.describe('Portal examples family navigation', () => {
         store.fire('load');
         expect(view.getCard(0).store.getCount()).toBe(27);
         expect(view.getCard(1).store.getCount()).toBe(21);
+        expect(view.getCard(2).store.getCount()).toBe(24);
 
         store.remove(store.items.filter(record => record.family === 'grid-table'));
         store.fire('load');
-        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples'])
+        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/forms'])
     });
 });
 
@@ -191,6 +193,13 @@ const catalog            = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examp
           'grid-covid', 'grid-header-groups', 'grid-locked-columns', 'grid-nested-record-fields',
           'grid-tree', 'grid-value-banding', 'json-grid-container', 'table-cell-editing',
           'table-container', 'table-covid', 'table-nested-record-fields', 'table-store', 'table-performance'
+      ],
+      formExampleIds = [
+          'checkbox-field', 'chip-field', 'color-field', 'email-field', 'fileupload-field',
+          'number-field', 'picker-field', 'radio-field', 'select-field', 'switch-field',
+          'text-field', 'textarea-field', 'time-field', 'url-field', 'copy-to-clipboard-trigger',
+          'fieldset', 'field-with-prefix', 'fields-runtime-triggers', 'layout-form',
+          'date-selector-container', 'form-app'
       ];
 
 /**
@@ -254,12 +263,12 @@ test.describe('Portal examples canonical catalog', () => {
         })
     }
 
-    test('loads 46 logical examples with unique stable string identities', () => {
+    test('loads 67 logical examples with unique stable string identities', () => {
         const {store} = createList(),
               ids     = [];
 
-        expect(catalog).toHaveLength(46);
-        expect(store.getCount()).toBe(46);
+        expect(catalog).toHaveLength(67);
+        expect(store.getCount()).toBe(67);
 
         store.forEach(record => {
             expect(typeof record.id, record.name).toBe('string');
@@ -267,7 +276,7 @@ test.describe('Portal examples canonical catalog', () => {
             ids.push(record.id)
         });
 
-        expect(new Set(ids).size).toBe(46);
+        expect(new Set(ids).size).toBe(67);
         expect(list.catalogMode).toBe('dist_prod')
     });
 
@@ -308,7 +317,7 @@ test.describe('Portal examples canonical catalog', () => {
               // The production catalog established this sequence before canonicalization. ESM alone
               // placed OffscreenCanvas before Covid Gallery; the shared sequence follows production.
               establishedIds = featuredExampleIds.slice(0, -1),
-              completeIds = [...establishedIds, ...newExampleIds, 'dock-choreography', 'realworld', 'realworld-v2'],
+              completeIds = [...establishedIds, ...newExampleIds, ...formExampleIds, 'dock-choreography', 'realworld', 'realworld-v2'],
               excluded = {
                   devmode  : ['portal', 'liquid-glass', 'realworld', 'realworld-v2'],
                   dist_dev : ['realworld', 'realworld-v2'],
