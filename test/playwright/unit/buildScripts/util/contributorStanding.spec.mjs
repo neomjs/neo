@@ -316,9 +316,10 @@ test.describe('buildScripts/util/contributorStanding', () => {
         };
 
         /**
-         * A workspace whose module has had the badges live since LAUNCH, so the script takes its post-launch path.
+         * Runs `fn` in a workspace whose module has had the badges live since LAUNCH, so the script takes its
+         * post-launch path.
          */
-        const launchedWorkspace = () => {
+        const afterLaunch = async fn => {
             const
                 dir    = fs.mkdtempSync(path.join(os.tmpdir(), 'merge-comment-')),
                 util   = path.join(dir, 'buildScripts/util'),
@@ -330,7 +331,14 @@ test.describe('buildScripts/util/contributorStanding', () => {
             fs.copyFileSync(path.resolve(process.cwd(), 'buildScripts/util/claimResponse.mjs'), path.join(util, 'claimResponse.mjs'));
             fs.writeFileSync(path.join(util, 'contributorStanding.mjs'), live);
 
-            return dir
+            process.env.GITHUB_WORKSPACE = dir;
+
+            try {
+                return await fn()
+            } finally {
+                process.env.GITHUB_WORKSPACE = process.cwd();
+                fs.rmSync(dir, {force: true, recursive: true})
+            }
         };
 
         let workspace;
@@ -381,13 +389,15 @@ test.describe('buildScripts/util/contributorStanding', () => {
             expect(calls.warnings).toEqual(['No merge comment: secondary rate limit'])
         });
 
-        test('an incomplete search answer is no answer: a warning and no comment, for the count and for the candidates', async () => {
-            for (const incomplete of [q => q.startsWith('org:'), q => q.includes('help wanted')]) {
-                const calls = await run({incomplete});
+        test('an incomplete search answer is no answer: a warning and no comment, for either count and for the candidates', async () => {
+            const sinceLaunch = await afterLaunch(() => run({incomplete: q => q.includes('..'), optOutText: '[]'}));
 
+            for (const calls of [await run({incomplete: q => q.startsWith('org:')}), await run({incomplete: q => q.includes('help wanted')}), sinceLaunch]) {
                 expect(calls.posted).toEqual([]);
                 expect(calls.warnings).toEqual([expect.stringMatching(/^No merge comment: the search answered incompletely/)])
             }
+
+            expect(sinceLaunch.queries[1]).toMatch(/ merged:2026-11-01T00:00:00\+00:00\.\./)
         });
 
         test('modules that fail to load warn and post nothing, and a failed checkout does not fail the job', async () => {
@@ -411,36 +421,28 @@ test.describe('buildScripts/util/contributorStanding', () => {
         test('the Pages opt-out list is read only after the launch, and decides the badge: an empty list offers it, a listed account and an unreadable list do not', async () => {
             expect((await run()).contents).toEqual([]);
 
-            const launched = launchedWorkspace();
+            const [open, listed, missing, garbled] = await afterLaunch(async () => [
+                await run({optOutText: '[]'}),
+                await run({optOutText: '[4242]'}),
+                await run(),
+                await run({optOutText: '["4242"]'})
+            ]);
 
-            process.env.GITHUB_WORKSPACE = launched;
+            expect(open.contents).toEqual(['neomjs/pages@main:badges/optout.json']);
+            expect(open.queries.slice(0, 2)).toEqual([
+                'org:neomjs is:public is:pr is:merged author:Outside-Dev merged:<2026-11-14T10:00:00+00:00',
+                'org:neomjs is:public is:pr is:merged author:Outside-Dev merged:2026-11-01T00:00:00+00:00..2026-11-14T09:59:59+00:00'
+            ]);
+            expect(open.posted[0].body).toBe(comment(0, {badgesSince: LAUNCH}));
+            expect(open.posted[0].body).toContain('**Your badge**');
+            expect(open.warnings).toEqual([]);
 
-            try {
-                const
-                    open    = await run({optOutText: '[]'}),
-                    listed  = await run({optOutText: '[4242]'}),
-                    missing = await run(),
-                    garbled = await run({optOutText: '["4242"]'});
+            expect(listed.posted[0].body).toBe(comment(0));
+            expect(listed.warnings).toEqual([]);
 
-                expect(open.contents).toEqual(['neomjs/pages@main:badges/optout.json']);
-                expect(open.queries.slice(0, 2)).toEqual([
-                    'org:neomjs is:public is:pr is:merged author:Outside-Dev merged:<2026-11-14T10:00:00+00:00',
-                    'org:neomjs is:public is:pr is:merged author:Outside-Dev merged:2026-11-01T00:00:00+00:00..2026-11-14T09:59:59+00:00'
-                ]);
-                expect(open.posted[0].body).toBe(comment(0, {badgesSince: LAUNCH}));
-                expect(open.posted[0].body).toContain('**Your badge**');
-                expect(open.warnings).toEqual([]);
-
-                expect(listed.posted[0].body).toBe(comment(0));
-                expect(listed.warnings).toEqual([]);
-
-                for (const unreadable of [missing, garbled]) {
-                    expect(unreadable.posted[0].body).toBe(comment(0));
-                    expect(unreadable.warnings).toEqual(['No badge in the merge comment: the opt-out list of neomjs/pages is unreadable.'])
-                }
-            } finally {
-                process.env.GITHUB_WORKSPACE = process.cwd();
-                fs.rmSync(launched, {force: true, recursive: true})
+            for (const unreadable of [missing, garbled]) {
+                expect(unreadable.posted[0].body).toBe(comment(0));
+                expect(unreadable.warnings).toEqual(['No badge in the merge comment: the opt-out list of neomjs/pages is unreadable.'])
             }
         });
 
