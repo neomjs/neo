@@ -533,6 +533,7 @@ test.describe('Neo.calendar.view.month.Component headerHeight lifecycle', () => 
             plugin.onEventDragEnd({});
 
             expect(recordChanges).toEqual([]);
+            expect(createContentCalls.count).toBe(1);
 
             // When enableDrag is false, drag handlers do not start a drag or mutate records
             component.enableDrag = false;
