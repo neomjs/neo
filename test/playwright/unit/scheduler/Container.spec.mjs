@@ -557,6 +557,30 @@ test.describe('Neo.scheduler.Container', () => {
         }
     });
 
+    test('resolves real owned grid rows with numeric keys and refuses rows from another scheduler', () => {
+        const model            = {fields: [{name: 'id', type: 'Number'}]};
+        const resources        = Neo.create(Store, {keyProperty: 'id', model, data: [{id: 7}, {id: 8}]});
+        const foreignResources = Neo.create(Store, {keyProperty: 'id', model: {fields: [{name: 'id', type: 'Number'}]}, data: [{id: 9}]});
+        scheduler = Neo.create(SchedulerContainer, {appName, store: resources, eventStore: {}, timeAxis: {}});
+        const foreign = Neo.create(SchedulerContainer, {appName, store: foreignResources, eventStore: {}, timeAxis: {}});
+        scheduler.body.set({availableHeight: 150, containerWidth: 600});
+        foreign.body.set({availableHeight: 150, containerWidth: 600});
+        try {
+            const row = scheduler.body.items[1], otherRow = foreign.body.items[0];
+            expect(row.record.id).toBe(8);
+            expect(scheduler.resolveRowTarget({targetPath: [row.vdom]})).toEqual({id: row.id, resourceId: 8});
+            expect(scheduler.resolveRowTarget({targetPath: [otherRow.vdom]})).toBeNull();
+            expect(scheduler.resolveRowTarget({targetPath: [{id: 'not-a-row', data: {recordId: 8}}]})).toBeNull();
+            const zone = scheduler.ensureEventDragZone();
+            zone.targetCls = 'custom-drop-target';
+            expect(zone.resolveTarget({targetPath: [{id: 'custom', cls: ['custom-drop-target'], resourceId: 12}]}))
+                .toEqual({id: 'custom', resourceId: 12});
+            expect(zone.resolveTarget({targetPath: [otherRow.vdom]})).toBeNull()
+        } finally {
+            foreign.destroy(); resources.destroy(); foreignResources.destroy()
+        }
+    });
+
     test('owns configured event stores and axes, but never borrowed instances', () => {
         const resources     = Neo.create(Store, {data: []});
         const borrowedStore = Neo.create(EventStore);

@@ -11,6 +11,29 @@ test('bookings move by keyboard and pointer and survive a reload', async ({page,
     const [scheduler] = await app.findInstances({className: 'Neo.scheduler.Container'}, ['id']);
     expect(scheduler.id).toBeTruthy();
 
+    const header   = page.locator('.neo-scheduler .neo-grid-header-toolbar');
+    const resource = await header.locator('.neo-grid-header-button.neo-locked-start').boundingBox();
+    const timeline = await header.locator('.neo-timeline-header').boundingBox();
+    expect(resource.y).toEqual(timeline.y);
+    expect(resource.height).toEqual(timeline.height);
+    expect(resource.height).toBeGreaterThanOrEqual((await header.first().boundingBox()).height - 2);
+
+    // A single-lane booking exposes the full resize edge, including the area below its grip.
+    const scoreMix = page.locator('.neo-timeline-bar[data-event-id="ev-3"]');
+    const handle   = scoreMix.locator('.neo-resizable-end');
+    const fullBar  = await scoreMix.boundingBox();
+    const edge     = await handle.boundingBox();
+    expect(edge.height).toBeGreaterThanOrEqual(fullBar.height - 2);
+    const endX = edge.x + edge.width / 2, lowerY = fullBar.y + fullBar.height * 0.8;
+    await page.mouse.move(endX, lowerY);
+    await page.mouse.down();
+    await page.mouse.move(endX + 30, lowerY, {steps: 12});
+    await page.mouse.up();
+    await expect.poll(async () => {
+        const record = await app.callMethod(scheduler.id, 'resolveEventRecord', ['ev-3']);
+        return [record.startDate, record.endDate, record.resourceId]
+    }).toEqual(['2026-11-09T05:00:00.000Z', '2026-11-09T09:00:00.000Z', 'r-2']);
+
     await bar.focus();
     await page.keyboard.press('ArrowRight');
     await expect.poll(async () => (await app.callMethod(scheduler.id, 'resolveEventRecord', ['ev-1'])).startDate)
@@ -28,6 +51,8 @@ test('bookings move by keyboard and pointer and survive a reload', async ({page,
     await page.mouse.move(x + 15, y, {steps: 5});
     const proxy = page.locator('.neo-dragproxy');
     await expect(proxy).toBeVisible();
+    await expect(proxy.locator('.neo-scheduler-drag-preview'))
+        .toHaveCSS('background-color', await bar.evaluate(el => getComputedStyle(el).backgroundColor));
     await expect(page.locator('.neo-scheduler')).toHaveClass(/neo-is-dragging/);
     const firstProxy = await proxy.boundingBox();
     expect(firstProxy).not.toBeNull();

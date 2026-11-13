@@ -72,7 +72,8 @@ class StudioViewport extends Viewport {
             eventStore         : {},
             eventDragZoneConfig: {useProxy: true, moveInMainThread: false},
             barRenderer        : (bar, {vdom}) => {
-                vdom.cls.push(`studio-booking-${(Number(String(bar.resourceId).split('-').pop()) - 1) % 3}`);
+                const colors = ['violet', 'emerald', 'amber'];
+                vdom.cls.push(`neo-scheduler-bar-${colors[(Number(String(bar.resourceId).split('-').pop()) - 1) % colors.length]}`);
                 return vdom
             },
             timeAxis       : {

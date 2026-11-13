@@ -2,8 +2,13 @@
 .neo-scheduler {
     .neo-grid-header-toolbar {
         align-items: stretch;
-        min-height : 52px;
+        min-height : 56px;
+
+        .neo-grid-header-button { height: 100%; }
     }
+
+    .neo-timeline-header .neo-timeline-header-major,
+    .neo-timeline-header .neo-timeline-header-minor { font-size: 12px; }
 
     .neo-grid-row {
         .neo-grid-cell.neo-locked-start {
@@ -21,20 +26,21 @@
     }
 
     .neo-timeline-bar {
-        &.neo-scheduler-bar-emerald {
-            background  : var(--neo-scheduler-bar-emerald-bg);
-            border-color: var(--neo-scheduler-bar-emerald-border);
-        }
+        border-left-width: 4px;
+        font-size: 12px;
 
-        &.neo-scheduler-bar-amber {
-            background  : var(--neo-scheduler-bar-amber-bg);
-            border-color: var(--neo-scheduler-bar-amber-border);
+        .neo-timeline-bar-handle::after {
+            background: currentColor;
+            border-radius: 2px;
+            content: '';
+            height: 12px;
+            opacity: .38;
+            position: absolute;
+            top: calc(50% - 6px);
+            width: 2px;
         }
-
-        &.neo-scheduler-bar-violet {
-            background  : var(--neo-scheduler-bar-violet-bg);
-            border-color: var(--neo-scheduler-bar-violet-border);
-        }
+        .neo-resizable-start::after { left: 2px; }
+        .neo-resizable-end::after { right: 2px; }
     }
 }
 
@@ -54,6 +60,23 @@
     padding: 0 8px;
     white-space: nowrap;
     width: 100%;
+}
+
+// A proxy is mounted outside the scheduler, so both surfaces share the same variant rules.
+.neo-scheduler .neo-timeline-bar,
+.neo-scheduler-drag-preview {
+    &.neo-scheduler-bar-emerald {
+        background: var(--neo-scheduler-bar-emerald-bg);
+        border-color: var(--neo-scheduler-bar-emerald-border);
+    }
+    &.neo-scheduler-bar-amber {
+        background: var(--neo-scheduler-bar-amber-bg);
+        border-color: var(--neo-scheduler-bar-amber-border);
+    }
+    &.neo-scheduler-bar-violet {
+        background: var(--neo-scheduler-bar-violet-bg);
+        border-color: var(--neo-scheduler-bar-violet-border);
+    }
 }
 
 // Keep resource tracks available to the pointer sensor while the floating proxy stays inert.

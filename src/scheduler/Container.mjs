@@ -72,7 +72,8 @@ class Container extends GridContainer {
     /**
      * Declarative relay descriptors for container-level timeline configs forwarded to
      * {@link #timelineColumn}, its {@link Neo.timeline.TimeAxisHeader}, and/or {@link #eventDragZone}.
-     * At module load, an `afterSet<Config>` prototype hook is installed for each key.
+     * The base class installs hooks for its own keys at module load. Subclasses can override those
+     * descriptors and supply their own `afterSet<Config>` hook for additional keys.
      * @member {Object} timelineRelays
      * @static
      */
@@ -326,6 +327,7 @@ class Container extends GridContainer {
     #ownedStores = new WeakSet()
 
     /**
+     * @summary Installs the Scheduler's bar editing, drag and keyboard handlers.
      * @param {Object} config
      */
     construct(config) {
@@ -1075,9 +1077,13 @@ class Container extends GridContainer {
         });
 
         if (zone.useProxy) {
+            const barClasses = Array.isArray(barNode.cls) ? barNode.cls : String(barNode.cls || '').split(/\s+/);
             zone.dragProxyConfig = {
                 ...zone.dragProxyConfig,
-                vdom: {cls: ['neo-scheduler-drag-preview'], text: String(record[me.titleField] ?? '')}
+                vdom: {
+                    cls : ['neo-scheduler-drag-preview', ...barClasses.filter(cls => cls.startsWith('neo-scheduler-bar-'))],
+                    text: String(record[me.titleField] ?? '')
+                }
             }
         }
 

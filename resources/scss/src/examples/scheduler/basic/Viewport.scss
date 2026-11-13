@@ -35,29 +35,3 @@
     .studio-zoom-first { border-radius: 6px 0 0 6px; margin-right: -12px; }
     .studio-zoom-last { border-radius: 0 6px 6px 0; }
 }
-
-.neo-scheduler {
-    .neo-grid-header-toolbar { min-height: 56px; }
-    .neo-timeline-header .neo-timeline-header-major { font-size: 12px; }
-    .neo-timeline-header .neo-timeline-header-minor { font-size: 12px; }
-    .neo-timeline-bar { border-left-width: 4px; font-size: 12px; }
-}
-
-// The drag proxy can be mounted outside the scheduler component.
-.neo-timeline-bar {
-    &.studio-booking-0 { background: var(--neo-scheduler-bar-violet-bg); border-color: var(--neo-scheduler-bar-violet-border); }
-    &.studio-booking-1 { background: var(--neo-scheduler-bar-emerald-bg); border-color: var(--neo-scheduler-bar-emerald-border); }
-    &.studio-booking-2 { background: var(--neo-scheduler-bar-amber-bg); border-color: var(--neo-scheduler-bar-amber-border); }
-    .neo-timeline-bar-handle::after {
-        background: currentColor;
-        border-radius: 2px;
-        content: '';
-        height: 12px;
-        opacity: .38;
-        position: absolute;
-        top: calc(50% - 6px);
-        width: 2px;
-    }
-    .neo-resizable-start::after { left: 2px; }
-    .neo-resizable-end::after { right: 2px; }
-}

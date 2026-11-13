@@ -4,8 +4,8 @@ import EventDragZone from '../timeline/draggable/EventDragZone.mjs';
  * @summary Scheduler-specific timeline drag and resize zone (`Neo.scheduler.EventDragZone`) that resolves cross-resource drop targets from `Neo.grid.Row` nodes.
  * @description Subclasses {@link Neo.timeline.draggable.EventDragZone} so the drag zone owns its gesture lifecycle end to end:
  * `Neo.manager.DomEvent` routes `drag:move`, `drag:end`, and `drag:cancel` directly to this zone by `dragZoneId`,
- * {@link #resolveTarget} maps `.neo-grid-row` and `.neo-timeline-row` targets to `{id, resourceId}` via the owning
- * {@link Neo.scheduler.Container}, and `dragEnd` commits through the owner's timeline edit hook.
+ * {@link #resolveTarget} reads the resource from the target row of this grid, and `dragEnd` commits
+ * through the owning {@link Neo.scheduler.Container}'s timeline edit hook.
  * @class Neo.scheduler.EventDragZone
  * @extends Neo.timeline.draggable.EventDragZone
  */
@@ -36,8 +36,7 @@ class SchedulerEventDragZone extends EventDragZone {
     }
 
     /**
-     * @summary Resolves the target resource row (`{id, resourceId}`) from `data.targetPath` or `data.path` across
-     * `.neo-timeline-row` and `.neo-grid-row` nodes belonging to `owner`.
+     * @summary Resolves the owning grid's target row from `data.targetPath` or `data.path`.
      * @param {Object} [data={}]
      * @returns {{id: String, resourceId: *}|null}
      */
@@ -57,59 +56,16 @@ class SchedulerEventDragZone extends EventDragZone {
                     ? node.cls.split(/\s+/)
                     : [];
 
-            if (cls.includes('neo-timeline-row') && (node.resourceId !== undefined || node.data?.resourceId !== undefined)) {
-                return {
-                    id        : node.id,
-                    resourceId: node.resourceId ?? node.data?.resourceId
-                }
-            }
-
-            if (cls.includes('neo-grid-row') || node.data?.recordId !== undefined) {
-                if (node.resourceId !== undefined || node.data?.resourceId !== undefined) {
-                    return {
-                        id        : node.id,
-                        resourceId: node.resourceId ?? node.data?.resourceId
-                    }
-                }
-
-                const
-                    recordId  = node.data?.recordId,
-                    rowComp   = node.id ? Neo.getComponent(node.id) : null,
-                    rowRecord = rowComp?.record ||
-                        (node.id && (
-                            owner?.body?.getRecordByRowId?.(node.id) ||
-                            owner?.bodyStart?.getRecordByRowId?.(node.id) ||
-                            owner?.bodyEnd?.getRecordByRowId?.(node.id)
-                        )) ||
-                        (recordId !== undefined && (
-                            owner?.store?.getByInternalId?.(recordId) ||
-                            owner?.store?.get?.(recordId) ||
-                            owner?.body?.getRecord?.(recordId)
-                        )) ||
-                        (node.id && owner?.body?.getRecord?.(node.id)) ||
-                        null;
-
-                if (rowRecord) {
-                    const resourceId = owner?.timelineColumn
-                        ? owner.timelineColumn.getResourceId(rowRecord)
-                        : (rowRecord[owner?.resourceIdField || 'id'] ?? rowRecord.id);
-
-                    if (resourceId !== null && resourceId !== undefined) {
-                        return {
-                            id: node.id,
-                            resourceId
-                        }
-                    }
-                } else if (recordId !== undefined && !String(recordId).startsWith('neo-record-')) {
-                    return {
-                        id        : node.id,
-                        resourceId: recordId
-                    }
-                }
+            if (cls.includes('neo-grid-row')) {
+                const row = node.id ? Neo.getComponent(node.id) : null;
+                if (!row?.record || row.parent.gridContainer !== owner) return null;
+                const resourceId = owner.timelineColumn.getResourceId(row.record);
+                return resourceId == null ? null : {id: node.id, resourceId}
             }
         }
 
-        return super.resolveTarget(data)
+        // Explicit custom targets retain the generic drag-zone contract; the default is not a Scheduler row.
+        return this.targetCls === EventDragZone.config.targetCls ? null : super.resolveTarget(data)
     }
 }
 
