@@ -47,7 +47,7 @@ class PointerRenderer extends CanvasBase {
 
 Neo.setupClass(PointerRenderer);
 
-const idle = {x: -1000, y: -1000, dx: 0, dy: 0, buttons: 0, altKey: false, ctrlKey: false, metaKey: false, shiftKey: false};
+const idle = {x: -1000, y: -1000, dx: 0, dy: 0, buttons: 0, pressedButtons: 0, altKey: false, ctrlKey: false, metaKey: false, shiftKey: false};
 
 test.describe('Neo.canvas.Base — pointer reports become mouse state and hooks', () => {
     let renderer;
@@ -66,7 +66,7 @@ test.describe('Neo.canvas.Base — pointer reports become mouse state and hooks'
         renderer.updateMouseState({x: 10, y: 20, buttons: 1, shiftKey: true, down: true, button: 0});
         renderer.updateMouseState({x: 14, y: 26, buttons: 1});
 
-        expect(renderer.mouse).toEqual({...idle, x: 14, y: 26, dx: 4, dy: 6, buttons: 1, shiftKey: true});
+        expect(renderer.mouse).toEqual({...idle, x: 14, y: 26, dx: 4, dy: 6, buttons: 1, pressedButtons: 1, shiftKey: true});
 
         renderer.updateMouseState({leave: true});
 
@@ -116,6 +116,75 @@ test.describe('Neo.canvas.Base — pointer reports become mouse state and hooks'
         renderer.updateMouseState({x: 7, y: 8, buttons: 2, altKey: true});
         renderer.clearGraph();
 
+        expect(renderer.mouse).toEqual(idle)
+    });
+
+    test('pressedButtons tracks only presses that started on this canvas until up, leave, or buttons drops them', () => {
+        let seenInDown;
+
+        const origDown = renderer.onMouseDown.bind(renderer);
+
+        renderer.onMouseDown = data => {
+            seenInDown = renderer.mouse.pressedButtons;
+            origDown(data)
+        };
+
+        // 1. Held move without down leaves pressedButtons at 0
+        renderer.updateMouseState({x: 10, y: 20, buttons: 1});
+        expect(renderer.mouse.buttons).toBe(1);
+        expect(renderer.mouse.pressedButtons).toBe(0);
+
+        // 2. Pressing secondary (button: 2 -> bit 2) while external primary is held sets only bit 2
+        renderer.updateMouseState({x: 10, y: 20, button: 2, buttons: 3, down: true});
+        expect(seenInDown, 'pressedButtons is updated before onMouseDown runs').toBe(2);
+        expect(renderer.mouse.pressedButtons).toBe(2);
+
+        // 3. Releasing secondary via up clears bit 2; a later held move without down stays 0
+        renderer.updateMouseState({x: 12, y: 20, button: 2, buttons: 0, up: true});
+        expect(renderer.mouse.pressedButtons).toBe(0);
+
+        renderer.updateMouseState({x: 20, y: 25, buttons: 1});
+        expect(renderer.mouse.pressedButtons).toBe(0);
+
+        // 3b. Auxiliary press (button: 1) maps to bit 4, and out-of-range button (-1) is ignored
+        renderer.updateMouseState({x: 20, y: 25, button: 1, buttons: 4, down: true});
+        expect(renderer.mouse.pressedButtons).toBe(4);
+
+        renderer.updateMouseState({x: 20, y: 25, button: -1, down: true});
+        expect(renderer.mouse.pressedButtons).toBe(4);
+
+        renderer.updateMouseState({x: 20, y: 25, button: -1, up: true});
+        expect(renderer.mouse.pressedButtons).toBe(4);
+
+        renderer.updateMouseState({x: 20, y: 25, button: 1, buttons: 0, up: true});
+        expect(renderer.mouse.pressedButtons).toBe(0);
+
+        // 4. Primary press on canvas sets bit 1; wheel without buttons keeps it; buttons: 0 without up clears it
+        renderer.updateMouseState({x: 20, y: 25, button: 0, buttons: 1, down: true});
+        expect(renderer.mouse.pressedButtons).toBe(1);
+
+        renderer.updateMouseState({x: 20, y: 25, wheel: {deltaX: 0, deltaY: 120, deltaZ: 0, deltaMode: 0}});
+        expect(renderer.mouse.pressedButtons).toBe(1);
+
+        renderer.updateMouseState({x: 22, y: 25, buttons: 0});
+        expect(renderer.mouse.pressedButtons).toBe(0);
+
+        renderer.updateMouseState({x: 30, y: 25, buttons: 1});
+        expect(renderer.mouse.pressedButtons).toBe(0);
+
+        // 5. Leave clears active canvas press; re-entering with buttons held does not restore it
+        renderer.updateMouseState({x: 30, y: 25, button: 0, buttons: 1, down: true});
+        expect(renderer.mouse.pressedButtons).toBe(1);
+
+        renderer.updateMouseState({leave: true});
+        expect(renderer.mouse.pressedButtons).toBe(0);
+
+        renderer.updateMouseState({x: 35, y: 30, buttons: 1});
+        expect(renderer.mouse.pressedButtons).toBe(0);
+
+        // 6. clearGraph also clears pressedButtons
+        renderer.updateMouseState({x: 35, y: 30, button: 0, buttons: 1, down: true});
+        renderer.clearGraph();
         expect(renderer.mouse).toEqual(idle)
     });
 });

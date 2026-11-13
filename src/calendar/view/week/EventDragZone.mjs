@@ -228,7 +228,8 @@ class EventDragZone extends DragZone {
                 endDate   = me.newEndDate;
                 startDate = me.newStartDate || record.startDate
             } else {
-                startDate = new Date(VDomUtil.find(owner.vdom, me.proxyParentId).vdom.flag + 'T12:00:00.000Z');
+                let [year, month, day] = VDomUtil.find(owner.vdom, me.proxyParentId).vdom.flag.split('-').map(Number);
+                startDate = new Date(year, month - 1, day);
                 startDate.setHours(me.axisStartTime);
                 startDate.setMinutes(me.currentInterval * me.intervalSize);
 
