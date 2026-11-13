@@ -41,11 +41,17 @@ async function selectFamily(page, name) {
 async function expectFamilyTabs(page) {
     const control = page.locator('.neo-tab-overflow-control:visible'),
           menu    = page.locator('.neo-tab-overflow-menu:visible .neo-list-item');
+    let clicked = false;
 
     await expect.poll(async () => {
-        if (await control.isVisible() && !await menu.first().isVisible()) {
-            await control.click();
-            await expect(menu.first()).toBeVisible()
+        if (!clicked && await control.isVisible() && !await menu.first().isVisible()) {
+            try {
+                // A recapture may withdraw this control and restore every header before the click.
+                await control.click({timeout: 1000});
+                clicked = true
+            } catch (error) {
+                if (await control.isVisible()) throw error
+            }
         }
 
         return [...await page.getByRole('tab').allTextContents(), ...await menu.allTextContents()]
