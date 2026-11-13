@@ -103,6 +103,7 @@ export const RUN_PATHS = [
     'test/playwright/e2e/workstation/WorkstationNestedColumnResizeNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationOffSocketContractNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationOwnPaneEdgeDropNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationPlanningDeskNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationPopOutHoverSyncNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationPopOutPaneIdentityNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationPopOutSparklinesNL.spec.mjs',
