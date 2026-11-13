@@ -275,3 +275,164 @@ async function pollScrollbar(page, accept, mode) {
 
     return last;
 }
+
+/**
+ * @summary Holds the first armed owner-scroll completion after the real method, including its DOM scroll, ran.
+ * The routed test-only methods inspect the SortZone but never assign its snapshot, index, map or styles.
+ * @param {import('@playwright/test').BrowserContext} context
+ * @returns {Promise<{hits: Number, restore: Function}>}
+ */
+async function holdOwnerScroll(context) {
+    const pattern   = '**/src/grid/header/Toolbar.mjs',
+          signature = '    async scrollToIndex(index, itemRect) {';
+    let   hits    = 0;
+    const handler = async route => {
+        const response = await route.fetch(), source = await response.text();
+        expect(source.split(signature)).toHaveLength(2);
+        hits++;
+        await route.fulfill({response, body: source.replace(signature, `
+    armContinuationScroll() {
+        this.continuationScroll = {entered: false, released: false, returned: false};
+    }
+    releaseContinuationScroll() {
+        const hold = this.continuationScroll;
+        if (hold) { hold.released = true; hold.release?.() }
+    }
+    getContinuationSnapshot() {
+        const hold = this.continuationScroll, zone = this.sortZone;
+        return {marker: 'owner-scroll-completion', hold: hold && {
+            entered: hold.entered, released: hold.released, returned: hold.returned,
+            index: hold.index, before: hold.before, after: hold.after, componentId: hold.componentId
+        }, snapshot: zone && {
+            componentId: zone.dragComponent?.id, proxyId: zone.dragProxy?.id || null,
+            index: zone.currentIndex, ending: zone.dragEndActive, starting: zone.dragStartPending,
+            map: zone.indexMap && {...zone.indexMap},
+            rects: zone.itemRects?.map(rect => ({x: rect.x, y: rect.y, width: rect.width, height: rect.height})) || null,
+            positions: this.items.map(item => {const style = item.wrapperStyle || {}; return {
+                id: item.id, left: style.left || '', top: style.top || '',
+                width: style.width || '', height: style.height || '', position: style.position || ''
+            }})
+        }}
+    }
+    async scrollToIndex(index, itemRect) {
+        const hold = this.continuationScroll, before = this.scrollLeft;
+        await this.scrollToIndexUnheld(index, itemRect);
+        if (hold && !hold.entered && !hold.released) {
+            Object.assign(hold, {entered: true, index, before, after: this.scrollLeft, componentId: this.sortZone.dragComponent.id});
+            await new Promise(resolve => {hold.release = resolve});
+            hold.returned = true
+        }
+    }
+    async scrollToIndexUnheld(index, itemRect) {`)})
+    };
+    await context.route(pattern, handler);
+    return {get hits() {return hits}, restore: () => context.unroute(pattern, handler)}
+}
+
+test.describe('Native overdrag continuation ownership', () => {
+    test.use({viewport: {width: 1920, height: 1080}});
+
+    test('a cancelled scroll cannot rearrange the next native header gesture', async ({page, neuralLink}, testInfo) => {
+        const intervention = await holdOwnerScroll(page.context());
+        let app, toolbarId, held, before, after, nativeBefore, nativeAfter, witnessLoaded = false;
+        const read            = () => app.callMethod(toolbarId, 'getContinuationSnapshot', []),
+              nativePositions = ids => page.evaluate(ids => ids.map(id => {
+                  const node = document.getElementById(id), rect = node.getBoundingClientRect();
+                  return {id, left: node.style.left, top: node.style.top, width: node.style.width,
+                      height: node.style.height, position: node.style.position, x: rect.x, y: rect.y}
+              }), ids),
+              visibleHeaders = () => page.evaluate(id => {
+                  const toolbar = document.getElementById(id), clip = toolbar.getBoundingClientRect();
+                  return [...toolbar.querySelectorAll('.neo-draggable')].map(node => ({id: node.id, rect: node.getBoundingClientRect().toJSON()}))
+                      .filter(({rect}) => rect.width > 20 && rect.left >= clip.left + 2 && rect.right <= clip.right - 2)
+              }, toolbarId);
+        try {
+            await page.goto('/examples/grid/lockedColumns/');
+            await expect(page.locator('[role="grid"]')).toBeVisible({timeout: 30000});
+            app = await neuralLink.connectToApp('Neo.examples.grid.lockedColumns');
+            const toolbars = [].concat(await app.findInstances({ntype: 'grid-header-toolbar'}, ['id', 'layoutLock']));
+            toolbarId = toolbars.find(item => !(item.layoutLock || item.properties?.layoutLock)).id;
+            await expect.poll(async () => (await read()).snapshot?.index).toBe(-1);
+            expect((await read()).marker, 'the actual App worker loaded the routed owner').toBe('owner-scroll-completion');
+            expect(intervention.hits, 'worker module interception is observed, not assumed').toBeGreaterThan(0);
+            witnessLoaded = true;
+            const toolbar = page.locator(`[id="${toolbarId}"]`),
+                  initial = await read(), initialScroll = await scrollSurfaces(page),
+                  headers = await visibleHeaders(), first = headers.at(-1), clip = await toolbar.boundingBox();
+            expect(headers.length).toBeGreaterThan(2);
+            const x       = first.rect.left + first.rect.width / 2, y = first.rect.top + first.rect.height / 2,
+                  outside = Math.min(clip.x + clip.width + 40, 1910);
+            expect(outside).toBeGreaterThan(clip.x + clip.width);
+            await app.callMethod(toolbarId, 'armContinuationScroll', []);
+            await page.mouse.move(x, y);
+            await page.mouse.down();
+            await page.mouse.move(x + 8, y, {steps: 4});
+            await page.mouse.move(outside, y, {steps: 20});
+            await expect.poll(async () => (await read()).hold.entered).toBe(true);
+            held = await read();
+            expect(held.hold.componentId).toBe(first.id);
+            expect(held.hold.after, 'the real owner scroll ran before its completion was held').toBeGreaterThan(held.hold.before);
+            expect((await scrollSurfaces(page)).scrollbarScrollLeft).toBeGreaterThan(initialScroll.scrollbarScrollLeft);
+
+            await page.keyboard.press('Escape');
+            await page.mouse.up();
+            await expect.poll(async () => {
+                const {snapshot} = await read();
+                return snapshot.index === -1 && snapshot.rects === null && snapshot.proxyId === null && !snapshot.ending
+            }).toBe(true);
+            await expect(page.locator('.neo-dragproxy')).toHaveCount(0);
+            expect((await read()).snapshot.positions.map(item => item.id)).toEqual(initial.snapshot.positions.map(item => item.id));
+
+            const second = (await visibleHeaders()).find(item => item.id !== first.id &&
+                initial.snapshot.positions.findIndex(candidate => candidate.id === item.id) !== held.hold.index - 1);
+            expect(second, 'another visible header starts a distinct native gesture').toBeTruthy();
+            const secondX = second.rect.left + second.rect.width / 2, secondY = second.rect.top + second.rect.height / 2;
+            await page.mouse.move(secondX, secondY);
+            await page.mouse.down();
+            await page.mouse.move(secondX + 8, secondY, {steps: 4});
+            await expect.poll(async () => {
+                const {snapshot} = await read();
+                return snapshot.componentId === second.id && snapshot.rects?.length > 1 && !snapshot.starting
+            }).toBe(true);
+            before = await read();
+            await expect(page.locator(`[id="${before.snapshot.proxyId}"]`)).toBeVisible();
+            const ids = before.snapshot.positions.map(item => item.id);
+            await expect.poll(() => nativePositions(ids), {message: 'the second gesture pins its actual header DOM'}).toMatchObject(before.snapshot.positions);
+            nativeBefore = await nativePositions(ids);
+            expect(before.hold.released).toBe(false);
+            expect(before.snapshot.index).not.toBe(held.hold.index - 1);
+
+            await app.callMethod(toolbarId, 'releaseContinuationScroll', []);
+            await expect.poll(async () => (await read()).hold.returned).toBe(true);
+            // No new pointer input: let any deltas produced by the old continuation reach the native surface.
+            await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+            after = await read();
+            nativeAfter = await nativePositions(ids);
+            expect(after.snapshot.componentId).toBe(second.id);
+            expect.soft(after.snapshot.index, 'old work leaves the new index intact').toBe(before.snapshot.index);
+            expect.soft(after.snapshot.map, 'old work leaves the new mapping intact').toEqual(before.snapshot.map);
+            expect.soft(after.snapshot.rects).toEqual(before.snapshot.rects);
+            expect.soft(after.snapshot.positions).toEqual(before.snapshot.positions);
+            expect(nativeAfter, 'the native header positions remain those of the second gesture').toEqual(nativeBefore)
+        } finally {
+            try {
+                if (witnessLoaded) {
+                    // Retain the race before cleanup can change its state, including when an assertion failed.
+                    const trace = await app.getDragTrace().catch(error => ({error: error.message}));
+                    await testInfo.attach('scroll-continuation', {contentType: 'application/json',
+                        body: JSON.stringify({held, before, after, nativeBefore, nativeAfter, trace}, null, 2)});
+                    await app.callMethod(toolbarId, 'releaseContinuationScroll', []);
+                    await page.keyboard.press('Escape');
+                    await page.mouse.up();
+                    await expect.poll(async () => {
+                        const {snapshot} = await read();
+                        return snapshot.index === -1 && snapshot.rects === null && snapshot.proxyId === null && !snapshot.ending
+                    }, {message: 'cleanup reaches the ordinary idle snapshot'}).toBe(true);
+                    await expect(page.locator('.neo-dragproxy')).toHaveCount(0);
+                }
+            } finally {
+                await intervention.restore()
+            }
+        }
+    })
+});

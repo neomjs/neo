@@ -794,7 +794,7 @@ class SortZone extends DragZone {
     }
 
     /**
-     * Handles the drag move event. This is the core logic loop for the drag operation.
+     * @summary Reorders the current drag snapshot and retires its async work when that snapshot changes.
      *
      * Responsibilities:
      * 1.  **Window Drag Re-entry:** Checks if a window drag has re-entered the original container boundaries.
@@ -884,8 +884,8 @@ class SortZone extends DragZone {
                 me.currentIndex--;
                 await me.scrollToIndex();
 
-                // The drag can end while the scroll is awaited; the end-reset nulls itemRects
-                if (!me.itemRects) {
+                // An ended or replaced drag no longer owns this continuation's indices.
+                if (me.itemRects !== itemRects) {
                     return
                 }
 
@@ -898,8 +898,7 @@ class SortZone extends DragZone {
                 me.currentIndex++;
                 await me.scrollToIndex();
 
-                // See the isOverDraggingStart branch: bail when the drag ended mid-await
-                if (!me.itemRects) {
+                if (me.itemRects !== itemRects) {
                     return
                 }
 
@@ -940,7 +939,7 @@ class SortZone extends DragZone {
         if (me.isOverDragging) {
             await me.timeout(30); // wait for 1 frame
 
-            if (me.isOverDragging) {
+            if (me.isOverDragging && me.itemRects === itemRects) {
                 await me.onDragMove(data)
             }
         }
