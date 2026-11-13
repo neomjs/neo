@@ -221,7 +221,8 @@ class EventDragZone extends DragZone {
             endDate, startDate;
 
         if (data?.cancelled) {
-            me.removeBodyCursorCls()
+            me.removeBodyCursorCls();
+            owner.updateEvents()
         } else {
             if (me.keepStartDate) {
                 endDate   = me.newEndDate;
@@ -242,15 +243,11 @@ class EventDragZone extends DragZone {
 
             endDate = me.adjustEndDate(endDate);
 
-            record.setSilent({
-                endDate,
-                startDate
-            });
+            // A drop back onto the starting slot changes no field and fires no recordChange: the proxy teardown
+            // still needs one restore pass. A moved drop re-renders through the store's recordChange listeners.
+            if (+record.startDate === +startDate && +record.endDate === +endDate) owner.updateEvents();
 
-            // todo: updating a record field which is included inside a sorter should trigger collection.doSort()
-            // see: https://github.com/neomjs/neo/issues/2392
-
-            owner.getStateProvider().getStore('events').doSort()
+            record.set({endDate, startDate})
         }
 
         Object.assign(me, {
@@ -261,9 +258,7 @@ class EventDragZone extends DragZone {
             newEndDate     : null,
             newStartDate   : null,
             proxyParentId  : null
-        });
-
-        owner.updateEvents()
+        })
     }
 
     /**
