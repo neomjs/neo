@@ -9,6 +9,7 @@ import DomEventManager     from '../manager/DomEvent.mjs';
 import FocusManager        from '../manager/Focus.mjs';
 import HashHistory         from '../util/HashHistory.mjs';
 import {getThemeNamespace} from '../util/Theme.mjs';
+import {generateUUID}     from '../util/UUID.mjs';
 
 /**
  * The App worker contains most parts of the framework as well as all apps which get created.
@@ -30,13 +31,13 @@ class App extends Base {
          */
         countLoadingThemeFiles_: 0,
         /**
-         * Using crypto.randomUUID() as a unique window identifier.
+         * Using the shared UUID helper to keep worker identifiers available on insecure HTTP origins.
          * This is especially important for the neural link, where multiple App workers can connect.
-         * @member {String} id=crypto.randomUUID()
+         * @member {String} id=generateUUID()
          * @protected
          * @reactive
          */
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         /**
          * Remote method access for other workers
          * @member {Object} remote

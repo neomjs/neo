@@ -1418,8 +1418,9 @@ class GridContainer extends BaseContainer {
      *
      * `mode: 'export'` yields the column's `exportRenderer({record, value})` when it has one, else the record's
      * value. `undefined` becomes `null`, and an object or array that is not a `Date` becomes its JSON text, so a
-     * serializer formats only strings, numbers, booleans, dates and `null`. `mode: 'raw'` yields the record's value
-     * as {@link Neo.grid.column.Base#getRecordValue} reads it, untouched.
+     * serializer formats only strings, numbers, booleans, dates and `null`. `mode: 'raw'` skips export formatting;
+     * for a raw Turbo Mode row, the Store resolves the requested model fields on a copy (`Neo.data.Store#resolveRow()`),
+     * so the column reads what the row's record holds.
      *
      * @example
      *     grid.getCellValues();                                          // every record × every column
@@ -1442,23 +1443,27 @@ class GridContainer extends BaseContainer {
             all     = [...me.lockedStartColumns, ...me.centerColumns, ...me.lockedEndColumns],
             columns = dataFields.map(dataField => all.find(column => column.dataField === dataField));
 
-        return records.map(record => columns.map(column => {
-            let value = column?.getRecordValue(record);
+        return records.map(record => {
+            let resolvedRow = me.store.resolveRow(record, dataFields);
 
-            if (mode === 'raw') {
-                return value
-            }
+            return columns.map(column => {
+                let value = column?.getRecordValue(resolvedRow);
 
-            if (column?.exportRenderer) {
-                value = column.exportRenderer({record, value})
-            }
+                if (mode === 'raw') {
+                    return value
+                }
 
-            if (value && typeof value === 'object' && !(value instanceof Date)) {
-                value = JSON.stringify(value)
-            }
+                if (column?.exportRenderer) {
+                    value = column.exportRenderer({record, value})
+                }
 
-            return value ?? null
-        }))
+                if (value && typeof value === 'object' && !(value instanceof Date)) {
+                    value = JSON.stringify(value)
+                }
+
+                return value ?? null
+            })
+        })
     }
 
     /**
@@ -1511,6 +1516,44 @@ class GridContainer extends BaseContainer {
 
         me.updateColCount();
         me.syncSearchToolbar()
+    }
+
+    /**
+     * @summary Expands a collapsed parent row or collapses an expanded one, and fires the matching event.
+     *
+     * The single home of the tree toggle: the toggle icon of {@link Neo.grid.column.component.Tree} and the
+     * `Left` / `Right` keys of {@link Neo.selection.grid.RowModel} both end up here, so the store call and the
+     * `expand` / `collapse` event cannot drift apart. Does nothing in a grid without a tree store, on a leaf, or
+     * when `expand` is passed and the record is already expanded (and vice versa).
+     * @param {Neo.data.Record|Object} record
+     * @param {Boolean} [expand] Pass `true` to only expand, `false` to only collapse; omit to toggle.
+     * @returns {Boolean} `true` if the record changed its expansion state
+     */
+    toggleTreeNode(record, expand) {
+        let me      = this,
+            {store} = me;
+
+        if (!me.isTreeGrid || !store || !record || record.isLeaf) {
+            return false
+        }
+
+        if (expand === undefined) {
+            expand = record.collapsed
+        }
+
+        if (expand !== record.collapsed) {
+            return false
+        }
+
+        if (expand) {
+            store.expand(record);
+            me.fire('expand', {record})
+        } else {
+            store.collapse(record);
+            me.fire('collapse', {record})
+        }
+
+        return true
     }
 
     /**

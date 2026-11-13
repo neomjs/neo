@@ -138,8 +138,7 @@ test-results/
 resources/content/
 
 # Agent Harness Scratch Artifacts (Issue #11563)
-.gemini/*
-!.gemini/concepts/
+.gemini/
 /pr_*.md
 /scratch*.mjs
 /patch_*.js
@@ -160,6 +159,7 @@ resources/content/
 # Keep the Engine-owned contributor guards and Kimi hook-root README visible.
 .claude/hooks/*
 !.claude/hooks/bodyFileGuardHook.mjs
+!.claude/hooks/helperCallGuardHook.mjs
 !.claude/hooks/redirectionGuardHook.mjs
 !.claude/hooks/rgReplaceGuardHook.mjs
 .codex/hooks/

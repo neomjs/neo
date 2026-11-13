@@ -1,6 +1,7 @@
 import Base             from '../core/Base.mjs';
 import ClassSystemUtil  from '../util/ClassSystem.mjs';
 import InterceptorChain from './interceptor/Chain.mjs';
+import {generateUUID}  from '../util/UUID.mjs';
 
 /**
  * @summary The central orchestrator for data transformation and remote execution.
@@ -993,7 +994,7 @@ class Pipeline extends Base {
     async profile({operation, params, method = operation}) {
         if (!['create', 'execute', 'read', 'update', 'push'].includes(operation)) throw new Error('Invalid Pipeline operation');
         const telemetry = {
-            id: crypto.randomUUID(), pipelineId: this.appPipelineId || this.id,
+            id: generateUUID(), pipelineId: this.appPipelineId || this.id,
             operation, status: 'fulfilled',
             connectionStart: null, connectionEnd: null, parserStart: null, parserEnd: null,
             normalizerStart: null, normalizerEnd: null,

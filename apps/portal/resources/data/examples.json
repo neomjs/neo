@@ -358,7 +358,11 @@
             "dist_esm": "dist/esm/examples/component/dateSelector/index.html",
             "dist_prod": "dist/production/examples/component/dateSelector/index.html"
         },
-        "hiddenIn": []
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "DateSelector",
+        "feature": "The standalone date selector component",
+        "lookFor": "Pick a date and jump months with the radios."
     },
     {
         "id": "date-field",
@@ -372,7 +376,11 @@
             "dist_esm": "dist/esm/examples/form/field/date/index.html",
             "dist_prod": "dist/production/examples/form/field/date/index.html"
         },
-        "hiddenIn": []
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "DateField",
+        "feature": "A date field with picker and live configuration",
+        "lookFor": "Pick a date, type an invalid one to see the error state, and move the label between left and top."
     },
     {
         "id": "combobox-field",
@@ -386,7 +394,11 @@
             "dist_esm": "dist/esm/examples/form/field/combobox/index.html",
             "dist_prod": "dist/production/examples/form/field/combobox/index.html"
         },
-        "hiddenIn": []
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "ComboBox",
+        "feature": "A combo box over a store with a live configuration panel",
+        "lookFor": "Type to filter the list, choose an entry, then toggle readOnly or required from the panel."
     },
     {
         "id": "portal",
@@ -716,6 +728,367 @@
         "component": "Table",
         "feature": "Repeated table-data replacement",
         "lookFor": "Set row counts and refresh intervals across three tables; compare docked-column arrangements and scrollbar styles."
+    },
+    {
+        "id": "checkbox-field",
+        "image": null,
+        "name": "form.field.CheckBox",
+        "sourceUrl": "examples/form/field/checkbox",
+        "urls": {
+            "devmode": "examples/form/field/checkbox/index.html",
+            "dist_dev": "dist/development/examples/form/field/checkbox/index.html",
+            "dist_esm": "dist/esm/examples/form/field/checkbox/index.html",
+            "dist_prod": "dist/production/examples/form/field/checkbox/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "CheckBox",
+        "feature": "A checkbox wired to a live configuration panel: disabled, readOnly, required, error, label position and width",
+        "lookFor": "Flip disabled or readOnly in the panel, set an error message, and watch the box react instantly."
+    },
+    {
+        "id": "chip-field",
+        "image": null,
+        "name": "form.field.Chip",
+        "sourceUrl": "examples/form/field/chip",
+        "urls": {
+            "devmode": "examples/form/field/chip/index.html",
+            "dist_dev": "dist/development/examples/form/field/chip/index.html",
+            "dist_esm": "dist/esm/examples/form/field/chip/index.html",
+            "dist_prod": "dist/production/examples/form/field/chip/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "ChipField",
+        "feature": "A chip field selecting multiple store entries as removable chips",
+        "lookFor": "Remove a state chip with its icon, pick more states from the list, and watch the value collection update."
+    },
+    {
+        "id": "color-field",
+        "image": null,
+        "name": "form.field.Color",
+        "sourceUrl": "examples/form/field/color",
+        "urls": {
+            "devmode": "examples/form/field/color/index.html",
+            "dist_dev": "dist/development/examples/form/field/color/index.html",
+            "dist_esm": "dist/esm/examples/form/field/color/index.html",
+            "dist_prod": "dist/production/examples/form/field/color/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "ColorField",
+        "feature": "A color picker field listing entries from a store",
+        "lookFor": "Pick a color from the dropdown, then clear the field with its trigger."
+    },
+    {
+        "id": "email-field",
+        "image": null,
+        "name": "form.field.Email",
+        "sourceUrl": "examples/form/field/email",
+        "urls": {
+            "devmode": "examples/form/field/email/index.html",
+            "dist_dev": "dist/development/examples/form/field/email/index.html",
+            "dist_esm": "dist/esm/examples/form/field/email/index.html",
+            "dist_prod": "dist/production/examples/form/field/email/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "EmailField",
+        "feature": "An email field validating its address",
+        "lookFor": "Replace the address with one missing an @ to see the failure state, then restore a valid one."
+    },
+    {
+        "id": "fileupload-field",
+        "image": null,
+        "name": "form.field.FileUpload",
+        "sourceUrl": "examples/form/field/fileupload",
+        "urls": {
+            "devmode": "examples/form/field/fileupload/index.html",
+            "dist_dev": "dist/development/examples/form/field/fileupload/index.html",
+            "dist_esm": "dist/esm/examples/form/field/fileupload/index.html",
+            "dist_prod": "dist/production/examples/form/field/fileupload/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "FileUploadField",
+        "feature": "A file upload field wired to upload, status, download and delete endpoints",
+        "lookFor": "Choose a file and watch it stage on the field; the upload itself needs the local test server (see scope).",
+        "scope": "The upload, status and delete endpoints expect the local test server on 127.0.0.1:3000."
+    },
+    {
+        "id": "number-field",
+        "image": null,
+        "name": "form.field.Number",
+        "sourceUrl": "examples/form/field/number",
+        "urls": {
+            "devmode": "examples/form/field/number/index.html",
+            "dist_dev": "dist/development/examples/form/field/number/index.html",
+            "dist_esm": "dist/esm/examples/form/field/number/index.html",
+            "dist_prod": "dist/production/examples/form/field/number/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "NumberField",
+        "feature": "A number field which clears back to its original value",
+        "lookFor": "Change the number, then use the clear trigger — the original 20 returns."
+    },
+    {
+        "id": "picker-field",
+        "image": null,
+        "name": "form.field.Picker",
+        "sourceUrl": "examples/form/field/picker",
+        "urls": {
+            "devmode": "examples/form/field/picker/index.html",
+            "dist_dev": "dist/development/examples/form/field/picker/index.html",
+            "dist_esm": "dist/esm/examples/form/field/picker/index.html",
+            "dist_prod": "dist/production/examples/form/field/picker/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "PickerField",
+        "feature": "A picker field which clears back to its original value",
+        "lookFor": "Open the picker, choose another entry, then clear the field — the original value returns."
+    },
+    {
+        "id": "radio-field",
+        "image": null,
+        "name": "form.field.Radio",
+        "sourceUrl": "examples/form/field/radio",
+        "urls": {
+            "devmode": "examples/form/field/radio/index.html",
+            "dist_dev": "dist/development/examples/form/field/radio/index.html",
+            "dist_esm": "dist/esm/examples/form/field/radio/index.html",
+            "dist_prod": "dist/production/examples/form/field/radio/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "Radio",
+        "feature": "A single radio field with a live configuration panel",
+        "lookFor": "Select the radio and adjust its label text or position from the panel."
+    },
+    {
+        "id": "select-field",
+        "image": null,
+        "name": "form.field.Select",
+        "sourceUrl": "examples/form/field/select",
+        "urls": {
+            "devmode": "examples/form/field/select/index.html",
+            "dist_dev": "dist/development/examples/form/field/select/index.html",
+            "dist_esm": "dist/esm/examples/form/field/select/index.html",
+            "dist_prod": "dist/production/examples/form/field/select/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "SelectField",
+        "feature": "A select field over a fruit store",
+        "lookFor": "Pick a fruit from the list, then change the selection again."
+    },
+    {
+        "id": "switch-field",
+        "image": null,
+        "name": "form.field.Switch",
+        "sourceUrl": "examples/form/field/switch",
+        "urls": {
+            "devmode": "examples/form/field/switch/index.html",
+            "dist_dev": "dist/development/examples/form/field/switch/index.html",
+            "dist_esm": "dist/esm/examples/form/field/switch/index.html",
+            "dist_prod": "dist/production/examples/form/field/switch/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "SwitchField",
+        "feature": "A switch field with a live configuration panel",
+        "lookFor": "Flip the switch and adjust its label from the panel."
+    },
+    {
+        "id": "text-field",
+        "image": null,
+        "name": "form.field.Text",
+        "sourceUrl": "examples/form/field/text",
+        "urls": {
+            "devmode": "examples/form/field/text/index.html",
+            "dist_dev": "dist/development/examples/form/field/text/index.html",
+            "dist_esm": "dist/esm/examples/form/field/text/index.html",
+            "dist_prod": "dist/production/examples/form/field/text/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "TextField",
+        "feature": "A text field with the full live configuration panel",
+        "lookFor": "Type, clear via the trigger, and toggle required to see the empty-value failure."
+    },
+    {
+        "id": "textarea-field",
+        "image": null,
+        "name": "form.field.TextArea",
+        "sourceUrl": "examples/form/field/textarea",
+        "urls": {
+            "devmode": "examples/form/field/textarea/index.html",
+            "dist_dev": "dist/development/examples/form/field/textarea/index.html",
+            "dist_esm": "dist/esm/examples/form/field/textarea/index.html",
+            "dist_prod": "dist/production/examples/form/field/textarea/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "TextAreaField",
+        "feature": "A text area with a live character count and a 200-character limit",
+        "lookFor": "Type and watch the character count track the 200-character limit."
+    },
+    {
+        "id": "time-field",
+        "image": null,
+        "name": "form.field.Time",
+        "sourceUrl": "examples/form/field/time",
+        "urls": {
+            "devmode": "examples/form/field/time/index.html",
+            "dist_dev": "dist/development/examples/form/field/time/index.html",
+            "dist_esm": "dist/esm/examples/form/field/time/index.html",
+            "dist_prod": "dist/production/examples/form/field/time/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "TimeField",
+        "feature": "A time field with picker and inline label",
+        "lookFor": "Pick a different time and clear the field with the trigger."
+    },
+    {
+        "id": "url-field",
+        "image": null,
+        "name": "form.field.Url",
+        "sourceUrl": "examples/form/field/url",
+        "urls": {
+            "devmode": "examples/form/field/url/index.html",
+            "dist_dev": "dist/development/examples/form/field/url/index.html",
+            "dist_esm": "dist/esm/examples/form/field/url/index.html",
+            "dist_prod": "dist/production/examples/form/field/url/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "UrlField",
+        "feature": "A URL field with placeholder and clear trigger",
+        "lookFor": "Type an address over the placeholder and clear it with the trigger."
+    },
+    {
+        "id": "copy-to-clipboard-trigger",
+        "image": null,
+        "name": "form.field.trigger.CopyToClipboard",
+        "sourceUrl": "examples/form/field/trigger/copyToClipboard",
+        "urls": {
+            "devmode": "examples/form/field/trigger/copyToClipboard/index.html",
+            "dist_dev": "dist/development/examples/form/field/trigger/copyToClipboard/index.html",
+            "dist_esm": "dist/esm/examples/form/field/trigger/copyToClipboard/index.html",
+            "dist_prod": "dist/production/examples/form/field/trigger/copyToClipboard/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "TextField",
+        "feature": "A text field with a copy-to-clipboard trigger that appears on hover",
+        "lookFor": "Hover the field, copy its value with the clipboard trigger, and paste it anywhere."
+    },
+    {
+        "id": "fieldset",
+        "image": null,
+        "name": "form.Fieldset",
+        "sourceUrl": "examples/form/fieldset",
+        "urls": {
+            "devmode": "examples/form/fieldset/index.html",
+            "dist_dev": "dist/development/examples/form/fieldset/index.html",
+            "dist_esm": "dist/esm/examples/form/fieldset/index.html",
+            "dist_prod": "dist/production/examples/form/fieldset/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "Fieldset",
+        "feature": "A fieldset grouping number fields under a titled frame",
+        "lookFor": "Adjust the inner number values and try the title field in the panel."
+    },
+    {
+        "id": "field-with-prefix",
+        "image": null,
+        "name": "plugin.field.Prefix",
+        "sourceUrl": "examples/fieldWithPrefix",
+        "urls": {
+            "devmode": "examples/fieldWithPrefix/index.html",
+            "dist_dev": "dist/development/examples/fieldWithPrefix/index.html",
+            "dist_esm": "dist/esm/examples/fieldWithPrefix/index.html",
+            "dist_prod": "dist/production/examples/fieldWithPrefix/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "TextField",
+        "feature": "Input masks from the PrefixField plugin: a phone pattern and a digits-only date",
+        "lookFor": "Type into the phone field and watch the +1 (___) ___-___-____ mask carry your digits, then try the [0-9] date field."
+    },
+    {
+        "id": "fields-runtime-triggers",
+        "image": null,
+        "name": "form.field",
+        "sourceUrl": "examples/fields",
+        "urls": {
+            "devmode": "examples/fields/index.html",
+            "dist_dev": "dist/development/examples/fields/index.html",
+            "dist_esm": "dist/esm/examples/fields/index.html",
+            "dist_prod": "dist/production/examples/fields/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "PickerField",
+        "feature": "Adding and removing field triggers at runtime",
+        "lookFor": "Remove the triggers with the button, add one back, and click it on the field."
+    },
+    {
+        "id": "layout-form",
+        "image": null,
+        "name": "layout.Form",
+        "sourceUrl": "examples/layout/form",
+        "urls": {
+            "devmode": "examples/layout/form/index.html",
+            "dist_dev": "dist/development/examples/layout/form/index.html",
+            "dist_esm": "dist/esm/examples/layout/form/index.html",
+            "dist_prod": "dist/production/examples/layout/form/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "Form",
+        "feature": "A form composed by the layout-form layout with shared itemDefaults",
+        "lookFor": "Note both fields share the clearable textfield defaults while their labels differ in length."
+    },
+    {
+        "id": "date-selector-container",
+        "image": null,
+        "name": "date.SelectorContainer",
+        "sourceUrl": "examples/date/selectorContainer",
+        "urls": {
+            "devmode": "examples/date/selectorContainer/index.html",
+            "dist_dev": "dist/development/examples/date/selectorContainer/index.html",
+            "dist_esm": "dist/esm/examples/date/selectorContainer/index.html",
+            "dist_prod": "dist/production/examples/date/selectorContainer/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "SelectorContainer",
+        "feature": "The date SelectorContainer variant, standalone",
+        "lookFor": "Pick a date and jump months with the radios; compare it with the component variant."
+    },
+    {
+        "id": "form-app",
+        "image": null,
+        "name": "Form App",
+        "environments": [
+            "Desktop"
+        ],
+        "sourceUrl": "apps/form",
+        "urls": {
+            "devmode": "apps/form/index.html",
+            "dist_dev": "dist/development/apps/form/index.html",
+            "dist_esm": "dist/esm/apps/form/index.html",
+            "dist_prod": "dist/production/apps/form/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "Form",
+        "feature": "A complete form application: 15 pages behind a side navigation",
+        "lookFor": "Open pages from the side navigation and step through their fields."
     },
     {
         "id": "dock-choreography",

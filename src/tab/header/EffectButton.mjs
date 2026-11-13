@@ -62,7 +62,7 @@ class EffectTabButton extends EffectButton {
             vdomConfig = super.getVdomConfig();
 
         vdomConfig.role             = me.role;
-        vdomConfig['aria-selected'] = me.pressed;
+        vdomConfig['aria-selected'] = me.pressed === true;
         vdomConfig['aria-keyshortcuts'] = me.closable ? 'Delete' : null;
 
         if (me.cardId) {

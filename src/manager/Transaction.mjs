@@ -2,6 +2,7 @@ import Manager         from './Base.mjs';
 import StateProvider   from '../state/Provider.mjs';
 import Commit          from './transaction/Commit.mjs';
 import NativeLifecycle from './transaction/NativeLifecycle.mjs';
+import {generateUUID}   from '../util/UUID.mjs';
 
 /**
  * @summary The worker-side authority for logical topology Groups, their window bindings and their history.
@@ -240,9 +241,9 @@ class Transaction extends Manager {
 
         return {
             binding        : fresh ? null : binding,
-            generationToken: fresh || !generationToken ? crypto.randomUUID() : generationToken,
+            generationToken: fresh || !generationToken ? generateUUID() : generationToken,
             group          : fresh ? null : group,
-            groupId        : fresh ? crypto.randomUUID() : groupId,
+            groupId        : fresh ? generateUUID() : groupId,
             outcome,
             windowId,
             workspaceKey
@@ -310,7 +311,7 @@ class Transaction extends Manager {
      *   historyReady, provider, queue, retainedReferences}`
      * @protected
      */
-    createGroup(groupId=crypto.randomUUID()) {
+    createGroup(groupId=generateUUID()) {
         const group = {
             batch             : null,
             bindings          : new Map(),
@@ -368,7 +369,7 @@ class Transaction extends Manager {
             throw new TypeError('invalid-batch')
         }
         if (group.batch || this.findBatch(owner)) throw new Error('transaction-already-open');
-        group.batch = {id: crypto.randomUUID(), owner, name: name.trim(), limit, requests: [], committing: false};
+        group.batch = {id: generateUUID(), owner, name: name.trim(), limit, requests: [], committing: false};
         return this.findBatch(owner)
     }
 
@@ -855,7 +856,7 @@ class Transaction extends Manager {
 
         binding = {
             generation     : 0,
-            generationToken: crypto.randomUUID(),
+            generationToken: generateUUID(),
             windowId       : null,
             workspaceKey
         };

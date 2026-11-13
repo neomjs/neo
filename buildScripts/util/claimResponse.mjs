@@ -7,7 +7,7 @@
  * could be many hours. The responder closes that gap while bounding claim spraying:
  *
  * - **first in line:** nothing live holds the issue and the claimant holds no other open curated issue in the
- *   repository, so the workflow assigns them (clearing any lapsed >7-day silent outside assignee) and they can start
+ *   repository, so the workflow assigns them (clearing any lapsed >3-day silent outside assignee) and they can start
  *   now (`decideClaim` → `assign: true`).
  * - **already holding one:** the claimant is already assigned to another open curated issue in the repository, so
  *   `assign` stays `false` and the reply asks them to finish or step back from that issue first.
@@ -34,10 +34,11 @@ export const TEAM_ASSOCIATIONS = Object.freeze(['COLLABORATOR', 'MEMBER', 'OWNER
 
 /**
  * How long a claim holds an issue for later claimants after its claimant's latest comment, mirroring CONTRIBUTING's
- * seven days for a silent claimant.
+ * three days for a silent claimant. Every claim that delivered did so within eight hours, and one silent for a day has
+ * never delivered; a silent claim that kept the issue for a week simply parked the work.
  * @member {Number} CLAIM_WINDOW_DAYS
  */
-export const CLAIM_WINDOW_DAYS = 7;
+export const CLAIM_WINDOW_DAYS = 3;
 
 const
     DAY_MS              = 24 * 60 * 60 * 1000,

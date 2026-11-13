@@ -1044,6 +1044,8 @@ class VdomLifecycle extends Base {
      * This method recursively walks up the component tree (`distance + 1`). This enables
      * transitive merging (Grandchild -> Child -> Parent) and merging into ancestors even
      * if intermediate parents are not updating.
+     * A pending full-depth ancestor retains waking full-depth work, including merged child scopes, while earlier
+     * replies settle. This keeps a move's two parents in one diff without absorbing independent narrow payloads.
      *
      * @param {String} parentId=this.parentId
      * @param {Number} distance=1 Distance inside the component tree
@@ -1059,7 +1061,11 @@ class VdomLifecycle extends Base {
                 // We are checking for parent.updateDepth, since we care about the depth of the next update cycle
                 if (
                     (parent.needsVdomUpdate || VDomUpdate.isAwaitingCollection(parent.id))
-                    && (!wakingChildId || VDomUpdate.isAwaitingCollection(parent.id) || !VDomUpdate.hasDispatchedDescendants(parent.id, wakingChildId))
+                    && (
+                        !wakingChildId || VDomUpdate.isAwaitingCollection(parent.id)
+                        || (parent.updateDepth === -1 && (me.updateDepth === -1 || VDomUpdate.getAdjustedUpdateDepth(me.id) === -1))
+                        || !VDomUpdate.hasDispatchedDescendants(parent.id, wakingChildId)
+                    )
                     && parent.windowId === me.windowId
                     && me.canMergeUpdate(parent.updateDepth, distance)
                 ) {

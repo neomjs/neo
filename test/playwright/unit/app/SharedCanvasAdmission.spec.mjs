@@ -206,18 +206,94 @@ test.describe('SharedCanvas renderer admission', () => {
         }
     });
 
+    for (const stage of ['worker startup', 'group readiness']) {
+        for (const rejects of [false, true]) {
+            test(`binding replacement during ${stage} continues admission after the old request ${rejects ? 'rejects' : 'resolves'}`, async () => {
+                Neo.ns('Test.SharedCanvasAdmission').Renderer = renderer;
+                const pending  = deferred(), started = deferred(), loads = [], starts = [], readyWindows = [];
+                const boundary = windowId => {
+                    if (windowId !== null) return Promise.resolve();
+                    started.resolve();
+                    return pending.promise.then(() => {if (rejects) throw new Error('old binding unavailable');});
+                };
+                Neo.worker.Manager.startWorker = ({windowId}) => {
+                    starts.push(windowId);
+                    return stage === 'worker startup' ? boundary(windowId) : Promise.resolve();
+                };
+                Neo.currentWorker.whenCanvasReady = windowId => {
+                    readyWindows.push(windowId);
+                    return stage === 'group readiness' ? boundary(windowId) : Promise.resolve();
+                };
+                Neo.worker.Canvas.loadModule = async ({windowId}) => {loads.push(windowId); return {success:true};};
+                const host = create({windowId:null});
+                await started.promise;
+                host.windowId = 'adopted-admission-window';
+                pending.resolve();
+                await host.ready();
+                expect(loads).toEqual(['adopted-admission-window']);
+                expect(starts).toContain('adopted-admission-window');
+                expect(readyWindows).toContain('adopted-admission-window');
+                expect(host.rendererAdmitted).toBe(true);
+                expect(events).toEqual([]);
+            });
+        }
+    }
+
     test('a load acknowledgement from the previous window cannot admit the moved host', async () => {
         Neo.ns('Test.SharedCanvasAdmission').Renderer = renderer;
-        const load = deferred(), started = deferred();
-        Neo.worker.Canvas.loadModule = () => {started.resolve(); return load.promise;};
-        const host = create();
+        const load = deferred(), started = deferred(), currentLoad = deferred(), currentStarted = deferred(), loads = [];
+        Neo.worker.Canvas.loadModule = ({windowId}) => {
+            loads.push(windowId);
+            if (windowId === 'admission-window') {started.resolve(); return load.promise;}
+            currentStarted.resolve();
+            return currentLoad.promise;
+        };
+        const host    = create();
+        let   settled = false;
+        const ready   = host.ready().then(() => {settled = true;});
         await started.promise;
         host.windowId = 'another-admission-window';
         load.resolve({success:true});
-        await host.ready();
+        await Promise.race([currentStarted.promise, ready]);
+        expect(loads).toEqual(['admission-window', 'another-admission-window']);
+        expect(settled).toBe(false);
         expect(events).toEqual([]);
         expect(host.rendererAdmitted).toBe(false);
         expect(calls.filter(([name]) => ['initGraph','clearGraph'].includes(name))).toEqual([]);
+        currentLoad.resolve({success:true});
+        await ready;
+        expect(host.rendererAdmitted).toBe(true);
+        host.offscreenRegistered = true;
+        await host.registrationFlight;
+        expect(calls.filter(([name]) => name === 'initGraph')).toEqual([
+            ['initGraph', {canvasId:host.id, windowId:'another-admission-window'}]
+        ]);
+    });
+
+    test('binding replacement during stub wait requires the current window to acknowledge its own import', async () => {
+        const waiting = deferred(), waited = deferred(), currentLoad = deferred(), currentStarted = deferred(), loads = [];
+        Neo.worker.Canvas.loadModule = ({windowId}) => {
+            loads.push(windowId);
+            if (windowId === 'admission-window') return Promise.resolve({success:true});
+            currentStarted.resolve();
+            return currentLoad.promise;
+        };
+        const host = create();
+        host.timeout = () => {waited.resolve(); return waiting.promise;};
+        let   settled = false;
+        const ready   = host.ready().then(() => {settled = true;});
+        await waited.promise;
+        host.windowId = 'stub-adopted-window';
+        Neo.ns('Test.SharedCanvasAdmission').Renderer = renderer;
+        waiting.resolve();
+        await Promise.race([currentStarted.promise, ready]);
+        expect(loads).toEqual(['admission-window', 'stub-adopted-window']);
+        expect(settled).toBe(false);
+        expect(host.rendererAdmitted).toBe(false);
+        currentLoad.resolve({success:true});
+        await ready;
+        expect(host.rendererAdmitted).toBe(true);
+        expect(events).toEqual([]);
     });
 
     test('close during graph initialization releases its original owner once and prevents late readiness', async () => {
@@ -233,7 +309,7 @@ test.describe('SharedCanvas renderer admission', () => {
         graph.resolve();
         await registration;
         expect(host.isCanvasReady).toBe(false);
-        expect(calls.filter(([name]) => name === 'clearGraph')).toEqual([['clearGraph',{windowId:'admission-window'}]]);
+        expect(calls.filter(([name]) => name === 'clearGraph')).toEqual([['clearGraph',{canvasId:host.id,windowId:'admission-window'}]]);
     });
 
     test('a missing stub at the existing bound is failure rather than Canvas readiness', async () => {

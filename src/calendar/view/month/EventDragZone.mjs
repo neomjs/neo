@@ -138,7 +138,7 @@ class EventDragZone extends DragZone {
             record          = me.eventRecord,
             targetDayResult = proxyParentId && owner?.vdom && VDomUtil.find(owner.vdom, proxyParentId),
             dayFlag         = targetDayResult?.vdom?.flag || (proxyParentId?.includes('__day__') ? proxyParentId.split('__day__')[1] : null),
-            day, endDate, eventStore, month, startDate, year;
+            day, endDate, month, startDate, year;
 
         super.dragEnd(data);
 
@@ -154,14 +154,11 @@ class EventDragZone extends DragZone {
             endDate = DateUtil.clone(startDate);
             endDate.setMinutes(endDate.getMinutes() + me.eventDuration);
 
-            record.setSilent({
-                endDate,
-                startDate
-            });
+            // A drop back onto the starting day changes no field and fires no recordChange: the proxy teardown
+            // still needs one restore pass. A moved drop re-renders through the store's recordChange listeners.
+            if (+record.startDate === +startDate && +record.endDate === +endDate) owner?.createContent();
 
-            eventStore = owner.getStateProvider?.()?.getStore('events') || owner.eventStore;
-            eventStore?.doSort();
-            owner.createContent()
+            record.set({endDate, startDate})
         }
 
         Object.assign(me, {

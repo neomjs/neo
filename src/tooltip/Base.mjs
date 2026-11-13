@@ -273,12 +273,13 @@ class Tooltip extends Container {
     }
 
     /**
-     * Instantly hides the tooltip
+     * @summary Hides a mounted tooltip or records the hidden intent for its pending mount flight.
      */
     hide() {
         let me = this;
 
         me.clearTimeout(['dismiss', 'hide', 'show']);
+        me._hidden = true;
         me.mounted && me.unmount()
     }
 
@@ -373,7 +374,7 @@ class Tooltip extends Container {
     }
 
     /**
-     * Instantly shows the tooltip
+     * @summary Shows the tooltip in one mount flight, which lands on the latest visibility intent.
      * @param {Object} data
      */
     show(data) {
@@ -387,7 +388,11 @@ class Tooltip extends Container {
             me.addTimeout('dismiss', me.hide.bind(me), me.dismissDelay, data)
         }
 
-        !me.mounted && me.initVnode(true)
+        if (!me.mounted && !me.mountFlight) {
+            me.startMountFlight(me.initVnode(true))
+        }
+
+        me._hidden = false
     }
 
     /**

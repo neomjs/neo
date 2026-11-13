@@ -354,6 +354,159 @@ test.describe('Neo.draggable.container.SortZone', () => {
         expect(sortZone.isOverDragging).toBe(false)
     });
 
+    /** @summary Holds only the chosen move continuation; ordinary drag starts and ends still run their production queue. */
+    const prepareContinuation = async boundary => {
+        await expect.poll(() => container.sortZone).toBeTruthy();
+        sortZone = container.sortZone;
+        container.layout.direction = 'column';
+        const items = sortZone.getSortableItems(), pending = [], scrolls = [],
+              defer = () => {
+                  if (pending.length > 4) throw new Error('unexpected unbounded overdrag polling');
+                  const flight = Promise.withResolvers();
+                  pending.push(flight);
+                  return flight.promise
+              };
+        Container.prototype.getDomRect = ids => Promise.resolve(ids.map(id => id === container.id
+            ? new Rectangle(0, 0, 100, 300)
+            : new Rectangle(0, items.findIndex(item => item.id === id) * 100, 100, 100)));
+        Neo.main.addon.DragDrop.setConfigs = async () => ({boundaryContainerRect: {left: 0, top: 0, right: 100, bottom: 300}});
+        container.scrollToIndex = index => {
+            scrolls.push({index, dragged: sortZone.dragComponent.id, y: sortZone.lastInBoundY});
+            return boundary === 'scroll' ? defer() : Promise.resolve()
+        };
+        sortZone.timeout = milliseconds => boundary === 'poll' && milliseconds === 30 && sortZone.isOverDragging
+            ? defer() : Promise.resolve();
+        return {
+            items, pending, scrolls,
+            start: index => sortZone.startDrag({clientX: 50, clientY: index * 100 + 50,
+                path: [{id: items[index].id, cls: ['neo-draggable'], rect: new Rectangle(0, index * 100, 100, 100)}]}),
+            snapshot: () => ({currentIndex: sortZone.currentIndex, dragged: sortZone.dragComponent.id,
+                currentItem: container.items[sortZone.indexMap[sortZone.currentIndex]]?.id,
+                indexMap   : {...sortZone.indexMap},
+                rects      : sortZone.itemRects.map(({x, y, width, height}) => ({x, y, width, height})),
+                styles     : items.map(item => ({id: item.id, style: {...item.wrapperStyle}}))})
+        }
+    };
+
+    for (const boundary of ['scroll', 'poll']) for (const direction of ['start', 'end']) {
+        test(`an old ${direction}-edge ${boundary} continuation cannot affect a later drag (#20849)`, async () => {
+            const probe    = await prepareContinuation(boundary), moves = [],
+                  oldIndex = direction === 'end' ? 0 : 2, newIndex = 2 - oldIndex,
+                  oldData  = {clientX: 50, clientY: direction === 'end' ? 310 : -10},
+                  newData  = {clientX: 50, clientY: direction === 'end' ? -10 : 310};
+            try {
+                await probe.start(oldIndex);
+                const oldMove = sortZone.onDragMove(oldData);
+                moves.push(oldMove);
+                await expect.poll(() => probe.pending.length).toBe(1);
+                expect(sortZone.isScrolling).toBe(boundary === 'scroll');
+
+                await sortZone.onDragCancel({key: 'Escape'});
+                expect(sortZone.itemRects).toBeNull();
+                await probe.start(newIndex);
+                expect(sortZone.dragComponent).toBe(probe.items[newIndex]);
+                expect(sortZone.currentIndex).toBe(newIndex);
+
+                // A new overdrag arms its own poll. The old poll must not borrow that gesture's flag or pointer.
+                if (boundary === 'poll') {
+                    moves.push(sortZone.onDragMove(newData));
+                    await expect.poll(() => probe.pending.length).toBe(2)
+                }
+                const before = probe.snapshot(), scrollCount = probe.scrolls.length;
+                probe.pending[0].resolve();
+                await oldMove;
+
+                expect.soft(probe.snapshot(), 'the old continuation must not switch or style the new gesture').toEqual(before);
+                expect.soft(probe.scrolls, 'an old polling delay must not issue a scroll for the newer gesture').toHaveLength(scrollCount)
+            } finally {
+                if (sortZone.itemRects) await sortZone.onDragCancel({key: 'Escape'});
+                probe.pending.forEach(flight => flight.resolve());
+                await Promise.allSettled(moves)
+            }
+        });
+
+        test(`the same drag continues its ${direction}-edge ${boundary} steps to the edge (#20849)`, async () => {
+            const probe = await prepareContinuation(boundary), oldIndex = direction === 'end' ? 0 : 2;
+            let moving;
+            try {
+                await probe.start(oldIndex);
+                moving = sortZone.onDragMove({clientX: 50, clientY: direction === 'end' ? 310 : -10});
+                for (let index = 0; index < (boundary === 'scroll' ? 2 : 1); index++) {
+                    await expect.poll(() => probe.pending.length).toBe(index + 1);
+                    probe.pending[index].resolve()
+                }
+                await moving;
+
+                expect(probe.scrolls.map(({index}) => index)).toEqual(direction === 'end' ? [1, 2] : [1, 0]);
+                expect(sortZone.currentIndex).toBe(2 - oldIndex);
+                expect(probe.snapshot().currentItem).toBe(probe.items[oldIndex].id);
+                expect(sortZone.isOverDragging).toBe(false)
+            } finally {
+                if (sortZone.itemRects) await sortZone.onDragCancel({key: 'Escape'});
+                probe.pending.forEach(flight => flight.resolve());
+                if (moving) await Promise.allSettled([moving])
+            }
+        })
+    }
+
+    for (const pollTiming of ['inside the end wait', 'after the end']) {
+        test(`a normal release keeps its landing when an armed poll fires ${pollTiming} (#20856)`, async () => {
+            const probe   = await prepareContinuation('poll'), commits = [],
+                  endWait = Promise.withResolvers(), endWaitEntered = Promise.withResolvers();
+            let moving, ending;
+
+            try {
+                await probe.start(0);
+                moving = sortZone.onDragMove({clientX: 50, clientY: 310});
+                await expect.poll(() => probe.pending.length).toBe(1);
+                expect(sortZone.currentIndex).toBe(1);
+                expect(sortZone.isOverDragging, 'release while another poll is armed, before the edge').toBe(true);
+
+                const release = probe.snapshot(), timeout = sortZone.timeout,
+                      moveTo  = sortZone.moveTo.bind(sortZone);
+                sortZone.moveTo = (from, to) => {commits.push({from, to}); moveTo(from, to)};
+                sortZone.timeout = milliseconds => {
+                    if (milliseconds === 10) {
+                        endWaitEntered.resolve();
+                        return endWait.promise
+                    }
+                    // The end pipeline's final wait is not the move's already-held poll.
+                    return milliseconds === 30 && sortZone.dragEndActive ? Promise.resolve() : timeout(milliseconds)
+                };
+
+                ending = sortZone.onDragEnd({});
+                const armedAtRelease = sortZone.isOverDragging;
+                await endWaitEntered.promise;
+                expect(sortZone.itemRects, 'the end has not reset the snapshot yet').not.toBeNull();
+                expect(commits).toEqual([]);
+
+                if (pollTiming === 'inside the end wait') {
+                    probe.pending[0].resolve();
+                    await moving;
+                    expect.soft(probe.snapshot(), 'the released poll cannot step, switch or style the release snapshot').toEqual(release);
+                    expect.soft(probe.scrolls.map(({index}) => index), 'no owner scroll follows release').toEqual([1]);
+                    expect.soft(armedAtRelease, 'normal release disarms polling synchronously').toBe(false)
+                }
+
+                endWait.resolve();
+                await ending;
+                expect.soft(commits, 'the actual owner reorder commits the release slot').toEqual([{from: 0, to: 1}]);
+                expect.soft(container.items.map(item => item.id)).toEqual(['btnB', 'btnA', 'sep1', 'btnC', 'btnD']);
+
+                probe.pending[0].resolve();
+                await moving;
+                expect(sortZone.itemRects).toBeNull();
+                expect(probe.scrolls.map(({index}) => index)).toEqual([1]);
+                expect(commits).toEqual([{from: 0, to: 1}])
+            } finally {
+                endWait.resolve();
+                probe.pending.forEach(flight => flight.resolve());
+                await Promise.allSettled([moving, ending].filter(Boolean));
+                if (sortZone.itemRects) await sortZone.onDragCancel({key: 'Escape'})
+            }
+        })
+    }
+
     test('a drag whose item owned focus hands it back at the terminal as a pointer focus, committed or cancelled; an item without focus gets none (#19281)', async () => {
         await new Promise(resolve => setTimeout(resolve, 10));
         sortZone = container.sortZone;
