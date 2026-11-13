@@ -47,8 +47,10 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Check out the comment modules
+        id: checkout
         uses: actions/checkout@v7
-        # A failed checkout leaves the modules missing, and the script then warns instead of posting.
+        # A failed checkout still runs the script, which reads the step's raw outcome and warns instead of posting,
+        # even when the step failed after writing both modules.
         continue-on-error: true
         with:
           persist-credentials: false
@@ -59,12 +61,16 @@ jobs:
 
       - name: Comment on the merge
         uses: actions/github-script@v9
+        env:
+          CHECKOUT_OUTCOME: ${{ steps.checkout.outcome }}
         with:
           script: |
             const {owner, repo} = context.repo;
             const dispatched    = context.eventName === 'workflow_dispatch';
 
             try {
+              if (process.env.CHECKOUT_OUTCOME !== 'success') throw new Error(`the checkout ended ${process.env.CHECKOUT_OUTCOME || 'without an outcome'}`);
+
               const {BADGES_SINCE, decideMergeComment, parseOptOut} = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/contributorStanding.mjs`);
               const {CURATED_LABELS}                                = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/claimResponse.mjs`);
 

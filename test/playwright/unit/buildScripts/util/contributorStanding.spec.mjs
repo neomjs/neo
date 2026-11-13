@@ -341,15 +341,24 @@ test.describe('buildScripts/util/contributorStanding', () => {
             }
         };
 
-        let workspace;
+        let checkoutOutcome, workspace;
 
         test.beforeAll(() => {
+            checkoutOutcome              = process.env.CHECKOUT_OUTCOME;
             workspace                    = process.env.GITHUB_WORKSPACE;
+            process.env.CHECKOUT_OUTCOME = 'success';
             process.env.GITHUB_WORKSPACE = process.cwd()
         });
 
         test.afterAll(() => {
-            process.env.GITHUB_WORKSPACE = workspace
+            process.env.GITHUB_WORKSPACE = workspace;
+
+            // Assigning undefined would store the string "undefined"
+            if (checkoutOutcome === undefined) {
+                delete process.env.CHECKOUT_OUTCOME
+            } else {
+                process.env.CHECKOUT_OUTCOME = checkoutOutcome
+            }
         });
 
         test('it checks out only the two modules, never the head, and reads the payload in script only', () => {
@@ -416,6 +425,23 @@ test.describe('buildScripts/util/contributorStanding', () => {
             }
 
             expect(raw).toMatch(/uses: actions\/checkout@v7\n(?: +#.*\n)* +continue-on-error: true\n/)
+        });
+
+        test('a checkout that failed after writing both modules warns and posts nothing: the step\'s outcome decides, not the files', async () => {
+            expect(raw).toMatch(/- name: Check out the comment modules\n {8}id: checkout\n/);
+            expect(raw).toContain('CHECKOUT_OUTCOME: ${{ steps.checkout.outcome }}');
+
+            process.env.CHECKOUT_OUTCOME = 'failure';
+
+            try {
+                const calls = await run();
+
+                expect(calls.queries).toEqual([]);
+                expect(calls.posted).toEqual([]);
+                expect(calls.warnings).toEqual(['No merge comment: the checkout ended failure'])
+            } finally {
+                process.env.CHECKOUT_OUTCOME = 'success'
+            }
         });
 
         test('the Pages opt-out list is read only after the launch, and decides the badge: an empty list offers it, a listed account and an unreadable list do not', async () => {
