@@ -12,17 +12,24 @@ import {keyName, visitNodes}          from '../../../../buildScripts/util/moveSo
 
 const repoRoot = fileURLToPath(new URL('../../../../', import.meta.url));
 
-/** @summary Reads the real worker method and parses its webpack filters as regex literals, without eval. */
+/**
+ * @summary Reads the real worker method and parses the webpack filters of its app-space import (the `../../`
+ * template) as regex literals, without eval. A method can hold several imports, each with its own context.
+ */
 function reader(name, methodName) {
-    const code = fs.readFileSync(path.join(repoRoot, `src/worker/${name}.mjs`), 'utf8');
-    let method;
-    visitNodes(parse(code, {ecmaVersion: 'latest', sourceType: 'module'}), node => {
+    const code = fs.readFileSync(path.join(repoRoot, `src/worker/${name}.mjs`), 'utf8'), comments = [];
+    let method, appSpace;
+    visitNodes(parse(code, {ecmaVersion: 'latest', sourceType: 'module', onComment: comments}), node => {
         if (node.type === 'MethodDefinition' && keyName(node.key) === methodName) method = node
     });
+    visitNodes(method, node => {
+        if (node.type === 'ImportExpression' && node.source.quasis?.[0].value.cooked === '../../') appSpace = node
+    });
     const methodCode = code.slice(method.start, method.end),
+        magic        = comments.filter(c => c.start >= appSpace.start && c.end <= appSpace.source.start).map(c => c.value).join('\n'),
         filters      = Object.fromEntries(['Include', 'Exclude'].map(kind => {
-            const literal  = methodCode.match(new RegExp(`webpack${kind}: (/.+/)\\s*\\*/`))[1],
-                expression = parseExpressionAt(literal, 0, {ecmaVersion: 'latest'});
+            const match    = new RegExp(`webpack${kind}\\s*:\\s*`).exec(magic),
+                expression = parseExpressionAt(magic, match.index + match[0].length, {ecmaVersion: 'latest'});
             return [kind.toLowerCase(), new RegExp(expression.regex.pattern, expression.regex.flags)]
         }));
     return {code, methodCode, methodName, ...filters}
