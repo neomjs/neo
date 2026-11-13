@@ -1607,25 +1607,20 @@ class GridBody extends Component {
      * @param {Object}         data.record
      */
     onStoreRecordChange({ fields, record }) {
-        let me              = this,
-            fieldNames      = fields.map(field => field.name),
-            rowIndex        = me.store.indexOf(record),
-            { mountedRows } = me,
-            poolSize        = me.items.length,
-            itemIndex, row;
+        let me         = this,
+            fieldNames = fields.map(field => field.name),
+            row;
 
         if (fieldNames.includes(me.colspanField)) {
             me.createViewData()
         } else {
             // the record's selection flag is the View's to follow (grid.View#onStoreRecordChange),
-            // once per grid; a body only repaints the row it renders
-            if (rowIndex >= mountedRows[0] && rowIndex <= mountedRows[1]) {
-                itemIndex = rowIndex % poolSize;
-                row = me.items[itemIndex];
+            // once per grid; a body only repaints the row it renders. The pool is small, so an
+            // identity scan here is cheaper than asking a large store for the record's index.
+            row = me.items.find(item => item.record === record);
 
-                if (row) {
-                    row.createVdom(false, false)
-                }
+            if (row) {
+                row.createVdom(false, false)
             }
 
             me.refreshNativeDragZoneRecords()
