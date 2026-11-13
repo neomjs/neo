@@ -81,7 +81,34 @@ test.describe('Docs mixin members', () => {
         const openSource = lineNumber => app.callMethod(controllerId, 'onViewSourceRoute', [{className, lineNumber}]);
 
         await openSource('1');
-        await expect(source.locator('[data-line-number="1"]').first().locator('..')).toHaveClass(/neo-highlighted-line/);
+        try {
+            await expect(source.locator('[data-line-number="1"]').first().locator('..')).toHaveClass(/neo-highlighted-line/)
+        } catch (error) {
+            // Read only after the original assertion failed: collecting readiness must not change its ordering.
+            const [main, component] = await Promise.all([
+                page.evaluate(id => {
+                    const view  = document.getElementById(id), code = view?.querySelector('pre code'),
+                          addon = Neo.main.addon.HighlightJS, highlighter = globalThis.hljs;
+                    return {
+                        at                  : Date.now(), viewPresent: Boolean(view), codeId: code?.id ?? null,
+                        textLength          : code?.textContent.length ?? null, codeClass: code?.className ?? null,
+                        highlightedAttribute: code?.getAttribute('data-highlighted') ?? null,
+                        lineNumbers         : code?.querySelectorAll('[data-line-number]').length ?? 0,
+                        addonReady          : addon?.isReady ?? null,
+                        highlightBlock      : typeof highlighter?.highlightBlock,
+                        lineNumbersBlock    : typeof highlighter?.lineNumbersBlock,
+                        lineNumbersBlockSync: typeof highlighter?.lineNumbersBlockSync
+                    }
+                }, sourceId).catch(failure => ({diagnosticError: String(failure)})),
+                app.getComponent(sourceId, ['mounted', 'vnodeInitialized', 'isVnodeInitializing', 'isVdomUpdating',
+                    'needsVdomUpdate', 'isHighlighted', 'line', 'vdom.cn.0.cn.0.id'])
+                    .then(state => ({at: Date.now(), state}), failure => ({diagnosticError: String(failure)}))
+            ]);
+            await testInfo.attach('initial-source-readiness.json', {
+                body: JSON.stringify({sourceId, main, component}), contentType: 'application/json'
+            }).catch(failure => console.warn('Could not attach initial source readiness:', failure));
+            throw error
+        }
         const codeId = await source.locator('pre code').getAttribute('id');
         expect(codeId).toBeTruthy();
 
