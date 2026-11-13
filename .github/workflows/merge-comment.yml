@@ -5,8 +5,8 @@
 # `pull_request_target` runs this file from the default branch, with a token that can comment on a fork's pull request
 # and without waiting for run approval. The job therefore checks out nothing but the two modules, never the pull
 # request's head, and reads the payload in script, never in a shell step. Its check runs anchor on the merged head,
-# where a red one would stay (see review-admission-mergeability.yml), so every failure warns and ends green: the read
-# counts merges that got no comment, so a miss still shows.
+# where a red one would stay (see review-admission-mergeability.yml), so a failed checkout, module load, search or post
+# warns and ends green: the read counts merges that got no comment, so a miss still shows.
 #
 # `workflow_dispatch` renders the comment for one merged pull request into the job summary, and posts it only with
 # `post`. Like any dispatch, it needs this file on the default branch first.
@@ -47,6 +47,8 @@ jobs:
     steps:
       - name: Check out the comment modules
         uses: actions/checkout@v7
+        # A failed checkout leaves the modules missing, and the script then warns instead of posting.
+        continue-on-error: true
         with:
           persist-credentials: false
           sparse-checkout: |
@@ -58,12 +60,13 @@ jobs:
         uses: actions/github-script@v9
         with:
           script: |
-            const {BADGES_SINCE, decideMergeComment} = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/contributorStanding.mjs`);
-            const {CURATED_LABELS}                   = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/claimResponse.mjs`);
-            const {owner, repo}                      = context.repo;
-            const dispatched                         = context.eventName === 'workflow_dispatch';
+            const {owner, repo} = context.repo;
+            const dispatched    = context.eventName === 'workflow_dispatch';
 
             try {
+              const {BADGES_SINCE, decideMergeComment} = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/contributorStanding.mjs`);
+              const {CURATED_LABELS}                   = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/claimResponse.mjs`);
+
               const pullRequest = dispatched
                 ? (await github.rest.pulls.get({owner, repo, pull_number: Number(context.payload.inputs.pr)})).data
                 : context.payload.pull_request;
@@ -75,25 +78,27 @@ jobs:
 
               const login    = pullRequest.user.login;
               const mergedAt = Date.parse(pullRequest.merged_at);
+              const launch   = BADGES_SINCE ? Date.parse(BADGES_SINCE) : null;
               const stamp    = ms => new Date(ms).toISOString().replace(/\.\d{3}Z$/, '+00:00');
-              const count    = async range => (await github.rest.search.issuesAndPullRequests({
-                q       : `org:${owner} is:public is:pr is:merged author:${login} merged:${range}`,
-                per_page: 1
-              })).data.total_count;
+              // An incomplete answer undercounts, and an undercount reads as a first merge: no comment, not a wrong one
+              const search   = async (q, perPage) => {
+                const {data} = await github.rest.search.issuesAndPullRequests({q, per_page: perPage});
+
+                if (data.incomplete_results) throw new Error(`the search answered incompletely: ${q}`);
+
+                return data
+              };
+              const count    = async range => (await search(`org:${owner} is:public is:pr is:merged author:${login} merged:${range}`, 1)).total_count;
 
               // Searches run one at a time: GitHub's secondary rate limit refuses bursts of them
               const mergedBefore            = await count(`<${stamp(mergedAt)}`);
-              // A range includes both ends, so it stops one second before the merge, which is the plus one
-              const mergedSinceLaunchBefore = BADGES_SINCE ? await count(`${stamp(Date.parse(BADGES_SINCE))}..${stamp(mergedAt - 1000)}`) : 0;
+              // A range includes both ends, so it stops one second before the merge, which is the plus one; a merge
+              // in the launch's first second has no earlier post-launch merge, and one before launch is not asked
+              const mergedSinceLaunchBefore = launch !== null && mergedAt - 1000 >= launch ? await count(`${stamp(launch)}..${stamp(mergedAt - 1000)}`) : 0;
               const candidates              = [];
 
               for (const label of CURATED_LABELS) {
-                const {data} = await github.rest.search.issuesAndPullRequests({
-                  q       : `repo:${owner}/${repo} is:issue is:open label:"${label}" no:assignee -linked:pr`,
-                  per_page: 50
-                });
-
-                candidates.push(...data.items)
+                candidates.push(...(await search(`repo:${owner}/${repo} is:issue is:open label:"${label}" no:assignee -linked:pr`, 50)).items)
               }
 
               const [closing, files, comments] = await Promise.all([

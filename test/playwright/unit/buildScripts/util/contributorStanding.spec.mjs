@@ -1,4 +1,5 @@
 import fs             from 'node:fs';
+import os             from 'node:os';
 import path           from 'node:path';
 import {test, expect} from '@playwright/test';
 
@@ -18,7 +19,7 @@ import {
 const
     REPO_URL = 'https://github.com/neomjs/neo',
     LIST_URL = `${REPO_URL}/issues?q=${encodeURIComponent('is:issue is:open no:assignee -linked:pr label:"good first issue","help wanted"')}`,
-    LAUNCH   = '2026-12-01T00:00:00Z',
+    LAUNCH   = '2026-11-01T00:00:00Z',
     ENGINE   = ['src/grid/Body.mjs'],
     DOCS     = ['learn/guides/Intro.md'];
 
@@ -209,6 +210,13 @@ test.describe('buildScripts/util/contributorStanding', () => {
             expect(comment(6, {badgesSince: LAUNCH, mergedSinceLaunchBefore: 1})).not.toContain('badge')
         });
 
+        test('a merge before the launch never names the badge, and a merge at the launch is offered it', () => {
+            // The merge in `pullRequest()` is at 2026-11-14T10:00:00Z: a re-run of it after a later launch gets standing only.
+            expect(comment(0, {badgesSince: '2026-12-01T00:00:00Z'})).not.toContain('badge');
+            expect(comment(4, {badgesSince: '2026-12-01T00:00:00Z'})).not.toContain('badge');
+            expect(comment(0, {badgesSince: '2026-11-14T10:00:00Z'})).toContain('**Your badge**')
+        });
+
         test('a count that is not one throws, so the workflow warns instead of posting a wrong standing', () => {
             expect(() => comment(undefined)).toThrow(TypeError);
             expect(() => comment(-1)).toThrow(TypeError)
@@ -225,7 +233,7 @@ test.describe('buildScripts/util/contributorStanding', () => {
         /**
          * Runs the workflow's script against a stand-in GitHub, recording every query, post and warning.
          */
-        const run = async ({comments = [], eventName = 'pull_request_target', inputs, searchError} = {}) => {
+        const run = async ({comments = [], eventName = 'pull_request_target', incomplete = () => false, inputs, searchError} = {}) => {
             const calls = {inFlight: 0, peakSearches: 0, posted: [], queries: [], summary: [], warnings: []};
 
             const github = {
@@ -253,9 +261,11 @@ test.describe('buildScripts/util/contributorStanding', () => {
 
                             if (searchError) throw new Error(searchError);
 
+                            const partial = incomplete(q) ? {incomplete_results: true} : {};
+
                             return q.startsWith('org:')
-                                ? {data: {total_count: 0, items: []}}
-                                : {data: {items: q.includes('good first issue') ? [CANDIDATES[0]] : [CANDIDATES[1]]}}
+                                ? {data: {total_count: 0, items: [], ...partial}}
+                                : {data: {items: q.includes('good first issue') ? [CANDIDATES[0]] : [CANDIDATES[1]], ...partial}}
                         }
                     }
                 }
@@ -322,6 +332,33 @@ test.describe('buildScripts/util/contributorStanding', () => {
 
             expect(calls.posted).toEqual([]);
             expect(calls.warnings).toEqual(['No merge comment: secondary rate limit'])
+        });
+
+        test('an incomplete search answer is no answer: a warning and no comment, for the count and for the candidates', async () => {
+            for (const incomplete of [q => q.startsWith('org:'), q => q.includes('help wanted')]) {
+                const calls = await run({incomplete});
+
+                expect(calls.posted).toEqual([]);
+                expect(calls.warnings).toEqual([expect.stringMatching(/^No merge comment: the search answered incompletely/)])
+            }
+        });
+
+        test('modules that fail to load warn and post nothing, and a failed checkout does not fail the job', async () => {
+            const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'merge-comment-'));
+
+            process.env.GITHUB_WORKSPACE = empty;
+
+            try {
+                const calls = await run();
+
+                expect(calls.posted).toEqual([]);
+                expect(calls.warnings).toEqual([expect.stringMatching(/^No merge comment: /)])
+            } finally {
+                process.env.GITHUB_WORKSPACE = process.cwd();
+                fs.rmSync(empty, {force: true, recursive: true})
+            }
+
+            expect(raw).toMatch(/uses: actions\/checkout@v7\n(?: +#.*\n)* +continue-on-error: true\n/)
         });
 
         test('a dispatch renders into the job summary and posts only with post', async () => {

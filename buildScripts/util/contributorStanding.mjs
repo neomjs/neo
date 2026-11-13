@@ -185,8 +185,8 @@ function renderNext(issues, repoUrl) {
  * is set, the account's first merge since then hands over the badge line, whichever form it gets, and a later new
  * rung says that the badge shows it.
  * @param {Object} options
- * @param {Object} options.pullRequest REST shape: `number`, `merged`, `author_association`, `user.login`, `user.id`,
- * `user.type`
+ * @param {Object} options.pullRequest REST shape: `number`, `merged`, `merged_at`, `author_association`, `user.login`,
+ * `user.id`, `user.type`
  * @param {Number} options.mergedBefore The author's merged pull requests before this one
  * @param {Number} [options.mergedSinceLaunchBefore=0] Of those, the ones merged since `badgesSince`
  * @param {Object[]} [options.comments=[]] The pull request's comments
@@ -221,10 +221,12 @@ export function decideMergeComment({pullRequest, mergedBefore, mergedSinceLaunch
         atRung                  = RUNGS.some(entry => entry.merges === count),
         suggested               = nextIssues({closedLabels, candidates, seed: login}),
         standingLine            = `**Standing:** ${rung.name} (${count} merged).${next ? ` ${remaining} more reach ${next.name}.` : ''}`,
-        badgeOffer              = badgesSince && mergedSinceLaunchBefore === 0
+        // The generator writes a folder only for a merge since the launch, so an earlier one, re-run, names no badge
+        launched                = Boolean(badgesSince) && Date.parse(pullRequest.merged_at) >= Date.parse(badgesSince),
+        badgeOffer              = launched && mergedSinceLaunchBefore === 0
             ? `**Your badge**, if you would like to show it, exists within the hour at ${BADGE_ROOT}/${badgeFolder(login, id)}/ with three forms to choose from. The card's line:\n\`${badgeLine(login, id)}\``
             : null,
-        badge                   = badgeOffer || (badgesSince && atRung ? 'Your badge shows it within the hour.' : null),
+        badge                   = badgeOffer || (launched && atRung ? 'Your badge shows it within the hour.' : null),
         nextLine                = suggested.length > 0 ? renderNext(suggested, repoUrl) : null;
 
     const paragraphs = atRung ? [
