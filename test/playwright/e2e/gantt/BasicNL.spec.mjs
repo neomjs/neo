@@ -15,10 +15,9 @@ test('a linked project edit and a new dependency survive reload', async ({page, 
             if (!source || !target || !matrix) return null;
             const first = element.getPointAtLength(0).matrixTransform(matrix);
             const last  = element.getPointAtLength(element.getTotalLength()).matrixTransform(matrix);
-            return [
-                Math.round(first.x - source.right), Math.round(first.y - (source.top + source.height / 2)),
-                Math.round(last.x - target.left), Math.round(last.y - (target.top + target.height / 2))
-            ].every(delta => Math.abs(delta) <= 2)
+            return Math.abs(first.x - source.right) <= 2 && Math.abs(last.x - target.left) <= 2 &&
+                Math.abs(first.y - (source.top + source.height / 2)) < 0.25 &&
+                Math.abs(last.y - (target.top + target.height / 2)) < 0.25
         }, {from, to})).toBe(true)
     };
     await expect(survey).toBeVisible();
@@ -49,9 +48,13 @@ test('a linked project edit and a new dependency survive reload', async ({page, 
     await survey.hover();
     const port   = survey.locator('.neo-gantt-link-terminal');
     const resize = survey.locator('.neo-resizable-end');
-    await expect(port).toBeVisible();
+    await expect(port).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)');
+    const gap = await port.evaluate(node => node.offsetLeft - node.parentElement.clientWidth);
+    expect(gap).toBe(0);
     const portRect = await port.boundingBox(), resizeRect = await resize.boundingBox();
     expect(portRect.x).toBeGreaterThanOrEqual(resizeRect.x + resizeRect.width);
+    const arrowY = await arrow.evaluate(path => path.getPointAtLength(0).matrixTransform(path.getScreenCTM()).y);
+    expect(Math.abs(arrowY - (portRect.y + portRect.height / 2))).toBeLessThan(0.25);
 
     await survey.focus();
     await page.keyboard.press('ArrowRight');

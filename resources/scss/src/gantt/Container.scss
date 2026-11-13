@@ -28,13 +28,12 @@
     .neo-gantt-link-terminal {
         background   : currentColor;
         border-radius: 50%;
-        box-shadow   : 0 0 0 2px var(--sem-color-surface-neutral-default, Canvas);
         color        : var(--neo-gantt-arrow-color);
         cursor       : crosshair;
         height       : 10px;
         opacity      : 0;
         position     : absolute;
-        right        : -13px;
+        right        : -10px;
         top          : calc(50% - 5px);
         transform    : scale(.5);
         transition   : box-shadow .12s ease-out, opacity .12s ease-out, transform .12s ease-out;
@@ -44,7 +43,7 @@
         // The hit area starts at the bar's edge and grows outward, so the resize strip inside the bar stays free.
         &::after {
             content : '';
-            inset   : -6px -10px -6px -3px;
+            inset   : -6px -10px -6px 0;
             position: absolute;
         }
     }
@@ -65,8 +64,7 @@
     }
 
     .neo-timeline-bar > .neo-gantt-link-terminal:hover {
-        box-shadow: 0 0 0 2px var(--sem-color-surface-neutral-default, Canvas),
-                    0 0 0 6px color-mix(in srgb, currentColor 35%, transparent);
+        box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 35%, transparent);
         transform : scale(1.3);
     }
 
@@ -109,6 +107,8 @@
         display       : block;
         overflow      : visible;
         pointer-events: none;
+        // Bars are centered inside the cell, above its 1px bottom border.
+        transform     : translateY(-.5px);
     }
 
     .neo-gantt-dependency-arrow {
@@ -159,8 +159,7 @@
     &::before {
         background   : currentColor;
         border-radius: 50%;
-        box-shadow   : 0 0 0 2px var(--sem-color-surface-neutral-default, Canvas),
-                       0 0 0 6px color-mix(in srgb, currentColor 35%, transparent);
+        box-shadow   : 0 0 0 4px color-mix(in srgb, currentColor 35%, transparent);
         content      : '';
         height       : 10px;
         left         : -5px;
