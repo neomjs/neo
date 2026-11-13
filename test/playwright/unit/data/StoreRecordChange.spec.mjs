@@ -81,6 +81,20 @@ test.describe('Store recordChange index contract (#20855)', () => {
         expect(observed).toEqual([0])
     });
 
+    test('a read before a re-sort does not pin the index for later listeners', () => {
+        store.sorters = [{property: 'rank', direction: 'DESC'}];
+
+        const record = store.get(1), observed = [];
+
+        store.on('recordChange', data => observed.push(data.index));
+        store.on('recordChange', () => store.doSort());
+        store.on('recordChange', data => observed.push(data.index));
+
+        record.rank = 99;
+
+        expect(observed, 'each read answers the position at that moment').toEqual([2, 0])
+    });
+
     test('does not scan the store when no listener reads the index', () => {
         const record   = store.getAt(2);
         const original = store.indexOf;
