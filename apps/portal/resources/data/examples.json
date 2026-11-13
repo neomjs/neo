@@ -1,6 +1,11 @@
 [
     {
         "id": "workstation",
+        "family": "multi-window",
+        "component": "Dock Workspace",
+        "feature": "A living-data workspace whose panes can leave the browser window",
+        "lookFor": "Pop out the 100k Matrix tab, use it in its own window, then close that window to bring it back.",
+        "scope": "Allow popups; the displayed work items and signals are demonstration data.",
         "featured": true,
         "environments": [
             "Desktop"
@@ -62,6 +67,11 @@
     },
     {
         "id": "shared-covid",
+        "family": "multi-window",
+        "component": "Shared Views",
+        "feature": "A historical country-data chart can move into its own window",
+        "lookFor": "Maximise Historical Data, inspect its chart in the popup, then close the popup to return it beside the table.",
+        "scope": "Allow popups. Country data depends on the example's external data source.",
         "featured": true,
         "image": "devmode/sharedcovid.png",
         "name": "Multi Window Covid App",
@@ -150,6 +160,11 @@
     },
     {
         "id": "multi-window-covid-gallery",
+        "family": "multi-window",
+        "component": "Gallery",
+        "feature": "Gallery controls move into a second window while still controlling the gallery",
+        "lookFor": "Maximise Gallery Controls, change Translate X in the popup, then close it to return the controls.",
+        "scope": "Allow popups. Uses a static COVID data snapshot hosted on Pages.",
         "featured": true,
         "image": "devmode/mwCoronaGallery.png",
         "name": "Multi Window Covid Gallery",
@@ -185,6 +200,11 @@
     },
     {
         "id": "shared-offscreen-canvas",
+        "family": "multi-window",
+        "component": "OffscreenCanvas",
+        "feature": "A rendered canvas moves into a second browser window",
+        "lookFor": "Press Move Canvas and find the colored point scene in the popup.",
+        "scope": "External Chromium demo; allow popups. Requires SharedWorker, OffscreenCanvas and WebGL support.",
         "featured": true,
         "image": "devmode/sharedOffscreenCanvas.png",
         "name": "Multi-Window OffscreenCanvas",
@@ -199,6 +219,11 @@
     },
     {
         "id": "multi-window-drag-drop",
+        "family": "multi-window",
+        "component": "Dialog",
+        "feature": "A draggable dialog can move into a second browser window",
+        "lookFor": "Open the docked window, create a dialog and drag its header across into the other window.",
+        "scope": "Allow popups. The side selector places the companion window beside the main one.",
         "featured": true,
         "image": "devmode/multi_window_dd.png",
         "name": "Multi-Window Drag&Drop",
@@ -256,6 +281,11 @@
     },
     {
         "id": "colors-dashboard",
+        "family": "multi-window",
+        "component": "Dashboard",
+        "feature": "The dashboard's color grid keeps updating in its own window",
+        "lookFor": "Press Grid to detach it, press Start and watch the popup update; close it to return the grid.",
+        "scope": "Allow popups. The color data is generated inside the example.",
         "featured": true,
         "image": "dist_prod/colorsApp.png",
         "name": "Colors Dashboard",
@@ -1109,6 +1139,10 @@
     },
     {
         "id": "dock-choreography",
+        "family": "multi-window",
+        "component": "Dock Workspace",
+        "feature": "A scripted layout tour splits, groups and auto-hides live panes",
+        "lookFor": "Press Tour and watch the editor clock keep ticking as the panes rearrange.",
         "featured": true,
         "environments": [
             "Desktop"
@@ -1124,6 +1158,96 @@
             "dist_prod": "dist/production/examples/dashboard/choreography/index.html"
         },
         "hiddenIn": []
+    },
+    {
+        "id": "dock-layouts",
+        "name": "Dock Layouts",
+        "family": "multi-window",
+        "component": "Dock Workspace",
+        "feature": "Named perspectives rearrange the same dock panes",
+        "lookFor": "Switch from Operator to Review and watch the split proportions and active pane change.",
+        "scope": "This layout example runs in one window; saved snapshots stay in this browser.",
+        "image": null,
+        "sharedWorkers": false,
+        "sourceUrl": "examples/dashboard/dock",
+        "urls": {
+            "devmode": "examples/dashboard/dock/index.html",
+            "dist_dev": "dist/development/examples/dashboard/dock/index.html",
+            "dist_esm": "dist/esm/examples/dashboard/dock/index.html",
+            "dist_prod": "dist/production/examples/dashboard/dock/index.html"
+        }
+    },
+    {
+        "id": "dock-cross-window",
+        "name": "Dock Perspectives and Pop-outs",
+        "family": "multi-window",
+        "component": "Dock Workspace",
+        "feature": "A live workbench travels between windows without restarting its counter",
+        "lookFor": "Press Tour and follow Workbench into the popup and home again as its counter keeps running.",
+        "scope": "Allow popups for the cross-window part of the tour.",
+        "image": null,
+        "sharedWorkers": true,
+        "sourceUrl": "examples/dashboard/crossWindow",
+        "urls": {
+            "devmode": "examples/dashboard/crossWindow/index.html",
+            "dist_dev": "dist/development/examples/dashboard/crossWindow/index.html",
+            "dist_esm": "dist/esm/examples/dashboard/crossWindow/index.html",
+            "dist_prod": "dist/production/examples/dashboard/crossWindow/index.html"
+        }
+    },
+    {
+        "id": "dock-tear-out",
+        "name": "Dock Pane Pop-out",
+        "family": "multi-window",
+        "component": "Dock Workspace",
+        "feature": "A Notes pane keeps its draft when it moves to a separate window",
+        "lookFor": "Type a draft in Notes, use its pop-out action, then close the popup and find the draft back in Notes.",
+        "scope": "Allow popups. The pane returns when its window closes.",
+        "image": null,
+        "sharedWorkers": true,
+        "sourceUrl": "examples/dashboard/tearOut",
+        "urls": {
+            "devmode": "examples/dashboard/tearOut/index.html",
+            "dist_dev": "dist/development/examples/dashboard/tearOut/index.html",
+            "dist_esm": "dist/esm/examples/dashboard/tearOut/index.html",
+            "dist_prod": "dist/production/examples/dashboard/tearOut/index.html"
+        }
+    },
+    {
+        "id": "multi-window-helix",
+        "name": "Multi-Window Helix",
+        "family": "multi-window",
+        "component": "Helix",
+        "feature": "Helix controls stay connected from their own window",
+        "lookFor": "Maximise Helix Controls, change Translate X in the popup, then close it to return the controls.",
+        "scope": "Allow popups.",
+        "image": null,
+        "sharedWorkers": true,
+        "sourceUrl": "examples/component/multiWindowHelix",
+        "urls": {
+            "devmode": "examples/component/multiWindowHelix/index.html",
+            "dist_dev": "dist/development/examples/component/multiWindowHelix/index.html",
+            "dist_esm": "dist/esm/examples/component/multiWindowHelix/index.html",
+            "dist_prod": "dist/production/examples/component/multiWindowHelix/index.html"
+        }
+    },
+    {
+        "id": "multi-window-state-provider",
+        "name": "State Shared Between Windows",
+        "family": "multi-window",
+        "component": "State Provider",
+        "feature": "Two windows bind their user labels to one shared state provider",
+        "lookFor": "Open the companion page, use Edit user and watch the name change in both windows.",
+        "scope": "Open this page first, then its sibling multiWindow2/index.html in another window using the same origin and build.",
+        "image": null,
+        "sharedWorkers": true,
+        "sourceUrl": "examples/stateProvider/multiWindow",
+        "urls": {
+            "devmode": "examples/stateProvider/multiWindow/index.html",
+            "dist_dev": "dist/development/examples/stateProvider/multiWindow/index.html",
+            "dist_esm": "dist/esm/examples/stateProvider/multiWindow/index.html",
+            "dist_prod": "dist/production/examples/stateProvider/multiWindow/index.html"
+        }
     },
     {
         "id": "realworld",

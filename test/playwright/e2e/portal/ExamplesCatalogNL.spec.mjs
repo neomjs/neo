@@ -1,8 +1,9 @@
 import {expect, test} from '../../fixtures.mjs';
 import {decodePng}    from '../utils/pngPixels.mjs';
 
-const PORTAL = '/apps/portal/index.html',
-      FAMILY = '.portal-examples-family-overview';
+const PORTAL   = '/apps/portal/index.html',
+      FAMILY   = '.portal-examples-family-overview',
+      FAMILIES = ['Featured', 'Grid & Table', 'Forms', 'Multi-Window', 'Calendar'];
 
 /**
  * @summary Reads the mounted list from this page's App Worker, rather than a sibling Portal.
@@ -13,6 +14,54 @@ async function readList(app) {
     const matches = await app.queryComponent({className: 'Portal.view.examples.List'}, ['id', 'mounted', 'catalogMode', 'store']);
 
     return matches.find(match => match.properties.mounted)
+}
+
+/**
+ * @summary Selects a family through its visible header or the tab bar's existing overflow menu.
+ * @param {Object} page The test page.
+ * @param {String} name Family label.
+ * @returns {Promise<void>}
+ */
+async function selectFamily(page, name) {
+    const tab = page.getByRole('tab', {name, exact: true});
+
+    if (await tab.isVisible()) {
+        await tab.click()
+    } else {
+        await page.locator('.neo-tab-overflow-control:visible').click();
+        await page.locator('.neo-tab-overflow-menu:visible .neo-list-item').filter({hasText: name}).click()
+    }
+}
+
+/**
+ * @summary Checks every family is reachable through the visible rail or its overflow menu.
+ * @param {Object} page The test page.
+ * @returns {Promise<void>}
+ */
+async function expectFamilyTabs(page) {
+    const control = page.locator('.neo-tab-overflow-control:visible'),
+          menu    = page.locator('.neo-tab-overflow-menu:visible .neo-list-item');
+    let clicked = false;
+
+    await expect.poll(async () => {
+        if (!clicked && await control.isVisible() && !await menu.first().isVisible()) {
+            try {
+                // A recapture may withdraw this control and restore every header before the click.
+                await control.click({timeout: 1000});
+                clicked = true
+            } catch (error) {
+                if (await control.isVisible()) throw error
+            }
+        }
+
+        return [...await page.getByRole('tab').allTextContents(), ...await menu.allTextContents()]
+            .map(text => text.trim()).sort()
+    }).toEqual([...FAMILIES].sort());
+
+    if (await menu.first().isVisible()) {
+        await page.keyboard.press('Escape');
+        await expect(menu).toHaveCount(0)
+    }
 }
 
 /**
@@ -108,7 +157,7 @@ test.describe('Portal example catalog', () => {
         await page.goto(`${PORTAL}#/examples`);
         const app = await neuralLink.connectToApp('Portal');
 
-        await expect(page.getByRole('tab')).toHaveText(['Featured', 'Grid & Table', 'Forms', 'Calendar']);
+        await expectFamilyTabs(page);
         const matches = await app.queryComponent({className: 'Portal.view.examples.TabContainer'}, ['id', 'activeIndex']);
         const view    = Array.isArray(matches) ? matches[0] : matches;
         const sources = await app.queryComponent({className: 'Portal.view.examples.List'}, ['store']);
@@ -126,27 +175,31 @@ test.describe('Portal example catalog', () => {
             await expect.poll(async () => {
                 const lists = await app.queryComponent({className: 'Portal.view.examples.List'}, ['catalogMode']);
                 return lists.map(item => item.properties.catalogMode)
-            }).toEqual([mode, mode, mode, mode]);
+            }).toEqual(FAMILIES.map(() => mode));
             await expect(page.locator('.portal-examples-list:visible').getByRole('link', {name: 'Workstation', exact: true}))
                 .toHaveAttribute('href', `https://neomjs.com/${prefix}apps/workstation/index.html`);
 
-            await page.getByRole('tab', {name: 'Grid & Table', exact: true}).click();
+            await selectFamily(page, 'Grid & Table');
             await expect(page.locator(FAMILY).getByRole('link', {name: 'Grid Cell Editing', exact: true}))
                 .toHaveAttribute('href', `https://neomjs.com/${prefix}examples/grid/cellEditing/index.html`);
-            await page.getByRole('tab', {name: 'Featured', exact: true}).click()
+            await selectFamily(page, 'Multi-Window');
+            await expect(page.locator(`${FAMILY} .portal-example-feature`)).toHaveCount(mode === 'dist_esm' ? 11 : 12);
+            await expect(page.locator(FAMILY).getByRole('link', {name: 'Dock Pane Pop-out', exact: true}))
+                .toHaveAttribute('href', `https://neomjs.com/${prefix}examples/dashboard/tearOut/index.html`);
+            await selectFamily(page, 'Featured')
         }
 
         await page.goto(`${PORTAL}#/examples/calendar`);
         await expect(page.locator(FAMILY).getByRole('link', {name: 'Studio Bookings', exact: true})).toBeVisible();
 
         await page.goto(`${PORTAL}#/examples/forms`);
-        await expect(page.getByRole('tab')).toHaveText(['Featured', 'Grid & Table', 'Forms', 'Calendar']);
+        await expectFamilyTabs(page);
         await expect(page.locator(`${FAMILY} .portal-example-feature`)).toHaveCount(24);
         const forms = await app.getComponent(view.id, ['activeIndex']);
         expect(forms.activeIndex).toBe(2);
 
         await page.goto(`${PORTAL}#/examples/unknown`);
-        await expect(page.getByRole('tab')).toHaveText(['Featured', 'Grid & Table', 'Forms', 'Calendar']);
+        await expectFamilyTabs(page);
         await expect(page.locator('.portal-examples-list:visible').getByRole('link', {name: 'Workstation', exact: true})).toBeVisible();
         const current = await app.getComponent(view.id, ['activeIndex']);
         expect(current.activeIndex).toBe(0)
@@ -164,7 +217,7 @@ test.describe('Portal example catalog', () => {
                 await expect(page.locator(`.neo-viewport.${theme}`)).toBeVisible();
 
                 if (captureFeatured) {
-                    await expect(page.getByRole('tab')).toHaveText(['Featured', 'Grid & Table', 'Forms', 'Calendar']);
+                    await expectFamilyTabs(page);
                     const selectors = await app.queryComponent({reference: 'example-build-selector'}, ['id']);
                     const selector  = page.locator('.portal-examples-build-selector');
                     await expect(selector).toHaveAttribute('id', selectors[0].id);
