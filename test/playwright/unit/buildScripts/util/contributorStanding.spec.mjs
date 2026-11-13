@@ -51,7 +51,7 @@ const comment = (mergedBefore, options = {}) => decideMergeComment({
 })?.body;
 
 test.describe('buildScripts/util/contributorStanding', () => {
-    test('the rungs are the published inventory, frozen', () => {
+    test('the rungs are the published inventory, frozen: the badge art in neomjs/pages has a colour for each slug', () => {
         expect(RUNGS.map(({slug, merges, name}) => `${slug} ${merges} ${name}`)).toEqual([
             'contributor 1 Contributor',
             'returning 5 Returning Contributor',
@@ -96,6 +96,21 @@ test.describe('buildScripts/util/contributorStanding', () => {
             '<a href="https://neomjs.com/badges/outside-dev-4242/"><img src="https://neomjs.com/badges/outside-dev-4242/card.svg" alt="Neo.mjs contributor"></a>'
         );
         expect(badgeLine('Outside-Dev', 4242, 'medal')).toContain('/outside-dev-4242/medal.svg')
+    });
+
+    test('no line points at a folder the badge generator refuses: a login GitHub would not issue, or an id that is not a number', () => {
+        expect(() => badgeFolder('dependabot[bot]', 49699333)).toThrow(TypeError);
+        expect(() => badgeFolder('-outside', 4242)).toThrow(TypeError);
+        expect(() => badgeFolder('outside-dev', 'x42')).toThrow(TypeError);
+        expect(() => badgeFolder('outside-dev', undefined)).toThrow(TypeError);
+        expect(badgeFolder('outside-dev', '4242')).toBe('outside-dev-4242')
+    });
+
+    test('the module imports claimResponse.mjs and nothing else: its readers check out exactly those two files', () => {
+        const source = fs.readFileSync(path.resolve(process.cwd(), 'buildScripts/util/contributorStanding.mjs'), 'utf8');
+
+        expect([...source.matchAll(/^\s*import\b[^;]*?from\s+'([^']+)'/gm)].map(match => match[1])).toEqual(['./claimResponse.mjs']);
+        expect(source).not.toMatch(/\bimport\s*\(/)
     });
 
     test('nextIssues prefers an issue that shares a label with the merged work, and that label is its reason', () => {
@@ -283,7 +298,7 @@ test.describe('buildScripts/util/contributorStanding', () => {
             const calls = await run();
 
             expect(calls.queries).toEqual([
-                'org:neomjs is:pr is:merged author:Outside-Dev merged:<2026-11-14T10:00:00+00:00',
+                'org:neomjs is:public is:pr is:merged author:Outside-Dev merged:<2026-11-14T10:00:00+00:00',
                 'repo:neomjs/neo is:issue is:open label:"good first issue" no:assignee -linked:pr',
                 'repo:neomjs/neo is:issue is:open label:"help wanted" no:assignee -linked:pr'
             ]);

@@ -9,9 +9,11 @@
  * its `merged_at`) and {@link decideMergeComment} adds the event itself, so the count never waits for search to index
  * the merge. "Outside" is `isOutsideHuman` of `claimResponse.mjs`; this module writes no second definition.
  *
- * The badge generator of `neomjs/pages` reads {@link RUNGS}, {@link standing}, {@link BADGES_SINCE} and the outside
- * test from here, so they are a contract across repositories: a rung's slug is never renamed, removed or repurposed.
- * A renamed rung changes its `name`; a new rung adds an entry.
+ * The badge generator of `neomjs/pages` reads {@link RUNGS}, {@link standing}, {@link BADGES_SINCE},
+ * {@link badgeFolder}, {@link badgeLine} and the outside test from here, so they are a contract across repositories:
+ * a rung's slug is never renamed, removed or repurposed, and its badge art has a colour for each slug. A renamed rung
+ * changes its `name`; a new rung adds an entry and its art. Each reader checks out exactly this file and
+ * `claimResponse.mjs`, so this module imports nothing else.
  *
  * Everything here is a pure function of data the workflow fetched, so the words are unit-tested without GitHub.
  */
@@ -91,8 +93,14 @@ export function standing(count) {
  * @param {String} login
  * @param {Number|String} id
  * @returns {String}
+ * @throws {TypeError} For a login GitHub would not issue or an id that is not a number, so no line ever points at a
+ * folder the badge generator refuses to write
  */
 export function badgeFolder(login, id) {
+    if (!/^[a-z\d](?:[a-z\d-]*[a-z\d])?$/i.test(String(login)) || !/^\d+$/.test(String(id))) {
+        throw new TypeError(`no badge folder for login ${login} and id ${id}`)
+    }
+
     return `${String(login).toLowerCase()}-${id}`
 }
 
