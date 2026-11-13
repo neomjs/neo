@@ -107,6 +107,41 @@ onMouseMove(data) {
 }
 ```
 
+### Shipping a renderer in a package
+
+A renderer does not have to live in the application that draws it. A chart or a timeline package can ship
+its Canvas worker logic beside its components, and every application that installs the package draws with
+it. The package declares the directories its renderers live in, in its own `package.json`:
+
+```json readonly
+{
+    "name": "@example/charts",
+    "neo": {
+        "canvasModules": ["src/canvas"]
+    }
+}
+```
+
+Its App worker component then names the renderer by its path from `node_modules`:
+
+```javascript readonly
+class SparklineCanvas extends SharedCanvas {
+    static config = {
+        className         : 'Example.view.SparklineCanvas',
+        rendererClassName : 'Example.canvas.Sparkline',
+        rendererImportPath: 'node_modules/@example/charts/src/canvas/Sparkline.mjs'
+    }
+}
+```
+
+The same path loads in raw development and in development and production builds. A build reads the
+declaration from the workspace's direct dependencies, devDependencies and optionalDependencies, and admits
+exactly the declared directories into the Canvas worker. Every other installed package stays out of it, so
+a package that declares nothing costs the worker nothing. As with Main-thread addons, a declared entry is a
+package-relative directory: absolute paths, upward traversal and directories that resolve outside the
+package are rejected. The key reaches the Canvas worker alone; Main-thread addons have their own,
+`neo.mainAddons`.
+
 ## Zero-Allocation Rendering
 
 Achieving 60fps requires more than just a separate thread; it requires careful memory management to avoid Garbage Collection (GC) stutters. We implemented a **Zero-Allocation** strategy for the render loop.

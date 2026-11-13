@@ -242,7 +242,7 @@ export const CANVAS_EXPECTATIONS = [{
     file   : 'node_modules/neo-fixture-renderer/src/canvas/FixtureRenderer.mjs',
     match  : /neo-fixture-renderer[/\\]src[/\\]canvas[/\\]FixtureRenderer\.mjs\b/,
     present: true,
-    because: 'a package that names its canvas directory in its manifest under `neo.workerModules` ships a renderer the Canvas worker must load'
+    because: 'a package that names its canvas directory in its manifest under `neo.canvasModules` ships a renderer the Canvas worker must load'
 }, {
     file   : 'node_modules/neo-fixture-plain/src/canvas/PlainRenderer.mjs',
     match  : /neo-fixture-plain[/\\]src[/\\]canvas[/\\]PlainRenderer\.mjs\b/,
@@ -584,11 +584,11 @@ function removeMainAddonFixture(workspace) {
 
 /**
  * @summary Two packages installed beside the engine, each shipping a renderer in `src/canvas`: one declares
- * that directory under `neo.workerModules` in its manifest, the other declares nothing.
+ * that directory under `neo.canvasModules` in its manifest, the other declares nothing.
  * @private
  */
 const FIXTURE_PACKAGES = [
-    {name: 'neo-fixture-renderer', renderer: 'FixtureRenderer', neo: {workerModules: ['src/canvas']}},
+    {name: 'neo-fixture-renderer', renderer: 'FixtureRenderer', neo: {canvasModules: ['src/canvas']}},
     {name: 'neo-fixture-plain',    renderer: 'PlainRenderer'}
 ];
 
@@ -899,7 +899,7 @@ async function main() {
             process.exit(1)
         }
 
-        console.log('\ncheck-consumer-runtime-build: OK — Data and Main preserve their consumer-owned contexts in both modes; Main admits only declared package addon roots and emits no absolute fixture paths; Canvas reaches the package\'s renderers and the consumer\'s; the App worker compiles the workspace\'s own app as a consumer in both layouts and every shipped app as the framework with the package installed; and the rest holds with the Engine and declaring Main package linked from pnpm-style real paths. The framework App arm runs installed only and is logged as skipped when linked.')
+        console.log('\ncheck-consumer-runtime-build: OK — Data and Main preserve their consumer-owned contexts in both modes; Main admits only declared package addon roots and emits no absolute fixture paths; Canvas reaches the Engine\'s renderers, the consumer\'s and those of a package that declares `neo.canvasModules`, while a package that declares nothing stays out; the App worker compiles the workspace\'s own app as a consumer in both layouts and every shipped app as the framework with the package installed; and the rest holds with the Engine and declaring Main package linked from pnpm-style real paths. The framework App arm runs installed only and is logged as skipped when linked.')
     } finally {
         fs.rmSync(workspaceRoot, {recursive: true, force: true})
     }
