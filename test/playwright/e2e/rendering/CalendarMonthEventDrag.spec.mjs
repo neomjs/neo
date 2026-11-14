@@ -4,7 +4,7 @@ import {test, expect} from '../../fixtures.mjs';
  * @summary Verifies real-pointer dragging and Escape cancellation of events in the calendar week and month views.
  *
  * Both views scroll their container after mount: the week view scrolls horizontally to the active week
- * (`afterSetMounted`: a 100ms timeout, a DOM-rect round trip, then `scrollBy`), while the month view scrolls
+ * (`afterSetMounted`: a 100ms timeout, a DOM-rect round trip, then `scrollTo`), while the month view scrolls
  * vertically to the active month (`updateHeaderHeight(true)`: a timeout, a DOM-rect round trip, then `scrollTo`).
  * The spec waits for each mount scroll and `drag:start` listener registration before measuring coordinates.
  */
