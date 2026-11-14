@@ -56,8 +56,7 @@ const
     ENGINE_PATHS    = Object.freeze(['src/', 'apps/', 'examples/', 'resources/scss/']),
     GENERIC_LABELS  = new Set([...CURATED_LABELS, 'ai', 'bug', 'documentation', 'enhancement']),
     HEADS_UP_PREFIX = '<!-- contributor-heads-up:',
-    MARKER_PREFIX   = '<!-- merge-comment:',
-    OPT_OUT         = 'To be left out of the records, [open an issue in neomjs/pages](https://github.com/neomjs/pages/issues/new).';
+    MARKER_PREFIX   = '<!-- merge-comment:';
 
 /**
  * @summary An issue's label names, whether the REST shape carries strings or `{name}` objects.
@@ -178,8 +177,9 @@ export function mergeMarker(number) {
 }
 
 /**
- * @summary The hidden marker a heads-up carries. It is not the merge marker: a merge comment posted before the badges
- * were live must not silence the note that names the badge.
+ * @summary The hidden marker of the one-time note that told earlier contributors of their standing and their badge
+ * when the badges went live. Those notes stay on their pull requests, and {@link decideMergeComment} posts nothing
+ * underneath one.
  * @param {Number} number
  * @returns {String}
  */
@@ -228,12 +228,11 @@ function renderStanding(count) {
 /**
  * @summary The paragraph that hands over an account's badge: its record's address and the card's line.
  * @param {Object} user `login`, `id`
- * @param {String} place How the badge stands to its address: `exists within the hour at`, or `is at` once it is written
  * @returns {String}
  * @private
  */
-function renderBadge({login, id}, place) {
-    return `**Your badge**, if you would like to show it, ${place} ${BADGE_ROOT}/${badgeFolder(login, id)}/ with three forms to choose from. The card's line:\n\`${badgeLine(login, id)}\``
+function renderBadge({login, id}) {
+    return `**Your badge**, if you would like to show it, exists within the hour at ${BADGE_ROOT}/${badgeFolder(login, id)}/ with three forms to choose from. The card's line:\n\`${badgeLine(login, id)}\``
 }
 
 /**
@@ -301,7 +300,7 @@ export function decideMergeComment({pullRequest, mergedBefore, comments = [], ca
         nextLine     = suggested.length > 0 ? renderNext(suggested, repoUrl) : null,
         // A first merge is a rung, so the badge stands in the full form only
         badge        = !hasFolder(pullRequest, badgesSince, optOut) ? null
-            : count === 1 ? renderBadge(pullRequest.user, 'exists within the hour at') : 'Your badge shows it within the hour.';
+            : count === 1 ? renderBadge(pullRequest.user) : 'Your badge shows it within the hour.';
 
     const paragraphs = atRung ? [
         count === 1
@@ -318,65 +317,4 @@ export function decideMergeComment({pullRequest, mergedBefore, comments = [], ca
     ];
 
     return {body: [...paragraphs.filter(Boolean), marker].join('\n\n')}
-}
-
-/**
- * @summary The one note that tells a contributor who merged before the badges were live of their standing and their
- * badge, on their latest merged pull request, or null when that pull request gets none.
- * `.github/workflows/contributor-heads-up.yml` runs it once for each account of the badge ledger.
- *
- * A pull request without a merge comment gets the `standing` form: standing, badge, next issues and an invitation.
- * One whose merge comment names no badge gets the `badge` form: the badge alone. null stands for a pull request that
- * is not merged or not from outside the team, for an account without a badge folder (as for
- * {@link decideMergeComment}), and for a pull request that carries a bot-authored heads-up marker or a merge comment
- * that names the badge.
- *
- * The note has one job. Once its run is recorded, this function and the workflow are removed. {@link headsUpMarker}
- * stays, because the notes stay on their pull requests.
- * @param {Object} options As for {@link decideMergeComment}, with `count` in place of `mergedBefore`
- * @param {Number} options.count The account's merged pull requests as its badge shows them: `count` of its entry in
- * `badges/ledger.json` of `neomjs/pages`
- * @returns {{body: String, form: String}|null}
- * @throws {TypeError} When `count` is not a count of at least one, so the run lists the account instead of posting a
- * wrong standing
- */
-export function decideHeadsUp({pullRequest, count, comments = [], candidates = [], closedLabels = [], paths = [], repoUrl, badgesSince = BADGES_SINCE, optOut = null}) {
-    if (!pullRequest?.merged || !isOutsideHuman(pullRequest) || !hasFolder(pullRequest, badgesSince, optOut)) {
-        return null
-    }
-
-    const
-        marker        = headsUpMarker(pullRequest.number),
-        mergeComments = botMarked(comments, mergeMarker(pullRequest.number));
-
-    if (botMarked(comments, marker).length > 0 || mergeComments.some(comment => comment.body.includes(`${BADGE_ROOT}/`))) {
-        return null
-    }
-
-    if (!Number.isInteger(count) || count < 1) {
-        throw new TypeError(`count must be at least one merge, got ${count}`)
-    }
-
-    const badge = renderBadge(pullRequest.user, 'is at');
-
-    if (mergeComments.length > 0) {
-        return {form: 'badge', body: [
-            'Contributors to Neo.mjs now have a badge, and the comment above did not name yours.',
-            badge,
-            OPT_OUT,
-            marker
-        ].join('\n\n')}
-    }
-
-    const suggested = nextIssues({closedLabels, candidates, seed: pullRequest.user.login});
-
-    return {form: 'standing', body: [
-        'This pull request was merged before Neo.mjs kept a standing for its contributors. It does now, counted in merged pull requests, so here is yours.',
-        renderStanding(count),
-        badge,
-        suggested.length > 0 ? renderNext(suggested, repoUrl) : null,
-        invitation(paths),
-        `This note comes once. From here on a comment arrives with each merge. ${OPT_OUT}`,
-        marker
-    ].filter(Boolean).join('\n\n')}
 }
