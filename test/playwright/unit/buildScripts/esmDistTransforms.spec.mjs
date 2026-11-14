@@ -1,3 +1,4 @@
+import fs             from 'fs';
 import path           from 'path';
 import {test, expect} from '@playwright/test';
 
@@ -252,6 +253,22 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
                 expect(path.resolve(path.dirname(mainOutput), entry.specifier.replace('${name}', '@fixture/native-tools/src/main/addon/Probe')))
                     .toBe(outputPath)
             }
+        });
+
+        test("the real Canvas worker's package context targets emitted node_modules while its other contexts keep their roots", () => {
+            const canvasOutput = path.join(outputRoot, 'src/worker/Canvas.mjs'),
+                  source       = fs.readFileSync(path.resolve(import.meta.dirname, '../../../../src/worker/Canvas.mjs'), 'utf8'),
+                  emitted      = transforms.rewriteEsmImports(source, {
+                      ...options, sourcePath: path.join(engineRoot, 'src/worker/Canvas.mjs'), outputPath: canvasOutput
+                  });
+
+            expect(transforms.relativeSpecifiers(emitted).filter(entry => entry.computed)).toEqual([
+                computed('../canvas/${path.slice(11)}.mjs'),
+                computed('../../node_modules/${path.slice(13)}.mjs'),
+                computed('../../${path}.mjs'),
+                computed('../../${path}/canvas.mjs')
+            ]);
+            expect(path.resolve(path.dirname(canvasOutput), '../../node_modules')).toBe(path.join(outputRoot, 'node_modules'))
         });
 
         test('ordinary workspace modules retain the established Engine and external-package rewrite', () => {

@@ -21,9 +21,11 @@ function packageOwner(workspaceRoot, file) {
 }
 
 /**
- * @summary Plans each emitted file once, extending workspace and Main-root admission with static package reachability.
+ * @summary Plans each emitted file once, extending workspace and declared-root admission with static package
+ * reachability.
  * @description Only imports and re-exports are discovery edges; dynamic imports retain their existing runtime
- * admission. Main-root edges are inspected without extending admission; a host fallback must not reach the Engine.
+ * admission. Declared-root edges (Main addons, Canvas worker modules) are inspected without extending admission; a
+ * host fallback must not reach the Engine.
  * Package-owner reachability propagates after graph construction, so cycles and pure helpers returning
  * to an admitted package cannot retain a second source copy. Ordinary libraries stay at their source location.
  * Logical paths own destinations; linked imports must agree with the package's physical peer graph.
@@ -31,7 +33,8 @@ function packageOwner(workspaceRoot, file) {
  * @param {String} options.workspaceRoot
  * @param {String} options.engineRoot
  * @param {String[]} options.sourceRoots Workspace-relative source directories.
- * @param {Object[]} options.packageRoots Declared Main roots; they are copied without widening their admission.
+ * @param {Object[]} options.packageRoots Declared package roots (`neo.mainAddons`, `neo.canvasModules`), each naming
+ * its `key`; they are copied without widening their admission.
  * @returns {{files: Map<String, Object>, excludedOutputs: Set<String>}}
  */
 export function createEsmBuildPlan({workspaceRoot, engineRoot, sourceRoots, packageRoots}) {
@@ -192,7 +195,7 @@ export function createEsmBuildPlan({workspaceRoot, engineRoot, sourceRoots, pack
         return node
     };
 
-    // Main-only package roots retain their declared admission. A workspace static edge may reach the same
+    // Declared package roots retain their declared admission. A workspace static edge may reach the same
     // files, at which point both admissions consume this one plan and the same destination for each file.
     for (const [sourcePath, entry] of files) {
         if (entry.type === 'module' && !within(engineSource, sourcePath) &&
@@ -210,14 +213,16 @@ export function createEsmBuildPlan({workspaceRoot, engineRoot, sourceRoots, pack
         add(node.sourcePath, type)
     }
 
-    const mainModules = [...files].filter(([sourcePath, entry]) => entry.type === 'module' &&
-        packageRoots.some(root => within(root.sourceRoot, sourcePath))).map(([sourcePath]) => visit(sourcePath)),
+    const rootModules = [...files].flatMap(([sourcePath, entry]) => {
+              const root = entry.type === 'module' && packageRoots.find(root => within(root.sourceRoot, sourcePath));
+              return root ? [{key: root.key, node: visit(sourcePath)}] : []
+          }),
           reachesEngine = reachImporters(moduleImporters, [engineOwner]);
-    for (const node of mainModules) {
+    for (const {key, node} of rootModules) {
         for (const {specifier, targetPath} of node.imports) {
             if (!files.has(targetPath) && reachesEngine.has(targetPath)) {
                 throw new Error(failure(node.sourcePath, specifier,
-                    'outside-root helper reaches the source Engine; declare its directory in neo.mainAddons or move it inside a declared root'))
+                    `outside-root helper reaches the source Engine; declare its directory in neo.${key} or move it inside a declared root`))
             }
         }
     }

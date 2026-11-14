@@ -89,7 +89,7 @@ test.describe('static ESM package graph boundaries', () => {
         write('node_modules/widget/outside/Helper.mjs', "export {default} from '../../neo.mjs/src/core/Base.mjs';");
         const relativeRoot = 'node_modules/widget/main';
         expect(() => plan([
-            {relativeRoot, sourceRoot: path.join(workspace, relativeRoot), packageName: 'widget'}
+            {key: 'mainAddons', relativeRoot, sourceRoot: path.join(workspace, relativeRoot), packageName: 'widget'}
         ])).toThrow(/node_modules\/widget\/main\/Addon\.mjs → \.\.\/outside\/Helper\.mjs:.*neo\.mainAddons/)
     });
 
@@ -102,7 +102,7 @@ test.describe('static ESM package graph boundaries', () => {
             write('node_modules/other/Cycle.mjs', "export * from '../widget/outside/Helper.mjs';" +
                 (reachesEngine ? "export {default as Base} from '../neo.mjs/src/core/Base.mjs';" : 'export const value = 17;'));
             const relativeRoot = 'node_modules/widget/main', build = () => plan([
-                {relativeRoot, sourceRoot: path.join(workspace, relativeRoot), packageName: 'widget'}
+                {key: 'mainAddons', relativeRoot, sourceRoot: path.join(workspace, relativeRoot), packageName: 'widget'}
             ]);
             if (reachesEngine) {
                 expect(build).toThrow(/main\/Addon\.mjs → \.\.\/outside\/Helper\.mjs:.*neo\.mainAddons/)
@@ -122,7 +122,7 @@ test.describe('static ESM package graph boundaries', () => {
         fs.ensureDirSync(path.dirname(path.join(workspace, alias)));
         fs.symlinkSync(path.join(workspace, addon), path.join(workspace, alias));
         const relativeRoot = 'node_modules/widget/main';
-        expect(() => plan([{relativeRoot, sourceRoot: path.join(workspace, relativeRoot), packageName: 'widget'}]))
+        expect(() => plan([{key: 'mainAddons', relativeRoot, sourceRoot: path.join(workspace, relativeRoot), packageName: 'widget'}]))
             .toThrow(/main\/Addon\.mjs → \.\.\/outside\/Addon\.mjs:.*neo\.mainAddons/)
     });
 
@@ -132,7 +132,7 @@ test.describe('static ESM package graph boundaries', () => {
         write('helpers/First.mjs', "export {default} from './Second.mjs';");
         write('helpers/Second.mjs', "export {default} from '../node_modules/neo.mjs/src/core/Base.mjs';");
         const relativeRoot = 'node_modules/widget/main';
-        expect(() => plan([{relativeRoot, sourceRoot: path.join(workspace, relativeRoot), packageName: 'widget'}]))
+        expect(() => plan([{key: 'mainAddons', relativeRoot, sourceRoot: path.join(workspace, relativeRoot), packageName: 'widget'}]))
             .toThrow(/main\/Addon\.mjs → \.\.\/\.\.\/\.\.\/helpers\/First\.mjs:.*neo\.mainAddons/)
     });
 });

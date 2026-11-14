@@ -5,7 +5,7 @@ import * as Terser             from 'terser';
 import {BROWSER_BUNDLES}       from '../util/browserBundles.mjs';
 import {createEsmBuildPlan}    from '../util/esmBuildGraph.mjs';
 import {minifyHtml}            from '../util/minifyHtml.mjs';
-import {mainAddonPackageRoots} from '../util/declaredPackageRoots.mjs';
+import {canvasModulePackageRoots, mainAddonPackageRoots} from '../util/declaredPackageRoots.mjs';
 import {processFileContent}    from '../util/astTemplateProcessor.mjs';
 
 import {
@@ -36,7 +36,8 @@ let plan, packageRoots;
 // A rejected source root is a manifest mistake, not an engine crash: the developer who typed the
 // path is the one who has to read this, and a stack trace through buildScripts tells them nothing.
 try {
-    packageRoots = mainAddonPackageRoots(root);
+    // Main addons and Canvas worker modules run in this one emitted tree, so both kinds share one admission
+    packageRoots = [...mainAddonPackageRoots(root), ...canvasModulePackageRoots(root)];
     plan = createEsmBuildPlan({
         workspaceRoot: root, engineRoot: insideNeo ? root : path.join(root, 'node_modules/neo.mjs'),
         sourceRoots  : resolveSourceRoots({insideNeo, packageJson}), packageRoots

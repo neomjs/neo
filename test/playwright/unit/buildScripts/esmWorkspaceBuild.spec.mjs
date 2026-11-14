@@ -222,6 +222,68 @@ test.describe('esmodules.mjs — a greenfield workspace build', () => {
         })
     }
 
+    /**
+     * Writes a workspace whose `widget` dependency declares `canvas` under `neo.canvasModules`, beside an `other`
+     * dependency that ships the same tree without declaring it.
+     * @param {Object<String, String>} widgetFiles Package-relative file → content, added to `widget`
+     * @returns {String} The workspace root
+     */
+    const createCanvasWorkspace = widgetFiles => {
+        const root     = fs.realpathSync(createWorkspace({declareExtraRoot: true})),
+              write    = (file, content) => fs.outputFileSync(path.join(root, file), content),
+              manifest = fs.readJsonSync(path.join(root, 'package.json'));
+
+        fs.outputJsonSync(path.join(root, 'package.json'), {...manifest, dependencies: {other: '1.0.0', widget: '1.0.0'}});
+        fs.outputJsonSync(path.join(root, 'node_modules/widget/package.json'), {name: 'widget', version: '1.0.0', neo: {canvasModules: ['canvas']}});
+        fs.outputJsonSync(path.join(root, 'node_modules/other/package.json'), {name: 'other', version: '1.0.0'});
+        write('node_modules/neo.mjs/src/core/Base.mjs', 'export default class Base {static engineUrl = import.meta.url}');
+        write('node_modules/other/canvas/Renderer.mjs', "import Base from '../../neo.mjs/src/core/Base.mjs';\nexport default class Renderer extends Base {}");
+        Object.entries(widgetFiles).forEach(([file, content]) => write(path.join('node_modules/widget', file), content));
+        return root
+    };
+
+    test('the emitted Canvas worker loads a declared package module on the one Engine graph', async () => {
+        // The stub worker carries the real worker's package import, so the build rewrites what the Engine ships
+        const packageImport = '`../../../${path.slice(13)}.mjs`';
+
+        expect(fs.readFileSync(path.join(engineRoot, 'src/worker/Canvas.mjs'), 'utf8'), 'the real worker still imports this way')
+            .toContain(packageImport);
+
+        workspace = createCanvasWorkspace({
+            'canvas/Renderer.mjs': "import Base from '../../neo.mjs/src/core/Base.mjs';\nexport default class Renderer extends Base {}"
+        });
+        fs.outputFileSync(path.join(workspace, 'node_modules/neo.mjs/src/worker/Canvas.mjs'),
+            `export const loadModule = path => import(${packageImport});\n`);
+
+        const {status, output} = runBuild(workspace);
+
+        expect(status, output).toBe(0);
+
+        const emitted = path.join(workspace, 'dist/esm/node_modules/widget/canvas/Renderer.mjs'),
+              base    = (await import(pathToFileURL(path.join(workspace, 'dist/esm/src/core/Base.mjs')).href)).default,
+              worker  = await import(pathToFileURL(path.join(workspace, 'dist/esm/src/worker/Canvas.mjs')).href),
+              loaded  = await worker.loadModule('node_modules/widget/canvas/Renderer');
+
+        expect(fs.existsSync(emitted), 'the declared root is emitted').toBe(true);
+        expect(loaded, 'the worker loads the emitted copy').toBe(await import(pathToFileURL(emitted).href));
+        expect(Object.getPrototypeOf(loaded.default), 'which extends the emitted Engine').toBe(base);
+        expect(fs.existsSync(path.join(workspace, 'dist/esm/node_modules/other')), 'an undeclared package stays out').toBe(false)
+    });
+
+    test('a Canvas module root refuses an outside-root helper that reaches the Engine, naming its own key', () => {
+        workspace = createCanvasWorkspace({
+            'canvas/Renderer.mjs': "export {default} from '../shared/Helper.mjs';",
+            'shared/Helper.mjs'  : "import Base from '../../neo.mjs/src/core/Base.mjs';\nexport default class Helper extends Base {}"
+        });
+
+        const {status, output} = runBuild(workspace);
+
+        expect(status, output).toBe(1);
+        expect(output).toContain('node_modules/widget/canvas/Renderer.mjs → ../shared/Helper.mjs');
+        expect(output).toContain('neo.canvasModules');
+        expect(output).not.toContain('neo.mainAddons')
+    });
+
     for (const linked of [false, true]) {
         test(`static package classes share the emitted Engine graph (${linked ? 'linked' : 'installed'})`, async () => {
             workspace = fs.realpathSync(createWorkspace({declareExtraRoot: true}));
