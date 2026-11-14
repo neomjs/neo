@@ -115,7 +115,7 @@ test.describe('Portal.service.Seo (#20945)', () => {
             }
 
             expect(SeoService.getTitle('/examples/unlisted-family')).toBe(seoJson['/examples'].title);
-            expect(SeoService.getTitle('/news/tickets/123')).toBe('Neo.mjs Tickets');
+            expect(SeoService.getTitle('/news/tickets/123')).toBe('GitHub Issue Archive — Neo.mjs');
             expect(SeoService.getTitle('learn/benefits/Introduction/#overview')).toBe(seoJson['/learn'].title);
 
             // 1. Top-level route updates only DocumentHead#setTitle, leaving description and ld+json untouched
@@ -390,11 +390,11 @@ test.describe('Portal.service.Seo (#20945)', () => {
             // Resolve newer Videos lookup FIRST, then older About Us lookup LAST
             deferredAddons[1]();
             await flushAsync();
-            expect(titleCallsByWindow['neo-window-1']).toEqual(['Neo.mjs Videos']);
+            expect(titleCallsByWindow['neo-window-1']).toEqual(['Videos & Live Demos — Multi-Window Web Apps & Agent OS | Neo.mjs']);
 
             deferredAddons[0]();
             await flushAsync();
-            expect(titleCallsByWindow['neo-window-1']).toEqual(['Neo.mjs Videos']);
+            expect(titleCallsByWindow['neo-window-1']).toEqual(['Videos & Live Demos — Multi-Window Web Apps & Agent OS | Neo.mjs']);
             expect(titleCallsByWindow['neo-window-2']).toEqual([seoJson['/docs'].title]);
         } finally {
             win1.destroy();

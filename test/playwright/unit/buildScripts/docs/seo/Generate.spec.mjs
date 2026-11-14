@@ -5,6 +5,7 @@ import path           from 'path';
 import fg             from 'fast-glob';
 
 import {
+    TOP_LEVEL_SOURCE_PATHS,
     assertStableReleaseNoteGithubLinks,
     collectBlogRoutes,
     collectExampleFamilyRoutes,
@@ -526,12 +527,17 @@ test.describe('docs SEO generator archive exclusion (#20089)', () => {
         });
         await fs.outputJson(path.join(isolatedRoot, 'apps/portal/resources/data/blog.json'), {data: []});
         await fs.outputJson(seoJsonPath, {
-            '/about-us': {title: 'About Neo.mjs', description: 'About the Neo.mjs platform.'},
-            '/docs'    : {title: 'Neo.mjs API Docs', description: 'API documentation.'},
-            '/examples': {title: 'Neo.mjs Examples', description: 'Live examples.'},
-            '/home'    : {title: 'Neo.mjs', description: 'Multi-threaded UI engine and Agent OS.'},
-            '/news'    : {title: 'Neo.mjs News', description: 'Releases, blog, and updates.'},
-            '/services': {title: 'Connect with Neo.mjs', description: 'Connect with the maintainers.'}
+            '/about-us'        : {title: 'About Neo.mjs', description: 'About the Neo.mjs platform.'},
+            '/docs'            : {title: 'Neo.mjs API Docs', description: 'API documentation.'},
+            '/examples'        : {title: 'Neo.mjs Examples', description: 'Live examples.'},
+            '/home'            : {title: 'Neo.mjs', description: 'Multi-threaded UI engine and Agent OS.'},
+            '/news'            : {title: 'Neo.mjs News', description: 'Releases, blog, and updates.'},
+            '/news/blog'       : {title: 'Neo.mjs Engineering Blog', description: 'Engineering blog posts.'},
+            '/news/discussions': {title: 'Neo.mjs Discussions', description: 'Architectural discussions.'},
+            '/news/medium'     : {title: 'Neo.mjs Medium Archive', description: 'External articles.'},
+            '/news/releases'   : {title: 'Neo.mjs Release Notes', description: 'Version history.'},
+            '/news/videos'     : {title: 'Neo.mjs Videos', description: 'Live demos and product films.'},
+            '/services'        : {title: 'Connect with Neo.mjs', description: 'Connect with the maintainers.'}
         });
         await fs.outputFile(
             path.join(releaseNotesRoot, 'v13.4.0.md'),
@@ -1464,5 +1470,155 @@ test.describe('docs SEO generator #20917: frontmatter seoTitle/seoDescription an
         ]) {
             expect(allUpgradedTitles).toContain(phrase);
         }
+    });
+});
+
+test.describe('docs SEO generator #20919: News hub routes and SharedWorker WebSocket blog post', () => {
+    let corpusRoot, releaseNotesRoot, tempDir;
+
+    test.beforeEach(async () => {
+        tempDir          = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-seo-20919-'));
+        corpusRoot       = path.join(tempDir, 'corpus');
+        releaseNotesRoot = path.join(tempDir, 'notes');
+
+        await fs.ensureDir(corpusRoot);
+        await fs.outputFile(path.join(releaseNotesRoot, 'v13.4.0.md'), '# Neo.mjs v13.4.0 Release Notes\n');
+    });
+
+    test.afterEach(async () => {
+        await fs.remove(tempDir);
+    });
+
+    test('TOP_LEVEL_SOURCE_PATHS maps all 15 Portal and News hub routes to existing on-disk files', async () => {
+        const rootDir = process.cwd();
+
+        expect(Object.keys(TOP_LEVEL_SOURCE_PATHS).sort()).toEqual([
+            '/',
+            '/about-us',
+            '/docs',
+            '/examples',
+            '/home',
+            '/learn',
+            '/news',
+            '/news/blog',
+            '/news/discussions',
+            '/news/medium',
+            '/news/pulls',
+            '/news/releases',
+            '/news/tickets',
+            '/news/videos',
+            '/services'
+        ]);
+
+        for (const [route, rawPaths] of Object.entries(TOP_LEVEL_SOURCE_PATHS)) {
+            const relPaths = Array.isArray(rawPaths) ? rawPaths : [rawPaths];
+
+            for (const relPath of relPaths) {
+                const exists = await fs.pathExists(path.resolve(rootDir, relPath));
+                expect(exists, `expected TOP_LEVEL_SOURCE_PATHS[${route}] -> ${relPath} to exist on disk`).toBe(true);
+            }
+        }
+    });
+
+    test('sitemap-core.xml emits 5 indexable News hubs at curated priorities, skips noindex routes, and llms.txt formats human labels', async () => {
+        const rootDir = process.cwd();
+        const seoJson = await fs.readJSON(path.resolve(rootDir, 'apps/portal/resources/data/seo.json'));
+
+        const [sitemapCore, llmsTxt] = await Promise.all([
+            getSitemapXml({
+                baseUrl        : 'https://neomjs.com',
+                corpusRoot,
+                includeArchives: false,
+                includeLastmod : false,
+                releaseNotesRoot,
+                root           : rootDir,
+                seoJson
+            }),
+            getLlmsTxt({
+                baseUrl        : 'https://neomjs.com',
+                corpusRoot,
+                includeArchives: false,
+                releaseNotesRoot,
+                root           : rootDir
+            })
+        ]);
+
+        expect(sitemapCore).toContain('<loc>https://neomjs.com/news/blog</loc>\n    <priority>0.9</priority>');
+        expect(sitemapCore).toContain('<loc>https://neomjs.com/news/releases</loc>\n    <priority>0.8</priority>');
+        expect(sitemapCore).toContain('<loc>https://neomjs.com/news/discussions</loc>\n    <priority>0.6</priority>');
+        expect(sitemapCore).toMatch(/<url>\s*<loc>https:\/\/neomjs\.com\/news\/medium<\/loc>\s*<\/url>/);
+        expect(sitemapCore).toMatch(/<url>\s*<loc>https:\/\/neomjs\.com\/news\/videos<\/loc>\s*<\/url>/);
+        expect(sitemapCore).not.toContain('<loc>https://neomjs.com/news/tickets</loc>');
+        expect(sitemapCore).not.toContain('<loc>https://neomjs.com/news/pulls</loc>');
+
+        // Defensive noindex skip in getSitemapXml when seo.json marks a route noindex
+        const customNoindexXml = await getSitemapXml({
+            baseUrl        : 'https://neomjs.com',
+            corpusRoot,
+            includeArchives: false,
+            includeLastmod : false,
+            releaseNotesRoot,
+            root           : rootDir,
+            seoJson        : {
+                ...seoJson,
+                '/news/medium': {
+                    ...seoJson['/news/medium'],
+                    robots: 'noindex, follow'
+                }
+            }
+        });
+        expect(customNoindexXml).not.toContain('<loc>https://neomjs.com/news/medium</loc>');
+
+        expect(llmsTxt).toContain('- [News](https://neomjs.com/news)');
+        expect(llmsTxt).toContain('- [News — Blog](https://neomjs.com/news/blog)');
+        expect(llmsTxt).toContain('- [News — Release Notes](https://neomjs.com/news/releases)');
+        expect(llmsTxt).toContain('- [News — Discussions](https://neomjs.com/news/discussions)');
+        expect(llmsTxt).toContain('- [News — Medium Archive](https://neomjs.com/news/medium)');
+        expect(llmsTxt).toContain('- [News — Videos](https://neomjs.com/news/videos)');
+        expect(llmsTxt).not.toContain('[News/blog]');
+        expect(llmsTxt).not.toContain('https://neomjs.com/news/tickets');
+        expect(llmsTxt).not.toContain('https://neomjs.com/news/pulls');
+    });
+
+    test('seo.json carries curated metadata + YYYY-MM-DD lastmod for all News hubs and the SharedWorker WebSocket blog post', async () => {
+        const rootDir = process.cwd();
+        const seoJson = await fs.readJSON(path.resolve(rootDir, 'apps/portal/resources/data/seo.json'));
+
+        const indexableNewsHubs = ['/news', '/news/blog', '/news/releases', '/news/discussions', '/news/medium', '/news/videos'];
+        const noindexNewsHubs   = ['/news/tickets', '/news/pulls'];
+
+        for (const route of indexableNewsHubs) {
+            const entry = seoJson[route];
+            expect(entry, `missing seo.json entry for ${route}`).toBeTruthy();
+            expect(entry.title.length).toBeGreaterThan(15);
+            expect(entry.title).not.toMatch(/\bframework\b/i);
+            expect(entry.description.length).toBeGreaterThanOrEqual(80);
+            expect(entry.description.length).toBeLessThanOrEqual(160);
+            expect(entry.description).not.toMatch(/\bframework\b/i);
+            expect(entry.lastmod).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+            expect(entry.robots).toBeUndefined();
+        }
+
+        for (const route of noindexNewsHubs) {
+            const entry = seoJson[route];
+            expect(entry, `missing seo.json entry for ${route}`).toBeTruthy();
+            expect(entry.title.length).toBeGreaterThan(10);
+            expect(entry.title).not.toMatch(/\bframework\b/i);
+            expect(entry.description.length).toBeLessThanOrEqual(160);
+            expect(entry.description).not.toMatch(/\bframework\b/i);
+            expect(entry.robots).toBe('noindex, follow');
+            expect(entry.lastmod).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+        }
+
+        const sharedWorkerPost = seoJson['/news/blog/one-websocket-across-browser-windows-with-sharedworkers'];
+        expect(sharedWorkerPost).toEqual({
+            title      : 'SharedWorker WebSocket & Off-Main-Thread UI Across Windows | Neo.mjs',
+            description: 'Share one live WebSocket across multiple browser windows in a SharedWorker without copying state per tab: stores, VDOM diffing, and reconnect logic in one heap.',
+            schemaType : 'BlogPosting',
+            lastmod    : expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/)
+        });
+        expect(sharedWorkerPost.description.length).toBeLessThanOrEqual(160);
+        expect(sharedWorkerPost.title).not.toMatch(/\bframework\b/i);
+        expect(sharedWorkerPost.description).not.toMatch(/\bframework\b/i);
     });
 });
