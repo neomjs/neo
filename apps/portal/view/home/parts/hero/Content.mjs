@@ -3,6 +3,7 @@ import Button            from '../../../../../../src/button/Base.mjs';
 import MagicMoveText     from '../../../../../../src/component/MagicMoveText.mjs';
 
 /**
+ * @summary Hero foreground container holding the category headline, value proposition, and primary CTAs.
  * @class Portal.view.home.parts.hero.Content
  * @extends Neo.container.Base
  */
@@ -18,6 +19,11 @@ class Content extends BaseContainer {
          * @reactive
          */
         cls: ['portal-home-hero-content'],
+        /**
+         * Hold duration in ms for the opening category phrase before auto-cycling starts.
+         * @member {Number} initialHoldDelay=5300
+         */
+        initialHoldDelay: 5300,
 
         layout: {ntype: 'vbox', align: 'center', pack: 'center'},
         /**
@@ -91,7 +97,7 @@ class Content extends BaseContainer {
                 module: Button,
                 cls   : ['get-started-button'],
                 flex  : 'none',
-                route : '/learn',
+                route : '/learn/gettingstarted/Setup',
                 text  : 'Get started'
             }, {
                 module: Button,
@@ -105,17 +111,75 @@ class Content extends BaseContainer {
     }
 
     /**
-     *
+     * @member {Boolean} initialHoldPending=true
+     * @protected
+     */
+    initialHoldPending = true
+    /**
+     * @member {Number|null} initialHoldTimeoutId=null
+     * @protected
+     */
+    initialHoldTimeoutId = null
+
+    /**
+     * @summary Displays the opening category phrase for initialHoldDelay before starting autoCycle.
      */
     activate() {
-        this.getItem('magic-move').autoCycle = true
+        let me        = this,
+            magicMove = me.getItem('magic-move');
+
+        if (me.initialHoldTimeoutId !== null || magicMove.autoCycle) {
+            return
+        }
+
+        if (me.initialHoldPending) {
+            me.initialHoldPending = false;
+
+            if (me.initialHoldDelay > 0) {
+                magicMove.cycleText();
+
+                me.initialHoldTimeoutId = setTimeout(() => {
+                    me.initialHoldTimeoutId = null;
+
+                    if (!me.isDestroyed) {
+                        magicMove.autoCycle = true
+                    }
+                }, me.initialHoldDelay);
+
+                return
+            }
+        }
+
+        magicMove.autoCycle = true
     }
 
     /**
-     *
+     * @summary Cancels any pending initial category hold timer.
+     */
+    clearInitialHoldTimeout() {
+        let me = this;
+
+        if (me.initialHoldTimeoutId !== null) {
+            clearTimeout(me.initialHoldTimeoutId);
+            me.initialHoldTimeoutId = null
+        }
+    }
+
+    /**
+     * @summary Cancels any pending hold timer and stops MagicMoveText auto-cycling.
      */
     deactivate() {
+        this.clearInitialHoldTimeout();
         this.getItem('magic-move').autoCycle = false
+    }
+
+    /**
+     * @summary Clears any pending initial hold timer before destroying the container.
+     * @param {...*} args
+     */
+    destroy(...args) {
+        this.clearInitialHoldTimeout();
+        super.destroy(...args)
     }
 }
 
