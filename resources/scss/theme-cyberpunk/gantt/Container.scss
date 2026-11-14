@@ -1,0 +1,9 @@
+:where(.neo-theme-cyberpunk) { // .neo-gantt
+    --neo-gantt-divider-color   : var(--cyber-border);
+    --neo-gantt-arrow-color     : var(--cyber-cyan);
+    --neo-gantt-highlight-color : var(--cyber-red);
+    --neo-gantt-summary-bg      : var(--cyber-bg-alt);
+    --neo-gantt-summary-border  : var(--cyber-gold);
+    --neo-gantt-milestone-bg    : color-mix(in srgb, var(--cyber-gold) 18%, var(--cyber-bg));
+    --neo-gantt-milestone-border: var(--cyber-gold);
+}

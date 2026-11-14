@@ -4,6 +4,7 @@ import os                        from 'node:os';
 import path                      from 'node:path';
 import {createRequire}           from 'node:module';
 import mainAddonContextPlugin    from '../../../../buildScripts/webpack/mainAddonContextPlugin.mjs';
+import {mainAddonPackageRoots}   from '../../../../buildScripts/util/declaredPackageRoots.mjs';
 import workerContextRebasePlugin from '../../../../buildScripts/webpack/workerContextRebasePlugin.mjs';
 
 const require           = createRequire(import.meta.url),
@@ -22,12 +23,76 @@ const require           = createRequire(import.meta.url),
  * the failure DIRECTIONS, and the workflow asserts the behaviour.
  */
 test.describe('check-consumer-runtime-build — rule logic', () => {
+    test('Main addon roots in a linked package cannot traverse or symlink outside that package (#20821)', () => {
+        const fixture   = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-main-addon-roots-')),
+              workspace = path.join(fixture, 'workspace'),
+              installed = path.join(workspace, 'node_modules/@fixture/native-tools'),
+              physical  = path.join(fixture, 'linked-package'),
+              outside   = path.join(fixture, 'outside'),
+              manifest  = roots => fs.writeFileSync(path.join(physical, 'package.json'), JSON.stringify({neo: {mainAddons: roots}}));
+
+        try {
+            fs.mkdirSync(path.dirname(installed), {recursive: true});
+            fs.mkdirSync(path.join(physical, 'src/main/addon'), {recursive: true});
+            fs.mkdirSync(outside);
+            fs.symlinkSync(physical, installed, 'junction');
+            fs.symlinkSync(outside, path.join(physical, 'escaped-addon'), 'junction');
+            fs.writeFileSync(path.join(workspace, 'package.json'), JSON.stringify({dependencies: {'@fixture/native-tools': '1.0.0'}}));
+
+            manifest(['src/main/addon']);
+            expect(mainAddonPackageRoots(workspace)[0].sourceRoot).toBe(path.join(installed, 'src/main/addon'));
+
+            manifest(['../outside']);
+            expect(() => mainAddonPackageRoots(workspace)).toThrow(/invalid neo\.mainAddons root/);
+            manifest(['escaped-addon']);
+            expect(() => mainAddonPackageRoots(workspace)).toThrow(/leaves its package/)
+        } finally {
+            fs.rmSync(fixture, {recursive: true, force: true})
+        }
+    });
+
+    test('package traversal prunes unrelated directories even when a workspace ancestor matches a declared root', () => {
+        const fixture   = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'neo-context-identity-'))),
+              workspace = path.join(fixture, '@fixture/hooks/src/addon/workspace'),
+              modules   = path.join(workspace, 'node_modules'),
+              engine    = path.join(modules, 'neo.mjs/src'),
+              addon     = path.join(modules, '@fixture/hooks/src/addon');
+
+        try {
+            fs.mkdirSync(engine, {recursive: true});
+            fs.mkdirSync(addon, {recursive: true});
+            fs.writeFileSync(path.join(workspace, 'package.json'), JSON.stringify({dependencies: {'@fixture/hooks': '1.0.0'}}));
+            fs.writeFileSync(path.join(modules, '@fixture/hooks/package.json'), JSON.stringify({neo: {mainAddons: ['src/addon']}}));
+
+            const callback   = mainAddonContextPlugin(false, workspace).newContentCallback,
+                  unresolved = {context: engine, request: '../..'};
+            callback(unresolved);
+
+            let traversed;
+            const resolved = {...unresolved, resource: modules,
+                resolveDependencies: (fs, options, done) => {traversed = options; done(null, [])}};
+            callback(resolved);
+
+            expect(resolved.exclude, 'absolute pruning expressions must not become emitted context identities').toBeUndefined();
+            resolved.resolveDependencies(null, resolved, () => {});
+            expect(traversed.exclude.test(addon)).toBe(false);
+            expect(traversed.exclude.test(path.join(addon, 'Native.mjs'))).toBe(false);
+            expect(traversed.exclude.test(path.join(modules, 'unrelated'))).toBe(true);
+            expect(traversed.exclude.test(path.join(modules, '@fixture/hooks/src/outside'))).toBe(true);
+            expect(resolved.regExp.test('./@fixture/hooks/src/addon/Native.mjs')).toBe(true);
+            expect(resolved.regExp.test('./unrelated/Native.mjs')).toBe(false)
+        } finally {
+            fs.rmSync(fixture, {recursive: true, force: true})
+        }
+    });
+
     let APP_EXPECTATIONS,
         CANVAS_EXPECTATIONS,
         EXPECTED_APP_WORKER_REMOTE,
         TEST_HARNESS_ABSENCE_EXPECTATIONS,
         collectAppWorkerDispatchSurfaceFailures,
         collectConsumerBuildFailures,
+        collectMainAssetPathFailures,
         collectMainContextFailures,
         findMissingBrowserArtifacts,
         probeAppWorkerDispatchSurface,
@@ -49,6 +114,8 @@ test.describe('check-consumer-runtime-build — rule logic', () => {
           ENGINE_RENDERER  = './node_modules/neo.mjs/src/canvas/Header.mjs',
           GRAPH_SCENE      = './node_modules/neo.mjs/src/canvas/GraphScene.mjs',
           PROBE_RENDERER   = './apps/probe/canvas/ProbeRenderer.mjs',
+          PACKAGE_RENDERER = './node_modules/neo-fixture-renderer/src/canvas/FixtureRenderer.mjs',
+          PLAIN_RENDERER   = './node_modules/neo-fixture-plain/src/canvas/PlainRenderer.mjs',
           CONSUMER         = './apps/probe/data/ConsumerOnly.mjs',
           ROOT_ONLY        = './RootOnly.mjs',
           UNRELATED        = './client/src/Unrelated.mjs',
@@ -66,6 +133,7 @@ test.describe('check-consumer-runtime-build — rule logic', () => {
             TEST_HARNESS_ABSENCE_EXPECTATIONS,
             collectAppWorkerDispatchSurfaceFailures,
             collectConsumerBuildFailures,
+            collectMainAssetPathFailures,
             collectMainContextFailures,
             findMissingBrowserArtifacts,
             probeAppWorkerDispatchSurface,
@@ -228,6 +296,51 @@ test.describe('check-consumer-runtime-build — rule logic', () => {
         expect(failures[1]).toContain('empty package fallbacks')
     });
 
+    test('Main assets containing runtime-relative package names and import.meta.url pass', () => {
+        expect(collectMainAssetPathFailures({
+            mode  : 'development/main-present',
+            assets: [{
+                name  : 'main.mjs',
+                source: 'const here = import.meta.url; import("./chunks/main/addon.js");'
+            }, {
+                name  : 'chunks/main/addon.js',
+                source: 'const addon = "node_modules/@fixture/native-hooks/src/main/addon/DeclaredMainAddon";'
+            }]
+        }, ['/var/fixture/workspace', '/private/var/fixture/workspace'])).toEqual([])
+    });
+
+    test('Main assets embedding logical, physical, URL-encoded or escaped Windows fixture paths fail', () => {
+        const windowsRoot = String.raw`C:\fixtures\consumer workspace`,
+              fixtures    = [
+                  {roots: ['/var/fixture/workspace', '/private/var/fixture/workspace'], source: 'file:///var/fixture/workspace/src/Main.mjs'},
+                  {roots: ['/var/fixture/workspace', '/private/var/fixture/workspace'], source: 'file:///private/var/fixture/workspace/src/Main.mjs'},
+                  {roots: ['/tmp/consumer workspace'], source: 'file:///tmp/consumer%20workspace/src/Main.mjs'},
+                  {roots: [windowsRoot], source: JSON.stringify(`${windowsRoot}\\src\\Main.mjs`)},
+                  {roots: [windowsRoot], source: 'file:///C:/fixtures/consumer%20workspace/src/Main.mjs'}
+              ];
+
+        for (const {roots, source} of fixtures) {
+            expect(collectMainAssetPathFailures({
+                mode  : 'production/main-linked',
+                assets: [{name: 'main.mjs', source}, {name: 'chunks/main/safe.js', source: 'import.meta.url'}]
+            }, roots)).toEqual(['[production/main-linked] Main asset main.mjs embeds an absolute consumer fixture path'])
+        }
+    });
+
+    test('Main context identifiers retain the unique fixture marker through regex and URL escaping', () => {
+        const marker     = 'neo-consumer-AbC123',
+              root       = `/private/tmp/${marker}/apps/workspace`,
+              expression = new RegExp(`^(?!${root}/node_modules/@fixture/hooks)`).source;
+
+        for (const source of [expression, encodeURI(expression), JSON.stringify(encodeURI(expression))]) {
+            expect(collectMainAssetPathFailures({
+                mode: 'development/main-installed', assets: [{name: 'main.mjs', source}]
+            }, [root], marker)).toEqual([
+                '[development/main-installed] Main asset main.mjs embeds an absolute consumer fixture path'
+            ])
+        }
+    });
+
     test('an App compile that reached the shipped apps and the bundled marked passes', () => {
         expect(collectConsumerBuildFailures(
             {mode: 'development/app', moduleNames: [APP_VIEW, APP_MARKED], errors: []},
@@ -246,16 +359,16 @@ test.describe('check-consumer-runtime-build — rule logic', () => {
         expect(failures[1]).toContain('dist/marked.mjs is absent, expected present')
     });
 
-    test('a Canvas compile reaching the engine renderers and the consumer renderer passes, concatenated or not', () => {
+    test('a Canvas compile reaching the engine renderers, the consumer renderer and the declared package renderer passes, concatenated or not', () => {
         expect(collectConsumerBuildFailures(
-            {mode: 'production/canvas', moduleNames: [`${ENGINE_RENDERER} + 1 modules`, GRAPH_SCENE, PROBE_RENDERER], errors: []},
+            {mode: 'production/canvas', moduleNames: [`${ENGINE_RENDERER} + 1 modules`, GRAPH_SCENE, PROBE_RENDERER, PACKAGE_RENDERER], errors: []},
             CANVAS_EXPECTATIONS
         )).toEqual([])
     });
 
     test('a Canvas compile whose renderer root left the package fails on the engine renderers (#19163)', () => {
         const failures = collectConsumerBuildFailures(
-            {mode: 'production/canvas', moduleNames: [PROBE_RENDERER], errors: []},
+            {mode: 'production/canvas', moduleNames: [PROBE_RENDERER, PACKAGE_RENDERER], errors: []},
             CANVAS_EXPECTATIONS
         );
 
@@ -266,12 +379,26 @@ test.describe('check-consumer-runtime-build — rule logic', () => {
 
     test('a Canvas compile without the graph-scene renderer fails on it alone', () => {
         const failures = collectConsumerBuildFailures(
-            {mode: 'production/canvas', moduleNames: [ENGINE_RENDERER, PROBE_RENDERER], errors: []},
+            {mode: 'production/canvas', moduleNames: [ENGINE_RENDERER, PROBE_RENDERER, PACKAGE_RENDERER], errors: []},
             CANVAS_EXPECTATIONS
         );
 
         expect(failures).toHaveLength(1);
         expect(failures[0]).toContain('src/canvas/GraphScene.mjs is absent, expected present')
+    });
+
+    test('a Canvas compile fails without the declared package renderer, and with an undeclared one', () => {
+        const engine = [ENGINE_RENDERER, GRAPH_SCENE, PROBE_RENDERER],
+              absent = collectConsumerBuildFailures({mode: 'development/canvas', moduleNames: engine, errors: []}, CANVAS_EXPECTATIONS),
+              leaked = collectConsumerBuildFailures(
+                  {mode: 'development/canvas', moduleNames: [...engine, PACKAGE_RENDERER, PLAIN_RENDERER], errors: []},
+                  CANVAS_EXPECTATIONS
+              );
+
+        expect(absent).toHaveLength(1);
+        expect(absent[0]).toContain('neo-fixture-renderer/src/canvas/FixtureRenderer.mjs is absent, expected present');
+        expect(leaked).toHaveLength(1);
+        expect(leaked[0]).toContain('neo-fixture-plain/src/canvas/PlainRenderer.mjs is present, expected absent')
     });
 
     test('workerContextRebasePlugin and mainAddonContextPlugin emit POSIX relative specifiers that enhanced-resolve parses with module: false (#6619)', () => {
@@ -404,7 +531,7 @@ test.describe('check-consumer-runtime-build — rule logic', () => {
 
         const canvasFailures = collectConsumerBuildFailures({
             mode       : 'production/canvas',
-            moduleNames: [ENGINE_RENDERER, GRAPH_SCENE, PROBE_RENDERER, `${adapterLeak} + 1 modules`],
+            moduleNames: [ENGINE_RENDERER, GRAPH_SCENE, PROBE_RENDERER, PACKAGE_RENDERER, `${adapterLeak} + 1 modules`],
             errors     : []
         }, CANVAS_EXPECTATIONS);
         expect(canvasFailures).toHaveLength(2);

@@ -294,7 +294,7 @@ test.describe('Neo.calendar.view.week.Component - Issue #19930 & #1069', () => {
         const eventRecord = {
             startDate: new Date(2026, 4, 13, 9, 0),
             endDate  : new Date(2026, 4, 13, 10, 0),
-            setSilent: () => {}
+            set      : () => {}
         };
 
         const columnId = component.getColumnContainer().cn[7].id;
@@ -389,7 +389,7 @@ test.describe('Neo.calendar.view.week.Component - Issue #19930 & #1069', () => {
               eventRecord    = {
                   startDate: new Date(2026, 4, 13, 9, 0),
                   endDate  : new Date(2026, 4, 13, 10, 0),
-                  setSilent: () => {}
+                  set      : () => {}
               };
 
         const dragZone = dragDropPlugin.getEventDragZone({
@@ -406,5 +406,92 @@ test.describe('Neo.calendar.view.week.Component - Issue #19930 & #1069', () => {
 
         expect(dragZone.isDestroyed).toBe(true);
         expect(draggedView.eventDragZone).toBeNull();
+    });
+
+    test('a week drop commits through record.set on a standalone store, without a StateProvider (#20768)', async () => {
+        const originalApplyDeltas = Neo.applyDeltas,
+              originalDragDrop    = Neo.main.addon.DragDrop;
+
+        Neo.applyDeltas = async () => {};
+
+        Neo.main.addon.DragDrop = {
+            registerZone       : async () => {},
+            setConfigs         : async () => ({boundaryContainerRect: {height: 600, left: 0, top: 0, width: 800}}),
+            setDragProxyElement: async () => {},
+            unregisterZone     : async () => {}
+        };
+
+        const createWeek = async () => {
+            const calendarStore = Neo.create(CalendarsStore, {data: [{active: true, color: 'blue', id: 1, name: 'Work'}]}),
+                  eventStore    = Neo.create(EventsStore, {data: [
+                      {calendarId: 1, id: 101, title: 'A', startDate: new Date(2026, 4, 12, 9, 0), endDate: new Date(2026, 4, 12, 10, 0)},
+                      {calendarId: 1, id: 102, title: 'B', startDate: new Date(2026, 4, 13, 9, 0), endDate: new Date(2026, 4, 13, 10, 0)}
+                  ]}),
+                  component     = Neo.create(WeekComponent, {
+                      appName, calendarStore, currentDate: new Date(2026, 4, 13), enableDrag: true,
+                      endTime: '24:00', eventStore, intlFormat_time: new Intl.DateTimeFormat('en-US', {hour: '2-digit', minute: '2-digit'}),
+                      plugins: [{module: WeekDragDrop, appName}], startTime: '00:00'
+                  });
+
+            component.timeout = () => Promise.resolve();
+            await component.initVnode();
+            component._mounted = true;
+
+            const record   = eventStore.get(101),
+                  dragZone = component.plugins[0].getEventDragZone({
+                      dragElement                     : {id: `${component.id}__101`, cls: ['neo-event'], cn: []},
+                      enableResizingAcrossOppositeEdge: true,
+                      eventRecord                     : record,
+                      proxyParentId                   : component.getColumnContainer().cn[7].id
+                  }),
+                  counts = {load: 0, recordChange: 0, updateEvents: 0, fields: []},
+                  orig   = component.updateEvents.bind(component);
+
+            component.updateEvents = (...args) => {counts.updateEvents++; return orig(...args)};
+            eventStore.on('load', () => counts.load++);
+            eventStore.on('recordChange', ({fields}) => {counts.recordChange++; counts.fields = fields.map(f => f.name)});
+
+            return {component, counts, dragZone, eventStore, record};
+        };
+
+        try {
+            // AC-1 week half & AC-2: a moved drop fires one recordChange naming both fields, re-sorts the
+            // standalone store and runs updateEvents() only through the store's notifications.
+            const moved = await createWeek();
+
+            Object.assign(moved.dragZone, {keepStartDate: true, newStartDate: new Date(2026, 4, 14, 9, 0), newEndDate: new Date(2026, 4, 14, 10, 0)});
+            moved.dragZone.dragEnd({});
+
+            expect(moved.counts.recordChange).toBe(1);
+            expect(moved.counts.fields).toEqual(['endDate', 'startDate']);
+            expect(moved.eventStore.indexOf(moved.record)).toBe(1);
+            expect(moved.counts.updateEvents).toBe(moved.counts.load + moved.counts.recordChange);
+            moved.component.destroy();
+
+            // AC-3 week arm: a same-slot drop fires no recordChange and restores the view once.
+            const sameSlot = await createWeek();
+
+            Object.assign(sameSlot.dragZone, {keepStartDate: true, newStartDate: null, newEndDate: new Date(+sameSlot.record.endDate)});
+            sameSlot.dragZone.dragEnd({});
+
+            expect(sameSlot.counts.recordChange).toBe(0);
+            expect(sameSlot.counts.updateEvents).toBe(1);
+            sameSlot.component.destroy();
+
+            // AC-3 week arm: an Escape cancel commits nothing and restores the view once.
+            const cancelled = await createWeek(),
+                  before    = +cancelled.record.startDate;
+
+            Object.assign(cancelled.dragZone, {keepStartDate: true, newStartDate: new Date(2026, 4, 14, 9, 0), newEndDate: new Date(2026, 4, 14, 10, 0)});
+            cancelled.dragZone.dragEnd({cancelled: true});
+
+            expect(cancelled.counts.recordChange).toBe(0);
+            expect(+cancelled.record.startDate).toBe(before);
+            expect(cancelled.counts.updateEvents).toBe(1);
+            cancelled.component.destroy();
+        } finally {
+            Neo.applyDeltas         = originalApplyDeltas;
+            Neo.main.addon.DragDrop = originalDragDrop;
+        }
     });
 });

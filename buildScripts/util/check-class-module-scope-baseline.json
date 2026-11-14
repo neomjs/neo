@@ -175,11 +175,6 @@
         "count": 1
     },
     {
-        "file": "src/state/Provider.mjs",
-        "name": "getRecordChangeBinding",
-        "count": 1
-    },
-    {
         "file": "src/util/Rectangle.mjs",
         "name": "createReversedEdgeAlign",
         "count": 1

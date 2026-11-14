@@ -21,13 +21,13 @@ body {
     .neo-layout-cube {
         &.neo-animate {
             .neo-box {
-                transition: transform 800ms ease-in-out;
+                transition: transform var(--motion-stage) var(--ease-out-soft);
             }
         }
 
         .neo-face {
             opacity: 0.8;
-            transition: opacity 50ms ease-out;
+            transition: opacity var(--motion-fast) var(--ease-out-soft);
         }
 
         .neo-plane {
@@ -76,7 +76,7 @@ body {
         position        : relative;
         text-align      : left;
         text-decoration : none;
-        transition      : transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+        transition      : transform var(--motion-base) var(--ease-out-soft), box-shadow var(--motion-base) var(--ease-out-soft), border-color var(--motion-base) var(--ease-out-soft);
 
             &:hover {
                 border-color: var(--sem-color-border-focus);
@@ -92,7 +92,7 @@ body {
             margin        : 0 0 1rem 0;
             padding-bottom: 0.5rem;
             text-align    : left;
-            transition    : color 0.2s ease;
+            transition    : color var(--motion-fast) var(--ease-out-soft);
         }
 
         h4.portal-content-box-headline {

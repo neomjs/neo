@@ -16,7 +16,7 @@
 
 .portal-medium-list.neo-list {
     background-color: transparent;
-    transition      : padding var(--portal-transition-duration) ease-out;
+    transition      : padding var(--portal-transition-duration) var(--ease-out-soft);
 
     .neo-list-item {
         box-shadow  : 0 5px 10px rgba(0, 0, 0, 0.3);
@@ -27,7 +27,7 @@
         max-width   : 800px;
         overflow    : hidden;
         padding     : 0;
-        transition  : height var(--portal-transition-duration) ease-out, margin-bottom var(--portal-transition-duration) ease-out;
+        transition  : height var(--portal-transition-duration) var(--ease-out-soft), margin-bottom var(--portal-transition-duration) var(--ease-out-soft);
         white-space : normal;
         width       : 100%;
 
@@ -72,7 +72,7 @@
             display    : inline-block;
             margin-left: 10px;
             text-shadow: 1px 1px 1px #000, 1px 1px 1px #fff;
-            transition : font-size var(--portal-transition-duration) ease-out;
+            transition : font-size var(--portal-transition-duration) var(--ease-out-soft);
         }
 
         .neo-full-size {
@@ -81,13 +81,13 @@
         }
 
         .neo-inner-details {
-            transition: line-height var(--portal-transition-duration) ease-out;
+            transition: line-height var(--portal-transition-duration) var(--ease-out-soft);
         }
 
         .neo-item-bottom-position {
             bottom    : 0;
             left      : 0;
-            transition: margin var(--portal-transition-duration) ease-out;
+            transition: margin var(--portal-transition-duration) var(--ease-out-soft);
         }
 
         .neo-item-top-position {
@@ -95,7 +95,7 @@
             right      : 0;
             text-align : end;
             text-shadow: 1px 1px 1px #000, 1px 1px 1px #fff;
-            transition : font-size var(--portal-transition-duration) ease-out, margin var(--portal-transition-duration) ease-out;
+            transition : font-size var(--portal-transition-duration) var(--ease-out-soft), margin var(--portal-transition-duration) var(--ease-out-soft);
         }
 
         .neo-relative {
@@ -110,7 +110,7 @@
             line-height    : 1;
             text-decoration: none;
             text-shadow    : 1px 1px 1px #000, 1px 1px 1px #fff;
-            transition     : color 250ms ease-out;
+            transition     : color var(--motion-fast) var(--ease-out-soft);
 
             &:hover {
                 color: #8BA6FF
@@ -120,13 +120,13 @@
         .neo-top-20 {
             align-items: center;
             display    : flex;
-            transition : margin var(--portal-transition-duration) ease-out;
+            transition : margin var(--portal-transition-duration) var(--ease-out-soft);
         }
 
         .neo-user-image {
             border-radius: 50%;
             display      : inline-block;
-            transition   : height var(--portal-transition-duration) ease-out, width var(--portal-transition-duration) ease-out;
+            transition   : height var(--portal-transition-duration) var(--ease-out-soft), width var(--portal-transition-duration) var(--ease-out-soft);
         }
 
         .preview-image {
@@ -136,8 +136,8 @@
             height               : 100%;
 
             transition:
-                --portal-medium-list-gradient-end   var(--portal-transition-duration) ease-out,
-                --portal-medium-list-gradient-start var(--portal-transition-duration) ease-out;
+                --portal-medium-list-gradient-end   var(--portal-transition-duration) var(--ease-out-soft),
+                --portal-medium-list-gradient-start var(--portal-transition-duration) var(--ease-out-soft);
         }
     }
 

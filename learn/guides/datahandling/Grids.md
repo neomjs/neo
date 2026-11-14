@@ -1,4 +1,8 @@
-# Neo.mjs Grids
+---
+seoTitle: "JavaScript Data Grid Guide: Virtual Scrolling & Pooled Cells | Neo.mjs"
+seoDescription: "Build high-performance JavaScript data grids with Neo.grid.Container: virtual scrolling, pooled DOM cells, sorting, header filters, and inline editing."
+---
+# JavaScript Data Grids: Virtual Scrolling & Pooled Cells
 
 The `Neo.grid.Container` is a powerful and highly performant component for displaying tabular data. It is designed to
 handle large datasets with ease, thanks to its virtual rendering engine, which only renders the DOM for the visible

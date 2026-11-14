@@ -78,7 +78,7 @@
         position        : absolute;
         top             : 50%;
         transform       : translate(-50%, -50%);
-        transition      : background-color 250ms ease-out;
+        transition      : background-color var(--motion-fast) var(--ease-out-soft);
         width           : 72px;
     }
 

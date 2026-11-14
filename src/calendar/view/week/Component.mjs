@@ -488,7 +488,7 @@ class Component extends BaseComponent {
             rect              = await me.getDomRect(me.getColumnContainer().id);
             scrollContainerId = me.getScrollContainer().id;
 
-            scrollContainerId && Neo.main.DomAccess.scrollBy({
+            scrollContainerId && Neo.main.DomAccess.scrollTo({
                 appName  : me.appName,
                 direction: 'left',
                 id       : scrollContainerId,

@@ -329,9 +329,11 @@ class DragZone extends Base {
     /**
      * @param {Object}  data
      * @param {Boolean} createComponent=true
+     * @param {AbortSignal} [signal] Cancels setup of a proxy and its placeholder.
      * @returns {Object|Neo.draggable.DragProxyComponent}
      */
-    async createDragProxy(data, createComponent=true) {
+    async createDragProxy(data, createComponent=true, signal) {
+        if (signal?.aborted) return;
         let me          = this,
             component   = Neo.getComponent(me.getDragElementRoot().id) || me.owner,
             rect        = me.dragElementRect,
@@ -402,6 +404,7 @@ class DragZone extends Base {
 
             if (isContainer) {
                 await proxy.mountedPromise;
+                if (signal?.aborted) return;
 
                 me.dragPlaceholder = Neo.create({
                     module: Component,
@@ -417,6 +420,7 @@ class DragZone extends Base {
 
                 // Fetch the vnode from the vdom worker, without mounting it.
                 const {vnode} = await Neo.vdom.Helper.create({vdom: me.dragPlaceholder.vdom});
+                if (signal?.aborted) return;
 
                 // Manual DOM manipulation to preserve Component state (e.g., Canvas or Charts)
                 await Neo.applyDeltas(me.windowId, [{
@@ -431,6 +435,7 @@ class DragZone extends Base {
                     parentId: proxy.id
                 }]);
 
+                if (signal?.aborted) return;
                 me.dragPlaceholder.set({
                     vnode,
                     mounted         : true,
@@ -472,15 +477,17 @@ class DragZone extends Base {
     }
 
     /**
-     * @param {Object} data
+     * @summary Removes the gesture's visual state, including a proxy created during an unfinished start.
+     * @protected
      */
-    dragEnd(data) {
-        let me      = this,
-            {owner} = me,
-            {cls}   = owner;
+    clearDragVisuals() {
+        let me = this, {owner} = me;
 
-        NeoArray.remove(cls, 'neo-is-dragging');
-        owner.cls = cls;
+        if (owner) {
+            let {cls} = owner;
+            NeoArray.remove(cls, 'neo-is-dragging');
+            owner.cls = cls
+        }
 
         if (me.dragProxy) {
             if (me.dragPlaceholder) {
@@ -500,11 +507,14 @@ class DragZone extends Base {
             offsetX              : 0,
             offsetY              : 0,
             scrollContainerId    : null
-        });
+        })
+    }
 
-        me.fire('dragEnd', data);
-
-        me.resetData()
+    /** @param {Object} data */
+    dragEnd(data) {
+        this.clearDragVisuals();
+        this.fire('dragEnd', data);
+        this.resetData()
     }
 
     /**
@@ -534,8 +544,9 @@ class DragZone extends Base {
 
     /**
      * @param {Object} data
+     * @param {AbortSignal} [signal] Stops an unfinished drag after an asynchronous setup step.
      */
-    async dragStart(data) {
+    async dragStart(data, signal) {
         let me                         = this,
             {appName, owner, windowId} = me,
             {cls}                      = owner,
@@ -550,6 +561,7 @@ class DragZone extends Base {
             ...me.getMainThreadConfigs()
         });
 
+        if (signal?.aborted) return;
         me.boundaryContainerRect = mainData.boundaryContainerRect
 
         NeoArray.add(cls, 'neo-is-dragging');
@@ -565,7 +577,8 @@ class DragZone extends Base {
         });
 
         if (me.useProxy) {
-            await me.createDragProxy(rect)
+            await me.createDragProxy(rect, true, signal);
+            if (signal?.aborted) return
         }
 
         me.fire('dragStart', {

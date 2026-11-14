@@ -4,62 +4,12 @@ import Config                        from '../core/Config.mjs';
 import Effect                        from '../core/Effect.mjs';
 import EffectManager                 from '../core/EffectManager.mjs';
 import Observable                    from '../core/Observable.mjs';
+import RecordFactory                 from '../data/RecordFactory.mjs';
 import Store                         from '../data/Store.mjs';
 import {createHierarchicalDataProxy} from './createHierarchicalDataProxy.mjs';
 import {isDescriptor}                from '../core/ConfigSymbols.mjs';
 
-const
-    recordChangeBindings = new WeakMap(),
-    twoWayBindingSymbol  = Symbol.for('twoWayBinding');
-
-/**
- * Returns the shared notifyChange wrapper state for a Record instance.
- * @summary Lets multiple StateProviders observe one Record while restoring the original method after cleanup.
- * @param {Object} record
- * @returns {Object}
- */
-function getRecordChangeBinding(record) {
-    let binding = recordChangeBindings.get(record);
-
-    if (!binding) {
-        const
-            originalNotifyChange = record.notifyChange,
-            prototype            = Object.getPrototypeOf(record),
-            handlers             = new Set();
-
-        binding = {
-            handlers,
-            originalNotifyChange,
-            wrapper(data, silent=false) {
-                const result = originalNotifyChange.call(this, {
-                    changedFields: [],
-                    ...data
-                }, silent);
-
-                handlers.forEach(handler => handler(result));
-
-                return result
-            },
-            restore() {
-                if (record.notifyChange === binding.wrapper) {
-                    if (prototype.notifyChange === originalNotifyChange) {
-                        delete record.notifyChange
-                    } else {
-                        record.notifyChange = originalNotifyChange
-                    }
-                }
-            }
-        };
-
-        recordChangeBindings.set(record, binding)
-    }
-
-    if (record.notifyChange !== binding.wrapper) {
-        record.notifyChange = binding.wrapper
-    }
-
-    return binding
-}
+const twoWayBindingSymbol = Symbol.for('twoWayBinding');
 
 /**
  * An optional component state provider for adding bindings to configs
@@ -956,15 +906,15 @@ class Provider extends Base {
      * @private
      */
     #onRecordDataChange(path, payload) {
-        const {changedFields=[], silent} = payload;
+        const {fields} = payload;
 
-        if (silent || this.isDestroying || !changedFields.length) {
+        if (this.isDestroying) {
             return
         }
 
         EffectManager.pause();
         try {
-            changedFields.forEach(({name, oldValue, value}) => {
+            fields.forEach(({name, oldValue, value}) => {
                 const fieldPath = `${path}.${name}`;
 
                 this.#setConfigValue(this, fieldPath, value, oldValue);
@@ -977,7 +927,7 @@ class Provider extends Base {
 
     /**
      * Registers this provider for field changes on a Record stored in data.
-     * @summary Uses a removable wrapper around Record#notifyChange instead of an append-only sequence.
+     * @summary Mirrors only committed field changes from the native record publisher.
      * @param {String} path
      * @param {Object} record
      * @private
@@ -992,13 +942,8 @@ class Provider extends Base {
 
         this.#unbindRecordData(path);
 
-        const
-            binding = getRecordChangeBinding(record),
-            handler = payload => this.#onRecordDataChange(path, payload);
-
-        binding.handlers.add(handler);
-
-        this.#recordDataBindings.set(path, {binding, handler, record});
+        const unsubscribe = RecordFactory.observeRecord(record, data => this.#onRecordDataChange(path, data));
+        this.#recordDataBindings.set(path, {record, unsubscribe});
         this.#syncRecordDataFields(path, record)
     }
 
@@ -1087,11 +1032,7 @@ class Provider extends Base {
             return
         }
 
-        current.binding.handlers.delete(current.handler);
-
-        if (!current.binding.handlers.size) {
-            current.binding.restore()
-        }
+        current.unsubscribe();
 
         this.#recordDataBindings.delete(path)
     }

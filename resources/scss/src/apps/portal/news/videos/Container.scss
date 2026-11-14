@@ -2,7 +2,7 @@
     background-color: transparent;
 
     .portal-videos-searchfield {
-        transition: margin var(--portal-transition-duration) ease-out;
+        transition: margin var(--portal-transition-duration) var(--ease-out-soft);
         width     : 240px;
 
         @media (max-height: 400px), (max-width: 600px) {

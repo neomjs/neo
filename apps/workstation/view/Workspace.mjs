@@ -675,6 +675,8 @@ class Workspace extends VesselWorkspace {
      *
      * Fanning reaches the viewport because that is where this app's token bridge lives, so a vessel
      * restyles from its own theme class rather than inheriting a stale one from its boot-time body.
+     * Retained panes following the previous app theme also follow the change: a rebuilt projection can
+     * keep their old inherited config below a new unthemed parent. Different pane scopes stay their own.
      *
      * `Neo.appsByName[appName]` rather than `Neo.apps`: the worker-global registry is keyed by
      * window and can carry more than one app name (`controller/Application.mjs` indexes both), so
@@ -685,10 +687,16 @@ class Workspace extends VesselWorkspace {
      * @returns {String}
      */
     setWorkspaceTheme(theme) {
-        const me = this;
+        const me = this, previousTheme = me.theme;
 
         me.theme = theme;
         me.syncThemeToggle(theme);
+
+        Object.values(me.paneCache).forEach(pane => {
+            if (!pane.isDestroyed && (!pane.theme || pane.theme === previousTheme)) {
+                pane.theme = theme
+            }
+        });
 
         (Neo.appsByName?.[me.appName] || []).forEach(app => {
             const view = app?.mainView;

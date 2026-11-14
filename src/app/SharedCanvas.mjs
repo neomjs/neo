@@ -291,6 +291,7 @@ class SharedCanvas extends Canvas {
 
     /**
      * @summary Admits this host only after successful module loading and remote-stub registration.
+     * A window replacement discards the old attempt and continues this initialization flight for the current binding.
      * @returns {Promise<void>}
      */
     async initAsync() {
@@ -303,34 +304,39 @@ class SharedCanvas extends Canvas {
             return
         }
 
-        if (!me.isDestroyed) {
+        while (!me.isDestroyed) {
             let {windowId} = me;
 
             try {
                 await me.trap(Neo.worker.Manager.startWorker({name: 'canvas', windowId}));
                 await me.trap(Neo.currentWorker.whenCanvasReady(windowId))
             } catch (error) {
-                if (me.isDestroyed || me.windowId !== windowId || error === Neo.isDestroyed || Neo.currentWorker.isDeparture(error, windowId)) return;
+                if (me.isDestroyed || error === Neo.isDestroyed) return;
+                if (me.windowId !== windowId) continue;
+                if (Neo.currentWorker.isDeparture(error, windowId)) return;
 
                 console.error('Neo.app.SharedCanvas: canvas worker unavailable', error);
                 me.onCanvasLoadFailed('worker-unavailable', error.message);
                 return
             }
 
-            if (me.isDestroyed || me.windowId !== windowId) return;
+            if (me.isDestroyed) return;
+            if (me.windowId !== windowId) continue;
 
             let loaded;
 
             try {
                 loaded = await me.trap(Neo.worker.Canvas.loadModule({path: me.rendererImportPath, windowId}))
             } catch (error) {
-                if (me.isDestroyed || me.windowId !== windowId || error === Neo.isDestroyed) return;
+                if (me.isDestroyed || error === Neo.isDestroyed) return;
+                if (me.windowId !== windowId) continue;
 
                 me.onCanvasLoadFailed('module-load-failed', error.message);
                 return
             }
 
-            if (me.isDestroyed || me.windowId !== windowId) return;
+            if (me.isDestroyed) return;
+            if (me.windowId !== windowId) continue;
 
             if (loaded?.success !== true) {
                 me.onCanvasLoadFailed('module-load-failed', loaded?.error || 'Renderer module did not load');
@@ -349,14 +355,16 @@ class SharedCanvas extends Canvas {
                 throw error
             }
 
-            if (me.isDestroyed || me.windowId !== windowId) return;
+            if (me.isDestroyed) return;
+            if (me.windowId !== windowId) continue;
 
             if (!me.renderer) {
                 me.onCanvasLoadFailed('renderer-unavailable', 'Renderer remote stub did not register');
                 return
             }
 
-            me.rendererAdmitted = true
+            me.rendererAdmitted = true;
+            return
         }
     }
 
@@ -373,7 +381,33 @@ class SharedCanvas extends Canvas {
     }
 
     /**
-     * Forwards one pointer report to the renderer: the canvas-relative position, then the button and modifier facts
+     * @summary Resolves a pointer in canvas-local CSS pixels without another DOM read. Native offsets belong only
+     * to the canvas target and start at its padding edge; adding its border retains this host's border-edge origin.
+     * Other reports use a matching event rectangle, or the last measured rectangle when current facts are absent.
+     * @param {Object} data The DOM event data
+     * @returns {Object|null} The local `{x, y}`, or null when the report carries no complete position.
+     */
+    getPointerPosition(data) {
+        let me                                                 = this,
+            {clientX, clientY, offsetX, offsetY, path, target} = data;
+
+        if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) return null;
+
+        const canvasId = me.getCanvasId();
+
+        if (target?.id === canvasId && Number.isFinite(offsetX) && Number.isFinite(offsetY) &&
+            Number.isFinite(target.clientLeft) && Number.isFinite(target.clientTop)) {
+            return {x: offsetX + target.clientLeft, y: offsetY + target.clientTop}
+        }
+
+        const rect = (target?.id === canvasId && target.rect) ||
+            path?.find(node => node.id === canvasId)?.rect || me.canvasRect;
+
+        return rect ? {x: clientX - rect.left, y: clientY - rect.top} : null
+    }
+
+    /**
+     * @summary Forwards one pointer report to the renderer: the canvas-relative position, then the button and modifier facts
      * the DOM event carries (`button`, `buttons`, `altKey`, `ctrlKey`, `metaKey`, `shiftKey`), then what the caller
      * adds (`click`, `down`, `up`, `wheel`). Nothing leaves before the canvas is ready and measured.
      * @param {Object} data The DOM event data
@@ -385,15 +419,10 @@ class SharedCanvas extends Canvas {
             {canvasRect} = me;
 
         if (me.isCanvasReady && canvasRect) {
-            let facts = {};
+            let facts = me.getPointerPosition(data) || {};
 
             // Only facts the event carries: a report without a position leaves the worker's position alone, and
             // one without modifiers must not reset them.
-            if (typeof data.clientX === 'number' && typeof data.clientY === 'number') {
-                facts.x = data.clientX - canvasRect.left;
-                facts.y = data.clientY - canvasRect.top
-            }
-
             for (const key of ['altKey', 'button', 'buttons', 'ctrlKey', 'metaKey', 'shiftKey']) {
                 if (data[key] !== undefined) {
                     facts[key] = data[key]

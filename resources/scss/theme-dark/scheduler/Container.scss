@@ -1,0 +1,9 @@
+:where(.neo-theme-dark) { // .neo-scheduler
+    --neo-scheduler-divider-color     : var(--grid-container-border-color, #2b2b2b);
+    --neo-scheduler-bar-emerald-bg    : #233b32;
+    --neo-scheduler-bar-emerald-border: #57bb8a;
+    --neo-scheduler-bar-amber-bg      : #3d3222;
+    --neo-scheduler-bar-amber-border  : #f0b44c;
+    --neo-scheduler-bar-violet-bg     : #342942;
+    --neo-scheduler-bar-violet-border : #b392f0;
+}

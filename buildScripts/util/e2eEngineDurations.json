@@ -115,6 +115,7 @@
     "test/playwright/e2e/rendering/ButtonBaseNL.spec.mjs": 4.4,
     "test/playwright/e2e/rendering/CalendarMonthEventDrag.spec.mjs": 3,
     "test/playwright/e2e/rendering/CalendarMonthRollover.spec.mjs": 2.8,
+    "test/playwright/e2e/rendering/CalendarWeekViewSwitch.spec.mjs": 5.5,
     "test/playwright/e2e/rendering/ContextMenuNL.spec.mjs": 2.8,
     "test/playwright/e2e/rendering/DeltaCoherenceRegistryNL.spec.mjs": 9.9,
     "test/playwright/e2e/rendering/DeltaUpdatesChangeNodeName.spec.mjs": 1.1,

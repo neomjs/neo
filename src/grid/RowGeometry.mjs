@@ -39,14 +39,17 @@ class RowGeometry extends Base {
          */
         estimate_: 32,
         /**
-         * Resolves a record to the key its height is stored under. The owning view passes its body's resolver,
-         * so the keys match the record ids the rows render.
+         * Resolves a record to the key its height is stored under. The caller supplies this resolver before
+         * setting heights; an owning grid view passes its body's resolver so the keys match the rendered record ids.
          * @member {Function|null} getRecordId=null
          */
         getRecordId: null,
         /**
-         * The store whose current order the rows follow.
-         * @member {Neo.data.Store|null} store_=null
+         * The ordered Collection whose current items the rows follow; a {@link Neo.data.Store} is also accepted.
+         * Geometry reads `items` and `count`, and uses Observable `on`/`un` to follow `mutate`, `sort`, `filter`
+         * and `load` (emitted by Stores). The caller owns membership and ordering changes and supplies
+         * {@link #getRecordId}; geometry never mutates the input. Replacing it clears known heights; null is empty.
+         * @member {Neo.collection.Base|null} store_=null
          * @reactive
          */
         store_: null
@@ -157,9 +160,9 @@ class RowGeometry extends Base {
     }
 
     /**
-     * Triggered after the store config got changed
-     * @param {Neo.data.Store|null} value
-     * @param {Neo.data.Store|null} oldValue
+     * Replaces the ordered input's change subscriptions and clears the previous input's known heights.
+     * @param {Neo.collection.Base|null} value
+     * @param {Neo.collection.Base|null} oldValue
      * @protected
      */
     afterSetStore(value, oldValue) {

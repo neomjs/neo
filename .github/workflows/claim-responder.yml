@@ -1,6 +1,6 @@
 # Answers a claim on a curated issue (`good first issue`, `help wanted`) within a minute, because no maintainer is
 # online around the clock. When the claimant is first in line and holds no other open curated issue in the repository,
-# the workflow assigns them (removing any outside-contributor assignee whose 7-day window lapsed without an open PR) and
+# the workflow assigns them (removing any outside-contributor assignee whose 3-day window lapsed without an open PR) and
 # confirms they can start now; otherwise it names who holds the issue (or which curated issue the claimant already holds)
 # and offers claimable alternatives. Maintainers can unassign accounts that spray claims, releasing the hold. The rules
 # live in buildScripts/util/claimResponse.mjs and its spec; this file only fetches, assigns and posts.

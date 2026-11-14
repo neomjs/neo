@@ -50,6 +50,41 @@ test.describe('Tree Grid E2E', () => {
         await expect(toggleIcon).toHaveClass(/is-expanded/);
     });
 
+    test('ArrowRight expands and ArrowLeft collapses the selected parent row (#20745)', async ({ page }) => {
+        const rows         = page.locator('.neo-grid-row:visible');
+        const componentRow = page.locator('.neo-grid-row:has-text("component")');
+        const toggleIcon   = componentRow.locator('.neo-tree-toggle');
+
+        await expect(rows).toHaveCount(7);
+        await expect(toggleIcon).toHaveClass(/is-collapsed/);
+
+        // Select the collapsed 'component' row through its content, not through the toggle icon
+        await componentRow.locator('.neo-tree-content').click();
+        await expect(componentRow).toHaveClass(/neo-selected/);
+
+        // Right expands the selected, collapsed parent row
+        await page.keyboard.press('ArrowRight');
+        await expect(rows).toHaveCount(9);
+        await expect(toggleIcon).toHaveClass(/is-expanded/);
+        await expect(componentRow).toHaveClass(/neo-selected/);
+
+        // Right again is a no-op on an already expanded row
+        await page.keyboard.press('ArrowRight');
+        await expect(rows).toHaveCount(9);
+        await expect(toggleIcon).toHaveClass(/is-expanded/);
+
+        // Left collapses it again and keeps the selection
+        await page.keyboard.press('ArrowLeft');
+        await expect(rows).toHaveCount(7);
+        await expect(toggleIcon).toHaveClass(/is-collapsed/);
+        await expect(componentRow).toHaveClass(/neo-selected/);
+
+        // Left on a collapsed row is a no-op as well
+        await page.keyboard.press('ArrowLeft');
+        await expect(rows).toHaveCount(7);
+        await expect(toggleIcon).toHaveClass(/is-collapsed/);
+    });
+
     test('Sorting TreeStore hierarchically', async ({ page }) => {
         // Wait for grid
         await expect(page.locator('.neo-grid-row:visible')).toHaveCount(7);

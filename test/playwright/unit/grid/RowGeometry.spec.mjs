@@ -30,6 +30,7 @@ setup({
 import {test, expect}     from '@playwright/test';
 import Neo                from '../../../../src/Neo.mjs';
 import * as core          from '../../../../src/core/_export.mjs';
+import Collection         from '../../../../src/collection/Base.mjs';
 import InstanceManager    from '../../../../src/manager/Instance.mjs';
 import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
 import GridContainer      from '../../../../src/grid/Container.mjs';
@@ -336,6 +337,71 @@ test.describe('Neo.grid.RowGeometry', () => {
         later.destroy();
         other.destroy()
     })
+});
+
+test('Neo.grid.RowGeometry follows a plain Collection through order changes and replacement', () => {
+    const collection = Neo.create(Collection, {
+            keyProperty: 'key',
+            items      : [{key: 'a', rank: 3}, {key: 'b', rank: 1}, {key: 'c', rank: 2}]
+        }),
+        replacement = Neo.create(Collection, {keyProperty: 'key', items: [{key: 'a'}, {key: 'f'}]}),
+        geometry = Neo.create(RowGeometry, {
+            estimate   : rowHeight,
+            getRecordId: record => record.key,
+            store      : collection
+        });
+
+    try {
+        geometry.setHeights(new Map([['a', 80], ['c', 20]]));
+        expect([0, 1, 2, 3].map(index => geometry.offsetAt(index))).toEqual([0, 80, 120, 140]);
+        expect(geometry.totalHeight).toBe(140);
+        expect([79, 80, 120, 140].map(offset => geometry.indexAt(offset))).toEqual([0, 1, 2, 2]);
+
+        collection.splice(1, 1, [{key: 'd', rank: 4}, {key: 'e', rank: 0}]);
+        expect(collection.items.map(record => record.key)).toEqual(['a', 'd', 'e', 'c']);
+        expect([0, 1, 2, 3, 4].map(index => geometry.offsetAt(index))).toEqual([0, 80, 120, 160, 180]);
+        expect(geometry.totalHeight).toBe(180);
+        expect([79, 80, 120, 160, 180].map(offset => geometry.indexAt(offset))).toEqual([0, 1, 2, 3, 3]);
+
+        collection.sorters = [{property: 'rank', direction: 'ASC'}];
+        expect(collection.items.map(record => record.key)).toEqual(['e', 'c', 'a', 'd']);
+        expect([0, 1, 2, 3, 4].map(index => geometry.offsetAt(index))).toEqual([0, 40, 60, 140, 180]);
+        expect(geometry.totalHeight).toBe(180);
+        expect([39, 40, 60, 140].map(offset => geometry.indexAt(offset))).toEqual([0, 1, 2, 3]);
+
+        collection.filters = [{property: 'rank', operator: '<', value: 3}];
+        expect(collection.items.map(record => record.key)).toEqual(['e', 'c']);
+        expect([0, 1, 2].map(index => geometry.offsetAt(index))).toEqual([0, 40, 60]);
+        expect(geometry.totalHeight).toBe(60);
+        expect([39, 40, 60].map(offset => geometry.indexAt(offset))).toEqual([0, 1, 1]);
+        expect(geometry.hasHeight('a')).toBe(true);
+
+        collection.clearFilters();
+        expect(collection.items.map(record => record.key)).toEqual(['e', 'c', 'a', 'd']);
+        expect([0, 1, 2, 3, 4].map(index => geometry.offsetAt(index))).toEqual([0, 40, 60, 140, 180]);
+        expect(geometry.totalHeight).toBe(180);
+        expect([40, 60, 140].map(offset => geometry.indexAt(offset))).toEqual([1, 2, 3]);
+
+        geometry.store = replacement;
+        expect(geometry.hasHeight('a')).toBe(false);
+        expect(geometry.measuredMean).toBe(null);
+        expect([0, 1, 2].map(index => geometry.offsetAt(index))).toEqual([0, 40, 80]);
+        expect(geometry.totalHeight).toBe(80);
+        expect([39, 40, 80].map(offset => geometry.indexAt(offset))).toEqual([0, 1, 1]);
+
+        geometry.setHeights(new Map([['a', 90]]));
+        expect(geometry.totalHeight).toBe(130);
+        geometry.store = null;
+        expect(geometry.count).toBe(0);
+        expect(geometry.hasHeight('a')).toBe(false);
+        expect(geometry.offsetAt(0)).toBe(0);
+        expect(geometry.totalHeight).toBe(0);
+        expect(geometry.indexAt(40)).toBe(0)
+    } finally {
+        geometry.destroy();
+        collection.destroy();
+        replacement.destroy()
+    }
 });
 
 test.describe('Grid content-sized rows', () => {

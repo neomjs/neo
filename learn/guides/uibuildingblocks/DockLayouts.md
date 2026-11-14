@@ -1,3 +1,7 @@
+---
+seoTitle: "Multi-Window JavaScript Dock Layouts & SharedWorker Workspaces | Neo.mjs"
+seoDescription: "Build desktop-class multi-window JavaScript workspaces with Neo.mjs Dock Layouts: tear-out OS windows, SharedWorker state, split panes, and perspectives."
+---
 # Dock Layouts: One Application, Many Windows
 
 Every team that has shipped a serious desktop cockpit — a trading floor, an ops console, a monitoring wall — knows

@@ -27,6 +27,7 @@ function makeHost() {
     const host = Object.create(Tooltip.prototype), shows = [];
 
     Object.entries({
+        _hidden           : true,
         activeTarget      : null,
         align             : {},
         dismissDelay      : null,
@@ -34,8 +35,10 @@ function makeHost() {
         fire              : () => {},
         hideDelay         : 40,
         hideDelayTaskId   : null,
-        initVnode         : () => { host.mounted = true; shows.push(Date.now()) },
+        initVnode         : async () => { host.mounted = true; shows.push(Date.now()) },
+        isDestroyed       : false,
         mounted           : false,
+        mountFlight       : null,
         showDelay         : 20,
         showDelayTaskId   : null,
         unmount           : () => { host.mounted = false }

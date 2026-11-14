@@ -108,6 +108,61 @@ export function rewriteImportPaths(content) {
 }
 
 /**
+ * @summary Rebases declared Main-addon modules onto the emitted tree's single Engine graph.
+ * @description Other modules keep the established workspace transform. Main's package contexts address the
+ * emitted dependency roots; addon imports into the Engine or another emitted addon root follow their copied
+ * destination. Dependencies outside those roots retain their original host location.
+ * @param {String} content Source module text.
+ * @param {Object} options
+ * @param {String} options.sourcePath Source filename in the consuming workspace.
+ * @param {String} options.outputPath Emitted filename.
+ * @param {String} options.workspaceRoot Consuming workspace.
+ * @param {String} options.engineRoot Installed or in-repository Engine root.
+ * @param {Object[]} options.packageRoots Declared roots from mainAddonPackageRoots.
+ * @returns {String}
+ */
+export function rewriteMainAddonImports(content, {sourcePath, outputPath, workspaceRoot, engineRoot, packageRoots}) {
+    const within     = (root, file) => file === root || file.startsWith(root + path.sep),
+          isMain     = sourcePath === path.join(engineRoot, 'src/Main.mjs'),
+          isAddon    = packageRoots.some(entry => within(entry.sourceRoot, sourcePath)),
+          outputRoot = path.join(workspaceRoot, esmOutputRoot),
+          edits      = [];
+    if (!isMain && !isAddon) return rewriteImportPaths(content);
+
+    visitImportSources(content, source => {
+        const entry = staticSpecifier(source, content);
+        if (!entry) return;
+        const quasi  = entry.computed ? source.quasis[0] : null,
+              prefix = quasi ? quasi.value.cooked : entry.specifier;
+        if (!prefix.startsWith('./') && !prefix.startsWith('../')) return;
+
+        let target;
+        if (isMain) {
+            if (!entry.computed || !['../../', '../node_modules/'].includes(prefix)) return;
+            target = path.join(outputRoot, 'node_modules')
+        } else {
+            const resolved = path.resolve(path.dirname(sourcePath), prefix),
+                  owner    = packageRoots.find(root => within(root.sourceRoot, resolved));
+            target = within(engineRoot, resolved) ? path.join(outputRoot, path.relative(engineRoot, resolved)) :
+                owner ? path.join(outputRoot, owner.relativeRoot, path.relative(owner.sourceRoot, resolved)) : resolved
+        }
+
+        let replacement = path.relative(path.dirname(outputPath), target).split(path.sep).join('/');
+        if (!replacement.startsWith('.')) replacement = './' + replacement;
+        if (prefix.endsWith('/') && !replacement.endsWith('/')) replacement += '/';
+        edits.push(quasi ? {
+            start: quasi.start, end: quasi.end,
+            text : JSON.stringify(replacement).slice(1, -1).replaceAll('`', '\\`').replaceAll('${', '\\${')
+        } : {start: source.start, end: source.end, text: JSON.stringify(replacement)})
+    });
+
+    for (const edit of edits.sort((a, b) => b.start - a.start)) {
+        content = content.slice(0, edit.start) + edit.text + content.slice(edit.end)
+    }
+    return content
+}
+
+/**
  * True for a base path that already addresses a fixed location: an absolute mount (`/mount/`), a
  * protocol-relative host (`//cdn/`), or a fully-qualified URL.
  *
@@ -333,9 +388,17 @@ export function staticSpecifier(source, code) {
  * @returns {Object[]} `{specifier, computed}` records, in source order
  */
 export function relativeSpecifiers(code) {
-    const
-        specifiers = [],
-        visit      = node => {
+    const specifiers = [];
+    visitImportSources(code, source => {
+        const entry = staticSpecifier(source, code);
+        if (entry && (entry.specifier.startsWith('./') || entry.specifier.startsWith('../'))) specifiers.push(entry)
+    });
+    return specifiers
+}
+
+/** @summary Visits actual import/re-export source nodes, excluding source-like prose strings. @param {String} code @param {Function} visitor */
+function visitImportSources(code, visitor) {
+    const visit = node => {
             if (!node || typeof node !== 'object') {
                 return
             }
@@ -346,11 +409,7 @@ export function relativeSpecifiers(code) {
             }
 
             if (SPECIFIER_NODE_TYPES.has(node.type) && node.source) {
-                const entry = staticSpecifier(node.source, code);
-
-                if (entry && (entry.specifier.startsWith('./') || entry.specifier.startsWith('../'))) {
-                    specifiers.push(entry)
-                }
+                visitor(node.source)
             }
 
             // A dynamic import can sit anywhere, so every child is visited rather than only the
@@ -360,8 +419,6 @@ export function relativeSpecifiers(code) {
         };
 
     visit(acorn.parse(code, {ecmaVersion: 'latest', sourceType: 'module'}));
-
-    return specifiers
 }
 
 /**

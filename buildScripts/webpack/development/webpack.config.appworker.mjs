@@ -1,8 +1,8 @@
-import fs                        from 'fs-extra';
-import path                      from 'path';
-import {spawnSync}               from 'child_process';
-import {copyDistAppAssets}       from '../../util/distAppAssets.mjs';
-import workerContextRebasePlugin from '../workerContextRebasePlugin.mjs';
+import fs                                        from 'fs-extra';
+import path                                      from 'path';
+import {spawnSync}                               from 'child_process';
+import {copyDistAppAssets, excludedResourcesFor} from '../../util/distAppAssets.mjs';
+import workerContextRebasePlugin                 from '../workerContextRebasePlugin.mjs';
 
 const cwd                   = process.cwd(),
       cpOpts                = {env: process.env, cwd: cwd, stdio: 'inherit', shell: true},
@@ -36,10 +36,12 @@ export default env => {
     const copyResources = resourcesPath => {
         let inputPath  = path.resolve(cwd, resourcesPath),
             outputPath = path.resolve(cwd, buildTarget.folder, resourcesPath),
+            excluded   = excludedResourcesFor(resourcesPath),
+            excludeArg = excluded.length ? ` -x ${excluded.join(',')}` : '',
             childProcess;
 
         if (fs.existsSync(inputPath)) {
-            childProcess = spawnSync('node', [`${neoPath}/buildScripts/util/copyFolder.mjs -s ${inputPath} -t ${outputPath}`], cpOpts);
+            childProcess = spawnSync('node', [`${neoPath}/buildScripts/util/copyFolder.mjs -s ${inputPath} -t ${outputPath}${excludeArg}`], cpOpts);
             childProcess.status && process.exit(childProcess.status);
         }
     };

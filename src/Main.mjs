@@ -481,10 +481,27 @@ class Main extends core.Base {
      * Only an emitted `dist/esm` engine shares a tree with them, in its own `main/addon/`. `environment` alone
      * cannot tell the two apart: a `dist/esm` config still runs from the package when its page loads the
      * MicroLoader there. Both specifiers stay literal, so webpack still resolves each as a context of its own.
+     * An extension-free `node_modules/<package>/<path>/<Addon>` name addresses an installed package. Main's
+     * logical installed URL supplies the dependency root; source and emitted trees keep their own node_modules
+     * root. Package contexts are admitted by the declaring dependency's `neo.mainAddons` roots at build time.
      * @param {String} name
      * @returns {Promise<Object>}
      */
     importAddonModule(name) {
+        if (name.startsWith('node_modules/')) {
+            const modulePath = name.substring(13), parts = modulePath.split('/');
+
+            if (parts.length < (modulePath.startsWith('@') ? 3 : 2) ||
+                parts.some(part => !part || part === '.' || part === '..' || /[\\?#%]/.test(part)) ||
+                modulePath.endsWith('.mjs')) {
+                throw new Error('Package Main addons require an extension-free node_modules/<package>/<path> name')
+            }
+
+            return import.meta.url.includes('/node_modules/neo.mjs/')
+                ? import(`../../${modulePath}.mjs`)
+                : import(`../node_modules/${modulePath}.mjs`)
+        }
+
         let isWorkspaceAddon = name.startsWith('WS/');
 
         if (isWorkspaceAddon && (Neo.config.environment !== 'dist/esm' || import.meta.url.includes('/node_modules/neo.mjs/'))) {

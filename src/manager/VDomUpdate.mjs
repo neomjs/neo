@@ -392,7 +392,7 @@ class VDomUpdate extends Collection {
     }
 
     /**
-     * Calculates the required `updateDepth` for a parent component based on its own
+     * @summary Calculates the required `updateDepth` for a parent component based on its own
      * needs and the needs of all child components whose updates have been merged into it.
      * The final depth is the maximum required depth to ensure all changes are rendered.
      *
@@ -400,7 +400,8 @@ class VDomUpdate extends Collection {
      * a merged child 3 levels down needs a full subtree update (`childUpdateDepth: -1`),
      * this method will return -1, signaling a full recursive update from the parent.
      *
-     * This method is called by the parent component right before it dispatches its VDOM update.
+     * Pre-collection merge eligibility uses this query to preserve full-depth requirements carried by merged work.
+     * The query does not change the component's declared depth or its payload.
      * @param {String} ownerId The `id` of the parent component.
      * @returns {Number|null} The adjusted update depth, or `null` if no merged children exist.
      */

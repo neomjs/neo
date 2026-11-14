@@ -1059,7 +1059,7 @@ class DeltaUpdates extends Base {
     }
 
     /**
-     * Applies a set of VDom delta updates to the real DOM.
+     * @summary Applies the final VDOM delta batch after synchronous update listeners have edited it.
      * This method is the core entry point for rendering changes initiated from the VDom worker.
      * It iterates through the provided deltas and dispatches them to specific DOM manipulation
      * methods (e.g., insertNode, removeNode, updateNode) based on their `action` property.
@@ -1085,7 +1085,6 @@ class DeltaUpdates extends Base {
             len;
 
         deltas = Array.isArray(deltas) ? deltas : [deltas];
-        len    = deltas.length;
 
         // Fire an event before applying the deltas.
         // Important: Listeners receive the `data` object by reference.
@@ -1093,22 +1092,17 @@ class DeltaUpdates extends Base {
         // Addons (like GridRowPinning) can safely mutate the deltas array or individual delta
         // properties here, and those modifications will be consumed directly by the update loop below.
         me.fire('update', data);
+        len = deltas.length;
 
         // The instruments load dynamically (importDeltaInstruments); a just-flipped flag is
         // inert until its module arrives — dev-mode graceful, deterministic after init.
         if (NeoConfig.useDeltaGrammarGuards && me.deltaGrammar) {
-            // Keep the enabled guard path aligned with post-event array mutations.
-            len = deltas.length;
-
             if (len > 0) {
                 me.validateDeltaGrammarBatch(deltas)
             }
         }
 
         if (NeoConfig.useDeltaCoherenceRegistry && me.coherenceRegistry) {
-            // Keep the enabled registry path aligned with post-event array mutations.
-            len = deltas.length;
-
             if (len > 0) {
                 coherenceCommit = me.observeDeltaCoherence(deltas)
             }

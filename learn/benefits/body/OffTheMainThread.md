@@ -1,3 +1,7 @@
+---
+seoTitle: "Off-Main-Thread JavaScript UI in Web Workers | Neo.mjs"
+seoDescription: "Run your JavaScript UI, state, data stores, and VDOM diffing inside Web Workers across multiple CPU cores so the browser main thread never freezes."
+---
 # Off the Main Thread
 
 ## How many Cores are on a Computer or Smartphone?
