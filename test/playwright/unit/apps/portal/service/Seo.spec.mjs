@@ -95,6 +95,7 @@ test.describe('Portal.service.Seo (#20688)', () => {
             expect(homeMeta).toEqual({
                 title      : 'Neo.mjs',
                 description: seoJson['/home'].description,
+                lastmod    : seoJson['/home'].lastmod,
                 route      : '/home'
             });
             expect(SeoService.getMetadata('/')).toEqual(homeMeta);
@@ -103,6 +104,7 @@ test.describe('Portal.service.Seo (#20688)', () => {
             expect(learnMeta).toEqual({
                 title      : 'What Is Neo.mjs?',
                 description: expect.stringContaining('On a normal night here'),
+                lastmod    : seoJson['/learn/benefits/Introduction'].lastmod,
                 schemaType : 'TechArticle',
                 route      : '/learn/benefits/Introduction'
             });
@@ -111,6 +113,7 @@ test.describe('Portal.service.Seo (#20688)', () => {
             expect(blogMeta).toEqual({
                 title      : 'Move web app panels between windows—keep their state - Neo.mjs',
                 description: expect.stringContaining('Move a grid into another browser window'),
+                lastmod    : seoJson['/news/blog/a-workspace-that-can-leave-its-window'].lastmod,
                 schemaType : 'BlogPosting',
                 route      : '/news/blog/a-workspace-that-can-leave-its-window'
             });
@@ -119,6 +122,7 @@ test.describe('Portal.service.Seo (#20688)', () => {
             expect(releaseMeta).toEqual({
                 title      : 'Neo.mjs v13.4.0 Release Notes',
                 description: expect.stringContaining('Release Type: A minor release'),
+                lastmod    : seoJson['/news/releases/13.4.0'].lastmod,
                 schemaType : 'TechArticle',
                 route      : '/news/releases/13.4.0'
             });
@@ -127,6 +131,7 @@ test.describe('Portal.service.Seo (#20688)', () => {
             expect(fallbackMeta).toEqual({
                 title      : 'Neo.mjs News',
                 description: 'Latest updates, blogs, and releases for the Neo.mjs platform.',
+                lastmod    : seoJson['/news'].lastmod,
                 route      : '/news/tickets/123'
             });
 
@@ -134,6 +139,7 @@ test.describe('Portal.service.Seo (#20688)', () => {
             expect(gridFamilyMeta).toEqual({
                 title      : 'Neo.mjs Grid & Table Examples',
                 description: seoJson['/examples/grid'].description,
+                lastmod    : seoJson['/examples/grid'].lastmod,
                 schemaType : 'CollectionPage',
                 route      : '/examples/grid'
             });
@@ -142,6 +148,7 @@ test.describe('Portal.service.Seo (#20688)', () => {
             expect(unlistedFamilyMeta).toEqual({
                 title      : 'Neo.mjs Examples',
                 description: 'A collection of examples for the Neo.mjs platform.',
+                lastmod    : seoJson['/examples'].lastmod,
                 route      : '/examples'
             });
 
@@ -149,6 +156,7 @@ test.describe('Portal.service.Seo (#20688)', () => {
             expect(legacyBuildMeta).toEqual({
                 title      : 'Neo.mjs Examples',
                 description: 'A collection of examples for the Neo.mjs platform.',
+                lastmod    : seoJson['/examples'].lastmod,
                 route      : '/examples'
             });
 

@@ -7,10 +7,13 @@ import fg             from 'fast-glob';
 import {
     assertStableReleaseNoteGithubLinks,
     collectBlogRoutes,
+    collectExampleFamilyRoutes,
+    collectExampleRoutes,
+    extractExampleFamilyDefinitions,
     extractMarkdownSeoMetadata,
     formatLearnSeoTitle,
-    getContentRoutes,
     getContentRouteObjects,
+    getContentRoutes,
     getDisallowedReleaseNoteGithubLinks,
     getExistingSitemapLastmodMap,
     getLatestSitemapLastmod,
@@ -19,10 +22,11 @@ import {
     getPublishedExampleFamilies,
     getReleaseNotePriority,
     getSeoJson,
+    getSitemapDiscussionsXml,
     getSitemapIndexXml,
     getSitemapXml,
-    collectExampleFamilyRoutes,
-    extractExampleFamilyDefinitions
+    getSsgArchiveRoutes,
+    hasReliableGitHistory
 } from '../../../../../../buildScripts/docs/seo/generate.mjs';
 import createReleaseIndex from '../../../../../../buildScripts/docs/index/release.mjs';
 import verifySeoArtifacts from '../../../../../../buildScripts/docs/seo/verify.mjs';
@@ -469,22 +473,43 @@ test.describe('docs SEO generator archive exclusion (#20089)', () => {
         expect(llmsTxt).not.toContain('## Optional');
     });
 
-    test('getSitemapXml with onlyArchives emits exclusively archive routes for sitemap-archive.xml', async () => {
-        const archiveSitemap = await getSitemapXml({
-            baseUrl       : 'https://neomjs.com/',
-            corpusRoot,
-            includeLastmod: false,
-            onlyArchives  : true
-        });
+    test('decouples sitemap-discussions.xml from ticket/PR sitemap-archive.xml and emits ssg-archive-routes.json', async () => {
+        const [archiveSitemap, discussionsSitemap, ssgArchiveRoutes] = await Promise.all([
+            getSitemapXml({
+                baseUrl       : 'https://neomjs.com/',
+                corpusRoot,
+                includeLastmod: false,
+                onlyArchives  : true
+            }),
+            getSitemapDiscussionsXml({
+                baseUrl       : 'https://neomjs.com/',
+                corpusRoot,
+                includeLastmod: false
+            }),
+            getSsgArchiveRoutes({corpusRoot})
+        ]);
 
         expect(archiveSitemap).toContain('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">');
         expect(archiveSitemap).toContain('<loc>https://neomjs.com/news/tickets/12742</loc>');
         expect(archiveSitemap).toContain('<loc>https://neomjs.com/news/pulls/20088</loc>');
-        expect(archiveSitemap).toContain('<loc>https://neomjs.com/news/discussions/11026</loc>');
+        expect(archiveSitemap).not.toContain('/news/discussions/');
         expect(archiveSitemap).not.toContain('/news/releases/');
         expect(archiveSitemap).not.toContain('/news/blog/');
         expect(archiveSitemap).not.toContain('/learn/');
-        expect(archiveSitemap).not.toContain('https://neomjs.com/home');
+        expect(archiveSitemap).not.toContain('<loc>https://neomjs.com/</loc>');
+
+        expect(discussionsSitemap).toContain('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">');
+        expect(discussionsSitemap).toContain('<loc>https://neomjs.com/news/discussions/11026</loc>');
+        expect(discussionsSitemap).not.toContain('/news/tickets/');
+        expect(discussionsSitemap).not.toContain('/news/pulls/');
+        expect(discussionsSitemap).not.toContain('/learn/');
+
+        expect(ssgArchiveRoutes).toEqual({
+            routes: [
+                '/news/pulls/20088',
+                '/news/tickets/12742'
+            ]
+        });
     });
 
     test('deduplicates multi-bucket corpus routes into one entry per loc with newest lastmod regardless of bucket order', async () => {
@@ -533,10 +558,13 @@ test.describe('docs SEO generator archive exclusion (#20089)', () => {
             await fs.outputFile(path.join(dupCorpus, 'pulls/chunk-1/pr-20088.md'), activePullContent);
             await fs.outputFile(path.join(dupCorpus, 'archive/pulls/v13.4.0/chunk-1/pr-20088.md'), archivePullContent);
 
-            const [seoJson, coreXml, archiveXml, llmsTxt, llmsFullTxt, llmsAllTxt, contentRoutes] = await Promise.all([
-                getSeoJson({releaseNotesRoot, releasesPath, root: isolatedRoot, seoJsonPath}),
-                getSitemapXml({baseUrl: 'https://neomjs.com', corpusRoot: dupCorpus, includeArchives: false, releaseNotesRoot, root: isolatedRoot}),
+            const seoJson = await getSeoJson({releaseNotesRoot, releasesPath, root: isolatedRoot, seoJsonPath});
+
+            const [coreXml, discussionsXml, archiveXml, ssgArchiveRoutes, llmsTxt, llmsFullTxt, llmsAllTxt, contentRoutes] = await Promise.all([
+                getSitemapXml({baseUrl: 'https://neomjs.com', corpusRoot: dupCorpus, includeArchives: false, releaseNotesRoot, root: isolatedRoot, seoJson}),
+                getSitemapDiscussionsXml({baseUrl: 'https://neomjs.com', corpusRoot: dupCorpus, releaseNotesRoot, root: isolatedRoot}),
                 getSitemapXml({baseUrl: 'https://neomjs.com', corpusRoot: dupCorpus, includeArchives: true, onlyArchives: true, releaseNotesRoot, root: isolatedRoot}),
+                getSsgArchiveRoutes({corpusRoot: dupCorpus}),
                 getLlmsTxt({baseUrl: 'https://neomjs.com', corpusRoot: dupCorpus, includeArchives: false, releaseNotesRoot, releasesPath, root: isolatedRoot}),
                 getLlmsFullTxt({baseUrl: 'https://neomjs.com', root: isolatedRoot}),
                 getLlmsTxt({baseUrl: 'https://neomjs.com', corpusRoot: dupCorpus, includeArchives: true, releaseNotesRoot, releasesPath, root: isolatedRoot}),
@@ -545,26 +573,28 @@ test.describe('docs SEO generator archive exclusion (#20089)', () => {
             const sitemapIndexXml = getSitemapIndexXml({
                 baseUrl : 'https://neomjs.com',
                 sitemaps: [
-                    {path: 'sitemap-core.xml',    xml: coreXml},
-                    {path: 'sitemap-archive.xml', xml: archiveXml}
+                    {path: 'sitemap-core.xml',        xml: coreXml},
+                    {path: 'sitemap-discussions.xml', xml: discussionsXml}
                 ]
             });
 
             await verifySeoArtifacts({
-                baseUrl          : 'https://neomjs.com',
-                corpusRoot       : dupCorpus,
+                baseUrl              : 'https://neomjs.com',
+                corpusRoot           : dupCorpus,
                 llmsAllTxt,
                 llmsFullTxt,
                 llmsTxt,
                 releaseNotesRoot,
-                root             : isolatedRoot,
+                root                 : isolatedRoot,
                 seoJson,
-                sitemapArchiveXml: archiveXml,
-                sitemapCoreXml   : coreXml,
-                sitemapIndexXml
+                sitemapArchiveXml    : archiveXml,
+                sitemapCoreXml       : coreXml,
+                sitemapDiscussionsXml: discussionsXml,
+                sitemapIndexXml,
+                ssgArchiveRoutes
             });
 
-            return {archiveXml, contentRoutes, llmsAllTxt};
+            return {archiveXml, contentRoutes, discussionsXml, llmsAllTxt, ssgArchiveRoutes};
         }
 
         // Order A: [older, newer] on sorted paths + [missing lastmod, valid lastmod]
@@ -587,16 +617,22 @@ test.describe('docs SEO generator archive exclusion (#20089)', () => {
             activePullContent    : '# PR 20088 without frontmatter date\n'
         });
 
-        for (const {archiveXml, contentRoutes, llmsAllTxt} of [orderA, orderB]) {
-            const locs = Array.from(archiveXml.matchAll(/<loc>(.*?)<\/loc>/g), match => match[1]);
-            expect(locs).toEqual([
+        for (const {archiveXml, contentRoutes, discussionsXml, llmsAllTxt, ssgArchiveRoutes} of [orderA, orderB]) {
+            const archiveLocs    = Array.from(archiveXml.matchAll(/<loc>(.*?)<\/loc>/g), match => match[1]);
+            const discussionLocs = Array.from(discussionsXml.matchAll(/<loc>(.*?)<\/loc>/g), match => match[1]);
+            expect(archiveLocs).toEqual([
                 'https://neomjs.com/news/tickets/174',
-                'https://neomjs.com/news/pulls/20088',
+                'https://neomjs.com/news/pulls/20088'
+            ]);
+            expect(discussionLocs).toEqual([
                 'https://neomjs.com/news/discussions/19427'
             ]);
-            expect(archiveXml).toContain('<loc>https://neomjs.com/news/discussions/19427</loc>\n    <lastmod>2026-10-16T01:09:33Z</lastmod>');
+            expect(discussionsXml).toContain('<loc>https://neomjs.com/news/discussions/19427</loc>\n    <lastmod>2026-10-16T01:09:33Z</lastmod>');
             expect(archiveXml).toContain('<loc>https://neomjs.com/news/tickets/174</loc>\n    <lastmod>2026-10-09T20:01:32Z</lastmod>');
             expect(archiveXml).toContain('<loc>https://neomjs.com/news/pulls/20088</loc>\n    <lastmod>2026-10-25T08:00:00Z</lastmod>');
+            expect(ssgArchiveRoutes).toEqual({
+                routes: ['/news/pulls/20088', '/news/tickets/174']
+            });
             expect(contentRoutes.filter(route => route === '/#/news/discussions/19427')).toHaveLength(1);
             expect(contentRoutes.filter(route => route === '/#/news/tickets/174')).toHaveLength(1);
             expect(llmsAllTxt.match(/raw\/news\/discussions\/19427\.md/g)).toHaveLength(1);
@@ -604,35 +640,41 @@ test.describe('docs SEO generator archive exclusion (#20089)', () => {
         }
     });
 
-    test('getSitemapIndexXml emits a valid sitemapindex with newest child lastmod dates', () => {
+    test('getSitemapIndexXml emits a valid sitemapindex referencing sitemap-core.xml and sitemap-discussions.xml', () => {
         const coreXml = [
             '<urlset>',
-            '  <url><loc>https://neomjs.com/home</loc><lastmod>2026-10-20T10:00:00Z</lastmod></url>',
+            '  <url><loc>https://neomjs.com/</loc><lastmod>2026-10-20T10:00:00Z</lastmod></url>',
             '  <url><loc>https://neomjs.com/docs</loc><lastmod>2026-10-24T18:30:00Z</lastmod></url>',
             '</urlset>'
         ].join('\n');
 
-        const archiveXml = [
+        const discussionsXml = [
             '<urlset>',
-            '  <url><loc>https://neomjs.com/news/tickets/20089</loc><lastmod>2026-10-25T01:00:00Z</lastmod></url>',
+            '  <url><loc>https://neomjs.com/news/discussions/19427</loc><lastmod>2026-10-25T01:00:00Z</lastmod></url>',
             '</urlset>'
         ].join('\n');
 
         expect(getLatestSitemapLastmod(coreXml)).toBe('2026-10-24T18:30:00Z');
-        expect(getLatestSitemapLastmod(archiveXml)).toBe('2026-10-25T01:00:00Z');
-        expect(getLatestSitemapLastmod('<urlset><url><loc>https://neomjs.com/home</loc></url></urlset>')).toBeNull();
+        expect(getLatestSitemapLastmod(discussionsXml)).toBe('2026-10-25T01:00:00Z');
+        expect(getLatestSitemapLastmod('<urlset><url><loc>https://neomjs.com/</loc></url></urlset>')).toBeNull();
+
+        const defaultIndexXml = getSitemapIndexXml({baseUrl: 'https://neomjs.com'});
+        expect(defaultIndexXml).toContain('<loc>https://neomjs.com/sitemap-core.xml</loc>');
+        expect(defaultIndexXml).toContain('<loc>https://neomjs.com/sitemap-discussions.xml</loc>');
+        expect(defaultIndexXml).not.toContain('sitemap-archive.xml');
 
         const indexXml = getSitemapIndexXml({
             baseUrl : 'https://neomjs.com',
             sitemaps: [
-                {path: 'sitemap-core.xml',    xml: coreXml},
-                {path: 'sitemap-archive.xml', xml: archiveXml}
+                {path: 'sitemap-core.xml',        xml: coreXml},
+                {path: 'sitemap-discussions.xml', xml: discussionsXml}
             ]
         });
 
         expect(indexXml).toContain('<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">');
         expect(indexXml).toContain('<loc>https://neomjs.com/sitemap-core.xml</loc>\n    <lastmod>2026-10-24T18:30:00Z</lastmod>');
-        expect(indexXml).toContain('<loc>https://neomjs.com/sitemap-archive.xml</loc>\n    <lastmod>2026-10-25T01:00:00Z</lastmod>');
+        expect(indexXml).toContain('<loc>https://neomjs.com/sitemap-discussions.xml</loc>\n    <lastmod>2026-10-25T01:00:00Z</lastmod>');
+        expect(indexXml).not.toContain('sitemap-archive.xml');
     });
 
     test('getLlmsFullTxt, getSeoJson, and getSitemapXml skip redirect leaves and fail closed on missing learn/tree.json leaf files', async () => {
@@ -998,5 +1040,210 @@ test.describe('docs SEO generator archive exclusion (#20089)', () => {
         expect(fixtureSeo['/learn/gettingstarted/Setup']?.title).toBe(
             'Setup — Multi-Threaded JavaScript Application Engine | Neo.mjs'
         );
+    });
+});
+
+test.describe('docs SEO generator #20915: git lastmod fallback and sitemap-core pruning', () => {
+    let corpusRoot, releaseNotesRoot, tempDir;
+
+    test.beforeEach(async () => {
+        tempDir          = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-seo-20915-'));
+        corpusRoot       = path.join(tempDir, 'corpus');
+        releaseNotesRoot = path.join(tempDir, 'notes');
+
+        await fs.ensureDir(corpusRoot);
+        await fs.ensureDir(releaseNotesRoot);
+    });
+
+    test.afterEach(async () => {
+        await fs.remove(tempDir);
+    });
+
+    test('registers sitemap-discussions.xml in buildScripts/docs/seo/copy.mjs SEO_FILES', async () => {
+        const copySource = await fs.readFile(path.resolve(process.cwd(), 'buildScripts/docs/seo/copy.mjs'), 'utf-8');
+
+        expect(copySource).toContain("'sitemap-core.xml'");
+        expect(copySource).toContain("'sitemap-discussions.xml'");
+        expect(copySource).toContain("'sitemap-archive.xml'");
+    });
+
+    test('preserves pre-baked seo.json lastmod when getSeoJson runs first in a .git-less directory and emits <lastmod> in getSitemapXml', async () => {
+        const noGitRoot   = path.join(tempDir, 'node_modules/neo.mjs');
+        const seoJsonPath = path.join(noGitRoot, 'apps/portal/resources/data/seo.json');
+
+        expect(hasReliableGitHistory(noGitRoot)).toBe(false);
+
+        await fs.copy(
+            path.resolve(process.cwd(), 'apps/portal/view/examples/TabContainer.mjs'),
+            path.join(noGitRoot, 'apps/portal/view/examples/TabContainer.mjs')
+        );
+        await fs.outputFile(
+            path.join(noGitRoot, 'learn/benefits/Introduction.md'),
+            '# What Is Neo.mjs?\n\nPersistent AI maintainers and multi-threaded UI runtime.'
+        );
+        await fs.outputJson(path.join(noGitRoot, 'learn/tree.json'), {
+            data: [{id: 'benefits/Introduction', isLeaf: true, name: 'Introduction'}]
+        });
+        await fs.outputFile(
+            path.join(noGitRoot, 'learn/blog/json-ld-xss.md'),
+            '# JSON.stringify is not safe inside a script tag\n\nOne closing script tag ends a JSON-LD block early.'
+        );
+        await fs.outputJson(path.join(noGitRoot, 'apps/portal/resources/data/blog.json'), {
+            data: [{id: 'blog/json-ld-xss', isLeaf: true, name: 'JSON-LD XSS', path: 'learn/blog/json-ld-xss.md'}]
+        });
+        await fs.outputJson(path.join(noGitRoot, 'apps/portal/resources/data/examples.json'), [
+            {id: 'grid-big-data', name: 'Big Data Grid', family: 'grid-table', feature: 'Buffered rendering'}
+        ]);
+        await fs.outputFile(
+            path.join(releaseNotesRoot, 'v13.4.0.md'),
+            '# Neo.mjs v13.4.0 Release Notes\n\nMinor release highlights.'
+        );
+
+        // Simulate packaged seo.json shipped inside node_modules/neo.mjs (including legacy /home fallback)
+        await fs.outputJson(seoJsonPath, {
+            '/about-us': {title: 'About Us - Neo.mjs', description: 'About the team.', lastmod: '2026-09-14'},
+            '/docs'    : {title: 'Neo.mjs Docs', description: 'API documentation.', lastmod: '2026-10-02'},
+            '/examples': {title: 'Neo.mjs Examples', description: 'Live examples.', lastmod: '2026-11-01'},
+            '/home'    : {title: 'Neo.mjs', description: 'Multi-threaded UI platform.', lastmod: '2026-10-21'},
+            '/learn'   : {title: 'Learn Neo.mjs', description: 'Learn Neo.mjs.', lastmod: '2026-11-05'},
+            '/news'    : {title: 'Neo.mjs News', description: 'Latest updates.', lastmod: '2026-11-12'},
+            '/services': {title: 'Connect with Neo.mjs', description: 'Connect with us.', lastmod: '2026-08-30'},
+            '/examples/grid': {
+                title      : 'Neo.mjs Grid & Table Examples',
+                description: 'Grid examples.',
+                lastmod    : '2026-11-03',
+                schemaType : 'CollectionPage'
+            },
+            '/learn/benefits/Introduction': {
+                title      : 'What Is Neo.mjs?',
+                description: 'Persistent AI maintainers.',
+                lastmod    : '2026-11-10',
+                schemaType : 'TechArticle'
+            },
+            '/news/blog/json-ld-xss': {
+                title      : 'JSON.stringify is not safe inside a script tag - Neo.mjs',
+                description: 'One closing script tag ends a JSON-LD block early.',
+                lastmod    : '2026-11-11',
+                schemaType : 'BlogPosting'
+            },
+            '/news/releases/13.4.0': {
+                title      : 'Neo.mjs v13.4.0 Release Notes',
+                description: 'Minor release highlights.',
+                lastmod    : '2026-11-09',
+                schemaType : 'TechArticle'
+            }
+        });
+
+        // Step 1 (neomjs/pages updateNeoVersion.mjs order): seoJson runs FIRST and overwrites seo.json on disk
+        const regeneratedSeo = await getSeoJson({
+            releaseNotesRoot,
+            releasesPath: path.join(noGitRoot, 'apps/portal/resources/data/no-releases.json'),
+            root        : noGitRoot,
+            seoJsonPath
+        });
+        await fs.writeJSON(seoJsonPath, regeneratedSeo, {spaces: 4});
+
+        expect(regeneratedSeo['/']?.lastmod).toBe('2026-10-21');
+        expect(regeneratedSeo['/home']?.lastmod).toBe('2026-10-21');
+        expect(regeneratedSeo['/about-us']?.lastmod).toBe('2026-09-14');
+        expect(regeneratedSeo['/examples/grid']?.lastmod).toBe('2026-11-03');
+        expect(regeneratedSeo['/learn/benefits/Introduction']?.lastmod).toBe('2026-11-10');
+        expect(regeneratedSeo['/news/blog/json-ld-xss']?.lastmod).toBe('2026-11-11');
+        expect(regeneratedSeo['/news/releases/13.4.0']?.lastmod).toBe('2026-11-09');
+
+        // Step 2: generate runs SECOND against the .git-less root and reads the persisted seo.json from disk
+        const coreXml = await getSitemapXml({
+            baseUrl        : 'https://neomjs.com',
+            corpusRoot,
+            includeArchives: false,
+            releaseNotesRoot,
+            root           : noGitRoot,
+            seoJsonPath
+        });
+
+        expect(coreXml).toContain('<loc>https://neomjs.com/</loc>\n    <lastmod>2026-10-21</lastmod>\n    <priority>1.0</priority>');
+        expect(coreXml).toContain('<loc>https://neomjs.com/about-us</loc>\n    <lastmod>2026-09-14</lastmod>\n    <priority>0.7</priority>');
+        expect(coreXml).toContain('<loc>https://neomjs.com/examples/grid</loc>\n    <lastmod>2026-11-03</lastmod>\n    <priority>0.9</priority>');
+        expect(coreXml).toContain('<loc>https://neomjs.com/learn/benefits/Introduction</loc>\n    <lastmod>2026-11-10</lastmod>\n    <priority>1.0</priority>');
+        expect(coreXml).toContain('<loc>https://neomjs.com/news/blog/json-ld-xss</loc>\n    <lastmod>2026-11-11</lastmod>\n    <priority>0.9</priority>');
+        expect(coreXml).toContain('<loc>https://neomjs.com/news/releases/13.4.0</loc>\n    <lastmod>2026-11-09</lastmod>\n    <priority>0.9</priority>');
+    });
+
+    test('prunes /home, /apps/portal/index.html, hidden/redirect learn leaves, and < maxReleaseMajor - 1 releases while stamping robots noindex, follow', async () => {
+        const isolatedRoot = path.join(tempDir, 'pruned-root');
+        const seoJsonPath  = path.join(isolatedRoot, 'apps/portal/resources/data/seo.json');
+        const releasesPath = path.join(isolatedRoot, 'apps/portal/resources/data/releases.json');
+
+        await fs.outputFile(path.join(isolatedRoot, 'apps/portal/index.html'), '<!DOCTYPE html><html><head><title>Portal</title></head></html>');
+        await fs.outputFile(path.join(isolatedRoot, 'examples/grid/bigData/index.html'), '<!DOCTYPE html><html><head><title>Big Data Grid</title></head></html>');
+
+        await fs.outputFile(path.join(isolatedRoot, 'learn/benefits/Introduction.md'), '# What Is Neo.mjs?\n\nCanonical introduction.');
+        await fs.outputFile(path.join(isolatedRoot, 'learn/guides/specificfeatures/MultiWindow.md'), '# Multi Window\n\nHidden internal draft.');
+        await fs.outputFile(
+            path.join(isolatedRoot, 'learn/agentos/decisions/0020-agent-harness-concept.md'),
+            '---\ntype: redirect\n---\n# ADR 0020 Moved\n\nMoved to neo-agent-brain.\n'
+        );
+        await fs.outputJson(path.join(isolatedRoot, 'learn/tree.json'), {
+            data: [
+                {id: 'benefits/Introduction', isLeaf: true, name: 'Introduction'},
+                {id: 'guides/specificfeatures/MultiWindow', hidden: true, isLeaf: true, name: 'MultiWindow'},
+                {id: 'agentos/decisions/0020-agent-harness-concept', isLeaf: true, name: 'ADR 0020'}
+            ]
+        });
+        await fs.outputJson(path.join(isolatedRoot, 'apps/portal/resources/data/blog.json'), {data: []});
+        await fs.outputJson(seoJsonPath, {
+            '/about-us': {title: 'About Neo.mjs', description: 'About Neo.mjs.', lastmod: '2026-10-01'},
+            '/docs'    : {title: 'Neo.mjs Docs', description: 'Docs.', lastmod: '2026-10-01'},
+            '/examples': {title: 'Neo.mjs Examples', description: 'Examples.', lastmod: '2026-10-01'},
+            '/home'    : {title: 'Neo.mjs', description: 'Platform.', lastmod: '2026-10-21'},
+            '/news'    : {title: 'Neo.mjs News', description: 'News.', lastmod: '2026-10-01'},
+            '/services': {title: 'Connect with Neo.mjs', description: 'Connect.', lastmod: '2026-10-01'}
+        });
+
+        await fs.outputFile(path.join(releaseNotesRoot, 'v13.4.0.md'), '---\npublishedAt: "2026-11-09T13:34:10Z"\n---\n# Neo.mjs v13.4.0 Release Notes\n');
+        await fs.outputFile(path.join(releaseNotesRoot, 'v12.1.0.md'), '---\npublishedAt: "2026-06-01T10:00:00Z"\n---\n# Neo.mjs v12.1.0 Release Notes\n');
+        await fs.outputFile(path.join(releaseNotesRoot, 'v11.18.0.md'), '---\npublishedAt: "2025-12-15T10:00:00Z"\n---\n# Neo.mjs v11.18.0 Release Notes\n');
+        await fs.outputFile(path.join(releaseNotesRoot, 'v8.0.0.md'), '---\npublishedAt: "2024-11-01T10:00:00Z"\n---\n# Neo.mjs v8.0.0 Release Notes\n');
+        await createReleaseIndex({outputFile: releasesPath, releaseNotesRoot});
+
+        const exampleRoutes = await collectExampleRoutes(isolatedRoot);
+        expect(exampleRoutes.map(item => item.id)).toEqual(['/examples/grid/bigData/index.html']);
+
+        const seoJson = await getSeoJson({releaseNotesRoot, releasesPath, root: isolatedRoot, seoJsonPath});
+        const [coreXml, llmsTxt] = await Promise.all([
+            getSitemapXml({baseUrl: 'https://neomjs.com', corpusRoot, includeArchives: false, releaseNotesRoot, root: isolatedRoot, seoJson}),
+            getLlmsTxt({baseUrl: 'https://neomjs.com', corpusRoot, includeArchives: false, releaseNotesRoot, releasesPath, root: isolatedRoot})
+        ]);
+
+        expect(coreXml).toContain('<loc>https://neomjs.com/</loc>');
+        expect(coreXml).not.toContain('<loc>https://neomjs.com/home</loc>');
+        expect(coreXml).not.toContain('/apps/portal/index.html');
+        expect(coreXml).toContain('<loc>https://neomjs.com/examples/grid/bigData/index.html</loc>');
+        expect(coreXml).toContain('<loc>https://neomjs.com/learn/benefits/Introduction</loc>');
+        expect(coreXml).not.toContain('/learn/guides/specificfeatures/MultiWindow');
+        expect(coreXml).not.toContain('/learn/agentos/decisions/0020-agent-harness-concept');
+        expect(coreXml).toContain('<loc>https://neomjs.com/news/releases/13.4.0</loc>');
+        expect(coreXml).toContain('<loc>https://neomjs.com/news/releases/12.1.0</loc>');
+        expect(coreXml).not.toContain('/news/releases/11.18.0');
+        expect(coreXml).not.toContain('/news/releases/8.0.0');
+
+        expect(llmsTxt).toContain('- [Home](https://neomjs.com/)');
+
+        expect(seoJson['/learn/benefits/Introduction']?.robots).toBeUndefined();
+        expect(seoJson['/learn/guides/specificfeatures/MultiWindow']?.robots).toBe('noindex, follow');
+        expect(seoJson['/learn/agentos/decisions/0020-agent-harness-concept']?.robots).toBe('noindex, follow');
+        expect(seoJson['/news/releases/13.4.0']?.robots).toBeUndefined();
+        expect(seoJson['/news/releases/12.1.0']?.robots).toBeUndefined();
+        expect(seoJson['/news/releases/11.18.0']?.robots).toBe('noindex, follow');
+        expect(seoJson['/news/releases/8.0.0']?.robots).toBe('noindex, follow');
+
+        // Verify live tracked apps/portal/resources/data/seo.json invariants
+        const liveSeoJson = await fs.readJSON(path.resolve(process.cwd(), 'apps/portal/resources/data/seo.json'));
+        expect(liveSeoJson['/']).toEqual(liveSeoJson['/home']);
+        expect(liveSeoJson['/']?.lastmod).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+        expect(liveSeoJson['/news/blog/json-ld-xss-json-stringify-in-a-script-tag']?.lastmod).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+        for (const adr of ['0020-agent-harness-concept', '0032-institution-cockpit-render-model', '0034-electron-shell-architecture', '0037-fleet-manager-outward-door-topology', '0038-fm-client-topology']) {
+            expect(liveSeoJson[`/learn/agentos/decisions/${adr}`]?.robots).toBe('noindex, follow');
+        }
     });
 });
