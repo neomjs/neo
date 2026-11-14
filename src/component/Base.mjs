@@ -844,7 +844,7 @@ class Component extends Abstract {
 
                 me.fire('mounted', me.id);
             } else { // unmount
-                me.revertFocus()
+                me.revertFocusOnDeparture()
             }
         }
     }
@@ -1433,7 +1433,7 @@ class Component extends Abstract {
     destroy(updateParentVdom=false, silent=false) {
         let me = this;
 
-        me.revertFocus();
+        me.revertFocusOnDeparture();
 
         // the main thread holds the registration, so nothing else would retire it with the component
         me.nativeDragZone && me.retireNativeDragZone();
@@ -1476,9 +1476,11 @@ class Component extends Abstract {
      * @param {String} [modality] 'pointer' | 'keyboard' — optional input modality carried across the
      * worker→main focus seam so DomAccess can suppress the accidental ring on a pointer / programmatic
      * focus while a keyboard focus keeps its intentional ring. Undefined preserves user-agent behavior.
+     * @param {String} [restoreFrom] The id of a departing component this focus hands back from: the main thread
+     * applies it only to a lost focus ({@link Neo.main.DomAccess#focus}).
      */
-    focus(id=this.id, children=false, preventScroll, modality) {
-        Neo.main.DomAccess.focus({children, id, modality, preventScroll, windowId: this.windowId})
+    focus(id=this.id, children=false, preventScroll, modality, restoreFrom) {
+        Neo.main.DomAccess.focus({children, id, modality, preventScroll, restoreFrom, windowId: this.windowId})
     }
 
     /**
@@ -1939,13 +1941,30 @@ class Component extends Abstract {
     }
 
     /**
-     *
+     * @summary Hands focus back to the component it came from, while this one holds it.
      */
     revertFocus() {
         let relatedTarget = this.focusEnterData?.relatedTarget;
 
         if (this.containsFocus && relatedTarget) {
             Neo.getComponent(relatedTarget.id)?.focus()
+        }
+    }
+
+    /**
+     * @summary Hands focus back as this component departs (destroy, unmount), unless the user has moved it on.
+     * @description The worker's `containsFocus` runs a round trip behind the DOM, and the departure's removal reaches
+     * the main thread after this call. A dock refresh, for example, moves the tab the user just pressed out of the
+     * shell it destroys, so that shell still reports focus. The focus therefore goes to `relatedTarget` through that
+     * component's own `focus()` with `restoreFrom`: the main thread settles the departure and applies only a lost
+     * focus, in the same step, so a focus that arrives meanwhile is never taken back.
+     */
+    revertFocusOnDeparture() {
+        let me            = this,
+            relatedTarget = me.focusEnterData?.relatedTarget;
+
+        if (me.containsFocus && relatedTarget) {
+            Neo.getComponent(relatedTarget.id)?.focus(undefined, false, undefined, undefined, me.id)
         }
     }
 
