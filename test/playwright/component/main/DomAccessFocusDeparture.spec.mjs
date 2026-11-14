@@ -24,17 +24,17 @@ test.describe('Neo.main.DomAccess: focus handed back from a departure', () => {
     });
 
     /**
-     * Focuses `holder`, starts the hand-back, removes the ids in `removals` in order, a frame apart, and resolves the
-     * id of the element holding focus once the hand-back settled.
+     * Focuses `holder`, lets the user move focus to `moveTo` first if given (the worker decides one round trip late, so
+     * its hand-back arrives after the move), starts the hand-back, removes the ids in `removals` in order, a frame
+     * apart, and resolves the id of the element holding focus once the hand-back settled.
      */
     const depart = (page, holder, removals, moveTo) => page.evaluate(async ({holder, moveTo, removals}) => {
         const frame = () => new Promise(resolve => setTimeout(resolve, 30));
 
         document.getElementById(holder).focus();
+        moveTo && document.getElementById(moveTo).focus();
 
         const handBack = Neo.main.DomAccess.focus({id: 'fd-target', restoreFrom: 'fd-departing'});
-
-        moveTo && document.getElementById(moveTo).focus();
 
         for (const id of removals) {
             await frame();
@@ -58,7 +58,7 @@ test.describe('Neo.main.DomAccess: focus handed back from a departure', () => {
         expect(await depart(page, 'fd-floating-item', ['fd-floating', 'fd-departing'])).toBe('fd-target')
     });
 
-    test('a focus the user moved on keeps its place', async ({page}) => {
+    test('a focus the user moved on before the hand-back arrived keeps its place', async ({page}) => {
         expect(await depart(page, 'fd-inner', ['fd-departing'], 'fd-other')).toBe('fd-other')
     })
 });
