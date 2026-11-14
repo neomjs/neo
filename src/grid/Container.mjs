@@ -431,6 +431,10 @@ class GridContainer extends BaseContainer {
         me._columns = me.createColumns(me.columns);
         me.updateColCount();
 
+        // The View registers its selection model while it is created above, before this container has an
+        // ariaWrapper to write on; the model states aria-multiselectable as soon as the root exists.
+        me.view.selectionModel?.syncAriaMultiselectable();
+
         me.syncSearchToolbar();
 
         me.syncValueBandingFields();
