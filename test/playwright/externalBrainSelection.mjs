@@ -154,6 +154,7 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'workstation/WorkstationTabDragLabelOverlapNL.spec.mjs',
     'workstation/WorkstationTabDragSiblingHoldsNL.spec.mjs',
     'workstation/WorkstationTabOverflowCapNL.spec.mjs',
+    'workstation/WorkstationTabPressFocusNL.spec.mjs',
     'workstation/WorkstationTabPressInPlaceNL.spec.mjs',
     'workstation/WorkstationTabReorderNoFlashNL.spec.mjs',
     'workstation/WorkstationTabRestoreNL.spec.mjs',

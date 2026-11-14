@@ -366,12 +366,20 @@ class DomAccess extends Base {
      * cannot tie an async worker→main programmatic focus back to the originating pointer gesture, so the caller
      * states it. Undefined preserves user-agent behavior.
      * @param {Boolean} [data.preventScroll=false]
+     * @param {String}  [data.restoreFrom] The id of a departing element this call hands focus back from. The call
+     * waits until that element no longer holds focus ({@link #settleFocusDeparture}) and focuses only a lost focus,
+     * so a focus the user moved on meanwhile stays where it is.
      * @param {String}  [data.unlessFocusWithin] The id of a container whose current focus wins: while focus sits
      * inside it, the call leaves focus where it is. A worker decides focus one round trip late, so a choice the user
      * made in between, such as a picked list item, would otherwise be taken back.
-     * @returns {Object} obj.id => the passed id
+     * @returns {Object|Promise<Object>} obj.id => the passed id
      */
-    focus({children, id, modality, preventScroll, unlessFocusWithin}) {
+    focus({children, id, modality, preventScroll, restoreFrom, unlessFocusWithin}) {
+        if (restoreFrom) {
+            return this.settleFocusDeparture(restoreFrom).then(lost =>
+                lost ? this.focus({children, id, modality, preventScroll, unlessFocusWithin}) : {id})
+        }
+
         let node = this.getElement(id);
 
         if (unlessFocusWithin && this.getElement(unlessFocusWithin)?.contains(document.activeElement)) {
@@ -1478,6 +1486,45 @@ class DomAccess extends Base {
         }
 
         return {id: data.id}
+    }
+
+    /**
+     * @summary Settles where focus went after an element departs, and resolves whether it was lost.
+     * @description A worker component that departs while holding focus hands it back before its own DOM removal
+     * arrives here. While the departing element still holds focus, nothing can be read yet: a dock refresh moves the
+     * element the user just focused out of that subtree in the same batch that removes it. The read settles once the
+     * element has left the document or no longer holds focus, or after `timeout`. Focus is lost when it fell to the
+     * body, or when the element still holds it at the timeout; a focus that lives on elsewhere is the user's.
+     * @param {String} id The departing element
+     * @param {Number} [timeout=200]
+     * @returns {Promise<Boolean>}
+     * @protected
+     */
+    settleFocusDeparture(id, timeout=200) {
+        const
+            node  = this.getElement(id),
+            holds = () => Boolean(node?.isConnected && node.contains(document.activeElement)),
+            lost  = () => holds() || !document.activeElement || document.activeElement === document.body;
+
+        if (!holds()) {
+            return Promise.resolve(lost())
+        }
+
+        return new Promise(resolve => {
+            const
+                check    = () => holds() || settle(),
+                observer = new MutationObserver(check),
+                timer    = setTimeout(() => settle(), timeout),
+                settle   = () => {
+                    observer.disconnect();
+                    clearTimeout(timer);
+                    document.removeEventListener('focusin', check, true);
+                    resolve(lost())
+                };
+
+            observer.observe(document, {childList: true, subtree: true});
+            document.addEventListener('focusin', check, true)
+        })
     }
 
     /**
