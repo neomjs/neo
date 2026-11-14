@@ -258,11 +258,11 @@ class GridDragScroll extends Base {
             return
         }
 
-        // Only a press on the owning grid's own rows starts a drag: the nearest view around the pressed row must be
-        // the registered one. Content a view hosts outside its rows (an input a component renders, a nested grid
-        // without drag scrolling) keeps its native behaviour.
-        let rowIndex = path.findIndex(el => el.classList?.contains('neo-grid-row')),
-            view     = rowIndex < 0 ? null : path.slice(rowIndex).find(el => el.classList?.contains('neo-grid-view'));
+        // Only a press on the owning grid's own body (its rows, or the body element itself) starts a drag: the
+        // nearest view around the pressed row or body must be the registered one. Content a view hosts outside its
+        // bodies (an input a component renders, a nested grid without drag scrolling) keeps its native behaviour.
+        let bodyIndex = path.findIndex(el => el.classList?.contains('neo-grid-row') || el.classList?.contains('neo-grid-body')),
+            view      = bodyIndex < 0 ? null : path.slice(bodyIndex).find(el => el.classList?.contains('neo-grid-view'));
 
         if (view !== registration.bodyElement) {
             return

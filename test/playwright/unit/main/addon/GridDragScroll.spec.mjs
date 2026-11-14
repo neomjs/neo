@@ -317,6 +317,20 @@ test.describe('Neo.main.addon.GridDragScroll — a grid nested in another grid\'
         expect(addon.monitorDrag).toBeNull()
     });
 
+    test('a press on the grid body itself, outside any row, still tracks the grid', () => {
+        press(addon, [fakeElement('neo-grid-body'), outer.bodyElement]);
+
+        expect(addon.monitorDrag?.id, 'a press the body receives directly drag-scrolls its grid').toBe('outer');
+        expect(timers).toBe(1)
+    });
+
+    test('a press on a nested grid\'s body tracks the nested grid', () => {
+        press(addon, [fakeElement('neo-grid-body'), inner.bodyElement, fakeElement('neo-grid-cell'), fakeElement('neo-grid-row'), outer.bodyElement]);
+
+        expect(addon.monitorDrag?.id).toBe('inner');
+        expect(timers).toBe(1)
+    });
+
     test('a press in an input a view hosts outside its rows starts nothing', () => {
         press(addon, [fakeElement(), fakeElement('neo-textfield'), outer.bodyElement]);
 
