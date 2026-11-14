@@ -123,6 +123,7 @@ export const RUN_PATHS = [
     'test/playwright/e2e/workstation/WorkstationTabDragLabelOverlapNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationTabDragSiblingHoldsNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationTabOverflowCapNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationTabPressInPlaceNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationTabReorderNoFlashNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationTabRestoreNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationTearOutLateReleaseNL.spec.mjs',

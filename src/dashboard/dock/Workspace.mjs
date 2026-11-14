@@ -2296,18 +2296,11 @@ class Workspace extends Container {
               classes    = new Set(Array.isArray(operations)
                   ? operations.map(value => Operations.changeClassFor(value?.operation)) : []);
 
-        if (classes.size !== 1) return {};
+        const changeClass = classes.size === 1 ? classes.values().next().value : null;
 
-        switch (classes.values().next().value) {
-            case 'geometry':
-                return {geometryOnly: true};
+        if (changeClass === 'geometry') return {geometryOnly: true};
 
-            case 'activation':
-            case 'itemFlags':
-                return {retainTopology: true}
-        }
-
-        return {}
+        return changeClass === 'activation' || changeClass === 'itemFlags' ? {retainTopology: true} : {}
     }
 
     /**
