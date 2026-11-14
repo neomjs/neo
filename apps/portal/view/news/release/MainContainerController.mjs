@@ -1,4 +1,5 @@
 import Controller from '../../../../../src/controller/Component.mjs';
+import SeoService from '../../../service/Seo.mjs';
 
 /**
  * @class Portal.view.news.release.MainContainerController
@@ -86,6 +87,7 @@ class MainContainerController extends Controller {
     }
 
     /**
+     * @summary Selects the matching release-notes leaf record and refines the window title when loaded.
      * @param {Object} data
      * @param {String} data.itemId
      * @param {Object} value
@@ -103,12 +105,23 @@ class MainContainerController extends Controller {
         }
 
         const select = async () => {
-            stateProvider.data.currentPageRecord = store.get(itemId);
+            const recordId = itemId.split('#')[0],
+                  record   = store.get(recordId);
+
+            stateProvider.data.currentPageRecord = record;
+
+            if (record?.id) {
+                SeoService.setRouteTitle({
+                    route   : value?.hashString || `/news/releases/${recordId}`,
+                    title   : `Neo.mjs v${record.id.replace(/^v/, '')} Release Notes`,
+                    windowId: me.windowId
+                })
+            }
 
             if (!oldValue?.hashString?.startsWith('/news/releases')) {
-                await tree.expandAndScrollToItem(itemId)
+                await tree.expandAndScrollToItem(recordId)
             } else {
-                tree.expandParents(itemId)
+                tree.expandParents(recordId)
             }
         };
 

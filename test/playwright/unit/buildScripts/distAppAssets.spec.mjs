@@ -1,4 +1,5 @@
 import {test, expect}  from '@playwright/test';
+import {execFileSync}  from 'node:child_process';
 import fs              from 'node:fs';
 import os              from 'node:os';
 import path            from 'node:path';
@@ -15,13 +16,20 @@ import {fileURLToPath} from 'node:url';
  * exists at all. What is NOT covered is a real webpack/esm compile — that needs the actual builds.
  */
 test.describe('dist app assets', () => {
-    let DIST_APP_ASSET_EXTENSIONS, copyDistAppAssets, isDistAppAsset, repoRoot;
+    let DIST_APP_ASSET_EXTENSIONS, DIST_EXCLUDED_APP_RESOURCES,
+        copyDistAppAssets, excludedResourcesFor, isDistAppAsset, isExcludedDistResource, repoRoot;
 
     const read = relativePath => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 
     test.beforeAll(async () => {
-        ({DIST_APP_ASSET_EXTENSIONS, copyDistAppAssets, isDistAppAsset} =
-            await import('../../../../buildScripts/util/distAppAssets.mjs'));
+        ({
+            DIST_APP_ASSET_EXTENSIONS,
+            DIST_EXCLUDED_APP_RESOURCES,
+            copyDistAppAssets,
+            excludedResourcesFor,
+            isDistAppAsset,
+            isExcludedDistResource
+        } = await import('../../../../buildScripts/util/distAppAssets.mjs'));
 
         // fileURLToPath, not URL#pathname: on Windows the pathname keeps its leading slash (`/G:/…`)
         repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
@@ -125,13 +133,71 @@ test.describe('dist app assets', () => {
             }
         });
 
-        test('the extension set is a single shared definition', () => {
+        test('the extension and excluded-resource sets are single shared definitions (#20945)', () => {
             expect(DIST_APP_ASSET_EXTENSIONS).toContain('.webmanifest');
+            expect(DIST_EXCLUDED_APP_RESOURCES).toEqual([
+                'apps/portal/resources/data/seo.json',
+                'apps/portal/resources/data/ssg-archive-routes.json'
+            ]);
 
-            // Neither build may re-declare the extension locally — that divergence is the defect.
+            expect(isExcludedDistResource('apps/portal/resources/data/seo.json')).toBe(true);
+            expect(isExcludedDistResource('/workspace/neo/apps/portal/resources/data/seo.json')).toBe(true);
+            expect(isExcludedDistResource('C:\\workspace\\neo\\apps\\portal\\resources\\data\\ssg-archive-routes.json')).toBe(true);
+            expect(isExcludedDistResource('apps/portal/resources/data/blog.json')).toBe(false);
+
+            expect(excludedResourcesFor('apps/portal/resources')).toEqual([
+                'data/seo.json',
+                'data/ssg-archive-routes.json'
+            ]);
+            expect(excludedResourcesFor('apps\\portal\\resources')).toEqual([
+                'data/seo.json',
+                'data/ssg-archive-routes.json'
+            ]);
+            expect(excludedResourcesFor('apps/colors/resources')).toEqual([]);
+
+            for (const config of APP_WORKER_CONFIGS) {
+                expect(read(config), `${config} must wire excludedResourcesFor`).toContain('excludedResourcesFor(')
+            }
+            expect(read('buildScripts/build/esmodules.mjs')).toContain('isExcludedDistResource(normalizedInput)');
+
+            // Neither build may re-declare the extension or seo.json locally — that divergence is the defect.
             for (const buildFile of [...APP_WORKER_CONFIGS, 'buildScripts/build/esmodules.mjs']) {
                 expect(read(buildFile), `${buildFile} must not name .webmanifest itself`)
-                    .not.toContain('.webmanifest')
+                    .not.toContain('.webmanifest');
+                expect(read(buildFile), `${buildFile} must not hardcode seo.json itself`)
+                    .not.toContain('seo.json')
+            }
+        });
+
+        test('copyFolder.mjs -x omits excluded Portal SEO JSON files and removes stale copies from target (#20945)', () => {
+            const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-copy-folder-exclude-'));
+
+            try {
+                const sourceRes = path.join(tempRoot, 'apps', 'portal', 'resources'),
+                      targetRes = path.join(tempRoot, 'dist', 'production', 'apps', 'portal', 'resources');
+
+                fs.mkdirSync(path.join(sourceRes, 'data'), {recursive: true});
+                fs.mkdirSync(path.join(targetRes, 'data'), {recursive: true});
+
+                fs.writeFileSync(path.join(sourceRes, 'data', 'blog.json'), '{"data":[]}');
+                fs.writeFileSync(path.join(sourceRes, 'data', 'seo.json'), '{"/home":{}}');
+                fs.writeFileSync(path.join(sourceRes, 'data', 'ssg-archive-routes.json'), '[]');
+                // Pre-populate stale copy in target to prove incremental builds purge it
+                fs.writeFileSync(path.join(targetRes, 'data', 'seo.json'), '{"stale":true}');
+
+                const excluded = excludedResourcesFor('apps/portal/resources');
+                execFileSync(process.execPath, [
+                    path.join(repoRoot, 'buildScripts/util/copyFolder.mjs'),
+                    '-s', sourceRes,
+                    '-t', targetRes,
+                    '-x', excluded.join(',')
+                ], {cwd: repoRoot, stdio: 'pipe'});
+
+                expect(fs.existsSync(path.join(targetRes, 'data', 'blog.json'))).toBe(true);
+                expect(fs.existsSync(path.join(targetRes, 'data', 'seo.json'))).toBe(false);
+                expect(fs.existsSync(path.join(targetRes, 'data', 'ssg-archive-routes.json'))).toBe(false);
+            } finally {
+                fs.rmSync(tempRoot, {force: true, recursive: true})
             }
         });
     });

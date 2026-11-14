@@ -1,5 +1,6 @@
 import Controller        from '../../../../src/controller/Component.mjs';
 import CubeLayoutButton  from './CubeLayoutButton.mjs'; // required for the Portal App .md file
+import SeoService        from '../../service/Seo.mjs';
 import {getSearchParams} from '../../Util.mjs';
 
 /**
@@ -103,6 +104,7 @@ class MainContainerController extends Controller {
     }
 
     /**
+     * @summary Selects the matching learn tree leaf record and refines the window title when loaded.
      * @param {Object} data
      * @param {String} data.itemId
      * @param {Object} value
@@ -137,6 +139,14 @@ class MainContainerController extends Controller {
             }
 
             stateProvider.data.currentPageRecord = record;
+
+            if (record?.name) {
+                SeoService.setRouteTitle({
+                    route   : value?.hashString || `/learn/${recordId}`,
+                    title   : /neo\.mjs/i.test(record.name) ? record.name : `${record.name} - Neo.mjs`,
+                    windowId: this.windowId
+                })
+            }
 
             if (!oldValue?.hashString?.startsWith('/learn')) {
                 await tree.expandAndScrollToItem(recordId)
