@@ -10,7 +10,9 @@ import {
     collectExampleFamilyRoutes,
     collectExampleRoutes,
     extractExampleFamilyDefinitions,
+    extractFrontmatterField,
     extractMarkdownSeoMetadata,
+    extractPortalIndexMetadata,
     formatLearnSeoTitle,
     getContentRouteObjects,
     getContentRoutes,
@@ -1244,6 +1246,223 @@ test.describe('docs SEO generator #20915: git lastmod fallback and sitemap-core 
         expect(liveSeoJson['/news/blog/json-ld-xss-json-stringify-in-a-script-tag']?.lastmod).toMatch(/^\d{4}-\d{2}-\d{2}$/);
         for (const adr of ['0020-agent-harness-concept', '0032-institution-cockpit-render-model', '0034-electron-shell-architecture', '0037-fleet-manager-outward-door-topology', '0038-fm-client-topology']) {
             expect(liveSeoJson[`/learn/agentos/decisions/${adr}`]?.robots).toBe('noindex, follow');
+        }
+    });
+});
+
+test.describe('docs SEO generator #20917: frontmatter seoTitle/seoDescription and search-intent titles', () => {
+    test('extractFrontmatterField and extractMarkdownSeoMetadata honor custom seoTitle and seoDescription overrides', () => {
+        const doubleQuoted = [
+            '---',
+            'seoTitle: "Live \\"DOM\\" MCP | Neo.mjs"',
+            'seoDescription: "Custom double-quoted description for search intent."',
+            '---',
+            '# Editorial Heading',
+            '',
+            'Opening body paragraph that would otherwise become the scraped description.'
+        ].join('\n');
+
+        expect(extractFrontmatterField(doubleQuoted, 'seoTitle')).toBe('Live "DOM" MCP | Neo.mjs');
+        expect(extractMarkdownSeoMetadata(doubleQuoted, {route: '/learn/guides/mcp/NeuralLink'})).toEqual({
+            title      : 'Live "DOM" MCP | Neo.mjs',
+            description: 'Custom double-quoted description for search intent.'
+        });
+
+        const singleQuotedWithoutBrand = [
+            '---',
+            "seoTitle: 'Web Worker''s Data Grid'",
+            'seoDescription: Unquoted concise developer summary under 160 chars.',
+            '---',
+            '# Short H1'
+        ].join('\n');
+
+        expect(extractFrontmatterField(singleQuotedWithoutBrand, 'seoTitle')).toBe("Web Worker's Data Grid");
+        expect(extractMarkdownSeoMetadata(singleQuotedWithoutBrand, {route: '/learn/guides/datahandling/Grids'})).toEqual({
+            title      : "Web Worker's Data Grid - Neo.mjs",
+            description: 'Unquoted concise developer summary under 160 chars.'
+        });
+    });
+
+    test('extractPortalIndexMetadata and getSeoJson derive / and /home from apps/portal/index.html with fallback when absent', async () => {
+        expect(extractPortalIndexMetadata([
+            '<!DOCTYPE html><html><head>',
+            '<title>  Neo.mjs - An Agent Institution  </title>',
+            '<meta name="description" content="Persistent AI maintainers on one agent\'s record.">',
+            '</head></html>'
+        ].join('\n'))).toEqual({
+            title      : 'Neo.mjs - An Agent Institution',
+            description: "Persistent AI maintainers on one agent's record."
+        });
+
+        expect(extractPortalIndexMetadata([
+            '<html><head>',
+            '<title>\n  Multi-Line\n  Portal Title\n</title>',
+            "<meta content='Content before name with single quotes.' name='description'>",
+            '</head></html>'
+        ].join('\n'))).toEqual({
+            title      : 'Multi-Line Portal Title',
+            description: 'Content before name with single quotes.'
+        });
+
+        expect(extractPortalIndexMetadata('<html><head><title>Title Only</title></head></html>')).toBeNull();
+        expect(extractPortalIndexMetadata('<html><head><meta name="description" content="Desc only."></head></html>')).toBeNull();
+        expect(extractPortalIndexMetadata('<html><head><title>   </title><meta name="description" content="Desc."></head></html>')).toBeNull();
+
+        const isolatedRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-seo-portal-index-'));
+
+        try {
+            const seoJsonPath     = path.join(isolatedRoot, 'apps/portal/resources/data/seo.json');
+            const portalIndexPath = path.join(isolatedRoot, 'apps/portal/index.html');
+
+            await fs.outputJson(seoJsonPath, {
+                '/home': {
+                    title      : 'Neo.mjs — Home',
+                    description: 'Stale fallback description.',
+                    lastmod    : '2026-10-21',
+                    schemaType : 'WebPage'
+                }
+            });
+
+            // 1. Without apps/portal/index.html on disk, getSeoJson falls back to existingSeo['/'] || existingSeo['/home']
+            const fallbackSeo = await getSeoJson({root: isolatedRoot, seoJsonPath});
+            expect(fallbackSeo['/']).toEqual({
+                title      : 'Neo.mjs — Home',
+                description: 'Stale fallback description.',
+                lastmod    : '2026-10-21',
+                schemaType : 'WebPage'
+            });
+            expect(fallbackSeo['/home']).toEqual(fallbackSeo['/']);
+
+            // 2. With apps/portal/index.html present, getSeoJson derives / and /home from index.html at build time
+            await fs.outputFile(portalIndexPath, [
+                '<!DOCTYPE html><html><head>',
+                '<title>Neo.mjs - An Agent Institution</title>',
+                '<meta name="description" content="Derived directly from apps/portal/index.html at build time.">',
+                '</head></html>'
+            ].join('\n'));
+
+            const derivedSeo = await getSeoJson({root: isolatedRoot, seoJsonPath});
+            expect(derivedSeo['/']).toEqual({
+                title      : 'Neo.mjs - An Agent Institution',
+                description: 'Derived directly from apps/portal/index.html at build time.',
+                lastmod    : '2026-10-21',
+                schemaType : 'WebPage'
+            });
+            expect(derivedSeo['/home']).toEqual(derivedSeo['/']);
+        } finally {
+            await fs.remove(isolatedRoot);
+        }
+    });
+
+    test('apps/portal/index.html and seo.json / and /home align at build time and portal section routes target developer search intent', async () => {
+        const rootDir         = process.cwd();
+        const indexHtml       = await fs.readFile(path.resolve(rootDir, 'apps/portal/index.html'), 'utf-8');
+        const seoJson         = await fs.readJSON(path.resolve(rootDir, 'apps/portal/resources/data/seo.json'));
+        const portalIndexMeta = extractPortalIndexMetadata(indexHtml);
+        const ldJsonRaw       = indexHtml.match(/<script\s+type="application\/ld\+json"\s+data-schema-name="neo-organism">([\s\S]*?)<\/script>/)?.[1];
+
+        expect(portalIndexMeta).toEqual({
+            title      : 'Neo.mjs - An Agent Institution',
+            description: expect.stringContaining('Neo.mjs is an agent institution:')
+        });
+        expect(() => JSON.parse(ldJsonRaw)).not.toThrow();
+
+        expect(seoJson['/']?.title).toBe(portalIndexMeta.title);
+        expect(seoJson['/']?.description).toBe(portalIndexMeta.description);
+        expect(seoJson['/home']?.title).toBe(portalIndexMeta.title);
+        expect(seoJson['/home']?.description).toBe(portalIndexMeta.description);
+        expect(seoJson['/']?.title).not.toMatch(/\bframework\b/i);
+        expect(seoJson['/']?.description).not.toMatch(/\bframework\b/i);
+
+        const expectedSectionTitles = {
+            '/docs'     : 'API Documentation — Multi-Threaded JavaScript Application Engine | Neo.mjs',
+            '/examples' : 'Live JavaScript Examples — Web Worker Grids & Multi-Window UI | Neo.mjs',
+            '/learn'    : 'Developer Guides — Web Worker UI Engine, SharedWorker & AI Agent OS | Neo.mjs',
+            '/news/blog': 'Engineering Blog — Web Worker UI Architecture & AI Agent OS | Neo.mjs'
+        };
+
+        for (const [route, expectedTitle] of Object.entries(expectedSectionTitles)) {
+            const entry = seoJson[route];
+            expect(entry, `missing seo.json entry for ${route}`).toBeTruthy();
+            expect(entry.title).toBe(expectedTitle);
+            expect(entry.description.length).toBeGreaterThanOrEqual(80);
+            expect(entry.description.length).toBeLessThanOrEqual(160);
+            expect(entry.description).not.toMatch(/\bframework\b/i);
+        }
+    });
+
+    test('anchors >= 12 flagship learn, blog, and standalone example routes to developer search intent without framework self-labeling', async () => {
+        const rootDir = process.cwd();
+        const seoJson = await fs.readJSON(path.resolve(rootDir, 'apps/portal/resources/data/seo.json'));
+
+        const targetSeoRoutes = [
+            '/news/blog/a-data-grid-in-a-web-worker',
+            '/learn/guides/datahandling/Grids',
+            '/learn/guides/datahandling/DynamicGrids',
+            '/learn/guides/datahandling/PooledGridAnimation',
+            '/learn/benefits/body/OffTheMainThread',
+            '/learn/guides/fundamentals/WorkerArchitecture',
+            '/learn/benefits/body/MultiWindow',
+            '/learn/guides/specificfeatures/MultiWindow',
+            '/learn/guides/uibuildingblocks/DockLayouts',
+            '/learn/guides/uibuildingblocks/DockLayoutsWindows',
+            '/news/blog/json-blueprints-and-shared-workers',
+            '/learn/guides/advanced/CanvasArchitecture',
+            '/learn/benefits/body/Speed',
+            '/learn/guides/coreengine/WhyEnhance',
+            '/learn/agentos/NeuralLink',
+            '/learn/agentos/CoreSkills',
+            '/news/blog/context-engineering-done-right',
+            '/news/blog/ai-agents-runtime-possession'
+        ];
+
+        const indexableSeoRoutes = targetSeoRoutes.filter(route => !seoJson[route]?.robots?.includes('noindex'));
+        expect(indexableSeoRoutes.length).toBeGreaterThanOrEqual(12);
+
+        for (const route of targetSeoRoutes) {
+            const entry = seoJson[route];
+            expect(entry, `missing seo.json entry for ${route}`).toBeTruthy();
+            expect(entry.title).toMatch(/\|\s*Neo\.mjs$/);
+            expect(entry.title).not.toMatch(/\bframework\b/i);
+            expect(entry.description.length).toBeGreaterThanOrEqual(80);
+            expect(entry.description.length).toBeLessThanOrEqual(160);
+            expect(entry.description).not.toMatch(/\bframework\b/i);
+        }
+
+        const bigDataHtml = await fs.readFile(path.resolve(rootDir, 'examples/grid/bigData/index.html'), 'utf-8');
+        const canvasHtml  = await fs.readFile(path.resolve(rootDir, 'examples/component/canvas/index.html'), 'utf-8');
+
+        const bigDataTitle = bigDataHtml.match(/<title>([^<]+)<\/title>/)?.[1] || '';
+        const bigDataDesc  = bigDataHtml.match(/<meta\s+name="description"\s+content="([^"]+)"/)?.[1] || '';
+        const canvasTitle  = canvasHtml.match(/<title>([^<]+)<\/title>/)?.[1] || '';
+        const canvasDesc   = canvasHtml.match(/<meta\s+name="description"\s+content="([^"]+)"/)?.[1] || '';
+
+        expect(bigDataTitle).toBe('JavaScript Data Grid — 100k Rows & 200 Columns in a Web Worker | Neo.mjs');
+        expect(bigDataDesc.length).toBeLessThanOrEqual(160);
+        expect(bigDataDesc).not.toMatch(/\bframework\b/i);
+
+        expect(canvasTitle).toBe('OffscreenCanvas Web Worker Rendering Example | Neo.mjs');
+        expect(canvasDesc.length).toBeLessThanOrEqual(160);
+        expect(canvasDesc).not.toMatch(/\bframework\b/i);
+
+        const allUpgradedTitles = [
+            ...targetSeoRoutes.map(route => seoJson[route].title),
+            bigDataTitle,
+            canvasTitle
+        ].join('\n');
+
+        for (const phrase of [
+            'JavaScript Data Grid',
+            '100k',
+            'Virtual Scrolling',
+            'Web Worker',
+            'SharedWorker',
+            'Multi-Window',
+            'OffscreenCanvas',
+            'GitHub Workflow MCP',
+            'Live Browser DOM'
+        ]) {
+            expect(allUpgradedTitles).toContain(phrase);
         }
     });
 });

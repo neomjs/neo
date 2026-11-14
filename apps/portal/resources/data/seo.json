@@ -1,58 +1,58 @@
 {
     "/": {
-        "title": "Neo.mjs",
-        "description": "Solve your toughest UI performance challenges with Neo.mjs: a multi-threaded JavaScript platform for extreme real-time web applications, complex dashboards, and unmatched developer productivity.",
-        "lastmod": "2026-10-21"
+        "title": "Neo.mjs - An Agent Institution",
+        "description": "Neo.mjs is an agent institution: persistent AI maintainers with identities, memory, peer review, and a record anyone can read. Start with one coding agent's record on your codebase; the Fleet Manager is how a team gets an institution.",
+        "lastmod": "2026-11-14"
     },
     "/about-us": {
         "title": "About Us - Neo.mjs",
         "description": "Learn more about the team behind Neo.mjs.",
-        "lastmod": "2026-10-21"
+        "lastmod": "2026-11-14"
     },
     "/docs": {
-        "title": "Neo.mjs Docs",
-        "description": "Official documentation for the Neo.mjs platform.",
-        "lastmod": "2026-10-21"
+        "title": "API Documentation — Multi-Threaded JavaScript Application Engine | Neo.mjs",
+        "description": "API reference for 460+ Neo.mjs classes across Web Worker UI components, virtual-scrolling data grids, reactive state providers, SharedWorkers & Canvas.",
+        "lastmod": "2026-11-14"
     },
     "/examples": {
-        "title": "Neo.mjs Examples",
-        "description": "A collection of examples for the Neo.mjs platform.",
-        "lastmod": "2026-11-13"
+        "title": "Live JavaScript Examples — Web Worker Grids & Multi-Window UI | Neo.mjs",
+        "description": "Interactive Neo.mjs examples running off the main thread: 100k-row virtual-scrolling data grids, SharedWorker multi-window apps, calendars & OffscreenCanvas.",
+        "lastmod": "2026-11-14"
     },
     "/learn": {
-        "title": "Learn Neo.mjs",
-        "description": "Learn the fundamentals of the Neo.mjs platform.",
-        "lastmod": "2026-11-06"
+        "title": "Developer Guides — Web Worker UI Engine, SharedWorker & AI Agent OS | Neo.mjs",
+        "description": "Learn how to build off-main-thread JavaScript apps and AI Agent OS workflows with Neo.mjs: Web Worker UIs, multi-window SharedWorkers, data grids & MCP tools.",
+        "lastmod": "2026-11-14"
     },
     "/news": {
         "title": "Neo.mjs News",
         "description": "Latest updates, blogs, and releases for the Neo.mjs platform.",
-        "lastmod": "2026-11-08"
+        "lastmod": "2026-11-14"
     },
     "/news/blog": {
-        "title": "Neo.mjs Blog",
-        "description": "The official blog for the Neo.mjs platform.",
-        "lastmod": "2026-11-10"
+        "title": "Engineering Blog — Web Worker UI Architecture & AI Agent OS | Neo.mjs",
+        "description": "Engineering deep dives from the Neo.mjs team on Web Worker data grids, SharedWorker multi-window UIs, OffscreenCanvas, GraphRAG memory, and MCP servers.",
+        "lastmod": "2026-11-14"
     },
     "/news/releases": {
         "title": "Neo.mjs Releases",
         "description": "Release notes and changelogs for the Neo.mjs platform.",
-        "lastmod": "2026-11-09"
+        "lastmod": "2026-11-14"
     },
     "/news/videos": {
         "title": "Neo.mjs Videos",
         "description": "Films and demos of the Neo.mjs platform, from the engine to the AI maintainers who build it.",
-        "lastmod": "2026-11-08"
+        "lastmod": "2026-11-14"
     },
     "/services": {
         "title": "Connect with Neo.mjs",
         "description": "Build an app with Neo.mjs, explore persistent project memory for coding agents, join the public development work, or reach the maintainers directly.",
-        "lastmod": "2026-11-10"
+        "lastmod": "2026-11-14"
     },
     "/home": {
-        "title": "Neo.mjs",
-        "description": "Solve your toughest UI performance challenges with Neo.mjs: a multi-threaded JavaScript platform for extreme real-time web applications, complex dashboards, and unmatched developer productivity.",
-        "lastmod": "2026-10-21"
+        "title": "Neo.mjs - An Agent Institution",
+        "description": "Neo.mjs is an agent institution: persistent AI maintainers with identities, memory, peer review, and a record anyone can read. Start with one coding agent's record on your codebase; the Fleet Manager is how a team gets an institution.",
+        "lastmod": "2026-11-14"
     },
     "/learn/UsingTheseTopics": {
         "title": "Using These Topics — Multi-Threaded JavaScript Application Engine | Neo.mjs",
@@ -91,10 +91,10 @@
         "lastmod": "2026-08-30"
     },
     "/learn/benefits/body/OffTheMainThread": {
-        "title": "Off the Main Thread — Multi-Threaded JavaScript Application Engine | Neo.mjs",
-        "description": "In case you are using a Mac, you can click on the top-left Apple Icon, then on \"About this Mac\" and it will show you something like:",
+        "title": "Off-Main-Thread JavaScript UI in Web Workers | Neo.mjs",
+        "description": "Run your JavaScript UI, state, data stores, and VDOM diffing inside Web Workers across multiple CPU cores so the browser main thread never freezes.",
         "schemaType": "TechArticle",
-        "lastmod": "2026-07-18"
+        "lastmod": "2026-11-14"
     },
     "/learn/benefits/body/FourEnvironments": {
         "title": "4 Environments — Multi-Threaded JavaScript Application Engine | Neo.mjs",
@@ -115,16 +115,16 @@
         "lastmod": "2026-07-03"
     },
     "/learn/benefits/body/Speed": {
-        "title": "Extreme Speed — Multi-Threaded JavaScript Application Engine | Neo.mjs",
-        "description": "The Neo.mjs architecture leverages web workers to run application logic, data processing, and even parts of the rendering pipeline in parallel, on separate...",
+        "title": "60fps JavaScript UI Speed: 40,000 Delta VDOM Updates/s in Web Workers | Neo.mjs",
+        "description": "Achieve 60fps JavaScript UI responsiveness and 40,000+ delta DOM updates per second by running app logic, data processing, and VDOM diffing in Web Workers.",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-07"
+        "lastmod": "2026-11-14"
     },
     "/learn/benefits/body/MultiWindow": {
-        "title": "Multi-Window Applications — Multi-Threaded JavaScript Application Engine | Neo.mjs",
-        "description": "Your users already work across screens. The customer record sits on one monitor and the ticket queue on the other; the chart goes up on the projector while...",
+        "title": "Multi-Window JavaScript Apps with SharedWorker State | Neo.mjs",
+        "description": "Build multi-window JavaScript apps where one SharedWorker holds live components, stores, and Dock Layouts across browser windows and monitors.",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-07"
+        "lastmod": "2026-11-14"
     },
     "/learn/benefits/body/Quick": {
         "title": "Quick Application Development — Multi-Threaded JavaScript Application Engine | Neo.mjs",
@@ -217,10 +217,10 @@
         "lastmod": "2026-10-19"
     },
     "/learn/agentos/NeuralLink": {
-        "title": "Neural Link: The Possession Interface - Neo.mjs",
-        "description": "Most AI coding work still happens outside the running application. The model reads source, edits files, asks a human to reload, then waits for a screenshot...",
+        "title": "Live Browser DOM & Runtime Inspection MCP Server (Neural Link) | Neo.mjs",
+        "description": "Inspect and mutate live Web Worker component trees, stores, state providers, and browser DOM geometry from AI agents via the Neural Link MCP server.",
         "schemaType": "TechArticle",
-        "lastmod": "2026-10-29"
+        "lastmod": "2026-11-14"
     },
     "/learn/agentos/DockZoneModel": {
         "title": "Dock-Zone Model Contract — AI Agent OS & Multi-Threaded Application Engine | Neo.mjs",
@@ -229,10 +229,10 @@
         "lastmod": "2026-09-13"
     },
     "/learn/agentos/CoreSkills": {
-        "title": "Core Agent Skills — AI Agent OS & Multi-Threaded Application Engine | Neo.mjs",
-        "description": "Most agent products try to make a model reliable by adding a longer prompt. Neo took the opposite route. When a maintainer failure repeats, the organism...",
+        "title": "AI Coding Agent Skills, Memory Core & Cross-Model PR Review | Neo.mjs",
+        "description": "How Neo.mjs turns recurring agent failure modes into lazy-loaded Progressive Disclosure skills for ticket intake, Memory Core mining, and cross-model review.",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-07"
+        "lastmod": "2026-11-14"
     },
     "/learn/agentos/ProgressiveDisclosureSkills": {
         "title": "Progressive Disclosure Skills — AI Agent OS & Multi-Threaded Application Engine | Neo.mjs",
@@ -330,10 +330,10 @@
         "lastmod": "2026-09-13"
     },
     "/learn/guides/fundamentals/WorkerArchitecture": {
-        "title": "Worker Architecture & Messaging — Neo.mjs Developer Guide",
-        "description": "Traditional web architectures face a fundamental constraint: everything competes for the same single thread. A heavy calculation locks your UI. A complex...",
+        "title": "Web Worker UI Architecture: App, Data, VDom & Canvas Threads | Neo.mjs",
+        "description": "Inside Neo.mjs multi-threaded Web Worker UI architecture: how App, VDom, Data, and Canvas workers communicate while keeping the main thread thin.",
         "schemaType": "TechArticle",
-        "lastmod": "2026-10-27"
+        "lastmod": "2026-11-14"
     },
     "/learn/guides/fundamentals/AsyncDestruction": {
         "title": "Async Destruction & The Trap Pattern — Neo.mjs Developer Guide",
@@ -384,10 +384,10 @@
         "lastmod": "2026-11-12"
     },
     "/learn/guides/coreengine/WhyEnhance": {
-        "title": "Why Enhance JS Classes? (construct vs constructor) - Neo.mjs",
-        "description": "When building a high-performance, multi-threaded application platform like Neo.mjs, the vanilla JavaScript class system quickly hits an architectural wall...",
+        "title": "Reactive JavaScript Class System for Web Worker UIs | Neo.mjs",
+        "description": "Why Neo.mjs enhances ES6 classes with Neo.create() and construct(): solving the super() initialization trap for declarative configs and reactivity.",
         "schemaType": "TechArticle",
-        "lastmod": "2026-03-18"
+        "lastmod": "2026-11-14"
     },
     "/learn/guides/coreengine/SetupClass": {
         "title": "Class Compilation (Neo.setupClass) — Neo.mjs Developer Guide",
@@ -438,10 +438,10 @@
         "lastmod": "2026-11-06"
     },
     "/learn/guides/uibuildingblocks/DockLayouts": {
-        "title": "Dock Layouts: One Application, Many Windows - Neo.mjs",
-        "description": "Every team that has shipped a serious desktop cockpit — a trading floor, an ops console, a monitoring wall — knows the interaction language by heart: grab a...",
+        "title": "Multi-Window JavaScript Dock Layouts & SharedWorker Workspaces | Neo.mjs",
+        "description": "Build desktop-class multi-window JavaScript workspaces with Neo.mjs Dock Layouts: tear-out OS windows, SharedWorker state, split panes, and perspectives.",
         "schemaType": "TechArticle",
-        "lastmod": "2026-10-11"
+        "lastmod": "2026-11-14"
     },
     "/learn/guides/uibuildingblocks/DockLayoutsAdoption": {
         "title": "Dock Layouts: Adopting in Your App - Neo.mjs",
@@ -462,10 +462,10 @@
         "lastmod": "2026-10-26"
     },
     "/learn/guides/uibuildingblocks/DockLayoutsWindows": {
-        "title": "Dock Layouts: A Pane's Life Across Windows - Neo.mjs",
-        "description": "Tear a pane out of your application into a real operating-system window, and you have asked the web platform for something it was built to refuse. A second...",
+        "title": "Multi-Window Dashboards & SharedWorker Tear-Out Dock Layouts | Neo.mjs",
+        "description": "How Neo.mjs tears live UI panes out into real OS browser windows and docks them back without serialization loss from a single SharedWorker heap.",
         "schemaType": "TechArticle",
-        "lastmod": "2026-10-23"
+        "lastmod": "2026-11-14"
     },
     "/learn/guides/uibuildingblocks/DockLayoutsStyling": {
         "title": "Dock Layouts: Styling, Themes and Action Chrome - Neo.mjs",
@@ -540,22 +540,22 @@
         "lastmod": "2025-07-15"
     },
     "/learn/guides/datahandling/Grids": {
-        "title": "Neo.mjs Grids",
-        "description": "The Neo.grid.Container is a powerful and highly performant component for displaying tabular data. It is designed to handle large datasets with ease, thanks...",
+        "title": "JavaScript Data Grid Guide: Virtual Scrolling & Pooled Cells | Neo.mjs",
+        "description": "Build high-performance JavaScript data grids with Neo.grid.Container: virtual scrolling, pooled DOM cells, sorting, header filters, and inline editing.",
         "schemaType": "TechArticle",
-        "lastmod": "2026-10-16"
+        "lastmod": "2026-11-14"
     },
     "/learn/guides/datahandling/DynamicGrids": {
-        "title": "Dynamic Grids & Virtualization — Neo.mjs Developer Guide",
-        "description": "Neo.mjs Grids are designed for high performance with massive datasets. This is achieved through Virtualization (rendering only visible rows and columns) and...",
+        "title": "100k-Row JavaScript Data Grid: Dynamic Columns & Virtual Scrolling | Neo.mjs",
+        "description": "Reconfigure massive JavaScript data grids at runtime without memory bloat using Neo.mjs row and cell pooling, virtual scrolling, and dynamic field binding.",
         "schemaType": "TechArticle",
-        "lastmod": "2026-08-20"
+        "lastmod": "2026-11-14"
     },
     "/learn/guides/datahandling/PooledGridAnimation": {
-        "title": "Pooled Grid Animation Contract — Neo.mjs Developer Guide",
-        "description": "Neo grids virtualize rows by recycling a fixed DOM pool. That is the right default for scrolling, but it changes the animation contract: row transitions...",
+        "title": "Virtual Scrolling & Pooled Row Animation in JavaScript Data Grids | Neo.mjs",
+        "description": "Animate TreeGrid expand and collapse transitions in virtualized JavaScript data grids using snapshot overlays without breaking fixed DOM row pooling.",
         "schemaType": "TechArticle",
-        "lastmod": "2026-10-30"
+        "lastmod": "2026-11-14"
     },
     "/learn/guides/datahandling/Streaming": {
         "title": "Streaming Data & Progressive Rendering — Neo.mjs Developer Guide",
@@ -648,10 +648,10 @@
         "lastmod": "2026-10-29"
     },
     "/learn/guides/specificfeatures/MultiWindow": {
-        "title": "Multi-Window Applications — Neo.mjs Developer Guide",
-        "description": "Learn the fundamentals of the Neo.mjs platform.",
+        "title": "Building Multi-Window JavaScript Apps with SharedWorkers | Neo.mjs",
+        "description": "Developer guide to orchestrating multi-window JavaScript applications and shared state across browser windows with Neo.mjs SharedWorkers.",
         "schemaType": "TechArticle",
-        "lastmod": "2025-07-15",
+        "lastmod": "2026-11-14",
         "robots": "noindex, follow"
     },
     "/learn/guides/specificfeatures/TearOutPortabilityMatrix": {
@@ -663,7 +663,7 @@
     },
     "/learn/guides/specificfeatures/Mixins": {
         "title": "Mixins — Neo.mjs Developer Guide",
-        "description": "Learn the fundamentals of the Neo.mjs platform.",
+        "description": "Learn how to build off-main-thread JavaScript apps and AI Agent OS workflows with Neo.mjs: Web Worker UIs, multi-window SharedWorkers, data grids & MCP tools.",
         "schemaType": "TechArticle",
         "lastmod": "2025-07-15",
         "robots": "noindex, follow"
@@ -675,10 +675,10 @@
         "lastmod": "2025-07-15"
     },
     "/learn/guides/advanced/CanvasArchitecture": {
-        "title": "Zero-Allocation Effects with Shared Workers — Neo.mjs Developer Guide",
-        "description": "This guide explores the \"Luminous Flux\" visual engine (the Sonic Waves effect in the Portal App header) as a masterclass in advanced Neo.mjs architecture...",
+        "title": "OffscreenCanvas Web Worker Rendering & Zero-Allocation 60fps Canvas | Neo.mjs",
+        "description": "Render 60fps interactive graphics off the main thread by combining SharedWorkers, OffscreenCanvas transfer, and zero-allocation physics loops in Neo.mjs.",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-13"
+        "lastmod": "2026-11-14"
     },
     "/learn/guides/advanced/BuildArchitecture": {
         "title": "Build Architecture & Service Workers — Neo.mjs Developer Guide",
@@ -706,7 +706,7 @@
     },
     "/learn/tutorials/RSP": {
         "title": "Rock Scissors Paper — Neo.mjs Tutorial | Neo.mjs",
-        "description": "Learn the fundamentals of the Neo.mjs platform.",
+        "description": "Learn how to build off-main-thread JavaScript apps and AI Agent OS workflows with Neo.mjs: Web Worker UIs, multi-window SharedWorkers, data grids & MCP tools.",
         "schemaType": "TechArticle",
         "lastmod": "2025-07-15",
         "robots": "noindex, follow"
@@ -838,10 +838,10 @@
         "lastmod": "2026-11-07"
     },
     "/news/blog/a-data-grid-in-a-web-worker": {
-        "title": "The main thread is the wrong place for a data grid - Neo.mjs",
-        "description": "A large JavaScript data grid can freeze the page when its data changes, because it works on the main thread: the one thread a browser tab has for your code...",
+        "title": "JavaScript Data Grid in a Web Worker: 100k+ Rows Off the Main Thread | Neo.mjs",
+        "description": "How Neo.mjs runs a JavaScript data grid in a Web Worker: 100k rows, 200 columns, virtual scrolling, and 0ms main-thread blocking in open benchmarks.",
         "schemaType": "BlogPosting",
-        "lastmod": "2026-11-01"
+        "lastmod": "2026-11-14"
     },
     "/news/blog/where-an-agent-institution-sits": {
         "title": "Where an agent institution sits: a map of the agent landscape, with receipts. - Neo.mjs",
@@ -892,10 +892,10 @@
         "lastmod": "2026-10-20"
     },
     "/news/blog/ai-agents-runtime-possession": {
-        "title": "Possession, not code-generation: operating a running app from inside it. - Neo.mjs",
-        "description": "Code-generation tools emit source. They go blind the moment the app is running. Neo.mjs is built the other way around: its Body — a multi-threaded...",
+        "title": "Live Browser DOM MCP: Operating Running Web Apps from AI Agents | Neo.mjs",
+        "description": "Operate running JavaScript web apps from AI agents across 50 transactional Neural Link MCP tools for live component trees, stores, state, and DOM inspection.",
         "schemaType": "BlogPosting",
-        "lastmod": "2026-10-20"
+        "lastmod": "2026-11-14"
     },
     "/news/blog/context-window-tax": {
         "title": "The Context Window Tax: Efficient Multi-Step AI Workflows via Code Execution - Neo.mjs",
@@ -910,10 +910,10 @@
         "lastmod": "2026-10-20"
     },
     "/news/blog/context-engineering-done-right": {
-        "title": "388 Tickets in 6 Weeks: Context Engineering Done Right - Neo.mjs",
-        "description": "From fragile shell scripts to an AI-native, multi-MCP-server JavaScript architecture powered by the official MCP SDK.",
+        "title": "GitHub Workflow MCP, Memory Core & Knowledge Base for AI Agents | Neo.mjs",
+        "description": "How local-first GitHub Workflow MCP, Memory Core, and Knowledge Base vector RAG enabled AI coding agents to ship 388 Neo.mjs tickets in 6 weeks.",
         "schemaType": "BlogPosting",
-        "lastmod": "2026-11-11"
+        "lastmod": "2026-11-14"
     },
     "/news/blog/ai-native-platform-answers-questions": {
         "title": "AI-Native, Not AI-Assisted: A Platform That Answers Your Questions - Neo.mjs",
@@ -958,10 +958,10 @@
         "lastmod": "2026-01-07"
     },
     "/news/blog/json-blueprints-and-shared-workers": {
-        "title": "How JSON Blueprints & Shared Workers Power Next-Gen AI Interfaces - Neo.mjs",
-        "description": "Unlocking Multi-Window Generative AI with the Innovative Architecture of Neo.mjs",
+        "title": "SharedWorker Multi-Window JavaScript Apps & JSON UI Blueprints | Neo.mjs",
+        "description": "How JSON UI blueprints, zero-build ES modules, and SharedWorker multi-window architecture power live generative AI interfaces in Neo.mjs.",
         "schemaType": "BlogPosting",
-        "lastmod": "2025-09-21"
+        "lastmod": "2026-11-14"
     },
     "/news/releases/13.4.0": {
         "title": "Neo.mjs v13.4.0 Release Notes",
@@ -973,24 +973,24 @@
         "title": "Neo.mjs Grid & Table Examples",
         "description": "Explore 21 live Neo.mjs Grid & Table examples: A tree hierarchy at scale: up to 100,000 rows, 200 columns and 20 levels.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-13"
+        "lastmod": "2026-11-14"
     },
     "/examples/forms": {
         "title": "Neo.mjs Forms Examples",
         "description": "Explore 24 live Neo.mjs Forms examples: The standalone date selector component; A date field with picker and live configuration.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-13"
+        "lastmod": "2026-11-14"
     },
     "/examples/multi-window": {
         "title": "Neo.mjs Multi-Window Examples",
         "description": "Explore 12 live Neo.mjs Multi-Window examples: A living-data workspace whose panes can leave the browser window.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-13"
+        "lastmod": "2026-11-14"
     },
     "/examples/calendar": {
         "title": "Neo.mjs Calendar Examples",
-        "description": "Explore 2 live Neo.mjs Calendar examples: A project plan with linked, editable tasks; Resource bookings on an editable timeline.",
+        "description": "Explore 4 live Neo.mjs Calendar examples: A full calendar with day, week, month and year views, a month navigator and color-coded calendars..",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-13"
+        "lastmod": "2026-11-14"
     }
 }

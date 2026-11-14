@@ -1,3 +1,7 @@
+---
+seoTitle: "OffscreenCanvas Web Worker Rendering & Zero-Allocation 60fps Canvas | Neo.mjs"
+seoDescription: "Render 60fps interactive graphics off the main thread by combining SharedWorkers, OffscreenCanvas transfer, and zero-allocation physics loops in Neo.mjs."
+---
 # Zero-Allocation Effects with Shared Workers
 
 This guide explores the "Luminous Flux" visual engine (the Sonic Waves effect in the Portal App header) as a masterclass in advanced Neo.mjs architecture. It demonstrates how to combine **True Multithreading**, **Shared Workers**, and the **OffscreenCanvas API** to achieve high-performance, non-blocking visual effects.

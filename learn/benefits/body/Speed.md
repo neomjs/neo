@@ -1,3 +1,7 @@
+---
+seoTitle: "60fps JavaScript UI Speed: 40,000 Delta VDOM Updates/s in Web Workers | Neo.mjs"
+seoDescription: "Achieve 60fps JavaScript UI responsiveness and 40,000+ delta DOM updates per second by running app logic, data processing, and VDOM diffing in Web Workers."
+---
 # Extreme Speed
 
 The Neo.mjs architecture leverages web workers to run application logic, data processing,
