@@ -3,7 +3,7 @@ import fs                        from 'node:fs';
 import http                      from 'node:http';
 import os                        from 'node:os';
 import path                      from 'node:path';
-import {test, expect}            from '@playwright/test';
+import {test, expect}            from '../../fixtures.mjs';
 import {BROWSER_BUNDLES}         from '../../../../buildScripts/util/browserBundles.mjs';
 import {withComposedNpmIgnore}   from '../../../../buildScripts/util/npmIgnoreComposition.mjs';
 
@@ -34,21 +34,39 @@ const
  * @param {String} workspace
  */
 const createWorkspace = workspace => {
-    const manifest = JSON.parse(fs.readFileSync(path.join(engineRoot, 'test/playwright/unit/buildScripts/fixtures/neoAppPackage.json'), 'utf8'));
-    const write    = (file, content) => {
+    const manifest      = JSON.parse(fs.readFileSync(path.join(engineRoot, 'test/playwright/unit/buildScripts/fixtures/neoAppPackage.json'), 'utf8'));
+    const engineVersion = JSON.parse(fs.readFileSync(path.join(workspace, 'node_modules/neo.mjs/package.json'), 'utf8')).version;
+    const write         = (file, content) => {
         fs.mkdirSync(path.dirname(path.join(workspace, file)), {recursive: true});
         fs.writeFileSync(path.join(workspace, file), typeof content === 'string' ? content : JSON.stringify(content, null, 4))
     };
 
     write('package.json', {
         ...manifest,
-        dependencies: {...manifest.dependencies, [ADDON_PACKAGE]: '1.0.0'},
+        dependencies: {...manifest.dependencies, 'neo.mjs': engineVersion, [ADDON_PACKAGE]: '1.0.0'},
         neo         : {esmSourceRoots: ['components', 'resources']}
     });
     write(`node_modules/${ADDON_PACKAGE}/package.json`, {
-        name: ADDON_PACKAGE, version: '1.0.0', type: 'module', neo: {mainAddons: ['browser/hooks']}
+        name: ADDON_PACKAGE, version: '1.0.0', type: 'module', peerDependencies: {'neo.mjs': engineVersion},
+        neo : {mainAddons: ['browser/hooks']}
     });
     write(`node_modules/${ADDON_PACKAGE}/outside/Excluded.mjs`, 'export const outsideDeclaredRoot = true;\n');
+    write(`node_modules/${ADDON_PACKAGE}/shared/Label.mjs`, "export const label = 'package component';\n");
+    write(`node_modules/${ADDON_PACKAGE}/src/index.mjs`, "export {default} from './Widget.mjs';\n");
+    write(`node_modules/${ADDON_PACKAGE}/src/Widget.mjs`, [
+        "import Component from '../../../neo.mjs/src/component/Base.mjs';",
+        "import CoreBase from '../../../neo.mjs/src/core/Base.mjs';",
+        "import {label} from '../shared/Label.mjs';",
+        '/** @class Fixture.component.PackageWidget @extends Neo.component.Base @summary A statically imported package component. */',
+        'class Widget extends Component {',
+        "    static config = {className: 'Fixture.component.PackageWidget', cls: ['fixture-package-component'], html: label};",
+        '    /** @summary Whether the package and its App worker use the same CoreBase. */',
+        '    get engineIdentity() {return Neo.currentWorker instanceof CoreBase}',
+        '    /** @summary The module URL actually loaded for this component. */',
+        '    get moduleUrl() {return import.meta.url}',
+        '}',
+        'export default Neo.setupClass(Widget);', ''
+    ].join('\n'));
     write(`${ADDON_PATH}.mjs`, [
         "import Neo from '../../../../neo.mjs/src/Neo.mjs';",
         "import CoreBase from '../../../../neo.mjs/src/core/Base.mjs';",
@@ -105,7 +123,7 @@ const createWorkspace = workspace => {
     for (const mode of ['development', 'production']) {
         write(`apps/main-${mode}/index.html`, fs.readFileSync(path.join(workspace, 'apps/myapp/index.html'), 'utf8'));
         write(`apps/main-${mode}/neo-config.json`, {
-            appPath : '../../apps/myapp/app.mjs',
+            appPath : '../../apps/mainonly/app.mjs',
             basePath: '../../',
             // Deliberately source App workers: this arm proves the actual Main bundle, not a full production app.
             environment   : 'development',
@@ -115,17 +133,22 @@ const createWorkspace = workspace => {
         })
     }
     write('apps/myapp/app.mjs', "import Viewport from './view/Viewport.mjs';\n\nexport const onStart = () => Neo.app({\n    mainView: Viewport,\n    name    : 'MyApp'\n});\n");
-    write('apps/myapp/view/Viewport.mjs', [
+    write('apps/mainonly/app.mjs', "import Viewport from './view/Viewport.mjs';\n\nexport const onStart = () => Neo.app({\n    mainView: Viewport,\n    name    : 'MyApp'\n});\n");
+    const viewport = includePackage => [
         "import BaseViewport from '../../../node_modules/neo.mjs/src/container/Viewport.mjs';",
         "import Greeting     from '../../../components/Greeting.mjs';",
+        ...(includePackage ? [`import PackageWidget from '../../../node_modules/${ADDON_PACKAGE}/src/index.mjs';`] : []),
         '',
         'class Viewport extends BaseViewport {',
-        "    static config = {className: 'MyApp.view.Viewport', id: 'myapp-viewport', items: [{module: Greeting, id: 'myapp-greeting'}]}",
+        "    static config = {className: 'MyApp.view.Viewport', id: 'myapp-viewport', items: [{module: Greeting, id: 'myapp-greeting'}" +
+            (includePackage ? ", {module: PackageWidget, id: 'myapp-package'}" : '') + '] }',
         '}',
         '',
         'export default Neo.setupClass(Viewport);',
         ''
-    ].join('\n'));
+    ].join('\n');
+    write('apps/myapp/view/Viewport.mjs', viewport(true));
+    write('apps/mainonly/view/Viewport.mjs', viewport(false));
     write('components/Greeting.mjs', [
         "import {defineComponent, html} from '../node_modules/neo.mjs/src/functional/_export.mjs';",
         '',
@@ -313,19 +336,30 @@ test.describe('dist/esm: the packed engine builds a greenfield workspace, and bo
             'an installed dependency does not admit files outside its declared Main roots').toBe(false)
     });
 
-    test('the dist/esm page boots from its own tree, without a module from node_modules/neo.mjs', async ({page}) => {
+    test('the dist/esm page boots from its own tree, without a module from node_modules/neo.mjs', async ({page, neuralLink}) => {
+        await neuralLink.routeConfig(page, config => ({...config, useAiClient: true}));
         const {failures, modules, mounted} = await boot(page, `${origin}/dist/esm/apps/myapp/index.html`);
+        const app                          = await neuralLink.connectToApp('MyApp'),
+              [widget] = await app.queryComponent({className: 'Fixture.component.PackageWidget'}, ['mounted', 'engineIdentity', 'moduleUrl']);
 
         expect(mounted, 'the App Worker mounted the main view').toBe(true);
+        expect(widget.properties).toMatchObject({mounted: true, engineIdentity: true,
+            moduleUrl: `${origin}/dist/esm/node_modules/${ADDON_PACKAGE}/src/Widget.mjs`});
+        await expect(page.locator('.fixture-package-component')).toHaveText('package component');
         expect(failures).toEqual([]);
         expect(modules.filter(url => url.startsWith('/dist/esm/src/')).length, 'the engine loads from the emitted tree').toBeGreaterThan(0);
         expect(modules.filter(url => url.includes('/node_modules/neo.mjs/')), 'one engine graph').toEqual([])
     });
 
-    test('the same workspace boots from source, where HtmlTemplateProcessor parses the template at runtime', async ({page}) => {
+    test('the same workspace boots from source, where HtmlTemplateProcessor parses the template at runtime', async ({page, neuralLink}) => {
+        await neuralLink.routeConfig(page, config => ({...config, useAiClient: true}));
         const {failures, modules, mounted} = await boot(page, `${origin}/apps/myapp/index.html`);
+        const app                          = await neuralLink.connectToApp('MyApp'),
+              [widget] = await app.queryComponent({className: 'Fixture.component.PackageWidget'}, ['mounted', 'engineIdentity', 'moduleUrl']);
 
         expect(mounted).toBe(true);
+        expect(widget.properties).toMatchObject({mounted: true, engineIdentity: true,
+            moduleUrl: `${origin}/node_modules/${ADDON_PACKAGE}/src/Widget.mjs`});
         expect(failures).toEqual([]);
         // Only development loads the runtime processor, and its parse5 import must reach the generated bundle.
         expect(modules).toEqual(expect.arrayContaining([

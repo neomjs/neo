@@ -26,6 +26,7 @@ import path from 'node:path';
  * @type {ReadonlySet<String>}
  */
 export const ADAPTER_ELIGIBLE_SPECS = new Set([
+    'core/DistEsmWorkspaceBoot.spec.mjs',
     'core/RefreshDomCorpseRepro.spec.mjs',
     'core/SourceMoveWorkspaceNL.spec.mjs',
     'core/SplitterLiveResizeNL.spec.mjs',
