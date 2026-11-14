@@ -60,5 +60,31 @@ test.describe('Neo.main.DomAccess: focus handed back from a departure', () => {
 
     test('a focus the user moved on before the hand-back arrived keeps its place', async ({page}) => {
         expect(await depart(page, 'fd-inner', ['fd-departing'], 'fd-other')).toBe('fd-other')
-    })
+    });
+
+    // The departure settles in a mutation callback, and the hand-back applies a microtask later: a focus moved in
+    // between, by a later observer of the same removal or a queued microtask, is the newer choice
+    for (const via of ['observer', 'microtask']) {
+        test(`a focus moved while the departure settles keeps its place (${via})`, async ({page}) => {
+            expect(await page.evaluate(async via => {
+                const other = () => document.getElementById('fd-other').focus();
+
+                document.getElementById('fd-inner').focus();
+
+                const handBack = Neo.main.DomAccess.focus({id: 'fd-target', restoreFrom: 'fd-departing'});
+
+                if (via === 'observer') {
+                    const newerChoice = new MutationObserver(() => {newerChoice.disconnect(); other()});
+                    newerChoice.observe(document, {childList: true, subtree: true})
+                }
+
+                document.getElementById('fd-departing').remove();
+                via === 'microtask' && queueMicrotask(other);
+
+                await handBack;
+
+                return document.activeElement.id
+            }, via)).toBe('fd-other')
+        })
+    }
 });
