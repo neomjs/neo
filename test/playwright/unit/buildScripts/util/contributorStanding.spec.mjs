@@ -614,8 +614,10 @@ test.describe('buildScripts/util/contributorStanding', () => {
         /**
          * Runs the workflow's script against a stand-in GitHub, recording every search, wait, post, table and failure.
          */
-        const run = async ({comments = COMMENTS, inputs = {}, ledgerText = JSON.stringify({accounts: LEDGER}), listed = {}, optOutText = '[]', refuse, users = {}} = {}) => {
-            const calls = {failed: [], inFlight: 0, peakSearches: 0, posted: [], queries: [], rendered: [], tables: [], waits: [], warnings: []};
+        const run = async ({comments = COMMENTS, inputs = {}, ledgerText = JSON.stringify({accounts: LEDGER}), limited = {}, listed = {}, optOutText = '[]', refuse, users = {}} = {}) => {
+            const calls = {failed: [], inFlight: 0, peakSearches: 0, posted: [], queries: [], rendered: [], tables: [], waits: [], warnings: []},
+                  // How often GitHub still refuses the search for a login, as `{<login>: {times, retryAfter}}`
+                  refusals = structuredClone(limited);
 
             const github = {
                 graphql : async () => ({repository: {pullRequest: {closingIssuesReferences: {nodes: [{labels: {nodes: [{name: 'grid'}]}}]}}}}),
@@ -662,6 +664,15 @@ test.describe('buildScripts/util/contributorStanding', () => {
 
                             const login = q.split('author:')[1],
                                   items = MERGES[login] || [];
+
+                            if (refusals[login]?.times > 0) {
+                                refusals[login].times--;
+
+                                throw Object.assign(new Error('You have exceeded a secondary rate limit.'), {
+                                    response: {headers: refusals[login].retryAfter ? {'retry-after': refusals[login].retryAfter} : {}},
+                                    status  : 403
+                                })
+                            }
 
                             return {data: {items, total_count: listed[login] ?? items.length}}
                         }
@@ -732,7 +743,7 @@ test.describe('buildScripts/util/contributorStanding', () => {
             expect(calls.warnings).toEqual(['Account 105: Not Found'])
         });
 
-        test('searches run one at a time and 2.1 s apart: one per curated label, then one per account that answers', async () => {
+        test('searches run one at a time and 4 s apart: one per curated label, then one per account that answers', async () => {
             const calls = await run();
 
             expect(calls.queries).toEqual([
@@ -742,8 +753,29 @@ test.describe('buildScripts/util/contributorStanding', () => {
             ]);
             expect(calls.peakSearches).toBe(1);
             expect(calls.waits).toHaveLength(calls.queries.length - 1);
-            // The wait is 2,100 ms less the time since the search before, which is next to nothing against a stand-in
-            calls.waits.forEach(ms => expect(ms > 1500 && ms <= 2100).toBe(true))
+            // The wait is 4,000 ms less the time since the search before, which is next to nothing against a stand-in
+            calls.waits.forEach(ms => expect(ms > 3400 && ms <= 4000).toBe(true))
+        });
+
+        test('a search GitHub refuses for a rate limit waits as long as it asks, or 65 s, and is tried again; after three more tries the account is listed and the run goes on', async () => {
+            const
+                gaps   = waits => waits.filter(ms => ms > 4000),
+                asked  = await run({limited: {alpha: {retryAfter: '7', times: 1}}}),
+                unsaid = await run({limited: {alpha: {times: 2}}}),
+                given  = await run({inputs: {post: 'true'}, limited: {alpha: {times: 4}}});
+
+            expect(gaps(asked.waits)).toEqual([7000]);
+            expect(asked.queries.filter(q => q.endsWith('author:alpha'))).toHaveLength(2);
+            expect(asked.rendered[0]).toBe(note(MERGES.alpha[1], 2));
+            expect(asked.warnings).toEqual(['Account 105: Not Found']);
+
+            expect(gaps(unsaid.waits)).toEqual([65000, 65000]);
+            expect(unsaid.rendered[0]).toBe(note(MERGES.alpha[1], 2));
+
+            expect(gaps(given.waits)).toEqual([65000, 65000, 65000]);
+            expect(given.queries.filter(q => q.endsWith('author:alpha'))).toHaveLength(4);
+            expect(given.warnings[0]).toBe('Account 101: You have exceeded a secondary rate limit.');
+            expect(given.posted.map(args => args.issue_number)).toEqual([12, 16])
         });
 
         test('with post it posts each note once, limit stops it after that many, and a second run tells nobody twice', async () => {
