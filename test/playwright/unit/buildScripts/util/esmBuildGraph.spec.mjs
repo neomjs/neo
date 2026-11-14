@@ -35,6 +35,15 @@ test.describe('static ESM package graph boundaries', () => {
         expect(plan).toThrow(/node_modules\/widget\/Widget\.mjs.*\.\/missing\.mjs.*missing/)
     });
 
+    test('an admitted package file linked outside its owner is refused at its importing edge', () => {
+        const linked = path.join(workspace, 'node_modules/widget/Widget.mjs'),
+              target = path.join(workspace, 'node_modules/loose/Outside.mjs');
+        fs.outputFileSync(target, "export {default} from '../neo.mjs/src/core/Base.mjs';");
+        fs.removeSync(linked);
+        fs.symlinkSync(target, linked);
+        expect(plan).toThrow('apps/App.mjs → ../node_modules/widget/Widget.mjs: module leaves its package through a link')
+    });
+
     for (const specifier of ['neo.mjs/src/core/Base.mjs', '/node_modules/neo.mjs/src/core/Base.mjs']) {
         test(`an unrepresentable Engine edge is refused: ${specifier}`, () => {
             write('node_modules/widget/Widget.mjs', `import Base from ${JSON.stringify(specifier)}; export default class Widget extends Base {}`);

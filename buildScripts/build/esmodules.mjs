@@ -13,7 +13,7 @@ import {
     findUnresolvableImports,
     relativeSpecifiers,
     resolveSourceRoots,
-    rewriteMainAddonImports,
+    rewriteEsmImports,
     rewriteNeoConfig
 } from '../util/esmDistTransforms.mjs';
 
@@ -87,7 +87,7 @@ async function minifyFile(content, outputPath, sourcePath, type) {
             fs.writeFileSync(outputPath, minifiedContent);
             console.log(`Minified HTML: ${outputPath}`)
         } else if (type === 'module') {
-            let adjustedContent = rewriteMainAddonImports(content, {
+            let adjustedContent = rewriteEsmImports(content, {
                 sourcePath, outputPath, workspaceRoot: root,
                 engineRoot: insideNeo ? root : path.join(root, 'node_modules/neo.mjs'), packageRoots, files: plan.files
             });

@@ -77,6 +77,22 @@ export function createEsmBuildPlan({workspaceRoot, engineRoot, sourceRoots, pack
     const failure = (sourcePath, specifier, reason) =>
         `${path.relative(workspaceRoot, sourcePath)} → ${specifier}: ${reason}`;
 
+    /** @summary Refuses unsupported package modules only after their owner is admitted to the emitted graph. */
+    const validateAdmittedModule = node => {
+        if (node.linkedOutsidePackage) {
+            const edge = node.importedBy || {
+                sourcePath: path.join(workspaceRoot, 'package.json'),
+                specifier : path.relative(workspaceRoot, node.sourcePath)
+            };
+            throw new Error(failure(edge.sourcePath, edge.specifier, 'module leaves its package through a link'))
+        }
+        if (node.errors.length) throw new Error(node.errors.join('\n'));
+        if (!node.packageRoot) {
+            throw new Error(failure(node.sourcePath, node.sourcePath,
+                'required workspace module has no output; declare its root in neo.esmSourceRoots'))
+        }
+    };
+
     /** @summary Visits one logical module; physical ancestry bounds cycles made of ever-deeper linked aliases. */
     const visit = (sourcePath, ancestors = new Set()) => {
         if (nodes.has(sourcePath)) return nodes.get(sourcePath);
@@ -98,9 +114,7 @@ export function createEsmBuildPlan({workspaceRoot, engineRoot, sourceRoots, pack
             return node
         }
         if (initialFiles.has(sourcePath)) admitted.add(node.owner);
-        if (owner && !within(ownerReal, real)) {
-            throw new Error(failure(sourcePath, sourcePath, 'module leaves its package through a link'))
-        }
+        node.linkedOutsidePackage = owner && !within(ownerReal, real);
         if (!physicalOwners.has(real)) physicalOwners.set(real, []);
         const aliases = physicalOwners.get(real);
         for (const prior of aliases) {
@@ -156,6 +170,7 @@ export function createEsmBuildPlan({workspaceRoot, engineRoot, sourceRoots, pack
             // inspection: falling back through an un-emitted workspace helper can re-enter the source Engine.
             if (!owner && !initialFiles.has(targetPath) && !targetPackage) continue;
             const target = visit(targetPath, nextAncestors);
+            target.importedBy ||= {sourcePath, specifier};
             connect(node.owner, target.owner)
         }
         return node
@@ -175,11 +190,7 @@ export function createEsmBuildPlan({workspaceRoot, engineRoot, sourceRoots, pack
     }
     for (const node of nodes.values()) {
         if (!admitted.has(node.owner) || node.owner === engineOwner || node.owner === workspaceOwner) continue;
-        if (node.errors.length) throw new Error(node.errors.join('\n'));
-        if (!node.packageRoot) {
-            throw new Error(failure(node.sourcePath, node.sourcePath,
-                'required workspace module has no output; declare its root in neo.esmSourceRoots'))
-        }
+        validateAdmittedModule(node);
         const extension = path.extname(node.sourcePath),
               type      = ['.mjs', '.js'].includes(extension) ? 'module' : extension === '.json' ? 'json-data' : 'asset';
         add(node.sourcePath, type)

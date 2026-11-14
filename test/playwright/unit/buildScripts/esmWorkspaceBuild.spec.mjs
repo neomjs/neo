@@ -156,6 +156,33 @@ test.describe('esmodules.mjs — a greenfield workspace build', () => {
             .toBe('../../../../')
     });
 
+    test('an ordinary library file linked outside its package retains its host import', async () => {
+        workspace = fs.realpathSync(createWorkspace({declareExtraRoot: true}));
+        external = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'neo-esm-ordinary-link-')));
+        const library      = path.join(external, 'Library.mjs'),
+              slot         = path.join(workspace, 'node_modules/plain'),
+              viewportPath = 'apps/myapp/view/Viewport.mjs';
+        fs.outputFileSync(library, 'export const shared = {value: 17}; export const moduleUrl = import.meta.url;\n');
+        fs.ensureDirSync(slot);
+        fs.outputJsonSync(path.join(slot, 'package.json'), {name: 'plain', version: '1.0.0', type: 'module'});
+        fs.symlinkSync(library, path.join(slot, 'index.mjs'));
+        const manifest = fs.readJsonSync(path.join(workspace, 'package.json'));
+        fs.outputJsonSync(path.join(workspace, 'package.json'), {...manifest, dependencies: {plain: '1.0.0'}});
+        fs.outputFileSync(path.join(workspace, viewportPath), [
+            "import Base from '../../../node_modules/neo.mjs/src/core/Base.mjs';",
+            "import * as library from '../../../node_modules/plain/index.mjs';",
+            'export default class Viewport extends Base {static library = library}', ''
+        ].join('\n'));
+        const source           = (await import(pathToFileURL(path.join(workspace, viewportPath)).href)).default,
+              {status, output} = runBuild(workspace);
+        expect(status, output).toBe(0);
+        const emitted = (await import(pathToFileURL(path.join(workspace, 'dist/esm', viewportPath)).href)).default;
+        expect(emitted.library).toBe(source.library);
+        expect(emitted.library.shared.value).toBe(17);
+        expect(emitted.library.moduleUrl).toBe(pathToFileURL(library).href);
+        expect(fs.existsSync(path.join(workspace, 'dist/esm/node_modules/plain'))).toBe(false)
+    });
+
     for (const linked of [false, true]) {
         test(`static package classes share the emitted Engine graph (${linked ? 'linked' : 'installed'})`, async () => {
             workspace = fs.realpathSync(createWorkspace({declareExtraRoot: true}));
