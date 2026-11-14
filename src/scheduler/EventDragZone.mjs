@@ -10,6 +10,8 @@ import EventDragZone from '../timeline/draggable/EventDragZone.mjs';
  * @extends Neo.timeline.draggable.EventDragZone
  */
 class SchedulerEventDragZone extends EventDragZone {
+    #pendingStart = null
+
     static config = {
         /**
          * @member {String} className='Neo.scheduler.EventDragZone'
@@ -21,6 +23,59 @@ class SchedulerEventDragZone extends EventDragZone {
          * @protected
          */
         ntype: 'scheduler-event-dragzone'
+    }
+
+    /** @summary True while this booking's drag-start handshake is outstanding. */
+    get isDragStarting() { return this.#pendingStart !== null }
+
+    /**
+     * @summary Starts a booking gesture and releases its preview if setup fails.
+     * @param {Object} [data={}] Pointer event data.
+     */
+    async dragStart(data={}) {
+        const {resizeEdge} = this;
+        if (this.cancelPendingStart()) this.resizeEdge = resizeEdge;
+        const start = this.#pendingStart = new AbortController();
+        try {
+            await super.dragStart(data, start.signal)
+        } catch (error) {
+            if (start.signal.aborted) return;
+            this.cancelPendingStart();
+            throw error
+        } finally {
+            if (start === this.#pendingStart) this.#pendingStart = null
+        }
+    }
+
+    /**
+     * @summary Cancels setup before a late response can create a preview or change the booking.
+     * @returns {Boolean} Whether a start was pending.
+     * @protected
+     */
+    cancelPendingStart() {
+        if (!this.#pendingStart) return false;
+        this.#pendingStart.abort();
+        this.#pendingStart = null;
+        this.clearDragVisuals();
+        this.resetDragState();
+        this.data = null;
+        return true
+    }
+
+    /** @summary Escape cancels the current press even while the main thread is answering. */
+    onDragCancel(data) {
+        if (!this.cancelPendingStart()) super.onDragCancel(data)
+    }
+
+    /** @summary A release during startup ends the press before an edit exists. */
+    onDragEnd(data) {
+        if (!this.cancelPendingStart()) super.onDragEnd(data)
+    }
+
+    /** @summary Retires the body-mounted preview when its Scheduler is removed. */
+    destroy(...args) {
+        if (!this.cancelPendingStart() && this.dragProxy) this.clearDragVisuals();
+        super.destroy(...args)
     }
 
     /**

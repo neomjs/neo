@@ -535,7 +535,7 @@ class Container extends GridContainer {
      * @returns {Object}
      * @protected
      */
-    getEventDragZoneDefaults() { return {useProxy: false} }
+    getEventDragZoneDefaults() { return {useProxy: true, moveInMainThread: false} }
 
     /**
      * @summary Returns the event store projected by the timeline column.
@@ -1175,7 +1175,7 @@ class Container extends GridContainer {
             key  = data.key,
             axis = me.timeAxis;
 
-        if (key === 'Escape' && me.eventDragZone?.initialSnapshot) {
+        if (key === 'Escape' && (me.eventDragZone?.initialSnapshot || me.eventDragZone?.isDragStarting)) {
             me.eventDragZone.onDragCancel(data);
             return
         }
@@ -1242,7 +1242,7 @@ class Container extends GridContainer {
      * @protected
      */
     onSchedulerKeyDown(data={}) {
-        if (data.key === 'Escape' && this.eventDragZone?.initialSnapshot) {
+        if (data.key === 'Escape' && (this.eventDragZone?.initialSnapshot || this.eventDragZone?.isDragStarting)) {
             this.eventDragZone.onDragCancel(data)
         }
     }

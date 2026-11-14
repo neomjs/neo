@@ -70,7 +70,6 @@ class StudioViewport extends Viewport {
             resourceColumns    : [{dataField: 'name', text: 'Studio', width: 175, locked: 'start'}],
             store              : {model: {fields: [{name: 'id'}, {name: 'name'}]}, data: rooms},
             eventStore         : {},
-            eventDragZoneConfig: {useProxy: true, moveInMainThread: false},
             barRenderer        : (bar, {vdom}) => {
                 const colors = ['violet', 'emerald', 'amber'];
                 vdom.cls.push(`neo-scheduler-bar-${colors[(Number(String(bar.resourceId).split('-').pop()) - 1) % colors.length]}`);

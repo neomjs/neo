@@ -326,8 +326,9 @@ class EventDragZone extends DragZone {
     /**
      * @summary Runs the base `DragZone#dragStart` handshake (`getMainThreadConfigs()`) and captures the initial record snapshot and grab offset.
      * @param {Object} data
+     * @param {AbortSignal} [signal] Discards the snapshot when the press ended during setup.
      */
-    async dragStart(data={}) {
+    async dragStart(data={}, signal) {
         const
             me     = this,
             record = me.eventRecord,
@@ -344,7 +345,8 @@ class EventDragZone extends DragZone {
                 ...data,
                 path      : data.path       || [],
                 targetPath: data.targetPath || []
-            })
+            }, signal);
+            if (signal?.aborted) return
         }
 
         me.initialSnapshot = {
