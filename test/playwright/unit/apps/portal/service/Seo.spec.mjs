@@ -91,14 +91,30 @@ test.describe('Portal.service.Seo (#20688)', () => {
             const SeoService              = Neo.create(SeoSingleton.constructor);
             await SeoService.ready();
 
+            const indexHtml         = await fs.readFile(path.resolve(process.cwd(), 'apps/portal/index.html'), 'utf-8');
+            const expectedHomeTitle = seoJson['/'].title;
+            const expectedHomeDesc  = seoJson['/'].description;
+
+            expect(expectedHomeTitle).toBe('Neo.mjs - An Agent Institution');
+            expect(indexHtml).toContain(`<title>${expectedHomeTitle}</title>`);
+            expect(indexHtml).toContain(`<meta name="description" content="${expectedHomeDesc}">`);
+            expect(expectedHomeDesc).not.toMatch(/\bframework\b/i);
+
             const homeMeta = SeoService.getMetadata('/home');
             expect(homeMeta).toEqual({
-                title      : 'Neo.mjs',
-                description: seoJson['/home'].description,
+                title      : expectedHomeTitle,
+                description: expectedHomeDesc,
                 lastmod    : seoJson['/home'].lastmod,
                 route      : '/home'
             });
-            expect(SeoService.getMetadata('/')).toEqual(homeMeta);
+
+            const rootMeta = SeoService.getMetadata('/');
+            expect(rootMeta).toEqual({
+                title      : expectedHomeTitle,
+                description: expectedHomeDesc,
+                lastmod    : seoJson['/'].lastmod,
+                route      : '/'
+            });
 
             const learnMeta = SeoService.getMetadata('/learn/benefits/Introduction');
             expect(learnMeta).toEqual({
@@ -144,18 +160,21 @@ test.describe('Portal.service.Seo (#20688)', () => {
                 route      : '/examples/grid'
             });
 
+            const expectedExamplesTitle = 'Live JavaScript Examples — Web Worker Grids & Multi-Window UI | Neo.mjs';
+            expect(seoJson['/examples'].title).toBe(expectedExamplesTitle);
+
             const unlistedFamilyMeta = SeoService.getMetadata('/examples/unlisted-family');
             expect(unlistedFamilyMeta).toEqual({
-                title      : 'Neo.mjs Examples',
-                description: 'A collection of examples for the Neo.mjs platform.',
+                title      : seoJson['/examples'].title,
+                description: seoJson['/examples'].description,
                 lastmod    : seoJson['/examples'].lastmod,
                 route      : '/examples'
             });
 
             const legacyBuildMeta = SeoService.getMetadata('/examples/dist_prod');
             expect(legacyBuildMeta).toEqual({
-                title      : 'Neo.mjs Examples',
-                description: 'A collection of examples for the Neo.mjs platform.',
+                title      : seoJson['/examples'].title,
+                description: seoJson['/examples'].description,
                 lastmod    : seoJson['/examples'].lastmod,
                 route      : '/examples'
             });
@@ -176,19 +195,19 @@ test.describe('Portal.service.Seo (#20688)', () => {
                     value: {
                         '@context' : 'https://schema.org',
                         '@type'    : 'WebPage',
-                        headline   : 'Neo.mjs',
-                        name       : 'Neo.mjs',
+                        headline   : expectedHomeTitle,
+                        name       : expectedHomeTitle,
                         description: homeMeta.description,
                         url        : 'https://neomjs.com/',
                         isPartOf   : {'@id': 'https://neomjs.com/#website'}
                     }
                 },
                 tags: [
-                    {tag: 'meta', property: 'og:title',       content: 'Neo.mjs'},
+                    {tag: 'meta', property: 'og:title',       content: expectedHomeTitle},
                     {tag: 'meta', property: 'og:description', content: homeMeta.description},
                     {tag: 'meta', property: 'og:url',         content: 'https://neomjs.com/'}
                 ],
-                title   : 'Neo.mjs',
+                title   : expectedHomeTitle,
                 windowId: 'neo-window-1'
             });
 
@@ -260,15 +279,75 @@ test.describe('Portal.service.Seo (#20688)', () => {
             await expect.poll(() => updates.length).toBe(4);
 
             expect(updates[3].canonicalUrl).toBe('https://neomjs.com/examples');
-            expect(updates[3].title).toBe('Neo.mjs Examples');
+            expect(updates[3].title).toBe(seoJson['/examples'].title);
             expect(updates[3].tags).toContainEqual({
                 tag     : 'meta',
                 property: 'og:url',
                 content : 'https://neomjs.com/examples'
             });
+
+            // 5. Root '/' route resolves exact seo.json['/'] metadata and https://neomjs.com/ canonical URL
+            SeoService.onRouteChanged({
+                hashString: '/',
+                windowId  : 'neo-window-1'
+            });
+
+            await expect.poll(() => updates.length).toBe(5);
+
+            expect(updates[4]).toEqual({
+                canonicalUrl: 'https://neomjs.com/',
+                description : expectedHomeDesc,
+                ldJson      : {
+                    name : 'neo-route',
+                    value: {
+                        '@context' : 'https://schema.org',
+                        '@type'    : 'WebPage',
+                        headline   : expectedHomeTitle,
+                        name       : expectedHomeTitle,
+                        description: expectedHomeDesc,
+                        url        : 'https://neomjs.com/',
+                        isPartOf   : {'@id': 'https://neomjs.com/#website'}
+                    }
+                },
+                tags: [
+                    {tag: 'meta', property: 'og:title',       content: expectedHomeTitle},
+                    {tag: 'meta', property: 'og:description', content: expectedHomeDesc},
+                    {tag: 'meta', property: 'og:url',         content: 'https://neomjs.com/'}
+                ],
+                title   : expectedHomeTitle,
+                windowId: 'neo-window-1'
+            });
         } finally {
             globalThis.fetch  = originalFetch;
             Neo.currentWorker = originalCurrentWorker
+        }
+    });
+
+    test('falls back to /home metadata when legacy seo.json fixture omits / (#20917)', async () => {
+        const originalFetch = globalThis.fetch;
+
+        globalThis.fetch = async () => ({
+            ok  : true,
+            json: async () => ({
+                '/home': {
+                    title      : 'Legacy Home Title',
+                    description: 'Legacy home description.'
+                }
+            })
+        });
+
+        try {
+            const {default: SeoSingleton} = await import('../../../../../../apps/portal/service/Seo.mjs');
+            const SeoService              = Neo.create(SeoSingleton.constructor);
+            await SeoService.ready();
+
+            expect(SeoService.getMetadata('/')).toEqual({
+                title      : 'Legacy Home Title',
+                description: 'Legacy home description.',
+                route      : '/home'
+            });
+        } finally {
+            globalThis.fetch = originalFetch
         }
     });
 });

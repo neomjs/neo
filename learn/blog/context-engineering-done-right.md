@@ -1,3 +1,7 @@
+---
+seoTitle: "GitHub Workflow MCP, Memory Core & Knowledge Base for AI Agents | Neo.mjs"
+seoDescription: "How local-first GitHub Workflow MCP, Memory Core, and Knowledge Base vector RAG enabled AI coding agents to ship 388 Neo.mjs tickets in 6 weeks."
+---
 # 388 Tickets in 6 Weeks: Context Engineering Done Right
 
 *From fragile shell scripts to an AI-native, multi-MCP-server JavaScript architecture powered by the official MCP SDK.*

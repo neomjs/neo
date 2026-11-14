@@ -53,6 +53,7 @@ class ViewportController extends Controller {
          * @member {Object} routes
          */
         routes: {
+            '/'                 : 'onHomeRoute',
             '/about-us'         : 'onAboutUsRoute',
             '/docs'             : 'onDocsRoute',
             '/examples'         : 'onExamplesRoute',

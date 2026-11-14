@@ -1,3 +1,7 @@
+---
+seoTitle: "AI Coding Agent Skills, Memory Core & Cross-Model PR Review | Neo.mjs"
+seoDescription: "How Neo.mjs turns recurring agent failure modes into lazy-loaded Progressive Disclosure skills for ticket intake, Memory Core mining, and cross-model review."
+---
 # Core Agent Skills
 
 Most agent products try to make a model reliable by adding a longer prompt.

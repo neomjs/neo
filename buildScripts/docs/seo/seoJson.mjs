@@ -21,11 +21,11 @@ const FRONTMATTER_BLOCK_PATTERN = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
 const ISO_DATE_ONLY_PATTERN     = /^\d{4}-\d{2}-\d{2}$/;
 
 const TOP_LEVEL_SOURCE_PATHS = {
-    '/'             : 'apps/portal/view/home/MainContainer.mjs',
+    '/'             : ['apps/portal/index.html', 'apps/portal/view/home/MainContainer.mjs'],
     '/about-us'     : 'apps/portal/view/about/Container.mjs',
     '/docs'         : 'apps/portal/view/ViewportController.mjs',
     '/examples'     : 'apps/portal/resources/data/examples.json',
-    '/home'         : 'apps/portal/view/home/MainContainer.mjs',
+    '/home'         : ['apps/portal/index.html', 'apps/portal/view/home/MainContainer.mjs'],
     '/learn'        : 'learn/tree.json',
     '/news'         : 'apps/portal/view/news/TabContainer.mjs',
     '/news/blog'    : 'apps/portal/resources/data/blog.json',
@@ -116,6 +116,79 @@ export function extractFrontmatterDateOnly(rawContent='', fields=['publishedAt',
     }
 
     return null;
+}
+
+/**
+ * @summary Extracts a single-line scalar YAML frontmatter field (`seoTitle`, `seoDescription`, etc.),
+ * unwrapping single- or double-quoted strings and unescaping embedded quotes.
+ * @param {String} [rawContent='']
+ * @param {String} [field='']
+ * @returns {String|null}
+ */
+export function extractFrontmatterField(rawContent='', field='') {
+    const frontmatter = FRONTMATTER_BLOCK_PATTERN.exec(String(rawContent))?.[1];
+
+    if (!frontmatter || !field) {
+        return null;
+    }
+
+    const escapedField = String(field).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const match        = new RegExp(`^${escapedField}:\\s*(.+?)\\s*$`, 'm').exec(frontmatter);
+
+    if (!match) {
+        return null;
+    }
+
+    let value = match[1].trim();
+
+    if (!value) {
+        return null;
+    }
+
+    if (value.startsWith('"') && value.endsWith('"') && value.length >= 2) {
+        value = value.slice(1, -1).replace(/\\(["\\])/g, '$1').trim();
+    } else if (value.startsWith("'") && value.endsWith("'") && value.length >= 2) {
+        value = value.slice(1, -1).replace(/''/g, "'").replace(/\\'/g, "'").trim();
+    }
+
+    return value || null;
+}
+
+/**
+ * @summary Extracts `<title>` and `<meta name="description">` metadata from `apps/portal/index.html`
+ * so `seo.json['/']` and `seo.json['/home']` derive directly from the canonical Portal HTML shell at build time.
+ * @param {String} [htmlContent='']
+ * @returns {{title: String, description: String}|null}
+ */
+export function extractPortalIndexMetadata(htmlContent='') {
+    const html     = String(htmlContent);
+    const rawTitle = /<title\b[^>]*>([\s\S]*?)<\/title>/i.exec(html)?.[1];
+    const title    = rawTitle ? rawTitle.replace(/\s+/g, ' ').trim() : '';
+
+    if (!title) {
+        return null;
+    }
+
+    let description = '';
+
+    for (const [metaTag] of html.matchAll(/<meta\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi)) {
+        if (/\bname\s*=\s*(["'])\s*description\s*\1/i.test(metaTag)) {
+            const rawDescription = /\bcontent\s*=\s*(["'])([\s\S]*?)\1/i.exec(metaTag)?.[2];
+
+            if (rawDescription) {
+                description = rawDescription.replace(/\s+/g, ' ').trim();
+                if (description) {
+                    break;
+                }
+            }
+        }
+    }
+
+    if (!description) {
+        return null;
+    }
+
+    return {title, description};
 }
 
 /**
@@ -595,7 +668,8 @@ export function formatLearnSeoTitle(baseTitle='', route='', suffix=' - Neo.mjs',
 }
 
 /**
- * @summary Extracts a route-specific `title` and `description` from a Markdown document.
+ * @summary Extracts a route-specific `title` and `description` from a Markdown document, honoring explicit
+ * YAML frontmatter `seoTitle` and `seoDescription` overrides before falling back to `<h1>` and body prose.
  * @param {String} rawContent
  * @param {Object} [options={}]
  * @param {String} [options.basePath=DEFAULT_BASE_PATH]
@@ -614,14 +688,33 @@ export function extractMarkdownSeoMetadata(rawContent='', options={}) {
         suffix              = ' - Neo.mjs'
     } = options;
 
+    const rawSeoTitle       = extractFrontmatterField(rawContent, 'seoTitle');
+    const cleanSeoTitle     = rawSeoTitle ? stripInlineMarkdown(rawSeoTitle) : '';
+    const rawSeoDescription = extractFrontmatterField(rawContent, 'seoDescription');
+    const cleanSeoDesc      = rawSeoDescription ? stripInlineMarkdown(rawSeoDescription) : '';
+
     const withoutFrontmatter = String(rawContent).replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '');
     const withoutCodeBlocks  = withoutFrontmatter.replace(/```[\s\S]*?```/g, '');
     const withoutComments    = replaceUntilStable(withoutCodeBlocks, /<!--[\s\S]*?-->/g, '');
     const withoutBlocks      = replaceUntilStable(withoutComments, /<details[\s\S]*?<\/details>/gi, '');
 
-    const h1Match   = withoutBlocks.match(/^#\s+(.+)$/m);
-    const baseTitle = stripInlineMarkdown(h1Match ? h1Match[1] : fallbackTitle) || fallbackTitle;
-    const title     = formatLearnSeoTitle(baseTitle, route, suffix, basePath);
+    let title;
+
+    if (cleanSeoTitle) {
+        title = /neo\.mjs/i.test(cleanSeoTitle) ? cleanSeoTitle : `${cleanSeoTitle}${suffix}`;
+    } else {
+        const h1Match   = withoutBlocks.match(/^#\s+(.+)$/m);
+        const baseTitle = stripInlineMarkdown(h1Match ? h1Match[1] : fallbackTitle) || fallbackTitle;
+
+        title = formatLearnSeoTitle(baseTitle, route, suffix, basePath);
+    }
+
+    if (cleanSeoDesc) {
+        return {
+            title,
+            description: truncateDescription(cleanSeoDesc, 160)
+        };
+    }
 
     const withoutHeadings = withoutBlocks.replace(/^#+\s+.*$/gm, '');
     const blocks          = withoutHeadings
@@ -1019,45 +1112,52 @@ export async function getSeoJson(options={}) {
         return getExistingRouteLastmod(route) || normalizeIsoDateOnly(fallbackDate);
     }
 
+    const portalIndexPath = path.resolve(root, 'apps/portal/index.html');
+    const portalIndexMeta = (await fs.pathExists(portalIndexPath))
+        ? extractPortalIndexMetadata(await fs.readFile(portalIndexPath, 'utf-8'))
+        : null;
+
     if (await fs.pathExists(seoJsonPath)) {
         existingSeo = (await fs.readJSON(seoJsonPath)) || {};
+    }
 
-        const homeTemplate = existingSeo['/'] || existingSeo['/home'];
+    const homeTemplate = existingSeo['/'] || existingSeo['/home'];
+    const homeSource   = portalIndexMeta || homeTemplate;
 
-        if (homeTemplate) {
-            seo['/'] = {
-                title      : homeTemplate.title,
-                description: homeTemplate.description,
-                ...(homeTemplate.schemaType && {schemaType: homeTemplate.schemaType}),
-                ...(homeTemplate.robots && {robots: homeTemplate.robots})
-            };
+    if (homeSource) {
+        seo['/'] = {
+            title      : homeSource.title,
+            description: homeSource.description,
+            ...(homeTemplate?.schemaType && {schemaType: homeTemplate.schemaType}),
+            ...(homeTemplate?.robots && {robots: homeTemplate.robots})
+        };
+    }
+
+    for (const [route, meta] of Object.entries(existingSeo)) {
+        if (
+            route !== '/' &&
+            route !== '/home' &&
+            !route.startsWith(`${cleanBase}/`) &&
+            !route.startsWith('/examples/') &&
+            !route.startsWith('/news/blog/') &&
+            !route.startsWith('/news/releases/')
+        ) {
+            const {lastmod: _ignoredLastmod, ...preservedMeta} = meta || {};
+            seo[route] = {...preservedMeta};
         }
+    }
 
-        for (const [route, meta] of Object.entries(existingSeo)) {
-            if (
-                route !== '/' &&
-                route !== '/home' &&
-                !route.startsWith(`${cleanBase}/`) &&
-                !route.startsWith('/examples/') &&
-                !route.startsWith('/news/blog/') &&
-                !route.startsWith('/news/releases/')
-            ) {
-                const {lastmod: _ignoredLastmod, ...preservedMeta} = meta || {};
-                seo[route] = {...preservedMeta};
-            }
-        }
+    if (seo['/']) {
+        seo['/home'] = {...seo['/']};
+    }
 
-        if (seo['/']) {
-            seo['/home'] = {...seo['/']};
-        }
-
+    if (Object.keys(seo).length > 0) {
         const viewportControllerPath = path.resolve(root, 'apps/portal/view/ViewportController.mjs');
 
         for (const route of Object.keys(seo)) {
             const mappedRelPath  = TOP_LEVEL_SOURCE_PATHS[route];
-            const candidatePaths = mappedRelPath
-                ? [path.resolve(root, mappedRelPath), viewportControllerPath]
-                : [viewportControllerPath];
+            const relPaths       = Array.isArray(mappedRelPath) ? mappedRelPath : (mappedRelPath ? [mappedRelPath] : []);
+            const candidatePaths = [...relPaths.map(relPath => path.resolve(root, relPath)), viewportControllerPath];
             const lastmod        = resolveRouteLastmod(route, candidatePaths);
 
             if (lastmod) {

@@ -81,12 +81,12 @@ class FeatureSection extends Container {
                 cls      : 'neo-h1',
                 flex     : 'none',
                 reference: 'headline',
-                tag      : 'h1'
+                tag      : 'h2'
             }, {
                 cls      : 'neo-h2',
                 flex     : 'none',
                 reference: 'sub-headline',
-                tag      : 'h2'
+                tag      : 'h3'
             }, {
                 flex     : 'none',
                 reference: 'paragraph',

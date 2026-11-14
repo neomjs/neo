@@ -1,3 +1,7 @@
+---
+seoTitle: "SharedWorker Multi-Window JavaScript Apps & JSON UI Blueprints | Neo.mjs"
+seoDescription: "How JSON UI blueprints, zero-build ES modules, and SharedWorker multi-window architecture power live generative AI interfaces in Neo.mjs."
+---
 # How JSON Blueprints & Shared Workers Power Next-Gen AI Interfaces
 
 **Unlocking Multi-Window Generative AI with the Innovative Architecture of Neo.mjs**

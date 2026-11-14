@@ -33,6 +33,15 @@ const
  * @extends Neo.component.Base
  */
 class Markdown extends Component {
+    /**
+     * YAML frontmatter keys consumed exclusively by the build-time SEO/head pipeline (`seoJson.mjs`,
+     * `Portal.service.Seo`) rather than rendered as visible metadata rows inside the document body.
+     * @member {Set<String>} headOnlyFrontMatterKeys=new Set(['robots','seoDescription','seoTitle'])
+     * @protected
+     * @static
+     */
+    static headOnlyFrontMatterKeys = new Set(['robots', 'seoDescription', 'seoTitle'])
+
     static config = {
         /**
          * @member {String} className='Neo.component.Markdown'
@@ -224,14 +233,26 @@ class Markdown extends Component {
     }
 
     /**
+     * @summary Converts parsed YAML frontmatter entries into a metadata HTML table, excluding head-only SEO keys.
+     *
+     * Filters out keys listed in `headOnlyFrontMatterKeys` (`seoTitle`, `seoDescription`, `robots`) so documents
+     * carrying build-time `<head>` metadata do not leak SEO fields or render an empty `<details>` widget in the
+     * visible Markdown body. Returns `''` when no displayable entries remain.
      * @param {Object} data
      * @returns {String}
      */
     frontMatterToHtml(data) {
-        let me   = this,
-            html = '<table class="neo-frontmatter-table"><tbody>';
+        let me       = this,
+            headOnly = me.constructor.headOnlyFrontMatterKeys,
+            entries  = Object.entries(data || {}).filter(([key]) => !headOnly.has(key));
 
-        Object.entries(data).forEach(([key, value]) => {
+        if (!entries.length) {
+            return ''
+        }
+
+        let html = '<table class="neo-frontmatter-table"><tbody>';
+
+        entries.forEach(([key, value]) => {
             html += `<tr><td>${key}</td><td>${me.formatFrontMatterValue(value)}</td></tr>`
         });
 
@@ -298,7 +319,8 @@ class Markdown extends Component {
                 }
 
                 try {
-                    return me.frontMatterToHtml(me.parseFrontMatter(frontmatter)) + '\n'
+                    let html = me.frontMatterToHtml(me.parseFrontMatter(frontmatter));
+                    return html ? html + '\n' : ''
                 } catch (e) {
                     console.error('Error parsing FrontMatter', e);
                     return match

@@ -8,16 +8,17 @@ import {requireContentRoot} from '../../util/contentRoot.mjs';
 import {sanitizeInput}      from '../../util/sanitizer.mjs';
 import {
     chunkArray, collectExampleFamilyRoutes, collectExampleRoutes, extractExampleFamilyDefinitions,
-    extractFrontmatterDateOnly, extractMarkdownSeoMetadata, formatLastmodDate, formatLearnSeoTitle,
-    getChangedGitPaths, getChangedLastmod, getGitLastModifiedBatch, getGitPath, getMaxReleaseMajor,
-    getPublishedExampleFamilies, getSeoJson, hasReliableGitHistory, isIndexableReleaseVersion,
-    isRedirectMarkdown, normalizeIsoDateOnly, resolveLearnTreeLeaves
+    extractFrontmatterDateOnly, extractFrontmatterField, extractMarkdownSeoMetadata, extractPortalIndexMetadata,
+    formatLastmodDate, formatLearnSeoTitle, getChangedGitPaths, getChangedLastmod, getGitLastModifiedBatch,
+    getGitPath, getMaxReleaseMajor, getPublishedExampleFamilies, getSeoJson, hasReliableGitHistory,
+    isIndexableReleaseVersion, isRedirectMarkdown, normalizeIsoDateOnly, resolveLearnTreeLeaves
 } from './seoJson.mjs';
 
 export {
-    collectExampleFamilyRoutes, collectExampleRoutes, extractExampleFamilyDefinitions, extractMarkdownSeoMetadata,
-    formatLearnSeoTitle, getMaxReleaseMajor, getPublishedExampleFamilies, getSeoJson, hasReliableGitHistory,
-    isIndexableReleaseVersion, isRedirectMarkdown, resolveLearnTreeLeaves
+    collectExampleFamilyRoutes, collectExampleRoutes, extractExampleFamilyDefinitions, extractFrontmatterField,
+    extractMarkdownSeoMetadata, extractPortalIndexMetadata, formatLearnSeoTitle, getMaxReleaseMajor,
+    getPublishedExampleFamilies, getSeoJson, hasReliableGitHistory, isIndexableReleaseVersion, isRedirectMarkdown,
+    resolveLearnTreeLeaves
 };
 
 /**
@@ -1275,6 +1276,7 @@ export default {
     collectExampleRoutes,
     extractExampleFamilyDefinitions,
     extractMarkdownSeoMetadata,
+    extractPortalIndexMetadata,
     formatLearnSeoTitle,
     getContentRouteObjects,
     getContentRoutes,

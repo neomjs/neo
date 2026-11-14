@@ -1,3 +1,7 @@
+---
+seoTitle: "Live Browser DOM & Runtime Inspection MCP Server (Neural Link) | Neo.mjs"
+seoDescription: "Inspect and mutate live Web Worker component trees, stores, state providers, and browser DOM geometry from AI agents via the Neural Link MCP server."
+---
 # Neural Link: The Possession Interface
 
 Most AI coding work still happens outside the running application. The model
