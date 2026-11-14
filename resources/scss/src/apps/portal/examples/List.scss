@@ -1,6 +1,6 @@
 .portal-examples-list.neo-list {
     padding   : 10px 10px 0;
-    transition: padding var(--portal-transition-duration) ease-out;
+    transition: padding var(--portal-transition-duration) var(--ease-out-soft);
 
     .neo-list-item {
         border-radius: 20px;
@@ -79,7 +79,7 @@
         font-weight    : 600;
         line-height    : 1.15;
         text-decoration: none;
-        transition     : color var(--portal-transition-duration) ease-out;
+        transition     : color var(--motion-fast) var(--ease-out-soft);
         width          : fit-content;
     }
 
@@ -88,7 +88,7 @@
         font-size      : 28px;
         height         : 28px;
         text-decoration: none;
-        transition     : color var(--portal-transition-duration) ease-out;
+        transition     : color var(--motion-fast) var(--ease-out-soft);
         width          : 28px;
     }
 
