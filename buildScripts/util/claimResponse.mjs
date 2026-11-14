@@ -164,9 +164,15 @@ function follows(later, earlier) {
         (later.created_at === earlier.created_at && later.id > earlier.id)
 }
 
+/** @summary Only this workflow's bot can issue a claim receipt or own a refusal to update. */
+function isClaimReply(reply, login) {
+    return reply.user?.type === 'Bot' && reply.user.login === 'github-actions[bot]' &&
+        reply.body?.includes(replyMarker(login))
+}
+
 /** @summary Recognises a bot refusal, including replies written before refusals had a separate marker. */
 function refusedClaim(reply, login) {
-    if (reply.user?.type !== 'Bot' || !reply.body?.includes(replyMarker(login))) return false;
+    if (!isClaimReply(reply, login)) return false;
 
     const opening = `thanks, @${login}! `;
     const body    = reply.body.toLowerCase();
@@ -470,7 +476,8 @@ export function renderReply({assigned = false, claimant, claimLimit, commentId, 
  * @param {Number[]} [options.heldByClaimant=[]] Open curated issue numbers already assigned to `claimant`
  * @param {Number} [options.claimLimit] One by default, or two when the workflow verifies returning standing.
  * @param {String} options.repoUrl
- * @returns {{assign: Boolean, assignedBody?: String, body: String, unassign?: String[]}|null}
+ * @returns {{assign: Boolean, assignedBody?: String, body: String, unassign?: String[], updateCommentId?: Number}|null}
+ * A still-blocked retry updates the workflow's existing refusal and the comment ID it covers.
  */
 export function decideClaim({comment, issue, comments = [], events = [], openPullRequests = [], candidates = [], heldByClaimant = [], claimLimit, repoUrl}) {
     const
@@ -487,10 +494,10 @@ export function decideClaim({comment, issue, comments = [], events = [], openPul
         return null
     }
 
-    // Only a bot-authored marker counts: anyone can paste the text, and a pasted one must not silence a reply.
-    const reply = comments.findLast(other => other.user?.type === 'Bot' && other.body?.includes(replyMarker(self)));
-    if (reply && (!refusedClaim(reply, self) || !follows(comment, reply))) {
-        return null
+    const reply = comments.findLast(other => isClaimReply(other, self));
+    if (reply) {
+        const covered = reply.body.match(REFUSED_COMMENT);
+        if (!refusedClaim(reply, self) || (covered ? comment.id <= Number(covered[1]) : !follows(comment, reply))) return null
     }
 
     const
@@ -498,25 +505,12 @@ export function decideClaim({comment, issue, comments = [], events = [], openPul
         held       = holders({claimant, comment, comments, events, issue, openPullRequests, repository}),
         otherHeld  = [...new Set(heldByClaimant)].filter(number => number !== issue.number).sort((a, b) => a - b);
 
-    if (held.length > 0) {
-        return {
-            assign: false,
-            body  : renderReply({
-                alternatives: pickAlternatives({candidates, exclude: issue.number, seed: claimant}),
-                claimant,
-                commentId   : comment.id,
-                holders     : held,
-                label,
-                repoUrl
-            })
-        }
-    }
-
-    if (otherHeld.length >= (claimLimit === 2 ? 2 : 1)) {
-        return {
-            assign: false,
-            body  : renderReply({claimant, claimLimit, commentId: comment.id, heldByClaimant: otherHeld, label, repoUrl})
-        }
+    if (held.length || otherHeld.length >= (claimLimit === 2 ? 2 : 1)) {
+        const body = renderReply({
+            claimant, claimLimit, commentId: comment.id, heldByClaimant: otherHeld, holders: held, label, repoUrl,
+            alternatives: held.length ? pickAlternatives({candidates, exclude: issue.number, seed: claimant}) : []
+        });
+        return reply ? {assign: false, body, updateCommentId: reply.id} : {assign: false, body}
     }
 
     return {
@@ -534,5 +528,7 @@ export function decideClaim({comment, issue, comments = [], events = [], openPul
  * @returns {String|null}
  */
 export function decideReply(options) {
+    // Reply-only consumers cannot record a retry by editing the earlier refusal.
+    if (options.comments?.some(reply => isClaimReply(reply, options.comment?.user?.login))) return null;
     return decideClaim(options)?.body || null
 }

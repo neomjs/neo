@@ -140,6 +140,12 @@ jobs:
               return
             }
 
+            // Keep one refusal per claimant and issue. If the edit fails, a rerun can retry the same update.
+            if (decision.updateCommentId !== undefined) {
+              await github.rest.issues.updateComment({owner, repo, comment_id: decision.updateCommentId, body: decision.body});
+              return
+            }
+
             let body = decision.body;
 
             if (decision.assign) {

@@ -417,11 +417,21 @@ test.describe('buildScripts/util/claimResponse', () => {
 
             const firstReply = comment('github-actions[bot]', '2026-11-14T12:00:02Z', denied.body, {type: 'Bot'});
             expect(make(ask, [firstReply])).toBeNull(); // a replay after the blocking issue closed
-            expect(make(again, [firstReply], {heldByClaimant: [20957]}).assign).toBe(false);
+            const stillBlocked = make(again, [firstReply], {heldByClaimant: [20957]});
+            expect(stillBlocked).toMatchObject({assign: false, updateCommentId: firstReply.id});
+            expect(make(again, [{...firstReply, body: stillBlocked.body}])).toBeNull(); // edited refusal covers this event
             expect(make(again, [firstReply], {issue: gfiIssue({assignees: [{login: 'Other'}]})}).assign).toBe(false);
             expect(make(again, [firstReply], {openPullRequests: [{number: 23, author: 'Other', repository: 'neomjs/neo'}]}).assign).toBe(false);
             expect(make(again, [firstReply]).assign).toBe(true);
             expect(make({...again, body: 'Thanks for the update!'}, [firstReply])).toBeNull();
+            for (const foreign of [
+                {...firstReply, user: {type: 'Bot', login: 'another-app[bot]'}},
+                {...firstReply, user: {type: 'User', login: 'other'}},
+                {...firstReply, body: firstReply.body.replace(replyMarker(ask.user.login), replyMarker('other'))}
+            ]) {
+                expect(make(again, [foreign], {heldByClaimant: [20957]}).updateCommentId).toBeUndefined()
+            }
+            expect(decideReply({comment: again, comments: [ask, firstReply, again], issue, repoUrl: REPO_URL})).toBeNull();
 
             const accepted = comment('github-actions[bot]', '2026-11-14T13:01:03Z', make(again, [firstReply]).assignedBody, {type: 'Bot'});
             expect(make(again, [firstReply, accepted])).toBeNull();
@@ -456,6 +466,9 @@ test.describe('buildScripts/util/claimResponse', () => {
 
             expect(decide(next, [first, next, refused]).assign).toBe(true);
             expect(decide(first, [first, next, refused])).toBeNull();
+
+            const queuedRetry = {...next, user: first.user};
+            expect(decide(queuedRetry, [first, queuedRetry, refused]).assign).toBe(true);
 
             const withdraw = comment('first', at, 'Please unassign me.');
             const claimant = comment('third', at, '/claim');
@@ -741,5 +754,117 @@ test.describe('buildScripts/util/claimResponse', () => {
                 }
             }
         });
+
+        test('workflow edits the matching refusal on retry, keeps it non-reserving, and assigns after capacity clears', async () => {
+            const raw      = fs.readFileSync(path.resolve(process.cwd(), '.github/workflows/claim-responder.yml'), 'utf8'),
+                  script   = raw.split('script: |\n')[1].split('\n').map(line => line.slice(12)).join('\n'),
+                  run      = new (Object.getPrototypeOf(async function () {}).constructor)('github', 'context', 'core', script),
+                  first    = comment('alice', '2026-11-15T10:00:00Z', '/claim'),
+                  retry    = comment('alice', '2026-11-15T10:01:00Z', '/claim'),
+                  other    = comment('bob', '2026-11-15T10:02:00Z', '/claim'),
+                  later    = comment('alice', '2026-11-15T10:03:00Z', '/claim'),
+                  issue    = gfiIssue({number: 19143, state: 'open'}),
+                  comments = [], events = [], created = [], updated = [], assigned = [], warnings = [];
+            let   current = first, aliceAtCapacity = true, failUpdate = false;
+            const github  = {
+                graphql : async () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: []}}}}),
+                paginate: async (fn, args) => {
+                    if (fn === github.rest.issues.listComments) return comments;
+                    if (fn === github.rest.issues.listEvents) return events;
+                    if (fn === github.rest.issues.listForRepo) return args.assignee === 'alice' && aliceAtCapacity
+                        ? [{number: 20717, labels: [{name: 'good first issue'}]}] : [];
+                    throw new Error('unexpected pagination')
+                },
+                rest: {
+                    issues: {
+                        get            : async () => ({data: issue}),
+                        listComments   : Symbol('comments'), listEvents: Symbol('events'), listForRepo: Symbol('assigned'),
+                        addAssignees   : async args => { assigned.push(args); issue.assignees = args.assignees.map(login => ({login})); return {data: issue} },
+                        removeAssignees: async () => ({data:{}}),
+                        createComment  : async args => {
+                            created.push(args);
+                            comments.push(comment('github-actions[bot]', current.created_at, args.body, {type:'Bot'}));
+                            return {data: {}}
+                        },
+                        updateComment: async args => {
+                            updated.push(args);
+                            if (failUpdate) throw new Error('update refused');
+                            const target = comments.find(row => row.id === args.comment_id);
+                            if (!target) throw new Error('missing target');
+                            target.body = args.body;
+                            return {data: target}
+                        }
+                    },
+                    search: {issuesAndPullRequests: async ({q}) => q.startsWith('org:')
+                        ? {data:{total_count:0,incomplete_results:false}} : {data:{items:[]}}}
+                }
+            },
+            core = {info: () => {}, warning: message => warnings.push(message)},
+            previous = process.env.GITHUB_WORKSPACE,
+            invoke = async claim => {
+                current = claim;
+                if (!comments.some(row => row.id === claim.id)) comments.push(claim);
+                await run(github, {payload:{comment:claim,issue:{number:issue.number}},repo:{owner:'neomjs',repo:'neo'}}, core)
+            };
+
+            process.env.GITHUB_WORKSPACE = process.cwd();
+            try {
+                await invoke(first);
+                expect(created).toHaveLength(1);
+                expect(assigned).toHaveLength(0);
+                const refusal = comments.find(row => row.user.login === 'github-actions[bot]');
+                expect(refusal.body).toContain('You already hold #20717');
+
+                failUpdate = true;
+                const prior = refusal.body;
+                await expect(invoke(retry)).rejects.toThrow('update refused');
+                expect(created).toHaveLength(1);
+                expect(updated).toHaveLength(1);
+                expect(refusal.body).toBe(prior);
+                expect(warnings).toEqual([]);
+                failUpdate = false;
+                warnings.length = 0;
+                await invoke(retry);
+                expect(created).toHaveLength(1);
+                expect(updated).toHaveLength(2);
+                expect(updated[1].comment_id).toBe(refusal.id);
+                const edited = refusal.body;
+
+                await invoke(retry);
+                expect([created.length, updated.length, assigned.length]).toEqual([1, 2, 0]);
+                expect(refusal.body).toBe(edited);
+
+                await invoke(other);
+                expect(assigned.map(call => call.assignees)).toEqual([['bob']]);
+                expect(created).toHaveLength(2);
+                issue.assignees = [];
+                events.push({event:'unassigned',assignee:{login:'bob'},created_at:'2026-11-15T10:02:30Z'});
+                aliceAtCapacity = false;
+                await invoke(later);
+                expect(assigned.map(call => call.assignees)).toEqual([['bob'], ['alice']]);
+                expect(created).toHaveLength(3);
+                expect(warnings).toEqual([]);
+
+                // GitHub IDs break timestamp ties: create the second claim only after the bot reply,
+                // as a real same-second retry does, rather than preallocating its synthetic ID.
+                comments.length = 0; events.length = 0; created.length = 0; updated.length = 0; assigned.length = 0;
+                issue.assignees = [];
+                aliceAtCapacity = true;
+                const sameFirst = comment('alice', '2026-11-15T11:00:00Z', '/claim');
+                await invoke(sameFirst);
+                const sameRefusal = comments.find(row => row.user.login === 'github-actions[bot]'),
+                      sameRetry   = comment('alice', '2026-11-15T11:00:00Z', '/claim');
+                expect(sameFirst.id).toBeLessThan(sameRefusal.id);
+                expect(sameRefusal.id).toBeLessThan(sameRetry.id);
+                await invoke(sameRetry);
+                await invoke(sameRetry);
+                expect([created.length, updated.length, assigned.length]).toEqual([1, 1, 0]);
+                expect(updated[0].comment_id).toBe(sameRefusal.id)
+            } finally {
+                if (previous === undefined) delete process.env.GITHUB_WORKSPACE;
+                else process.env.GITHUB_WORKSPACE = previous
+            }
+        });
+
     });
 });
