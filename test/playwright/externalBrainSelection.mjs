@@ -78,6 +78,7 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'grid/ScrollPagesNL.spec.mjs',
     'grid/SearchToolbarNL.spec.mjs',
     'grid/SelectionMultiBody.spec.mjs',
+    'grid/StoreUpdateRowsNL.spec.mjs',
     'list/AnimateMembershipNL.spec.mjs',
     'neural-link/CreateComponent.spec.mjs',
     'neural-link/CreateGrid.spec.mjs',

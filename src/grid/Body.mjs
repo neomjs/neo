@@ -643,6 +643,7 @@ class GridBody extends Component {
                 filter: me.onStoreFilter,
                 load: me.onStoreLoad,
                 recordChange: me.onStoreRecordChange,
+                rowsChange: me.onStoreRowsChange,
                 scope: me
             };
 
@@ -1601,15 +1602,22 @@ class GridBody extends Component {
     }
 
     /**
+     * @summary Repaints the row that renders a changed record. A record of a store batch (`isBatch`) leaves its row
+     * to {@link #onStoreRowsChange}, which repaints the batch's rows in one pass.
      * @param {Object}         data
      * @param {Object[]}       data.fields Each field object contains the keys: name, oldValue, value
+     * @param {Boolean}        [data.isBatch]
      * @param {Neo.data.Model} data.model  The model instance of the changed record
      * @param {Object}         data.record
      */
-    onStoreRecordChange({ fields, record }) {
+    onStoreRecordChange({ fields, isBatch, record }) {
         let me         = this,
             fieldNames = fields.map(field => field.name),
             row;
+
+        if (isBatch) {
+            return
+        }
 
         if (fieldNames.includes(me.colspanField)) {
             me.createViewData()
@@ -1624,6 +1632,23 @@ class GridBody extends Component {
             }
 
             me.refreshNativeDragZoneRecords()
+        }
+    }
+
+    /**
+     * @summary Repaints the mounted rows once after a store batch ({@link Neo.data.Store#updateRows}), and keeps the
+     * scroll position, which {@link #onStoreLoad} would reset. The rows keep their record instances, so the pass is
+     * forced; a batch that changed no mounted row repaints nothing.
+     * @param {Object} data
+     * @param {Array}  data.keys The changed rows' keys
+     */
+    onStoreRowsChange({ keys }) {
+        let me      = this,
+            {store} = me,
+            changed = new Set(keys);
+
+        if (me.items.some(row => row.record && changed.has(store.getKey(row.record)))) {
+            me.createViewData(false, true)
         }
     }
 
