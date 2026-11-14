@@ -1,12 +1,12 @@
-import fs                      from 'fs-extra';
-import path                    from 'path';
-import {fileURLToPath}         from 'node:url';
-import * as Terser             from 'terser';
-import {BROWSER_BUNDLES}       from '../util/browserBundles.mjs';
-import {isDistAppAsset}        from '../util/distAppAssets.mjs';
-import {minifyHtml}            from '../util/minifyHtml.mjs';
-import {mainAddonPackageRoots} from '../util/declaredPackageRoots.mjs';
-import {processFileContent}    from '../util/astTemplateProcessor.mjs';
+import fs                                       from 'fs-extra';
+import path                                     from 'path';
+import {fileURLToPath}                          from 'node:url';
+import * as Terser                              from 'terser';
+import {BROWSER_BUNDLES}                        from '../util/browserBundles.mjs';
+import {isDistAppAsset, isExcludedDistResource} from '../util/distAppAssets.mjs';
+import {minifyHtml}                             from '../util/minifyHtml.mjs';
+import {mainAddonPackageRoots}                  from '../util/declaredPackageRoots.mjs';
+import {processFileContent}                     from '../util/astTemplateProcessor.mjs';
 
 import {
     esmOutputRoot,
@@ -58,12 +58,13 @@ async function minifyDirectory(inputDir, outputDir) {
             const inputPath       = path.join(currentPath, dirent.name);
             const normalizedInput = inputPath.replace(/\\/g, '/');
 
-            if (normalizedInput.includes('/docs/output/')) {
-                continue;
-            }
-
             const relativePath = path.relative(inputDir, inputPath);
             const outputPath   = path.join(outputDir, relativePath);
+
+            if (normalizedInput.includes('/docs/output/') || isExcludedDistResource(normalizedInput)) {
+                fs.rmSync(outputPath, {force: true});
+                continue;
+            }
 
             if (dirent.name.endsWith('.mjs') || dirent.name.endsWith('.json') || dirent.name.endsWith('.html')) {
                 const content = fs.readFileSync(inputPath, 'utf8');

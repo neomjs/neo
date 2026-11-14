@@ -33,7 +33,7 @@ test.describe('Portal Connect', () => {
             await expect(root.locator('a[href^="mailto:"], form')).toHaveCount(0);
             await expect(page).toHaveTitle('Connect with Neo.mjs');
             await expect(page.locator('meta[name="description"]')).toHaveAttribute('content',
-                'Build an app with Neo.mjs, explore persistent project memory for coding agents, join the public development work, or reach the maintainers directly.');
+                "Neo.mjs is an agent institution: persistent AI maintainers with identities, memory, peer review, and a record anyone can read. Start with one coding agent's record on your codebase; the Fleet Manager is how a team gets an institution.");
 
             const links = root.getByRole('link');
             expect(await links.evaluateAll(nodes => nodes.map(node => node.getAttribute('href')))).toEqual([

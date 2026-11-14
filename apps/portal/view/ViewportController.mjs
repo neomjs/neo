@@ -9,7 +9,7 @@ import SeoService        from '../service/Seo.mjs';
  * This controller is the central hub for the portal application. It is responsible for:
  * - **Top-Level Routing:** It uses the `routes` config to map the main URL hash changes (e.g., /home, /learn, /blog) to specific methods, which in turn control which main view is active. It's important to note that while this controller handles the top-level navigation, child views can implement their own nested routing logic (see `Portal.view.learn.MainContainerController` for an example).
  * - **Layout Management:** It manages the main content area's layout, including the "mixed" mode which uses a CubeLayout for slick transitions between views.
- * - **SEO:** It coordinates with the `DocumentHead` main thread addon to update the document's title and meta tags on each route change, ensuring the application is SEO-friendly.
+ * - **SEO:** It coordinates with `Portal.service.Seo` and the `DocumentHead` main-thread addon to update each browser window's document title on route changes.
  * - **Multi-Window Coordination:** It handles the disconnection of child windows, such as the live code example previews.
  *
  * @class Portal.view.ViewportController
@@ -227,8 +227,8 @@ class ViewportController extends Controller {
     }
 
     /**
-     * This is the central handler for all route changes. It is now responsible for delegating
-     * the document's head metadata (title and description) updates to the `Portal.service.Seo` service.
+     * @summary Registers the active route navigation with `Portal.service.Seo` before running async layout
+     * transitions so warm leaf controllers and fallback window titles stay ordered per `windowId`.
      * @param {Object} value               The new route object.
      * @param {String} value.hashString    The new hash string.
      * @param {Object} oldValue            The previous route object.
@@ -236,8 +236,11 @@ class ViewportController extends Controller {
      * @returns {Promise<void>}
      */
     async onHashChange(value, oldValue) {
-        await super.onHashChange(value, oldValue);
-        SeoService.onRouteChanged(value)
+        if (value?.windowId === this.windowId) {
+            SeoService.onRouteChanged(value)
+        }
+
+        await super.onHashChange(value, oldValue)
     }
 
     /**

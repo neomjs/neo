@@ -951,9 +951,9 @@ test.describe('Tests scope classifier — the e2e engine tier predicate', () => 
         {file: 'test/playwright/e2e/globalSetup.mjs',                why: 'the first half of the tier\'s own webServer.command'},
         {file: 'buildScripts/webpack/webpack.server.config.mjs',     why: 'the server `server-start` launches for the tier to drive'},
         {file: 'buildScripts/util/developmentThemeAssets.mjs',       why: 'builds the theme assets the run serves'},
-        // Runtime reach, which no import scan sees: the portal's Seo service fetches this on every
-        // route change, and a Docs spec's browser setup executes the docs generator
-        {file: 'apps/portal/resources/data/seo.json',                why: 'fetched by apps/portal/service/Seo.mjs on every portal route'},
+        // Runtime reach, which no import scan sees: the Portal Videos store fetches videos.json on
+        // #/news/videos (VideosNL.spec.mjs), and a Docs spec's browser setup executes the docs generator
+        {file: 'apps/portal/resources/data/videos.json',             why: 'fetched by the Portal Videos store on #/news/videos (VideosNL.spec.mjs)'},
         {file: 'buildScripts/docs/generateDocsJson.mjs',             why: 'executed by a Docs e2e spec\'s browser setup'}
     ];
 
@@ -1005,11 +1005,18 @@ test.describe('Tests scope classifier — the e2e engine tier predicate', () => 
     });
 
     test('paths outside the launch chain do NOT run the tier; a new buildScripts directory does', async () => {
-        // Deny-listed rather than allow-listed: the portal's blog registry, read only on a route no
-        // e2e spec opens, and the `buildScripts/` directories no e2e code imports or executes. Every
-        // other portal data file and a directory that does not exist yet must still admit the tier.
-        for (const file of ['apps/portal/resources/data/blog.json', 'buildScripts/create/class.mjs',
-            'buildScripts/helpers/watchThemes.mjs', 'buildScripts/release/publish.mjs']) {
+        // Deny-listed rather than allow-listed: the portal's blog registry (read only on a route no
+        // e2e spec opens), server/SSG-only SEO JSON tables, and the `buildScripts/`
+        // directories no e2e code imports or executes. Every other portal data file and a directory
+        // that does not exist yet must still admit the tier.
+        for (const file of [
+            'apps/portal/resources/data/blog.json',
+            'apps/portal/resources/data/seo.json',
+            'apps/portal/resources/data/ssg-archive-routes.json',
+            'buildScripts/create/class.mjs',
+            'buildScripts/helpers/watchThemes.mjs',
+            'buildScripts/release/publish.mjs'
+        ]) {
             const runtime = createRuntime({ files: [file] });
 
             await executeScript(scopeScript(), runtime);
@@ -1028,21 +1035,30 @@ test.describe('Tests scope classifier — the e2e engine tier predicate', () => 
         // Each exclusion rests on a reachability fact, and a fact can stop being true without anyone
         // touching the classifier. These reds name the exclusion to revisit when that happens.
         // `blog.json` is read only by the lazily loaded news/blog view, which another news tab never
-        // instantiates (`#/news/videos` holds only the Videos store); the excluded `buildScripts/`
-        // directories are neither imported nor executed, except the exact move CLI entry exercised
-        // by SourceMoveWorkspaceNL. Removing that literal must not hide other references in its file.
+        // instantiates (`#/news/videos` holds only the Videos store); `seo.json` and
+        // `ssg-archive-routes.json` are consumed exclusively by Node SSR/SSG tooling; the
+        // excluded `buildScripts/` directories are neither imported nor executed, except the exact
+        // move CLI entry exercised by SourceMoveWorkspaceNL. Removing that literal must not hide
+        // other references in its file.
         // The e2e side of `test/playwright/`, by the classifier's own support rule: not the unit or
         // component spec trees, except the component harness apps the e2e specs navigate
         const e2eCode = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', 'test/playwright'], {cwd: repoRoot, encoding: 'utf8'})
                   .trim().split('\n')
                   .filter(file => file.endsWith('.mjs') && (file.startsWith('test/playwright/component/apps/') ||
                       (!file.startsWith('test/playwright/unit/') && !file.startsWith('test/playwright/component/')))),
+              portalCode = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', 'apps/portal'], {cwd: repoRoot, encoding: 'utf8'})
+                  .trim().split('\n')
+                  .filter(file => file.endsWith('.mjs')),
               read    = file => fs.readFileSync(path.join(repoRoot, file), 'utf8'),
+              stripComments = source => source.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, ''),
               opensBlog     = e2eCode.filter(file => /#\/news\/blog/.test(read(file))),
+              reachesSeoData = [...portalCode, ...e2eCode].filter(file => /\b(?:seo|ssg-archive-routes)\.json\b/.test(stripComments(read(file)))),
               reachesScript = e2eCode.filter(file => reachesExcludedBuildScript(read(file)));
 
         expect(e2eCode.length, 'the scan found the e2e tree').toBeGreaterThan(100);
+        expect(portalCode.length, 'the scan found the portal app tree').toBeGreaterThan(20);
         expect(opensBlog, 'an e2e spec opens the portal news/blog route: blog.json is reachable, admit it').toEqual([]);
+        expect(reachesSeoData, 'browser Portal or e2e code references seo.json / ssg-archive-routes.json: admit it').toEqual([]);
         expect(reachesScript, 'e2e code reaches an excluded buildScripts directory: admit it').toEqual([]);
     });
 
