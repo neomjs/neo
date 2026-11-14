@@ -72,7 +72,7 @@ class FooterContainer extends Container {
                     text   : 'API Docs'
                 }, {
                     iconCls: 'fas fa-blog',
-                    route  : '/blog',
+                    route  : '/news/blog',
                     text   : 'Blog'
                 }, {
                     iconCls: 'fas fa-graduation-cap',

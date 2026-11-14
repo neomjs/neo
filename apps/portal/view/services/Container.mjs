@@ -67,7 +67,7 @@ class ServicesContainer extends Container {
                 ntype: 'component',
                 cls  : ['portal-connect-intro'],
                 tag  : 'p',
-                text : 'Build with your coding agent, give it lasting project knowledge, and take part in the work behind Neo.'
+                text : 'Build with your coding agent, give it lasting project knowledge, take part in the work behind Neo, and reach its maintainers.'
             }, {
                 ntype: 'container',
                 cls  : ['portal-glass-card'],
@@ -83,7 +83,7 @@ class ServicesContainer extends Container {
                         {tag: 'p', text: 'Start with the open-source Neo.mjs engine. Explore a working example, or create an app and work with its source, conventions and runtime tools alongside your coding agent.'},
                         {tag: 'p', cls: ['portal-connect-links'], cn: [{
                             tag : 'a', href: 'https://github.com/neomjs/create-app',
-                            text: 'Create an app', target: '_blank', rel: 'noopener noreferrer'
+                            text: 'Create an app', target: '_blank', rel: 'noopener'
                         }, {
                             tag: 'a', href: '#/examples', text: 'Explore examples'
                         }]}
@@ -104,7 +104,7 @@ class ServicesContainer extends Container {
                         {tag: 'p', text: 'Keep repository knowledge and past decisions available across sessions. The open-source Agent OS provides Memory Core and a Knowledge Base, with local and cloud deployment paths on your own infrastructure.'},
                         {tag: 'p', cls: ['portal-connect-links'], cn: [{
                             tag : 'a', href: 'https://github.com/neomjs/neo-agent-brain',
-                            text: 'Explore the Agent OS', target: '_blank', rel: 'noopener noreferrer'
+                            text: 'Explore the Agent OS', target: '_blank', rel: 'noopener'
                         }]}
                     ]}
                 }]
@@ -123,10 +123,16 @@ class ServicesContainer extends Container {
                         {tag: 'p', text: 'Bring a question, discuss a design or contribute a change. Neo’s human and AI maintainers work through public issues, discussions and pull requests, so you can follow the reasoning as well as the code.'},
                         {tag: 'p', cls: ['portal-connect-links'], cn: [{
                             tag : 'a', href: 'https://github.com/orgs/neomjs/discussions',
-                            text: 'Join the discussion', target: '_blank', rel: 'noopener noreferrer'
+                            text: 'Join the discussion', target: '_blank', rel: 'noopener'
                         }, {
                             tag : 'a', href: 'https://github.com/neomjs/neo/blob/dev/CONTRIBUTING.md',
-                            text: 'Contribute a change', target: '_blank', rel: 'noopener noreferrer'
+                            text: 'Contribute a change', target: '_blank', rel: 'noopener'
+                        }, {
+                            tag : 'a', href: 'https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA',
+                            text: 'Slack', target: '_blank', rel: 'noopener noreferrer'
+                        }, {
+                            tag : 'a', href: 'https://discord.gg/6p8paPq',
+                            text: 'Discord', target: '_blank', rel: 'noopener noreferrer'
                         }]}
                     ]}
                 }]
@@ -144,8 +150,8 @@ class ServicesContainer extends Container {
                     vdom : {cn: [
                         {tag: 'p', text: 'Evaluating Neo for a product, or building one with a team? Ask in the public discussions, or write to Tobias Uhlig, Neo’s co-founder, when the question is about your own codebase or schedule.'},
                         {tag: 'p', cls: ['portal-connect-links'], cn: [{
-                            tag : 'a', href: 'https://github.com/orgs/neomjs/discussions',
-                            text: 'Ask in the discussions', target: '_blank', rel: 'noopener noreferrer'
+                            tag : 'a', href: 'https://github.com/orgs/neomjs/discussions/new?category=q-a',
+                            text: 'Ask in the discussions', target: '_blank', rel: 'noopener'
                         }, {
                             tag : 'a', href: 'https://www.linkedin.com/in/tobiasuhlig/',
                             text: 'Message Tobias Uhlig on LinkedIn', target: '_blank', rel: 'noopener noreferrer'
