@@ -2,6 +2,22 @@
     flex-shrink: 1 !important;
     min-width  : 0;
 
+    > .sidenav-container {
+        order: 1;
+    }
+
+    > .main-content-splitter {
+        order: 2;
+    }
+
+    > .neo-app-content-page-container {
+        order: 3;
+    }
+
+    > .neo-app-content-sections-container {
+        order: 4;
+    }
+
     .main-content-splitter {
         margin: 0;
     }

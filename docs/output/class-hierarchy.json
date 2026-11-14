@@ -126,6 +126,7 @@
  "Neo.app.content.PageContainer": "Neo.container.Base",
  "Neo.app.content.SectionsContainer": "Neo.container.Base",
  "Neo.app.content.SectionsList": "Neo.list.Base",
+ "Neo.app.content.Splitter": "Neo.component.Splitter",
  "Neo.app.content.TreeList": "Neo.tree.List",
  "Neo.app.header.Canvas": "Neo.app.SharedCanvas",
  "Neo.app.header.Toolbar": "Neo.toolbar.Base",
