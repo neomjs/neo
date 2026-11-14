@@ -1850,15 +1850,14 @@ class Store extends Collection {
             errors = me.writeRows(rows);
 
             // every field the batch wrote, and the calculated ones, which may read them
-            const fields = [...new Set(rows.flatMap(({values}) => Object.keys(values))), ...model.calculatedFieldsMap.keys()]
-                .map(name => ({name}));
+            const fields = [...new Set([...rows.flatMap(({values}) => Object.keys(values)), ...model.calculatedFieldsMap.keys()])];
 
             me.#reapply(
                 rows.some(({item}) => me.shouldReapplyFilters(item)),
-                rows.some(({item}) => me.shouldReapplySorters({fields, model, record: item}))
+                rows.some(({item}) => me.shouldReapplySorters({fields: fields.map(name => ({name})), model, record: item}))
             );
 
-            me.fire('rowsChange', {keys: rows.map(row => row.key)})
+            me.fire('rowsChange', {fields, keys: rows.map(row => row.key)})
         }
 
         return {errors, missing}
@@ -2230,7 +2229,8 @@ class Store extends Collection {
  * and opted-in filters and sorters reapplied. A raw row publishes nothing else; each record of the batch published
  * `recordChange` with `isBatch: true` before it.
  * @event rowsChange
- * @param {Array} keys The changed rows' keys, in batch order
+ * @param {String[]} fields The fields the batch wrote, and the model's calculated fields, which may read them
+ * @param {Array}    keys   The changed rows' keys, in batch order
  */
 
 export default Neo.setupClass(Store);

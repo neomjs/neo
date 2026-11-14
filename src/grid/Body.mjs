@@ -1636,19 +1636,29 @@ class GridBody extends Component {
     }
 
     /**
-     * @summary Repaints the mounted rows once after a store batch ({@link Neo.data.Store#updateRows}), and keeps the
-     * scroll position, which {@link #onStoreLoad} would reset. The rows keep their record instances, so the pass is
-     * forced; a batch that changed no mounted row repaints nothing.
-     * @param {Object} data
-     * @param {Array}  data.keys The changed rows' keys
+     * @summary Repaints the mounted rows a store batch changed ({@link Neo.data.Store#updateRows}) in one update, and
+     * keeps the scroll position, which {@link #onStoreLoad} would reset.
+     * Like {@link #onStoreRecordChange}, each row's VDOM is rebuilt at once, also while an update is in flight:
+     * {@link #createViewData} would defer the whole pass past that flight, after a column such as
+     * `Neo.grid.column.AnimatedChange` has marked the cells it found. A batch that changed no mounted row
+     * repaints nothing.
+     * @param {Object}   data
+     * @param {String[]} data.fields The fields the batch may have changed
+     * @param {Array}    data.keys   The changed rows' keys
      */
-    onStoreRowsChange({ keys }) {
+    onStoreRowsChange({ fields, keys }) {
         let me      = this,
             {store} = me,
-            changed = new Set(keys);
+            changed = new Set(keys),
+            rows    = me.items.filter(row => row.record && changed.has(store.getKey(row.record)));
 
-        if (me.items.some(row => row.record && changed.has(store.getKey(row.record)))) {
+        if (fields.includes(me.colspanField)) {
             me.createViewData(false, true)
+        } else if (rows.length) {
+            rows.forEach(row => row.createVdom(true, false));
+            me.updateDepth = -1;
+            me.update();
+            me.refreshNativeDragZoneRecords()
         }
     }
 

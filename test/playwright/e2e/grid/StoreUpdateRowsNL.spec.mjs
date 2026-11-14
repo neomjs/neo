@@ -43,15 +43,21 @@ test.describe('Grid BigData: a store batch repaints the visible rows in place (#
         await expect.poll(async () => (await visibleRows())[0], {timeout: 10000}).toBeGreaterThan(1000);
 
         const [first] = await visibleRows(),
+              [body]  = await app.queryComponent({className: 'Neo.grid.Body'}, ['id']),
               indexes = [first + 1, first + 2, first + 3],
               keys    = await Promise.all(indexes.map(async index => (await app.callMethod(store.id, 'getAt', [index])).id)),
               before  = await scrollTop();
 
-        const result = await app.callMethod(store.id, 'updateRows', [[
-            ...keys.map((key, i) => ({key, values: {counter: 1000 + i, firstname: `Batched${i}`}})),
-            // rows far off-screen, which stay raw
-            {key: 2, values: {firstname: 'Offscreen'}}, {key: 19999, values: {firstname: 'Offscreen'}}
-        ]]);
+        // The batch lands while a pass of the body is in flight, as a live grid meets it under load: a repaint
+        // deferred past that flight would drop the animated cells' marks
+        const [, result] = await Promise.all([
+            app.callMethod(body.id, 'createViewData', [false, true]),
+            app.callMethod(store.id, 'updateRows', [[
+                ...keys.map((key, i) => ({key, values: {counter: 1000 + i, firstname: `Batched${i}`}})),
+                // rows far off-screen, which stay raw
+                {key: 2, values: {firstname: 'Offscreen'}}, {key: 19999, values: {firstname: 'Offscreen'}}
+            ]])
+        ]);
 
         expect(result.missing, 'every key is a row of the store').toEqual([]);
 
