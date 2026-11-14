@@ -2,20 +2,28 @@ import fs   from 'node:fs';
 import path from 'node:path';
 
 /**
- * Static sibling assets a built app page must carry next to its generated `index.html`.
+ * Static sibling assets a built app page must carry next to its generated `index.html`, and
+ * server/SSG-only app resource files that browser `dist/*` builds must omit.
  *
  * The dist tree is served as its own root, so an asset the page links relatively has to exist
  * inside the dist app folder — rewriting the link to reach back into the source tree would break
- * that self-containment. Nothing else copies these: the webpack builds enumerate the three files
- * they generate (`neo-config.json`, an optional remotes API map, `index.html`) and the esm build
- * gates its recursive walk on `.mjs` / `.json` / `.html` plus `/resources/`. A root-level asset
- * with any other extension falls through both.
+ * that self-containment. Conversely, server/SSG-only metadata tables (`seo.json`,
+ * `ssg-archive-routes.json`) stay in the repository and npm package for `neomjs/middleware-v2`
+ * and `neomjs/pages` while being excluded from `dist/{development,production,esm}`.
  *
- * The set lives here rather than inline because the two copy sets drifting apart is precisely the
- * defect this module exists to prevent: a web app manifest went missing from the webpack output
- * and from the esm output for two unrelated reasons, and neither build named the extension.
+ * Both sets live here rather than inline so `webpack/development`, `webpack/production`, and
+ * `build/esmodules` share one source of truth and cannot drift apart.
  */
 export const DIST_APP_ASSET_EXTENSIONS = ['.webmanifest'];
+
+/**
+ * Workspace-relative app resource files consumed exclusively by Node SSR/SSG tooling and omitted from browser `dist/*`.
+ * @type {String[]}
+ */
+export const DIST_EXCLUDED_APP_RESOURCES = [
+    'apps/portal/resources/data/seo.json',
+    'apps/portal/resources/data/ssg-archive-routes.json'
+];
 
 /**
  * @summary Whether a file must be carried into the dist tree verbatim as an app-page sibling.
@@ -27,6 +35,37 @@ export const DIST_APP_ASSET_EXTENSIONS = ['.webmanifest'];
  */
 export function isDistAppAsset(fileName) {
     return DIST_APP_ASSET_EXTENSIONS.some(extension => fileName.endsWith(extension))
+}
+
+/**
+ * @summary Whether an absolute or workspace-relative path resolves to a server/SSG-only app resource
+ * excluded from browser `dist/*` trees.
+ * @param {String} filePath Absolute or workspace-relative path.
+ * @returns {Boolean}
+ */
+export function isExcludedDistResource(filePath) {
+    if (!filePath || typeof filePath !== 'string') return false;
+
+    const normalized = filePath.replace(/\\/g, '/').replace(/\/+/g, '/');
+
+    return DIST_EXCLUDED_APP_RESOURCES.some(
+        resource => normalized === resource || normalized.endsWith(`/${resource}`)
+    )
+}
+
+/**
+ * @summary Returns paths relative to `resourcesPath` that must be excluded when copying `resourcesPath` into `dist/*`.
+ * @param {String} resourcesPath Workspace-relative resources directory (e.g. `apps/portal/resources`).
+ * @returns {String[]}
+ */
+export function excludedResourcesFor(resourcesPath) {
+    if (!resourcesPath || typeof resourcesPath !== 'string') return [];
+
+    const prefix = resourcesPath.replace(/\\/g, '/').replace(/\/+/g, '/').replace(/^\/+|\/+$/g, '') + '/';
+
+    return DIST_EXCLUDED_APP_RESOURCES
+        .filter(resource => resource.startsWith(prefix))
+        .map(resource => resource.slice(prefix.length))
 }
 
 /**
