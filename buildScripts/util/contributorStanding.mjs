@@ -331,7 +331,8 @@ export function decideMergeComment({pullRequest, mergedBefore, comments = [], ca
  * {@link decideMergeComment}), and for a pull request that carries a bot-authored heads-up marker or a merge comment
  * that names the badge.
  *
- * The note has one job. Once its run is recorded, this function, {@link headsUpMarker} and the workflow are removed.
+ * The note has one job. Once its run is recorded, this function and the workflow are removed. {@link headsUpMarker}
+ * stays, because the notes stay on their pull requests.
  * @param {Object} options As for {@link decideMergeComment}, with `count` in place of `mergedBefore`
  * @param {Number} options.count The account's merged pull requests as its badge shows them: `count` of its entry in
  * `badges/ledger.json` of `neomjs/pages`
