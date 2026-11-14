@@ -72,21 +72,35 @@ jobs:
               return
             }
 
-            // The search API allows 30 queries a minute and refuses bursts, so searches run one at a time, 2.1 s apart
+            // The search API allows 30 queries a minute to every run of this repository together, and refuses bursts.
+            // So searches run one at a time and 4 s apart, and a refused one waits as long as GitHub asks, or 65 s,
+            // and is tried again: three more times at most
             let lastSearch = 0;
 
+            const pause  = ms => new Promise(resolve => setTimeout(resolve, ms));
             const search = async (q, perPage) => {
-              const wait = lastSearch + 2100 - Date.now();
+              for (let attempt = 1; ; attempt++) {
+                const wait = lastSearch + 4000 - Date.now();
 
-              if (wait > 0) await new Promise(resolve => setTimeout(resolve, wait));
+                if (wait > 0) await pause(wait);
 
-              lastSearch = Date.now();
+                lastSearch = Date.now();
 
-              const {data} = await github.rest.search.issuesAndPullRequests({q, per_page: perPage});
+                try {
+                  const {data} = await github.rest.search.issuesAndPullRequests({q, per_page: perPage});
 
-              if (data.incomplete_results) throw new Error(`the search answered incompletely: ${q}`);
+                  if (data.incomplete_results) throw new Error(`the search answered incompletely: ${q}`);
 
-              return data
+                  return data
+                } catch (error) {
+                  const retryAfter = Number(error.response?.headers?.['retry-after']);
+                  const limited    = [403, 429].includes(error.status) && (retryAfter > 0 || /rate limit/i.test(error.message));
+
+                  if (!limited || attempt > 3) throw error;
+
+                  await pause((retryAfter > 0 ? retryAfter : 65) * 1000)
+                }
+              }
             };
 
             const candidates = [];
