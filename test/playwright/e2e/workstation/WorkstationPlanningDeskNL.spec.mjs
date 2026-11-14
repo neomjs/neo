@@ -128,6 +128,31 @@ test.describe('Workstation planning desk (Neural Link)', () => {
         }
     });
 
+    test('the schedule and the plan share one calendar: weeks line up, no title is cut, a person is one lane', async ({page, neuralLink}) => {
+        await openPlanningDesk(page, neuralLink);
+
+        const desk = await page.evaluate(() => Object.fromEntries(['scheduler', 'gantt'].map(itemId => {
+            const pane = document.querySelector(`.workstation-pane-${itemId}`);
+
+            return [itemId, {
+                // A milestone's bar label has no room by design; every other bar and every tree row shows its whole title
+                cut    : [...pane.querySelectorAll('.neo-timeline-bar-label, .neo-tree-content')]
+                    .filter(label => label.clientWidth > 0 && label.scrollWidth > label.clientWidth + 1).map(label => label.textContent),
+                heights: [...new Set([...pane.querySelectorAll('.neo-timeline-bar')].map(bar => Math.round(bar.getBoundingClientRect().height)))],
+                weeks  : [...pane.querySelectorAll('.neo-timeline-header-major > *')].map(tick => {
+                    const {left, width} = tick.getBoundingClientRect();
+                    return [tick.textContent, Math.round(left), Math.round(width)]
+                })
+            }]
+        })));
+
+        expect(desk.scheduler.weeks.length, 'the schedule shows its weeks').toBeGreaterThan(3);
+        expect(desk.scheduler.weeks, 'every week of the schedule stands over the same week of the plan').toEqual(desk.gantt.weeks);
+        expect(desk.scheduler.cut, 'no work item\'s title is cut').toEqual([]);
+        expect(desk.gantt.cut, 'no task\'s title is cut').toEqual([]);
+        expect(desk.scheduler.heights, 'each person\'s row is one lane').toHaveLength(1)
+    });
+
     test('a task moved in the release plan cascades to its linked successor', async ({page, neuralLink}) => {
         const {app, id} = await openPlanningDesk(page, neuralLink),
               storeId   = (await app.getComponent(id, ['stateProvider.stores.planTasks.id']))['stateProvider.stores.planTasks.id'],

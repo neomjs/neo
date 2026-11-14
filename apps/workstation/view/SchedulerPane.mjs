@@ -1,13 +1,13 @@
 import SchedulerContainer from '../../../src/scheduler/Container.mjs';
-
-const msPerDay = 86_400_000;
+import {lockedWidth}      from './planningCalendar.mjs';
 
 /**
  * @summary The planning arrangement's schedule: the team's work items, one row per person, one column per day.
  *
  * The workspace hands this pane the provider's `people` store as its rows and the `workItems` store as its
  * events: the instance the board pane binds as well. A bar moved here and a card moved on the board are
- * both one `record.set()` on the same record, so each view shows the other's edit, in any window.
+ * both one `record.set()` on the same record, so each view shows the other's edit, in any window. Its time
+ * axis and labels come from the planning calendar, which the release plan below it shares.
  *
  * A bar wears its work item's status: the family's colour variants for work in hand, the default bar for
  * ready work and a muted bar for the backlog.
@@ -26,24 +26,6 @@ class SchedulerPane extends SchedulerContainer {
         done         : 'neo-scheduler-bar-emerald',
         'in-progress': 'neo-scheduler-bar-amber',
         review       : 'neo-scheduler-bar-violet'
-    }
-
-    /**
-     * @summary The schedule's window around a plan day: the past week and the next two, in whole UTC days.
-     * @param {Date} baseDate Midnight UTC of the plan day
-     * @returns {Object} A `Neo.timeline.TimeAxis` config
-     */
-    static createTimeAxis(baseDate) {
-        const base = baseDate.getTime();
-
-        return {
-            end        : new Date(base + 14 * msPerDay),
-            pxPerMinute: 0.05,
-            snapMinutes: 1440,
-            start      : new Date(base - 8 * msPerDay),
-            tickUnit   : 'day',
-            timeZone   : 'UTC'
-        }
     }
 
     static config = {
@@ -71,18 +53,6 @@ class SchedulerPane extends SchedulerContainer {
          */
         cls: ['workstation-data-pane', 'workstation-scheduler-pane'],
         /**
-         * @member {Function} majorFormatter
-         */
-        majorFormatter: tick => tick.date.toLocaleDateString('en-GB', {day: 'numeric', month: 'long', timeZone: 'UTC'}),
-        /**
-         * @member {String} majorTickUnit='week'
-         */
-        majorTickUnit: 'week',
-        /**
-         * @member {Function} minorFormatter
-         */
-        minorFormatter: tick => tick.date.toLocaleDateString('en-GB', {day: 'numeric', timeZone: 'UTC', weekday: 'short'}),
-        /**
          * A work item's progress fills its bar and is what the bar editor edits.
          * @member {String} percentDoneField='progress'
          */
@@ -90,7 +60,7 @@ class SchedulerPane extends SchedulerContainer {
         /**
          * @member {Object[]} resourceColumns
          */
-        resourceColumns: [{dataField: 'name', locked: 'start', text: 'Team', width: 150}],
+        resourceColumns: [{dataField: 'name', locked: 'start', text: 'Team', width: lockedWidth}],
         /**
          * @member {Number} rowHeight=41
          */

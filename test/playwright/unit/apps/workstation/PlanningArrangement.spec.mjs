@@ -74,7 +74,9 @@ test('the planning panes borrow the root provider\'s stores rather than holding 
 });
 
 test('choosing an arrangement is one undoable commit that carries its name', async () => {
-    const {binding, workspace} = boundWorkspace();
+    const {binding, workspace} = boundWorkspace(),
+          status               = () => workspace.down({reference: 'status-bar'}).html,
+          caption              = () => workspace.down({reference: 'tour-caption'}).html;
 
     try {
         expect(await workspace.resetTopology('planning')).toMatchObject({errors: [], reset: true});
@@ -83,12 +85,16 @@ test('choosing an arrangement is one undoable commit that carries its name', asy
         expect(itemsOf(workspace.dockModel)).toEqual(['gantt', 'scheduler']);
         expect(workspace.getState('dock.perspective')).toEqual({active: 'planning', modified: false, pending: null});
         expect(workspace.captureTopology('probe').topology.metadata.declaredPerspective, 'a save records the arrangement').toBe('planning');
+        expect(status(), 'the readout states the planning desk\'s own facts').toBe('<span>6 people</span><span>15 work items</span><span>15 plan tasks</span>');
+        expect(caption(), 'and so does the caption').toContain('planning desk');
 
         await TransactionManager.undo({groupId: binding.groupId});
         await workspace.refreshPromise;
 
         expect(itemsOf(workspace.dockModel)).toEqual(itemsOf(initialDocument));
-        expect(workspace.getState('dock.perspective')).toEqual({active: 'shipped', modified: false, pending: null})
+        expect(workspace.getState('dock.perspective')).toEqual({active: 'shipped', modified: false, pending: null});
+        expect(status(), 'the operations room gets its own readout back').toContain('scale rows');
+        expect(caption()).not.toContain('planning desk')
     } finally {
         workspace.destroy();
         TransactionManager.retireGroup(binding.groupId)

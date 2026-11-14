@@ -4,8 +4,11 @@
  *
  * Plain tables, no class: the stores turn the rows into records. Every date is a whole-day offset from one
  * plan day, so the same day always yields the same plan, and the plan stays around today on any boot. The
- * work items are what the team does this fortnight; the release plan is the project they serve, one level
- * up, so no task is listed twice.
+ * work items are what the team does in the weeks around today; the release plan is the project they serve,
+ * one level up, so no task is listed twice.
+ *
+ * No person holds two work items at once, so each row of the schedule is one lane, and every work item
+ * runs long enough for its title to fit its bar on the planning calendar's scale.
  *
  * The release plan is tight: each task starts where its latest predecessor ends. The Gantt chart's cascade
  * keeps successors at exactly that start, so a seeded slack would collapse at the first edit.
@@ -38,21 +41,21 @@ export const people = [
  * @type {Object[]}
  */
 export const workItemRows = [
-    {id: 'wi-1',  title: 'Interview five customers',     person: 'maya',  status: 'done',        start: -7, days: 3, progress: 100},
-    {id: 'wi-2',  title: 'Write the release brief',      person: 'maya',  status: 'done',        start: -4, days: 2, progress: 100},
-    {id: 'wi-3',  title: 'Sketch the booking flow',      person: 'jonas', status: 'done',        start: -6, days: 3, progress: 100},
+    {id: 'wi-1',  title: 'Interview five customers',     person: 'maya',  status: 'done',        start: -9, days: 4, progress: 100},
+    {id: 'wi-2',  title: 'Write the release brief',      person: 'maya',  status: 'done',        start: -5, days: 4, progress: 100},
+    {id: 'wi-3',  title: 'Sketch the booking flow',      person: 'jonas', status: 'done',        start: -7, days: 4, progress: 100},
     {id: 'wi-4',  title: 'Design the account page',      person: 'jonas', status: 'review',      start: -3, days: 4, progress: 90},
     {id: 'wi-5',  title: 'Build the booking screens',    person: 'priya', status: 'in-progress', start: -2, days: 5, progress: 45},
     {id: 'wi-6',  title: 'Build the account page',       person: 'priya', status: 'ready',       start: 3,  days: 4, progress: 0},
-    {id: 'wi-7',  title: 'Add the availability API',     person: 'tom',   status: 'in-progress', start: -4, days: 5, progress: 60},
-    {id: 'wi-8',  title: 'Fix the double-booking bug',   person: 'tom',   status: 'review',      start: -1, days: 2, progress: 80},
-    {id: 'wi-9',  title: 'Migrate customer accounts',    person: 'tom',   status: 'ready',       start: 2,  days: 4, progress: 0},
-    {id: 'wi-10', title: 'Write the test plan',          person: 'lena',  status: 'review',      start: -3, days: 3, progress: 85},
-    {id: 'wi-11', title: 'Test bookings on phones',      person: 'lena',  status: 'backlog',     start: 5,  days: 3, progress: 0},
-    {id: 'wi-12', title: 'Draft the launch email',       person: 'sam',   status: 'ready',       start: 2,  days: 3, progress: 0},
-    {id: 'wi-13', title: 'Record the walkthrough video', person: 'sam',   status: 'backlog',     start: 6,  days: 3, progress: 0},
-    {id: 'wi-14', title: 'Plan the launch webinar',      person: 'maya',  status: 'backlog',     start: 4,  days: 3, progress: 0},
-    {id: 'wi-15', title: 'Review the beta feedback',     person: 'maya',  status: 'in-progress', start: -1, days: 3, progress: 30}
+    {id: 'wi-7',  title: 'Add the availability API',     person: 'tom',   status: 'in-progress', start: -3, days: 4, progress: 60},
+    {id: 'wi-8',  title: 'Fix the double-booking bug',   person: 'tom',   status: 'review',      start: -8, days: 5, progress: 80},
+    {id: 'wi-9',  title: 'Migrate customer accounts',    person: 'tom',   status: 'ready',       start: 2,  days: 5, progress: 0},
+    {id: 'wi-10', title: 'Write the test plan',          person: 'lena',  status: 'review',      start: -3, days: 4, progress: 85},
+    {id: 'wi-11', title: 'Test bookings on phones',      person: 'lena',  status: 'backlog',     start: 5,  days: 4, progress: 0},
+    {id: 'wi-12', title: 'Draft the launch email',       person: 'sam',   status: 'ready',       start: 2,  days: 4, progress: 0},
+    {id: 'wi-13', title: 'Record the walkthrough video', person: 'sam',   status: 'backlog',     start: 6,  days: 5, progress: 0},
+    {id: 'wi-14', title: 'Plan the launch webinar',      person: 'maya',  status: 'backlog',     start: 3,  days: 4, progress: 0},
+    {id: 'wi-15', title: 'Review the beta feedback',     person: 'maya',  status: 'in-progress', start: -1, days: 4, progress: 30}
 ];
 
 /**
@@ -62,10 +65,10 @@ export const workItemRows = [
 export const releaseTaskRows = [
     {id: 'discovery',      title: 'Discovery',                parent: null,        start: -12, days: 4},
     {id: 'research',       title: 'Customer research',        parent: 'discovery', start: -12, days: 4},
-    {id: 'brief',          title: 'Release brief signed off', parent: 'discovery', start: -8,  milestone: true},
+    {id: 'brief',          title: 'Brief signed off',         parent: 'discovery', start: -8,  milestone: true},
     {id: 'design',         title: 'Design',                   parent: null,        start: -8,  days: 9},
-    {id: 'flow-design',    title: 'Booking flow design',      parent: 'design',    start: -8,  days: 4},
-    {id: 'account-design', title: 'Account page design',      parent: 'design',    start: -4,  days: 5},
+    {id: 'flow-design',    title: 'Booking flow',             parent: 'design',    start: -8,  days: 4},
+    {id: 'account-design', title: 'Account page',             parent: 'design',    start: -4,  days: 5},
     {id: 'build',          title: 'Build',                    parent: null,        start: -8,  days: 13},
     {id: 'service',        title: 'Booking service',          parent: 'build',     start: -8,  days: 7},
     {id: 'screens',        title: 'Booking screens',          parent: 'build',     start: -4,  days: 7},
