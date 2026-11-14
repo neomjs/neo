@@ -367,8 +367,8 @@ class DomAccess extends Base {
      * states it. Undefined preserves user-agent behavior.
      * @param {Boolean} [data.preventScroll=false]
      * @param {String}  [data.restoreFrom] The id of a departing element this call hands focus back from. The call
-     * waits until that element no longer holds focus ({@link #settleFocusDeparture}) and focuses only a lost focus,
-     * so a focus the user moved on meanwhile stays where it is.
+     * waits for the departure to settle ({@link #settleFocusDeparture}) and focuses only a lost focus, so a focus the
+     * user moved on meanwhile stays where it is.
      * @param {String}  [data.unlessFocusWithin] The id of a container whose current focus wins: while focus sits
      * inside it, the call leaves focus where it is. A worker decides focus one round trip late, so a choice the user
      * made in between, such as a picked list item, would otherwise be taken back.
@@ -1491,10 +1491,12 @@ class DomAccess extends Base {
     /**
      * @summary Settles where focus went after an element departs, and resolves whether it was lost.
      * @description A worker component that departs while holding focus hands it back before its own DOM removal
-     * arrives here, so the read waits until the departing element has left the document, or `timeout` passes. DOM
-     * containment cannot decide earlier: a dock refresh moves the element the user just focused out of the subtree it
-     * removes, and a submenu holds its menu's focus as a sibling of that menu. Focus is lost when it fell to the body,
-     * or when the element still holds it at the timeout; a focus that lives on elsewhere is the user's.
+     * arrives here. DOM containment cannot decide while the departure plays out: a dock refresh moves the element the
+     * user just focused out of the subtree it removes, and a floating descendant that holds the focus, such as a
+     * picker on the body or a submenu beside its menu, leaves before its owner or after it. The read therefore settles
+     * once the departing element has left the document with focus on the body, or when `timeout` passes. Focus is
+     * lost when it fell to the body, or when the element still holds it at the timeout; a focus that still lives on
+     * elsewhere then is the user's.
      * @param {String} id The departing element
      * @param {Number} [timeout=200]
      * @returns {Promise<Boolean>}
@@ -1502,17 +1504,17 @@ class DomAccess extends Base {
      */
     settleFocusDeparture(id, timeout=200) {
         const
-            node = this.getElement(id),
-            lost = () => Boolean(node?.isConnected && node.contains(document.activeElement)) ||
-                !document.activeElement || document.activeElement === document.body;
+            node   = this.getElement(id),
+            onBody = () => !document.activeElement || document.activeElement === document.body,
+            lost   = () => Boolean(node?.isConnected && node.contains(document.activeElement)) || onBody();
 
-        if (!node?.isConnected) {
-            return Promise.resolve(lost())
+        if (!node?.isConnected && onBody()) {
+            return Promise.resolve(true)
         }
 
         return new Promise(resolve => {
             const
-                observer = new MutationObserver(() => node.isConnected || settle()),
+                observer = new MutationObserver(() => node?.isConnected || !onBody() || settle()),
                 timer    = setTimeout(() => settle(), timeout),
                 settle   = () => {
                     observer.disconnect();
