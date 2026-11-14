@@ -121,14 +121,20 @@ class App extends Base {
     /**
      * @param {String} windowId
      * @param {Array|Object} deltas
+     * @param {Object} [meta] optional, sent beside the deltas so Main#onUpdateVdom and
+     * DeltaUpdates#update receive it unchanged (see VdomLifecycle JSDoc for getVdomUpdateMeta)
      * @returns {Promise<*>}
      */
-    applyDeltas(windowId, deltas) {
+    applyDeltas(windowId, deltas, meta) {
         if (!Array.isArray(deltas)) {
             deltas = [deltas]
         }
 
-        return this.promiseMessage(windowId, {action: 'updateVdom', deltas})
+        const message = {action: 'updateVdom', deltas};
+        if (meta) {
+            message.meta = meta
+        }
+        return this.promiseMessage(windowId, message)
     }
 
     /**
