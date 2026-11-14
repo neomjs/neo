@@ -2302,6 +2302,7 @@ class Workspace extends Container {
             case 'geometry':
                 return {geometryOnly: true};
 
+            case 'activation':
             case 'itemFlags':
                 return {retainTopology: true}
         }

@@ -69,10 +69,12 @@ class Operations extends Base {
      * - `topology`   — may restructure nodes, zones or splits. The full staged transaction.
      * - `geometry`   — moves a boundary; every node and item survives in place.
      * - `itemFlags`  — writes only `document.items[id].<flag>`; the node tree is byte-identical.
+     * - `activation` — writes only `nodes[id].activeItemId`; every node keeps its identity, items and order.
      *
      * The classes are verifiable rather than asserted: `setItemLocked`, `setItemPinned` and
      * `setItemAutoHidden` each clone the document and assign exactly one item field, touching
-     * `nodes` nowhere — which is what makes an item-only refresh sound for them.
+     * `nodes` nowhere — which is what makes an item-only refresh sound for them. `setActiveItem`
+     * assigns one node field, and the stable path already lands an active-tab delta in place.
      *
      * **An operation with no entry here is treated as `topology`**, so a vocabulary that grows
      * without updating this map degrades to today's behaviour rather than to a wrong fast path.
@@ -86,7 +88,7 @@ class Operations extends Base {
         addItem       : 'topology',
         addTab        : 'topology',
         applyDocument : 'topology',
-        setActiveItem : 'topology',
+        setActiveItem : 'activation',
         moveItem      : 'topology',
         splitNode     : 'topology',
         moveNode      : 'topology',
@@ -116,7 +118,7 @@ class Operations extends Base {
      * Own-key lookup only, for the same reason {@link #applyOperation} uses one: an inherited
      * name must resolve like any unknown operation rather than to a prototype member.
      * @param {String} operation
-     * @returns {String} `topology` | `geometry` | `itemFlags`
+     * @returns {String} `topology` | `geometry` | `itemFlags` | `activation`
      * @static
      */
     static changeClassFor(operation) {
