@@ -70,17 +70,18 @@ const SPECIFIER_NODE_TYPES = new Set([
 ]);
 
 /**
- * @summary Rebases admitted workspace, package and Main-addon modules through one emitted file plan.
+ * @summary Rebases admitted workspace, package, Main-addon and Canvas-module modules through one emitted file plan.
  * @description Planned static edges use their shared emitted destinations, including helpers reached by both
- * App components and Main addons. Main's computed package contexts retain their declared roots. Unadmitted
- * dependencies retain the established host fallback; this transform does not discover dynamic imports.
+ * App components and Main addons. The computed package contexts of Main and of the Canvas worker resolve under the
+ * emitted tree's `node_modules`, where their declared roots are emitted. Unadmitted dependencies retain the
+ * established host fallback; this transform does not discover dynamic imports.
  * @param {String} content Source module text.
  * @param {Object} options
  * @param {String} options.sourcePath Source filename in the consuming workspace.
  * @param {String} options.outputPath Emitted filename.
  * @param {String} options.workspaceRoot Consuming workspace.
  * @param {String} options.engineRoot Installed or in-repository Engine root.
- * @param {Object[]} options.packageRoots Declared roots from mainAddonPackageRoots.
+ * @param {Object[]} options.packageRoots Declared roots from `mainAddonPackageRoots` and `canvasModulePackageRoots`.
  * @param {Map<String, Object>} [options.files] The build plan, keyed by logical source filename.
  * @returns {String}
  */
@@ -88,6 +89,7 @@ export function rewriteEsmImports(content, {sourcePath, outputPath, workspaceRoo
     const within          = (root, file) => file === root || file.startsWith(root + path.sep),
           installedEngine = engineRoot !== workspaceRoot,
           isMain          = sourcePath === path.join(engineRoot, 'src/Main.mjs'),
+          isCanvas        = sourcePath === path.join(engineRoot, 'src/worker/Canvas.mjs'),
           isAddon         = packageRoots.some(entry => within(entry.sourceRoot, sourcePath)),
           isPackage       = files?.has(sourcePath) && within(path.join(workspaceRoot, 'node_modules'), sourcePath) &&
               (!installedEngine || !within(engineRoot, sourcePath)),
@@ -106,7 +108,8 @@ export function rewriteEsmImports(content, {sourcePath, outputPath, workspaceRoo
               mapped   = relative && !entry.computed && files?.get(resolved)?.outputPath;
         if (mapped) {
             target = mapped
-        } else if (isMain && entry.computed && ['../../', '../node_modules/'].includes(prefix)) {
+        } else if (entry.computed && (isMain && ['../../', '../node_modules/'].includes(prefix) ||
+            isCanvas && prefix === '../../../')) {
             target = path.join(outputRoot, 'node_modules')
         } else if (isAddon || isPackage) {
             const owner        = packageRoots.find(root => within(root.sourceRoot, resolved)),

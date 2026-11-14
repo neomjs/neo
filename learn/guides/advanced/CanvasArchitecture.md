@@ -138,9 +138,12 @@ class SparklineCanvas extends SharedCanvas {
 }
 ```
 
-The same path loads in raw development and in development and production builds. A build reads the
-declaration from the workspace's direct dependencies, devDependencies and optionalDependencies, and admits
-exactly the declared directories into the Canvas worker. Every other installed package stays out of it, so
+The same path loads in raw development, in development and production builds, and in the `dist/esm`
+build. That build copies the declared directories into its emitted `node_modules` and rewrites their Engine
+imports to its one emitted Engine, so the renderer and the worker share one class system; a helper outside
+the declared directories whose imports reach Engine fails the build, as it does for Main-thread addons. A
+build reads the declaration from the workspace's direct dependencies, devDependencies and
+optionalDependencies, and admits exactly the declared directories into the Canvas worker. Every other installed package stays out of it, so
 a package that declares nothing costs the worker nothing. As with Main-thread addons, a declared entry is a
 package-relative directory: absolute paths, upward traversal and directories that resolve outside the
 package are rejected. The key reaches the Canvas worker alone; Main-thread addons have their own,
