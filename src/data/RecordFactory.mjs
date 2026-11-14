@@ -709,12 +709,19 @@ class RecordFactory extends Base {
         }
 
         else if ((type === 'int' || type === 'integer') && value) {
-            value = parseInt(value)
+            if (!Number.isSafeInteger(value)) {
+                value = parseInt(value)
+            }
         }
 
         else if (type === 'string' && value) {
-            value = value + '';
-            value =  value.replace(/(<([^>]+)>)/ig, '')
+            if (typeof value !== 'string') {
+                value = value + ''
+            }
+
+            if (value.includes('<')) {
+                value = value.replace(/(<([^>]+)>)/ig, '')
+            }
         }
 
         return value
