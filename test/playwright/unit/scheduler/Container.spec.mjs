@@ -41,6 +41,110 @@ test.describe('Neo.scheduler.Container', () => {
     });
     test.afterEach(() => { scheduler?.destroy(); scheduler = null });
 
+    test('failed and cancelled starts leave no preview or edit and the next gesture works', async () => {
+        const resources = Neo.create(Store, {keyProperty: 'id', model: {fields: [{name: 'id', type: 'String'}]}, data: [{id: 'r'}]});
+        const events    = Neo.create(EventStore, {data: [{id: 'e', resourceId: 'r', title: 'Booking',
+            startDate: '2026-11-09T01:00Z', endDate: '2026-11-09T02:00Z'}]});
+        scheduler = Neo.create(SchedulerContainer, {appName, store: resources, eventStore: events,
+            timeAxis: {start: '2026-11-09T00:00Z', end: '2026-11-09T12:00Z', pxPerMinute: 1, snapMinutes: 15}});
+        const zone        = scheduler.eventDragZone, record = events.get('e');
+        const bar         = {id: 'failed-start-bar', cls: ['neo-timeline-bar'], data: {eventId: 'e'}, rect: {left: 0, top: 0, x: 0, y: 0, width: 60, height: 24}};
+        const input       = {axisOffset: 60, clientX: 60, clientY: 10, path: [bar]};
+        const createProxy = zone.createDragProxy.bind(zone);
+        let   ends        = 0, writes = 0, allocated;
+        const fire        = zone.fire.bind(zone), move = scheduler.moveEvent.bind(scheduler);
+        zone.fire = (name, ...args) => { if (name === 'dragEnd') ends++; return fire(name, ...args) };
+        scheduler.moveEvent = (...args) => { writes++; return move(...args) };
+        zone.createDragProxy = async rect => {
+            allocated = await createProxy(rect);
+            throw new Error('proxy setup failed')
+        };
+        try {
+            await expect(scheduler.onBarDragStart(input)).rejects.toThrow('proxy setup failed');
+            expect(allocated).toBeTruthy();
+            expect(zone.dragProxy).toBeNull();
+            expect(scheduler.cls).not.toContain('neo-is-dragging');
+            expect(zone.initialSnapshot).toBeNull();
+            expect(ends).toBe(0);
+            expect(writes).toBe(0);
+
+            zone.createDragProxy = createProxy;
+            for (const terminal of ['cancel', 'end']) {
+                let resolve;
+                Neo.main.addon.DragDrop.setConfigs = () => new Promise(done => { resolve = done });
+                const starting = scheduler.onBarDragStart(input);
+                expect(zone.isDragStarting).toBe(true);
+                if (terminal === 'cancel') scheduler.onSchedulerKeyDown({key: 'Escape'});
+                else zone.onDragEnd({});
+                resolve({});
+                await starting;
+                expect(zone.initialSnapshot).toBeNull();
+                expect(zone.dragProxy).toBeNull();
+                expect(scheduler.cls).not.toContain('neo-is-dragging');
+                expect(ends).toBe(0);
+                expect(writes).toBe(0)
+            }
+            Neo.main.addon.DragDrop.setConfigs = () => Promise.resolve({});
+            let releaseProxy, enteredProxy;
+            const entered = new Promise(resolve => { enteredProxy = resolve });
+            const gate    = new Promise(resolve => { releaseProxy = resolve });
+            zone.createDragProxy = async (...args) => {
+                enteredProxy();
+                await gate;
+                return createProxy(...args)
+            };
+            const delayed = scheduler.onBarDragStart(input);
+            await entered;
+            scheduler.onSchedulerKeyDown({key: 'Escape'});
+            zone.createDragProxy = createProxy;
+            await scheduler.onBarDragStart(input);
+            expect(zone.initialSnapshot).toBeTruthy();
+            const currentProxy = zone.dragProxy;
+            expect(currentProxy).toBeTruthy();
+            releaseProxy();
+            await delayed;
+            expect(zone.dragProxy).toBe(currentProxy);
+            expect(zone.initialSnapshot).toBeTruthy();
+            zone.onDragMove({axisOffset: 120, clientY: 10});
+            zone.onDragEnd({});
+            expect(zone.dragProxy).toBeNull();
+            expect(writes).toBe(1);
+            expect(record.startDate.toISOString()).toBe('2026-11-09T02:00:00.000Z')
+        } finally { events.destroy(); resources.destroy() }
+    });
+
+    test('an explicit useProxy false overrides the scheduler default', () => {
+        scheduler = Neo.create(SchedulerContainer, {appName, eventDragZoneConfig: {useProxy: false}});
+        expect(scheduler.eventDragZone.useProxy).toBe(false)
+    });
+
+    test('a late move handshake cannot replace a newer resize gesture', async () => {
+        const resources = Neo.create(Store, {keyProperty: 'id', model: {fields: [{name: 'id', type: 'String'}]}, data: [{id: 'r'}]});
+        const events    = Neo.create(EventStore, {data: [{id: 'e', resourceId: 'r', startDate: '2026-11-09T01:00Z', endDate: '2026-11-09T02:00Z'}]});
+        scheduler = Neo.create(SchedulerContainer, {appName, store: resources, eventStore: events,
+            eventDragZoneConfig: {useProxy: false},
+            timeAxis           : {start: '2026-11-09T00:00Z', end: '2026-11-09T12:00Z', pxPerMinute: 1, snapMinutes: 15}});
+        const zone    = scheduler.eventDragZone;
+        const bar     = {id: 'overlapping-start-bar', cls: ['neo-timeline-bar'], data: {eventId: 'e'}, rect: {left: 0, top: 0, x: 0, y: 0, width: 60, height: 24}};
+        const handle  = {id: 'resize-end', cls: ['neo-timeline-bar-handle', 'neo-resizable', 'neo-resizable-end']};
+        const pending = [];
+        Neo.main.addon.DragDrop.setConfigs = () => new Promise(resolve => pending.push(resolve));
+        try {
+            const move   = scheduler.onBarDragStart({axisOffset: 60, path: [bar]});
+            const resize = scheduler.onBarDragStart({axisOffset: 120, path: [handle, bar]});
+            pending[1]({});
+            await resize;
+            expect(zone.resizeEdge).toBe('end');
+            pending[0]({});
+            await move;
+            expect(zone.resizeEdge).toBe('end');
+            zone.onDragMove({axisOffset: 150});
+            zone.onDragEnd({});
+            expect(events.get('e').startDate.toISOString()).toBe('2026-11-09T01:00:00.000Z');
+            expect(events.get('e').endDate.toISOString()).toBe('2026-11-09T02:30:00.000Z')
+        } finally { events.destroy(); resources.destroy() }
+    });
+
     test('assembles locked-start resourceColumns + center Neo.timeline.Column + TimeAxisHeader and projects overlapping bars', () => {
         const
             resourceStore = Neo.create(Store, {
