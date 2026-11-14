@@ -33,6 +33,19 @@ export const CURATED_LABELS = Object.freeze(['good first issue', 'help wanted'])
 export const TEAM_ASSOCIATIONS = Object.freeze(['COLLABORATOR', 'MEMBER', 'OWNER']);
 
 /**
+ * Repository permissions that belong to the team, as
+ * `GET /repos/{owner}/{repo}/collaborators/{username}/permission` names them.
+ * @member {String[]} TEAM_PERMISSIONS
+ */
+export const TEAM_PERMISSIONS = Object.freeze(['admin', 'maintain', 'write']);
+
+/**
+ * Repository permissions an outside account can hold.
+ * @member {String[]} OUTSIDE_PERMISSIONS
+ */
+const OUTSIDE_PERMISSIONS = Object.freeze(['triage', 'read', 'none']);
+
+/**
  * How long a claim holds an issue for later claimants after its claimant's latest comment, mirroring CONTRIBUTING's
  * three days for a silent claimant. Every claim that delivered did so within eight hours, and one silent for a day has
  * never delivered; a silent claim that kept the issue for a week simply parked the work.
@@ -107,6 +120,22 @@ export function isWithdrawal(body) {
  */
 export function isOutsideHuman(comment) {
     return comment?.user?.type !== 'Bot' && !TEAM_ASSOCIATIONS.includes(comment?.author_association)
+}
+
+/**
+ * Whether a repository permission belongs to the team. A caller asks it where {@link isOutsideHuman} cannot decide:
+ * a pull request's `author_association` hides a membership that is not public, in a merge event's payload and for a
+ * workflow's token alike, so a team account reads as `CONTRIBUTOR` there. An issue comment's payload does name it.
+ * @param {String} permission `permission` of `GET /repos/{owner}/{repo}/collaborators/{username}/permission`
+ * @returns {Boolean}
+ * @throws {Error} When the value names no permission: an account that cannot be told apart is not an outside one
+ */
+export function isTeamPermission(permission) {
+    if (TEAM_PERMISSIONS.includes(permission)) return true;
+
+    if (!OUTSIDE_PERMISSIONS.includes(permission)) throw new Error(`"${permission}" names no repository permission`);
+
+    return false
 }
 
 /**

@@ -10,6 +10,7 @@ import {
     earlierClaim,
     holders,
     isClaim,
+    isTeamPermission,
     isWithdrawal,
     pickAlternatives,
     renderReply,
@@ -112,6 +113,16 @@ test.describe('buildScripts/util/claimResponse', () => {
                 expect(isClaim(body), body).toBe(false)
             }
         });
+    });
+
+    test('isTeamPermission names the team by who can write, and throws on a value that is no permission', () => {
+        expect(['admin', 'maintain', 'write'].map(isTeamPermission)).toEqual([true, true, true]);
+        expect(['triage', 'read', 'none'].map(isTeamPermission)).toEqual([false, false, false]);
+
+        // An account that cannot be told apart is not an outside one
+        for (const unnamed of [undefined, null, '', 'owner', 'WRITE']) {
+            expect(() => isTeamPermission(unnamed)).toThrow('names no repository permission')
+        }
     });
 
     test('isWithdrawal recognises a claim given back', () => {

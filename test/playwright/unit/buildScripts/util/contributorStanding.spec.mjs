@@ -19,7 +19,11 @@ import {
     standing
 } from '../../../../../buildScripts/util/contributorStanding.mjs';
 
+import {TEAM_PERMISSIONS} from '../../../../../buildScripts/util/claimResponse.mjs';
+
 const
+    // A comment on a pull request needs the pull request's scope: GitHub refuses it under `issues: write`
+    COMMENT_PERMISSIONS = /\npermissions:\n {2}contents: read .*\n {2}issues: read .*\n {2}pull-requests: write .*\n\njobs:/,
     REPO_URL = 'https://github.com/neomjs/neo',
     LIST_URL = `${REPO_URL}/issues?q=${encodeURIComponent('is:issue is:open no:assignee -linked:pr label:"good first issue","help wanted"')}`,
     ENGINE   = ['src/grid/Body.mjs'],
@@ -341,8 +345,8 @@ test.describe('buildScripts/util/contributorStanding', () => {
         /**
          * Runs the workflow's script against a stand-in GitHub, recording every query, post and warning.
          */
-        const run = async ({comments = [], eventName = 'pull_request_target', incomplete = () => false, inputs, optOutText = '[]', searchError} = {}) => {
-            const calls = {contents: [], inFlight: 0, peakSearches: 0, posted: [], queries: [], summary: [], warnings: []};
+        const run = async ({author = {}, comments = [], eventName = 'pull_request_target', incomplete = () => false, inputs, optOutText = '[]', permission = 'read', searchError} = {}) => {
+            const calls = {contents: [], inFlight: 0, peakSearches: 0, permissions: [], posted: [], queries: [], summary: [], warnings: []};
 
             const github = {
                 graphql : async () => ({repository: {pullRequest: {closingIssuesReferences: {nodes: [{labels: {nodes: [{name: 'grid'}]}}]}}}}),
@@ -356,10 +360,18 @@ test.describe('buildScripts/util/contributorStanding', () => {
                         listComments : Symbol('listComments')
                     },
                     pulls : {
-                        get      : async () => ({data: pullRequest()}),
+                        get      : async () => ({data: pullRequest(author)}),
                         listFiles: async () => ({data: ENGINE.map(filename => ({filename}))})
                     },
                     repos : {
+                        // The author can read unless the arm passes a permission, and null answers Not Found
+                        getCollaboratorPermissionLevel: async ({username}) => {
+                            calls.permissions.push({searchesBefore: calls.queries.length, username});
+
+                            if (permission === null) throw Object.assign(new Error('Not Found'), {status: 404});
+
+                            return {data: {permission}}
+                        },
                         // The Pages opt-out list is empty unless the arm passes its text, and null answers Not Found
                         getContent: async ({owner, repo, path: file, ref}) => {
                             calls.contents.push(`${owner}/${repo}@${ref}:${file}`);
@@ -397,7 +409,7 @@ test.describe('buildScripts/util/contributorStanding', () => {
 
             await runStep(
                 github,
-                {eventName, payload: {inputs, pull_request: pullRequest()}, repo: {owner: 'neomjs', repo: 'neo'}},
+                {eventName, payload: {inputs, pull_request: pullRequest(author)}, repo: {owner: 'neomjs', repo: 'neo'}},
                 {info: () => {}, summary, warning: message => calls.warnings.push(message)}
             );
 
@@ -453,7 +465,47 @@ test.describe('buildScripts/util/contributorStanding', () => {
             expect(raw).toMatch(/\non:\n  pull_request_target:\n    types: \[closed\]\n  workflow_dispatch:/);
             expect(raw).toMatch(/persist-credentials: false\n {10}sparse-checkout: \|\n {12}buildScripts\/util\/claimResponse\.mjs\n {12}buildScripts\/util\/contributorStanding\.mjs\n/);
             expect(raw).not.toMatch(/^\s+ref:/m);
-            expect(raw).not.toMatch(/^\s+run:/m)
+            expect(raw).not.toMatch(/^\s+run:/m);
+            expect(raw).toMatch(COMMENT_PERMISSIONS)
+        });
+
+        test('the team is whoever can write here: its author gets nothing and costs no search, at a merge and on a dispatch with post', async () => {
+            for (const permission of TEAM_PERMISSIONS) {
+                for (const calls of [await run({permission}), await run({eventName: 'workflow_dispatch', inputs: {pr: '20999', post: 'true'}, permission})]) {
+                    expect(calls.permissions).toEqual([{searchesBefore: 0, username: 'Outside-Dev'}]);
+                    expect(calls.queries).toEqual([]);
+                    expect(calls.posted).toEqual([]);
+                    expect(calls.summary).toEqual([]);
+                    expect(calls.warnings).toEqual([])
+                }
+            }
+        });
+
+        test('an outside author is asked about once, before the first search, and a bot or a team association not at all', async () => {
+            const outside = await run();
+
+            expect(outside.permissions).toEqual([{searchesBefore: 0, username: 'Outside-Dev'}]);
+            expect(outside.posted).toHaveLength(1);
+
+            for (const calls of [await run({author: {type: 'Bot'}}), await run({author: {association: 'MEMBER'}})]) {
+                expect(calls.permissions).toEqual([]);
+                expect(calls.queries).toEqual([]);
+                expect(calls.posted).toEqual([]);
+                expect(calls.warnings).toEqual([])
+            }
+        });
+
+        test('a permission that cannot be read, or that names none, warns and posts nothing', async () => {
+            const [missing, unnamed] = [await run({permission: null}), await run({permission: 'owner'})];
+
+            expect(missing.warnings).toEqual(['No merge comment: Not Found']);
+            expect(unnamed.warnings).toEqual(['No merge comment: "owner" names no repository permission']);
+
+            for (const calls of [missing, unnamed]) {
+                expect(calls.queries).toEqual([]);
+                expect(calls.posted).toEqual([]);
+                expect(calls.summary).toEqual([])
+            }
         });
 
         test('a merged outside pull request is commented on once, from a count that never waits for the index', async () => {
@@ -720,7 +772,8 @@ test.describe('buildScripts/util/contributorStanding', () => {
             expect(raw).not.toMatch(/^\s+ref:/m);
             expect(raw).not.toMatch(/^\s+run:/m);
             // No expression anywhere: an input reaches the job through the script's context alone
-            expect(raw).not.toContain('${{')
+            expect(raw).not.toContain('${{');
+            expect(raw).toMatch(COMMENT_PERMISSIONS)
         });
 
         test('a run without post posts nothing and renders every note, on the latest outside merge of each account', async () => {
