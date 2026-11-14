@@ -124,8 +124,8 @@ export function isOutsideHuman(comment) {
 
 /**
  * Whether a repository permission belongs to the team. A caller asks it where {@link isOutsideHuman} cannot decide:
- * GitHub answers `author_association` for whoever asks, and neither an event's payload nor a workflow's token sees a
- * membership that is not public, so a team account reads as `CONTRIBUTOR` there.
+ * a pull request's `author_association` hides a membership that is not public, in a merge event's payload and for a
+ * workflow's token alike, so a team account reads as `CONTRIBUTOR` there. An issue comment's payload does name it.
  * @param {String} permission `permission` of `GET /repos/{owner}/{repo}/collaborators/{username}/permission`
  * @returns {Boolean}
  * @throws {Error} When the value names no permission: an account that cannot be told apart is not an outside one

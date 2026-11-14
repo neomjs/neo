@@ -86,7 +86,7 @@ jobs:
               const login        = pullRequest.user.login;
               const permissionOf = async username => (await github.rest.repos.getCollaboratorPermissionLevel({owner, repo, username})).data.permission;
 
-              // The association hides a membership that is not public: the repository's permission names the team
+              // A pull request's association hides a membership that is not public: the permission names the team
               if (!isOutsideHuman(pullRequest) || isTeamPermission(await permissionOf(login))) {
                 core.info(`No comment: #${pullRequest.number} is from the team or a bot.`);
                 return
