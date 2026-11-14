@@ -1,12 +1,12 @@
-import fs                                       from 'fs-extra';
-import path                                     from 'path';
-import {fileURLToPath}                          from 'node:url';
-import * as Terser                              from 'terser';
-import {BROWSER_BUNDLES}                        from '../util/browserBundles.mjs';
-import {isDistAppAsset, isExcludedDistResource} from '../util/distAppAssets.mjs';
-import {minifyHtml}                             from '../util/minifyHtml.mjs';
-import {mainAddonPackageRoots}                  from '../util/declaredPackageRoots.mjs';
-import {processFileContent}                     from '../util/astTemplateProcessor.mjs';
+import fs                      from 'fs-extra';
+import path                    from 'path';
+import {fileURLToPath}         from 'node:url';
+import * as Terser             from 'terser';
+import {BROWSER_BUNDLES}       from '../util/browserBundles.mjs';
+import {createEsmBuildPlan}    from '../util/esmBuildGraph.mjs';
+import {minifyHtml}            from '../util/minifyHtml.mjs';
+import {mainAddonPackageRoots} from '../util/declaredPackageRoots.mjs';
+import {processFileContent}    from '../util/astTemplateProcessor.mjs';
 
 import {
     esmOutputRoot,
@@ -31,59 +31,53 @@ const
     /** Files that threw. Collected rather than logged, so the build can refuse to exit 0. */
     failures       = [];
 
-let inputDirectories, packageRoots;
+let plan, packageRoots;
 
 // A rejected source root is a manifest mistake, not an engine crash: the developer who typed the
 // path is the one who has to read this, and a stack trace through buildScripts tells them nothing.
 try {
     packageRoots = mainAddonPackageRoots(root);
-    inputDirectories = [...new Set([
-        ...resolveSourceRoots({insideNeo, packageJson}), ...packageRoots.map(entry => entry.relativeRoot)
-    ])]
+    plan = createEsmBuildPlan({
+        workspaceRoot: root, engineRoot: insideNeo ? root : path.join(root, 'node_modules/neo.mjs'),
+        sourceRoots  : resolveSourceRoots({insideNeo, packageJson}), packageRoots
+    });
+    for (const output of plan.excludedOutputs) fs.rmSync(output, {force: true})
 } catch (error) {
     console.error(`\ndist/esm: ${error.message}`);
     process.exit(1)
 }
 
-async function minifyDirectory(inputDir, outputDir) {
-    if (fs.existsSync(inputDir)) {
-        fs.mkdirSync(outputDir, {recursive: true});
-        const dirents = fs.readdirSync(inputDir, {recursive: true, withFileTypes: true});
-        for (const dirent of dirents) {
-            if (!dirent.isFile()) {
-                continue;
-            }
-
-            const currentPath     = dirent.parentPath || dirent.path;
-            const inputPath       = path.join(currentPath, dirent.name);
-            const normalizedInput = inputPath.replace(/\\/g, '/');
-
-            const relativePath = path.relative(inputDir, inputPath);
-            const outputPath   = path.join(outputDir, relativePath);
-
-            if (normalizedInput.includes('/docs/output/') || isExcludedDistResource(normalizedInput)) {
-                fs.rmSync(outputPath, {force: true});
-                continue;
-            }
-
-            if (dirent.name.endsWith('.mjs') || dirent.name.endsWith('.json') || dirent.name.endsWith('.html')) {
-                const content = fs.readFileSync(inputPath, 'utf8');
-                await minifyFile(content, outputPath, inputPath);
-            } else if (isDistAppAsset(dirent.name) || normalizedInput.includes('/resources/')) {
-                fs.mkdirSync(path.dirname(outputPath), {recursive: true});
-                fs.copyFileSync(inputPath, outputPath);
-            }
+/**
+ * @summary Emits each planned logical file once, independent of how many roots or imports admitted it.
+ * @returns {Promise<void>}
+ */
+async function emitFiles() {
+    for (const [sourcePath, {outputPath, type}] of plan.files) {
+        if (type === 'reference') continue;
+        if (type === 'asset') {
+            fs.mkdirSync(path.dirname(outputPath), {recursive: true});
+            fs.copyFileSync(sourcePath, outputPath)
+        } else {
+            await minifyFile(fs.readFileSync(sourcePath, 'utf8'), outputPath, sourcePath, type)
         }
     }
 }
 
-async function minifyFile(content, outputPath, sourcePath) {
+/**
+ * @summary Transforms one admitted file and retains its emitted imports for final identity validation.
+ * @param {String} content
+ * @param {String} outputPath
+ * @param {String} sourcePath
+ * @param {String} type
+ * @returns {Promise<void>}
+ */
+async function minifyFile(content, outputPath, sourcePath, type) {
     fs.mkdirSync(path.dirname(outputPath), {recursive: true});
 
     try {
         if (outputPath.endsWith('.json')) {
             const jsonContent = JSON.parse(content);
-            if (outputPath.endsWith('neo-config.json')) {
+            if (type !== 'json-data' && outputPath.endsWith('neo-config.json')) {
                 rewriteNeoConfig(jsonContent, {insideNeo})
             }
             fs.writeFileSync(outputPath, JSON.stringify(jsonContent));
@@ -92,10 +86,10 @@ async function minifyFile(content, outputPath, sourcePath) {
             const minifiedContent = await minifyHtml(content);
             fs.writeFileSync(outputPath, minifiedContent);
             console.log(`Minified HTML: ${outputPath}`)
-        } else if (outputPath.endsWith('.mjs')) {
+        } else if (type === 'module') {
             let adjustedContent = rewriteMainAddonImports(content, {
                 sourcePath, outputPath, workspaceRoot: root,
-                engineRoot: insideNeo ? root : path.join(root, 'node_modules/neo.mjs'), packageRoots
+                engineRoot: insideNeo ? root : path.join(root, 'node_modules/neo.mjs'), packageRoots, files: plan.files
             });
 
             // AST-based processing for html templates
@@ -124,24 +118,7 @@ async function minifyFile(content, outputPath, sourcePath) {
     }
 }
 
-const promises = [];
-const swPath   = path.resolve(root, 'ServiceWorker.mjs');
-
-if (fs.existsSync(swPath)) {
-    promises.push(minifyFile(fs.readFileSync(swPath, 'utf8'), path.resolve(root, outputBasePath, 'ServiceWorker.mjs'), swPath));
-}
-
-inputDirectories.forEach(folder => {
-    const outputPath = path.resolve(root, outputBasePath, folder.replace('node_modules/neo.mjs/', ''));
-    promises.push(minifyDirectory(path.resolve(root, folder), outputPath)
-        .catch(err => {
-            console.error('dist/esm Minification failed:', err);
-            process.exit(1)
-        })
-    )
-});
-
-Promise.all(promises).then(() => {
+emitFiles().then(() => {
     const docsOutputPath = path.resolve(root, 'docs/output');
     if (fs.existsSync(docsOutputPath)) {
         fs.copySync(docsOutputPath, path.resolve(root, outputBasePath, 'docs/output'))
@@ -226,4 +203,7 @@ Promise.all(promises).then(() => {
     const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
     console.log(`\nTotal time for dist/esm: ${processTime}s`);
     process.exit()
+}).catch(error => {
+    console.error('dist/esm emission failed:', error);
+    process.exit(1)
 })

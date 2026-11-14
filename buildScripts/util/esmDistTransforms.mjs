@@ -38,6 +38,21 @@ export const esmOutputRoot = 'dist/esm';
 export const enginePackagePath = 'node_modules/neo.mjs';
 
 /**
+ * @summary The single emitted destination for an admitted logical source file or directory.
+ * @param {String} sourcePath
+ * @param {Object} options
+ * @param {String} options.workspaceRoot
+ * @param {String} options.engineRoot
+ * @returns {String}
+ */
+export function esmDestination(sourcePath, {workspaceRoot, engineRoot}) {
+    const within = (root, file) => file === root || file.startsWith(root + path.sep),
+          root   = within(engineRoot, sourcePath) ? engineRoot : workspaceRoot;
+    if (!within(workspaceRoot, sourcePath)) throw new Error(`ESM source is outside the workspace: ${sourcePath}`);
+    return path.join(workspaceRoot, esmOutputRoot, path.relative(root, sourcePath))
+}
+
+/**
  * Matches a static import, a dynamic import, or a re-export whose specifier mentions `node_modules`.
  *
  * A module-scope constant, compiled once. It was a factory, justified on the `g` flag carrying
@@ -108,10 +123,10 @@ export function rewriteImportPaths(content) {
 }
 
 /**
- * @summary Rebases declared Main-addon modules onto the emitted tree's single Engine graph.
- * @description Other modules keep the established workspace transform. Main's package contexts address the
- * emitted dependency roots; addon imports into the Engine or another emitted addon root follow their copied
- * destination. Dependencies outside those roots retain their original host location.
+ * @summary Rebases admitted workspace, package and Main-addon modules through one emitted file plan.
+ * @description Planned static edges use their shared emitted destinations, including helpers reached by both
+ * App components and Main addons. Main's computed package contexts retain their declared roots. Unadmitted
+ * dependencies retain the established host fallback; this transform does not discover dynamic imports.
  * @param {String} content Source module text.
  * @param {Object} options
  * @param {String} options.sourcePath Source filename in the consuming workspace.
@@ -119,32 +134,46 @@ export function rewriteImportPaths(content) {
  * @param {String} options.workspaceRoot Consuming workspace.
  * @param {String} options.engineRoot Installed or in-repository Engine root.
  * @param {Object[]} options.packageRoots Declared roots from mainAddonPackageRoots.
+ * @param {Map<String, Object>} [options.files] The build plan, keyed by logical source filename.
  * @returns {String}
  */
-export function rewriteMainAddonImports(content, {sourcePath, outputPath, workspaceRoot, engineRoot, packageRoots}) {
-    const within     = (root, file) => file === root || file.startsWith(root + path.sep),
-          isMain     = sourcePath === path.join(engineRoot, 'src/Main.mjs'),
-          isAddon    = packageRoots.some(entry => within(entry.sourceRoot, sourcePath)),
+export function rewriteMainAddonImports(content, {sourcePath, outputPath, workspaceRoot, engineRoot, packageRoots, files}) {
+    const within          = (root, file) => file === root || file.startsWith(root + path.sep),
+          installedEngine = engineRoot !== workspaceRoot,
+          isMain          = sourcePath === path.join(engineRoot, 'src/Main.mjs'),
+          isAddon         = packageRoots.some(entry => within(entry.sourceRoot, sourcePath)),
+          isPackage       = files?.has(sourcePath) && within(path.join(workspaceRoot, 'node_modules'), sourcePath) &&
+              (!installedEngine || !within(engineRoot, sourcePath)),
           outputRoot = path.join(workspaceRoot, esmOutputRoot),
           edits      = [];
-    if (!isMain && !isAddon) return rewriteImportPaths(content);
+    if (!isMain && !isAddon && !files?.size) return rewriteImportPaths(content);
 
     visitImportSources(content, source => {
         const entry = staticSpecifier(source, content);
         if (!entry) return;
         const quasi  = entry.computed ? source.quasis[0] : null,
               prefix = quasi ? quasi.value.cooked : entry.specifier;
-        if (!prefix.startsWith('./') && !prefix.startsWith('../')) return;
+        const relative = prefix.startsWith('./') || prefix.startsWith('../');
+        if (!relative && (isMain || isAddon || isPackage || !prefix.includes('node_modules'))) return;
 
         let target;
-        if (isMain) {
-            if (!entry.computed || !['../../', '../node_modules/'].includes(prefix)) return;
+        const resolved = path.resolve(path.dirname(sourcePath), prefix),
+              mapped   = relative && !entry.computed && files?.get(resolved)?.outputPath;
+        if (mapped) {
+            target = mapped
+        } else if (isMain && entry.computed && ['../../', '../node_modules/'].includes(prefix)) {
             target = path.join(outputRoot, 'node_modules')
+        } else if (isAddon || isPackage) {
+            const owner        = packageRoots.find(root => within(root.sourceRoot, resolved)),
+                  engineTarget = within(engineRoot, resolved) &&
+                      (installedEngine || !within(path.join(workspaceRoot, 'node_modules'), resolved));
+            target = engineTarget || owner ? esmDestination(resolved, {workspaceRoot, engineRoot}) : resolved
+        } else if (prefix.includes('node_modules')) {
+            const rewritten = prefix.includes('/node_modules/neo.mjs/')
+                ? prefix.replace('/node_modules/neo.mjs/', '/') : '../../' + prefix;
+            target = path.resolve(path.dirname(outputPath), rewritten)
         } else {
-            const resolved = path.resolve(path.dirname(sourcePath), prefix),
-                  owner    = packageRoots.find(root => within(root.sourceRoot, resolved));
-            target = within(engineRoot, resolved) ? path.join(outputRoot, path.relative(engineRoot, resolved)) :
-                owner ? path.join(outputRoot, owner.relativeRoot, path.relative(owner.sourceRoot, resolved)) : resolved
+            return
         }
 
         let replacement = path.relative(path.dirname(outputPath), target).split(path.sep).join('/');
@@ -396,6 +425,19 @@ export function relativeSpecifiers(code) {
     return specifiers
 }
 
+/**
+ * @summary Returns static import/re-export edges without admitting runtime dynamic import expressions.
+ * @param {String} code
+ * @returns {String[]}
+ */
+export function staticModuleSpecifiers(code) {
+    const specifiers = [];
+    visitImportSources(code, (source, kind) => {
+        if (kind !== 'ImportExpression') specifiers.push(source.value)
+    });
+    return specifiers
+}
+
 /** @summary Visits actual import/re-export source nodes, excluding source-like prose strings. @param {String} code @param {Function} visitor */
 function visitImportSources(code, visitor) {
     const visit = node => {
@@ -409,7 +451,7 @@ function visitImportSources(code, visitor) {
             }
 
             if (SPECIFIER_NODE_TYPES.has(node.type) && node.source) {
-                visitor(node.source)
+                visitor(node.source, node.type)
             }
 
             // A dynamic import can sit anywhere, so every child is visited rather than only the
