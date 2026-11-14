@@ -1655,11 +1655,13 @@ class Store extends Collection {
      * E.g. myRecord.foo = 'bar';
      * The published `index` is an enumerable getter: listeners that never read it pay no scan, and
      * one that reads after an earlier listener re-sorted the store gets the record's current position.
-     * A record of an {@link #updateRows} batch publishes with `isBatch: true` and reapplies nothing: the batch
-     * reapplies once, after its records published.
+     * The prepared change of an {@link #updateRows} batch record publishes with `isBatch: true` and reapplies
+     * nothing: the batch reapplies once, after its records published. An edit a listener makes meanwhile, also to
+     * a batch record, is an ordinary change.
      * @param {Object} data
      * @param {Object[]} data.fields Each field object contains the keys: name, oldValue, value
      * @param {Neo.data.Model} data.model The model instance of the changed record
+     * @param {Boolean} [data.prepared] True for a change `RecordFactory#applyPreparedFields` publishes
      * @param {Object} data.record
      */
     onRecordChange(data) {
@@ -1667,7 +1669,7 @@ class Store extends Collection {
             this.#keyChanges.set(data.record, data);
             return
         }
-        const isBatch  = !!this.#batchRecords?.has(data.record),
+        const isBatch  = data.prepared === true && !!this.#batchRecords?.has(data.record),
               refilter = !isBatch && !this.#sortingRecordChange && this.shouldReapplyFilters(data.record),
               resort   = !isBatch && this.shouldReapplySorters(data);
 

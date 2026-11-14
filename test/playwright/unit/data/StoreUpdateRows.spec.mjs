@@ -140,6 +140,35 @@ test.describe('Store#updateRows (#20968)', () => {
         expect(events).toEqual([['rows', 1]])
     });
 
+    test('an edit a listener makes while the batch publishes is an ordinary change', async () => {
+        const store  = await create({autoInitRecords: true, sorters: [{property: 'score', reapplyOnRecordChange: true}]}),
+              events = recording(store);
+
+        // the batch writes a field no sorter reads; its listener then moves the record by the sorted field
+        store.on('recordChange', ({isBatch, record}) => isBatch && record.id === 1 && (record.score = 10));
+
+        store.updateRows([{key: 1, values: {active: false}}]);
+
+        expect(events, 'the nested edit publishes unflagged, after its own sort').toEqual([
+            ['record', 1, true], ['sort'], ['record', 1, undefined], ['rows', 1]
+        ]);
+        expect(ids(store), 'the sorter followed the nested edit').toEqual([2, 3, 4, 5, 6, 1])
+    });
+
+    test('an edit to a batch record that has not published yet is an ordinary change too', async () => {
+        const store  = await create({autoInitRecords: true, sorters: [{property: 'score', reapplyOnRecordChange: true}]}),
+              events = recording(store);
+
+        store.on('recordChange', ({isBatch, record}) => isBatch && record.id === 1 && (store.get(3).score = 0));
+
+        store.updateRows([{key: 1, values: {active: false}}, {key: 3, values: {active: false}}]);
+
+        expect(events, 'record 3 publishes its ordinary edit first, then its prepared change').toEqual([
+            ['record', 1, true], ['sort'], ['record', 3, undefined], ['record', 3, true], ['rows', 1, 3]
+        ]);
+        expect(ids(store)).toEqual([3, 1, 2, 4, 5, 6])
+    });
+
     test('a key the store does not hold is skipped and returned; a batch with no row fires nothing', async () => {
         const store  = await create(),
               events = recording(store);

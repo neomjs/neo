@@ -437,7 +437,8 @@ class RecordFactory extends Base {
 
     /**
      * @summary Adopts non-key fields silently through each record's native writer, then publishes
-     * their native change payloads. A failing conversion or seal restores the fields, including calculated
+     * their native change payloads, each marked `prepared: true`, so a subscriber tells them from an ordinary write
+     * a listener makes during the publication. A failing conversion or seal restores the fields, including calculated
      * values, dirty state and version. The synchronous seal finishes any owner-managed work before the
      * first observer runs. Converters may normalize or retain the previous value; native deltas describe
      * what changed. An override that bypasses the admitted native write rejects the operation.
@@ -514,7 +515,7 @@ class RecordFactory extends Base {
             Neo.batch(() => {
                 for (const {record, changes} of checkpoints) {
                     if (changes.length) {
-                        this.onRecordChange({model, record, fields: changes}, errors)
+                        this.onRecordChange({model, prepared: true, record, fields: changes}, errors)
                     }
                 }
             })
@@ -541,6 +542,7 @@ class RecordFactory extends Base {
      * @param {Object} opts
      * @param {Object[]} opts.fields Each field object contains the keys: name, oldValue, value
      * @param {Neo.data.Model} opts.model The model instance of the changed record
+     * @param {Boolean} [opts.prepared] True for a change {@link #applyPreparedFields} publishes
      * @param {Object} opts.record
      * @param {Error[]} [errors] Prepared publication collects subscriber errors; ordinary writes propagate them.
      */
