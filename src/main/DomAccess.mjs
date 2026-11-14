@@ -1491,10 +1491,10 @@ class DomAccess extends Base {
     /**
      * @summary Settles where focus went after an element departs, and resolves whether it was lost.
      * @description A worker component that departs while holding focus hands it back before its own DOM removal
-     * arrives here. While the departing element still holds focus, nothing can be read yet: a dock refresh moves the
-     * element the user just focused out of that subtree in the same batch that removes it. The read settles once the
-     * element has left the document or no longer holds focus, or after `timeout`. Focus is lost when it fell to the
-     * body, or when the element still holds it at the timeout; a focus that lives on elsewhere is the user's.
+     * arrives here, so the read waits until the departing element has left the document, or `timeout` passes. DOM
+     * containment cannot decide earlier: a dock refresh moves the element the user just focused out of the subtree it
+     * removes, and a submenu holds its menu's focus as a sibling of that menu. Focus is lost when it fell to the body,
+     * or when the element still holds it at the timeout; a focus that lives on elsewhere is the user's.
      * @param {String} id The departing element
      * @param {Number} [timeout=200]
      * @returns {Promise<Boolean>}
@@ -1502,28 +1502,25 @@ class DomAccess extends Base {
      */
     settleFocusDeparture(id, timeout=200) {
         const
-            node  = this.getElement(id),
-            holds = () => Boolean(node?.isConnected && node.contains(document.activeElement)),
-            lost  = () => holds() || !document.activeElement || document.activeElement === document.body;
+            node = this.getElement(id),
+            lost = () => Boolean(node?.isConnected && node.contains(document.activeElement)) ||
+                !document.activeElement || document.activeElement === document.body;
 
-        if (!holds()) {
+        if (!node?.isConnected) {
             return Promise.resolve(lost())
         }
 
         return new Promise(resolve => {
             const
-                check    = () => holds() || settle(),
-                observer = new MutationObserver(check),
+                observer = new MutationObserver(() => node.isConnected || settle()),
                 timer    = setTimeout(() => settle(), timeout),
                 settle   = () => {
                     observer.disconnect();
                     clearTimeout(timer);
-                    document.removeEventListener('focusin', check, true);
                     resolve(lost())
                 };
 
-            observer.observe(document, {childList: true, subtree: true});
-            document.addEventListener('focusin', check, true)
+            observer.observe(document, {childList: true, subtree: true})
         })
     }
 
