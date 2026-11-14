@@ -26,9 +26,9 @@ on:
         default: ''
 
 permissions:
-  contents: read       # the sparse checkout of the two modules
-  issues: write        # the note: a pull request's conversation is an issue's
-  pull-requests: read  # each pull request's files and the issues it closes
+  contents: read        # the sparse checkout of the two modules
+  issues: read          # the labels of the issues each pull request closes
+  pull-requests: write  # the note: on a pull request it needs this scope, `issues: write` is refused
 
 jobs:
   heads-up:

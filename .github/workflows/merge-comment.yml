@@ -28,9 +28,9 @@ on:
         default: false
 
 permissions:
-  contents: read       # the sparse checkout of the two modules
-  issues: write        # the comment: a pull request's conversation is an issue's
-  pull-requests: read  # the pull request, its files and the issues it closes
+  contents: read        # the sparse checkout of the two modules
+  issues: read          # the labels of the issues the pull request closes
+  pull-requests: write  # the comment: on a pull request it needs this scope, `issues: write` is refused
 
 jobs:
   comment:
@@ -72,7 +72,7 @@ jobs:
               if (process.env.CHECKOUT_OUTCOME !== 'success') throw new Error(`the checkout ended ${process.env.CHECKOUT_OUTCOME || 'without an outcome'}`);
 
               const {BADGES_SINCE, decideMergeComment, parseOptOut} = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/contributorStanding.mjs`);
-              const {CURATED_LABELS}                                = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/claimResponse.mjs`);
+              const {CURATED_LABELS, isOutsideHuman, isTeamPermission} = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/claimResponse.mjs`);
 
               const pullRequest = dispatched
                 ? (await github.rest.pulls.get({owner, repo, pull_number: Number(context.payload.inputs.pr)})).data
@@ -83,7 +83,15 @@ jobs:
                 return
               }
 
-              const login    = pullRequest.user.login;
+              const login        = pullRequest.user.login;
+              const permissionOf = async username => (await github.rest.repos.getCollaboratorPermissionLevel({owner, repo, username})).data.permission;
+
+              // The association hides a membership that is not public: the repository's permission names the team
+              if (!isOutsideHuman(pullRequest) || isTeamPermission(await permissionOf(login))) {
+                core.info(`No comment: #${pullRequest.number} is from the team or a bot.`);
+                return
+              }
+
               const mergedAt = Date.parse(pullRequest.merged_at);
               const stamp    = ms => new Date(ms).toISOString().replace(/\.\d{3}Z$/, '+00:00');
               // An incomplete answer undercounts, and an undercount reads as a first merge: no comment, not a wrong one
@@ -138,7 +146,7 @@ jobs:
               });
 
               if (!decision) {
-                core.info(`No comment: #${pullRequest.number} is not from outside the team, or it already has one.`);
+                core.info(`No comment: #${pullRequest.number} already carries one, or a heads-up.`);
                 return
               }
 
