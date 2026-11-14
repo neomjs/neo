@@ -1,0 +1,162 @@
+# Comments once on each pull request from outside the team when it merges: the author's standing, up to two open
+# curated issues to take next, an invitation at a new rung, and once the badges are served, the badge line, unless the
+# account is on the opt-out list of neomjs/pages. The words live in buildScripts/util/contributorStanding.mjs and its
+# spec; this file only fetches and posts.
+#
+# `pull_request_target` runs this file from the default branch, with a token that can comment on a fork's pull request
+# and without waiting for run approval. The job therefore checks out nothing but the two modules, never the pull
+# request's head, and reads the payload in script, never in a shell step. Its check runs anchor on the merged head,
+# where a red one would stay (see review-admission-mergeability.yml), so a failed checkout, module load, search or post
+# warns and ends green: the read counts merges that got no comment, so a miss still shows.
+#
+# `workflow_dispatch` renders the comment for one merged pull request into the job summary, and posts it only with
+# `post`. Like any dispatch, it needs this file on the default branch first.
+name: Merge comment
+
+on:
+  pull_request_target:
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: The number of a merged pull request.
+        required: true
+        type: number
+      post:
+        description: Post the comment, rather than only rendering it into the job summary.
+        type: boolean
+        default: false
+
+permissions:
+  contents: read       # the sparse checkout of the two modules
+  issues: write        # the comment: a pull request's conversation is an issue's
+  pull-requests: read  # the pull request, its files and the issues it closes
+
+jobs:
+  comment:
+    if: >-
+      github.event_name == 'workflow_dispatch' || (
+        github.event.pull_request.merged == true &&
+        github.event.pull_request.user.type != 'Bot' &&
+        !contains(fromJSON('["COLLABORATOR","MEMBER","OWNER"]'), github.event.pull_request.author_association)
+      )
+    concurrency:
+      group: merge-comment-${{ github.event.pull_request.number || inputs.pr }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out the comment modules
+        id: checkout
+        uses: actions/checkout@v7
+        # A failed checkout still runs the script, which reads the step's raw outcome and warns instead of posting,
+        # even when the step failed after writing both modules.
+        continue-on-error: true
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            buildScripts/util/claimResponse.mjs
+            buildScripts/util/contributorStanding.mjs
+          sparse-checkout-cone-mode: false
+
+      - name: Comment on the merge
+        uses: actions/github-script@v9
+        env:
+          CHECKOUT_OUTCOME: ${{ steps.checkout.outcome }}
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const dispatched    = context.eventName === 'workflow_dispatch';
+
+            try {
+              if (process.env.CHECKOUT_OUTCOME !== 'success') throw new Error(`the checkout ended ${process.env.CHECKOUT_OUTCOME || 'without an outcome'}`);
+
+              const {BADGES_SINCE, decideMergeComment, parseOptOut} = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/contributorStanding.mjs`);
+              const {CURATED_LABELS}                                = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/claimResponse.mjs`);
+
+              const pullRequest = dispatched
+                ? (await github.rest.pulls.get({owner, repo, pull_number: Number(context.payload.inputs.pr)})).data
+                : context.payload.pull_request;
+
+              if (!pullRequest.merged) {
+                core.info(`No comment: #${pullRequest.number} is not merged.`);
+                return
+              }
+
+              const login    = pullRequest.user.login;
+              const mergedAt = Date.parse(pullRequest.merged_at);
+              const launch   = BADGES_SINCE ? Date.parse(BADGES_SINCE) : null;
+              const stamp    = ms => new Date(ms).toISOString().replace(/\.\d{3}Z$/, '+00:00');
+              // An incomplete answer undercounts, and an undercount reads as a first merge: no comment, not a wrong one
+              const search   = async (q, perPage) => {
+                const {data} = await github.rest.search.issuesAndPullRequests({q, per_page: perPage});
+
+                if (data.incomplete_results) throw new Error(`the search answered incompletely: ${q}`);
+
+                return data
+              };
+              const count    = async range => (await search(`org:${owner} is:public is:pr is:merged author:${login} merged:${range}`, 1)).total_count;
+
+              // Searches run one at a time: GitHub's secondary rate limit refuses bursts of them
+              const mergedBefore            = await count(`<${stamp(mergedAt)}`);
+              // A range includes both ends, so it stops one second before the merge, which is the plus one; a merge
+              // in the launch's first second has no earlier post-launch merge, and one before launch is not asked
+              const mergedSinceLaunchBefore = launch !== null && mergedAt - 1000 >= launch ? await count(`${stamp(launch)}..${stamp(mergedAt - 1000)}`) : 0;
+              const candidates              = [];
+
+              for (const label of CURATED_LABELS) {
+                candidates.push(...(await search(`repo:${owner}/${repo} is:issue is:open label:"${label}" no:assignee -linked:pr`, 50)).items)
+              }
+
+              // Pages writes no folder for an account on its opt-out list. Only a merge since the launch reads it, and a
+              // list that cannot be read (404 until Pages serves it) offers no badge, with a warning
+              const launched = launch !== null && mergedAt >= launch;
+              const optOut   = launched
+                ? await github.rest.repos.getContent({owner, repo: 'pages', path: 'badges/optout.json', ref: 'main'})
+                  .then(({data}) => parseOptOut(Buffer.from(data.content, 'base64').toString('utf8')))
+                  .catch(() => null)
+                : null;
+
+              if (launched && optOut === null) core.warning('No badge in the merge comment: the opt-out list of neomjs/pages is unreadable.');
+
+              const [closing, files, comments] = await Promise.all([
+                github.graphql(`query($owner: String!, $repo: String!, $number: Int!) {
+                  repository(owner: $owner, name: $repo) {
+                    pullRequest(number: $number) {
+                      closingIssuesReferences(first: 10) { nodes { labels(first: 30) { nodes { name } } } }
+                    }
+                  }
+                }`, {owner, repo, number: pullRequest.number}),
+                github.rest.pulls.listFiles({owner, repo, pull_number: pullRequest.number, per_page: 100}),
+                github.paginate(github.rest.issues.listComments, {owner, repo, issue_number: pullRequest.number, per_page: 100})
+              ]);
+
+              const decision = decideMergeComment({
+                candidates,
+                closedLabels:closing.repository.pullRequest.closingIssuesReferences.nodes.flatMap(issue => issue.labels.nodes.map(label => label.name)),
+                comments,
+                mergedBefore,
+                mergedSinceLaunchBefore,
+                optOut,
+                paths       : files.data.map(file => file.filename),
+                pullRequest,
+                repoUrl     : `https://github.com/${owner}/${repo}`
+              });
+
+              if (!decision) {
+                core.info(`No comment: #${pullRequest.number} is not from outside the team, or it already has one.`);
+                return
+              }
+
+              await core.summary.addHeading(`Merge comment for #${pullRequest.number}`).addCodeBlock(decision.body, 'markdown').write();
+
+              if (dispatched && String(context.payload.inputs.post) !== 'true') {
+                core.info('Dry run: the comment is in the job summary.');
+                return
+              }
+
+              await github.rest.issues.createComment({owner, repo, issue_number: pullRequest.number, body: decision.body});
+              core.info(`Commented on #${pullRequest.number}.`)
+            } catch (error) {
+              core.warning(`No merge comment: ${error.message}`)
+            }
