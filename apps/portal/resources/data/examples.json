@@ -142,6 +142,28 @@
             "dist_esm": "dist/esm/examples/calendar/basic/index.html",
             "dist_prod": "dist/production/examples/calendar/basic/index.html"
         },
+        "hiddenIn": [],
+        "family": "calendar",
+        "component": "Calendar",
+        "feature": "A full calendar with day, week, month and year views, a month navigator and color-coded calendars.",
+        "lookFor": "Switch between Day, Week, Month and Year views, then toggle a calendar in the left panel to filter its events."
+    },
+    {
+        "id": "calendar-weekview",
+        "name": "Calendar Week View",
+        "family": "calendar",
+        "component": "Calendar",
+        "feature": "A dedicated week view lays timed sample events across seven day columns with an hourly axis.",
+        "lookFor": "Follow a sample event down its day column and compare its start time with the hour labels.",
+        "featured": false,
+        "image": null,
+        "sourceUrl": "examples/calendar/weekview",
+        "urls": {
+            "devmode": "examples/calendar/weekview/index.html",
+            "dist_dev": "dist/development/examples/calendar/weekview/index.html",
+            "dist_esm": "dist/esm/examples/calendar/weekview/index.html",
+            "dist_prod": "dist/production/examples/calendar/weekview/index.html"
+        },
         "hiddenIn": []
     },
     {
