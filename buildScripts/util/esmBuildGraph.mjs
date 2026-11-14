@@ -23,7 +23,8 @@ function packageOwner(workspaceRoot, file) {
 /**
  * @summary Plans each emitted file once, extending workspace and Main-root admission with static package reachability.
  * @description Only imports and re-exports are discovery edges; dynamic imports retain their existing runtime
- * admission. Package-owner reachability propagates after graph construction, so cycles and pure helpers returning
+ * admission. Main-root edges are inspected without extending admission; a host fallback must not reach the Engine.
+ * Package-owner reachability propagates after graph construction, so cycles and pure helpers returning
  * to an admitted package cannot retain a second source copy. Ordinary libraries stay at their source location.
  * Logical paths own destinations; linked imports must agree with the package's physical peer graph.
  * @param {Object} options
@@ -37,7 +38,8 @@ export function createEsmBuildPlan({workspaceRoot, engineRoot, sourceRoots, pack
     const files        = new Map(), excludedOutputs = new Set(), options = {workspaceRoot, engineRoot},
           engineSource = path.join(engineRoot, 'src'), engineReal = fs.realpathSync(engineRoot),
           engineOwner  = Symbol('engine'), workspaceOwner = Symbol('workspace'),
-          nodes        = new Map(), parsed = new Map(), physicalOwners = new Map(), packageNames = new Map(), reverse = new Map(),
+          nodes        = new Map(), parsed = new Map(), physicalOwners = new Map(), packageNames = new Map(),
+          reverse      = new Map(), moduleImporters = new Map(),
           admitted     = new Set([engineOwner, workspaceOwner]);
 
     /** @summary Adds or promotes one logical file without giving overlapping roots a second writer. */
@@ -67,10 +69,21 @@ export function createEsmBuildPlan({workspaceRoot, engineRoot, sourceRoots, pack
     if (fs.existsSync(serviceWorker)) add(serviceWorker, 'module');
     const initialFiles = new Set(files.keys());
 
-    /** @summary Records the owner relation before the cycle-safe admission pass. */
-    const connect = (importer, target) => {
-        if (!reverse.has(target)) reverse.set(target, new Set());
-        reverse.get(target).add(importer)
+    /** @summary Records reverse reachability for package admission or individual module identity. */
+    const connect = (graph, importer, target) => {
+        if (!graph.has(target)) graph.set(target, new Set());
+        graph.get(target).add(importer)
+    };
+
+    /** @summary Finds all transitive importers, including cycles, without revisiting module source. */
+    const reachImporters = (graph, seeds) => {
+        const reached = new Set(seeds), pending = [...reached];
+        for (let index = 0; index < pending.length; index++) {
+            for (const importer of graph.get(pending[index]) || []) {
+                if (!reached.has(importer)) {reached.add(importer); pending.push(importer)}
+            }
+        }
+        return reached
     };
 
     /** @summary Keeps unresolved package edges attributable to their importer instead of silently falling back. */
@@ -79,17 +92,17 @@ export function createEsmBuildPlan({workspaceRoot, engineRoot, sourceRoots, pack
 
     /** @summary Refuses unsupported package modules only after their owner is admitted to the emitted graph. */
     const validateAdmittedModule = node => {
+        const edge = node.importedBy || {
+            sourcePath: path.join(workspaceRoot, 'package.json'),
+            specifier : path.relative(workspaceRoot, node.sourcePath)
+        };
         if (node.linkedOutsidePackage) {
-            const edge = node.importedBy || {
-                sourcePath: path.join(workspaceRoot, 'package.json'),
-                specifier : path.relative(workspaceRoot, node.sourcePath)
-            };
             throw new Error(failure(edge.sourcePath, edge.specifier, 'module leaves its package through a link'))
         }
         if (node.errors.length) throw new Error(node.errors.join('\n'));
         if (!node.packageRoot) {
-            throw new Error(failure(node.sourcePath, node.sourcePath,
-                'required workspace module has no output; declare its root in neo.esmSourceRoots'))
+            throw new Error(failure(edge.sourcePath, edge.specifier,
+                'required static imports do not resolve inside the output tree; declare the workspace root in neo.esmSourceRoots'))
         }
     };
 
@@ -101,9 +114,10 @@ export function createEsmBuildPlan({workspaceRoot, engineRoot, sourceRoots, pack
               engineAlias = within(path.join(engineReal, 'src'), real) || ownerReal === engineReal && within(engineReal, real),
               isEngine    = within(engineSource, sourcePath) || owner === engineRoot || engineAlias,
               node        = {sourcePath, owner: isEngine ? engineOwner : owner || (initialFiles.has(sourcePath) ? workspaceOwner : sourcePath),
-                  packageRoot: owner, errors: []};
+                  packageRoot: owner, errors: [], imports: []};
         nodes.set(sourcePath, node);
         if (isEngine) {
+            connect(moduleImporters, sourcePath, engineOwner);
             const canonical = engineAlias && path.join(engineRoot, path.relative(engineReal, real));
             if (canonical && sourcePath !== canonical) {
                 files.set(sourcePath, {
@@ -113,7 +127,6 @@ export function createEsmBuildPlan({workspaceRoot, engineRoot, sourceRoots, pack
             }
             return node
         }
-        if (initialFiles.has(sourcePath)) admitted.add(node.owner);
         node.linkedOutsidePackage = owner && !within(ownerReal, real);
         if (!physicalOwners.has(real)) physicalOwners.set(real, []);
         const aliases = physicalOwners.get(real);
@@ -121,7 +134,9 @@ export function createEsmBuildPlan({workspaceRoot, engineRoot, sourceRoots, pack
             const error = failure(sourcePath, path.relative(workspaceRoot, prior.sourcePath), 'ambiguous linked module aliases');
             prior.errors.push(error);
             node.errors.push(error);
-            connect(node.owner, prior.owner)
+            connect(moduleImporters, sourcePath, prior.sourcePath);
+            connect(moduleImporters, prior.sourcePath, sourcePath);
+            connect(reverse, node.owner, prior.owner)
         }
         aliases.push(node);
         if (ancestors.has(real)) return node;
@@ -136,7 +151,8 @@ export function createEsmBuildPlan({workspaceRoot, engineRoot, sourceRoots, pack
                 if (/^(?:[a-z][a-z\d+.-]*:|\/)/i.test(specifier)) continue;
                 node.errors.push(failure(sourcePath, specifier, 'bare package import has no emitted browser-relative destination'));
                 if (specifier === 'neo.mjs' || specifier.startsWith('neo.mjs/')) {
-                    connect(node.owner, engineOwner)
+                    connect(reverse, node.owner, engineOwner);
+                    connect(moduleImporters, sourcePath, engineOwner)
                 }
                 continue
             }
@@ -163,15 +179,15 @@ export function createEsmBuildPlan({workspaceRoot, engineRoot, sourceRoots, pack
             if (targetPackage && (path.basename(targetPackage) === 'neo.mjs' || packageNames.get(targetPackage) === 'neo.mjs') &&
                 fs.realpathSync(targetPath) !== path.join(engineReal, path.relative(targetPackage, targetPath))) {
                 node.errors.push(failure(sourcePath, specifier, 'import reaches a different Engine installation'));
-                connect(node.owner, engineOwner);
+                connect(reverse, node.owner, engineOwner);
+                connect(moduleImporters, sourcePath, engineOwner);
                 continue
             }
-            // An undeclared workspace root retains the existing missing-output guard. Package edges still need
-            // inspection: falling back through an un-emitted workspace helper can re-enter the source Engine.
-            if (!owner && !initialFiles.has(targetPath) && !targetPackage) continue;
             const target = visit(targetPath, nextAncestors);
             target.importedBy ||= {sourcePath, specifier};
-            connect(node.owner, target.owner)
+            node.imports.push({specifier, targetPath});
+            connect(moduleImporters, sourcePath, targetPath);
+            connect(reverse, node.owner, target.owner)
         }
         return node
     };
@@ -182,18 +198,28 @@ export function createEsmBuildPlan({workspaceRoot, engineRoot, sourceRoots, pack
         if (entry.type === 'module' && !within(engineSource, sourcePath) &&
             !packageRoots.some(root => within(root.sourceRoot, sourcePath))) visit(sourcePath)
     }
-    const pending = [...admitted];
-    for (let index = 0; index < pending.length; index++) {
-        for (const importer of reverse.get(pending[index]) || []) {
-            if (!admitted.has(importer)) {admitted.add(importer); pending.push(importer)}
-        }
-    }
     for (const node of nodes.values()) {
-        if (!admitted.has(node.owner) || node.owner === engineOwner || node.owner === workspaceOwner) continue;
+        if (initialFiles.has(node.sourcePath)) admitted.add(node.owner)
+    }
+    const admittedOwners = reachImporters(reverse, admitted);
+    for (const node of nodes.values()) {
+        if (!admittedOwners.has(node.owner) || node.owner === engineOwner || node.owner === workspaceOwner) continue;
         validateAdmittedModule(node);
         const extension = path.extname(node.sourcePath),
               type      = ['.mjs', '.js'].includes(extension) ? 'module' : extension === '.json' ? 'json-data' : 'asset';
         add(node.sourcePath, type)
+    }
+
+    const mainModules = [...files].filter(([sourcePath, entry]) => entry.type === 'module' &&
+        packageRoots.some(root => within(root.sourceRoot, sourcePath))).map(([sourcePath]) => visit(sourcePath)),
+          reachesEngine = reachImporters(moduleImporters, [engineOwner]);
+    for (const node of mainModules) {
+        for (const {specifier, targetPath} of node.imports) {
+            if (!files.has(targetPath) && reachesEngine.has(targetPath)) {
+                throw new Error(failure(node.sourcePath, specifier,
+                    'outside-root helper reaches the source Engine; declare its directory in neo.mainAddons or move it inside a declared root'))
+            }
+        }
     }
     return {files, excludedOutputs}
 }
