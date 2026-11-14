@@ -836,7 +836,7 @@
         "lastmod": "2026-08-31"
     },
     "/news/blog/one-websocket-across-browser-windows-with-sharedworkers": {
-        "title": "SharedWorker WebSocket Across Browser Windows & Tabs in JavaScript | Neo.mjs",
+        "title": "SharedWorker WebSocket & Off-Main-Thread UI Across Windows | Neo.mjs",
         "description": "Share one live WebSocket across multiple browser windows in a SharedWorker without copying state per tab: stores, VDOM diffing, and reconnect logic in one heap.",
         "schemaType": "BlogPosting",
         "lastmod": "2026-11-14"
