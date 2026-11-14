@@ -540,8 +540,8 @@ class VdomLifecycle extends Base {
                 }
             }
 
-            if (!Neo.config.useVdomWorker && response.deltas?.length > 0) {
-                await Neo.applyDeltas(me.windowId, response.deltas, response.meta)
+            if (!Neo.config.useVdomWorker && (response.deltas?.length > 0 || response.meta)) {
+                await Neo.applyDeltas(me.windowId, response.deltas || [], response.meta)
             }
 
             /**
@@ -827,6 +827,39 @@ class VdomLifecycle extends Base {
      */
     hasUpdateCollision(updateDepth, distance) {
         return updateDepth === -1 ? true : distance < updateDepth
+    }
+
+    /**
+     * @summary Creates a vnode tree and performs the mount the VDom worker would otherwise perform.
+     *
+     * Without a VDom worker `Neo.vdom.Helper.create` is a local call, so nothing turns an `autoMount` flag into
+     * the `insertNode` delta that `worker/Manager` sends on the worker path.
+     *
+     * @param {Object} config The `Neo.vdom.Helper.create` options
+     * @param {Object} config.vdom The vdom tree to create; its `id` names the inserted node
+     * @param {String} [config.appName]
+     * @param {Boolean} [config.autoMount]
+     * @param {String} [config.parentId]
+     * @param {Number} [config.parentIndex]
+     * @param {String} [config.windowId] Defaults to the calling component's window
+     * @returns {Promise<Object>} The `Neo.vdom.Helper.create` reply, with the insert already applied when needed
+     * @protected
+     */
+    async createVnode(config) {
+        const data = await Promise.resolve(Neo.vdom.Helper.create(config));
+
+        if (config.autoMount && !Neo.config.useVdomWorker) {
+            await Neo.applyDeltas(config.windowId ?? this.windowId, [{
+                action   : 'insertNode',
+                id       : config.vdom.id,
+                index    : config.parentIndex,
+                outerHTML: data.outerHTML,
+                parentId : config.parentId,
+                vnode    : data.vnode
+            }])
+        }
+
+        return data
     }
 
     /**
