@@ -12,6 +12,7 @@ import StatusComponent                     from './StatusComponent.mjs';
 import Scale                               from '../store/Scale.mjs';
 import ScalePane                           from './ScalePane.mjs';
 import WorkItems                           from '../store/WorkItems.mjs';
+import {planningAxis}                      from './planningCalendar.mjs';
 import DockDropIndicators                  from '../../../src/dashboard/dock/interaction/DropIndicators.mjs';
 import PerspectiveLibrary                  from '../../../src/dashboard/dock/persistence/PerspectiveLibrary.mjs';
 import TopologyLibrary                     from '../../../src/dashboard/dock/persistence/TopologyLibrary.mjs';
@@ -664,8 +665,8 @@ class Workspace extends VesselWorkspace {
     }
 
     /**
-     * @summary Creates one view; data panes borrow the provider's stores, and the planning panes open on
-     * the window around the day their plan was seeded from.
+     * @summary Creates one view; data panes borrow the provider's stores, and the planning panes share
+     * the planning calendar of the day their plan was seeded from.
      * @param {String} itemId
      * @param {Object} item
      * @returns {Neo.component.Base}
@@ -680,9 +681,9 @@ class Workspace extends VesselWorkspace {
             const workItems = provider.getStore('workItems');
 
             return Neo.create(SchedulerPane, {
+                ...planningAxis(workItems.baseDate),
                 eventStore: workItems,
-                store     : provider.getStore('people'),
-                timeAxis  : SchedulerPane.createTimeAxis(workItems.baseDate)
+                store     : provider.getStore('people')
             })
         }
 
@@ -690,9 +691,9 @@ class Workspace extends VesselWorkspace {
             const tasks = provider.getStore('planTasks');
 
             return Neo.create(GanttPane, {
+                ...planningAxis(tasks.baseDate),
                 dependencyStore: provider.getStore('planLinks'),
-                store          : tasks,
-                timeAxis       : GanttPane.createTimeAxis(tasks.baseDate)
+                store          : tasks
             })
         }
 

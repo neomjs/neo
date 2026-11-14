@@ -3,14 +3,15 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../src/Neo.mjs';
 import * as core      from '../../../../../src/core/_export.mjs';
 import '../../../../../src/manager/Instance.mjs';
-import EventStore    from '../../../../../src/timeline/store/Events.mjs';
-import GanttPane     from '../../../../../apps/workstation/view/GanttPane.mjs';
-import People        from '../../../../../apps/workstation/store/People.mjs';
-import PlanLinks     from '../../../../../apps/workstation/store/PlanLinks.mjs';
-import PlanTasks     from '../../../../../apps/workstation/store/PlanTasks.mjs';
-import SchedulerPane from '../../../../../apps/workstation/view/SchedulerPane.mjs';
-import WorkItems     from '../../../../../apps/workstation/store/WorkItems.mjs';
-import {planDay}     from '../../../../../apps/workstation/store/plan.mjs';
+import EventStore                              from '../../../../../src/timeline/store/Events.mjs';
+import GanttPane                               from '../../../../../apps/workstation/view/GanttPane.mjs';
+import People                                  from '../../../../../apps/workstation/store/People.mjs';
+import PlanLinks                               from '../../../../../apps/workstation/store/PlanLinks.mjs';
+import PlanTasks                               from '../../../../../apps/workstation/store/PlanTasks.mjs';
+import SchedulerPane                           from '../../../../../apps/workstation/view/SchedulerPane.mjs';
+import WorkItems                               from '../../../../../apps/workstation/store/WorkItems.mjs';
+import {planDay}                               from '../../../../../apps/workstation/store/plan.mjs';
+import {lockedWidth, planningAxis, planWindow} from '../../../../../apps/workstation/view/planningCalendar.mjs';
 
 const appName = 'WorkstationPlanningStoresTest';
 
@@ -44,7 +45,7 @@ test('the seeded work items are the same plan for the same day, named, and aroun
           second = Neo.create(WorkItems, {baseDate: BASE});
 
     try {
-        const items = plain(first), keys = new Set(people.items.map(person => person.id));
+        const items = plain(first), keys = new Set(people.items.map(person => person.id)), {start, end} = planWindow(BASE);
 
         expect(items, 'one day, one plan').toEqual(plain(second));
         expect(items).toHaveLength(15);
@@ -56,7 +57,14 @@ test('the seeded work items are the same plan for the same day, named, and aroun
             expect(STATUSES, `${item.id} sits in a board column`).toContain(item.status);
             expect(Number.isFinite(item.order), `${item.id} has a rank in its column`).toBe(true);
             expect(item.startDate < item.endDate, `${item.id} spans time`).toBe(true);
-            expect(item.startDate >= at(-8) && item.endDate <= at(14), `${item.id} lies in the schedule's window`).toBe(true)
+            expect(item.startDate >= start && item.endDate <= end, `${item.id} lies in the planning calendar's window`).toBe(true)
+        }
+
+        for (const person of keys) {
+            const own = first.items.filter(item => item.resourceId === person).sort((a, b) => a.startDate - b.startDate);
+
+            own.slice(1).forEach((item, index) => expect(item.startDate >= own[index].endDate,
+                `${item.id} starts after ${own[index].id} ends: one lane per person`).toBe(true))
         }
 
         expect(first.items.filter(item => item.startDate < at(1) && item.endDate > BASE).length,
@@ -87,6 +95,27 @@ test('the work items are one event store that carries the board\'s fields and ke
         expect(store.getRangeRecords(at(-8), at(14), 'tom').map(item => item.id)).toEqual(['wi-7', 'wi-8', 'wi-9'])
     } finally {
         store.destroy()
+    }
+});
+
+test('the planning calendar starts on a Monday and holds the whole plan, whatever weekday the plan day falls on', () => {
+    for (let offset = 0; offset < 7; offset++) {
+        const day          = at(offset),
+              tasks        = Neo.create(PlanTasks, {baseDate: day}),
+              items        = Neo.create(WorkItems, {baseDate: day}),
+              {end, start} = planWindow(day);
+
+        try {
+            expect(start.getUTCDay(), `${day.toISOString()}: the window opens on a Monday`).toBe(1);
+            expect(end - start, 'five whole weeks').toBe(35 * DAY);
+
+            for (const record of [...tasks.items, ...items.items]) {
+                expect(record.startDate >= start && record.endDate <= end, `${day.toISOString()}: ${record.id} lies in the window`).toBe(true)
+            }
+        } finally {
+            tasks.destroy();
+            items.destroy()
+        }
     }
 });
 
@@ -135,10 +164,10 @@ test.describe('the planning panes', () => {
 
         stores = [people, workItems];
         pane   = Neo.create(SchedulerPane, {
+            ...planningAxis(BASE),
             appName,
             eventStore   : workItems,
             store        : people,
-            timeAxis     : SchedulerPane.createTimeAxis(BASE),
             viewportWidth: 1600
         });
 
@@ -163,10 +192,36 @@ test.describe('the planning panes', () => {
         expect(bar('wi-9').cls).toContain('neo-scheduler-bar-emerald');
 
         changes.length = 0;
-        expect(pane.moveEvent('wi-9', {startDate: at(3), endDate: at(7)}, {source: 'keyboard'})).toBeTruthy();
+        expect(pane.moveEvent('wi-9', {startDate: at(3), endDate: at(8)}, {source: 'keyboard'})).toBeTruthy();
 
         expect(changes).toEqual([{id: 'wi-9', fields: ['endDate', 'startDate']}]);
         expect(workItems.get('wi-9').startDate.toISOString(), 'the record holds the new dates').toBe(at(3).toISOString())
+    });
+
+    test('the schedule and the release plan draw on one calendar: one window, one scale, one locked width, one label', () => {
+        const people    = Neo.create(People),
+              workItems = Neo.create(WorkItems, {baseDate: BASE}),
+              tasks     = Neo.create(PlanTasks, {baseDate: BASE}),
+              links     = Neo.create(PlanLinks),
+              plan      = Neo.create(GanttPane, {...planningAxis(BASE), appName, dependencyStore: links, store: tasks});
+
+        stores = [people, workItems, tasks, links];
+        pane   = Neo.create(SchedulerPane, {...planningAxis(BASE), appName, eventStore: workItems, store: people});
+
+        try {
+            const tick = {date: at(0)};
+
+            for (const key of ['start', 'end']) {
+                expect(pane.timeAxis[key].getTime(), `the panes share the window's ${key}`).toBe(plan.timeAxis[key].getTime())
+            }
+
+            expect(pane.timeAxis.effectivePxPerMinute, 'and its scale').toBe(plan.timeAxis.effectivePxPerMinute);
+            expect([pane.resourceColumns[0].width, plan.taskColumns[0].width], 'and the locked width').toEqual([lockedWidth, lockedWidth]);
+            expect([pane.majorFormatter(tick), pane.minorFormatter(tick)], 'and the labels').toEqual([plan.majorFormatter(tick), plan.minorFormatter(tick)]);
+            expect(plan.taskColumns[0].text, 'the tree column names its rows').toBe('Phase')
+        } finally {
+            plan.destroy()
+        }
     });
 
     test('a task moved in the release plan moves its linked successors with it', () => {
@@ -175,7 +230,7 @@ test.describe('the planning panes', () => {
               start = id => tasks.get(id).startDate.toISOString();
 
         stores = [tasks, links];
-        pane   = Neo.create(GanttPane, {appName, dependencyStore: links, store: tasks, timeAxis: GanttPane.createTimeAxis(BASE)});
+        pane   = Neo.create(GanttPane, {...planningAxis(BASE), appName, dependencyStore: links, store: tasks});
 
         const before = {screens: start('screens'), launchDay: start('launch-day'), service: start('service')},
               result = pane.moveTask('flow-design', {startDate: at(-7), endDate: at(-3)});

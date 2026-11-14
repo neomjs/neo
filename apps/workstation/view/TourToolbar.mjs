@@ -1,6 +1,12 @@
 import Toolbar from '../../../src/toolbar/Base.mjs';
 
 /**
+ * The caption the planning arrangement shows while no tour runs: the operations room's line is the tour's.
+ * @type {String}
+ */
+const planningCaption = 'The planning desk: the team\'s work above the release plan it serves, on one calendar.';
+
+/**
  * @summary Lightweight tour chrome bound to the workspace's provider before playback is activated.
  *
  * Two screenplays share the bar: the dense tour (no windows) and the film (windows born through
@@ -45,7 +51,7 @@ class TourToolbar extends Toolbar {
             ntype : 'container',
             layout: {ntype: 'vbox', align: 'stretch', pack: 'center'},
             items : [{
-                bind     : {html: 'tour.caption'},
+                bind     : {html: data => data.dock.perspective.active === 'planning' && !data.tour.running ? planningCaption : data.tour.caption},
                 cls      : ['workstation-tour-caption'],
                 flex     : 'none',
                 ntype    : 'component',
