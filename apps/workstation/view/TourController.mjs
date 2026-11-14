@@ -859,8 +859,10 @@ class TourController extends Controller {
      * @summary Runs a screenplay from the shipped arrangement on every replay.
      *
      * The entry is {@link Workstation.view.Workspace#resetTopology}, the same write as "Reset to
-     * default": a pane the viewer tore into a window comes home in it, so no screenplay starts
-     * from a pane listed twice. A refused reset starts no runner and stops with its errors.
+     * default", named for the shipped arrangement the screenplays are written against, so a viewer
+     * on the planning desk is brought back to it: a pane the viewer tore into a window comes home in
+     * it, so no screenplay starts from a pane listed twice. A refused reset starts no runner and
+     * stops with its errors.
      * @param {Object} [script=workstationTourScript]
      * @param {Object} [options={}]
      * @param {Boolean} [options.autoGates] Sets the gate mode when given; omitted keeps it.
@@ -889,7 +891,7 @@ class TourController extends Controller {
         me.progressPromise = Promise.resolve();
         await me.trap(me.setPipProgress(0));
 
-        const reset = await me.trap(workspace.resetTopology());
+        const reset = await me.trap(workspace.resetTopology('shipped'));
 
         const
             feedStore      = me.getStateProvider().getStore('feed'),

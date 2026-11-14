@@ -94,11 +94,25 @@
     }
 }
 
+// The planning panes' time header, rules and focus join the instrument. Their bars keep the family's
+// colours: on the planning desk a bar's colour is its work item's status.
+@mixin timeline-tokens {
+    --neo-gantt-divider-color        : var(--workstation-line);
+    --neo-scheduler-divider-color    : var(--workstation-line);
+    --neo-timeline-border-color      : var(--workstation-line);
+    --neo-timeline-focus-color       : var(--workstation-signal);
+    --neo-timeline-header-background : var(--workstation-panel-2);
+    --neo-timeline-header-color      : var(--workstation-ink);
+    --neo-timeline-header-muted-color: var(--workstation-ink-dim);
+    --neo-timeline-tick-border-color : var(--workstation-line-soft);
+}
+
 :root .workstation-viewport[class*="neo-theme-"],
 :root .workstation-viewport [class*="neo-theme-"] {
     // Workstation is a standalone instrument, so generic grid/tab primitives inherit its own
     // palette in both skins instead of leaking their default blue/purple values.
     @include grid-tokens;
+    @include timeline-tokens;
     --tab-button-background-color              : transparent;
     --tab-button-background-color-active       : color-mix(in srgb, var(--workstation-signal) 12%, transparent);
     --tab-button-background-color-hover        : color-mix(in srgb, var(--workstation-signal) 8%, transparent);
@@ -317,6 +331,16 @@ body:has(.workstation-viewport) .neo-grid-container.neo-dragproxy {
             width   : 100%;
         }
     }
+}
+
+// `SchedulerPane`: a backlog work item has its dates but no commitment yet, so its bar keeps its
+// place and drops its fill. (0,4,0) out-ranks the family's (0,3,0) bar variants without load order.
+.neo-scheduler.workstation-scheduler-pane .neo-timeline-bar.workstation-plan-bar-backlog {
+    background  : transparent;
+    border-color: var(--workstation-ink-faint);
+    border-style: dashed;
+    box-shadow  : none;
+    color       : var(--workstation-ink-dim);
 }
 
 // One rendered frame on its own layer re-rasters a pane a transfer just landed in a vessel
