@@ -66,6 +66,77 @@ test.describe('Docs mixin members', () => {
     });
 
 
+    test('source arriving during first mount highlights after its text-bearing render (#20908)', async ({page, neuralLink}) => {
+        await neuralLink.routeConfig(page, config => ({...config, useAiClient: true}));
+        await page.goto('/docs/index.html');
+        const app      = await neuralLink.connectToApp('Docs'), className = 'Docs.app.view.MainContainer',
+              sourceId = `${className}__source`, source = page.locator(`[id="${sourceId}"]`);
+        let controllerId;
+        await expect.poll(async () => {
+            const [view] = await app.queryComponent({className: 'Docs.view.MainContainer'}, ['controller.id']);
+            controllerId = view?.properties['controller.id'];
+            return Boolean(controllerId)
+        }).toBe(true);
+        await expect.poll(() => page.evaluate(() => typeof globalThis.hljs?.lineNumbersBlock)).toBe('function');
+
+        await page.evaluate(id => {
+            const main  = Neo.Main, queueWrite = main.queueWrite,
+                  addon = Neo.main.addon.HighlightJS, markLine = addon.syntaxHighlightLine,
+                  gate  = window.__docsPublication = {mountHeld: false, sourceHeld: false, emptyLineRequests: 0};
+            main.queueWrite = function(data) {
+                const deltas  = Array.isArray(data.deltas) ? data.deltas : [data.deltas],
+                      payload = JSON.stringify(deltas);
+                if (!gate.mountHeld && deltas.some(delta => delta.action === 'insertNode' && delta.vnode?.id === id)) {
+                    gate.mountHeld = true;
+                    gate.releaseMount = () => {gate.releaseMount = null; queueWrite.call(this, data)};
+                    return
+                }
+                if (!gate.sourceHeld && payload.includes('class MainContainer extends Viewport')) {
+                    gate.sourceHeld = true;
+                    gate.releaseSource = () => {gate.releaseSource = null; queueWrite.call(this, data)};
+                    return
+                }
+                return queueWrite.apply(this, arguments)
+            };
+            addon.syntaxHighlightLine = function(data) {
+                const code = document.getElementById(id)?.querySelector('pre code');
+                if (data.addLine === 1 && code?.id === data.vnodeId && !code.textContent) {
+                    gate.emptyLineRequests++
+                }
+                return markLine.apply(this, arguments)
+            };
+            gate.restore = () => {
+                gate.releaseMount?.();
+                gate.releaseSource?.();
+                main.queueWrite = queueWrite;
+                addon.syntaxHighlightLine = markLine
+            }
+        }, sourceId);
+        await page.route('**/docs/app/view/MainContainer.mjs', async route => {
+            const response = await route.fetch();
+            await page.waitForFunction(() => !window.__docsPublication || window.__docsPublication.mountHeld);
+            await route.fulfill({response})
+        });
+
+        try {
+            await app.callMethod(controllerId, 'onViewSourceRoute', [{className, lineNumber: '1'}]);
+            await expect.poll(async () => (await app.getComponent(sourceId, ['vdom.cn.0.cn.0.html']))
+                ['vdom.cn.0.cn.0.html']?.includes('class MainContainer extends Viewport')).toBe(true);
+            await expect(source).toHaveCount(0);
+            await page.evaluate(() => window.__docsPublication.releaseMount());
+            await expect.poll(() => page.evaluate(() => window.__docsPublication.sourceHeld)).toBe(true);
+            await expect.poll(() => page.evaluate(() => window.__docsPublication.emptyLineRequests)).toBeGreaterThan(0);
+            await expect(source.locator('pre code')).toBeEmpty();
+
+            await page.evaluate(() => window.__docsPublication.releaseSource());
+            await expect(source.locator('[data-line-number="1"]').first().locator('..')).toHaveClass(/neo-highlighted-line/);
+            expect((await app.getComponent(sourceId, ['isHighlighted'])).isHighlighted).toBe(true)
+        } finally {
+            await page.evaluate(() => {window.__docsPublication.restore(); delete window.__docsPublication});
+            await page.unrouteAll({behavior: 'wait'})
+        }
+    });
+
     test('a line request delivered after its source tab leaves ignores the removed leaf (#20869)', async ({page, neuralLink}, testInfo) => {
         await neuralLink.routeConfig(page, config => ({...config, useAiClient: true}));
         await page.goto('/docs/index.html');

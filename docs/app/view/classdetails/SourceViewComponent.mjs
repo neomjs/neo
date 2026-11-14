@@ -126,7 +126,8 @@ class SourceViewComponent extends Component {
     }
 
     /**
-     * @summary Publishes source text before asking the main thread to highlight its rendered code leaf.
+     * @summary Waits for mount and source publication before highlighting the rendered code leaf.
+     * A promiseUpdate requested before mount can settle with the initial render, before it carries this text.
      * @param {String} data
      * @returns {Promise<void>}
      */
@@ -135,6 +136,9 @@ class SourceViewComponent extends Component {
             node = me.vdom.cn[0]; // pre tag
 
         node.cn[0].html = data; // code tag
+        if (!me.mounted) {
+            await me.trap(me.mountedPromise)
+        }
         await me.promiseUpdate();
 
         me.mounted && me.syntaxHighlight()
