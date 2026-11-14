@@ -10,6 +10,7 @@ import SearchFilter    from '../collection/SearchFilter.mjs';
 import StoreManager    from '../manager/Store.mjs';
 
 const
+    emptyRecord          = Object.freeze({}),
     initialIndexSymbol   = Symbol.for('initialIndex'),
     noValueSymbol        = Symbol.for('noValue'),
     ownValuesSymbol      = Symbol.for('ownValues'),
@@ -105,6 +106,8 @@ class Store extends Collection {
      * @private
      */
     #pendingLoads = 0;
+    /** @member {Neo.data.Model|null} #resolvedModel=null Cached model reference avoiding reactive getter overhead on hot key paths. @private */
+    #resolvedModel = null;
     /** @member {Set<Function>} #streamingReads Read handlers that have received progressive data. @private */
     #streamingReads = new Set();
     /**
@@ -439,9 +442,8 @@ class Store extends Collection {
      * @protected
      */
     afterSetModel(value, oldValue) {
-        if (value) {
-            value.storeId = this.id
-        }
+        this.#resolvedModel = value || null;
+        if (value) value.storeId = this.id
     }
 
     /**
@@ -665,6 +667,7 @@ class Store extends Collection {
             model = me.#ownsModel ? me.model : null;
 
         me.allItems?.un('recordChange', me.onAllItemsRecordChange, me);
+        me.#resolvedModel = null;
         me.#streamingReads.clear();
         me.isStreaming = false;
         StoreManager.unregister(me);
@@ -674,7 +677,7 @@ class Store extends Collection {
     }
 
     /**
-     * Resolves the key of a given item, supporting both raw data objects and Record instances.
+     * @summary Resolves the canonical key of a raw data object or `Neo.data.Record` instance.
      * This handles the edge case where `keyProperty` refers to a mapped source key (e.g. 'l')
      * which exists on the raw object but not on the Record instance (where it is mapped to e.g. 'login').
      * @param {Object|Neo.data.Record} item
@@ -682,33 +685,28 @@ class Store extends Collection {
      */
     getKey(item) {
         let me          = this,
-            keyProperty = me.getKeyProperty(),
-            value;
+            model       = me.#resolvedModel || (me.configsApplied ? null : me.model),
+            keyProperty = me.keyProperty || model.keyProperty,
+            field, mapping, value;
 
-        if (RecordFactory.isRecord(item)) {
-            return item.get(keyProperty)
-        }
+        if (RecordFactory.isRecord(item)) return item.get(keyProperty);
 
-        if (keyProperty.includes('.')) {
-            value = Neo.ns(keyProperty, false, item)
-        } else {
-            value = item[keyProperty]
-        }
+        value = keyProperty.includes('.') ? Neo.ns(keyProperty, false, item) : item[keyProperty];
+
+        if (me.modelOf !== Store.prototype.modelOf) model = me.modelOf(item);
 
         // If direct access failed, check for mapping (Reverse Lookup)
-        if (value === undefined && me.model) {
-            let field = me.model.getField(keyProperty);
-            if (field?.mapping) {
-                let mapping = field.mapping;
-                if (mapping.includes('.')) {
-                    value = Neo.ns(mapping, false, item)
-                } else {
-                    value = item[mapping]
-                }
-            }
+        if (value === undefined && model) {
+            mapping = model.fieldsMap.get(keyProperty)?.mapping;
+            if (mapping) value = mapping.includes('.') ? Neo.ns(mapping, false, item) : item[mapping]
         }
 
-        return value
+        if (value == null) return value;
+
+        field = model?.fieldsMap.get(keyProperty);
+
+        return !field || RecordFactory.isCanonicalFieldValue(field, value)
+            ? value : me.getCanonicalKey(value, model, keyProperty) ?? value
     }
 
     /**
@@ -871,12 +869,23 @@ class Store extends Collection {
     }
 
     /**
-     * Overrides collection.Base:get() to ensure the returned item is a Record instance.
+     * @summary Retrieves a hydrated record by key, falling back to {@link #getCanonicalKey} on a raw-key miss.
      * @param {Number|String} key
      * @returns {Object|null}
      */
     get(key) {
-        return this.hydrateRecord(super.get(key));
+        let me   = this,
+            item = super.get(key);
+
+        if (!item) {
+            let canonicalKey = me.getCanonicalKey(key);
+
+            if (canonicalKey !== undefined && canonicalKey !== key) {
+                item = super.get(canonicalKey)
+            }
+        }
+
+        return me.hydrateRecord(item)
     }
 
     /**
@@ -1056,56 +1065,36 @@ class Store extends Collection {
 
         if (item && !RecordFactory.isRecord(item)) {
             const
-                rawKey = me.getKey(item),
-                record = RecordFactory.createRecord(me.modelOf(item), item),
-                pk     = me.getKey(record); // Use the actual PK from the record
-
-            // For get(), index is omitted, so we find it. For getAt(), we pass it in.
-            if (index === undefined) {
-                index = me.indexOf(item);
-            }
-
-            // Replace the raw data with the record instance in the current (filtered) collection
-            // ONLY if it was actually in the map. Hidden/filtered items should not bleed into the active map.
-            if (me.map.has(pk)) {
-                me.map.set(pk, record)
-            } else if (me.map.has(rawKey)) {
-                me.map.delete(rawKey);
-                me.map.set(pk, record)
-            }
-
-            if (index !== -1) {
-                me._items[index] = record
-            }
-
-            // If we are tracking internalIds, we need to update the map to point to the new record
-            // instead of the raw object
-            if (me.trackInternalId) {
-                const internalKey = me.getInternalKey(record);
-                if (internalKey && me.internalIdMap.has(internalKey)) {
-                    me.internalIdMap.set(internalKey, record)
-                }
-            }
-
-            // If this collection is filtered, we must also update the master 'allItems' collection
-            if (me.allItems) {
-                const masterIndex = me.allItems.indexOf(item);
-                if (masterIndex !== -1) {
-                    me.allItems._items[masterIndex] = record;
-                }
-                if (me.allItems.map.has(pk)) {
-                    me.allItems.map.set(pk, record)
-                } else if (me.allItems.map.has(rawKey)) {
-                    me.allItems.map.delete(rawKey);
-                    me.allItems.map.set(pk, record)
-                }
-                if (me.allItems.trackInternalId) {
-                    const internalKey = me.getInternalKey(record);
-                    if (internalKey && me.allItems.internalIdMap.has(internalKey)) {
-                        me.allItems.internalIdMap.set(internalKey, record)
+                rawKey         = me.getKey(item),
+                rawPropertyKey = item[me.getKeyProperty()],
+                record         = RecordFactory.createRecord(me.modelOf(item), item),
+                pk             = me.getKey(record),
+                internalKey    = (me.trackInternalId || me.allItems?.trackInternalId) ? me.getInternalKey(record) : null,
+                healCollection = (collection, itemIndex) => {
+                    if (itemIndex !== -1) {
+                        collection._items[itemIndex] = record
                     }
-                }
+                    if (collection.map.has(pk)) {
+                        collection.map.set(pk, record)
+                    } else if (collection.map.has(rawKey)) {
+                        collection.map.delete(rawKey);
+                        collection.map.set(pk, record)
+                    } else if (collection.map.has(rawPropertyKey)) {
+                        collection.map.delete(rawPropertyKey);
+                        collection.map.set(pk, record)
+                    }
+                    if (collection.trackInternalId && internalKey && collection.internalIdMap.has(internalKey)) {
+                        collection.internalIdMap.set(internalKey, record)
+                    }
+                };
+
+            // Hidden/filtered items are absent from me.map and do not bleed into the active projection map.
+            healCollection(me, index === undefined ? me.indexOf(item) : index);
+
+            if (me.allItems) {
+                healCollection(me.allItems, me.allItems.indexOf(item))
             }
+
             return record
         }
         return item; // Already a record or null/undefined
@@ -1586,18 +1575,20 @@ class Store extends Collection {
      * synthesizing a row for a record the payload never successfully named.
      *
      * @param {*} value The key as it was received, e.g. from a server push or a DOM id.
+     * @param {Neo.data.Model|null} [model=this.model] Optional row model (`modelOf()`).
+     * @param {String} [keyProperty=this.getKeyProperty()] Resolved key field name.
      * @returns {*|undefined} The canonical key, or `undefined` when the value falls outside the
      * supported domain above.
      */
-    getCanonicalKey(value) {
-        let field = this.model?.getField(this.getKeyProperty());
-
+    getCanonicalKey(value, model=this.#resolvedModel || (this.configsApplied ? null : this.model), keyProperty=this.keyProperty || model?.keyProperty) {
         // An absent value is not an identity, whatever the Model says. This is checked before the
         // no-field case on purpose: a Store without a declared key field would otherwise pass null
         // straight through, and a caller which inserts on a miss then adds a row nothing can address.
         if (value === null || value === undefined) {
             return undefined
         }
+
+        let field = model?.fieldsMap.get(keyProperty);
 
         // With no declared key field there is nothing to canonicalize against, so a present value
         // stands as its own identity.
@@ -1610,7 +1601,11 @@ class Store extends Collection {
             return undefined
         }
 
-        let canonical = RecordFactory.parseRecordValue({record: {}, field, value});
+        if (RecordFactory.isCanonicalFieldValue(field, value)) {
+            return value
+        }
+
+        let canonical = RecordFactory.parseRecordValue({record: emptyRecord, field, value});
 
         // `typeof null` is 'object'; a null here means the field's own rules rejected the value.
         if (canonical === null || canonical === undefined || Number.isNaN(canonical)) {
