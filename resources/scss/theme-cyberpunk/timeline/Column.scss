@@ -1,0 +1,14 @@
+:where(.neo-theme-cyberpunk) { // .neo-timeline-cell / .neo-timeline-bar
+    --neo-timeline-gridline-color         : color-mix(in srgb, var(--cyber-cyan) 10%, transparent);
+    --neo-timeline-gridline-step          : 120px;
+    --neo-timeline-bar-background         : color-mix(in srgb, var(--cyber-cyan) 16%, var(--cyber-bg));
+    --neo-timeline-bar-border-color       : var(--cyber-cyan);
+    --neo-timeline-bar-hover-border-color : var(--cyber-gold);
+    --neo-timeline-bar-progress-background: color-mix(in srgb, var(--cyber-cyan) 28%, transparent);
+    --neo-timeline-bar-color              : var(--cyber-text);
+    --neo-timeline-bar-radius             : 2px;
+    --neo-timeline-bar-shadow             : var(--cyber-glow);
+    --neo-timeline-focus-color            : var(--cyber-cyan);
+    --neo-timeline-non-working-bg         : color-mix(in srgb, var(--cyber-cyan) 4.5%, transparent);
+    --neo-timeline-non-working-border     : color-mix(in srgb, var(--cyber-cyan) 16%, transparent);
+}

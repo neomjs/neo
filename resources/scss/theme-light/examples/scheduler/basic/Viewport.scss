@@ -1,0 +1,11 @@
+:where(.neo-theme-light) {
+    --studio-header-bg    : var(--neo-background-color);
+    --studio-border       : var(--grid-container-border-color, #ddd);
+    --studio-title        : #163a5f;
+    --studio-muted        : #4d4d4d;
+    --studio-control-bg   : var(--button-background-color, #ffffff);
+    --studio-hover-bg     : #eef4fa;
+    --studio-selected-bg  : var(--button-text-color, #1c60a0);
+    --studio-selected-text: var(--button-background-color, #ffffff);
+    --studio-focus        : var(--button-text-color, #1c60a0);
+}
