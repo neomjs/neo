@@ -9,6 +9,14 @@
             "path": null
         },
         {
+            "date": "2026-11-12",
+            "id": "blog/ai-agent-memory-consolidation",
+            "isLeaf": true,
+            "name": "AI agent memory consolidation: from past decisions to the next proposal (part 7 of 8)",
+            "parentId": "2026",
+            "path": "learn/blog/ai-agent-memory-consolidation.md"
+        },
+        {
             "date": "2026-11-10",
             "id": "blog/json-ld-xss-json-stringify-in-a-script-tag",
             "isLeaf": true,
