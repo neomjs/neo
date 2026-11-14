@@ -36,11 +36,12 @@ import {
  * validates the live repository when invoked directly via `node buildScripts/docs/seo/verify.mjs`:
  * - `sitemap.xml` references `sitemap-core.xml` and `sitemap-discussions.xml`, never `sitemap-archive.xml`.
  * - Disjoint core / discussions / ticket+PR archive partitioning and `ssg-archive-routes.json` parity.
- * - `sitemap-core.xml` advertises `/` (never `/home` or `/apps/portal/index.html`), excludes `noindex`,
- *   `hidden`, `type: redirect`, and `< maxReleaseMajor - 1` release routes, and emits `<lastmod>` whenever
- *   `seo.json` carries a pre-baked `lastmod`.
- * - `seo.json` coverage across Portal routes and `blog.json` leaves, `YYYY-MM-DD` `lastmod` validity,
- *   and `robots: 'noindex, follow'` on hidden/redirect learn leaves and historical releases.
+ * - `sitemap-core.xml` advertises `/` (never `/home` or `/apps/portal/index.html`) plus all 5 indexable
+ *   News hub routes (`/news/blog`, `/news/releases`, `/news/discussions`, `/news/medium`, `/news/videos`),
+ *   excludes `noindex` (`/news/tickets`, `/news/pulls`), `hidden`, `type: redirect`, and `< maxReleaseMajor - 1`
+ *   release routes, and emits `<lastmod>` whenever `seo.json` carries a pre-baked `lastmod`.
+ * - `seo.json` coverage across Portal routes, News hubs, and `blog.json` leaves, `YYYY-MM-DD` `lastmod` validity,
+ *   and `robots: 'noindex, follow'` on `/news/tickets`, `/news/pulls`, hidden/redirect learn leaves, and historical releases.
  * - On-disk existence of every `${baseUrl}/raw/*.md` target across `root`, `releaseNotesRoot`, and `corpusRoot`.
  */
 
@@ -50,6 +51,8 @@ const DISCUSSION_ROUTE_EXACT_PATTERN = /^\/news\/discussions\/[^/]+$/;
 const TICKET_OR_PULL_EXACT_PATTERN   = /^\/news\/(?:tickets|pulls)\/[^/]+$/;
 const RAW_ARCHIVE_PATTERN            = /\/(?:raw\/)?news\/(?:tickets|pulls|discussions)\//;
 const ISO_DATE_ONLY_PATTERN          = /^\d{4}-\d{2}-\d{2}$/;
+const INDEXABLE_NEWS_HUB_ROUTES      = ['/news/blog', '/news/releases', '/news/discussions', '/news/medium', '/news/videos'];
+const NOINDEX_NEWS_HUB_ROUTES        = ['/news/tickets', '/news/pulls'];
 
 /**
  * @summary Extracts trimmed `<loc>...</loc>` URL strings from a sitemap XML document.
@@ -325,6 +328,10 @@ export async function verifySeoArtifacts(options={}) {
             throw new Error(`sitemap-core.xml must not contain archive route "${loc}".`);
         }
 
+        if (NOINDEX_NEWS_HUB_ROUTES.includes(pathname)) {
+            throw new Error(`sitemap-core.xml must not contain noindex News hub route "${loc}".`);
+        }
+
         if (pathname === '/home') {
             throw new Error(`sitemap-core.xml must advertise canonical "/" rather than "${loc}".`);
         }
@@ -405,6 +412,12 @@ export async function verifySeoArtifacts(options={}) {
     for (const [route, entry] of Object.entries(seoJson)) {
         if (entry?.lastmod !== undefined && !ISO_DATE_ONLY_PATTERN.test(String(entry.lastmod))) {
             throw new Error(`seo.json route "${route}" has invalid lastmod "${entry.lastmod}" (expected YYYY-MM-DD).`);
+        }
+    }
+
+    for (const noindexHubRoute of NOINDEX_NEWS_HUB_ROUTES) {
+        if (seoJson[noindexHubRoute] !== undefined && seoJson[noindexHubRoute]?.robots !== 'noindex, follow') {
+            throw new Error(`seo.json route "${noindexHubRoute}" must set robots to "noindex, follow".`);
         }
     }
 
@@ -517,6 +530,30 @@ export async function verifySeoArtifacts(options={}) {
 
             if (seoJson[route]?.robots !== 'noindex, follow') {
                 throw new Error(`seo.json hidden or redirect learn route "${route}" must set robots to "noindex, follow".`);
+            }
+        }
+    }
+
+    const newsTabContainerPath = path.resolve(root, 'apps/portal/view/news/TabContainer.mjs');
+
+    if (await fs.pathExists(newsTabContainerPath)) {
+        for (const hubRoute of INDEXABLE_NEWS_HUB_ROUTES) {
+            if (!corePathnameSet.has(hubRoute)) {
+                throw new Error(`sitemap-core.xml is missing indexable News hub route "${hubRoute}".`);
+            }
+
+            if (!seoJson[hubRoute] || typeof seoJson[hubRoute] !== 'object') {
+                throw new Error(`seo.json is missing metadata entry for News hub route "${hubRoute}".`);
+            }
+        }
+
+        for (const noindexHubRoute of NOINDEX_NEWS_HUB_ROUTES) {
+            if (!seoJson[noindexHubRoute] || typeof seoJson[noindexHubRoute] !== 'object') {
+                throw new Error(`seo.json is missing metadata entry for noindex News hub route "${noindexHubRoute}".`);
+            }
+
+            if (seoJson[noindexHubRoute].robots !== 'noindex, follow') {
+                throw new Error(`seo.json route "${noindexHubRoute}" must set robots to "noindex, follow".`);
             }
         }
     }
