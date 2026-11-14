@@ -7,7 +7,7 @@ import {test, expect} from '../../fixtures.mjs';
  * (`afterSetMounted`). The view is mounted again every time its card is shown, and the container
  * keeps its `scrollLeft` in between. A relative scroll on the second mount moved the content one
  * week further, which `onScroll` -> `onWheel` took for edge paging: the header then read the week
- * after the active date while the navigator still marked the active day (#20934).
+  * after the active date while the navigator still marked the active day (see the pull request that introduced this spec).
  *
  * The example's data sits in July 2024 with the active date Sunday 21 July, so the visible header
  * must read 21–27 July at load and after Month → Week, Year → Week and Day → Week.

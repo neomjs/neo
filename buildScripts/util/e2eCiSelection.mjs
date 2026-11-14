@@ -54,6 +54,7 @@ export const RUN_PATHS = [
     'test/playwright/e2e/rendering/ButtonBaseNL.spec.mjs',
     'test/playwright/e2e/rendering/CalendarMonthEventDrag.spec.mjs',
     'test/playwright/e2e/rendering/CalendarMonthRollover.spec.mjs',
+    'test/playwright/e2e/rendering/CalendarWeekViewSwitch.spec.mjs',
     'test/playwright/e2e/rendering/ContextMenuNL.spec.mjs',
     'test/playwright/e2e/rendering/DeltaCoherenceRegistryNL.spec.mjs',
     'test/playwright/e2e/rendering/DeltaUpdatesChangeNodeName.spec.mjs',
