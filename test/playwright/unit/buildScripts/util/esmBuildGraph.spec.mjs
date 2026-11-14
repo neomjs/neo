@@ -83,14 +83,56 @@ test.describe('static ESM package graph boundaries', () => {
         expect(plan).toThrow(/Widget\.mjs.*neo\.mjs\/src\/core\/Base\.mjs.*peer graph differs/)
     });
 
-    test('Main-only roots do not discover their outside-root helpers', () => {
+    test('Main-only roots refuse outside-root helpers that reach the Engine', () => {
         write('apps/App.mjs', "export {default} from '../node_modules/neo.mjs/src/core/Base.mjs';");
         write('node_modules/widget/main/Addon.mjs', "export {default} from '../outside/Helper.mjs';");
         write('node_modules/widget/outside/Helper.mjs', "export {default} from '../../neo.mjs/src/core/Base.mjs';");
-        const relativeRoot = 'node_modules/widget/main', files = plan([
+        const relativeRoot = 'node_modules/widget/main';
+        expect(() => plan([
             {relativeRoot, sourceRoot: path.join(workspace, relativeRoot), packageName: 'widget'}
-        ]).files;
-        expect(files.has(path.join(workspace, 'node_modules/widget/main/Addon.mjs'))).toBe(true);
-        expect(files.has(path.join(workspace, 'node_modules/widget/outside/Helper.mjs'))).toBe(false)
+        ])).toThrow(/node_modules\/widget\/main\/Addon\.mjs → \.\.\/outside\/Helper\.mjs:.*neo\.mainAddons/)
+    });
+
+    for (const reachesEngine of [false, true]) {
+        test(`Main fallback classification follows module cycles, not package ownership (${reachesEngine})`, () => {
+            write('apps/App.mjs', "export {default} from '../node_modules/neo.mjs/src/core/Base.mjs';");
+            write('node_modules/widget/main/Addon.mjs',
+                "import Base from '../../neo.mjs/src/core/Base.mjs'; export * from '../outside/Helper.mjs'; export default Base;");
+            write('node_modules/widget/outside/Helper.mjs', "export * from '../../other/Cycle.mjs';");
+            write('node_modules/other/Cycle.mjs', "export * from '../widget/outside/Helper.mjs';" +
+                (reachesEngine ? "export {default as Base} from '../neo.mjs/src/core/Base.mjs';" : 'export const value = 17;'));
+            const relativeRoot = 'node_modules/widget/main', build = () => plan([
+                {relativeRoot, sourceRoot: path.join(workspace, relativeRoot), packageName: 'widget'}
+            ]);
+            if (reachesEngine) {
+                expect(build).toThrow(/main\/Addon\.mjs → \.\.\/outside\/Helper\.mjs:.*neo\.mainAddons/)
+            } else {
+                const files = build().files;
+                expect(files.has(path.join(workspace, 'node_modules/widget/main/Addon.mjs'))).toBe(true);
+                expect(files.has(path.join(workspace, 'node_modules/widget/outside/Helper.mjs'))).toBe(false);
+                expect(files.has(path.join(workspace, 'node_modules/other/Cycle.mjs'))).toBe(false)
+            }
+        })
+    }
+
+    test('a Main fallback through a file alias cannot hide its Engine edge', () => {
+        write('apps/App.mjs', "export {default} from '../node_modules/neo.mjs/src/core/Base.mjs';");
+        const addon = 'node_modules/widget/main/Addon.mjs', alias = 'node_modules/widget/outside/Addon.mjs';
+        write(addon, "import '../outside/Addon.mjs'; export {default} from '../../neo.mjs/src/core/Base.mjs';");
+        fs.ensureDirSync(path.dirname(path.join(workspace, alias)));
+        fs.symlinkSync(path.join(workspace, addon), path.join(workspace, alias));
+        const relativeRoot = 'node_modules/widget/main';
+        expect(() => plan([{relativeRoot, sourceRoot: path.join(workspace, relativeRoot), packageName: 'widget'}]))
+            .toThrow(/main\/Addon\.mjs → \.\.\/outside\/Addon\.mjs:.*neo\.mainAddons/)
+    });
+
+    test('a Main fallback follows an undeclared workspace helper chain', () => {
+        write('apps/App.mjs', "export {default} from '../node_modules/neo.mjs/src/core/Base.mjs';");
+        write('node_modules/widget/main/Addon.mjs', "export {default} from '../../../helpers/First.mjs';");
+        write('helpers/First.mjs', "export {default} from './Second.mjs';");
+        write('helpers/Second.mjs', "export {default} from '../node_modules/neo.mjs/src/core/Base.mjs';");
+        const relativeRoot = 'node_modules/widget/main';
+        expect(() => plan([{relativeRoot, sourceRoot: path.join(workspace, relativeRoot), packageName: 'widget'}]))
+            .toThrow(/main\/Addon\.mjs → \.\.\/\.\.\/\.\.\/helpers\/First\.mjs:.*neo\.mainAddons/)
     });
 });

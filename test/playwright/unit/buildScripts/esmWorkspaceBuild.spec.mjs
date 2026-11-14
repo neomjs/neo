@@ -183,6 +183,45 @@ test.describe('esmodules.mjs — a greenfield workspace build', () => {
         expect(fs.existsSync(path.join(workspace, 'dist/esm/node_modules/plain'))).toBe(false)
     });
 
+    for (const mode of ['undeclared', 'declared', 'ordinary']) {
+        test(`Main outside-root helpers preserve Engine identity (${mode})`, async () => {
+            workspace = fs.realpathSync(createWorkspace({declareExtraRoot: true}));
+            const write    = (file, content) => fs.outputFileSync(path.join(workspace, file), content),
+                  manifest = fs.readJsonSync(path.join(workspace, 'package.json')),
+                  addon    = 'node_modules/widget/main/Addon.mjs', helper = 'node_modules/widget/outside/Helper.mjs';
+            fs.outputJsonSync(path.join(workspace, 'package.json'), {...manifest, dependencies: {widget: '1.0.0'}});
+            fs.outputJsonSync(path.join(workspace, 'node_modules/widget/package.json'), {
+                name: 'widget', version: '1.0.0', neo: {mainAddons: mode === 'declared' ? ['main', 'outside'] : ['main']}
+            });
+            write('node_modules/neo.mjs/src/core/Base.mjs', 'export default class Base {static engineUrl = import.meta.url}');
+            write(addon, "export {default} from '../outside/Helper.mjs';");
+            write(helper, mode === 'ordinary' ? 'export default {value: 17, moduleUrl: import.meta.url};'
+                : "export {default} from '../../neo.mjs/src/core/Base.mjs';");
+            const {status, output} = runBuild(workspace);
+            if (mode === 'undeclared') {
+                expect(status, output).toBe(1);
+                expect(output).toContain(`${addon} → ../outside/Helper.mjs`);
+                expect(output).toContain('neo.mainAddons');
+                expect(fs.existsSync(path.join(workspace, 'dist/esm', helper))).toBe(false);
+                return
+            }
+            expect(status, output).toBe(0);
+            const emitted = (await import(pathToFileURL(path.join(workspace, 'dist/esm', addon)).href)).default;
+            if (mode === 'declared') {
+                const base = (await import(pathToFileURL(path.join(workspace, 'dist/esm/src/core/Base.mjs')).href)).default;
+                expect(emitted).toBe(base);
+                expect(emitted.engineUrl).toBe(pathToFileURL(path.join(workspace, 'dist/esm/src/core/Base.mjs')).href);
+                expect(fs.existsSync(path.join(workspace, 'dist/esm', helper))).toBe(true)
+            } else {
+                const source = (await import(pathToFileURL(path.join(workspace, helper)).href)).default;
+                expect(emitted).toBe(source);
+                expect(emitted.value).toBe(17);
+                expect(emitted.moduleUrl).toBe(pathToFileURL(path.join(workspace, helper)).href);
+                expect(fs.existsSync(path.join(workspace, 'dist/esm', helper))).toBe(false)
+            }
+        })
+    }
+
     for (const linked of [false, true]) {
         test(`static package classes share the emitted Engine graph (${linked ? 'linked' : 'installed'})`, async () => {
             workspace = fs.realpathSync(createWorkspace({declareExtraRoot: true}));
