@@ -7,18 +7,19 @@ import isEntryModule        from '../../util/isEntryModule.mjs';
 import {requireContentRoot} from '../../util/contentRoot.mjs';
 import {sanitizeInput}      from '../../util/sanitizer.mjs';
 import {
-    chunkArray, collectExampleFamilyRoutes, collectExampleRoutes, extractExampleFamilyDefinitions,
-    extractFrontmatterDateOnly, extractFrontmatterField, extractMarkdownSeoMetadata, extractPortalIndexMetadata,
-    formatLastmodDate, formatLearnSeoTitle, getChangedGitPaths, getChangedLastmod, getGitLastModifiedBatch,
-    getGitPath, getMaxReleaseMajor, getPublishedExampleFamilies, getSeoJson, hasReliableGitHistory,
-    isIndexableReleaseVersion, isRedirectMarkdown, normalizeIsoDateOnly, resolveLearnTreeLeaves
+    TOP_LEVEL_SOURCE_PATHS, chunkArray, collectExampleFamilyRoutes, collectExampleRoutes,
+    extractExampleFamilyDefinitions, extractFrontmatterDateOnly, extractFrontmatterField,
+    extractMarkdownSeoMetadata, extractPortalIndexMetadata, formatLastmodDate, formatLearnSeoTitle,
+    getChangedGitPaths, getChangedLastmod, getGitLastModifiedBatch, getGitPath, getMaxReleaseMajor,
+    getPublishedExampleFamilies, getSeoJson, hasReliableGitHistory, isIndexableReleaseVersion,
+    isRedirectMarkdown, normalizeIsoDateOnly, resolveLearnTreeLeaves
 } from './seoJson.mjs';
 
 export {
-    collectExampleFamilyRoutes, collectExampleRoutes, extractExampleFamilyDefinitions, extractFrontmatterField,
-    extractMarkdownSeoMetadata, extractPortalIndexMetadata, formatLearnSeoTitle, getMaxReleaseMajor,
-    getPublishedExampleFamilies, getSeoJson, hasReliableGitHistory, isIndexableReleaseVersion, isRedirectMarkdown,
-    resolveLearnTreeLeaves
+    TOP_LEVEL_SOURCE_PATHS, collectExampleFamilyRoutes, collectExampleRoutes, extractExampleFamilyDefinitions,
+    extractFrontmatterField, extractMarkdownSeoMetadata, extractPortalIndexMetadata, formatLearnSeoTitle,
+    getMaxReleaseMajor, getPublishedExampleFamilies, getSeoJson, hasReliableGitHistory,
+    isIndexableReleaseVersion, isRedirectMarkdown, resolveLearnTreeLeaves
 };
 
 /**
@@ -44,25 +45,51 @@ const CORPUS_LASTMOD_FIELDS                       = ['updatedAt', 'mergedAt', 'c
 const RELEASE_NOTE_NEO_GITHUB_SOURCE_LINK_PATTERN = /https:\/\/github\.com\/neomjs\/neo\/(?:blob|tree)\/([^/\s)]+)\/[^\s)]+/g;
 const RELEASE_NOTE_DISALLOWED_SOURCE_REF_PATTERN  = /^(?:main|v\d+(?:\.\d+){0,2}(?:[-.\w]*)?)$/;
 
-// Canonical top-level routes (`/` replaces `/home` so sitemap-core.xml advertises the canonical root URL)
+// Canonical top-level and indexable News hub routes (`/` replaces `/home` so sitemap-core.xml
+// advertises the canonical root URL; `/news/tickets` and `/news/pulls` are excluded because
+// middleware serves X-Robots-Tag: noindex, follow on them)
 const TOP_LEVEL_ROUTES = [
     '/',
     '/about-us',
     '/news',
+    '/news/blog',
+    '/news/releases',
+    '/news/discussions',
+    '/news/medium',
+    '/news/videos',
     '/docs',
     '/examples',
     '/services'
 ];
 
+const TOP_LEVEL_LABELS = {
+    '/'                : 'Home',
+    '/about-us'        : 'About Us',
+    '/docs'            : 'Docs',
+    '/examples'        : 'Examples',
+    '/news'            : 'News',
+    '/news/blog'       : 'News — Blog',
+    '/news/discussions': 'News — Discussions',
+    '/news/medium'     : 'News — Medium Archive',
+    '/news/releases'   : 'News — Release Notes',
+    '/news/videos'     : 'News — Videos',
+    '/services'        : 'Connect'
+};
+
 const PRIORITIES = new Map([
-    // Top-level pages
-    ['/'        , 1.0],
-    ['/home'    , 1.0],
-    ['/docs'    , 0.9],
-    ['/examples', 0.9],
-    ['/news'    , 0.9], // Boosted Priority
-    ['/about-us', 0.7],
-    ['/services', 0.7],
+    // Top-level pages & News hubs
+    ['/'                , 1.0],
+    ['/home'            , 1.0],
+    ['/docs'            , 0.9],
+    ['/examples'        , 0.9],
+    ['/news'            , 0.9], // Boosted Priority
+    ['/news/blog'       , 0.9],
+    ['/news/releases'   , 0.8],
+    ['/about-us'        , 0.7],
+    ['/services'        , 0.7],
+    ['/news/discussions', 0.6],
+    ['/news/medium'     , 0.5],
+    ['/news/videos'     , 0.5],
 
     // Identity apex: organism / Agent OS / AI engineering team
     ['benefits/Introduction'                        , 1.0],
@@ -295,18 +322,26 @@ async function collectRoutesFromTree(options={}) {
 }
 
 /**
- * @summary Collects top-level Portal routes that do not map to Markdown content files.
+ * @summary Collects top-level Portal and indexable News hub routes, resolving source-file
+ * dependencies from `TOP_LEVEL_SOURCE_PATHS` plus `ViewportController.mjs` to match `seoJson.mjs`.
  * @param {String} [root=ROOT_DIR] Repository root.
- * @returns {Promise<Array<{category: String, filePath: String, id: String}>>}
+ * @returns {Promise<Array<{category: String, filePath: String, filePaths: String[], id: String}>>}
  */
 async function collectTopLevelRoutes(root=ROOT_DIR) {
     const viewportControllerPath = path.resolve(root, 'apps/portal/view/ViewportController.mjs');
 
-    return TOP_LEVEL_ROUTES.map(route => ({
-        category: 'top-level',
-        filePath: viewportControllerPath,
-        id      : route
-    }));
+    return TOP_LEVEL_ROUTES.map(route => {
+        const mappedRelPath = TOP_LEVEL_SOURCE_PATHS[route];
+        const relPaths      = Array.isArray(mappedRelPath) ? mappedRelPath : (mappedRelPath ? [mappedRelPath] : []);
+        const filePaths     = [...relPaths.map(relPath => path.resolve(root, relPath)), viewportControllerPath];
+
+        return {
+            category: 'top-level',
+            filePath: filePaths[0],
+            filePaths,
+            id      : route
+        };
+    });
 }
 
 /**
@@ -710,6 +745,18 @@ export async function getSitemapXml(options={}) {
     let lastModMap            = new Map();
     let resolvedSeoJson       = seoJson || null;
 
+    if (!resolvedSeoJson && !onlyArchives && !onlyDiscussions) {
+        const candidateSeoPath = seoJsonPath || path.resolve(root, 'apps/portal/resources/data/seo.json');
+
+        if (await fs.pathExists(candidateSeoPath)) {
+            try {
+                resolvedSeoJson = await fs.readJSON(candidateSeoPath);
+            } catch {
+                resolvedSeoJson = null;
+            }
+        }
+    }
+
     if (includeLastmod) {
         const gitTargetPaths   = [];
         const archiveFilePaths = [];
@@ -734,25 +781,23 @@ export async function getSitemapXml(options={}) {
             existingLastmodMap = await getExistingSitemapLastmodMap(existingSitemapPath);
             changedGitPaths.delete(getGitPath(existingSitemapPath, root));
         }
-
-        if (!resolvedSeoJson && !onlyArchives && !onlyDiscussions) {
-            const candidateSeoPath = seoJsonPath || path.resolve(root, 'apps/portal/resources/data/seo.json');
-
-            if (await fs.pathExists(candidateSeoPath)) {
-                try {
-                    resolvedSeoJson = await fs.readJSON(candidateSeoPath);
-                } catch {
-                    resolvedSeoJson = null;
-                }
-            }
-        }
     }
 
     const entriesByUrl = new Map();
 
     for (const {category, id, filePath, filePaths, frontmatterLastmod} of filteredRoutes) {
         const routePath = formatCategoryRoute(category, id, basePath, false);
-        const url       = new URL(routePath, normalizedBaseUrl).toString();
+
+        if (
+            !onlyArchives &&
+            !onlyDiscussions &&
+            typeof resolvedSeoJson?.[routePath]?.robots === 'string' &&
+            /\bnoindex\b/i.test(resolvedSeoJson[routePath].robots)
+        ) {
+            continue;
+        }
+
+        const url = new URL(routePath, normalizedBaseUrl).toString();
 
         let lastmod = null;
         if (includeLastmod) {
@@ -976,8 +1021,7 @@ To access bundled versions, prefix paths with \`/dist/production/\`, \`/dist/dev
 
     content += `## Main Pages\n\n`;
     const topLevelUrls = topLevelRoutes.map(route => {
-        const name = route.id === '/' ? 'Home' :
-            route.id === '/services' ? 'Connect' :
+        const name = TOP_LEVEL_LABELS[route.id] ||
             route.id.substring(1).split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 
         let urlStr;
@@ -1270,6 +1314,7 @@ if (isEntryModule(import.meta.url)) {
 }
 
 export default {
+    TOP_LEVEL_SOURCE_PATHS,
     assertStableReleaseNoteGithubLinks,
     collectBlogRoutes,
     collectExampleFamilyRoutes,

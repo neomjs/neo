@@ -51,7 +51,7 @@ test.describe('Portal news Videos tab', () => {
         await expect(items.first().locator('.portal-videos-name')).toHaveText('Neo Stage: Sophie in Motion | Early 3D Engine Preview');
         await expect(items.first().locator('.portal-videos-meta')).toHaveText('Oct 31, 2026 · Stage');
         await expect(items.last().locator('.portal-videos-name')).toHaveText('neo.mjs in just 33s');
-        await expect(page).toHaveTitle('Neo.mjs Videos');
+        await expect(page).toHaveTitle('Videos & Live Demos — Multi-Window Web Apps & Agent OS | Neo.mjs');
 
         let list = await readList(app);
 

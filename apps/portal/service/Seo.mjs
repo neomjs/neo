@@ -155,21 +155,24 @@ class Seo extends Base {
 
     /**
      * @summary Calls the `DocumentHead` main thread addon to update the document's title, meta-description,
-     * canonical URL, Open Graph tags (`og:title`, `og:description`, `og:url`), and route-specific
-     * `ld+json` (`data-schema-name="neo-route"`).
+     * `robots` directive, canonical URL, Open Graph tags (`og:title`, `og:description`, `og:url`), and
+     * route-specific `ld+json` (`data-schema-name="neo-route"`).
      *
-     * `/home` (and `/`) resolve `canonicalUrl` and `og:url` to `'https://neomjs.com/'`. Parent-segment
+     * `/home` (and `/`) resolve `canonicalUrl` and `og:url` to `'https://neomjs.com/'`. Routes without an explicit
+     * `robots` directive in `seo.json` reset `<meta name="robots">` to `'index, follow'` so client-side navigation
+     * away from a `'noindex, follow'` route never leaves a stale `noindex` tag in `<head>`. Parent-segment
      * fallback routes that do not have an exact entry in `seo.json` clear `data-schema-name="neo-route"`
      * (`value: null`) rather than attributing the parent section's title as the leaf route's `headline`.
      * @param {Object} config
-     * @param {String} config.description             The new meta-description for the document.
-     * @param {String} [config.route]                 The normalized route path (e.g., '/learn/benefits/Introduction').
-     * @param {String} [config.schemaType='WebPage']  The Schema.org `@type` for the route's `ld+json` block.
-     * @param {String} config.title                   The new title for the document.
-     * @param {String} config.windowId                The target windowId.
+     * @param {String} config.description                The new meta-description for the document.
+     * @param {String} [config.robots='index, follow']   The `<meta name="robots">` directive for the route.
+     * @param {String} [config.route]                    The normalized route path (e.g., '/learn/benefits/Introduction').
+     * @param {String} [config.schemaType='WebPage']     The Schema.org `@type` for the route's `ld+json` block.
+     * @param {String} config.title                      The new title for the document.
+     * @param {String} config.windowId                   The target windowId.
      * @private
      */
-    async #updateDocumentHead({description, route, schemaType='WebPage', title, windowId}) {
+    async #updateDocumentHead({description, robots='index, follow', route, schemaType='WebPage', title, windowId}) {
         let DocumentHead = await Neo.currentWorker.getAddon('DocumentHead', windowId),
             canonicalUrl = route
                 ? (route === '/home' || route === '/' ? 'https://neomjs.com/' : `https://neomjs.com${route}`)
@@ -190,6 +193,7 @@ class Seo extends Base {
                 } : null
             } : undefined,
             tags = [
+                {tag: 'meta', name: 'robots', content: robots},
                 ...(title        ? [{tag: 'meta', property: 'og:title',       content: title}]        : []),
                 ...(description  ? [{tag: 'meta', property: 'og:description', content: description}]  : []),
                 ...(canonicalUrl ? [{tag: 'meta', property: 'og:url',         content: canonicalUrl}] : [])

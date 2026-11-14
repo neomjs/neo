@@ -9,6 +9,14 @@
             "path": null
         },
         {
+            "date": "2026-11-14",
+            "id": "blog/one-websocket-across-browser-windows-with-sharedworkers",
+            "isLeaf": true,
+            "name": "A SharedWorker WebSocket still copies state into every tab—unless the store lives there too",
+            "parentId": "2026",
+            "path": "learn/blog/one-websocket-across-browser-windows-with-sharedworkers.md"
+        },
+        {
             "date": "2026-11-10",
             "id": "blog/json-ld-xss-json-stringify-in-a-script-tag",
             "isLeaf": true,

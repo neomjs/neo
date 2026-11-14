@@ -145,10 +145,19 @@ test.describe('Portal.service.Seo (#20688)', () => {
 
             const fallbackMeta = SeoService.getMetadata('/news/tickets/123');
             expect(fallbackMeta).toEqual({
-                title      : 'Neo.mjs News',
-                description: 'Latest updates, blogs, and releases for the Neo.mjs platform.',
-                lastmod    : seoJson['/news'].lastmod,
+                title      : 'GitHub Issue Archive — Neo.mjs',
+                description: seoJson['/news/tickets'].description,
+                lastmod    : seoJson['/news/tickets'].lastmod,
+                robots     : 'noindex, follow',
                 route      : '/news/tickets/123'
+            });
+
+            const unlistedNewsMeta = SeoService.getMetadata('/news/unlisted-feed');
+            expect(unlistedNewsMeta).toEqual({
+                title      : seoJson['/news'].title,
+                description: seoJson['/news'].description,
+                lastmod    : seoJson['/news'].lastmod,
+                route      : '/news/unlisted-feed'
             });
 
             const gridFamilyMeta = SeoService.getMetadata('/examples/grid');
@@ -203,6 +212,7 @@ test.describe('Portal.service.Seo (#20688)', () => {
                     }
                 },
                 tags: [
+                    {tag: 'meta', name:     'robots',         content: 'index, follow'},
                     {tag: 'meta', property: 'og:title',       content: expectedHomeTitle},
                     {tag: 'meta', property: 'og:description', content: homeMeta.description},
                     {tag: 'meta', property: 'og:url',         content: 'https://neomjs.com/'}
@@ -235,6 +245,7 @@ test.describe('Portal.service.Seo (#20688)', () => {
                     }
                 },
                 tags: [
+                    {tag: 'meta', name:     'robots',         content: 'index, follow'},
                     {tag: 'meta', property: 'og:title',       content: 'What Is Neo.mjs?'},
                     {tag: 'meta', property: 'og:description', content: learnMeta.description},
                     {tag: 'meta', property: 'og:url',         content: 'https://neomjs.com/learn/benefits/Introduction'}
@@ -244,7 +255,7 @@ test.describe('Portal.service.Seo (#20688)', () => {
             });
             expect(document.head.querySelector('script[type="application/ld+json"][data-schema-name="neo-route"]')).toBeTruthy();
 
-            // 3. Fallback route without its own entry keeps its canonical URL and clears neo-route ld+json
+            // 3. Fallback route under a noindex hub keeps its canonical URL, stamps noindex, and clears neo-route ld+json
             SeoService.onRouteChanged({
                 hashString: '/news/tickets/123',
                 windowId  : 'neo-window-1'
@@ -260,13 +271,15 @@ test.describe('Portal.service.Seo (#20688)', () => {
                     value: null
                 },
                 tags: [
-                    {tag: 'meta', property: 'og:title',       content: 'Neo.mjs News'},
+                    {tag: 'meta', name:     'robots',         content: 'noindex, follow'},
+                    {tag: 'meta', property: 'og:title',       content: 'GitHub Issue Archive — Neo.mjs'},
                     {tag: 'meta', property: 'og:description', content: fallbackMeta.description},
                     {tag: 'meta', property: 'og:url',         content: 'https://neomjs.com/news/tickets/123'}
                 ],
-                title   : 'Neo.mjs News',
+                title   : 'GitHub Issue Archive — Neo.mjs',
                 windowId: 'neo-window-1'
             });
+            expect(document.head.querySelector('meta[name="robots"]')?.attrs?.content).toBe('noindex, follow');
             expect(document.head.querySelector('script[type="application/ld+json"][data-schema-name="neo-route"]')).toBeNull();
             expect(document.head.querySelector('script[type="application/ld+json"][data-schema-name="neo-organism"]')).toBeTruthy();
 
@@ -286,7 +299,7 @@ test.describe('Portal.service.Seo (#20688)', () => {
                 content : 'https://neomjs.com/examples'
             });
 
-            // 5. Root '/' route resolves exact seo.json['/'] metadata and https://neomjs.com/ canonical URL
+            // 5. Root '/' route resolves exact seo.json['/'] metadata, resets robots, and sets https://neomjs.com/ canonical URL
             SeoService.onRouteChanged({
                 hashString: '/',
                 windowId  : 'neo-window-1'
@@ -310,6 +323,7 @@ test.describe('Portal.service.Seo (#20688)', () => {
                     }
                 },
                 tags: [
+                    {tag: 'meta', name:     'robots',         content: 'index, follow'},
                     {tag: 'meta', property: 'og:title',       content: expectedHomeTitle},
                     {tag: 'meta', property: 'og:description', content: expectedHomeDesc},
                     {tag: 'meta', property: 'og:url',         content: 'https://neomjs.com/'}
@@ -317,6 +331,7 @@ test.describe('Portal.service.Seo (#20688)', () => {
                 title   : expectedHomeTitle,
                 windowId: 'neo-window-1'
             });
+            expect(document.head.querySelector('meta[name="robots"]')?.attrs?.content).toBe('index, follow');
         } finally {
             globalThis.fetch  = originalFetch;
             Neo.currentWorker = originalCurrentWorker

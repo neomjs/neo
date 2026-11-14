@@ -25,8 +25,8 @@
         "lastmod": "2026-11-14"
     },
     "/news": {
-        "title": "Neo.mjs News",
-        "description": "Latest updates, blogs, and releases for the Neo.mjs platform.",
+        "title": "News, Blog & Release Notes — Multi-Threaded JavaScript Engine | Neo.mjs",
+        "description": "Engineering blog posts, release notes, architectural discussions, and live demos from the Neo.mjs multi-threaded JavaScript engine and AI Agent OS team.",
         "lastmod": "2026-11-14"
     },
     "/news/blog": {
@@ -34,14 +34,36 @@
         "description": "Engineering deep dives from the Neo.mjs team on Web Worker data grids, SharedWorker multi-window UIs, OffscreenCanvas, GraphRAG memory, and MCP servers.",
         "lastmod": "2026-11-14"
     },
+    "/news/discussions": {
+        "title": "Architectural Discussions & RFCs — Neo.mjs Engine & Agent OS",
+        "description": "Open architectural discussions, RFCs, and cross-model design reviews from the human and AI maintainers building the Neo.mjs engine and Agent OS.",
+        "lastmod": "2026-11-14"
+    },
+    "/news/medium": {
+        "title": "Medium & ITNEXT Article Archive — Neo.mjs Engineering",
+        "description": "External engineering articles published by the Neo.mjs team on Medium and ITNEXT covering Web Workers, SharedWorkers, VDOM diffing, and multi-window UIs.",
+        "lastmod": "2026-11-14"
+    },
+    "/news/pulls": {
+        "title": "GitHub Pull Request Archive — Neo.mjs",
+        "description": "Searchable archive of Neo.mjs GitHub pull requests and cross-family AI code reviews.",
+        "robots": "noindex, follow",
+        "lastmod": "2026-11-14"
+    },
     "/news/releases": {
-        "title": "Neo.mjs Releases",
-        "description": "Release notes and changelogs for the Neo.mjs platform.",
+        "title": "Release Notes & Changelog — Multi-Threaded JavaScript Engine | Neo.mjs",
+        "description": "Version history, architecture notes, and release highlights for the Neo.mjs multi-threaded JavaScript application engine and AI Agent OS.",
+        "lastmod": "2026-11-14"
+    },
+    "/news/tickets": {
+        "title": "GitHub Issue Archive — Neo.mjs",
+        "description": "Searchable archive of Neo.mjs GitHub issues, bug reports, and engineering specifications.",
+        "robots": "noindex, follow",
         "lastmod": "2026-11-14"
     },
     "/news/videos": {
-        "title": "Neo.mjs Videos",
-        "description": "Films and demos of the Neo.mjs platform, from the engine to the AI maintainers who build it.",
+        "title": "Videos & Live Demos — Multi-Window Web Apps & Agent OS | Neo.mjs",
+        "description": "Recorded demos and product films of Neo.mjs multi-window browser workspaces, Web Worker data grids, OffscreenCanvas charts, and the AI maintainer team.",
         "lastmod": "2026-11-14"
     },
     "/services": {
@@ -812,6 +834,12 @@
         "description": "This glossary provides definitions for key terms and concepts used throughout the Neo.mjs documentation. Understanding these terms is essential for grasping...",
         "schemaType": "TechArticle",
         "lastmod": "2026-08-31"
+    },
+    "/news/blog/one-websocket-across-browser-windows-with-sharedworkers": {
+        "title": "SharedWorker WebSocket Across Browser Windows & Tabs in JavaScript | Neo.mjs",
+        "description": "Share one live WebSocket across multiple browser windows in a SharedWorker without copying state per tab: stores, VDOM diffing, and reconnect logic in one heap.",
+        "schemaType": "BlogPosting",
+        "lastmod": "2026-11-14"
     },
     "/news/blog/json-ld-xss-json-stringify-in-a-script-tag": {
         "title": "JSON.stringify is not safe inside a script tag: the JSON-LD XSS and its one-line fix - Neo.mjs",

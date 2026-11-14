@@ -433,4 +433,25 @@ test.describe('buildScripts/docs/seo/verify.mjs (#20774 / #20915)', () => {
         };
         await expect(verifySeoArtifacts(brokenDiscussionBundle)).rejects.toThrow(/777777\.md/);
     });
+
+    test('enforces News hub presence and noindex invariants (#20919)', async () => {
+        const ticketsHubInCoreBundle = buildValidBundle();
+        ticketsHubInCoreBundle.sitemapCoreXml = [
+            '<urlset>',
+            '  <url><loc>https://neomjs.com/</loc><lastmod>2026-10-21</lastmod></url>',
+            '  <url><loc>https://neomjs.com/news/tickets</loc></url>',
+            '</urlset>'
+        ].join('\n');
+        await expect(verifySeoArtifacts(ticketsHubInCoreBundle)).rejects.toThrow(/noindex News hub route.*\/news\/tickets/);
+
+        const unflaggedPullsHubInSeoBundle = buildValidBundle();
+        unflaggedPullsHubInSeoBundle.seoJson['/news/pulls'] = {
+            title      : 'GitHub Pull Request Archive — Neo.mjs',
+            description: 'Searchable archive of Neo.mjs GitHub pull requests.'
+        };
+        await expect(verifySeoArtifacts(unflaggedPullsHubInSeoBundle)).rejects.toThrow(/route "\/news\/pulls" must set robots to "noindex, follow"/);
+
+        await fs.outputFile(path.join(rootDir, 'apps/portal/view/news/TabContainer.mjs'), '// News TabContainer');
+        await expect(verifySeoArtifacts(buildValidBundle())).rejects.toThrow(/sitemap-core\.xml is missing indexable News hub route "\/news\/blog"/);
+    });
 });

@@ -20,18 +20,27 @@ const STATUS_RENAME_CODES       = new Set(['R', 'C']);
 const FRONTMATTER_BLOCK_PATTERN = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
 const ISO_DATE_ONLY_PATTERN     = /^\d{4}-\d{2}-\d{2}$/;
 
-const TOP_LEVEL_SOURCE_PATHS = {
-    '/'             : ['apps/portal/index.html', 'apps/portal/view/home/MainContainer.mjs'],
-    '/about-us'     : 'apps/portal/view/about/Container.mjs',
-    '/docs'         : 'apps/portal/view/ViewportController.mjs',
-    '/examples'     : 'apps/portal/resources/data/examples.json',
-    '/home'         : ['apps/portal/index.html', 'apps/portal/view/home/MainContainer.mjs'],
-    '/learn'        : 'learn/tree.json',
-    '/news'         : 'apps/portal/view/news/TabContainer.mjs',
-    '/news/blog'    : 'apps/portal/resources/data/blog.json',
-    '/news/releases': 'apps/portal/resources/data/releases.json',
-    '/news/videos'  : 'apps/portal/resources/data/videos.json',
-    '/services'     : 'apps/portal/view/services/Container.mjs'
+/**
+ * Source-file dependencies for curated top-level Portal and News hub routes so `seo.json` and
+ * `sitemap-core.xml` derive identical git-backed `lastmod` dates.
+ * @type {Object<String, String|String[]>}
+ */
+export const TOP_LEVEL_SOURCE_PATHS = {
+    '/'                : ['apps/portal/index.html', 'apps/portal/view/home/MainContainer.mjs'],
+    '/about-us'        : 'apps/portal/view/about/Container.mjs',
+    '/docs'            : 'apps/portal/view/ViewportController.mjs',
+    '/examples'        : 'apps/portal/resources/data/examples.json',
+    '/home'            : ['apps/portal/index.html', 'apps/portal/view/home/MainContainer.mjs'],
+    '/learn'           : 'learn/tree.json',
+    '/news'            : 'apps/portal/view/news/TabContainer.mjs',
+    '/news/blog'       : ['apps/portal/resources/data/blog.json', 'apps/portal/view/news/blog/MainContainer.mjs'],
+    '/news/discussions': 'apps/portal/view/news/discussions/MainContainer.mjs',
+    '/news/medium'     : ['apps/portal/resources/data/medium_blog.json', 'apps/portal/view/news/medium/Container.mjs'],
+    '/news/pulls'      : 'apps/portal/view/news/pulls/MainContainer.mjs',
+    '/news/releases'   : ['apps/portal/resources/data/releases.json', 'apps/portal/view/news/release/MainContainer.mjs'],
+    '/news/tickets'    : 'apps/portal/view/news/tickets/MainContainer.mjs',
+    '/news/videos'     : ['apps/portal/resources/data/videos.json', 'apps/portal/view/news/videos/Container.mjs'],
+    '/services'        : 'apps/portal/view/services/Container.mjs'
 };
 
 /**
