@@ -636,6 +636,46 @@ class RecordFactory extends Base {
     }
 
     /**
+     * @summary Tests whether a non-null scalar `value` already holds `field`'s canonical primitive type
+     * without needing {@link #parseRecordValue} conversion or length validation.
+     * @param {Object} field Model field definition
+     * @param {*}      value Raw field value
+     * @returns {Boolean}
+     */
+    isCanonicalFieldValue(field, value) {
+        if (value === null || value === undefined || field.calculate || field.convert ||
+            field.maxLength !== undefined || field.minLength !== undefined) {
+            return false
+        }
+
+        const type = field.type;
+
+        if (type === 'String' || type === 'string') {
+            return typeof value === 'string' && !value.includes('<')
+        }
+
+        if (type === 'Integer' || type === 'integer' || type === 'Int' || type === 'int') {
+            return Number.isSafeInteger(value)
+        }
+
+        const lc = type?.toLowerCase();
+
+        if (lc === 'string') {
+            return typeof value === 'string' && !value.includes('<')
+        }
+
+        if (lc === 'int' || lc === 'integer') {
+            return Number.isSafeInteger(value)
+        }
+
+        if (lc === 'html') {
+            return typeof value === 'string'
+        }
+
+        return lc === 'float' && typeof value === 'number' && Number.isFinite(value) && !Object.is(value, -0)
+    }
+
+    /**
      * @summary Parses, converts, and validates a record field value, resolving initial field mappings.
      *
      * A `Date` field converts every value except `null` and `undefined`; only `nullable: false` refuses `null`.

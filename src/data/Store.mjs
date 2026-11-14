@@ -106,6 +106,8 @@ class Store extends Collection {
      * @private
      */
     #pendingLoads = 0;
+    /** @member {Neo.data.Model|null} #resolvedModel=null Cached model reference avoiding reactive getter overhead on hot key paths. @private */
+    #resolvedModel = null;
     /** @member {Set<Function>} #streamingReads Read handlers that have received progressive data. @private */
     #streamingReads = new Set();
     /**
@@ -440,9 +442,8 @@ class Store extends Collection {
      * @protected
      */
     afterSetModel(value, oldValue) {
-        if (value) {
-            value.storeId = this.id
-        }
+        this.#resolvedModel = value || null;
+        if (value) value.storeId = this.id
     }
 
     /**
@@ -666,6 +667,7 @@ class Store extends Collection {
             model = me.#ownsModel ? me.model : null;
 
         me.allItems?.un('recordChange', me.onAllItemsRecordChange, me);
+        me.#resolvedModel = null;
         me.#streamingReads.clear();
         me.isStreaming = false;
         StoreManager.unregister(me);
@@ -683,24 +685,28 @@ class Store extends Collection {
      */
     getKey(item) {
         let me          = this,
-            keyProperty = me.getKeyProperty(),
-            model, value;
+            model       = me.#resolvedModel || (me.configsApplied ? null : me.model),
+            keyProperty = me.keyProperty || model.keyProperty,
+            field, mapping, value;
 
-        if (RecordFactory.isRecord(item)) {
-            return item.get(keyProperty)
-        }
+        if (RecordFactory.isRecord(item)) return item.get(keyProperty);
 
         value = keyProperty.includes('.') ? Neo.ns(keyProperty, false, item) : item[keyProperty];
 
+        if (me.modelOf !== Store.prototype.modelOf) model = me.modelOf(item);
+
         // If direct access failed, check for mapping (Reverse Lookup)
-        if (value === undefined && (model = me.modelOf(item))) {
-            let mapping = model.getField(keyProperty)?.mapping;
-            if (mapping) {
-                value = mapping.includes('.') ? Neo.ns(mapping, false, item) : item[mapping]
-            }
+        if (value === undefined && model) {
+            mapping = model.fieldsMap.get(keyProperty)?.mapping;
+            if (mapping) value = mapping.includes('.') ? Neo.ns(mapping, false, item) : item[mapping]
         }
 
-        return value == null ? value : me.getCanonicalKey(value, model || me.modelOf(item)) ?? value
+        if (value == null) return value;
+
+        field = model?.fieldsMap.get(keyProperty);
+
+        return !field || RecordFactory.isCanonicalFieldValue(field, value)
+            ? value : me.getCanonicalKey(value, model, keyProperty) ?? value
     }
 
     /**
@@ -1570,10 +1576,11 @@ class Store extends Collection {
      *
      * @param {*} value The key as it was received, e.g. from a server push or a DOM id.
      * @param {Neo.data.Model|null} [model=this.model] Optional row model (`modelOf()`).
+     * @param {String} [keyProperty=this.getKeyProperty()] Resolved key field name.
      * @returns {*|undefined} The canonical key, or `undefined` when the value falls outside the
      * supported domain above.
      */
-    getCanonicalKey(value, model=this.model) {
+    getCanonicalKey(value, model=this.#resolvedModel || (this.configsApplied ? null : this.model), keyProperty=this.keyProperty || model?.keyProperty) {
         // An absent value is not an identity, whatever the Model says. This is checked before the
         // no-field case on purpose: a Store without a declared key field would otherwise pass null
         // straight through, and a caller which inserts on a miss then adds a row nothing can address.
@@ -1581,7 +1588,7 @@ class Store extends Collection {
             return undefined
         }
 
-        let field = model?.getField(this.getKeyProperty());
+        let field = model?.fieldsMap.get(keyProperty);
 
         // With no declared key field there is nothing to canonicalize against, so a present value
         // stands as its own identity.
@@ -1592,6 +1599,10 @@ class Store extends Collection {
         // Context-dependent keys cannot be resolved from a value alone — see Supported domain.
         if (field.calculate || field.convert) {
             return undefined
+        }
+
+        if (RecordFactory.isCanonicalFieldValue(field, value)) {
+            return value
         }
 
         let canonical = RecordFactory.parseRecordValue({record: emptyRecord, field, value});

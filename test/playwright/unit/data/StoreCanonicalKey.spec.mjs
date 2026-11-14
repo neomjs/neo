@@ -18,6 +18,7 @@ import Neo             from '../../../../src/Neo.mjs';
 import * as core       from '../../../../src/core/_export.mjs';
 import InstanceManager from '../../../../src/manager/Instance.mjs';
 import Model           from '../../../../src/data/Model.mjs';
+import RecordFactory   from '../../../../src/data/RecordFactory.mjs';
 import Store           from '../../../../src/data/Store.mjs';
 import TreeModel       from '../../../../src/data/TreeModel.mjs';
 import TreeStore       from '../../../../src/data/TreeStore.mjs';
@@ -339,5 +340,49 @@ test.describe('Neo.data.Store & Neo.data.TreeStore - Canonical Key Boundaries (#
         expect(store.getKey(group)).toBe('2026-total');
         expect(store.getKey(leaf)).toBe(10);
         expect(asked).toEqual([])
+    });
+
+    test('RecordFactory.isCanonicalFieldValue skips parseRecordValue for already-canonical raw keys while preserving HTML/length/type fallbacks', () => {
+        const boundedModel = own(Neo.create(Model, {
+            keyProperty: 'id',
+            fields     : [{name: 'id', type: 'String', maxLength: 4}]
+        }));
+        const boundedStore = own(Neo.create(Store, {
+            autoInitRecords: false,
+            model          : boundedModel
+        }));
+
+        const intStore    = own(Neo.create(Store,     {autoInitRecords: false, model: IntKeyModel}));
+        const strStore    = own(Neo.create(Store,     {autoInitRecords: false, model: StringKeyModel}));
+        const intTree     = own(Neo.create(TreeStore, {autoInitRecords: false, model: IntKeyTreeModel}));
+        const strTree     = own(Neo.create(TreeStore, {autoInitRecords: false, model: StringKeyTreeModel}));
+        const origParse   = RecordFactory.parseRecordValue;
+        let   parserCalls = 0;
+
+        RecordFactory.parseRecordValue = function(...args) {
+            parserCalls++;
+            return origParse.apply(this, args)
+        };
+
+        try {
+            intStore.add([{id: 0, name: 'zero'}, {id: 1, name: 'one'}, {id: -2, name: 'neg'}], false);
+            strStore.add([{id: '', name: 'empty'}, {id: 'alpha', name: 'plain'}], false);
+            intTree.add([{id: 1, name: 'root', parentId: null}, {id: 2, name: 'leaf', parentId: 1}], false);
+            strTree.add([{id: 'r1', name: 'root', parentId: null}, {id: 'c1', name: 'leaf', parentId: 'r1'}], false);
+
+            expect(parserCalls, 'already-canonical Store and TreeStore rows bypass parseRecordValue').toBe(0);
+
+            expect(strStore.getCanonicalKey('<b>tag</b>')).toBe('tag');
+            expect(parserCalls, 'strings containing < fall through to HTML stripping').toBe(1);
+
+            expect(intStore.getCanonicalKey('42')).toBe(42);
+            expect(parserCalls, 'string raw keys under Integer fall through to parseInt').toBe(2);
+
+            expect(boundedStore.getCanonicalKey('abc')).toBe('abc');
+            expect(boundedStore.getCanonicalKey('too-long')).toBeUndefined();
+            expect(parserCalls, 'fields with maxLength/minLength fall through to length validation').toBe(4)
+        } finally {
+            RecordFactory.parseRecordValue = origParse
+        }
     });
 });
