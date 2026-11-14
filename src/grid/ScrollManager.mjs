@@ -74,6 +74,12 @@ class ScrollManager extends Base {
      * @protected
      */
     gridContainer = null
+    /**
+     * Element ids of follower rows mounted outside grid.body (e.g. summary or footer rows)
+     * that should stay in sync with the horizontal scrollbar.
+     * @member {Set<String>} horizontalScrollFollowerIds=new Set()
+     */
+    horizontalScrollFollowerIds = new Set()
 
     /**
      * True while the grid needs the `GridRowScrollPinning` addon: to pin rows during thumb drags, or to apply the
@@ -180,6 +186,7 @@ class ScrollManager extends Base {
         me.updateGridRowHoverSyncAddon(false);
         me.updateRowScrollPinningAddon(false);
         me.updateGridHorizontalScrollSyncAddon(false);
+        me.horizontalScrollFollowerIds.clear();
         super.destroy(...args)
     }
 
@@ -378,6 +385,44 @@ class ScrollManager extends Base {
     }
 
     /**
+     * Registers an auxiliary follower row outside grid.body to receive horizontal scroll sync.
+     * @param {String} nodeId
+     * @returns {Promise<void>}
+     */
+    async registerHorizontalScrollFollower(nodeId) {
+        let me = this;
+        me.horizontalScrollFollowerIds.add(nodeId);
+
+        if (me.mounted && !me.isDestroyed) {
+            let addon = await Neo.currentWorker.getAddon('GridHorizontalScrollSync', me.windowId);
+            addon.registerFollower({
+                id        : me.id + '__h_scroll',
+                followerId: nodeId,
+                windowId  : me.windowId
+            });
+        }
+    }
+
+    /**
+     * Unregisters an auxiliary follower row from receiving horizontal scroll sync.
+     * @param {String} nodeId
+     * @returns {Promise<void>}
+     */
+    async unregisterHorizontalScrollFollower(nodeId) {
+        let me = this;
+        me.horizontalScrollFollowerIds.delete(nodeId);
+
+        if (me.mounted && !me.isDestroyed) {
+            let addon = await Neo.currentWorker.getAddon('GridHorizontalScrollSync', me.windowId);
+            addon.unregisterFollower({
+                id        : me.id + '__h_scroll',
+                followerId: nodeId,
+                windowId  : me.windowId
+            });
+        }
+    }
+
+    /**
      * @param {Boolean} active
      * @param {String|null} [windowId=this.windowId]
      * @returns {Promise<void>}
@@ -396,11 +441,12 @@ class ScrollManager extends Base {
 
             if (scrollerId && bodyId && headerId) {
                 addon.register({
-                    id           : me.id + '__h_scroll',
+                    id         : me.id + '__h_scroll',
                     scrollerId,
                     bodyId,
                     viewId,
                     headerId,
+                    followerIds: Array.from(me.horizontalScrollFollowerIds),
                     // One id for the grid's lifetime, so a group row that appears later needs no new registration
                     groupHeaderId: me.gridContainer.getGroupHeaderPartId('center'),
                     windowId
