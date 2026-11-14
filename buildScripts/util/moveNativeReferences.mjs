@@ -30,7 +30,7 @@ export const nativeReaderContracts = [{
 }, {
     root  : 'engine', file: 'src/worker/App.mjs', owner: 'App',
     method: 'importApp', carrier: 'neo-config.json:appPath', expressions: ['`../../${path}.mjs`'],
-    hash  : 'cb161a0207fbc153076b840c83d04779e520e02d4e3a17d549c2ce91c181dc50'
+    hash  : '7eefcacc57b823e2d503bf67c8cdba0dace9383ac69e3bc556559a24f7baf7ad'
 }];
 
 /**
