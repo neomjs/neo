@@ -1,0 +1,211 @@
+# Tells every contributor who merged before the badges were live of their standing and their badge, once, on their
+# latest merged pull request in this repository. The words live in buildScripts/util/contributorStanding.mjs
+# (decideHeadsUp) and its spec; this file only fetches and posts.
+#
+# It runs by hand only. Without `post` it renders every note into the job summary and posts nothing. `limit` stops
+# the run after that many notes and `skip` leaves accounts out. A note carries a marker, so a second run tells nobody
+# twice. The job checks out nothing but the two modules and reads its inputs in script, never in a shell step.
+#
+# The workflow has one job. Once its run is recorded, it is removed, with decideHeadsUp and its spec arms.
+name: Contributor heads-up
+
+on:
+  workflow_dispatch:
+    inputs:
+      post:
+        description: Post the notes, rather than only rendering them into the job summary.
+        type: boolean
+        default: false
+      limit:
+        description: Stop after this many notes; 0 for every account.
+        type: number
+        default: 0
+      skip:
+        description: Account ids to leave out, comma-separated.
+        type: string
+        default: ''
+
+permissions:
+  contents: read       # the sparse checkout of the two modules
+  issues: write        # the note: a pull request's conversation is an issue's
+  pull-requests: read  # each pull request's files and the issues it closes
+
+jobs:
+  heads-up:
+    concurrency:
+      group: contributor-heads-up
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out the comment modules
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            buildScripts/util/claimResponse.mjs
+            buildScripts/util/contributorStanding.mjs
+          sparse-checkout-cone-mode: false
+
+      - name: Tell the contributors
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const inputs        = context.payload.inputs || {};
+            const post          = String(inputs.post) === 'true';
+            const limit         = Math.max(0, Math.floor(Number(inputs.limit) || 0));
+            const skip          = new Set(String(inputs.skip || '').split(',').map(id => id.trim()).filter(Boolean).map(Number));
+            const repoUrl       = `https://github.com/${owner}/${repo}`;
+
+            const {decideHeadsUp, parseOptOut, standing} = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/contributorStanding.mjs`);
+            const {CURATED_LABELS, isOutsideHuman}       = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/claimResponse.mjs`);
+
+            // The ledger says which accounts hold a badge and the count each badge shows; the opt-out list may be newer
+            const pagesFile = file => github.rest.repos.getContent({owner, repo: 'pages', path: `badges/${file}`, ref: 'main'})
+              .then(({data}) => Buffer.from(data.content, 'base64').toString('utf8'));
+            const accounts  = await pagesFile('ledger.json').then(text => JSON.parse(text).accounts).catch(() => null);
+            const optOut    = await pagesFile('optout.json').then(parseOptOut).catch(() => null);
+
+            if (!Array.isArray(accounts) || optOut === null) {
+              core.setFailed('Nothing posted: the ledger or the opt-out list of neomjs/pages is unreadable.');
+              return
+            }
+
+            // The search API allows 30 queries a minute and refuses bursts, so searches run one at a time, 2.1 s apart
+            let lastSearch = 0;
+
+            const search = async (q, perPage) => {
+              const wait = lastSearch + 2100 - Date.now();
+
+              if (wait > 0) await new Promise(resolve => setTimeout(resolve, wait));
+
+              lastSearch = Date.now();
+
+              const {data} = await github.rest.search.issuesAndPullRequests({q, per_page: perPage});
+
+              if (data.incomplete_results) throw new Error(`the search answered incompletely: ${q}`);
+
+              return data
+            };
+
+            const candidates = [];
+
+            for (const label of CURATED_LABELS) {
+              candidates.push(...(await search(`repo:${owner}/${repo} is:issue is:open label:"${label}" no:assignee -linked:pr`, 50)).items)
+            }
+
+            const listed = accounts.filter(account => !optOut.includes(account.id)).sort((a, b) => a.id - b.id);
+            const rows   = [];
+            const bodies = [];
+            let   told   = 0;
+
+            for (const account of listed) {
+              if (limit > 0 && told >= limit) break;
+
+              const row = {form: '', id: account.id, outcome: 'skipped', pr: '', standing: ''};
+
+              rows.push(row);
+
+              if (skip.has(account.id)) continue;
+
+              let decision, number;
+
+              try {
+                const {data: user} = await github.request('GET /user/{account_id}', {account_id: account.id});
+
+                // The badge folders are written from the ledger, so a login it does not hold has no folder yet
+                if (!account.logins.some(login => login.toLowerCase() === user.login.toLowerCase())) {
+                  throw new Error(`renamed to ${user.login} since its badge was written`)
+                }
+
+                const merged = await search(`repo:${owner}/${repo} is:pr is:merged author:${user.login}`, 100);
+
+                if (merged.total_count > merged.items.length) throw new Error(`${merged.total_count} merged pull requests, more than one page`);
+
+                const latest = merged.items
+                  .filter(item => isOutsideHuman(item))
+                  .sort((a, b) => Date.parse(b.pull_request.merged_at) - Date.parse(a.pull_request.merged_at))[0];
+
+                if (!latest) {
+                  row.outcome = 'no outside pull request in this repository';
+                  continue
+                }
+
+                number = latest.number;
+                row.pr = `<a href="${repoUrl}/pull/${number}">#${number}</a>`;
+
+                const [closing, files, comments] = await Promise.all([
+                  github.graphql(`query($owner: String!, $repo: String!, $number: Int!) {
+                    repository(owner: $owner, name: $repo) {
+                      pullRequest(number: $number) {
+                        closingIssuesReferences(first: 10) { nodes { labels(first: 30) { nodes { name } } } }
+                      }
+                    }
+                  }`, {owner, repo, number}),
+                  github.rest.pulls.listFiles({owner, repo, pull_number: number, per_page: 100}),
+                  github.paginate(github.rest.issues.listComments, {owner, repo, issue_number: number, per_page: 100})
+                ]);
+
+                decision = decideHeadsUp({
+                  candidates,
+                  closedLabels: closing.repository.pullRequest.closingIssuesReferences.nodes.flatMap(issue => issue.labels.nodes.map(label => label.name)),
+                  comments,
+                  count       : account.count,
+                  optOut,
+                  paths       : files.data.map(file => file.filename),
+                  pullRequest : {author_association: latest.author_association, merged: true, merged_at: latest.pull_request.merged_at, number, user: latest.user},
+                  repoUrl
+                });
+
+                if (!decision) {
+                  row.outcome = 'already told';
+                  continue
+                }
+              } catch (error) {
+                row.outcome = `failed: ${error.message}`;
+                core.warning(`Account ${account.id}: ${error.message}`);
+                continue
+              }
+
+              row.form     = decision.form;
+              row.standing = `${standing(account.count).rung.name} (${account.count})`;
+              bodies.push([`#${number}, account ${account.id}`, decision.body]);
+
+              if (post) {
+                try {
+                  await github.rest.issues.createComment({owner, repo, issue_number: number, body: decision.body})
+                } catch (error) {
+                  // A refused post is GitHub's limit on new content: going on would only add refusals
+                  row.outcome = `failed: ${error.message}`;
+                  core.setFailed(`Stopped at account ${account.id}: the post to #${number} failed (${error.message}). A second run tells nobody twice.`);
+                  break
+                }
+              }
+
+              row.outcome = post ? 'posted' : 'would post';
+              told++
+            }
+
+            const totals = {};
+
+            for (const {outcome} of rows) {
+              const kind = outcome.split(':')[0];
+
+              totals[kind] = (totals[kind] || 0) + 1
+            }
+
+            const cells = (values, header = false) => values.map(data => ({data: String(data), header}));
+
+            core.summary
+              .addHeading(`Contributor heads-up: ${post ? 'posted' : 'a run without post'}`)
+              .addRaw(`${rows.length} of ${listed.length} accounts of the ledger were handled${limit > 0 ? ` (limit ${limit})` : ''}.`, true)
+              .addTable([cells(['Outcome', 'Accounts'], true), ...Object.entries(totals).map(entry => cells(entry))])
+              .addTable([cells(['Account', 'Pull request', 'Standing', 'Form', 'Outcome'], true), ...rows.map(row => cells([row.id, row.pr, row.standing, row.form, row.outcome]))]);
+
+            for (const [title, body] of bodies) {
+              core.summary.addHeading(title, 3).addCodeBlock(body, 'markdown')
+            }
+
+            await core.summary.write();
+            core.info(Object.entries(totals).map(([kind, count]) => `${count} ${kind}`).join(', '))
