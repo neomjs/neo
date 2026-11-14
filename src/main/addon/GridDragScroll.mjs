@@ -236,16 +236,35 @@ class GridDragScroll extends Base {
             me.activeDrag = null
         }
 
-        // Find the registration associated with the target element
-        for (const [key, reg] of me.registrations) {
-            if (path.includes(reg.bodyElement)) {
-                id           = key;
-                registration = reg;
+        // The innermost registered view in the path owns the press: a grid nested in another grid's view has both
+        // views in its path, and the grid pressed is the grid scrolled. The path runs from the target outwards.
+        for (const el of path) {
+            for (const [key, reg] of me.registrations) {
+                if (reg.bodyElement === el) {
+                    id           = key;
+                    registration = reg;
+                    break
+                }
+            }
+
+            if (registration) {
                 break
             }
         }
 
-        if (!registration) {
+        // Every registered view in the path runs this capture listener for the same press. Only the owning view's
+        // run handles it, so one press arms one monitor and one timer.
+        if (!registration || event.currentTarget !== registration.bodyElement) {
+            return
+        }
+
+        // Only a press on the owning grid's own rows starts a drag: the nearest view around the pressed row must be
+        // the registered one. Content a view hosts outside its rows (an input a component renders, a nested grid
+        // without drag scrolling) keeps its native behaviour.
+        let rowIndex = path.findIndex(el => el.classList?.contains('neo-grid-row')),
+            view     = rowIndex < 0 ? null : path.slice(rowIndex).find(el => el.classList?.contains('neo-grid-view'));
+
+        if (view !== registration.bodyElement) {
             return
         }
 

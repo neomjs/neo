@@ -207,3 +207,129 @@ test.describe('Neo.main.addon.GridDragScroll — the kinetic tail and a grid tha
         expect(addon.activeDrag.history, 'with a fresh history').toHaveLength(1)
     })
 });
+
+/**
+ * A stand-in element: only `classList.contains` is read from the event path.
+ * @param {String[]} cls
+ * @returns {Object}
+ */
+const fakeElement = (...cls) => ({classList: {contains: name => cls.includes(name)}});
+
+/**
+ * A grid view registration whose `bodyElement` carries the `neo-grid-view` class, as the real view does.
+ * @param {String} id
+ * @returns {Object}
+ */
+const viewRegistration = id => ({
+    id,
+    bodyElement     : {...fakeElement('neo-grid-view'), scrollTop: 0, addEventListener() {}, removeEventListener() {}},
+    containerElement: {scrollLeft: 0}
+});
+
+/**
+ * Delivers one press the way the browser does: the capture listener of every registered view in the path runs, from
+ * the outermost inwards, with the same event.
+ * @param {Neo.main.addon.GridDragScroll} addon
+ * @param {Object[]} path from the target outwards
+ */
+const press = (addon, path) => {
+    const event = {type: 'mousedown', button: 0, clientX: 100, clientY: 100, composedPath: () => path};
+
+    [...path].reverse().forEach(el => {
+        for (const reg of addon.registrations.values()) {
+            if (reg.bodyElement === el) {
+                event.currentTarget = el;
+                addon.onDragStart(event)
+            }
+        }
+    })
+};
+
+test.describe('Neo.main.addon.GridDragScroll — a grid nested in another grid\'s view', () => {
+    let addon, inner, outer, timers;
+
+    test.beforeEach(() => {
+        installGlobals();
+
+        addon  = Neo.create(GridDragScroll, {});
+        timers = 0;
+
+        // Counts the press timers the addon arms: each one is stored here.
+        let timeout = null;
+
+        Object.defineProperty(addon, 'mouseDownTimeout', {
+            configurable: true,
+            get()      { return timeout },
+            set(value) { timers++; timeout = value }
+        });
+
+        outer = viewRegistration('outer');
+        inner = viewRegistration('inner');
+
+        // The outer grid registers first, as it renders first.
+        addon.registrations.set('outer', outer);
+        addon.registrations.set('inner', inner)
+    });
+
+    test.afterEach(() => {
+        addon.monitorDrag && addon.onMonitorEnd({type: 'mouseup'});
+        addon.destroy?.()
+    });
+
+    /**
+     * cell > row > inner view > outer cell > outer row > outer view
+     * @param {Object} target
+     * @returns {Object[]}
+     */
+    const innerPath = (target = fakeElement('neo-grid-cell')) => [
+        target, fakeElement('neo-grid-row'), inner.bodyElement,
+        fakeElement('neo-grid-cell'), fakeElement('neo-grid-row'), outer.bodyElement
+    ];
+
+    test('a press on the inner grid\'s rows tracks the inner grid, with one timer', () => {
+        press(addon, innerPath());
+
+        expect(addon.monitorDrag?.id, 'the grid pressed is the grid scrolled').toBe('inner');
+        expect(timers, 'one press arms one timer').toBe(1)
+    });
+
+    test('control: a press on the outer grid\'s rows still tracks the outer grid', () => {
+        press(addon, [fakeElement('neo-grid-cell'), fakeElement('neo-grid-row'), outer.bodyElement]);
+
+        expect(addon.monitorDrag?.id).toBe('outer');
+        expect(timers).toBe(1)
+    });
+
+    test('a click inside the inner grid released within the delay leaves no timer to throw', async () => {
+        const errors  = [],
+              onError = error => errors.push(error);
+
+        process.on('uncaughtException', onError);
+
+        press(addon, innerPath());
+        addon.onMonitorEnd({type: 'mouseup'});
+
+        await new Promise(resolve => setTimeout(resolve, addon.delay + 50));
+
+        process.off('uncaughtException', onError);
+
+        expect(errors).toEqual([]);
+        expect(addon.monitorDrag).toBeNull()
+    });
+
+    test('a press in an input a view hosts outside its rows starts nothing', () => {
+        press(addon, [fakeElement(), fakeElement('neo-textfield'), outer.bodyElement]);
+
+        expect(addon.monitorDrag, 'text selection in the input stays native').toBeNull();
+        expect(timers).toBe(0)
+    });
+
+    test('a press on the rows of a nested grid that is not registered does not scroll the outer grid', () => {
+        addon.registrations.delete('inner');
+
+        press(addon, innerPath());
+
+        expect(addon.monitorDrag).toBeNull();
+        expect(timers).toBe(0)
+    })
+});
