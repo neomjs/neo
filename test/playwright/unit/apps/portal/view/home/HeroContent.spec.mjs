@@ -68,7 +68,7 @@ const EXPECTED_HERO_SENTENCE =
     "record anyone can read. Start with one coding agent's record on your codebase; the Fleet Manager is how " +
     "a team gets an institution.";
 
-test.describe('Portal.view.home.parts.hero.Content (#20946)', () => {
+test.describe('Portal.view.home.parts.hero.Content', () => {
     test('Get started button targets /learn/gettingstarted/Setup and resolves to an existing learn tree guide', async () => {
         const getStartedConfig = HeroContent.config.items[3].items.find(item => item.cls?.includes('get-started-button'));
 
@@ -115,22 +115,18 @@ test.describe('Portal.view.home.parts.hero.Content (#20946)', () => {
 
         try {
             expect(hero.initialHoldPending).toBe(true);
-            expect(hero.initialHoldTimeoutId).toBeNull();
             expect(magicMove.autoCycle).toBe(false);
             expect(magicMove.currentIndex).toBe(0);
 
             hero.activate();
 
-            const firstTimeoutId = hero.initialHoldTimeoutId;
             expect(hero.initialHoldPending).toBe(false);
-            expect(firstTimeoutId).not.toBeNull();
             expect(magicMove.currentIndex).toBe(1);
             expect(magicMove.text).toBe('An Agent Institution');
             expect(magicMove.autoCycle).toBe(false);
 
             // Duplicate IntersectionObserver activation during hold must be idempotent
             hero.activate();
-            expect(hero.initialHoldTimeoutId).toBe(firstTimeoutId);
             expect(magicMove.currentIndex).toBe(1);
             expect(magicMove.autoCycle).toBe(false);
 
@@ -138,7 +134,6 @@ test.describe('Portal.view.home.parts.hero.Content (#20946)', () => {
             expect(magicMove.autoCycle).toBe(false);
 
             await new Promise(resolve => setTimeout(resolve, 55));
-            expect(hero.initialHoldTimeoutId).toBeNull();
             expect(magicMove.autoCycle).toBe(true)
         } finally {
             hero.destroy()
@@ -151,12 +146,10 @@ test.describe('Portal.view.home.parts.hero.Content (#20946)', () => {
 
         try {
             hero.activate();
-            expect(hero.initialHoldTimeoutId).not.toBeNull();
             expect(magicMove.text).toBe('An Agent Institution');
             expect(magicMove.autoCycle).toBe(false);
 
             hero.deactivate();
-            expect(hero.initialHoldTimeoutId).toBeNull();
             expect(magicMove.autoCycle).toBe(false);
 
             await new Promise(resolve => setTimeout(resolve, 80));
@@ -164,7 +157,6 @@ test.describe('Portal.view.home.parts.hero.Content (#20946)', () => {
 
             // Subsequent activation starts autoCycle immediately without repeating the initial hold
             hero.activate();
-            expect(hero.initialHoldTimeoutId).toBeNull();
             expect(magicMove.autoCycle).toBe(true)
         } finally {
             hero.destroy()
@@ -172,28 +164,83 @@ test.describe('Portal.view.home.parts.hero.Content (#20946)', () => {
 
         const heroToDestroy      = Neo.create(HeroContent, {appName, initialHoldDelay: 60}),
               magicMoveToDestroy = heroToDestroy.getItem('magic-move'),
+              originalSet        = globalThis.setTimeout,
               originalClear      = globalThis.clearTimeout,
-              clearedTimeoutIds  = [];
+              activeHoldTimers   = new Set();
 
-        heroToDestroy.activate();
-        const destroyTimeoutId = heroToDestroy.initialHoldTimeoutId;
-        expect(destroyTimeoutId).not.toBeNull();
+        globalThis.setTimeout = (fn, delay, ...rest) => {
+            const id = originalSet(fn, delay, ...rest);
+            if (delay === 60) {
+                activeHoldTimers.add(id)
+            }
+            return id
+        };
 
         globalThis.clearTimeout = id => {
-            clearedTimeoutIds.push(id);
+            activeHoldTimers.delete(id);
             return originalClear(id)
         };
 
         try {
-            heroToDestroy.destroy()
+            heroToDestroy.activate();
+            expect(activeHoldTimers.size).toBe(1);
+
+            heroToDestroy.destroy();
+            expect(activeHoldTimers.size).toBe(0);
+            expect(heroToDestroy.isDestroyed).toBe(true)
         } finally {
+            globalThis.setTimeout   = originalSet;
             globalThis.clearTimeout = originalClear
         }
 
-        expect(clearedTimeoutIds).toContain(destroyTimeoutId);
-        expect(heroToDestroy.isDestroyed).toBe(true);
-
-        await new Promise(resolve => setTimeout(resolve, 80));
+        await originalSet ? new Promise(resolve => setTimeout(resolve, 80)) : Promise.resolve();
         expect(magicMoveToDestroy.autoCycle).toBeFalsy()
+    });
+
+    test('a tab switch during the initial hold leaves one live rotation on return and none after deactivate()', async () => {
+        const
+            originalSetInterval   = globalThis.setInterval,
+            originalClearInterval = globalThis.clearInterval,
+            liveIntervals         = new Set();
+
+        globalThis.setInterval = (...args) => {
+            const id = originalSetInterval(...args);
+            liveIntervals.add(id);
+            return id
+        };
+
+        globalThis.clearInterval = id => {
+            liveIntervals.delete(id);
+            return originalClearInterval(id)
+        };
+
+        const hero      = Neo.create(HeroContent, {appName, initialHoldDelay: 60}),
+              magicMove = hero.getItem('magic-move');
+
+        try {
+            await hero.initVnode();
+            magicMove.mounted = true;
+
+            hero.activate();
+            expect(liveIntervals.size).toBe(0);
+
+            magicMove.onVisibilityChange({hidden: true, visibilityState: 'hidden', windowId: 1});
+            expect(liveIntervals.size).toBe(0);
+
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            magicMove.onVisibilityChange({hidden: false, visibilityState: 'visible', windowId: 1});
+            expect(liveIntervals.size).toBe(1);
+
+            hero.deactivate();
+            expect(liveIntervals.size).toBe(0)
+        } finally {
+            hero.destroy();
+            for (const id of liveIntervals) {
+                originalClearInterval(id)
+            }
+            globalThis.setInterval   = originalSetInterval;
+            globalThis.clearInterval = originalClearInterval
+        }
     })
 });

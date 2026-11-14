@@ -21,6 +21,8 @@ class Content extends BaseContainer {
         cls: ['portal-home-hero-content'],
         /**
          * Hold duration in ms for the opening category phrase before auto-cycling starts.
+         * Accounts for the initial ~460 ms character fade-in plus MagicMoveText's 20 ms cycle
+         * offset so the visible stand on "An Agent Institution" measures ~5.0 s.
          * @member {Number} initialHoldDelay=5300
          */
         initialHoldDelay: 5300,
@@ -111,24 +113,26 @@ class Content extends BaseContainer {
     }
 
     /**
+     * Cancels an in-flight initial category hold when the hero deactivates before the hold elapses.
+     * @member {AbortController|null} #initialHoldController=null
+     * @private
+     */
+    #initialHoldController = null
+    /**
      * @member {Boolean} initialHoldPending=true
      * @protected
      */
     initialHoldPending = true
-    /**
-     * @member {Number|null} initialHoldTimeoutId=null
-     * @protected
-     */
-    initialHoldTimeoutId = null
 
     /**
      * @summary Displays the opening category phrase for initialHoldDelay before starting autoCycle.
+     * @returns {Promise<void>}
      */
-    activate() {
+    async activate() {
         let me        = this,
             magicMove = me.getItem('magic-move');
 
-        if (me.initialHoldTimeoutId !== null || magicMove.autoCycle) {
+        if (me.#initialHoldController || magicMove.autoCycle) {
             return
         }
 
@@ -136,15 +140,26 @@ class Content extends BaseContainer {
             me.initialHoldPending = false;
 
             if (me.initialHoldDelay > 0) {
+                const controller = me.#initialHoldController = new AbortController();
+
                 magicMove.cycleText();
 
-                me.initialHoldTimeoutId = setTimeout(() => {
-                    me.initialHoldTimeoutId = null;
-
-                    if (!me.isDestroyed) {
-                        magicMove.autoCycle = true
+                try {
+                    await me.timeout(me.initialHoldDelay, {signal: controller.signal})
+                } catch (error) {
+                    if (error !== Neo.isDestroyed && !(controller.signal.aborted && error === controller.signal.reason)) {
+                        throw error
                     }
-                }, me.initialHoldDelay);
+                    return
+                } finally {
+                    if (me.#initialHoldController === controller) {
+                        me.#initialHoldController = null
+                    }
+                }
+
+                if (!me.isDestroyed && !controller.signal.aborted) {
+                    magicMove.autoCycle = true
+                }
 
                 return
             }
@@ -154,32 +169,14 @@ class Content extends BaseContainer {
     }
 
     /**
-     * @summary Cancels any pending initial category hold timer.
-     */
-    clearInitialHoldTimeout() {
-        let me = this;
-
-        if (me.initialHoldTimeoutId !== null) {
-            clearTimeout(me.initialHoldTimeoutId);
-            me.initialHoldTimeoutId = null
-        }
-    }
-
-    /**
      * @summary Cancels any pending hold timer and stops MagicMoveText auto-cycling.
      */
     deactivate() {
-        this.clearInitialHoldTimeout();
-        this.getItem('magic-move').autoCycle = false
-    }
+        let me = this;
 
-    /**
-     * @summary Clears any pending initial hold timer before destroying the container.
-     * @param {...*} args
-     */
-    destroy(...args) {
-        this.clearInitialHoldTimeout();
-        super.destroy(...args)
+        me.#initialHoldController?.abort();
+        me.#initialHoldController = null;
+        me.getItem('magic-move').autoCycle = false
     }
 }
 
