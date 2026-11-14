@@ -20,6 +20,16 @@ class ViewportController extends Controller {
     }
 
     /**
+     * @summary Builds the environment-aware relative URL for the child widget app.
+     * @returns {String}
+     */
+    static getWidgetPopupUrl() {
+        let {environment} = Neo.config;
+
+        return `${environment === 'development' ? '' : environment + '/'}apps/colors/childapps/widget/index.html`
+    }
+
+    /**
      * @summary The ID for the `setInterval` used for real-time data updates.
      * @member {Number|null} intervalId
      */
@@ -39,17 +49,10 @@ class ViewportController extends Controller {
 
             await dashboard.openWidgetInPopup(widget, rect)
         } else {
-            let {config, windowConfigs} = Neo,
-                {environment}           = config,
-                firstWindowId           = Object.keys(windowConfigs)[0],
-                {basePath}              = windowConfigs[firstWindowId],
-                url;
-
-            if (environment !== 'development') {
-                basePath = `${basePath + environment}/`
-            }
-
-            url = `${basePath}apps/colors/childapps/widget/index.html?name=${name}`;
+            let {windowConfigs} = Neo,
+                firstWindowId   = Object.keys(windowConfigs)[0],
+                {basePath}      = windowConfigs[firstWindowId],
+                url             = `${basePath}${ViewportController.getWidgetPopupUrl()}?name=${name}`;
 
             await Neo.Main.windowOpen({url, windowName: '_blank'})
         }
