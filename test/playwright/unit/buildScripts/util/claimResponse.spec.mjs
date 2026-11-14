@@ -206,12 +206,12 @@ test.describe('buildScripts/util/claimResponse', () => {
 
         test(`any later comment from the claimant keeps the claim: the ${CLAIM_WINDOW_DAYS} days run from their latest word`, () => {
             const
-                claimAt  = '2026-10-31T10:00:00Z',
-                claim    = comment('slow-claimant', claimAt, "I'd like to work on this."),
+                claimAt    = '2026-10-31T10:00:00Z',
+                claim      = comment('slow-claimant', claimAt, "I'd like to work on this."),
                 progressAt = daysAfter(claimAt, CLAIM_WINDOW_DAYS * 2),
-                progress = comment('slow-claimant', progressAt, 'Implementation is complete; tests are in progress.'),
-                second   = comment('newcomer', daysAfter(progressAt, 1), "I'd like to work on this."),
-                silent   = comment('newcomer', daysAfter(progressAt, CLAIM_WINDOW_DAYS + 1), "I'd like to work on this.");
+                progress   = comment('slow-claimant', progressAt, 'Implementation is complete; tests are in progress.'),
+                second     = comment('newcomer', daysAfter(progressAt, 1), "I'd like to work on this."),
+                silent     = comment('newcomer', daysAfter(progressAt, CLAIM_WINDOW_DAYS + 1), "I'd like to work on this.");
 
             expect(isClaim(progress.body)).toBe(false);
             expect(decideReply({comment: second, comments: [claim, progress, second], issue: gfiIssue(), candidates: CANDIDATES, repoUrl: REPO_URL})).toContain('This one is taken: [slow-claimant](https://github.com/slow-claimant) asked first.');
@@ -254,10 +254,10 @@ test.describe('buildScripts/util/claimResponse', () => {
         });
     });
 
-    test('renderReply says so when nothing else is free', () => {
+    test('renderReply links to the list when it has no verified alternatives', () => {
         const reply = renderReply({claimant: 'second-claimant', holders: [{kind: 'assignee', login: 'first-claimant'}], alternatives: [], label: 'good first issue', repoUrl: REPO_URL});
 
-        expect(reply).toContain('No other `good first issue` issue is free right now.');
+        expect(reply).toContain('list of open `good first issue` issues');
         expect(reply).toContain(`${REPO_URL}/blob/dev/CONTRIBUTING.md`)
     });
 
@@ -278,10 +278,10 @@ test.describe('buildScripts/util/claimResponse', () => {
                 repository: 'neomjs/neo'
             })).toEqual(['StaleClaimant']);
             expect(decideClaim({
-                comment   : day4Claim,
-                comments  : [oldClaim, day4Claim],
-                issue     : staleIssue,
-                repoUrl   : REPO_URL
+                comment : day4Claim,
+                comments: [oldClaim, day4Claim],
+                issue   : staleIssue,
+                repoUrl : REPO_URL
             }).assignedBody).toContain('reserves this issue for 3 days')
         });
 
@@ -402,6 +402,66 @@ test.describe('buildScripts/util/claimResponse', () => {
             expect(decision.body).toContain(replyMarker('second-claimant'))
         });
 
+        test('a fresh claim retries a prior capacity refusal against current slots and holders', () => {
+            const
+                issue = gfiIssue(),
+                ask   = comment('AdaCat', '2026-11-14T12:00:00Z', '/claim'),
+                again = comment('AdaCat', '2026-11-14T13:01:00Z', '/claim'),
+                make  = (request, replies, extra = {}) => decideClaim({
+                    comment: request, comments: [ask, ...replies, again], issue, repoUrl: REPO_URL, claimLimit: 1, ...extra
+                }),
+                denied = make(ask, [], {heldByClaimant: [20957]});
+
+            expect(denied.assign).toBe(false);
+            expect(denied.body).toContain('You already hold #20957. From five merged pull requests you can hold two at once.');
+
+            const firstReply = comment('github-actions[bot]', '2026-11-14T12:00:02Z', denied.body, {type: 'Bot'});
+            expect(make(ask, [firstReply])).toBeNull(); // a replay after the blocking issue closed
+            expect(make(again, [firstReply], {heldByClaimant: [20957]}).assign).toBe(false);
+            expect(make(again, [firstReply], {issue: gfiIssue({assignees: [{login: 'Other'}]})}).assign).toBe(false);
+            expect(make(again, [firstReply], {openPullRequests: [{number: 23, author: 'Other', repository: 'neomjs/neo'}]}).assign).toBe(false);
+            expect(make(again, [firstReply]).assign).toBe(true);
+            expect(make({...again, body: 'Thanks for the update!'}, [firstReply])).toBeNull();
+
+            const accepted = comment('github-actions[bot]', '2026-11-14T13:01:03Z', make(again, [firstReply]).assignedBody, {type: 'Bot'});
+            expect(make(again, [firstReply, accepted])).toBeNull();
+        });
+
+        test('old-style refusals allow a fresh retry without reserving the issue against another contributor', () => {
+            const
+                first  = comment('MyLogin', '2026-11-14T11:00:00Z', '/claim'),
+                next   = comment('another', '2026-11-14T12:00:00Z', '/claim'),
+                retry  = comment('mylogin', '2026-11-14T13:00:00Z', '/claim'),
+                decide = (claim, comments) => decideClaim({comment: claim, comments, issue: gfiIssue(), repoUrl: REPO_URL, claimLimit: 1});
+
+            for (const reason of ["You're already assigned to #12", "This one is taken: it's assigned to someone else"]) {
+                const bot = comment('github-actions[bot]', '2026-11-14T11:01:00Z',
+                    `Thanks, @MyLogin! ${reason}.\n\n${replyMarker('MyLogin')}`, {type: 'Bot'});
+                expect(decide(retry, [first, bot, retry]).assign).toBe(true);
+                expect(decide(next, [first, bot, next]).assign).toBe(true);
+                expect(decide(retry, [first, bot, next, retry]).assign).toBe(false);
+            }
+        });
+
+        test('a queued claimant can proceed when the first claim was refused while the workflow was running', () => {
+            const
+                at     = '2026-11-14T12:00:00Z',
+                first  = comment('first', at, '/claim'),
+                next   = comment('next', at, '/claim'),
+                issue  = gfiIssue(),
+                decide = (claim, comments, heldByClaimant = []) => decideClaim({
+                    comment: claim, comments, heldByClaimant, claimLimit: 1, issue, repoUrl: REPO_URL
+                }),
+                refused = comment('github-actions[bot]', at, decide(first, [first, next], [12]).body, {type: 'Bot'});
+
+            expect(decide(next, [first, next, refused]).assign).toBe(true);
+            expect(decide(first, [first, next, refused])).toBeNull();
+
+            const withdraw = comment('first', at, 'Please unassign me.');
+            const claimant = comment('third', at, '/claim');
+            expect(decide(claimant, [first, withdraw, claimant]).assign).toBe(true);
+        });
+
         test('a maintainer unassignment event releases an earlier claim just like a withdrawal', () => {
             const
                 sprayed    = comment('spray-account', '2026-11-11T02:34:01Z', "I'd love to work on it. Could you please assign it to me?"),
@@ -423,7 +483,7 @@ test.describe('buildScripts/util/claimResponse', () => {
             expect(decision.assignedBody).toContain('Thanks for claiming this, @newcomer, and welcome! Assigned to you')
         });
 
-        test('workflow github-script auto-assigns verified first-in-line claims, falls back if assignment does not stick, and enforces the 1-issue cap', async () => {
+        test('workflow github-script assigns claims under their standing limit and falls back safely', async () => {
             const
                 workflowPath  = path.resolve(process.cwd(), '.github/workflows/claim-responder.yml'),
                 raw           = fs.readFileSync(workflowPath, 'utf8'),
@@ -434,11 +494,12 @@ test.describe('buildScripts/util/claimResponse', () => {
 
             expect(raw).not.toMatch(/^concurrency:/m);
             expect(raw).toMatch(/\n    if: >-[\s\S]*?\n    concurrency:\n      group: claim-responder\n      cancel-in-progress: false\n      queue: max\n/);
+            expect(raw).toMatch(/sparse-checkout: \|\n {12}buildScripts\/util\/claimResponse\.mjs\n {12}buildScripts\/util\/contributorStanding\.mjs/);
 
             process.env.GITHUB_WORKSPACE = process.cwd();
 
-            const runScenario = async ({assignedItems = [], addAssigneesImpl, claim = firstClaim, comments = [firstClaim], events = [], issue = gfiIssue({state: 'open'})}) => {
-                const posted = [], assignedCalls = [], unassignedCalls = [], warnings = [], listForRepoCalls = [];
+            const runScenario = async ({assignedItems = [], addAssigneesImpl, claim = firstClaim, comments = [firstClaim], events = [], issue = gfiIssue({state: 'open'}), count = {total_count: 0, incomplete_results: false}, alternativesError, workspace = process.cwd()}) => {
+                const posted = [], assignedCalls = [], unassignedCalls = [], warnings = [], listForRepoCalls = [], countQueries = [];
 
                 const github = {
                     graphql : async () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: []}}}}),
@@ -460,20 +521,30 @@ test.describe('buildScripts/util/claimResponse', () => {
                         },
                         search: {
                             issuesAndPullRequests: async ({q}) => {
+                                if (q.startsWith('org:')) {
+                                    countQueries.push(q);
+                                    if (count instanceof Error) throw count;
+                                    return {data: count}
+                                }
                                 expect(q).not.toContain('assignee:');
+                                if (alternativesError) throw alternativesError;
                                 return {data: {items: [{number: 20691}, {number: 20692}]}}
                             }
                         }
                     }
                 };
 
-                await runStep(
-                    github,
-                    {payload: {comment: claim, issue: {number: issue.number}}, repo: {owner: 'neomjs', repo: 'neo'}},
-                    {info: () => {}, warning: msg => warnings.push(msg)}
-                );
+                const previous = process.env.GITHUB_WORKSPACE;
+                process.env.GITHUB_WORKSPACE = workspace;
+                try {
+                    await runStep(
+                        github,
+                        {payload: {comment: claim, issue: {number: issue.number}}, repo: {owner: 'neomjs', repo: 'neo'}},
+                        {info: () => {}, warning: msg => warnings.push(msg)}
+                    )
+                } finally { process.env.GITHUB_WORKSPACE = previous }
 
-                return {assignedCalls, listForRepoCalls, posted, unassignedCalls, warnings}
+                return {assignedCalls, countQueries, listForRepoCalls, posted, unassignedCalls, warnings}
             };
 
             try {
@@ -488,6 +559,7 @@ test.describe('buildScripts/util/claimResponse', () => {
                 expect(ok.posted).toHaveLength(1);
                 expect(ok.posted[0].body).toContain('Assigned to you — you can start now.');
                 expect(ok.warnings).toEqual([]);
+                expect(ok.countQueries).toEqual(['org:neomjs is:public is:pr is:merged author:first-claimant']);
 
                 // 2. GitHub returns HTTP 201 with empty assignees -> posts fallback body without removing stale assignees
                 const
@@ -518,7 +590,53 @@ test.describe('buildScripts/util/claimResponse', () => {
                 expect(capped.assignedCalls).toEqual([]);
                 expect(capped.unassignedCalls).toEqual([]);
                 expect(capped.posted).toHaveLength(1);
-                expect(capped.posted[0].body).toContain("You're already assigned to #20717");
+                expect(capped.posted[0].body).toContain('You already hold #20717');
+
+                // A returning contributor may take a second, but not a third, curated issue.
+                const oneHeld   = [{number: 20717, labels: [{name: 'good first issue'}]}],
+                      twoHeld   = [...oneHeld, {number: 20718, labels: [{name: 'help wanted'}]}],
+                      returning = {total_count: 5, incomplete_results: false},
+                      second    = await runScenario({assignedItems: oneHeld, count: returning,
+                          addAssigneesImpl: async ({assignees}) => ({data: {assignees: assignees.map(login => ({login}))}})}),
+                      third = await runScenario({assignedItems: twoHeld, count: returning,
+                          addAssigneesImpl: async () => { throw new Error('must not assign') }});
+                expect(second.assignedCalls).toHaveLength(1);
+                expect(second.posted[0].body).toContain('Assigned to you');
+                expect(third.assignedCalls).toEqual([]);
+                expect(third.posted[0].body).toContain('You already hold #20717 and #20718');
+                expect(second.countQueries).toHaveLength(1);
+                expect(third.countQueries).toHaveLength(1);
+
+                // Failed, incomplete and malformed count responses leave the existing one-claim cap.
+                for (const count of [new Error('search refused'), {total_count: 5, incomplete_results: true},
+                    {total_count: '5', incomplete_results: false}, {total_count: 5}, {total_count: -1, incomplete_results: false}]) {
+                    const fallback = await runScenario({assignedItems: oneHeld, count, addAssigneesImpl: async () => { throw new Error('must not assign') }});
+                    expect(fallback.assignedCalls).toEqual([]);
+                    expect(fallback.posted[0].body).toContain('You already hold #20717');
+                    expect(fallback.warnings).toHaveLength(1)
+                }
+
+                // The claim module has no imports, so even a missing or broken standing module can answer safely.
+                const limited = new Error('search rate limited');
+                const outage  = await runScenario({count: limited, alternativesError: limited, assignedItems: oneHeld});
+                expect(outage.warnings).toHaveLength(2);
+                expect(outage.assignedCalls).toEqual([]);
+                expect(outage.posted[0].body).toContain('You already hold #20717');
+
+                for (const broken of [false, true]) {
+                    const workspace = fs.mkdtempSync(path.join(process.env.TMPDIR || '/tmp', 'neo-claim-standing-')),
+                          util      = path.join(workspace, 'buildScripts/util');
+                    try {
+                        fs.mkdirSync(util, {recursive: true});
+                        fs.copyFileSync(path.resolve(process.cwd(), 'buildScripts/util/claimResponse.mjs'), path.join(util, 'claimResponse.mjs'));
+                        if (broken) fs.writeFileSync(path.join(util, 'contributorStanding.mjs'), 'export const = broken');
+                        const fallback = await runScenario({workspace, assignedItems: oneHeld, addAssigneesImpl: async () => { throw new Error('must not assign') }});
+                        expect(fallback.assignedCalls).toEqual([]);
+                        expect(fallback.posted[0].body).toContain('You already hold #20717');
+                        expect(fallback.warnings).toHaveLength(1);
+                        expect(fallback.countQueries).toHaveLength(0)
+                    } finally { fs.rmSync(workspace, {recursive: true, force: true}) }
+                }
 
                 // 4. Lapsed silent outside assignee (past the claim window) -> assigns newcomer and removes StaleClaimant
                 const handedOver = await runScenario({
@@ -535,14 +653,17 @@ test.describe('buildScripts/util/claimResponse', () => {
                 expect(handedOver.warnings).toEqual([]);
 
                 // 5. One account claims two free curated issues in sequence -> only the first is assigned (even when search lags)
+                let mergedCount = 0;
                 const
                     burstFirst  = comment('burst-claimant', '2026-11-11T02:34:01Z', "I'd love to work on this."),
                     burstSecond = comment('burst-claimant', '2026-11-11T02:34:03Z', "I'd love to work on this too."),
+                    burstThird  = comment('burst-claimant', '2026-11-11T02:34:05Z', "I'd like to work on this too."),
                     store       = new Map([
                         [19143, gfiIssue({number: 19143, state: 'open'})],
-                        [20691, gfiIssue({number: 20691, state: 'open'})]
+                        [20691, gfiIssue({number: 20691, state: 'open'})],
+                        [20692, gfiIssue({number: 20692, state: 'open'})]
                     ]),
-                    commentsByIssue = new Map([[19143, [burstFirst]], [20691, [burstSecond]]]),
+                    commentsByIssue = new Map([[19143, [burstFirst]], [20691, [burstSecond]], [20692, [burstThird]]]),
                     burstAssigned   = [],
                     burstPosted     = [];
 
@@ -576,7 +697,9 @@ test.describe('buildScripts/util/claimResponse', () => {
                         },
                         search: {
                             // Lagging search index still shows both issues unassigned during the second run
-                            issuesAndPullRequests: async () => ({data: {items: [{number: 19143}, {number: 20691}, {number: 20692}]}})
+                            issuesAndPullRequests: async ({q}) => q.startsWith('org:')
+                                ? {data: {total_count: mergedCount, incomplete_results: false}}
+                                : {data: {items: [{number: 19143}, {number: 20691}, {number: 20692}]}}
                         }
                     }
                 };
@@ -597,7 +720,19 @@ test.describe('buildScripts/util/claimResponse', () => {
                 expect(burstPosted[0]).toMatchObject({issue_number: 19143});
                 expect(burstPosted[0].body).toContain('Assigned to you — you can start now.');
                 expect(burstPosted[1]).toMatchObject({issue_number: 20691});
-                expect(burstPosted[1].body).toContain("You're already assigned to #19143");
+                expect(burstPosted[1].body).toContain('You already hold #19143');
+
+                // The same lagging-search sequence at the returning rung assigns twice, then refuses.
+                store.get(19143).assignees = [];
+                burstAssigned.length = 0;
+                burstPosted.length = 0;
+                mergedCount = 5;
+                for (const [claim, number] of [[burstFirst, 19143], [burstSecond, 20691], [burstThird, 20692]]) {
+                    await runStep(sharedGithub, {payload: {comment: claim, issue: {number}}, repo: {owner: 'neomjs', repo: 'neo'}},
+                        {info: () => {}, warning: () => {}})
+                }
+                expect(burstAssigned.map(call => call.issue_number)).toEqual([19143, 20691]);
+                expect(burstPosted[2].body).toContain('You already hold #19143 and #20691');
             } finally {
                 if (prevWorkspace === undefined) {
                     delete process.env.GITHUB_WORKSPACE

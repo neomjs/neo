@@ -9,6 +9,7 @@ import {
     RUNGS,
     badgeFolder,
     badgeLine,
+    claimLimit,
     decideMergeComment,
     headsUpMarker,
     invitation,
@@ -65,6 +66,11 @@ const comment = (mergedBefore, options = {}) => decideMergeComment({
 })?.body;
 
 test.describe('buildScripts/util/contributorStanding', () => {
+    test('the returning rung admits two curated claims, with invalid counts failing closed', () => {
+        expect([0, 4, 5, 250].map(claimLimit)).toEqual([1, 1, 2, 2]);
+        expect([undefined, null, NaN, Infinity, '5'].map(claimLimit)).toEqual([1, 1, 1, 1, 1])
+    });
+
     test('the rungs are the published inventory, frozen: the badge art in neomjs/pages has a colour for each slug', () => {
         expect(RUNGS.map(({slug, merges, name}) => `${slug} ${merges} ${name}`)).toEqual([
             'contributor 1 Contributor',
@@ -172,14 +178,15 @@ test.describe('buildScripts/util/contributorStanding', () => {
             ].join('\n\n'))
         });
 
-        test('a later rung gets the full form with the count and says the badge shows it, and no sentence promises a rule that has not shipped', () => {
+        test('the returning rung announces the new per-repository claim limit', () => {
             const body = comment(4, {paths: DOCS});
 
             expect(body).toContain('Merged. Thank you: that makes 5 merged pull requests of yours in Neo.mjs.');
-            expect(body).toContain('**Standing:** Returning Contributor (5 merged). 5 more reach Bronze Contributor.\n\nYour badge shows it within the hour.\n\n**Next');
+            expect(body).toContain('**Standing:** Returning Contributor (5 merged). 5 more reach Bronze Contributor. You can now hold two curated claims at once in this repository.\n\nYour badge shows it within the hour.\n\n**Next');
             expect(body).toContain(INVITATIONS.skills);
             expect(body).not.toContain('**Your badge**');
-            expect(body).not.toMatch(/claim.*at once/)
+            for (const earlier of [0, 3]) expect(comment(earlier)).not.toContain('You can now hold two curated claims');
+            for (const later of [5, 9, 249]) expect(comment(later)).not.toContain('You can now hold two curated claims')
         });
 
         test('a merge between rungs gets standing and next issues only, and names no badge', () => {
