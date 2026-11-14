@@ -1,0 +1,9 @@
+:where(.neo-theme-dark) { // .neo-gantt
+    --neo-gantt-divider-color   : var(--grid-container-border-color, #2b2b2b);
+    --neo-gantt-arrow-color     : var(--grid-rowmodel-selected-cell-background-color, #64b5f6);
+    --neo-gantt-highlight-color : #f28b82;
+    --neo-gantt-summary-bg      : var(--grid-container-border-color, #2b2b2b);
+    --neo-gantt-summary-border  : #9aa7b0;
+    --neo-gantt-milestone-bg    : #3d3222;
+    --neo-gantt-milestone-border: #f0b44c;
+}

@@ -1,0 +1,13 @@
+:where(.neo-theme-cyberpunk) { // .neo-timeline-event-editor
+    --neo-timeline-editor-width                : 440px;
+    --neo-timeline-editor-background           : var(--cyber-bg-alt);
+    --neo-timeline-editor-border-color         : var(--cyber-cyan);
+    --neo-timeline-editor-color                : var(--cyber-text);
+    --neo-timeline-editor-radius               : 2px;
+    --neo-timeline-editor-shadow               : var(--cyber-glow), 0 12px 32px rgba(0, 0, 0, 0.75);
+    --neo-timeline-editor-font-family          : var(--neo-font-family);
+    --neo-timeline-editor-font-size            : 14px;
+    --neo-timeline-editor-accent-color         : var(--cyber-cyan);
+    --neo-timeline-editor-accent-contrast-color: var(--cyber-bg);
+    --neo-timeline-editor-cancel-background    : var(--cyber-bg);
+}

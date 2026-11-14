@@ -1,0 +1,14 @@
+:where(.neo-theme-dark) { // .neo-timeline-cell / .neo-timeline-bar
+    --neo-timeline-gridline-color         : rgba(255, 255, 255, 0.07);
+    --neo-timeline-gridline-step          : 120px;
+    --neo-timeline-bar-background         : var(--grid-cell-value-band-1-background-color, #2d3e50);
+    --neo-timeline-bar-border-color       : var(--grid-rowmodel-selected-cell-background-color, #64b5f6);
+    --neo-timeline-bar-hover-border-color : #90caf9;
+    --neo-timeline-bar-progress-background: color-mix(in srgb, var(--grid-rowmodel-selected-cell-background-color, #64b5f6) 24%, transparent);
+    --neo-timeline-bar-color              : #eceff4;
+    --neo-timeline-bar-radius             : 3px;
+    --neo-timeline-bar-shadow             : 0 1px 3px rgba(0, 0, 0, 0.45);
+    --neo-timeline-focus-color            : var(--grid-rowmodel-selected-cell-background-color, #64b5f6);
+    --neo-timeline-non-working-bg         : rgba(0, 0, 0, 0.16);
+    --neo-timeline-non-working-border     : rgba(0, 0, 0, 0.28);
+}
