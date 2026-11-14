@@ -180,10 +180,10 @@ Putting your socket, stores, and component tree inside a `SharedWorker` is a rea
 
 ## Run it across two windows today
 
-You can watch a `SharedWorker` WebSocket update detached windows in the browser first, then inspect the worker handshake and `redial()` locally:
+You can watch a `SharedWorker` WebSocket update a live page in the browser first, then inspect the two-window worker handshake and `redial()` locally:
 
-1. **Try a live multi-window workspace in 30 seconds (zero install):**
-   Open the [live Colors demo](https://neomjs.com/dist/production/apps/colors/index.html) ([`apps/colors`](https://github.com/neomjs/neo/tree/b96f134316556c18d29cc90726ff8d8c04c116ae/apps/colors), configured with `useSharedWorkers: true` and a `websocket` remote in [`remotes-api.json`](https://github.com/neomjs/neo/blob/b96f134316556c18d29cc90726ff8d8c04c116ae/apps/colors/remotes-api.json)). Click **Start** to continuously update the grid and both charts, then click **Grid**, **Pie Chart**, or **Bar Chart** in the header toolbar to detach a widget into its own browser window. Check either window's DevTools **Network -> WS** panel: no WebSocket appears on the page because the socket lives in a `SharedWorker`. (Colors requests batches on a timer over that one shared socket via `Colors.backend.ColorService.read` against a hosted external backend rather than subscribing to a server-pushed stream; see [`apps/colors/README.md`](https://github.com/neomjs/neo/blob/b96f134316556c18d29cc90726ff8d8c04c116ae/apps/colors/README.md).)
+1. **Watch a `SharedWorker` socket feed a live page in 30 seconds (zero install):**
+   Open the [live Colors demo](https://neomjs.com/dist/production/apps/colors/index.html) ([`apps/colors`](https://github.com/neomjs/neo/tree/b96f134316556c18d29cc90726ff8d8c04c116ae/apps/colors), configured with `useSharedWorkers: true` and a `websocket` remote in [`remotes-api.json`](https://github.com/neomjs/neo/blob/b96f134316556c18d29cc90726ff8d8c04c116ae/apps/colors/remotes-api.json)). Click **Start** to update the grid and both charts continuously, then open the window's DevTools **Network -> WS** panel: no WebSocket appears on the page, because the socket lives in a `SharedWorker`. (Colors requests batches on a timer over that one shared socket via `Colors.backend.ColorService.read` against a hosted external backend rather than subscribing to a server-pushed stream; see [`apps/colors/README.md`](https://github.com/neomjs/neo/blob/b96f134316556c18d29cc90726ff8d8c04c116ae/apps/colors/README.md).)
 
 2. **Start a 1-line WebSocket listener and inspect the Workstation handshake locally (`ws` is in `devDependencies`):**
    ```bash
