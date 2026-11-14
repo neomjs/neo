@@ -4,9 +4,9 @@ const PORTAL = '/apps/portal/index.html',
       LIST   = '.portal-examples-list.neo-list';
 
 /**
- * @summary Pins the Portal's transitions to the motion vocabulary (`resources/scss/_motion.scss`).
- * The duration is read from computed style, so a literal `300ms` or `ease-out` sneaking back into
- * the Portal SCSS fails here instead of silently bypassing the reduced-motion collapse.
+ * @summary Pins the examples list's transition to the motion vocabulary (`resources/scss/_motion.scss`):
+ * it resolves through `--motion-panel` and `--ease-out-soft`, and collapses to `0s` under reduced motion.
+ * The spec reads one element's computed style, so it covers that list, not every Portal transition.
  */
 test.describe('Portal motion tokens', () => {
     const readTransition = page => page.locator(LIST).first().evaluate(el => {
