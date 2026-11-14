@@ -1612,7 +1612,7 @@ test.describe('docs SEO generator #20919: News hub routes and SharedWorker WebSo
 
         const sharedWorkerPost = seoJson['/news/blog/one-websocket-across-browser-windows-with-sharedworkers'];
         expect(sharedWorkerPost).toEqual({
-            title      : 'SharedWorker WebSocket Across Browser Windows & Tabs in JavaScript | Neo.mjs',
+            title      : 'SharedWorker WebSocket & Off-Main-Thread UI Across Windows | Neo.mjs',
             description: 'Share one live WebSocket across multiple browser windows in a SharedWorker without copying state per tab: stores, VDOM diffing, and reconnect logic in one heap.',
             schemaType : 'BlogPosting',
             lastmod    : expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/)
