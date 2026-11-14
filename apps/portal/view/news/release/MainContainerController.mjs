@@ -97,7 +97,10 @@ class MainContainerController extends Controller {
         let me            = this,
             stateProvider = me.getStateProvider(),
             store         = stateProvider.getStore('tree'),
-            tree          = me.getReference('tree');
+            tree          = me.getReference('tree'),
+            recordId      = itemId.split('#')[0],
+            route         = value?.hashString || `/news/releases/${recordId}`,
+            navigationId  = SeoService.registerNavigation({route, windowId: me.windowId});
 
         // Ensure the tree has the correct route prefix for this controller context
         if (tree.routePrefix !== '/news/releases') {
@@ -105,14 +108,14 @@ class MainContainerController extends Controller {
         }
 
         const select = async () => {
-            const recordId = itemId.split('#')[0],
-                  record   = store.get(recordId);
+            const record = store.get(recordId);
 
             stateProvider.data.currentPageRecord = record;
 
             if (record?.id) {
                 SeoService.setRouteTitle({
-                    route   : value?.hashString || `/news/releases/${recordId}`,
+                    navigationId,
+                    route,
                     title   : `Neo.mjs v${record.id.replace(/^v/, '')} Release Notes`,
                     windowId: me.windowId
                 })

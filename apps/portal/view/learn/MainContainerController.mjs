@@ -120,7 +120,11 @@ class MainContainerController extends Controller {
         // through means an exact-lookup miss and a blank page — the id has to be separated from the
         // in-page anchor here. Route params are the app's to interpret; widening the shared router's
         // wildcard would change capture semantics for every routed app.
-        const recordId = itemId.split('#')[0];
+        const recordId     = itemId.split('#')[0],
+              route        = value?.hashString || `/learn/${recordId}`,
+              navigationId = value?.hashString
+                  ? SeoService.registerNavigation({route: value.hashString, windowId: this.windowId})
+                  : undefined;
 
         // Ensure the tree has the correct route prefix for this controller context
         if (tree.routePrefix !== '/learn') {
@@ -142,7 +146,8 @@ class MainContainerController extends Controller {
 
             if (record?.name) {
                 SeoService.setRouteTitle({
-                    route   : value?.hashString || `/learn/${recordId}`,
+                    navigationId,
+                    route,
                     title   : /neo\.mjs/i.test(record.name) ? record.name : `${record.name} - Neo.mjs`,
                     windowId: this.windowId
                 })

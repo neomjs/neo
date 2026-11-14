@@ -7,9 +7,10 @@ import Base from '../../../src/core/Base.mjs';
  * route-specific `<title>`, `<meta name="description">`, `<link rel="canonical">`, Open Graph, and
  * `data-schema-name="neo-route"` JSON-LD directly from `neomjs/middleware-v2` (`SsrService#buildHeadInjection`
  * reading `apps/portal/resources/data/seo.json` on the server). In the client-side multi-window Portal SPA,
- * this singleton updates `document.title` synchronously from a compact section/family map on route changes
- * and accepts leaf record title refinements (`setRouteTitle`) from content controllers while leaving static
- * `<head>` metadata in `apps/portal/index.html` untouched.
+ * this singleton resolves route titles in memory from a compact section/family map with zero network fetches,
+ * coordinates navigation ordering with leaf content controllers (`registerNavigation` / `setRouteTitle`), and
+ * publishes the winning per-window title across the asynchronous `DocumentHead` main-thread addon boundary while
+ * leaving static `<head>` metadata in `apps/portal/index.html` untouched.
  *
  * @class Portal.service.Seo
  * @extends Neo.core.Base
@@ -59,15 +60,38 @@ class Seo extends Base {
     }
 
     /**
-     * Tracks the latest normalized route per `windowId` so delayed store-driven leaf title updates
-     * never overwrite a newer navigation in the same browser window.
-     * @member {Map<String|Number|undefined,String>} #activeRoutes=new Map()
+     * Tracks per-window navigation state (`{leafResolved, navId, route, writeSeq}`) so warm leaf controllers
+     * win regardless of `HashHistory` listener order, delayed store callbacks from prior navigations are
+     * ignored, and slower earlier `getAddon('DocumentHead', windowId)` lookups cannot overwrite newer writes.
+     * @member {Map<String|Number|undefined,Object>} #windowStates=new Map()
      * @private
      */
-    #activeRoutes = new Map()
+    #windowStates = new Map()
 
     /**
-     * @summary Resolves the synchronous client-side document title for a route hash, falling back
+     * @summary Returns (and lazily initializes) the mutable navigation/write state record for `windowId`.
+     * @param {String|Number|undefined} windowId
+     * @returns {{leafResolved: Boolean, navId: Number, route: String|null, writeSeq: Number}}
+     * @private
+     */
+    #getWindowState(windowId) {
+        let state = this.#windowStates.get(windowId);
+
+        if (!state) {
+            state = {
+                leafResolved: false,
+                navId       : 0,
+                route       : null,
+                writeSeq    : 0
+            };
+            this.#windowStates.set(windowId, state)
+        }
+
+        return state
+    }
+
+    /**
+     * @summary Resolves the in-memory client-side document title for a route hash, falling back
      * to parent path segments when a deep leaf has not yet selected its store record.
      * @param {String} route The route hash string (e.g., `'/services'`, `'/learn/benefits/Introduction'`).
      * @returns {String|null}
@@ -129,60 +153,110 @@ class Seo extends Base {
     }
 
     /**
-     * @summary Updates the target window's `document.title` synchronously from `routeTitles` when the route changes.
+     * @summary Resolves the fallback window title in memory from `routeTitles` and publishes it via
+     * `DocumentHead#setTitle` unless a warmed leaf controller already refined the current navigation.
      * @param {Object} config
-     * @param {String} [config.hash]       Fallback route hash string.
-     * @param {String} [config.hashString] Active route hash string from `ViewportController#onHashChange`.
-     * @param {String} [config.windowId]   Target browser `windowId`.
+     * @param {String} [config.hash]             Fallback route hash string.
+     * @param {String} [config.hashString]       Active route hash string from `ViewportController#onHashChange`.
+     * @param {String|Number} [config.windowId]  Target browser `windowId`.
      * @returns {Promise<Boolean>}
      */
     async onRouteChanged(config) {
-        let rawRoute = config?.hashString || (typeof config?.hash === 'string' ? config.hash : null),
-            route    = this.normalizeRoute(rawRoute),
-            windowId = config?.windowId,
-            title;
+        let rawRoute     = config?.hashString || (typeof config?.hash === 'string' ? config.hash : null),
+            route        = this.normalizeRoute(rawRoute),
+            windowId     = config?.windowId,
+            navigationId = this.registerNavigation({route, windowId}),
+            state, title;
 
-        if (!route) {
+        if (navigationId === null) {
             return false
         }
 
-        this.#activeRoutes.set(windowId, route);
+        state = this.#getWindowState(windowId);
+
+        if (state.leafResolved) {
+            return true
+        }
+
         title = this.getTitle(route);
 
         return title ? this.setTitle({title, windowId}) : false
     }
 
     /**
-     * @summary Refines a window's `document.title` from a loaded leaf record only if `route` is still
-     * the active route for `windowId`.
+     * @summary Registers an active route navigation for `windowId` before controller async steps run,
+     * advancing per-window `navId` and invalidating in-flight writes when the normalized route changes.
      * @param {Object} config
-     * @param {String} config.route      Route that initiated the leaf selection.
-     * @param {String} config.title      Leaf-specific document title.
-     * @param {String} [config.windowId] Target browser `windowId`.
+     * @param {String} [config.hash]             Fallback route hash string.
+     * @param {String} [config.hashString]       Active route hash string.
+     * @param {String} [config.route]            Explicit route hash string.
+     * @param {String|Number} [config.windowId]  Target browser `windowId`.
+     * @returns {Number|null} Active monotonic `navigationId` for `windowId`, or `null` when invalid.
+     */
+    registerNavigation(config) {
+        let rawRoute = config?.route || config?.hashString || (typeof config?.hash === 'string' ? config.hash : null),
+            route    = this.normalizeRoute(rawRoute),
+            windowId = config?.windowId,
+            state;
+
+        if (!route) {
+            return null
+        }
+
+        state = this.#getWindowState(windowId);
+
+        if (state.route !== route) {
+            state.navId       += 1;
+            state.route        = route;
+            state.leafResolved = false;
+            state.writeSeq    += 1
+        }
+
+        return state.navId
+    }
+
+    /**
+     * @summary Refines a window's `document.title` from a loaded leaf record only if `route` (and optional
+     * `navigationId`) still matches the active navigation for `windowId`.
+     * @param {Object} config
+     * @param {Number} [config.navigationId]     Monotonic token returned by `registerNavigation`.
+     * @param {String} config.route              Route that initiated the leaf selection.
+     * @param {String} config.title              Leaf-specific document title.
+     * @param {String|Number} [config.windowId]  Target browser `windowId`.
      * @returns {Promise<Boolean>}
      */
-    async setRouteTitle({route, title, windowId}) {
+    async setRouteTitle({navigationId, route, title, windowId}) {
         let normalizedRoute = this.normalizeRoute(route),
-            activeRoute     = this.#activeRoutes.get(windowId);
+            state           = this.#getWindowState(windowId);
 
         if (!normalizedRoute || !title) {
             return false
         }
 
-        if (activeRoute && activeRoute !== normalizedRoute) {
+        if (navigationId !== undefined && state.navId !== navigationId) {
             return false
         }
 
-        this.#activeRoutes.set(windowId, normalizedRoute);
+        if (state.route && state.route !== normalizedRoute) {
+            return false
+        }
+
+        if (!state.route) {
+            state.navId += 1;
+            state.route  = normalizedRoute
+        }
+
+        state.leafResolved = true;
 
         return this.setTitle({title, windowId})
     }
 
     /**
-     * @summary Writes `document.title` in the target browser window via `Neo.main.addon.DocumentHead#setTitle`.
+     * @summary Publishes `document.title` in the target browser window via `Neo.main.addon.DocumentHead#setTitle`,
+     * dropping superseded writes whose asynchronous `getAddon` lookup resolved after a newer write started.
      * @param {Object} config
-     * @param {String} config.title      The new document title.
-     * @param {String} [config.windowId] Target browser `windowId`.
+     * @param {String} config.title              The new document title.
+     * @param {String|Number} [config.windowId]  Target browser `windowId`.
      * @returns {Promise<Boolean>}
      */
     async setTitle({title, windowId}) {
@@ -190,11 +264,17 @@ class Seo extends Base {
             return false
         }
 
-        let DocumentHead = await Neo.currentWorker.getAddon('DocumentHead', windowId);
+        let state        = this.#getWindowState(windowId),
+            writeSeq     = ++state.writeSeq,
+            DocumentHead = await Neo.currentWorker.getAddon('DocumentHead', windowId);
+
+        if (this.#getWindowState(windowId).writeSeq !== writeSeq) {
+            return false
+        }
 
         await DocumentHead.setTitle({value: title, windowId});
 
-        return true
+        return this.#getWindowState(windowId).writeSeq === writeSeq
     }
 }
 

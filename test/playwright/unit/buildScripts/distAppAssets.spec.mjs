@@ -200,5 +200,57 @@ test.describe('dist app assets', () => {
                 fs.rmSync(tempRoot, {force: true, recursive: true})
             }
         });
+
+        test('copyFolder.mjs -x rejects traversal, target-root aliases, and symlinked-parent escapes before copying or deleting', () => {
+            const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-copy-folder-containment-'));
+
+            try {
+                const srcDir         = path.join(tempRoot, 'src'),
+                      dstDir         = path.join(tempRoot, 'dst'),
+                      outsideDir     = path.join(tempRoot, 'outside'),
+                      outsideVictim  = path.join(tempRoot, 'victim.txt'),
+                      symlinkVictim  = path.join(outsideDir, 'secret.json'),
+                      targetSentinel = path.join(dstDir, 'existing.txt'),
+                      copyFolderCli  = path.join(repoRoot, 'buildScripts/util/copyFolder.mjs');
+
+                fs.mkdirSync(srcDir,     {recursive: true});
+                fs.mkdirSync(dstDir,     {recursive: true});
+                fs.mkdirSync(outsideDir, {recursive: true});
+
+                fs.writeFileSync(path.join(srcDir, 'copied.txt'), 'from-source');
+                fs.writeFileSync(outsideVictim,  'outside-sentinel');
+                fs.writeFileSync(symlinkVictim,  'outside-via-symlink');
+                fs.writeFileSync(targetSentinel, 'keep-target');
+                fs.symlinkSync(outsideDir, path.join(dstDir, 'linked-parent'), 'dir');
+
+                const invalidExcludes = [
+                    '../victim.txt',
+                    'sub/../../victim.txt',
+                    '.',
+                    './',
+                    '..',
+                    '/',
+                    outsideVictim,
+                    'linked-parent/secret.json'
+                ];
+
+                for (const badExclude of invalidExcludes) {
+                    expect(() => execFileSync(process.execPath, [
+                        copyFolderCli,
+                        '-s', srcDir,
+                        '-t', dstDir,
+                        '-x', badExclude
+                    ], {cwd: repoRoot, stdio: 'pipe'}), `expected "${badExclude}" to be rejected`).toThrow();
+
+                    // Rejected before copy AND before deletion: source file was never copied, sentinels survive
+                    expect(fs.existsSync(path.join(dstDir, 'copied.txt')), `no copy should occur for "${badExclude}"`).toBe(false);
+                    expect(fs.readFileSync(outsideVictim,  'utf8')).toBe('outside-sentinel');
+                    expect(fs.readFileSync(symlinkVictim,  'utf8')).toBe('outside-via-symlink');
+                    expect(fs.readFileSync(targetSentinel, 'utf8')).toBe('keep-target');
+                }
+            } finally {
+                fs.rmSync(tempRoot, {force: true, recursive: true})
+            }
+        });
     });
 });

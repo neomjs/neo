@@ -182,4 +182,236 @@ test.describe('Portal.service.Seo (#20945)', () => {
             Neo.currentWorker = originalCurrentWorker
         }
     });
+
+    test('handles real HashHistory + ViewportController + Blog MainContainerController ordering, navigation away, superseded getAddon lookups, and multi-window isolation', async () => {
+        const originalCurrentWorker = Neo.currentWorker,
+              originalLocalStorage  = Neo.main?.addon?.LocalStorage,
+              originalMain          = Neo.Main,
+              titleCallsByWindow    = {
+                  'neo-window-1': [],
+                  'neo-window-2': []
+              },
+              deferredAddons        = [];
+        let   interceptWindow1Addon = false;
+
+        Neo.Main = {
+            setRoute() {},
+            windowCloseAll() {}
+        };
+        Neo.ns('Neo.main.addon', true);
+        Neo.main.addon.LocalStorage = {
+            readLocalStorageItem  : async () => ({value: null}),
+            updateLocalStorageItem: async () => {}
+        };
+
+        Neo.currentWorker = {
+            on() {},
+            un() {},
+            getAddon: async (name, windowId) => {
+                expect(name).toBe('DocumentHead');
+
+                const sink = {
+                    setTitle: async ({value, windowId: targetWin}) => {
+                        titleCallsByWindow[targetWin].push(value);
+                        addon.setTitle({value, windowId: targetWin})
+                    }
+                };
+
+                if (interceptWindow1Addon && windowId === 'neo-window-1') {
+                    return new Promise(resolve => {
+                        deferredAddons.push(() => resolve(sink))
+                    })
+                }
+
+                return sink
+            }
+        };
+
+        const [{default: HashHistory}, {default: Observable}, {default: ViewportController}, {default: BlogController}] = await Promise.all([
+            import('../../../../../../src/util/HashHistory.mjs'),
+            import('../../../../../../src/core/Observable.mjs'),
+            import('../../../../../../apps/portal/view/ViewportController.mjs'),
+            import('../../../../../../apps/portal/view/news/blog/MainContainerController.mjs')
+        ]);
+
+        class MockBlogTreeStore extends core.Base {
+            static observable = true;
+            static config = {
+                className: 'Test.Unit.Portal.Service.Seo.MockBlogTreeStore'
+            };
+
+            records = new Map();
+
+            get(id) {
+                return this.records.get(id) || null
+            }
+
+            getCount() {
+                return this.records.size
+            }
+
+            loadRecords(entries) {
+                for (const entry of entries) {
+                    this.records.set(entry.id, entry)
+                }
+                this.fire('load', {items: entries})
+            }
+
+            clearRecords() {
+                this.records.clear()
+            }
+        }
+        MockBlogTreeStore = Neo.setupClass(MockBlogTreeStore);
+
+        const createWindowHarness = (windowId, order = 'viewport-first') => {
+            const store         = Neo.create(MockBlogTreeStore),
+                  stateProvider = {
+                      data: {currentPageRecord: null},
+                      getStore(key) {
+                          expect(key).toBe('tree');
+                          return store
+                      }
+                  },
+                  mainContent   = {layout: {activeIndex: null, ntype: 'card'}},
+                  tree          = {
+                      routePrefix: null,
+                      async expandAndScrollToItem() {},
+                      expandParents() {}
+                  },
+                  viewportComp  = {
+                      id           : `mock-viewport-${windowId}`,
+                      isConstructed: true,
+                      stateProvider,
+                      windowId,
+                      down({reference}) {
+                          return reference === 'main-content' ? mainContent : null
+                      },
+                      getController() { return null },
+                      getItem(key) { return key === 'main-content' ? mainContent : null },
+                      getStateProvider() { return stateProvider },
+                      getTheme() { return 'neo-theme-neo-dark' }
+                  },
+                  blogComp      = {
+                      id           : `mock-blog-${windowId}`,
+                      isConstructed: true,
+                      stateProvider,
+                      windowId,
+                      down({reference}) {
+                          return reference === 'tree' ? tree : null
+                      },
+                      getController() { return null },
+                      getStateProvider() { return stateProvider }
+                  };
+
+            let viewportController, blogController;
+
+            if (order === 'viewport-first') {
+                viewportController = Neo.create(ViewportController, {component: viewportComp, windowId});
+                blogController     = Neo.create(BlogController,     {component: blogComp,     windowId})
+            } else {
+                blogController     = Neo.create(BlogController,     {component: blogComp,     windowId});
+                viewportController = Neo.create(ViewportController, {component: viewportComp, windowId})
+            }
+
+            return {
+                blogController,
+                store,
+                viewportController,
+                destroy() {
+                    blogController.destroy();
+                    viewportController.destroy();
+                    store.destroy()
+                }
+            }
+        };
+
+        const flushAsync = () => new Promise(resolve => setTimeout(resolve, 25));
+        let   win1       = createWindowHarness('neo-window-1', 'viewport-first'),
+            win2 = createWindowHarness('neo-window-2', 'blog-first');
+
+        try {
+            // 1. Warm leaf in viewport-first controller order: /services -> /news/blog/warm-post
+            win1.store.loadRecords([{id: 'blog/warm-post', name: 'Warm Post One'}]);
+            HashHistory.push({appName: 'Portal', hash: {}, hashString: '/services', windowId: 'neo-window-1'});
+            await flushAsync();
+            expect(titleCallsByWindow['neo-window-1'].at(-1)).toBe('Connect with Neo.mjs');
+
+            HashHistory.push({appName: 'Portal', hash: {}, hashString: '/news/blog/warm-post', windowId: 'neo-window-1'});
+            await flushAsync();
+            expect(titleCallsByWindow['neo-window-1'].at(-1)).toBe('Warm Post One - Neo.mjs');
+
+            // 2. Warm leaf in blog-first controller order on window 2: /about-us -> /news/blog/warm-post-two
+            win2.store.loadRecords([{id: 'blog/warm-post-two', name: 'Warm Post Two'}]);
+            HashHistory.push({appName: 'Portal', hash: {}, hashString: '/about-us', windowId: 'neo-window-2'});
+            await flushAsync();
+            expect(titleCallsByWindow['neo-window-2'].at(-1)).toBe('About Us - Neo.mjs');
+
+            HashHistory.push({appName: 'Portal', hash: {}, hashString: '/news/blog/warm-post-two', windowId: 'neo-window-2'});
+            await flushAsync();
+            expect(titleCallsByWindow['neo-window-2'].at(-1)).toBe('Warm Post Two - Neo.mjs');
+
+            // 3. Delayed leaf selection + navigation away on window 1, with window 2 delayed leaf as isolation control
+            win1.store.clearRecords();
+            win2.store.clearRecords();
+
+            HashHistory.push({appName: 'Portal', hash: {}, hashString: '/news/blog/cold-post-one', windowId: 'neo-window-1'});
+            HashHistory.push({appName: 'Portal', hash: {}, hashString: '/news/blog/cold-post-two', windowId: 'neo-window-2'});
+            await flushAsync();
+
+            expect(titleCallsByWindow['neo-window-1'].at(-1)).toBe(seoJson['/news/blog'].title);
+            expect(titleCallsByWindow['neo-window-2'].at(-1)).toBe(seoJson['/news/blog'].title);
+
+            // Navigate window 1 away to /services BEFORE its blog store resolves
+            HashHistory.push({appName: 'Portal', hash: {}, hashString: '/services', windowId: 'neo-window-1'});
+            await flushAsync();
+            expect(titleCallsByWindow['neo-window-1'].at(-1)).toBe('Connect with Neo.mjs');
+
+            // Now resolve both delayed blog stores (store.on('load', select, delay: 10))
+            win1.store.loadRecords([{id: 'blog/cold-post-one', name: 'Stale Cold Post One'}]);
+            win2.store.loadRecords([{id: 'blog/cold-post-two', name: 'Resolved Cold Post Two'}]);
+            await flushAsync();
+
+            expect(titleCallsByWindow['neo-window-1'].at(-1)).toBe('Connect with Neo.mjs');
+            expect(titleCallsByWindow['neo-window-1']).not.toContain('Stale Cold Post One - Neo.mjs');
+            expect(titleCallsByWindow['neo-window-2'].at(-1)).toBe('Resolved Cold Post Two - Neo.mjs');
+
+            // 4. Out-of-order async getAddon('DocumentHead', windowId) resolution cannot issue a late stale write
+            titleCallsByWindow['neo-window-1'].length = 0;
+            titleCallsByWindow['neo-window-2'].length = 0;
+            interceptWindow1Addon = true;
+
+            HashHistory.push({appName: 'Portal', hash: {}, hashString: '/about-us', windowId: 'neo-window-1'});
+            HashHistory.push({appName: 'Portal', hash: {}, hashString: '/news/videos', windowId: 'neo-window-1'});
+            HashHistory.push({appName: 'Portal', hash: {}, hashString: '/docs', windowId: 'neo-window-2'});
+
+            await Promise.resolve();
+            expect(deferredAddons.length).toBe(2);
+
+            // Resolve newer Videos lookup FIRST, then older About Us lookup LAST
+            deferredAddons[1]();
+            await flushAsync();
+            expect(titleCallsByWindow['neo-window-1']).toEqual(['Neo.mjs Videos']);
+
+            deferredAddons[0]();
+            await flushAsync();
+            expect(titleCallsByWindow['neo-window-1']).toEqual(['Neo.mjs Videos']);
+            expect(titleCallsByWindow['neo-window-2']).toEqual([seoJson['/docs'].title]);
+        } finally {
+            win1.destroy();
+            win2.destroy();
+            delete HashHistory.stacks['neo-window-1'];
+            delete HashHistory.stacks['neo-window-2'];
+            Neo.currentWorker = originalCurrentWorker;
+            if (originalMain === undefined) {
+                delete Neo.Main
+            } else {
+                Neo.Main = originalMain
+            }
+            if (originalLocalStorage === undefined) {
+                delete Neo.main.addon.LocalStorage
+            } else {
+                Neo.main.addon.LocalStorage = originalLocalStorage
+            }
+        }
+    });
 });
