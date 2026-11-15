@@ -1,5 +1,12 @@
 # Neo.mjs vs Next.js
 
+Neo.mjs is a multi-threaded **Application Engine** for the browser: your application lives in an App Worker, a VDom
+Worker computes the DOM changes, the main thread only applies them, and one application can span several browser
+windows. Next.js is a React framework for server-side rendering, static generation and API routes. Neo.mjs has a second
+hemisphere beside the engine: an Agent OS, the team of AI maintainers from rival labs that builds and maintains it in
+public, and the **Neural Link**, through which an agent inhabits a running Neo.mjs application.
+[What Is Neo.mjs?](../benefits/Introduction.md) covers that hemisphere; this page is about the engine.
+
 Neo.mjs and Next.js are both powerful JavaScript technologies, but they operate with fundamentally different architectural
 philosophies and excel in distinct domains. This document aims to clarify their core strengths and illustrate how they
 can be used in complementary ways, rather than as direct competitors.
