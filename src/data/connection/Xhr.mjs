@@ -87,15 +87,20 @@ class Xhr extends Base {
     }
 
     /**
+     * @summary Calls the request back with its response, as a success only for an answer the server accepted.
+     * A status outside 200–299 is a failure, as the Fetch connection rejects it. A `file://` read reports status 0
+     * on its `load` event, so status 0 with a body is a success; a failed network request fires `error` instead.
      * @param {Object} e
      */
     onLoad(e) {
-        let me      = this,
-            id      = e.currentTarget.neoId,
-            request = me.requests[id],
-            cb      = request.callback;
+        let me                 = this,
+            id                 = e.currentTarget.neoId,
+            request            = me.requests[id],
+            cb                 = request.callback,
+            {response, status} = e.target,
+            success            = (status >= 200 && status < 300) || (status === 0 && Boolean(response));
 
-        cb?.apply(request.scope || me, [me.getResponse(e), true]);
+        cb?.apply(request.scope || me, [me.getResponse(e), success]);
 
         Object.entries(request).forEach(([key, value]) => {
             request[key] = null
@@ -112,8 +117,11 @@ class Xhr extends Base {
     }
 
     /**
-     * @param {Object} opts
-     * @returns {Promise<any>}
+     * @summary Resolves an accepted answer with its parsed body as `json`, and rejects a refused one with its response.
+     * The rejection carries the response's `status` and `statusText`, and `json` when the refused body parses, so a
+     * caller reads a server's error body from it. An accepted body that does not parse rejects with the parse error.
+     * @param {Object} opts The request options of {@link #request}
+     * @returns {Promise<Object>} The response, with its parsed body as `json`
      */
     promiseJson(opts) {
         let me = this;
@@ -133,6 +141,10 @@ class Xhr extends Base {
                         })
                     }
                 } else {
+                    try {
+                        data.json = JSON.parse(data.response)
+                    } catch {}
+
                     reject(data)
                 }
             };
@@ -142,8 +154,9 @@ class Xhr extends Base {
     }
 
     /**
-     * @param {Object} opts
-     * @returns {Promise<any>}
+     * @summary Resolves an accepted answer with its response, and rejects a refused one with its response and `status`.
+     * @param {Object} opts The request options of {@link #request}
+     * @returns {Promise<Object>} The response
      */
     promiseRequest(opts) {
         let me = this;
