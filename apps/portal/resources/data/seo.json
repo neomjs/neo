@@ -1039,7 +1039,7 @@
     },
     "/examples/calendar": {
         "title": "Neo.mjs Calendar Examples",
-        "description": "Explore 4 live Neo.mjs Calendar examples: A full calendar with day, week, month and year views, a month navigator and color-coded calendars..",
+        "description": "Explore 5 live Neo.mjs Calendar examples: A full calendar with day, week, month and year views, a month navigator and color-coded calendars..",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-14"
     }
