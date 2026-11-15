@@ -8,6 +8,7 @@ import * as core      from '../../../../../src/core/_export.mjs';
 import '../../../../../src/manager/Instance.mjs';
 import DragProxyContainer from '../../../../../src/draggable/DragProxyContainer.mjs';
 import Viewport           from '../../../../../apps/colors/view/Viewport.mjs';
+import ViewportController from '../../../../../apps/colors/view/ViewportController.mjs';
 
 const appName = 'ColorsViewportControllerTest';
 
@@ -88,6 +89,20 @@ test.describe('Colors ViewportController resume across a drag', () => {
         dragProxy?.destroy();
         viewport?.destroy();
         dragProxy = viewport = null
+    });
+
+    test('builds the environment-aware widget popup URL', () => {
+        const originalEnvironment = Neo.config.environment;
+
+        try {
+            Neo.config.environment = 'development';
+            expect(ViewportController.getWidgetPopupUrl()).toBe('apps/colors/childapps/widget/index.html');
+
+            Neo.config.environment = 'dist/production';
+            expect(ViewportController.getWidgetPopupUrl()).toBe('dist/production/apps/colors/childapps/widget/index.html');
+        } finally {
+            Neo.config.environment = originalEnvironment
+        }
     });
 
     /**

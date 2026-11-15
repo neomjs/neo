@@ -1,0 +1,10 @@
+:where(.neo-theme-light) { // .neo-timeline-header
+    --neo-timeline-header-background : var(--grid-container-cell-background-color-even, #f2f2f2);
+    --neo-timeline-header-color      : #1f2933;
+    --neo-timeline-header-muted-color: #525252;
+    --neo-timeline-header-height     : 44px;
+    --neo-timeline-border-color      : var(--grid-container-border-color, #ddd);
+    --neo-timeline-tick-border-color : #d8d8d8;
+    --neo-timeline-non-working-bg    : rgba(0, 0, 0, 0.045);
+    --neo-timeline-non-working-border: rgba(0, 0, 0, 0.09);
+}

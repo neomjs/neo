@@ -1,6 +1,7 @@
-import fs      from 'fs';
-import path    from 'path';
-import webpack from 'webpack';
+import fs                                          from 'fs';
+import path                                        from 'path';
+import webpack                                     from 'webpack';
+import {admitDeclaredRoots, mainAddonPackageRoots} from '../util/declaredPackageRoots.mjs';
 
 const
     MATCHES_NOTHING   = /(?!)/,
@@ -8,9 +9,9 @@ const
     WORKSPACE_REQUEST = '../../../src/main/addon';
 
 /**
- * @summary Resolves the optional workspace-owned Main-addon context without leaking package addons.
+ * @summary Resolves workspace-owned and declared installed-package Main-addon contexts without mixing their roots.
  *
- * `Main.mjs` has two intentionally distinct dynamic roots. `./main/addon` owns Engine addons;
+ * The existing roots stay distinct: `./main/addon` owns Engine addons;
  * `../../../src/main/addon` owns modules selected through the `WS/` prefix from a consuming
  * workspace. Inside this repository both roots physically coincide, so the workspace request is
  * rewritten to the package root exactly as before. In an installed consumer the authored request
@@ -36,9 +37,36 @@ const
  * @returns {webpack.ContextReplacementPlugin}
  */
 export default function mainAddonContextPlugin(insideNeo, workspaceRoot) {
+    const packageExcludes = new WeakSet();
+
     return new webpack.ContextReplacementPlugin(/.*/, context => {
-        if (context.resource !== undefined || !context.context) return;
-        if (path.posix.normalize(context.request.replaceAll('\\', '/')) !== WORKSPACE_REQUEST) return;
+        if (context.resource !== undefined) {
+            if (packageExcludes.has(context.exclude)) {
+                const {exclude, resolveDependencies} = context;
+
+                // Pruning needs absolute paths; webpack's emitted context identity must not carry them.
+                delete context.exclude;
+                context.resolveDependencies = (fs, options, callback) =>
+                    resolveDependencies(fs, {...options, exclude}, callback)
+            }
+            return
+        }
+        if (!context.context) return;
+
+        const request = path.posix.normalize(context.request.replaceAll('\\', '/'));
+        if (request === '../..' || request === '../node_modules') {
+            const workspace = workspaceRoot ? path.resolve(workspaceRoot) :
+                      path.resolve(context.context, insideNeo ? '..' : '../../..'),
+                  sourceRoot = path.join(workspace, insideNeo ? 'src' : 'node_modules/neo.mjs/src');
+
+            if (fs.existsSync(sourceRoot) && fs.realpathSync(context.context) === fs.realpathSync(sourceRoot)) {
+                admitDeclaredRoots(context, workspace, mainAddonPackageRoots(workspace));
+                packageExcludes.add(context.exclude)
+            }
+            return
+        }
+
+        if (request !== WORKSPACE_REQUEST) return;
 
         if (insideNeo) {
             context.request = PACKAGE_REQUEST;

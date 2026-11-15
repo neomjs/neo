@@ -195,17 +195,10 @@ class Tree extends Component {
     onToggleClick(data) {
         let me            = this,
             gridContainer = me.parent?.gridContainer,
-            store         = gridContainer?.store,
             record        = me.record;
 
-        if (gridContainer && !me.isLeaf && store && record) {
-            if (me.collapsed) {
-                store.expand(record);
-                gridContainer.fire('expand', {record})
-            } else {
-                store.collapse(record);
-                gridContainer.fire('collapse', {record})
-            }
+        if (gridContainer && !me.isLeaf && record) {
+            gridContainer.toggleTreeNode(record, me.collapsed)
         }
     }
 

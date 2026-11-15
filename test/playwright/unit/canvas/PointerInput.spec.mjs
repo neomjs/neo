@@ -47,7 +47,7 @@ class PointerRenderer extends CanvasBase {
 
 Neo.setupClass(PointerRenderer);
 
-const idle = {x: -1000, y: -1000, dx: 0, dy: 0, buttons: 0, altKey: false, ctrlKey: false, metaKey: false, shiftKey: false};
+const idle = {x: -1000, y: -1000, dx: 0, dy: 0, buttons: 0, pressedButtons: 0, altKey: false, ctrlKey: false, metaKey: false, shiftKey: false};
 
 test.describe('Neo.canvas.Base — pointer reports become mouse state and hooks', () => {
     let renderer;
@@ -66,7 +66,7 @@ test.describe('Neo.canvas.Base — pointer reports become mouse state and hooks'
         renderer.updateMouseState({x: 10, y: 20, buttons: 1, shiftKey: true, down: true, button: 0});
         renderer.updateMouseState({x: 14, y: 26, buttons: 1});
 
-        expect(renderer.mouse).toEqual({...idle, x: 14, y: 26, dx: 4, dy: 6, buttons: 1, shiftKey: true});
+        expect(renderer.mouse).toEqual({...idle, x: 14, y: 26, dx: 4, dy: 6, buttons: 1, pressedButtons: 1, shiftKey: true});
 
         renderer.updateMouseState({leave: true});
 
@@ -116,6 +116,75 @@ test.describe('Neo.canvas.Base — pointer reports become mouse state and hooks'
         renderer.updateMouseState({x: 7, y: 8, buttons: 2, altKey: true});
         renderer.clearGraph();
 
+        expect(renderer.mouse).toEqual(idle)
+    });
+
+    test('pressedButtons tracks only presses that started on this canvas until up, leave, or buttons drops them', () => {
+        let seenInDown;
+
+        const origDown = renderer.onMouseDown.bind(renderer);
+
+        renderer.onMouseDown = data => {
+            seenInDown = renderer.mouse.pressedButtons;
+            origDown(data)
+        };
+
+        // 1. Held move without down leaves pressedButtons at 0
+        renderer.updateMouseState({x: 10, y: 20, buttons: 1});
+        expect(renderer.mouse.buttons).toBe(1);
+        expect(renderer.mouse.pressedButtons).toBe(0);
+
+        // 2. Pressing secondary (button: 2 -> bit 2) while external primary is held sets only bit 2
+        renderer.updateMouseState({x: 10, y: 20, button: 2, buttons: 3, down: true});
+        expect(seenInDown, 'pressedButtons is updated before onMouseDown runs').toBe(2);
+        expect(renderer.mouse.pressedButtons).toBe(2);
+
+        // 3. Releasing secondary via up clears bit 2; a later held move without down stays 0
+        renderer.updateMouseState({x: 12, y: 20, button: 2, buttons: 0, up: true});
+        expect(renderer.mouse.pressedButtons).toBe(0);
+
+        renderer.updateMouseState({x: 20, y: 25, buttons: 1});
+        expect(renderer.mouse.pressedButtons).toBe(0);
+
+        // 3b. Auxiliary press (button: 1) maps to bit 4, and out-of-range button (-1) is ignored
+        renderer.updateMouseState({x: 20, y: 25, button: 1, buttons: 4, down: true});
+        expect(renderer.mouse.pressedButtons).toBe(4);
+
+        renderer.updateMouseState({x: 20, y: 25, button: -1, down: true});
+        expect(renderer.mouse.pressedButtons).toBe(4);
+
+        renderer.updateMouseState({x: 20, y: 25, button: -1, up: true});
+        expect(renderer.mouse.pressedButtons).toBe(4);
+
+        renderer.updateMouseState({x: 20, y: 25, button: 1, buttons: 0, up: true});
+        expect(renderer.mouse.pressedButtons).toBe(0);
+
+        // 4. Primary press on canvas sets bit 1; wheel without buttons keeps it; buttons: 0 without up clears it
+        renderer.updateMouseState({x: 20, y: 25, button: 0, buttons: 1, down: true});
+        expect(renderer.mouse.pressedButtons).toBe(1);
+
+        renderer.updateMouseState({x: 20, y: 25, wheel: {deltaX: 0, deltaY: 120, deltaZ: 0, deltaMode: 0}});
+        expect(renderer.mouse.pressedButtons).toBe(1);
+
+        renderer.updateMouseState({x: 22, y: 25, buttons: 0});
+        expect(renderer.mouse.pressedButtons).toBe(0);
+
+        renderer.updateMouseState({x: 30, y: 25, buttons: 1});
+        expect(renderer.mouse.pressedButtons).toBe(0);
+
+        // 5. Leave clears active canvas press; re-entering with buttons held does not restore it
+        renderer.updateMouseState({x: 30, y: 25, button: 0, buttons: 1, down: true});
+        expect(renderer.mouse.pressedButtons).toBe(1);
+
+        renderer.updateMouseState({leave: true});
+        expect(renderer.mouse.pressedButtons).toBe(0);
+
+        renderer.updateMouseState({x: 35, y: 30, buttons: 1});
+        expect(renderer.mouse.pressedButtons).toBe(0);
+
+        // 6. clearGraph also clears pressedButtons
+        renderer.updateMouseState({x: 35, y: 30, button: 0, buttons: 1, down: true});
+        renderer.clearGraph();
         expect(renderer.mouse).toEqual(idle)
     });
 });
@@ -200,6 +269,99 @@ test.describe('Neo.app.SharedCanvas — the forwarders', () => {
             {...address, x: 40, y: 25, buttons: 1, ...modifiers},
             {...address, x: 40, y: 25, button: 0, buttons: 0, up: true, ...modifiers}
         ])
+    });
+
+    test('a native move follows the canvas target after a position-only move, even when the host has another id', () => {
+        const {host, reports} = createHost();
+        Object.defineProperty(host, 'id', {value: 'canvas-host'});
+
+        // The canvas moved 80 px right; its cached size/origin did not change.
+        host.onMouseMove({
+            clientX: 210, clientY: 70, offsetX: 30, offsetY: 20, buttons: 1, ...modifiers,
+            target : {id: 'canvas-1', tagName: 'canvas', clientLeft: 0, clientTop: 0,
+                rect: {left: 180, top: 50, width: 640, height: 320}}
+        });
+
+        expect(reports).toEqual([{...address, x: 30, y: 20, buttons: 1, ...modifiers}])
+    });
+
+    test('a native canvas wheel uses its local facts without the rectangles Main deliberately omits', () => {
+        const {host, reports} = createHost(),
+              wheel           = {deltaX: 0, deltaY: 120, deltaZ: 0, deltaMode: 0};
+
+        host.onWheel({
+            clientX: 210, clientY: 70, offsetX: 30, offsetY: 20, buttons: 0, ...modifiers, ...wheel,
+            target : {id: 'canvas-1', tagName: 'canvas', clientLeft: 0, clientTop: 0}
+        });
+
+        expect(reports).toEqual([{...address, x: 30, y: 20, buttons: 0, ...modifiers, wheel}])
+    });
+
+    test('missing, foreign and host-wrapper targets cannot lend their offsets or rectangles to the canvas', () => {
+        const {host, reports} = createHost();
+        Object.defineProperty(host, 'id', {value: 'canvas-host'});
+
+        for (const id of [undefined, 'another-node', 'canvas-host']) {
+            host.onMouseMove({
+                clientX: 130, clientY: 70, offsetX: 1, offsetY: 2, buttons: 0,
+                ...(id ? {target: {id, clientLeft: 0, clientTop: 0, rect: {left: 120, top: 60}}} : {})
+            });
+
+            expect(reports.at(-1), `target ${id ?? 'absent'} retains the existing viewport fallback`)
+                .toEqual({...address, x: 30, y: 20, buttons: 0})
+        }
+    });
+
+    test('a matching event rectangle replaces the stale origin when native offsets or border facts are unavailable', () => {
+        const {host, reports} = createHost(),
+              rect            = {left: 200, top: 80, width: 640, height: 320};
+
+        for (const local of [
+            {},
+            {offsetX: Infinity, offsetY: 2, clientLeft: 0, clientTop: 0},
+            {offsetX: 1, offsetY: 2, clientLeft: NaN, clientTop: 0}
+        ]) {
+            const {offsetX, offsetY, clientLeft, clientTop} = local;
+            host.onMouseMove({clientX: 230, clientY: 100, offsetX, offsetY,
+                target: {id: 'canvas-1', rect, clientLeft, clientTop}});
+
+            expect(reports.at(-1)).toEqual({...address, x: 30, y: 20})
+        }
+    });
+
+    test('a matching canvas path rectangle is usable without appropriating the actual target offsets', () => {
+        const {host, reports} = createHost(),
+              target          = {id: 'other-target', clientLeft: 0, clientTop: 0, rect: {left: 220, top: 90}};
+
+        host.onMouseMove({
+            clientX: 230, clientY: 100, offsetX: 10, offsetY: 10, target,
+            path   : [target, {id: 'canvas-1', rect: {left: 200, top: 80, width: 640, height: 320}}]
+        });
+
+        expect(reports).toEqual([{...address, x: 30, y: 20}])
+    });
+
+    test('direct-target offsets add the border once and already contain the padding', () => {
+        const {host, reports} = createHost(),
+              wheel           = {deltaX: 0, deltaY: 1, deltaZ: 0, deltaMode: 0};
+
+        // offsetX/Y start at the padding edge. The existing host contract starts at the border edge;
+        // padding is already inside these offsets, so it must neither be added nor subtracted again.
+        host.onWheel({
+            clientX: 210, clientY: 70, offsetX: 23, offsetY: 15, ...wheel,
+            target : {id: 'canvas-1', tagName: 'canvas', clientLeft: 7, clientTop: 5,
+                style: 'border-left-width:7px; border-top-width:5px; padding:11px 13px;'}
+        });
+
+        expect(reports).toEqual([{...address, x: 30, y: 20, wheel}])
+    });
+
+    test('host normalization retains synthetic fallback and returns no position when a coordinate is missing', () => {
+        const {host} = createHost();
+
+        expect(host.getPointerPosition({clientX: 130, clientY: 70})).toEqual({x: 30, y: 20});
+        expect(host.getPointerPosition({buttons: 1})).toBeNull();
+        expect(host.getPointerPosition({clientX: 130, target: {id: 'canvas-1', rect: {left: 120, top: 60}}})).toBeNull()
     });
 
     test('wheel carries the deltas beside the position', () => {

@@ -1,0 +1,10 @@
+:where(.neo-theme-cyberpunk) { // .neo-timeline-header
+    --neo-timeline-header-background : var(--cyber-bg-alt);
+    --neo-timeline-header-color      : var(--cyber-cyan);
+    --neo-timeline-header-muted-color: var(--cyber-text);
+    --neo-timeline-header-height     : 44px;
+    --neo-timeline-border-color      : var(--cyber-border);
+    --neo-timeline-tick-border-color : var(--cyber-border);
+    --neo-timeline-non-working-bg         : color-mix(in srgb, var(--cyber-cyan) 4.5%, transparent);
+    --neo-timeline-non-working-border     : color-mix(in srgb, var(--cyber-cyan) 16%, transparent);
+}

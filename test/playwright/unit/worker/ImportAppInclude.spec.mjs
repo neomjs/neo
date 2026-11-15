@@ -37,3 +37,49 @@ test.describe('Neo.worker.App — the app entries importApp() can reach', () => 
         expect(exclude.test('D:\\apps\\my-app')).toBe(false)
     })
 });
+
+/**
+ * @summary `webpackExclude` in `importApp()` must admit the app tree of a package resolved through a pnpm store.
+ *
+ * A package resolved through a pnpm store keeps its real path under
+ * `node_modules/.pnpm/neo.mjs@<version>/node_modules/neo.mjs/`, so the exclude must admit that path to the package's
+ * own apps while every other `node_modules` tree stays out. webpack tests the exclude against each walked entry's
+ * absolute path, and it also tests directories while walking, so the apps directory itself is checked too.
+ */
+test.describe('Neo.worker.App — importApp() exclude across install layouts (#20717)', () => {
+    test('a package app under a plain node_modules tree is kept', () => {
+        expect(exclude.test('/ws/node_modules/neo.mjs/apps/portal/app.mjs')).toBe(false)
+    });
+
+    test('a package app under a pnpm store path is kept', () => {
+        expect(exclude.test('/ws/node_modules/.pnpm/neo.mjs@1.0.0/node_modules/neo.mjs/apps/portal/app.mjs')).toBe(false)
+    });
+
+    test('the apps directory under a pnpm store path is kept', () => {
+        expect(exclude.test('/ws/node_modules/.pnpm/neo.mjs@1.0.0/node_modules/neo.mjs/apps')).toBe(false)
+    });
+
+    test('a pnpm store path with a peer suffix (underscore) is kept', () => {
+        expect(exclude.test('/ws/node_modules/.pnpm/neo.mjs@13.4.0_webpack@5.99.0/node_modules/neo.mjs/apps/portal/app.mjs')).toBe(false)
+    });
+
+    test('a pnpm store path with a peer suffix (parentheses) is kept', () => {
+        expect(exclude.test('/ws/node_modules/.pnpm/neo.mjs@13.4.0(webpack@5.99.0)/node_modules/neo.mjs/apps/portal/app.mjs')).toBe(false)
+    });
+
+    test('a pnpm store path with Windows separators is kept', () => {
+        expect(exclude.test('C:\\ws\\node_modules\\.pnpm\\neo.mjs@1.0.0\\node_modules\\neo.mjs\\apps\\portal\\app.mjs')).toBe(false)
+    });
+
+    test('a foreign dependency under node_modules is excluded', () => {
+        expect(exclude.test('/ws/node_modules/other/apps/x/app.mjs')).toBe(true)
+    });
+
+    test('a foreign entry in the pnpm store is excluded', () => {
+        expect(exclude.test('/ws/node_modules/.pnpm/other@1.0.0/node_modules/other/apps/x/app.mjs')).toBe(true)
+    });
+
+    test('a dependency nested inside the stored package is excluded', () => {
+        expect(exclude.test('/ws/node_modules/.pnpm/neo.mjs@1.0.0/node_modules/neo.mjs/node_modules/other/apps/x/app.mjs')).toBe(true)
+    })
+});

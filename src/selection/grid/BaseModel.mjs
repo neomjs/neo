@@ -63,8 +63,9 @@ class BaseModel extends Model {
     }
 
     /**
-     * The classes {@link #applyCellSelection} put on each cell vdom node, so a repaint withdraws exactly those.
-     * @member {WeakMap<Object, String[]>} #cellCls
+     * The classes {@link #applyCellSelection} added to each cell vdom node and the ones it wanted, so a repaint
+     * withdraws exactly what it added and compares the wanted answer for its early return.
+     * @member {WeakMap<Object, Object>} #cellCls
      * @private
      */
     #cellCls = new WeakMap()
@@ -112,20 +113,25 @@ class BaseModel extends Model {
     applyCellSelection(cell, record, dataField) {
         let me      = this,
             applied = me.#cellCls.get(cell),
-            cls     = me.isSelectedCell(record, dataField) ? [me.selectedCls, ...me.getCellCls(record, dataField)] : null;
+            cls     = me.isSelectedCell(record, dataField) ? [me.selectedCls, ...me.getCellCls(record, dataField)] : null,
+            added;
 
-        if (applied ? Neo.isEqual(applied, cls) : !cls) {
+        // The early return compares the wanted answer, which keeps an unchanged cell out of the update; only
+        // the classes this method added leave the node, so a class the cell carried before its selection stays.
+        if (applied ? Neo.isEqual(applied.cls, cls) : !cls) {
             return false
         }
 
         cell.cls ??= [];
 
-        applied && NeoArray.remove(cell.cls, applied);
+        applied && NeoArray.remove(cell.cls, applied.added);
 
         if (cls) {
-            NeoArray.add(cell.cls, cls);
+            added = cls.filter(name => !cell.cls.includes(name));
+
+            NeoArray.add(cell.cls, added);
             cell['aria-selected'] = true;
-            me.#cellCls.set(cell, cls)
+            me.#cellCls.set(cell, {added, cls})
         } else {
             delete cell['aria-selected'];
             me.#cellCls.delete(cell)
@@ -525,7 +531,12 @@ class BaseModel extends Model {
     register(component) {
         // grid.View registers as the single model's `view`; with one View-owned model there are no
         // sibling per-body models to adopt state from (the former multi-body Peer State Adoption).
-        super.register(component)
+        super.register(component);
+
+        // A model swapped at runtime lands on a grid whose ARIA root already exists. The View's own model
+        // registers while the grid container still constructs its ariaWrapper, so this first call can be a
+        // no-op; the container asks again once the wrapper exists (Neo.grid.Container#construct).
+        this.syncAriaMultiselectable()
     }
 
     /**
@@ -607,6 +618,48 @@ class BaseModel extends Model {
     }
 
     /**
+     * @summary States on the grid's ARIA root whether several rows or cells can be selected: the WAI-ARIA
+     * grid pattern asks a multi-selectable grid to say so, and silence announces a grid in which one item
+     * can be selected.
+     *
+     * `singleSelect` is the model's config, so the model is the only owner of the answer; the root belongs
+     * to {@link Neo.grid.Container#getAriaRoot}, which the model reaches through its View. Registration and
+     * unregistration call it, and `grid.Container` calls it once its `ariaWrapper` exists — the View's own
+     * model registers before that wrapper is created. The update is skipped when the root already states
+     * the answer, so a single-select model leaves the initial render alone.
+     * @param {Boolean} [multiselectable=!this.singleSelect] the state to write; `false` withdraws the attribute
+     * @protected
+     */
+    syncAriaMultiselectable(multiselectable=!this.singleSelect) {
+        let me        = this,
+            {view}    = me,
+            container = view?.gridContainer,
+            root;
+
+        if (!container?.ariaWrapper) {
+            return
+        }
+
+        root = container.getAriaRoot();
+
+        if (multiselectable) {
+            if (root['aria-multiselectable'] === true) {
+                return
+            }
+
+            root['aria-multiselectable'] = true
+        } else {
+            if (!('aria-multiselectable' in root)) {
+                return
+            }
+
+            delete root['aria-multiselectable']
+        }
+
+        container.ariaWrapper.update()
+    }
+
+    /**
      * @param {Number|String} recordId
      * @param {Boolean}       [silent=false]
      */
@@ -641,7 +694,8 @@ class BaseModel extends Model {
         // unchanged. A view that is being destroyed has nothing left to repaint.
         if (!me.view.isDestroying) {
             columns.length > 0 && me.updateColumns(columns);
-            rows.length    > 0 && me.updateRows(rows)
+            rows.length    > 0 && me.updateRows(rows);
+            me.syncAriaMultiselectable(false)
         }
 
         super.unregister()

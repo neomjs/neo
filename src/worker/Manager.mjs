@@ -412,9 +412,10 @@ class Manager extends Base {
      *
      * This helper method centralizes the logic for both standard VDOM updates and direct `App.applyDeltas` calls.
      * Its primary purpose is to enforce the **"delayed reply"** pattern:
-     * - If the update contains visual changes (deltas), it registers a promise and queues the update for the next animation frame.
+     * - If the update contains DOM deltas or component metadata, it registers a promise and queues the update for the next animation frame.
      *   The reply to the worker is sent only *after* the main thread has processed the queue, ensuring the DOM is updated.
-     * - If the update is a no-op (zero deltas), it sends an immediate reply to avoid unnecessary latency.
+     *   Metadata-only updates still run Main's before/after-delta hooks.
+     * - If the update has neither deltas nor metadata entries, it sends an immediate reply to avoid unnecessary latency.
      *
      * This method also handles the firing of the `updateVdom` event, which triggers the actual processing in `Main.mjs`.
      *
@@ -425,9 +426,9 @@ class Manager extends Base {
      *                                  If false, constructs a new success reply (App worker path).
      */
     handleDomUpdate(data, deltas, replyDest, forward=false) {
-        let me = this;
+        const me = this, payload = forward ? data.data : data;
 
-        if (deltas?.length > 0) {
+        if (deltas?.length > 0 || Object.keys(payload.meta || {}).length > 0) {
             me.promiseForwardMessage(data).then(msgData => {
                 me.sendMessage(replyDest, forward ? msgData : {action: 'reply', replyId: msgData.id, success: true})
             }).catch(({originalData, error}) => {

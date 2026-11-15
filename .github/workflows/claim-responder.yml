@@ -1,12 +1,12 @@
 # Answers a claim on a curated issue (`good first issue`, `help wanted`) within a minute, because no maintainer is
-# online around the clock. When the claimant is first in line and holds no other open curated issue in the repository,
-# the workflow assigns them (removing any outside-contributor assignee whose 7-day window lapsed without an open PR) and
-# confirms they can start now; otherwise it names who holds the issue (or which curated issue the claimant already holds)
+# online around the clock. When the claimant is first in line and holds fewer than their allowed open curated issues,
+# the workflow assigns them (removing any outside-contributor assignee whose 3-day window lapsed without an open PR) and
+# confirms they can start now; otherwise it names who holds the issue (or the curated issues the claimant already holds)
 # and offers claimable alternatives. Maintainers can unassign accounts that spray claims, releasing the hold. The rules
 # live in buildScripts/util/claimResponse.mjs and its spec; this file only fetches, assigns and posts.
 #
 # The comment is untrusted input. github-script reads it from the event payload, it is never interpolated into a shell
-# step, and the job checks out nothing but that module, from the default branch an `issue_comment` run uses.
+# step, and the job checks out only the two rule modules from the default branch an `issue_comment` run uses.
 name: Claim responder
 
 on:
@@ -37,7 +37,9 @@ jobs:
         uses: actions/checkout@v7
         with:
           persist-credentials: false
-          sparse-checkout: buildScripts/util/claimResponse.mjs
+          sparse-checkout: |
+            buildScripts/util/claimResponse.mjs
+            buildScripts/util/contributorStanding.mjs
           sparse-checkout-cone-mode: false
 
       - name: Answer the claim
@@ -61,6 +63,25 @@ jobs:
               return
             }
 
+            // Count the contributor's public merged PRs once. Failure leaves the existing one-claim rule in force.
+            let claimLimit = 1;
+            try {
+              const {claimLimit: limitForStanding} = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/contributorStanding.mjs`);
+              if (typeof limitForStanding !== 'function') throw new Error('claim limit export unavailable');
+              const {data} = await github.rest.search.issuesAndPullRequests({
+                q: `org:neomjs is:public is:pr is:merged author:${comment.user.login}`,
+                per_page: 1
+              });
+              if (!data || data.incomplete_results !== false || !Number.isSafeInteger(data.total_count) || data.total_count < 0) {
+                throw new Error('merged pull request count is incomplete or invalid')
+              }
+              const resolved = limitForStanding(data.total_count);
+              if (![1, 2].includes(resolved)) throw new Error('claim limit is invalid');
+              claimLimit = resolved
+            } catch (error) {
+              core.warning(`Could not resolve contributor standing; using one-claim limit: ${error.message}`)
+            }
+
             const [comments, events] = await Promise.all([
               github.paginate(github.rest.issues.listComments, {owner, repo, issue_number: issue.number, per_page: 100}),
               github.paginate(github.rest.issues.listEvents,   {owner, repo, issue_number: issue.number, per_page: 100})
@@ -81,10 +102,13 @@ jobs:
               .filter(pullRequest => pullRequest.state === 'OPEN')
               .map(pullRequest => ({number: pullRequest.number, author: pullRequest.author?.login, repository: pullRequest.repository?.nameWithOwner}));
 
-            const [search, assignedIssues] = await Promise.all([
+            const [candidates, assignedIssues] = await Promise.all([
               github.rest.search.issuesAndPullRequests({
                 q       : `repo:${owner}/${repo} is:issue is:open label:"${label}" no:assignee -linked:pr`,
                 per_page: 50
+              }).then(({data}) => data.items.map(item => item.number)).catch(error => {
+                core.warning(`Could not list alternative issues: ${error.message}`);
+                return []
               }),
               github.paginate(github.rest.issues.listForRepo, {
                 assignee: comment.user.login,
@@ -100,7 +124,8 @@ jobs:
               .map(item => item.number);
 
             const decision = decideClaim({
-              candidates: search.data.items.map(item => item.number),
+              candidates,
+              claimLimit,
               comment,
               comments,
               events,
@@ -112,6 +137,12 @@ jobs:
 
             if (!decision) {
               core.info('No reply: the assignee, or a claimant already answered here.');
+              return
+            }
+
+            // Keep one refusal per claimant and issue. If the edit fails, a rerun can retry the same update.
+            if (decision.updateCommentId !== undefined) {
+              await github.rest.issues.updateComment({owner, repo, comment_id: decision.updateCommentId, body: decision.body});
               return
             }
 

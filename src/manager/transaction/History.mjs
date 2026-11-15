@@ -393,8 +393,6 @@ class History extends Base {
         try {
             rows.splice(0, rows.getRange().length);
             rows.add(state.rows);
-            // Silent update brackets leave count unchanged; restore its public cache explicitly.
-            rows.count = state.rows.length;
             this.cursor = state.cursor;
             this.sequence = state.sequence
         } finally {

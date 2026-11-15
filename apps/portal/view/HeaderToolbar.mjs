@@ -20,12 +20,12 @@ class HeaderToolbar extends BaseHeaderToolbar {
          * @member {Object[]} items
          */
         items: [{
-            cls     : ['logo'],
-            iconCls : 'neo-logo-blue',
-            minWidth: 60,
+            cls      : ['logo'],
+            iconCls  : 'neo-logo-blue',
+            minWidth : 60,
             reference: 'home-button',
-            route   : '/home',
-            text    : 'Neo.mjs'
+            route    : '/',
+            text     : 'Neo.mjs'
         }, '->', {
             reference: 'learn-button',
             text     : 'Learn',

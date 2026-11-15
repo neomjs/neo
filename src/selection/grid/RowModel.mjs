@@ -64,10 +64,46 @@ class RowModel extends BaseModel {
     }
 
     /**
+     * WAI-ARIA treegrid: `Left` collapses the selected, expanded parent row
+     * @param {Object} data
+     */
+    onKeyDownLeft(data) {
+        this.canNavigate(data) && this.toggleSelectedTreeNode(false)
+    }
+
+    /**
+     * WAI-ARIA treegrid: `Right` expands the selected, collapsed parent row
+     * @param {Object} data
+     */
+    onKeyDownRight(data) {
+        this.canNavigate(data) && this.toggleSelectedTreeNode(true)
+    }
+
+    /**
      * @param {Object} data
      */
     onKeyDownUp(data) {
         this.canNavigate(data) && this.onNavKeyRow(-1)
+    }
+
+    /**
+     * Hands the single selected row of a tree grid to {@link Neo.grid.Container#toggleTreeNode}.
+     * Nothing happens outside a tree grid, with no or more than one selected row, on a leaf, or when the row
+     * already is in the requested state. The selection stays as it is in every case.
+     * @param {Boolean} expand `true` to expand, `false` to collapse
+     * @returns {Boolean} `true` if the row changed its expansion state
+     * @protected
+     */
+    toggleSelectedTreeNode(expand) {
+        let me            = this,
+            gridContainer = me.view?.gridContainer,
+            {selectedRows} = me;
+
+        if (!gridContainer?.isTreeGrid || selectedRows.length !== 1) {
+            return false
+        }
+
+        return gridContainer.toggleTreeNode(me.getRowRecord(selectedRows[0]), expand)
     }
 
     /**
@@ -149,8 +185,10 @@ class RowModel extends BaseModel {
         let {id, view} = this;
 
         view.keys?._keys.push(
-            {fn: 'onKeyDownDown', key: 'Down', scope: id},
-            {fn: 'onKeyDownUp',   key: 'Up',   scope: id}
+            {fn: 'onKeyDownDown',  key: 'Down',  scope: id},
+            {fn: 'onKeyDownLeft',  key: 'Left',  scope: id},
+            {fn: 'onKeyDownRight', key: 'Right', scope: id},
+            {fn: 'onKeyDownUp',    key: 'Up',    scope: id}
         )
     }
 
@@ -161,8 +199,10 @@ class RowModel extends BaseModel {
         let {id, view} = this;
 
         view.keys?.removeKeys([
-            {fn: 'onKeyDownDown', key: 'Down', scope: id},
-            {fn: 'onKeyDownUp',   key: 'Up',   scope: id}
+            {fn: 'onKeyDownDown',  key: 'Down',  scope: id},
+            {fn: 'onKeyDownLeft',  key: 'Left',  scope: id},
+            {fn: 'onKeyDownRight', key: 'Right', scope: id},
+            {fn: 'onKeyDownUp',    key: 'Up',    scope: id}
         ]);
 
         super.unregister()

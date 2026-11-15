@@ -1,5 +1,6 @@
 import fs                        from 'fs-extra';
 import path                      from 'path';
+import canvasModuleContextPlugin from '../canvasModuleContextPlugin.mjs';
 import workerContextRebasePlugin from '../workerContextRebasePlugin.mjs';
 
 const cwd            = process.cwd(),
@@ -33,8 +34,10 @@ export default env => {
             outputModule: true
         },
 
+        // The rebase runs first, so the Canvas admission sees the workspace's app-space root
         plugins: [
-            workerContextRebasePlugin(insideNeo, cwd)
+            workerContextRebasePlugin(insideNeo, cwd),
+            ...env.worker === 'canvas' ? [canvasModuleContextPlugin(insideNeo, cwd)] : []
         ],
 
         output: {

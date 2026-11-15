@@ -26,11 +26,16 @@ class Fetch extends Base {
     defaultHeaders = null
 
     /**
-     * @param {Object} [params]
+     * @summary GETs the connection's `url` with the read params composed into its query by `appendParams()`.
+     * Two read params are not query params: `url` replaces the connection's URL for this read, and `headers` are
+     * sent as request headers over `defaultHeaders`. No other read param reaches the request config.
+     * @param {Object} [params={}]
+     * @param {HeadersInit} [params.headers] Request headers for this read
+     * @param {String} [params.url] The URL to read instead of the connection's
      * @returns {Promise<any>}
      */
-    async read(params) {
-        return this.get(this.url, params);
+    async read({headers, url, ...query}={}) {
+        return this.get(this.appendParams(url || this.url, query), {headers})
     }
 
     /**

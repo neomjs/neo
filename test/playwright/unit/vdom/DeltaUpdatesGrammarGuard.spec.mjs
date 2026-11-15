@@ -21,8 +21,8 @@ import * as core      from '../../../../src/core/_export.mjs';
  *
  * The pure grammar predicates live in `DeltaGrammar.spec.mjs`; this suite pins the runtime
  * boundary: guard-off behavior stays untouched, guard-on failures throw before dispatch,
- * legal batches still dispatch without U5 noise, renderer mode reaches the insertNode payload
- * rule, and U5 remains observe-only.
+ * legal batches still dispatch without U5 noise, listener edits are consumed with guards off or
+ * on, renderer mode reaches the insertNode payload rule, and U5 remains observe-only.
  */
 test.describe('Neo.main.DeltaUpdates grammar guard', () => {
     let DeltaUpdates, applied, originalConsoleError, originalConsoleWarn,
@@ -97,6 +97,53 @@ test.describe('Neo.main.DeltaUpdates grammar guard', () => {
         expect(() => DeltaUpdates.update({deltas: batch})).toThrow();
         expect(applied).toEqual([batch[0]])
     });
+
+    test('single-object input still dispatches once', () => {
+        const delta = {id: 'neo-single-delta', style: {color: 'green'}};
+
+        DeltaUpdates.update({deltas: delta});
+        expect(applied).toEqual([delta])
+    });
+
+    for (const guarded of [false, true]) {
+        test(`listener additions dispatch in order with grammar guard ${guarded}`, async () => {
+            Neo.config.useDeltaGrammarGuards = guarded;
+            if (guarded) await DeltaUpdates.importDeltaInstruments();
+
+            const first    = {id: 'neo-hook-first', style: {color: 'red'}},
+                  ordinary = {id: 'neo-hook-ordinary', style: {color: 'green'}},
+                  last     = {id: 'neo-hook-last', style: {color: 'blue'}},
+                  extend   = ({deltas}) => {deltas.unshift(first); deltas.push(last)};
+
+            DeltaUpdates.on('update', extend);
+
+            try {
+                DeltaUpdates.update({deltas: []});
+                expect(applied).toEqual([first, last]);
+
+                applied.length = 0;
+                DeltaUpdates.update({deltas: [ordinary]});
+                expect(applied).toEqual([first, ordinary, last])
+            } finally {
+                DeltaUpdates.un('update', extend)
+            }
+        });
+
+        test(`listener removal leaves no stale dispatch with grammar guard ${guarded}`, async () => {
+            Neo.config.useDeltaGrammarGuards = guarded;
+            if (guarded) await DeltaUpdates.importDeltaInstruments();
+
+            const clear = ({deltas}) => deltas.splice(0);
+            DeltaUpdates.on('update', clear);
+
+            try {
+                expect(() => DeltaUpdates.update({deltas: [{id: 'neo-hook-removed'}]})).not.toThrow();
+                expect(applied).toEqual([])
+            } finally {
+                DeltaUpdates.un('update', clear)
+            }
+        });
+    }
 
     test('enabled guard rejects illegal batches before the first dispatch', async () => {
         const

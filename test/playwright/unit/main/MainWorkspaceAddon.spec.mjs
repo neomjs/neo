@@ -26,14 +26,15 @@ const fileUrl = (root, relativePath) => pathToFileURL(path.join(root, relativePa
  * @summary Loads `src/Main.mjs` in a stubbed main-thread context, asks it for one addon under one
  * environment, and reports where the import resolved.
  *
- * No such addon exists, so the failed import names the absolute path it tried. That keeps the
- * assertion on the specifier itself instead of on whichever file happens to sit at a path.
+ * Missing addons report the absolute path attempted. A physical fixture addon instead reports its own
+ * module URL and registration, so a successful import cannot hide a route to the wrong package.
  * @param {String} environment
  * @param {String} name
  * @param {String} [engine=REPO_ROOT] the directory the engine is loaded from; symlinks in it are preserved
- * @returns {Promise<{code: String, message: String}>}
+ * @param {String|null} [addonClass=null] Fixture namespace to inspect after the real import and registration.
+ * @returns {Promise<Object>}
  */
-async function resolveAddon(environment, name, engine=REPO_ROOT) {
+async function resolveAddon(environment, name, engine=REPO_ROOT, addonClass=null) {
     const script = `
         import Neo from '${fileUrl(engine, 'src/Neo.mjs')}';
         import * as core from '${fileUrl(engine, 'src/core/_export.mjs')}';
@@ -68,10 +69,20 @@ async function resolveAddon(environment, name, engine=REPO_ROOT) {
         delete Neo.worker.Manager;
 
         const {default: Main} = await import('${fileUrl(engine, 'src/Main.mjs')}');
+        Main.addon = {};
 
         try {
             await Main.importAddon({name: '${name}'});
-            console.log('PROBE ' + JSON.stringify({code: null, message: 'imported'}))
+            const addon = ${addonClass ? `Neo.ns(${JSON.stringify(addonClass)})` : 'null'};
+            console.log('PROBE ' + JSON.stringify({
+                code: null,
+                message: 'imported',
+                ...(addon ? {addon: {
+                    moduleUrl: addon.getModuleUrl(),
+                    registered: Main.addon[addon.constructor.name] === addon
+                }} : {})
+            }));
+            addon?.destroy()
         } catch (error) {
             console.log('PROBE ' + JSON.stringify({code: error.code, message: error.message}))
         }
@@ -165,6 +176,84 @@ async function importLazyAddon(delay) {
 }
 
 test.describe('Neo.Main addon resolution', () => {
+    for (const layout of ['installed', 'linked']) {
+        for (const environment of ['development', 'dist/esm']) {
+            for (const {packageName, root} of [
+                {packageName: 'fixture-native-hooks', root: 'src/main/addon'},
+                {packageName: '@fixture/native-hooks', root: 'browser/hooks'}
+            ]) {
+                test(`${environment} imports ${packageName} from its declared root with the ${layout} Engine layout`, async () => {
+                    const workspace    = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'neo-package-addon-'))),
+                          engine       = path.join(workspace, 'node_modules/neo.mjs'),
+                          engineTarget = layout === 'installed' ? engine :
+                              path.join(workspace, 'node_modules/.pnpm/neo.mjs@1.0.0/node_modules/neo.mjs'),
+                          addonClass = 'Test.MainPackageAddon.NativeHooks',
+                          name = `node_modules/${packageName}/${root}/NativeHooks`,
+                          modulePath = `${name}.mjs`,
+                          packagePath = path.join(workspace, 'node_modules', packageName);
+
+                    try {
+                        // The scaffold loads workspace/node_modules/neo.mjs/src/Main.mjs. A server follows the
+                        // link without changing that browser URL to .pnpm's physical path. Webpack's physical
+                        // linked-package resolution and emitted-ESM layouts have separate build guards.
+                        fs.mkdirSync(path.dirname(engineTarget), {recursive: true});
+                        fs.symlinkSync(REPO_ROOT, engineTarget, 'dir');
+                        if (layout === 'linked') fs.symlinkSync(engineTarget, engine, 'dir');
+
+                        fs.writeFileSync(path.join(workspace, 'package.json'), JSON.stringify({
+                            name        : 'main-package-addon-consumer', type: 'module',
+                            dependencies: {[packageName]: '1.0.0'}
+                        }));
+                        fs.mkdirSync(path.join(packagePath, root), {recursive: true});
+                        fs.writeFileSync(path.join(packagePath, 'package.json'), JSON.stringify({
+                            name: packageName, version: '1.0.0', type: 'module', neo: {mainAddons: [root]}
+                        }));
+                        const addonSource = `
+                            import Neo from '${fileUrl(engine, 'src/Neo.mjs')}';
+                            import AddonBase from '${fileUrl(engine, 'src/main/addon/Base.mjs')}';
+
+                            class NativeHooks extends AddonBase {
+                                static config = {className: '${addonClass}', preloadFilesDelay: false}
+
+                                getModuleUrl() {
+                                    return import.meta.url
+                                }
+                            }
+
+                            export default Neo.setupClass(NativeHooks);
+                        `;
+                        fs.writeFileSync(path.join(workspace, modulePath), addonSource);
+
+                        if (layout === 'linked') {
+                            const workspaceAddon = 'src/main/addon/NativeHooks.mjs';
+
+                            fs.mkdirSync(path.dirname(path.join(workspace, workspaceAddon)), {recursive: true});
+                            fs.writeFileSync(path.join(workspace, workspaceAddon), addonSource);
+
+                            const control = await resolveAddon(environment, 'WS/NativeHooks', engine, addonClass);
+
+                            expect(control, 'the existing WS route loads through the same logical linked Main URL').toEqual({
+                                code   : null,
+                                message: 'imported',
+                                addon  : {moduleUrl: fileUrl(workspace, workspaceAddon), registered: true}
+                            })
+                        }
+
+                        const result = await resolveAddon(environment, name, engine, addonClass);
+
+                        expect(result).toEqual({
+                            code   : null,
+                            message: 'imported',
+                            addon  : {moduleUrl: fileUrl(workspace, modulePath), registered: true}
+                        })
+                    } finally {
+                        fs.rmSync(workspace, {recursive: true, force: true})
+                    }
+                })
+            }
+        }
+    }
+
     test('dist/esm resolves a WS/ addon inside its own tree, where the build emitted it beside the engine addons', async () => {
         const {code, message} = await resolveAddon('dist/esm', `WS/${ADDON}`);
 

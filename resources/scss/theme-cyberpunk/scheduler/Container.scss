@@ -1,0 +1,9 @@
+:where(.neo-theme-cyberpunk) { // .neo-scheduler
+    --neo-scheduler-divider-color     : var(--cyber-border);
+    --neo-scheduler-bar-emerald-bg    : #0a2c26;
+    --neo-scheduler-bar-emerald-border: #00e5a3;
+    --neo-scheduler-bar-amber-bg      : color-mix(in srgb, var(--cyber-gold) 16%, var(--cyber-bg));
+    --neo-scheduler-bar-amber-border  : var(--cyber-gold);
+    --neo-scheduler-bar-violet-bg     : #241936;
+    --neo-scheduler-bar-violet-border : #c06eff;
+}

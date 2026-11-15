@@ -1,3 +1,7 @@
+---
+seoTitle: "Multi-Window Dashboards & SharedWorker Tear-Out Dock Layouts | Neo.mjs"
+seoDescription: "How Neo.mjs tears live UI panes out into real OS browser windows and docks them back without serialization loss from a single SharedWorker heap."
+---
 # Dock Layouts: A Pane's Life Across Windows
 
 Tear a pane out of your application into a real operating-system window, and you have asked the web platform for

@@ -1,4 +1,5 @@
 import Plugin            from '../../../plugin/Base.mjs';
+import VNodeUtil         from '../../../util/VNode.mjs';
 import WorkspaceDocument from '../model/WorkspaceDocument.mjs';
 
 /**
@@ -672,6 +673,10 @@ class HeaderActions extends Plugin {
      * a failure to insert the candidate afterwards would leave the slot empty with nothing to
      * restore — the silent pane loss this transaction exists to prevent.
      *
+     * Detached first, the predecessor is destroyed with no parent, so its own destroy cannot unlink
+     * it from the container's stored vnode. That vnode names it until the container's update lands,
+     * and an ancestor render maps through it, so the release unlinks it here.
+     *
      * Only the card body is touched, so tab, header-action and overflow identities are preserved by
      * construction rather than by repair: the tab bar is never in the mutation path.
      * @param {Neo.component.Base} livePane The mounted pane to replace.
@@ -731,9 +736,12 @@ class HeaderActions extends Plugin {
         // live pane in the container rather than a destroyed one.
         container.removeAt(index + 1, false);
 
+        const {id, vnode} = livePane;
+
         // The candidate is in the slot; the predecessor is now safe to release. The ordering is the
         // contract, not an implementation detail.
         livePane.destroy();
+        container.vnode && VNodeUtil.unlinkRetiredReferences(container.vnode, {[id]: vnode});
 
         return {ok: true, index, pane, reason: null, error: null}
     }

@@ -98,13 +98,17 @@ Neo.mjs thrives on community engagement. One of the most impactful ways to contr
 4.  **Represent Neo.mjs:** Interested in giving a talk or a workshop at a developer conference? We'd love to support you. Just reach out!
 5.  **Uphold our values:** Please stick to our <a href=".github/CODE_OF_CONDUCT.md">Code of Conduct</a> in all interactions.
 
-### 2.  Use the issues tracker
-1. In case you got an idea for a new feature
-2. In case you find a bug
-    1. Ideally, you create a new breaking test inside the tests folder.
-    This saves a lot of time and ensures the bug will stay fixed once the ticket is resolved.
-3. Please like or comment on current tickets.
-    This is a great help to figure out which tickets are the most important ones for the Neo.mjs community.
+### 2. Ways to take part
+
+| You … | Do this | What happens next |
+|---|---|---|
+| found a bug | open a [bug report](https://github.com/neomjs/neo/issues/new/choose) (the issue chooser's first entry) | a maintainer answers and labels it. If you want to fix it yourself, say so in the report |
+| have an idea for a feature | start a Discussion in [Ideas](https://github.com/neomjs/neo/discussions/categories/ideas) | maintainers and contributors shape it there; an idea that has settled becomes a ticket |
+| want to join a design conversation | comment on an open Discussion in [Ideas](https://github.com/neomjs/neo/discussions/categories/ideas) | nothing to ask for: design threads are open to everyone |
+| have a question | ask in [Q&A](https://github.com/neomjs/neo/discussions/categories/q-a) | |
+| want to write code | take a curated issue ([item 3](#3--contribute-to-the-neomjs-code-base)) | |
+| built something with Neo.mjs | post it in [Show and tell](https://github.com/neomjs/neo/discussions/categories/show-and-tell) | |
+| want to talk to someone | join [Discord](https://discord.gg/6p8paPq) or [Slack](https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA) | Discord is the main room and keeps a searchable history; Slack is real-time chat and keeps 90 days |
 
 ### 3.  Contribute to the Neo.mjs code base
 
@@ -114,25 +118,32 @@ and links its live milestone. Follow that milestone for the current open work. T
 independently: this one as the `neo.mjs` npm package, the Brain as container images, the shared agent skills as
 `neo-agent-skills` on npm. A fix you land here ships with the next engine release.
 
-1. **Looking for somewhere to start?** For a first PR, take an issue labelled <a href="../../issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22">good first issue</a>:
-   comment on one to claim it (see 3). No approval round needed; they are already approved.
-   **After your first merged PR**, move on to <a href="../../issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22">help wanted</a>
-   or an unassigned issue in the roadmap's milestone, the same way. Good first issues stay reserved for first-time
-   contributors.
+1. **Looking for somewhere to start?** Take an issue labelled <a href="../../issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22">good first issue</a>
+   or <a href="../../issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22">help wanted</a>: comment on one to claim it (see 3).
+   No approval round needed; they are already approved. Most carry both labels, and both are open to you whether this
+   is your first pull request or your tenth.
+   Maintainers could resolve these themselves. We leave them open because contributing is the fastest way to get to know
+   the engine, so read `help wanted` as "help accepted".
+   Good first issue means the ticket holds everything you need to finish it;
+   it is no promise that the work is small. An unassigned issue in the roadmap's milestone works the same way.
 
    **The listed issues are already claimed, or nothing fits?** Ask in <a href="https://github.com/neomjs/neo/discussions/categories/q-a">Q&A</a>.
    Tell us which example you tried and what area you would like to work on, so we can help you find an existing Engine issue.
-2. For a new idea or bug without an existing ticket, please create an issue inside our <a href="../../issues">Issues Tracker</a> first and wait for approval.
-   This ensures that your idea fits the scope of the project and makes it less likely to get a rejected PR.
+2. Every pull request needs an issue. For a bug without an existing ticket, open a bug report as described above;
+   that report is the issue for your fix. If you want to fix it yourself, say so in the report.
+   For a new idea, start a Discussion in [Ideas](https://github.com/neomjs/neo/discussions/categories/ideas) first;
+   once it has settled and becomes a ticket, a pull request can implement it.
    We will do our best to reply to new tickets within 7d max. In case we don't, feel free to bump the ticket.
 3. **Claim before you start.** To work on an existing ticket, comment there. An automatic reply tells you whether you
-   are first in line. On curated issues (`good first issue` and `help wanted`, one open curated claim at a time), a
-   first-in-line claim also assigns you automatically so the issue list shows it is taken: start right away. A
+   are first in line. On curated issues (`good first issue` and `help wanted`), the bot assigns the first eligible
+   claimant. You can hold one open curated claim in this repository, or two once you have five merged pull requests
+   across the public `neomjs` repositories. If your claim was declined, comment `/claim` here again once the
+   issue or one of your slots becomes free. The bot checks the current holders before assigning it. A
    maintainer can unassign and release a claim from an account that sprays them. You can open a PR without a claim,
    but we merge the first approve-worthy PR for a ticket, so if someone else holds it or gets there first, your work
    may not land. A claim is what protects your time.
-   To keep the project moving, a claim lasts 7 days, and any comment you leave on the ticket starts the 7 days again.
-   After 7 days without a word from you, the ticket may go to another contributor.
+   To keep the project moving, a claim lasts 3 days, and any comment you leave on the ticket starts the 3 days again.
+   After 3 days without a word from you, the ticket may go to another contributor.
 4. Please make sure that pull requests are always related to an issue inside our <a href="../../issues">Issues Tracker</a>.
    Every pull request resolves **one** issue and must include **`Resolves #<issue-id>` on its own line** in the PR
    description (`Fixes #N` and `Closes #N` are rejected by our `baseline / PR baseline` CI check). Opening a PR in the
@@ -140,6 +151,11 @@ independently: this one as the `neo.mjs` npm package, the Brain as container ima
    a PR via `gh pr create` or an AI coding agent, include the standalone `Resolves #<issue-id>` line (and for AI-authored
    PRs, follow `.agents/skills/pull-request/SKILL.md` / `.agents/skills/pull-request/references/pull-request-workflow.md`
    §9). You can verify a PR body locally with `npx neo-agent-skills-pr-body --body-file <path-to-body.md> --close-target-only`.
+   After pushing a requested fix, leave a short comment on the PR saying what changed and which check you ran.
+   That gives the reviewer a clear handoff, especially if CI needs a maintainer to approve or rerun it.
+   If another merge into `dev` causes a conflict, the maintainer handling your review will coordinate the update.
+   We'll handle mechanical integration where we have permission and ask you when a resolution needs your judgment.
+   You can leave a mergeable branch as it is while it waits for review.
 5. Please create PRs for the `dev` branch, not for `main`.
 6. Please do not copy code from other frameworks / libraries. So far, the entire Neo.mjs code base is written from scratch.
     1. It is simply impossible to verify if contributed code is self-written.

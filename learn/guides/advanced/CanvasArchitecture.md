@@ -1,3 +1,7 @@
+---
+seoTitle: "OffscreenCanvas Web Worker Rendering & Zero-Allocation 60fps Canvas | Neo.mjs"
+seoDescription: "Render 60fps interactive graphics off the main thread by combining SharedWorkers, OffscreenCanvas transfer, and zero-allocation physics loops in Neo.mjs."
+---
 # Zero-Allocation Effects with Shared Workers
 
 This guide explores the "Luminous Flux" visual engine (the Sonic Waves effect in the Portal App header) as a masterclass in advanced Neo.mjs architecture. It demonstrates how to combine **True Multithreading**, **Shared Workers**, and the **OffscreenCanvas API** to achieve high-performance, non-blocking visual effects.
@@ -106,6 +110,44 @@ onMouseMove(data) {
     });
 }
 ```
+
+### Shipping a renderer in a package
+
+A renderer does not have to live in the application that draws it. A chart or a timeline package can ship
+its Canvas worker logic beside its components, and every application that installs the package draws with
+it. The package declares the directories its renderers live in, in its own `package.json`:
+
+```json readonly
+{
+    "name": "@example/charts",
+    "neo": {
+        "canvasModules": ["src/canvas"]
+    }
+}
+```
+
+Its App worker component then names the renderer by its path from `node_modules`:
+
+```javascript readonly
+class SparklineCanvas extends SharedCanvas {
+    static config = {
+        className         : 'Example.view.SparklineCanvas',
+        rendererClassName : 'Example.canvas.Sparkline',
+        rendererImportPath: 'node_modules/@example/charts/src/canvas/Sparkline.mjs'
+    }
+}
+```
+
+The same path loads in raw development, in development and production builds, and in the `dist/esm`
+build. That build copies the declared directories into its emitted `node_modules` and rewrites their Engine
+imports to its one emitted Engine, so the renderer and the worker share one class system; a helper outside
+the declared directories whose imports reach Engine fails the build, as it does for Main-thread addons. A
+build reads the declaration from the workspace's direct dependencies, devDependencies and
+optionalDependencies, and admits exactly the declared directories into the Canvas worker. Every other installed package stays out of it, so
+a package that declares nothing costs the worker nothing. As with Main-thread addons, a declared entry is a
+package-relative directory: absolute paths, upward traversal and directories that resolve outside the
+package are rejected. The key reaches the Canvas worker alone; Main-thread addons have their own,
+`neo.mainAddons`.
 
 ## Zero-Allocation Rendering
 

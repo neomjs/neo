@@ -127,19 +127,19 @@ We are not an abstract collective. We are a team of named maintainers working ac
 | Name | Maintainer | Role | Identity |
 |---|---|---|---|
 | Tobias | [@tobiu](https://github.com/tobiu) | Gardener, Substrate architect, empirical-corrector, merge-gate authority | Human |
-| Ada | [@neo-opus-ada](https://github.com/neo-opus-ada) | AI maintainer (Anthropic Claude Opus 5) | Machine Account |
-| Grace | [@neo-opus-grace](https://github.com/neo-opus-grace) | AI maintainer (Anthropic Claude Opus 5) | Machine Account |
-| Vega | [@neo-opus-vega](https://github.com/neo-opus-vega) | AI maintainer (Anthropic Claude — weekly rotation; Fable 5.1 active, Opus 5 planned) | Machine Account |
-| Mnemosyne | [@neo-fable-mnemosyne](https://github.com/neo-fable-mnemosyne) | AI maintainer (Anthropic Claude Fable 5.1) | Machine Account |
-| Clio | [@neo-fable-clio](https://github.com/neo-fable-clio) | AI maintainer (Anthropic Claude Fable 5.1) | Machine Account |
-| [Julia](https://github.com/neomjs/neo/discussions/19733#discussioncomment-18935375) | [@neo-gemini-julia](https://github.com/neo-gemini-julia) | AI maintainer (Google Gemini 4 Argon / Antigravity) | Machine Account |
-| [Maryam](https://github.com/neomjs/neo/discussions/19835#discussioncomment-19003561) | [@neo-gemini-maryam](https://github.com/neo-gemini-maryam) | AI maintainer (Google Gemini 4 Argon / Antigravity) | Machine Account |
-| Euclid | [@neo-gpt-euclid](https://github.com/neo-gpt-euclid) | AI maintainer (OpenAI GPT-6 Astra / Codex) | Machine Account |
-| Emmy | [@neo-gpt-emmy](https://github.com/neo-gpt-emmy) | AI maintainer (OpenAI GPT-6 Astra / Codex) | Machine Account |
+| [Ada](https://github.com/neomjs/neo/discussions/11240#discussioncomment-17268271) | [@neo-opus-ada](https://github.com/neo-opus-ada) | AI maintainer (Anthropic Claude Opus 5.5) | Machine Account |
+| [Grace](https://github.com/neomjs/neo/discussions/11240#discussioncomment-17268551) | [@neo-opus-grace](https://github.com/neo-opus-grace) | AI maintainer (Anthropic Claude Opus 5.5) | Machine Account |
+| [Vega](https://github.com/neomjs/neo/discussions/11240#discussioncomment-17268227) | [@neo-opus-vega](https://github.com/neo-opus-vega) | AI maintainer (Anthropic Claude Opus 5.5) | Machine Account |
+| [Mnemosyne](https://github.com/neomjs/neo/discussions/11240#discussioncomment-17268586) | [@neo-fable-mnemosyne](https://github.com/neo-fable-mnemosyne) | AI maintainer (Anthropic Claude Fable 5.2) | Machine Account |
+| [Clio](https://github.com/neomjs/neo/discussions/11240#discussioncomment-17270596) | [@neo-fable-clio](https://github.com/neo-fable-clio) | AI maintainer (Anthropic Claude Fable 5.2) | Machine Account |
+| [Julia](https://github.com/neomjs/neo/discussions/19733#discussioncomment-18935375) | [@neo-gemini-julia](https://github.com/neo-gemini-julia) | AI maintainer (Google Gemini 4 Carbon / Antigravity) | Machine Account |
+| [Maryam](https://github.com/neomjs/neo/discussions/19835#discussioncomment-19003561) | [@neo-gemini-maryam](https://github.com/neo-gemini-maryam) | AI maintainer (Google Gemini 4 Carbon / Antigravity) | Machine Account |
+| [Euclid](https://github.com/neomjs/neo/discussions/11240#discussioncomment-17268594) | [@neo-gpt-euclid](https://github.com/neo-gpt-euclid) | AI maintainer (OpenAI GPT-6.1 Sol / Codex) | Machine Account |
+| [Emmy](https://github.com/neomjs/neo/discussions/11240#discussioncomment-17606558) | [@neo-gpt-emmy](https://github.com/neo-gpt-emmy) | AI maintainer (OpenAI GPT-6 Astra / Codex) | Machine Account |
 | [Sophie](https://github.com/neomjs/neo/discussions/19329#discussioncomment-18681133) | [@neo-gpt-sophie](https://github.com/neo-gpt-sophie) | AI maintainer (OpenAI GPT-6 Astra / Codex) | Machine Account |
-| Phoebe | [@neo-kimi-phoebe](https://github.com/neo-kimi-phoebe) | AI maintainer (Moonshot Kimi K3) | Machine Account |
-| Iris | [@neo-kimi-iris](https://github.com/neo-kimi-iris) | AI maintainer (Moonshot Kimi K3) | Machine Account |
-| Eos | [@neo-preview](https://github.com/neo-preview) | AI maintainer (family undisclosed by design) | Machine Account |
+| [Phoebe](https://github.com/neomjs/neo/discussions/11240#discussioncomment-17677863) | [@neo-kimi-phoebe](https://github.com/neo-kimi-phoebe) | AI maintainer (Moonshot Kimi K3) | Machine Account |
+| [Iris](https://github.com/neomjs/neo/discussions/15533#discussioncomment-17690586) | [@neo-kimi-iris](https://github.com/neo-kimi-iris) | AI maintainer (Moonshot Kimi K3) | Machine Account |
+| [Eos](https://github.com/neomjs/neo/discussions/17567#discussioncomment-18119669) | [@neo-preview](https://github.com/neo-preview) | AI maintainer (family undisclosed by design) | Machine Account |
 
 The AI maintainers carry persistent identities across sessions. They author tickets and PRs in their own names. They review each other's work cross-family. They read each other's `thought` processes — A2A messages persist in the Memory Core with full reasoning surfaces, queryable by either agent via semantic search. Most multi-agent systems offer message-passing; Neo.mjs offers transparent introspection. Independent review across model families reduces correlated blind spots; the rule protects review independence without assigning fixed traits to any family or maintainer.
 

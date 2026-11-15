@@ -100,5 +100,53 @@ test.describe('Neo.component.Markdown', () => {
         expect(markdown.wrapMarkdownTables(html)).toBe(
             '<div class="neo-markdown-table-wrapper"><table><tbody><tr><td>One</td></tr></tbody></table></div><p>Between</p><div class="neo-markdown-table-wrapper"><table class="wide"><tbody><tr><td>Two</td></tr></tbody></table></div>'
         )
-    })
+    });
+
+    test('excludes head-only SEO frontmatter keys (seoTitle, seoDescription, robots) without rendering an empty Frontmatter details block (#20917)', () => {
+        const component = Object.create(Markdown.prototype);
+
+        Object.assign(component, {
+            renderFrontmatter    : true,
+            replaceTicketIds     : false,
+            useFrontmatterDetails: true
+        });
+
+        const seoOnlyDoc = [
+            '---',
+            'seoTitle: "JavaScript Data Grid in a Web Worker | Neo.mjs"',
+            'seoDescription: "100k rows off the main thread."',
+            'robots: "noindex, follow"',
+            '---',
+            '# Main Heading',
+            '',
+            'Body paragraph.'
+        ].join('\n');
+
+        expect(component.frontMatterToHtml(component.parseFrontMatter(
+            'seoTitle: "JavaScript Data Grid"\nseoDescription: "Desc"\nrobots: "noindex, follow"'
+        ))).toBe('');
+
+        const seoOnlyRendered = component.modifyMarkdown(seoOnlyDoc);
+        expect(seoOnlyRendered).not.toContain('<details>');
+        expect(seoOnlyRendered).not.toContain('neo-frontmatter-table');
+        expect(seoOnlyRendered).not.toContain('seoTitle');
+        expect(seoOnlyRendered).toContain('<h1 class="neo-h1">Main Heading</h1>');
+
+        const mixedDoc = [
+            '---',
+            'title: Architecture Guide',
+            'status: published',
+            'seoTitle: "Web Worker UI Architecture | Neo.mjs"',
+            'seoDescription: "Off-main-thread UI guide."',
+            '---',
+            '# Worker Architecture'
+        ].join('\n');
+
+        const mixedRendered = component.modifyMarkdown(mixedDoc);
+        expect(mixedRendered).toContain('<details><summary>Frontmatter</summary><table class="neo-frontmatter-table"><tbody>');
+        expect(mixedRendered).toContain('<tr><td>title</td><td>Architecture Guide</td></tr>');
+        expect(mixedRendered).toContain('<tr><td>status</td><td>published</td></tr>');
+        expect(mixedRendered).not.toContain('seoTitle');
+        expect(mixedRendered).not.toContain('seoDescription');
+    });
 });

@@ -27,8 +27,9 @@ class Events extends Store {
          * @member {Object[]} sorters
          */
         sorters: [{
-            property : 'startDate',
-            direction: 'ASC'
+            property             : 'startDate',
+            direction            : 'ASC',
+            reapplyOnRecordChange: true
         }]
     }
 

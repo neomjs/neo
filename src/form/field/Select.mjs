@@ -315,9 +315,11 @@ class Select extends Field {
 
     /**
      * @summary Focuses the native control.
+     * @param {String} [id]
+     * @param {...*} args The remaining {@link Neo.component.Base#focus} arguments
      */
-    focus() {
-        super.focus(this.getInputElId())
+    focus(id, ...args) {
+        super.focus(this.getInputElId(), ...args)
     }
 
     /**

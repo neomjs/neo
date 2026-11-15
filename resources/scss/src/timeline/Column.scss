@@ -1,0 +1,106 @@
+// Neo.timeline.Column: center-region timeline track cells and positioned event/task bars.
+.neo-timeline-cell {
+    box-sizing: border-box;
+    overflow  : hidden;
+    padding   : 0 !important;
+    position  : relative;
+}
+
+.neo-timeline-track {
+    background-image: repeating-linear-gradient(
+        to right,
+        transparent 0,
+        transparent calc(var(--neo-timeline-gridline-step, 120px) - 1px),
+        var(--neo-timeline-gridline-color) calc(var(--neo-timeline-gridline-step, 120px) - 1px),
+        var(--neo-timeline-gridline-color) var(--neo-timeline-gridline-step, 120px)
+    );
+    box-sizing: border-box;
+    height    : 100%;
+    position  : relative;
+}
+
+.neo-timeline-non-working {
+    background    : var(--neo-timeline-non-working-bg);
+    border-left   : 1px solid var(--neo-timeline-non-working-border);
+    border-right  : 1px solid var(--neo-timeline-non-working-border);
+    bottom        : 0;
+    box-sizing    : border-box;
+    pointer-events: none;
+    position      : absolute;
+    top           : 0;
+    z-index       : 0;
+}
+
+.neo-timeline-bar {
+    align-items  : center;
+    background   : var(--neo-timeline-bar-background);
+    border       : 1px solid var(--neo-timeline-bar-border-color);
+    border-radius: var(--neo-timeline-bar-radius, 4px);
+    box-shadow   : var(--neo-timeline-bar-shadow);
+    box-sizing   : border-box;
+    color        : var(--neo-timeline-bar-color);
+    cursor       : grab;
+    display      : flex;
+    font-size    : 12px;
+    font-weight  : 500;
+    overflow     : hidden;
+    padding      : 0 8px;
+    position     : absolute;
+    user-select  : none;
+    z-index      : 1;
+
+    &:hover {
+        border-color: var(--neo-timeline-bar-hover-border-color);
+    }
+
+    &:focus-visible {
+        outline       : 2px solid var(--neo-timeline-focus-color);
+        outline-offset: 1px;
+    }
+
+    &:active {
+        cursor: grabbing;
+    }
+
+    &.neo-timeline-bar-highlighted {
+        background  : var(--neo-timeline-bar-highlighted-background, var(--neo-timeline-bar-background));
+        border-color: var(--neo-timeline-bar-highlighted-border-color, var(--neo-timeline-focus-color));
+        box-shadow  : 0 0 0 1px var(--neo-timeline-bar-highlighted-border-color, var(--neo-timeline-focus-color));
+    }
+
+    .neo-timeline-bar-progress {
+        background    : var(--neo-timeline-bar-progress-background);
+        bottom        : 0;
+        left          : 0;
+        pointer-events: none;
+        position      : absolute;
+        top           : 0;
+    }
+
+    .neo-timeline-bar-label {
+        overflow     : hidden;
+        position     : relative;
+        text-overflow: ellipsis;
+        white-space  : nowrap;
+        z-index      : 1;
+    }
+
+    .neo-timeline-bar-handle {
+        bottom  : 0;
+        height  : 100%;
+        position: absolute;
+        top     : 0;
+        width   : 6px;
+        z-index : 2;
+
+        &.neo-resizable-start {
+            cursor: ew-resize;
+            left  : 0;
+        }
+
+        &.neo-resizable-end {
+            cursor: ew-resize;
+            right : 0;
+        }
+    }
+}

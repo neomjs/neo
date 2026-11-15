@@ -340,12 +340,12 @@ test.describe('Neo.collection.Base — allItems mirrors inside the mutation', ()
             source.add({id: 'b'});
 
             expect(consumer.isDestroyed).toBe(true);
-            expect(observe(consumer)).toEqual({deliveries: 1, lateSplices: 0});
+            expect(observe(consumer)).toEqual({deliveries: 0, lateSplices: 0});
             expect(source.count).toBe(2);
             expect(sibling.count).toBe(2);
 
             source.add({id: 'c'});
-            expect(observe(consumer)).toEqual({deliveries: 1, lateSplices: 0});
+            expect(observe(consumer)).toEqual({deliveries: 0, lateSplices: 0});
             expect(sibling.count).toBe(3)
         });
 

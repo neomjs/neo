@@ -1222,10 +1222,11 @@ class Text extends Field {
     /**
      * Calls focus() on the inputEl node instead
      * @param {String} id
+     * @param {...*} args The remaining {@link Neo.component.Base#focus} arguments
      * @override
      */
-    focus(id) {
-        super.focus(this.getInputElId())
+    focus(id, ...args) {
+        super.focus(this.getInputElId(), ...args)
     }
 
     /**
