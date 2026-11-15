@@ -344,3 +344,117 @@ test.describe('.npmignore is composed at pack time', () => {
         expect(tracked, 'a git-pinned install ships these and a publish does not: re-include them in .gitignore, or untrack them').toBe('')
     })
 });
+
+/**
+ * @summary A frame is named when a packed text file carries its folder AND its name.
+ *
+ * A bare-name match is the avoided trap, not the rule: `dark.png` occurs in several folders, so a
+ * bare-name search passes a frame that shipped from another folder. The baseline is the escape hatch
+ * for the folders whose frame names are data, and every entry has to state why it cannot be a literal.
+ */
+test.describe('check-package-contents — a packed image needs a reference that names its folder', () => {
+    let findUnnamedImages, IMAGE_BASELINE, FRAME_RULE, imageReferenceKey;
+
+    const reader = files => packedPath => files[packedPath];
+
+    test.beforeAll(async () => {
+        ({findUnnamedImages, IMAGE_BASELINE, FRAME_RULE, imageReferenceKey} =
+            await import('../../../../buildScripts/util/check-package-contents.mjs'));
+    });
+
+    test('PASSES: a text file that names the image by folder and file name', () => {
+        expect(findUnnamedImages(
+            ['src/overlay/dark.png', 'src/overlay/Container.mjs'],
+            reader({'src/overlay/Container.mjs': "src: 'overlay/dark.png'"}),
+            {baseline: []}
+        )).toEqual([])
+    });
+
+    test('FIRES: an image that no packed text file names', () => {
+        expect(findUnnamedImages(
+            ['src/overlay/dark.png', 'src/overlay/Container.mjs'],
+            reader({'src/overlay/Container.mjs': 'nothing here'}),
+            {baseline: []}
+        )).toEqual([{path: 'src/overlay/dark.png'}])
+    });
+
+    test('FIRES: preview/dark.png although dark.png occurs in another folder', () => {
+        // The measured false pass this rule exists to end.
+        expect(findUnnamedImages(
+            ['examples/scheduler/basic/preview/dark.png', 'resources/images/other/dark.png', 'README.md'],
+            reader({'README.md': '![frame](other/dark.png)'}),
+            {baseline: []}
+        )).toEqual([{path: 'examples/scheduler/basic/preview/dark.png'}])
+    });
+
+    test('PASSES: a baselined folder prefix, whose frame names are data', () => {
+        expect(findUnnamedImages(
+            ['resources/images/team/Max.jpeg', 'resources/images/team/tobiu.png'],
+            reader({}),
+            {baseline: [{prefix: 'resources/images/team/', why: 'the folder base is a constant and each file name is member data'}]}
+        )).toEqual([])
+    });
+
+    test('PASSES: a baselined single file, and FIRES for its sibling', () => {
+        const baseline = [{path: 'examples/x/RangeHeader.jpg', why: 'referenced as ./RangeHeader.jpg, relative to its own folder'}];
+
+        expect(findUnnamedImages(['examples/x/RangeHeader.jpg'], reader({}), {baseline})).toEqual([]);
+        expect(findUnnamedImages(['examples/x/Other.png'], reader({}), {baseline}))
+            .toEqual([{path: 'examples/x/Other.png'}])
+    });
+
+    test('an unreadable text file leaves its images unnamed instead of throwing', () => {
+        // Safe direction: a file the guard could not open reds the check, it never silently passes.
+        expect(findUnnamedImages(['src/x.png', 'src/a.mjs'], () => undefined, {baseline: []}))
+            .toEqual([{path: 'src/x.png'}])
+    });
+
+    test('a root-level image is keyed by its own name, which is all it has', () => {
+        expect(imageReferenceKey('preview/dark.png')).toBe('preview/dark.png');
+        expect(imageReferenceKey('dark.png')).toBe('dark.png')
+    });
+
+    test('every baseline entry names a path or a prefix, and states why', () => {
+        expect(IMAGE_BASELINE.length).toBeGreaterThan(0);
+
+        for (const entry of IMAGE_BASELINE) {
+            expect(Boolean(entry.path) || Boolean(entry.prefix), 'an entry names what it covers').toBe(true);
+            expect(entry.why.length, 'the reason is the whole product, as with FORBIDDEN_PREFIXES').toBeGreaterThan(40)
+        }
+    });
+
+    test('the failure text carries the pinned-link rule, so nobody has to find it in a review', () => {
+        expect(FRAME_RULE).toContain('https://github.com/neomjs/neo/blob/');
+        expect(FRAME_RULE).toContain('?raw=true');
+        expect(FRAME_RULE).toMatch(/pinned/)
+    });
+});
+
+/**
+ * @summary The `npm pack --json` payload shape is not a contract either.
+ *
+ * npm 12 reports it as an object keyed by package name; npm 11 and earlier report an array. Both carry
+ * the same report, and the check has to read the one the caller's npm emits — otherwise the gate
+ * throws "no JSON array found" on a current npm before either predicate runs.
+ */
+test.describe('check-package-contents — the pack report is read from either npm shape', () => {
+    let parsePackOutput;
+
+    test.beforeAll(async () => {
+        ({parsePackOutput} = await import('../../../../buildScripts/util/check-package-contents.mjs'));
+    });
+
+    test('the array shape of npm 11 and earlier', () => {
+        expect(parsePackOutput('\n[\n  {"entryCount": 2, "files": []}\n]\n')[0].entryCount).toBe(2)
+    });
+
+    test('the object shape npm 12 reports, keyed by package name', () => {
+        expect(parsePackOutput('prepare output\n{\n  "neo.mjs": {"entryCount": 3, "files": []}\n}\n')[0].entryCount).toBe(3)
+    });
+
+    test('the array wins when a lifecycle script prints an object ahead of it', () => {
+        const raw = '{"status":"completed"}\n[\n  {"entryCount": 4, "files": []}\n]\n';
+
+        expect(parsePackOutput(raw)[0].entryCount).toBe(4)
+    });
+});

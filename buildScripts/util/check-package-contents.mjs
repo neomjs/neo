@@ -1,8 +1,9 @@
-import {execFileSync}                                              from 'node:child_process';
-import path                                                        from 'node:path';
-import process                                                     from 'node:process';
-import {fileURLToPath}                                             from 'node:url';
-import isEntryModule                                               from './isEntryModule.mjs';
+import {execFileSync}  from 'node:child_process';
+import fs              from 'node:fs';
+import path            from 'node:path';
+import process         from 'node:process';
+import {fileURLToPath} from 'node:url';
+import isEntryModule   from './isEntryModule.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -92,6 +93,117 @@ export function findForbiddenEntries(packedPaths, rules = FORBIDDEN_PREFIXES) {
 }
 
 /**
+ * @summary The rule a contributor reads when a frame fails this check.
+ *
+ * It lives here, in the failure text, because a rule that lives in a review does not hold: the same
+ * defect came back three times in three days after it was written down once in a review. A check
+ * states it every time it fires.
+ * @type {String}
+ */
+export const FRAME_RULE = `A pull request's frames do not belong in the tree. Commit them, link them pinned to that
+commit (https://github.com/neomjs/neo/blob/<sha>/<path>?raw=true), and remove them in a later commit of the
+same pull request; its ref keeps the commit served.`;
+
+/** @summary What a packed image is, and what may name it. */
+export const IMAGE_EXTENSIONS = Object.freeze(['png', 'jpg', 'jpeg', 'gif', 'webp']),
+             TEXT_EXTENSIONS  = Object.freeze(['mjs', 'js', 'json', 'scss', 'css', 'md', 'html', 'yaml', 'yml', 'txt', 'svg']);
+
+const IMAGE_PATTERN = /[\w.\-/@:%]+?\.(?:png|jpe?g|gif|webp)\b/gi,
+      IMAGE_TEST    = /\.(?:png|jpe?g|gif|webp)$/i,
+      TEXT_TEST     = /\.(?:mjs|js|json|scss|css|md|html|yaml|yml|txt|svg)$/i;
+
+/**
+ * @summary Frames whose name is not a literal in the tree, each with the reason it cannot be one.
+ *
+ * The baseline is a list of what the guard cannot derive, not a list of what may ship. Every entry is
+ * either a `path` (one file) or a `prefix` (a folder whose contents are named by a pattern), and every
+ * entry states why — the failure message is the whole product, so a baseline without reasons would
+ * turn a rule into a shrug. The `test/playwright/visual` folder is the model: Playwright builds
+ * `{testDir}/__screenshots__/{testFileName}/{arg}{ext}` from `snapshotPathTemplate`, so neither the
+ * folder nor the full name of a baseline image ever appears in a file.
+ * @type {Array<{path?: String, prefix?: String, why: String}>}
+ */
+export const IMAGE_BASELINE = Object.freeze(JSON.parse(fs.readFileSync(
+    path.join(__dirname, 'check-package-contents-baseline.json'),
+    'utf8'
+)));
+
+/**
+ * @summary The two path segments a reference has to match, so a bare file name does not count.
+ *
+ * The parent folder is what makes this check useful: `dark.png` occurs in several folders, so a
+ * bare-name match passes a frame that shipped from another folder. A file at the tarball root has no
+ * parent, and its own name is then the whole key.
+ *
+ * @param {String} packedPath Tarball-relative path of a packed image.
+ * @returns {String} `folder/file.ext`, or `file.ext` for a root-level file.
+ */
+export function imageReferenceKey(packedPath) {
+    const segments = packedPath.split('/');
+
+    return segments.length < 2 ? segments[0] : segments.slice(-2).join('/')
+}
+
+/**
+ * @summary Pure predicate: which packed images does no packed text file name?
+ *
+ * Split out from the `npm pack` invocation for the same reasons as `findForbiddenEntries`: the rule
+ * logic is unit-testable without spawning a pack, and a red-proof can plant a path instead of
+ * manufacturing one on disk.
+ *
+ * The reader is the caller's, because the entry block reads from the checkout while a spec feeds
+ * synthetic content. An unreadable text file is skipped, which is the safe direction: the images it
+ * would have named stay unnamed and the check reds, instead of the check throwing over a file it
+ * could not open.
+ *
+ * @param {String[]} packedPaths Tarball-relative paths, as reported by `npm pack --json`.
+ * @param {Function} readTextFile `(packedPath) => String|undefined`, the content of a packed text file.
+ * @param {Object}   [options]
+ * @param {Array}    [options.baseline=IMAGE_BASELINE] The entries whose absence of a reference is known.
+ * @returns {Array<{path: String}>} One entry per unnamed image outside the baseline.
+ */
+export function findUnnamedImages(packedPaths, readTextFile, {baseline = IMAGE_BASELINE} = {}) {
+    const referenced = new Set();
+
+    for (const packedPath of packedPaths) {
+        if (!TEXT_TEST.test(packedPath)) {
+            continue
+        }
+
+        const content = readTextFile(packedPath);
+
+        if (typeof content !== 'string') {
+            continue
+        }
+
+        for (const match of content.matchAll(IMAGE_PATTERN)) {
+            const segments = match[0].split('/').filter(segment => segment && segment !== '.' && segment !== '..');
+
+            if (segments.length > 1) {
+                referenced.add(segments.slice(-2).join('/'))
+            }
+        }
+    }
+
+    const findings = [];
+
+    for (const packedPath of packedPaths) {
+        if (!IMAGE_TEST.test(packedPath) || referenced.has(imageReferenceKey(packedPath))) {
+            continue
+        }
+
+        const baselined = baseline.some(entry => entry.path === packedPath ||
+            (entry.prefix && packedPath.startsWith(entry.prefix)));
+
+        if (!baselined) {
+            findings.push({path: packedPath})
+        }
+    }
+
+    return findings
+}
+
+/**
  * @summary Extracts the JSON payload from `npm pack --json` output.
  *
  * Lifecycle scripts write to stdout ahead of the payload, so the raw output is not parseable as-is.
@@ -111,13 +223,20 @@ export function findForbiddenEntries(packedPaths, rules = FORBIDDEN_PREFIXES) {
  * @throws {Error} When no JSON array is present.
  */
 export function parsePackOutput(raw) {
-    const start = raw.startsWith('[\n') ? 0 : raw.indexOf('\n[\n');
+    const arrayStart  = raw.startsWith('[\n') ? 0 : raw.indexOf('\n[\n'),
+          objectStart = raw.startsWith('{\n') ? 0 : raw.indexOf('\n{\n'),
+          // npm 12 reports the payload as an object keyed by package name, npm 11 and earlier as an
+          // array. Both shapes carry the same report. The array wins when both are present, so a
+          // lifecycle script that prints an object cannot shadow the payload.
+          start       = arrayStart !== -1 && (objectStart === -1 || arrayStart < objectStart) ? arrayStart : objectStart;
 
     if (start === -1) {
         throw new Error('check-package-contents: no JSON array found in `npm pack --json` output')
     }
 
-    return JSON.parse(raw.slice(start))
+    const parsed = JSON.parse(raw.slice(start));
+
+    return Array.isArray(parsed) ? parsed : Object.values(parsed)
 }
 
 if (isEntryModule(import.meta.url)) {
@@ -155,5 +274,30 @@ check, and let the pack decide.`);
         process.exit(1)
     }
 
-    console.log(`check-package-contents: OK — ${report.entryCount} files, ${(report.size / 1048576).toFixed(2)} MiB tarball, ${(report.unpackedSize / 1048576).toFixed(2)} MiB unpacked; no forbidden entries.`)
+    // Reads from the checkout, because the tarball's text files are the ones that can name a frame
+    const unnamed = findUnnamedImages(files, packedPath => {
+        try {
+            return fs.readFileSync(path.join(ROOT, packedPath), 'utf8')
+        } catch (error) {
+            return undefined
+        }
+    });
+
+    if (unnamed.length) {
+        console.error(`\x1b[31mcheck-package-contents: ${unnamed.length} packed image(s) that no packed text file names by folder and file name:\x1b[0m`);
+
+        unnamed.slice(0, 20).forEach(finding => console.error(`      ${finding.path}`));
+
+        if (unnamed.length > 20) {
+            console.error(`      … and ${unnamed.length - 20} more`)
+        }
+
+        console.error(`\n${FRAME_RULE}\n
+A frame a record set names at runtime cannot be named by a literal. Add it to
+buildScripts/util/check-package-contents-baseline.json as a path or a folder prefix, with its reason.`);
+
+        process.exit(1)
+    }
+
+    console.log(`check-package-contents: OK — ${report.entryCount} files, ${(report.size / 1048576).toFixed(2)} MiB tarball, ${(report.unpackedSize / 1048576).toFixed(2)} MiB unpacked; no forbidden entries, every packed image named.`)
 }
