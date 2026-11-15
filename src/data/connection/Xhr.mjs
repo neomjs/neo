@@ -39,43 +39,16 @@ class Xhr extends Base {
     }
 
     /**
-     * @param {Object} [params]
+     * @summary GETs the connection's `url` with the read params composed into its query by `appendParams()`.
+     * Two read params are not query params: `url` replaces the connection's URL for this read, and `headers` are
+     * sent as request headers over `defaultHeaders`.
+     * @param {Object} [params={}]
+     * @param {Object} [params.headers] Request headers for this read
+     * @param {String} [params.url] The URL to read instead of the connection's
      * @returns {Promise<any>}
      */
-    async read(params) {
-        return this.promiseJson({
-            url: this.url,
-            params
-        });
-    }
-
-    /**
-     * @summary Adds query params to a URL that may already carry a query or a fragment.
-     *
-     * The params go before a `#fragment` and join an existing query with `&`. An empty query (`/data?`) or one that
-     * ends in `&` gets no second separator; a `?` inside a query value (`/data?q=why?`) is part of that value, so
-     * the params still join with `&`. Empty params leave the URL as it is. String composition keeps relative URLs
-     * relative, which `new URL()` cannot do without a base.
-     * @param {String} url
-     * @param {Object} params
-     * @returns {String}
-     */
-    appendParams(url, params) {
-        let query      = new URLSearchParams(params).toString(),
-            hashIndex  = url.indexOf('#'),
-            base       = hashIndex > -1 ? url.substring(0, hashIndex) : url,
-            hash       = hashIndex > -1 ? url.substring(hashIndex)    : '',
-            queryIndex = base.indexOf('?'),
-            existing   = queryIndex > -1 ? base.substring(queryIndex + 1) : null,
-            separator;
-
-        if (!query) {
-            return url
-        }
-
-        separator = existing === null ? '?' : existing === '' || existing.endsWith('&') ? '' : '&';
-
-        return base + separator + query + hash
+    async read({headers, url, ...query}={}) {
+        return this.promiseJson({headers, params: query, url: url || this.url})
     }
 
     /**

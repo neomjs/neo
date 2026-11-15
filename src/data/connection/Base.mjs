@@ -41,6 +41,47 @@ class Base extends CoreBase {
     }
 
     /**
+     * @summary Adds query params to a URL that may already carry a query or a fragment.
+     *
+     * The params go before a `#fragment` and join an existing query with `&`. An empty query (`/data?`) or one that
+     * ends in `&` gets no second separator; a `?` inside a query value (`/data?q=why?`) is part of that value, so
+     * the params still join with `&`. Empty params leave the URL as it is. String composition keeps relative URLs
+     * relative, which `new URL()` cannot do without a base.
+     *
+     * Arrays and plain objects are sent as JSON (`sorters=[{"direction":"DESC","property":"score"}]`, URL-encoded),
+     * so a server can parse them back. `null` and `undefined` values are left out. Any other value is sent as its
+     * string, so strings, numbers and booleans arrive as they are.
+     * @param {String} url
+     * @param {Object} params
+     * @returns {String}
+     */
+    appendParams(url, params) {
+        let hashIndex  = url.indexOf('#'),
+            base       = hashIndex > -1 ? url.substring(0, hashIndex) : url,
+            hash       = hashIndex > -1 ? url.substring(hashIndex)    : '',
+            queryIndex = base.indexOf('?'),
+            existing   = queryIndex > -1 ? base.substring(queryIndex + 1) : null,
+            search     = new URLSearchParams(),
+            query, separator;
+
+        for (const [key, value] of Object.entries(params)) {
+            if (value != null) {
+                search.append(key, Array.isArray(value) || Neo.isObject(value) ? JSON.stringify(value) : value)
+            }
+        }
+
+        query = search.toString();
+
+        if (!query) {
+            return url
+        }
+
+        separator = existing === null ? '?' : existing === '' || existing.endsWith('&') ? '' : '&';
+
+        return base + separator + query + hash
+    }
+
+    /**
      * @summary Resolves workspace-relative data URLs against the realm's registered document base.
      * Package-hosted workers sit at a different depth from the page. Only that layout uses the
      * effective document base; Engine/dist workers and pages inside the package keep worker-relative
