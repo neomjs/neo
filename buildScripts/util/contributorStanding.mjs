@@ -96,7 +96,7 @@ export function standing(count) {
  * @returns {Number} Two from the returning rung; otherwise one.
  */
 export function claimLimit(count) {
-    return Number.isSafeInteger(count) && count >= RETURNING_AT ? 3 : 1
+    return Number.isSafeInteger(count) && count >= RETURNING_AT ? 2 : 1
 }
 
 /**

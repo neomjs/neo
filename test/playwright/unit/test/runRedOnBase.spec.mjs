@@ -83,9 +83,12 @@ test('runner skips a test-only change with an explicit reason and no report runs
         // Keep the runner in test/, and add no production paths to the commit.
         git('add', 'test');
         git('commit', '-qm', 'test-only');
-        const result = spawnSync(process.execPath, ['test/playwright/runRedOnBase.mjs'], {cwd: root, encoding: 'utf8'});
+        const summary = path.join(root, 'summary.md'),
+              result  = spawnSync(process.execPath, ['test/playwright/runRedOnBase.mjs'], {
+                  cwd: root, encoding: 'utf8', env: {...process.env, GITHUB_STEP_SUMMARY: summary}
+              });
         expect(result.status, result.stderr).toBe(0);
-        expect(result.stdout).toContain('no paths outside test/ changed');
+        expect(readFileSync(summary, 'utf8')).toContain('no paths outside test/ changed');
         expect(existsSync(path.join(root, 'test/playwright/test-results/red-on-base/head.json'))).toBe(false)
     } finally {
         rmSync(root, {recursive: true, force: true})

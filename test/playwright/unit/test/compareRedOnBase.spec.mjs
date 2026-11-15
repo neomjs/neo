@@ -105,5 +105,16 @@ test.describe('red-on-base report comparison', () => {
         const head = report([{file: 'C:\\repo\\test\\playwright\\unit\\example.spec.mjs'}]),
               base = report([{file: '/repo/test/playwright/unit/example.spec.mjs'}]);
         expect(compareRedOnBase(head, base, report([{}]))[0]).toMatchObject({classification: 'passes-both', isNew: false})
+    });
+
+    test('an unexpected pass of an expected-failure arm is a base failure, not a skipped run', () => {
+        const head     = report([{status: 'failed'}]),
+              base     = report([{}]),
+              headTest = head.suites[0].suites[0].specs[0].tests[0],
+              baseTest = base.suites[0].suites[0].specs[0].tests[0];
+        headTest.expectedStatus = baseTest.expectedStatus = 'failed';
+        headTest.status = 'expected';
+        baseTest.status = 'unexpected';
+        expect(compareRedOnBase(head, base, report([]))[0].classification).toBe('fails-without-change')
     })
 });

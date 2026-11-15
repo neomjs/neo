@@ -33,15 +33,16 @@ export function indexReport(report) {
         const titles = isFile ? [] : [...parents, suite.title];
         for (const spec of suite.specs || []) {
             for (const test of spec.tests || []) {
-                const file      = specPath(spec.file || suite.file),
-                      titlePath = [...titles, spec.title],
-                      key       = JSON.stringify([test.projectName || '', file, titlePath]),
-                      statuses  = (test.results || []).map(result => result.status),
-                      passed    = test.status === 'expected' && statuses.includes(test.expectedStatus || 'passed');
+                const file           = specPath(spec.file || suite.file),
+                      titlePath      = [...titles, spec.title],
+                      key            = JSON.stringify([test.projectName || '', file, titlePath]),
+                      statuses       = (test.results || []).map(result => result.status),
+                      passed         = test.status === 'expected' && statuses.includes(test.expectedStatus || 'passed'),
+                      unexpectedPass = test.status === 'unexpected' && statuses.includes('passed');
 
                 rows.set(key, {
                     key, file, titlePath, project: test.projectName || '', line: spec.line,
-                    status: passed ? 'passed' : statuses.includes('failed') || statuses.includes('timedOut') ? 'failed' : 'not-run'
+                    status: passed ? 'passed' : unexpectedPass || statuses.includes('failed') || statuses.includes('timedOut') ? 'failed' : 'not-run'
                 });
             }
         }
