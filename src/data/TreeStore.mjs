@@ -932,6 +932,56 @@ class TreeStore extends Store {
     }
 
     /**
+     * @summary A raw batch row also writes the Structural Layer's current object for its key.
+     * A re-add replaces the Structural Layer's entry while the visible projection keeps the object it already
+     * held: `updateRows()` writes that visible row in place, and a later sorter or filter reprojection rebuilds
+     * the projection from the Structural Layer, which would restore the older value. The batch writes the
+     * structural object's own fields through the same non-hydrating path `Store#writeRows` writes the visible row,
+     * so both layers read one current value and no row hydrates.
+     * @param {Object[]} rows One per row: `{item, key, values}`, the item being the raw row or the record
+     * @returns {Error[]} The errors subscribers threw while the records published
+     * @protected
+     */
+    writeRows(rows) {
+        const me     = this,
+              errors = super.writeRows(rows);
+
+        for (const {item, key, values} of rows) {
+            if (RecordFactory.isRecord(item)) {
+                continue
+            }
+
+            const structural = me.#allRecordsMap.get(me.#allRecordsMap.has(key) ? key : me.getCanonicalKey(key));
+
+            // the visible row is the structural one unless a re-add split them; a hydrated structural entry is
+            // the record the batch already published through
+            if (structural === undefined || structural === item || RecordFactory.isRecord(structural)) {
+                continue
+            }
+
+            RecordFactory.restoreOwnValues(structural);
+
+            const {model} = me;
+
+            for (const name in values) {
+                if (model.hasNestedFields && name.includes('.')) {
+                    let path   = name.split('.'),
+                        leaf   = path.pop(),
+                        target = structural;
+
+                    // a copy per object on the path: the row may share it with the caller's data
+                    path.forEach(k => target = target[k] = {...target[k]});
+                    target[leaf] = values[name]
+                } else {
+                    structural[name] = values[name]
+                }
+            }
+        }
+
+        return errors
+    }
+
+    /**
      * @summary Creates every node a path addresses that does not exist yet, and returns its leaf.
      *
      * Plugin and module architectures address hierarchy by path — `'A/B/C'` — without knowing which
@@ -1339,7 +1389,7 @@ class TreeStore extends Store {
      * @protected
      */
     updateKeyMaps(item, newKey) {
-        let me = this,
+        let me     = this,
             oldKey = me.getKey(item);
 
         if (oldKey === newKey) {
