@@ -228,7 +228,7 @@ class Workspace extends VesselWorkspace {
      * the arrangement's name ({@link #commitArrangement}), so undo restores both and a save records it.
      *
      * **A window the write empties closes** once the projections have landed its panes, as an undo or
-     * redo closes one ({@link Neo.dashboard.dock.window.NativeVesselTransaction.closeWorkspaceWindow}),
+     * redo closes one ({@link Neo.dashboard.dock.window.NativeVesselTransaction#closeWorkspaceWindow}),
      * so no window is left on screen blank; undo fills its workspace again and the replay re-opens a window.
      * @param {String} [name] A declared perspective; defaults to the active one
      * @returns {Promise<{errors: String[], reset: Boolean, transactionId: String|null}>}

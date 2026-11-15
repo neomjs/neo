@@ -860,9 +860,9 @@ class TourController extends Controller {
      *
      * The entry is {@link Workstation.view.Workspace#resetTopology}, the same write as "Reset to
      * default", named for the shipped arrangement the screenplays are written against, so a viewer
-     * on the planning desk is brought back to it: a pane the viewer tore into a window comes home in
-     * it, so no screenplay starts from a pane listed twice. A refused reset starts no runner and
-     * stops with its errors.
+     * on the planning desk is brought back to it: a pane the viewer tore into a window comes home or
+     * leaves with the arrangement it belongs to, and the window it empties closes, so no screenplay
+     * starts from a pane listed twice. A refused reset starts no runner and stops with its errors.
      * @param {Object} [script=workstationTourScript]
      * @param {Object} [options={}]
      * @param {Boolean} [options.autoGates] Sets the gate mode when given; omitted keeps it.
