@@ -363,7 +363,11 @@ class DomAccess extends Base {
     }
 
     /**
-     * Calls focus() on a node for a given dom node id
+     * @summary Calls `focus()` on a node for a given DOM node id, deferring while a connected target is staged `visibility: hidden`.
+     *
+     * A target that is connected but `visibility: hidden` (a shell a dock move stages before revealing it) is not
+     * focused at once: the call waits up to 500 ms for the reveal ({@link #settleFocusVisibility}), then focuses it
+     * only if no newer `focus()` call ran and focus has not moved elsewhere; past the wait it leaves focus where it is.
      * @param {Object}  data
      * @param {Boolean} data.children
      * @param {String}  data.id
@@ -1541,12 +1545,15 @@ class DomAccess extends Base {
     }
 
     /**
-     * Waits for a visibility-hidden focus target to reveal before applying focus, yielding if superseded or moved.
-     * @summary Defer focus until visibility-hidden element reveals
-     * @param {HTMLElement} node
-     * @param {Number} generation
-     * @param {Number} [timeout=500]
-     * @returns {Promise}
+     * @summary Settles when a connected `visibility: hidden` focus target reveals, and resolves the read of whether it may still take focus.
+     * @description Waits up to the `timeout` reveal budget for a staged shell (such as one a dock move holds
+     * `visibility: hidden` before revealing it) to become visible, settling early if a newer {@link #focus} call runs,
+     * the node disconnects, or focus moves elsewhere; past the 500 ms budget it leaves focus where it is.
+     * @param {HTMLElement} node The connected `visibility: hidden` target
+     * @param {Number} generation `#focusGeneration` snapshot of the requesting {@link #focus} call
+     * @param {Number} [timeout=500] Maximum wait in ms for the target to reveal before leaving focus where it is
+     * @returns {Promise<Function>} Resolves `() => Boolean`, true while the revealed target may still take focus
+     * @protected
      */
     settleFocusVisibility(node, generation, timeout=500) {
         const
