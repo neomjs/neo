@@ -94,6 +94,7 @@ const PRIORITIES = new Map([
     // Identity apex: organism / Agent OS / AI engineering team
     ['benefits/Introduction'                        , 1.0],
     ['benefits/ArchitectureOverview'                , 1.0],
+    ['benefits/EnterpriseEvaluation'                , 0.9],
     ['benefits/brain/AIEngineeringTeam'             , 1.0],
     ['benefits/brain/IdentityRitualsCulture'        , 1.0],
     ['benefits/brain/AgentMemory'                   , 1.0],
