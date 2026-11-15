@@ -20,6 +20,25 @@ setup({
     appConfig: {name: appName, isMounted: () => true, vnodeInitialising: false}
 });
 
+/**
+ * @summary A schedule that names its own review bar, as an app extending the Workstation would.
+ * @class WorkstationPlanningStoresTest.ReviewedSchedulerPane
+ * @extends Workstation.view.SchedulerPane
+ */
+class ReviewedSchedulerPane extends SchedulerPane {
+    static statusBarCls = {...SchedulerPane.statusBarCls, review: 'reviewed-plan-bar'}
+
+    static config = {
+        /**
+         * @member {String} className='WorkstationPlanningStoresTest.ReviewedSchedulerPane'
+         * @protected
+         */
+        className: 'WorkstationPlanningStoresTest.ReviewedSchedulerPane'
+    }
+}
+
+Neo.setupClass(ReviewedSchedulerPane);
+
 const
     DAY      = 86_400_000,
     // A Monday, so a week of the plan starts on the plan day
@@ -196,6 +215,32 @@ test.describe('the planning panes', () => {
 
         expect(changes).toEqual([{id: 'wi-9', fields: ['endDate', 'startDate']}]);
         expect(workItems.get('wi-9').startDate.toISOString(), 'the record holds the new dates').toBe(at(3).toISOString())
+    });
+
+    test('a subclass\'s status classes dress its bars: the renderer reads them from the pane it renders for', () => {
+        const people    = Neo.create(People),
+              workItems = Neo.create(WorkItems, {baseDate: BASE});
+
+        stores = [people, workItems];
+        pane   = Neo.create(ReviewedSchedulerPane, {
+            ...planningAxis(BASE),
+            appName,
+            eventStore   : workItems,
+            store        : people,
+            viewportWidth: 1600
+        });
+
+        pane.body.set({availableHeight: 400, containerWidth: 1600});
+        pane.timelineColumn.refreshMountedRows();
+
+        const bars   = rowBars(pane, people.indexOf(people.get('tom'))),
+              review = bars.find(node => node.data.eventId === 'wi-8');
+
+        expect(review.data.status).toBe('review');
+        expect(review.cls, 'the subclass names the review bar').toContain('reviewed-plan-bar');
+        expect(review.cls, 'in place of the base class\'s').not.toContain('neo-scheduler-bar-violet');
+        expect(bars.find(node => node.data.eventId === 'wi-7').cls, 'a status it keeps still reads the base map')
+            .toContain('neo-scheduler-bar-amber')
     });
 
     test('the schedule and the release plan draw on one calendar: one window, one scale, one locked width, one label', () => {

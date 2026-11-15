@@ -17,7 +17,8 @@ import {lockedWidth}      from './planningCalendar.mjs';
  */
 class SchedulerPane extends SchedulerContainer {
     /**
-     * The bar class each work-item status adds; `ready` keeps the family's default bar.
+     * The bar class each work-item status adds; `ready` keeps the family's default bar. A subclass that
+     * declares its own map dresses its own bars.
      * @member {Object<String, String>} statusBarCls
      * @static
      */
@@ -35,15 +36,18 @@ class SchedulerPane extends SchedulerContainer {
          */
         className: 'Workstation.view.SchedulerPane',
         /**
-         * Adds the status's bar class and names the status on the bar (`data-status`).
+         * Adds the bar class the rendering pane's class maps the status to ({@link #statusBarCls}) and names
+         * the status on the bar (`data-status`). It runs on the timeline column; `gridContainer` is the pane.
          * @member {Function} barRenderer
          */
-        barRenderer({bar}, {vdom}) {
+        barRenderer({bar}, {gridContainer, vdom}) {
             const status = bar?.status;
 
             if (status) {
+                const cls = gridContainer.constructor.statusBarCls[status];
+
                 vdom.data.status = status;
-                SchedulerPane.statusBarCls[status] && vdom.cls.push(SchedulerPane.statusBarCls[status])
+                cls && vdom.cls.push(cls)
             }
 
             return vdom
