@@ -78,6 +78,7 @@ export const RUN_PATHS = [
     'test/playwright/e2e/workstation/VesselClosesMidFirstRenderNL.spec.mjs',
     'test/playwright/e2e/workstation/VesselNativeRouteNL.spec.mjs',
     'test/playwright/e2e/workstation/WindowGeometryRealChromeNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationCellEditingWindowMoveNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationCrossZoneCueNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationDockFlipResizeNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationDockPreviewSymmetryNL.spec.mjs',

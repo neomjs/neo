@@ -87,4 +87,87 @@ test.describe('Neo.main.DomAccess: focus handed back from a departure', () => {
             }, via)).toBe('fd-other')
         })
     }
+
+    test.describe('focus deferred across visibility staging', () => {
+        test('focuses inside a visibility-hidden wrapper once revealed', async ({page}) => {
+            expect(await page.evaluate(async () => {
+                const wrap   = document.createElement('div'),
+                      target = document.createElement('input');
+
+                wrap.id               = 'fv-wrap';
+                wrap.style.visibility = 'hidden';
+                target.id             = 'fv-target';
+                wrap.appendChild(target);
+                document.body.appendChild(wrap);
+
+                try {
+                    const pending = Neo.main.DomAccess.focus({id: 'fv-target'});
+
+                    await new Promise(resolve => setTimeout(resolve, 25));
+                    wrap.style.visibility = '';
+                    await pending;
+
+                    return document.activeElement?.id
+                } finally {
+                    wrap.remove()
+                }
+            })).toBe('fv-target')
+        });
+
+        test('yields when focus moves manually to another element before reveal', async ({page}) => {
+            expect(await page.evaluate(async () => {
+                const wrap   = document.createElement('div'),
+                      target = document.createElement('input'),
+                      other  = document.createElement('input');
+
+                wrap.id               = 'fv-wrap';
+                wrap.style.visibility = 'hidden';
+                target.id             = 'fv-target';
+                other.id              = 'fv-other';
+                wrap.appendChild(target);
+                document.body.append(wrap, other);
+
+                try {
+                    const pending = Neo.main.DomAccess.focus({id: 'fv-target'});
+
+                    other.focus();
+                    wrap.style.visibility = '';
+                    await pending;
+
+                    return document.activeElement?.id
+                } finally {
+                    wrap.remove();
+                    other.remove()
+                }
+            })).toBe('fv-other')
+        });
+
+        test('yields when a newer DomAccess.focus request runs before reveal', async ({page}) => {
+            expect(await page.evaluate(async () => {
+                const wrap   = document.createElement('div'),
+                      target = document.createElement('input'),
+                      other  = document.createElement('input');
+
+                wrap.id               = 'fv-wrap';
+                wrap.style.visibility = 'hidden';
+                target.id             = 'fv-target';
+                other.id              = 'fv-other';
+                wrap.appendChild(target);
+                document.body.append(wrap, other);
+
+                try {
+                    const pending = Neo.main.DomAccess.focus({id: 'fv-target'});
+
+                    Neo.main.DomAccess.focus({id: 'fv-other'});
+                    wrap.style.visibility = '';
+                    await pending;
+
+                    return document.activeElement?.id
+                } finally {
+                    wrap.remove();
+                    other.remove()
+                }
+            })).toBe('fv-other')
+        })
+    })
 });

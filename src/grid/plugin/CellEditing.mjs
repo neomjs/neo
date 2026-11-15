@@ -17,9 +17,11 @@ import TextField from '../../form/field/Text.mjs';
  * - a scroll that rebinds the row, or moves the column out of the mounted window, drops the embodiment — the field
  *   and its draft live on in the App Worker;
  * - the next render of that cell embodies the editor again;
- * - a column lock change holds the editor out of every cell until the bodies have swapped columns.
+ * - a column lock change holds the editor out of every cell until the bodies have swapped columns;
+ * - moving the grid to another browser window unmounts its DOM in the old window and mounts it in the new one while
+ *   the session, its draft and its focus follow.
  *
- * Losing the projection is neutral: scrolling never commits and never cancels.
+ * Losing the projection is neutral: scrolling, lock changes and window moves never commit and never cancel.
  *
  * Keys route through {@link Neo.grid.View}, the grid's single key registry: Enter and F2 edit the selected cell —
  * or, with a row selected and no cell, that row's record ({@link #editSelectedCell}) — Enter in the editor commits,
@@ -61,10 +63,12 @@ class CellEditing extends Plugin {
     /**
      * The active edit: the logical cell (`recordId`, `dataField`) and the `editor` field for it. `null` while nothing
      * is edited. {@link Neo.grid.Row#applyRendererOutput} reads it; only this plugin writes it. `held` counts the lock
-     * changes holding the editor out of every cell ({@link #holdEdit}), `blurOwed` marks the leave the first of them
-     * causes, and `wasEmbodied` says whether a cell has shown the editor yet — a session born suspended has that
-     * still ahead of it. `refocus` says a scroll or a lock change took the editor out while it had focus, and no
-     * selection change has happened since ({@link #onEditorReprojected}).
+     * changes holding the editor out of every cell ({@link #holdEdit}), `blurOwed` marks the leave a lock change owes,
+     * `windowMoveBlur` marks the leave an owner unmount owes, `pendingWindowFocus` remembers focus across an owner
+     * unmount so {@link #onEditorMounted} restores it in the target window, and `wasEmbodied` says whether a cell has
+     * shown the editor yet — a session born suspended has that still ahead of it. `refocus` says a scroll or a lock
+     * change took the editor out while it had focus, and no selection change has happened since
+     * ({@link #onEditorReprojected}).
      * @member {Object|null} session=null
      * @protected
      */
@@ -353,9 +357,9 @@ class CellEditing extends Plugin {
     }
 
     /**
-     * Whether the session's cell is rendered right now: not held, its record inside the row pool, and its column locked
-     * or inside the body's mounted column window. Read from the App Worker's own projection state, so it answers for
-     * the render that dropped or restored the embodiment, whatever order its DOM events arrive in.
+     * Whether the session's cell is rendered right now: its grid mounted, not held, its record inside the row pool,
+     * and its column locked or inside the body's mounted column window. Read from the App Worker's own projection
+     * state, so it answers for the render that dropped or restored the embodiment, whatever order its DOM events arrive in.
      * @param {Object} session
      * @returns {Boolean}
      * @protected
@@ -366,7 +370,7 @@ class CellEditing extends Plugin {
             record = me.getRecord(session),
             body, index;
 
-        if (session.held || !column || !record || !me.getRow(record, column)) {
+        if (!me.owner.mounted || session.held || !column || !record || !me.getRow(record, column)) {
             return false
         }
 
@@ -423,21 +427,51 @@ class CellEditing extends Plugin {
     }
 
     /**
+     * @summary Clears deferred unmount blur and pending focus flags once the editor holds focus again.
+     * @protected
+     */
+    onEditorFocusEnter() {
+        let {session} = this;
+
+        if (session) {
+            session.pendingWindowFocus = false;
+            session.windowMoveBlur     = false
+        }
+    }
+
+    /**
      * Focus leaving the embodied editor — to another cell, or out of the grid — commits a valid draft. Losing the
-     * embodiment to a scroll blurs the editor too, and is neutral, as is the blur a lock change owes. Both take the
-     * editor's focus with it, so its reprojection owes it back ({@link #onEditorReprojected}).
+     * embodiment to a scroll, a lock change or an owner unmount blurs the editor too, and is neutral. Scroll and lock
+     * losses return focus to the View and owe it back on {@link #onEditorReprojected}; an owner unmount restores focus
+     * once the editor mounts in the target window ({@link #onEditorMounted}).
      * @protected
      */
     onEditorFocusLeave() {
         let me        = this,
             {session} = me;
 
-        if (session && !session.blurOwed && me.isEmbodied(session)) {
+        if (session && !session.blurOwed && !session.windowMoveBlur && me.isEmbodied(session)) {
             me.completeEdit()
+        } else if (session?.windowMoveBlur) {
+            session.windowMoveBlur = false
         } else if (session) {
             session.blurOwed = false;
             session.refocus  = true;
             session.editor.on('mounted', me.onEditorReprojected, me, {once: true})
+        }
+    }
+
+    /**
+     * @summary Restores focus after an owner unmount once both the grid and its editor are mounted again.
+     * @protected
+     */
+    onEditorMounted() {
+        let me        = this,
+            {session} = me;
+
+        if (session?.pendingWindowFocus && session.editor.mounted && me.isEmbodied(session)) {
+            session.pendingWindowFocus = false;
+            session.editor.focus()
         }
     }
 
@@ -576,6 +610,63 @@ class CellEditing extends Plugin {
     }
 
     /**
+     * @summary Suspends the editor across an owner unmount and restores pre-move focus once mounted again.
+     * Row unmount hooks only forward `mounted` to cell components, so the session editor's `mounted` state is reset
+     * explicitly here so its mount in the target window fires `mounted` again.
+     * @param {Boolean} mounted
+     */
+    onOwnerMountedChange(mounted) {
+        let me        = this,
+            {session} = me;
+
+        if (!session) {
+            return
+        }
+
+        if (!mounted) {
+            if (session.editor.containsFocus) {
+                session.windowMoveBlur     = true;
+                session.pendingWindowFocus = true
+            }
+
+            session.editor.mounted = false
+        } else {
+            me.onEditorMounted()
+        }
+    }
+
+    /**
+     * @summary Moves the active session editor and View Tab preventDefault registration to the grid's new window.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     */
+    onOwnerWindowIdChange(value, oldValue) {
+        let me        = this,
+            {session} = me,
+            {view}    = me.owner;
+
+        if (!session) {
+            return
+        }
+
+        session.editor.windowId = value;
+
+        if (view && value !== oldValue) {
+            oldValue && Neo.main.DomEvents.unregisterPreventDefaultKeys({
+                id      : view.id,
+                keys    : ['Tab'],
+                windowId: oldValue
+            });
+
+            value && Neo.main.DomEvents.registerPreventDefaultKeys({
+                id      : view.id,
+                keys    : ['Tab'],
+                windowId: value
+            })
+        }
+    }
+
+    /**
      * A selection change is the grid's own focus moving: a click on a cell or a row, or keyboard navigation, all of
      * which leave DOM focus on the View. A suspended editor that owes its focus back gives that up
      * ({@link #onEditorReprojected}).
@@ -585,7 +676,8 @@ class CellEditing extends Plugin {
         let {session} = this;
 
         if (session) {
-            session.refocus = false
+            session.pendingWindowFocus = false;
+            session.refocus            = false
         }
     }
 
@@ -752,7 +844,12 @@ class CellEditing extends Plugin {
             windowId: owner.windowId
         });
 
-        editor.on('focusLeave', me.onEditorFocusLeave, me);
+        editor.on({
+            focusEnter: me.onEditorFocusEnter,
+            focusLeave: me.onEditorFocusLeave,
+            mounted   : me.onEditorMounted,
+            scope     : me
+        });
 
         // A model that selects rows follows the edit by its row, so every end — commit, cancel, Tab past the last
         // cell — leaves the keyboard an anchor, and a selected cell's row stays selected as Tab walks into the next
@@ -782,7 +879,7 @@ class CellEditing extends Plugin {
 
         me.lastDataField = dataField;
 
-        me.setSession({blurOwed: false, dataField, editor, held: 0, recordId});
+        me.setSession({blurOwed: false, dataField, editor, held: 0, pendingWindowFocus: false, recordId, windowMoveBlur: false});
         me.session.wasEmbodied = me.isEmbodied(me.session);
         me.repaint(me.session);
 
