@@ -344,3 +344,159 @@ test.describe('.npmignore is composed at pack time', () => {
         expect(tracked, 'a git-pinned install ships these and a publish does not: re-include them in .gitignore, or untrack them').toBe('')
     })
 });
+
+/**
+ * @summary A frame is named when a packed text file carries its folder AND its name.
+ *
+ * A bare-name match is the avoided trap, not the rule: `dark.png` occurs in several folders, so a
+ * bare-name search passes a frame that shipped from another folder. The baseline is the escape hatch
+ * for the folders whose frame names are data, and every entry has to state why it cannot be a literal.
+ */
+test.describe('check-package-contents — a packed image needs a reference that names its folder', () => {
+    let collectUnnamedImages, diffImageBaseline, IMAGE_BASELINE, FRAME_RULE, imageReferenceKey;
+
+    const reader = files => packedPath => files[packedPath];
+
+    test.beforeAll(async () => {
+        ({collectUnnamedImages, diffImageBaseline, IMAGE_BASELINE, FRAME_RULE, imageReferenceKey} =
+            await import('../../../../buildScripts/util/check-package-contents.mjs'));
+    });
+
+    test('PASSES: a text file that names the image by folder and file name', () => {
+        expect(collectUnnamedImages(
+            ['src/overlay/dark.png', 'src/overlay/Container.mjs'],
+            reader({'src/overlay/Container.mjs': "src: 'overlay/dark.png'"})
+        )).toEqual([])
+    });
+
+    test('FIRES: an image that no packed text file names', () => {
+        expect(collectUnnamedImages(
+            ['src/overlay/dark.png', 'src/overlay/Container.mjs'],
+            reader({'src/overlay/Container.mjs': 'nothing here'})
+        )).toEqual(['src/overlay/dark.png'])
+    });
+
+    test('FIRES: preview/dark.png although dark.png occurs in another folder', () => {
+        // The measured false pass this rule exists to end.
+        expect(collectUnnamedImages(
+            ['examples/scheduler/basic/preview/dark.png', 'resources/images/other/dark.png', 'README.md'],
+            reader({'README.md': '![frame](other/dark.png)'})
+        )).toEqual(['examples/scheduler/basic/preview/dark.png'])
+    });
+
+    test('PASSES: the unnamed images a baselined folder prefix covers', () => {
+        const prefix = {prefix: 'fixtures/roster/', why: 'the folder base is a constant and each file name is member data'};
+
+        expect(diffImageBaseline(
+            ['fixtures/roster/Max-fixture.jpeg', 'fixtures/roster/Tobiu-fixture.png'],
+            [prefix]
+        )).toEqual({added: [], stale: []})
+    });
+
+    test('PASSES: a baselined single file, and FIRES for its sibling', () => {
+        const baseline = [{path: 'examples/x/RangeHeader.jpg', why: 'referenced as ./RangeHeader.jpg, relative to its own folder'}];
+
+        expect(diffImageBaseline(['examples/x/RangeHeader.jpg'], baseline)).toEqual({added: [], stale: []});
+
+        // The sibling is a new offender, and the baselined file it replaced is now a stale row: one run says both.
+        expect(diffImageBaseline(['examples/x/Other.png'], baseline)).toEqual({
+            added: ['examples/x/Other.png'],
+            stale: baseline
+        })
+    });
+
+    test('an unreadable text file leaves its images unnamed instead of throwing', () => {
+        // Safe direction: a file the guard could not open reds the check, it never silently passes.
+        expect(collectUnnamedImages(['src/x.png', 'src/a.mjs'], () => undefined)).toEqual(['src/x.png'])
+    });
+
+    test('the baseline file is not evidence: it names the images it exempts', () => {
+        // The list is packed, and every row spells its image. Counting it would retire every row.
+        const baselineFile = 'buildScripts/util/check-package-contents-baseline.json';
+
+        expect(collectUnnamedImages(
+            ['examples/x/RangeHeader.jpg', baselineFile],
+            reader({[baselineFile]: '{"path": "examples/x/RangeHeader.jpg"}'})
+        )).toEqual(['examples/x/RangeHeader.jpg'])
+    });
+
+    test('other packed files stay evidence, so a real reference still names its image', () => {
+        expect(collectUnnamedImages(
+            ['examples/x/RangeHeader.jpg', 'examples/x/Container.mjs'],
+            reader({'examples/x/Container.mjs': "src: './x/RangeHeader.jpg'"})
+        )).toEqual([])
+    });
+
+    test('a root-level image is keyed by its own name, which is all it has', () => {
+        expect(imageReferenceKey('preview/dark.png')).toBe('preview/dark.png');
+        expect(imageReferenceKey('dark.png')).toBe('dark.png')
+    });
+
+    test('FIRES DOWN: a path entry whose frame is gone, and one that is now named', () => {
+        const gone    = {path: 'examples/x/removed.jpg', why: 'the example that shipped it was deleted'},
+              renamed = {path: 'fixtures/roster/Max-fixture.jpeg', why: 'folder base plus a member name from the data file'};
+
+        // Unpacked or deleted: no unnamed image carries its path.
+        expect(diffImageBaseline([], [gone]).stale).toEqual([gone]);
+
+        // Now named by folder and file name: the image is still packed, so it is no longer unnamed.
+        const unnamed = collectUnnamedImages(
+            ['fixtures/roster/Max-fixture.jpeg', 'fixtures/roster/Container.mjs'],
+            reader({'fixtures/roster/Container.mjs': "picture: 'roster/Max-fixture.jpeg'"})
+        );
+
+        expect(unnamed).toEqual([]);
+        expect(diffImageBaseline(unnamed, [renamed]).stale).toEqual([renamed])
+    });
+
+    test('FIRES DOWN: a prefix entry that covers no unnamed image', () => {
+        const prefix = {prefix: 'fixtures/roster/', why: 'the folder base is a constant and each file name is member data'};
+
+        expect(diffImageBaseline(['examples/x/other.png'], [prefix]).stale).toEqual([prefix])
+    });
+
+    test('every baseline entry names a path or a prefix, and states why', () => {
+        expect(IMAGE_BASELINE.length).toBeGreaterThan(0);
+
+        for (const entry of IMAGE_BASELINE) {
+            expect(Boolean(entry.path) || Boolean(entry.prefix), 'an entry names what it covers').toBe(true);
+            expect(entry.why.length, 'the reason is the whole product, as with FORBIDDEN_PREFIXES').toBeGreaterThan(40)
+        }
+    });
+
+    test('the failure text carries the pinned-link rule, so nobody has to find it in a review', () => {
+        expect(FRAME_RULE).toContain('https://github.com/neomjs/neo/blob/');
+        expect(FRAME_RULE).toContain('?raw=true');
+        expect(FRAME_RULE).toMatch(/pinned/)
+    });
+});
+
+test.describe('check-package-contents — the pack report is read from either npm shape', () => {
+    let parsePackOutput;
+
+    test.beforeAll(async () => {
+        ({parsePackOutput} = await import('../../../../buildScripts/util/check-package-contents.mjs'));
+    });
+
+    test('the array shape of npm 11 and earlier', () => {
+        expect(parsePackOutput('\n[\n  {"entryCount": 2, "files": []}\n]\n')[0].entryCount).toBe(2)
+    });
+
+    test('the object shape npm 12 reports, keyed by package name', () => {
+        expect(parsePackOutput('prepare output\n{\n  "neo.mjs": {"entryCount": 3, "files": []}\n}\n')[0].entryCount).toBe(3)
+    });
+
+    test('a one-line lifecycle object ahead of the payload does not take its place', () => {
+        // The anchor is a line of its own, so this object never opens one: the array is still first.
+        const raw = '{"status":"completed"}\n[\n  {"entryCount": 4, "files": []}\n]\n';
+
+        expect(parsePackOutput(raw)[0].entryCount).toBe(4)
+    });
+
+    test('a pretty-printed lifecycle object ahead of the payload reds the gate instead of guessing', () => {
+        // It opens a line, so it IS the payload by position; JSON.parse then rejects the array after it.
+        const raw = '{\n  "status": "completed"\n}\n[\n  {"entryCount": 4, "files": []}\n]\n';
+
+        expect(() => parsePackOutput(raw)).toThrow(/Unexpected non-whitespace character/)
+    });
+});
