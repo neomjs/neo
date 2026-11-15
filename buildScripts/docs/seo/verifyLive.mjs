@@ -3,6 +3,13 @@
 import {Command}       from 'commander';
 import isEntryModule   from '../../util/isEntryModule.mjs';
 import {sanitizeInput} from '../../util/sanitizer.mjs';
+import {
+    LLMS_TXT_MAX_BYTES,
+    validateLlmsTxtContent,
+    validateRobotsTxt,
+    validateSitemapIndexXml,
+    validateUrlsetXml
+} from './verify.mjs';
 
 /**
  * @module buildScripts.docs.seo.verifyLive
@@ -10,20 +17,9 @@ import {sanitizeInput} from '../../util/sanitizer.mjs';
  * (`robots.txt`, `sitemap*.xml`, `llms*.txt`, `Googlebot` SSR metadata/JSON-LD/`noindex`, and Markdown twins).
  */
 
-const GOOGLEBOT_USER_AGENT     = 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)';
-const GOOGLEBOT_ACCEPT         = 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8';
-const VERIFIER_USER_AGENT      = 'NeoSeoLiveVerifier/1.0';
-const LLMS_TXT_MAX_BYTES       = 100_000;
-const CONTENT_SIGNAL_DIRECTIVE = 'Content-Signal: search=yes, ai-input=yes, ai-train=yes';
-
-/**
- * @summary Extracts trimmed `<loc>...</loc>` URL strings from a sitemap XML payload.
- * @param {String} [xml='']
- * @returns {String[]}
- */
-function extractLocUrls(xml='') {
-    return Array.from(String(xml).matchAll(/<loc>(.*?)<\/loc>/g), match => match[1].trim());
-}
+const GOOGLEBOT_USER_AGENT = 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)';
+const GOOGLEBOT_ACCEPT     = 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8';
+const VERIFIER_USER_AGENT  = 'NeoSeoLiveVerifier/1.0';
 
 /**
  * @summary Extracts the `href` attribute from `<link rel="canonical" ...>` regardless of attribute order.
@@ -292,85 +288,23 @@ export async function verifyLiveSeoSurface(options={}) {
 
     const checkPromises = [
         runCheck('robots.txt', resolveTargetUrl('/robots.txt'), {'User-Agent': VERIFIER_USER_AGENT}, (probe, errors) => {
-            const lines = probe.body
-                .split(/\r?\n/)
-                .map(line => line.replace(/#.*$/, '').trim())
-                .filter(Boolean);
-            const expectedSitemap = `Sitemap: ${expectedOrigin}/sitemap.xml`;
-            const baseSitemap     = `Sitemap: ${new URL('sitemap.xml', normalizedBaseUrl).toString()}`;
-
-            if (!lines.some(line => /^User-agent:\s*\*$/i.test(line))) {
-                errors.push('missing "User-agent: *"');
-            }
-            if (lines.some(line => /^Disallow:\s*\/$/i.test(line))) {
-                errors.push('must not block root with "Disallow: /"');
-            }
-            if (!lines.some(line => /^Allow:\s*\/$/i.test(line))) {
-                errors.push('missing "Allow: /"');
-            }
-            if (!lines.some(line => /^Content-Signal:\s*search=yes,\s*ai-input=yes,\s*ai-train=yes$/i.test(line))) {
-                errors.push(`missing "${CONTENT_SIGNAL_DIRECTIVE}"`);
-            }
-            if (!lines.includes(expectedSitemap) && !lines.includes(baseSitemap)) {
-                errors.push(`missing "${expectedSitemap}"`);
-            }
+            errors.push(...validateRobotsTxt(probe.body, {baseUrl: normalizedBaseUrl, expectedOrigin}));
         }),
 
         runCheck('sitemap.xml', resolveTargetUrl('/sitemap.xml'), {'User-Agent': VERIFIER_USER_AGENT}, (probe, errors) => {
-            const locs                = extractLocUrls(probe.body);
-            const expectedCore        = `${expectedOrigin}/sitemap-core.xml`;
-            const expectedDiscussions = `${expectedOrigin}/sitemap-discussions.xml`;
-
-            if (!probe.body.includes('<sitemapindex')) {
-                errors.push('missing <sitemapindex> root');
-            }
-            if (!locs.includes(expectedCore)) {
-                errors.push(`missing child <loc> "${expectedCore}"`);
-            }
-            if (!locs.includes(expectedDiscussions)) {
-                errors.push(`missing child <loc> "${expectedDiscussions}"`);
-            }
-            if (probe.body.includes('sitemap-archive.xml')) {
-                errors.push('must not reference noindex "sitemap-archive.xml"');
-            }
+            errors.push(...validateSitemapIndexXml(probe.body, {baseUrl: expectedOrigin}));
         }),
 
         runCheck('sitemap-core.xml', resolveTargetUrl('/sitemap-core.xml'), {'User-Agent': VERIFIER_USER_AGENT}, (probe, errors) => {
-            if (!probe.body.includes('<urlset')) {
-                errors.push('missing <urlset> root');
-            }
-            if (extractLocUrls(probe.body).length === 0) {
-                errors.push('must contain at least one <loc> entry');
-            }
+            errors.push(...validateUrlsetXml(probe.body, 'sitemap-core.xml'));
         }),
 
         runCheck('sitemap-discussions.xml', resolveTargetUrl('/sitemap-discussions.xml'), {'User-Agent': VERIFIER_USER_AGENT}, (probe, errors) => {
-            if (!probe.body.includes('<urlset')) {
-                errors.push('missing <urlset> root');
-            }
-            if (extractLocUrls(probe.body).length === 0) {
-                errors.push('must contain at least one <loc> entry');
-            }
+            errors.push(...validateUrlsetXml(probe.body, 'sitemap-discussions.xml'));
         }),
 
         runCheck('llms.txt', resolveTargetUrl('/llms.txt'), {'User-Agent': VERIFIER_USER_AGENT}, (probe, errors) => {
-            const byteLength = Buffer.byteLength(probe.body, 'utf8');
-
-            if (!probe.body.trim()) {
-                errors.push('llms.txt body is empty');
-            }
-            if (byteLength >= LLMS_TXT_MAX_BYTES) {
-                errors.push(`llms.txt exceeds curated ceiling (${byteLength} >= ${LLMS_TXT_MAX_BYTES} bytes)`);
-            }
-            if (!probe.body.includes('/llms-full.txt')) {
-                errors.push('missing reference to /llms-full.txt');
-            }
-            if (!probe.body.includes('/llms-all.txt')) {
-                errors.push('missing reference to /llms-all.txt');
-            }
-            if (/\/news\/(?:tickets|pulls)\//.test(probe.body)) {
-                errors.push('must not contain /news/tickets/ or /news/pulls/ archive links');
-            }
+            errors.push(...validateLlmsTxtContent(probe.body, {maxBytes: LLMS_TXT_MAX_BYTES, requireAtlasLinks: true}));
         }),
 
         runCheck('llms-full.txt', resolveTargetUrl('/llms-full.txt'), {'User-Agent': VERIFIER_USER_AGENT}, (probe, errors) => {

@@ -1,8 +1,16 @@
-import {test, expect}     from '@playwright/test';
-import fs                 from 'fs-extra';
-import os                 from 'os';
-import path               from 'path';
-import verifySeoArtifacts from '../../../../../../buildScripts/docs/seo/verify.mjs';
+import {test, expect} from '@playwright/test';
+import fs             from 'fs-extra';
+import os             from 'os';
+import path           from 'path';
+import verifySeoArtifacts, {
+    CONTENT_SIGNAL_DIRECTIVE,
+    LLMS_TXT_MAX_BYTES,
+    extractLocUrls,
+    validateLlmsTxtContent,
+    validateRobotsTxt,
+    validateSitemapIndexXml,
+    validateUrlsetXml
+} from '../../../../../../buildScripts/docs/seo/verify.mjs';
 
 /**
  * @summary Verifies pre-write cross-artifact validation across `seo.json`, `sitemap*.xml`,
@@ -456,10 +464,12 @@ test.describe('buildScripts/docs/seo/verify.mjs (#20774 / #20915)', () => {
     });
 
     test('validates optional robotsTxt directives while remaining backward-compatible when omitted (#20999)', async () => {
+        expect(CONTENT_SIGNAL_DIRECTIVE).toBe('Content-Signal: search=yes, ai-input=yes');
+
         const validRobotsTxt = [
             'User-agent: *',
             'Allow: /',
-            'Content-Signal: search=yes, ai-input=yes, ai-train=yes',
+            CONTENT_SIGNAL_DIRECTIVE,
             '',
             'Sitemap: https://neomjs.com/sitemap.xml'
         ].join('\n');
@@ -492,12 +502,75 @@ test.describe('buildScripts/docs/seo/verify.mjs (#20774 / #20915)', () => {
 
         await expect(verifySeoArtifacts({
             ...buildValidBundle(),
-            robotsTxt: validRobotsTxt.replace('Content-Signal: search=yes, ai-input=yes, ai-train=yes\n', '')
-        })).rejects.toThrow(/Content-Signal: search=yes, ai-input=yes, ai-train=yes/);
+            robotsTxt: validRobotsTxt.replace(`${CONTENT_SIGNAL_DIRECTIVE}\n`, '')
+        })).rejects.toThrow(/Content-Signal: search=yes, ai-input=yes/);
+
+        await expect(verifySeoArtifacts({
+            ...buildValidBundle(),
+            robotsTxt: validRobotsTxt.replace(
+                CONTENT_SIGNAL_DIRECTIVE,
+                'Content-Signal: search=yes, ai-input=yes, ai-train=yes'
+            )
+        })).rejects.toThrow(/robots\.txt must declare "Content-Signal: search=yes, ai-input=yes"\./);
 
         await expect(verifySeoArtifacts({
             ...buildValidBundle(),
             robotsTxt: validRobotsTxt.replace('https://neomjs.com/sitemap.xml', 'https://example.com/sitemap.xml')
         })).rejects.toThrow(/Sitemap: https:\/\/neomjs\.com\/sitemap\.xml/);
+    });
+
+    test('exports pure SEO text validators returning accumulated error arrays (#20999)', () => {
+        expect(extractLocUrls('<urlset><url><loc> https://neomjs.com/ </loc></url></urlset>'))
+            .toEqual(['https://neomjs.com/']);
+
+        expect(validateRobotsTxt([
+            'User-agent: *',
+            'Allow: /',
+            'Content-Signal: search=yes, ai-input=yes',
+            'Sitemap: http://127.0.0.1:4173/sitemap.xml'
+        ].join('\n'), {
+            baseUrl       : 'http://127.0.0.1:4173',
+            expectedOrigin: 'https://neomjs.com'
+        })).toEqual([]);
+
+        expect(validateRobotsTxt([
+            'Disallow: /',
+            'Content-Signal: search=yes, ai-input=yes, ai-train=yes'
+        ].join('\n'))).toEqual([
+            'robots.txt must declare "User-agent: *".',
+            'robots.txt must not block the root with "Disallow: /".',
+            'robots.txt must declare "Allow: /".',
+            'robots.txt must declare "Content-Signal: search=yes, ai-input=yes".',
+            'robots.txt must declare "Sitemap: https://neomjs.com/sitemap.xml".'
+        ]);
+
+        expect(validateSitemapIndexXml([
+            '<sitemapindex>',
+            '  <sitemap><loc>https://neomjs.com/sitemap-core.xml</loc></sitemap>',
+            '  <sitemap><loc>https://neomjs.com/sitemap-core.xml</loc></sitemap>',
+            '  <sitemap><loc>https://neomjs.com/sitemap-archive.xml</loc></sitemap>',
+            '</sitemapindex>'
+        ].join('\n'))).toEqual([
+            'sitemap.xml contains duplicate <loc> entry "https://neomjs.com/sitemap-core.xml".',
+            'sitemap.xml must not reference noindex archive sitemap "https://neomjs.com/sitemap-archive.xml".',
+            'sitemap.xml is missing discussions child sitemap <loc> "https://neomjs.com/sitemap-discussions.xml".'
+        ]);
+
+        expect(validateUrlsetXml('<urlset></urlset>', 'sitemap-discussions.xml', {requireNonEmpty: true}))
+            .toEqual(['sitemap-discussions.xml must contain at least one <loc> entry.']);
+        expect(validateUrlsetXml('<urlset></urlset>', 'sitemap-discussions.xml', {requireNonEmpty: false}))
+            .toEqual([]);
+
+        expect(LLMS_TXT_MAX_BYTES).toBe(100_000);
+        expect(validateLlmsTxtContent(
+            '# Neo.mjs\n- [Disc](https://neomjs.com/news/discussions/19733)\n## GitHub Discussions\n',
+            {maxBytes: 20, requireAtlasLinks: true}
+        )).toEqual([
+            expect.stringMatching(/^llms\.txt exceeds curated ceiling \(\d+ >= 20 bytes\)\.$/),
+            'llms.txt must not contain ticket, pull-request, or discussion archive URLs.',
+            'llms.txt must not contain archive section "## GitHub Discussions".',
+            'llms.txt must reference "/llms-full.txt".',
+            'llms.txt must reference "/llms-all.txt".'
+        ]);
     });
 });

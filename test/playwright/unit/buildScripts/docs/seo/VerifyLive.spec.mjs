@@ -25,7 +25,9 @@ test.describe('buildScripts/docs/seo/verifyLive.mjs (#20999)', () => {
             includeDiscussionsInIndex : true,
             includeNeoRouteJsonLd     : true,
             includeRobotsContentSignal: true,
-            markdownTwinsEnabled      : true
+            llmsExtraLine             : null,
+            markdownTwinsEnabled      : true,
+            robotsContentSignalLine   : 'Content-Signal: search=yes, ai-input=yes'
         };
     }
 
@@ -42,7 +44,7 @@ test.describe('buildScripts/docs/seo/verifyLive.mjs (#20999)', () => {
                     'User-agent: *',
                     'Allow: /',
                     ...(state.includeRobotsContentSignal
-                        ? ['Content-Signal: search=yes, ai-input=yes, ai-train=yes']
+                        ? [state.robotsContentSignalLine]
                         : []),
                     '',
                     `Sitemap: ${origin}/sitemap.xml`
@@ -101,6 +103,7 @@ test.describe('buildScripts/docs/seo/verifyLive.mjs (#20999)', () => {
                     '# Neo.mjs: An Agent Institution',
                     '',
                     `- [Introduction](${origin}/raw/learn/benefits/Introduction.md)`,
+                    ...(state.llmsExtraLine ? [state.llmsExtraLine] : []),
                     '',
                     '## Optional',
                     `- [Full Atlas](${origin}/llms-full.txt)`,
@@ -255,17 +258,29 @@ test.describe('buildScripts/docs/seo/verifyLive.mjs (#20999)', () => {
         expect(stagingResult.expectedOrigin).toBe('https://neomjs.com');
     });
 
-    test('fails closed on missing Content-Signal, sitemap leaks, missing JSON-LD/noindex, and missing Markdown twins', async () => {
-        // (a) robots.txt missing Content-Signal
+    test('fails closed on missing Content-Signal, sitemap/llms.txt leaks, missing JSON-LD/noindex, and missing Markdown twins', async () => {
+        // (a) robots.txt missing Content-Signal or carrying unapproved ai-train=yes
         state = {...createDefaultState(), includeRobotsContentSignal: false};
         await expect(verifyLiveSeoSurface({baseUrl})).rejects.toThrow(/\[robots\.txt\][\s\S]*Content-Signal/);
 
-        // (b) sitemap.xml leaks sitemap-archive.xml or omits sitemap-discussions.xml
+        state = {
+            ...createDefaultState(),
+            robotsContentSignalLine: 'Content-Signal: search=yes, ai-input=yes, ai-train=yes'
+        };
+        await expect(verifyLiveSeoSurface({baseUrl})).rejects.toThrow(/\[robots\.txt\][\s\S]*Content-Signal: search=yes, ai-input=yes"/);
+
+        // (b) sitemap.xml leaks sitemap-archive.xml or omits sitemap-discussions.xml; llms.txt leaks discussion archive URLs
         state = {...createDefaultState(), includeArchiveInIndex: true};
         await expect(verifyLiveSeoSurface({baseUrl})).rejects.toThrow(/\[sitemap\.xml\][\s\S]*sitemap-archive\.xml/);
 
         state = {...createDefaultState(), includeDiscussionsInIndex: false};
         await expect(verifyLiveSeoSurface({baseUrl})).rejects.toThrow(/\[sitemap\.xml\][\s\S]*sitemap-discussions\.xml/);
+
+        state = {...createDefaultState(), llmsExtraLine: `- [Discussion #19733](${baseUrl}/news/discussions/19733)`};
+        await expect(verifyLiveSeoSurface({baseUrl})).rejects.toThrow(/\[llms\.txt\][\s\S]*discussion archive URLs/);
+
+        state = {...createDefaultState(), llmsExtraLine: `- [Discussion #19733](${baseUrl}/raw/news/discussions/19733.md)`};
+        await expect(verifyLiveSeoSurface({baseUrl})).rejects.toThrow(/\[llms\.txt\][\s\S]*discussion archive URLs/);
 
         // (c) Googlebot deep route lacks neo-route JSON-LD or archive ticket lacks X-Robots-Tag: noindex
         state = {...createDefaultState(), includeNeoRouteJsonLd: false};
