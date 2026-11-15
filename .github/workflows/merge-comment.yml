@@ -1,7 +1,7 @@
 # Comments once on each pull request from outside the team when it merges: the author's standing, up to two open
-# curated issues to take next, an invitation at a new rung, and at a first merge the badge line, unless the account is
-# on the opt-out list of neomjs/pages. The words live in buildScripts/util/contributorStanding.mjs and its spec; this
-# file only fetches and posts.
+# curated issues to take next, and an invitation at a new rung. For eligible accounts it reads the badge folder on
+# neomjs/pages main so the comment can introduce the badge at a first merge and link the written record thereafter.
+# The words live in buildScripts/util/contributorStanding.mjs and its spec; this file only fetches and posts.
 #
 # `pull_request_target` runs this file from the default branch, with a token that can comment on a fork's pull request
 # and without waiting for run approval. The job therefore checks out nothing but the two modules, never the pull
@@ -71,7 +71,7 @@ jobs:
             try {
               if (process.env.CHECKOUT_OUTCOME !== 'success') throw new Error(`the checkout ended ${process.env.CHECKOUT_OUTCOME || 'without an outcome'}`);
 
-              const {BADGES_SINCE, decideMergeComment, parseOptOut} = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/contributorStanding.mjs`);
+              const {BADGES_SINCE, badgeFolder, decideMergeComment, parseOptOut} = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/contributorStanding.mjs`);
               const {CURATED_LABELS, isOutsideHuman, isTeamPermission} = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/claimResponse.mjs`);
 
               const pullRequest = dispatched
@@ -125,6 +125,17 @@ jobs:
 
               if (launched && optOut === null) core.warning('No badge in the merge comment: the opt-out list of neomjs/pages is unreadable.');
 
+              let folderWritten = false;
+              if (optOut && !optOut.includes(Number(pullRequest.user.id))) {
+                try {
+                  const path = 'badges/' + badgeFolder(login, pullRequest.user.id);
+                  await github.rest.repos.getContent({owner, repo: 'pages', path, ref: 'main'});
+                  folderWritten = true;
+                } catch (error) {
+                  if (error.status !== 404) core.warning('Could not verify the badge folder on neomjs/pages.');
+                }
+              }
+
               const [closing, files, comments] = await Promise.all([
                 github.graphql(`query($owner: String!, $repo: String!, $number: Int!) {
                   repository(owner: $owner, name: $repo) {
@@ -141,6 +152,7 @@ jobs:
                 candidates,
                 closedLabels:closing.repository.pullRequest.closingIssuesReferences.nodes.flatMap(issue => issue.labels.nodes.map(label => label.name)),
                 comments,
+                folderWritten,
                 mergedBefore,
                 optOut,
                 paths       : files.data.map(file => file.filename),
