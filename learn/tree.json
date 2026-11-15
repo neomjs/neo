@@ -3,6 +3,7 @@
     {"name": "Benefits: The Self-Evolving Software Organism",          "parentId": null,                                 "isLeaf": false, "id": "Benefits"},
         {"name": "Introduction",                                       "parentId": "Benefits",                                            "id": "benefits/Introduction"},
         {"name": "Architecture Overview",                              "parentId": "Benefits",                                            "id": "benefits/ArchitectureOverview"},
+        {"name": "Enterprise Evaluation",                              "parentId": "Benefits",                                            "id": "benefits/EnterpriseEvaluation"},
         {"name": "The Body - Application Engine", "parentId": "Benefits", "isLeaf": false, "id": "benefits/body"},
             {"name": "Application Engine",              "parentId": "benefits/body", "id": "benefits/body/ApplicationEngine"},
             {"name": "Object Permanence",              "parentId": "benefits/body", "id": "benefits/body/ObjectPermanence"},
