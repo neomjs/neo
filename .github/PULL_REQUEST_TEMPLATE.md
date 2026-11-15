@@ -1,45 +1,41 @@
-Please make sure to read the Contributing Guidelines:
-
-https://github.com/neomjs/neo/blob/dev/CONTRIBUTING.md
-
-<!-- PULL REQUEST TEMPLATE -->
-<!-- (Update "[ ]" to "[x]" to check a box) -->
-
-**Does this PR resolve an issue?** (Required)
+<!-- Contributing guide: https://github.com/neomjs/neo/blob/dev/CONTRIBUTING.md
+     Submit pull requests against `dev` (never `main`).
+     Validate locally before opening: npx neo-agent-skills-pr-body --body-file <path-to-body.md> -->
 
 Resolves #
 
-<!-- Exactly one issue, and this PR must fully deliver it. -->
+<!-- Exactly one standalone `Resolves #<issue-id>` line (`Closes` and `Fixes` fail CI).
+     Only finishing part of an issue? Comment on the issue first so a maintainer can help scope it. -->
 
-<!-- Only finishing part of it? Please don't open a second issue for your part. Say so on the
-     issue and a maintainer will sort the scope out with you, so this line ends up naming one
-     issue you fully deliver. -->
+<!-- Summarize what shipped and why in one concise paragraph (do not copy the ticket body): -->
 
-<!-- If this PR doesn't resolve an issue, please explain why: -->
 
-<!-- PRs without issue references may be closed. Please create an issue first if one doesn't exist. -->
+Evidence: L<X> (<what you ran locally or in CI>) -> L<Y> required (<ticket ACs>).
 
-**What kind of change does this PR introduce?** (check at least one)
+## AC Evidence
+| AC | Proof |
+|---|---|
+| AC-1 | <owning spec path or local command + receipt; or `No structured ACs on #N`> |
 
-- [ ] Bugfix
-- [ ] Feature
-- [ ] Code style update
-- [ ] Refactor
-- [ ] Build-related changes
-- [ ] Other, please describe:
+## Deltas from ticket
+None substantive.
 
-**Does this PR introduce a breaking change?** (check one)
+<!-- Replace `None substantive.` above if scope, edge cases, or approach changed during implementation. -->
 
-- [ ] Yes
-- [ ] No
+## Test Evidence
+All coverage runs in CI.
 
-If yes, please describe the impact and migration path for existing applications:
+<!-- Replace `All coverage runs in CI.` above only with outside-CI receipts (E2E, visual, live runtime, or manual checks). -->
 
-**The PR fulfills this requirement:**
+## Post-Merge Validation
+- None required.
 
-- [ ] It's submitted to the `dev` branch, _not_ the `main` branch
+<!-- Replace `- None required.` above with `- [ ] <check>` items if anything can only be verified after merge. -->
 
-If adding a **new feature**, the PR's description includes:
-- [ ] A convincing reason for adding this feature (to avoid wasting your time, it's best to open a suggestion issue first and wait for approval before working on it)
-
-**Other information:**
+<!-- LLM / AI disclosure: if an LLM assisted or authored this PR, specify the exact model, version,
+     reasoning effort, and agent or harness on the `Authored by` line below (keep comma-separated;
+     do not join version and effort with `/`). Rationale: naming the model, version, and reasoning
+     effort ensures cross-rival-lab review routing (every PR naming a model lab is reviewed by a
+     maintainer running a rival lab's model) and calibrates review depth. If no LLM was used,
+     write `(no LLM)`. -->
+Authored by @<github-handle> (<model + version>, reasoning: <effort>, <agent or harness>).
