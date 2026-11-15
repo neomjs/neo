@@ -279,7 +279,13 @@ export function createEsmBuildPlan({workspaceRoot, engineRoot, sourceRoots, pack
     for (const {node} of rootModules) inspectRootReach(node.sourcePath);
     const reachesEngine = reachImporters(moduleImporters, [engineOwner]);
     for (const {key, node} of rootModules) {
-        for (const {specifier, targetPath} of [...node.imports, ...(dynamicEdges.get(node.sourcePath) || [])]) {
+        for (const {specifier, targetPath} of node.imports) {
+            if (!files.has(targetPath) && reachesEngine.has(targetPath)) {
+                throw new Error(failure(node.sourcePath, specifier,
+                    `outside-root helper reaches the source Engine; declare its directory in neo.${key} or move it inside a declared root`))
+            }
+        }
+        for (const {specifier, targetPath} of dynamicEdges.get(node.sourcePath) || []) {
             if (!files.has(targetPath) && !engineIdentity(targetPath).isEngine && reachesEngine.has(targetPath)) {
                 throw new Error(failure(node.sourcePath, specifier,
                     `outside-root helper reaches the source Engine; declare its directory in neo.${key} or move it inside a declared root`))

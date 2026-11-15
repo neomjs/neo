@@ -364,7 +364,20 @@ test.describe('esmodules.mjs — a greenfield workspace build', () => {
         const red = runBuild(workspace);
         expect(red.status, red.output).toBe(1);
         expect(red.output).toContain('node_modules/widget/main/Addon.mjs → ../outside/EngineHelper.mjs');
-        expect(red.output).toContain('neo.mainAddons')
+        expect(red.output).toContain('neo.mainAddons');
+
+        fs.outputJsonSync(path.join(workspace, 'package.json'), {
+            ...manifest, dependencies: {widget: '1.0.0'}, neo: {esmSourceRoots: ['components', 'lib']}
+        });
+        write('lib/Lib.mjs', "export const from = 'workspace';");
+        write('node_modules/neo.mjs/lib/Lib.mjs', "export const from = 'engine';");
+        write('node_modules/widget/main/Addon.mjs', "export {from} from '../../neo.mjs/lib/Lib.mjs';");
+        fs.removeSync(path.join(workspace, 'dist/esm'));
+
+        const staticEngineRed = runBuild(workspace);
+        expect(staticEngineRed.status, staticEngineRed.output).toBe(1);
+        expect(staticEngineRed.output).toContain('node_modules/widget/main/Addon.mjs → ../../neo.mjs/lib/Lib.mjs');
+        expect(staticEngineRed.output).toContain('neo.mainAddons')
     });
 
     for (const linked of [false, true]) {

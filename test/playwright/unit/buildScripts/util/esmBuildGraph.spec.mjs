@@ -183,6 +183,10 @@ test.describe('static ESM package graph boundaries', () => {
 
         write('node_modules/widget/outside/EngineHelper.mjs', "export {default} from '../node_modules/neo.mjs/src/core/Base.mjs';");
         write('node_modules/widget/main/Addon.mjs', "export const load = () => import('../outside/EngineHelper.mjs');");
-        expect(() => plan(roots)).toThrow(/main\/Addon\.mjs → \.\.\/outside\/EngineHelper\.mjs:.*neo\.mainAddons/)
+        expect(() => plan(roots)).toThrow(/main\/Addon\.mjs → \.\.\/outside\/EngineHelper\.mjs:.*neo\.mainAddons/);
+
+        write('node_modules/neo.mjs/lib/Lib.mjs', 'export const value = 2;');
+        write('node_modules/widget/main/Addon.mjs', "export {value} from '../../neo.mjs/lib/Lib.mjs';");
+        expect(() => plan(roots)).toThrow(/main\/Addon\.mjs → \.\.\/\.\.\/neo\.mjs\/lib\/Lib\.mjs:.*neo\.mainAddons/)
     })
 });
