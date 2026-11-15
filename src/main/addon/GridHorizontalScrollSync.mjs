@@ -62,8 +62,9 @@ class GridHorizontalScrollSync extends Base {
     }
 
     /**
-     * @summary Copies the scrollbar's position onto the centre body, the centre header and, while the grid has header
-     * groups, the centre part of its group row.
+     * @summary Copies the scrollbar's position onto the centre body, the centre header, every registered follower
+     * row outside grid.body (`registration.followerIds`) and, while the grid has header groups, the centre part of
+     * its group row.
      * @param {Object} registration
      * @param {Event}  event
      */
