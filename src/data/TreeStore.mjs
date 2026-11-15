@@ -897,7 +897,7 @@ class TreeStore extends Store {
             me.#allRecordsMap.set(key, record);
 
             // Heal the children map to keep structural references consistent
-            const parentId = record.parentId || 'root';
+            const parentId = item.parentId || 'root';
             const siblings = me.#childrenMap.get(parentId);
 
             if (siblings) {
