@@ -159,8 +159,12 @@ class WorkspaceController extends Controller {
     }
 
     /**
-     * @summary Switches the workspace to a declared arrangement, taking its panes back from their windows.
-     * The arrangement the viewer is in stays as they left it: restoring it is Reset to default's job.
+     * @summary Switches the workspace to a declared arrangement, as it was declared.
+     *
+     * @description Kept: every record and store, and each window's workspace, emptied but registered.
+     * Reset: main's layout, to the declared document, so the arrangement being left does not keep its
+     * edits, and every window's panes, which come home or leave with that arrangement; a window left
+     * empty closes. It is one write, so undo restores the arrangement the viewer left, its windows included.
      * @param {String} name A declared perspective
      * @returns {Promise<Object>|null} The reset receipt, or null when `name` is already active
      */
