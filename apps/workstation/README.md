@@ -97,9 +97,11 @@ statistics beside **Reset to default**, **Undo** and **Redo** below. Undo and Re
 reactive step badges. Opening more popup participants adds no controls or rows.
 
 **Operations** and **Planning** switch between the declared arrangements. A switch is one Group
-commit that names the arrangement, so **Undo** returns the previous one and a save records it; the
-arrangement's panes come back from their windows in the same commit. **Reset to default** restores
-the arrangement the workspace is in. A tour always starts from the shipped arrangement.
+commit that names the arrangement, so **Undo** returns the previous one and a save records it. In
+the same commit every window gives back its panes: those the next arrangement lists come home, the
+rest leave with the arrangement they belong to, so no window docks a pane into the wrong one.
+**Reset to default** restores the arrangement the workspace is in. A window either write empties
+closes, and **Undo** reopens it. A tour always starts from the shipped arrangement.
 
 Group commits automatically store the complete keyed topology in IndexedDB, separately from undo history.
 Each logical root has its own collection. Cold boot uses its saved active layout; `?layout=<id>`

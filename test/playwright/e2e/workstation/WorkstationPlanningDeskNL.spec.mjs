@@ -3,7 +3,8 @@ import {popOut}       from '../utils/workstationPopOut.mjs';
 
 /**
  * @summary Whitebox E2E witness for the Workstation's planning arrangement: one record store across two
- * windows, a cascading release plan, and an arrangement that survives reloads.
+ * windows, a cascading release plan, an arrangement that survives reloads, and windows that close when
+ * a switch or a reset empties them.
  *
  * The arrangement is reached the way a viewer reaches it, through the Planning control in the top bar.
  * The claim under test is the engine's, not the panes': the schedule and the board read ONE store
@@ -44,6 +45,10 @@ const readRecord = async (app, storeId, key) => {
 
 /** A record date as epoch milliseconds, whatever the transport made of the `Date`. */
 const time = value => new Date(value).getTime();
+
+/** The workspace keys whose document lists a pane, main's or a window's. */
+const holdersOf = async (app, id, itemId) => Object.entries(await app.callMethod(id, 'getDockTopologyWorkspaces'))
+    .filter(([, document]) => document?.items?.[itemId]).map(([key]) => key);
 
 /** Boots the Workstation and switches to the planning arrangement through its own control. */
 const openPlanningDesk = async (page, neuralLink) => {
@@ -168,6 +173,69 @@ test.describe('Workstation planning desk (Neural Link)', () => {
             {message: 'the moved task starts a day later', timeout: 15000}).toBe(time(before.flow.startDate) + DAY);
         await expect.poll(async () => time((await readRecord(app, storeId, 'account-design')).startDate),
             {message: 'its linked successor follows', timeout: 15000}).toBe(time(before.successor.startDate) + DAY)
+    });
+
+    test('a switch closes the windows of the arrangement it leaves: none stays blank, none docks into the next', async ({page, neuralLink}) => {
+        const {app, id}   = await openPlanningDesk(page, neuralLink),
+              {popup}     = await popOut({app, page, workspaceId: id, itemId: 'scheduler'}),
+              [vesselKey] = await holdersOf(app, id, 'scheduler');
+
+        let again = null;
+
+        try {
+            await page.getByRole('button', {name: 'Operations'}).click();
+
+            await expect.poll(() => popup.isClosed(), {message: 'the schedule\'s window closes with the planning desk', timeout: 15000}).toBe(true);
+            await expect.poll(async () => (await app.getComponent(id, ['activePerspective'])).activePerspective,
+                {message: 'the operations room is up', timeout: 15000}).toBe('shipped');
+            expect(await holdersOf(app, id, 'scheduler'), 'no room and no window holds the schedule').toEqual([]);
+
+            // Back on the planning desk, the schedule is in main and pops out into a window of its own again
+            await page.getByRole('button', {name: 'Planning'}).click();
+
+            await expect.poll(() => holdersOf(app, id, 'scheduler'), {message: 'the planning desk lists the schedule in main', timeout: 15000})
+                .toEqual(['workstation-main']);
+            await expect(page.locator('.workstation-pane-scheduler .neo-timeline-bar').first()).toBeVisible({timeout: 30000});
+
+            again = (await popOut({app, page, workspaceId: id, itemId: 'scheduler'})).popup;
+
+            await expect(again.locator('.workstation-pane-scheduler .neo-timeline-bar').first(), 'the new window shows the schedule')
+                .toBeVisible({timeout: 30000});
+            expect(await holdersOf(app, id, 'scheduler'), 'in the workspace its first window had').toEqual([vesselKey]);
+            expect(Object.keys(await app.callMethod(id, 'getDockTopologyWorkspaces')), 'so no emptied workspace piles up beside it')
+                .toHaveLength(2)
+        } finally {
+            !popup.isClosed() && await popup.close();
+            again && !again.isClosed() && await again.close()
+        }
+    });
+
+    test('Reset to default closes the window it empties, and undo re-opens one around the same pane', async ({page, neuralLink}) => {
+        const {app, id} = await openPlanningDesk(page, neuralLink),
+              paneId    = await app.callMethod(id, 'getPaneIdentity', ['scheduler']),
+              {popup}   = await popOut({app, page, workspaceId: id, itemId: 'scheduler'});
+
+        let reopened = null;
+
+        try {
+            await page.getByRole('button', {name: 'Reset to default', exact: true}).click();
+
+            await expect.poll(() => popup.isClosed(), {message: 'the window the reset emptied closes', timeout: 15000}).toBe(true);
+            await expect(page.locator(`#${paneId}`), 'the same schedule pane is home in main').toBeVisible({timeout: 15000});
+            expect(await holdersOf(app, id, 'scheduler')).toEqual(['workstation-main']);
+
+            const reborn = page.waitForEvent('popup', {timeout: 30000});
+
+            await page.locator('.workstation-topologybar').getByRole('button', {name: 'Undo'}).click();
+            reopened = await reborn;
+
+            await expect(reopened.locator(`#${paneId}`), 'undo re-opens a window around the same pane').toBeVisible({timeout: 30000});
+            await expect(page.locator(`#${paneId}`)).toHaveCount(0);
+            expect(await holdersOf(app, id, 'scheduler'), 'and the schedule is its window\'s again').not.toContain('workstation-main')
+        } finally {
+            !popup.isClosed() && await popup.close();
+            reopened && !reopened.isClosed() && await reopened.close()
+        }
     });
 
     test('a cold boot restores the planning arrangement with its popped-out schedule', async ({page, context, baseURL, neuralLink}) => {

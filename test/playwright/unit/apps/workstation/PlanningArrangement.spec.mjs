@@ -6,11 +6,12 @@ setup({
     }
 });
 
-import {test, expect}    from '@playwright/test';
-import Neo               from '../../../../../src/Neo.mjs';
-import * as core         from '../../../../../src/core/_export.mjs';
-import Operations        from '../../../../../src/dashboard/dock/model/Operations.mjs';
-import WorkspaceDocument from '../../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
+import {test, expect}          from '@playwright/test';
+import Neo                     from '../../../../../src/Neo.mjs';
+import * as core               from '../../../../../src/core/_export.mjs';
+import NativeVesselTransaction from '../../../../../src/dashboard/dock/window/NativeVesselTransaction.mjs';
+import Operations              from '../../../../../src/dashboard/dock/model/Operations.mjs';
+import WorkspaceDocument       from '../../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 import '../../../../../src/manager/Instance.mjs';
 import TransactionManager from '../../../../../src/manager/Transaction.mjs';
 import GanttPane          from '../../../../../apps/workstation/view/GanttPane.mjs';
@@ -35,6 +36,58 @@ function boundWorkspace(config={}) {
 
 /** @summary The pane ids a document lists, sorted. @param {Object} document @returns {String[]} */
 const itemsOf = document => Object.keys(document.items).sort();
+
+/**
+ * @summary Pops one pane out of main into its vessel, as the committed half of a tear-out does.
+ * @param {Workstation.view.Workspace} workspace
+ * @param {String} itemId
+ * @returns {Promise<String>} The vessel's workspace key
+ */
+async function popOutPane(workspace, itemId) {
+    const vesselId = Workspace.vesselWorkspaceId(itemId);
+
+    workspace.createPopupWorkspace(vesselId, workspace.createVesselWorkspaceDocument(itemId), {committed: false, itemId});
+
+    await workspace.workspaceSet.transfer({
+        itemId,
+        operation        : 'transferItem',
+        sourceWorkspaceId: MAIN,
+        target           : {operation: 'addTab', tabsNodeId: Workspace.vesselTabsNodeId(itemId), index: 0},
+        targetWorkspaceId: vesselId
+    }, {provenance: {origin: 'human'}});
+
+    return vesselId
+}
+
+/**
+ * @summary The workspace keys whose document lists a pane.
+ * @param {Workstation.view.Workspace} workspace
+ * @param {String} itemId
+ * @returns {String[]}
+ */
+const holdersOf = (workspace, itemId) => Object.entries(workspace.getDockTopologyWorkspaces())
+    .filter(([, document]) => Object.hasOwn(document.items, itemId)).map(([key]) => key);
+
+/**
+ * @summary Records the popup windows asked to close while `run` runs, in place of a platform that has none.
+ * @param {Function} run
+ * @returns {Promise<{closes: String[], result: *}>} The workspace keys in the order asked, and what `run` returned
+ */
+async function recordCloses(run) {
+    const closes = [],
+          close  = NativeVesselTransaction.closeWorkspaceWindow;
+
+    NativeVesselTransaction.closeWorkspaceWindow = async (workspaceSet, workspaceKey) => {
+        closes.push(workspaceKey);
+        return false
+    };
+
+    try {
+        return {closes, result: await run()}
+    } finally {
+        NativeVesselTransaction.closeWorkspaceWindow = close
+    }
+}
 
 test('the Workstation declares a planning arrangement beside the shipped one', () => {
     const workspace = Neo.create(Workspace, {windowId: Neo.config.windowId});
@@ -170,6 +223,57 @@ test('choosing an arrangement takes its panes back from their windows', async ()
         expect(itemsOf(workspace.dockModel), 'main shows the whole planning arrangement').toEqual(['gantt', 'scheduler']);
         expect(workspace.workspaceSet.getParticipant(vesselId).getDocument().items.scheduler, 'its window gave the schedule back').toBeUndefined();
         expect(workspace.getState('dock.perspective').active).toBe('planning')
+    } finally {
+        workspace.destroy();
+        TransactionManager.retireGroup(binding.groupId)
+    }
+});
+
+test('a switch takes every pane back from its window: one popped out of the arrangement left behind never docks into the next', async () => {
+    const {binding, workspace} = boundWorkspace();
+
+    try {
+        await workspace.resetTopology('planning');
+
+        const vesselId         = await popOutPane(workspace, 'scheduler'),
+              holdersBefore    = holdersOf(workspace, 'scheduler'),
+              {closes, result} = await recordCloses(() => workspace.resetTopology('shipped'));
+
+        expect(holdersBefore, 'the schedule was in its own window').toEqual([vesselId]);
+        expect(result).toMatchObject({errors: [], reset: true});
+
+        // Its window closes now: the popup's close policy returns whatever it still holds into main
+        await workspace.workspaceSet.returnWorkspace(vesselId, MAIN);
+        await workspace.refreshPromise;
+
+        expect(itemsOf(workspace.dockModel), 'the operations room shows only its own panes').toEqual(itemsOf(initialDocument));
+        expect(holdersOf(workspace, 'scheduler'), 'the schedule left with the planning desk').toEqual([]);
+        expect(workspace.getState('dock.perspective')).toEqual({active: 'shipped', modified: false, pending: null});
+        expect(closes, 'the window the switch emptied is asked to close').toEqual([vesselId]);
+
+        await TransactionManager.undo({groupId: binding.groupId});
+        await workspace.refreshPromise;
+
+        expect(holdersOf(workspace, 'scheduler'), 'undo gives the window its schedule back').toEqual([vesselId]);
+        expect(workspace.getState('dock.perspective').active).toBe('planning')
+    } finally {
+        workspace.destroy();
+        TransactionManager.retireGroup(binding.groupId)
+    }
+});
+
+test('Reset to default asks a window it empties to close once its write has landed', async () => {
+    const {binding, workspace} = boundWorkspace();
+
+    try {
+        await workspace.resetTopology('planning');
+
+        const vesselId         = await popOutPane(workspace, 'scheduler'),
+              {closes, result} = await recordCloses(() => workspace.resetTopology());
+
+        expect(result).toMatchObject({errors: [], reset: true});
+        expect(holdersOf(workspace, 'scheduler'), 'the schedule is home').toEqual([MAIN]);
+        expect(closes, 'its emptied window is asked to close').toEqual([vesselId])
     } finally {
         workspace.destroy();
         TransactionManager.retireGroup(binding.groupId)

@@ -19,6 +19,7 @@ import TopologyLibrary                     from '../../../src/dashboard/dock/per
 import DockPreview                         from '../../../src/dashboard/dock/interaction/Preview.mjs';
 import DockProjectionReconciler            from '../../../src/dashboard/dock/projection/Reconciler.mjs';
 import DockService                         from '../../../src/ai/client/DockService.mjs';
+import NativeVesselTransaction             from '../../../src/dashboard/dock/window/NativeVesselTransaction.mjs';
 import WorkspaceDocument                   from '../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 import WorkspaceController                 from './WorkspaceController.mjs';
 import Persistence                         from '../../../src/dashboard/dock/model/Persistence.mjs';
@@ -195,7 +196,8 @@ class Workspace extends VesselWorkspace {
      * @summary Returns the workspace to a declared arrangement, by default the one it is in, in one undoable commit.
      *
      * @description The arrangement's captured document is committed for `main`, and every other
-     * workspace gives back the panes it lists — in the SAME write. Both halves matter:
+     * workspace gives back the panes it lists, or on a switch all of them — in the SAME write. Both
+     * halves matter:
      *
      * - **Give the panes back, do not just restore main.** A pane torn into a window is still listed
      *   by the declared document, so restoring that document beside an untouched popup would leave it
@@ -220,8 +222,14 @@ class Workspace extends VesselWorkspace {
      * Not `startBlankRoot()`: that admits `{topologyIdentity: {}}` for the load-failure path, and
      * blank is not default.
      *
-     * Naming another arrangement switches to it: the same write then carries the arrangement's name
-     * ({@link #commitArrangement}), so undo restores both and a save records it.
+     * Naming another arrangement switches to it, and every window then gives back every pane: one the
+     * next arrangement does not list belongs to the arrangement being left, which lists it in main again
+     * when the viewer returns, so its window can never dock it into the wrong one. The same write carries
+     * the arrangement's name ({@link #commitArrangement}), so undo restores both and a save records it.
+     *
+     * **A window the write empties closes** once the projections have landed its panes, as an undo or
+     * redo closes one ({@link Neo.dashboard.dock.window.NativeVesselTransaction.closeWorkspaceWindow}),
+     * so no window is left on screen blank; undo fills its workspace again and the replay re-opens a window.
      * @param {String} [name] A declared perspective; defaults to the active one
      * @returns {Promise<{errors: String[], reset: Boolean, transactionId: String|null}>}
      */
@@ -241,15 +249,17 @@ class Workspace extends VesselWorkspace {
 
         if (!declared) return {errors: [`"${name}" is not a declared arrangement`], reset: false, transactionId: null};
 
-        const listed   = new Set(Object.keys(declared.items ?? {})),
-              next     = {[Workspace.MAIN_WORKSPACE_ID]: declared},
-              refusals = [];
+        const listed    = new Set(Object.keys(declared.items ?? {})),
+              switching = name !== active,
+              next      = {[Workspace.MAIN_WORKSPACE_ID]: declared},
+              emptied   = [],
+              refusals  = [];
 
         for (const [workspaceKey, document] of Object.entries(workspaces)) {
             if (workspaceKey === Workspace.MAIN_WORKSPACE_ID) continue;
 
             const owned   = Object.keys(document?.items ?? {}),
-                  reclaim = owned.filter(itemId => listed.has(itemId));
+                  reclaim = switching ? owned : owned.filter(itemId => listed.has(itemId));
 
             if (!reclaim.length) {
                 next[workspaceKey] = document;
@@ -258,6 +268,7 @@ class Workspace extends VesselWorkspace {
 
             if (reclaim.length === owned.length) {
                 next[workspaceKey] = Workspace.createEmptyWorkspaceDocument();
+                emptied.push(workspaceKey);
                 continue
             }
 
@@ -280,18 +291,29 @@ class Workspace extends VesselWorkspace {
         // around: committing the rest would restore main while leaving the duplicate in place.
         if (refusals.length) return {errors: refusals, reset: false, transactionId: null};
 
-        const {errors, transactionId} = name === active
-            ? await me.commitDockTopologyWorkspaces(next, {name: 'default', provenance: {origin: 'human'}})
-            : await me.commitArrangement(next, name);
+        const {errors, transactionId} = switching
+            ? await me.commitArrangement(next, name)
+            : await me.commitDockTopologyWorkspaces(next, {name: 'default', provenance: {origin: 'human'}});
+
+        if (errors.length) return {errors, reset: false, transactionId: transactionId ?? null};
 
         // Bound participants settle their own projections. Headless owners retain the committed
         // document, but their rendering waits for a future mount and cannot gate this reset.
-        errors.length || await Promise.all([
+        await Promise.all([
             me.refreshPromise,
             ...me.getPopupStates().filter(state => state.host?.windowId != null).map(state => state.host.refreshPromise)
         ].map(promise => Promise.resolve(promise).catch(() => {})));
 
-        return {errors, reset: !errors.length, transactionId: transactionId ?? null}
+        // Only then does a window this write emptied close, its panes landed, through its Group binding as an
+        // undo's does. Its vessel's ownership retires with it, as after a transfer home, so the item's next
+        // tear-out takes this workspace again rather than minting another beside it.
+        await Promise.all(emptied.map(async workspaceKey => {
+            if (await NativeVesselTransaction.closeWorkspaceWindow(me.workspaceSet, workspaceKey)) {
+                me.nativeWindows?.recordOwner(me.id, workspaceKey, null)
+            }
+        }));
+
+        return {errors, reset: true, transactionId: transactionId ?? null}
     }
 
     /**
