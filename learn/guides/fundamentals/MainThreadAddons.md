@@ -352,9 +352,9 @@ re-exports or literal dynamic `import()` paths from the addon or through that ho
 the ESM build rejects the addon's import and names the importer, specifier and remedy: declare
 `src/shared` as another addon root or move the helper inside an existing declared root so its Engine
 imports are rewritten too. A helper with no Engine dependency keeps its host path. Computed dynamic
-`import()` expressions cannot be resolved at build time and are not inspected: a computed path in a host
-helper can still load a second Engine graph dynamically. Keep those Engine-dependent helpers inside
-declared roots too.
+`import()` expressions cannot be resolved at build time and are not inspected: a computed path in the
+addon or a host helper can still load a second Engine graph dynamically. Keep those Engine-dependent
+helpers inside declared roots too.
 
 ## Asynchronous Initialization: `initAsync` and the `isReady` config
 

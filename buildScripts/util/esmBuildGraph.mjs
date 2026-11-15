@@ -121,14 +121,20 @@ export function createEsmBuildPlan({workspaceRoot, engineRoot, sourceRoots, pack
             fs.realpathSync(targetPath) !== path.join(engineReal, path.relative(targetPackage, targetPath))
     };
 
-    /** @summary Visits one logical module; physical ancestry bounds cycles made of ever-deeper linked aliases. */
-    const visit = (sourcePath, ancestors = new Set()) => {
-        if (nodes.has(sourcePath)) return nodes.get(sourcePath);
+    /** @summary Resolves physical Engine identity without mutating the static admission graph. */
+    const engineIdentity = sourcePath => {
         const real        = fs.realpathSync(sourcePath), owner = packageOwner(workspaceRoot, sourcePath),
               ownerReal   = owner && fs.realpathSync(owner),
               engineAlias = within(path.join(engineReal, 'src'), real) || ownerReal === engineReal && within(engineReal, real),
-              isEngine    = within(engineSource, sourcePath) || owner === engineRoot || engineAlias,
-              node        = {sourcePath, owner: isEngine ? engineOwner : owner || (initialFiles.has(sourcePath) ? workspaceOwner : sourcePath),
+              isEngine    = within(engineSource, sourcePath) || owner === engineRoot || engineAlias;
+        return {real, owner, ownerReal, engineAlias, isEngine}
+    };
+
+    /** @summary Visits one logical module; physical ancestry bounds cycles made of ever-deeper linked aliases. */
+    const visit = (sourcePath, ancestors = new Set()) => {
+        if (nodes.has(sourcePath)) return nodes.get(sourcePath);
+        const {real, owner, ownerReal, engineAlias, isEngine} = engineIdentity(sourcePath),
+              node                                            = {sourcePath, owner: isEngine ? engineOwner : owner || (initialFiles.has(sourcePath) ? workspaceOwner : sourcePath),
                   packageRoot: owner, errors: [], imports: []};
         nodes.set(sourcePath, node);
         if (isEngine) {
@@ -226,43 +232,55 @@ export function createEsmBuildPlan({workspaceRoot, engineRoot, sourceRoots, pack
           dynamicVisited = new Set(),
           dynamicEdges   = new Map();
 
-    /** @summary Extends root-reach inspection through literal dynamic imports without admitting files. */
-    const inspectRootReach = sourcePath => {
+    /** @summary Extends root-reach inspection through literal dynamic imports without admitting or referencing files. */
+    const inspectRootReach = (sourcePath, ancestors = new Set()) => {
         if (dynamicVisited.has(sourcePath)) return;
         dynamicVisited.add(sourcePath);
-        const node = visit(sourcePath);
-        if (node.owner === engineOwner || !['.mjs', '.js'].includes(path.extname(sourcePath))) return;
-        const edges = [];
-        dynamicEdges.set(sourcePath, edges);
-        for (const {targetPath} of node.imports) inspectRootReach(targetPath);
-        for (const specifier of literalDynamicSpecifiers(fs.readFileSync(sourcePath, 'utf8'))) {
-            const absolute = specifier.startsWith('/') && !specifier.startsWith('//');
-            if (!absolute && !specifier.startsWith('./') && !specifier.startsWith('../')) {
-                if (specifier === 'neo.mjs' || specifier.startsWith('neo.mjs/')) {
-                    connect(moduleImporters, sourcePath, engineOwner)
-                }
-                continue
-            }
-            const targetPath = absolute
-                ? path.join(workspaceRoot, specifier.substring(1))
-                : path.resolve(path.dirname(sourcePath), specifier);
-            if (isExcludedDistResource(targetPath) || !fs.existsSync(targetPath) || !fs.statSync(targetPath).isFile()) continue;
-            edges.push({specifier, targetPath});
-            if (isDifferentEngine(targetPath)) {
-                connect(moduleImporters, targetPath, engineOwner);
-                connect(moduleImporters, sourcePath, targetPath);
-                continue
-            }
-            connect(moduleImporters, sourcePath, targetPath);
-            inspectRootReach(targetPath)
+        const node             = nodes.get(sourcePath),
+              {real, isEngine} = engineIdentity(sourcePath);
+        if (isEngine) {
+            connect(moduleImporters, sourcePath, engineOwner);
+            return
         }
+        if (ancestors.has(real) || !['.mjs', '.js'].includes(path.extname(sourcePath))) return;
+        const code          = fs.readFileSync(sourcePath, 'utf8'),
+              edges         = [],
+              nextAncestors = new Set([...ancestors, real]),
+              follow        = (specifier, recordEdge) => {
+                  const absolute = specifier.startsWith('/') && !specifier.startsWith('//');
+                  if (!absolute && !specifier.startsWith('./') && !specifier.startsWith('../')) {
+                      if (specifier === 'neo.mjs' || specifier.startsWith('neo.mjs/')) {
+                          connect(moduleImporters, sourcePath, engineOwner)
+                      }
+                      return
+                  }
+                  const targetPath = absolute
+                      ? path.join(workspaceRoot, specifier.substring(1))
+                      : path.resolve(path.dirname(sourcePath), specifier);
+                  if (isExcludedDistResource(targetPath) || !fs.existsSync(targetPath) || !fs.statSync(targetPath).isFile()) return;
+                  if (recordEdge) edges.push({specifier, targetPath});
+                  if (isDifferentEngine(targetPath)) {
+                      connect(moduleImporters, targetPath, engineOwner);
+                      connect(moduleImporters, sourcePath, targetPath);
+                      return
+                  }
+                  connect(moduleImporters, sourcePath, targetPath);
+                  inspectRootReach(targetPath, nextAncestors)
+              };
+        dynamicEdges.set(sourcePath, edges);
+        if (node) {
+            for (const {targetPath} of node.imports) inspectRootReach(targetPath, nextAncestors)
+        } else {
+            for (const specifier of parsed.get(real) || staticModuleSpecifiers(code)) follow(specifier, false)
+        }
+        for (const specifier of literalDynamicSpecifiers(code)) follow(specifier, Boolean(node))
     };
 
     for (const {node} of rootModules) inspectRootReach(node.sourcePath);
     const reachesEngine = reachImporters(moduleImporters, [engineOwner]);
     for (const {key, node} of rootModules) {
         for (const {specifier, targetPath} of [...node.imports, ...(dynamicEdges.get(node.sourcePath) || [])]) {
-            if (!files.has(targetPath) && reachesEngine.has(targetPath)) {
+            if (!files.has(targetPath) && !engineIdentity(targetPath).isEngine && reachesEngine.has(targetPath)) {
                 throw new Error(failure(node.sourcePath, specifier,
                     `outside-root helper reaches the source Engine; declare its directory in neo.${key} or move it inside a declared root`))
             }

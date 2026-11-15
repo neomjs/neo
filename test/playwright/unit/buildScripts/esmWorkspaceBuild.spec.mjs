@@ -348,6 +348,16 @@ test.describe('esmodules.mjs — a greenfield workspace build', () => {
         });
         expect((await emitted.loadComputed('Ordinary')).default.value).toBe(17);
 
+        const symlinkedEngine = path.join(workspace, 'node_modules/widget/node_modules/neo.mjs');
+        fs.ensureDirSync(path.dirname(symlinkedEngine));
+        fs.symlinkSync(path.join(workspace, 'node_modules/neo.mjs'), symlinkedEngine, 'junction');
+        write('node_modules/widget/main/Addon.mjs', "export const loadAlias = () => import('../node_modules/neo.mjs/src/core/Base.mjs');");
+        fs.removeSync(path.join(workspace, 'dist/esm'));
+
+        const aliasRed = runBuild(workspace);
+        expect(aliasRed.status, aliasRed.output).toBe(1);
+        expect(aliasRed.output).toContain('still address the workspace engine at node_modules/neo.mjs');
+
         write('node_modules/widget/main/Addon.mjs', "export const load = () => import('../outside/EngineHelper.mjs');");
         fs.removeSync(path.join(workspace, 'dist/esm'));
 

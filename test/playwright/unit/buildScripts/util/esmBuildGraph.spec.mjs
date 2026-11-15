@@ -175,6 +175,13 @@ test.describe('static ESM package graph boundaries', () => {
         expect(files.has(path.join(workspace, 'node_modules/widget/outside/Ordinary.mjs'))).toBe(false);
         expect(files.has(path.join(workspace, 'node_modules/widget/outside/EngineHelper.mjs'))).toBe(false);
 
+        const symlinkedEngine = path.join(workspace, 'node_modules/widget/node_modules/neo.mjs');
+        fs.ensureDirSync(path.dirname(symlinkedEngine));
+        fs.symlinkSync(engine, symlinkedEngine, 'junction');
+        write('node_modules/widget/main/Addon.mjs', "export const load = () => import('../node_modules/neo.mjs/src/core/Base.mjs');");
+        expect(plan(roots).files.has(path.join(symlinkedEngine, 'src/core/Base.mjs'))).toBe(false);
+
+        write('node_modules/widget/outside/EngineHelper.mjs', "export {default} from '../node_modules/neo.mjs/src/core/Base.mjs';");
         write('node_modules/widget/main/Addon.mjs', "export const load = () => import('../outside/EngineHelper.mjs');");
         expect(() => plan(roots)).toThrow(/main\/Addon\.mjs → \.\.\/outside\/EngineHelper\.mjs:.*neo\.mainAddons/)
     })
