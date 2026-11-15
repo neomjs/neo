@@ -227,9 +227,10 @@ test.describe('Workstation planning desk (Neural Link)', () => {
     });
 
     test('Reset to default closes the window it empties, and undo re-opens one around the same pane', async ({page, neuralLink}) => {
-        const {app, id} = await openPlanningDesk(page, neuralLink),
-              paneId    = await app.callMethod(id, 'getPaneIdentity', ['scheduler']),
-              {popup}   = await popOut({app, page, workspaceId: id, itemId: 'scheduler'});
+        const {app, id}   = await openPlanningDesk(page, neuralLink),
+              paneId      = await app.callMethod(id, 'getPaneIdentity', ['scheduler']),
+              {popup}     = await popOut({app, page, workspaceId: id, itemId: 'scheduler'}),
+              [vesselKey] = await holdersOf(app, id, 'scheduler');
 
         let reopened = null;
 
@@ -247,7 +248,7 @@ test.describe('Workstation planning desk (Neural Link)', () => {
 
             await expect(reopened.locator(`#${paneId}`), 'undo re-opens a window around the same pane').toBeVisible({timeout: 30000});
             await expect(page.locator(`#${paneId}`)).toHaveCount(0);
-            expect(await holdersOf(app, id, 'scheduler'), 'and the schedule is its window\'s again').not.toContain('workstation-main')
+            expect(await holdersOf(app, id, 'scheduler'), 'and the schedule is its window\'s again').toEqual([vesselKey])
         } finally {
             !popup.isClosed() && await popup.close();
             reopened && !reopened.isClosed() && await reopened.close()
