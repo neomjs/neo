@@ -60,7 +60,7 @@ This is the studio's schedule, shortened from the engine's [scheduler example](h
 
 The scheduler has one writer, `moveEvent`. A pointer drag, a resize handle, the arrow keys on a focused booking and a call from outside all go through it: it validates and clamps the dates, sets the record once, re-sorts the events and fires `eventChange`. `Escape` during a drag cancels it, and the record never changed. Saving is one listener: the example writes each changed booking to the browser's local storage, and a reload finds it again.
 
-Here is the Try-It's quartet session from below, edited four times:
+Here is the Try-It's quartet session from below, before and after its three edits:
 
 <img width="100%" alt="The same booking, Quartet recording, in four frames of the schedule: as loaded at 09:00 to 12:00 UTC, after a 60 pixel drag at 10:00 to 13:00, after the right arrow key at 10:30 to 13:30, and after a moveEvent call at 12:00 to 15:00. The drag and the key commit through moveEvent, the call an agent makes over the Neural Link, and each fired one eventChange." src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/blog/board-schedule-and-gantt-chart-from-one-engine/one-booking-four-edits.png">
 
