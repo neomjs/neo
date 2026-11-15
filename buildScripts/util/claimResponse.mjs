@@ -13,6 +13,10 @@
  * - **taken:** a live assignee, an open pull request that resolves the issue, or an earlier unwithdrawn, un-unassigned
  *   claimant holds it. The reply names the holder and points at claimable issues with the same label.
  *
+ * Pull-request lifecycle events (`decidePullRequestTarget`, `decideTargetRemoval`, `decidePullRequestRelease`) request
+ * assignment under standing and three-day ownership rules (attaching authors GitHub permits — issue commenters or
+ * the issue author) for outside pull requests targeting curated issues, emitting neutral
+ * overlap or residual-scope notices on held or completed targets and deduplicated release notices on unmerged closes.
  * `decideReply` preserves the `String|null` return contract for cross-repository workflows that sparse-checkout this
  * module before adopting `decideClaim`. Everything here is a pure function of data the workflow fetched, so the rules
  * are unit-tested without GitHub.
@@ -52,19 +56,31 @@ const OUTSIDE_PERMISSIONS = Object.freeze(['triage', 'read', 'none']);
  */
 export const CLAIM_WINDOW_DAYS = 3;
 
+/**
+ * ISO timestamp from which unmerged pull-request closes emit release notices on open curated issues, or `null` while
+ * release notices remain disabled pending operational repository activation. Keeping the default `null` (and passing
+ * an explicit timestamp only when enabled, e.g. via workflow variable `NEO_CLAIM_RELEASE_SINCE`) ensures merging the
+ * module creates no premature notifications and historical pre-activation closes are never backfilled.
+ * @member {String|null} CLAIM_RELEASE_SINCE
+ */
+export const CLAIM_RELEASE_SINCE = null;
+
 const
-    DAY_MS              = 24 * 60 * 60 * 1000,
-    MARKER_PREFIX       = '<!-- claim-responder:',
-    REFUSED_COMMENT     = /<!-- claim-refused:(\d+) -->/,
-    CLAIM_TARGET        = String.raw`(this|it|#\d+|the\s[^\n]{1,80}?\brow\b)`,
-    WITHDRAWAL_PATTERNS = Object.freeze([
+    DAY_MS                 = 24 * 60 * 60 * 1000,
+    MARKER_PREFIX          = '<!-- claim-responder:',
+    NEO_CLAIM_RECORD       = /<!-- neo-claim:v(\d+) (\{[^\n]*?\}) -->/g,
+    REFUSED_COMMENT        = /<!-- claim-refused:(\d+) -->/,
+    REPO_PATTERN           = /^[^/\s]+\/[^/\s]+$/,
+    CAPACITY_REFUSAL_START = Object.freeze(["you're already assigned to ", 'you already hold ']),
+    CLAIM_TARGET           = String.raw`(this|it|#\d+|the\s[^\n]{1,80}?\brow\b)`,
+    WITHDRAWAL_PATTERNS    = Object.freeze([
         /\bstepping\s+(back|away)\b/i,
         /\b(no\s+longer|not)\s+(able|going|planning)\s+to\s+work\b/i,
         /\b(can'?t|cannot|won'?t|will\s+not)\s+(work\s+on|take|continue|finish|proceed)\b/i,
         /\b(please\s+)?unassign\s+me\b/i,
         /\bconsider\s+it\s+available\b/i
     ]),
-    CLAIM_PATTERNS      = Object.freeze([
+    CLAIM_PATTERNS         = Object.freeze([
         /\b(i'?d|i would|i'?m|i am|i)\s+(really\s+|also\s+)?(like|love|want|wish|hope|happy|keen|eager)\s+(to\s+)?(work|take|claim|pick|handle|tackle|contribute|fix|give)\b/i,
         /\binterested\s+in\s+(working|taking|claiming|fixing|contributing|picking)\b/i,
         /\b(can|could|may)\s+i\s+(please\s+)?(work|take|claim|pick|handle|tackle|have|get|be\s+assigned)\b/i,
@@ -164,21 +180,103 @@ function follows(later, earlier) {
         (later.created_at === earlier.created_at && later.id > earlier.id)
 }
 
+/** @summary True when `value` is a safe positive integer. */
+function isPositiveInt(value) {
+    return Number.isSafeInteger(value) && value > 0
+}
+
+/** @summary Formats a grammatical human list ("a", "a and b", "a, b and c"). */
+function formatList(items) {
+    return items.length > 1 ? `${items.slice(0, -1).join(', ')} and ${items.at(-1)}` : items[0]
+}
+
+/** @summary Shared markdown options block naming rotated claimable alternatives or the open-issues search link. */
+function alternativeOptions({alternatives = [], label, repoUrl}) {
+    const listUrl = `${repoUrl}/issues?q=${encodeURIComponent(`is:issue is:open label:"${label}" no:assignee -linked:pr`)}`;
+
+    return alternatives.length > 0
+        ? [`These \`${label}\` issues are open and nobody holds them:`, '', ...alternatives.map(number => `- #${number}`), '', `The [full list](${listUrl}) has the rest. Comment on one to claim it.`]
+        : [`Check the [list of open \`${label}\` issues](${listUrl}) for another issue to claim.`]
+}
+
+/** @summary Sorts REST comments or events in chronological creation order (breaking timestamp ties by id). */
+function sortByCreation(items = []) {
+    return [...items].sort((a, b) => {
+        const aTime = String(a?.created_at || ''), bTime = String(b?.created_at || '');
+        if (aTime !== bTime) return aTime < bTime ? -1 : 1;
+        return (a?.id || 0) - (b?.id || 0)
+    })
+}
+
+/** @summary Validates pull-request author identity and timestamps so unknown identities fail visibly. */
+function assertPullRequestIdentity(pullRequest, {requireClosedAt = false} = {}) {
+    if (!isPositiveInt(pullRequest?.number)) {
+        throw new Error(`Invalid pull request number: ${pullRequest?.number}`)
+    }
+    if (pullRequest?.user?.type === 'Bot') {
+        throw new Error(`Pull request #${pullRequest.number} belongs to a bot account`)
+    }
+    if (typeof pullRequest?.user?.login !== 'string' || !pullRequest.user.login) {
+        throw new Error(`Pull request #${pullRequest.number} has no author login`)
+    }
+    if (!isPositiveInt(pullRequest?.user?.id)) {
+        throw new Error(`Pull request #${pullRequest.number} has no numeric author id`)
+    }
+    if (!Number.isFinite(Date.parse(pullRequest?.created_at))) {
+        throw new Error(`Pull request #${pullRequest.number} has an invalid created_at timestamp`)
+    }
+    if (requireClosedAt && !Number.isFinite(Date.parse(pullRequest?.closed_at))) {
+        throw new Error(`Pull request #${pullRequest.number} has an invalid closed_at timestamp`)
+    }
+}
+
+/** @summary True when `reply` came from this repository's workflow bot account. */
+function isWorkflowBotComment(reply) {
+    return reply?.user?.type === 'Bot' && reply.user.login === 'github-actions[bot]'
+}
+
 /** @summary Only this workflow's bot can issue a claim receipt or own a refusal to update. */
 function isClaimReply(reply, login) {
-    return reply.user?.type === 'Bot' && reply.user.login === 'github-actions[bot]' &&
-        reply.body?.includes(replyMarker(login))
+    return isWorkflowBotComment(reply) && reply.body?.includes(replyMarker(login))
 }
 
 /** @summary Recognises a bot refusal, including replies written before refusals had a separate marker. */
 function refusedClaim(reply, login) {
     if (!isClaimReply(reply, login)) return false;
 
-    const opening = `thanks, @${login}! `;
+    const opening = `thanks, @${String(login).toLowerCase()}! `;
     const body    = reply.body.toLowerCase();
 
     return REFUSED_COMMENT.test(body) || body.startsWith(opening + "you're already assigned to ") ||
         body.startsWith(opening + 'this one is taken:')
+}
+
+/** @summary True when `reply` refused `login` solely for their own active-claim slot capacity. */
+function isCapacityRefusal(reply, login) {
+    if (!refusedClaim(reply, login)) return false;
+
+    const opening = `thanks, @${String(login).toLowerCase()}! `;
+    const body    = reply.body.toLowerCase();
+
+    return CAPACITY_REFUSAL_START.some(prefix => body.startsWith(opening + prefix))
+}
+
+/** @summary Validates a decoded `neo-claim:v1` marker object against the overlap or release wire contract. */
+function isValidClaimRecord(record) {
+    if (!record || typeof record !== 'object') return false;
+
+    if (record.kind === 'overlap') {
+        return isPositiveInt(record.issue) && isPositiveInt(record.pr) &&
+            /^(?:pr:[1-9]\d*|user:[1-9]\d*)$/.test(String(record.heldBy || ''))
+    }
+
+    if (record.kind === 'release') {
+        return typeof record.repo === 'string' && REPO_PATTERN.test(record.repo) &&
+            isPositiveInt(record.issue) && isPositiveInt(record.pr) &&
+            isPositiveInt(record.to) && typeof record.login === 'string' && record.login.length > 0
+    }
+
+    return false
 }
 
 /**
@@ -366,7 +464,11 @@ export function holders({claimant, comment, comments = [], events = [], issue, o
         }
 
         named.add(login);
-        result.push({kind: 'assignee', login: assignee.login})
+        result.push({
+            kind : 'assignee',
+            login: assignee.login,
+            ...(Number.isSafeInteger(assignee.id) && assignee.id > 0 ? {id: assignee.id} : {})
+        })
     }
 
     for (const pullRequest of openPullRequests) {
@@ -378,7 +480,11 @@ export function holders({claimant, comment, comments = [], events = [], issue, o
     }
 
     if (earlier && !named.has(earlier.user.login.toLowerCase())) {
-        result.push({kind: 'earlier-claim', login: earlier.user.login})
+        result.push({
+            kind : 'earlier-claim',
+            login: earlier.user.login,
+            ...(Number.isSafeInteger(earlier.user?.id) && earlier.user.id > 0 ? {id: earlier.user.id} : {})
+        })
     }
 
     return result
@@ -401,15 +507,12 @@ export function holders({claimant, comment, comments = [], events = [], issue, o
 export function renderReply({assigned = false, claimant, claimLimit, commentId, heldByClaimant = [], holders: held = [], alternatives = [], label, repoUrl}) {
     const
         contributing = `${repoUrl}/blob/dev/CONTRIBUTING.md`,
-        listUrl      = `${repoUrl}/issues?q=${encodeURIComponent(`is:issue is:open label:"${label}" no:assignee -linked:pr`)}`,
         footer       = `<sub>An automatic reply. [How claims work](${contributing})</sub>\n${replyMarker(claimant)}`,
         refusal      = Number.isSafeInteger(commentId) ? `${footer}\n<!-- claim-refused:${commentId} -->` : footer;
 
     if (held.length < 1) {
         if (heldByClaimant.length > 0) {
-            const
-                refs = heldByClaimant.map(number => `#${number}`),
-                list = refs.length > 1 ? `${refs.slice(0, -1).join(', ')} and ${refs.at(-1)}` : refs[0];
+            const list = formatList(heldByClaimant.map(number => `#${number}`));
 
             return [
                 claimLimit === undefined
@@ -447,12 +550,10 @@ export function renderReply({assigned = false, claimant, claimLimit, commentId, 
             holder.kind === 'pull-request' ? `#${holder.number} is open for it` :
                                              `${person(holder.login)} asked first`
         ),
-        options = alternatives.length > 0
-            ? [`These \`${label}\` issues are open and nobody holds them:`, '', ...alternatives.map(number => `- #${number}`), '', `The [full list](${listUrl}) has the rest. Comment on one to claim it.`]
-            : [`Check the [list of open \`${label}\` issues](${listUrl}) for another issue to claim.`];
+        options = alternativeOptions({alternatives, label, repoUrl});
 
     return [
-        `Thanks, @${claimant}! This one is taken: ${reasons.length > 1 ? `${reasons.slice(0, -1).join(', ')} and ${reasons.at(-1)}` : reasons[0]}.`,
+        `Thanks, @${claimant}! This one is taken: ${formatList(reasons)}.`,
         '',
         ...options,
         '',
@@ -518,6 +619,705 @@ export function decideClaim({comment, issue, comments = [], events = [], openPul
         assignedBody: renderReply({assigned: true, claimant, label, repoUrl}),
         body        : renderReply({assigned: false, claimant, label, repoUrl}),
         unassign    : staleAssignees({comment, comments, events, issue, openPullRequests, repository})
+    }
+}
+
+/**
+ * @summary Builds the versioned overlap marker appended to a pull-request overlap or residual-review notice.
+ * @param {Object} options
+ * @param {Number} options.issue Target curated issue number
+ * @param {Number} options.pr Pull request number receiving the notice
+ * @param {String} options.heldBy Holder identity (`pr:<number>` or `user:<account id>`)
+ * @returns {String}
+ */
+export function overlapMarker({issue, pr, heldBy}) {
+    if (!isPositiveInt(issue)) throw new Error(`Invalid issue number: ${issue}`);
+    if (!isPositiveInt(pr)) throw new Error(`Invalid pull request number: ${pr}`);
+    if (!/^(?:pr:[1-9]\d*|user:[1-9]\d*)$/.test(String(heldBy || ''))) {
+        throw new Error(`Invalid overlap holder: ${heldBy}`)
+    }
+
+    return `<!-- neo-claim:v1 ${JSON.stringify({kind: 'overlap', issue, pr, heldBy})} -->`
+}
+
+/**
+ * @summary Builds the versioned release marker appended to an issue release notice after an unmerged close.
+ * @param {Object} options
+ * @param {String} options.repo Repository `owner/name`
+ * @param {Number} options.issue Curated issue number
+ * @param {Number} options.pr Unmerged closed pull request number
+ * @param {Number} options.to Notified claimant's numeric GitHub account id
+ * @param {String} options.login Notified claimant's display login
+ * @returns {String}
+ */
+export function releaseMarker({repo, issue, pr, to, login}) {
+    if (typeof repo !== 'string' || !REPO_PATTERN.test(repo)) throw new Error(`Invalid repository: ${repo}`);
+    if (!isPositiveInt(issue)) throw new Error(`Invalid issue number: ${issue}`);
+    if (!isPositiveInt(pr)) throw new Error(`Invalid pull request number: ${pr}`);
+    if (!isPositiveInt(to)) throw new Error(`Invalid claimant account id: ${to}`);
+    if (typeof login !== 'string' || !login) throw new Error(`Invalid claimant login: ${login}`);
+
+    return `<!-- neo-claim:v1 ${JSON.stringify({kind: 'release', repo, issue, pr, to, login})} -->`
+}
+
+/**
+ * @summary Parses versioned `neo-claim:v1` records written by `github-actions[bot]`, ignoring contributor copies,
+ * unknown versions and malformed payloads.
+ * @param {Object[]} [comments=[]] REST issue or pull-request comments
+ * @returns {Object[]} Validated record payloads with `commentId`
+ */
+export function claimRecords(comments = []) {
+    const records = [];
+
+    for (const comment of comments) {
+        if (!isWorkflowBotComment(comment) || typeof comment.body !== 'string') {
+            continue
+        }
+
+        for (const match of comment.body.matchAll(NEO_CLAIM_RECORD)) {
+            if (match[1] !== '1') {
+                continue
+            }
+
+            try {
+                const parsed = JSON.parse(match[2]);
+                if (isValidClaimRecord(parsed)) {
+                    records.push({...parsed, commentId: comment.id})
+                }
+            } catch {
+                // Malformed markers are ignored so partial/edited comments never block parsing.
+            }
+        }
+    }
+
+    return records
+}
+
+/**
+ * @summary Strips fenced code blocks, blockquoted lines, HTML comments, and single-line inline code spans in one linear
+ * pass so close-target extraction avoids multi-character regex sanitization and catastrophic backtracking.
+ * @param {String} [body='']
+ * @returns {String}
+ */
+function stripIgnoredMarkdown(body = '') {
+    const
+        source = String(body),
+        len    = source.length,
+        chunks = [];
+
+    let
+        i           = 0,
+        atLineStart = true,
+        fenceChar   = '',
+        fenceLen    = 0;
+
+    while (i < len) {
+        if (fenceChar) {
+            const
+                nl   = source.indexOf('\n', i),
+                end  = nl === -1 ? len : nl,
+                line = source.slice(i, end).trim();
+
+            if (line.length >= fenceLen) {
+                let matches = true;
+                for (let k = 0; k < line.length; k++) {
+                    if (line[k] !== fenceChar) {
+                        matches = false;
+                        break
+                    }
+                }
+                if (matches) {
+                    fenceChar = '';
+                    fenceLen  = 0
+                }
+            }
+
+            chunks.push('\n');
+            i           = nl === -1 ? len : nl + 1;
+            atLineStart = true;
+            continue
+        }
+
+        if (atLineStart) {
+            let ws = i;
+            while (ws < len && (source[ws] === ' ' || source[ws] === '\t')) ws++;
+
+            if (source[ws] === '>') {
+                const nl = source.indexOf('\n', ws);
+                chunks.push('\n');
+                i           = nl === -1 ? len : nl + 1;
+                atLineStart = true;
+                continue
+            }
+
+            const marker = source[ws];
+            if ((ws - i) <= 3 && (marker === '`' || marker === '~')) {
+                let run = ws;
+                while (run < len && source[run] === marker) run++;
+                const runLen = run - ws;
+                if (runLen >= 3) {
+                    const nl      = source.indexOf('\n', run);
+                    const restEnd = nl === -1 ? len : nl;
+                    if (marker === '~' || !source.slice(run, restEnd).includes('`')) {
+                        fenceChar   = marker;
+                        fenceLen    = runLen;
+                        chunks.push('\n');
+                        i           = nl === -1 ? len : nl + 1;
+                        atLineStart = true;
+                        continue
+                    }
+                }
+            }
+        }
+
+        if (source.startsWith('<!--', i)) {
+            const close = source.indexOf('-->', i + 4);
+            chunks.push(' ');
+            if (close === -1) {
+                break
+            }
+            i           = close + 3;
+            atLineStart = false;
+            continue
+        }
+
+        if (source[i] === '`') {
+            let run = i;
+            while (run < len && source[run] === '`') run++;
+            const tickLen = run - i;
+            const nl      = source.indexOf('\n', run);
+            const lineEnd = nl === -1 ? len : nl;
+
+            let search = run;
+            let closed = -1;
+            while (search < lineEnd) {
+                const hit = source.indexOf('`', search);
+                if (hit === -1 || hit >= lineEnd) break;
+                let hitEnd = hit;
+                while (hitEnd < lineEnd && source[hitEnd] === '`') hitEnd++;
+                if (hitEnd - hit === tickLen) {
+                    closed = hitEnd;
+                    break
+                }
+                search = hitEnd
+            }
+
+            if (closed !== -1) {
+                chunks.push(' ');
+                i           = closed;
+                atLineStart = false;
+                continue
+            }
+
+            chunks.push(source.slice(i, run));
+            i           = run;
+            atLineStart = false;
+            continue
+        }
+
+        const ch = source[i];
+        chunks.push(ch);
+        i++;
+        atLineStart = ch === '\n'
+    }
+
+    return chunks.join('')
+}
+
+/**
+ * @summary Extracts positive issue numbers referenced by GitHub closing keywords (`Resolves`, `Closes`, `Fixes`) in a
+ * pull request body, ignoring comments, code spans/blocks, quotes and targets in other repositories.
+ * @param {String} [body='']
+ * @param {String} [repository=''] `owner/name` of the repository receiving the pull request
+ * @returns {Number[]} Deduplicated issue numbers in order of first appearance
+ */
+export function closeTargets(body = '', repository = '') {
+    const
+        stripped  = stripIgnoredMarkdown(body),
+        repoLower = String(repository).toLowerCase(),
+        pattern   = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b(?::\s*|\s+(?::\s*)?)(?:(#([1-9]\d*))|([A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100})#([1-9]\d*)|https?:\/\/github\.com\/([A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100})\/issues\/([1-9]\d*))(?!\w)/gi,
+        targets   = [],
+        seen      = new Set();
+
+    for (const match of stripped.matchAll(pattern)) {
+        const
+            qualifiedRepo = match[3] || match[5],
+            issueNumber   = Number(match[2] || match[4] || match[6]);
+
+        if (qualifiedRepo && repoLower && qualifiedRepo.toLowerCase() !== repoLower) {
+            continue
+        }
+        if (isPositiveInt(issueNumber) && !seen.has(issueNumber)) {
+            seen.add(issueNumber);
+            targets.push(issueNumber)
+        }
+    }
+
+    return targets
+}
+
+/**
+ * @summary Computes close targets added or removed by a pull request lifecycle event. On `edited`, only a body edit
+ * produces deltas so title, checklist/prose or base-branch changes never re-claim.
+ * @param {Object} options
+ * @param {String} options.action Event action (`opened`, `reopened`, `edited`, ...)
+ * @param {Object} options.pullRequest REST pull request payload
+ * @param {Object} [options.changes] Webhook `changes` object (`changes.body.from`)
+ * @param {String} [options.repository=''] `owner/name`
+ * @returns {{added: Number[], removed: Number[]}}
+ */
+export function changedCloseTargets({action, pullRequest, changes, repository = ''}) {
+    if (action === 'opened' || action === 'reopened') {
+        return {added: closeTargets(pullRequest?.body, repository), removed: []}
+    }
+
+    if (action === 'edited' && changes?.body && (typeof changes.body.from === 'string' || changes.body.from === null)) {
+        const
+            before = closeTargets(changes.body.from ?? '', repository),
+            after  = closeTargets(pullRequest?.body, repository);
+
+        return {
+            added  : after.filter(number => !before.includes(number)),
+            removed: before.filter(number => !after.includes(number))
+        }
+    }
+
+    return {added: [], removed: []}
+}
+
+/**
+ * @summary Renders the neutral overlap notice or completed-issue residual-scope review notice posted on a pull request,
+ * appending the machine-readable {@link overlapMarker}. Never uses "taken", closes nothing and picks no winner.
+ * @param {Object} options
+ * @param {String} options.author Pull request author login
+ * @param {Number} options.issueNumber Target curated issue number
+ * @param {Number} options.prNumber Pull request number receiving the notice
+ * @param {Object[]} [options.holders=[]] Active holders from {@link holders}
+ * @param {Object[]} [options.mergedPullRequests=[]] Merged pull requests referencing `issueNumber`
+ * @param {Number[]} [options.alternatives=[]] Rotated claimable issue numbers
+ * @param {String} options.label Curated label shared with alternatives
+ * @param {String} options.repoUrl Repository URL (`https://github.com/owner/repo`)
+ * @returns {String}
+ */
+export function renderOverlapNotice({author, issueNumber, prNumber, holders: held = [], mergedPullRequests = [], alternatives = [], label, repoUrl}) {
+    const
+        contributing = `${repoUrl}/blob/dev/CONTRIBUTING.md`,
+        options      = alternativeOptions({alternatives, label, repoUrl});
+
+    if (mergedPullRequests.length > 0) {
+        const
+            mergedRefs = formatList(mergedPullRequests.map(pr => `#${pr.number}`)),
+            marker     = overlapMarker({issue: issueNumber, pr: prNumber, heldBy: `pr:${mergedPullRequests[0].number}`});
+
+        return [
+            `Thanks for opening this pull request, @${author}! Note for maintainers and @${author}: #${issueNumber} was already completed by merged work (${mergedRefs}).`,
+            '',
+            'Please run a residual-scope review against current `dev` rather than treating the issue as open: if distinct work remains, propose a focused residual issue or retarget this pull request with your agreement; otherwise pick another open issue below.',
+            '',
+            ...options,
+            '',
+            `<sub>An automatic notice. [How claims work](${contributing})</sub>`,
+            marker
+        ].join('\n')
+    }
+
+    const
+        prHolder   = held.find(holder => holder.kind === 'pull-request'),
+        userHolder = held.find(holder => holder.kind !== 'pull-request');
+
+    let heldBy;
+    if (prHolder) {
+        heldBy = `pr:${prHolder.number}`
+    } else {
+        if (!isPositiveInt(userHolder?.id)) {
+            throw new Error(`Cannot identify active holder id on #${issueNumber}`)
+        }
+        heldBy = `user:${userHolder.id}`
+    }
+
+    const
+        person       = login => `[${login}](https://github.com/${login})`,
+        descriptions = held.map(holder =>
+            holder.kind === 'assignee'     ? `${person(holder.login)} is currently assigned` :
+            holder.kind === 'pull-request' ? `#${holder.number} is already open for it` :
+                                             `${person(holder.login)} asked earlier`
+        ),
+        marker       = overlapMarker({issue: issueNumber, pr: prNumber, heldBy});
+
+    return [
+        `Thanks for opening this pull request, @${author}! Note on #${issueNumber}: ${formatList(descriptions)}.`,
+        '',
+        'Referencing the same issue indicates possible overlap, not proof of identical scope — this workflow neither closes pull requests nor chooses between them, and maintainers will review open work against `dev`. If you would like an unclaimed issue to start on instead:',
+        '',
+        ...options,
+        '',
+        `<sub>An automatic notice. [How claims work](${contributing})</sub>`,
+        marker
+    ].join('\n')
+}
+
+/**
+ * @summary Evaluates one newly targeted curated issue for a pull request: requests assignment under standing and
+ * expiry rules (which GitHub attaches only when the author has commented on or authored the issue), or emits a
+ * neutral overlap or residual-scope notice on the pull request, with zero fabricated issue comments.
+ * @param {Object} options
+ * @param {Object} options.pullRequest REST pull request payload (`number`, `user`, `created_at`)
+ * @param {Object} options.issue Target REST issue payload
+ * @param {Object[]} [options.comments=[]] Target issue comments
+ * @param {Object[]} [options.events=[]] Target issue events
+ * @param {Object[]} [options.prComments=[]] Pull request comments (used for overlap notice dedup)
+ * @param {Object[]} [options.openPullRequests=[]] Open pull requests closing `issue`
+ * @param {Object[]} [options.mergedPullRequests=[]] Merged pull requests closing `issue`
+ * @param {Number[]} [options.candidates=[]] Claimable curated alternatives
+ * @param {Number[]} [options.heldByAuthor=[]] Other open curated issue numbers assigned to `pullRequest.user.login`
+ * @param {Number} [options.claimLimit=1] One by default, two from returning standing
+ * @param {String} options.repoUrl Repository URL (`https://github.com/owner/repo`)
+ * @returns {{assign: Boolean, prNotice: (String|undefined), unassign: (String[]|undefined)}|null}
+ */
+export function decidePullRequestTarget({
+    pullRequest, issue, comments = [], events = [], prComments = [], openPullRequests = [], mergedPullRequests = [],
+    candidates = [], heldByAuthor = [], claimLimit, repoUrl
+}) {
+    assertPullRequestIdentity(pullRequest);
+
+    const label = curatedLabel(issue);
+    if (!issue || issue.pull_request || !label) {
+        return null
+    }
+
+    const
+        repository   = new URL(repoUrl).pathname.slice(1),
+        repoLower    = repository.toLowerCase(),
+        author       = pullRequest.user.login,
+        authorLower  = author.toLowerCase(),
+        mergedOthers = mergedPullRequests.filter(pr =>
+            pr.number !== pullRequest.number && String(pr.repository).toLowerCase() === repoLower
+        ),
+        hasOverlap         = () => claimRecords(prComments).some(record =>
+            record.kind === 'overlap' && record.issue === issue.number && record.pr === pullRequest.number
+        ),
+        hasCompletedNotice = mergedPrNumber => prComments.some(comment =>
+            typeof comment?.body === 'string' &&
+            comment.body.includes('residual-scope review') &&
+            claimRecords([comment]).some(record =>
+                record.kind === 'overlap' &&
+                record.issue === issue.number &&
+                record.pr === pullRequest.number &&
+                record.heldBy === `pr:${mergedPrNumber}`
+            )
+        );
+
+    if (issue.state !== 'open') {
+        if (mergedOthers.length < 1 || hasCompletedNotice(mergedOthers[0].number)) {
+            return null
+        }
+
+        return {
+            assign  : false,
+            prNotice: renderOverlapNotice({
+                author,
+                issueNumber       : issue.number,
+                prNumber          : pullRequest.number,
+                mergedPullRequests: mergedOthers,
+                alternatives      : pickAlternatives({candidates, exclude: issue.number, seed: author}),
+                label,
+                repoUrl
+            })
+        }
+    }
+
+    // Redelivery, reopen or an author who already holds the issue makes no second assignment or notice.
+    if ((issue.assignees || []).some(assignee => String(assignee.login).toLowerCase() === authorLower)) {
+        return null
+    }
+
+    const
+        boundary = {id: Number.MAX_SAFE_INTEGER, created_at: pullRequest.created_at},
+        held     = holders({claimant: author, comment: boundary, comments, events, issue, openPullRequests, repository});
+
+    if (held.length > 0) {
+        if (hasOverlap()) {
+            return null
+        }
+
+        return {
+            assign  : false,
+            prNotice: renderOverlapNotice({
+                author,
+                issueNumber : issue.number,
+                prNumber    : pullRequest.number,
+                holders     : held,
+                alternatives: pickAlternatives({candidates, exclude: issue.number, seed: author}),
+                label,
+                repoUrl
+            })
+        }
+    }
+
+    const otherHeld = [...new Set(heldByAuthor)].filter(number => number !== issue.number);
+
+    if (otherHeld.length >= (claimLimit === 2 ? 2 : 1)) {
+        return {assign: false}
+    }
+
+    return {
+        assign  : true,
+        unassign: staleAssignees({comment: boundary, comments, events, issue, openPullRequests, repository})
+    }
+}
+
+/**
+ * @summary Reconciles removal of a close target from a pull request body on `edited`. Releases ONLY assignments
+ * demonstrably created by this workflow bot at or after the pull request opened when no independent claim comment or
+ * sibling open pull request keeps ownership; throws visibly on uncertain provenance before any writes occur.
+ * @param {Object} options
+ * @param {Object} options.pullRequest REST pull request payload
+ * @param {Object} options.issue Target REST issue payload
+ * @param {Object[]} [options.comments=[]] Target issue comments
+ * @param {Object[]} [options.events=[]] Target issue events (`assigned`, `unassigned`, `actor`, `created_at`)
+ * @param {Object[]} [options.openPullRequests=[]] Open pull requests closing `issue`
+ * @param {String} options.repository `owner/name`
+ * @returns {{unassign: Boolean, assignee: (String|undefined)}}
+ */
+export function decideTargetRemoval({pullRequest, issue, comments = [], events = [], openPullRequests = [], repository}) {
+    assertPullRequestIdentity(pullRequest);
+
+    if (!issue || issue.pull_request || !curatedLabel(issue)) {
+        return {unassign: false}
+    }
+
+    const
+        author      = pullRequest.user.login,
+        authorLower = author.toLowerCase(),
+        repoLower   = String(repository).toLowerCase();
+
+    if (!(issue.assignees || []).some(assignee => String(assignee.login).toLowerCase() === authorLower)) {
+        return {unassign: false}
+    }
+
+    const sortedEvents   = sortByCreation(events);
+    const assignedEvents = sortedEvents.filter(ev =>
+        ev.event === 'assigned' && String(ev.assignee?.login || '').toLowerCase() === authorLower
+    );
+
+    if (assignedEvents.length < 1) {
+        throw new Error(`Uncertain assignment provenance for @${author} on #${issue.number}: no assigned event found`)
+    }
+
+    const latestAssigned = assignedEvents.at(-1);
+    const actorType      = latestAssigned.actor?.type;
+    const actorLogin     = latestAssigned.actor?.login;
+
+    if (!actorType || !actorLogin) {
+        throw new Error(`Uncertain assignment provenance for @${author} on #${issue.number}: assigned actor missing`)
+    }
+
+    if (actorType === 'User') {
+        return {unassign: false}
+    }
+
+    if (actorType !== 'Bot' || actorLogin !== 'github-actions[bot]') {
+        throw new Error(`Uncertain assignment provenance for @${author} on #${issue.number}: unexpected actor ${actorLogin}`)
+    }
+
+    if (openPullRequests.some(pr =>
+        pr.number !== pullRequest.number &&
+        String(pr.repository).toLowerCase() === repoLower &&
+        String(pr.author).toLowerCase() === authorLower
+    )) {
+        return {unassign: false}
+    }
+
+    const
+        sortedComments = sortByCreation(comments),
+        botComments    = sortedComments.filter(isWorkflowBotComment);
+
+    // Preserve independent live comment claims (explicit unrefused/unwithdrawn outside claim or bot acceptance).
+    const ownClaims = sortedComments.filter(comment =>
+        String(comment.user?.login || '').toLowerCase() === authorLower &&
+        isOutsideHuman(comment) &&
+        isClaim(comment.body)
+    );
+    const hasLiveCommentClaim = ownClaims.some(claim => {
+        const claimTime = Date.parse(claim.created_at);
+        const refused   = botComments.some(reply => {
+            if (!refusedClaim(reply, authorLower)) return false;
+            const through = reply.body.match(REFUSED_COMMENT);
+            return through ? claim.id <= Number(through[1]) : follows(reply, claim)
+        });
+        const withdrawn = sortedComments.some(later =>
+            String(later.user?.login || '').toLowerCase() === authorLower &&
+            follows(later, claim) &&
+            isWithdrawal(later.body)
+        );
+        const unassigned = sortedEvents.some(ev =>
+            ev.event === 'unassigned' &&
+            String(ev.assignee?.login || '').toLowerCase() === authorLower &&
+            Date.parse(ev.created_at) > claimTime
+        );
+        return !refused && !withdrawn && !unassigned
+    });
+    const hasAcceptedClaimReply = botComments.some(reply =>
+        isClaimReply(reply, authorLower) && !refusedClaim(reply, authorLower)
+    );
+
+    if (hasLiveCommentClaim || hasAcceptedClaimReply) {
+        return {unassign: false}
+    }
+
+    const assignedAt  = Date.parse(latestAssigned.created_at);
+    const prCreatedAt = Date.parse(pullRequest.created_at);
+
+    if (!Number.isFinite(assignedAt) || assignedAt < prCreatedAt) {
+        throw new Error(`Uncertain assignment provenance for @${author} on #${issue.number}: bot assignment predates PR #${pullRequest.number}`)
+    }
+
+    return {unassign: true, assignee: author}
+}
+
+/**
+ * @summary Decides whether closing a pull request unmerged should notify prior outside claimants on the open curated
+ * issue. Respects {@link CLAIM_RELEASE_SINCE}, checks live holders excluding the closing pull request, validates every
+ * notified claimant's numeric account id, preserves first-claim order, and deduplicates by numeric id across close /
+ * reopen cycles and login renames.
+ * @param {Object} options
+ * @param {Object} options.pullRequest REST pull request payload (`number`, `user`, `merged`, `closed_at`, `created_at`)
+ * @param {Object} options.issue Target REST issue payload
+ * @param {Object[]} [options.comments=[]] Target issue comments
+ * @param {Object[]} [options.events=[]] Target issue events
+ * @param {Object[]} [options.openPullRequests=[]] Open pull requests closing `issue`
+ * @param {String} options.repoUrl Repository URL (`https://github.com/owner/repo`)
+ * @param {String|null} [options.releaseSince=CLAIM_RELEASE_SINCE] ISO activation boundary, or `null` when disabled
+ * @returns {{body: String, notified: Object[]}|null}
+ */
+export function decidePullRequestRelease({
+    pullRequest, issue, comments = [], events = [], openPullRequests = [], repoUrl, releaseSince = CLAIM_RELEASE_SINCE
+}) {
+    assertPullRequestIdentity(pullRequest, {requireClosedAt: true});
+
+    if (releaseSince === null) {
+        return null
+    }
+
+    const sinceAt = typeof releaseSince === 'string' ? Date.parse(releaseSince) : NaN;
+    if (!Number.isFinite(sinceAt)) {
+        throw new Error(`Invalid release activation boundary: ${releaseSince}`)
+    }
+
+    const closedAt = Date.parse(pullRequest.closed_at);
+    if (pullRequest.merged === true || closedAt < sinceAt) {
+        return null
+    }
+
+    const label = curatedLabel(issue);
+    if (!issue || issue.pull_request || issue.state !== 'open' || !label) {
+        return null
+    }
+
+    const
+        repository = new URL(repoUrl).pathname.slice(1),
+        repoLower  = repository.toLowerCase(),
+        otherOpen  = openPullRequests.filter(pr => pr.number !== pullRequest.number),
+        boundary   = {id: Number.MAX_SAFE_INTEGER, created_at: pullRequest.closed_at},
+        held       = holders({claimant: '', comment: boundary, comments, events, issue, openPullRequests: otherOpen, repository});
+
+    if (held.length > 0) {
+        return null
+    }
+
+    const
+        sortedComments = sortByCreation(comments).filter(comment => Date.parse(comment.created_at) <= closedAt),
+        sortedEvents   = sortByCreation(events).filter(ev => Date.parse(ev.created_at) <= closedAt),
+        botComments    = sortedComments.filter(isWorkflowBotComment),
+        claimantsById  = new Map();
+
+    // Update display logins chronologically per numeric user id so account renames show current login on dedup/ping.
+    const latestLoginById = new Map();
+    for (const comment of sortedComments) {
+        if (isPositiveInt(comment.user?.id) && comment.user?.login) {
+            latestLoginById.set(comment.user.id, comment.user.login)
+        }
+    }
+
+    for (const comment of sortedComments) {
+        if (!isOutsideHuman(comment) || !isClaim(comment.body)) {
+            continue
+        }
+
+        const login = comment.user?.login;
+        if (!login) continue;
+
+        const loginLower = login.toLowerCase();
+        if (loginLower === pullRequest.user.login.toLowerCase() || comment.user?.id === pullRequest.user.id) {
+            continue
+        }
+
+        const claimAt   = Date.parse(comment.created_at);
+        const withdrawn = sortedComments.some(later =>
+            String(later.user?.login || '').toLowerCase() === loginLower &&
+            follows(later, comment) &&
+            isWithdrawal(later.body)
+        );
+        const unassigned = sortedEvents.some(ev =>
+            ev.event === 'unassigned' &&
+            String(ev.assignee?.login || '').toLowerCase() === loginLower &&
+            Date.parse(ev.created_at) > claimAt
+        );
+        const capacityRefusal = botComments.some(reply => {
+            if (!isCapacityRefusal(reply, loginLower)) return false;
+            const through = reply.body.match(REFUSED_COMMENT);
+            return through ? comment.id <= Number(through[1]) : follows(reply, comment)
+        });
+
+        if (withdrawn || unassigned || capacityRefusal) {
+            continue
+        }
+
+        if (!isPositiveInt(comment.user?.id)) {
+            throw new Error(`Incomplete claimant identity on #${issue.number}: missing numeric user id for @${login}`)
+        }
+
+        if (!claimantsById.has(comment.user.id)) {
+            claimantsById.set(comment.user.id, {
+                id   : comment.user.id,
+                login: latestLoginById.get(comment.user.id) || login
+            })
+        }
+    }
+
+    const existingNotifiedIds = new Set(
+        claimRecords(comments)
+            .filter(record =>
+                record.kind === 'release' &&
+                record.repo.toLowerCase() === repoLower &&
+                record.issue === issue.number &&
+                record.pr === pullRequest.number
+            )
+            .map(record => record.to)
+    );
+
+    const unnotified = [...claimantsById.values()].filter(claimant => !existingNotifiedIds.has(claimant.id));
+    if (unnotified.length < 1) {
+        return null
+    }
+
+    const
+        contributing = `${repoUrl}/blob/dev/CONTRIBUTING.md`,
+        mentions     = unnotified.map(claimant => `@${claimant.login}`).join(' '),
+        markers      = unnotified.map(claimant =>
+            releaseMarker({repo: repository, issue: issue.number, pr: pullRequest.number, to: claimant.id, login: claimant.login})
+        ).join('\n');
+
+    return {
+        notified: unnotified,
+        body    : [
+            `#${pullRequest.number} closed without merging. Earlier claim check from ${mentions}:`,
+            '',
+            `If you are still interested in #${issue.number}, please post a new claim comment here so the ordinary claim check can verify current state and standing. This notice grants no priority and does not guarantee the issue is still available.`,
+            '',
+            `<sub>An automatic notice. [How claims work](${contributing})</sub>`,
+            markers
+        ].join('\n')
     }
 }
 
