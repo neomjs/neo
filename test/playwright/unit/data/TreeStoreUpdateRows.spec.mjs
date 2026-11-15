@@ -205,6 +205,53 @@ test.describe('Store#updateRows on a TreeStore (#20985)', () => {
 
             expect(events, 'no declared fields: a callback may read any field').toEqual([['filter'], ['rows', 'c']]);
             expect(hydrated(store.allItems?._items || store._items), 'reapplying hydrated nothing').toBe(0)
+        });
+
+        test(`a filter that declares a parent field reapplies after a batch writes a field below it (${module.name})`, async () => {
+            const store = await create({
+                      model: {module: module === Store ? Model : TreeModel, fields: [
+                          {name: 'id', type: 'String'},
+                          {name: 'profile', fields: [{name: 'city', type: 'String'}, {name: 'name', type: 'String'}]},
+                          {name: 'score', type: 'Integer'}
+                      ]},
+                      data: [
+                          {id: 'a', profile: {city: 'Berlin', name: 'hide'}, score: 1},
+                          {id: 'b', profile: {city: 'Paris',  name: 'show'}, score: 2}
+                      ]
+                  }, module),
+                  // a filterBy callback answers true for a row it filters out
+                  hide  = ({item}) => item.profile.name !== 'show';
+
+            store.filters = [{filterBy: hide, fields: ['profile'], reapplyOnRecordChange: true}];
+
+            const events = recording(store);
+
+            expect(ids(store)).toEqual(['b']);
+
+            store.updateRows([{key: 'a', values: {score: 5}}]);
+
+            expect(events, 'a field outside the declared one').toEqual([['rows', 'a']]);
+
+            store.updateRows([{key: 'a', values: {'profile.name': 'show'}}]);
+
+            expect(events.slice(1), 'a field below the declared one').toEqual([['filter'], ['rows', 'a']]);
+            expect(ids(store)).toEqual(['a', 'b']);
+
+            store.filters = [{filterBy: hide, fields: ['profile.city'], reapplyOnRecordChange: true}];
+            events.length = 0;
+
+            store.updateRows([{key: 'a', values: {'profile.name': 'hide'}}]);
+
+            expect(events, 'a sibling of the declared field').toEqual([['rows', 'a']]);
+
+            store.filters = [{filterBy: hide, fields: ['profile.name'], reapplyOnRecordChange: true}];
+            events.length = 0;
+
+            store.updateRows([{key: 'b', values: {'profile.name': 'hide'}}]);
+
+            expect(events, 'the declared field itself').toEqual([['filter'], ['rows', 'b']]);
+            expect(ids(store)).toEqual([]);
+            expect(hydrated(store.allItems?._items || store._items), 'reapplying hydrated nothing').toBe(0)
         })
     }
 

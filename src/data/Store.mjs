@@ -1739,9 +1739,10 @@ class Store extends Collection {
     }
 
     /**
-     * @summary Checks whether a filter or sorter reads one of the changed fields: its `fields`, else its `property`, a
-     * path below a changed field and a virtual field, which derives from any, included. A `filterBy` or `sortBy`
-     * callback without `fields` may read any field.
+     * @summary Checks whether a filter or sorter reads one of the changed fields: its `fields`, else its `property`. A
+     * read meets a change on the same path or on a path below the other, either way round: a read of `profile` sees a
+     * change of `profile.name`, and a read of `profile.name` a change of `profile`. A virtual field derives from any, so
+     * it reads every change. A `filterBy` or `sortBy` callback without `fields` may read any field.
      * @param {Neo.collection.Filter|Neo.collection.Sorter} rule
      * @param {Object[]} fields The changed fields, `{name}` each
      * @param {Neo.data.Model} [model=this.model]
@@ -1750,8 +1751,8 @@ class Store extends Collection {
      */
     #reads(rule, fields, model=this.model) {
         const read = rule.fields || (rule.filterBy || rule.sortBy ? null : [rule.property]);
-        return !read || read.some(name => !!model.getField(name)?.virtual ||
-            fields.some(field => field.name === name || typeof name === 'string' && name.startsWith(field.name + '.')))
+        return !read || read.some(name => !!model.getField(name)?.virtual || typeof name === 'string' &&
+            fields.some(({name: changed}) => changed === name || name.startsWith(changed + '.') || changed.startsWith(name + '.')))
     }
 
     /**
