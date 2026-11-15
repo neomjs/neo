@@ -63,8 +63,9 @@ class BaseModel extends Model {
     }
 
     /**
-     * The classes {@link #applyCellSelection} put on each cell vdom node, so a repaint withdraws exactly those.
-     * @member {WeakMap<Object, String[]>} #cellCls
+     * The classes {@link #applyCellSelection} added to each cell vdom node and the ones it wanted, so a repaint
+     * withdraws exactly what it added and compares the wanted answer for its early return.
+     * @member {WeakMap<Object, Object>} #cellCls
      * @private
      */
     #cellCls = new WeakMap()
@@ -112,20 +113,25 @@ class BaseModel extends Model {
     applyCellSelection(cell, record, dataField) {
         let me      = this,
             applied = me.#cellCls.get(cell),
-            cls     = me.isSelectedCell(record, dataField) ? [me.selectedCls, ...me.getCellCls(record, dataField)] : null;
+            cls     = me.isSelectedCell(record, dataField) ? [me.selectedCls, ...me.getCellCls(record, dataField)] : null,
+            added;
 
-        if (applied ? Neo.isEqual(applied, cls) : !cls) {
+        // The early return compares the wanted answer, which keeps an unchanged cell out of the update; only
+        // the classes this method added leave the node, so a class the cell carried before its selection stays.
+        if (applied ? Neo.isEqual(applied.cls, cls) : !cls) {
             return false
         }
 
         cell.cls ??= [];
 
-        applied && NeoArray.remove(cell.cls, applied);
+        applied && NeoArray.remove(cell.cls, applied.added);
 
         if (cls) {
-            NeoArray.add(cell.cls, cls);
+            added = cls.filter(name => !cell.cls.includes(name));
+
+            NeoArray.add(cell.cls, added);
             cell['aria-selected'] = true;
-            me.#cellCls.set(cell, cls)
+            me.#cellCls.set(cell, {added, cls})
         } else {
             delete cell['aria-selected'];
             me.#cellCls.delete(cell)
