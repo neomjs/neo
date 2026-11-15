@@ -52,6 +52,8 @@ This script runs the individual browser dependency bundling tasks, including the
 
 If `node_modules/neo.mjs` links to a local Neo.mjs checkout instead of a published package, set that checkout up the way the engine's contributors do ([Set up the engine from a clone](https://github.com/neomjs/neo/blob/dev/CONTRIBUTING.md#set-up-the-engine-from-a-clone)): `npm i` installs its toolchain, and `npm run bundle-browser-deps` writes the bundles into its `dist/`. Its `npm i` alone creates no bundles, because `dist/` is not in Git. The package does not repeat the nested installation for a linked checkout.
 
+For information about shipping SCSS files with an independently maintained component package, see [Styling and Theming in Neo.mjs](../guides/uibuildingblocks/StylingAndTheming.md#8-theming-in-a-workspace).
+
 ## Browsing the workspace
 
 If you run
