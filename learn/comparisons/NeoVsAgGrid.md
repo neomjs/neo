@@ -12,11 +12,11 @@ This page is for someone choosing a JavaScript data grid for a large dataset. It
 
 ## The Short Answer
 
-Which grid is faster depends on the operation. In an open benchmark run on 26 October 2026, with production builds in Chromium, the Neo.mjs grid finished the two heaviest updates 7.2 and 3.0 times sooner than React with AG Grid Community, and its main thread never blocked. AG Grid finished scroll jumps 1.7 to 2.8 times sooner. AG Grid has more grid features, and its documentation places most of the advanced ones in the commercial Enterprise edition. The Neo.mjs grid is MIT-licensed as a whole, and it comes with an engine: the application around it runs in the same worker.
+Which grid is faster depends on the operation and on what you time. In an open benchmark run on 26 October 2026, with production builds in Chromium, the Neo.mjs grid's UI update for the two heaviest changes took 7.2 and 3.0 times less time than that of React with AG Grid Community. Counted from the action to a valid DOM, its lead was 1.8 and 1.5 times. In every measured scenario its main thread showed zero long-task blocking. AG Grid finished scroll jumps 1.7 to 2.8 times sooner. AG Grid has more grid features, and its documentation places most of the advanced ones in the commercial Enterprise edition. The Neo.mjs grid in the public engine is MIT-licensed, and it comes with that engine: the application around it runs in the same worker.
 
 ## The Friction: a Grid That Stops the Page
 
-Someone switches a grid of 100,000 rows from 50 columns to 200. The grid builds the new columns, works out which cells are on screen and updates the page. If that work runs on the main thread, everything else on the page waits for it: a click on another button is queued, and anything animated from script stops. In the benchmark below, that single change cost a main-thread grid 329 ms of long-task blocking, a third of a second in which the page could not respond.
+Someone switches a grid of 100,000 rows from 50 columns to 200. The grid builds the new columns, works out which cells are on screen and updates the page. If that work runs on the main thread, everything else on the page waits for it: a click on another button is queued, and anything animated from script stops. In the benchmark below, that single change cost a main-thread grid 329 ms of long-task blocking, averaged over five runs: about a third of a second in which input had to wait.
 
 The usual answers keep the work where it is. Virtualization renders only the rows in view, yet a sort over 100,000 records is still a loop over 100,000 records. Sorting in a web worker frees the main thread for one function and copies the data each way. Sorting on a server needs a backend and turns every interaction into a network round trip. Each of these moves a piece of the work. Neo.mjs moves the grid.
 
@@ -52,7 +52,7 @@ flowchart TD
 *   **Rows never move in the DOM.** A recycled row keeps its place among its siblings and is repositioned with a CSS transform, so a scroll produces text and attribute changes and no insertions or removals.
 *   **Records on demand.** A store can hold raw objects and turn one into a record only when something reads it (`autoInitRecords: false`), and a parser can [stream](../guides/datahandling/Streaming.md) newline-delimited JSON into the store while it downloads.
 
-However long the App Worker spends on 100,000 records, nothing on the main thread waits for it. The price is a round trip: every scroll jump travels from the main thread to the App Worker, through the VDom Worker and back. A main-thread grid skips that trip. [Off the Main Thread](../benefits/body/OffTheMainThread.md) explains the architecture, and the [grid guide](../guides/datahandling/Grids.md) shows how to build on it.
+The time the App Worker spends on 100,000 records is not spent on the main thread, which stays free to take input and to run frame callbacks. What remains there is applying the resulting DOM changes. The price is a round trip: every scroll jump travels from the main thread to the App Worker, through the VDom Worker and back. A main-thread grid skips that trip. [Off the Main Thread](../benefits/body/OffTheMainThread.md) explains the architecture, and the [grid guide](../guides/datahandling/Grids.md) shows how to build on it.
 
 ## What an Open Benchmark Measured
 
@@ -62,19 +62,21 @@ Every number on this page comes from [the report of 26 October 2026](https://git
 
 On the heavy updates, the worker pays off:
 
-| Scenario | UI update, Neo.mjs vs AG Grid | Main-thread blocking | Longest gap between frame callbacks |
+| Scenario | UI-update time, Neo.mjs vs AG Grid | Long-task blocking | Largest frame-callback gap of a run |
 |---|---|---|---|
-| 100,000 rows, 50 to 200 columns | 150 vs 1,083 ms (7.2 times sooner) | 0 vs 329 ms | 16.8 vs 378 ms |
-| 1,000 to 100,000 rows | 109 vs 327 ms (3.0 times sooner) | 0 vs 60 ms | 16.8 vs 90 ms |
+| 100,000 rows, 50 to 200 columns | 150 vs 1,083 ms (a ratio of 7.2) | 0 vs 329 ms | 16.8 vs 378 ms |
+| 1,000 to 100,000 rows | 109 vs 327 ms (a ratio of 3.0) | 0 vs 60 ms | 16.8 vs 90 ms |
 
-Those are the grids' UI-update times. Counted from the action to a valid DOM, the same two scenarios took 1,021 vs 1,839 ms and 335 vs 502 ms, a lead of 1.8 and 1.5 times. Across all ten scenarios of the run, the Neo.mjs side logged 0 ms of long-task blocking and no gap between frame callbacks longer than 16.8 ms, one frame at 60 Hz.
+Every cell is a mean over five runs. The first column is the grids' UI-update time. Counted from the action to a valid DOM, the same two scenarios took 1,021 vs 1,839 ms and 335 vs 502 ms, a lead of 1.8 and 1.5 times. Across all ten scenarios of the run, the Neo.mjs side logged zero long-task blocking, and the largest gap between frame callbacks in a run averaged 16.8 ms or less, one frame at 60 Hz.
+
+Both probes have limits. A long task is one of 50 ms or more, so shorter work on the main thread does not show in that column. The gap figure is the mean of each run's largest gap, not a bound on every frame.
 
 AG Grid wins elsewhere, and the same report says so:
 
-*   **Scroll jumps.** Eight render-gated jumps across 100,000 rows took 281.5 ms for Neo.mjs and 127.8 ms for AG Grid, which updates the DOM synchronously on each jump. Across the three scroll tests AG Grid was 1.7 to 2.8 times sooner: 16 to 17 ms per jump against 29 to 47 ms. Both grids kept 0 ms of blocking and their frame callbacks on time during all three. Part of the Neo.mjs time was a scroll-state delay found during this run. Its fix landed the same day, after the measurement, and no later run has replaced these numbers.
+*   **Scroll jumps.** Eight render-gated jumps across 100,000 rows took 281.5 ms for Neo.mjs and 127.8 ms for AG Grid, which updates the DOM synchronously on each jump. Across the three scroll tests AG Grid was 1.7 to 2.8 times sooner: 16 to 17 ms per jump against 29 to 47 ms. Both grids showed zero long-task blocking and the same frame-gap figures during all three. Part of the Neo.mjs time was a scroll-state delay found during this run. Its fix landed the same day, after the measurement, and no later run has replaced these numbers.
 *   **Small updates and repeated filters.** Counted from the action to a valid DOM, AG Grid finished them 5 to 53 ms sooner. Both stay within a few frames there.
 
-That is the trade. A main-thread grid answers each small interaction sooner, because nothing has to cross a thread. A worker grid pays a toll of milliseconds on every round trip, and in return its heaviest work never stops the page.
+That is the trade. A main-thread grid answers each small interaction sooner, because nothing has to cross a thread. A worker grid pays a toll of milliseconds on every round trip, and in return its heaviest computation stays off the main thread. In this run that showed as zero long-task blocking where the main-thread grid logged 329 ms.
 
 ## What Each Licence Includes
 
@@ -83,11 +85,13 @@ AG Grid comes in two editions. Community is free under the MIT licence, includin
 | AG Grid edition | Features its documentation names |
 |---|---|
 | Community (MIT) | Row and column configuration, sorting, filtering and pagination; custom cell rendering; themes; ARIA support and keyboard navigation; row and column virtualisation; React, Angular, Vue and plain JavaScript |
-| Enterprise (commercial) | Server-side row model; Excel export; pivot tables and aggregations; range selection; integrated charts; master/detail; row grouping and multi-column sorting; clipboard operations; tool panels; custom context menu and sidebars |
+| Enterprise (commercial) | Server-side row model; Excel export; pivot tables and aggregations; range selection; integrated charts; master/detail; row grouping; clipboard operations; tool panels; custom context menu and sidebars |
+
+Two notes on that list. The edition page names multi-column sorting beside row grouping, but sorting by several columns is an ordinary Community feature: AG Grid's sorting documentation describes it without an Enterprise mark ([Row Sorting](https://www.ag-grid.com/javascript-data-grid/row-sorting/), same version and date). And an Enterprise licence gives integrated charts with the Community chart types; the full Enterprise chart set needs the Enterprise Bundle, which adds AG Charts Enterprise.
 
 On 21 November 2025 AG Grid and Bryntum, the vendor of scheduling and Gantt components, announced a strategic partnership backed by an investment from Adelis Equity Partners. The announcement states that "product lines, licensing models, and customer commitments remain unchanged" ([AG Grid's blog](https://www.ag-grid.com/blog/ag-grid-and-bryntum-join-forces-to-strengthen-developer-tooling-for-modern-web-applications/), read on 15 November 2026). [Neo.mjs vs Bryntum](NeoVsBryntum.md) compares the planning side.
 
-Neo.mjs has one edition and one licence: the engine and everything in it is MIT. What its grid includes today:
+The Neo.mjs engine in the public repository is MIT-licensed. The benchmark above ran version 13.3.1. The list below is what its grid includes on the `dev` branch in November 2026, the state planned as version 14:
 
 *   **Scale.** Pooled rows and columns, records on demand, streamed loading, and paged scrolling for grids taller than the scroll height a browser can lay out.
 *   **Columns.** Columns locked at the start or the end, header groups, resizing, reordering by drag and drop, and column types that put a live component into each cell, such as a progress bar or a sparkline drawn on an `OffscreenCanvas`.
@@ -143,11 +147,11 @@ That describes something done, not planned. I am Mnemosyne, one of the AI mainta
 | Question | Neo.mjs grid | AG Grid |
 |---|---|---|
 | Where does the grid run? | In the App Worker | On the main thread |
-| Heaviest update in the benchmark | 150 ms, 0 ms blocked | 1,083 ms, 329 ms blocked |
+| Heaviest update in the benchmark, UI-update time | 150 ms, zero long-task blocking | 1,083 ms, 329 ms of long-task blocking |
 | A scroll jump in the benchmark | 29 to 47 ms | 16 to 17 ms |
-| Licence | MIT, all of it | Community: MIT. Enterprise: commercial, per developer and per deployment |
+| Licence | MIT (the public engine) | Community: MIT. Enterprise: commercial, per developer and per deployment |
 | Grouping, pivoting, Excel export | Not today | Enterprise |
 | Runs inside | A Neo.mjs application | A React, Angular, Vue or plain JavaScript application |
 | One grid across several browser windows | Built in, over a SharedWorker | A DOM component stays in its document |
 
-AG Grid is a mature grid with the deepest feature list in this comparison. Neo.mjs offers a different thing: a grid whose heaviest work cannot stop the page, that moves between windows, that an agent can inspect while it runs, and that arrives with a whole application engine under one MIT licence. If a grid in your work stops the page when its data changes, open the [bigData example](https://neomjs.com/dist/production/examples/grid/bigData/index.html), set it to 100,000 rows and 200 columns, and watch whether the page ever stops answering. [The main thread is the wrong place for a data grid](https://neomjs.com/news/blog/a-data-grid-in-a-web-worker) tells the longer story of how the grid got there.
+AG Grid is a mature grid with the deepest feature list in this comparison. Neo.mjs offers a different thing: a grid whose heaviest computation runs off the main thread, that moves between windows, that an agent can inspect while it runs, and that arrives with a whole MIT-licensed application engine. If a grid in your work stops the page when its data changes, open the [bigData example](https://neomjs.com/dist/production/examples/grid/bigData/index.html), set it to 100,000 rows and 200 columns, and watch whether the page ever stops answering. [The main thread is the wrong place for a data grid](https://neomjs.com/news/blog/a-data-grid-in-a-web-worker) tells the longer story of how the grid got there.

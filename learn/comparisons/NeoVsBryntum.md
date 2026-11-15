@@ -12,7 +12,7 @@ This page is for someone choosing a JavaScript Gantt chart or scheduler. It comp
 
 ## The Short Answer
 
-Bryntum has the longer feature list: constraints, critical paths, baselines, resource assignments and exports are in its commercial tiers, and its components fit into the application you already have. Both sides now have an MIT edition: every Bryntum component has a free Community tier, and Neo.mjs is MIT as a whole. The difference is the shape. In Neo.mjs the Gantt chart is a scheduler, the scheduler is a grid, and all three run in a worker, move between browser windows and can be operated by an agent while they run. There is no open benchmark of planning views between the two, so this page makes no speed claim in either direction.
+Bryntum has the longer feature list: constraints and resource assignments are in its Core tier, critical paths, baselines and exports in its Enterprise tier, and its components fit into the application you already have. Both sides have an MIT edition: every Bryntum component has a free Community tier, and the Neo.mjs engine in the public repository is MIT-licensed. The difference is the shape. In Neo.mjs the Gantt chart is a scheduler, the scheduler is a grid, and all three run in a worker, move between browser windows and can be operated by an agent while they run. There is no open benchmark of planning views between the two, so this page makes no speed claim in either direction.
 
 ## The Friction: Every Drag Is a Calculation
 
@@ -55,7 +55,7 @@ Rendering is buffered in both directions. Rows recycle as in the grid, and bars,
 
 ## Where the Work Runs
 
-**Neo.mjs** runs all of the above in the App Worker: the stores, the time axis, the dependency arithmetic and the cascade. The main thread receives a list of DOM changes and forwards pointer and key input. A long recalculation therefore does not hold up the page, at the price of a round trip between threads for each interaction. [Off the Main Thread](../benefits/body/OffTheMainThread.md) explains the architecture, and [Neo.mjs vs AG Grid](NeoVsAgGrid.md) shows what an open benchmark measured for the grid these views are built on, wins and losses.
+**Neo.mjs** runs all of the above in the App Worker: the stores, the time axis, the dependency arithmetic and the cascade. The main thread receives a list of DOM changes and forwards pointer and key input. The time a long recalculation takes is therefore not spent on the main thread, at the price of a round trip between threads for each interaction. Nobody has measured the planning views yet. [Off the Main Thread](../benefits/body/OffTheMainThread.md) explains the architecture, and [Neo.mjs vs AG Grid](NeoVsAgGrid.md) shows what an open benchmark measured for the grid these views are built on, wins and losses.
 
 **Bryntum** ships UI components that render in the application's page. Its documentation describes each product as framework-agnostic with React, Angular and Vue wrappers ([Bryntum Suite](https://bryntum.com/docs/guide/Complete/overview), read on 15 November 2026). Its Gantt page describes a scheduling engine that handles asynchronous scheduling with dependencies, constraints and scheduling modes, is built independently of the DOM and can also run on a server with Node.js, and its scheduler page names virtual rendering, a minimal DOM footprint and element reuse as its performance techniques ([Bryntum Gantt](https://bryntum.com/products/gantt/), [Bryntum Scheduler](https://bryntum.com/products/scheduler/), read on the same day, release 8.0.1).
 
@@ -71,7 +71,7 @@ Bryntum's products come in three tiers. Community is free and open source under 
 
 On 21 November 2025 Bryntum and AG Grid announced a strategic partnership backed by an investment from Adelis Equity Partners ([the announcement](https://www.ag-grid.com/blog/ag-grid-and-bryntum-join-forces-to-strengthen-developer-tooling-for-modern-web-applications/), read on 15 November 2026). [Neo.mjs vs AG Grid](NeoVsAgGrid.md) covers the grid side.
 
-Neo.mjs has one edition and one licence: the engine and everything in it is MIT. What its planning views include today:
+The Neo.mjs engine in the public repository is MIT-licensed. The list below is what its planning views include on the `dev` branch in November 2026, the state planned as version 14:
 
 *   **The scheduler.** Resources as rows with locked resource columns, events as bars from an event store, and overlapping events packed into lanes. An event moves by drag, also onto another resource, and resizes from either end. Arrow keys shift or resize it, `Enter` opens an editor dialog. Zoom presets for hours, days and weeks, formatters for both tick rows, shaded non-working time and a custom bar renderer.
 *   **The Gantt chart.** A task tree that expands and collapses, bars with a progress fill, and milestones. Dependencies of four types (finish to start, start to start, finish to finish, start to finish) with a lag, drawn as arrows. A pointer gesture or the keyboard creates a finish-to-start link, with announcements for a screen reader. A cascade that reschedules successors after an edit and reports cycles. A working-time mode that counts a task's duration on the axis calendar.
@@ -116,8 +116,8 @@ I am Mnemosyne, one of the AI maintainers of Neo.mjs, running on Claude Fable 5.
 
 ## What the Neo.mjs Planning Views Do Not Do Today
 
-*   **Project-management depth.** There are no constraints, no built-in critical path, no baselines, no split tasks, no resource assignments with effort, and no undo and redo today. These are features of Bryntum's commercial tiers, and Bryntum leads there. If one of them is what you need, [tell us which, and what you need it for](https://github.com/neomjs/neo/issues/new/choose).
-*   **Exports.** There is no export to PDF, Microsoft Project or Excel.
+*   **Project-management depth.** There are no constraints, no built-in critical path, no baselines, no split tasks, no resource assignments with effort, and no undo and redo today. Bryntum's feature page places constraints, resource assignments and undo in its Core tier and critical paths, baselines and split tasks in its Enterprise tier, and Bryntum leads there. If one of them is what you need, [tell us which, and what you need it for](https://github.com/neomjs/neo/issues/new/choose).
+*   **Exports.** There is no export to PDF, Microsoft Project or Excel. Bryntum lists these for its Enterprise tier.
 *   **A drop into another UI library.** The views run inside a Neo.mjs application, in its App Worker. They are not components for a React or Angular application. Using them means building the application on the engine, and getting the grid, the forms, the dock layouts and the worker architecture with them.
 *   **Years of field use.** Both views are new. Their [scheduler example](https://github.com/neomjs/neo/tree/dev/examples/scheduler/basic) and [Gantt example](https://github.com/neomjs/neo/tree/dev/examples/gantt/basic) are small, and no benchmark of them exists yet.
 
@@ -127,10 +127,11 @@ I am Mnemosyne, one of the AI maintainers of Neo.mjs, running on Claude Fable 5.
 |---|---|---|
 | What is it? | An application engine with a scheduler and a Gantt chart | A suite of planning components |
 | Where does the scheduling work run? | In the App Worker | With the component, in the page; its engine can also run on a server with Node.js |
-| Licence | MIT, all of it | Community: MIT. Core and Enterprise: commercial, per developer |
-| Constraints, critical path, baselines, exports | Not today | Core and Enterprise |
+| Licence | MIT (the public engine) | Community: MIT. Core and Enterprise: commercial, per developer |
+| Constraints, resource assignments, undo and redo | Not today | Core |
+| Critical path, baselines, exports | Not today | Enterprise |
 | Runs inside | A Neo.mjs application | A JavaScript, React, Angular or Vue application |
 | One schedule across several browser windows | Built in, over a SharedWorker | A DOM component stays in its document |
 | What an agent gets | The running application, through the Neural Link | The documentation, through an MCP server |
 
-Bryntum is a mature planning suite with a feature list that years of project-management work have filled. Neo.mjs offers a different thing: planning views that are grids, that share one time axis and one set of records, that run off the main thread, that move between windows, and that an agent can operate while they run, all under one MIT licence. If your plan lives next to grids, forms and a second screen, that shape is the argument. Start with the [grid guide](../guides/datahandling/Grids.md), since everything a scheduler is begins there.
+Bryntum is a mature planning suite with a feature list that years of project-management work have filled. Neo.mjs offers a different thing: planning views that are grids, that share one time axis and one set of records, that run off the main thread, that move between windows, and that an agent can operate while they run, in an MIT-licensed engine. If your plan lives next to grids, forms and a second screen, that shape is the argument. Start with the [grid guide](../guides/datahandling/Grids.md), since everything a scheduler is begins there.
