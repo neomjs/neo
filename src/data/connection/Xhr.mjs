@@ -166,10 +166,11 @@ class Xhr extends Base {
      * @param {Object} opts
      * @param {Function} opts.callback
      * @param {Object} opts.data
-     * @param {Object} opts.headers
+     * @param {Object} opts.headers Request headers. They replace `defaultHeaders` of the same name in any case, as HTTP
+     * header names are, the way the Fetch connection merges them
      * @param {Boolean} opts.insideNeo true for calls with relative URLs inside the framework scope
      * @param {String} opts.method DELETE, GET, POST, PUT
-     * @param {Object} opts.params
+     * @param {Object|URLSearchParams|Array[]|String} opts.params Composed into the query by `appendParams()`
      * @param {String} opts.responseType
      * @param {Object} opts.scope
      * @param {String} opts.url
@@ -178,10 +179,12 @@ class Xhr extends Base {
      */
     request(opts) {
         let me      = this,
-            headers = {...me.defaultHeaders, ...opts.headers || {}},
+            headers = new Headers(me.defaultHeaders ?? undefined),
             id      = Neo.getId('xhr-request'),
             method  = opts.method || 'GET',
             xhr     = new XMLHttpRequest();
+
+        new Headers(opts.headers ?? undefined).forEach((value, name) => headers.set(name, value));
 
         if (!opts.url) {
             console.error('Neo.Xhr.request without a given url' + JSON.stringify(opts))
@@ -210,8 +213,8 @@ class Xhr extends Base {
 
             xhr.open(method, opts.url, true);
 
-            Object.entries(headers).forEach(([key, value]) => {
-                xhr.setRequestHeader(key, value)
+            headers.forEach((value, name) => {
+                xhr.setRequestHeader(name, value)
             });
 
             xhr.send(opts.data);

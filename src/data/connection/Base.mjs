@@ -48,11 +48,13 @@ class Base extends CoreBase {
      * the params still join with `&`. Empty params leave the URL as it is. String composition keeps relative URLs
      * relative, which `new URL()` cannot do without a base.
      *
-     * Arrays and plain objects are sent as JSON (`sorters=[{"direction":"DESC","property":"score"}]`, URL-encoded),
-     * so a server can parse them back. `null` and `undefined` values are left out. Any other value is sent as its
-     * string, so strings, numbers and booleans arrive as they are.
+     * A plain object is a record of params, as a Store's read sends them. Its arrays and plain objects are sent as
+     * JSON (`sorters=[{"direction":"DESC","property":"score"}]`, URL-encoded), so a server can parse them back,
+     * `null` and `undefined` values are left out, and any other value is sent as its string. Any other input, such as
+     * a query string, a `URLSearchParams` or an iterable of `[key, value]` pairs, composes as `new URLSearchParams()`
+     * reads it, with repeated keys kept in order.
      * @param {String} url
-     * @param {Object} params
+     * @param {Object|URLSearchParams|Array[]|String} params
      * @returns {String}
      */
     appendParams(url, params) {
@@ -61,12 +63,15 @@ class Base extends CoreBase {
             hash       = hashIndex > -1 ? url.substring(hashIndex)    : '',
             queryIndex = base.indexOf('?'),
             existing   = queryIndex > -1 ? base.substring(queryIndex + 1) : null,
-            search     = new URLSearchParams(),
+            record     = Neo.isObject(params),
+            search     = new URLSearchParams(record ? undefined : params),
             query, separator;
 
-        for (const [key, value] of Object.entries(params)) {
-            if (value != null) {
-                search.append(key, Array.isArray(value) || Neo.isObject(value) ? JSON.stringify(value) : value)
+        if (record) {
+            for (const [key, value] of Object.entries(params)) {
+                if (value != null) {
+                    search.append(key, Array.isArray(value) || Neo.isObject(value) ? JSON.stringify(value) : value)
+                }
             }
         }
 

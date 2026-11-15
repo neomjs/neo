@@ -47,9 +47,12 @@ test.describe('Xhr and Fetch reads send their params in a form the server can de
                 requested.push({headers: {}, url})
             }
 
-            /** @summary Captures each request header under its case-insensitive name. */
+            /** @summary Captures each request header as native Xhr combines them: a second value for a name, in any case, is appended. */
             setRequestHeader(name, value) {
-                requested.at(-1).headers[name.toLowerCase()] = value
+                const headers = requested.at(-1).headers,
+                      key     = name.toLowerCase();
+
+                headers[key] = key in headers ? `${headers[key]}, ${value}` : value
             }
 
             /** @summary Answers with an empty body once the connection has registered the request. */
@@ -81,12 +84,14 @@ test.describe('Xhr and Fetch reads send their params in a form the server can de
      * @param {String} transport A key of `transports`
      * @param {Object} params
      * @param {String} [url='/data'] The connection's URL
+     * @param {Object|null} [defaultHeaders=null] The connection's `defaultHeaders`
      * @returns {Promise<Object>} The recorded `{headers, url}`
      */
-    async function read(transport, params, url='/data') {
+    async function read(transport, params, url='/data', defaultHeaders=null) {
         const connection = transports[transport](url);
 
         connections.push(connection);
+        defaultHeaders && (connection.defaultHeaders = defaultHeaders);
         await connection.read(params);
 
         expect(requested, 'one read dispatches one request').toHaveLength(1);
@@ -132,6 +137,28 @@ test.describe('Xhr and Fetch reads send their params in a form the server can de
 
             expect(url).toBe('/data?page=1');
             expect(headers['x-probe']).toBe('read')
+        });
+
+        test(`${transport}: a read's headers replace default headers of the same name, in any case`, async () => {
+            const {headers} = await read(transport, {headers: {authorization: 'Bearer NEW', 'x-probe': 'new'}}, '/data', {
+                Authorization: 'Bearer OLD',
+                'X-Kept'     : 'kept',
+                'X-Probe'    : 'old'
+            });
+
+            expect(headers).toEqual({authorization: 'Bearer NEW', 'x-kept': 'kept', 'x-probe': 'new'})
         })
     }
+
+    test('Xhr: a direct request composes a URLSearchParams, [key, value] pairs or a query string in order, repeated keys kept', async () => {
+        const connection = transports.Xhr('/data');
+
+        connections.push(connection);
+
+        for (const params of [new URLSearchParams([['tag', 'one'], ['tag', 'two']]), [['tag', 'one'], ['tag', 'two']], 'tag=one&tag=two', {tag: 'plain'}]) {
+            await connection.promiseJson({params, url: '/data'})
+        }
+
+        expect(requested.map(request => request.url)).toEqual(['/data?tag=one&tag=two', '/data?tag=one&tag=two', '/data?tag=one&tag=two', '/data?tag=plain'])
+    })
 });
