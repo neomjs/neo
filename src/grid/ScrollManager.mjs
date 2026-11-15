@@ -385,39 +385,60 @@ class ScrollManager extends Base {
     }
 
     /**
-     * Registers an auxiliary follower row outside grid.body to receive horizontal scroll sync.
+     * @summary Registers an auxiliary follower row outside grid.body to receive horizontal scroll sync.
+     *
+     * The id joins {@link #horizontalScrollFollowerIds} before any addon call, so a window transfer or a later
+     * re-registration picks it up whether or not the live attach below has run. The addon lookup suspends:
+     * `windowId` is captured first, and the continuation returns early when this manager was destroyed, unmounted,
+     * moved to another window or the id was unregistered again while awaiting, matching the post-`await` invariant
+     * of the `update*Addon` methods.
      * @param {String} nodeId
      * @returns {Promise<void>}
      */
     async registerHorizontalScrollFollower(nodeId) {
-        let me = this;
+        let me         = this,
+            {windowId} = me;
+
         me.horizontalScrollFollowerIds.add(nodeId);
 
-        if (me.mounted && !me.isDestroyed) {
-            let addon = await Neo.currentWorker.getAddon('GridHorizontalScrollSync', me.windowId);
+        if (me.mounted && windowId && !me.isDestroyed) {
+            let addon = await Neo.currentWorker.getAddon('GridHorizontalScrollSync', windowId);
+
+            if (me.isDestroyed || !me.mounted || me.windowId !== windowId || !me.horizontalScrollFollowerIds.has(nodeId)) return;
+
             addon.registerFollower({
                 id        : me.id + '__h_scroll',
                 followerId: nodeId,
-                windowId  : me.windowId
+                windowId
             });
         }
     }
 
     /**
-     * Unregisters an auxiliary follower row from receiving horizontal scroll sync.
+     * @summary Unregisters an auxiliary follower row from receiving horizontal scroll sync.
+     *
+     * The id leaves {@link #horizontalScrollFollowerIds} before any addon call, so a later re-registration no
+     * longer carries it. The addon lookup suspends: the continuation returns early when this manager was destroyed
+     * or the id was registered again while awaiting, matching the post-`await` invariant of the `update*Addon`
+     * methods.
      * @param {String} nodeId
      * @returns {Promise<void>}
      */
     async unregisterHorizontalScrollFollower(nodeId) {
-        let me = this;
+        let me         = this,
+            {windowId} = me;
+
         me.horizontalScrollFollowerIds.delete(nodeId);
 
-        if (me.mounted && !me.isDestroyed) {
-            let addon = await Neo.currentWorker.getAddon('GridHorizontalScrollSync', me.windowId);
+        if (me.mounted && windowId && !me.isDestroyed) {
+            let addon = await Neo.currentWorker.getAddon('GridHorizontalScrollSync', windowId);
+
+            if (me.isDestroyed || me.horizontalScrollFollowerIds.has(nodeId)) return;
+
             addon.unregisterFollower({
                 id        : me.id + '__h_scroll',
                 followerId: nodeId,
-                windowId  : me.windowId
+                windowId
             });
         }
     }
