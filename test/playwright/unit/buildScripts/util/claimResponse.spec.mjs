@@ -912,10 +912,16 @@ test.describe('buildScripts/util/claimResponse', () => {
                 '`Resolves #107`',
                 '> Fixes #108',
                 '```md\nCloses #109\n```',
-                '~~~text\nResolves #110\n~~~'
+                '~~~text\nResolves #110\n~~~',
+                '<!<!-- Resolves #111 -->-->',
+                'Inline ```Resolves #112``` code'
             ].join('\n');
 
             expect(closeTargets(body, 'neomjs/neo')).toEqual([101, 102, 103]);
+
+            const startedAt = Date.now();
+            expect(closeTargets(`Resolves${' :'.repeat(60)} no-target`, 'neomjs/neo')).toEqual([]);
+            expect(Date.now() - startedAt).toBeLessThan(50);
 
             const basePr = pullRequestFixture({body: 'Resolves #101\n- [ ] task'});
             expect(changedCloseTargets({action: 'opened', pullRequest: basePr, repository: 'neomjs/neo'})).toEqual({
@@ -1153,6 +1159,7 @@ test.describe('buildScripts/util/claimResponse', () => {
 
         test('decidePullRequestRelease respects activation boundary, notifies once in order, handles renames, and ignores fake markers', () => {
             const
+                activationCut = '2026-11-15T17:25:00Z',
                 prClosedAfter = pullRequestFixture({closedAt: '2026-11-15T17:30:00Z', createdAt: '2026-11-15T17:10:00Z', merged: false}),
                 prClosedPrior = pullRequestFixture({closedAt: '2026-11-15T16:59:59Z', createdAt: '2026-11-15T16:00:00Z', merged: false}),
                 cAlice        = comment('alice-old', '2026-11-15T17:12:00Z', "I'd like to work on this.", {id: 101}),
@@ -1174,12 +1181,21 @@ test.describe('buildScripts/util/claimResponse', () => {
                     releaseMarker({issue: 19143, login: 'alice-new', pr: 21500, repo: 'neomjs/neo', to: 101}) + '\n' +
                     releaseMarker({issue: 19143, login: 'dan', pr: 21500, repo: 'neomjs/neo', to: 104}));
 
+            // Default module export keeps release notices disabled until repository activation supplies an explicit cut
+            expect(CLAIM_RELEASE_SINCE).toBeNull();
+            expect(decidePullRequestRelease({
+                comments   : [cAlice, botAliceTaken],
+                issue      : gfiIssue({state: 'open'}),
+                pullRequest: prClosedAfter,
+                repoUrl    : REPO_URL
+            })).toBeNull();
+
             // Pre-activation closes and null activation gates never fire
             expect(decidePullRequestRelease({
                 comments    : [cAlice, botAliceTaken],
                 issue       : gfiIssue({state: 'open'}),
                 pullRequest : prClosedPrior,
-                releaseSince: CLAIM_RELEASE_SINCE,
+                releaseSince: activationCut,
                 repoUrl     : REPO_URL
             })).toBeNull();
             expect(decidePullRequestRelease({
@@ -1189,13 +1205,21 @@ test.describe('buildScripts/util/claimResponse', () => {
                 releaseSince: null,
                 repoUrl     : REPO_URL
             })).toBeNull();
+            expect(() => decidePullRequestRelease({
+                comments    : [cAlice, botAliceTaken],
+                issue       : gfiIssue({state: 'open'}),
+                pullRequest : prClosedAfter,
+                releaseSince: 'not-a-date',
+                repoUrl     : REPO_URL
+            })).toThrow('Invalid release activation boundary');
 
             // Merged closes never emit release notice
             expect(decidePullRequestRelease({
-                comments   : [cAlice, botAliceTaken],
-                issue      : gfiIssue({state: 'open'}),
-                pullRequest: {...prClosedAfter, merged: true},
-                repoUrl    : REPO_URL
+                comments    : [cAlice, botAliceTaken],
+                issue       : gfiIssue({state: 'open'}),
+                pullRequest : {...prClosedAfter, merged: true},
+                releaseSince: activationCut,
+                repoUrl     : REPO_URL
             })).toBeNull();
 
             // Live holder (excluding closing PR) suppresses release notice
@@ -1204,16 +1228,18 @@ test.describe('buildScripts/util/claimResponse', () => {
                 issue           : gfiIssue({state: 'open'}),
                 openPullRequests: [{author: 'other', number: 21505, repository: 'neomjs/neo'}],
                 pullRequest     : prClosedAfter,
+                releaseSince    : activationCut,
                 repoUrl         : REPO_URL
             })).toBeNull();
 
             // Valid unmerged close: notifies alice-new (renamed, id 101) and dan (104) in first-claim order,
             // excludes bob (withdrawn) and carol (capacity-only refusal), ignores contributor-copied marker.
             const first = decidePullRequestRelease({
-                comments   : [cAlice, botAliceTaken, cBob, cBobWithdraw, cCap, botCapRefusal, cDan, botTakenReply, aliceRenamed, fakeCopy],
-                issue      : gfiIssue({state: 'open'}),
-                pullRequest: prClosedAfter,
-                repoUrl    : REPO_URL
+                comments    : [cAlice, botAliceTaken, cBob, cBobWithdraw, cCap, botCapRefusal, cDan, botTakenReply, aliceRenamed, fakeCopy],
+                issue       : gfiIssue({state: 'open'}),
+                pullRequest : prClosedAfter,
+                releaseSince: activationCut,
+                repoUrl     : REPO_URL
             });
             expect(first.notified).toEqual([
                 {id: 101, login: 'alice-new'},
@@ -1229,10 +1255,11 @@ test.describe('buildScripts/util/claimResponse', () => {
             // Close -> reopen -> close with same PR + renamed login under same numeric user id emits zero duplicate notice
             const botRelease = comment('github-actions[bot]', '2026-11-15T17:30:05Z', first.body, {type: 'Bot'});
             expect(decidePullRequestRelease({
-                comments   : [cAlice, botAliceTaken, aliceRenamed, cDan, botTakenReply, botRelease],
-                issue      : gfiIssue({state: 'open'}),
-                pullRequest: {...prClosedAfter, user: {...prClosedAfter.user}, closed_at: '2026-11-15T17:40:00Z'},
-                repoUrl    : REPO_URL
+                comments    : [cAlice, botAliceTaken, aliceRenamed, cDan, botTakenReply, botRelease],
+                issue       : gfiIssue({state: 'open'}),
+                pullRequest : {...prClosedAfter, user: {...prClosedAfter.user}, closed_at: '2026-11-15T17:40:00Z'},
+                releaseSince: activationCut,
+                repoUrl     : REPO_URL
             })).toBeNull();
 
             // Reusing old login with a NEW numeric account id (1999) is NOT blocked by old release marker for id 101
@@ -1241,10 +1268,11 @@ test.describe('buildScripts/util/claimResponse', () => {
                 `Thanks, @alice-old! This one is taken: #21500 is open for it.\n\n${replyMarker('alice-old')}\n<!-- claim-refused:${newAccountSameLogin.id} -->`,
                 {type: 'Bot'});
             expect(decidePullRequestRelease({
-                comments   : [cAlice, botAliceTaken, cDan, botTakenReply, botRelease, newAccountSameLogin, botNewTaken],
-                issue      : gfiIssue({state: 'open'}),
-                pullRequest: {...prClosedAfter, closed_at: '2026-11-15T17:45:00Z'},
-                repoUrl    : REPO_URL
+                comments    : [cAlice, botAliceTaken, cDan, botTakenReply, botRelease, newAccountSameLogin, botNewTaken],
+                issue       : gfiIssue({state: 'open'}),
+                pullRequest : {...prClosedAfter, closed_at: '2026-11-15T17:45:00Z'},
+                releaseSince: activationCut,
+                repoUrl     : REPO_URL
             }).notified).toEqual([{id: 1999, login: 'alice-old'}]);
 
             // Incomplete claimant identity (no numeric user id) fails visibly
@@ -1253,25 +1281,28 @@ test.describe('buildScripts/util/claimResponse', () => {
                 `Thanks, @no-id-claimant! This one is taken: #21500 is open for it.\n\n${replyMarker('no-id-claimant')}\n<!-- claim-refused:${cNoId.id} -->`,
                 {type: 'Bot'});
             expect(() => decidePullRequestRelease({
-                comments   : [cNoId, botNoIdTaken],
-                issue      : gfiIssue({state: 'open'}),
-                pullRequest: prClosedAfter,
-                repoUrl    : REPO_URL
+                comments    : [cNoId, botNoIdTaken],
+                issue       : gfiIssue({state: 'open'}),
+                pullRequest : prClosedAfter,
+                releaseSince: activationCut,
+                repoUrl     : REPO_URL
             })).toThrow('missing numeric user id');
         });
 
         test('workflow github-script handles pull_request_target lifecycle, security boundary, provenance, and release race checks', async () => {
             const
-                workflowPath  = path.resolve(process.cwd(), '.github/workflows/claim-responder.yml'),
-                raw           = fs.readFileSync(workflowPath, 'utf8'),
-                scriptBlock   = raw.split('script: |\n')[1].split('\n').map(line => line.slice(12)).join('\n'),
-                AsyncFunction = Object.getPrototypeOf(async function () {}).constructor,
-                runStep       = new AsyncFunction('github', 'context', 'core', scriptBlock),
-                prevWorkspace = process.env.GITHUB_WORKSPACE;
+                workflowPath     = path.resolve(process.cwd(), '.github/workflows/claim-responder.yml'),
+                raw              = fs.readFileSync(workflowPath, 'utf8'),
+                scriptBlock      = raw.split('script: |\n')[1].split('\n').map(line => line.slice(12)).join('\n'),
+                AsyncFunction    = Object.getPrototypeOf(async function () {}).constructor,
+                runStep          = new AsyncFunction('github', 'context', 'core', scriptBlock),
+                prevWorkspace    = process.env.GITHUB_WORKSPACE,
+                prevReleaseSince = process.env.NEO_CLAIM_RELEASE_SINCE;
 
             expect(raw).toContain('pull_request_target:');
             expect(raw).toContain('types: [opened, reopened, edited, closed]');
             expect(raw).toContain('pull-requests: write');
+            expect(raw).toContain('NEO_CLAIM_RELEASE_SINCE: ${{ vars.NEO_CLAIM_RELEASE_SINCE }}');
             expect(raw).toContain('ref: ${{ github.event.repository.default_branch }}');
             expect(raw).not.toContain('github.event.pull_request.head');
 
@@ -1461,31 +1492,12 @@ test.describe('buildScripts/util/claimResponse', () => {
                 expect(hMerged.created[0].body).toContain('residual-scope review');
                 expect(hMerged.created[0].body).toContain(overlapMarker({heldBy: 'pr:21500', issue: 19143, pr: 21501}));
 
-                // 6. Unmerged close race re-check: concurrent claimant arrives between read 1 and read 2 -> zero release comment posted
+                // 6. Unmerged close hold & race re-check: default (unset env + null export) emits nothing; when activated,
+                // a concurrent claimant arriving between read 1 and read 2 suppresses any release comment
                 const displaced      = comment('displaced-dev', '2026-11-15T17:12:00Z', "I'd like to claim this.", {id: 8002});
                 const displacedReply = comment('github-actions[bot]', '2026-11-15T17:12:03Z',
                     `Thanks, @displaced-dev! This one is taken: #21500 is open for it.\n\n${replyMarker('displaced-dev')}\n<!-- claim-refused:${displaced.id} -->`,
                     {type: 'Bot'});
-                const hRace = createHarness({
-                    nextIssueReadHook: ({issues: liveIssues, reads: r}) => {
-                        if (r === 2) liveIssues.get(19143).assignees = [{id: 8003, login: 'racer'}]
-                    }
-                });
-                hRace.comments.set(19143, [displaced, displacedReply]);
-                await hRace.runPrEvent('closed', {
-                    author_association: 'NONE',
-                    body              : 'Resolves #19143',
-                    closed_at         : '2026-11-15T17:35:00Z',
-                    created_at        : '2026-11-15T17:10:00Z',
-                    merged            : false,
-                    number            : 21500,
-                    user              : {id: 7001, login: 'outside-dev', type: 'User'}
-                });
-                expect(hRace.created).toEqual([]);
-
-                // Without race, unmerged close notifies displaced-dev once and close -> reopen -> close stays silent
-                const hRel = createHarness();
-                hRel.comments.set(19143, [displaced, displacedReply]);
                 const closedPr = {
                     author_association: 'NONE',
                     body              : 'Resolves #19143',
@@ -1495,6 +1507,27 @@ test.describe('buildScripts/util/claimResponse', () => {
                     number            : 21500,
                     user              : {id: 7001, login: 'outside-dev', type: 'User'}
                 };
+
+                delete process.env.NEO_CLAIM_RELEASE_SINCE;
+                const hDefaultHold = createHarness();
+                hDefaultHold.comments.set(19143, [displaced, displacedReply]);
+                await hDefaultHold.runPrEvent('closed', closedPr);
+                expect(hDefaultHold.created).toEqual([]);
+
+                process.env.NEO_CLAIM_RELEASE_SINCE = '2026-11-15T17:25:00Z';
+
+                const hRace = createHarness({
+                    nextIssueReadHook: ({issues: liveIssues, reads: r}) => {
+                        if (r === 2) liveIssues.get(19143).assignees = [{id: 8003, login: 'racer'}]
+                    }
+                });
+                hRace.comments.set(19143, [displaced, displacedReply]);
+                await hRace.runPrEvent('closed', closedPr);
+                expect(hRace.created).toEqual([]);
+
+                // Without race, unmerged close notifies displaced-dev once and close -> reopen -> close stays silent
+                const hRel = createHarness();
+                hRel.comments.set(19143, [displaced, displacedReply]);
                 await hRel.runPrEvent('closed', closedPr);
                 await hRel.runPrEvent('closed', {...closedPr, closed_at: '2026-11-15T17:45:00Z'});
                 expect(hRel.created).toHaveLength(1);
@@ -1503,7 +1536,9 @@ test.describe('buildScripts/util/claimResponse', () => {
                 expect(hRel.created[0].body).toContain(releaseMarker({issue: 19143, login: 'displaced-dev', pr: 21500, repo: 'neomjs/neo', to: 8002}));
             } finally {
                 if (prevWorkspace === undefined) delete process.env.GITHUB_WORKSPACE;
-                else process.env.GITHUB_WORKSPACE = prevWorkspace
+                else process.env.GITHUB_WORKSPACE = prevWorkspace;
+                if (prevReleaseSince === undefined) delete process.env.NEO_CLAIM_RELEASE_SINCE;
+                else process.env.NEO_CLAIM_RELEASE_SINCE = prevReleaseSince
             }
         });
     });

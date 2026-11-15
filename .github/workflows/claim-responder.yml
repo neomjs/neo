@@ -6,7 +6,8 @@
 # - `pull_request_target` (`opened`, `reopened`, `edited`, `closed`): assigns outside authors targeting unclaimed
 #   curated issues (without fabricating issue comments), posts neutral overlap or residual-scope notices on held or
 #   already-completed issues, reconciles bot-created PR assignments safely when targets are removed, and posts one
-#   deduplicated release notice on open curated issues when an unmerged PR closes at or after `CLAIM_RELEASE_SINCE`.
+#   deduplicated release notice on open curated issues when an unmerged PR closes at or after the active release
+#   boundary (`vars.NEO_CLAIM_RELEASE_SINCE` or `CLAIM_RELEASE_SINCE`; disabled while `null`).
 #
 # Security boundary: `pull_request_target` runs with repository write permissions against fork PRs, so this workflow
 # checks out ONLY the two pure rule modules from the default branch (`github.event.repository.default_branch`), never
@@ -59,6 +60,8 @@ jobs:
 
       - name: Answer the claim
         uses: actions/github-script@v9
+        env:
+          NEO_CLAIM_RELEASE_SINCE: ${{ vars.NEO_CLAIM_RELEASE_SINCE }}
         with:
           script: |
             const {
@@ -206,6 +209,15 @@ jobs:
                   return
                 }
 
+                const
+                  envReleaseSince = process.env.NEO_CLAIM_RELEASE_SINCE?.trim(),
+                  releaseSince    = envReleaseSince ? envReleaseSince : CLAIM_RELEASE_SINCE;
+
+                if (releaseSince === null) {
+                  core.info(`No release notice: release activation gate is disabled for PR #${pullRequest.number}.`);
+                  return
+                }
+
                 for (const issueNumber of targets) {
                   const state1 = await loadTargetState(issueNumber);
                   const first  = decidePullRequestRelease({
@@ -214,7 +226,7 @@ jobs:
                     issue           : state1.issue,
                     openPullRequests: state1.openPullRequests,
                     pullRequest,
-                    releaseSince    : CLAIM_RELEASE_SINCE,
+                    releaseSince,
                     repoUrl
                   });
                   if (!first) continue;
@@ -227,7 +239,7 @@ jobs:
                     issue           : state2.issue,
                     openPullRequests: state2.openPullRequests,
                     pullRequest,
-                    releaseSince    : CLAIM_RELEASE_SINCE,
+                    releaseSince,
                     repoUrl
                   });
                   if (!fresh) {

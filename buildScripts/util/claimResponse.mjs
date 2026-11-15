@@ -57,12 +57,12 @@ export const CLAIM_WINDOW_DAYS = 3;
 
 /**
  * ISO timestamp from which unmerged pull-request closes emit release notices on open curated issues, or `null` while
- * release notices are held off behind an operational activation gate. Closes before this boundary emit no release
- * notice so pre-rollout closes are never backfilled; provisional pre-merge timestamps should be aligned to the
- * repository's recorded activation receipt when deployment lands later.
+ * release notices remain disabled pending operational repository activation. Keeping the default `null` (and passing
+ * an explicit timestamp only when enabled, e.g. via workflow variable `NEO_CLAIM_RELEASE_SINCE`) ensures merging the
+ * module creates no premature notifications and historical pre-activation closes are never backfilled.
  * @member {String|null} CLAIM_RELEASE_SINCE
  */
-export const CLAIM_RELEASE_SINCE = '2026-11-15T17:25:00Z';
+export const CLAIM_RELEASE_SINCE = null;
 
 const
     DAY_MS                 = 24 * 60 * 60 * 1000,
@@ -693,6 +693,137 @@ export function claimRecords(comments = []) {
 }
 
 /**
+ * @summary Strips fenced code blocks, blockquoted lines, HTML comments, and single-line inline code spans in one linear
+ * pass so close-target extraction avoids multi-character regex sanitization and catastrophic backtracking.
+ * @param {String} [body='']
+ * @returns {String}
+ */
+function stripIgnoredMarkdown(body = '') {
+    const
+        source = String(body),
+        len    = source.length,
+        chunks = [];
+
+    let
+        i           = 0,
+        atLineStart = true,
+        fenceChar   = '',
+        fenceLen    = 0;
+
+    while (i < len) {
+        if (fenceChar) {
+            const
+                nl   = source.indexOf('\n', i),
+                end  = nl === -1 ? len : nl,
+                line = source.slice(i, end).trim();
+
+            if (line.length >= fenceLen) {
+                let matches = true;
+                for (let k = 0; k < line.length; k++) {
+                    if (line[k] !== fenceChar) {
+                        matches = false;
+                        break
+                    }
+                }
+                if (matches) {
+                    fenceChar = '';
+                    fenceLen  = 0
+                }
+            }
+
+            chunks.push('\n');
+            i           = nl === -1 ? len : nl + 1;
+            atLineStart = true;
+            continue
+        }
+
+        if (atLineStart) {
+            let ws = i;
+            while (ws < len && (source[ws] === ' ' || source[ws] === '\t')) ws++;
+
+            if (source[ws] === '>') {
+                const nl = source.indexOf('\n', ws);
+                chunks.push('\n');
+                i           = nl === -1 ? len : nl + 1;
+                atLineStart = true;
+                continue
+            }
+
+            const marker = source[ws];
+            if ((ws - i) <= 3 && (marker === '`' || marker === '~')) {
+                let run = ws;
+                while (run < len && source[run] === marker) run++;
+                const runLen = run - ws;
+                if (runLen >= 3) {
+                    const nl      = source.indexOf('\n', run);
+                    const restEnd = nl === -1 ? len : nl;
+                    if (marker === '~' || !source.slice(run, restEnd).includes('`')) {
+                        fenceChar   = marker;
+                        fenceLen    = runLen;
+                        chunks.push('\n');
+                        i           = nl === -1 ? len : nl + 1;
+                        atLineStart = true;
+                        continue
+                    }
+                }
+            }
+        }
+
+        if (source.startsWith('<!--', i)) {
+            const close = source.indexOf('-->', i + 4);
+            chunks.push(' ');
+            if (close === -1) {
+                break
+            }
+            i           = close + 3;
+            atLineStart = false;
+            continue
+        }
+
+        if (source[i] === '`') {
+            let run = i;
+            while (run < len && source[run] === '`') run++;
+            const tickLen = run - i;
+            const nl      = source.indexOf('\n', run);
+            const lineEnd = nl === -1 ? len : nl;
+
+            let search = run;
+            let closed = -1;
+            while (search < lineEnd) {
+                const hit = source.indexOf('`', search);
+                if (hit === -1 || hit >= lineEnd) break;
+                let hitEnd = hit;
+                while (hitEnd < lineEnd && source[hitEnd] === '`') hitEnd++;
+                if (hitEnd - hit === tickLen) {
+                    closed = hitEnd;
+                    break
+                }
+                search = hitEnd
+            }
+
+            if (closed !== -1) {
+                chunks.push(' ');
+                i           = closed;
+                atLineStart = false;
+                continue
+            }
+
+            chunks.push(source.slice(i, run));
+            i           = run;
+            atLineStart = false;
+            continue
+        }
+
+        const ch = source[i];
+        chunks.push(ch);
+        i++;
+        atLineStart = ch === '\n'
+    }
+
+    return chunks.join('')
+}
+
+/**
  * @summary Extracts positive issue numbers referenced by GitHub closing keywords (`Resolves`, `Closes`, `Fixes`) in a
  * pull request body, ignoring comments, code spans/blocks, quotes and targets in other repositories.
  * @param {String} [body='']
@@ -701,16 +832,9 @@ export function claimRecords(comments = []) {
  */
 export function closeTargets(body = '', repository = '') {
     const
-        stripped = String(body)
-            .replace(/```[\s\S]*?```/g, '')
-            .replace(/~~~[\s\S]*?~~~/g, '')
-            .replace(/<!--[\s\S]*?-->/g, '')
-            .replace(/`[^`\n]*`/g, '')
-            .split('\n')
-            .filter(line => !line.trimStart().startsWith('>'))
-            .join('\n'),
+        stripped  = stripIgnoredMarkdown(body),
         repoLower = String(repository).toLowerCase(),
-        pattern   = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b(?:\s*:|\s)+(?:(#([1-9]\d*))|([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)#([1-9]\d*)|https?:\/\/github\.com\/([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)\/issues\/([1-9]\d*))(?!\w)/gi,
+        pattern   = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b(?::\s*|\s+(?::\s*)?)(?:(#([1-9]\d*))|([A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100})#([1-9]\d*)|https?:\/\/github\.com\/([A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100})\/issues\/([1-9]\d*))(?!\w)/gi,
         targets   = [],
         seen      = new Set();
 
