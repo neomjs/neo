@@ -56,7 +56,8 @@ const
     ENGINE_PATHS    = Object.freeze(['src/', 'apps/', 'examples/', 'resources/scss/']),
     GENERIC_LABELS  = new Set([...CURATED_LABELS, 'ai', 'bug', 'documentation', 'enhancement']),
     HEADS_UP_PREFIX = '<!-- contributor-heads-up:',
-    MARKER_PREFIX   = '<!-- merge-comment:';
+    MARKER_PREFIX   = '<!-- merge-comment:',
+    RETURNING_AT    = RUNGS.find(entry => entry.slug === 'returning').merges;
 
 /**
  * @summary An issue's label names, whether the REST shape carries strings or `{name}` objects.
@@ -87,6 +88,15 @@ export function standing(count) {
     }
 
     return {rung, next: null, remaining: null}
+}
+
+/**
+ * @summary The number of curated claims a contributor can hold in this repository at their standing.
+ * @param {Number} count Merged pull requests across the organisation.
+ * @returns {Number} Two from the returning rung; otherwise one.
+ */
+export function claimLimit(count) {
+    return Number.isSafeInteger(count) && count >= RETURNING_AT ? 2 : 1
 }
 
 /**
@@ -296,7 +306,8 @@ export function decideMergeComment({pullRequest, mergedBefore, comments = [], ca
         count        = mergedBefore + 1,
         atRung       = RUNGS.some(entry => entry.merges === count),
         suggested    = nextIssues({closedLabels, candidates, seed: pullRequest.user.login}),
-        standingLine = renderStanding(count),
+        standingLine = renderStanding(count) + (count === RETURNING_AT
+            ? ' You can now hold two curated claims at once in this repository.' : ''),
         nextLine     = suggested.length > 0 ? renderNext(suggested, repoUrl) : null,
         // A first merge is a rung, so the badge stands in the full form only
         badge        = !hasFolder(pullRequest, badgesSince, optOut) ? null

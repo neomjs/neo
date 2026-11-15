@@ -6,11 +6,10 @@
  * @description Maintainers are not online around the clock, so a claim used to wait until a seat ran, and that
  * could be many hours. The responder closes that gap while bounding claim spraying:
  *
- * - **first in line:** nothing live holds the issue and the claimant holds no other open curated issue in the
+ * - **first in line:** nothing live holds the issue and the claimant has an available curated claim in the
  *   repository, so the workflow assigns them (clearing any lapsed >3-day silent outside assignee) and they can start
  *   now (`decideClaim` → `assign: true`).
- * - **already holding one:** the claimant is already assigned to another open curated issue in the repository, so
- *   `assign` stays `false` and the reply asks them to finish or step back from that issue first.
+ * - **at capacity:** a claimant who has filled their slots can ask again after one opens.
  * - **taken:** a live assignee, an open pull request that resolves the issue, or an earlier unwithdrawn, un-unassigned
  *   claimant holds it. The reply names the holder and points at claimable issues with the same label.
  *
@@ -56,6 +55,7 @@ export const CLAIM_WINDOW_DAYS = 3;
 const
     DAY_MS              = 24 * 60 * 60 * 1000,
     MARKER_PREFIX       = '<!-- claim-responder:',
+    REFUSED_COMMENT     = /<!-- claim-refused:(\d+) -->/,
     CLAIM_TARGET        = String.raw`(this|it|#\d+|the\s[^\n]{1,80}?\brow\b)`,
     WITHDRAWAL_PATTERNS = Object.freeze([
         /\bstepping\s+(back|away)\b/i,
@@ -150,12 +150,35 @@ export function curatedLabel(issue) {
 }
 
 /**
- * The hidden marker a reply carries, so a re-run never answers the same claimant on the same issue twice.
+ * Identifies a reply to this claimant. A refusal can be reconsidered on a later explicit claim.
  * @param {String} login
  * @returns {String}
  */
 export function replyMarker(login) {
     return `${MARKER_PREFIX}@${String(login).toLowerCase()} -->`
+}
+
+/** @summary Orders REST comments, including comments posted in the same second. */
+function follows(later, earlier) {
+    return later.created_at > earlier.created_at ||
+        (later.created_at === earlier.created_at && later.id > earlier.id)
+}
+
+/** @summary Only this workflow's bot can issue a claim receipt or own a refusal to update. */
+function isClaimReply(reply, login) {
+    return reply.user?.type === 'Bot' && reply.user.login === 'github-actions[bot]' &&
+        reply.body?.includes(replyMarker(login))
+}
+
+/** @summary Recognises a bot refusal, including replies written before refusals had a separate marker. */
+function refusedClaim(reply, login) {
+    if (!isClaimReply(reply, login)) return false;
+
+    const opening = `thanks, @${login}! `;
+    const body    = reply.body.toLowerCase();
+
+    return REFUSED_COMMENT.test(body) || body.startsWith(opening + "you're already assigned to ") ||
+        body.startsWith(opening + 'this one is taken:')
 }
 
 /**
@@ -195,8 +218,9 @@ export function earlierClaim({claimant, comment, comments = [], events = []}) {
     const
         self         = String(claimant).toLowerCase(),
         at           = new Date(comment.created_at).getTime(),
-        before       = comments.filter(other => other.id !== comment.id && new Date(other.created_at).getTime() <= at),
+        before       = comments.filter(other => follows(comment, other)),
         eventsBefore = events.filter(ev => new Date(ev.created_at).getTime() <= at),
+        refused      = comments.filter(reply => reply.user?.type === 'Bot'),
         lastWord     = login => Math.max(...before
             .filter(other => String(other.user?.login).toLowerCase() === login)
             .map(other => new Date(other.created_at).getTime()));
@@ -209,10 +233,17 @@ export function earlierClaim({claimant, comment, comments = [], events = []}) {
         return login !== self &&
             isOutsideHuman(other) &&
             isClaim(other.body) &&
+            !refused.some(reply => {
+                if (!refusedClaim(reply, login)) return false;
+                // A serialized run can refuse this claim after the next claimant has already commented.
+                // New replies name the exact triggering comment. Older replies only identify the claimant.
+                const through = reply.body.match(REFUSED_COMMENT);
+                return through ? other.id <= Number(through[1]) : follows(comment, reply) && follows(reply, other)
+            }) &&
             at - lastWord(login) <= CLAIM_WINDOW_DAYS * DAY_MS &&
             !before.some(later =>
                 String(later.user?.login).toLowerCase() === login &&
-                new Date(later.created_at).getTime() > claimed &&
+                follows(later, other) &&
                 isWithdrawal(later.body)
             ) &&
             !eventsBefore.some(ev =>
@@ -359,17 +390,20 @@ export function holders({claimant, comment, comments = [], events = [], issue, o
  * @param {Boolean} [options.assigned=false] True when the workflow verified `addAssignees` succeeded
  * @param {String} options.claimant
  * @param {Number[]} [options.heldByClaimant=[]] Other open curated issue numbers already assigned to `claimant`
+ * @param {Number} [options.claimLimit] Engine standing allowance. Legacy callers keep the single-claim reply.
+ * @param {Number} [options.commentId] Triggering claim's REST comment ID, used to identify a refusal on replay.
  * @param {Object[]} [options.holders=[]] From {@link holders}
  * @param {Number[]} [options.alternatives=[]] From {@link pickAlternatives}
  * @param {String} options.label The curated label the alternatives share
  * @param {String} options.repoUrl e.g. `https://github.com/neomjs/neo`
  * @returns {String}
  */
-export function renderReply({assigned = false, claimant, heldByClaimant = [], holders: held = [], alternatives = [], label, repoUrl}) {
+export function renderReply({assigned = false, claimant, claimLimit, commentId, heldByClaimant = [], holders: held = [], alternatives = [], label, repoUrl}) {
     const
         contributing = `${repoUrl}/blob/dev/CONTRIBUTING.md`,
         listUrl      = `${repoUrl}/issues?q=${encodeURIComponent(`is:issue is:open label:"${label}" no:assignee -linked:pr`)}`,
-        footer       = `<sub>An automatic reply. [How claims work](${contributing})</sub>\n${replyMarker(claimant)}`;
+        footer       = `<sub>An automatic reply. [How claims work](${contributing})</sub>\n${replyMarker(claimant)}`,
+        refusal      = Number.isSafeInteger(commentId) ? `${footer}\n<!-- claim-refused:${commentId} -->` : footer;
 
     if (held.length < 1) {
         if (heldByClaimant.length > 0) {
@@ -378,9 +412,11 @@ export function renderReply({assigned = false, claimant, heldByClaimant = [], ho
                 list = refs.length > 1 ? `${refs.slice(0, -1).join(', ')} and ${refs.at(-1)}` : refs[0];
 
             return [
-                `Thanks, @${claimant}! You're already assigned to ${list} — please finish or step back from that issue before claiming another curated one, so other contributors get a turn too.`,
+                claimLimit === undefined
+                    ? `Thanks, @${claimant}! You're already assigned to ${list} — please finish or step back from that issue before claiming another curated one, so other contributors get a turn too.`
+                    : `Thanks, @${claimant}! You already hold ${list}.${claimLimit === 2 ? '' : ' From five merged pull requests you can hold two at once.'} Please claim this again once a slot opens.`,
                 '',
-                footer
+                refusal
             ].join('\n')
         }
 
@@ -413,14 +449,14 @@ export function renderReply({assigned = false, claimant, heldByClaimant = [], ho
         ),
         options = alternatives.length > 0
             ? [`These \`${label}\` issues are open and nobody holds them:`, '', ...alternatives.map(number => `- #${number}`), '', `The [full list](${listUrl}) has the rest. Comment on one to claim it.`]
-            : [`No other \`${label}\` issue is free right now. The [list](${listUrl}) shows new ones as they open.`];
+            : [`Check the [list of open \`${label}\` issues](${listUrl}) for another issue to claim.`];
 
     return [
         `Thanks, @${claimant}! This one is taken: ${reasons.length > 1 ? `${reasons.slice(0, -1).join(', ')} and ${reasons.at(-1)}` : reasons[0]}.`,
         '',
         ...options,
         '',
-        footer
+        refusal
     ].join('\n')
 }
 
@@ -428,7 +464,7 @@ export function renderReply({assigned = false, claimant, heldByClaimant = [], ho
  * Decides both assignment eligibility and reply text for `comment`, or null when it gets no reply.
  *
  * No reply for: an issue without a curated label, a pull request, a team or bot author, the issue's assignee, a
- * comment that is not a claim, or a claimant this responder already answered on this issue.
+ * comment that is not a claim, or a replay. Only a fresh claim after a refusal can reopen the decision.
  * @param {Object} options
  * @param {Object} options.comment The new comment (REST shape)
  * @param {Object} options.issue The issue (REST shape)
@@ -438,10 +474,12 @@ export function renderReply({assigned = false, claimant, heldByClaimant = [], ho
  * the issue, `repository` being each one's base
  * @param {Number[]} [options.candidates=[]] Claimable issue numbers with the issue's curated label
  * @param {Number[]} [options.heldByClaimant=[]] Open curated issue numbers already assigned to `claimant`
+ * @param {Number} [options.claimLimit] One by default, or two when the workflow verifies returning standing.
  * @param {String} options.repoUrl
- * @returns {{assign: Boolean, assignedBody?: String, body: String, unassign?: String[]}|null}
+ * @returns {{assign: Boolean, assignedBody?: String, body: String, unassign?: String[], updateCommentId?: Number}|null}
+ * A still-blocked retry updates the workflow's existing refusal and the comment ID it covers.
  */
-export function decideClaim({comment, issue, comments = [], events = [], openPullRequests = [], candidates = [], heldByClaimant = [], repoUrl}) {
+export function decideClaim({comment, issue, comments = [], events = [], openPullRequests = [], candidates = [], heldByClaimant = [], claimLimit, repoUrl}) {
     const
         claimant = comment?.user?.login,
         label    = curatedLabel(issue);
@@ -456,9 +494,10 @@ export function decideClaim({comment, issue, comments = [], events = [], openPul
         return null
     }
 
-    // Only a bot-authored marker counts: anyone can paste the text, and a pasted one must not silence a reply.
-    if (comments.some(other => other.user?.type === 'Bot' && String(other.body || '').includes(replyMarker(claimant)))) {
-        return null
+    const reply = comments.findLast(other => isClaimReply(other, self));
+    if (reply) {
+        const covered = reply.body.match(REFUSED_COMMENT);
+        if (!refusedClaim(reply, self) || (covered ? comment.id <= Number(covered[1]) : !follows(comment, reply))) return null
     }
 
     const
@@ -466,24 +505,12 @@ export function decideClaim({comment, issue, comments = [], events = [], openPul
         held       = holders({claimant, comment, comments, events, issue, openPullRequests, repository}),
         otherHeld  = [...new Set(heldByClaimant)].filter(number => number !== issue.number).sort((a, b) => a - b);
 
-    if (held.length > 0) {
-        return {
-            assign: false,
-            body  : renderReply({
-                alternatives: pickAlternatives({candidates, exclude: issue.number, seed: claimant}),
-                claimant,
-                holders     : held,
-                label,
-                repoUrl
-            })
-        }
-    }
-
-    if (otherHeld.length > 0) {
-        return {
-            assign: false,
-            body  : renderReply({claimant, heldByClaimant: otherHeld, label, repoUrl})
-        }
+    if (held.length || otherHeld.length >= (claimLimit === 2 ? 2 : 1)) {
+        const body = renderReply({
+            claimant, claimLimit, commentId: comment.id, heldByClaimant: otherHeld, holders: held, label, repoUrl,
+            alternatives: held.length ? pickAlternatives({candidates, exclude: issue.number, seed: claimant}) : []
+        });
+        return reply ? {assign: false, body, updateCommentId: reply.id} : {assign: false, body}
     }
 
     return {
@@ -501,5 +528,7 @@ export function decideClaim({comment, issue, comments = [], events = [], openPul
  * @returns {String|null}
  */
 export function decideReply(options) {
+    // Reply-only consumers cannot record a retry by editing the earlier refusal.
+    if (options.comments?.some(reply => isClaimReply(reply, options.comment?.user?.login))) return null;
     return decideClaim(options)?.body || null
 }

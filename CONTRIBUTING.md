@@ -126,8 +126,10 @@ independently: this one as the `neo.mjs` npm package, the Brain as container ima
    This ensures that your idea fits the scope of the project and makes it less likely to get a rejected PR.
    We will do our best to reply to new tickets within 7d max. In case we don't, feel free to bump the ticket.
 3. **Claim before you start.** To work on an existing ticket, comment there. An automatic reply tells you whether you
-   are first in line. On curated issues (`good first issue` and `help wanted`, one open curated claim at a time), a
-   first-in-line claim also assigns you automatically so the issue list shows it is taken: start right away. A
+   are first in line. On curated issues (`good first issue` and `help wanted`), the bot assigns the first eligible
+   claimant. You can hold one open curated claim in this repository, or two once you have five merged pull requests
+   across the public `neomjs` repositories. If your claim was declined, comment `/claim` here again once the
+   issue or one of your slots becomes free. The bot checks the current holders before assigning it. A
    maintainer can unassign and release a claim from an account that sprays them. You can open a PR without a claim,
    but we merge the first approve-worthy PR for a ticket, so if someone else holds it or gets there first, your work
    may not land. A claim is what protects your time.
@@ -140,6 +142,11 @@ independently: this one as the `neo.mjs` npm package, the Brain as container ima
    a PR via `gh pr create` or an AI coding agent, include the standalone `Resolves #<issue-id>` line (and for AI-authored
    PRs, follow `.agents/skills/pull-request/SKILL.md` / `.agents/skills/pull-request/references/pull-request-workflow.md`
    §9). You can verify a PR body locally with `npx neo-agent-skills-pr-body --body-file <path-to-body.md> --close-target-only`.
+   After pushing a requested fix, leave a short comment on the PR saying what changed and which check you ran.
+   That gives the reviewer a clear handoff, especially if CI needs a maintainer to approve or rerun it.
+   If another merge into `dev` causes a conflict, the maintainer handling your review will coordinate the update.
+   We'll handle mechanical integration where we have permission and ask you when a resolution needs your judgment.
+   You can leave a mergeable branch as it is while it waits for review.
 5. Please create PRs for the `dev` branch, not for `main`.
 6. Please do not copy code from other frameworks / libraries. So far, the entire Neo.mjs code base is written from scratch.
     1. It is simply impossible to verify if contributed code is self-written.
