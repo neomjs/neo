@@ -780,6 +780,19 @@ class TreeStore extends Store {
     }
 
     /**
+     * @summary Answers from the Structural Layer too, so a row under a collapsed parent or one the filters hide is held.
+     * The visible projection answers first, as in {@link #get}: after a re-add it can hold a node apart from its
+     * Structural Layer entry, and a batch writes the row `get()` hydrates.
+     * @param {Number|String} key
+     * @returns {Object|Neo.data.Record|undefined}
+     * @protected
+     */
+    getRow(key) {
+        const me = this;
+        return super.getRow(key) ?? me.#allRecordsMap.get(me.#allRecordsMap.has(key) ? key : me.getCanonicalKey(key))
+    }
+
+    /**
      * @summary Refuses flat value counts; tree visibility is not a complete local facet population.
      * @returns {Object}
      */
