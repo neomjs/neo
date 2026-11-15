@@ -174,12 +174,12 @@ We actively welcome contributions from artificial intelligence, LLMs, and autono
 
 **For Human Operators of AI Agents:**
 1. **Transparency:** If an LLM or AI agent helped author or assist with a Pull Request, specify the **model, exact
-   version, reasoning effort, and agent framework/harness** on the PR's `Authored by ` line (comma-separated — e.g.,
+   version, reasoning effort (write `reasoning: default` if your tool exposes no effort setting), and agent
+   framework/harness** on the PR's `Authored by ` line (comma-separated — e.g.,
    `Authored by @<github-handle> (Gemini 3.1 Pro, reasoning: high, Antigravity).` or
-   `Authored by @<github-handle> (Claude Sonnet 4.6, reasoning: high, Claude Code).`; write `(no LLM)` if no LLM was
+   `Authored by @<github-handle> (Claude Sonnet 4.6, reasoning: default, Claude Code).`; write `(no LLM)` if no LLM was
    used). **Why:** every PR naming a model lab is routed for **cross-rival-lab review** (reviewed by a maintainer running
-   a different lab's model), and exact version plus reasoning effort calibrate review depth (PRs naming no model may be
-   reviewed by any maintainer).
+   a different lab's model; PRs naming no model may be reviewed by any maintainer).
 2. **Accountability:** You remain responsible for the code your agent submits. Please review generated PRs for architectural consistency and ensure they follow our <a href=".github/CODING_GUIDELINES.md">Coding Guidelines</a>.
 3. **Setup:** Your agent needs nothing beyond the clone above — `npm install` runs our `prepare` script and materializes
    our published `neo-agent-skills` workflows into `.agents/skills/` and `.claude/skills/` (if `--ignore-scripts` was
@@ -188,7 +188,7 @@ We actively welcome contributions from artificial intelligence, LLMs, and autono
    To go further, see the <a href=".github/AI_QUICK_START.md">AI Quick Start Guide</a> for our local Knowledge Base and Memory Core, and <a href="https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/StrategicWorkflows.md">Strategic Workflows</a> (in the Brain repository) for working effectively with the agents.
 
 **For Autonomous Agents (If you are reading this):**
-1. **Start here:** you need nothing private — no account, container or model provider. Run `npx -p neo-agent-skills neo-agent-skills-agents-md --repo neo --audience contributor` for what an outside agent should know first; the root `AGENTS.md`, which `npm install` generates from the [sections in neo-agent-skills](https://github.com/neomjs/neo-agent-skills/tree/dev/agents-md), is written for this project's own maintainer agents. Ensure `.agents/skills/` is materialized (`npm install` or `npm run prepare`), read `.agents/skills/unit-test/SKILL.md` before running tests, and read `.agents/skills/pull-request/SKILL.md` (`.agents/skills/pull-request/references/pull-request-workflow.md` §9) before committing or opening a PR — your PR body must carry a standalone `Resolves #<issue-id>` line (`Fixes #N` and `Closes #N` fail CI), include the required `§9.1` sections plus the exact model, version, reasoning effort, and agent/harness on `Authored by ` (for cross-rival-lab review routing), and pass `npx neo-agent-skills-pr-body --body-file <path-to-body.md>`.
+1. **Start here:** you need nothing private — no account, container or model provider. Run `npx -p neo-agent-skills neo-agent-skills-agents-md --repo neo --audience contributor` for what an outside agent should know first; the root `AGENTS.md`, which `npm install` generates from the [sections in neo-agent-skills](https://github.com/neomjs/neo-agent-skills/tree/dev/agents-md), is written for this project's own maintainer agents. Ensure `.agents/skills/` is materialized (`npm install` or `npm run prepare`), read `.agents/skills/unit-test/SKILL.md` before running tests, and read `.agents/skills/pull-request/SKILL.md` (`.agents/skills/pull-request/references/pull-request-workflow.md` §9) before committing or opening a PR — your PR body must carry a standalone `Resolves #<issue-id>` line (`Fixes #N` and `Closes #N` fail CI), include the required `§9.1` sections plus the exact model, version, reasoning effort (or `default`), and agent/harness on `Authored by ` (for cross-rival-lab review routing), and pass `npx neo-agent-skills-pr-body --body-file <path-to-body.md>`.
 2. **JSON-First UI:** Neo.mjs components are defined via JSON VDOM blueprints, not JSX or HTML templates. This makes structural manipulation and UI inspection mathematically natural for you.
 3. **The Neural Link:** We offer a bi-directional MCP bridge (`neo-agent-brain:ai/mcp/server/neural-link/`). You can query the live Scene Graph and manipulate the application state without modifying source code or reloading the browser. See our <a href=".github/AGENT_ARCHITECTURE.md">Agent Architecture</a> to learn how you can orchestrate our runtime.
 
