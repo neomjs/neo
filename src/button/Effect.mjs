@@ -100,11 +100,12 @@ class EffectButton extends Component {
          */
         menu_: null,
         /**
-         * The pressed state of the Button
-         * @member {Boolean} pressed_=false
+         * The pressed state of the Button. `null` marks a plain button (no toggle semantics),
+         * a Boolean value renders the `aria-pressed` attribute for assistive technology.
+         * @member {Boolean|null} pressed_=null
          * @reactive
          */
-        pressed_: false,
+        pressed_: null,
         /**
          * Change the browser hash value on click.
          * Use route for internal navigation and url for external links. Do not use both on the same instance.
@@ -212,7 +213,7 @@ class EffectButton extends Component {
         let vdomCls = [...this.baseCls, ...this.cls];
 
         NeoArray.toggle(vdomCls, 'no-text', !this.text);
-        NeoArray.toggle(vdomCls, 'pressed', this.pressed);
+        NeoArray.toggle(vdomCls, 'pressed', this.pressed === true);
         vdomCls.push('icon-' + this.iconPosition);
 
         return vdomCls;
@@ -225,20 +226,26 @@ class EffectButton extends Component {
      * @protected
      */
     getVdomConfig() {
-        let me   = this,
-            link = !me.editRoute && me.route || me.url,
-            tag  = link ? 'a' : 'button';
+        let me         = this,
+            link       = !me.editRoute && me.route || me.url,
+            tag        = link ? 'a' : 'button',
+            vdomConfig = {
+                tag,
+                cls    : me.getVdomCls(),
+                href   : link ? (link.startsWith('#') ? link : '#' + link) : null,
+                id     : me.id,
+                style  : me.style,
+                target : me.url ? me.urlTarget : null,
+                type   : tag === 'button' ? 'button' : null,
+                cn     : me.getVdomChildren()
+            };
 
-        return {
-            tag,
-            cls    : this.getVdomCls(),
-            href   : link ? (link.startsWith('#') ? link : '#' + link) : null,
-            id     : me.id,
-            style  : me.style,
-            target : me.url ? me.urlTarget : null,
-            type   : tag === 'button' ? 'button' : null,
-            cn     : this.getVdomChildren()
-        };
+        // A Boolean marks a toggle and renders aria-pressed, null marks a plain button
+        if (me.pressed !== null) {
+            vdomConfig['aria-pressed'] = String(me.pressed === true)
+        }
+
+        return vdomConfig
     }
 
     /**
