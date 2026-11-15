@@ -9,6 +9,18 @@ If you wish, you can create a workspace by following the directions in the previ
 
 As you can see, a Neo.mjs workspace is a conventional npm package. 
 
+## Installing the Neo.mjs engine
+
+The published `neo.mjs` package ships its sources and build scripts but no generated output in `/dist` and no runtime `dependencies` (only toolchain packages as `devDependencies`). A workspace created by `npx neo-app` therefore writes this `postinstall` script:
+
+```bash
+cd node_modules/neo.mjs && npm i && npm run bundle-parse5 && npm run bundle-marked
+```
+
+It must run after every `npm install` because that command replaces `node_modules/neo.mjs`. The nested `npm i` pulls the engine's toolchain; the two bundle steps build the modules it imports at module scope. The remaining bundles load lazily via `npm run bundle-browser-deps`.
+
+A package that depends on the engine without `create-app` must add the same `postinstall` line plus the engine's toolchain `devDependencies`. (When `node_modules/neo.mjs` links an engine checkout, that checkout's own install already ran the steps.) See the [Styling and Theming guide](../guides/uibuildingblocks/StylingAndTheming.md#theming-in-a-workspace) for how such a package ships its SCSS.
+
 
 ## Browsing the workspace
 
