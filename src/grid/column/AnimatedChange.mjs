@@ -67,6 +67,8 @@ class AnimatedChange extends Column {
     }
 
     /**
+     * @summary Marks the changed record's cell in the body that renders this column: a locked column's cells live in
+     * the grid's `bodyStart` or `bodyEnd`, the others in its center `body`.
      * @param {Object}         data
      * @param {Object[]}       data.fields Each field object contains the keys: name, oldValue, value
      * @param {Neo.data.Model} data.model The model instance of the changed record
@@ -87,8 +89,9 @@ class AnimatedChange extends Column {
                 // Wait for the next animation frame
                 await me.timeout(20);
 
-                let {body} = me.parent,
-                    row    = body.getRow(record),
+                let {parent} = me,
+                    body     = me.locked === 'start' ? parent.bodyStart : me.locked === 'end' ? parent.bodyEnd : parent.body,
+                    row      = body?.getRow(record),
                     cellId, node;
 
                 if (row) {

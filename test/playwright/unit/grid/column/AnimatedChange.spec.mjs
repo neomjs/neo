@@ -153,6 +153,25 @@ test.describe('Neo.grid.column.AnimatedChange', () => {
         await expect.poll(() => lookups).toEqual([1, 3])
     });
 
+    test('a locked column asks the body that renders it for its row', async () => {
+        const store = createStore(1),
+              grid  = Neo.create(GridContainer, {
+                  columns: [{dataField: 'load', locked: 'start', text: 'Load', type: 'animatedChange'}, {dataField: 'id', text: 'Id'}],
+                  store
+              }),
+              asked = {start: [], center: []};
+
+        grids.push(grid);
+
+        expect(grid.bodyStart, 'control: the grid has a locked-start body').toBeTruthy();
+
+        grid.bodyStart.getRow = record => {asked.start.push(record.id); return null};
+        grid.body     .getRow = record => {asked.center.push(record.id); return null};
+
+        edit(store, 1, 'load');
+        await expect.poll(() => asked).toEqual({start: [1], center: []})
+    });
+
     test('a column without a store config does not gain one', () => {
         const first    = createStore(1),
               second   = createStore(2),
