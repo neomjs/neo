@@ -3,11 +3,13 @@
 #
 # - `issue_comment` (`created`): assigns first-in-line outside claimants under their standing cap (clearing any lapsed
 #   >3-day silent outside assignee), names holders on held issues, and offers rotated alternatives.
-# - `pull_request_target` (`opened`, `reopened`, `edited`, `closed`): assigns outside authors targeting unclaimed
-#   curated issues (without fabricating issue comments), posts neutral overlap or residual-scope notices on held or
-#   already-completed issues, reconciles bot-created PR assignments safely when targets are removed, and posts one
-#   deduplicated release notice on open curated issues when an unmerged PR closes at or after the active release
-#   boundary (`vars.NEO_CLAIM_RELEASE_SINCE` or `CLAIM_RELEASE_SINCE`; disabled while `null`).
+# - `pull_request_target` (`opened`, `reopened`, `edited`, `closed`): requests assignment for outside authors targeting
+#   unclaimed curated issues (attaching authors GitHub permits — issue commenters or the issue author — without
+#   fabricating issue comments), posts neutral overlap or residual-scope notices on held or already-completed issues,
+#   reconciles bot-created PR assignments safely when targets are removed, posts one deduplicated release notice on
+#   open curated issues when an unmerged PR closes at or after the active release boundary (`vars.NEO_CLAIM_RELEASE_SINCE`
+#   or `CLAIM_RELEASE_SINCE`; disabled while `null`), and catches errors on `closed` events with a warning so closed
+#   heads never carry stuck failed checks.
 #
 # Security boundary: `pull_request_target` runs with repository write permissions against fork PRs, so this workflow
 # checks out ONLY the two pure rule modules from the default branch (`github.event.repository.default_branch`), never
@@ -158,97 +160,101 @@ jobs:
               });
 
               if (action === 'closed') {
-                const targets = closeTargets(pullRequest.body, repoFull);
-                if (targets.length < 1) {
-                  core.info(`No action: PR #${pullRequest.number} has no close targets.`);
-                  return
-                }
+                try {
+                  const targets = closeTargets(pullRequest.body, repoFull);
+                  if (targets.length < 1) {
+                    core.info(`No action: PR #${pullRequest.number} has no close targets.`);
+                    return
+                  }
 
-                if (pullRequest.merged === true) {
-                  for (const issueNumber of targets) {
-                    const state = await loadTargetState(issueNumber);
-                    const label = curatedLabel(state.issue);
-                    if (!label) continue;
+                  if (pullRequest.merged === true) {
+                    for (const issueNumber of targets) {
+                      const state = await loadTargetState(issueNumber);
+                      const label = curatedLabel(state.issue);
+                      if (!label) continue;
 
-                    const otherOpen = state.openPullRequests.filter(pr =>
-                      pr.number !== pullRequest.number && String(pr.repository || '').toLowerCase() === repoLower
-                    );
+                      const otherOpen = state.openPullRequests.filter(pr =>
+                        pr.number !== pullRequest.number && String(pr.repository || '').toLowerCase() === repoLower
+                      );
 
-                    for (const openRef of otherOpen) {
-                      const {data: openPr} = await github.rest.pulls.get({owner, repo, pull_number: openRef.number});
-                      if (!(await isOutsidePrAuthor(openPr.user, openPr.author_association))) continue;
+                      for (const openRef of otherOpen) {
+                        const {data: openPr} = await github.rest.pulls.get({owner, repo, pull_number: openRef.number});
+                        if (!(await isOutsidePrAuthor(openPr.user, openPr.author_association))) continue;
 
-                      const [prComments, candidates] = await Promise.all([
-                        github.paginate(github.rest.issues.listComments, {owner, repo, issue_number: openPr.number, per_page: 100}),
-                        findCandidates(label)
-                      ]);
-                      const mergedPullRequests = [
-                        {number: pullRequest.number, author: pullRequest.user.login, repository: repoFull},
-                        ...state.mergedPullRequests
-                      ];
-                      const decision = decidePullRequestTarget({
-                        candidates,
-                        issue      : {...state.issue, state: 'closed'},
-                        mergedPullRequests,
-                        prComments,
-                        pullRequest: openPr,
-                        repoUrl
-                      });
+                        const [prComments, candidates] = await Promise.all([
+                          github.paginate(github.rest.issues.listComments, {owner, repo, issue_number: openPr.number, per_page: 100}),
+                          findCandidates(label)
+                        ]);
+                        const mergedPullRequests = [
+                          {number: pullRequest.number, author: pullRequest.user.login, repository: repoFull},
+                          ...state.mergedPullRequests
+                        ];
+                        const decision = decidePullRequestTarget({
+                          candidates,
+                          issue      : {...state.issue, state: 'closed'},
+                          mergedPullRequests,
+                          prComments,
+                          pullRequest: openPr,
+                          repoUrl
+                        });
 
-                      if (decision?.prNotice) {
-                        await github.rest.issues.createComment({owner, repo, issue_number: openPr.number, body: decision.prNotice});
-                        core.info(`Posted completed-issue residual notice on #${openPr.number} for #${issueNumber}.`)
+                        if (decision?.prNotice) {
+                          await github.rest.issues.createComment({owner, repo, issue_number: openPr.number, body: decision.prNotice});
+                          core.info(`Posted completed-issue residual notice on #${openPr.number} for #${issueNumber}.`)
+                        }
                       }
                     }
-                  }
-                  return
-                }
-
-                if (!(await isOutsidePrAuthor(pullRequest.user, pullRequest.author_association))) {
-                  core.info(`No release notice: PR #${pullRequest.number} is from the team or a bot.`);
-                  return
-                }
-
-                const
-                  envReleaseSince = process.env.NEO_CLAIM_RELEASE_SINCE?.trim(),
-                  releaseSince    = envReleaseSince ? envReleaseSince : CLAIM_RELEASE_SINCE;
-
-                if (releaseSince === null) {
-                  core.info(`No release notice: release activation gate is disabled for PR #${pullRequest.number}.`);
-                  return
-                }
-
-                for (const issueNumber of targets) {
-                  const state1 = await loadTargetState(issueNumber);
-                  const first  = decidePullRequestRelease({
-                    comments        : state1.comments,
-                    events          : state1.events,
-                    issue           : state1.issue,
-                    openPullRequests: state1.openPullRequests,
-                    pullRequest,
-                    releaseSince,
-                    repoUrl
-                  });
-                  if (!first) continue;
-
-                  // Re-read live state immediately before posting so a concurrent claim suppresses any false availability notice.
-                  const state2 = await loadTargetState(issueNumber);
-                  const fresh  = decidePullRequestRelease({
-                    comments        : state2.comments,
-                    events          : state2.events,
-                    issue           : state2.issue,
-                    openPullRequests: state2.openPullRequests,
-                    pullRequest,
-                    releaseSince,
-                    repoUrl
-                  });
-                  if (!fresh) {
-                    core.info(`Release notice suppressed after race re-check on #${issueNumber}.`);
-                    continue
+                    return
                   }
 
-                  await github.rest.issues.createComment({owner, repo, issue_number: issueNumber, body: fresh.body});
-                  core.info(`Posted release notice on #${issueNumber} for closed PR #${pullRequest.number}.`)
+                  if (!(await isOutsidePrAuthor(pullRequest.user, pullRequest.author_association))) {
+                    core.info(`No release notice: PR #${pullRequest.number} is from the team or a bot.`);
+                    return
+                  }
+
+                  const
+                    envReleaseSince = process.env.NEO_CLAIM_RELEASE_SINCE?.trim(),
+                    releaseSince    = envReleaseSince ? envReleaseSince : CLAIM_RELEASE_SINCE;
+
+                  if (releaseSince === null) {
+                    core.info(`No release notice: release activation gate is disabled for PR #${pullRequest.number}.`);
+                    return
+                  }
+
+                  for (const issueNumber of targets) {
+                    const state1 = await loadTargetState(issueNumber);
+                    const first  = decidePullRequestRelease({
+                      comments        : state1.comments,
+                      events          : state1.events,
+                      issue           : state1.issue,
+                      openPullRequests: state1.openPullRequests,
+                      pullRequest,
+                      releaseSince,
+                      repoUrl
+                    });
+                    if (!first) continue;
+
+                    // Re-read live state immediately before posting so a concurrent claim suppresses any false availability notice.
+                    const state2 = await loadTargetState(issueNumber);
+                    const fresh  = decidePullRequestRelease({
+                      comments        : state2.comments,
+                      events          : state2.events,
+                      issue           : state2.issue,
+                      openPullRequests: state2.openPullRequests,
+                      pullRequest,
+                      releaseSince,
+                      repoUrl
+                    });
+                    if (!fresh) {
+                      core.info(`Release notice suppressed after race re-check on #${issueNumber}.`);
+                      continue
+                    }
+
+                    await github.rest.issues.createComment({owner, repo, issue_number: issueNumber, body: fresh.body});
+                    core.info(`Posted release notice on #${issueNumber} for closed PR #${pullRequest.number}.`)
+                  }
+                } catch (error) {
+                  core.warning(`Closed-event claim handling skipped for PR #${pullRequest?.number}: ${error.message}`)
                 }
                 return
               }
@@ -342,34 +348,38 @@ jobs:
                 }
 
                 if (decision.assign) {
-                  const {data: updated} = await github.rest.issues.addAssignees({
-                    assignees   : [pullRequest.user.login],
-                    issue_number: state.issue.number,
-                    owner,
-                    repo
-                  });
-                  const assigned = (updated?.assignees || []).some(
-                    assignee => String(assignee.login).toLowerCase() === pullRequest.user.login.toLowerCase()
-                  );
+                  try {
+                    const {data: updated} = await github.rest.issues.addAssignees({
+                      assignees   : [pullRequest.user.login],
+                      issue_number: state.issue.number,
+                      owner,
+                      repo
+                    });
+                    const assigned = (updated?.assignees || []).some(
+                      assignee => String(assignee.login).toLowerCase() === pullRequest.user.login.toLowerCase()
+                    );
 
-                  if (assigned) {
-                    if (!heldByAuthor.includes(state.issue.number)) {
-                      heldByAuthor.push(state.issue.number)
-                    }
-                    if (decision.unassign?.length > 0) {
-                      try {
-                        await github.rest.issues.removeAssignees({
-                          assignees   : decision.unassign,
-                          issue_number: state.issue.number,
-                          owner,
-                          repo
-                        })
-                      } catch (unassignError) {
-                        core.warning(`Could not unassign lapsed claimant(s) ${decision.unassign.join(', ')}: ${unassignError.message}`)
+                    if (assigned) {
+                      if (!heldByAuthor.includes(state.issue.number)) {
+                        heldByAuthor.push(state.issue.number)
                       }
+                      if (decision.unassign?.length > 0) {
+                        try {
+                          await github.rest.issues.removeAssignees({
+                            assignees   : decision.unassign,
+                            issue_number: state.issue.number,
+                            owner,
+                            repo
+                          })
+                        } catch (unassignError) {
+                          core.warning(`Could not unassign lapsed claimant(s) ${decision.unassign.join(', ')}: ${unassignError.message}`)
+                        }
+                      }
+                    } else {
+                      core.warning(`GitHub did not attach ${pullRequest.user.login} as assignee on #${state.issue.number}.`)
                     }
-                  } else {
-                    core.warning(`GitHub did not attach ${pullRequest.user.login} as assignee on #${state.issue.number}.`)
+                  } catch (error) {
+                    core.warning(`Could not auto-assign ${pullRequest.user.login} on #${state.issue.number}: ${error.message}`)
                   }
                 } else if (decision.prNotice) {
                   await github.rest.issues.createComment({owner, repo, issue_number: pullRequest.number, body: decision.prNotice});

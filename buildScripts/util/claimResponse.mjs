@@ -13,8 +13,9 @@
  * - **taken:** a live assignee, an open pull request that resolves the issue, or an earlier unwithdrawn, un-unassigned
  *   claimant holds it. The reply names the holder and points at claimable issues with the same label.
  *
- * Pull-request lifecycle events (`decidePullRequestTarget`, `decideTargetRemoval`, `decidePullRequestRelease`) apply
- * the same standing and three-day ownership rules to outside pull requests targeting curated issues, emitting neutral
+ * Pull-request lifecycle events (`decidePullRequestTarget`, `decideTargetRemoval`, `decidePullRequestRelease`) request
+ * assignment under standing and three-day ownership rules (attaching authors GitHub permits — issue commenters or
+ * the issue author) for outside pull requests targeting curated issues, emitting neutral
  * overlap or residual-scope notices on held or completed targets and deduplicated release notices on unmerged closes.
  * `decideReply` preserves the `String|null` return contract for cross-repository workflows that sparse-checkout this
  * module before adopting `decideClaim`. Everything here is a pure function of data the workflow fetched, so the rules
@@ -870,9 +871,9 @@ export function changedCloseTargets({action, pullRequest, changes, repository = 
         return {added: closeTargets(pullRequest?.body, repository), removed: []}
     }
 
-    if (action === 'edited' && typeof changes?.body?.from === 'string') {
+    if (action === 'edited' && changes?.body && (typeof changes.body.from === 'string' || changes.body.from === null)) {
         const
-            before = closeTargets(changes.body.from, repository),
+            before = closeTargets(changes.body.from ?? '', repository),
             after  = closeTargets(pullRequest?.body, repository);
 
         return {
@@ -956,8 +957,9 @@ export function renderOverlapNotice({author, issueNumber, prNumber, holders: hel
 }
 
 /**
- * @summary Evaluates one newly targeted curated issue for a pull request: assigns the author under standing and expiry
- * rules, or emits a neutral overlap or residual-scope notice on the pull request, with zero fabricated issue comments.
+ * @summary Evaluates one newly targeted curated issue for a pull request: requests assignment under standing and
+ * expiry rules (which GitHub attaches only when the author has commented on or authored the issue), or emits a
+ * neutral overlap or residual-scope notice on the pull request, with zero fabricated issue comments.
  * @param {Object} options
  * @param {Object} options.pullRequest REST pull request payload (`number`, `user`, `created_at`)
  * @param {Object} options.issue Target REST issue payload
@@ -991,12 +993,22 @@ export function decidePullRequestTarget({
         mergedOthers = mergedPullRequests.filter(pr =>
             pr.number !== pullRequest.number && String(pr.repository).toLowerCase() === repoLower
         ),
-        hasOverlap   = () => claimRecords(prComments).some(record =>
+        hasOverlap         = () => claimRecords(prComments).some(record =>
             record.kind === 'overlap' && record.issue === issue.number && record.pr === pullRequest.number
+        ),
+        hasCompletedNotice = mergedPrNumber => prComments.some(comment =>
+            typeof comment?.body === 'string' &&
+            comment.body.includes('residual-scope review') &&
+            claimRecords([comment]).some(record =>
+                record.kind === 'overlap' &&
+                record.issue === issue.number &&
+                record.pr === pullRequest.number &&
+                record.heldBy === `pr:${mergedPrNumber}`
+            )
         );
 
     if (issue.state !== 'open') {
-        if (mergedOthers.length < 1 || hasOverlap()) {
+        if (mergedOthers.length < 1 || hasCompletedNotice(mergedOthers[0].number)) {
             return null
         }
 

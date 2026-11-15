@@ -946,6 +946,12 @@ test.describe('buildScripts/util/claimResponse', () => {
                 pullRequest: {...basePr, body: 'Fixes #202'},
                 repository : 'neomjs/neo'
             })).toEqual({added: [202], removed: [101]});
+            expect(changedCloseTargets({
+                action     : 'edited',
+                changes    : {body: {from: null}},
+                pullRequest: {...basePr, body: 'Resolves #101'},
+                repository : 'neomjs/neo'
+            })).toEqual({added: [101], removed: []});
         });
 
         test('overlapMarker, releaseMarker and claimRecords enforce exact wire spelling and bot provenance', () => {
@@ -1071,6 +1077,30 @@ test.describe('buildScripts/util/claimResponse', () => {
             expect(completed.prNotice).toContain('residual-scope review');
             expect(completed.prNotice).toContain('#21400');
             expect(completed.prNotice).toContain(overlapMarker({heldBy: 'pr:21400', issue: 19143, pr: 21500}));
+
+            // Prior opening overlap notice never suppresses completed-issue notice when holder merges; second merge delivery does
+            const afterOverlapMerge = decidePullRequestTarget({
+                candidates        : CANDIDATES,
+                issue             : gfiIssue({state: 'closed'}),
+                mergedPullRequests: [{author: 'earlier-author', number: 21499, repository: 'neomjs/neo'}],
+                prComments        : [botOverlap],
+                pullRequest       : pr,
+                repoUrl           : REPO_URL
+            });
+            expect(afterOverlapMerge.assign).toBe(false);
+            expect(afterOverlapMerge.prNotice).toContain('residual-scope review');
+            expect(afterOverlapMerge.prNotice).toContain(overlapMarker({heldBy: 'pr:21499', issue: 19143, pr: 21500}));
+            expect(decidePullRequestTarget({
+                candidates        : CANDIDATES,
+                issue             : gfiIssue({state: 'closed'}),
+                mergedPullRequests: [{author: 'earlier-author', number: 21499, repository: 'neomjs/neo'}],
+                prComments        : [
+                    botOverlap,
+                    comment('github-actions[bot]', '2026-11-15T17:20:00Z', afterOverlapMerge.prNotice, {type: 'Bot'})
+                ],
+                pullRequest: pr,
+                repoUrl    : REPO_URL
+            })).toBeNull();
 
             // Unknown identity fails visibly
             expect(() => decidePullRequestTarget({
@@ -1353,8 +1383,22 @@ test.describe('buildScripts/util/claimResponse', () => {
                         issues: {
                             addAssignees: async args => {
                                 assigned.push(args);
-                                const target = issues.get(args.issue_number);
-                                target.assignees = [...(target.assignees || []), ...args.assignees.map(login => ({id: 7001, login}))];
+                                const
+                                    target        = issues.get(args.issue_number),
+                                    issueComments = comments.get(args.issue_number) || [],
+                                    canAttach     = login => {
+                                        const lower = String(login).toLowerCase();
+                                        return String(target.user?.login || '').toLowerCase() === lower ||
+                                            issueComments.some(c => String(c.user?.login || '').toLowerCase() === lower)
+                                    },
+                                    attachable    = args.assignees.filter(canAttach);
+
+                                target.assignees = [
+                                    ...(target.assignees || []),
+                                    ...attachable
+                                        .filter(login => !(target.assignees || []).some(a => a.login.toLowerCase() === login.toLowerCase()))
+                                        .map(login => ({id: 7001, login}))
+                                ];
                                 return {data: target}
                             },
                             createComment: async args => {
@@ -1409,7 +1453,21 @@ test.describe('buildScripts/util/claimResponse', () => {
 
             process.env.GITHUB_WORKSPACE = process.cwd();
             try {
-                // 1. Opening on unclaimed curated issue assigns author + target swap unassigns old issue and claims new issue + edits without target delta do nothing
+                // 1. Opening on unclaimed curated issue assigns attachable author + target swap unassigns old issue and claims new issue + edits without target delta do nothing
+                const hUnattachable  = createHarness();
+                const prUnattachable = {
+                    author_association: 'NONE',
+                    body              : 'Resolves #19143',
+                    created_at        : '2026-11-15T17:10:00Z',
+                    number            : 21498,
+                    user              : {id: 7002, login: 'silent-author', type: 'User'}
+                };
+                hUnattachable.pullLinks.set(19143, [{author: {login: 'silent-author'}, merged: false, number: 21498, repository: {nameWithOwner: 'neomjs/neo'}, state: 'OPEN'}]);
+                await hUnattachable.runPrEvent('opened', prUnattachable);
+                expect(hUnattachable.issues.get(19143).assignees).toEqual([]);
+                expect(hUnattachable.created).toEqual([]);
+                expect(hUnattachable.warnings).toEqual(['GitHub did not attach silent-author as assignee on #19143.']);
+
                 const h1  = createHarness();
                 const pr1 = {
                     author_association: 'NONE',
@@ -1418,9 +1476,12 @@ test.describe('buildScripts/util/claimResponse', () => {
                     number            : 21500,
                     user              : {id: 7001, login: 'outside-dev', type: 'User'}
                 };
+                h1.comments.set(19143, [comment('outside-dev', '2026-11-15T17:00:00Z', 'Investigating the reproduction steps.', {id: 7001})]);
+                h1.issues.get(20691).user = {id: 7001, login: 'outside-dev'};
                 h1.pullLinks.set(19143, [{author: {login: 'outside-dev'}, merged: false, number: 21500, repository: {nameWithOwner: 'neomjs/neo'}, state: 'OPEN'}]);
                 await h1.runPrEvent('opened', pr1);
                 expect(h1.assigned).toEqual([{assignees: ['outside-dev'], issue_number: 19143, owner: 'neomjs', repo: 'neo'}]);
+                expect(h1.issues.get(19143).assignees.map(a => a.login)).toEqual(['outside-dev']);
                 expect(h1.created).toEqual([]);
 
                 // Redelivery / reopen / checklist edit make zero extra assignments or comments
@@ -1440,6 +1501,7 @@ test.describe('buildScripts/util/claimResponse', () => {
                 await h1.runPrEvent('edited', {...pr1, body: 'Resolves #20691'}, {body: {from: 'Resolves #19143'}});
                 expect(h1.unassigned).toEqual([{assignees: ['outside-dev'], issue_number: 19143, owner: 'neomjs', repo: 'neo'}]);
                 expect(h1.assigned.map(c => c.issue_number)).toEqual([19143, 20691]);
+                expect(h1.issues.get(20691).assignees.map(a => a.login)).toEqual(['outside-dev']);
 
                 // 2. Hidden team membership is skipped without assignment
                 const hTeam = createHarness({permission: 'write'});
@@ -1467,7 +1529,7 @@ test.describe('buildScripts/util/claimResponse', () => {
                 expect(hUncertain.unassigned).toEqual([]);
                 expect(hUncertain.assigned).toEqual([]);
 
-                // 5. Merged team PR closing the issue notifies a still-open outside PR with residual-scope review
+                // 5. Merged team PR closing the issue notifies an open outside PR carrying an opening overlap notice once, and warns cleanly if closed-event reads throw
                 const hMerged       = createHarness({permission: username => username === 'team-dev' ? 'maintain' : 'read'});
                 const outsideOpenPr = {
                     author_association: 'NONE',
@@ -1476,9 +1538,7 @@ test.describe('buildScripts/util/claimResponse', () => {
                     number            : 21501,
                     user              : {id: 8001, login: 'second-dev', type: 'User'}
                 };
-                hMerged.pullDetails.set(21501, outsideOpenPr);
-                hMerged.pullLinks.set(19143, [{author: {login: 'second-dev'}, merged: false, number: 21501, repository: {nameWithOwner: 'neomjs/neo'}, state: 'OPEN'}]);
-                await hMerged.runPrEvent('closed', {
+                const mergedTeamPr = {
                     author_association: 'MEMBER',
                     body              : 'Resolves #19143',
                     closed_at         : '2026-11-15T17:25:00Z',
@@ -1486,11 +1546,34 @@ test.describe('buildScripts/util/claimResponse', () => {
                     merged            : true,
                     number            : 21500,
                     user              : {id: 9001, login: 'team-dev', type: 'User'}
-                });
+                };
+                hMerged.pullDetails.set(21501, outsideOpenPr);
+                hMerged.pullLinks.set(19143, [
+                    {author: {login: 'team-dev'}, merged: false, number: 21500, repository: {nameWithOwner: 'neomjs/neo'}, state: 'OPEN'},
+                    {author: {login: 'second-dev'}, merged: false, number: 21501, repository: {nameWithOwner: 'neomjs/neo'}, state: 'OPEN'}
+                ]);
+                await hMerged.runPrEvent('opened', outsideOpenPr);
                 expect(hMerged.created).toHaveLength(1);
-                expect(hMerged.created[0].issue_number).toBe(21501);
-                expect(hMerged.created[0].body).toContain('residual-scope review');
                 expect(hMerged.created[0].body).toContain(overlapMarker({heldBy: 'pr:21500', issue: 19143, pr: 21501}));
+
+                hMerged.pullLinks.set(19143, [{author: {login: 'second-dev'}, merged: false, number: 21501, repository: {nameWithOwner: 'neomjs/neo'}, state: 'OPEN'}]);
+                await hMerged.runPrEvent('closed', mergedTeamPr);
+                await hMerged.runPrEvent('closed', mergedTeamPr);
+                expect(hMerged.created).toHaveLength(2);
+                expect(hMerged.created[1].issue_number).toBe(21501);
+                expect(hMerged.created[1].body).toContain('residual-scope review');
+                expect(hMerged.created[1].body).toContain(overlapMarker({heldBy: 'pr:21500', issue: 19143, pr: 21501}));
+
+                const hMergedThrow = createHarness({
+                    permission       : username => username === 'team-dev' ? 'maintain' : 'read',
+                    nextIssueReadHook: () => {
+                        throw new Error('boom on merged close')
+                    }
+                });
+                await hMergedThrow.runPrEvent('closed', mergedTeamPr);
+                expect(hMergedThrow.created).toEqual([]);
+                expect(hMergedThrow.warnings).toHaveLength(1);
+                expect(hMergedThrow.warnings[0]).toMatch(/boom on merged close/);
 
                 // 6. Unmerged close hold & race re-check: default (unset env + null export) emits nothing; when activated,
                 // a concurrent claimant arriving between read 1 and read 2 suppresses any release comment
@@ -1534,6 +1617,17 @@ test.describe('buildScripts/util/claimResponse', () => {
                 expect(hRel.created[0].issue_number).toBe(19143);
                 expect(hRel.created[0].body).toContain('@displaced-dev');
                 expect(hRel.created[0].body).toContain(releaseMarker({issue: 19143, login: 'displaced-dev', pr: 21500, repo: 'neomjs/neo', to: 8002}));
+
+                // Throwing read on unmerged close warns cleanly without failing the closed head
+                const hRelThrow = createHarness({
+                    nextIssueReadHook: () => {
+                        throw new Error('boom on unmerged close')
+                    }
+                });
+                await hRelThrow.runPrEvent('closed', closedPr);
+                expect(hRelThrow.created).toEqual([]);
+                expect(hRelThrow.warnings).toHaveLength(1);
+                expect(hRelThrow.warnings[0]).toMatch(/boom on unmerged close/);
             } finally {
                 if (prevWorkspace === undefined) delete process.env.GITHUB_WORKSPACE;
                 else process.env.GITHUB_WORKSPACE = prevWorkspace;
