@@ -123,6 +123,26 @@ test.describe('buildScripts/util/claimResponse', () => {
                 expect(isClaim(body), body).toBe(false)
             }
         });
+
+        test('a claim typed with an apostrophe look-alike (’ ‘ ʼ ´) reads as its ASCII spelling (#21057)', () => {
+            expect(claimText('I’d like to take this.')).toBe("I'd like to take this.");
+
+            for (const body of [
+                'I’d like to take this.',
+                'I’m working on this',
+                'I’ll take this',
+                'I‘d like to take this.',
+                'Iʼd like to take this.',
+                'I´d like to take this.'
+            ]) {
+                expect(isClaim(body), body).toBe(true)
+            }
+
+            // The fold makes no claim that the ASCII spelling would not make
+            for (const body of ['I don’t want to work on this, just a note.', '```\n// I’d like to work on this\n```']) {
+                expect(isClaim(body), body).toBe(false)
+            }
+        });
     });
 
     test('isTeamPermission names the team by who can write, and throws on a value that is no permission', () => {
@@ -140,6 +160,11 @@ test.describe('buildScripts/util/claimResponse', () => {
         expect(isWithdrawal('Please unassign me, I ran out of time.')).toBe(true);
         expect(isWithdrawal(withdrawnClaim.body)).toBe(false);
         expect(isWithdrawal(secondClaim.body)).toBe(false)
+    });
+
+    test('isWithdrawal recognises a claim given back with an apostrophe look-alike (#21057)', () => {
+        expect(isWithdrawal('Sorry, I can’t work on this anymore')).toBe(true);
+        expect(isWithdrawal('I won’t continue with this')).toBe(true)
     });
 
     test.describe('decideReply', () => {

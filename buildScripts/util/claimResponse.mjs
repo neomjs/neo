@@ -73,6 +73,7 @@ const
     REPO_PATTERN           = /^[^/\s]+\/[^/\s]+$/,
     CAPACITY_REFUSAL_START = Object.freeze(["you're already assigned to ", 'you already hold ']),
     CLAIM_TARGET           = String.raw`(this|it|#\d+|the\s[^\n]{1,80}?\brow\b)`,
+    APOSTROPHE_LOOKALIKES  = /[\u{2018}\u{2019}\u{2BC}\u{B4}]/gu,
     WITHDRAWAL_PATTERNS    = Object.freeze([
         /\bstepping\s+(back|away)\b/i,
         /\b(no\s+longer|not)\s+(able|going|planning)\s+to\s+work\b/i,
@@ -94,13 +95,15 @@ const
 
 /**
  * The comment text a claim is read from: quoted lines and fenced code removed, so a reply that quotes an assignment
- * ("it's yours") or a snippet is judged by its own words only.
+ * ("it's yours") or a snippet is judged by its own words only, and the apostrophe look-alikes that smart punctuation
+ * and some keyboard layouts type (’ ‘ ʼ ´) folded to the `'` every pattern spells.
  * @param {String} body
  * @returns {String}
  */
 export function claimText(body = '') {
     return String(body)
         .replace(/```[\s\S]*?```/g, '')
+        .replace(APOSTROPHE_LOOKALIKES, "'")
         .split('\n')
         .filter(line => !line.trimStart().startsWith('>'))
         .join('\n')
