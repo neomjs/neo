@@ -1293,12 +1293,7 @@ class Store extends Collection {
                 if (me.isDestroyed) throw Neo.isDestroyed;
 
                 if (response != null) {
-                    // response could be the finalized array or an object depending on normalizer
-                    let items = response.data || response.json || response;
-
-                    if (!Array.isArray(items)) {
-                        items = Neo.ns(me.responseRoot, false, items) || items;
-                    }
+                    let {items, totalCount} = me.readResponse(response);
 
                     // Parser data events have already committed progressive rows. Empty data events do not
                     // suppress the final bulk response, which can still carry the fetched rows.
@@ -1306,7 +1301,7 @@ class Store extends Collection {
                         me.addLoadedItems(items, append);
                     }
 
-                    me.totalCount = response.totalCount || (response.json && !Array.isArray(response.json) ? response.json.totalCount : null) || me.count;
+                    me.totalCount = totalCount || me.count;
                     me.isLoaded   = true;
                     me.isLoading  = false; // Ensure it's false at the end
                     me.fire('load', {
@@ -1909,6 +1904,25 @@ class Store extends Collection {
         } finally {
             me.#batchRecords = previous
         }
+    }
+
+    /**
+     * @summary Reads a load response the way `load()` does: its rows, and the total the server sent beside them.
+     *
+     * The rows are the response's `data` (the Fetch body, or a normalizer's rows), its `json` (the Xhr body) or the
+     * response itself, at `responseRoot` inside an object. The total is the one the object holding the rows names,
+     * else the response's own `totalCount`, which an envelope keeps beside a body. A store that loads its own way
+     * reads its responses here.
+     * @param {Object|Object[]} response A connection's response, or the pipeline's normalized result
+     * @returns {{items: Object[]|Object, totalCount: Number|null}} The rows, or the body when no array sits at
+     * `responseRoot`, and the total, `null` when the response names none
+     * @protected
+     */
+    readResponse(response) {
+        let body  = response.data || response.json || response,
+            items = Array.isArray(body) ? body : Neo.ns(this.responseRoot, false, body) || body;
+
+        return {items, totalCount: body.totalCount ?? response.totalCount ?? null}
     }
 
     /**
