@@ -121,7 +121,9 @@ const PRIORITIES = new Map([
     ['guides/mcp/Introduction'                      , 1.0], // AI Priority
     ['guides/mcp/NeuralLink'                        , 1.0], // AI Priority
 
+    ['comparisons/NeoVsAgGrid'                      , 0.8],
     ['comparisons/NeoVsAngular'                     , 0.7],
+    ['comparisons/NeoVsBryntum'                     , 0.8],
     ['comparisons/NeoVsExtJs'                       , 0.7],
     ['comparisons/NeoVsNextJs'                      , 0.7],
     ['comparisons/NeoVsReact'                       , 0.7],
