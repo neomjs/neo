@@ -68,6 +68,7 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'grid/HeaderMenuInteractionNL.spec.mjs',
     'grid/HeaderMenuStateNL.spec.mjs',
     'grid/HeaderResizeRectSync.spec.mjs',
+    'grid/HorizontalScrollFollowerSync.spec.mjs',
     'grid/IssuesShowcase.spec.mjs',
     'grid/LockedCellHorizontalStability.spec.mjs',
     'grid/LockedDnDDuplication.spec.mjs',
