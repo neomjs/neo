@@ -180,15 +180,32 @@ test.describe('Workstation planning desk (Neural Link)', () => {
               {popup}     = await popOut({app, page, workspaceId: id, itemId: 'scheduler'}),
               [vesselKey] = await holdersOf(app, id, 'scheduler');
 
-        let again = null;
+        let again = null, reopened = null;
 
-        try {
+        /** Switches to the operations room and waits for the window the switch empties to close. */
+        const showOperations = async vessel => {
             await page.getByRole('button', {name: 'Operations'}).click();
 
-            await expect.poll(() => popup.isClosed(), {message: 'the schedule\'s window closes with the planning desk', timeout: 15000}).toBe(true);
+            await expect.poll(() => vessel.isClosed(), {message: 'the schedule\'s window closes with the planning desk', timeout: 15000}).toBe(true);
             await expect.poll(async () => (await app.getComponent(id, ['activePerspective'])).activePerspective,
                 {message: 'the operations room is up', timeout: 15000}).toBe('shipped');
             expect(await holdersOf(app, id, 'scheduler'), 'no room and no window holds the schedule').toEqual([]);
+        };
+
+        try {
+            await showOperations(popup);
+
+            // Undo brings the planning desk back, its window included
+            const reborn = page.waitForEvent('popup', {timeout: 30000});
+
+            await page.locator('.workstation-topologybar').getByRole('button', {name: 'Undo'}).click();
+            reopened = await reborn;
+
+            await expect(reopened.locator('.workstation-pane-scheduler .neo-timeline-bar').first(), 'undo re-opens the schedule\'s window')
+                .toBeVisible({timeout: 30000});
+            expect(await holdersOf(app, id, 'scheduler')).toEqual([vesselKey]);
+
+            await showOperations(reopened);
 
             // Back on the planning desk, the schedule is in main and pops out into a window of its own again
             await page.getByRole('button', {name: 'Planning'}).click();
@@ -205,8 +222,7 @@ test.describe('Workstation planning desk (Neural Link)', () => {
             expect(Object.keys(await app.callMethod(id, 'getDockTopologyWorkspaces')), 'so no emptied workspace piles up beside it')
                 .toHaveLength(2)
         } finally {
-            !popup.isClosed() && await popup.close();
-            again && !again.isClosed() && await again.close()
+            for (const vessel of [popup, reopened, again]) vessel && !vessel.isClosed() && await vessel.close()
         }
     });
 
