@@ -3,6 +3,7 @@ import NeoArray from '../../util/Array.mjs';
 import VdomUtil from '../../util/VDom.mjs';
 
 /**
+ * @summary Marks a cell when its record's value changes, and follows the grid's store as it is set, swapped or removed.
  * @class Neo.grid.column.AnimatedChange
  * @extends Neo.grid.column.Base
  */
@@ -18,6 +19,14 @@ class AnimatedChange extends Column {
          */
         animationCls: 'neo-animated',
         /**
+         * The store of the grid this column belongs to, the source of the `recordChange` events it animates.
+         * {@link Neo.grid.Container#afterSetStore} keeps it current: null while the grid has no store.
+         * @member {Neo.data.Store|null} store_=null
+         * @protected
+         * @reactive
+         */
+        store_: null,
+        /**
          * @member {String} type='animatedChange'
          * @protected
          */
@@ -25,17 +34,27 @@ class AnimatedChange extends Column {
     }
 
     /**
+     * @summary Takes the store of the parent grid, which is null for a grid created without one.
      * @param {Object} config
      */
     construct(config) {
         super.construct(config);
 
-        let me = this;
+        this.store = this.parent?.store
+    }
 
-        me.parent.store.on({
-            recordChange: me.onRecordChange,
-            scope       : me
-        })
+    /**
+     * @summary Listens to the new store's `recordChange` events and stops listening to the old store's.
+     * @param {Neo.data.Store|null} value
+     * @param {Neo.data.Store|null} oldValue
+     * @protected
+     */
+    afterSetStore(value, oldValue) {
+        let me        = this,
+            listeners = {recordChange: me.onRecordChange, scope: me};
+
+        oldValue?.un(listeners);
+        value   ?.on(listeners)
     }
 
     /**
@@ -48,6 +67,8 @@ class AnimatedChange extends Column {
     }
 
     /**
+     * @summary Marks the changed record's cell in the body that renders this column: a locked column's cells live in
+     * the grid's `bodyStart` or `bodyEnd`, the others in its center `body`.
      * @param {Object}         data
      * @param {Object[]}       data.fields Each field object contains the keys: name, oldValue, value
      * @param {Neo.data.Model} data.model The model instance of the changed record
@@ -68,8 +89,9 @@ class AnimatedChange extends Column {
                 // Wait for the next animation frame
                 await me.timeout(20);
 
-                let {body} = me.parent,
-                    row    = body.getRow(record),
+                let {parent} = me,
+                    body     = me.locked === 'start' ? parent.bodyStart : me.locked === 'end' ? parent.bodyEnd : parent.body,
+                    row      = body?.getRow(record),
                     cellId, node;
 
                 if (row) {
