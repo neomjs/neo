@@ -1,7 +1,7 @@
 # Comments once on each pull request from outside the team when it merges: the author's standing, up to two open
-# curated issues to take next, an invitation at a new rung, and once the badges are served, the badge line, unless the
-# account is on the opt-out list of neomjs/pages. The words live in buildScripts/util/contributorStanding.mjs and its
-# spec; this file only fetches and posts.
+# curated issues to take next, and an invitation at a new rung. For eligible accounts it reads the badge folder on
+# neomjs/pages main so the comment can introduce the badge at a first merge and link the written record thereafter.
+# The words live in buildScripts/util/contributorStanding.mjs and its spec; this file only fetches and posts.
 #
 # `pull_request_target` runs this file from the default branch, with a token that can comment on a fork's pull request
 # and without waiting for run approval. The job therefore checks out nothing but the two modules, never the pull
@@ -28,9 +28,9 @@ on:
         default: false
 
 permissions:
-  contents: read       # the sparse checkout of the two modules
-  issues: write        # the comment: a pull request's conversation is an issue's
-  pull-requests: read  # the pull request, its files and the issues it closes
+  contents: read        # the sparse checkout of the two modules
+  issues: read          # the labels of the issues the pull request closes
+  pull-requests: write  # the comment: on a pull request it needs this scope, `issues: write` is refused
 
 jobs:
   comment:
@@ -71,8 +71,8 @@ jobs:
             try {
               if (process.env.CHECKOUT_OUTCOME !== 'success') throw new Error(`the checkout ended ${process.env.CHECKOUT_OUTCOME || 'without an outcome'}`);
 
-              const {BADGES_SINCE, decideMergeComment, parseOptOut} = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/contributorStanding.mjs`);
-              const {CURATED_LABELS}                                = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/claimResponse.mjs`);
+              const {BADGES_SINCE, badgeFolder, decideMergeComment, parseOptOut} = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/contributorStanding.mjs`);
+              const {CURATED_LABELS, isOutsideHuman, isTeamPermission} = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/claimResponse.mjs`);
 
               const pullRequest = dispatched
                 ? (await github.rest.pulls.get({owner, repo, pull_number: Number(context.payload.inputs.pr)})).data
@@ -83,10 +83,18 @@ jobs:
                 return
               }
 
-              const login    = pullRequest.user.login;
+              const login        = pullRequest.user.login;
+              const permissionOf = async username => (await github.rest.repos.getCollaboratorPermissionLevel({owner, repo, username})).data.permission;
+
+              // A pull request's association hides a membership that is not public: the permission names the team
+              if (!isOutsideHuman(pullRequest) || isTeamPermission(await permissionOf(login))) {
+                core.info(`No comment: #${pullRequest.number} is from the team or a bot.`);
+                return
+              }
+
               const mergedAt = Date.parse(pullRequest.merged_at);
-              const launch   = BADGES_SINCE ? Date.parse(BADGES_SINCE) : null;
-              const stamp    = ms => new Date(ms).toISOString().replace(/\.\d{3}Z$/, '+00:00');
+              // The UTC stamp ends in Z: a `+00:00` offset reaches the search as a space, and the count reads zero
+              const stamp    = ms => new Date(ms).toISOString().replace(/\.\d{3}Z$/, 'Z');
               // An incomplete answer undercounts, and an undercount reads as a first merge: no comment, not a wrong one
               const search   = async (q, perPage) => {
                 const {data} = await github.rest.search.issuesAndPullRequests({q, per_page: perPage});
@@ -95,22 +103,20 @@ jobs:
 
                 return data
               };
-              const count    = async range => (await search(`org:${owner} is:public is:pr is:merged author:${login} merged:${range}`, 1)).total_count;
 
               // Searches run one at a time: GitHub's secondary rate limit refuses bursts of them
-              const mergedBefore            = await count(`<${stamp(mergedAt)}`);
-              // A range includes both ends, so it stops one second before the merge, which is the plus one; a merge
-              // in the launch's first second has no earlier post-launch merge, and one before launch is not asked
-              const mergedSinceLaunchBefore = launch !== null && mergedAt - 1000 >= launch ? await count(`${stamp(launch)}..${stamp(mergedAt - 1000)}`) : 0;
-              const candidates              = [];
+              const mergedBefore = (await search(`org:${owner} is:public is:pr is:merged author:${login} merged:<${stamp(mergedAt)}`, 1)).total_count;
+
+              core.info(`${login} had ${mergedBefore} merged before #${pullRequest.number}.`);
+              const candidates   = [];
 
               for (const label of CURATED_LABELS) {
                 candidates.push(...(await search(`repo:${owner}/${repo} is:issue is:open label:"${label}" no:assignee -linked:pr`, 50)).items)
               }
 
-              // Pages writes no folder for an account on its opt-out list. Only a merge since the launch reads it, and a
-              // list that cannot be read (404 until Pages serves it) offers no badge, with a warning
-              const launched = launch !== null && mergedAt >= launch;
+              // Pages writes no folder for an account on its opt-out list. Only a merge that earns a badge reads it,
+              // and a list that cannot be read offers no badge, with a warning
+              const launched = Boolean(BADGES_SINCE) && mergedAt >= Date.parse(BADGES_SINCE);
               const optOut   = launched
                 ? await github.rest.repos.getContent({owner, repo: 'pages', path: 'badges/optout.json', ref: 'main'})
                   .then(({data}) => parseOptOut(Buffer.from(data.content, 'base64').toString('utf8')))
@@ -118,6 +124,17 @@ jobs:
                 : null;
 
               if (launched && optOut === null) core.warning('No badge in the merge comment: the opt-out list of neomjs/pages is unreadable.');
+
+              let folderWritten = false;
+              if (optOut && !optOut.includes(Number(pullRequest.user.id))) {
+                try {
+                  const path = 'badges/' + badgeFolder(login, pullRequest.user.id);
+                  await github.rest.repos.getContent({owner, repo: 'pages', path, ref: 'main'});
+                  folderWritten = true;
+                } catch (error) {
+                  if (error.status !== 404) core.warning('Could not verify the badge folder on neomjs/pages.');
+                }
+              }
 
               const [closing, files, comments] = await Promise.all([
                 github.graphql(`query($owner: String!, $repo: String!, $number: Int!) {
@@ -135,8 +152,8 @@ jobs:
                 candidates,
                 closedLabels:closing.repository.pullRequest.closingIssuesReferences.nodes.flatMap(issue => issue.labels.nodes.map(label => label.name)),
                 comments,
+                folderWritten,
                 mergedBefore,
-                mergedSinceLaunchBefore,
                 optOut,
                 paths       : files.data.map(file => file.filename),
                 pullRequest,
@@ -144,7 +161,7 @@ jobs:
               });
 
               if (!decision) {
-                core.info(`No comment: #${pullRequest.number} is not from outside the team, or it already has one.`);
+                core.info(`No comment: #${pullRequest.number} already carries one, or a heads-up.`);
                 return
               }
 

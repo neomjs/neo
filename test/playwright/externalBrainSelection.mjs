@@ -26,6 +26,7 @@ import path from 'node:path';
  * @type {ReadonlySet<String>}
  */
 export const ADAPTER_ELIGIBLE_SPECS = new Set([
+    'core/DistEsmWorkspaceBoot.spec.mjs',
     'core/RefreshDomCorpseRepro.spec.mjs',
     'core/SourceMoveWorkspaceNL.spec.mjs',
     'core/SplitterLiveResizeNL.spec.mjs',
@@ -77,6 +78,7 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'grid/ScrollPagesNL.spec.mjs',
     'grid/SearchToolbarNL.spec.mjs',
     'grid/SelectionMultiBody.spec.mjs',
+    'grid/StoreUpdateRowsNL.spec.mjs',
     'list/AnimateMembershipNL.spec.mjs',
     'neural-link/CreateComponent.spec.mjs',
     'neural-link/CreateGrid.spec.mjs',
@@ -87,6 +89,7 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'portal/ConnectNL.spec.mjs',
     'portal/DocsMixinsNL.spec.mjs',
     'portal/ExamplesCatalogNL.spec.mjs',
+    'portal/HomeAudienceDoorsNL.spec.mjs',
     'portal/VideosNL.spec.mjs',
     'realworld/EmailMultiWindowNL.spec.mjs',
     'rendering/ButtonBaseNL.spec.mjs',
@@ -153,6 +156,8 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'workstation/WorkstationTabDragLabelOverlapNL.spec.mjs',
     'workstation/WorkstationTabDragSiblingHoldsNL.spec.mjs',
     'workstation/WorkstationTabOverflowCapNL.spec.mjs',
+    'workstation/WorkstationTabPressFocusNL.spec.mjs',
+    'workstation/WorkstationTabPressInPlaceNL.spec.mjs',
     'workstation/WorkstationTabReorderNoFlashNL.spec.mjs',
     'workstation/WorkstationTabRestoreNL.spec.mjs',
     'workstation/WorkstationTearOutLateReleaseNL.spec.mjs',

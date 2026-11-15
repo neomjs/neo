@@ -2,7 +2,7 @@
     "/": {
         "title": "Neo.mjs - An Agent Institution",
         "description": "Neo.mjs is an agent institution: persistent AI maintainers with identities, memory, peer review, and a record anyone can read. Start with one coding agent's record on your codebase; the Fleet Manager is how a team gets an institution.",
-        "lastmod": "2026-11-14"
+        "lastmod": "2026-11-15"
     },
     "/about-us": {
         "title": "About Us - Neo.mjs",
@@ -22,11 +22,11 @@
     "/learn": {
         "title": "Developer Guides — Web Worker UI Engine, SharedWorker & AI Agent OS | Neo.mjs",
         "description": "Learn how to build off-main-thread JavaScript apps and AI Agent OS workflows with Neo.mjs: Web Worker UIs, multi-window SharedWorkers, data grids & MCP tools.",
-        "lastmod": "2026-11-14"
+        "lastmod": "2026-11-15"
     },
     "/news": {
-        "title": "Neo.mjs News",
-        "description": "Latest updates, blogs, and releases for the Neo.mjs platform.",
+        "title": "News, Blog & Release Notes — Multi-Threaded JavaScript Engine | Neo.mjs",
+        "description": "Engineering blog posts, release notes, architectural discussions, and live demos from the Neo.mjs multi-threaded JavaScript engine and AI Agent OS team.",
         "lastmod": "2026-11-14"
     },
     "/news/blog": {
@@ -34,14 +34,36 @@
         "description": "Engineering deep dives from the Neo.mjs team on Web Worker data grids, SharedWorker multi-window UIs, OffscreenCanvas, GraphRAG memory, and MCP servers.",
         "lastmod": "2026-11-14"
     },
+    "/news/discussions": {
+        "title": "Architectural Discussions & RFCs — Neo.mjs Engine & Agent OS",
+        "description": "Open architectural discussions, RFCs, and cross-model design reviews from the human and AI maintainers building the Neo.mjs engine and Agent OS.",
+        "lastmod": "2026-11-14"
+    },
+    "/news/medium": {
+        "title": "Medium & ITNEXT Article Archive — Neo.mjs Engineering",
+        "description": "External engineering articles published by the Neo.mjs team on Medium and ITNEXT covering Web Workers, SharedWorkers, VDOM diffing, and multi-window UIs.",
+        "lastmod": "2026-11-14"
+    },
+    "/news/pulls": {
+        "title": "GitHub Pull Request Archive — Neo.mjs",
+        "description": "Searchable archive of Neo.mjs GitHub pull requests and cross-family AI code reviews.",
+        "robots": "noindex, follow",
+        "lastmod": "2026-11-14"
+    },
     "/news/releases": {
-        "title": "Neo.mjs Releases",
-        "description": "Release notes and changelogs for the Neo.mjs platform.",
+        "title": "Release Notes & Changelog — Multi-Threaded JavaScript Engine | Neo.mjs",
+        "description": "Version history, architecture notes, and release highlights for the Neo.mjs multi-threaded JavaScript application engine and AI Agent OS.",
+        "lastmod": "2026-11-14"
+    },
+    "/news/tickets": {
+        "title": "GitHub Issue Archive — Neo.mjs",
+        "description": "Searchable archive of Neo.mjs GitHub issues, bug reports, and engineering specifications.",
+        "robots": "noindex, follow",
         "lastmod": "2026-11-14"
     },
     "/news/videos": {
-        "title": "Neo.mjs Videos",
-        "description": "Films and demos of the Neo.mjs platform, from the engine to the AI maintainers who build it.",
+        "title": "Videos & Live Demos — Multi-Window Web Apps & Agent OS | Neo.mjs",
+        "description": "Recorded demos and product films of Neo.mjs multi-window browser workspaces, Web Worker data grids, OffscreenCanvas charts, and the AI maintainer team.",
         "lastmod": "2026-11-14"
     },
     "/services": {
@@ -52,7 +74,7 @@
     "/home": {
         "title": "Neo.mjs - An Agent Institution",
         "description": "Neo.mjs is an agent institution: persistent AI maintainers with identities, memory, peer review, and a record anyone can read. Start with one coding agent's record on your codebase; the Fleet Manager is how a team gets an institution.",
-        "lastmod": "2026-11-14"
+        "lastmod": "2026-11-15"
     },
     "/learn/UsingTheseTopics": {
         "title": "Using These Topics — Multi-Threaded JavaScript Application Engine | Neo.mjs",
@@ -381,7 +403,7 @@
         "title": "Main Thread Addons: Interacting with the Browser - Neo.mjs",
         "description": "Neo.mjs is multi-threaded. There are worker threads that handle data access, application logic, and keeping track of DOM updates. Practically all your...",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-12"
+        "lastmod": "2026-11-15"
     },
     "/learn/guides/coreengine/WhyEnhance": {
         "title": "Reactive JavaScript Class System for Web Worker UIs | Neo.mjs",
@@ -678,7 +700,7 @@
         "title": "OffscreenCanvas Web Worker Rendering & Zero-Allocation 60fps Canvas | Neo.mjs",
         "description": "Render 60fps interactive graphics off the main thread by combining SharedWorkers, OffscreenCanvas transfer, and zero-allocation physics loops in Neo.mjs.",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-14"
+        "lastmod": "2026-11-15"
     },
     "/learn/guides/advanced/BuildArchitecture": {
         "title": "Build Architecture & Service Workers — Neo.mjs Developer Guide",
@@ -766,52 +788,70 @@
         "lastmod": "2025-07-15"
     },
     "/learn/comparisons/Overview": {
-        "title": "JavaScript Framework Comparisons (React, Angular, Vue, Solid vs Neo.mjs) | Neo.mjs",
-        "description": "This section provides detailed comparisons between Neo.mjs and popular JavaScript frameworks. Our goal is to help you understand why Neo.mjs is classified...",
+        "title": "Neo.mjs vs React, Angular, Vue & Solid: Application Engine vs JavaScript Frameworks | Neo.mjs",
+        "description": "Neo.mjs has two hemispheres. The Body is a multi-threaded Application Engine: your application lives in an App Worker, a VDom Worker computes the DOM...",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-07"
+        "lastmod": "2026-11-15"
     },
     "/learn/comparisons/NeoVsReact": {
         "title": "Neo.mjs vs React.js — Multi-Threaded JavaScript UI Comparison | Neo.mjs",
-        "description": "Neo.mjs is a comprehensive JavaScript ecosystem for building high-performance, multi-threaded web applications. Unlike libraries such as React that form...",
+        "description": "Neo.mjs is a multi-threaded Application Engine: your application, with its component tree, its state and its logic, lives in an App Worker, a VDom Worker...",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-07"
+        "lastmod": "2026-11-15"
     },
     "/learn/comparisons/NeoVsAngular": {
         "title": "Neo.mjs vs Angular — Multi-Threaded JavaScript UI Comparison | Neo.mjs",
-        "description": "Neo.mjs is a comprehensive JavaScript ecosystem for building high-performance, multi-threaded web applications. Unlike build-heavy frameworks like Angular...",
+        "description": "Neo.mjs is a multi-threaded Application Engine: the component tree, the state and the logic of your application live in an App Worker, a VDom Worker...",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-07"
+        "lastmod": "2026-11-15"
     },
     "/learn/comparisons/NeoVsVue": {
         "title": "Neo.mjs vs Vue.js — Multi-Threaded JavaScript UI Comparison | Neo.mjs",
-        "description": "Neo.mjs is a comprehensive JavaScript ecosystem for building high-performance, multi-threaded web applications. Unlike libraries and frameworks like Vue.js...",
+        "description": "Neo.mjs is a multi-threaded Application Engine. Vue.js has perfected its architecture for a single-threaded browser environment; Neo.mjs starts from a...",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-07"
+        "lastmod": "2026-11-15"
     },
     "/learn/comparisons/NeoVsSolid": {
         "title": "Neo.mjs vs Solid.js — Multi-Threaded JavaScript UI Comparison | Neo.mjs",
-        "description": "Neo.mjs is a comprehensive JavaScript ecosystem for building high-performance, multi-threaded web applications. Unlike libraries such as Solid.js that focus...",
+        "description": "Neo.mjs is a multi-threaded Application Engine: your application's component tree, state and logic live in an App Worker, a VDom Worker computes the DOM...",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-07"
+        "lastmod": "2026-11-15"
     },
     "/learn/comparisons/NeoVsNextJs": {
         "title": "Neo.mjs vs Next.js — Multi-Threaded JavaScript UI Comparison | Neo.mjs",
-        "description": "Neo.mjs and Next.js are both powerful JavaScript technologies, but they operate with fundamentally different architectural philosophies and excel in...",
+        "description": "Neo.mjs is a multi-threaded Application Engine for the browser: your application, with its component tree, its state and its logic, lives in an App Worker...",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-07"
+        "lastmod": "2026-11-15"
     },
     "/learn/comparisons/NeoVsExtJs": {
         "title": "Neo.mjs vs Ext.js — Multi-Threaded JavaScript UI Comparison | Neo.mjs",
-        "description": "Neo.mjs is a comprehensive JavaScript ecosystem for building high-performance, multi-threaded web applications. Unlike legacy architectures like Ext.js that...",
+        "description": "Neo.mjs is a multi-threaded Application Engine: your application, with its component tree, its state and its logic, lives in an App Worker, a VDom Worker...",
         "schemaType": "TechArticle",
-        "lastmod": "2026-01-08"
+        "lastmod": "2026-11-15"
+    },
+    "/learn/comparisons/NeoVsAgGrid": {
+        "title": "Neo.mjs vs AG Grid: an MIT JavaScript Data Grid in a Web Worker | Neo.mjs",
+        "description": "Neo.mjs vs AG Grid: where each JavaScript data grid runs, an open 100k-row benchmark with wins and losses, and what MIT and Enterprise include.",
+        "schemaType": "TechArticle",
+        "lastmod": "2026-11-15"
+    },
+    "/learn/comparisons/NeoVsBryntum": {
+        "title": "Neo.mjs vs Bryntum: an MIT JavaScript Gantt Chart and Scheduler | Neo.mjs",
+        "description": "Neo.mjs vs Bryntum: where a JavaScript Gantt chart and scheduler do their work, what each licence tier includes, and what Neo.mjs lacks today.",
+        "schemaType": "TechArticle",
+        "lastmod": "2026-11-15"
     },
     "/learn/Glossary": {
         "title": "Glossary — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "This glossary provides definitions for key terms and concepts used throughout the Neo.mjs documentation. Understanding these terms is essential for grasping...",
         "schemaType": "TechArticle",
         "lastmod": "2026-08-31"
+    },
+    "/news/blog/one-websocket-across-browser-windows-with-sharedworkers": {
+        "title": "SharedWorker WebSocket & Off-Main-Thread UI Across Windows | Neo.mjs",
+        "description": "Share one live WebSocket across multiple browser windows in a SharedWorker without copying state per tab: stores, VDOM diffing, and reconnect logic in one heap.",
+        "schemaType": "BlogPosting",
+        "lastmod": "2026-11-14"
     },
     "/news/blog/json-ld-xss-json-stringify-in-a-script-tag": {
         "title": "JSON.stringify is not safe inside a script tag: the JSON-LD XSS and its one-line fix - Neo.mjs",

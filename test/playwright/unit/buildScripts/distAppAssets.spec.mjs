@@ -13,7 +13,8 @@ import {fileURLToPath} from 'node:url';
  * behaviour assertions, not a simulation. The wiring half is asserted against the build sources,
  * because the original defect was not a broken function: it was three call sites that each
  * independently failed to name the extension, and only source text can witness that a call site
- * exists at all. What is NOT covered is a real webpack/esm compile — that needs the actual builds.
+ * exists at all. The ESM asset plan also runs through the real build below; webpack compilation
+ * remains outside this focused fixture.
  */
 test.describe('dist app assets', () => {
     let DIST_APP_ASSET_EXTENSIONS, DIST_EXCLUDED_APP_RESOURCES,
@@ -116,7 +117,8 @@ test.describe('dist app assets', () => {
         });
 
         test('the esm build gates its verbatim copy on the shared rule', () => {
-            expect(read('buildScripts/build/esmodules.mjs')).toContain('isDistAppAsset(dirent.name)')
+            expect(read('buildScripts/build/esmodules.mjs')).toContain('createEsmBuildPlan(');
+            expect(read('buildScripts/util/esmBuildGraph.mjs')).toMatch(/\bisDistAppAsset\s*\(/)
         });
 
         test('no webpack app build folds a named folder to lower case', () => {
@@ -158,14 +160,40 @@ test.describe('dist app assets', () => {
             for (const config of APP_WORKER_CONFIGS) {
                 expect(read(config), `${config} must wire excludedResourcesFor`).toContain('excludedResourcesFor(')
             }
-            expect(read('buildScripts/build/esmodules.mjs')).toContain('isExcludedDistResource(normalizedInput)');
+            expect(read('buildScripts/build/esmodules.mjs')).toContain('plan.excludedOutputs');
+            expect(read('buildScripts/util/esmBuildGraph.mjs')).toMatch(/\bisExcludedDistResource\s*\(/);
 
             // Neither build may re-declare the extension or seo.json locally — that divergence is the defect.
-            for (const buildFile of [...APP_WORKER_CONFIGS, 'buildScripts/build/esmodules.mjs']) {
+            for (const buildFile of [...APP_WORKER_CONFIGS, 'buildScripts/build/esmodules.mjs', 'buildScripts/util/esmBuildGraph.mjs']) {
                 expect(read(buildFile), `${buildFile} must not name .webmanifest itself`)
                     .not.toContain('.webmanifest');
                 expect(read(buildFile), `${buildFile} must not hardcode seo.json itself`)
                     .not.toContain('seo.json')
+            }
+        });
+
+        test('the real ESM plan copies assets and removes stale excluded resources', () => {
+            const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-esm-assets-')),
+                  source    = path.join(workspace, 'apps/portal/resources/data'),
+                  target    = path.join(workspace, 'dist/esm/apps/portal/resources/data');
+            try {
+                fs.mkdirSync(source, {recursive: true});
+                fs.mkdirSync(target, {recursive: true});
+                fs.writeFileSync(path.join(workspace, 'package.json'), '{"name":"neo.mjs","version":"0.0.0"}');
+                fs.writeFileSync(path.join(workspace, 'apps/portal/app.webmanifest'), '{"name":"asset probe"}');
+                fs.writeFileSync(path.join(source, 'blog.json'), '{"keep":true}');
+                for (const file of ['seo.json', 'ssg-archive-routes.json']) {
+                    fs.writeFileSync(path.join(source, file), '{}');
+                    fs.writeFileSync(path.join(target, file), '{"stale":true}')
+                }
+                execFileSync(process.execPath, [path.join(repoRoot, 'buildScripts/build/esmodules.mjs')],
+                    {cwd: workspace, stdio: 'pipe'});
+                expect(fs.readFileSync(path.join(workspace, 'dist/esm/apps/portal/app.webmanifest'), 'utf8')).toBe('{"name":"asset probe"}');
+                expect(JSON.parse(fs.readFileSync(path.join(target, 'blog.json'), 'utf8'))).toEqual({keep: true});
+                expect(fs.existsSync(path.join(target, 'seo.json'))).toBe(false);
+                expect(fs.existsSync(path.join(target, 'ssg-archive-routes.json'))).toBe(false)
+            } finally {
+                fs.rmSync(workspace, {force: true, recursive: true})
             }
         });
 

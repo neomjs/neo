@@ -643,6 +643,7 @@ class GridBody extends Component {
                 filter: me.onStoreFilter,
                 load: me.onStoreLoad,
                 recordChange: me.onStoreRecordChange,
+                rowsChange: me.onStoreRowsChange,
                 scope: me
             };
 
@@ -1601,15 +1602,22 @@ class GridBody extends Component {
     }
 
     /**
+     * @summary Repaints the row that renders a changed record. A record of a store batch (`isBatch`) leaves its row
+     * to {@link #onStoreRowsChange}, which repaints the batch's rows in one pass.
      * @param {Object}         data
      * @param {Object[]}       data.fields Each field object contains the keys: name, oldValue, value
+     * @param {Boolean}        [data.isBatch]
      * @param {Neo.data.Model} data.model  The model instance of the changed record
      * @param {Object}         data.record
      */
-    onStoreRecordChange({ fields, record }) {
+    onStoreRecordChange({ fields, isBatch, record }) {
         let me         = this,
             fieldNames = fields.map(field => field.name),
             row;
+
+        if (isBatch) {
+            return
+        }
 
         if (fieldNames.includes(me.colspanField)) {
             me.createViewData()
@@ -1623,6 +1631,33 @@ class GridBody extends Component {
                 row.createVdom(false, false)
             }
 
+            me.refreshNativeDragZoneRecords()
+        }
+    }
+
+    /**
+     * @summary Repaints the mounted rows a store batch changed ({@link Neo.data.Store#updateRows}) in one update, and
+     * keeps the scroll position, which {@link #onStoreLoad} would reset.
+     * Like {@link #onStoreRecordChange}, each row's VDOM is rebuilt at once, also while an update is in flight:
+     * {@link #createViewData} would defer the whole pass past that flight, after a column such as
+     * `Neo.grid.column.AnimatedChange` has marked the cells it found. A batch that changed no mounted row
+     * repaints nothing.
+     * @param {Object}   data
+     * @param {String[]} data.fields The fields the batch may have changed
+     * @param {Array}    data.keys   The changed rows' keys
+     */
+    onStoreRowsChange({ fields, keys }) {
+        let me      = this,
+            {store} = me,
+            changed = new Set(keys),
+            rows    = me.items.filter(row => row.record && changed.has(store.getKey(row.record)));
+
+        if (fields.includes(me.colspanField)) {
+            me.createViewData(false, true)
+        } else if (rows.length) {
+            rows.forEach(row => row.createVdom(true, false));
+            me.updateDepth = -1;
+            me.update();
             me.refreshNativeDragZoneRecords()
         }
     }

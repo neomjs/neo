@@ -9,7 +9,9 @@ import {
     RUNGS,
     badgeFolder,
     badgeLine,
+    claimLimit,
     decideMergeComment,
+    headsUpMarker,
     invitation,
     mergeMarker,
     nextIssues,
@@ -17,12 +19,18 @@ import {
     standing
 } from '../../../../../buildScripts/util/contributorStanding.mjs';
 
+import {TEAM_PERMISSIONS} from '../../../../../buildScripts/util/claimResponse.mjs';
+
 const
+    // A comment on a pull request needs the pull request's scope: GitHub refuses it under `issues: write`
+    COMMENT_PERMISSIONS = /\npermissions:\n {2}contents: read .*\n {2}issues: read .*\n {2}pull-requests: write .*\n\njobs:/,
     REPO_URL = 'https://github.com/neomjs/neo',
     LIST_URL = `${REPO_URL}/issues?q=${encodeURIComponent('is:issue is:open no:assignee -linked:pr label:"good first issue","help wanted"')}`,
-    LAUNCH   = '2026-11-01T00:00:00Z',
     ENGINE   = ['src/grid/Body.mjs'],
-    DOCS     = ['learn/guides/Intro.md'];
+    DOCS     = ['learn/guides/Intro.md'],
+    NEXT     = `**Next, if you want one:** #20701 (also \`grid\`) and #20702 are open and unclaimed; a comment on either claims it. [The full list](${LIST_URL}) has more if both are taken by then.`;
+
+const BADGE_URL = 'https://neomjs.com/badges/outside-dev-4242/';
 
 /**
  * A REST-shaped pull request, merged and from an outside contributor unless told otherwise.
@@ -55,6 +63,11 @@ const comment = (mergedBefore, options = {}) => decideMergeComment({
 })?.body;
 
 test.describe('buildScripts/util/contributorStanding', () => {
+    test('the returning rung admits two curated claims, with invalid counts failing closed', () => {
+        expect([0, 4, 5, 250].map(claimLimit)).toEqual([1, 1, 2, 2]);
+        expect([undefined, null, NaN, Infinity, '5'].map(claimLimit)).toEqual([1, 1, 1, 1, 1])
+    });
+
     test('the rungs are the published inventory, frozen: the badge art in neomjs/pages has a colour for each slug', () => {
         expect(RUNGS.map(({slug, merges, name}) => `${slug} ${merges} ${name}`)).toEqual([
             'contributor 1 Contributor',
@@ -150,32 +163,54 @@ test.describe('buildScripts/util/contributorStanding', () => {
     });
 
     test.describe('decideMergeComment', () => {
-        test('a first merge gets the full form', () => {
-            expect(comment(0)).toBe([
-                'Merged. Thank you: this is your first merged pull request in Neo.mjs.',
-                '**Standing:** Contributor (1 merged). 4 more reach Returning Contributor.',
-                `**Next, if you want one:** #20701 (also \`grid\`) and #20702 are open and unclaimed; a comment on either claims it. [The full list](${LIST_URL}) has more if both are taken by then.`,
-                INVITATIONS.engine,
-                'A star helps others find the project.',
-                mergeMarker(20999)
-            ].join('\n\n'))
+        test('a first merge names the scheduled badge or the written folder in the full comment', () => {
+            const line = badgeLine('Outside-Dev', 4242);
+            for (const [folderWritten, badge] of [
+                [false, `**Your badge**, if you would like to show it, is written by a scheduled run that has not counted this merge yet. From then on it is at ${BADGE_URL} in three forms to choose from, and the card's line shows it:\n\`${line}\``],
+                [true, `**Your badge**, if you would like to show it, is at ${BADGE_URL} with three forms to choose from. The card's line:\n\`${line}\``]
+            ]) {
+                expect(comment(0, {folderWritten})).toBe([
+                    'Merged. Thank you: this is your first merged pull request in Neo.mjs.',
+                    '**Standing:** Contributor (1 merged). 4 more reach Returning Contributor.',
+                    badge,
+                    NEXT,
+                    INVITATIONS.engine,
+                    'A star helps others find the project.',
+                    mergeMarker(20999)
+                ].join('\n\n'))
+            }
+            expect(comment(0)).toBe(comment(0, {folderWritten: false}))
         });
 
-        test('a later rung gets the full form with the count, and no sentence promises a rule that has not shipped', () => {
-            const body = comment(4, {paths: DOCS});
-
-            expect(body).toContain('Merged. Thank you: that makes 5 merged pull requests of yours in Neo.mjs.');
-            expect(body).toContain('**Standing:** Returning Contributor (5 merged). 5 more reach Bronze Contributor.');
-            expect(body).toContain(INVITATIONS.skills);
-            expect(body).not.toMatch(/claim.*at once/)
+        test('the returning rung announces the claim limit and links only a written badge', () => {
+            for (const folderWritten of [false, true]) {
+                const paragraphs = [
+                    'Merged. Thank you: that makes 5 merged pull requests of yours in Neo.mjs.',
+                    '**Standing:** Returning Contributor (5 merged). 5 more reach Bronze Contributor. You can now hold two curated claims at once in this repository.'
+                ];
+                if (folderWritten) paragraphs.push(`**Your badge** at ${BADGE_URL} shows the new rung once a scheduled run has counted this merge.`);
+                paragraphs.push(NEXT, INVITATIONS.skills, 'A star helps others find the project.', mergeMarker(20999));
+                expect(comment(4, {folderWritten, paths: DOCS})).toBe(paragraphs.join('\n\n'))
+            }
+            for (const earlier of [0, 3]) expect(comment(earlier)).not.toContain('You can now hold two curated claims');
+            for (const later of [5, 9, 249]) expect(comment(later)).not.toContain('You can now hold two curated claims')
         });
 
-        test('a merge between rungs gets standing and next issues only', () => {
-            expect(comment(5)).toBe([
-                'Merged. **Standing:** Returning Contributor (6 merged). 4 more reach Bronze Contributor.',
-                `**Next, if you want one:** #20701 (also \`grid\`) and #20702 are open and unclaimed; a comment on either claims it. [The full list](${LIST_URL}) has more if both are taken by then.`,
-                mergeMarker(20999)
-            ].join('\n\n'))
+        test('a merge between rungs links a written record on the standing line', () => {
+            const standing = 'Merged. **Standing:** Returning Contributor (6 merged). 4 more reach Bronze Contributor.';
+            for (const [folderWritten, line] of [[false, standing], [true, `${standing} Your record and badge: ${BADGE_URL}`]]) {
+                expect(comment(5, {folderWritten})).toBe([line, NEXT, mergeMarker(20999)].join('\n\n'))
+            }
+        });
+
+        test('badge wording never promises a duration, at or between any rungs', () => {
+            for (const {merges} of RUNGS) {
+                for (const before of [merges - 1, merges]) {
+                    for (const folderWritten of [false, true]) {
+                        expect(comment(before, {folderWritten})).not.toMatch(/\b(within|hours?|minutes?)\b/i)
+                    }
+                }
+            }
         });
 
         test('the top rung names no next rung', () => {
@@ -197,43 +232,36 @@ test.describe('buildScripts/util/contributorStanding', () => {
             expect(decide(pullRequest({association: 'FIRST_TIME_CONTRIBUTOR'}))).not.toBeNull()
         });
 
-        test('a bot-authored marker stops a re-run, and a pasted one does not', () => {
-            const marked = type => comment(0, {comments: [{body: `thanks ${mergeMarker(20999)}`, user: {login: 'someone', type}}]});
+        test('a bot-authored marker of either kind stops a re-run, and a pasted one does not', () => {
+            const marked = (marker, type) => comment(0, {comments: [{body: `thanks ${marker}`, user: {login: 'someone', type}}]});
 
-            expect(marked('Bot')).toBeUndefined();
-            expect(marked('User')).toContain('Merged.')
+            for (const marker of [mergeMarker(20999), headsUpMarker(20999)]) {
+                expect(marked(marker, 'Bot')).toBeUndefined();
+                expect(marked(marker, 'User')).toContain('Merged.')
+            }
         });
 
-        test('while BADGES_SINCE is null no form mentions the badge', () => {
-            expect(BADGES_SINCE).toBeNull();
-            [0, 4, 5].forEach(before => expect(comment(before)).not.toContain('badge'))
+        test('the badges count from before the organisation\'s first pull request, and null switches them off', () => {
+            // The organisation's first pull request was opened on 2019-11-11
+            expect(BADGES_SINCE).toBe('2019-11-01T00:00:00Z');
+            [0, 4, 5].forEach(before => expect(comment(before, {badgesSince: null, folderWritten: true})).not.toContain('badge'))
         });
 
-        test('once the badges are live, the first merge since then hands over the line in either form, and a later rung says the badge shows it', () => {
-            const
-                line    = '`<a href="https://neomjs.com/badges/outside-dev-4242/"><img src="https://neomjs.com/badges/outside-dev-4242/card.svg" alt="Neo.mjs contributor"></a>`',
-                offered = '**Your badge**, if you would like to show it, exists within the hour at https://neomjs.com/badges/outside-dev-4242/ with three forms to choose from. The card\'s line:';
-
-            expect(comment(0, {badgesSince: LAUNCH})).toContain(`**Standing:** Contributor (1 merged). 4 more reach Returning Contributor.\n\n${offered}\n${line}\n\n**Next`);
-            expect(comment(6, {badgesSince: LAUNCH})).toContain(`Bronze Contributor.\n\n${offered}\n${line}\n\n**Next`);
-            expect(comment(9, {badgesSince: LAUNCH, mergedSinceLaunchBefore: 2})).toContain('Bronze Contributor (10 merged). 15 more reach Silver Contributor.\n\nYour badge shows it within the hour.\n\n**Next');
-            expect(comment(6, {badgesSince: LAUNCH, mergedSinceLaunchBefore: 1})).not.toContain('badge')
-        });
-
-        test('a merge before the launch never names the badge, and a merge at the launch is offered it', () => {
-            // The merge in `pullRequest()` is at 2026-11-14T10:00:00Z: a re-run of it after a later launch gets standing only.
+        test('a merge older than the time the badges count from never names the badge, and a merge at that time is offered it', () => {
+            // The merge in `pullRequest()` is at 2026-11-14T10:00:00Z
             expect(comment(0, {badgesSince: '2026-12-01T00:00:00Z'})).not.toContain('badge');
             expect(comment(4, {badgesSince: '2026-12-01T00:00:00Z'})).not.toContain('badge');
             expect(comment(0, {badgesSince: '2026-11-14T10:00:00Z'})).toContain('**Your badge**')
         });
 
         test('an account on the Pages opt-out list is offered no badge, and neither is anyone while the list is unknown', () => {
-            expect(comment(0, {badgesSince: LAUNCH, optOut: [990000004]})).toContain('**Your badge**');
-            expect(comment(0, {badgesSince: LAUNCH, optOut: [4242]})).not.toContain('badge');
-            expect(comment(9, {badgesSince: LAUNCH, mergedSinceLaunchBefore: 2, optOut: [4242]})).not.toContain('badge');
-            expect(comment(0, {badgesSince: LAUNCH, optOut: null})).not.toContain('badge');
+            expect(comment(0, {optOut: [990000004]})).toContain('**Your badge**');
+            for (const before of [0, 4, 5]) {
+                expect(comment(before, {optOut: [4242], folderWritten: true})).not.toContain('badge');
+                expect(comment(before, {optOut: null, folderWritten: true})).not.toContain('badge')
+            }
             // A caller that read no list offers no badge
-            expect(decideMergeComment({badgesSince: LAUNCH, mergedBefore: 0, pullRequest: pullRequest(), repoUrl: REPO_URL}).body).not.toContain('badge')
+            expect(decideMergeComment({mergedBefore: 0, pullRequest: pullRequest(), repoUrl: REPO_URL}).body).not.toContain('badge')
         });
 
         test('a count that is not one throws, so the workflow warns instead of posting a wrong standing', () => {
@@ -252,8 +280,8 @@ test.describe('buildScripts/util/contributorStanding', () => {
         /**
          * Runs the workflow's script against a stand-in GitHub, recording every query, post and warning.
          */
-        const run = async ({comments = [], eventName = 'pull_request_target', incomplete = () => false, inputs, optOutText, searchError} = {}) => {
-            const calls = {contents: [], inFlight: 0, peakSearches: 0, posted: [], queries: [], summary: [], warnings: []};
+        const run = async ({author = {}, comments = [], eventName = 'pull_request_target', folderStatus = 404, incomplete = () => false, inputs, optOutText = '[]', permission = 'read', searchError} = {}) => {
+            const calls = {contents: [], inFlight: 0, info: [], peakSearches: 0, permissions: [], posted: [], queries: [], summary: [], warnings: []};
 
             const github = {
                 graphql : async () => ({repository: {pullRequest: {closingIssuesReferences: {nodes: [{labels: {nodes: [{name: 'grid'}]}}]}}}}),
@@ -267,17 +295,28 @@ test.describe('buildScripts/util/contributorStanding', () => {
                         listComments : Symbol('listComments')
                     },
                     pulls : {
-                        get      : async () => ({data: pullRequest()}),
+                        get      : async () => ({data: pullRequest(author)}),
                         listFiles: async () => ({data: ENGINE.map(filename => ({filename}))})
                     },
                     repos : {
-                        // The Pages opt-out list answers Not Found unless the arm passes its text
+                        // The author can read unless the arm passes a permission, and null answers Not Found
+                        getCollaboratorPermissionLevel: async ({username}) => {
+                            calls.permissions.push({searchesBefore: calls.queries.length, username});
+
+                            if (permission === null) throw Object.assign(new Error('Not Found'), {status: 404});
+
+                            return {data: {permission}}
+                        },
                         getContent: async ({owner, repo, path: file, ref}) => {
                             calls.contents.push(`${owner}/${repo}@${ref}:${file}`);
 
-                            if (optOutText === undefined) throw Object.assign(new Error('Not Found'), {status: 404});
-
-                            return {data: {content: Buffer.from(optOutText).toString('base64'), encoding: 'base64'}}
+                            if (file === 'badges/optout.json') {
+                                if (optOutText === null) throw Object.assign(new Error('Not Found'), {status: 404});
+                                return {data: {content: Buffer.from(optOutText).toString('base64'), encoding: 'base64'}}
+                            }
+                            if (file !== 'badges/outside-dev-4242') throw new Error(`Unexpected path: ${file}`);
+                            if (folderStatus === 200) return {data: [{name: 'index.html', type: 'file'}]};
+                            throw Object.assign(new Error(`Folder read returned ${folderStatus}`), {status: folderStatus})
                         }
                     },
                     search: {
@@ -308,28 +347,27 @@ test.describe('buildScripts/util/contributorStanding', () => {
 
             await runStep(
                 github,
-                {eventName, payload: {inputs, pull_request: pullRequest()}, repo: {owner: 'neomjs', repo: 'neo'}},
-                {info: () => {}, summary, warning: message => calls.warnings.push(message)}
+                {eventName, payload: {inputs, pull_request: pullRequest(author)}, repo: {owner: 'neomjs', repo: 'neo'}},
+                {info: message => calls.info.push(message), summary, warning: message => calls.warnings.push(message)}
             );
 
             return calls
         };
 
         /**
-         * Runs `fn` in a workspace whose module has had the badges live since LAUNCH, so the script takes its
-         * post-launch path.
+         * Runs `fn` in a workspace whose module has the badges switched off, so the script takes that path.
          */
-        const afterLaunch = async fn => {
+        const switchedOff = async fn => {
             const
                 dir    = fs.mkdtempSync(path.join(os.tmpdir(), 'merge-comment-')),
                 util   = path.join(dir, 'buildScripts/util'),
                 source = fs.readFileSync(path.resolve(process.cwd(), 'buildScripts/util/contributorStanding.mjs'), 'utf8'),
-                live   = source.replace('export const BADGES_SINCE = null;', `export const BADGES_SINCE = '${LAUNCH}';`);
+                off    = source.replace(`export const BADGES_SINCE = '${BADGES_SINCE}';`, 'export const BADGES_SINCE = null;');
 
-            expect(live).not.toBe(source);
+            expect(off).not.toBe(source);
             fs.mkdirSync(util, {recursive: true});
             fs.copyFileSync(path.resolve(process.cwd(), 'buildScripts/util/claimResponse.mjs'), path.join(util, 'claimResponse.mjs'));
-            fs.writeFileSync(path.join(util, 'contributorStanding.mjs'), live);
+            fs.writeFileSync(path.join(util, 'contributorStanding.mjs'), off);
 
             process.env.GITHUB_WORKSPACE = dir;
 
@@ -365,17 +403,60 @@ test.describe('buildScripts/util/contributorStanding', () => {
             expect(raw).toMatch(/\non:\n  pull_request_target:\n    types: \[closed\]\n  workflow_dispatch:/);
             expect(raw).toMatch(/persist-credentials: false\n {10}sparse-checkout: \|\n {12}buildScripts\/util\/claimResponse\.mjs\n {12}buildScripts\/util\/contributorStanding\.mjs\n/);
             expect(raw).not.toMatch(/^\s+ref:/m);
-            expect(raw).not.toMatch(/^\s+run:/m)
+            expect(raw).not.toMatch(/^\s+run:/m);
+            expect(raw).toMatch(COMMENT_PERMISSIONS)
+        });
+
+        test('the team is whoever can write here: its author gets nothing and costs no search, at a merge and on a dispatch with post', async () => {
+            for (const permission of TEAM_PERMISSIONS) {
+                for (const calls of [await run({permission}), await run({eventName: 'workflow_dispatch', inputs: {pr: '20999', post: 'true'}, permission})]) {
+                    expect(calls.permissions).toEqual([{searchesBefore: 0, username: 'Outside-Dev'}]);
+                    expect(calls.queries).toEqual([]);
+                    expect(calls.posted).toEqual([]);
+                    expect(calls.summary).toEqual([]);
+                    expect(calls.warnings).toEqual([])
+                }
+            }
+        });
+
+        test('an outside author is asked about once, before the first search, and a bot or a team association not at all', async () => {
+            const outside = await run();
+
+            expect(outside.permissions).toEqual([{searchesBefore: 0, username: 'Outside-Dev'}]);
+            expect(outside.posted).toHaveLength(1);
+
+            for (const calls of [await run({author: {type: 'Bot'}}), await run({author: {association: 'MEMBER'}})]) {
+                expect(calls.permissions).toEqual([]);
+                expect(calls.queries).toEqual([]);
+                expect(calls.posted).toEqual([]);
+                expect(calls.warnings).toEqual([])
+            }
+        });
+
+        test('a permission that cannot be read, or that names none, warns and posts nothing', async () => {
+            const [missing, unnamed] = [await run({permission: null}), await run({permission: 'owner'})];
+
+            expect(missing.warnings).toEqual(['No merge comment: Not Found']);
+            expect(unnamed.warnings).toEqual(['No merge comment: "owner" names no repository permission']);
+
+            for (const calls of [missing, unnamed]) {
+                expect(calls.queries).toEqual([]);
+                expect(calls.posted).toEqual([]);
+                expect(calls.summary).toEqual([])
+            }
         });
 
         test('a merged outside pull request is commented on once, from a count that never waits for the index', async () => {
             const calls = await run();
 
             expect(calls.queries).toEqual([
-                'org:neomjs is:public is:pr is:merged author:Outside-Dev merged:<2026-11-14T10:00:00+00:00',
+                'org:neomjs is:public is:pr is:merged author:Outside-Dev merged:<2026-11-14T10:00:00Z',
                 'repo:neomjs/neo is:issue is:open label:"good first issue" no:assignee -linked:pr',
                 'repo:neomjs/neo is:issue is:open label:"help wanted" no:assignee -linked:pr'
             ]);
+            // A plus sign reaches the search as a space: an offset of `+00:00` became the search term `00:00`
+            expect(calls.queries.filter(query => query.includes('+'))).toEqual([]);
+            expect(calls.info).toContain('Outside-Dev had 0 merged before #20999.');
             // GitHub's secondary rate limit refuses bursts of searches
             expect(calls.peakSearches).toBe(1);
             expect(calls.posted).toHaveLength(1);
@@ -398,15 +479,11 @@ test.describe('buildScripts/util/contributorStanding', () => {
             expect(calls.warnings).toEqual(['No merge comment: secondary rate limit'])
         });
 
-        test('an incomplete search answer is no answer: a warning and no comment, for either count and for the candidates', async () => {
-            const sinceLaunch = await afterLaunch(() => run({incomplete: q => q.includes('..'), optOutText: '[]'}));
-
-            for (const calls of [await run({incomplete: q => q.startsWith('org:')}), await run({incomplete: q => q.includes('help wanted')}), sinceLaunch]) {
+        test('an incomplete search answer is no answer: a warning and no comment, for the count and for the candidates', async () => {
+            for (const calls of [await run({incomplete: q => q.startsWith('org:')}), await run({incomplete: q => q.includes('help wanted')})]) {
                 expect(calls.posted).toEqual([]);
                 expect(calls.warnings).toEqual([expect.stringMatching(/^No merge comment: the search answered incompletely/)])
             }
-
-            expect(sinceLaunch.queries[1]).toMatch(/ merged:2026-11-01T00:00:00\+00:00\.\./)
         });
 
         test('modules that fail to load warn and post nothing, and a failed checkout does not fail the job', async () => {
@@ -444,32 +521,43 @@ test.describe('buildScripts/util/contributorStanding', () => {
             }
         });
 
-        test('the Pages opt-out list is read only after the launch, and decides the badge: an empty list offers it, a listed account and an unreadable list do not', async () => {
-            expect((await run()).contents).toEqual([]);
+        test('the folder read follows the opt-out read; a missing folder and a failed read still allow the comment', async () => {
+            for (const status of [200, 404, 500]) {
+                const result = await run({folderStatus: status});
+                expect(result.contents).toEqual(['neomjs/pages@main:badges/optout.json', 'neomjs/pages@main:badges/outside-dev-4242']);
+                expect(result.posted).toHaveLength(1);
+                expect(result.posted[0].body).toBe(comment(0, {folderWritten: status === 200}));
+                expect(result.warnings).toHaveLength(status === 500 ? 1 : 0)
+            }
+        });
 
-            const [open, listed, missing, garbled] = await afterLaunch(async () => [
-                await run({optOutText: '[]'}),
-                await run({optOutText: '[4242]'}),
-                await run(),
-                await run({optOutText: '["4242"]'})
-            ]);
+        test('a refused folder name warns and still posts standing without a badge or a folder request', async () => {
+            const calls = await run({author: {login: '-outside'}});
+            expect(calls.contents).toEqual(['neomjs/pages@main:badges/optout.json']);
+            expect(calls.posted).toHaveLength(1);
+            expect(calls.posted[0].body).toContain('**Standing:** Contributor (1 merged).');
+            expect(calls.posted[0].body).not.toContain('badge');
+            expect(calls.warnings).toHaveLength(1)
+        });
 
-            expect(open.contents).toEqual(['neomjs/pages@main:badges/optout.json']);
-            expect(open.queries.slice(0, 2)).toEqual([
-                'org:neomjs is:public is:pr is:merged author:Outside-Dev merged:<2026-11-14T10:00:00+00:00',
-                'org:neomjs is:public is:pr is:merged author:Outside-Dev merged:2026-11-01T00:00:00+00:00..2026-11-14T09:59:59+00:00'
-            ]);
-            expect(open.posted[0].body).toBe(comment(0, {badgesSince: LAUNCH}));
-            expect(open.posted[0].body).toContain('**Your badge**');
-            expect(open.warnings).toEqual([]);
-
-            expect(listed.posted[0].body).toBe(comment(0));
+        test('a listed account, an unreadable opt-out list and disabled badges all skip the folder read', async () => {
+            const [listed, missing, garbled] = [await run({optOutText: '[4242]'}), await run({optOutText: null}), await run({optOutText: '["4242"]'})];
+            expect(listed.contents).toEqual(['neomjs/pages@main:badges/optout.json']);
+            expect(listed.posted[0].body).toBe(comment(0, {optOut: [4242]}));
+            expect(listed.posted[0].body).not.toContain('badge');
             expect(listed.warnings).toEqual([]);
 
             for (const unreadable of [missing, garbled]) {
-                expect(unreadable.posted[0].body).toBe(comment(0));
+                expect(unreadable.contents).toEqual(['neomjs/pages@main:badges/optout.json']);
+                expect(unreadable.posted[0].body).toBe(comment(0, {optOut: null}));
                 expect(unreadable.warnings).toEqual(['No badge in the merge comment: the opt-out list of neomjs/pages is unreadable.'])
             }
+
+            const off = await switchedOff(() => run());
+
+            expect(off.contents).toEqual([]);
+            expect(off.posted[0].body).toBe(comment(0, {badgesSince: null}));
+            expect(off.warnings).toEqual([])
         });
 
         test('a dispatch renders into the job summary and posts only with post', async () => {

@@ -1,7 +1,7 @@
 /**
  * @module buildScripts/util/contributorStanding
  * @summary Decides the one comment a pull request from outside the team gets when it merges: its author's standing,
- * up to two open curated issues to take next, and, once the badges are served, the badge line.
+ * up to two open curated issues to take next, and badge wording based on the folder the workflow finds on Pages.
  * `.github/workflows/merge-comment.yml` runs it at the merge.
  *
  * @description Standing is one count, derived when asked and never stored: the author's merged pull requests across
@@ -35,11 +35,12 @@ export const RUNGS = Object.freeze([
 ]);
 
 /**
- * When the badges went live, as an ISO timestamp, or null while they are not served. The comment hands over the
- * badge line only once it is set.
+ * The time from which a merged pull request earns a badge, as an ISO timestamp. It is set before the organisation's
+ * first pull request, opened on 2019-11-11, so every merge from outside the team earns one. null switches the badges
+ * off: the generator writes no folder and no comment names a badge.
  * @member {String|null} BADGES_SINCE
  */
-export const BADGES_SINCE = null;
+export const BADGES_SINCE = '2019-11-01T00:00:00Z';
 
 /**
  * The invitation a comment at a rung closes with, chosen by {@link invitation}.
@@ -51,10 +52,12 @@ export const INVITATIONS = Object.freeze({
 });
 
 const
-    BADGE_ROOT     = 'https://neomjs.com/badges',
-    ENGINE_PATHS   = Object.freeze(['src/', 'apps/', 'examples/', 'resources/scss/']),
-    GENERIC_LABELS = new Set([...CURATED_LABELS, 'ai', 'bug', 'documentation', 'enhancement']),
-    MARKER_PREFIX  = '<!-- merge-comment:';
+    BADGE_ROOT      = 'https://neomjs.com/badges',
+    ENGINE_PATHS    = Object.freeze(['src/', 'apps/', 'examples/', 'resources/scss/']),
+    GENERIC_LABELS  = new Set([...CURATED_LABELS, 'ai', 'bug', 'documentation', 'enhancement']),
+    HEADS_UP_PREFIX = '<!-- contributor-heads-up:',
+    MARKER_PREFIX   = '<!-- merge-comment:',
+    RETURNING_AT    = RUNGS.find(entry => entry.slug === 'returning').merges;
 
 /**
  * @summary An issue's label names, whether the REST shape carries strings or `{name}` objects.
@@ -85,6 +88,15 @@ export function standing(count) {
     }
 
     return {rung, next: null, remaining: null}
+}
+
+/**
+ * @summary The number of curated claims a contributor can hold in this repository at their standing.
+ * @param {Number} count Merged pull requests across the organisation.
+ * @returns {Number} Two from the returning rung; otherwise one.
+ */
+export function claimLimit(count) {
+    return Number.isSafeInteger(count) && count >= RETURNING_AT ? 2 : 1
 }
 
 /**
@@ -175,6 +187,79 @@ export function mergeMarker(number) {
 }
 
 /**
+ * @summary The hidden marker of the one-time note that told earlier contributors of their standing and their badge
+ * when the badges went live. Those notes stay on their pull requests, and {@link decideMergeComment} posts nothing
+ * underneath one.
+ * @param {Number} number
+ * @returns {String}
+ */
+export function headsUpMarker(number) {
+    return `${HEADS_UP_PREFIX}#${number} -->`
+}
+
+/**
+ * @summary The comments a bot posted with `marker`. Only a bot-authored marker counts: anyone can paste the text, and
+ * a pasted one must not silence a comment.
+ * @param {Object[]} comments
+ * @param {String} marker
+ * @returns {Object[]}
+ * @private
+ */
+function botMarked(comments, marker) {
+    return comments.filter(comment => comment.user?.type === 'Bot' && String(comment.body || '').includes(marker))
+}
+
+/**
+ * @summary The badge URL a merge comment may offer. The launch date, opt-out list and valid account identity govern
+ * eligibility; the workflow separately observes whether Pages has written the folder.
+ * @param {Object} pullRequest
+ * @param {String|null} badgesSince
+ * @param {Number[]|null} optOut
+ * @returns {String|null}
+ * @private
+ */
+function eligibleBadgeUrl(pullRequest, badgesSince, optOut) {
+    const eligible = Boolean(badgesSince) && Date.parse(pullRequest.merged_at) >= Date.parse(badgesSince) &&
+        Array.isArray(optOut) && !optOut.includes(Number(pullRequest.user.id));
+
+    if (!eligible) return null;
+
+    try {
+        return `${BADGE_ROOT}/${badgeFolder(pullRequest.user.login, pullRequest.user.id)}/`
+    } catch {
+        return null
+    }
+}
+
+/**
+ * @summary The standing line: the rung, the count and what the next rung needs.
+ * @param {Number} count At least one
+ * @returns {String}
+ * @private
+ */
+function renderStanding(count) {
+    const {rung, next, remaining} = standing(count);
+
+    return `**Standing:** ${rung.name} (${count} merged).${next ? ` ${remaining} more reach ${next.name}.` : ''}`
+}
+
+/**
+ * @summary The first-merge paragraph with the card's line and when its address can be used.
+ * @param {Object} user `login`, `id`
+ * @param {String} url The eligible account's badge URL
+ * @param {Boolean} folderWritten Whether Pages has written the folder on main
+ * @returns {String}
+ * @private
+ */
+function renderBadge({login, id}, url, folderWritten) {
+    const description = folderWritten
+        ? `is at ${url} with three forms to choose from. The card's line:`
+        : `is written by a scheduled run that has not counted this merge yet. From then on it is at ${url} in three forms to choose from, and the card's line shows it:`;
+
+    return `**Your badge**, if you would like to show it, ${description}\n\`${badgeLine(login, id)}\``
+}
+
+/**
  * @summary The "Next" paragraph: one or two issues, each with its reason, and the full curated list.
  * @param {{number: Number, reason: String|null}[]} issues From {@link nextIssues}
  * @param {String} repoUrl
@@ -194,38 +279,36 @@ function renderNext(issues, repoUrl) {
 
 /**
  * @summary The comment for a merged pull request, or null when it gets none: not merged, a bot or team author, or a
- * bot-authored marker already on it.
+ * bot-authored merge or heads-up marker already on it.
  *
  * The first merge and each new rung get the full form: thanks, standing, next issues, an invitation and a star. A
- * merge between rungs gets standing and next issues. While `badgesSince` is null no form mentions the badge. Once it
- * is set, the account's first merge since then hands over the badge line, whichever form it gets, and a later new
- * rung says that the badge shows it. An account on the Pages opt-out list has no folder, so its comment names no
- * badge, and neither does any comment while that list is unknown.
+ * merge between rungs gets standing and next issues. The first eligible merge introduces the badge. Later merges
+ * link the record once Pages has written its folder. An unread opt-out list suppresses all badge words.
  * @param {Object} options
  * @param {Object} options.pullRequest REST shape: `number`, `merged`, `merged_at`, `author_association`, `user.login`,
  * `user.id`, `user.type`
  * @param {Number} options.mergedBefore The author's merged pull requests before this one
- * @param {Number} [options.mergedSinceLaunchBefore=0] Of those, the ones merged since `badgesSince`
  * @param {Object[]} [options.comments=[]] The pull request's comments
  * @param {Object[]} [options.candidates=[]] See {@link nextIssues}
  * @param {String[]} [options.closedLabels=[]] See {@link nextIssues}
  * @param {String[]} [options.paths=[]] The files the pull request changed
  * @param {String} options.repoUrl e.g. `https://github.com/neomjs/neo`
  * @param {String|null} [options.badgesSince=BADGES_SINCE]
+ * @param {Boolean} [options.folderWritten=false] Whether the workflow found the account's badge folder on Pages main
  * @param {Number[]|null} [options.optOut=null] The ids on the Pages opt-out list (see {@link parseOptOut}), or null
  * while it is unread
  * @returns {{body: String}|null}
  * @throws {TypeError} When `mergedBefore` is not a count, so the workflow warns instead of posting a wrong standing
  */
-export function decideMergeComment({pullRequest, mergedBefore, mergedSinceLaunchBefore = 0, comments = [], candidates = [], closedLabels = [], paths = [], repoUrl, badgesSince = BADGES_SINCE, optOut = null}) {
+export function decideMergeComment({pullRequest, mergedBefore, comments = [], candidates = [], closedLabels = [], paths = [], repoUrl, badgesSince = BADGES_SINCE, optOut = null, folderWritten = false}) {
     if (!pullRequest?.merged || !isOutsideHuman(pullRequest)) {
         return null
     }
 
     const marker = mergeMarker(pullRequest.number);
 
-    // Only a bot-authored marker counts: anyone can paste the text, and a pasted one must not silence the comment.
-    if (comments.some(comment => comment.user?.type === 'Bot' && String(comment.body || '').includes(marker))) {
+    // Under a heads-up, a later dispatch would thank for a merge its author was already told of
+    if ([marker, headsUpMarker(pullRequest.number)].some(either => botMarked(comments, either).length > 0)) {
         return null
     }
 
@@ -234,34 +317,27 @@ export function decideMergeComment({pullRequest, mergedBefore, mergedSinceLaunch
     }
 
     const
-        {login, id}             = pullRequest.user,
-        count                   = mergedBefore + 1,
-        {rung, next, remaining} = standing(count),
-        atRung                  = RUNGS.some(entry => entry.merges === count),
-        suggested               = nextIssues({closedLabels, candidates, seed: login}),
-        standingLine            = `**Standing:** ${rung.name} (${count} merged).${next ? ` ${remaining} more reach ${next.name}.` : ''}`,
-        // The generator writes a folder only for a merge since the launch, so an earlier one, re-run, names no badge,
-        // and none for an account on the opt-out list, which an unread list may hold
-        hasFolder               = Boolean(badgesSince) && Date.parse(pullRequest.merged_at) >= Date.parse(badgesSince) &&
-                                  Array.isArray(optOut) && !optOut.includes(Number(id)),
-        badgeOffer              = hasFolder && mergedSinceLaunchBefore === 0
-            ? `**Your badge**, if you would like to show it, exists within the hour at ${BADGE_ROOT}/${badgeFolder(login, id)}/ with three forms to choose from. The card's line:\n\`${badgeLine(login, id)}\``
-            : null,
-        badge                   = badgeOffer || (hasFolder && atRung ? 'Your badge shows it within the hour.' : null),
-        nextLine                = suggested.length > 0 ? renderNext(suggested, repoUrl) : null;
+        count        = mergedBefore + 1,
+        atRung       = RUNGS.some(entry => entry.merges === count),
+        suggested    = nextIssues({closedLabels, candidates, seed: pullRequest.user.login}),
+        standingLine = renderStanding(count) + (count === RETURNING_AT
+            ? ' You can now hold two curated claims at once in this repository.' : ''),
+        nextLine     = suggested.length > 0 ? renderNext(suggested, repoUrl) : null,
+        badgeUrl     = eligibleBadgeUrl(pullRequest, badgesSince, optOut),
+        writtenUrl   = folderWritten === true ? badgeUrl : null;
 
     const paragraphs = atRung ? [
         count === 1
             ? 'Merged. Thank you: this is your first merged pull request in Neo.mjs.'
             : `Merged. Thank you: that makes ${count} merged pull requests of yours in Neo.mjs.`,
         standingLine,
-        badge,
+        count === 1 && badgeUrl ? renderBadge(pullRequest.user, badgeUrl, Boolean(writtenUrl))
+            : writtenUrl && `**Your badge** at ${writtenUrl} shows the new rung once a scheduled run has counted this merge.`,
         nextLine,
         invitation(paths),
         'A star helps others find the project.'
     ] : [
-        `Merged. ${standingLine}`,
-        badgeOffer,
+        `Merged. ${standingLine}` + (writtenUrl ? ` Your record and badge: ${writtenUrl}` : ''),
         nextLine
     ];
 

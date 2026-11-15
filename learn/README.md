@@ -33,10 +33,11 @@ If you are building any desktop or mobile web application — from everyday form
 
 ### 2. Evaluating Neo.mjs Against Frameworks or Ext JS (Evaluator & Architect Path)
 If you are evaluating Neo.mjs for desktop or mobile web applications, migrating from Ext JS, or replacing a fragmented React, Angular, or Vue stack:
-1. **[Introduction (Claims & Proof Register)](./benefits/Introduction.md):** Every architectural claim paired with its source coordinate, test suite, or reproducible benchmark receipt.
-2. **[Body Benefits](./benefits/body/OffTheMainThread.md):** Off-main-thread execution, [Multi-Window SharedWorker state](./benefits/body/MultiWindow.md), [Object Permanence](./benefits/body/ObjectPermanence.md), [Four Environments](./benefits/body/FourEnvironments.md) (zero-build ESM development through bundled production), and the [RPC Layer](./benefits/body/RPCLayer.md).
-3. **[Engine vs Frameworks](./comparisons/Overview.md):** Architectural comparisons against React, Angular, Vue, Solid, Svelte, and [Sencha Ext JS](./comparisons/NeoVsExtJs.md).
-4. **[Testing Guides](./guides/testing/WhiteboxE2E.md):** Deterministic unit and whitebox E2E verification with Playwright and the Neural Link fixture.
+1. **[Enterprise Evaluation](./benefits/EnterpriseEvaluation.md):** The questions an architecture review asks before adopting the engine (licence, supply chain, maintainers, upgrades, browsers, security, accessibility), each answered with a command or a public record, and a one-week evaluation plan.
+2. **[Introduction (Claims & Proof Register)](./benefits/Introduction.md):** Every architectural claim paired with its source coordinate, test suite, or reproducible benchmark receipt.
+3. **[Body Benefits](./benefits/body/OffTheMainThread.md):** Off-main-thread execution, [Multi-Window SharedWorker state](./benefits/body/MultiWindow.md), [Object Permanence](./benefits/body/ObjectPermanence.md), [Four Environments](./benefits/body/FourEnvironments.md) (zero-build ESM development through bundled production), and the [RPC Layer](./benefits/body/RPCLayer.md).
+4. **[Engine vs Frameworks](./comparisons/Overview.md):** Architectural comparisons against React, Angular, Vue, Solid, Svelte, and [Sencha Ext JS](./comparisons/NeoVsExtJs.md).
+5. **[Testing Guides](./guides/testing/WhiteboxE2E.md):** Deterministic unit and whitebox E2E verification with Playwright and the Neural Link fixture.
 
 ### 3. Running or Integrating Coding Agents (Agent Operator Path)
 If you are connecting coding agents (Claude Code, Codex, Gemini / Antigravity) to a Neo.mjs app or operating an agent team:

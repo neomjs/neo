@@ -8,9 +8,10 @@ import path from 'node:path';
  * `neo.canvasModules` reaches the Canvas worker's module context only, so no declaration crosses into another
  * role's context. Each root stays within its declaring package, including when that package is linked. The caller
  * owns its build context or output tree; this reader creates neither and never scans undeclared package trees.
+ * Each entry names its key, so a consumer that holds both kinds can name the declaration a root came from.
  * @param {String} workspaceRoot The consuming workspace whose manifest names the dependencies.
  * @param {String} key The manifest key under `neo`, such as `mainAddons` or `canvasModules`.
- * @returns {Array<{packageName: String, sourceRoot: String, relativeRoot: String}>}
+ * @returns {Array<{key: String, packageName: String, sourceRoot: String, relativeRoot: String}>}
  */
 export function declaredPackageRoots(workspaceRoot, key) {
     const manifest = JSON.parse(fs.readFileSync(path.join(workspaceRoot, 'package.json'), 'utf8')),
@@ -52,7 +53,7 @@ export function declaredPackageRoots(workspaceRoot, key) {
                 throw new Error(`${packageName}: ${field} root ${root} leaves its package`)
             }
 
-            result.push({packageName, sourceRoot, relativeRoot: path.posix.join('node_modules', packageName, normalized)})
+            result.push({key, packageName, sourceRoot, relativeRoot: path.posix.join('node_modules', packageName, normalized)})
         }
     }
 
