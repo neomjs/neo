@@ -98,7 +98,51 @@ The same validation runs, the same `eventChange` fires, and the same listener sa
 
 ## How to run it today
 
-⟨Written from the AC-3 run: a fresh `npx neo-app` workspace that installs a tarball packed from `dev`. Steps: create the workspace, replace the main view with the schedule, build the themes, start the server, drag a booking, reload.⟩
+You need Node.js and npm. From November 23, `neo-app` installs Neo.mjs 14.
+
+1. Create a workspace with one app. The generator builds the themes and starts a development server:
+   ```bash
+   npx neo-app@latest -w studio -n Studio -t all -u no
+   ```
+2. Replace `studio/apps/studio/view/Viewport.mjs` with a schedule of three rooms:
+   ```javascript
+   import BaseViewport from '../../../node_modules/neo.mjs/src/container/Viewport.mjs';
+   import Scheduler    from '../../../node_modules/neo.mjs/src/scheduler/Container.mjs';
+
+   const rooms = [
+       {id: 'r-1', name: 'Recording studio'},
+       {id: 'r-2', name: 'Mixing suite'},
+       {id: 'r-3', name: 'Vocal booth'}
+   ];
+
+   const bookings = [
+       {id: 'ev-1', resourceId: 'r-1', title: 'Quartet recording', startDate: '2026-11-23T09:00:00Z', endDate: '2026-11-23T12:00:00Z'},
+       {id: 'ev-2', resourceId: 'r-2', title: 'Score mix',         startDate: '2026-11-23T13:00:00Z', endDate: '2026-11-23T16:00:00Z'},
+       {id: 'ev-3', resourceId: 'r-3', title: 'Vocal tracking',    startDate: '2026-11-23T10:00:00Z', endDate: '2026-11-23T14:00:00Z'}
+   ];
+
+   class Viewport extends BaseViewport {
+       static config = {
+           className: 'Studio.view.Viewport',
+           layout   : {ntype: 'fit'},
+           items    : [{
+               module         : Scheduler,
+               rowHeight      : 64,
+               resourceColumns: [{dataField: 'name', text: 'Room', width: 175, locked: 'start'}],
+               store          : {model: {fields: [{name: 'id'}, {name: 'name'}]}, data: rooms},
+               eventStore     : {data: bookings},
+               timeAxis       : {start: '2026-11-23', end: '2026-11-24', timeZone: 'UTC', tickUnit: 'hour', pxPerMinute: 1, snapMinutes: 30},
+               listeners      : {
+                   eventChange: ({record}) => console.log(record.title, record.startDate, record.endDate)
+               }
+           }]
+       }
+   }
+
+   export default Neo.setupClass(Viewport);
+   ```
+3. Open `http://localhost:8080/apps/studio/` (the server prints another port if 8080 is taken), or reload it.
+4. Drag "Quartet recording" one hour to the right, then press the right arrow key while it has focus: it moves by one 30-minute snap step. The browser console shows both changes, logged by the `eventChange` listener. To keep edits across a reload, save them in that listener, as the scheduler example does.
 
 The next step up is the examples, each runnable on its own: the [scheduler](https://github.com/neomjs/neo/tree/9575d2689b/examples/scheduler/basic) and the [Gantt chart](https://github.com/neomjs/neo/tree/9575d2689b/examples/gantt/basic) ⟨and the board⟩. After them comes the Neural Link, when you want your coding agent to work on the running app with you.
 
