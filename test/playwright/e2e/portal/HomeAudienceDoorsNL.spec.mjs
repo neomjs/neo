@@ -22,16 +22,12 @@ async function queryOne(app, selector, properties = ['id', 'className', 'mounted
 }
 
 /**
- * Smoothly scrolls the Home container to a referenced part and waits until scroll motion settles.
+ * Waits until a smooth scroll on the Home container settles at a stage whose top aligns with the scroller.
  * @param {import('@playwright/test').Page} page
- * @param {Object} app
  * @param {String} homeId
- * @param {String} reference
  * @param {String} targetId
  */
-async function scrollHomeToReference(page, app, homeId, reference, targetId) {
-    await app.callMethod(homeId, 'scrollToPart', [reference]);
-
+async function waitForStageTop(page, homeId, targetId) {
     await expect.poll(async () => {
         return page.evaluate(({scrollerId, partId}) => {
             const scroller = document.getElementById(scrollerId);
@@ -50,6 +46,36 @@ async function scrollHomeToReference(page, app, homeId, reference, targetId) {
 }
 
 /**
+ * Waits until scroll motion on the Home container has settled across two samples.
+ * @param {import('@playwright/test').Page} page
+ * @param {String} homeId
+ */
+async function waitForScrollSettled(page, homeId) {
+    let previousTop = null;
+
+    await expect.poll(async () => {
+        const currentTop = await page.locator(`#${homeId}`).evaluate(el => Math.round(el.scrollTop));
+        const settled    = previousTop !== null && currentTop === previousTop;
+
+        previousTop = currentTop;
+        return settled
+    }, {intervals: [100, 100, 150], timeout: 10000}).toBe(true)
+}
+
+/**
+ * Smoothly scrolls the Home container to a referenced part and waits until scroll motion settles.
+ * @param {import('@playwright/test').Page} page
+ * @param {Object} app
+ * @param {String} homeId
+ * @param {String} reference
+ * @param {String} targetId
+ */
+async function scrollHomeToReference(page, app, homeId, reference, targetId) {
+    await app.callMethod(homeId, 'scrollToPart', [reference]);
+    await waitForStageTop(page, homeId, targetId)
+}
+
+/**
  * @summary Whitebox Neural Link verification for the Portal Home AudienceDoors stage,
  * reference-based scroll routing, proof destinations, and responsive viewport geometry.
  */
@@ -61,14 +87,18 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
         const app = await neuralLink.connectToApp('Portal');
         await expect(page.locator('.portal-home-parts-audiencedoors').getByRole('heading', {level: 2})).toHaveText('Who Neo.mjs Is For');
 
+        const header    = await queryOne(app, {className: 'Portal.view.HeaderToolbar'});
         const home      = await queryOne(app, {className: 'Portal.view.home.MainContainer'});
         const hero      = await queryOne(app, {className: 'Portal.view.home.parts.hero.Content'});
         const doors     = await queryOne(app, {reference: 'home-audience-doors'});
         const bodyEntry = await queryOne(app, {reference: 'home-body-entry'});
+        const helix     = await queryOne(app, {className: 'Portal.view.home.parts.Helix'});
         const agentOs   = await queryOne(app, {reference: 'home-agent-os'});
 
+        expect(header?.id).toBeTruthy();
         expect(home?.id).toBeTruthy();
         expect(hero?.id).toBeTruthy();
+        expect(helix?.id).toBeTruthy();
         expect(doors?.className).toBe('Portal.view.home.parts.AudienceDoors');
         expect(bodyEntry?.className).toBe('Portal.view.home.parts.Colors');
         expect(agentOs?.className).toBe('Portal.view.home.parts.AiToolchain');
@@ -133,6 +163,8 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
         await expect(page.locator(`#${bodyEntry.id}`)).toHaveClass(/portal-home-parts-colors/);
         await expect(page.locator(`#${agentOs.id}`)).toHaveClass(/portal-home-parts-aitoolchain/);
 
+        const initialHeaderHeight = await page.locator(`#${header.id}`).evaluate(el => el.getBoundingClientRect().height);
+
         // Scroll AudienceDoors into view and click Door 1 CTA -> Body entry stage while keeping #/home hash
         await scrollHomeToReference(page, app, home.id, 'home-audience-doors', doors.id);
         const doorsScrollTop = await page.locator(`#${home.id}`).evaluate(el => el.scrollTop);
@@ -143,14 +175,25 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
             return page.locator(`#${home.id}`).evaluate(el => el.scrollTop)
         }, {timeout: 10000}).toBeGreaterThan(doorsScrollTop + 200);
         await expect(page.locator(`#${bodyEntry.id}`)).toBeInViewport();
+        await waitForScrollSettled(page, home.id);
         await expect(page).toHaveURL(/#\/home$/);
 
         // Return to AudienceDoors and click Door 2 CTA -> Agent OS Brain stage while keeping #/home hash
         await scrollHomeToReference(page, app, home.id, 'home-audience-doors', doors.id);
         await agentsCtaEl.click();
         await expect(page.locator(`#${agentOs.id}`)).toBeInViewport({timeout: 10000});
+        await waitForScrollSettled(page, home.id);
         await expect(page.locator(`#${agentOs.id}`).getByRole('heading', {name: 'The Agent OS Brain'})).toBeVisible();
         await expect(page).toHaveURL(/#\/home$/);
+
+        // Embedded Viewport previews inside LivePreview must keep their theme scoped instead of hijacking document.body
+        const helixPreviewId = await page.locator(`#${helix.id} .neo-code-live-preview`).getAttribute('id');
+        expect(helixPreviewId).toBeTruthy();
+        await app.setProperties(helixPreviewId, {activeView: 'preview'});
+        await expect(page.locator(`#${helix.id} .neo-viewport.neo-theme-dark`)).toBeAttached({timeout: 15000});
+        await expect(page.locator('body')).toHaveClass(/neo-theme-neo-dark/);
+        await expect(page.locator('body')).not.toHaveClass(/(^|\s)neo-theme-dark(\s|$)/);
+        expect(await page.locator(`#${header.id}`).evaluate(el => el.getBoundingClientRect().height)).toBe(initialHeaderHeight);
 
         // Return to AudienceDoors and click Door 3 CTA -> What Is Neo.mjs? guide
         await scrollHomeToReference(page, app, home.id, 'home-audience-doors', doors.id);
