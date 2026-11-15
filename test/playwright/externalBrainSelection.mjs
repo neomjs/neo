@@ -112,6 +112,7 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'workstation/VesselClosesMidFirstRenderNL.spec.mjs',
     'workstation/VesselNativeRouteNL.spec.mjs',
     'workstation/WindowGeometryRealChromeNL.spec.mjs',
+    'workstation/WorkstationCellEditingWindowMoveNL.spec.mjs',
     'workstation/WorkstationCrossZoneCueNL.spec.mjs',
     'workstation/WorkstationDockFlipResizeNL.spec.mjs',
     'workstation/WorkstationDockPreviewSymmetryNL.spec.mjs',

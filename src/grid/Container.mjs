@@ -671,7 +671,11 @@ class GridContainer extends BaseContainer {
      */
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
-        oldValue !== undefined && this.addResizeObserver(value);
+
+        if (oldValue !== undefined) {
+            this.addResizeObserver(value);
+            this.getPlugin('grid-cell-editing')?.onOwnerMountedChange(value)
+        }
 
         let {scrollManager} = this;
 
@@ -859,6 +863,8 @@ class GridContainer extends BaseContainer {
         if (scrollManager) {
             scrollManager.windowId = value
         }
+
+        this.getPlugin('grid-cell-editing')?.onOwnerWindowIdChange(value, oldValue)
     }
 
     /**

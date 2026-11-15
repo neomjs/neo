@@ -115,6 +115,11 @@ class DomAccess extends Base {
      * @member {Number} #maxScrollHeight=0
      */
     #maxScrollHeight = 0
+    /**
+     * Monotonic counter invalidating deferred visibility focus when a newer focus request runs
+     * @member {Number} #focusGeneration=0
+     */
+    #focusGeneration = 0
 
     /**
      * @returns {HTMLElement}
@@ -380,10 +385,18 @@ class DomAccess extends Base {
                 lost() ? this.focus({children, id, modality, preventScroll, unlessFocusWithin}) : {id})
         }
 
-        let node = this.getElement(id);
+        let me   = this,
+            node = me.getElement(id);
 
-        if (unlessFocusWithin && this.getElement(unlessFocusWithin)?.contains(document.activeElement)) {
+        if (unlessFocusWithin && me.getElement(unlessFocusWithin)?.contains(document.activeElement)) {
             return {id}
+        }
+
+        const generation = ++me.#focusGeneration;
+
+        if (node?.isConnected && getComputedStyle(node).visibility === 'hidden') {
+            return me.settleFocusVisibility(node, generation).then(ready =>
+                ready() ? me.focus({children, id, modality, preventScroll, unlessFocusWithin}) : {id})
         }
 
         if (node) {
@@ -1524,6 +1537,54 @@ class DomAccess extends Base {
                 };
 
             observer.observe(document, {childList: true, subtree: true})
+        })
+    }
+
+    /**
+     * Waits for a visibility-hidden focus target to reveal before applying focus, yielding if superseded or moved.
+     * @summary Defer focus until visibility-hidden element reveals
+     * @param {HTMLElement} node
+     * @param {Number} generation
+     * @param {Number} [timeout=500]
+     * @returns {Promise}
+     */
+    settleFocusVisibility(node, generation, timeout=500) {
+        const
+            me            = this,
+            activeAtStart = document.activeElement,
+            isVisible     = () => node.isConnected && getComputedStyle(node).visibility !== 'hidden',
+            ready         = () => me.#focusGeneration === generation
+                && isVisible()
+                && (document.activeElement === activeAtStart || !document.activeElement || document.activeElement === document.body);
+
+        if (isVisible()) {
+            return Promise.resolve(ready)
+        }
+
+        return new Promise(resolve => {
+            let observer, timer;
+
+            const
+                settle = () => {
+                    observer.disconnect();
+                    document.removeEventListener('focusin', check, true);
+                    clearTimeout(timer);
+                    resolve(ready)
+                },
+                check  = () => {
+                    if (me.#focusGeneration !== generation || !node.isConnected || isVisible() ||
+                        (document.activeElement !== activeAtStart && document.activeElement && document.activeElement !== document.body)) {
+                        settle()
+                    }
+                };
+
+            observer = new MutationObserver(check);
+            timer    = setTimeout(settle, timeout);
+            document.addEventListener('focusin', check, true);
+
+            for (let el = node; el; el = el.parentElement) {
+                observer.observe(el, {attributes: true, attributeFilter: ['style', 'class'], childList: true})
+            }
         })
     }
 
