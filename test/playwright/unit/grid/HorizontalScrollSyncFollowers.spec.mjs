@@ -206,7 +206,9 @@ test.describe('GridHorizontalScrollSync & ScrollManager follower rows', () => {
         });
 
         test.afterEach(() => {
-            manager.destroy();
+            if (manager && !manager.isDestroyed) {
+                manager.destroy();
+            }
             manager = null;
             Neo.currentWorker.getAddon = originalGetAddon;
         });
@@ -233,6 +235,98 @@ test.describe('GridHorizontalScrollSync & ScrollManager follower rows', () => {
             const unregFollowerCall = addonCalls.find(c => c.method === 'unregisterFollower');
             expect(unregFollowerCall).toBeDefined();
             expect(unregFollowerCall.payload.followerId).toBe('summary-row-id');
+        });
+
+        test('registerHorizontalScrollFollower while mounted attaches the follower live', async () => {
+            manager.mounted = true;
+            await manager.timeout(0);
+
+            addonCalls.length = 0;
+
+            await manager.registerHorizontalScrollFollower('summary-row-id');
+
+            expect(manager.horizontalScrollFollowerIds.has('summary-row-id')).toBe(true);
+
+            const regFollowerCall = addonCalls.find(c => c.method === 'registerFollower');
+            expect(regFollowerCall).toBeDefined();
+            expect(regFollowerCall.payload).toEqual({
+                id        : manager.id + '__h_scroll',
+                followerId: 'summary-row-id',
+                windowId  : 'win-1'
+            });
+        });
+
+        test('moving windowId while mounted carries followers over to the new window', async () => {
+            manager.mounted = true;
+            await manager.timeout(0);
+
+            await manager.registerHorizontalScrollFollower('summary-row-id');
+
+            addonCalls.length = 0;
+
+            manager.windowId = 'win-2';
+            await manager.timeout(0);
+
+            const unregCall = addonCalls.find(c => c.method === 'unregister' && c.payload.id === manager.id + '__h_scroll');
+            expect(unregCall).toBeDefined();
+            expect(unregCall.payload.windowId).toBe('win-1');
+
+            const reRegCall = addonCalls.find(c => c.method === 'register' && c.payload.id === manager.id + '__h_scroll');
+            expect(reRegCall).toBeDefined();
+            expect(reRegCall.payload.windowId).toBe('win-2');
+            expect(reRegCall.payload.followerIds).toContain('summary-row-id');
+
+            // The transfer re-registers with the follower set; it never detaches the follower itself
+            expect(addonCalls.some(c => c.method === 'unregisterFollower')).toBe(false);
+            expect(manager.horizontalScrollFollowerIds.has('summary-row-id')).toBe(true);
+        });
+
+        test('unmounting unregisters cleanly while keeping follower ids for remount', async () => {
+            manager.mounted = true;
+            await manager.timeout(0);
+
+            await manager.registerHorizontalScrollFollower('summary-row-id');
+
+            addonCalls.length = 0;
+
+            manager.mounted = false;
+            await manager.timeout(0);
+
+            const unregCall = addonCalls.find(c => c.method === 'unregister' && c.payload.id === manager.id + '__h_scroll');
+            expect(unregCall).toBeDefined();
+            expect(unregCall.payload.windowId).toBe('win-1');
+
+            // The id set survives the unmount, so a remount re-attaches the follower
+            expect(manager.horizontalScrollFollowerIds.has('summary-row-id')).toBe(true);
+
+            manager.mounted = true;
+            await manager.timeout(0);
+
+            const reRegCall = addonCalls.filter(c => c.method === 'register' && c.payload.id === manager.id + '__h_scroll').pop();
+            expect(reRegCall).toBeDefined();
+            expect(reRegCall.payload.followerIds).toContain('summary-row-id');
+        });
+
+        test('a manager destroyed mid-registration never dispatches registerFollower', async () => {
+            manager.mounted = true;
+            await manager.timeout(0);
+
+            addonCalls.length = 0;
+
+            let resolvers = [];
+            Neo.currentWorker.getAddon = (name, windowId) => {
+                addonCalls.push({method: 'getAddon', name, windowId});
+                return new Promise(resolve => { resolvers.push(() => resolve(fakeAddon)); });
+            };
+
+            // The addon lookup suspends; destruction lands before it resolves
+            const pending = manager.registerHorizontalScrollFollower('summary-row-id');
+            manager.destroy();
+
+            resolvers.forEach(r => r());
+            await pending;
+
+            expect(addonCalls.some(c => c.method === 'registerFollower')).toBe(false);
         });
     });
 });
