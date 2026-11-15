@@ -647,6 +647,7 @@
  "Portal.view.home.FooterContainerController": "Neo.controller.Component",
  "Portal.view.home.MainContainer": "Neo.container.Base",
  "Portal.view.home.parts.AiToolchain": "Portal.view.home.parts.BaseContainer",
+ "Portal.view.home.parts.AudienceDoors": "Portal.view.home.parts.BaseContainer",
  "Portal.view.home.parts.BaseContainer": "Neo.container.Base",
  "Portal.view.home.parts.Colors": "Portal.view.home.FeatureSection",
  "Portal.view.home.parts.Features": "Portal.view.home.parts.BaseContainer",

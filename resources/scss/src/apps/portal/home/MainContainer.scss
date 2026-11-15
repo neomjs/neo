@@ -1,9 +1,11 @@
+@use './breakpoints' as *;
+
 .portal-home-maincontainer {
     overflow-x      : hidden !important;
     scroll-behavior : smooth;
     scroll-snap-type: y mandatory;
 
-    @media (max-width: 840px) {
+    @media (max-width: $portal-home-snap-max-width) {
         scroll-behavior : unset;
         scroll-snap-type: unset;
     }
