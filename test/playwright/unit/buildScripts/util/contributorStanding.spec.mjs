@@ -30,10 +30,7 @@ const
     DOCS     = ['learn/guides/Intro.md'],
     NEXT     = `**Next, if you want one:** #20701 (also \`grid\`) and #20702 are open and unclaimed; a comment on either claims it. [The full list](${LIST_URL}) has more if both are taken by then.`;
 
-/**
- * The paragraph that hands over the badge of the account in `pullRequest()`.
- */
-const badgeParagraph = () => `**Your badge**, if you would like to show it, exists within the hour at https://neomjs.com/badges/outside-dev-4242/ with three forms to choose from. The card's line:\n\`${badgeLine('Outside-Dev', 4242)}\``;
+const BADGE_URL = 'https://neomjs.com/badges/outside-dev-4242/';
 
 /**
  * A REST-shaped pull request, merged and from an outside contributor unless told otherwise.
@@ -166,35 +163,54 @@ test.describe('buildScripts/util/contributorStanding', () => {
     });
 
     test.describe('decideMergeComment', () => {
-        test('a first merge gets the full form and is offered the badge', () => {
-            expect(comment(0)).toBe([
-                'Merged. Thank you: this is your first merged pull request in Neo.mjs.',
-                '**Standing:** Contributor (1 merged). 4 more reach Returning Contributor.',
-                badgeParagraph(),
-                NEXT,
-                INVITATIONS.engine,
-                'A star helps others find the project.',
-                mergeMarker(20999)
-            ].join('\n\n'))
+        test('a first merge names the scheduled badge or the written folder in the full comment', () => {
+            const line = badgeLine('Outside-Dev', 4242);
+            for (const [folderWritten, badge] of [
+                [false, `**Your badge**, if you would like to show it, is written by a scheduled run that has not counted this merge yet. From then on it is at ${BADGE_URL} in three forms to choose from, and the card's line shows it:\n\`${line}\``],
+                [true, `**Your badge**, if you would like to show it, is at ${BADGE_URL} with three forms to choose from. The card's line:\n\`${line}\``]
+            ]) {
+                expect(comment(0, {folderWritten})).toBe([
+                    'Merged. Thank you: this is your first merged pull request in Neo.mjs.',
+                    '**Standing:** Contributor (1 merged). 4 more reach Returning Contributor.',
+                    badge,
+                    NEXT,
+                    INVITATIONS.engine,
+                    'A star helps others find the project.',
+                    mergeMarker(20999)
+                ].join('\n\n'))
+            }
+            expect(comment(0)).toBe(comment(0, {folderWritten: false}))
         });
 
-        test('the returning rung announces the new per-repository claim limit', () => {
-            const body = comment(4, {paths: DOCS});
-
-            expect(body).toContain('Merged. Thank you: that makes 5 merged pull requests of yours in Neo.mjs.');
-            expect(body).toContain('**Standing:** Returning Contributor (5 merged). 5 more reach Bronze Contributor. You can now hold two curated claims at once in this repository.\n\nYour badge shows it within the hour.\n\n**Next');
-            expect(body).toContain(INVITATIONS.skills);
-            expect(body).not.toContain('**Your badge**');
+        test('the returning rung announces the claim limit and links only a written badge', () => {
+            for (const folderWritten of [false, true]) {
+                const paragraphs = [
+                    'Merged. Thank you: that makes 5 merged pull requests of yours in Neo.mjs.',
+                    '**Standing:** Returning Contributor (5 merged). 5 more reach Bronze Contributor. You can now hold two curated claims at once in this repository.'
+                ];
+                if (folderWritten) paragraphs.push(`**Your badge** at ${BADGE_URL} shows the new rung once a scheduled run has counted this merge.`);
+                paragraphs.push(NEXT, INVITATIONS.skills, 'A star helps others find the project.', mergeMarker(20999));
+                expect(comment(4, {folderWritten, paths: DOCS})).toBe(paragraphs.join('\n\n'))
+            }
             for (const earlier of [0, 3]) expect(comment(earlier)).not.toContain('You can now hold two curated claims');
             for (const later of [5, 9, 249]) expect(comment(later)).not.toContain('You can now hold two curated claims')
         });
 
-        test('a merge between rungs gets standing and next issues only, and names no badge', () => {
-            expect(comment(5)).toBe([
-                'Merged. **Standing:** Returning Contributor (6 merged). 4 more reach Bronze Contributor.',
-                NEXT,
-                mergeMarker(20999)
-            ].join('\n\n'))
+        test('a merge between rungs links a written record on the standing line', () => {
+            const standing = 'Merged. **Standing:** Returning Contributor (6 merged). 4 more reach Bronze Contributor.';
+            for (const [folderWritten, line] of [[false, standing], [true, `${standing} Your record and badge: ${BADGE_URL}`]]) {
+                expect(comment(5, {folderWritten})).toBe([line, NEXT, mergeMarker(20999)].join('\n\n'))
+            }
+        });
+
+        test('badge wording never promises a duration, at or between any rungs', () => {
+            for (const {merges} of RUNGS) {
+                for (const before of [merges - 1, merges]) {
+                    for (const folderWritten of [false, true]) {
+                        expect(comment(before, {folderWritten})).not.toMatch(/\b(within|hours?|minutes?)\b/i)
+                    }
+                }
+            }
         });
 
         test('the top rung names no next rung', () => {
@@ -228,7 +244,7 @@ test.describe('buildScripts/util/contributorStanding', () => {
         test('the badges count from before the organisation\'s first pull request, and null switches them off', () => {
             // The organisation's first pull request was opened on 2019-11-11
             expect(BADGES_SINCE).toBe('2019-11-01T00:00:00Z');
-            [0, 4, 5].forEach(before => expect(comment(before, {badgesSince: null})).not.toContain('badge'))
+            [0, 4, 5].forEach(before => expect(comment(before, {badgesSince: null, folderWritten: true})).not.toContain('badge'))
         });
 
         test('a merge older than the time the badges count from never names the badge, and a merge at that time is offered it', () => {
@@ -240,9 +256,10 @@ test.describe('buildScripts/util/contributorStanding', () => {
 
         test('an account on the Pages opt-out list is offered no badge, and neither is anyone while the list is unknown', () => {
             expect(comment(0, {optOut: [990000004]})).toContain('**Your badge**');
-            expect(comment(0, {optOut: [4242]})).not.toContain('badge');
-            expect(comment(9, {optOut: [4242]})).not.toContain('badge');
-            expect(comment(0, {optOut: null})).not.toContain('badge');
+            for (const before of [0, 4, 5]) {
+                expect(comment(before, {optOut: [4242], folderWritten: true})).not.toContain('badge');
+                expect(comment(before, {optOut: null, folderWritten: true})).not.toContain('badge')
+            }
             // A caller that read no list offers no badge
             expect(decideMergeComment({mergedBefore: 0, pullRequest: pullRequest(), repoUrl: REPO_URL}).body).not.toContain('badge')
         });
@@ -263,7 +280,7 @@ test.describe('buildScripts/util/contributorStanding', () => {
         /**
          * Runs the workflow's script against a stand-in GitHub, recording every query, post and warning.
          */
-        const run = async ({author = {}, comments = [], eventName = 'pull_request_target', incomplete = () => false, inputs, optOutText = '[]', permission = 'read', searchError} = {}) => {
+        const run = async ({author = {}, comments = [], eventName = 'pull_request_target', folderStatus = 404, incomplete = () => false, inputs, optOutText = '[]', permission = 'read', searchError} = {}) => {
             const calls = {contents: [], inFlight: 0, info: [], peakSearches: 0, permissions: [], posted: [], queries: [], summary: [], warnings: []};
 
             const github = {
@@ -290,13 +307,16 @@ test.describe('buildScripts/util/contributorStanding', () => {
 
                             return {data: {permission}}
                         },
-                        // The Pages opt-out list is empty unless the arm passes its text, and null answers Not Found
                         getContent: async ({owner, repo, path: file, ref}) => {
                             calls.contents.push(`${owner}/${repo}@${ref}:${file}`);
 
-                            if (optOutText === null) throw Object.assign(new Error('Not Found'), {status: 404});
-
-                            return {data: {content: Buffer.from(optOutText).toString('base64'), encoding: 'base64'}}
+                            if (file === 'badges/optout.json') {
+                                if (optOutText === null) throw Object.assign(new Error('Not Found'), {status: 404});
+                                return {data: {content: Buffer.from(optOutText).toString('base64'), encoding: 'base64'}}
+                            }
+                            if (file !== 'badges/outside-dev-4242') throw new Error(`Unexpected path: ${file}`);
+                            if (folderStatus === 200) return {data: [{name: 'index.html', type: 'file'}]};
+                            throw Object.assign(new Error(`Folder read returned ${folderStatus}`), {status: folderStatus})
                         }
                     },
                     search: {
@@ -501,18 +521,34 @@ test.describe('buildScripts/util/contributorStanding', () => {
             }
         });
 
-        test('the Pages opt-out list decides the badge: an empty list offers it, a listed account and an unreadable list do not, and with the badges switched off it is not read', async () => {
-            const [open, listed, missing, garbled] = [await run(), await run({optOutText: '[4242]'}), await run({optOutText: null}), await run({optOutText: '["4242"]'})];
+        test('the folder read follows the opt-out read; a missing folder and a failed read still allow the comment', async () => {
+            for (const status of [200, 404, 500]) {
+                const result = await run({folderStatus: status});
+                expect(result.contents).toEqual(['neomjs/pages@main:badges/optout.json', 'neomjs/pages@main:badges/outside-dev-4242']);
+                expect(result.posted).toHaveLength(1);
+                expect(result.posted[0].body).toBe(comment(0, {folderWritten: status === 200}));
+                expect(result.warnings).toHaveLength(status === 500 ? 1 : 0)
+            }
+        });
 
-            expect(open.contents).toEqual(['neomjs/pages@main:badges/optout.json']);
-            expect(open.posted[0].body).toContain('**Your badge**');
-            expect(open.warnings).toEqual([]);
+        test('a refused folder name warns and still posts standing without a badge or a folder request', async () => {
+            const calls = await run({author: {login: '-outside'}});
+            expect(calls.contents).toEqual(['neomjs/pages@main:badges/optout.json']);
+            expect(calls.posted).toHaveLength(1);
+            expect(calls.posted[0].body).toContain('**Standing:** Contributor (1 merged).');
+            expect(calls.posted[0].body).not.toContain('badge');
+            expect(calls.warnings).toHaveLength(1)
+        });
 
+        test('a listed account, an unreadable opt-out list and disabled badges all skip the folder read', async () => {
+            const [listed, missing, garbled] = [await run({optOutText: '[4242]'}), await run({optOutText: null}), await run({optOutText: '["4242"]'})];
+            expect(listed.contents).toEqual(['neomjs/pages@main:badges/optout.json']);
             expect(listed.posted[0].body).toBe(comment(0, {optOut: [4242]}));
             expect(listed.posted[0].body).not.toContain('badge');
             expect(listed.warnings).toEqual([]);
 
             for (const unreadable of [missing, garbled]) {
+                expect(unreadable.contents).toEqual(['neomjs/pages@main:badges/optout.json']);
                 expect(unreadable.posted[0].body).toBe(comment(0, {optOut: null}));
                 expect(unreadable.warnings).toEqual(['No badge in the merge comment: the opt-out list of neomjs/pages is unreadable.'])
             }
