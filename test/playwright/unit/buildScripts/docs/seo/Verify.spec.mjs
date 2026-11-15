@@ -454,4 +454,50 @@ test.describe('buildScripts/docs/seo/verify.mjs (#20774 / #20915)', () => {
         await fs.outputFile(path.join(rootDir, 'apps/portal/view/news/TabContainer.mjs'), '// News TabContainer');
         await expect(verifySeoArtifacts(buildValidBundle())).rejects.toThrow(/sitemap-core\.xml is missing indexable News hub route "\/news\/blog"/);
     });
+
+    test('validates optional robotsTxt directives while remaining backward-compatible when omitted (#20999)', async () => {
+        const validRobotsTxt = [
+            'User-agent: *',
+            'Allow: /',
+            'Content-Signal: search=yes, ai-input=yes, ai-train=yes',
+            '',
+            'Sitemap: https://neomjs.com/sitemap.xml'
+        ].join('\n');
+
+        await expect(verifySeoArtifacts(buildValidBundle())).resolves.toBeUndefined();
+        await expect(verifySeoArtifacts({
+            ...buildValidBundle(),
+            robotsTxt: validRobotsTxt
+        })).resolves.toBeUndefined();
+
+        await expect(verifySeoArtifacts({
+            ...buildValidBundle(),
+            robotsTxt: '   '
+        })).rejects.toThrow(/robots\.txt must be a non-empty string/);
+
+        await expect(verifySeoArtifacts({
+            ...buildValidBundle(),
+            robotsTxt: validRobotsTxt.replace('User-agent: *\n', '')
+        })).rejects.toThrow(/User-agent: \*/);
+
+        await expect(verifySeoArtifacts({
+            ...buildValidBundle(),
+            robotsTxt: `${validRobotsTxt}\nDisallow: /`
+        })).rejects.toThrow(/Disallow: \//);
+
+        await expect(verifySeoArtifacts({
+            ...buildValidBundle(),
+            robotsTxt: validRobotsTxt.replace('Allow: /', 'Allow: /docs')
+        })).rejects.toThrow(/Allow: \//);
+
+        await expect(verifySeoArtifacts({
+            ...buildValidBundle(),
+            robotsTxt: validRobotsTxt.replace('Content-Signal: search=yes, ai-input=yes, ai-train=yes\n', '')
+        })).rejects.toThrow(/Content-Signal: search=yes, ai-input=yes, ai-train=yes/);
+
+        await expect(verifySeoArtifacts({
+            ...buildValidBundle(),
+            robotsTxt: validRobotsTxt.replace('https://neomjs.com/sitemap.xml', 'https://example.com/sitemap.xml')
+        })).rejects.toThrow(/Sitemap: https:\/\/neomjs\.com\/sitemap\.xml/);
+    });
 });

@@ -958,7 +958,7 @@ test.describe('docs SEO generator archive exclusion (#20089)', () => {
 
     test('formatLearnSeoTitle and getSeoJson apply /learn/* search-intent title qualifiers (#20715)', async () => {
         expect(formatLearnSeoTitle('Overview', '/learn/comparisons/Overview')).toBe(
-            'JavaScript Framework Comparisons (React, Angular, Vue, Solid vs Neo.mjs) | Neo.mjs'
+            'Neo.mjs vs React, Angular, Vue & Solid: Application Engine vs JavaScript Frameworks | Neo.mjs'
         );
         expect(formatLearnSeoTitle('Neo.mjs vs React.js', '/learn/comparisons/NeoVsReact')).toBe(
             'Neo.mjs vs React.js — Multi-Threaded JavaScript UI Comparison | Neo.mjs'
@@ -1025,7 +1025,7 @@ test.describe('docs SEO generator archive exclusion (#20089)', () => {
         });
 
         expect(fixtureSeo['/learn/comparisons/Overview']?.title).toBe(
-            'JavaScript Framework Comparisons (React, Angular, Vue, Solid vs Neo.mjs) | Neo.mjs'
+            'Neo.mjs vs React, Angular, Vue & Solid: Application Engine vs JavaScript Frameworks | Neo.mjs'
         );
         expect(fixtureSeo['/learn/comparisons/NeoVsReact']?.title).toBe(
             'Neo.mjs vs React.js — Multi-Threaded JavaScript UI Comparison | Neo.mjs'

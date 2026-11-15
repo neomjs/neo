@@ -29,8 +29,8 @@ import {
 /**
  * @module buildScripts.docs.seo.verify
  * @summary Cross-artifact verifier and standalone CLI gate for Portal SEO and LLM discovery outputs
- * (`seo.json`, `sitemap.xml`, `sitemap-core.xml`, `sitemap-discussions.xml`, `sitemap-archive.xml`,
- * `ssg-archive-routes.json`, `llms.txt`, `llms-full.txt`, and optional `llms-all.txt`).
+ * (`robots.txt`, `seo.json`, `sitemap.xml`, `sitemap-core.xml`, `sitemap-discussions.xml`,
+ * `sitemap-archive.xml`, `ssg-archive-routes.json`, `llms.txt`, `llms-full.txt`, and optional `llms-all.txt`).
  *
  * Enforces structural coherence in memory before `rebuildContentIndexesAndSeo` writes to disk and
  * validates the live repository when invoked directly via `node buildScripts/docs/seo/verify.mjs`:
@@ -216,6 +216,44 @@ function verifySsgArchiveRoutes(ssgArchiveRoutes, archiveLocs) {
 }
 
 /**
+ * @summary Validates `robots.txt` directives (`User-agent: *`, `Allow: /`, `Content-Signal`, `Sitemap`, and no root `Disallow: /`).
+ * @param {String} robotsTxt
+ * @param {String} normalizedBaseUrl
+ */
+function verifyRobotsTxt(robotsTxt, normalizedBaseUrl) {
+    if (typeof robotsTxt !== 'string' || robotsTxt.trim().length === 0) {
+        throw new Error('robots.txt must be a non-empty string.');
+    }
+
+    const lines = robotsTxt
+        .split(/\r?\n/)
+        .map(line => line.replace(/#.*$/, '').trim())
+        .filter(Boolean);
+
+    if (!lines.some(line => /^User-agent:\s*\*$/i.test(line))) {
+        throw new Error('robots.txt must declare "User-agent: *".');
+    }
+
+    if (lines.some(line => /^Disallow:\s*\/$/i.test(line))) {
+        throw new Error('robots.txt must not block the root with "Disallow: /".');
+    }
+
+    if (!lines.some(line => /^Allow:\s*\/$/i.test(line))) {
+        throw new Error('robots.txt must declare "Allow: /".');
+    }
+
+    if (!lines.some(line => /^Content-Signal:\s*search=yes,\s*ai-input=yes,\s*ai-train=yes$/i.test(line))) {
+        throw new Error('robots.txt must declare "Content-Signal: search=yes, ai-input=yes, ai-train=yes".');
+    }
+
+    const expectedSitemapDirective = `Sitemap: ${new URL('sitemap.xml', normalizedBaseUrl).toString()}`;
+
+    if (!lines.includes(expectedSitemapDirective)) {
+        throw new Error(`robots.txt must declare "${expectedSitemapDirective}".`);
+    }
+}
+
+/**
  * @summary Validates generated SEO and LLM artifacts in memory and throws an actionable `Error` on drift.
  * @param {Object} [options={}]
  * @param {String} [options.baseUrl='https://neomjs.com']
@@ -224,6 +262,7 @@ function verifySsgArchiveRoutes(ssgArchiveRoutes, archiveLocs) {
  * @param {String} options.llmsFullTxt
  * @param {String} options.llmsTxt
  * @param {String} [options.releaseNotesRoot]
+ * @param {String|null} [options.robotsTxt=null]
  * @param {String} [options.root=process.cwd()]
  * @param {Object} options.seoJson
  * @param {String} [options.sitemapArchiveName='sitemap-archive.xml']
@@ -244,6 +283,7 @@ export async function verifySeoArtifacts(options={}) {
         llmsFullTxt,
         llmsTxt,
         releaseNotesRoot,
+        robotsTxt              = null,
         root                   = process.cwd(),
         seoJson,
         sitemapArchiveName     = 'sitemap-archive.xml',
@@ -261,6 +301,10 @@ export async function verifySeoArtifacts(options={}) {
     }
 
     const normalizedBaseUrl = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+
+    if (robotsTxt !== null && robotsTxt !== undefined) {
+        verifyRobotsTxt(robotsTxt, normalizedBaseUrl);
+    }
 
     // 1. Sitemap index & child <urlset> partitioning + duplicate checks
     if (typeof sitemapIndexXml !== 'string' || !sitemapIndexXml.includes('<sitemapindex')) {
@@ -675,6 +719,7 @@ async function runCli() {
     const root             = process.cwd();
     const baseUrl          = opts.baseUrl || 'https://neomjs.com';
     const releaseNotesRoot = opts.releaseNotes ? path.resolve(opts.releaseNotes) : getEngineReleaseNotesRoot(root);
+    const robotsTxtPath    = path.resolve(root, 'apps/portal/robots.txt');
     const seoJsonPath      = path.resolve(root, 'apps/portal/resources/data/seo.json');
     const tempWorkDir      = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-seo-verify-cli-'));
     const corpusRoot       = opts.corpusRoot ? path.resolve(opts.corpusRoot) : path.join(tempWorkDir, 'corpus');
@@ -684,7 +729,10 @@ async function runCli() {
         await fs.ensureDir(corpusRoot);
         await createReleaseIndex({outputFile: tempReleasesPath, releaseNotesRoot});
 
-        const diskSeoJson     = await fs.readJSON(seoJsonPath);
+        const [diskSeoJson, robotsTxt] = await Promise.all([
+            fs.readJSON(seoJsonPath),
+            fs.readFile(robotsTxtPath, 'utf-8')
+        ]);
         const expectedSeoJson = await getSeoJson({releaseNotesRoot, root, seoJsonPath});
 
         if (JSON.stringify(diskSeoJson) !== JSON.stringify(expectedSeoJson)) {
@@ -734,6 +782,7 @@ async function runCli() {
             llmsFullTxt,
             llmsTxt,
             releaseNotesRoot,
+            robotsTxt,
             root,
             seoJson: diskSeoJson,
             sitemapArchiveXml,
