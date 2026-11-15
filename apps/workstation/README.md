@@ -50,31 +50,13 @@ second counter on the view.
 
 ## Activate the optional tours
 
-Two screenplays share one player.
+One visitor-facing tour. **Start tour** begins the denseWorkstation sequence directly. There is no
+second visitor tour, mode picker or alternate launcher. The conditional **Continue** advances the
+running tour. The topology row is reserved for Reset to default, Undo and Redo (see layout controls).
 
-**Start dense tour** opens the real overflow menu, scrolls the 100k grid, promotes a live pane
+**Start tour** opens the real overflow menu, scrolls the 100k grid, promotes a live pane
 through `splitNode`, returns it through `addTab`, and flips both themes — no windows are opened.
 Pane, store, component, and relevant DOM identities remain stable while the layout changes.
-
-**Start film tour** plays the flagship film's ten scenes, and it opens on the tear-outs: a
-breath of the living room, then a pane leaves the window into a real vessel mid-gesture and
-stays; a second pane crosses every boundary under one pointer-down — out, back over the room, out
-again, into the first window, out once more, and in to stay; the merged stack is dragged home as
-one; a pane folds into its edge rail and comes back; the main boundary follows a real pointer drag;
-the drop-zone showcase puts the travelled pane wherever the viewer likes; a perspective is
-captured, torn apart and restored, one dock mutation undone and redone; the two-window arrangement
-saved during the journey is restored, its window born again around both panes, then its stack dragged home; and
-the closing readout
-scrolls the hundred-thousand-row grid through its midpoint while the feed keeps ticking. Before
-every beat that opens a window the tour stops at a gate and shows **Continue**: that click is the
-user activation the browser demands for `window.open`, so the window is born inside your gesture
-rather than blocked as a popup. One click covers one activation: the journey scene births further
-windows inside the same held drag, and those rest on the site's one-time pop-up permission — allow
-pop-ups for the site once, or the later births degrade to the in-window proxy. Two measured
-preconditions shape the screenplay: a tab folded
-into a tab bar's overflow menu is not a drag handle, and a torn-out pane's stored home must
-survive its departure for the stack to return to it — which is why the hook tears Metrics out of
-a two-tab group.
 
 Both data-only screenplays live in `apps/workstation/tour/` (`denseWorkstation.mjs`,
 `fiveBeatFilm.mjs`); the mounted whitebox journeys are the runtime and visual falsifiers. A
@@ -82,10 +64,14 @@ recorded take of the same runnable script is the flagship-film epic's next step,
 A cue that fails stops the tour at that beat, with the failed cue's receipt in the tour receipt.
 
 For programmatic playback from outside the view, resolve the optional owner with
-`await workspace.getController().getTourController()`, then call its `startTour()`,
-`startFilmTour({autoGates})`, `continueTour()`, `runTourSpec()` or `getTourReceipt()`.
+`await workspace.getController().getTourController()`, then call its `startTour()` (the visitor
+tour), `startFilmTour({autoGates})`, `continueTour()`, `runTourSpec()` or `getTourReceipt()`.
 `cancelTour()` retires that playback controller and waits for its started cue work; a later Start
 creates a fresh controller. The workspace and its stores remain owned by the ordinary application.
+
+The placement rule: a new demo or test scenario uses the runner or fixture; a new function belongs
+where a person uses it. A deliberate change to the global actions changes the documented design and
+its test together.
 
 ## Layout controls and persistence
 

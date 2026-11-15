@@ -1,7 +1,7 @@
 import {test, expect} from '../../fixtures.mjs';
 
 /**
- * @summary Proves ordinary controls work before lazy playback and the real Start action completes it.
+ * @summary Proves one visitor action on main header, three topology actions, ordinary controls before lazy playback and that Start completes it.
  */
 test('Workstation activates one playback controller through Start and retains its ordinary owners', async ({page, neuralLink}, testInfo) => {
     test.setTimeout(120000);
@@ -10,6 +10,20 @@ test('Workstation activates one playback controller through Start and retains it
     await page.goto('/apps/workstation/index.html');
     await page.waitForSelector('.workstation-tour-play');
     await page.waitForSelector('.neo-tab-overflow-control');
+
+    // Header action assertions on first paint (scoped to toolbar ownership via nth/cls and semantic action via button text/count).
+    // Catches extra/renamed/icon-only button (count mismatch fails the check). Theme and tour progress remain usable (checked later).
+    const toolbars = page.locator('.neo-toolbar');
+    await expect(toolbars.nth(0)).toHaveClass(/workstation-tourbar/);
+    await expect(toolbars.nth(0).locator('button')).toHaveCount(2);
+    await expect(toolbars.nth(1).locator('button')).toHaveCount(3);
+    await expect(toolbars.nth(0).locator('button', {hasText: 'Start tour'})).toHaveCount(1);
+    await expect(toolbars.nth(1).locator('button', {hasText: 'Reset to default'})).toHaveCount(1);
+    await expect(toolbars.nth(1).locator('button', {hasText: 'Undo'})).toHaveCount(1);
+    await expect(toolbars.nth(1).locator('button', {hasText: 'Redo'})).toHaveCount(1);
+    await expect(page.locator('.workstation-tour-film')).toHaveCount(0);
+    await testInfo.attach('first-launch-header', {body: await page.screenshot(), contentType: 'image/png'});
+
     const app            = await neuralLink.connectToApp('Workstation'),
           workspaces     = await app.findInstances({className: 'Workstation.view.Workspace'}, ['id']),
           workspaceId    = workspaces[0].id,

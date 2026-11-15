@@ -30,15 +30,7 @@ class TourToolbar extends Toolbar {
             iconCls  : 'fa fa-play',
             ntype    : 'button',
             reference: 'tour-play',
-            text     : 'Start dense tour'
-        }, {
-            bind     : {disabled: 'tour.running'},
-            cls      : ['workstation-tour-film'],
-            handler  : 'onStartFilmTour',
-            iconCls  : 'fa fa-film',
-            ntype    : 'button',
-            reference: 'tour-play-film',
-            text     : 'Start film tour'
+            text     : 'Start tour'
         }, {
             cls   : ['workstation-tour-story'],
             flex  : 1,
