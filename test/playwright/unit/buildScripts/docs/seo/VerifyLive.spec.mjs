@@ -1,9 +1,9 @@
-import {test, expect}       from '@playwright/test';
-import {execFile}           from 'node:child_process';
-import http                 from 'node:http';
-import path                 from 'node:path';
-import {promisify}          from 'node:util';
-import verifyLiveSeoSurface from '../../../../../../buildScripts/docs/seo/verifyLive.mjs';
+import {test, expect}                          from '@playwright/test';
+import {execFile}                              from 'node:child_process';
+import http                                    from 'node:http';
+import path                                    from 'node:path';
+import {promisify}                             from 'node:util';
+import verifyLiveSeoSurface, {countHtmlH1Tags} from '../../../../../../buildScripts/docs/seo/verifyLive.mjs';
 
 const execFileAsync = promisify(execFile);
 const CLI_PATH      = path.resolve(process.cwd(), 'buildScripts/docs/seo/verifyLive.mjs');
@@ -313,5 +313,18 @@ test.describe('buildScripts/docs/seo/verifyLive.mjs (#20999)', () => {
             '--expected-origin', 'https://neomjs.com',
             '--json'
         ])).rejects.toMatchObject({code: 1});
+    });
+
+    test('counts <h1> elements accurately while ignoring HTML comments, <script>, and <style> blocks', () => {
+        const html = [
+            '<!-- <h1>Commented out heading</h1> -->',
+            '<script type="module">const tpl = "<h1>Fake heading</h1>";</script >',
+            '<style>/* <h1>Fake style heading</h1> */</style>',
+            '<main><h1 class="hero-title">Real Heading</h1><h2>Subheading</h2></main>'
+        ].join('\n');
+
+        expect(countHtmlH1Tags(html)).toBe(1);
+        expect(countHtmlH1Tags('<h1>One</h1><h1>Two</h1>')).toBe(2);
+        expect(countHtmlH1Tags('<div>No heading</div>')).toBe(0);
     });
 });

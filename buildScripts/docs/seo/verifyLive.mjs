@@ -94,16 +94,90 @@ function hasNamedJsonLd(html='', schemaName='') {
 }
 
 /**
- * @summary Counts `<h1>` elements in `html` outside `<script>` and `<style>` blocks.
+ * @summary Counts `<h1>` elements in `html` outside HTML comments, `<script>`, and `<style>` raw-text blocks
+ * using a single-pass tag scanner without regex HTML sanitization.
  * @param {String} [html='']
  * @returns {Number}
  */
-function countHtmlH1Tags(html='') {
-    const stripped = String(html)
-        .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
-        .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '');
+export function countHtmlH1Tags(html='') {
+    const lower  = String(html).toLowerCase();
+    let count    = 0;
+    let index    = 0;
+    let rawTag   = null;
 
-    return (stripped.match(/<h1\b/gi) || []).length;
+    while (index < lower.length) {
+        if (rawTag) {
+            const closePrefix = `</${rawTag}`;
+            const closeStart  = lower.indexOf(closePrefix, index);
+
+            if (closeStart === -1) {
+                break;
+            }
+
+            const boundaryChar = lower[closeStart + closePrefix.length] || '';
+
+            if (boundaryChar === '>' || boundaryChar === '/' || /\s/.test(boundaryChar)) {
+                const closeEnd = lower.indexOf('>', closeStart + closePrefix.length);
+
+                if (closeEnd === -1) {
+                    break;
+                }
+
+                rawTag = null;
+                index  = closeEnd + 1;
+            } else {
+                index = closeStart + closePrefix.length;
+            }
+            continue;
+        }
+
+        const lt = lower.indexOf('<', index);
+
+        if (lt === -1) {
+            break;
+        }
+
+        if (lower.startsWith('<!--', lt)) {
+            const commentEnd = lower.indexOf('-->', lt + 4);
+
+            if (commentEnd === -1) {
+                break;
+            }
+
+            index = commentEnd + 3;
+            continue;
+        }
+
+        let cursor = lt + 1;
+
+        while (cursor < lower.length && /[a-z0-9:-]/.test(lower[cursor])) {
+            cursor += 1;
+        }
+
+        const tagName      = lower.slice(lt + 1, cursor);
+        const boundaryChar = lower[cursor] || '';
+        const isBoundary   = boundaryChar === '>' || boundaryChar === '/' || /\s/.test(boundaryChar);
+
+        if (tagName && isBoundary) {
+            const tagEnd = lower.indexOf('>', cursor);
+
+            if (tagEnd === -1) {
+                break;
+            }
+
+            if (tagName === 'h1') {
+                count += 1;
+            } else if ((tagName === 'script' || tagName === 'style') && lower[tagEnd - 1] !== '/') {
+                rawTag = tagName;
+            }
+
+            index = tagEnd + 1;
+        } else {
+            index = lt + 1;
+        }
+    }
+
+    return count;
 }
 
 /**
