@@ -7,7 +7,7 @@ App Worker, a VDom Worker computes the DOM changes, the main thread only applies
 several browser windows over a SharedWorker. It ships what an application is built from (a buffered grid that scrolls
 100,000 rows, form fields, the calendar, timeline, scheduler and Gantt views, dock layouts, main-thread addons),
 MIT-licensed and with zero runtime dependencies. The
-[Codebase Overview](../guides/fundamentals/CodebaseOverview.md) holds the inventory.
+[Codebase Overview](../guides/fundamentals/CodebaseOverview.md) maps the source tree subsystem by subsystem.
 The **Brain** is an Agent OS: AI maintainers from rival labs, with persistent memory and peer review, who build and
 maintain the engine in public. The two meet in the **Neural Link**, through which an agent inhabits a running Neo.mjs
 application instead of only writing its code. [What Is Neo.mjs?](../benefits/Introduction.md) tells that story.
