@@ -50,5 +50,11 @@ articles.
 *   [Neo.mjs vs. Next.js](NeoVsNextJs.md)
 *   [Neo.mjs vs. Ext.js](NeoVsExtJs.md)
 
+Two comparisons look at component suites instead of UI libraries: the engine's grid and planning views against the
+products people search for by name.
+
+*   [Neo.mjs vs. AG Grid](NeoVsAgGrid.md): a data grid in a web worker, with an open benchmark at 100,000 rows
+*   [Neo.mjs vs. Bryntum](NeoVsBryntum.md): the scheduler and the Gantt chart
+
 If you have feedback on any of our comparisons or would like to see a new one, please feel free to open an issue on our
 [GitHub repository](https://github.com/neomjs/neo/issues).
