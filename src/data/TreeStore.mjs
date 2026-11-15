@@ -1113,9 +1113,10 @@ class TreeStore extends Store {
             if (items.length > 0) {
                 // 2a. Ingest nodes into the Structural Layer maps
                 for (i = 0, len = items.length; i < len; i++) {
-                    let data = items[i];
-                    key      = me.getKey(data);
-                    parentId = data.parentId || 'root';
+                    let data     = items[i];
+                    key          = me.getKey(data);
+                    parentId     = data.parentId || 'root';
+                    let existing = me.#allRecordsMap.get(key);
 
                     if (parentId !== 'root' && !me.#allRecordsMap.has(parentId)) {
                         parentId = me.getCanonicalKey(parentId) ?? parentId;
@@ -1136,21 +1137,27 @@ class TreeStore extends Store {
                     }
 
                     if (data.isLeaf === undefined) {
-                        data.isLeaf = true
+                        data.isLeaf = existing?.isLeaf ?? (me.#childrenMap.get(key)?.length > 0 ? false : true)
                     }
 
                     if (data.childCount === undefined) {
-                        data.childCount = 0
+                        data.childCount = existing?.childCount ?? (me.#childrenMap.get(key)?.length || 0)
                     }
 
                     if (data.collapsed === undefined) {
-                        data.collapsed = true
+                        data.collapsed = existing?.collapsed ?? true
                     }
 
                     // Captured before the overwrite: this is both the node a re-add replaces and the
                     // proof that the key is in the hierarchy at all, which is what keeps `#addChild()`
                     // from scanning a level per ingested node.
-                    let existing = me.#allRecordsMap.get(key);
+                    if (existing && existing !== data && me.map.has(key)) {
+                        visibleToRemove.push(me.map.get(key));
+
+                        if (!Neo.isNumber(insertIndex)) {
+                            insertIndex = me.indexOfKey(key)
+                        }
+                    }
 
                     me.#allRecordsMap.set(key, data);
 

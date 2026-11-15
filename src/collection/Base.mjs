@@ -1568,7 +1568,7 @@ class Collection extends Base {
             removedItems       = [],
             removeCountAtIndex = Neo.isNumber(removeCountOrToRemoveArray) ? removeCountOrToRemoveArray : null,
             toRemoveArray      = Array.isArray(removeCountOrToRemoveArray) ? removeCountOrToRemoveArray : null,
-            internalId, i, item, key, len, toAddMap;
+            internalId, i, item, key, len;
 
         if (!Neo.isNumber(index) && removeCountAtIndex) {
             Logger.error(me.id + ': If index is not passed, removeCountAtIndex cannot be used')
@@ -1577,26 +1577,20 @@ class Collection extends Base {
         toAddArray = toAddArray && !Array.isArray(toAddArray) ? [toAddArray] : toAddArray;
 
         if (toRemoveArray && (len = toRemoveArray.length) > 0) {
-            if (toAddArray && toAddArray.length > 0) {
-                toAddMap = toAddArray.map(e => me.getKey(e))
-            }
-
             for (i=0; i < len; i++) {
                 item = toRemoveArray[i];
                 key  = me.isItem(item) ? me.getKey(item) : item;
 
                 if (map.has(key)) {
-                    if (!toAddMap || (toAddMap && toAddMap.indexOf(key) < 0)) {
-                        const removedItem = items.splice(me.indexOfKey(key), 1)[0];
-                        removedItems.push(removedItem);
-                        map.delete(key);
+                    const removedItem = items.splice(me.indexOfKey(key), 1)[0];
+                    removedItems.push(removedItem);
+                    map.delete(key);
 
-                        if (me.trackInternalId) {
-                            internalId = me.getInternalKey(removedItem);
+                    if (me.trackInternalId) {
+                        internalId = me.getInternalKey(removedItem);
 
-                            if (internalId) {
-                                me.internalIdMap.delete(internalId)
-                            }
+                        if (internalId) {
+                            me.internalIdMap.delete(internalId)
                         }
                     }
                 }
