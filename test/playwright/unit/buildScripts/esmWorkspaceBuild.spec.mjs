@@ -284,6 +284,79 @@ test.describe('esmodules.mjs — a greenfield workspace build', () => {
         expect(output).not.toContain('neo.mainAddons')
     });
 
+    test('a Main addon root refuses an outside-root helper whose literal dynamic import reaches the Engine', () => {
+        workspace = fs.realpathSync(createWorkspace({declareExtraRoot: true}));
+        const write    = (file, content) => fs.outputFileSync(path.join(workspace, file), content),
+              manifest = fs.readJsonSync(path.join(workspace, 'package.json'));
+
+        fs.outputJsonSync(path.join(workspace, 'package.json'), {...manifest, dependencies: {widget: '1.0.0'}});
+        fs.outputJsonSync(path.join(workspace, 'node_modules/widget/package.json'), {
+            name: 'widget', version: '1.0.0', neo: {mainAddons: ['main']}
+        });
+        write('node_modules/neo.mjs/src/core/Base.mjs', 'export default class Base {static engineUrl = import.meta.url}');
+        write('node_modules/widget/main/Addon.mjs', "export {load} from '../outside/Helper.mjs';");
+        write('node_modules/widget/outside/Helper.mjs', "export const load = () => import('../../neo.mjs/src/core/Base.mjs');");
+
+        const {status, output} = runBuild(workspace);
+
+        expect(status, output).toBe(1);
+        expect(output).toContain('node_modules/widget/main/Addon.mjs → ../outside/Helper.mjs');
+        expect(output).toContain('neo.mainAddons');
+        expect(fs.existsSync(path.join(workspace, 'dist/esm/node_modules/widget/outside/Helper.mjs'))).toBe(false)
+    });
+
+    test('a Canvas module root refuses an outside-root helper whose literal dynamic import reaches the Engine, naming its own key', () => {
+        workspace = createCanvasWorkspace({
+            'canvas/Renderer.mjs': "export {load} from '../outside/Helper.mjs';",
+            'outside/Helper.mjs' : "export const load = () => import('../../neo.mjs/src/core/Base.mjs');"
+        });
+
+        const {status, output} = runBuild(workspace);
+
+        expect(status, output).toBe(1);
+        expect(output).toContain('node_modules/widget/canvas/Renderer.mjs → ../outside/Helper.mjs');
+        expect(output).toContain('neo.canvasModules');
+        expect(output).not.toContain('neo.mainAddons')
+    });
+
+    test("a declared root's own literal dynamic import refuses an outside-root helper that reaches the Engine while preserving ordinary and computed dynamic imports", async () => {
+        workspace = fs.realpathSync(createWorkspace({declareExtraRoot: true}));
+        const write    = (file, content) => fs.outputFileSync(path.join(workspace, file), content),
+              manifest = fs.readJsonSync(path.join(workspace, 'package.json'));
+
+        fs.outputJsonSync(path.join(workspace, 'package.json'), {...manifest, dependencies: {widget: '1.0.0'}});
+        fs.outputJsonSync(path.join(workspace, 'node_modules/widget/package.json'), {
+            name: 'widget', version: '1.0.0', neo: {mainAddons: ['main']}
+        });
+        write('node_modules/neo.mjs/src/core/Base.mjs', 'export default class Base {static engineUrl = import.meta.url}');
+        write('node_modules/widget/outside/Ordinary.mjs', 'export default {value: 17, moduleUrl: import.meta.url};');
+        write('node_modules/widget/outside/EngineHelper.mjs', "export {default} from '../../neo.mjs/src/core/Base.mjs';");
+        write('node_modules/widget/main/Addon.mjs', [
+            "export const loadOrdinary = () => import('../outside/Ordinary.mjs');",
+            'export const loadComputed = name => import(`../outside/${name}.mjs`);',
+            'export const loadExpr     = spec => import(spec);'
+        ].join('\n'));
+
+        const green = runBuild(workspace);
+        expect(green.status, green.output).toBe(0);
+        expect(fs.existsSync(path.join(workspace, 'dist/esm/node_modules/widget/outside'))).toBe(false);
+
+        const emitted = await import(pathToFileURL(path.join(workspace, 'dist/esm/node_modules/widget/main/Addon.mjs')).href);
+        expect((await emitted.loadOrdinary()).default).toEqual({
+            value    : 17,
+            moduleUrl: pathToFileURL(path.join(workspace, 'node_modules/widget/outside/Ordinary.mjs')).href
+        });
+        expect((await emitted.loadComputed('Ordinary')).default.value).toBe(17);
+
+        write('node_modules/widget/main/Addon.mjs', "export const load = () => import('../outside/EngineHelper.mjs');");
+        fs.removeSync(path.join(workspace, 'dist/esm'));
+
+        const red = runBuild(workspace);
+        expect(red.status, red.output).toBe(1);
+        expect(red.output).toContain('node_modules/widget/main/Addon.mjs → ../outside/EngineHelper.mjs');
+        expect(red.output).toContain('neo.mainAddons')
+    });
+
     for (const linked of [false, true]) {
         test(`static package classes share the emitted Engine graph (${linked ? 'linked' : 'installed'})`, async () => {
             workspace = fs.realpathSync(createWorkspace({declareExtraRoot: true}));

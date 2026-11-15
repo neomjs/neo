@@ -1,7 +1,7 @@
-import fs                                       from 'node:fs';
-import path                                     from 'node:path';
-import {isDistAppAsset, isExcludedDistResource} from './distAppAssets.mjs';
-import {esmDestination, staticModuleSpecifiers} from './esmDistTransforms.mjs';
+import fs                                                                 from 'node:fs';
+import path                                                               from 'node:path';
+import {isDistAppAsset, isExcludedDistResource}                           from './distAppAssets.mjs';
+import {esmDestination, literalDynamicSpecifiers, staticModuleSpecifiers} from './esmDistTransforms.mjs';
 
 /** @summary Whether a logical filename belongs to a directory. @param {String} root @param {String} file @returns {Boolean} */
 const within = (root, file) => file === root || file.startsWith(root + path.sep);
@@ -23,9 +23,9 @@ function packageOwner(workspaceRoot, file) {
 /**
  * @summary Plans each emitted file once, extending workspace and declared-root admission with static package
  * reachability.
- * @description Only imports and re-exports are discovery edges; dynamic imports retain their existing runtime
- * admission. Declared-root edges (Main addons, Canvas worker modules) are inspected without extending admission; a
- * host fallback must not reach the Engine.
+ * @description Only static imports and re-exports are discovery edges; dynamic imports retain their existing runtime
+ * admission. Declared-root static and literal dynamic edges (Main addons, Canvas worker modules) are inspected
+ * without extending admission; a host fallback must not reach the Engine.
  * Package-owner reachability propagates after graph construction, so cycles and pure helpers returning
  * to an admitted package cannot retain a second source copy. Ordinary libraries stay at their source location.
  * Logical paths own destinations; linked imports must agree with the package's physical peer graph.
@@ -109,6 +109,18 @@ export function createEsmBuildPlan({workspaceRoot, engineRoot, sourceRoots, pack
         }
     };
 
+    /** @summary Detects imports targeting a second neo.mjs copy distinct from engineRoot. */
+    const isDifferentEngine = targetPath => {
+        const targetPackage = packageOwner(workspaceRoot, targetPath);
+        if (!targetPackage) return false;
+        if (!packageNames.has(targetPackage)) {
+            const manifestPath = path.join(targetPackage, 'package.json');
+            packageNames.set(targetPackage, fs.existsSync(manifestPath) ? JSON.parse(fs.readFileSync(manifestPath, 'utf8')).name : null)
+        }
+        return (path.basename(targetPackage) === 'neo.mjs' || packageNames.get(targetPackage) === 'neo.mjs') &&
+            fs.realpathSync(targetPath) !== path.join(engineReal, path.relative(targetPackage, targetPath))
+    };
+
     /** @summary Visits one logical module; physical ancestry bounds cycles made of ever-deeper linked aliases. */
     const visit = (sourcePath, ancestors = new Set()) => {
         if (nodes.has(sourcePath)) return nodes.get(sourcePath);
@@ -174,13 +186,7 @@ export function createEsmBuildPlan({workspaceRoot, engineRoot, sourceRoots, pack
                     node.errors.push(failure(sourcePath, specifier, 'linked package peer graph differs from the workspace import'))
                 }
             }
-            const targetPackage = packageOwner(workspaceRoot, targetPath);
-            if (targetPackage && !packageNames.has(targetPackage)) {
-                const manifestPath = path.join(targetPackage, 'package.json');
-                packageNames.set(targetPackage, fs.existsSync(manifestPath) ? JSON.parse(fs.readFileSync(manifestPath, 'utf8')).name : null)
-            }
-            if (targetPackage && (path.basename(targetPackage) === 'neo.mjs' || packageNames.get(targetPackage) === 'neo.mjs') &&
-                fs.realpathSync(targetPath) !== path.join(engineReal, path.relative(targetPackage, targetPath))) {
+            if (isDifferentEngine(targetPath)) {
                 node.errors.push(failure(sourcePath, specifier, 'import reaches a different Engine installation'));
                 connect(reverse, node.owner, engineOwner);
                 connect(moduleImporters, sourcePath, engineOwner);
@@ -217,9 +223,45 @@ export function createEsmBuildPlan({workspaceRoot, engineRoot, sourceRoots, pack
               const root = entry.type === 'module' && packageRoots.find(root => within(root.sourceRoot, sourcePath));
               return root ? [{key: root.key, node: visit(sourcePath)}] : []
           }),
-          reachesEngine = reachImporters(moduleImporters, [engineOwner]);
+          dynamicVisited = new Set(),
+          dynamicEdges   = new Map();
+
+    /** @summary Extends root-reach inspection through literal dynamic imports without admitting files. */
+    const inspectRootReach = sourcePath => {
+        if (dynamicVisited.has(sourcePath)) return;
+        dynamicVisited.add(sourcePath);
+        const node = visit(sourcePath);
+        if (node.owner === engineOwner || !['.mjs', '.js'].includes(path.extname(sourcePath))) return;
+        const edges = [];
+        dynamicEdges.set(sourcePath, edges);
+        for (const {targetPath} of node.imports) inspectRootReach(targetPath);
+        for (const specifier of literalDynamicSpecifiers(fs.readFileSync(sourcePath, 'utf8'))) {
+            const absolute = specifier.startsWith('/') && !specifier.startsWith('//');
+            if (!absolute && !specifier.startsWith('./') && !specifier.startsWith('../')) {
+                if (specifier === 'neo.mjs' || specifier.startsWith('neo.mjs/')) {
+                    connect(moduleImporters, sourcePath, engineOwner)
+                }
+                continue
+            }
+            const targetPath = absolute
+                ? path.join(workspaceRoot, specifier.substring(1))
+                : path.resolve(path.dirname(sourcePath), specifier);
+            if (isExcludedDistResource(targetPath) || !fs.existsSync(targetPath) || !fs.statSync(targetPath).isFile()) continue;
+            edges.push({specifier, targetPath});
+            if (isDifferentEngine(targetPath)) {
+                connect(moduleImporters, targetPath, engineOwner);
+                connect(moduleImporters, sourcePath, targetPath);
+                continue
+            }
+            connect(moduleImporters, sourcePath, targetPath);
+            inspectRootReach(targetPath)
+        }
+    };
+
+    for (const {node} of rootModules) inspectRootReach(node.sourcePath);
+    const reachesEngine = reachImporters(moduleImporters, [engineOwner]);
     for (const {key, node} of rootModules) {
-        for (const {specifier, targetPath} of node.imports) {
+        for (const {specifier, targetPath} of [...node.imports, ...(dynamicEdges.get(node.sourcePath) || [])]) {
             if (!files.has(targetPath) && reachesEngine.has(targetPath)) {
                 throw new Error(failure(node.sourcePath, specifier,
                     `outside-root helper reaches the source Engine; declare its directory in neo.${key} or move it inside a declared root`))
