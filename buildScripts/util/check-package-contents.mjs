@@ -104,13 +104,27 @@ export const FRAME_RULE = `A pull request's frames do not belong in the tree. Co
 commit (https://github.com/neomjs/neo/blob/<sha>/<path>?raw=true), and remove them in a later commit of the
 same pull request; its ref keeps the commit served.`;
 
+/**
+ * @summary The baseline's own path in the tarball, which is a file the guard must not read as evidence.
+ *
+ * The list is packed like any other text file, and every `path` row spells the image it exempts, so a
+ * reader that counts it names every baselined frame and retires every row. An exemption list is not a
+ * reference: it records what nothing else says.
+ * @type {String}
+ */
+const BASELINE_FILE = 'buildScripts/util/check-package-contents-baseline.json';
+
 /** @summary What a packed image is, and what may name it. */
 export const IMAGE_EXTENSIONS = Object.freeze(['png', 'jpg', 'jpeg', 'gif', 'webp']),
              TEXT_EXTENSIONS  = Object.freeze(['mjs', 'js', 'json', 'scss', 'css', 'md', 'html', 'yaml', 'yml', 'txt', 'svg']);
 
-const IMAGE_PATTERN = /[\w.\-/@:%]+?\.(?:png|jpe?g|gif|webp)\b/gi,
-      IMAGE_TEST    = /\.(?:png|jpe?g|gif|webp)$/i,
-      TEXT_TEST     = /\.(?:mjs|js|json|scss|css|md|html|yaml|yml|txt|svg)$/i;
+// Built from the arrays above, so adding an extension to one of them is the only edit a new format needs.
+const IMAGE_ALTERNATIVES = IMAGE_EXTENSIONS.join('|'),
+      TEXT_ALTERNATIVES  = TEXT_EXTENSIONS.join('|');
+
+const IMAGE_PATTERN = new RegExp(`[\\w.\\-/@:%]+?\\.(?:${IMAGE_ALTERNATIVES})\\b`, 'gi'),
+      IMAGE_TEST    = new RegExp(`\\.(?:${IMAGE_ALTERNATIVES})$`, 'i'),
+      TEXT_TEST     = new RegExp(`\\.(?:${TEXT_ALTERNATIVES})$`, 'i');
 
 /**
  * @summary Frames whose name is not a literal in the tree, each with the reason it cannot be one.
@@ -121,10 +135,13 @@ const IMAGE_PATTERN = /[\w.\-/@:%]+?\.(?:png|jpe?g|gif|webp)\b/gi,
  * turn a rule into a shrug. The `test/playwright/visual` folder is the model: Playwright builds
  * `{testDir}/__screenshots__/{testFileName}/{arg}{ext}` from `snapshotPathTemplate`, so neither the
  * folder nor the full name of a baseline image ever appears in a file.
+ *
+ * The list is a ratchet and is read in both directions: an entry that no longer covers an unnamed
+ * image fails the check, so a row cannot outlive the fact it records.
  * @type {Array<{path?: String, prefix?: String, why: String}>}
  */
 export const IMAGE_BASELINE = Object.freeze(JSON.parse(fs.readFileSync(
-    path.join(__dirname, 'check-package-contents-baseline.json'),
+    path.join(ROOT, BASELINE_FILE),
     'utf8'
 )));
 
@@ -156,17 +173,20 @@ export function imageReferenceKey(packedPath) {
  * would have named stay unnamed and the check reds, instead of the check throwing over a file it
  * could not open.
  *
+ * The baseline is skipped: it spells the images it exempts, so counting it would name every frame the
+ * guard was told to leave alone and retire every row.
+ *
  * @param {String[]} packedPaths Tarball-relative paths, as reported by `npm pack --json`.
  * @param {Function} readTextFile `(packedPath) => String|undefined`, the content of a packed text file.
  * @param {Object}   [options]
- * @param {Array}    [options.baseline=IMAGE_BASELINE] The entries whose absence of a reference is known.
- * @returns {Array<{path: String}>} One entry per unnamed image outside the baseline.
+ * @param {String[]} [options.ignoredFiles=[BASELINE_FILE]] Packed files whose text is not evidence.
+ * @returns {String[]} Every unnamed image, in packed order.
  */
-export function findUnnamedImages(packedPaths, readTextFile, {baseline = IMAGE_BASELINE} = {}) {
+export function collectUnnamedImages(packedPaths, readTextFile, {ignoredFiles = [BASELINE_FILE]} = {}) {
     const referenced = new Set();
 
     for (const packedPath of packedPaths) {
-        if (!TEXT_TEST.test(packedPath)) {
+        if (!TEXT_TEST.test(packedPath) || ignoredFiles.includes(packedPath)) {
             continue
         }
 
@@ -185,53 +205,68 @@ export function findUnnamedImages(packedPaths, readTextFile, {baseline = IMAGE_B
         }
     }
 
-    const findings = [];
+    return packedPaths.filter(packedPath => IMAGE_TEST.test(packedPath) &&
+        !referenced.has(imageReferenceKey(packedPath)))
+}
 
-    for (const packedPath of packedPaths) {
-        if (!IMAGE_TEST.test(packedPath) || referenced.has(imageReferenceKey(packedPath))) {
-            continue
-        }
+/**
+ * @summary Compares the live unnamed images against the recorded baseline, in both directions.
+ *
+ * `added` fails up: an unnamed packed image the baseline does not cover.
+ *
+ * `stale` fails down: a baseline entry that covers no unnamed image any more. Its file was unpacked
+ * or deleted, it is now named by folder and file name, or its prefix covers nothing. The ratchet is
+ * symmetric, following `check-class-module-scope` and `check-engine-brain-boundary`: a row that stays
+ * past the fact it records turns the baseline into a history of what used to be true, and the next
+ * reader cannot tell which rows still buy something.
+ *
+ * @param {String[]} unnamedImages Live unnamed images, from `collectUnnamedImages`.
+ * @param {Array<Object>} [baseline=IMAGE_BASELINE] The entries whose absence of a reference is known.
+ * @returns {{added: String[], stale: Object[]}} Unnamed images the baseline misses, and entries that
+ *          cover nothing.
+ */
+export function diffImageBaseline(unnamedImages, baseline = IMAGE_BASELINE) {
+    const unnamed = new Set(unnamedImages);
 
-        const baselined = baseline.some(entry => entry.path === packedPath ||
-            (entry.prefix && packedPath.startsWith(entry.prefix)));
+    const added = unnamedImages.filter(packedPath => !baseline.some(entry => entry.path === packedPath ||
+        (entry.prefix && packedPath.startsWith(entry.prefix))));
 
-        if (!baselined) {
-            findings.push({path: packedPath})
-        }
-    }
+    const stale = baseline.filter(entry => entry.path
+        ? !unnamed.has(entry.path)
+        : !unnamedImages.some(packedPath => packedPath.startsWith(entry.prefix)));
 
-    return findings
+    return {added, stale}
 }
 
 /**
  * @summary Extracts the JSON payload from `npm pack --json` output.
  *
  * Lifecycle scripts write to stdout ahead of the payload, so the raw output is not parseable as-is.
- * The payload is the FIRST top-level array — the first line that is exactly `[`. The doc previously
- * said "last" while the code took the first; they now agree on the first, which is the correct one:
- * `npm pack --json` emits exactly one array, and anything after it would be trailing noise that
- * `JSON.parse` rejects anyway.
+ * The payload starts at the first line that opens a JSON array or an object, whichever comes first:
+ * npm 12 keys `pack --json` by package name and reports an object, npm 11 and earlier report an array,
+ * and both carry the same report. A lifecycle line that opens one of its own takes that position and
+ * `JSON.parse` then rejects whatever follows it — the gate reds, which is the safe direction and the
+ * reason the search is anchored on a line of its own rather than on any `[` or `{`.
  *
  * **The leading newline is not required.** Matching only `'\n[\n'` meant a payload beginning at
- * offset 0 — which is what happens the moment the `prepare` lifecycle stops writing to stdout —
- * threw `no JSON array found` over output that had one. The direction of that failure was safe (a
- * throw exits non-zero and reds the gate, so it could never false-PASS), but a guard that fails on
- * a clean environment is a guard people learn to distrust. Raised by @neo-opus-grace on review.
+ * offset 0 — which is what happens the moment the `prepare` lifecycle stops writing to stdout — threw
+ * `no JSON array found` over output that had one. The direction of that failure was safe (a throw
+ * exits non-zero and reds the gate, so it could never false-PASS), but a guard that fails on a clean
+ * environment is a guard people learn to distrust. Raised by @neo-opus-grace on review.
  *
  * @param {String} raw Combined stdout of the pack invocation.
  * @returns {Object[]} The parsed pack report.
- * @throws {Error} When no JSON array is present.
+ * @throws {Error} When no line opens a JSON array or object.
  */
 export function parsePackOutput(raw) {
     const arrayStart  = raw.startsWith('[\n') ? 0 : raw.indexOf('\n[\n'),
           objectStart = raw.startsWith('{\n') ? 0 : raw.indexOf('\n{\n'),
-          // npm 12 reports the payload as an object keyed by package name, npm 11 and earlier as an
-          // array. Both shapes carry the same report. The array wins when both are present, so a
-          // lifecycle script that prints an object cannot shadow the payload.
+          // The first line that opens one of the two shapes is the payload; there is no precedence
+          // between them beyond position.
           start       = arrayStart !== -1 && (objectStart === -1 || arrayStart < objectStart) ? arrayStart : objectStart;
 
     if (start === -1) {
-        throw new Error('check-package-contents: no JSON array found in `npm pack --json` output')
+        throw new Error('check-package-contents: no JSON array or object found in `npm pack --json` output')
     }
 
     const parsed = JSON.parse(raw.slice(start));
@@ -275,7 +310,7 @@ check, and let the pack decide.`);
     }
 
     // Reads from the checkout, because the tarball's text files are the ones that can name a frame
-    const unnamed = findUnnamedImages(files, packedPath => {
+    const unnamed = collectUnnamedImages(files, packedPath => {
         try {
             return fs.readFileSync(path.join(ROOT, packedPath), 'utf8')
         } catch (error) {
@@ -283,18 +318,32 @@ check, and let the pack decide.`);
         }
     });
 
-    if (unnamed.length) {
-        console.error(`\x1b[31mcheck-package-contents: ${unnamed.length} packed image(s) that no packed text file names by folder and file name:\x1b[0m`);
+    const {added, stale} = diffImageBaseline(unnamed);
 
-        unnamed.slice(0, 20).forEach(finding => console.error(`      ${finding.path}`));
+    if (added.length || stale.length) {
+        if (added.length) {
+            console.error(`\x1b[31mcheck-package-contents: ${added.length} packed image(s) that no packed text file names by folder and file name:\x1b[0m`);
 
-        if (unnamed.length > 20) {
-            console.error(`      … and ${unnamed.length - 20} more`)
+            added.slice(0, 20).forEach(packedPath => console.error(`      ${packedPath}`));
+
+            if (added.length > 20) {
+                console.error(`      … and ${added.length - 20} more`)
+            }
+
+            console.error(`\n${FRAME_RULE}\n
+A frame a record set names at runtime cannot be named by a literal. Add it to
+buildScripts/util/check-package-contents-baseline.json as a path or a folder prefix, with its reason.`)
         }
 
-        console.error(`\n${FRAME_RULE}\n
-A frame a record set names at runtime cannot be named by a literal. Add it to
-buildScripts/util/check-package-contents-baseline.json as a path or a folder prefix, with its reason.`);
+        if (stale.length) {
+            console.error(`\x1b[31mcheck-package-contents: ${stale.length} baseline entr(ies) that cover no unnamed image:\x1b[0m`);
+
+            stale.forEach(entry => console.error(`      ${entry.path || entry.prefix} — ${entry.why}`));
+
+            console.error(`
+The baseline is a ratchet, read in both directions. An entry whose file was unpacked, deleted or is now
+named by folder and file name buys nothing any more: remove the row in the same commit that made it true.`)
+        }
 
         process.exit(1)
     }

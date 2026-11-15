@@ -21,19 +21,19 @@
     },
     {
         "path": "docs/resources/images/tutorials/create-app-choose-name.png",
-        "why": "Orphaned: no packed text file names it. Kept rather than deleted because the tutorial page that used it may be built outside this tree; deleting a doc image is a separate decision from guarding the package."
+        "why": "Orphaned since the Docs app's tutorials section was removed (`6006fb2dc3`, 2024-04-08, #5383). Kept because deleting a doc image is a content decision, not this guard's."
     },
     {
         "path": "docs/resources/images/tutorials/create-app-choose-theme.png",
-        "why": "Orphaned: no packed text file names it. Kept for the same reason as its sibling — the tutorial that referenced it is not in this tree."
+        "why": "Orphaned since the Docs app's tutorials section was removed (`6006fb2dc3`, 2024-04-08, #5383). Kept because deleting a doc image is a content decision, not this guard's."
     },
     {
         "path": "docs/resources/images/tutorials/create-app-files.png",
-        "why": "Orphaned: no packed text file names it. Kept for the same reason as its sibling — the tutorial that referenced it is not in this tree."
+        "why": "Orphaned since the Docs app's tutorials section was removed (`6006fb2dc3`, 2024-04-08, #5383). Kept because deleting a doc image is a content decision, not this guard's."
     },
     {
         "path": "docs/resources/images/tutorials/todolist-v1-files.png",
-        "why": "Orphaned: no packed text file names it. Kept for the same reason as its sibling — the tutorial that referenced it is not in this tree."
+        "why": "Orphaned since the Docs app's tutorials section was removed (`6006fb2dc3`, 2024-04-08, #5383). Kept because deleting a doc image is a content decision, not this guard's."
     },
     {
         "path": "apps/portal/resources/images/examples/devmode/dockDemo.png",
