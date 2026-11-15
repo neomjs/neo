@@ -264,7 +264,7 @@ test.describe('buildScripts/util/contributorStanding', () => {
          * Runs the workflow's script against a stand-in GitHub, recording every query, post and warning.
          */
         const run = async ({author = {}, comments = [], eventName = 'pull_request_target', incomplete = () => false, inputs, optOutText = '[]', permission = 'read', searchError} = {}) => {
-            const calls = {contents: [], inFlight: 0, peakSearches: 0, permissions: [], posted: [], queries: [], summary: [], warnings: []};
+            const calls = {contents: [], inFlight: 0, info: [], peakSearches: 0, permissions: [], posted: [], queries: [], summary: [], warnings: []};
 
             const github = {
                 graphql : async () => ({repository: {pullRequest: {closingIssuesReferences: {nodes: [{labels: {nodes: [{name: 'grid'}]}}]}}}}),
@@ -328,7 +328,7 @@ test.describe('buildScripts/util/contributorStanding', () => {
             await runStep(
                 github,
                 {eventName, payload: {inputs, pull_request: pullRequest(author)}, repo: {owner: 'neomjs', repo: 'neo'}},
-                {info: () => {}, summary, warning: message => calls.warnings.push(message)}
+                {info: message => calls.info.push(message), summary, warning: message => calls.warnings.push(message)}
             );
 
             return calls
@@ -430,10 +430,13 @@ test.describe('buildScripts/util/contributorStanding', () => {
             const calls = await run();
 
             expect(calls.queries).toEqual([
-                'org:neomjs is:public is:pr is:merged author:Outside-Dev merged:<2026-11-14T10:00:00+00:00',
+                'org:neomjs is:public is:pr is:merged author:Outside-Dev merged:<2026-11-14T10:00:00Z',
                 'repo:neomjs/neo is:issue is:open label:"good first issue" no:assignee -linked:pr',
                 'repo:neomjs/neo is:issue is:open label:"help wanted" no:assignee -linked:pr'
             ]);
+            // A plus sign reaches the search as a space: an offset of `+00:00` became the search term `00:00`
+            expect(calls.queries.filter(query => query.includes('+'))).toEqual([]);
+            expect(calls.info).toContain('Outside-Dev had 0 merged before #20999.');
             // GitHub's secondary rate limit refuses bursts of searches
             expect(calls.peakSearches).toBe(1);
             expect(calls.posted).toHaveLength(1);

@@ -93,7 +93,8 @@ jobs:
               }
 
               const mergedAt = Date.parse(pullRequest.merged_at);
-              const stamp    = ms => new Date(ms).toISOString().replace(/\.\d{3}Z$/, '+00:00');
+              // The UTC stamp ends in Z: a `+00:00` offset reaches the search as a space, and the count reads zero
+              const stamp    = ms => new Date(ms).toISOString().replace(/\.\d{3}Z$/, 'Z');
               // An incomplete answer undercounts, and an undercount reads as a first merge: no comment, not a wrong one
               const search   = async (q, perPage) => {
                 const {data} = await github.rest.search.issuesAndPullRequests({q, per_page: perPage});
@@ -105,6 +106,8 @@ jobs:
 
               // Searches run one at a time: GitHub's secondary rate limit refuses bursts of them
               const mergedBefore = (await search(`org:${owner} is:public is:pr is:merged author:${login} merged:<${stamp(mergedAt)}`, 1)).total_count;
+
+              core.info(`${login} had ${mergedBefore} merged before #${pullRequest.number}.`);
               const candidates   = [];
 
               for (const label of CURATED_LABELS) {
