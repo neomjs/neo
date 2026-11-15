@@ -444,7 +444,8 @@ class RecordFactory extends Base {
      * what changed. An override that bypasses the admitted native write rejects the operation.
      * The seal must throw to refuse. Its owner manages membership and any external side effects.
      * @param {Neo.data.Model} model
-     * @param {Object[]} updates Distinct current records of this model. The store owner manages membership.
+     * @param {Object[]} updates Distinct current records of this model. The store owner manages membership: a record
+     * joins when its store's `getRow()` answers it, the lookup `Neo.data.Store#updateRows` finds rows with.
      * @param {Object} updates[].record The original record instance.
      * @param {Object} updates[].fields Declared field names and their inputs. Use dotted names for nested fields.
      * @param {Function} [seal] Synchronous final adoption. Participating records reject further writes here.
@@ -459,7 +460,7 @@ class RecordFactory extends Base {
         const seen   = new Set(), checkpoints = updates.map(({record, fields: input}) => {
             if (!input || typeof input !== 'object' || Array.isArray(input)) throw new TypeError('Expected a field map');
             const fields = Object.freeze({...input});
-            if (!Record || !(record instanceof Record) || (store && (store.allItems || store).get(store.getKey(record)) !== record) ||
+            if (!Record || !(record instanceof Record) || (store && store.getRow(store.getKey(record)) !== record) ||
                 seen.has(record) || this.#preparedFields?.has(record) ||
                 Object.hasOwn(fields, key)) {
                 throw new TypeError('Expected non-key fields on a record of this model')
