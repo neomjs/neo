@@ -24,7 +24,9 @@ class GridHorizontalScrollSync extends Base {
         remote: {
             app: [
                 'register',
-                'unregister'
+                'registerFollower',
+                'unregister',
+                'unregisterFollower'
             ]
         }
     }
@@ -60,8 +62,9 @@ class GridHorizontalScrollSync extends Base {
     }
 
     /**
-     * @summary Copies the scrollbar's position onto the centre body, the centre header and, while the grid has header
-     * groups, the centre part of its group row.
+     * @summary Copies the scrollbar's position onto the centre body, the centre header, every registered follower
+     * row outside grid.body (`registration.followerIds`) and, while the grid has header groups, the centre part of
+     * its group row.
      * @param {Object} registration
      * @param {Event}  event
      */
@@ -81,6 +84,12 @@ class GridHorizontalScrollSync extends Base {
         }
         // Looked up per scroll: the group row comes and goes with the grid's groups, under one id
         if (groupHeaderNode) { groupHeaderNode.scrollLeft = scrollLeft }
+
+        if (registration.followerIds) {
+            for (let followerId of registration.followerIds) {
+                DomAccess.getElement(followerId)?.style.setProperty('--grid-scroll-left', scrollLeft + 'px');
+            }
+        }
     }
 
     /**
@@ -106,12 +115,13 @@ class GridHorizontalScrollSync extends Base {
      * @param {String} data.bodyId
      * @param {String} data.viewId
      * @param {String} data.headerId
+     * @param {String[]} [data.followerIds] Optional follower row element ids mounted outside grid.body
      * @param {String} [data.groupHeaderId] The centre part of the grid's header group row, present only while the grid
      * has header groups
      */
-    register({id, scrollerId, bodyId, viewId, headerId, groupHeaderId}) {
+    register({id, scrollerId, bodyId, viewId, headerId, groupHeaderId, followerIds}) {
         let me = this,
-            registration;
+            registration, scrollerNode;
 
         if (me.registrations.has(id)) {
             me.unregister({id});
@@ -124,6 +134,7 @@ class GridHorizontalScrollSync extends Base {
             viewId,
             headerId,
             groupHeaderId,
+            followerIds     : new Set(followerIds || []),
             headerScrollLeft: DomAccess.getElement(headerId)?.scrollLeft ?? 0,
             wheelListener   : me.onWheel.bind(me, scrollerId)
         };
@@ -131,11 +142,55 @@ class GridHorizontalScrollSync extends Base {
         registration.headerScrollListener = me.onHeaderScroll.bind(me, registration);
         registration.scrollListener       = me.onScroll.bind(me, registration);
 
-        DomAccess.getElement(scrollerId)?.addEventListener('scroll', registration.scrollListener);
+        scrollerNode = DomAccess.getElement(scrollerId);
+        scrollerNode?.addEventListener('scroll', registration.scrollListener);
         DomAccess.getElement(headerId)?.addEventListener('scroll', registration.headerScrollListener);
         DomAccess.getElement(viewId || bodyId)?.addEventListener('wheel', registration.wheelListener, {passive: true});
 
+        if (scrollerNode && registration.followerIds.size > 0) {
+            let scrollLeft = scrollerNode.scrollLeft;
+            for (let followerId of registration.followerIds) {
+                DomAccess.getElement(followerId)?.style.setProperty('--grid-scroll-left', scrollLeft + 'px');
+            }
+        }
+
         me.registrations.set(id, registration);
+    }
+
+    /**
+     * @summary Registers an auxiliary follower row outside grid.body to receive --grid-scroll-left synchronously.
+     * Seeds its initial position if the scroller node is available.
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {String} data.followerId
+     */
+    registerFollower({id, followerId}) {
+        let me           = this,
+            registration = me.registrations.get(id);
+
+        if (registration) {
+            registration.followerIds.add(followerId);
+
+            let scrollerNode = DomAccess.getElement(registration.scrollerId);
+            if (scrollerNode) {
+                DomAccess.getElement(followerId)?.style.setProperty('--grid-scroll-left', scrollerNode.scrollLeft + 'px');
+            }
+        }
+    }
+
+    /**
+     * @summary Unregisters an auxiliary follower row from receiving horizontal scroll sync updates.
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {String} data.followerId
+     */
+    unregisterFollower({id, followerId}) {
+        let me           = this,
+            registration = me.registrations.get(id);
+
+        if (registration) {
+            registration.followerIds.delete(followerId);
+        }
     }
 
     /**
@@ -151,6 +206,7 @@ class GridHorizontalScrollSync extends Base {
             DomAccess.getElement(registration.scrollerId)?.removeEventListener('scroll', registration.scrollListener);
             DomAccess.getElement(registration.headerId)?.removeEventListener('scroll', registration.headerScrollListener);
             DomAccess.getElement(registration.viewId || registration.bodyId)?.removeEventListener('wheel', registration.wheelListener);
+            registration.followerIds?.clear();
             me.registrations.delete(id);
         }
     }
