@@ -18,7 +18,7 @@ This page is for the person who has to answer for the choice: the architect in f
 | What does the licence oblige us to? | The engine in the public repository is MIT-licensed: keep the copyright notice | `npm view neo.mjs license` |
 | What comes in with it? | No runtime dependencies | `npm view neo.mjs dependencies` |
 | Who maintains it? | One human at the merge gate and thirteen named AI maintainers; 629 pull requests merged in 30 days | the [merged pull requests](https://github.com/neomjs/neo/pulls?q=is%3Apr+is%3Amerged) |
-| How often does it change? | 18 releases in 2026, each with notes | the [releases](https://github.com/neomjs/neo/releases) |
+| How often does it change? | 17 releases in 2026, each with notes | the [releases](https://github.com/neomjs/neo/releases) |
 | Which browsers? | Current Chrome, Edge, Firefox and Safari have what the engine needs; the automated suites run in Chrome | "Which Browsers?" below |
 | What is the security model? | Application code runs in a worker without DOM access, and no string is evaluated unless you load one of two named modules | the security section below |
 | Is it accessible? | ARIA roles and keyboard navigation are in the source; no third-party audit is published | "Is It Accessible?" below |
@@ -98,7 +98,7 @@ The same happened to this page before anyone else read it. The request for it sa
 
 ## How Often Does It Change, and What Does an Upgrade Cost?
 
-The engine released 18 times in 2026: version 12 in February, version 13 in June, then 13.1 to 13.4 between July and November. The next release is planned as version 14.
+The engine released 17 times in 2026: version 12 in February, version 13 in June, then 13.1 to 13.4 between July and November. The next release is planned as version 14.
 
 Each release has notes, and the notes are written for the person who upgrades. The 13.4 notes carry a section named "Upgrading from 13.3.1". It says first what did not change in `package.json` (`main`, `exports`, `bin`, `engines` and `type`), and then lists the public behaviour to check as a table with three columns: if your code does this, 13.4 does that, do this.
 
@@ -208,7 +208,7 @@ Read on 15 November 2026, on `dev` at `6431e88cf2`. Run any of them again; the n
 | External hosts: eight addons and four helpers | search 2 below, reading the hits that are not comments |
 | Two `new Function` sites | search 3 below |
 | 27,985 commits, the first on 2019-11-11 | searches 4 and 5 below |
-| 18 releases in 2026 | search 6 below |
+| 17 releases in 2026 | search 6 below |
 | 629 pull requests merged in 30 days | GitHub search: `repo:neomjs/neo is:pr is:merged merged:>=2026-10-16` |
 | 59 merged from 39 outside accounts, half within 5.9 hours | search 7 below, keeping the cross-repository pull requests that are not from bots |
 | Thirteen AI maintainers | the roster in the [README](https://github.com/neomjs/neo#the-maintainer-team) |
@@ -226,7 +226,7 @@ The searches, run from a clone of the repository:
 3.  Code that evaluates a string: `grep -rn "new Function(" src --include='*.mjs'`
 4.  The number of commits: `git rev-list --count origin/dev`
 5.  The date of the first one: `git log --reverse --format=%cs | head -1`
-6.  Releases in 2026: `git for-each-ref --format='%(creatordate:short)' refs/tags | grep -c '^2026'`
+6.  Releases in 2026: `git for-each-ref --format='%(creatordate:short)' 'refs/tags/[0-9]*' | grep -c '^2026'`
 7.  Merged pull requests of the last 30 days, with who opened each and when: `gh pr list --repo neomjs/neo --state merged --search "merged:>=2026-10-16" --limit 1000 --json isCrossRepository,author,createdAt,mergedAt`
 8.  Spec files: `find test/playwright/unit -name '*.spec.mjs' | wc -l`, and the same for `test/playwright/e2e`
 9.  Accessibility attributes and roles: `grep -rlE "aria-|role *:|'role'" src --include='*.mjs' | wc -l`
