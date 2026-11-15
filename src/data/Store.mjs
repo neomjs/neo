@@ -1910,8 +1910,9 @@ class Store extends Collection {
      * @summary Reads a load response the way `load()` does: its rows, and the total the server sent beside them.
      *
      * The rows are the response's `data` (the Fetch body, or a normalizer's rows), its `json` (the Xhr body) or the
-     * response itself, at `responseRoot` inside an object. The total comes from the object the rows were found in,
-     * or from beside an array of rows. A store that loads its own way reads its responses here.
+     * response itself, at `responseRoot` inside an object. The total is the one the object holding the rows names,
+     * else the response's own `totalCount`, which an envelope keeps beside a body. A store that loads its own way
+     * reads its responses here.
      * @param {Object|Object[]} response A connection's response, or the pipeline's normalized result
      * @returns {{items: Object[]|Object, totalCount: Number|null}} The rows, or the body when no array sits at
      * `responseRoot`, and the total, `null` when the response names none
@@ -1921,7 +1922,7 @@ class Store extends Collection {
         let body  = response.data || response.json || response,
             items = Array.isArray(body) ? body : Neo.ns(this.responseRoot, false, body) || body;
 
-        return {items, totalCount: (Array.isArray(body) ? response : body).totalCount ?? null}
+        return {items, totalCount: body.totalCount ?? response.totalCount ?? null}
     }
 
     /**

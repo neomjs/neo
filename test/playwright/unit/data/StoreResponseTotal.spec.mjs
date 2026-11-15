@@ -7,8 +7,38 @@ import Neo             from '../../../../src/Neo.mjs';
 import * as core       from '../../../../src/core/_export.mjs';
 import Store           from '../../../../src/data/Store.mjs';
 import FetchConnection from '../../../../src/data/connection/Fetch.mjs';
+import ConnectionBase  from '../../../../src/data/connection/Base.mjs';
 
 const rows = [{id: 1}, {id: 2}, {id: 3}];
+
+/**
+ * @summary A connection in the App worker whose read answers a fixed envelope, the way a normalizer or a custom
+ * connection hands a pipeline its result.
+ */
+class EnvelopeConnection extends ConnectionBase {
+    static config = {
+        /**
+         * @member {String} className='Test.Unit.Data.StoreResponseTotal.EnvelopeConnection'
+         * @protected
+         */
+        className: 'Test.Unit.Data.StoreResponseTotal.EnvelopeConnection',
+        /**
+         * The envelope every read answers
+         * @member {Object|null} envelope=null
+         */
+        envelope: null
+    }
+
+    /**
+     * @summary Answers a copy of the envelope.
+     * @returns {Promise<Object>}
+     */
+    async read() {
+        return structuredClone(this.envelope)
+    }
+}
+
+const Envelope = Neo.setupClass(EnvelopeConnection);
 
 /**
  * @summary Pins where a remote Store finds the total of a load response, on each connection's response shape.
@@ -124,6 +154,20 @@ test.describe('A remote Store reads the total a load response sends beside its r
 
         expect(store.count).toBe(3);
         expect(store.totalCount).toBe(3)
+    });
+
+    test('rows under a responseRoot inside data or json keep the envelope\'s total, and a body total wins over it', async () => {
+        const load = async envelope => {
+            const store = create({pipeline: {connection: {module: Envelope, envelope}}, responseRoot: 'records'});
+
+            await store.load();
+
+            return [store.count, store.totalCount]
+        };
+
+        expect(await load({data: {records: rows}, totalCount: 123})).toEqual([3, 123]);
+        expect(await load({json: {records: rows}, totalCount: 123})).toEqual([3, 123]);
+        expect(await load({data: {records: rows, totalCount: 9}, totalCount: 123})).toEqual([3, 9])
     });
 
     test('readResponse() reads each response shape a pipeline hands the store', () => {
