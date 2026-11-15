@@ -1,0 +1,14 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Idea or feature request
+    url: https://github.com/neomjs/neo/discussions/categories/ideas
+    about: Shape a feature idea in a Discussion before it becomes a ticket.
+  - name: Question
+    url: https://github.com/neomjs/neo/discussions/categories/q-a
+    about: Ask the community a question about Neo.mjs.
+  - name: Discord
+    url: https://discord.gg/6p8paPq
+    about: Join the main community room with searchable conversation history.
+  - name: Slack
+    url: https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA
+    about: Join real-time community chat with 90 days of history.
