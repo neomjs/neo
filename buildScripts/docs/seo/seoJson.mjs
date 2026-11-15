@@ -640,7 +640,7 @@ export function formatLearnSeoTitle(baseTitle='', route='', suffix=' - Neo.mjs',
             : '';
 
     if (/^comparisons\/overview$/i.test(relId)) {
-        return 'JavaScript Framework Comparisons (React, Angular, Vue, Solid vs Neo.mjs) | Neo.mjs';
+        return 'Neo.mjs vs React, Angular, Vue & Solid: Application Engine vs JavaScript Frameworks | Neo.mjs';
     }
 
     if (cleanTitle && cleanTitle.toLowerCase() !== 'neo.mjs' && isLearnRoute) {

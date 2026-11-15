@@ -29,8 +29,8 @@ import {
 /**
  * @module buildScripts.docs.seo.verify
  * @summary Cross-artifact verifier and standalone CLI gate for Portal SEO and LLM discovery outputs
- * (`seo.json`, `sitemap.xml`, `sitemap-core.xml`, `sitemap-discussions.xml`, `sitemap-archive.xml`,
- * `ssg-archive-routes.json`, `llms.txt`, `llms-full.txt`, and optional `llms-all.txt`).
+ * (`robots.txt`, `seo.json`, `sitemap.xml`, `sitemap-core.xml`, `sitemap-discussions.xml`,
+ * `sitemap-archive.xml`, `ssg-archive-routes.json`, `llms.txt`, `llms-full.txt`, and optional `llms-all.txt`).
  *
  * Enforces structural coherence in memory before `rebuildContentIndexesAndSeo` writes to disk and
  * validates the live repository when invoked directly via `node buildScripts/docs/seo/verify.mjs`:
@@ -44,6 +44,9 @@ import {
  *   and `robots: 'noindex, follow'` on `/news/tickets`, `/news/pulls`, hidden/redirect learn leaves, and historical releases.
  * - On-disk existence of every `${baseUrl}/raw/*.md` target across `root`, `releaseNotesRoot`, and `corpusRoot`.
  */
+
+export const CONTENT_SIGNAL_DIRECTIVE = 'Content-Signal: search=yes, ai-input=yes';
+export const LLMS_TXT_MAX_BYTES       = 100_000;
 
 const ARCHIVE_HEADINGS               = ['## GitHub Tickets', '## GitHub Pull Requests', '## GitHub Discussions'];
 const ANY_ARCHIVE_ROUTE_PATTERN      = /\/news\/(?:tickets|pulls|discussions)\//;
@@ -59,7 +62,7 @@ const NOINDEX_NEWS_HUB_ROUTES        = ['/news/tickets', '/news/pulls'];
  * @param {String} [xml='']
  * @returns {String[]}
  */
-function extractLocUrls(xml='') {
+export function extractLocUrls(xml='') {
     return Array.from(String(xml).matchAll(/<loc>(.*?)<\/loc>/g), match => match[1].trim());
 }
 
@@ -93,20 +96,26 @@ function escapeRegExp(value) {
 }
 
 /**
- * @summary Asserts that `urls` contains zero duplicate entries, throwing with the first duplicate found.
+ * @summary Returns an error entry for each duplicate `<loc>` URL in `urls`.
  * @param {String[]} urls
  * @param {String} artifactLabel
+ * @returns {String[]}
  */
-function assertNoDuplicateLocs(urls, artifactLabel) {
-    const seen = new Set();
+function collectDuplicateLocErrors(urls, artifactLabel) {
+    const errors   = [];
+    const reported = new Set();
+    const seen     = new Set();
 
     for (const url of urls) {
-        if (seen.has(url)) {
-            throw new Error(`${artifactLabel} contains duplicate <loc> entry "${url}".`);
+        if (seen.has(url) && !reported.has(url)) {
+            errors.push(`${artifactLabel} contains duplicate <loc> entry "${url}".`);
+            reported.add(url);
         }
 
         seen.add(url);
     }
+
+    return errors;
 }
 
 /**
@@ -216,6 +225,173 @@ function verifySsgArchiveRoutes(ssgArchiveRoutes, archiveLocs) {
 }
 
 /**
+ * @summary Validates `robots.txt` directives and returns any contract violations.
+ * @param {String} robotsTxt
+ * @param {Object} [options={}]
+ * @param {String} [options.baseUrl='https://neomjs.com']
+ * @param {String|null} [options.expectedOrigin=null]
+ * @returns {String[]}
+ */
+export function validateRobotsTxt(robotsTxt, {baseUrl='https://neomjs.com', expectedOrigin=null}={}) {
+    if (typeof robotsTxt !== 'string' || robotsTxt.trim().length === 0) {
+        return ['robots.txt must be a non-empty string.'];
+    }
+
+    const errors = [];
+    const lines  = robotsTxt
+        .split(/\r?\n/)
+        .map(line => line.replace(/#.*$/, '').trim())
+        .filter(Boolean);
+
+    if (!lines.some(line => /^User-agent:\s*\*$/i.test(line))) {
+        errors.push('robots.txt must declare "User-agent: *".');
+    }
+
+    if (lines.some(line => /^Disallow:\s*\/$/i.test(line))) {
+        errors.push('robots.txt must not block the root with "Disallow: /".');
+    }
+
+    if (!lines.some(line => /^Allow:\s*\/$/i.test(line))) {
+        errors.push('robots.txt must declare "Allow: /".');
+    }
+
+    if (!lines.some(line => /^Content-Signal:\s*search=yes,\s*ai-input=yes$/i.test(line))) {
+        errors.push(`robots.txt must declare "${CONTENT_SIGNAL_DIRECTIVE}".`);
+    }
+
+    const normalizedBaseUrl        = String(baseUrl || 'https://neomjs.com').replace(/\/?$/, '/');
+    const baseSitemapDirective     = `Sitemap: ${new URL('sitemap.xml', normalizedBaseUrl).toString()}`;
+    const normalizedExpectedOrigin = expectedOrigin ? String(expectedOrigin).replace(/\/?$/, '/') : null;
+    const expectedSitemapDirective = normalizedExpectedOrigin
+        ? `Sitemap: ${new URL('sitemap.xml', normalizedExpectedOrigin).toString()}`
+        : baseSitemapDirective;
+
+    if (!lines.includes(expectedSitemapDirective) && !lines.includes(baseSitemapDirective)) {
+        errors.push(`robots.txt must declare "${expectedSitemapDirective}".`);
+    }
+
+    return errors;
+}
+
+/**
+ * @summary Validates `sitemap.xml` `<sitemapindex>` structure, child `<loc>` coverage, and noindex exclusions.
+ * @param {String} sitemapIndexXml
+ * @param {Object} [options={}]
+ * @param {String} [options.baseUrl='https://neomjs.com']
+ * @param {String} [options.sitemapArchiveName='sitemap-archive.xml']
+ * @param {String} [options.sitemapCoreName='sitemap-core.xml']
+ * @param {String} [options.sitemapDiscussionsName='sitemap-discussions.xml']
+ * @returns {String[]}
+ */
+export function validateSitemapIndexXml(sitemapIndexXml, {
+    baseUrl                = 'https://neomjs.com',
+    sitemapArchiveName     = 'sitemap-archive.xml',
+    sitemapCoreName        = 'sitemap-core.xml',
+    sitemapDiscussionsName = 'sitemap-discussions.xml'
+}={}) {
+    if (typeof sitemapIndexXml !== 'string' || !sitemapIndexXml.includes('<sitemapindex')) {
+        return ['sitemap.xml must be a valid <sitemapindex> document.'];
+    }
+
+    const normalizedBaseUrl      = String(baseUrl || 'https://neomjs.com').replace(/\/?$/, '/');
+    const indexLocs              = extractLocUrls(sitemapIndexXml);
+    const expectedCoreUrl        = new URL(sitemapCoreName, normalizedBaseUrl).toString();
+    const expectedDiscussionsUrl = new URL(sitemapDiscussionsName, normalizedBaseUrl).toString();
+    const forbiddenArchiveUrl    = new URL(sitemapArchiveName, normalizedBaseUrl).toString();
+    const errors                 = collectDuplicateLocErrors(indexLocs, 'sitemap.xml');
+
+    if (indexLocs.includes(forbiddenArchiveUrl) || sitemapIndexXml.includes(sitemapArchiveName)) {
+        errors.push(`sitemap.xml must not reference noindex archive sitemap "${forbiddenArchiveUrl}".`);
+    }
+
+    if (/\/news\/(?:tickets|pulls)\//.test(sitemapIndexXml)) {
+        errors.push('sitemap.xml must not advertise /news/tickets/* or /news/pulls/* routes.');
+    }
+
+    if (!indexLocs.includes(expectedCoreUrl)) {
+        errors.push(`sitemap.xml is missing core child sitemap <loc> "${expectedCoreUrl}".`);
+    }
+
+    if (!indexLocs.includes(expectedDiscussionsUrl)) {
+        errors.push(`sitemap.xml is missing discussions child sitemap <loc> "${expectedDiscussionsUrl}".`);
+    }
+
+    return errors;
+}
+
+/**
+ * @summary Validates a `<urlset>` XML document for root element, non-emptiness, and unique `<loc>` URLs.
+ * @param {String} xml
+ * @param {String} [artifactLabel='sitemap.xml']
+ * @param {Object} [options={}]
+ * @param {Boolean} [options.requireNonEmpty=true]
+ * @returns {String[]}
+ */
+export function validateUrlsetXml(xml, artifactLabel='sitemap.xml', {requireNonEmpty=true}={}) {
+    if (typeof xml !== 'string' || !xml.includes('<urlset')) {
+        return [`${artifactLabel} must be a valid <urlset> document.`];
+    }
+
+    const locs   = extractLocUrls(xml);
+    const errors = [];
+
+    if (requireNonEmpty && locs.length === 0) {
+        errors.push(`${artifactLabel} must contain at least one <loc> entry.`);
+    }
+
+    errors.push(...collectDuplicateLocErrors(locs, artifactLabel));
+
+    return errors;
+}
+
+/**
+ * @summary Validates curated `llms.txt` text invariants, size ceiling, archive exclusions, and optional atlas links.
+ * @param {String} llmsTxt
+ * @param {Object} [options={}]
+ * @param {Number|null} [options.maxBytes=LLMS_TXT_MAX_BYTES]
+ * @param {Boolean} [options.requireAtlasLinks=false]
+ * @returns {String[]}
+ */
+export function validateLlmsTxtContent(llmsTxt, {maxBytes=LLMS_TXT_MAX_BYTES, requireAtlasLinks=false}={}) {
+    if (typeof llmsTxt !== 'string' || llmsTxt.trim().length === 0) {
+        return ['llms.txt must be a non-empty string.'];
+    }
+
+    const errors     = [];
+    const byteLength = Buffer.byteLength(llmsTxt, 'utf8');
+
+    if (maxBytes !== null && byteLength >= maxBytes) {
+        errors.push(`llms.txt exceeds curated ceiling (${byteLength} >= ${maxBytes} bytes).`);
+    }
+
+    if (RAW_ARCHIVE_PATTERN.test(llmsTxt)) {
+        errors.push('llms.txt must not contain ticket, pull-request, or discussion archive URLs.');
+    }
+
+    for (const heading of ARCHIVE_HEADINGS) {
+        if (llmsTxt.includes(heading)) {
+            errors.push(`llms.txt must not contain archive section "${heading}".`);
+        }
+    }
+
+    if (llmsTxt.includes(': Update](')) {
+        errors.push('llms.txt contains placeholder ": Update" release title in Latest Updates.');
+    }
+
+    if (requireAtlasLinks) {
+        if (!llmsTxt.includes('/llms-full.txt')) {
+            errors.push('llms.txt must reference "/llms-full.txt".');
+        }
+
+        if (!llmsTxt.includes('/llms-all.txt')) {
+            errors.push('llms.txt must reference "/llms-all.txt".');
+        }
+    }
+
+    return errors;
+}
+
+/**
  * @summary Validates generated SEO and LLM artifacts in memory and throws an actionable `Error` on drift.
  * @param {Object} [options={}]
  * @param {String} [options.baseUrl='https://neomjs.com']
@@ -224,6 +400,7 @@ function verifySsgArchiveRoutes(ssgArchiveRoutes, archiveLocs) {
  * @param {String} options.llmsFullTxt
  * @param {String} options.llmsTxt
  * @param {String} [options.releaseNotesRoot]
+ * @param {String|null} [options.robotsTxt=null]
  * @param {String} [options.root=process.cwd()]
  * @param {Object} options.seoJson
  * @param {String} [options.sitemapArchiveName='sitemap-archive.xml']
@@ -244,6 +421,7 @@ export async function verifySeoArtifacts(options={}) {
         llmsFullTxt,
         llmsTxt,
         releaseNotesRoot,
+        robotsTxt              = null,
         root                   = process.cwd(),
         seoJson,
         sitemapArchiveName     = 'sitemap-archive.xml',
@@ -261,59 +439,31 @@ export async function verifySeoArtifacts(options={}) {
     }
 
     const normalizedBaseUrl = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+    const throwIfInvalid    = errors => {
+        if (errors.length > 0) {
+            throw new Error(errors[0]);
+        }
+    };
+
+    if (robotsTxt !== null && robotsTxt !== undefined) {
+        throwIfInvalid(validateRobotsTxt(robotsTxt, {baseUrl: normalizedBaseUrl}));
+    }
 
     // 1. Sitemap index & child <urlset> partitioning + duplicate checks
-    if (typeof sitemapIndexXml !== 'string' || !sitemapIndexXml.includes('<sitemapindex')) {
-        throw new Error('sitemap.xml must be a valid <sitemapindex> document.');
-    }
+    throwIfInvalid(validateSitemapIndexXml(sitemapIndexXml, {
+        baseUrl: normalizedBaseUrl,
+        sitemapArchiveName,
+        sitemapCoreName,
+        sitemapDiscussionsName
+    }));
+    throwIfInvalid(validateUrlsetXml(sitemapCoreXml,        'sitemap-core.xml',        {requireNonEmpty: true}));
+    throwIfInvalid(validateUrlsetXml(sitemapDiscussionsXml, 'sitemap-discussions.xml', {requireNonEmpty: false}));
+    throwIfInvalid(validateUrlsetXml(sitemapArchiveXml,     'sitemap-archive.xml',     {requireNonEmpty: false}));
 
-    const indexLocs              = extractLocUrls(sitemapIndexXml);
-    const expectedCoreUrl        = new URL(sitemapCoreName, normalizedBaseUrl).toString();
-    const expectedDiscussionsUrl = new URL(sitemapDiscussionsName, normalizedBaseUrl).toString();
-    const forbiddenArchiveUrl    = new URL(sitemapArchiveName, normalizedBaseUrl).toString();
-
-    assertNoDuplicateLocs(indexLocs, 'sitemap.xml');
-
-    if (indexLocs.includes(forbiddenArchiveUrl) || sitemapIndexXml.includes(sitemapArchiveName)) {
-        throw new Error(`sitemap.xml must not reference noindex archive sitemap "${forbiddenArchiveUrl}".`);
-    }
-
-    if (/\/news\/(?:tickets|pulls)\//.test(sitemapIndexXml)) {
-        throw new Error('sitemap.xml must not advertise /news/tickets/* or /news/pulls/* routes.');
-    }
-
-    if (!indexLocs.includes(expectedCoreUrl)) {
-        throw new Error(`sitemap.xml is missing core child sitemap <loc> "${expectedCoreUrl}".`);
-    }
-
-    if (!indexLocs.includes(expectedDiscussionsUrl)) {
-        throw new Error(`sitemap.xml is missing discussions child sitemap <loc> "${expectedDiscussionsUrl}".`);
-    }
-
-    if (typeof sitemapCoreXml !== 'string' || !sitemapCoreXml.includes('<urlset')) {
-        throw new Error('sitemap-core.xml must be a valid <urlset> document.');
-    }
-
-    if (typeof sitemapDiscussionsXml !== 'string' || !sitemapDiscussionsXml.includes('<urlset')) {
-        throw new Error('sitemap-discussions.xml must be a valid <urlset> document.');
-    }
-
-    if (typeof sitemapArchiveXml !== 'string' || !sitemapArchiveXml.includes('<urlset')) {
-        throw new Error('sitemap-archive.xml must be a valid <urlset> document.');
-    }
-
-    const coreUrlEntries  = extractUrlEntries(sitemapCoreXml);
-    const coreLocs        = extractLocUrls(sitemapCoreXml);
-    const discussionLocs  = extractLocUrls(sitemapDiscussionsXml);
-    const archiveLocs     = extractLocUrls(sitemapArchiveXml);
-
-    if (coreLocs.length === 0) {
-        throw new Error('sitemap-core.xml must contain at least one <loc> entry.');
-    }
-
-    assertNoDuplicateLocs(coreLocs, 'sitemap-core.xml');
-    assertNoDuplicateLocs(discussionLocs, 'sitemap-discussions.xml');
-    assertNoDuplicateLocs(archiveLocs, 'sitemap-archive.xml');
+    const coreUrlEntries = extractUrlEntries(sitemapCoreXml);
+    const coreLocs       = extractLocUrls(sitemapCoreXml);
+    const discussionLocs = extractLocUrls(sitemapDiscussionsXml);
+    const archiveLocs    = extractLocUrls(sitemapArchiveXml);
 
     const coreLocSet       = new Set(coreLocs);
     const discussionLocSet = new Set(discussionLocs);
@@ -382,26 +532,10 @@ export async function verifySeoArtifacts(options={}) {
     }
 
     // 2. Curated llms.txt & llms-full.txt invariants
-    if (typeof llmsTxt !== 'string' || llmsTxt.trim().length === 0) {
-        throw new Error('llms.txt must be a non-empty string.');
-    }
+    throwIfInvalid(validateLlmsTxtContent(llmsTxt));
 
     if (typeof llmsFullTxt !== 'string' || llmsFullTxt.trim().length === 0) {
         throw new Error('llms-full.txt must be a non-empty string.');
-    }
-
-    if (RAW_ARCHIVE_PATTERN.test(llmsTxt)) {
-        throw new Error('llms.txt must not contain ticket, pull-request, or discussion archive URLs.');
-    }
-
-    for (const heading of ARCHIVE_HEADINGS) {
-        if (llmsTxt.includes(heading)) {
-            throw new Error(`llms.txt must not contain archive section "${heading}".`);
-        }
-    }
-
-    if (llmsTxt.includes(': Update](')) {
-        throw new Error('llms.txt contains placeholder ": Update" release title in Latest Updates.');
     }
 
     // 3. seo.json coverage, lastmod format/emission, robots noindex pruning, release window, learn & blog parity
@@ -675,6 +809,7 @@ async function runCli() {
     const root             = process.cwd();
     const baseUrl          = opts.baseUrl || 'https://neomjs.com';
     const releaseNotesRoot = opts.releaseNotes ? path.resolve(opts.releaseNotes) : getEngineReleaseNotesRoot(root);
+    const robotsTxtPath    = path.resolve(root, 'apps/portal/robots.txt');
     const seoJsonPath      = path.resolve(root, 'apps/portal/resources/data/seo.json');
     const tempWorkDir      = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-seo-verify-cli-'));
     const corpusRoot       = opts.corpusRoot ? path.resolve(opts.corpusRoot) : path.join(tempWorkDir, 'corpus');
@@ -684,7 +819,10 @@ async function runCli() {
         await fs.ensureDir(corpusRoot);
         await createReleaseIndex({outputFile: tempReleasesPath, releaseNotesRoot});
 
-        const diskSeoJson     = await fs.readJSON(seoJsonPath);
+        const [diskSeoJson, robotsTxt] = await Promise.all([
+            fs.readJSON(seoJsonPath),
+            fs.readFile(robotsTxtPath, 'utf-8')
+        ]);
         const expectedSeoJson = await getSeoJson({releaseNotesRoot, root, seoJsonPath});
 
         if (JSON.stringify(diskSeoJson) !== JSON.stringify(expectedSeoJson)) {
@@ -734,6 +872,7 @@ async function runCli() {
             llmsFullTxt,
             llmsTxt,
             releaseNotesRoot,
+            robotsTxt,
             root,
             seoJson: diskSeoJson,
             sitemapArchiveXml,
