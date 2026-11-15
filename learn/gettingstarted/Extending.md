@@ -113,3 +113,6 @@ There are several use-cases for creating your own classes:
 - To isolate complexity
 - To add events or methods to the new class
 - To test the component independently
+
+The reference for the `static config` block, reactive configs and the `beforeSet`/`afterSet` hooks a subclass can
+add is [Extending Neo Classes](../guides/fundamentals/ExtendingNeoClasses.md).

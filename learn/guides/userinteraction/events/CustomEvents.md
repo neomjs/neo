@@ -1,6 +1,8 @@
 # Custom Events
 
 As you read in the <a href="#/learn/gettingstarted/Events">Getting Started > Events</a> topic, components, stores, and many other objects fire events.
+This page is about those events, which Neo instances fire themselves. Events the browser fires on DOM nodes, such as
+`click` or `keydown`, are a separate mechanism and have their own page, [DOM Events](DomEvents.md).
 
 ```javascript live-preview
 import Container from '../container/Base.mjs';
