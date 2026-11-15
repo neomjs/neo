@@ -14,17 +14,42 @@ import                    '../../../../../src/layout/Grid.mjs';
  */
 class AudienceDoors extends BaseContainer {
     /**
-     * Resolves the standalone 100,000-row grid example URL for the active Neo runtime environment.
+     * @summary Resolves the standalone 100,000-row grid example URL for browser and Node SSR runtimes.
      * @param {Object} [neoConfig=Neo.config]
      * @returns {String}
      */
     static resolveBigDataExampleUrl(neoConfig=Neo.config) {
+        const rawBasePath = neoConfig?.basePath;
+
+        if (!rawBasePath || rawBasePath.startsWith('node_modules/')) {
+            return '/examples/grid/bigData/index.html'
+        }
+
         const
-            basePath    = neoConfig?.basePath || '../../',
             environment = neoConfig?.environment,
             envPrefix   = environment && environment !== 'development' ? `${environment}/` : '';
 
-        return `${basePath}${envPrefix}examples/grid/bigData/index.html`
+        return `${rawBasePath}${envPrefix}examples/grid/bigData/index.html`
+    }
+
+    /**
+     * @summary Resolves an in-page Home stage anchor URL for browser and SSR documents.
+     * @param {String|null} targetId
+     * @param {Object} [neoConfig=Neo.config]
+     * @returns {String|null}
+     */
+    static resolveSectionAnchorUrl(targetId, neoConfig=Neo.config) {
+        if (!targetId) {
+            return null
+        }
+
+        const rawBasePath = neoConfig?.basePath;
+
+        if (!rawBasePath || rawBasePath.startsWith('node_modules/')) {
+            return `/#${targetId}`
+        }
+
+        return `#${targetId}`
     }
 
     static config = {
@@ -120,12 +145,13 @@ class AudienceDoors extends BaseContainer {
                         }
                     }, {
                         module   : Button,
-                        cls      : ['portal-door-cta'],
+                        cls      : ['portal-door-cta', 'portal-door-scroll-cta'],
                         flex     : 'none',
                         handler  : 'up.onScrollToBodyEntry',
                         reference: 'door-build-cta',
                         text     : 'Explore the Engine ↓',
-                        ui       : 'secondary'
+                        ui       : 'secondary',
+                        urlTarget: ''
                     }]
                 }, {
                     ntype    : 'container',
@@ -168,12 +194,13 @@ class AudienceDoors extends BaseContainer {
                         }
                     }, {
                         module   : Button,
-                        cls      : ['portal-door-cta'],
+                        cls      : ['portal-door-cta', 'portal-door-scroll-cta'],
                         flex     : 'none',
                         handler  : 'up.onScrollToAgentOs',
                         reference: 'door-agents-cta',
                         text     : 'Explore the Agent OS ↓',
-                        ui       : 'secondary'
+                        ui       : 'secondary',
+                        urlTarget: ''
                     }]
                 }, {
                     ntype    : 'container',
@@ -229,11 +256,28 @@ class AudienceDoors extends BaseContainer {
     }
 
     /**
-     * Syncs the runtime-resolved example proof link with the active Neo.config on construction.
-     * @param {Object} config
+     * @summary Registers main-thread click default prevention for in-page scroll CTAs so browser smooth scrolling preserves the active route hash.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
      */
-    construct(config) {
-        super.construct(config);
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
+        if (value) {
+            Neo.main?.DomEvents?.registerPreventDefaultTargets?.({
+                cls     : 'portal-door-scroll-cta',
+                name    : 'click',
+                windowId: this.windowId
+            })
+        }
+    }
+
+    /**
+     * @summary Syncs the runtime-resolved example proof link with the active Neo.config once child items exist.
+     */
+    onConstructed() {
+        super.onConstructed();
 
         const
             buildBody = this.getItem('door-build-body'),
@@ -256,6 +300,26 @@ class AudienceDoors extends BaseContainer {
      */
     onScrollToBodyEntry() {
         this.up('portal-home-maincontainer')?.scrollToPart('home-body-entry')
+    }
+
+    /**
+     * @summary Binds Door 1 and Door 2 CTA anchor hrefs to the live Home stage element IDs.
+     * @param {Neo.container.Base|null} [mainContainer=this.up('portal-home-maincontainer')]
+     */
+    syncSectionTargets(mainContainer=this.up('portal-home-maincontainer')) {
+        const
+            bodyEntryId = mainContainer?.getItem('home-body-entry')?.id,
+            agentOsId   = mainContainer?.getItem('home-agent-os')?.id,
+            buildCta    = this.getItem('door-build-cta'),
+            agentsCta   = this.getItem('door-agents-cta');
+
+        if (buildCta && bodyEntryId) {
+            buildCta.url = AudienceDoors.resolveSectionAnchorUrl(bodyEntryId)
+        }
+
+        if (agentsCta && agentOsId) {
+            agentsCta.url = AudienceDoors.resolveSectionAnchorUrl(agentOsId)
+        }
     }
 }
 

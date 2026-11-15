@@ -144,6 +144,22 @@ test.describe('Portal.view.home.parts.AudienceDoors', () => {
             environment: 'dist/production'
         })).toBe('../../../../dist/production/examples/grid/bigData/index.html');
 
+        expect(AudienceDoors.resolveBigDataExampleUrl({
+            basePath   : 'node_modules/neo.mjs/',
+            environment: 'dist/production'
+        })).toBe('/examples/grid/bigData/index.html');
+
+        expect(AudienceDoors.resolveBigDataExampleUrl({})).toBe('/examples/grid/bigData/index.html');
+
+        expect(AudienceDoors.resolveSectionAnchorUrl(null)).toBeNull();
+        expect(AudienceDoors.resolveSectionAnchorUrl('neo-container-4', {
+            basePath: '../../'
+        })).toBe('#neo-container-4');
+        expect(AudienceDoors.resolveSectionAnchorUrl('neo-container-4', {
+            basePath: 'node_modules/neo.mjs/'
+        })).toBe('/#neo-container-4');
+        expect(AudienceDoors.resolveSectionAnchorUrl('neo-container-4', {})).toBe('/#neo-container-4');
+
         const view = Neo.create(AudienceDoors, {appName});
 
         try {
@@ -237,11 +253,20 @@ test.describe('Portal.view.home.parts.AudienceDoors', () => {
         expect(scrollSource).not.toMatch(/items\[\d+\]/);
 
         const
+            preventDefaultCalls  = [],
             scrollCalls          = [],
+            originalBasePath     = Neo.config.basePath,
+            originalDomEvents    = Neo.main.DomEvents,
             originalScrollIntoVw = Neo.main.DomAccess.scrollIntoView;
 
         Neo.main.DomAccess.scrollIntoView = async payload => {
             scrollCalls.push(payload)
+        };
+        Neo.main.DomEvents = {
+            ...originalDomEvents,
+            registerPreventDefaultTargets(payload) {
+                preventDefaultCalls.push(payload)
+            }
         };
 
         const mockMain = Neo.create(MainContainer, {
@@ -257,7 +282,33 @@ test.describe('Portal.view.home.parts.AudienceDoors', () => {
             const
                 doors     = mockMain.getItem('home-audience-doors'),
                 bodyStage = mockMain.getItem('home-body-entry'),
-                osStage   = mockMain.getItem('home-agent-os');
+                osStage   = mockMain.getItem('home-agent-os'),
+                buildCta  = doors.getItem('door-build-cta'),
+                agentsCta = doors.getItem('door-agents-cta');
+
+            expect(buildCta.cls).toContain('portal-door-scroll-cta');
+            expect(agentsCta.cls).toContain('portal-door-scroll-cta');
+            expect(buildCta.vdom.tag).toBe('a');
+            expect(buildCta.vdom.href).toBe(`#${bodyStage.id}`);
+            expect(buildCta.vdom.target).toBeUndefined();
+            expect(agentsCta.vdom.tag).toBe('a');
+            expect(agentsCta.vdom.href).toBe(`#${osStage.id}`);
+            expect(agentsCta.vdom.target).toBeUndefined();
+
+            doors.mounted = true;
+            expect(preventDefaultCalls).toEqual([{
+                cls     : 'portal-door-scroll-cta',
+                name    : 'click',
+                windowId: doors.windowId
+            }]);
+
+            Neo.config.basePath = 'node_modules/neo.mjs/';
+            doors.syncSectionTargets(mockMain);
+
+            expect(buildCta.vdom.href).toBe(`/#${bodyStage.id}`);
+            expect(buildCta.vdom.target).toBeUndefined();
+            expect(agentsCta.vdom.href).toBe(`/#${osStage.id}`);
+            expect(agentsCta.vdom.target).toBeUndefined();
 
             doors.onScrollToBodyEntry();
             doors.onScrollToAgentOs();
@@ -267,6 +318,8 @@ test.describe('Portal.view.home.parts.AudienceDoors', () => {
                 {behavior: 'smooth', block: 'start', id: osStage.id,   windowId: mockMain.windowId}
             ])
         } finally {
+            Neo.config.basePath               = originalBasePath;
+            Neo.main.DomEvents                = originalDomEvents;
             Neo.main.DomAccess.scrollIntoView = originalScrollIntoVw;
             mockMain.destroy()
         }

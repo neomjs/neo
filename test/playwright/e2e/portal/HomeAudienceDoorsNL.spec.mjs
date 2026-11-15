@@ -119,22 +119,38 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
         const bigDataResponse = await page.request.get(bigDataUrl);
         expect(bigDataResponse.status()).toBe(200);
 
-        // Scroll AudienceDoors into view and click Door 1 CTA -> Body entry stage
+        const buildCtaEl  = page.locator(`#${doorBuildCta.id}`);
+        const agentsCtaEl = page.locator(`#${doorAgentsCta.id}`);
+
+        await expect(buildCtaEl).toHaveJSProperty('tagName', 'A');
+        await expect(agentsCtaEl).toHaveJSProperty('tagName', 'A');
+        await expect(buildCtaEl).toHaveClass(/portal-door-scroll-cta/);
+        await expect(agentsCtaEl).toHaveClass(/portal-door-scroll-cta/);
+        await expect(buildCtaEl).toHaveAttribute('href', `#${bodyEntry.id}`);
+        await expect(agentsCtaEl).toHaveAttribute('href', `#${agentOs.id}`);
+        expect(await buildCtaEl.getAttribute('target')).toBeNull();
+        expect(await agentsCtaEl.getAttribute('target')).toBeNull();
+        await expect(page.locator(`#${bodyEntry.id}`)).toHaveClass(/portal-home-parts-colors/);
+        await expect(page.locator(`#${agentOs.id}`)).toHaveClass(/portal-home-parts-aitoolchain/);
+
+        // Scroll AudienceDoors into view and click Door 1 CTA -> Body entry stage while keeping #/home hash
         await scrollHomeToReference(page, app, home.id, 'home-audience-doors', doors.id);
         const doorsScrollTop = await page.locator(`#${home.id}`).evaluate(el => el.scrollTop);
         expect(doorsScrollTop).toBeGreaterThan(0);
 
-        await page.locator(`#${doorBuildCta.id}`).click();
+        await buildCtaEl.click();
         await expect.poll(async () => {
             return page.locator(`#${home.id}`).evaluate(el => el.scrollTop)
         }, {timeout: 10000}).toBeGreaterThan(doorsScrollTop + 200);
         await expect(page.locator(`#${bodyEntry.id}`)).toBeInViewport();
+        await expect(page).toHaveURL(/#\/home$/);
 
-        // Return to AudienceDoors and click Door 2 CTA -> Agent OS Brain stage
+        // Return to AudienceDoors and click Door 2 CTA -> Agent OS Brain stage while keeping #/home hash
         await scrollHomeToReference(page, app, home.id, 'home-audience-doors', doors.id);
-        await page.locator(`#${doorAgentsCta.id}`).click();
+        await agentsCtaEl.click();
         await expect(page.locator(`#${agentOs.id}`)).toBeInViewport({timeout: 10000});
         await expect(page.locator(`#${agentOs.id}`).getByRole('heading', {name: 'The Agent OS Brain'})).toBeVisible();
+        await expect(page).toHaveURL(/#\/home$/);
 
         // Return to AudienceDoors and click Door 3 CTA -> What Is Neo.mjs? guide
         await scrollHomeToReference(page, app, home.id, 'home-audience-doors', doors.id);
@@ -212,8 +228,12 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
             const app = await neuralLink.connectToApp('Portal');
             await expect(page.locator('.portal-home-parts-audiencedoors').getByRole('heading', {level: 2})).toHaveText('Who Neo.mjs Is For');
 
-            const doors = await queryOne(app, {reference: 'home-audience-doors'});
+            const doors     = await queryOne(app, {reference: 'home-audience-doors'});
+            const bodyEntry = await queryOne(app, {reference: 'home-body-entry'});
+            const agentOs   = await queryOne(app, {reference: 'home-agent-os'});
             expect(doors?.mounted ?? doors?.properties?.mounted).toBe(true);
+            expect(bodyEntry?.id).toBeTruthy();
+            expect(agentOs?.id).toBeTruthy();
 
             const snapshot = await page.locator('.neo-viewport').evaluate(el => ({
                 html: el.innerHTML,
@@ -237,6 +257,10 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
             expect(studyIdx).toBeGreaterThan(agentsIdx);
 
             expect(snapshot.html).toContain('examples/grid/bigData/index.html');
+            expect(snapshot.html).toContain(`href="#${bodyEntry.id}"`);
+            expect(snapshot.html).toContain(`id="${bodyEntry.id}"`);
+            expect(snapshot.html).toContain(`href="#${agentOs.id}"`);
+            expect(snapshot.html).toContain(`id="${agentOs.id}"`);
             expect(snapshot.html).toContain('#/news/pulls/15123');
             expect(snapshot.html).toContain('#/learn/benefits/Introduction')
         }

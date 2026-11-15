@@ -104,6 +104,14 @@ class MainContainer extends Container {
     }
 
     /**
+     * @summary Syncs AudienceDoors section anchor hrefs once sibling Home stage instances exist.
+     */
+    onConstructed() {
+        super.onConstructed();
+        this.getItem('home-audience-doors')?.syncSectionTargets(this)
+    }
+
+    /**
      * @summary Smoothly scrolls the home container to a referenced landing-page stage.
      * @param {String} reference
      * @returns {Promise<any>|undefined}
