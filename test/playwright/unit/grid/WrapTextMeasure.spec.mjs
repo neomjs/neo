@@ -407,7 +407,8 @@ test.describe('Grid wrapText measurement', () => {
 
         stale = store.items.slice(40, 70).map(record => view.getRecordId(record));
 
-        expect(applied.length).toBeGreaterThan(0);
+        // The rows around 150 are measured, by a pass of their own
+        await expect.poll(() => applied).toContain(view.getRecordId(store.get(150)));
         expect(applied.filter(id => stale.includes(id))).toEqual([])
     });
 
