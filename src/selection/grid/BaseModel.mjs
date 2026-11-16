@@ -169,7 +169,7 @@ class BaseModel extends Model {
      * @param {Boolean} [silent=false] - If true, mutates the VDOM but suppresses the `row.update()` call.
      */
     updateRows(recordIds, silent=false) {
-        if (!recordIds || recordIds.length === 0) return;
+        if (recordIds == null || recordIds.length === 0) return;
 
         if (!Array.isArray(recordIds)) {
             recordIds = [recordIds]
@@ -426,7 +426,7 @@ class BaseModel extends Model {
      * @returns {Neo.data.Record|null}
      */
     getRowRecord(id) {
-        if (!id) return null;
+        if (id == null) return null;
 
         let me    = this,
             {view} = me,

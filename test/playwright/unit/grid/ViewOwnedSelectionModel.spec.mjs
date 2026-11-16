@@ -623,3 +623,78 @@ test.describe('Grid selection: a repaint is typed by its caller, not parsed from
         expect(paintedRows(grid), 'every body paints the row').toEqual([['r__1'], ['r__1'], ['r__1']])
     })
 });
+
+test.describe('Grid selection: a record keyed 0 is a record, not no record (#21133)', () => {
+    let grid, store;
+
+    // puts the record keyed 0 on the second row, so navigation onto and away from it is observable
+    const zeroKey = i => [1, 0, 2, 3, 4][i];
+
+    test.afterEach(async () => {
+        await grid?.timeout(20);
+        grid?.destroy();
+        store?.destroy();
+        grid = store = null
+    });
+
+    test('selectRow(0) paints the row keyed 0 in every body, and getRowRecord resolves only real ids', async () => {
+        store = createStore([], zeroKey);
+        grid  = await createGrid(store);
+
+        await renderRows(grid);
+
+        const model = grid.view.selectionModel;
+
+        model.selectRow(0);
+        await grid.timeout(20);
+
+        expect(paintedRows(grid), 'every body paints the row keyed 0').toEqual([[0], [0], [0]]);
+        expect(model.getRowRecord(0), 'key 0 resolves its record').toBe(store.get(0));
+        expect(model.getRowRecord(null), 'null is still no record').toBe(null);
+        expect(model.getRowRecord(undefined), 'undefined is still no record').toBe(null)
+    });
+
+    test('RowModel: ArrowDown moves off the row keyed 0, and ArrowUp lands back on it', async () => {
+        store = createStore([], zeroKey);
+        grid  = await createGrid(store, {viewConfig: {selectionModel: {module: RowModel}}});
+
+        await renderRows(grid);
+
+        const model = grid.view.selectionModel;
+
+        model.selectRow(0);
+        await grid.timeout(20);
+
+        model.onNavKeyRow(1); // ArrowDown: 0 -> 2
+        await grid.timeout(20);
+
+        expect(model.selectedRows, 'moves to the next record').toEqual([2]);
+
+        model.onNavKeyRow(-1); // ArrowUp: 2 -> 0
+        await grid.timeout(20);
+
+        expect(model.selectedRows, 'lands back on the row keyed 0').toEqual([0])
+    });
+
+    test('CellRowModel: ArrowDown moves off the row keyed 0, and ArrowUp lands back on it', async () => {
+        store = createStore([], zeroKey);
+        grid  = await createGrid(store, {viewConfig: {selectionModel: {module: CellRowModel}}});
+
+        await renderRows(grid);
+
+        const model = grid.view.selectionModel;
+
+        model.selectRow(0);
+        await grid.timeout(20);
+
+        model.onNavKeyRow(1); // ArrowDown: 0 -> 2
+        await grid.timeout(20);
+
+        expect(model.selectedRows, 'moves to the next record').toEqual([2]);
+
+        model.onNavKeyRow(-1); // ArrowUp: 2 -> 0
+        await grid.timeout(20);
+
+        expect(model.selectedRows, 'lands back on the row keyed 0').toEqual([0])
+    })
+});
