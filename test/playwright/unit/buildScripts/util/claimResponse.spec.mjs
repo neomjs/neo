@@ -1921,14 +1921,17 @@ test.describe('buildScripts/util/claimResponse', () => {
     });
 
     test.describe('assigned claimant withdrawal recognition, unassignment, and workflow guards', () => {
-        test('isWithdrawal separates actual releases and combined claim words from scheduled deferrals', () => {
+        test('isWithdrawal separates actual releases and combined claim words from negations and scheduled deferrals', () => {
             const expectedReleases = [
                 'Unclaiming this: I closed #21058 (see the note there). The issue is free for anyone; the branch on that PR has a verified fix plus tests if useful.',
                 "I'm withdrawing my claim.",
                 'Please unassign me.',
                 "I'm stepping back from this one.",
                 'Consider it available.',
-                "Sorry, I can't work on this anymore."
+                "Sorry, I can't work on this anymore.",
+                'Giving up the claim.',
+                "I'm no longer able to work on this.",
+                "I wasn't stepping back earlier, please unassign me now."
             ];
             for (const text of expectedReleases) {
                 expect(isWithdrawal(text), text).toBe(true)
@@ -1938,7 +1941,15 @@ test.describe('buildScripts/util/claimResponse', () => {
                 "I can't finish this before Friday, the PR comes Monday.",
                 'Still working on this.',
                 "Please unassign me — wait, I'll take this one after all.",
-                'Consider it available\n/claim'
+                'Consider it available\n/claim',
+                'I am not withdrawing my claim. The fix is still underway.',
+                'I am not withdrawing my claim.',
+                "I'm not dropping my claim.",
+                'not giving up the claim',
+                'I am no longer stepping back from this.',
+                'Never unclaiming this.',
+                "Please don't unassign me.",
+                "I'm not going to work on this tonight, I'll push tomorrow."
             ];
             for (const text of nonReleases) {
                 expect(isWithdrawal(text), text).toBe(false)
@@ -2110,22 +2121,24 @@ test.describe('buildScripts/util/claimResponse', () => {
                 prevWorkspace = process.env.GITHUB_WORKSPACE;
 
             const runWithdrawalHarness = async ({
-                assignees    = [{id: 7101, login: 'outside-dev'}],
-                association  = 'NONE',
-                commentsSeed = [],
-                eventsSeed   = [],
-                labels       = [{name: 'good first issue'}],
-                login        = 'outside-dev',
-                openPrs      = [],
-                permission   = 'read',
-                removeImpl   = null,
-                state        = 'open',
-                text         = 'Please unassign me.'
+                assignees     = [{id: 7101, login: 'outside-dev'}],
+                association   = 'NONE',
+                commentEntry  = null,
+                commentsSeed  = [],
+                eventsSeed    = [],
+                labels        = [{name: 'good first issue'}],
+                laterComments = [],
+                login         = 'outside-dev',
+                openPrs       = [],
+                permission    = 'read',
+                removeImpl    = null,
+                state         = 'open',
+                text          = 'Please unassign me.'
             } = {}) => {
                 const
-                    targetComment = comment(login, '2026-11-16T04:27:50Z', text, {association, id: 7101}),
+                    targetComment = commentEntry || comment(login, '2026-11-16T04:27:50Z', text, {association, id: 7101}),
                     issue         = {assignees: assignees.map(a => ({...a})), labels, number: 19143, state},
-                    comments      = [...commentsSeed, targetComment],
+                    comments      = [...commentsSeed, targetComment, ...laterComments],
                     events        = [...eventsSeed],
                     created       = [],
                     unassigned    = [],
@@ -2240,6 +2253,94 @@ test.describe('buildScripts/util/claimResponse', () => {
                 expect(untouched.unassigned).toEqual([]);
                 expect(untouched.created).toEqual([])
             }
+
+            // 4. Negated continuation statements never unassign or trigger withdrawal replies
+            const negatedStatement = comment('outside-dev', '2026-11-16T10:00:00Z', 'I am not withdrawing my claim. The fix is still underway.', {id: 7101});
+            expect(decideWithdrawal({
+                comment : negatedStatement,
+                comments: [claim1, negatedStatement],
+                events  : [assigned1],
+                issue   : gfiIssue({assignees: [{id: 7101, login: 'outside-dev'}], state: 'open'}),
+                repoUrl : REPO_URL
+            })).toBeNull();
+
+            const negatedRun = await runWithdrawalHarness({
+                commentEntry: negatedStatement,
+                commentsSeed: [claim1],
+                eventsSeed  : [assigned1]
+            });
+            expect(negatedRun.unassigned).toEqual([]);
+            expect(negatedRun.created).toEqual([]);
+            expect(holders({
+                claimant  : 'next-dev',
+                comment   : comment('next-dev', '2026-11-16T10:01:00Z', '/claim', {id: 7201}),
+                comments  : [claim1, negatedStatement],
+                events    : [assigned1],
+                issue     : gfiIssue({assignees: [{id: 7101, login: 'outside-dev'}]}),
+                repository: 'neomjs/neo'
+            })).toEqual([{id: 7101, kind: 'assignee', login: 'outside-dev'}]);
+
+            // 5. Delayed /unclaim superseded by a later claim, assignment, or negated continuation does nothing
+            const
+                delayedUnclaim = comment('outside-dev', '2026-11-16T10:00:00Z', '/unclaim', {id: 7101}),
+                laterClaim     = comment('outside-dev', '2026-11-16T10:01:00Z', '/claim', {id: 7101}),
+                laterAssigned  = {actor: {login: 'github-actions[bot]', type: 'Bot'}, assignee: {login: 'outside-dev'}, created_at: '2026-11-16T10:02:00Z', event: 'assigned'},
+                assignedOpen   = gfiIssue({assignees: [{id: 7101, login: 'outside-dev'}], state: 'open'});
+
+            expect(decideWithdrawal({
+                comment : delayedUnclaim,
+                comments: [claim1, delayedUnclaim, laterClaim],
+                events  : [assigned1, laterAssigned],
+                issue   : assignedOpen,
+                repoUrl : REPO_URL
+            })).toBeNull();
+            expect(decideWithdrawal({
+                comment : delayedUnclaim,
+                comments: [claim1, delayedUnclaim, laterClaim],
+                events  : [assigned1],
+                issue   : assignedOpen,
+                repoUrl : REPO_URL
+            })).toBeNull();
+            expect(decideWithdrawal({
+                comment : delayedUnclaim,
+                comments: [claim1, delayedUnclaim],
+                events  : [assigned1, laterAssigned],
+                issue   : assignedOpen,
+                repoUrl : REPO_URL
+            })).toBeNull();
+            expect(decideWithdrawal({
+                comment : delayedUnclaim,
+                comments: [claim1, delayedUnclaim, comment('outside-dev', '2026-11-16T10:01:00Z', 'Actually I am not withdrawing my claim. The fix is still underway.', {id: 7101})],
+                events  : [assigned1],
+                issue   : assignedOpen,
+                repoUrl : REPO_URL
+            })).toBeNull();
+
+            const supersededRun = await runWithdrawalHarness({
+                commentEntry : delayedUnclaim,
+                commentsSeed : [claim1],
+                eventsSeed   : [assigned1, laterAssigned],
+                laterComments: [laterClaim]
+            });
+            expect(supersededRun.unassigned).toEqual([]);
+            expect(supersededRun.created).toEqual([]);
+
+            // Positive control: unclaim with no newer activity releases cleanly
+            expect(decideWithdrawal({
+                comment : delayedUnclaim,
+                comments: [claim1, delayedUnclaim],
+                events  : [assigned1],
+                issue   : assignedOpen,
+                repoUrl : REPO_URL
+            })?.unassign).toBe('outside-dev');
+
+            const plainControlRun = await runWithdrawalHarness({
+                commentEntry: delayedUnclaim,
+                commentsSeed: [claim1],
+                eventsSeed  : [assigned1]
+            });
+            expect(plainControlRun.unassigned).toEqual([{assignees: ['outside-dev'], issue_number: 19143, owner: 'neomjs', repo: 'neo'}]);
+            expect(plainControlRun.created).toHaveLength(1)
         });
     });
 });

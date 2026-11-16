@@ -74,20 +74,21 @@ const
     CAPACITY_REFUSAL_START            = Object.freeze(["you're already assigned to ", 'you already hold ']),
     CLAIM_TARGET                      = String.raw`(this|it|#\d+|the\s[^\n]{1,80}?\brow\b)`,
     APOSTROPHE_LOOKALIKES             = /[\u{2018}\u{2019}\u{2BC}\u{B4}]/gu,
+    SLASH_WITHDRAWAL_PATTERN          = /^\s*\/(unassign|unclaim)\b/im,
     UNCONDITIONAL_WITHDRAWAL_PATTERNS = Object.freeze([
-        /^\s*\/(unassign|unclaim)\b/im,
-        /\bunclaim(?:ing)?\b/i,
-        /\b(please\s+)?unassign\s+me\b/i,
-        /\b(?:withdraw(?:ing|n)?|withdrew)\s+(?:(?:my|this)\s+claim|from\s+(?:this|it|#\d+))\b/i,
-        /\b(?:drop(?:ping)?|releas(?:e|ing)|giv(?:e|ing)\s+(?:back|up))\s+(?:my\s+)?claim\b/i,
-        /\bstepping\s+(back|away)\b/i,
-        /\bconsider\s+(?:it|this)\s+available\b/i,
-        /\b(?:issue|this|it)\s+is\s+(?:now\s+)?(?:free|available)\s+for\s+(?:anyone|others|another)\b/i,
-        /\b(?:no\s+longer|not)\s+(?:able|going|planning)\s+to\s+work\b/i
+        /\bunclaim(?:ing)?\b/gi,
+        /\b(?:please\s+)?unassign\s+me\b/gi,
+        /\b(?:withdraw(?:ing|n)?|withdrew)\s+(?:(?:my|this|the)\s+claim|from\s+(?:this|it|#\d+))\b/gi,
+        /\b(?:drop(?:ping)?|releas(?:e|ing)|giv(?:e|ing)\s+(?:back|up))\s+(?:(?:my|this|the)\s+)?claim\b/gi,
+        /\bstepping\s+(?:back|away)\b/gi,
+        /\bconsider\s+(?:it|this)\s+available\b/gi,
+        /\b(?:issue|this|it)\s+is\s+(?:now\s+)?(?:free|available)\s+for\s+(?:anyone|others|another)\b/gi
     ]),
-    MODAL_WITHDRAWAL_PATTERN = /\b(?:can'?t|cannot|won'?t|will\s+not)\s+(?:be\s+able\s+to\s+)?(?:work\s+on|take|continue|finish|proceed)\b([^.!?\n]*)/gi,
-    DEFERRAL_CLAUSE_PATTERN  = /\b(?:before|by|until|till|today|tonight|tomorrow|this\s+(?:morning|afternoon|evening|week|weekend)|right\s+now|yet)\b/i,
-    DELIVERY_PROMISE_PATTERN = /\b(?:(?:the\s+|a\s+)?(?:pr|pull\s+request|fix|patch)\s+(?:comes|is\s+coming|will\s+be)|(?:i'?ll|i\s+will)\s+(?:push|open|submit|send|finish))\b/i,
+    // Negation words immediately governing a withdrawal phrase (within the same clause) keep the hold intact.
+    NEGATED_WITHDRAWAL_PREFIX = /(?:[a-z]+n't\b|\b(?:cannot|not|never|no\s+longer|without|instead\s+of|rather\s+than|far\s+from|no\s+(?:intention|plan|plans|need|reason)\s+(?:to|of)))(?:\s+(?:actually|currently|really|still|yet|even|ever|at\s+all|please|be|being|going\s+to(?:\s+be)?|planning\s+(?:to(?:\s+be)?|on)|trying\s+to|about\s+to|want(?:ing)?\s+to|intend(?:ing)?\s+to))*\s*$/i,
+    MODAL_WITHDRAWAL_PATTERN  = /\b(?:can'?t|cannot|won'?t|will\s+not|(?:no\s+longer|not)\s+(?:able|going|planning)\s+to)\s+(?:be\s+able\s+to\s+)?(?:work(?:\s+on)?|take|continue|finish|proceed)\b([^.!?\n]*)/gi,
+    DEFERRAL_CLAUSE_PATTERN   = /\b(?:before|by|until|till|today|tonight|tomorrow|this\s+(?:morning|afternoon|evening|week|weekend)|right\s+now|yet)\b/i,
+    CONTINUATION_PATTERN      = /\b(?:(?:the\s+|a\s+)?(?:pr|pull\s+request|fix|patch|work|branch)\s+(?:comes|is\s+coming|will\s+be\s+(?:up|ready|open|opened|pushed|submitted|sent|soon|tomorrow|tonight|today|this\b|on\b|by\b)|is\s+(?:still\s+)?(?:underway|in\s+progress|ongoing|nearly\s+ready|almost\s+ready))|(?:i'?ll|i\s+will)\s+(?:push|open|submit|send|finish)|still\s+(?:working\s+on|underway|in\s+progress|on\s+it))\b/i,
     CLAIM_PATTERNS         = Object.freeze([
         /\b(i'?d|i would|i'?m|i am|i)\s+(really\s+|also\s+)?(like|love|want|wish|hope|happy|keen|eager)\s+(to\s+)?(work|take|claim|pick|handle|tackle|contribute|fix|give)\b/i,
         /\binterested\s+in\s+(working|taking|claiming|fixing|contributing|picking)\b/i,
@@ -129,30 +130,40 @@ export function isClaim(body) {
 }
 
 /**
+ * @summary Evaluates prose withdrawal patterns and separates unnegated releases from clause-negated denials.
+ * @param {String} text Stripped comment text from {@link claimText}
+ * @returns {{negated: Boolean, unnegated: Boolean}}
+ * @private
+ */
+function scanProseWithdrawals(text) {
+    let negated = false, unnegated = false;
+
+    for (const pattern of UNCONDITIONAL_WITHDRAWAL_PATTERNS) {
+        for (const match of text.matchAll(pattern)) {
+            if (NEGATED_WITHDRAWAL_PREFIX.test(text.slice(0, match.index))) negated = true;
+            else unnegated = true;
+        }
+    }
+
+    return {negated, unnegated}
+}
+
+/**
  * Whether a comment gives a claim back ("I'm stepping back from this one"), which frees the issue for the next person.
- * Scheduled deferrals that still signal ongoing work (or a comment that also claims the issue) return `false`.
+ * Negated statements ("I am not withdrawing my claim"), active-work continuation notes, scheduled deferrals that still
+ * signal ongoing work, and comments that also claim the issue return `false`.
  * @param {String} body
  * @returns {Boolean}
  */
 export function isWithdrawal(body) {
     const text = claimText(body);
 
-    if (CLAIM_PATTERNS.some(pattern => pattern.test(text))) {
-        return false
-    }
-
-    if (UNCONDITIONAL_WITHDRAWAL_PATTERNS.some(pattern => pattern.test(text))) {
-        return true
-    }
-
-    if (DELIVERY_PROMISE_PATTERN.test(text)) {
-        return false
-    }
+    if (CLAIM_PATTERNS.some(pattern => pattern.test(text))) return false;
+    if (SLASH_WITHDRAWAL_PATTERN.test(text) || scanProseWithdrawals(text).unnegated) return true;
+    if (CONTINUATION_PATTERN.test(text)) return false;
 
     for (const match of text.matchAll(MODAL_WITHDRAWAL_PATTERN)) {
-        if (!DEFERRAL_CLAUSE_PATTERN.test(match[1] || '')) {
-            return true
-        }
+        if (!DEFERRAL_CLAUSE_PATTERN.test(match[1] || '')) return true;
     }
 
     return false
@@ -480,37 +491,20 @@ export function staleAssignees({comment, comments = [], events = [], issue, open
     for (const assignee of issue?.assignees || []) {
         const login = String(assignee.login).toLowerCase();
 
-        if (!isOutsideAssignee(login, {comments: before, issue})) {
-            continue
-        }
-
-        if (openPullRequests.some(pr =>
-            String(pr.repository).toLowerCase() === repoLower &&
-            String(pr.author).toLowerCase() === login
-        )) {
-            continue
-        }
-
+        if (!isOutsideAssignee(login, {comments: before, issue})) continue;
+        if (openPullRequests.some(pr => String(pr.repository).toLowerCase() === repoLower && String(pr.author).toLowerCase() === login)) continue;
         if (isWithdrawnOutsideAssignee(login, {comments: before, events: eventsBefore, issue})) {
             stale.push(assignee.login);
             continue
         }
 
         const timestamps = [
-            ...before
-                .filter(other => String(other.user?.login).toLowerCase() === login && !isWithdrawal(other.body))
-                .map(other => new Date(other.created_at).getTime()),
-            ...eventsBefore
-                .filter(ev => ev.event === 'assigned' && String(ev.assignee?.login).toLowerCase() === login)
-                .map(ev => new Date(ev.created_at).getTime()),
-            ...(String(issue?.user?.login).toLowerCase() === login && issue?.created_at
-                ? [new Date(issue.created_at).getTime()]
-                : [])
+            ...before.filter(other => String(other.user?.login).toLowerCase() === login && !isWithdrawal(other.body)).map(other => new Date(other.created_at).getTime()),
+            ...eventsBefore.filter(ev => ev.event === 'assigned' && String(ev.assignee?.login).toLowerCase() === login).map(ev => new Date(ev.created_at).getTime()),
+            ...(String(issue?.user?.login).toLowerCase() === login && issue?.created_at ? [new Date(issue.created_at).getTime()] : [])
         ].filter(Number.isFinite);
 
-        if (timestamps.length > 0 && at - Math.max(...timestamps) > CLAIM_WINDOW_DAYS * DAY_MS) {
-            stale.push(assignee.login)
-        }
+        if (timestamps.length > 0 && at - Math.max(...timestamps) > CLAIM_WINDOW_DAYS * DAY_MS) stale.push(assignee.login);
     }
 
     return stale
@@ -547,16 +541,10 @@ export function holders({claimant, comment, comments = [], events = [], issue, o
     for (const assignee of issue?.assignees || []) {
         const login = assignee.login.toLowerCase();
 
-        if (lapsed.has(login) || isWithdrawnOutsideAssignee(login, {comments: before, events: eventsBefore, issue})) {
-            continue
-        }
+        if (lapsed.has(login) || isWithdrawnOutsideAssignee(login, {comments: before, events: eventsBefore, issue})) continue;
 
         named.add(login);
-        result.push({
-            kind : 'assignee',
-            login: assignee.login,
-            ...(Number.isSafeInteger(assignee.id) && assignee.id > 0 ? {id: assignee.id} : {})
-        })
+        result.push({kind: 'assignee', login: assignee.login, ...(isPositiveInt(assignee.id) ? {id: assignee.id} : {})})
     }
 
     for (const pullRequest of openPullRequests) {
@@ -568,11 +556,7 @@ export function holders({claimant, comment, comments = [], events = [], issue, o
     }
 
     if (earlier && !named.has(earlier.user.login.toLowerCase())) {
-        result.push({
-            kind : 'earlier-claim',
-            login: earlier.user.login,
-            ...(Number.isSafeInteger(earlier.user?.id) && earlier.user.id > 0 ? {id: earlier.user.id} : {})
-        })
+        result.push({kind: 'earlier-claim', login: earlier.user.login, ...(isPositiveInt(earlier.user?.id) ? {id: earlier.user.id} : {})})
     }
 
     return result
@@ -766,7 +750,8 @@ export function renderWithdrawalReply({claimant, openPullRequests = [], repoUrl}
 
 /**
  * @summary Decides whether an issue comment by an assigned outside contributor should release their assignment and
- * post a one-time confirmation reply on the open curated issue, or `null` when ineligible or already processed.
+ * post a one-time confirmation reply on the open curated issue, or `null` when ineligible, already processed, or
+ * superseded by a newer claim, continuing-work negation, bot reply, or assignment transition on the thread.
  * @param {Object} options
  * @param {Object} options.comment The triggering comment (REST shape)
  * @param {Object} options.issue The issue (REST shape)
@@ -778,10 +763,11 @@ export function renderWithdrawalReply({claimant, openPullRequests = [], repoUrl}
  */
 export function decideWithdrawal({comment, issue, comments = [], events = [], openPullRequests = [], repoUrl}) {
     const
-        author = comment?.user?.login,
-        label  = curatedLabel(issue);
+        author    = comment?.user?.login,
+        commentAt = Date.parse(comment?.created_at),
+        label     = curatedLabel(issue);
 
-    if (!author || !issue || issue.pull_request || issue.state !== 'open' || !label || !isOutsideHuman(comment) || !isWithdrawal(comment.body)) {
+    if (!author || !Number.isFinite(commentAt) || !issue || issue.pull_request || issue.state !== 'open' || !label || !isOutsideHuman(comment) || !isWithdrawal(comment.body)) {
         return null
     }
 
@@ -789,48 +775,47 @@ export function decideWithdrawal({comment, issue, comments = [], events = [], op
         self            = author.toLowerCase(),
         matchedAssignee = (issue.assignees || []).find(assignee => String(assignee?.login || '').toLowerCase() === self);
 
-    if (!matchedAssignee || !isOutsideAssignee(self, {comments, issue})) {
-        return null
-    }
+    if (!matchedAssignee || !isOutsideAssignee(self, {comments, issue})) return null;
 
     const
-        sortedComments    = sortByCreation(comments),
-        sortedEvents      = sortByCreation(events),
-        lastBotWithdrawal = sortedComments.findLast(other => isWithdrawalReply(other, self));
+        sortedComments = sortByCreation(comments),
+        sortedEvents   = sortByCreation(events),
+        superseded     = sortedComments.some(other => {
+            if (!follows(other, comment)) return false;
+            if (isWithdrawalReply(other, self) || (isClaimReply(other, self) && !refusedClaim(other, self))) return true;
+            if (String(other.user?.login || '').toLowerCase() !== self || !isOutsideHuman(other)) return false;
+            const otherText = claimText(other.body);
+            return isClaim(other.body) || scanProseWithdrawals(otherText).negated || CONTINUATION_PATTERN.test(otherText)
+        }) || sortedEvents.some(ev =>
+            (ev.event === 'assigned' || ev.event === 'unassigned') &&
+            String(ev.assignee?.login || '').toLowerCase() === self &&
+            Date.parse(ev.created_at) > commentAt
+        );
+
+    if (superseded) return null;
+
+    const lastBotWithdrawal = sortedComments.findLast(other => follows(comment, other) && isWithdrawalReply(other, self));
 
     if (lastBotWithdrawal) {
         const
             lastBotAt   = Date.parse(lastBotWithdrawal.created_at),
             hasNewClaim = sortedComments.some(other =>
-                String(other.user?.login || '').toLowerCase() === self &&
-                isOutsideHuman(other) &&
-                isClaim(other.body) &&
-                follows(other, lastBotWithdrawal) &&
-                follows(comment, other)
+                String(other.user?.login || '').toLowerCase() === self && isOutsideHuman(other) &&
+                isClaim(other.body) && follows(other, lastBotWithdrawal) && follows(comment, other)
             ),
             hasNewAssign = sortedEvents.some(ev =>
-                ev.event === 'assigned' &&
-                String(ev.assignee?.login || '').toLowerCase() === self &&
-                Date.parse(ev.created_at) > lastBotAt &&
-                Date.parse(ev.created_at) <= Date.parse(comment.created_at)
+                ev.event === 'assigned' && String(ev.assignee?.login || '').toLowerCase() === self &&
+                Date.parse(ev.created_at) > lastBotAt && Date.parse(ev.created_at) <= commentAt
             );
 
-        if (!hasNewClaim && !hasNewAssign) {
-            return null
-        }
+        if (!hasNewClaim && !hasNewAssign) return null;
     }
 
     const
         repoLower  = new URL(repoUrl).pathname.slice(1).toLowerCase(),
-        ownOpenPrs = openPullRequests.filter(pr =>
-            String(pr.repository).toLowerCase() === repoLower &&
-            String(pr.author).toLowerCase() === self
-        );
+        ownOpenPrs = openPullRequests.filter(pr => String(pr.repository).toLowerCase() === repoLower && String(pr.author).toLowerCase() === self);
 
-    return {
-        unassign: matchedAssignee.login,
-        body    : renderWithdrawalReply({claimant: author, openPullRequests: ownOpenPrs, repoUrl})
-    }
+    return {unassign: matchedAssignee.login, body: renderWithdrawalReply({claimant: author, openPullRequests: ownOpenPrs, repoUrl})}
 }
 
 /**
