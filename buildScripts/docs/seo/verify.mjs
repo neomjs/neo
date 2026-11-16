@@ -19,6 +19,7 @@ import {
 } from './generate.mjs';
 import {
     NON_INDEXABLE_STANDALONE_PATHS,
+    collectExampleRoutes,
     getMaxReleaseMajor,
     getSeoJson,
     hasReliableGitHistory,
@@ -37,10 +38,11 @@ import {
  * validates the live repository when invoked directly via `node buildScripts/docs/seo/verify.mjs`:
  * - `sitemap.xml` references `sitemap-core.xml` and `sitemap-discussions.xml`, never `sitemap-archive.xml`.
  * - Disjoint core / discussions / ticket+PR archive partitioning and `ssg-archive-routes.json` parity.
- * - `sitemap-core.xml` advertises `/` (never `/home` or `/apps/portal/index.html`) plus all 5 indexable
+ * - `sitemap-core.xml` advertises `/` (never `/home` or `/apps/portal/index.html`), all 5 indexable
  *   News hub routes (`/news/blog`, `/news/releases`, `/news/discussions`, `/news/medium`, `/news/videos`),
- *   excludes `noindex` (`/news/tickets`, `/news/pulls`), `hidden`, `type: redirect`, and `< maxReleaseMajor - 1`
- *   release routes, and emits `<lastmod>` whenever `seo.json` carries a pre-baked `lastmod`.
+ *   and standalone routes with unique generated and source HTML titles; excludes `noindex` (`/news/tickets`,
+ *   `/news/pulls`), `hidden`, `type: redirect`, and `< maxReleaseMajor - 1` release routes; and emits
+ *   `<lastmod>` whenever `seo.json` carries a pre-baked `lastmod`.
  * - `seo.json` coverage across Portal routes, News hubs, and `blog.json` leaves, `YYYY-MM-DD` `lastmod` validity,
  *   and `robots: 'noindex, follow'` on `/news/tickets`, `/news/pulls`, hidden/redirect learn leaves, and historical releases.
  * - On-disk existence of every `${baseUrl}/raw/*.md` target across `root`, `releaseNotesRoot`, and `corpusRoot`.
@@ -609,6 +611,33 @@ export async function verifySeoArtifacts(options={}) {
         if (entry.lastmod && !lastmod) {
             throw new Error(`sitemap-core.xml route "${pathname}" is missing <lastmod> despite seo.json lastmod "${entry.lastmod}".`);
         }
+    }
+
+    const standaloneRoutes           = await collectExampleRoutes(root);
+    const seenStandaloneSourceTitles = new Map();
+
+    for (const standaloneRoute of standaloneRoutes) {
+        const sourceTitle = typeof standaloneRoute.sourceTitle === 'string'
+            ? standaloneRoute.sourceTitle.trim()
+            : '';
+
+        if (!sourceTitle) {
+            throw new Error(`Standalone document "${standaloneRoute.id}" must declare a non-empty HTML <title>.`);
+        }
+
+        if (sourceTitle === 'Neo.mjs') {
+            throw new Error(`Standalone document "${standaloneRoute.id}" must not use bare "Neo.mjs" HTML <title>.`);
+        }
+
+        const priorSourceRoute = seenStandaloneSourceTitles.get(sourceTitle);
+
+        if (priorSourceRoute) {
+            throw new Error(
+                `Standalone documents "${priorSourceRoute}" and "${standaloneRoute.id}" share duplicate source HTML <title> "${sourceTitle}".`
+            );
+        }
+
+        seenStandaloneSourceTitles.set(sourceTitle, standaloneRoute.id);
     }
 
     const releaseNoteFiles = await indexReleaseNoteFiles(releaseNotesRoot);

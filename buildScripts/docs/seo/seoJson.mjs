@@ -1077,7 +1077,7 @@ export function formatStandaloneExampleSeo(exampleRoute, catalogRecord=null) {
  * @summary Collects standalone app and example `index.html` routes under `apps/` and `examples/`,
  * excluding non-indexable harnesses (`NON_INDEXABLE_STANDALONE_PATHS`, `seo: false` configs, and popup childapps).
  * @param {String} [root=ROOT_DIR] Repository root.
- * @returns {Promise<Array<{category: String, description: (String|null), filePath: String, id: String, name: String}>>}
+ * @returns {Promise<Array<{category: String, description: (String|null), filePath: String, id: String, name: String, sourceTitle: String}>>}
  */
 export async function collectExampleRoutes(root=ROOT_DIR) {
     let files = await fg('{apps,examples}/**/index.html', {
@@ -1117,7 +1117,8 @@ export async function collectExampleRoutes(root=ROOT_DIR) {
             description: portalMeta?.description || null,
             filePath,
             id         : `/${file}`,
-            name       : portalMeta?.title || rawTitle || getNameFromExamplePath(file)
+            name       : portalMeta?.title || rawTitle || getNameFromExamplePath(file),
+            sourceTitle: rawTitle || ''
         };
     }));
 
@@ -1458,11 +1459,12 @@ export async function getSeoJson(options={}) {
 
             if (Array.isArray(catalog)) {
                 for (const record of catalog) {
-                    const devPath = record?.urls?.devmode || (
+                    const rawTarget = record?.urls?.devmode || (
                         typeof record?.sourceUrl === 'string' && !/^https?:\/\//i.test(record.sourceUrl)
                             ? `${record.sourceUrl.replace(/\/+$/, '')}/index.html`
                             : null
                     );
+                    const devPath = rawTarget ? String(rawTarget).split(/[?#]/, 1)[0] : null;
 
                     if (devPath) {
                         examplesCatalogByRoute.set(`/${devPath.replace(/^\/+/, '')}`, record);

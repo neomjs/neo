@@ -1671,12 +1671,21 @@ test.describe('docs SEO generator #20919: News hub routes and SharedWorker WebSo
         await fs.outputFile(path.join(isolatedRoot, 'examples/dashboard/crossWindowWitness/index.html'), '<!DOCTYPE html><html><head><title>#15065 Cross-Window Witness</title></head></html>');
         await fs.outputFile(path.join(isolatedRoot, 'apps/route/index.html'), '<!DOCTYPE html><html><head><title>Route</title></head></html>');
         await fs.outputJson(path.join(isolatedRoot, 'apps/route/neo-config.json'), {seo: false});
+        await fs.outputFile(path.join(isolatedRoot, 'apps/sharedcovid/index.html'), '<!DOCTYPE html><html><head><title>Shared Covid</title></head></html>');
         await fs.outputFile(path.join(isolatedRoot, 'examples/panel/index.html'), '<!DOCTYPE html><html><head><title>Neo Panels</title></head></html>');
         await fs.outputFile(
             path.join(isolatedRoot, 'examples/grid/bigData/index.html'),
             '<!DOCTYPE html><html><head><title>JavaScript Data Grid — 100k Rows | Neo.mjs</title><meta name="description" content="Explicit big data description."></head></html>'
         );
-        await fs.outputJson(examplesPath, [
+        const fixtureCatalog = [
+            {
+                id           : 'shared-covid',
+                name         : 'Multi Window Covid App',
+                feature      : 'Historical country data can move into its own window',
+                lookFor      : 'Maximize Historical Data to open the chart popup.',
+                sharedWorkers: true,
+                urls         : {devmode: 'apps/sharedcovid/index.html?view=chart#mainview=table'}
+            },
             {
                 id     : 'panel-demo',
                 name   : 'Panels',
@@ -1684,10 +1693,12 @@ test.describe('docs SEO generator #20919: News hub routes and SharedWorker WebSo
                 lookFor: 'Click header tools to collapse panels.',
                 urls   : {devmode: 'examples/panel/index.html'}
             }
-        ]);
+        ];
+        await fs.outputJson(examplesPath, fixtureCatalog);
 
         const routes = await collectExampleRoutes(isolatedRoot);
         expect(routes.map(route => route.id)).toEqual([
+            '/apps/sharedcovid/index.html',
             '/examples/grid/bigData/index.html',
             '/examples/panel/index.html'
         ]);
@@ -1707,6 +1718,12 @@ test.describe('docs SEO generator #20919: News hub routes and SharedWorker WebSo
         expect(fixtureSeo['/apps/ai/neural-link/index.html']).toBeUndefined();
         expect(fixtureSeo['/examples/dashboard/crossWindowWitness/index.html']).toBeUndefined();
         expect(fixtureSeo['/apps/route/index.html']).toBeUndefined();
+        expect(fixtureSeo['/apps/sharedcovid/index.html']).toEqual({
+            title      : 'Shared Covid — Multi-Window JavaScript Demo | Neo.mjs',
+            description: 'Historical country data can move into its own window. Maximize Historical Data to open the chart popup.',
+            schemaType : 'WebPage'
+        });
+        expect((await fs.readJSON(examplesPath))[0].urls.devmode).toBe('apps/sharedcovid/index.html?view=chart#mainview=table');
         expect(fixtureSeo['/examples/grid/bigData/index.html']).toEqual({
             title      : 'JavaScript Data Grid — 100k Rows | Neo.mjs',
             description: 'Explicit big data description.',
@@ -1718,11 +1735,26 @@ test.describe('docs SEO generator #20919: News hub routes and SharedWorker WebSo
             schemaType : 'WebPage'
         });
 
-        // Verify live repo standalone titles and seo.json alignment
-        const repoRoutes = await collectExampleRoutes(rootDir);
-        const repoIds    = new Set(repoRoutes.map(route => route.id));
+        // Verify live repo standalone titles, opt-outs, and catalog caption joins
+        const repoRoutes  = await collectExampleRoutes(rootDir);
+        const repoIds     = new Set(repoRoutes.map(route => route.id));
+        const liveSeoJson = await fs.readJSON(path.resolve(rootDir, 'apps/portal/resources/data/seo.json'));
+
         expect(repoIds.has('/apps/ai/neural-link/index.html')).toBe(false);
         expect(repoIds.has('/examples/dashboard/crossWindowWitness/index.html')).toBe(false);
+        for (const optedOutRoute of [
+            '/examples/grid/lockedColumns/index.html',
+            '/examples/tablePerformance/index.html',
+            '/examples/toolbar/paging/index.html'
+        ]) {
+            expect(repoIds.has(optedOutRoute)).toBe(false);
+            expect(liveSeoJson[optedOutRoute]).toBeUndefined();
+            expect(await fs.pathExists(path.resolve(rootDir, optedOutRoute.slice(1)))).toBe(true);
+        }
+        expect(liveSeoJson['/apps/sharedcovid/index.html']?.description).toBe(
+            'A historical country-data chart can move into its own window. Maximise Historical Data, inspect its chart in the popup, then close the popup to return it...'
+        );
         expect(new Set(repoRoutes.map(route => route.name)).size).toBe(repoRoutes.length);
+        expect(new Set(repoRoutes.map(route => route.sourceTitle)).size).toBe(repoRoutes.length);
     });
 });

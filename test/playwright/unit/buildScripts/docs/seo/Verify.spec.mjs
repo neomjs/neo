@@ -610,5 +610,36 @@ test.describe('buildScripts/docs/seo/verify.mjs (#20774 / #20915)', () => {
             '  <url><loc>https://neomjs.com/examples/tree/index.html</loc><lastmod>2026-11-10</lastmod></url>\n</urlset>'
         );
         await expect(verifySeoArtifacts(duplicateTitleBundle)).rejects.toThrow(/share duplicate title/);
+
+        const duplicateSourceTitleBundle = buildValidBundle();
+        await fs.outputFile(
+            path.join(rootDir, 'examples/button/base/index.html'),
+            '<!DOCTYPE html><html><head><title>Neo Button</title></head></html>'
+        );
+        await fs.outputFile(
+            path.join(rootDir, 'examples/grid/valueBanding/index.html'),
+            '<!DOCTYPE html><html><head><title>Neo Button</title></head></html>'
+        );
+        duplicateSourceTitleBundle.seoJson['/examples/button/base/index.html'] = {
+            title      : 'Button — Web Worker JavaScript UI Demo | Neo.mjs',
+            description: 'Button base demo in Neo.mjs.',
+            lastmod    : '2026-11-10',
+            schemaType : 'WebPage'
+        };
+        duplicateSourceTitleBundle.seoJson['/examples/grid/valueBanding/index.html'] = {
+            title      : 'Button — Web Worker Data Grid Demo | Neo.mjs',
+            description: 'Grid value banding demo in Neo.mjs.',
+            lastmod    : '2026-11-10',
+            schemaType : 'WebPage'
+        };
+        duplicateSourceTitleBundle.sitemapCoreXml = duplicateSourceTitleBundle.sitemapCoreXml.replace(
+            '</urlset>',
+            [
+                '  <url><loc>https://neomjs.com/examples/button/base/index.html</loc><lastmod>2026-11-10</lastmod></url>',
+                '  <url><loc>https://neomjs.com/examples/grid/valueBanding/index.html</loc><lastmod>2026-11-10</lastmod></url>',
+                '</urlset>'
+            ].join('\n')
+        );
+        await expect(verifySeoArtifacts(duplicateSourceTitleBundle)).rejects.toThrow(/share duplicate source HTML <title> "Neo Button"/);
     });
 });

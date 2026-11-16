@@ -1119,7 +1119,7 @@
     },
     "/apps/sharedcovid/index.html": {
         "title": "SharedCovid MainWindow — Multi-Window JavaScript Demo | Neo.mjs",
-        "description": "Live runnable SharedCovid MainWindow app in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "description": "A historical country-data chart can move into its own window. Maximise Historical Data, inspect its chart in the popup, then close the popup to return it...",
         "schemaType": "WebPage",
         "lastmod": "2026-11-05"
     },
@@ -1427,7 +1427,7 @@
         "title": "Date SelectorContainer — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "The date SelectorContainer variant, standalone. Pick a date and jump months with the radios; compare it with the component variant.",
         "schemaType": "WebPage",
-        "lastmod": "2025-11-19"
+        "lastmod": "2026-11-16"
     },
     "/examples/dialog/index.html": {
         "title": "Dialog — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1645,12 +1645,6 @@
         "schemaType": "WebPage",
         "lastmod": "2026-10-16"
     },
-    "/examples/grid/lockedColumns/index.html": {
-        "title": "Locked-Column Grid Fixture — Web Worker Data Grid Demo | Neo.mjs",
-        "description": "Columns locked at both edges. Scroll the wide center while identity columns stay at the start and Updated stays at the end.",
-        "schemaType": "WebPage",
-        "lastmod": "2026-06-12"
-    },
     "/examples/grid/nestedRecordFields/index.html": {
         "title": "Grid: Nested Record Fields — Web Worker Data Grid Demo | Neo.mjs",
         "description": "Nested records and component cells. Open Edit to change nested user fields and watch modified-cell highlighting; compare header-only and full-column dragging.",
@@ -1763,7 +1757,7 @@
         "title": "Popover — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "Live runnable Popover example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
         "schemaType": "WebPage",
-        "lastmod": "2024-08-18"
+        "lastmod": "2026-11-16"
     },
     "/examples/preloadingAssets/index.html": {
         "title": "Preloading Assets — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1897,12 +1891,6 @@
         "schemaType": "WebPage",
         "lastmod": "2025-11-19"
     },
-    "/examples/tablePerformance/index.html": {
-        "title": "Table Performance — Web Worker Data Grid Demo | Neo.mjs",
-        "description": "Repeated table-data replacement. Set row counts and refresh intervals across three tables; compare docked-column arrangements and scrollbar styles.",
-        "schemaType": "WebPage",
-        "lastmod": "2026-10-21"
-    },
     "/examples/tableStore/index.html": {
         "title": "Table & Store — Web Worker Data Grid Demo | Neo.mjs",
         "description": "Reactive Store updates. Change one cell or update every cell repeatedly; sort and drag headers, reset sorting, and switch selection modes.",
@@ -1939,12 +1927,6 @@
         "schemaType": "WebPage",
         "lastmod": "2025-07-11"
     },
-    "/examples/toolbar/paging/index.html": {
-        "title": "Paging Toolbar — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Live runnable Paging Toolbar example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
-        "schemaType": "WebPage",
-        "lastmod": "2025-07-11"
-    },
     "/examples/tree/index.html": {
         "title": "Tree — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "Live runnable Tree example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
@@ -1955,7 +1937,7 @@
         "title": "TreeAccordion — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "Live runnable TreeAccordion example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
         "schemaType": "WebPage",
-        "lastmod": "2025-11-19"
+        "lastmod": "2026-11-16"
     },
     "/examples/videoMove/index.html": {
         "title": "Moving a Video Tag — Web Worker JavaScript UI Demo | Neo.mjs",
