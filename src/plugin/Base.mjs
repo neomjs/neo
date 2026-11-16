@@ -54,11 +54,10 @@ class Plugin extends Base {
         // with `compareAttributes` reading `aria-colcount` off undefined, so a plugin re-applying on
         // remount is load-bearing for vdom structure. A duplicate-registration problem in an
         // override is the override's to make idempotent, not this subscription's to bound.
-        if (owner.mounted) {
-            me.onOwnerMounted();
-        } else {
-            owner.on('mounted', me.onOwnerMounted, me);
-        }
+        // An owner mounted already runs the callback now, and subscribes too: `mounted` fires on a
+        // later transition only, so its remounts re-apply like those of an owner that mounts later.
+        owner.mounted && me.onOwnerMounted();
+        owner.on('mounted', me.onOwnerMounted, me)
     }
 
     /**
