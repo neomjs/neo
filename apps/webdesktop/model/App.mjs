@@ -43,6 +43,10 @@ class App extends TreeModel {
             type     : 'Boolean',
             calculate: data => data.isLeaf === false
         }, {
+            // The place among its siblings: the apps store sorts by it, and the launcher's drag writes it
+            name: 'order',
+            type: 'Number'
+        }, {
             name: 'permission',
             type: 'String'
         }, {
