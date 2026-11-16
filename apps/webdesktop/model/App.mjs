@@ -30,6 +30,11 @@ class App extends TreeModel {
             name: 'iconCls',
             type: 'String'
         }, {
+            // menu.List calls the handler of a chosen item: an app opens through the viewport controller
+            name     : 'handler',
+            type     : 'String',
+            calculate: data => data.isLeaf === false ? null : 'onStartMenuAppChoose'
+        }, {
             name: 'id',
             type: 'String'
         }, {

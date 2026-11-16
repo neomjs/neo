@@ -1,4 +1,5 @@
 import AccountChip from './AccountChip.mjs';
+import TaskList    from './TaskList.mjs';
 import Toolbar     from '../../../src/toolbar/Base.mjs';
 
 /**
@@ -28,6 +29,10 @@ class Taskbar extends Toolbar {
             iconCls  : 'fas fa-grip',
             reference: 'start-button',
             text     : 'Apps'
+        }, {
+            module   : TaskList,
+            flex     : 'none',
+            listeners: {itemClick: 'onTaskItemClick'}
         }, '->', {
             bind   : {pressed: data => data.permissionsPanel},
             handler: 'onPermissionsButtonClick',
