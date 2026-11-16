@@ -1558,7 +1558,7 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         Neo.create = (config, ...args) => {
             if (!config?.cls?.includes('neo-tab-overflow-control')) return originalCreate(config, ...args);
             return {
-                id: `control-${live.size}-${Math.random()}`, mounted: false, isVnodeInitializing: false, isDestroyed: false,
+                id: `control-${live.size}-${Math.random()}`, menu: config.menu, mounted: false, isVnodeInitializing: false, isDestroyed: false,
                 addDomListeners() {}, alignTo() {},
                 initVnode() {
                     return new Promise(resolve => {this.land = () => {live.add(this.id); this.mounted = true; resolve()}})
@@ -1644,7 +1644,17 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
 
             owner.mounted = false;
             expect(plugin.control).toBe(null);
-            expect([...live], 'unmounting the toolbar takes its button along').toEqual([])
+            expect([...live], 'unmounting the toolbar takes its button along').toEqual([]);
+
+            // Mounted again on an overflowing bar, it projects afresh: plugin.Base runs onOwnerMounted() per mount
+            owner.items         = ['b1', 'b2'].map(id => ({id, text: id, hidden: false, vdom: {}, addCls() {}, removeCls() {}, show() {}}));
+            owner.getLayoutRect = async ids => ids[0] === owner.id ? [{width: 15}] : [{width: 10}, {width: 10}];
+            owner.mounted       = true;
+            plugin.onOwnerMounted();
+            await new Promise(resolve => setTimeout(resolve, 0));
+            expect(plugin.control, 'a fresh control, never the retired one').toBeTruthy();
+            expect(plugin.control).not.toBe(control);
+            expect(plugin.control.menu.items.map(item => item.text), 'its menu lists this bar\'s hidden tab').toEqual(['b2'])
         } finally {
             restore();
             plugin.destroy();
