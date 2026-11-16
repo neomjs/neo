@@ -1,0 +1,301 @@
+{
+  "version": 1,
+  "families": ["grid-table"],
+  "suffix": "14",
+  "recipes": [
+    {
+      "id": "grid-animated-row-sorting",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "Firstname sorted ascending, with the Transition Duration control above the reordered rows.",
+      "ready": [{"selector": ".neo-grid-cell[data-field='firstname']", "text": "Max"}],
+      "steps": [{"kind": "click", "selector": ".neo-grid-header-button", "text": "Firstname"}],
+      "after": [
+        {"selector": "[role='columnheader'][aria-sort='ascending']", "text": "Firstname"},
+        {"selector": ".neo-grid-row:first-child .neo-grid-cell[data-field='firstname']", "text": "Amanda"},
+        {"selector": ".neo-numberfield", "text": "Transition Duration"}
+      ],
+      "region": {"x": 8, "y": 8, "width": 640, "height": 360}
+    },
+    {
+      "id": "grid-cell-editing",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "Random Date cell editor open in the dark grid.",
+      "ready": [
+        {"selector": ".neo-grid-cell[data-field='randomDate']"},
+        {"selector": ".neo-configuration-header-toolbar .neo-button", "text": "Theme Dark"}
+      ],
+      "steps": [
+        {"kind": "click", "selector": ".neo-configuration-header-toolbar .neo-button", "text": "Theme Dark"},
+        {"kind": "dblclick", "selector": ".neo-grid-cell[data-field='randomDate']", "nth": 1}
+      ],
+      "after": [{"selector": ".neo-grid-editor input"}],
+      "region": {"selector": ".neo-example-container", "anchor": "top-left", "width": 640, "height": 360}
+    },
+    {
+      "id": "grid-container",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "A selected row crosses a selected column in Cell & Column & Row mode.",
+      "ready": [{"selector": ".neo-grid-cell[data-field='firstname']"}],
+      "steps": [
+        {"kind": "click", "selector": ".neo-configuration-header-toolbar .neo-button", "text": "Theme Dark"},
+        {"kind": "click", "selector": ".neo-radiofield", "text": "Cell & Column & Row"},
+        {"kind": "click", "selector": ".neo-grid-cell[data-field='lastname']", "nth": 1}
+      ],
+      "after": [
+        {"selector": ".neo-grid-row.neo-selected"},
+        {"selector": ".neo-grid-cell.selected-column-cell"},
+        {"selector": ".neo-grid-cell[aria-selected='true']"}
+      ],
+      "region": {"selector": ".neo-example-container", "anchor": "top-left", "width": 640, "height": 360}
+    },
+    {
+      "id": "grid-content-sized-rows",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "Content-sized rows re-enabled after comparison, showing wrapped Summary beside locked # and Title.",
+      "ready": [{"selector": ".neo-grid-cell[data-field='summary']"}],
+      "steps": [
+        {"kind": "click", "selector": ".neo-checkboxfield", "text": "Content-sized rows"},
+        {"kind": "wait", "selector": ".neo-checkboxfield:has(input:not(:checked))"},
+        {"kind": "click", "selector": ".neo-checkboxfield", "text": "Content-sized rows"}
+      ],
+      "after": [
+        {"selector": ".neo-grid-cell[data-field='summary']", "minDistinctHeights": 2},
+        {"selector": ".neo-grid-cell[data-field='id']"},
+        {"selector": ".neo-grid-cell[data-field='title']"},
+        {"selector": "input[type='checkbox']:checked", "count": 1}
+      ],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "grid-covid",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "Country statistics sorted using the Country header, with flags and coloured measures visible.",
+      "dependencies": [
+        "https://disease.sh/v3/covid-19/countries",
+        "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/flaticon/country_flags/png/germany.png"
+      ],
+      "ready": [{"selector": ".neo-grid-cell img"}, {"selector": ".neo-grid-cell[data-field='country']"}],
+      "steps": [{"kind": "click", "selector": ".neo-grid-header-button", "text": "Country"}],
+      "after": [{"selector": "[role='columnheader'][aria-sort]", "text": "Country"}, {"selector": ".neo-grid-cell img"}],
+      "region": {"x": 20, "y": 20, "width": 640, "height": 360}
+    },
+    {
+      "id": "grid-header-groups",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "Month sorting under quarter headers, with Region locked at the start.",
+      "ready": [{"selector": ".neo-grid-cell[data-field='region']"}, {"selector": ".header-groups-toolbar .neo-button", "text": "Dark theme"}],
+      "steps": [
+        {"kind": "click", "selector": ".header-groups-toolbar .neo-button", "text": "Dark theme"},
+        {"kind": "click", "selector": ".neo-grid-header-button", "text": "Jan"}
+      ],
+      "after": [
+        {"selector": ".header-groups-toolbar .neo-button", "text": "Light theme"},
+        {"selector": "[role='columnheader'][aria-sort]", "text": "Jan"},
+        {"selector": ".neo-grid-cell[data-field='region']"}
+      ],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "grid-locked-columns",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "The centre is horizontally scrolled while #, Rank and User remain locked at the start.",
+      "ready": [{"selector": ".neo-grid-cell[data-field='login']", "text": "octocat"}],
+      "steps": [{"kind": "scroll", "selector": ".neo-grid-horizontal-scrollbar", "x": 880, "y": 0}],
+      "after": [{"selector": ".neo-grid-cell[data-field='login']", "text": "octocat"}, {"selector": ".neo-grid-cell[data-field='y2018']"}],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "grid-nested-record-fields",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "Edit User dialog open over the nested-record grid, with populated user fields.",
+      "ready": [{"selector": ".neo-grid-cell[data-field='country']", "text": "Germany"}],
+      "steps": [{"kind": "click", "selector": ".neo-grid-cell[data-field='edit'] .neo-button", "text": "Edit", "nth": 0}],
+      "after": [{"selector": ".neo-dialog", "text": "Edit User"}, {"selector": ".neo-dialog .neo-textfield input", "value": "Tobias"}],
+      "region": {"selector": ".neo-dialog", "anchor": "center", "width": 640, "height": 360}
+    },
+    {
+      "id": "grid-tree",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "The src/component hierarchy is expanded two levels to show Base.mjs and Button.mjs.",
+      "ready": [{"selector": ".neo-grid-cell[data-field='name']", "text": "component"}],
+      "steps": [{"kind": "click", "selector": ".neo-grid-row:has(.neo-grid-cell[data-field='name']:has-text('component')) .neo-tree-toggle"}],
+      "after": [{"selector": ".neo-grid-cell[data-field='name']", "text": "Base.mjs"}, {"selector": ".neo-grid-cell[data-field='name']", "text": "Button.mjs"}],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "grid-value-banding",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "Department value bands re-enabled for comparison with the always-banded Country column.",
+      "ready": [{"selector": ".neo-grid-cell[data-field='department']"}],
+      "steps": [
+        {"kind": "click", "selector": ".neo-configuration-header-toolbar .neo-button", "text": "Theme Dark"},
+        {"kind": "click", "selector": ".neo-checkboxfield", "text": "useValueBanding (Dept)"},
+        {"kind": "click", "selector": ".neo-checkboxfield", "text": "useValueBanding (Dept)"}
+      ],
+      "after": [{"selector": ".neo-grid-cell[data-field='country'].neo-value-band-1"}, {"selector": ".neo-grid-cell[data-field='department'].neo-value-band-1"}],
+      "region": {"selector": ".neo-example-container", "anchor": "top-left", "width": 640, "height": 360}
+    },
+    {
+      "id": "json-grid-container",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "Grid instantiated from its fetched local JSON after Load Grid Container.",
+      "ready": [{"selector": ".neo-button", "text": "Load Grid Container"}],
+      "steps": [{"kind": "click", "selector": ".neo-button", "text": "Load Grid Container"}],
+      "after": [{"selector": ".neo-serverside-gridcontainer-content .neo-grid-cell"}],
+      "region": {"selector": ".neo-serverside-gridcontainer-content", "anchor": "top-left", "width": 640, "height": 360}
+    },
+    {
+      "id": "table-cell-editing",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "A typed Random Date editor open over the table.",
+      "ready": [{"selector": ".neo-table-body tr:nth-child(2) .neo-table-cell:nth-child(3)"}],
+      "steps": [
+        {"kind": "click", "selector": ".neo-configuration-header-toolbar .neo-button", "text": "Theme Dark"},
+        {"kind": "dblclick", "selector": ".neo-table-body tr:nth-child(2) .neo-table-cell:nth-child(3)"}
+      ],
+      "after": [{"selector": ".neo-table-editor input"}],
+      "region": {"selector": ".neo-example-container", "anchor": "top-left", "width": 640, "height": 360}
+    },
+    {
+      "id": "table-container",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "A row's vertical-ellipsis cell menu open over the dark table.",
+      "ready": [{"selector": ".neo-table-cell .neo-button", "text": "⋮"}],
+      "steps": [
+        {"kind": "click", "selector": ".neo-configuration-header-toolbar .neo-button", "text": "Theme Dark"},
+        {"kind": "click", "selector": ".neo-table-cell .neo-button", "text": "⋮", "nth": 0}
+      ],
+      "after": [{"selector": ".neo-menu-list", "text": "Menu option 1", "inRegion": true}],
+      "region": {"x": 320, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "table-covid",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "Country statistics sorted using the Country header, with flags and coloured measures visible.",
+      "dependencies": [
+        "https://disease.sh/v3/covid-19/countries",
+        "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/flaticon/country_flags/png/germany.png"
+      ],
+      "ready": [{"selector": ".neo-table-cell img"}],
+      "steps": [{"kind": "click", "selector": ".neo-table-header-button", "text": "Country"}],
+      "after": [{"selector": ".neo-table-cell img"}, {"selector": "th[aria-sort]", "text": "Country"}],
+      "region": {"x": 20, "y": 20, "width": 640, "height": 360}
+    },
+    {
+      "id": "table-nested-record-fields",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "Edit User dialog open over the nested-record table, with populated user fields.",
+      "ready": [{"selector": ".neo-table-cell", "text": "Germany"}],
+      "steps": [{"kind": "click", "selector": ".neo-table-cell .neo-button", "text": "Edit", "nth": 0}],
+      "after": [{"selector": ".neo-dialog", "text": "Edit User"}, {"selector": ".neo-dialog .neo-textfield input", "value": "Tobias"}],
+      "region": {"selector": ".neo-dialog", "anchor": "center", "width": 640, "height": 360}
+    },
+    {
+      "id": "table-store",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "The three Store action buttons above updated table cells.",
+      "ready": [{"selector": "#myTableStoreContainer .neo-table-cell"}],
+      "steps": [{"kind": "click", "selector": ".neo-button", "text": "Update all cells 100x"}],
+      "after": [
+        {"selector": "#myTableStoreContainer .neo-table-body tr:first-child .neo-table-cell:last-child", "text": "Bar", "inRegion": true},
+        {"selector": ".neo-button", "text": "Change Cell Value", "inRegion": true},
+        {"selector": ".neo-button", "text": "Update all cells 100x", "inRegion": true},
+        {"selector": ".neo-button", "text": "Reset Sorting", "inRegion": true}
+      ],
+      "region": {"x": 640, "y": 20, "width": 640, "height": 360}
+    },
+    {
+      "id": "table-performance",
+      "viewport": {"width": 1280, "height": 360},
+      "theme": "default",
+      "state": "All three table data sets refreshed with two rows each, alongside their Rows and Interval controls.",
+      "ready": [{"selector": ".neo-table-body", "count": 3}],
+      "steps": [
+        {"kind": "fill", "selector": ".neo-numberfield:has-text('Rows:') input", "nth": 0, "value": "2"},
+        {"kind": "press", "selector": ".neo-numberfield:has-text('Rows:') input", "nth": 0, "key": "Tab"},
+        {"kind": "fill", "selector": ".neo-numberfield:has-text('Rows:') input", "nth": 1, "value": "2"},
+        {"kind": "press", "selector": ".neo-numberfield:has-text('Rows:') input", "nth": 1, "key": "Tab"},
+        {"kind": "fill", "selector": ".neo-numberfield:has-text('Rows:') input", "nth": 2, "value": "2"},
+        {"kind": "press", "selector": ".neo-numberfield:has-text('Rows:') input", "nth": 2, "key": "Tab"},
+        {"kind": "click", "selector": ".neo-button", "text": "Refresh Data", "nth": 0},
+        {"kind": "click", "selector": ".neo-button", "text": "Refresh Data", "nth": 1},
+        {"kind": "click", "selector": ".neo-button", "text": "Refresh Data", "nth": 2}
+      ],
+      "after": [{"selector": ".neo-table-body", "count": 3}, {"selector": ".neo-table-body tr", "count": 6}, {"selector": ".neo-numberfield", "text": "Interval:"}],
+      "region": {"x": 640, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "grid-big-data",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "Buffered grid sorted by Firstname and an embedded counter button pressed.",
+      "ready": [{"selector": ".neo-grid-cell[data-field='countAction'] .neo-button"}],
+      "steps": [
+        {"kind": "click", "selector": ".neo-grid-header-button", "text": "Firstname"},
+        {"kind": "click", "selector": ".neo-grid-cell[data-field='countAction'] .neo-button", "nth": 0}
+      ],
+      "after": [{"selector": "[role='columnheader'][aria-sort]", "text": "Firstname"}, {"selector": ".neo-grid-cell[data-field='counter']"}],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "grid-tree-big-data",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "A generated hierarchy expanded using its public settings controls.",
+      "ready": [{"selector": ".neo-grid-cell .neo-tree-toggle"}],
+      "steps": [
+        {"kind": "click", "selector": ".neo-examples-treebigdata-controls-container .controls-container-button"},
+        {"kind": "click", "selector": ".neo-combobox:has-text('Amount Rows') input[role='combobox']"},
+        {"kind": "click", "selector": ".neo-picker-container [role='option']:text-is('1000')"},
+        {"kind": "click", "selector": ".neo-examples-treebigdata-controls-container .neo-button", "text": "Expand All"},
+        {"kind": "wait", "selector": ".neo-tree-toggle.is-expanded"},
+        {"kind": "click", "selector": ".neo-examples-treebigdata-controls-container .controls-container-button"}
+      ],
+      "after": [{"selector": ".neo-tree-toggle.is-expanded"}, {"selector": ".neo-grid-cell[data-field='firstname']"}, {"selector": ".neo-examples-treebigdata-controls-container:not(.neo-expanded)", "count": 1}],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "grid-issues",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "The public issue snapshot sorted by issue number with wrapped Title and Summary rows.",
+      "dependencies": [
+        "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/data/neo_issues.json",
+        "https://github.com/"
+      ],
+      "ready": [{"selector": ".neo-grid-cell[data-field='title']"}],
+      "steps": [
+        {"kind": "click", "selector": ".issues-theme-button"},
+        {"kind": "click", "selector": ".neo-grid-header-button", "text": "#"}
+      ],
+      "after": [{"selector": "[role='columnheader'][aria-sort]", "text": "#"}, {"selector": ".neo-grid-cell[data-field='summary']"}],
+      "region": {"x": 8, "y": 8, "width": 640, "height": 360}
+    },
+    {
+      "id": "table-filtering",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "The Firstname header filter narrows the table to Tobias while typed filter controls remain visible.",
+      "ready": [{"selector": "#myTableFilterContainer .neo-table-cell", "text": "Tobias"}],
+      "steps": [{"kind": "fill", "selector": "#myTableFilterContainer .neo-table-header-toolbar .neo-textfield input", "nth": 0, "value": "Tobias"}],
+      "after": [{"selector": "#myTableFilterContainer .neo-table-body tr", "count": 1}, {"selector": "#myTableFilterContainer .neo-table-cell", "text": "Tobias"}],
+      "region": {"x": 20, "y": 20, "width": 640, "height": 360}
+    }
+  ]
+}
