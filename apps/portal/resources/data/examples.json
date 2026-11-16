@@ -726,6 +726,21 @@
         "hiddenIn": []
     },
     {
+        "id": "open-street-maps",
+        "family": "components",
+        "component": "OpenStreetMaps",
+        "feature": "An OpenLayers map wraps a static earthquake record and exposes camera, zoom and marker controls.",
+        "lookFor": "Fly between San Francisco and Iceland, change the zoom, then hide and restore the marker.",
+        "scope": "Loads OpenLayers assets from jsDelivr and OpenStreetMap map tiles over the network.",
+        "image": null,
+        "name": "OpenStreetMaps / OpenLayers",
+        "sourceUrl": "examples/component/wrapper/openStreetMaps",
+        "urls": {
+            "devmode": "examples/component/wrapper/openStreetMaps/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
         "id": "am-charts",
         "family": "components",
         "component": "AmChart",

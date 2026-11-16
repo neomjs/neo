@@ -78,7 +78,7 @@ test.describe('Portal examples family navigation', () => {
 
         expect(view.getTabButtons().map(button => button.text)).toEqual(['Featured', 'Grid & Table', 'Forms', 'Multi-Window', 'Calendar', 'Components']);
         expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/grid', '/examples/forms', '/examples/multi-window', '/examples/calendar', '/examples/components']);
-        expect(view.getCatalogStore().getCount()).toBe(100);
+        expect(view.getCatalogStore().getCount()).toBe(101);
         expect(view.getCard(0).store.getCount()).toBe(28);
         expect(view.getCard(0).store.items.map(record => record.id)).toEqual(featuredExampleIds);
         expect(view.getCard(1).store.getCount()).toBe(21);
@@ -87,7 +87,7 @@ test.describe('Portal examples family navigation', () => {
         expect(view.getCard(4).store.items.map(record => record.id)).toEqual([
             'calendar', 'calendar-weekview', 'gantt-basic', 'scheduler-basic'
         ]);
-        expect(view.getCard(5).store.getCount()).toBe(30);
+        expect(view.getCard(5).store.getCount()).toBe(31);
         expect(view.getCard(0).store.getSource()).toBe(view.getCatalogStore());
         expect(view.getCard(1).store.getSource()).toBe(view.getCatalogStore());
         expect(view.getCard(0).store.model).toBe(view.getCatalogStore().model);
@@ -212,7 +212,8 @@ const catalog            = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examp
           'canvas', 'carousel', 'chip', 'circle', 'clock', 'graph-scene', 'magic-move-text',
           'markdown', 'mwc-button', 'mwc-buttons', 'mwc-text-field', 'mwc-text-fields',
           'process', 'process-real-world', 'progress', 'splitter', 'status-badge', 'timer',
-          'toast', 'video', 'cesium-js', 'monaco-editor', 'am-charts', 'video-move'
+          'toast', 'video', 'cesium-js', 'monaco-editor', 'open-street-maps', 'am-charts',
+          'video-move'
       ],
       multiWindowExampleIds = [
           'dock-layouts', 'dock-cross-window', 'dock-tear-out',
@@ -280,12 +281,12 @@ test.describe('Portal examples canonical catalog', () => {
         })
     }
 
-    test('loads 100 logical examples with unique stable string identities', () => {
+    test('loads 101 logical examples with unique stable string identities', () => {
         const {store} = createList(),
               ids     = [];
 
-        expect(catalog).toHaveLength(100);
-        expect(store.getCount()).toBe(100);
+        expect(catalog).toHaveLength(101);
+        expect(store.getCount()).toBe(101);
 
         store.forEach(record => {
             expect(typeof record.id, record.name).toBe('string');
@@ -293,7 +294,7 @@ test.describe('Portal examples canonical catalog', () => {
             ids.push(record.id)
         });
 
-        expect(new Set(ids).size).toBe(100);
+        expect(new Set(ids).size).toBe(101);
         expect(list.catalogMode).toBe('dist_prod')
     });
 
