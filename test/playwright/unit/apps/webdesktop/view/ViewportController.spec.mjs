@@ -176,3 +176,66 @@ test.describe('WebDesktop.view.ViewportController window rules', () => {
         expect(listeners()).toBe(before - 1)
     })
 });
+
+test.describe('WebDesktop.view.ViewportController arrangements', () => {
+    const realAddon = Neo.main.addon.LocalStorage;
+
+    let apps, controller, state, storage;
+
+    const editor = {id: 'editor', permissions: ['view-mail', 'view-calendar']},
+          guest  = {id: 'guest',  permissions: ['view-help']};
+
+    test.beforeEach(() => {
+        apps    = Neo.create(Apps);
+        state   = {account: null};
+        storage = {[proto.getArrangementKey(editor)]: JSON.stringify({communication: ['calendar', 'mail', 'messages']})};
+
+        Neo.main.addon.LocalStorage = {
+            readLocalStorageItem  : async ({key}) => ({key, value: storage[key] ?? null}),
+            updateLocalStorageItem: ({key, value}) => {storage[key] = value}
+        };
+
+        // Observable#fire drops a listener whose scope has no id
+        controller = {
+            id               : 'webdesktop-arrangement-controller',
+            component        : {windowId: 1},
+            getArrangementKey: proto.getArrangementKey,
+            getState         : key => state[key],
+            getStore         : key => ({apps})[key],
+            setState         : data => Object.assign(state, data)
+        };
+
+        apps.on({rowsChange: proto.onAppsRowsChange, scope: controller})
+    });
+
+    test.afterEach(() => {
+        apps.destroy();
+        Neo.main.addon.LocalStorage = realAddon
+    });
+
+    test('an account signs in with its saved arrangement, and a new order is saved under it', async () => {
+        const saved = storage[proto.getArrangementKey(editor)];
+
+        await proto.onAccountItemClick.call(controller, {record: editor});
+
+        expect(apps.getChildren('communication').map(record => record.id)).toEqual(['calendar', 'mail', 'messages']);
+        // Applying the arrangement happens before the account is signed in, so it writes nothing back
+        expect(Object.keys(storage)).toEqual([proto.getArrangementKey(editor)]);
+        expect(storage[proto.getArrangementKey(editor)]).toBe(saved);
+
+        apps.updateRows([{key: 'mail', values: {order: 0}}, {key: 'calendar', values: {order: 1}}]);
+
+        expect(JSON.parse(storage[proto.getArrangementKey(editor)]).communication).toEqual(['mail', 'calendar', 'messages'])
+    });
+
+    test('an account without a saved arrangement sees the catalog order', async () => {
+        await proto.onAccountItemClick.call(controller, {record: editor});
+
+        state.account = null;
+
+        await proto.onAccountItemClick.call(controller, {record: guest});
+
+        expect(apps.getChildren('communication').map(record => record.id)).toEqual(['mail', 'messages', 'calendar']);
+        expect(state.account).toBe(guest)
+    })
+});

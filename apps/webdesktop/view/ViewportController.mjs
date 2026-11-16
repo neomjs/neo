@@ -63,6 +63,14 @@ class ViewportController extends Controller {
     }
 
     /**
+     * @param {WebDesktop.model.Account} account
+     * @returns {String} The localStorage key of an account's icon arrangement
+     */
+    getArrangementKey(account) {
+        return `neo-webdesktop-arrangement-${account.id}`
+    }
+
+    /**
      * Hides every window without animation: their launcher icons may be gone already.
      */
     hideAllWindows() {
@@ -70,11 +78,21 @@ class ViewportController extends Controller {
     }
 
     /**
+     * Signs an account in with its own icon arrangement, or the catalog order if it saved none. The arrangement is in
+     * place before the grants render the desktop, and with no account signed in yet, applying it saves nothing.
      * @param {Object}                   data
      * @param {WebDesktop.model.Account} data.record
      */
-    onAccountItemClick({record}) {
-        this.setState({
+    async onAccountItemClick({record}) {
+        let me      = this,
+            {value} = await Neo.main.addon.LocalStorage.readLocalStorageItem({
+                key     : me.getArrangementKey(record),
+                windowId: me.component.windowId
+            });
+
+        me.getStore('apps').arrange(value ? JSON.parse(value) : {});
+
+        me.setState({
             account    : record,
             permissions: [...record.permissions]
         })
@@ -94,6 +112,20 @@ class ViewportController extends Controller {
     }
 
     /**
+     * Saves the signed-in account's arrangement whenever the apps store writes a new order: a drop, a keyboard move.
+     */
+    onAppsRowsChange() {
+        let me      = this,
+            account = me.getState('account');
+
+        account && Neo.main.addon.LocalStorage.updateLocalStorageItem({
+            key     : me.getArrangementKey(account),
+            value   : JSON.stringify(me.getStore('apps').getArrangement()),
+            windowId: me.component.windowId
+        })
+    }
+
+    /**
      * The start menu is a `menu.List` cascade over the apps store: every level reads the same filtered tree.
      */
     onComponentConstructed() {
@@ -107,7 +139,11 @@ class ViewportController extends Controller {
             store: me.getStore('apps')
         };
 
-        me.getStore('apps').on('filter', me.onAppsFilter, me)
+        me.getStore('apps').on({
+            filter    : me.onAppsFilter,
+            rowsChange: me.onAppsRowsChange,
+            scope     : me
+        })
     }
 
     /**
