@@ -231,13 +231,13 @@ class EffectButton extends Component {
             tag        = link ? 'a' : 'button',
             vdomConfig = {
                 tag,
-                cls    : me.getVdomCls(),
-                href   : link ? (link.startsWith('#') ? link : '#' + link) : null,
-                id     : me.id,
-                style  : me.style,
-                target : me.url ? me.urlTarget : null,
-                type   : tag === 'button' ? 'button' : null,
-                cn     : me.getVdomChildren()
+                cls   : me.getVdomCls(),
+                href  : link ? (link.startsWith('#') ? link : '#' + link) : null,
+                id    : me.id,
+                style : me.style,
+                target: me.url ? me.urlTarget : null,
+                type  : tag === 'button' ? 'button' : null,
+                cn    : me.getVdomChildren()
             };
 
         // A Boolean marks a toggle and renders aria-pressed, null marks a plain button.
@@ -258,11 +258,11 @@ class EffectButton extends Component {
     afterSetMenu(value, oldValue) {
         if (value) {
             import('../menu/List.mjs').then(module => {
-                let me            = this,
-                    isArray       = Array.isArray(value),
-                    items         = isArray ? value : value.items,
-                    menuConfig    = isArray ? {} : value,
-                    stateProvider = me.getStateProvider(),
+                let me                         = this,
+                    isArray                    = Array.isArray(value),
+                    items                      = isArray ? value : value.items,
+                    menuConfig                 = isArray ? {} : value,
+                    stateProvider              = me.getStateProvider(),
                     {appName, theme, windowId} = me,
 
                     config = Neo.merge({
