@@ -1859,7 +1859,7 @@ test.describe('buildScripts/util/claimResponse', () => {
                 siblingClaim  = comment('outside-sibling-dev', '2026-11-16T02:00:00Z', "I'd like to work on this.", {id: 8801});
 
             const github = {
-                graphql : async () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: []}}}}),
+                graphql : async () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: [], pageInfo: {hasNextPage: false}}}}}),
                 paginate: async fn => {
                     if (fn === github.rest.issues.listComments) return [siblingClaim];
                     if (fn === github.rest.issues.listEvents)   return [];
