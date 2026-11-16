@@ -26,27 +26,40 @@ class ViewportController extends Controller {
 
     /**
      * Creates an app's window on first use. It grows out of the app's launcher icon, and its own state provider holds
-     * the app, parented to the desktop's provider.
+     * the app, parented to the desktop's provider. Dragging and resizing both stay inside the workspace, the area above
+     * the taskbar.
      * @param {WebDesktop.model.App} record
      * @returns {Promise<WebDesktop.view.AppWindow>}
      */
     async createWindow(record) {
         let me                   = this,
             launcher             = me.getReference('launcher'),
+            workspaceId          = me.getReference('workspace').id,
             {appName, windowId}  = launcher,
             {default: AppWindow} = await import('./AppWindow.mjs');
 
         return Neo.create(AppWindow, {
             animateTargetId    : launcher.getItemId(launcher.store.get(record.id)),
             appName,
-            boundaryContainerId: me.getReference('workspace').id,
+            boundaryContainerId: workspaceId,
             listeners          : {
                 headerAction: data => me.onWindowHeaderAction(record.id, data),
                 hide        : ()   => me.onWindowHide(record.id)
             },
-            stateProvider      : {data: {app: record}, parent: me.getStateProvider()},
+            resizablePluginConfig: {boundaryContainerId: workspaceId},
+            stateProvider        : {data: {app: record}, parent: me.getStateProvider()},
             windowId
         })
+    }
+
+    /**
+     * The windows float on the document body, outside the viewport's items, so the controller that creates them
+     * destroys them.
+     * @param {...*} args
+     */
+    destroy(...args) {
+        this.releaseWindows();
+        super.destroy(...args)
     }
 
     /**
@@ -230,6 +243,21 @@ class ViewportController extends Controller {
 
         window.toFront();
         window.hidden && window.show()
+    }
+
+    /**
+     * Destroys every window, open or still being imported, and stops listening to the apps store, which the desktop's
+     * provider owns and destroys after this controller.
+     * @protected
+     */
+    releaseWindows() {
+        let me = this;
+
+        me.getStore('apps')?.un('filter', me.onAppsFilter, me);
+
+        Object.values(me.windows).forEach(promise => promise.then(window => {window.isDestroyed || window.destroy(true)}));
+
+        me.windows = {}
     }
 }
 

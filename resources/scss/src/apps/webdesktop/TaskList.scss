@@ -21,7 +21,8 @@
         height       : 40px;
         position     : relative;
 
-        // The open indicator: a bar under a running app, a dot under a minimized one
+        // The open indicator: an 18px bar under a running app, scaled to a 6px dot under a minimized one. It animates
+        // the transform only, on the product motion tokens, which reduced motion sets to 0ms.
         &::after {
             background-color: var(--webdesktop-accent);
             border-radius   : 2px;
@@ -30,8 +31,8 @@
             height          : 3px;
             left            : 50%;
             position        : absolute;
-            transform       : translateX(-50%);
-            transition      : width .2s ease;
+            transform       : translateX(-50%) scaleX(1);
+            transition      : transform var(--motion-base) var(--ease-out-soft);
             width           : 18px;
         }
 
@@ -39,7 +40,7 @@
             opacity: .65;
 
             &::after {
-                width: 6px;
+                transform: translateX(-50%) scaleX(.3333);
             }
         }
     }

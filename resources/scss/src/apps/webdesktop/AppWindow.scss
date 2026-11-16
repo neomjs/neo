@@ -19,4 +19,14 @@
 
         border-bottom: 1px solid var(--webdesktop-glass-border);
     }
+
+    // Maximized fills the workspace, the area above the 60px taskbar (`Taskbar.scss`), not the dialog's 98% of the
+    // viewport. A window is `position: fixed` on the body, so the percentages read the viewport.
+    &.neo-maximized {
+        border-radius: 0;
+        height       : calc(100% - 60px) !important;
+        left         : 0 !important;
+        top          : 0 !important;
+        width        : 100% !important;
+    }
 }

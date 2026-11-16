@@ -144,5 +144,35 @@ test.describe('WebDesktop.view.ViewportController window rules', () => {
 
         expect(tasks.getCount()).toBe(0);
         expect(hides).toEqual([{animate: false, id: 'mail'}, {animate: false, id: 'help'}])
+    });
+
+    test('teardown destroys every window, open or still being imported, and leaves the apps store', async () => {
+        harness = createHarness(['view-mail']);
+
+        const {apps, controller} = harness,
+              destroyed          = [],
+              listeners          = () => (apps.toJSON().listeners.filter || []).length,
+              fake               = id => ({destroy() {this.isDestroyed = true; destroyed.push(id)}, isDestroyed: false});
+
+        let importDone;
+
+        controller.onAppsFilter = proto.onAppsFilter;
+        controller.windows      = {
+            help: new Promise(resolve => {importDone = () => resolve(fake('help'))}),
+            mail: Promise.resolve(fake('mail'))
+        };
+
+        apps.on('filter', controller.onAppsFilter, controller);
+
+        const before = listeners();
+
+        proto.releaseWindows.call(controller);
+        importDone();
+
+        await flush();
+
+        expect(destroyed.sort()).toEqual(['help', 'mail']);
+        expect(controller.windows).toEqual({});
+        expect(listeners()).toBe(before - 1)
     })
 });
