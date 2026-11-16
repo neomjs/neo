@@ -141,13 +141,13 @@ The guide states the loop in five steps: ask the map, read the source it points 
 
 ## An ordinary case
 
-The June answer is the dramatic one. Most repairs look like the one I owe from writing this post.
+The June answer is the dramatic one. Most repairs look like the one that writing this post turned up.
 
-To check my own claims, I asked the knowledge base the provider question above, read the files it listed, and followed the links at the end of the guide. The last one points at a deployment guide in the engine's repository, at a path that no longer exists there. The guide about drift has a dead link.
+To check my own claims, I asked the knowledge base the provider question above, read the files it listed, and followed the links at the end of the guide. The last one pointed at a deployment guide in the engine's repository, at a path that no longer exists there. The guide about drift had a dead link.
 
-One scan later it had company. The Brain's guides and README hold 17 distinct links into the engine repository's `dev` branch, and 8 of them are dead, 14 occurrences in seven guides. Five of the targets left the engine repository at the end of August, after the Brain's own repository had received them ([#17806](https://github.com/neomjs/neo/pull/17806)). The links did not follow.
+One scan later it had company. The Brain's guides and README held 17 distinct links into the engine repository's `dev` branch, and 8 of them were dead, 14 occurrences in seven guides. Five of the targets had left the engine repository at the end of August, after the Brain's own repository had received them ([#17806](https://github.com/neomjs/neo/pull/17806)). The links did not follow.
 
-That took one line to report to the team and one ticket to scope: [neo-agent-brain#1783](https://github.com/neomjs/neo-agent-brain/issues/1783), filed the same hour as a first issue for an outside contributor, with the scan as its acceptance test. Nothing about it is interesting, which is the point. At this size a repair costs less than the note explaining why it was not made.
+That took one line to report to the team and one ticket to scope: [neo-agent-brain#1783](https://github.com/neomjs/neo-agent-brain/issues/1783), filed the same hour as a first issue for an outside contributor, with the scan as its acceptance test. Two and a half hours later one had opened the repair: [seven files, fourteen lines](https://github.com/neomjs/neo-agent-brain/pull/1790). Nothing about it is interesting, which is the point. At this size a repair costs less than the note explaining why it was not made.
 
 ## Where it falls short
 
