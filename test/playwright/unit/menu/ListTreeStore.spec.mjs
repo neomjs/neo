@@ -326,6 +326,90 @@ test.describe('Neo.menu.List driven by a TreeStore', () => {
         expect(menu.store.get('late').text).toBe('Late (modified)')
     });
 
+    test('a filter set before the menu exists reaches every level, a kept ancestor included', () => {
+        // Only "Copy" matches. Its group stays because a descendant matched (TreeStore#filter()'s ancestor
+        // preservation); "File", its subtree and "About" match nothing and leave every level.
+        treeStore.filters = [{property: 'text', value: 'Copy'}];
+
+        const root   = createMenu({store: treeStore}),
+              level1 = createMenu({...root.getSubMenuData(root.store.get('edit'))});
+
+        menus.push(root, level1);
+
+        expect(root.store.items.map(item => item.id)).toEqual(['edit']);
+        expect(level1.store.items.map(item => item.id)).toEqual(['edit-copy']);
+
+        // The Structural Layer read stays filter-independent: the level applies the mask, getChildren() does not
+        expect(treeStore.getChildren('root').map(item => item.id)).toEqual(['file', 'edit', 'about'])
+    });
+
+    test('changing or clearing the filters re-derives every live level', () => {
+        const root   = createMenu({store: treeStore}),
+              level1 = createMenu({...root.getSubMenuData(root.store.get('file'))});
+
+        menus.push(root, level1);
+
+        // No group text is listed, so a group stays only for a kept child. A group that matched itself would
+        // keep its whole subtree (TreeStore#filter()'s descendant preservation).
+        treeStore.filters = [{property: 'text', operator: 'included', value: ['New', 'Copy']}];
+
+        expect(root.store.items.map(item => item.id)).toEqual(['file', 'edit']);
+        expect(level1.store.items.map(item => item.id)).toEqual(['file-new']);
+
+        treeStore.filters = [{property: 'text', operator: 'included', value: ['Open', 'About']}];
+
+        expect(root.store.items.map(item => item.id)).toEqual(['file', 'about']);
+        expect(level1.store.items.map(item => item.id)).toEqual(['file-open']);
+
+        treeStore.clearFilters();
+
+        expect(root.store.items.map(item => item.id)).toEqual(['file', 'edit', 'about']);
+        expect(level1.store.items.map(item => item.id)).toEqual(['file-new', 'file-open'])
+    });
+
+    test('a record added under an active filter joins its level only when the filter keeps it', () => {
+        // Groups carry no iconCls, so a group stays only for a kept child
+        treeStore.filters = [{property: 'iconCls', value: 'keep'}];
+
+        const root   = createMenu({store: treeStore}),
+              level1 = createMenu({parentRecordId: 'file', store: treeStore});
+
+        menus.push(root, level1);
+
+        expect(root.store.getCount()).toBe(0);
+        expect(level1.store.getCount()).toBe(0);
+
+        treeStore.add([
+            {id: 'file-hidden', text: 'Hidden', isLeaf: true, parentId: 'file'},
+            {id: 'file-save',   text: 'Save',   isLeaf: true, parentId: 'file', iconCls: 'keep'}
+        ]);
+
+        // Exactly once: the filter event re-derives the level before the mutation reaches it
+        expect(level1.store.items.map(item => item.id)).toEqual(['file-save']);
+        expect(level1.store.get('file-save')).toBe(treeStore.get('file-save'));
+        expect(root.store.items.map(item => item.id)).toEqual(['file'])
+    });
+
+    test('a filter that drops the item of the open submenu hides that submenu', () => {
+        const root   = createMenu({store: treeStore}),
+              record = root.store.get('file');
+
+        menus.push(root);
+
+        root.showSubMenu(root.getItemId(root.store.getKey(record)), record);
+
+        const submenu = root.activeSubMenu;
+
+        menus.push(submenu);
+
+        expect(submenu.parentRecordId).toBe('file');
+
+        treeStore.filters = [{property: 'text', value: 'About'}];
+
+        expect(root.store.items.map(item => item.id)).toEqual(['about']);
+        expect(root.activeSubMenu).toBeNull()
+    });
+
     test('a destroyed level leaves no listener behind on the still-live source', () => {
         const root   = createMenu({store: treeStore}),
               level1 = createMenu({...root.getSubMenuData(root.store.get('file'))});
@@ -341,7 +425,8 @@ test.describe('Neo.menu.List driven by a TreeStore', () => {
         const after = treeStore.toJSON().listeners;
 
         // Teardown must be symmetric with what onConstructed subscribed. An asymmetric un() leaves a
-        // destroyed level still driving syncLevelRecords on the next source sort.
+        // destroyed level still driving syncLevelRecords on the next source sort or filter.
+        expect((after.filter       || []).length).toBe(before.filter.length       - 1);
         expect((after.mutate       || []).length).toBe(before.mutate.length       - 1);
         expect((after.recordChange || []).length).toBe(before.recordChange.length - 1);
         expect((after.sort         || []).length).toBe(before.sort.length         - 1);
