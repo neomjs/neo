@@ -305,12 +305,9 @@ class ConfigurationViewport extends Viewport {
             flex  : me.exampleComponentFlex,
             layout: 'base',
             style : {
-                alignItems    : 'center',
-                display       : 'flex',
-                justifyContent: 'center',
-                overflow      : 'auto',
-                padding       : '30px',
-                position      : 'relative',
+                overflow: 'auto',
+                padding : '20px',
+                position: 'relative',
                 ...style
             },
             ...me.exampleContainerConfig
