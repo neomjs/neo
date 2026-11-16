@@ -24,6 +24,18 @@ class ViewportController extends Controller {
      */
     windows = {}
     /**
+     * The windows that exist, by app id: a sign-out hides them at once, without waiting on an import still running
+     * @member {Object} createdWindows={}
+     * @protected
+     */
+    createdWindows = {}
+    /**
+     * Counts sign-outs. A window import that ends after one creates no window, so an open cannot outlive its account.
+     * @member {Number} signOuts=0
+     * @protected
+     */
+    signOuts = 0
+    /**
      * The latest sign-in while its saved arrangement is being read. A later click replaces it, so the last click signs
      * in, whichever read answers first.
      * @member {Object|null} pendingSignIn=null
@@ -40,18 +52,23 @@ class ViewportController extends Controller {
     /**
      * Creates an app's window on first use. It grows out of the app's launcher icon, and its own state provider holds
      * the app, parented to the desktop's provider. Dragging and resizing both stay inside the workspace, the area above
-     * the taskbar.
+     * the taskbar. A sign-out during the import cancels it: a new window shows itself, and its account is gone.
      * @param {WebDesktop.model.App} record
-     * @returns {Promise<WebDesktop.view.AppWindow>}
+     * @returns {Promise<WebDesktop.view.AppWindow|null>} null when a sign-out ended the open
      */
     async createWindow(record) {
         let me                   = this,
+            signOuts             = me.signOuts,
             launcher             = me.getReference('launcher'),
             workspaceId          = me.getReference('workspace').id,
             {appName, windowId}  = launcher,
             {default: AppWindow} = await import('./AppWindow.mjs');
 
-        return Neo.create(AppWindow, {
+        if (signOuts !== me.signOuts) {
+            return null
+        }
+
+        return me.createdWindows[record.id] = Neo.create(AppWindow, {
             animateTargetId    : launcher.getItemId(launcher.store.get(record.id)),
             appName,
             boundaryContainerId: workspaceId,
@@ -84,11 +101,11 @@ class ViewportController extends Controller {
     }
 
     /**
-     * Hides every window without animation: their launcher icons may be gone already.
-     * @returns {Promise<Array>} Settles once every window, one still being imported included, has left the DOM
+     * Hides every created window at once and without animation: their launcher icons may be gone already. An import
+     * still running is not waited for; a sign-out cancels it in `createWindow()`.
      */
     hideAllWindows() {
-        return Promise.all(Object.values(this.windows).map(promise => promise.then(window => {window.hidden || window.hide(false)})))
+        Object.values(this.createdWindows).forEach(window => {window.hidden || window.hide(false)})
     }
 
     /**
@@ -195,18 +212,18 @@ class ViewportController extends Controller {
     }
 
     /**
-     * Signs out. A sign-in whose arrangement is still being read does not outlive it. The windows leave the DOM before
-     * the account changes: a window still mounted would re-render its content for the empty account, and that update
-     * would land after the window's removal.
+     * Signs out at once. A sign-in whose arrangement is still being read does not outlive it, and neither does a window
+     * import. The windows leave the DOM before the account changes: a window still mounted would re-render its content
+     * for the empty account, and that update would land after the window's removal.
      * @param {Object} data
      */
-    async onSignOutButtonClick(data) {
+    onSignOutButtonClick(data) {
         let me = this;
 
         me.pendingSignIn = null;
+        me.signOuts++;
         me.getStore('tasks').clear();
-
-        await me.hideAllWindows();
+        me.hideAllWindows();
 
         me.setState({
             account         : null,
@@ -291,11 +308,24 @@ class ViewportController extends Controller {
      * @param {WebDesktop.model.App} record
      */
     async openApp(record) {
-        let me     = this,
-            {id}   = record,
-            tasks  = me.getStore('tasks'),
-            window = await (me.windows[id] ??= me.createWindow(record)),
-            task   = tasks.get(id);
+        let me      = this,
+            {id}    = record,
+            tasks   = me.getStore('tasks'),
+            request = me.windows[id] ??= me.createWindow(record),
+            window, task;
+
+        // A failed import, or one a sign-out cancelled, leaves no cached window: the next open imports again
+        try {
+            window = await request
+        } finally {
+            !window && me.windows[id] === request && delete me.windows[id]
+        }
+
+        if (!window) {
+            return
+        }
+
+        task = tasks.get(id);
 
         if (task) {
             task.minimized = false
@@ -343,9 +373,11 @@ class ViewportController extends Controller {
             scope     : me
         });
 
-        Object.values(me.windows).forEach(promise => promise.then(window => {window.isDestroyed || window.destroy(true)}));
+        // A cancelled import resolves to null, and a failed one has no window to destroy
+        Object.values(me.windows).forEach(promise => promise.then(window => {window && !window.isDestroyed && window.destroy(true)}, () => {}));
 
-        me.windows = {}
+        me.createdWindows = {};
+        me.windows        = {}
     }
 }
 

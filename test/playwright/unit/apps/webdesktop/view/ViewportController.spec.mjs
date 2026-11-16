@@ -37,10 +37,13 @@ function createHarness(permissions) {
         tasks      = Neo.create(Tasks),
         hides      = [],
         controller = {
+            createdWindows: {},
             getStore      : key => ({apps, tasks})[key],
             hideAllWindows: proto.hideAllWindows,
+            pendingSignIn : null,
             setState() {},
-            windows: {}
+            signOuts: 0,
+            windows : {}
         },
         addWindow = id => {
             const window = {
@@ -54,7 +57,8 @@ function createHarness(permissions) {
                 toFront() {}
             };
 
-            controller.windows[id] = Promise.resolve(window);
+            controller.createdWindows[id] = window;
+            controller.windows[id]        = Promise.resolve(window);
             tasks.add({id, text: id});
 
             return window
@@ -163,6 +167,60 @@ test.describe('WebDesktop.view.ViewportController window rules', () => {
         expect(hiddenAtStateChange).toEqual([2])
     });
 
+    test('a failed or still-running window import does not hold the sign-out', () => {
+        harness = createHarness(['view-mail', 'view-help']);
+
+        const {controller} = harness,
+              accounts     = [],
+              failed       = Promise.reject(new Error('import failed'));
+
+        failed.catch(() => {});
+        controller.windows  = {help: failed, mail: new Promise(() => {})};
+        controller.setState = state => accounts.push(state.account);
+
+        proto.onSignOutButtonClick.call(controller);
+
+        expect(accounts).toEqual([null])
+    });
+
+    test('a sign-out during the window import creates no window', async () => {
+        harness = createHarness(['view-mail']);
+
+        const {apps, controller} = harness;
+
+        controller.getReference = name => name === 'launcher'
+            ? {appName, getItemId: () => 'icon', store: {get: () => null}, windowId: 1}
+            : {id: 'workspace'};
+
+        const opening = proto.createWindow.call(controller, apps.get('mail'));
+
+        proto.onSignOutButtonClick.call(controller);
+
+        expect(await opening).toBeNull();
+        expect(controller.createdWindows).toEqual({})
+    });
+
+    test('a failed or cancelled import is dropped, so the next open imports again', async () => {
+        harness = createHarness(['view-mail']);
+
+        const {apps, controller, tasks} = harness,
+              mail                      = apps.get('mail'),
+              results                   = [Promise.reject(new Error('import failed')), Promise.resolve(null),
+                  Promise.resolve({hidden: false, show() {}, toFront() {}})];
+
+        controller.createWindow = () => results.shift();
+
+        await expect(proto.openApp.call(controller, mail)).rejects.toThrow('import failed');
+        expect(controller.windows).toEqual({});
+
+        await proto.openApp.call(controller, mail);
+        expect(controller.windows).toEqual({});
+        expect(tasks.getCount()).toBe(0);
+
+        await proto.openApp.call(controller, mail);
+        expect(tasks.items.map(task => task.id)).toEqual(['mail'])
+    });
+
     test('teardown destroys every window, open or still being imported, and leaves the apps store', async () => {
         harness = createHarness(['view-mail']);
 
@@ -218,12 +276,14 @@ test.describe('WebDesktop.view.ViewportController arrangements', () => {
         controller = {
             id               : 'webdesktop-arrangement-controller',
             component        : {windowId: 1},
+            createdWindows   : {},
             getArrangementKey: proto.getArrangementKey,
             getState         : key => state[key],
             getStore         : key => ({apps, tasks})[key],
             hideAllWindows   : proto.hideAllWindows,
             readArrangement  : proto.readArrangement,
             setState         : data => Object.assign(state, data),
+            signOuts         : 0,
             windows          : {}
         };
 
