@@ -7,6 +7,7 @@ import inquirer        from 'inquirer';
 import path            from 'path';
 import {createRequire} from 'node:module';
 import {sanitizeInput} from '../util/sanitizer.mjs';
+import * as BuildId    from '../util/buildId.mjs';
 
 const __dirname   = path.resolve(),
       cwd         = process.cwd(),
@@ -108,16 +109,19 @@ if (programOpts.info) {
             }
         }
 
-        // dist/development
+        // dist/development. A failed thread exits before the stamp, so only a successful build publishes its id,
+        // including a build of a single thread
         if (env === 'all' || env === 'dev') {
             console.log(chalk.blue(`${programName} starting dist/development`));
             parseThreads(`${webpackPath}/development/webpack.config`);
+            BuildId.stampBuildId({buildId: BuildId.getBuildId(), distPath: path.resolve(cwd, 'dist/development')})
         }
 
         // dist/production
         if (env === 'all' || env === 'prod') {
             console.log(chalk.blue(`${programName} starting dist/production`));
             parseThreads(`${webpackPath}/production/webpack.config`);
+            BuildId.stampBuildId({buildId: BuildId.getBuildId(), distPath: path.resolve(cwd, 'dist/production')})
         }
 
         const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);

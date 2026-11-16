@@ -7,7 +7,7 @@ import {createEsmBuildPlan}    from '../util/esmBuildGraph.mjs';
 import {minifyHtml}            from '../util/minifyHtml.mjs';
 import {canvasModulePackageRoots, mainAddonPackageRoots} from '../util/declaredPackageRoots.mjs';
 import {processFileContent}    from '../util/astTemplateProcessor.mjs';
-import {getBuildId}            from '../util/buildId.mjs';
+import * as BuildId            from '../util/buildId.mjs';
 
 import {
     esmOutputRoot,
@@ -24,7 +24,6 @@ const
     requireJson    = path => JSON.parse(fs.readFileSync(path, 'utf-8')),
     packageJson    = requireJson(path.join(root, 'package.json')),
     insideNeo      = packageJson.name.includes('neo.mjs'),
-    buildId        = getBuildId(),
     startDate      = new Date();
 
 const
@@ -81,7 +80,7 @@ async function minifyFile(content, outputPath, sourcePath, type) {
         if (outputPath.endsWith('.json')) {
             const jsonContent = JSON.parse(content);
             if (type !== 'json-data' && outputPath.endsWith('neo-config.json')) {
-                rewriteNeoConfig(jsonContent, {buildId, insideNeo})
+                rewriteNeoConfig(jsonContent, {insideNeo})
             }
             fs.writeFileSync(outputPath, JSON.stringify(jsonContent));
             console.log(`Minified JSON: ${outputPath}`)
@@ -202,6 +201,9 @@ emitFiles().then(() => {
     if (missing.length + wrongEngine.length > 0) {
         process.exit(1)
     }
+
+    // Only a successful build publishes its id
+    BuildId.stampBuildId({buildId: BuildId.getBuildId(), distPath: path.resolve(root, esmOutputRoot)});
 
     const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
     console.log(`\nTotal time for dist/esm: ${processTime}s`);

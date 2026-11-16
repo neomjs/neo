@@ -161,20 +161,16 @@ export const isFixedBasePath = basePath =>
  * asymmetry is intentional and pre-existing — the worker path is resolved from a different origin.
  * Preserved exactly.
  *
- * `buildId` names the build run, so the service worker gives this build a cache of its own.
- *
  * @param {Object} config parsed neo-config.json; mutated in place, matching the caller's contract
  * @param {Object}  options
- * @param {String}  options.buildId
  * @param {Boolean} options.insideNeo
  * @returns {Object} the same object
  */
-export function rewriteNeoConfig(config, {buildId, insideNeo}) {
+export function rewriteNeoConfig(config, {insideNeo}) {
     const {basePath} = config;
 
     Object.assign(config, {
         basePath      : isFixedBasePath(basePath) ? basePath : '../../' + basePath,
-        buildId,
         environment   : 'dist/esm',
         mainPath      : './Main.mjs',
         workerBasePath: basePath + 'src/worker/'
