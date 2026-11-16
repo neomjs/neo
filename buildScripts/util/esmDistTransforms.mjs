@@ -386,6 +386,21 @@ export function staticModuleSpecifiers(code) {
     return specifiers
 }
 
+/**
+ * @summary Returns non-computed runtime dynamic import specifiers without widening static discovery.
+ * @param {String} code
+ * @returns {String[]}
+ */
+export function literalDynamicSpecifiers(code) {
+    const specifiers = [];
+    visitImportSources(code, (source, kind) => {
+        if (kind !== 'ImportExpression') return;
+        const entry = staticSpecifier(source, code);
+        if (entry && !entry.computed) specifiers.push(entry.specifier)
+    });
+    return specifiers
+}
+
 /** @summary Visits actual import/re-export source nodes, excluding source-like prose strings. @param {String} code @param {Function} visitor */
 function visitImportSources(code, visitor) {
     const visit = node => {

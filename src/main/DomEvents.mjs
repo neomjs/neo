@@ -370,11 +370,14 @@ class DomEvents extends Base {
     }
 
     /**
-     * @param {MouseEvent} event
+     * `pointerType` names the pointer behind a `PointerEvent` (`'mouse'`, `'pen'` or `'touch'`), as a click is in
+     * current Chromium. A `MouseEvent` (a dblclick, a mousedown, a click in a browser that dispatches one) leaves it
+     * `undefined`: no signal, which a consumer answers from the device (`Neo.config.hasTouchEvents`), never as a mouse.
+     * @param {MouseEvent|PointerEvent} event
      * @returns {Object}
      */
     getMouseEventData(event) {
-        let {altKey, button, buttons, clientX, clientY, ctrlKey, detail, metaKey, offsetX, offsetY, pageX, pageY, screenX, screenY, shiftKey} = event;
+        let {altKey, button, buttons, clientX, clientY, ctrlKey, detail, metaKey, offsetX, offsetY, pageX, pageY, pointerType, screenX, screenY, shiftKey} = event;
 
         return {
             ...this.getEventData(event),
@@ -390,6 +393,7 @@ class DomEvents extends Base {
             offsetY,
             pageX,
             pageY,
+            pointerType,
             screenX,
             screenY,
             shiftKey

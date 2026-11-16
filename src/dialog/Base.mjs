@@ -151,6 +151,8 @@ class Dialog extends Panel {
     }
 
     /**
+     * The component the animation starts from. Null when `animateTargetId` names a node without a component, such as
+     * a list item: the animation still runs, and the dialog keeps its own `windowId` and `appName`.
      * @member {Neo.component.Base|null} animateTarget=null
      */
     get animateTarget() {
@@ -368,8 +370,12 @@ class Dialog extends Panel {
             rects, windowId;
 
         // Assuming that we want to show the dialog inside the same browser window as the animation target
-        me.windowId = windowId = animateTarget.windowId;
-        me.appName  = animateTarget.appName;
+        if (animateTarget) {
+            me.windowId = animateTarget.windowId;
+            me.appName  = animateTarget.appName
+        }
+
+        windowId = me.windowId;
 
         rects = await me.getDomRect([id, me.animateTargetId])
 
@@ -414,11 +420,13 @@ class Dialog extends Panel {
     async animateShow() {
         let me                         = this,
             {animateTarget, id, style} = me,
-            appName, rect;
+            rect;
 
         // Assuming that we want to show the dialog inside the same browser window as the animation target
-        me.windowId = animateTarget.windowId;
-        me.appName  = appName = animateTarget.appName;
+        if (animateTarget) {
+            me.windowId = animateTarget.windowId;
+            me.appName  = animateTarget.appName
+        }
 
         rect = await me.getDomRect(me.animateTargetId);
 

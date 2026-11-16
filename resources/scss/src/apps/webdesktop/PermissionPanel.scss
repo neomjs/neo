@@ -1,0 +1,23 @@
+.webdesktop-permission-panel {
+    backdrop-filter : blur(28px) saturate(160%);
+    background-color: var(--webdesktop-glass-strong);
+    border-left     : 1px solid var(--webdesktop-glass-border);
+    width           : 320px;
+
+    .webdesktop-panel-header {
+        padding: 22px 20px 12px;
+
+        h2 {
+            font-size  : 17px;
+            font-weight: 700;
+            margin     : 0 0 6px;
+        }
+
+        p {
+            color      : var(--webdesktop-ink-dim);
+            font-size  : 13px;
+            line-height: 1.5;
+            margin     : 0;
+        }
+    }
+}

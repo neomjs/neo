@@ -1,0 +1,21 @@
+.webdesktop-account-chip {
+    align-items: center;
+    display    : flex;
+    gap        : 10px;
+    padding    : 0 10px 0 6px;
+
+    .webdesktop-avatar {
+        font-size: 13px;
+        height   : 34px;
+        width    : 34px;
+    }
+
+    .webdesktop-account-name {
+        font-size: 13px;
+    }
+
+    .webdesktop-account-role {
+        font-size : 11.5px;
+        margin-top: 0;
+    }
+}
