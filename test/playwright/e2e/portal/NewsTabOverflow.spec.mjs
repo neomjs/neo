@@ -69,16 +69,20 @@ test.describe('Portal section tab bars on a portrait phone', () => {
     });
 
     test('a section bar withdraws the control once a desktop viewport fits every header, and keeps it while not', async ({page}) => {
-        // Featured and the 14 example groups that publish need more than 1920 px, so that bar keeps its control
-        for (const [route, fits] of [['#/examples', false], ['#/news/releases', true]]) {
+        // Featured and the 14 example groups that publish need more than 1920 px, so that bar keeps its control.
+        // A section the route left can stay in the page, hidden, so News goes first and only a visible control counts.
+        for (const [route, fits] of [['#/news/releases', true], ['#/examples', false]]) {
+            const control = page.locator(`${CONTROL}:visible`);
+
             await page.setViewportSize({width: 390, height: 300});
             await page.goto(`${PORTAL}${route}`);
-            await expect(page.locator(CONTROL), `${route}: the plugin projects this bar`).toBeVisible();
+            await expect(control, `${route}: the plugin projects this bar`).toBeVisible();
 
             await page.setViewportSize({width: 1920, height: 1080});
-            await expect(page.locator(CONTROL), `${route}: the control shows only while a header does not fit`).toHaveCount(fits ? 0 : 1)
+            await expect(control, `${route}: the control shows only while a header does not fit`).toHaveCount(fits ? 0 : 1)
         }
 
+        await page.goto(`${PORTAL}#/news/releases`);
         await expect.poll(() => reachableTabs(page)).toEqual(TABS)
     });
 });
