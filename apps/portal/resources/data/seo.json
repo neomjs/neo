@@ -94,6 +94,11 @@
         "schemaType": "TechArticle",
         "lastmod": "2026-11-07"
     },
+    "/learn/benefits/EnterpriseEvaluation": {
+        "title": "Evaluating Neo.mjs for Enterprise Web Applications | Neo.mjs",
+        "description": "What an architecture review asks before adopting the Neo.mjs engine: licence, supply chain, maintainers, upgrades, browsers, security, accessibility.",
+        "schemaType": "TechArticle"
+    },
     "/learn/benefits/body/ApplicationEngine": {
         "title": "The Application Engine for the AI Era - Neo.mjs",
         "description": "Traditional frameworks compile away. Engines stay alive.",
@@ -584,6 +589,11 @@
         "description": "In traditional Single Page Applications (SPAs), loading a large dataset (e.g., 10,000+ rows) usually involves a \"Loading Spinner of Death.\" The application...",
         "schemaType": "TechArticle",
         "lastmod": "2026-02-10"
+    },
+    "/learn/guides/datahandling/Gantt": {
+        "title": "Building Gantt Charts with Linked Tasks | Neo.mjs",
+        "description": "Learn how to build interactive Gantt charts with Neo.gantt.Container: hierarchical task trees, dependency records, cascade propagation, and working calendars.",
+        "schemaType": "TechArticle"
     },
     "/learn/guides/datahandling/Tables": {
         "title": "Tables (Stores) — Neo.mjs Developer Guide",
