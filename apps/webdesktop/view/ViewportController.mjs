@@ -23,22 +23,52 @@ class ViewportController extends Controller {
      * @member {Object} windows={}
      */
     windows = {}
+    /**
+     * The windows that exist, by app id: a sign-out hides them at once, without waiting on an import still running
+     * @member {Object} createdWindows={}
+     * @protected
+     */
+    createdWindows = {}
+    /**
+     * Counts sign-outs. A window import that ends after one creates no window, so an open cannot outlive its account.
+     * @member {Number} signOuts=0
+     * @protected
+     */
+    signOuts = 0
+    /**
+     * The latest sign-in while its saved arrangement is being read. A later click replaces it, so the last click signs
+     * in, whichever read answers first.
+     * @member {Object|null} pendingSignIn=null
+     * @protected
+     */
+    pendingSignIn = null
+    /**
+     * True while a sign-in restores a saved arrangement: that write is no new order, so nothing is saved
+     * @member {Boolean} restoringArrangement=false
+     * @protected
+     */
+    restoringArrangement = false
 
     /**
      * Creates an app's window on first use. It grows out of the app's launcher icon, and its own state provider holds
      * the app, parented to the desktop's provider. Dragging and resizing both stay inside the workspace, the area above
-     * the taskbar.
+     * the taskbar. A sign-out during the import cancels it: a new window shows itself, and its account is gone.
      * @param {WebDesktop.model.App} record
-     * @returns {Promise<WebDesktop.view.AppWindow>}
+     * @returns {Promise<WebDesktop.view.AppWindow|null>} null when a sign-out ended the open
      */
     async createWindow(record) {
         let me                   = this,
+            signOuts             = me.signOuts,
             launcher             = me.getReference('launcher'),
             workspaceId          = me.getReference('workspace').id,
             {appName, windowId}  = launcher,
             {default: AppWindow} = await import('./AppWindow.mjs');
 
-        return Neo.create(AppWindow, {
+        if (signOuts !== me.signOuts) {
+            return null
+        }
+
+        return me.createdWindows[record.id] = Neo.create(AppWindow, {
             animateTargetId    : launcher.getItemId(launcher.store.get(record.id)),
             appName,
             boundaryContainerId: workspaceId,
@@ -63,21 +93,47 @@ class ViewportController extends Controller {
     }
 
     /**
-     * Hides every window without animation: their launcher icons may be gone already.
+     * @param {WebDesktop.model.Account} account
+     * @returns {String} The localStorage key of an account's icon arrangement
      */
-    hideAllWindows() {
-        Object.values(this.windows).forEach(promise => promise.then(window => {window.hidden || window.hide(false)}))
+    getArrangementKey(account) {
+        return `neo-webdesktop-arrangement-${account.id}`
     }
 
     /**
+     * Hides every created window at once and without animation: their launcher icons may be gone already. An import
+     * still running is not waited for; a sign-out cancels it in `createWindow()`.
+     */
+    hideAllWindows() {
+        Object.values(this.createdWindows).forEach(window => {window.hidden || window.hide(false)})
+    }
+
+    /**
+     * Signs an account in with its saved icon arrangement, or the catalog order if it has none. The arrangement is in
+     * place before the grants render the desktop. Of two quick clicks the later one signs in.
      * @param {Object}                   data
      * @param {WebDesktop.model.Account} data.record
      */
-    onAccountItemClick({record}) {
-        this.setState({
-            account    : record,
-            permissions: [...record.permissions]
-        })
+    async onAccountItemClick({record}) {
+        let me          = this,
+            signIn      = me.pendingSignIn = {record},
+            arrangement = await me.readArrangement(record);
+
+        if (me.pendingSignIn === signIn) {
+            me.pendingSignIn        = null;
+            me.restoringArrangement = true;
+
+            try {
+                me.getStore('apps').arrange(arrangement)
+            } finally {
+                me.restoringArrangement = false
+            }
+
+            me.setState({
+                account    : record,
+                permissions: [...record.permissions]
+            })
+        }
     }
 
     /**
@@ -94,6 +150,20 @@ class ViewportController extends Controller {
     }
 
     /**
+     * Saves the signed-in account's arrangement whenever the apps store writes a new order: a drop, a keyboard move.
+     */
+    onAppsRowsChange() {
+        let me      = this,
+            account = me.getState('account');
+
+        account && !me.restoringArrangement && Neo.main.addon.LocalStorage.updateLocalStorageItem({
+            key     : me.getArrangementKey(account),
+            value   : JSON.stringify(me.getStore('apps').getArrangement()),
+            windowId: me.component.windowId
+        })
+    }
+
+    /**
      * The start menu is a `menu.List` cascade over the apps store: every level reads the same filtered tree.
      */
     onComponentConstructed() {
@@ -107,7 +177,11 @@ class ViewportController extends Controller {
             store: me.getStore('apps')
         };
 
-        me.getStore('apps').on('filter', me.onAppsFilter, me)
+        me.getStore('apps').on({
+            filter    : me.onAppsFilter,
+            rowsChange: me.onAppsRowsChange,
+            scope     : me
+        })
     }
 
     /**
@@ -138,13 +212,18 @@ class ViewportController extends Controller {
     }
 
     /**
+     * Signs out at once. A sign-in whose arrangement is still being read does not outlive it, and neither does a window
+     * import. The windows leave the DOM before the account changes: a window still mounted would re-render its content
+     * for the empty account, and that update would land after the window's removal.
      * @param {Object} data
      */
     onSignOutButtonClick(data) {
         let me = this;
 
-        me.hideAllWindows();
+        me.pendingSignIn = null;
+        me.signOuts++;
         me.getStore('tasks').clear();
+        me.hideAllWindows();
 
         me.setState({
             account         : null,
@@ -229,11 +308,24 @@ class ViewportController extends Controller {
      * @param {WebDesktop.model.App} record
      */
     async openApp(record) {
-        let me     = this,
-            {id}   = record,
-            tasks  = me.getStore('tasks'),
-            window = await (me.windows[id] ??= me.createWindow(record)),
-            task   = tasks.get(id);
+        let me      = this,
+            {id}    = record,
+            tasks   = me.getStore('tasks'),
+            request = me.windows[id] ??= me.createWindow(record),
+            window, task;
+
+        // A failed import, or one a sign-out cancelled, leaves no cached window: the next open imports again
+        try {
+            window = await request
+        } finally {
+            !window && me.windows[id] === request && delete me.windows[id]
+        }
+
+        if (!window) {
+            return
+        }
+
+        task = tasks.get(id);
 
         if (task) {
             task.minimized = false
@@ -246,6 +338,28 @@ class ViewportController extends Controller {
     }
 
     /**
+     * Reads an account's saved arrangement. It is a preference: a failed read or an unreadable value gives the catalog
+     * order and never blocks the sign-in.
+     * @param {WebDesktop.model.Account} account
+     * @returns {Promise<Object>} Group key → app keys, or `{}`
+     */
+    async readArrangement(account) {
+        let me = this;
+
+        try {
+            let {value} = await Neo.main.addon.LocalStorage.readLocalStorageItem({
+                    key     : me.getArrangementKey(account),
+                    windowId: me.component.windowId
+                }),
+                arrangement = value && JSON.parse(value);
+
+            return Neo.isObject(arrangement) ? arrangement : {}
+        } catch {
+            return {}
+        }
+    }
+
+    /**
      * Destroys every window, open or still being imported, and stops listening to the apps store, which the desktop's
      * provider owns and destroys after this controller.
      * @protected
@@ -253,11 +367,17 @@ class ViewportController extends Controller {
     releaseWindows() {
         let me = this;
 
-        me.getStore('apps')?.un('filter', me.onAppsFilter, me);
+        me.getStore('apps')?.un({
+            filter    : me.onAppsFilter,
+            rowsChange: me.onAppsRowsChange,
+            scope     : me
+        });
 
-        Object.values(me.windows).forEach(promise => promise.then(window => {window.isDestroyed || window.destroy(true)}));
+        // A cancelled import resolves to null, and a failed one has no window to destroy
+        Object.values(me.windows).forEach(promise => promise.then(window => {window && !window.isDestroyed && window.destroy(true)}, () => {}));
 
-        me.windows = {}
+        me.createdWindows = {};
+        me.windows        = {}
     }
 }
 

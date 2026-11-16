@@ -1,4 +1,5 @@
 import BaseList from '../../../../src/list/Base.mjs';
+import Example  from '../../model/Example.mjs';
 import VDomUtil from '../../../../src/util/VDom.mjs';
 
 /**
@@ -34,11 +35,6 @@ class List extends BaseList {
          * @reactive
          */
         catalogMode_: 'dist_prod',
-        /**
-         * Family-specific cover glyph used until the example has a published screenshot.
-         * @member {String} fallbackIconCls='fa fa-star'
-         */
-        fallbackIconCls: 'fa fa-star',
         /**
          * @summary Bounds delayed observe calls when card DOM is not ready at registration.
          * @member {Number} intersectionObserverReconnects=10
@@ -135,7 +131,12 @@ class List extends BaseList {
     }
 
     /**
-     * @summary Renders the catalog's feature and observation beside the real example links.
+     * @summary Renders the cover as the card, with the title and the proof line on it.
+     *
+     * The cover fills the 16:9 card. Title and `feature` stay visible on a scrim at its foot. The action
+     * (`lookFor`), the limits (`scope`) and the source link sit in `.portal-example-more`, which the styles open
+     * on hover, focus and selection: a tap selects a list item, so touch reaches them too. A record without a
+     * cover never arrives here: the list's store filters it out (`Portal.model.Example.publishes()`).
      * @param {Object} record
      * @param {Number} index
      */
@@ -150,20 +151,20 @@ class List extends BaseList {
                     {cls: ['far', 'fa-window-restore']}
                 ]},
                 {cls: ['neo-full-size', 'preview-image'], flag: `image-${record.id}`, style: imageStyle},
-                {cls: ['portal-example-placeholder'], removeDom: !!record.image, cn: [
-                    {cls: me.fallbackIconCls.split(' ')},
-                    {tag: 'span', text: record.component}
-                ]},
                 {cls: ['neo-absolute', 'neo-item-bottom-position'], cn: [
                     {...me.createLink(record)},
                     {cls: ['portal-example-feature'], removeDom: !record.feature, text: record.feature},
-                    {tag: 'p', cls: ['portal-example-look-for'], removeDom: !record.lookFor, text: record.lookFor},
-                    {tag: 'p', cls: ['portal-example-scope'], removeDom: !record.scope, text: record.scope},
-                    {cls: ['neo-top-20'], cn: [
-                        {...me.createSourceLink(record)},
-                        {cls: ['neo-inner-content'], cn: [
-                            {cls: ['neo-inner-details'], text: record.browsers.join(', ')},
-                            {cls: ['neo-inner-details'], text: record.environments.join(', ')}
+                    {cls: ['portal-example-more'], cn: [
+                        {cls: ['portal-example-more-inner'], cn: [
+                            {tag: 'p', cls: ['portal-example-look-for'], removeDom: !record.lookFor, text: record.lookFor},
+                            {tag: 'p', cls: ['portal-example-scope'], removeDom: !record.scope, text: record.scope},
+                            {cls: ['neo-top-20'], cn: [
+                                {...me.createSourceLink(record)},
+                                {cls: ['neo-inner-content'], cn: [
+                                    {cls: ['neo-inner-details'], text: record.browsers.join(', ')},
+                                    {cls: ['neo-inner-details'], text: record.environments.join(', ')}
+                                ]}
+                            ]}
                         ]}
                     ]}
                 ]}
@@ -224,7 +225,7 @@ class List extends BaseList {
     }
 
     /**
-     * @summary Uses a typographic gradient cover when the example has no published screenshot.
+     * @summary Paints the record's cover over the theme gradient that shows while it loads.
      * @param {Object} record
      * @returns {{backgroundImage: string}}
      */
@@ -255,18 +256,18 @@ class List extends BaseList {
     }
 
     /**
-     * @summary Retains intentional per-mode exclusions and hides entries with no target in this mode.
+     * @summary Hides a card the build mode cannot publish (`Portal.model.Example.publishes()`), and the Portal's own
+     * card in the build that is running it.
+     *
+     * The store filters by the same rule. Reading it here as well keeps a card hidden while this list already
+     * renders the new mode and its store has not yet re-filtered.
      * @param {Object} record
      * @returns {Boolean}
      */
     isHiddenItem(record) {
-        if (record.hidden || record.hiddenIn.includes(this.catalogMode) || !record.urls[this.catalogMode]) {
-            return true
-        }
-
-        // We only want to show the portal app for the non-current environment.
-        // => A link to itself feels pointless
-        return record.sourceUrl === 'apps/portal' && this.environment === Neo.config.environment
+        // A link to the page itself would be pointless
+        return !Example.publishes(record, this.catalogMode) ||
+            (record.sourceUrl === 'apps/portal' && this.environment === Neo.config.environment)
     }
 
     /**

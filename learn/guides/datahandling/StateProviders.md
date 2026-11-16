@@ -11,6 +11,9 @@ State Providers act as a single source of truth for a section of your component 
 
 *Note: Other libraries or frameworks often call state providers "Stores" or "ViewModels".*
 
+If this is your first contact with state providers, the shorter introduction
+[Getting Started → Shared Bindable Data](../../gettingstarted/ComponentModels.md) walks through a single binding first.
+
 ## How Reactivity Works: The Effects-Based System
 
 Neo.mjs State Providers implement a powerful, automated reactivity system. You do not need to write manual event listeners or update hooks to keep your UI in sync with your state. This system is built around two core concepts:

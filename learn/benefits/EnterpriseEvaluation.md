@@ -132,7 +132,7 @@ flowchart TD
 
 **How the page is written.** The main thread builds and updates nodes through DOM APIs; that is the default (`useDomApiRenderer`). A value you give a component as `text` is written with `textContent` and is never parsed as markup. A value you give it as `html` is parsed, and sanitising it is your application's job, as in any UI library.
 
-**Whether strings are evaluated.** Two modules call `new Function`, and both are opt-in. `src/code/executor/Neo.mjs` belongs to the live code editor (`Neo.code.LivePreview`) that runs the examples on this site. `src/ai/client/RuntimeService.mjs` belongs to the Neural Link client, which lets an agent replace a method in a running application. An application that uses neither loads no code that evaluates a string. The engine has not been certified against a named content security policy, so run your build under your own policy during the evaluation.
+**Whether strings are evaluated.** Two modules call `new Function`, and both are opt-in. `src/code/executor/Neo.mjs` belongs to the live code editor (`Neo.code.LivePreview`) that runs the examples on this site. `src/ai/client/RuntimeService.mjs` belongs to the Neural Link client, which lets an agent replace a method in a running application. An application that uses neither loads no code that evaluates a string. That is measured, for one example: `examples/grid/container` boots under `default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'` with no violation recorded in the page or its workers, and `test/playwright/e2e/core/ContentSecurityPolicy.spec.mjs` is the measurement — its controls deliberately block page boot and string evaluation in a worker. One example under the default configuration is what it claims, not a certification of your application: run your build under your own policy during the evaluation.
 
 **The Neural Link.** It lets an agent inspect and change a running application, so treat it as you treat remote debugging. It is off by default (`useAiClient` is `false`), it never starts on GitHub Pages, and its default endpoint is a port on the local machine.
 
@@ -190,7 +190,6 @@ flowchart TD
 A page that answers every question with a yes has not been honest with you. These are open today, each with what to do about it:
 
 *   **A published accessibility audit.** The roles are in the source. Run your own tool on your own views.
-*   **A named content security policy that the engine is tested under.** Test under yours on day 3.
 *   **Firefox and Safari in the automated gate.** The suites run in Chrome. Open your application in the others.
 *   **A long-term-support line.** Pin a version and read each upgrade section.
 *   **A support contract.** This page describes the open-source engine and lists no service-level agreement. Help is public: the issue tracker, Discussions and [Discord](https://discord.gg/6p8paPq).

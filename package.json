@@ -28,6 +28,7 @@
         "bundle-mermaid"                       : "node ./buildScripts/build/mermaid.mjs",
         "bundle-monaco"                        : "node ./buildScripts/build/monaco.mjs",
         "bundle-parse5"                        : "node ./buildScripts/build/parse5.mjs",
+        "capture-examples"                     : "node ./buildScripts/docs/captureExamples.mjs",
         "check-theme-surfaces"                 : "node ./buildScripts/util/check-theme-surfaces.mjs",
         "check-class-module-scope"             : "node ./buildScripts/util/check-class-module-scope.mjs",
         "check-engine-brain-boundary"          : "node ./buildScripts/util/check-engine-brain-boundary.mjs",

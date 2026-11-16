@@ -3,7 +3,11 @@ import {decodePng}    from '../utils/pngPixels.mjs';
 
 const PORTAL   = '/apps/portal/index.html',
       FAMILY   = '.portal-examples-family-overview',
-      FAMILIES = ['Featured', 'Grid & Table', 'Forms', 'Multi-Window', 'Calendar'];
+      FAMILIES = [
+          'Featured', 'Grid & Table', 'Forms & Fields', 'Calendar', 'Tab Container', 'Dashboard & Docking', 'Drag & Drop',
+          'Lists & Galleries', 'Dialogs & Overlays', 'Charts, Canvas & Maps', 'More components', 'Multi-Window',
+          'State & Data', 'Workers & Platform', 'Apps'
+      ];
 
 /**
  * @summary Reads the mounted list from this page's App Worker, rather than a sibling Portal.
@@ -65,19 +69,20 @@ async function expectFamilyTabs(page) {
 }
 
 /**
- * @summary Checks the complete caption against its card and the visible cover, including long copy.
+ * @summary Checks the resting card: a 16:9 cover that fills it, with title and proof line on a docked scrim.
  * @param {Object} list The mounted list locator.
  * @param {Number} width Viewport width.
  * @returns {Promise<Object[]>} Measured cards for the retained evidence.
  */
-async function expectCaptionLayout(list, width) {
+async function expectCardLayout(list, width) {
+    await list.page().mouse.move(0, 0); // a hovered card opens its action line
+
     const cards = await list.locator('.neo-list-item').evaluateAll(nodes => nodes.filter(node => node.offsetWidth).map(node => {
         const card    = node.getBoundingClientRect(),
               caption = node.querySelector('.neo-item-bottom-position'),
               copy    = caption.getBoundingClientRect(),
               image   = node.querySelector('.preview-image').getBoundingClientRect(),
-              lip     = getComputedStyle(caption, '::before'),
-              lipSize = lip.display === 'none' ? 0 : parseFloat(lip.height),
+              shown   = [node.querySelector('.neo-title'), node.querySelector('.portal-example-feature')].filter(Boolean),
               texts   = [...caption.querySelectorAll('*')];
 
         return {
@@ -85,24 +90,27 @@ async function expectCaptionLayout(list, width) {
             top       : card.top,
             bottom    : card.bottom,
             height    : card.height,
-            clearCover: (copy.top - card.top) / image.height,
-            belowImage: copy.top >= image.bottom - 1,
+            ratio     : card.width / card.height,
+            clearCover: (copy.top - card.top) / card.height,
+            coverFills: ['left', 'right', 'top', 'bottom'].every(side => Math.abs(image[side] - card[side]) < 1),
             docked    : Math.abs(copy.left - card.left) < 1 && Math.abs(copy.right - card.right) < 1 && Math.abs(copy.bottom - card.bottom) < 1,
             fits      : copy.top >= card.top && caption.scrollHeight <= caption.clientHeight + 1 && caption.scrollWidth <= caption.clientWidth + 1,
-            textFits  : texts.every(text => {
+            textFits  : shown.every(text => {
                 const rect = text.getBoundingClientRect();
-                return rect.left >= copy.left && rect.right <= copy.right + 1 && rect.top >= copy.top + lipSize - 1 && rect.bottom <= copy.bottom + 1
+                return rect.left >= copy.left && rect.right <= copy.right + 1 && rect.top >= copy.top - 1 && rect.bottom <= copy.bottom + 1
             }),
+            closed      : node.querySelector('.portal-example-more').getBoundingClientRect().height < 1,
             opaque      : [node, caption, ...texts].every(text => getComputedStyle(text).opacity === '1'),
-            noInlineSize: !node.style.height && !node.querySelector('.content').style.gridTemplateRows
+            noInlineSize: !node.style.height && !node.querySelector('.content').style.aspectRatio
         }
     }));
 
     expect(cards.length).toBeGreaterThan(0);
-    expect(cards.every(card => card.docked && card.fits && card.textFits && card.opaque && card.noInlineSize),
-        'opaque caption copy and icons fit a full-width, bottom-docked surface without per-card sizing').toBe(true);
-    expect(cards.every(card => width <= 600 ? card.belowImage : card.clearCover >= 0.499),
-        'phone captions follow the image; desktop captions leave at least half the cover clear, including the lip').toBe(true);
+    expect(cards.every(card => card.coverFills && Math.abs(card.ratio - 16 / 9) < 0.02), 'the cover fills a 16:9 card').toBe(true);
+    expect(cards.every(card => card.docked && card.fits && card.textFits && card.closed && card.opaque && card.noInlineSize),
+        'title and proof line fit a full-width, bottom-docked scrim; the action stays closed; no text is dimmed by opacity; no card is sized by hand').toBe(true);
+    expect(cards.every(card => card.clearCover >= (width <= 600 ? 0.3 : 0.45)),
+        'the resting caption leaves the upper part of the cover clear: 45 % of the card, 30 % at phone widths').toBe(true);
 
     const rows = new Map();
     cards.forEach(card => {
@@ -116,26 +124,31 @@ async function expectCaptionLayout(list, width) {
 }
 
 /**
- * @summary Measures ordinary caption text against the actual composited paint in its opaque padding.
+ * @summary Measures the caption's text colors against the actual composited paint of scrim and cover behind them.
+ * The first sampled row is where the title starts, the place the scrim has to hold against a white cover.
  * @param {Object} caption Caption locator.
  * @param {Object} testInfo Playwright evidence writer.
  * @param {String} name Attachment name.
  * @returns {Promise<void>}
  */
 async function expectCaptionContrast(caption, testInfo, name) {
+    await caption.page().mouse.move(0, 0);
+
     const screenshot = await caption.screenshot(),
           decoded    = decodePng(screenshot),
-          lipHeight  = await caption.evaluate(node => {
-              const style = getComputedStyle(node, '::before');
-              return style.display === 'none' ? 0 : parseFloat(style.height)
-          }),
+          titleTop   = await caption.evaluate(node => parseFloat(getComputedStyle(node).paddingTop)),
+          // a mixed color computes to `color(srgb r g b)` with channels from 0 to 1
           colors     = await caption.locator('a, .portal-example-feature, p, .neo-inner-details').evaluateAll(nodes =>
-              nodes.map(node => getComputedStyle(node).color.match(/[\d.]+/g).map(Number)));
+              nodes.map(node => {
+                  const color = getComputedStyle(node).color, values = color.match(/[\d.]+/g).map(Number);
+                  return color.startsWith('color(') ? [...values.slice(0, 3).map(value => value * 255), ...values.slice(3)] : values
+              }));
     const luminance = color => color.slice(0, 3).map(value => {
         value /= 255;
         return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
     }).reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0);
-    const rows      = [Math.min(decoded.height - 1, Math.floor(lipHeight + 6)), decoded.height - 8];
+    // the pixel row above the title and one inside the bottom padding: both free of glyphs
+    const rows      = [Math.max(0, Math.floor(titleTop) - 1), decoded.height - 8];
     const contrasts = rows.flatMap(row => [0.12, 0.5, 0.88].flatMap(fraction => {
         const offset     = (row * decoded.width + Math.floor(decoded.width * fraction)) * decoded.channels,
               background = luminance([...decoded.pixels.subarray(offset, offset + 3)]);
@@ -172,30 +185,34 @@ test.describe('Portal example catalog', () => {
         ]) {
             await page.getByRole('button', {name: /^Build: /}).click();
             await page.locator('.neo-menu-list:visible .neo-list-item').filter({hasText: label}).click();
+            // Dev mode cannot open liquid-glass, the one covered member of More components, so that group has no list
             await expect.poll(async () => {
                 const lists = await app.queryComponent({className: 'Portal.view.examples.List'}, ['catalogMode']);
                 return lists.map(item => item.properties.catalogMode)
-            }).toEqual(FAMILIES.map(() => mode));
+            }).toEqual(FAMILIES.filter(name => mode !== 'devmode' || name !== 'More components').map(() => mode));
             await expect(page.locator('.portal-examples-list:visible').getByRole('link', {name: 'Workstation', exact: true}))
                 .toHaveAttribute('href', `https://neomjs.com/${prefix}apps/workstation/index.html`);
 
             await selectFamily(page, 'Grid & Table');
-            await expect(page.locator(FAMILY).getByRole('link', {name: 'Grid Cell Editing', exact: true}))
-                .toHaveAttribute('href', `https://neomjs.com/${prefix}examples/grid/cellEditing/index.html`);
+            await expect(page.locator(FAMILY).getByRole('link', {name: 'TreeGrid - Big Data', exact: true}))
+                .toHaveAttribute('href', `https://neomjs.com/${prefix}examples/grid/treeBigData/index.html`);
             await selectFamily(page, 'Multi-Window');
-            await expect(page.locator(`${FAMILY} .portal-example-feature`)).toHaveCount(mode === 'dist_esm' ? 11 : 12);
-            await expect(page.locator(FAMILY).getByRole('link', {name: 'Dock Pane Pop-out', exact: true}))
-                .toHaveAttribute('href', `https://neomjs.com/${prefix}examples/dashboard/tearOut/index.html`);
+            // the six covered records; the external OffscreenCanvas demo has no ESM destination
+            await expect(page.locator(`${FAMILY} .portal-example-feature`)).toHaveCount(mode === 'dist_esm' ? 5 : 6);
+            await expect(page.locator(FAMILY).getByRole('link', {name: 'Colors Dashboard', exact: true}))
+                .toHaveAttribute('href', `https://neomjs.com/${prefix}apps/colors/index.html`);
             await selectFamily(page, 'Featured')
         }
 
+        // A record without a cover stays in the catalog and gets no card: Calendar shows its one covered example.
         await page.goto(`${PORTAL}#/examples/calendar`);
-        await expect(page.locator(FAMILY).getByRole('link', {name: 'Community Garden Plan', exact: true})).toBeVisible();
-        await expect(page.locator(FAMILY).getByRole('link', {name: 'Studio Bookings', exact: true})).toBeVisible();
+        await expect(page.locator(FAMILY).getByRole('link', {name: 'Calendar', exact: true})).toBeVisible();
+        await expect(page.locator(`${FAMILY} .neo-list-item`)).toHaveCount(1);
+        await expect(page.locator(FAMILY).getByRole('link', {name: 'Studio Bookings', exact: true})).toHaveCount(0);
 
         await page.goto(`${PORTAL}#/examples/forms`);
         await expectFamilyTabs(page);
-        await expect(page.locator(`${FAMILY} .portal-example-feature`)).toHaveCount(24);
+        await expect(page.locator(`${FAMILY} .portal-example-feature`)).toHaveCount(3);
         const forms = await app.getComponent(view.id, ['activeIndex']);
         expect(forms.activeIndex).toBe(2);
 
@@ -239,7 +256,7 @@ test.describe('Portal example catalog', () => {
                     expect(control.clearance).toBeGreaterThanOrEqual(tabClearance - 1);
                     await testInfo.attach('build-selector-geometry', {body: JSON.stringify({...control, tabClearance}), contentType: 'application/json'});
                     const featured = page.locator('.portal-examples-list:visible');
-                    await expectCaptionLayout(featured, viewport.width);
+                    await expectCardLayout(featured, viewport.width);
                     await expectCaptionContrast(featured.locator('.neo-item-bottom-position').first(), testInfo, 'featured-caption-contrast');
                     await page.locator('.portal-examples-list:visible .preview-image').evaluateAll(async nodes => {
                         await Promise.allSettled(nodes.slice(0, 3).map(async node => {
@@ -258,6 +275,7 @@ test.describe('Portal example catalog', () => {
                 expect(columns).toBe(viewport.width === 1440 ? 3 : viewport.width <= 600 ? 1 : 2);
                 const list = await readList(app);
                 expect(list.id).toBe(await overview.getAttribute('id'));
+                // the overview's Store lists the covered records; the catalog keeps the others for their covers
                 expect(list.properties.store.count).toBe(21);
                 expect(list.properties.store.model.className).toBe('Portal.model.Example');
                 await expect(overview.locator('.neo-title').nth(0)).toHaveText('TreeGrid - Big Data');
@@ -265,42 +283,68 @@ test.describe('Portal example catalog', () => {
                 await expect(overview.locator('.neo-title').nth(2)).toHaveText('GitHub Issues Grid');
 
                 const covered = overview.locator('.portal-example-image-card .neo-item-bottom-position');
-                await expect(covered).toHaveCount(4);
+                await expect(covered).toHaveCount(21);
 
-                const animated = overview.locator('.neo-list-item').filter({hasText: 'Animated Row Sorting'});
-                await expect(animated.locator('.portal-example-feature')).toHaveText('Animated sorting and filtering');
-                await expect(animated.locator('.portal-example-look-for')).toContainText('Sort a header');
-                expect(await animated.locator('.preview-image').evaluate(node => getComputedStyle(node).backgroundImage))
-                    .not.toContain('url(');
+                // All 21 Grid/Table records now have recorded covers; no placeholder is needed.
+                await expect(overview.locator('.neo-list-item').filter({hasText: 'Animated Row Sorting'})).toHaveCount(1);
+                await expect(overview.locator('.portal-example-placeholder')).toHaveCount(0);
 
-                const jsonGrid = overview.locator('.neo-list-item').filter({hasText: 'JSON-defined grid'});
-                await expect(jsonGrid.locator('.portal-example-scope')).toContainText('static JSON configuration');
-                await expect(jsonGrid.locator('.portal-example-scope')).toContainText('does not use a server-side row model');
+                const issues = overview.locator('.neo-list-item').filter({hasText: 'GitHub Issues Grid'});
+                await expect(issues.locator('.portal-example-feature')).toHaveText('Searchable issue snapshot with wrapped rows');
+                expect(await issues.locator('.preview-image').evaluate(node => getComputedStyle(node).backgroundImage))
+                    .toContain('grid-issues-14.jpg');
 
-                const geometry = await expectCaptionLayout(overview, viewport.width);
+                const geometry = await expectCardLayout(overview, viewport.width);
                 await expectCaptionContrast(covered.nth(2), testInfo, 'issues-caption-contrast');
-                await expectCaptionContrast(animated.locator('.neo-item-bottom-position'), testInfo, 'coverless-caption-contrast');
-                await testInfo.attach('caption-geometry', {body: JSON.stringify(geometry), contentType: 'application/json'});
+                // Table Filtering has a white cover: the scrim alone has to carry the text there.
+                await expectCaptionContrast(covered.nth(3), testInfo, 'light-cover-caption-contrast');
+                await testInfo.attach('card-geometry', {body: JSON.stringify(geometry), contentType: 'application/json'});
                 expect(await overview.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
                 await page.screenshot({path: testInfo.outputPath(`grid-overview-${viewport.width}.png`)});
 
-                if (viewport.width === 1440) {
-                    const issues = overview.locator('.neo-list-item').filter({hasText: 'GitHub Issues Grid'});
-                    await issues.scrollIntoViewIfNeeded();
-                    await issues.screenshot({path: testInfo.outputPath('issues-caption-after-1440.png')});
+                /**
+                 * @summary Reads the opened Issues card: which parts lie inside it, and whether the caption left the cover.
+                 * @returns {Promise<Object>}
+                 */
+                const opened = () => issues.evaluate(node => {
+                    const card   = node.getBoundingClientRect(),
+                          box    = selector => node.querySelector(selector).getBoundingClientRect(),
+                          inside = rect => rect.height > 0 && rect.top >= card.top - 1 && rect.bottom <= card.bottom + 1;
 
-                    // Synthetic extra copy probes intrinsic CSS sizing; restore the canonical Worker projection afterward.
+                    return {
+                        height    : card.height,
+                        action    : inside(box('.portal-example-look-for')),
+                        scope     : inside(box('.portal-example-scope')),
+                        source    : inside(box('.neo-github-image')),
+                        title     : inside(box('.neo-title')),
+                        belowImage: box('.neo-item-bottom-position').top >= box('.preview-image').bottom - 1
+                    }
+                });
+                const restHeight = geometry.find(card => card.title === 'GitHub Issues Grid').height;
+
+                if (viewport.width > 600) {
+                    // The action, the limits and the source link open inside the card, on the cover.
+                    await issues.hover();
+                    await expect.poll(opened).toEqual({height: restHeight, action: true, scope: true, source: true, title: true, belowImage: false});
+                    await expect(issues.locator('.portal-example-scope')).toContainText('public issue snapshot');
+
+                    // Synthetic extra copy probes the clamp: a long line never pushes the links out of the card.
                     const original = await issues.locator('.portal-example-look-for').textContent();
-                    const longer   = original + ' ' + Array(8).fill('Additional caption copy demonstrates intrinsic row growth without measuring or assigning a height.').join(' ');
-                    await issues.locator('.portal-example-look-for').evaluate((node, text) => node.textContent = text, longer);
-                    const grown = await expectCaptionLayout(overview, viewport.width);
-                    expect(grown.find(card => card.title === 'GitHub Issues Grid').height)
-                        .toBeGreaterThan(geometry.find(card => card.title === 'GitHub Issues Grid').height);
+                    await issues.locator('.portal-example-look-for').evaluate((node, text) => node.textContent = text,
+                        original + ' ' + Array(8).fill('Additional caption copy that the clamp has to hold inside the card.').join(' '));
+                    await expect.poll(opened).toEqual({height: restHeight, action: true, scope: true, source: true, title: true, belowImage: false});
+                    await issues.screenshot({path: testInfo.outputPath(`issues-card-open-${viewport.width}.png`)});
                     await app.callMethod(list.id, 'createItems');
                     await expect(issues.locator('.portal-example-look-for')).toHaveText(original)
+                } else {
+                    // One column has room to grow: a tapped card opens under its cover, nothing clamped.
+                    await issues.locator('.preview-image').click({position: {x: 24, y: 20}});
+                    await expect.poll(opened).toMatchObject({action: true, scope: true, source: true, title: true, belowImage: true});
+                    expect((await opened()).height).toBeGreaterThan(restHeight);
+                    await issues.screenshot({path: testInfo.outputPath(`issues-card-open-${viewport.width}.png`)})
                 }
 
-                // A stable string identity also survives the lazy-cover path below the fold.
+                // A stable string identity also survives the lazy-cover path at the end of the list.
                 await overview.locator('.neo-list-item').last().scrollIntoViewIfNeeded();
                 await expect(overview.locator('.neo-list-item').last().getByRole('link', {name: 'Table Refresh Performance'})).toBeVisible()
             })
@@ -348,9 +392,9 @@ test.describe('Portal example catalog', () => {
         await app.setProperties(gridList.id, {baseUrl: `${baseURL}/`});
         await app.callMethod(gridList.id, 'createItems');
         const gridPopup = context.waitForEvent('page');
-        await page.locator('.portal-examples-list:visible').getByRole('link', {name: 'Grid Cell Editing', exact: true}).click();
+        await page.locator('.portal-examples-list:visible').getByRole('link', {name: 'TreeGrid - Big Data', exact: true}).click();
         const grid = await gridPopup;
-        await expect(grid).toHaveURL(/\/examples\/grid\/cellEditing\/index.html$/);
+        await expect(grid).toHaveURL(/\/examples\/grid\/treeBigData\/index.html$/);
         await expect(grid.locator('.neo-grid-container')).toBeVisible();
         await expect(grid.getByText('Firstname', {exact: true}).first()).toBeVisible();
         await grid.close()

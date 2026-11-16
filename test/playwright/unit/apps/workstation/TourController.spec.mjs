@@ -621,3 +621,19 @@ test('configured collaborators preserve class and instance defaults and execute 
         expect(Neo.get(workspace.dockService.id)).toBe(workspace.dockService)
     } finally {workspace.destroy()}
 });
+
+test('a tour enters through the shipped arrangement, whichever arrangement the viewer is in', async () => {
+    const workspace  = Neo.create(Workspace, {windowId: Neo.config.windowId}),
+          controller = await workspace.getController().getTourController(),
+          entries    = [],
+          script     = {
+              schema: 'neo.tour.script.v1', id: 'arrangement-entry', title: 'Arrangement entry',
+              scenes: [{id: 's', title: 'Scene', steps: [{type: 'pause', ms: 0}]}]
+          };
+    controller.setPipProgress = async () => {};
+    workspace.resetTopology   = async (...args) => {entries.push(args); return acceptedReset()};
+    try {
+        await controller.startTour(script, {autoGates: true});
+        expect(entries, 'every screenplay is written against the shipped arrangement').toEqual([['shipped']])
+    } finally {workspace.destroy()}
+});

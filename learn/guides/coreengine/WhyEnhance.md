@@ -90,6 +90,6 @@ This late-stage logical construction enables the foundational features of the en
 
 * **Declarative Config Merging:** The base class can now safely read static configurations, prototype values, and class fields from its subclasses, allowing it to perform deep, intelligent merging of complex configuration objects (like layouts or component items).
 * **The Config System:** It provides the precise entry point to initialize the `core.Config` system, setting up the reactive state of the component.
-* **Unified Lifecycle:** It establishes a predictable, multi-stage initialization process (`construct` -> `onConstructed` -> `init` -> `initAsync`) that handles both synchronous setup and asynchronous dependencies.
+* **Unified Lifecycle:** It establishes a predictable, multi-stage initialization process (`construct` -> `onConstructed` -> `init` -> `initAsync`) that handles both synchronous setup and asynchronous dependencies. Every stage, from `Neo.create()` to `destroy()`, is laid out in the reference page [Instance Lifecycle](../fundamentals/InstanceLifecycle.md).
 
 By abandoning the rigid native `constructor` in favor of the managed `construct()` lifecycle, the Neo core transforms standard JavaScript objects into intelligent instances ready to be configured. But an instance cannot be configured if the class itself doesn't know what its configs are supposed to do. For that, we must look at what happens before the object is even born.
