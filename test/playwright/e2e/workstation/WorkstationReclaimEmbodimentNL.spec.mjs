@@ -2,8 +2,9 @@ import {test, expect} from '../../fixtures.mjs';
 
 /**
  * @summary Whitebox E2E regression arm for the gesture-less reclaim route: after Reset and after Undo
- * the SAME live pane instance is embodied where the document says it lives, and a vessel that never
- * connected keeps its retained pane past the lease, so Reset recovers that same instance.
+ * the SAME live pane instance is embodied where the document says it lives — the vessel Reset empties
+ * closes, and Undo re-opens a window for it — and a vessel that never connected keeps its retained pane
+ * past the lease, so Reset recovers that same instance.
  *
  * Every assertion here is about the live component, never the document alone: the document moves
  * some 30 ms after the click and the pane embodies some 330–360 ms later on the reclaim route, so a
@@ -149,7 +150,8 @@ test.describe('Workstation reclaim route (Neural Link)', () => {
         test.setTimeout(180000);
 
         const pageErrors = [];
-        let   popup      = null;
+        let   popup      = null,
+              reopened   = null;
 
         page.on('pageerror', error => pageErrors.push(String(error)));
 
@@ -183,16 +185,17 @@ test.describe('Workstation reclaim route (Neural Link)', () => {
             await reset.click();
 
             // The document moves first and the component follows; assert the component, after the transit.
+            // The vessel the reset emptied closes once the pane has landed.
             await expect.poll(async () => ({
                 embodiment: await embodimentOf(app, paneId),
                 holders   : await holdersOf(app, workspaceId),
                 rootDom   : await page.locator(`#${paneId}`).count(),
-                popupDom  : popup.isClosed() ? 0 : await popup.locator(`#${paneId}`).count()
-            }), {...POLL, message: 'after Reset the SAME live pane is embodied in the root window'}).toEqual({
+                vesselOpen: !popup.isClosed()
+            }), {...POLL, message: 'after Reset the SAME live pane is embodied in the root window, and its emptied vessel closed'}).toEqual({
                 embodiment: {windowId: rootWindowId, mounted: true, isDestroyed: false},
                 holders   : [MAIN],
                 rootDom   : 1,
-                popupDom  : 0
+                vesselOpen: false
             });
 
             const homeTab = await tabButtonFor(app, workspaceId, MAIN);
@@ -203,29 +206,36 @@ test.describe('Workstation reclaim route (Neural Link)', () => {
             expect(await app.callMethod(workspaceId, 'getPaneIdentity', [ITEM]),
                 'Reset moved the live instance rather than rebuilding it').toBe(paneId);
 
-            // ── Undo: the real button; the pane returns to the vessel, still the same instance ───
-            const undo = page.getByRole('button', {name: /^Undo/}).first();
+            // ── Undo: the real button; a window re-opens around the vessel, still the same instance ─
+            const undo   = page.getByRole('button', {name: /^Undo/}).first(),
+                  reborn = page.waitForEvent('popup', {timeout: 30000});
 
             await expect(undo, 'the reset is one history row, so Undo is offered').toBeEnabled({timeout: 10000});
             await undo.click();
+
+            reopened = await reborn;
+            await reopened.waitForSelector('.workstation-viewport', {timeout: 30000});
+
+            const reopenedWindowId = await readWindowId(reopened);
 
             await expect.poll(async () => ({
                 embodiment: await embodimentOf(app, paneId),
                 holders   : await holdersOf(app, workspaceId),
                 rootDom   : await page.locator(`#${paneId}`).count(),
-                popupDom  : popup.isClosed() ? 0 : await popup.locator(`#${paneId}`).count()
-            }), {...POLL, message: 'after Undo the SAME live pane is embodied in the vessel window again'}).toEqual({
-                embodiment: {windowId: popupWindowId, mounted: true, isDestroyed: false},
+                vesselDom : await reopened.locator(`#${paneId}`).count()
+            }), {...POLL, message: 'after Undo the SAME live pane is embodied in the window re-opened for its vessel'}).toEqual({
+                embodiment: {windowId: reopenedWindowId, mounted: true, isDestroyed: false},
                 holders   : [vesselKey],
                 rootDom   : 0,
-                popupDom  : 1
+                vesselDom : 1
             });
 
-            await expect(popup.locator(`#${paneId}`), 'the vessel shows the returned pane').toBeVisible({timeout: 10000});
+            await expect(reopened.locator(`#${paneId}`), 'the vessel shows the returned pane').toBeVisible({timeout: 10000});
             expect(await app.callMethod(workspaceId, 'getPaneIdentity', [ITEM]),
                 'Undo moved the live instance rather than rebuilding it').toBe(paneId)
         } finally {
-            popup && !popup.isClosed() && await popup.close()
+            popup && !popup.isClosed() && await popup.close();
+            reopened && !reopened.isClosed() && await reopened.close()
         }
 
         expect(pageErrors).toEqual([])

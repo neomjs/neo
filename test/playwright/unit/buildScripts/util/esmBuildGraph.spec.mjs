@@ -135,4 +135,58 @@ test.describe('static ESM package graph boundaries', () => {
         expect(() => plan([{key: 'mainAddons', relativeRoot, sourceRoot: path.join(workspace, relativeRoot), packageName: 'widget'}]))
             .toThrow(/main\/Addon\.mjs → \.\.\/\.\.\/\.\.\/helpers\/First\.mjs:.*neo\.mainAddons/)
     });
+
+    test('literalDynamicSpecifiers returns only non-computed ImportExpression specifiers', async () => {
+        const {literalDynamicSpecifiers} = await import('../../../../../buildScripts/util/esmDistTransforms.mjs');
+        expect(typeof literalDynamicSpecifiers).toBe('function');
+        expect(literalDynamicSpecifiers(
+            "import X from './X.mjs'; export {y} from './Y.mjs'; const prose = \"import('./prose.mjs')\"; import('./literal.mjs'); import(`./cooked.mjs`); import(`./${name}.mjs`); import(base + '.mjs'); import(0);"
+        )).toEqual(['./literal.mjs', './cooked.mjs'])
+    });
+
+    test('declared roots refuse outside helpers whose literal dynamic imports reach the Engine', () => {
+        write('apps/App.mjs', "export {default} from '../node_modules/neo.mjs/src/core/Base.mjs';");
+        write('node_modules/widget/outside/Helper.mjs', "export const load = () => import('../../neo.mjs/src/core/Base.mjs');");
+
+        write('node_modules/widget/main/Addon.mjs', "export {load} from '../outside/Helper.mjs';");
+        const mainRoot = 'node_modules/widget/main';
+        expect(() => plan([{key: 'mainAddons', relativeRoot: mainRoot, sourceRoot: path.join(workspace, mainRoot), packageName: 'widget'}]))
+            .toThrow(/main\/Addon\.mjs → \.\.\/outside\/Helper\.mjs:.*neo\.mainAddons/);
+
+        write('node_modules/widget/canvas/Renderer.mjs', "export {load} from '../outside/Helper.mjs';");
+        const canvasRoot = 'node_modules/widget/canvas';
+        expect(() => plan([{key: 'canvasModules', relativeRoot: canvasRoot, sourceRoot: path.join(workspace, canvasRoot), packageName: 'widget'}]))
+            .toThrow(/canvas\/Renderer\.mjs → \.\.\/outside\/Helper\.mjs:.*neo\.canvasModules/)
+    });
+
+    test("a declared root's own literal dynamic import refuses an outside helper that reaches the Engine without admitting ordinary or computed ones", () => {
+        write('apps/App.mjs', "export {default} from '../node_modules/neo.mjs/src/core/Base.mjs';");
+        write('node_modules/widget/outside/Ordinary.mjs', 'export const value = 1;');
+        write('node_modules/widget/outside/EngineHelper.mjs', "export {default} from '../../neo.mjs/src/core/Base.mjs';");
+        write('node_modules/widget/main/Addon.mjs', [
+            "export const load = () => import('../outside/Ordinary.mjs');",
+            'export const dyn  = name => import(`../outside/${name}.mjs`);'
+        ].join('\n'));
+
+        const relativeRoot = 'node_modules/widget/main',
+              roots        = [{key: 'mainAddons', relativeRoot, sourceRoot: path.join(workspace, relativeRoot), packageName: 'widget'}],
+              {files}      = plan(roots);
+
+        expect(files.has(path.join(workspace, 'node_modules/widget/outside/Ordinary.mjs'))).toBe(false);
+        expect(files.has(path.join(workspace, 'node_modules/widget/outside/EngineHelper.mjs'))).toBe(false);
+
+        const symlinkedEngine = path.join(workspace, 'node_modules/widget/node_modules/neo.mjs');
+        fs.ensureDirSync(path.dirname(symlinkedEngine));
+        fs.symlinkSync(engine, symlinkedEngine, 'junction');
+        write('node_modules/widget/main/Addon.mjs', "export const load = () => import('../node_modules/neo.mjs/src/core/Base.mjs');");
+        expect(plan(roots).files.has(path.join(symlinkedEngine, 'src/core/Base.mjs'))).toBe(false);
+
+        write('node_modules/widget/outside/EngineHelper.mjs', "export {default} from '../node_modules/neo.mjs/src/core/Base.mjs';");
+        write('node_modules/widget/main/Addon.mjs', "export const load = () => import('../outside/EngineHelper.mjs');");
+        expect(() => plan(roots)).toThrow(/main\/Addon\.mjs → \.\.\/outside\/EngineHelper\.mjs:.*neo\.mainAddons/);
+
+        write('node_modules/neo.mjs/lib/Lib.mjs', 'export const value = 2;');
+        write('node_modules/widget/main/Addon.mjs', "export {value} from '../../neo.mjs/lib/Lib.mjs';");
+        expect(() => plan(roots)).toThrow(/main\/Addon\.mjs → \.\.\/\.\.\/neo\.mjs\/lib\/Lib\.mjs:.*neo\.mainAddons/)
+    })
 });

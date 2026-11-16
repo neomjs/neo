@@ -23,6 +23,28 @@
         "hiddenIn": []
     },
     {
+        "id": "webdesktop",
+        "component": "State Provider",
+        "feature": "A desktop whose icons, menus and windows follow the signed-in account's permissions through one store filter",
+        "lookFor": "Sign in as two accounts and compare the apps they get. Double-click an icon to open its window, then open Permissions and switch that app off: its icon, its menu entry and its window go.",
+        "scope": "The accounts and their permissions are demonstration data; hiding UI is not authorization.",
+        "featured": true,
+        "environments": [
+            "Desktop",
+            "Mobile"
+        ],
+        "image": "devmode/webdesktop-14-0.jpg",
+        "name": "Web Desktop",
+        "sourceUrl": "apps/webdesktop",
+        "urls": {
+            "devmode": "apps/webdesktop/index.html",
+            "dist_dev": "dist/development/apps/webdesktop/index.html",
+            "dist_esm": "dist/esm/apps/webdesktop/index.html",
+            "dist_prod": "dist/production/apps/webdesktop/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
         "id": "devindex",
         "featured": true,
         "environments": [
@@ -50,7 +72,7 @@
             "Desktop",
             "Mobile"
         ],
-        "image": "devmode/treeGridBigData.png",
+        "image": "devmode/grid-tree-big-data-14.jpg",
         "name": "TreeGrid - Big Data",
         "sourceUrl": "examples/grid/treeBigData",
         "urls": {
@@ -92,7 +114,7 @@
             "Desktop",
             "Mobile"
         ],
-        "image": "devmode/bigData.png",
+        "image": "devmode/grid-big-data-14.jpg",
         "name": "Buffered Data Grid with 5M cells",
         "sourceUrl": "examples/grid/bigData",
         "urls": {
@@ -114,7 +136,7 @@
             "Desktop",
             "Mobile"
         ],
-        "image": "devmode/grid-issues-13-3.jpg",
+        "image": "devmode/grid-issues-14.jpg",
         "name": "GitHub Issues Grid",
         "sourceUrl": "examples/grid/issues",
         "urls": {
@@ -261,7 +283,8 @@
     },
     {
         "id": "tab-container",
-        "family": "components",
+        "family": "tabs",
+        "component": "Tab",
         "feature": "A tab container switches between panels without leaving the page.",
         "lookFor": "Click a tab header and watch the active panel change.",
         "featured": true,
@@ -292,7 +315,8 @@
     },
     {
         "id": "dialog-drag-drop",
-        "family": "components",
+        "family": "dialogs",
+        "component": "Dialog",
         "feature": "A dialog can be dragged by its header.",
         "lookFor": "Drag a dialog by its header and drop it elsewhere.",
         "featured": true,
@@ -301,9 +325,417 @@
         "sourceUrl": "examples/dialog",
         "urls": {
             "devmode": "examples/dialog/",
-            "dist_dev": "dist/development/examples/dialog/",
-            "dist_esm": "dist/esm/examples/dialog/",
-            "dist_prod": "dist/production/examples/dialog/"
+            "dist_dev": "dist/development/examples/dialog/index.html",
+            "dist_esm": "dist/esm/examples/dialog/index.html",
+            "dist_prod": "dist/production/examples/dialog/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "button-base",
+        "family": "buttons",
+        "component": "Button",
+        "feature": "A button fires an action when clicked.",
+        "lookFor": "Click the button and watch the click counter change.",
+        "image": null,
+        "name": "Button Base",
+        "sourceUrl": "examples/button/base",
+        "urls": {
+            "devmode": "examples/button/base/index.html",
+            "dist_dev": "dist/development/examples/button/base/index.html",
+            "dist_esm": "dist/esm/examples/button/base/index.html",
+            "dist_prod": "dist/production/examples/button/base/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "button-effect",
+        "family": "buttons",
+        "component": "Button",
+        "feature": "A button can show a visual effect while its action runs.",
+        "lookFor": "Click the button and watch the effect play.",
+        "image": null,
+        "name": "Button Effect",
+        "sourceUrl": "examples/button/effect",
+        "urls": {
+            "devmode": "examples/button/effect/index.html",
+            "dist_dev": "dist/development/examples/button/effect/index.html",
+            "dist_esm": "dist/esm/examples/button/effect/index.html",
+            "dist_prod": "dist/production/examples/button/effect/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "button-split",
+        "family": "buttons",
+        "component": "Button",
+        "feature": "A split button separates its main action from a menu of related actions.",
+        "lookFor": "Click the main part and then the arrow to open the menu.",
+        "image": null,
+        "name": "Split Button",
+        "sourceUrl": "examples/button/split",
+        "urls": {
+            "devmode": "examples/button/split/index.html",
+            "dist_dev": "dist/development/examples/button/split/index.html",
+            "dist_esm": "dist/esm/examples/button/split/index.html",
+            "dist_prod": "dist/production/examples/button/split/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "container-accordion",
+        "family": "layouts",
+        "component": "Container",
+        "feature": "An accordion container expands one section at a time.",
+        "lookFor": "Click a section header and watch the other sections collapse.",
+        "image": null,
+        "name": "Accordion Container",
+        "sourceUrl": "examples/container/accordion",
+        "urls": {
+            "devmode": "examples/container/accordion/index.html",
+            "dist_dev": "dist/development/examples/container/accordion/index.html",
+            "dist_esm": "dist/esm/examples/container/accordion/index.html",
+            "dist_prod": "dist/production/examples/container/accordion/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "container-fragment",
+        "family": "layouts",
+        "component": "Container",
+        "feature": "A fragment container groups child components without adding a wrapper element.",
+        "lookFor": "Inspect the DOM and see the children sit directly under the parent.",
+        "image": null,
+        "name": "Fragment Container",
+        "sourceUrl": "examples/container/fragment",
+        "urls": {
+            "devmode": "examples/container/fragment/index.html",
+            "dist_dev": "dist/development/examples/container/fragment/index.html",
+            "dist_esm": "dist/esm/examples/container/fragment/index.html",
+            "dist_prod": "dist/production/examples/container/fragment/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "layout-card",
+        "family": "layouts",
+        "component": "Layout",
+        "feature": "A card layout shows one child at a time and switches between them.",
+        "lookFor": "Use the controls to move to the next card and watch the visible child change.",
+        "image": null,
+        "name": "Card Layout",
+        "sourceUrl": "examples/layout/card",
+        "urls": {
+            "devmode": "examples/layout/card/index.html",
+            "dist_dev": "dist/development/examples/layout/card/index.html",
+            "dist_esm": "dist/esm/examples/layout/card/index.html",
+            "dist_prod": "dist/production/examples/layout/card/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "layout-cube",
+        "family": "layouts",
+        "component": "Layout",
+        "feature": "A cube layout rotates between child views in three dimensions.",
+        "lookFor": "Use the controls to rotate the cube and watch the active view change.",
+        "image": null,
+        "name": "Cube Layout",
+        "sourceUrl": "examples/layout/cube",
+        "urls": {
+            "devmode": "examples/layout/cube/index.html",
+            "dist_dev": "dist/development/examples/layout/cube/index.html",
+            "dist_esm": "dist/esm/examples/layout/cube/index.html",
+            "dist_prod": "dist/production/examples/layout/cube/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "list-animate",
+        "family": "lists",
+        "component": "List",
+        "feature": "A list can animate items as they enter or leave the store.",
+        "lookFor": "Add or remove an item and watch it animate into place.",
+        "image": null,
+        "name": "Animated List",
+        "sourceUrl": "examples/list/animate",
+        "urls": {
+            "devmode": "examples/list/animate/index.html",
+            "dist_dev": "dist/development/examples/list/animate/index.html",
+            "dist_esm": "dist/esm/examples/list/animate/index.html",
+            "dist_prod": "dist/production/examples/list/animate/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "list-base",
+        "family": "lists",
+        "component": "List",
+        "feature": "A list renders store records as selectable rows.",
+        "lookFor": "Click a row and watch the selection change.",
+        "image": null,
+        "name": "List Base",
+        "sourceUrl": "examples/list/base",
+        "urls": {
+            "devmode": "examples/list/base/index.html",
+            "dist_dev": "dist/development/examples/list/base/index.html",
+            "dist_esm": "dist/esm/examples/list/base/index.html",
+            "dist_prod": "dist/production/examples/list/base/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "list-buffered",
+        "family": "lists",
+        "component": "List",
+        "feature": "A buffered list renders only the rows near the viewport.",
+        "lookFor": "Scroll the list and watch rows load as they come into view.",
+        "image": null,
+        "name": "Buffered List",
+        "sourceUrl": "examples/list/buffered",
+        "urls": {
+            "devmode": "examples/list/buffered/index.html",
+            "dist_dev": "dist/development/examples/list/buffered/index.html",
+            "dist_esm": "dist/esm/examples/list/buffered/index.html",
+            "dist_prod": "dist/production/examples/list/buffered/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "list-chip",
+        "family": "lists",
+        "component": "List",
+        "feature": "A list can render each record as a chip.",
+        "lookFor": "Scroll the list and see each item displayed as a chip.",
+        "image": null,
+        "name": "Chip List",
+        "sourceUrl": "examples/list/chip",
+        "urls": {
+            "devmode": "examples/list/chip/index.html",
+            "dist_dev": "dist/development/examples/list/chip/index.html",
+            "dist_esm": "dist/esm/examples/list/chip/index.html",
+            "dist_prod": "dist/production/examples/list/chip/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "list-circle",
+        "family": "lists",
+        "component": "List",
+        "feature": "A list can arrange its items in a circle.",
+        "lookFor": "Look at the list and see the items placed around a circle.",
+        "image": null,
+        "name": "Circle List",
+        "sourceUrl": "examples/list/circle",
+        "urls": {
+            "devmode": "examples/list/circle/index.html",
+            "dist_dev": "dist/development/examples/list/circle/index.html",
+            "dist_esm": "dist/esm/examples/list/circle/index.html",
+            "dist_prod": "dist/production/examples/list/circle/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "list-color",
+        "family": "lists",
+        "component": "List",
+        "feature": "A list can use a color field to style each row.",
+        "lookFor": "Scroll the list and see each row take its record color.",
+        "image": null,
+        "name": "Color List",
+        "sourceUrl": "examples/list/color",
+        "urls": {
+            "devmode": "examples/list/color/index.html",
+            "dist_dev": "dist/development/examples/list/color/index.html",
+            "dist_esm": "dist/esm/examples/list/color/index.html",
+            "dist_prod": "dist/production/examples/list/color/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "menu-context",
+        "family": "buttons",
+        "component": "Menu",
+        "feature": "A context menu opens at the pointer on a right click.",
+        "lookFor": "Right-click the target and watch the menu appear at the pointer.",
+        "image": null,
+        "name": "Context Menu",
+        "sourceUrl": "examples/menu/context",
+        "urls": {
+            "devmode": "examples/menu/context/index.html",
+            "dist_dev": "dist/development/examples/menu/context/index.html",
+            "dist_esm": "dist/esm/examples/menu/context/index.html",
+            "dist_prod": "dist/production/examples/menu/context/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "menu-list",
+        "family": "buttons",
+        "component": "Menu",
+        "feature": "A menu can render its items from a list store.",
+        "lookFor": "Open the menu and see the items come from the list.",
+        "image": null,
+        "name": "List Menu",
+        "sourceUrl": "examples/menu/list",
+        "urls": {
+            "devmode": "examples/menu/list/index.html",
+            "dist_dev": "dist/development/examples/menu/list/index.html",
+            "dist_esm": "dist/esm/examples/menu/list/index.html",
+            "dist_prod": "dist/production/examples/menu/list/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "menu-panel",
+        "family": "buttons",
+        "component": "Menu",
+        "feature": "A menu can host panel content inside its items.",
+        "lookFor": "Open the menu and see the panel content inside an item.",
+        "image": null,
+        "name": "Panel Menu",
+        "sourceUrl": "examples/menu/panel",
+        "urls": {
+            "devmode": "examples/menu/panel/index.html",
+            "dist_dev": "dist/development/examples/menu/panel/index.html",
+            "dist_esm": "dist/esm/examples/menu/panel/index.html",
+            "dist_prod": "dist/production/examples/menu/panel/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "menu-tree",
+        "family": "buttons",
+        "component": "Menu",
+        "feature": "A menu can render a tree of nested items.",
+        "lookFor": "Open the menu and expand a branch to see its children.",
+        "image": null,
+        "name": "Tree Menu",
+        "sourceUrl": "examples/menu/tree",
+        "urls": {
+            "devmode": "examples/menu/tree/index.html",
+            "dist_dev": "dist/development/examples/menu/tree/index.html",
+            "dist_esm": "dist/esm/examples/menu/tree/index.html",
+            "dist_prod": "dist/production/examples/menu/tree/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "panel",
+        "family": "layouts",
+        "component": "Panel",
+        "feature": "A panel provides a titled container for content.",
+        "lookFor": "Look at the panel and see its title and body.",
+        "image": null,
+        "name": "Panel",
+        "sourceUrl": "examples/panel",
+        "urls": {
+            "devmode": "examples/panel/index.html",
+            "dist_dev": "dist/development/examples/panel/index.html",
+            "dist_esm": "dist/esm/examples/panel/index.html",
+            "dist_prod": "dist/production/examples/panel/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "popover",
+        "family": "dialogs",
+        "component": "Popover",
+        "feature": "A popover opens next to a target element.",
+        "lookFor": "Click the trigger and watch the popover appear next to it.",
+        "image": null,
+        "name": "Popover",
+        "sourceUrl": "examples/popover",
+        "urls": {
+            "devmode": "examples/popover/index.html",
+            "dist_dev": "dist/development/examples/popover/index.html",
+            "dist_esm": "dist/esm/examples/popover/index.html",
+            "dist_prod": "dist/production/examples/popover/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "tabs",
+        "family": "tabs",
+        "component": "Tab",
+        "feature": "A tab bar switches between views without leaving the page.",
+        "lookFor": "Click a tab and watch the active view change.",
+        "image": null,
+        "name": "Tabs",
+        "sourceUrl": "examples/tabs",
+        "urls": {
+            "devmode": "examples/tabs/index.html",
+            "dist_dev": "dist/development/examples/tabs/index.html",
+            "dist_esm": "dist/esm/examples/tabs/index.html",
+            "dist_prod": "dist/production/examples/tabs/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "toolbar-breadcrumb",
+        "family": "buttons",
+        "component": "Toolbar",
+        "feature": "A toolbar can show a breadcrumb trail of the current path.",
+        "lookFor": "Look at the toolbar and follow the breadcrumb items.",
+        "image": null,
+        "name": "Breadcrumb Toolbar",
+        "sourceUrl": "examples/toolbar/breadcrumb",
+        "urls": {
+            "devmode": "examples/toolbar/breadcrumb/index.html",
+            "dist_dev": "dist/development/examples/toolbar/breadcrumb/index.html",
+            "dist_esm": "dist/esm/examples/toolbar/breadcrumb/index.html",
+            "dist_prod": "dist/production/examples/toolbar/breadcrumb/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "toolbar-paging",
+        "family": "buttons",
+        "component": "Toolbar",
+        "feature": "A toolbar can page through a store.",
+        "lookFor": "Click the next page button and watch the page indicator change.",
+        "image": null,
+        "name": "Paging Toolbar",
+        "sourceUrl": "examples/toolbar/paging",
+        "urls": {
+            "devmode": "examples/toolbar/paging/index.html",
+            "dist_dev": "dist/development/examples/toolbar/paging/index.html",
+            "dist_esm": "dist/esm/examples/toolbar/paging/index.html",
+            "dist_prod": "dist/production/examples/toolbar/paging/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "tree",
+        "family": "tree",
+        "component": "Tree",
+        "feature": "A tree renders nested records with expandable branches.",
+        "lookFor": "Expand a branch and watch its children appear.",
+        "image": null,
+        "name": "Tree",
+        "sourceUrl": "examples/tree",
+        "urls": {
+            "devmode": "examples/tree/index.html",
+            "dist_dev": "dist/development/examples/tree/index.html",
+            "dist_esm": "dist/esm/examples/tree/index.html",
+            "dist_prod": "dist/production/examples/tree/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "tree-accordion",
+        "family": "tree",
+        "component": "Tree",
+        "feature": "A tree can use accordion behavior so one branch stays open.",
+        "lookFor": "Expand a branch and watch the previously open branch collapse.",
+        "image": null,
+        "name": "Accordion Tree",
+        "sourceUrl": "examples/treeAccordion",
+        "urls": {
+            "devmode": "examples/treeAccordion/index.html",
+            "dist_dev": "dist/development/examples/treeAccordion/index.html",
+            "dist_esm": "dist/esm/examples/treeAccordion/index.html",
+            "dist_prod": "dist/production/examples/treeAccordion/index.html"
         },
         "hiddenIn": []
     },
@@ -389,7 +821,7 @@
     {
         "id": "table-filtering",
         "featured": true,
-        "image": "devmode/tableFiltering.png",
+        "image": "devmode/table-filtering-14.jpg",
         "name": "Table Filtering",
         "sourceUrl": "examples/tableFiltering",
         "urls": {
@@ -497,7 +929,7 @@
     },
     {
         "id": "grid-animated-row-sorting",
-        "image": null,
+        "image": "devmode/grid-animated-row-sorting-14.jpg",
         "name": "Animated Row Sorting",
         "sourceUrl": "examples/grid/animatedRowSorting",
         "urls": {
@@ -514,7 +946,7 @@
     },
     {
         "id": "grid-cell-editing",
-        "image": null,
+        "image": "devmode/grid-cell-editing-14.jpg",
         "name": "Grid Cell Editing",
         "sourceUrl": "examples/grid/cellEditing",
         "urls": {
@@ -531,7 +963,7 @@
     },
     {
         "id": "grid-container",
-        "image": null,
+        "image": "devmode/grid-container-14.jpg",
         "name": "Grid Selection Modes",
         "sourceUrl": "examples/grid/container",
         "urls": {
@@ -548,7 +980,7 @@
     },
     {
         "id": "grid-content-sized-rows",
-        "image": null,
+        "image": "devmode/grid-content-sized-rows-14.jpg",
         "name": "Content-Sized Grid Rows",
         "sourceUrl": "examples/grid/contentSizedRows",
         "urls": {
@@ -565,7 +997,7 @@
     },
     {
         "id": "grid-covid",
-        "image": null,
+        "image": "devmode/grid-covid-14.jpg",
         "name": "COVID-19 Country Grid",
         "sourceUrl": "examples/grid/covid",
         "urls": {
@@ -583,7 +1015,7 @@
     },
     {
         "id": "grid-header-groups",
-        "image": null,
+        "image": "devmode/grid-header-groups-14.jpg",
         "name": "Grouped Grid Headers",
         "sourceUrl": "examples/grid/headerGroups",
         "urls": {
@@ -600,7 +1032,7 @@
     },
     {
         "id": "grid-locked-columns",
-        "image": null,
+        "image": "devmode/grid-locked-columns-14.jpg",
         "name": "Locked Grid Columns",
         "sourceUrl": "examples/grid/lockedColumns",
         "urls": {
@@ -617,7 +1049,7 @@
     },
     {
         "id": "grid-nested-record-fields",
-        "image": null,
+        "image": "devmode/grid-nested-record-fields-14.jpg",
         "name": "Nested Grid Records",
         "sourceUrl": "examples/grid/nestedRecordFields",
         "urls": {
@@ -634,7 +1066,7 @@
     },
     {
         "id": "grid-tree",
-        "image": null,
+        "image": "devmode/grid-tree-14.jpg",
         "name": "Tree Grid",
         "sourceUrl": "examples/grid/tree",
         "urls": {
@@ -651,7 +1083,7 @@
     },
     {
         "id": "grid-value-banding",
-        "image": null,
+        "image": "devmode/grid-value-banding-14.jpg",
         "name": "Grid Value Banding",
         "sourceUrl": "examples/grid/valueBanding",
         "urls": {
@@ -668,7 +1100,7 @@
     },
     {
         "id": "json-grid-container",
-        "image": null,
+        "image": "devmode/json-grid-container-14.jpg",
         "name": "JSON-Defined Grid",
         "sourceUrl": "examples/serverside/gridContainer",
         "urls": {
@@ -686,7 +1118,7 @@
     },
     {
         "id": "table-cell-editing",
-        "image": null,
+        "image": "devmode/table-cell-editing-14.jpg",
         "name": "Table Cell Editing",
         "sourceUrl": "examples/table/cellEditing",
         "urls": {
@@ -703,7 +1135,7 @@
     },
     {
         "id": "table-container",
-        "image": null,
+        "image": "devmode/table-container-14.jpg",
         "name": "Table Configuration",
         "sourceUrl": "examples/table/container",
         "urls": {
@@ -720,7 +1152,7 @@
     },
     {
         "id": "table-covid",
-        "image": null,
+        "image": "devmode/table-covid-14.jpg",
         "name": "COVID-19 Country Table",
         "sourceUrl": "examples/table/covid",
         "urls": {
@@ -738,7 +1170,7 @@
     },
     {
         "id": "table-nested-record-fields",
-        "image": null,
+        "image": "devmode/table-nested-record-fields-14.jpg",
         "name": "Nested Table Records",
         "sourceUrl": "examples/table/nestedRecordFields",
         "urls": {
@@ -755,7 +1187,7 @@
     },
     {
         "id": "table-store",
-        "image": null,
+        "image": "devmode/table-store-14.jpg",
         "name": "Table and Store Updates",
         "sourceUrl": "examples/tableStore",
         "urls": {
@@ -772,7 +1204,7 @@
     },
     {
         "id": "table-performance",
-        "image": null,
+        "image": "devmode/table-performance-14.jpg",
         "name": "Table Refresh Performance",
         "sourceUrl": "examples/tablePerformance",
         "urls": {
@@ -1160,7 +1592,7 @@
             "dist_prod": "dist/production/examples/gantt/basic/index.html"
         },
         "hiddenIn": [],
-        "family": "calendar",
+        "family": "gantt",
         "component": "Gantt",
         "feature": "A project plan with linked, editable tasks",
         "lookFor": "Move a task and follow its dependencies. Create a link, then reload to see the saved plan."
@@ -1177,10 +1609,27 @@
             "dist_prod": "dist/production/examples/scheduler/basic/index.html"
         },
         "hiddenIn": [],
-        "family": "calendar",
+        "family": "scheduler",
         "component": "Scheduler",
         "feature": "Resource bookings on an editable timeline",
         "lookFor": "Move a booking to another studio or time. Reload after it saves to see the same booking in its new slot."
+    },
+    {
+        "id": "timeline-basic",
+        "image": null,
+        "name": "Resource Timeline",
+        "sourceUrl": "examples/timeline/basic",
+        "urls": {
+            "devmode": "examples/timeline/basic/index.html",
+            "dist_dev": "dist/development/examples/timeline/basic/index.html",
+            "dist_esm": "dist/esm/examples/timeline/basic/index.html",
+            "dist_prod": "dist/production/examples/timeline/basic/index.html"
+        },
+        "hiddenIn": [],
+        "family": "calendar",
+        "component": "Timeline",
+        "feature": "A plain grid mounting the timeline column with interval bars",
+        "lookFor": "Click Shift to advance the interval by one hour and watch the bar follow the record change."
     },
     {
         "id": "dock-choreography",
@@ -1329,29 +1778,5 @@
             "dist_esm",
             "dist_prod"
         ]
-    },
-    {"id":"button-base","name":"Button Base","family":"components","component":"Button","feature":"A button fires an action when clicked.","lookFor":"Click the button and watch the click counter change.","urls":{"dist":"https://neomjs.com/examples/button/base/index.html","dev":"https://neomjs.com/examples/button/base/index.html?build=dev","prod":"https://neomjs.com/examples/button/base/index.html?build=prod","esm":"https://neomjs.com/examples/button/base/index.html?build=esm"},"sourceUrl":"https://github.com/neomjs/neo/tree/dev/examples/button/base","image":null},
-    {"id":"button-effect","name":"Button Effect","family":"components","component":"Button","feature":"A button can show a visual effect while its action runs.","lookFor":"Click the button and watch the effect play.","urls":{"dist":"https://neomjs.com/examples/button/effect/index.html","dev":"https://neomjs.com/examples/button/effect/index.html?build=dev","prod":"https://neomjs.com/examples/button/effect/index.html?build=prod","esm":"https://neomjs.com/examples/button/effect/index.html?build=esm"},"sourceUrl":"https://github.com/neomjs/neo/tree/dev/examples/button/effect","image":null},
-    {"id":"button-split","name":"Split Button","family":"components","component":"Button","feature":"A split button separates its main action from a menu of related actions.","lookFor":"Click the main part and then the arrow to open the menu.","urls":{"dist":"https://neomjs.com/examples/button/split/index.html","dev":"https://neomjs.com/examples/button/split/index.html?build=dev","prod":"https://neomjs.com/examples/button/split/index.html?build=prod","esm":"https://neomjs.com/examples/button/split/index.html?build=esm"},"sourceUrl":"https://github.com/neomjs/neo/tree/dev/examples/button/split","image":null},
-    {"id":"container-accordion","name":"Accordion Container","family":"components","component":"Container","feature":"An accordion container expands one section at a time.","lookFor":"Click a section header and watch the other sections collapse.","urls":{"dist":"https://neomjs.com/examples/container/accordion/index.html","dev":"https://neomjs.com/examples/container/accordion/index.html?build=dev","prod":"https://neomjs.com/examples/container/accordion/index.html?build=prod","esm":"https://neomjs.com/examples/container/accordion/index.html?build=esm"},"sourceUrl":"https://github.com/neomjs/neo/tree/dev/examples/container/accordion","image":null},
-    {"id":"container-fragment","name":"Fragment Container","family":"components","component":"Container","feature":"A fragment container groups child components without adding a wrapper element.","lookFor":"Inspect the DOM and see the children sit directly under the parent.","urls":{"dist":"https://neomjs.com/examples/container/fragment/index.html","dev":"https://neomjs.com/examples/container/fragment/index.html?build=dev","prod":"https://neomjs.com/examples/container/fragment/index.html?build=prod","esm":"https://neomjs.com/examples/container/fragment/index.html?build=esm"},"sourceUrl":"https://github.com/neomjs/neo/tree/dev/examples/container/fragment","image":null},
-    {"id":"layout-card","name":"Card Layout","family":"components","component":"Layout","feature":"A card layout shows one child at a time and switches between them.","lookFor":"Use the controls to move to the next card and watch the visible child change.","urls":{"dist":"https://neomjs.com/examples/layout/card/index.html","dev":"https://neomjs.com/examples/layout/card/index.html?build=dev","prod":"https://neomjs.com/examples/layout/card/index.html?build=prod","esm":"https://neomjs.com/examples/layout/card/index.html?build=esm"},"sourceUrl":"https://github.com/neomjs/neo/tree/dev/examples/layout/card","image":null},
-    {"id":"layout-cube","name":"Cube Layout","family":"components","component":"Layout","feature":"A cube layout rotates between child views in three dimensions.","lookFor":"Use the controls to rotate the cube and watch the active view change.","urls":{"dist":"https://neomjs.com/examples/layout/cube/index.html","dev":"https://neomjs.com/examples/layout/cube/index.html?build=dev","prod":"https://neomjs.com/examples/layout/cube/index.html?build=prod","esm":"https://neomjs.com/examples/layout/cube/index.html?build=esm"},"sourceUrl":"https://github.com/neomjs/neo/tree/dev/examples/layout/cube","image":null},
-    {"id":"list-animate","name":"Animated List","family":"components","component":"List","feature":"A list can animate items as they enter or leave the store.","lookFor":"Add or remove an item and watch it animate into place.","urls":{"dist":"https://neomjs.com/examples/list/animate/index.html","dev":"https://neomjs.com/examples/list/animate/index.html?build=dev","prod":"https://neomjs.com/examples/list/animate/index.html?build=prod","esm":"https://neomjs.com/examples/list/animate/index.html?build=esm"},"sourceUrl":"https://github.com/neomjs/neo/tree/dev/examples/list/animate","image":null},
-    {"id":"list-base","name":"List Base","family":"components","component":"List","feature":"A list renders store records as selectable rows.","lookFor":"Click a row and watch the selection change.","urls":{"dist":"https://neomjs.com/examples/list/base/index.html","dev":"https://neomjs.com/examples/list/base/index.html?build=dev","prod":"https://neomjs.com/examples/list/base/index.html?build=prod","esm":"https://neomjs.com/examples/list/base/index.html?build=esm"},"sourceUrl":"https://github.com/neomjs/neo/tree/dev/examples/list/base","image":null},
-    {"id":"list-buffered","name":"Buffered List","family":"components","component":"List","feature":"A buffered list renders only the rows near the viewport.","lookFor":"Scroll the list and watch rows load as they come into view.","urls":{"dist":"https://neomjs.com/examples/list/buffered/index.html","dev":"https://neomjs.com/examples/list/buffered/index.html?build=dev","prod":"https://neomjs.com/examples/list/buffered/index.html?build=prod","esm":"https://neomjs.com/examples/list/buffered/index.html?build=esm"},"sourceUrl":"https://github.com/neomjs/neo/tree/dev/examples/list/buffered","image":null},
-    {"id":"list-chip","name":"Chip List","family":"components","component":"List","feature":"A list can render each record as a chip.","lookFor":"Scroll the list and see each item displayed as a chip.","urls":{"dist":"https://neomjs.com/examples/list/chip/index.html","dev":"https://neomjs.com/examples/list/chip/index.html?build=dev","prod":"https://neomjs.com/examples/list/chip/index.html?build=prod","esm":"https://neomjs.com/examples/list/chip/index.html?build=esm"},"sourceUrl":"https://github.com/neomjs/neo/tree/dev/examples/list/chip","image":null},
-    {"id":"list-circle","name":"Circle List","family":"components","component":"List","feature":"A list can arrange its items in a circle.","lookFor":"Look at the list and see the items placed around a circle.","urls":{"dist":"https://neomjs.com/examples/list/circle/index.html","dev":"https://neomjs.com/examples/list/circle/index.html?build=dev","prod":"https://neomjs.com/examples/list/circle/index.html?build=prod","esm":"https://neomjs.com/examples/list/circle/index.html?build=esm"},"sourceUrl":"https://github.com/neomjs/neo/tree/dev/examples/list/circle","image":null},
-    {"id":"list-color","name":"Color List","family":"components","component":"List","feature":"A list can use a color field to style each row.","lookFor":"Scroll the list and see each row take its record color.","urls":{"dist":"https://neomjs.com/examples/list/color/index.html","dev":"https://neomjs.com/examples/list/color/index.html?build=dev","prod":"https://neomjs.com/examples/list/color/index.html?build=prod","esm":"https://neomjs.com/examples/list/color/index.html?build=esm"},"sourceUrl":"https://github.com/neomjs/neo/tree/dev/examples/list/color","image":null},
-    {"id":"menu-context","name":"Context Menu","family":"components","component":"Menu","feature":"A context menu opens at the pointer on a right click.","lookFor":"Right-click the target and watch the menu appear at the pointer.","urls":{"dist":"https://neomjs.com/examples/menu/context/index.html","dev":"https://neomjs.com/examples/menu/context/index.html?build=dev","prod":"https://neomjs.com/examples/menu/context/index.html?build=prod","esm":"https://neomjs.com/examples/menu/context/index.html?build=esm"},"sourceUrl":"https://github.com/neomjs/neo/tree/dev/examples/menu/context","image":null},
-    {"id":"menu-list","name":"List Menu","family":"components","component":"Menu","feature":"A menu can render its items from a list store.","lookFor":"Open the menu and see the items come from the list.","urls":{"dist":"https://neomjs.com/examples/menu/list/index.html","dev":"https://neomjs.com/examples/menu/list/index.html?build=dev","prod":"https://neomjs.com/examples/menu/list/index.html?build=prod","esm":"https://neomjs.com/examples/menu/list/index.html?build=esm"},"sourceUrl":"https://github.com/neomjs/neo/tree/dev/examples/menu/list","image":null},
-    {"id":"menu-panel","name":"Panel Menu","family":"components","component":"Menu","feature":"A menu can host panel content inside its items.","lookFor":"Open the menu and see the panel content inside an item.","urls":{"dist":"https://neomjs.com/examples/menu/panel/index.html","dev":"https://neomjs.com/examples/menu/panel/index.html?build=dev","prod":"https://neomjs.com/examples/menu/panel/index.html?build=prod","esm":"https://neomjs.com/examples/menu/panel/index.html?build=esm"},"sourceUrl":"https://github.com/neomjs/neo/tree/dev/examples/menu/panel","image":null},
-    {"id":"menu-tree","name":"Tree Menu","family":"components","component":"Menu","feature":"A menu can render a tree of nested items.","lookFor":"Open the menu and expand a branch to see its children.","urls":{"dist":"https://neomjs.com/examples/menu/tree/index.html","dev":"https://neomjs.com/examples/menu/tree/index.html?build=dev","prod":"https://neomjs.com/examples/menu/tree/index.html?build=prod","esm":"https://neomjs.com/examples/menu/tree/index.html?build=esm"},"sourceUrl":"https://github.com/neomjs/neo/tree/dev/examples/menu/tree","image":null},
-    {"id":"panel","name":"Panel","family":"components","component":"Panel","feature":"A panel provides a titled container for content.","lookFor":"Look at the panel and see its title and body.","urls":{"dist":"https://neomjs.com/examples/panel/index.html","dev":"https://neomjs.com/examples/panel/index.html?build=dev","prod":"https://neomjs.com/examples/panel/index.html?build=prod","esm":"https://neomjs.com/examples/panel/index.html?build=esm"},"sourceUrl":"https://github.com/neomjs/neo/tree/dev/examples/panel","image":null},
-    {"id":"popover","name":"Popover","family":"components","component":"Popover","feature":"A popover opens next to a target element.","lookFor":"Click the trigger and watch the popover appear next to it.","urls":{"dist":"https://neomjs.com/examples/popover/index.html","dev":"https://neomjs.com/examples/popover/index.html?build=dev","prod":"https://neomjs.com/examples/popover/index.html?build=prod","esm":"https://neomjs.com/examples/popover/index.html?build=esm"},"sourceUrl":"https://github.com/neomjs/neo/tree/dev/examples/popover","image":null},
-    {"id":"tabs","name":"Tabs","family":"components","component":"Tab","feature":"A tab bar switches between views without leaving the page.","lookFor":"Click a tab and watch the active view change.","urls":{"dist":"https://neomjs.com/examples/tabs/index.html","dev":"https://neomjs.com/examples/tabs/index.html?build=dev","prod":"https://neomjs.com/examples/tabs/index.html?build=prod","esm":"https://neomjs.com/examples/tabs/index.html?build=esm"},"sourceUrl":"https://github.com/neomjs/neo/tree/dev/examples/tabs","image":null},
-    {"id":"toolbar-breadcrumb","name":"Breadcrumb Toolbar","family":"components","component":"Toolbar","feature":"A toolbar can show a breadcrumb trail of the current path.","lookFor":"Look at the toolbar and follow the breadcrumb items.","urls":{"dist":"https://neomjs.com/examples/toolbar/breadcrumb/index.html","dev":"https://neomjs.com/examples/toolbar/breadcrumb/index.html?build=dev","prod":"https://neomjs.com/examples/toolbar/breadcrumb/index.html?build=prod","esm":"https://neomjs.com/examples/toolbar/breadcrumb/index.html?build=esm"},"sourceUrl":"https://github.com/neomjs/neo/tree/dev/examples/toolbar/breadcrumb","image":null},
-    {"id":"toolbar-paging","name":"Paging Toolbar","family":"components","component":"Toolbar","feature":"A toolbar can page through a store.","lookFor":"Click the next page button and watch the page indicator change.","urls":{"dist":"https://neomjs.com/examples/toolbar/paging/index.html","dev":"https://neomjs.com/examples/toolbar/paging/index.html?build=dev","prod":"https://neomjs.com/examples/toolbar/paging/index.html?build=prod","esm":"https://neomjs.com/examples/toolbar/paging/index.html?build=esm"},"sourceUrl":"https://github.com/neomjs/neo/tree/dev/examples/toolbar/paging","image":null},
-    {"id":"tree","name":"Tree","family":"components","component":"Tree","feature":"A tree renders nested records with expandable branches.","lookFor":"Expand a branch and watch its children appear.","urls":{"dist":"https://neomjs.com/examples/tree/index.html","dev":"https://neomjs.com/examples/tree/index.html?build=dev","prod":"https://neomjs.com/examples/tree/index.html?build=prod","esm":"https://neomjs.com/examples/tree/index.html?build=esm"},"sourceUrl":"https://github.com/neomjs/neo/tree/dev/examples/tree","image":null},
-    {"id":"tree-accordion","name":"Accordion Tree","family":"components","component":"Tree","feature":"A tree can use accordion behavior so one branch stays open.","lookFor":"Expand a branch and watch the previously open branch collapse.","urls":{"dist":"https://neomjs.com/examples/treeAccordion/index.html","dev":"https://neomjs.com/examples/treeAccordion/index.html?build=dev","prod":"https://neomjs.com/examples/treeAccordion/index.html?build=prod","esm":"https://neomjs.com/examples/treeAccordion/index.html?build=esm"},"sourceUrl":"https://github.com/neomjs/neo/tree/dev/examples/treeAccordion","image":null}
+    }
 ]

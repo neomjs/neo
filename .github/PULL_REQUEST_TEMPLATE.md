@@ -1,45 +1,36 @@
-Please make sure to read the Contributing Guidelines:
-
-https://github.com/neomjs/neo/blob/dev/CONTRIBUTING.md
-
-<!-- PULL REQUEST TEMPLATE -->
-<!-- (Update "[ ]" to "[x]" to check a box) -->
-
-**Does this PR resolve an issue?** (Required)
+<!-- Contributing guide: https://github.com/neomjs/neo/blob/dev/CONTRIBUTING.md
+     Submit pull requests against `dev` (never `main`).
+     Validate locally before opening: npx neo-agent-skills-pr-body --body-file <path-to-body.md> -->
 
 Resolves #
 
-<!-- Exactly one issue, and this PR must fully deliver it. -->
+<!-- Exactly one standalone `Resolves #<issue-id>` line (`Closes` and `Fixes` fail CI).
+     Only finishing part of an issue? Comment on the issue first so a maintainer can help scope it. -->
 
-<!-- Only finishing part of it? Please don't open a second issue for your part. Say so on the
-     issue and a maintainer will sort the scope out with you, so this line ends up naming one
-     issue you fully deliver. -->
+<!-- Summarize what shipped, why, and whether it changes public behavior or requires migration (do not copy the ticket body): -->
 
-<!-- If this PR doesn't resolve an issue, please explain why: -->
 
-<!-- PRs without issue references may be closed. Please create an issue first if one doesn't exist. -->
+<!-- Rate achieved vs required Evidence Level L1-L4 (L1 static/docs, L2 unit/spec tests, L3 live probe, L4 operator handoff; see https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/process/evidence-ladder.md): -->
+Evidence: L<X> (<what you ran locally or in CI>) -> L<Y> required (<ticket ACs>).
 
-**What kind of change does this PR introduce?** (check at least one)
+## AC Evidence
+| AC | Proof |
+|---|---|
+| AC-1 | <owning spec path or local command + receipt; or `No structured ACs on #N`> |
 
-- [ ] Bugfix
-- [ ] Feature
-- [ ] Code style update
-- [ ] Refactor
-- [ ] Build-related changes
-- [ ] Other, please describe:
+## Deltas from ticket
+<None substantive, or what changed from the ticket>
 
-**Does this PR introduce a breaking change?** (check one)
+## Test Evidence
+<All coverage runs in CI, or outside-CI receipts (E2E, visual, live runtime, manual checks)>
 
-- [ ] Yes
-- [ ] No
+## Post-Merge Validation
+<None required, or - [ ] checks verifiable only after merge>
 
-If yes, please describe the impact and migration path for existing applications:
-
-**The PR fulfills this requirement:**
-
-- [ ] It's submitted to the `dev` branch, _not_ the `main` branch
-
-If adding a **new feature**, the PR's description includes:
-- [ ] A convincing reason for adding this feature (to avoid wasting your time, it's best to open a suggestion issue first and wait for approval before working on it)
-
-**Other information:**
+<!-- LLM / AI disclosure: if an LLM assisted or authored this PR, specify the exact model, version,
+     reasoning effort (write `reasoning: default` if your tool exposes no effort setting), and agent or
+     harness on the `Authored by` line below (keep comma-separated; do not join version and effort
+     with `/`). Rationale: naming the model, version, and reasoning effort ensures cross-rival-lab
+     review routing (every PR naming a model lab is reviewed by a maintainer running a rival lab's
+     model). If no LLM was used, write `(no LLM)`. -->
+Authored by @<github-handle> (<model + version>, reasoning: <effort or default>, <agent or harness>).

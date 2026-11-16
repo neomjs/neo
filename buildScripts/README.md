@@ -54,6 +54,34 @@ Tools for generating the API documentation and handling SEO for the portal.
 | :--- | :--- | :--- |
 | `generateDocsJson.mjs` | `npm run generate-docs-json` | Parses JSDoc comments across the codebase and generates `docs/output/db.json` for the Docs App. |
 | `seo/generate.mjs` | N/A | Generates static HTML snapshots for Search Engine Optimization. |
+| `captureExamples.mjs` | `npm run capture-examples` | Captures catalog examples from recorded public-browser recipes and writes cover receipts and a contact sheet. |
+
+Start the normal local development server, then capture one example or every recipe in a family:
+
+```bash
+npm run capture-examples -- --base-url http://localhost:8080/ --record grid-cell-editing
+npm run capture-examples -- --base-url http://localhost:8080/ --family grid-table
+```
+
+Recipes live beside the catalog in `apps/portal/resources/data/example-captures.json`. The catalog owns
+IDs and development URLs; each recipe supplies its viewport, theme action, feature-state checks and
+640×360 CSS region. Captures use device scale 2 and produce 1280×720 JPEGs of at most 150,000 bytes.
+Each run uses a new empty output directory under `test-results/example-covers/` unless `--output-dir`
+names another empty directory. `report.json` records successful files, checksums and failures;
+`sheet.html` shows the actual covers at 445 px. Failed state/data checks produce no cover.
+
+`--preview` opens the real local Portal with generated image requests fulfilled from that run. The
+branch's catalog must already name those images. This previews local bytes before the companion
+Pages change; it neither routes the worker's catalog request nor verifies deployed assets. Public
+data dependencies remain explicit, and live/random examples reproduce framing and state rather
+than promising identical bytes.
+
+Recipe steps support click, double-click, fill, key press, scroll and visible-state waits. Checks
+can require an exact count, input value or distinct visible heights. `inRegion: true` requires
+the first matching target to fit wholly inside the capture. Target each required control or
+open surface explicitly; existence elsewhere on the page is insufficient. A region can use fixed
+coordinates or a selector's top-left/center; anchored regions wait for stable geometry inside
+the viewport. Recipes contain no executable JavaScript.
 
 ---
 

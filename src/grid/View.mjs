@@ -345,7 +345,27 @@ class View extends Base {
     }
 
     /**
-     * The record ids the View's model holds selected — `[]` under a cell or column model, and under none.
+     * @summary The records of the rows the View's model holds selected, in the order of {@link #selectedRows}.
+     *
+     * Each row id resolves through the model's `getRowRecord()`. An id that resolves to no record is left out, so
+     * the array can be shorter than `selectedRows`. A new array on every read — `[]` under a cell or column model,
+     * and under none.
+     * @returns {Neo.data.Record[]}
+     */
+    get selectedRecords() {
+        let {rowSelectionModel} = this;
+
+        if (!rowSelectionModel) {
+            return []
+        }
+
+        return rowSelectionModel.selectedRows.map(id => rowSelectionModel.getRowRecord(id)).filter(Boolean)
+    }
+
+    /**
+     * The grid's row ids the View's model holds selected: the store's internal ids while `useInternalId` is `true`
+     * (the default), the record keys otherwise. Read {@link #selectedRecords} for the records themselves.
+     * `[]` under a cell or column model, and under none.
      * @returns {Number[]|String[]}
      */
     get selectedRows() {

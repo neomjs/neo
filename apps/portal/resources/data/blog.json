@@ -9,6 +9,14 @@
             "path": null
         },
         {
+            "date": "2026-11-16",
+            "id": "blog/role-based-navigation-from-one-store-filter",
+            "isLeaf": true,
+            "name": "Role-based navigation from one store filter: menus and windows that follow the user's permissions",
+            "parentId": "2026",
+            "path": "learn/blog/role-based-navigation-from-one-store-filter.md"
+        },
+        {
             "date": "2026-11-14",
             "id": "blog/one-websocket-across-browser-windows-with-sharedworkers",
             "isLeaf": true,

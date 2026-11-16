@@ -1031,6 +1031,34 @@ test.describe('Tests scope classifier — the e2e engine tier predicate', () => 
         }
     });
 
+    test('a contributor claim change runs units; a mixed change still runs browser tests', async () => {
+        const claimHelper = 'buildScripts/util/claimResponse.mjs',
+              files       = ['.github/workflows/claim-responder.yml', 'CONTRIBUTING.md', claimHelper,
+                  'test/playwright/unit/buildScripts/util/claimResponse.spec.mjs'],
+              claimOnly   = createRuntime({files});
+
+        await executeScript(scopeScript(), claimOnly);
+        expect(outputsOf(claimOnly)).toMatchObject({run_unit: 'true', run_e2e: 'false'});
+        expect(outputsOf(claimOnly).e2e_boundary_report).toContain(`${claimHelper}: out (buildScripts outside the e2e launch chain)`);
+
+        for (const extra of ['src/grid/View.mjs', 'test/playwright/e2e/grid/New.spec.mjs', 'buildScripts/util/newHelper.mjs']) {
+            const mixed = createRuntime({files: [...files, extra]});
+            await executeScript(scopeScript(), mixed);
+            expect(outputsOf(mixed), extra).toMatchObject({run_unit: 'true', run_e2e: 'true'});
+        }
+    });
+
+    test('a new reader of the claim or standing helper requires a browser reachability check', () => {
+        // Standing imports the claim helper. Catch new readers of either, including script, config and workflow callers.
+        const readers = execFileSync('git', ['grep', '--untracked', '-Il', '-E', 'claimResponse|contributorStanding', '--',
+            '*.mjs', '*.cjs', '*.js', '*.ts', '*.html', 'package.json', '*.sh', '.github/actions', '.github/workflows/test-e2e.yml',
+            ':!test/playwright/unit'], {cwd: repoRoot, encoding: 'utf8'}).trim().split('\n');
+
+        expect(readers).toContain('buildScripts/util/contributorStanding.mjs');
+        expect(readers.filter(file => !['buildScripts/util/claimResponse.mjs', 'buildScripts/util/contributorStanding.mjs'].includes(file)),
+            'check the new reader against the Engine browser launch chain').toEqual([]);
+    });
+
     test('the exclusions hold only while no e2e code reaches what they exclude', () => {
         // Each exclusion rests on a reachability fact, and a fact can stop being true without anyone
         // touching the classifier. These reds name the exclusion to revisit when that happens.

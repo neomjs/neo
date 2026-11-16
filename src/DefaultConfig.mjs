@@ -217,6 +217,26 @@ const DefaultConfig = {
      */
     renderCountDeltas: false,
     /**
+     * The path in front of every `'pathname'` route, without a trailing slash: with `'/docs'`, the route
+     * `/learn/Intro` is the URL `/docs/learn/Intro`. Ignored in `'hash'` mode.
+     * @default ''
+     * @memberOf! module:Neo
+     * @name config.routerBasePath
+     * @type String
+     */
+    routerBasePath: '',
+    /**
+     * Where a window keeps its route. `'hash'` uses `location.hash`. `'pathname'` uses the path after `routerBasePath`
+     * and moves it with the History API, so a route is a clean URL. The server then has to answer every route path
+     * with the app, and routes have to be paths (`/learn/Intro`). The App worker receives the same `hashChange`
+     * message in both modes.
+     * @default 'hash'
+     * @memberOf! module:Neo
+     * @name config.routerMode
+     * @type String
+     */
+    routerMode: 'hash',
+    /**
      * Add themes you want to use here. The first theme will get applied.
      * @default ['neo-theme-light','neo-theme-dark','neo-theme-neo-light']
      * @memberOf! module:Neo

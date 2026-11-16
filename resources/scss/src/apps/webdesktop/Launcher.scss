@@ -1,0 +1,114 @@
+// The list drawn as a desktop: no list chrome, icon tiles on the wallpaper, groups as headings.
+// A dragged icon's proxy is mounted on the body, so it carries the tile rules under its own class.
+.webdesktop-launcher,
+.webdesktop-launcher-proxy {
+    --list-container-list-color          : var(--webdesktop-ink);
+    --list-item-background-color         : transparent;
+    --list-item-background-color-active  : var(--webdesktop-glass-active);
+    --list-item-background-color-hover   : var(--webdesktop-glass-hover);
+    --list-item-background-color-selected: var(--webdesktop-glass-active);
+    --list-item-color-selected           : var(--webdesktop-ink);
+    --list-item-focus-outline            : 2px solid var(--webdesktop-accent);
+    --list-item-focus-outline-offset     : 2px;
+    --list-item-padding                  : 10px 4px 8px;
+
+    .neo-list-item:not(.neo-list-header) {
+        align-items   : center;
+        border-radius : 16px;
+        display       : flex;
+        flex-direction: column;
+        gap           : 8px;
+        margin        : 0;
+        transition    : background-color var(--motion-fast) var(--ease-out-soft), transform var(--motion-base) var(--ease-out-soft);
+
+        &:hover {
+            transform: translateY(-2px);
+
+            .webdesktop-app-icon {
+                box-shadow: 0 16px 34px -10px color-mix(in srgb, var(--webdesktop-app-color) 85%, transparent), inset 0 1px 0 rgba(255, 255, 255, .35);
+            }
+        }
+    }
+
+    .webdesktop-app-icon {
+        align-items    : center;
+        background     : linear-gradient(145deg, color-mix(in srgb, var(--webdesktop-app-color) 70%, white), var(--webdesktop-app-color) 55%, color-mix(in srgb, var(--webdesktop-app-color) 82%, black));
+        border-radius  : 16px;
+        box-shadow     : 0 10px 24px -10px color-mix(in srgb, var(--webdesktop-app-color) 75%, transparent), inset 0 1px 0 rgba(255, 255, 255, .35);
+        color          : #fff;
+        display        : flex;
+        font-size      : 24px;
+        height         : 56px;
+        justify-content: center;
+        transition     : box-shadow var(--motion-base) var(--ease-out-soft);
+        width          : 56px;
+    }
+
+    .webdesktop-app-label {
+        font-size  : 12.5px;
+        font-weight: 600;
+        line-height: 1.2;
+        text-align : center;
+        text-shadow: var(--webdesktop-label-shadow);
+    }
+}
+
+.webdesktop-launcher {
+    align-content        : start;
+    display              : grid;
+    gap                  : 6px 8px;
+    grid-template-columns: repeat(auto-fill, 100px);
+    padding              : 28px 32px;
+
+    .neo-list-header {
+        border-bottom : 1px solid var(--webdesktop-glass-border);
+        color         : var(--webdesktop-ink-dim);
+        font-size     : 11px;
+        font-weight   : 700;
+        grid-column   : 1 / -1;
+        letter-spacing: .09em;
+        margin        : 14px 0 6px;
+        padding       : 0 2px 8px;
+        text-shadow   : var(--webdesktop-label-shadow);
+        text-transform: uppercase;
+
+        &:first-child {
+            margin-top: 0;
+        }
+    }
+
+    // The icon a drag moves keeps its slot, faded, while the proxy carries it
+    .neo-list-item.neo-sort-source {
+        opacity  : .3;
+        transform: none;
+    }
+}
+
+// The proxy is the icon lifted off the desktop
+.webdesktop-launcher-proxy .neo-list-item {
+    background-color: var(--webdesktop-glass-active);
+    box-shadow      : 0 18px 40px -12px rgba(0, 0, 0, .55);
+}
+
+// A phone: tiles a step smaller in narrower gutters, so a 375px screen holds four columns
+@media (max-width: 600px) {
+    .webdesktop-launcher {
+        gap                  : 4px;
+        grid-template-columns: repeat(auto-fill, 80px);
+        padding              : 16px;
+    }
+
+    .webdesktop-launcher,
+    .webdesktop-launcher-proxy {
+        .webdesktop-app-icon {
+            border-radius: 14px;
+            font-size    : 21px;
+            height       : 48px;
+            width        : 48px;
+        }
+
+        .webdesktop-app-label {
+            font-size: 12px;
+        }
+    }
+}

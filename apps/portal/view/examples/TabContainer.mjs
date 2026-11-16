@@ -33,8 +33,8 @@ class ExamplesTabContainer extends TabContainer {
          */
         dragResortable: true,
         /**
-         * The single ordered source of family identity, title, route and fallback icon.
-         * Featured is independent of home-family membership; other tabs require catalog records.
+         * The single ordered source of family identity, title, route and tab icon.
+         * Featured is independent of home-family membership; other tabs require a covered catalog record.
          * @member {Object[]} familyDefinitions
          */
         familyDefinitions: [
@@ -43,6 +43,9 @@ class ExamplesTabContainer extends TabContainer {
             {family: 'forms',        title: 'Forms',          route: '/examples/forms',        iconCls: 'fa fa-keyboard'},
             {family: 'multi-window', title: 'Multi-Window',   route: '/examples/multi-window', iconCls: 'far fa-window-restore'},
             {family: 'calendar',     title: 'Calendar',       route: '/examples/calendar',     iconCls: 'fa fa-calendar'},
+            {family: 'scheduler',    title: 'Scheduler',      route: '/examples/scheduler',    iconCls: 'fa fa-calendar-week'},
+            {family: 'gantt',        title: 'Gantt',          route: '/examples/gantt',        iconCls: 'fa fa-chart-gantt'},
+            {family: 'board',        title: 'Board',          route: '/examples/board',        iconCls: 'fa fa-table-columns'},
             {family: 'components',   title: 'Components',     route: '/examples/components',   iconCls: 'fa fa-cubes'},
             {family: 'state',        title: 'State & Data',   route: '/examples/state',        iconCls: 'fa fa-database'}
         ],
@@ -97,27 +100,43 @@ class ExamplesTabContainer extends TabContainer {
 
     /**
      * @summary Projects one family through a model-backed Store over the provider's catalog.
+     *
+     * The store lists the family's covered records only (`hasCover()`): a record without a cover stays in the
+     * catalog and gets no card, so an overview never shows a placeholder.
      * @param {Object} definition
      * @returns {Object}
      */
     createFamilyItem(definition) {
-        const featured = definition.family === null,
-              catalog  = this.getCatalogStore();
+        const me       = this,
+              featured = definition.family === null,
+              catalog  = me.getCatalogStore();
 
         return {
-            module         : List,
-            bind           : {catalogMode: data => data.catalogMode},
-            cls            : featured ? [] : ['portal-examples-family-overview'],
-            fallbackIconCls: definition.iconCls,
-            reference      : 'examples-' + (featured ? 'featured' : definition.route.slice('/examples/'.length)) + '-list',
-            store          : {
+            module   : List,
+            bind     : {catalogMode: data => data.catalogMode},
+            cls      : [featured ? 'portal-examples-featured' : 'portal-examples-family-overview'],
+            reference: 'examples-' + (featured ? 'featured' : definition.route.slice('/examples/'.length)) + '-list',
+            store    : {
                 module  : ExampleStore,
                 model   : catalog.model,
                 sourceId: catalog.id,
-                filters : [{property: featured ? 'featured' : 'family', operator: '===', value: featured || definition.family}]
+                filters : [
+                    {property: featured ? 'featured' : 'family', operator: '===', value: featured || definition.family},
+                    {property: 'image', fields: ['image'], filterBy: ({item}) => !me.hasCover(item)}
+                ]
             },
             header: {iconCls: definition.iconCls, route: definition.route, text: definition.title}
         }
+    }
+
+    /**
+     * @summary A visible record with a cover publishes a card. Both family stores and the tab controller use
+     * this rule so a hidden record alone never publishes a family.
+     * @param {Object} record A catalog record or its raw row
+     * @returns {Boolean}
+     */
+    hasCover(record) {
+        return !record.hidden && !!record.image
     }
 
     /**
