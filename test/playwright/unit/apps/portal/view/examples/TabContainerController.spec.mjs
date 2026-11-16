@@ -6,16 +6,18 @@ setup({
     }
 });
 
-import {test, expect}         from '@playwright/test';
-import fs                     from 'node:fs';
-import path                   from 'node:path';
-import {fileURLToPath}        from 'node:url';
-import Neo                    from '../../../../../../../src/Neo.mjs';
-import * as core              from '../../../../../../../src/core/_export.mjs';
-import ExamplesList           from '../../../../../../../apps/portal/view/examples/List.mjs';
-import ExamplesStore          from '../../../../../../../apps/portal/store/Examples.mjs';
-import ExamplesTabContainer   from '../../../../../../../apps/portal/view/examples/TabContainer.mjs';
-import TabContainerController from '../../../../../../../apps/portal/view/examples/TabContainerController.mjs';
+import {test, expect}                from '@playwright/test';
+import fs                            from 'node:fs';
+import os                            from 'node:os';
+import path                          from 'node:path';
+import {fileURLToPath}               from 'node:url';
+import {getPublishedExampleFamilies} from '../../../../../../../buildScripts/docs/seo/seoJson.mjs';
+import Neo                           from '../../../../../../../src/Neo.mjs';
+import * as core                     from '../../../../../../../src/core/_export.mjs';
+import ExamplesList                  from '../../../../../../../apps/portal/view/examples/List.mjs';
+import ExamplesStore                 from '../../../../../../../apps/portal/store/Examples.mjs';
+import ExamplesTabContainer          from '../../../../../../../apps/portal/view/examples/TabContainer.mjs';
+import TabContainerController        from '../../../../../../../apps/portal/view/examples/TabContainerController.mjs';
 
 const
     directory = path.dirname(fileURLToPath(import.meta.url)),
@@ -76,6 +78,7 @@ test.describe('Portal examples family navigation', () => {
     test('publishes only Featured and families with a covered record from one definition source', () => {
         const view = createView();
 
+        // Scheduler and Gantt are defined and in the catalog; neither has a cover yet, so neither has a tab
         expect(view.getTabButtons().map(button => button.text)).toEqual(['Featured', 'Grid & Table', 'Forms', 'Multi-Window', 'Calendar']);
         expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/grid', '/examples/forms', '/examples/multi-window', '/examples/calendar']);
         expect(view.getCatalogStore().getCount()).toBe(77);
@@ -119,6 +122,9 @@ test.describe('Portal examples family navigation', () => {
         expect(view.activeIndex).toBe(1);
         await controller.onExamplesRoute({itemId: 'forms'});
         expect(view.activeIndex).toBe(2);
+        // a defined family without a cover has no tab yet: its route lands on Featured
+        await controller.onExamplesRoute({itemId: 'gantt'});
+        expect(view.activeIndex).toBe(0);
         await controller.onExamplesRoute({itemId: 'multi-window'});
         expect(view.activeIndex).toBe(3);
         await controller.onExamplesRoute({itemId: 'unknown'});
@@ -170,6 +176,33 @@ test.describe('Portal examples family navigation', () => {
         expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/grid', '/examples/forms', '/examples/multi-window', '/examples/calendar', '/examples/components']);
         expect(view.getCard(5).store.getCount()).toBe(1);
         expect(view.getTabButtons()[5].iconCls).toBe(view.familyDefinitions.find(item => item.family === 'components').iconCls)
+    });
+
+    test('the build publishes the search routes of exactly the families the section shows as tabs', async () => {
+        const cover = catalog.find(record => record.image).image,
+              rows  = [
+                  ...catalog.map(record => ['scheduler-basic', 'gantt-basic'].includes(record.id) ? {...record, image: cover} : record),
+                  {...catalog[0], id: 'test-state-hidden',     family: 'state',      featured: false, image: cover, hidden: true},
+                  {...catalog[0], id: 'test-gantt-hidden',     family: 'gantt',      featured: false, image: cover, hidden: true},
+                  {...catalog[0], id: 'test-board-waiting',    family: 'board',      featured: false, image: null},
+                  {...catalog[0], id: 'test-components-shown', family: 'components', featured: false, image: cover}
+              ],
+              folder       = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-example-families-')),
+              examplesPath = path.join(folder, 'examples.json');
+
+        fs.writeFileSync(examplesPath, JSON.stringify(rows));
+
+        // The same rows through both readers of `familyDefinitions`: the build parses the section's source file
+        const published = await getPublishedExampleFamilies({examplesPath}),
+              view      = createView(rows);
+
+        fs.rmSync(folder, {force: true, recursive: true});
+
+        expect(published.map(family => family.route)).toEqual(view.getTabButtons().map(button => button.route).slice(1));
+        expect(published.map(family => family.route)).toEqual(['/examples/grid', '/examples/forms', '/examples/multi-window', '/examples/calendar', '/examples/scheduler', '/examples/gantt', '/examples/components']);
+        published.forEach((family, index) => {
+            expect(family.records.map(record => record.id), family.route).toEqual(view.getCard(index + 1).store.items.map(record => record.id))
+        })
     });
 
     for (const [name, images, published] of [

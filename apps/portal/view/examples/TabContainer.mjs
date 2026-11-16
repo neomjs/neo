@@ -43,6 +43,9 @@ class ExamplesTabContainer extends TabContainer {
             {family: 'forms',        title: 'Forms',          route: '/examples/forms',        iconCls: 'fa fa-keyboard'},
             {family: 'multi-window', title: 'Multi-Window',   route: '/examples/multi-window', iconCls: 'far fa-window-restore'},
             {family: 'calendar',     title: 'Calendar',       route: '/examples/calendar',     iconCls: 'fa fa-calendar'},
+            {family: 'scheduler',    title: 'Scheduler',      route: '/examples/scheduler',    iconCls: 'fa fa-calendar-week'},
+            {family: 'gantt',        title: 'Gantt',          route: '/examples/gantt',        iconCls: 'fa fa-chart-gantt'},
+            {family: 'board',        title: 'Board',          route: '/examples/board',        iconCls: 'fa fa-table-columns'},
             {family: 'components',   title: 'Components',     route: '/examples/components',   iconCls: 'fa fa-cubes'},
             {family: 'state',        title: 'State & Data',   route: '/examples/state',        iconCls: 'fa fa-database'}
         ],
@@ -127,13 +130,13 @@ class ExamplesTabContainer extends TabContainer {
     }
 
     /**
-     * @summary Whether a record publishes a card: it names a cover. The one rule the family stores filter by
-     * and the controller publishes tabs by.
+     * @summary A visible record with a cover publishes a card. Both family stores and the tab controller use
+     * this rule so a hidden record alone never publishes a family.
      * @param {Object} record A catalog record or its raw row
      * @returns {Boolean}
      */
     hasCover(record) {
-        return !!record.image
+        return !record.hidden && !!record.image
     }
 
     /**
