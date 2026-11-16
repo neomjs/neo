@@ -152,12 +152,14 @@ class SortZone extends DragZone {
 
     /**
      * Commits the slot, or renders the store's order back when there is none, then lands the proxy: on the
-     * source's new place, or back on its start.
+     * source's new place, or back on its start. The store may change during the drag, so a slot whose source or
+     * target the list no longer shows commits nothing.
      * @param {Object} data
      */
     async onDragEnd(data) {
         let me      = this,
             {owner} = me,
+            {store} = owner,
             source  = me.#source,
             slot    = me.#slot;
 
@@ -168,7 +170,7 @@ class SortZone extends DragZone {
 
         me.#source = me.#slot = null;
 
-        if (slot && me.moveRecord(source, slot.target, slot.before)) {
+        if (slot && store.indexOf(source) > -1 && store.indexOf(slot.target) > -1 && me.moveRecord(source, slot.target, slot.before)) {
             await owner.promiseUpdate();
             me.dragElementRect = await owner.getDomRect(owner.getItemId(source))
         } else {
