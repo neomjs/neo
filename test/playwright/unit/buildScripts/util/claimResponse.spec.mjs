@@ -552,7 +552,7 @@ test.describe('buildScripts/util/claimResponse', () => {
                 const posted = [], assignedCalls = [], unassignedCalls = [], warnings = [], listForRepoCalls = [], countQueries = [];
 
                 const github = {
-                    graphql : async () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: []}}}}),
+                    graphql : async () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: [], pageInfo: {hasNextPage: false}}}}}),
                     paginate: async (fn, args) => {
                         if (fn === github.rest.issues.listComments) return comments;
                         if (fn === github.rest.issues.listEvents)   return events;
@@ -718,7 +718,7 @@ test.describe('buildScripts/util/claimResponse', () => {
                     burstPosted     = [];
 
                 const sharedGithub = {
-                    graphql : async () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: []}}}}),
+                    graphql : async () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: [], pageInfo: {hasNextPage: false}}}}}),
                     paginate: async (fn, args) => {
                         if (fn === sharedGithub.rest.issues.listComments) return commentsByIssue.get(args.issue_number) || [];
                         if (fn === sharedGithub.rest.issues.listEvents)   return [];
@@ -804,7 +804,7 @@ test.describe('buildScripts/util/claimResponse', () => {
                   comments = [], events = [], created = [], updated = [], assigned = [], warnings = [];
             let   current = first, aliceAtCapacity = true, failUpdate = false;
             const github  = {
-                graphql : async () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: []}}}}),
+                graphql : async () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: [], pageInfo: {hasNextPage: false}}}}}),
                 paginate: async (fn, args) => {
                     if (fn === github.rest.issues.listComments) return comments;
                     if (fn === github.rest.issues.listEvents) return events;
@@ -1376,7 +1376,7 @@ test.describe('buildScripts/util/claimResponse', () => {
                     pullLinks   = new Map([
                         [19143, []],
                         [20691, []],
-                        [20692, [{author: {login: 'merged-author'}, merged: true, number: 21400, repository: {nameWithOwner: 'neomjs/neo'}}]]
+                        [20692, [{author: {login: 'merged-author'}, merged: true, number: 21400, repository: {nameWithOwner: 'neomjs/neo'}, state: 'MERGED'}]]
                     ]),
                     pullDetails = new Map(),
                     created     = [],
@@ -1859,7 +1859,7 @@ test.describe('buildScripts/util/claimResponse', () => {
                 siblingClaim  = comment('outside-sibling-dev', '2026-11-16T02:00:00Z', "I'd like to work on this.", {id: 8801});
 
             const github = {
-                graphql : async () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: []}}}}),
+                graphql : async () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: [], pageInfo: {hasNextPage: false}}}}}),
                 paginate: async fn => {
                     if (fn === github.rest.issues.listComments) return [siblingClaim];
                     if (fn === github.rest.issues.listEvents)   return [];
