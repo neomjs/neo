@@ -474,6 +474,50 @@ test.describe('Portal examples canonical catalog', () => {
         })
     });
 
+    test('every record has a home group, and alsoIn names only other defined groups', () => {
+        const groups = ExamplesTabContainer.config.familyDefinitions.map(definition => definition.family).filter(Boolean),
+              moved  = {
+                  apps      : ['webdesktop', 'devindex', 'covid-dashboard', 'portal', 'realworld', 'realworld-v2'],
+                  components: ['liquid-glass'],
+                  dashboard : ['dock-choreography', 'dock-layouts', 'dock-cross-window', 'dock-tear-out'],
+                  dialogs   : ['dialog-drag-drop'],
+                  gantt     : ['gantt-basic'],
+                  layouts   : ['layout-form'],
+                  lists     : ['helix', 'covid-helix', 'covid-gallery', 'gallery'],
+                  platform  : ['offscreen-canvas'],
+                  scheduler : ['scheduler-basic'],
+                  state     : ['state-provider'],
+                  tabs      : ['tab-container'],
+                  timeline  : ['timeline-basic']
+              };
+
+        expect(groups).toHaveLength(22);
+        catalog.forEach(record => {
+            expect(groups, record.id).toContain(record.family);
+            (record.alsoIn || []).forEach(group => {
+                expect(groups, record.id).toContain(group);
+                expect(group, record.id).not.toBe(record.family)
+            })
+        });
+
+        // the 23 records the data pass moved, and the alsoIn lists it wrote
+        Object.entries(moved).forEach(([group, ids]) => ids.forEach(id => expect(catalog.find(record => record.id === id).family, id).toBe(group)));
+        expect(Object.values(moved).flat()).toHaveLength(23);
+        expect(Object.fromEntries(catalog.filter(record => record.alsoIn?.length).map(record => [record.id, record.alsoIn]))).toEqual({
+            'workstation'            : ['apps'],
+            'shared-covid'           : ['apps'],
+            'offscreen-canvas'       : ['charts'],
+            'shared-offscreen-canvas': ['platform'],
+            'multi-window-drag-drop' : ['apps', 'drag-drop'],
+            'dialog-drag-drop'       : ['drag-drop'],
+            'colors-dashboard'       : ['apps'],
+            'form-app'               : ['apps'],
+            'layout-form'            : ['forms'],
+            'dock-cross-window'      : ['multi-window'],
+            'dock-tear-out'          : ['multi-window', 'drag-drop']
+        })
+    });
+
     test('every record that publishes a card has both a feature and an observation, with rejecting controls', () => {
         function check(records) {
             records.filter(record => modes.some(mode => Example.publishes(record, mode))).forEach(record => {
