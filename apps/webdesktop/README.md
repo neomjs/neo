@@ -63,6 +63,14 @@ A floating dialog sits outside the component tree, so its state provider names t
 window binds `app` from its own provider and `account` from the parent. The taskbar lists the open windows from a
 `tasks` store. When the permission filter drops an app, its window closes, minimized or not.
 
+## Arranging icons
+
+Drag an icon before or after another icon of its group, or press Ctrl+Shift+Left or Right (Cmd+Shift on macOS). The
+launcher is draggable through `Neo.draggable.list.SortZone`: during the drag only the view previews the new order,
+and a drop writes the apps' `order` field once (`store.updateRows()`). The apps store sorts by `order`, so the launcher
+and the start menu follow. The filter never touches `order`, so a permission change keeps the remaining icons in place.
+Each account's arrangement is saved to `localStorage` and applied when it signs in.
+
 ## Files
 
 | File | Responsibility |
