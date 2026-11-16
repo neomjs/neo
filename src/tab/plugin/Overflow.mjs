@@ -407,6 +407,9 @@ class Overflow extends Plugin {
                     me.project(false)
                 })
             }
+            me.observeConfig(me.owner, 'mounted', value => {
+                !value && !me.isDestroyed && me.onOwnerUnmounted()
+            })
         }
     }
 
@@ -513,6 +516,21 @@ class Overflow extends Plugin {
         owner.on('actionVisibilityChange', me.onActionVisibilityChange, me);
         me.getTabContainer()?.on('moveTo', me.onTabSetChange, me);
         me.project(true)
+    }
+
+    /**
+     * @summary Retires the floating control when its toolbar unmounts.
+     *
+     * The floating embodiment mounts under `document.body`, outside the toolbar's DOM, so it cannot leave with
+     * the toolbar. A control whose insert is still in flight is destroyed once that insert settles
+     * (`mountFloatingControl()`), and a remount runs {@link #onOwnerMounted} and projects afresh. The action
+     * embodiment lives inside the toolbar and leaves with it.
+     * @protected
+     */
+    onOwnerUnmounted() {
+        let me = this;
+
+        !me.projectAsAction && me.control && me.syncControl([], me.getTabContainer())
     }
 
     /**
@@ -1097,7 +1115,9 @@ class Overflow extends Plugin {
             // A drag can begin while either DOM round-trip above is in flight. Recheck at the
             // mutation boundary so a pre-gesture measurement cannot hide/show members beneath the
             // SortZone snapshot captured in the meantime.
-            if (!me.queueSortDragProjection(recapture, false) && !me.queueOpenMenuProjection(recapture)) {
+            // The owner can also unmount meanwhile: a split applied then would create a floating control
+            // for a toolbar that is gone (onOwnerUnmounted()).
+            if (owner.mounted && !me.queueSortDragProjection(recapture, false) && !me.queueOpenMenuProjection(recapture)) {
                 me.applySplit(hidden, buttons, tabContainer, {
                     activeButton,
                     focusedButton,

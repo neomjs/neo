@@ -63,6 +63,8 @@ class EffectTabButton extends EffectButton {
 
         vdomConfig.role             = me.role;
         vdomConfig['aria-selected'] = me.pressed === true;
+        // ARIA does not allow aria-pressed on role="tab": selection is stated through aria-selected
+        delete vdomConfig['aria-pressed'];
         vdomConfig['aria-keyshortcuts'] = me.closable ? 'Delete' : null;
 
         if (me.cardId) {

@@ -547,7 +547,7 @@ test.describe('buildScripts/util/claimResponse', () => {
 
             expect(raw).not.toMatch(/^concurrency:/m);
             expect(raw).toMatch(/\n    if: >-[\s\S]*?\n    concurrency:\n      group: claim-responder\n      cancel-in-progress: false\n      queue: max\n/);
-            expect(raw).toMatch(/sparse-checkout: \|\n {12}buildScripts\/util\/claimResponse\.mjs\n {12}buildScripts\/util\/contributorStanding\.mjs/);
+            expect(raw).toContain('for module in claimResponse.mjs contributorStanding.mjs; do');
 
             process.env.GITHUB_WORKSPACE = process.cwd();
 
@@ -1363,8 +1363,8 @@ test.describe('buildScripts/util/claimResponse', () => {
             expect(raw).toContain('types: [opened, reopened, edited, closed]');
             expect(raw).toContain('pull-requests: write');
             expect(raw).toContain('NEO_CLAIM_RELEASE_SINCE: ${{ vars.NEO_CLAIM_RELEASE_SINCE }}');
-            expect(raw).toContain('repository: neomjs/neo');
-            expect(raw).toContain('ref: ${{ job.workflow_sha }}');
+            expect(raw).toContain('"repos/neomjs/neo/contents/buildScripts/util/${module}?ref=${WORKFLOW_SHA}"');
+            expect(raw).toContain('WORKFLOW_SHA: ${{ job.workflow_sha }}');
             expect(raw).not.toContain('github.event.pull_request.head');
 
             const createHarness = ({permission = 'read', mergedCount = 0, nextIssueReadHook, graphqlHasNextPage = false} = {}) => {
@@ -1676,9 +1676,8 @@ test.describe('buildScripts/util/claimResponse', () => {
                 steps         = respondJob?.steps ?? [],
                 verifyStep    = steps.find(step => step.name === 'Verify defining workflow commit'),
                 checkoutSteps = steps.filter(step => String(step.uses || '').startsWith('actions/checkout@')),
-                checkoutStep  = checkoutSteps[0],
+                fetchStep     = steps.find(step => step.name === 'Fetch the reply modules'),
                 scriptStep    = steps.find(step => step.name === 'Answer the claim'),
-                sparseLines   = String(checkoutStep?.with?.['sparse-checkout'] || '').trim().split(/\r?\n/).map(s => s.trim()),
                 prevWorkspace = process.env.GITHUB_WORKSPACE;
 
             expect(Object.keys(workflow.on).sort()).toEqual(['issue_comment', 'pull_request_target', 'workflow_call']);
@@ -1697,17 +1696,12 @@ test.describe('buildScripts/util/claimResponse', () => {
             expect(verifyStep.env).toEqual({WORKFLOW_SHA: '${{ job.workflow_sha }}'});
             expect(String(verifyStep.run)).not.toContain('${{');
 
-            expect(checkoutSteps).toHaveLength(1);
-            expect(checkoutStep.with).toMatchObject({
-                repository                 : 'neomjs/neo',
-                ref                        : '${{ job.workflow_sha }}',
-                'persist-credentials'      : false,
-                'sparse-checkout-cone-mode': false
-            });
-            expect(sparseLines).toEqual([
-                'buildScripts/util/claimResponse.mjs',
-                'buildScripts/util/contributorStanding.mjs'
-            ]);
+            // No checkout: on a merged close the workflow commit is the pull request's merge commit, which
+            // actions/checkout refuses for a fork. The modules come through the contents API at that commit.
+            expect(checkoutSteps).toHaveLength(0);
+            expect(fetchStep.env).toEqual({GH_TOKEN: '${{ github.token }}', WORKFLOW_SHA: '${{ job.workflow_sha }}'});
+            expect(String(fetchStep.run)).not.toContain('${{');
+            expect(String(fetchStep.run)).toContain('"repos/neomjs/neo/contents/buildScripts/util/${module}?ref=${WORKFLOW_SHA}"');
 
             expect(scriptStep?.uses).toMatch(/^actions\/github-script@/);
             expect(String(scriptStep?.with?.script || '')).not.toContain('${{');
@@ -1781,7 +1775,7 @@ test.describe('buildScripts/util/claimResponse', () => {
                 runVerifyGuard(workflowSha);
 
                 return {
-                    checkoutRef      : workflowSha,
+                    moduleRef        : workflowSha,
                     concurrencyOwners: owners,
                     callerShaIgnored : runtime.callerRepoSha
                 };
@@ -1800,23 +1794,23 @@ test.describe('buildScripts/util/claimResponse', () => {
                 '    secrets: inherit'
             ].join('\n');
 
-            // Valid single-pin sibling caller: single concurrency owner, checks out defining SHA even when caller repo SHA differs
+            // Valid single-pin sibling caller: single concurrency owner, reads the modules at the defining SHA even when caller repo SHA differs
             expect(validateThinCallerContract(validCallerYaml, workflow, {
                 repository   : 'neomjs/neo-agent-brain',
                 callerRepoSha: alternateSha
             })).toEqual({
-                checkoutRef      : definingSha,
+                moduleRef        : definingSha,
                 concurrencyOwners: ['called:respond'],
                 callerShaIgnored : alternateSha
             });
 
-            // Direct Engine run: checks out job.workflow_sha directly with single concurrency owner
+            // Direct Engine run: reads the modules at job.workflow_sha directly with single concurrency owner
             expect(validateThinCallerContract(validCallerYaml, workflow, {
                 repository       : 'neomjs/neo',
                 directWorkflowSha: alternateSha,
                 callerRepoSha    : alternateSha
             })).toEqual({
-                checkoutRef      : alternateSha,
+                moduleRef        : alternateSha,
                 concurrencyOwners: ['called:respond'],
                 callerShaIgnored : alternateSha
             });

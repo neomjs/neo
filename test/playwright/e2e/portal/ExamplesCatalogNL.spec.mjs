@@ -3,7 +3,11 @@ import {decodePng}    from '../utils/pngPixels.mjs';
 
 const PORTAL   = '/apps/portal/index.html',
       FAMILY   = '.portal-examples-family-overview',
-      FAMILIES = ['Featured', 'Grid & Table', 'Forms', 'Multi-Window', 'Calendar'];
+      FAMILIES = [
+          'Featured', 'Grid & Table', 'Forms & Fields', 'Calendar', 'Tab Container', 'Dashboard & Docking', 'Drag & Drop',
+          'Lists & Galleries', 'Dialogs & Overlays', 'Charts, Canvas & Maps', 'More components', 'Multi-Window',
+          'State & Data', 'Workers & Platform', 'Apps'
+      ];
 
 /**
  * @summary Reads the mounted list from this page's App Worker, rather than a sibling Portal.
@@ -181,10 +185,11 @@ test.describe('Portal example catalog', () => {
         ]) {
             await page.getByRole('button', {name: /^Build: /}).click();
             await page.locator('.neo-menu-list:visible .neo-list-item').filter({hasText: label}).click();
+            // Dev mode cannot open liquid-glass, the one covered member of More components, so that group has no list
             await expect.poll(async () => {
                 const lists = await app.queryComponent({className: 'Portal.view.examples.List'}, ['catalogMode']);
                 return lists.map(item => item.properties.catalogMode)
-            }).toEqual(FAMILIES.map(() => mode));
+            }).toEqual(FAMILIES.filter(name => mode !== 'devmode' || name !== 'More components').map(() => mode));
             await expect(page.locator('.portal-examples-list:visible').getByRole('link', {name: 'Workstation', exact: true}))
                 .toHaveAttribute('href', `https://neomjs.com/${prefix}apps/workstation/index.html`);
 
@@ -192,8 +197,8 @@ test.describe('Portal example catalog', () => {
             await expect(page.locator(FAMILY).getByRole('link', {name: 'TreeGrid - Big Data', exact: true}))
                 .toHaveAttribute('href', `https://neomjs.com/${prefix}examples/grid/treeBigData/index.html`);
             await selectFamily(page, 'Multi-Window');
-            // the seven covered records; the external OffscreenCanvas demo has no ESM destination
-            await expect(page.locator(`${FAMILY} .portal-example-feature`)).toHaveCount(mode === 'dist_esm' ? 6 : 7);
+            // the six covered records; the external OffscreenCanvas demo has no ESM destination
+            await expect(page.locator(`${FAMILY} .portal-example-feature`)).toHaveCount(mode === 'dist_esm' ? 5 : 6);
             await expect(page.locator(FAMILY).getByRole('link', {name: 'Colors Dashboard', exact: true}))
                 .toHaveAttribute('href', `https://neomjs.com/${prefix}apps/colors/index.html`);
             await selectFamily(page, 'Featured')

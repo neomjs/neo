@@ -1,4 +1,5 @@
 import BaseList from '../../../../src/list/Base.mjs';
+import Example  from '../../model/Example.mjs';
 import VDomUtil from '../../../../src/util/VDom.mjs';
 
 /**
@@ -135,7 +136,7 @@ class List extends BaseList {
      * The cover fills the 16:9 card. Title and `feature` stay visible on a scrim at its foot. The action
      * (`lookFor`), the limits (`scope`) and the source link sit in `.portal-example-more`, which the styles open
      * on hover, focus and selection: a tap selects a list item, so touch reaches them too. A record without a
-     * cover never arrives here: the family store filters it out (`Portal.view.examples.TabContainer#hasCover`).
+     * cover never arrives here: the list's store filters it out (`Portal.model.Example.publishes()`).
      * @param {Object} record
      * @param {Number} index
      */
@@ -255,18 +256,18 @@ class List extends BaseList {
     }
 
     /**
-     * @summary Retains intentional per-mode exclusions and hides entries with no target in this mode.
+     * @summary Hides a card the build mode cannot publish (`Portal.model.Example.publishes()`), and the Portal's own
+     * card in the build that is running it.
+     *
+     * The store filters by the same rule. Reading it here as well keeps a card hidden while this list already
+     * renders the new mode and its store has not yet re-filtered.
      * @param {Object} record
      * @returns {Boolean}
      */
     isHiddenItem(record) {
-        if (record.hidden || record.hiddenIn.includes(this.catalogMode) || !record.urls[this.catalogMode]) {
-            return true
-        }
-
-        // We only want to show the portal app for the non-current environment.
-        // => A link to itself feels pointless
-        return record.sourceUrl === 'apps/portal' && this.environment === Neo.config.environment
+        // A link to the page itself would be pointless
+        return !Example.publishes(record, this.catalogMode) ||
+            (record.sourceUrl === 'apps/portal' && this.environment === Neo.config.environment)
     }
 
     /**
