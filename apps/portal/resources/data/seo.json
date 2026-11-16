@@ -1107,7 +1107,7 @@
     },
     "/examples/state": {
         "title": "JavaScript State Management Examples — Reactive Stores | Neo.mjs",
-        "description": "Explore 1 live JavaScript state management example: Nested state providers bind button texts through formatters you can edit.",
+        "description": "Explore 1 live JavaScript state management example: Nested state providers bind button texts through the formatters shown beside them.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-16"
     },
