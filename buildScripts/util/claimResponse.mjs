@@ -1562,3 +1562,5 @@ export function decideReply(options) {
     if (options.comments?.some(reply => isClaimReply(reply, options.comment?.user?.login))) return null;
     return decideClaim(options)?.body || null
 }
+
+export {REPO_PATTERN, isPositiveInt, isWorkflowBotComment};

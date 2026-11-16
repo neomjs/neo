@@ -30,13 +30,13 @@ function curatedIssue({assignees = [], labels = [{name: 'help wanted'}], number 
  * @param {Object} [options]
  * @returns {Object}
  */
-function issueComment(login, createdAt, body, {association = 'NONE', id, type = 'User'} = {}) {
+function issueComment(login, createdAt, body, {association = 'NONE', id, type = 'User', userId} = {}) {
     return {
         author_association: association,
         body,
         created_at        : createdAt,
         id                : id ?? Date.parse(createdAt),
-        user              : {id: type === 'Bot' ? 1 : 9000, login, type}
+        user              : {id: userId ?? (type === 'Bot' ? 1 : 9000), login, type}
     };
 }
 
@@ -644,6 +644,136 @@ test.describe('claim-responder linked-PR pagination and whole-event preflight (#
             await ok.execute('issue_comment', {comment: claim, issue: {number: 19143}});
             expect(ok.assigned).toEqual([{assignees: ['newcomer'], issue_number: 19143, owner: 'neomjs', repo: 'neo'}]);
             expect(ok.created[0].body).toContain('Assigned to you')
+        }
+    });
+});
+
+test.describe('claim-responder guidance for unrecognized comments', () => {
+    const marker = '<!-- claim-guidance:v1 {"repo":"neomjs/neo","issue":19143,"to":7001} -->';
+
+    test('guidance writes no ownership, deduplicates on numeric identity, and leaves a later /claim actionable', async () => {
+        const
+            unknown = issueComment('newcomer', new Date(Date.now() - 2000).toISOString(),
+                'Hi! I can help after we agree on scope and budget. Work will not begin until we agree.',
+                {id: 9101, userId: 7001}),
+            comments = new Map([[19143, [unknown]]]),
+            target = curatedIssue(),
+            harness = createWorkflowHarness({
+                issues        : new Map([[19143, target]]),
+                issueComments : comments,
+                graphqlHandler: () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: [], pageInfo: {hasNextPage: false}}}}})
+            });
+
+        await harness.execute('issue_comment', {comment: unknown, issue: {number: 19143}});
+        expect(harness.created).toHaveLength(1);
+        expect(harness.created[0]).toMatchObject({issue_number: 19143, owner: 'neomjs', repo: 'neo'});
+        expect(harness.created[0].body).toContain(marker);
+        expect(harness.created[0].body).toContain('/claim');
+        expect(harness.created[0].body).not.toContain(replyMarker('newcomer'));
+        expect(harness.assigned).toEqual([]);
+        expect(harness.unassigned).toEqual([]);
+        expect(harness.updated).toEqual([]);
+        expect(target.assignees).toEqual([]);
+
+        await harness.execute('issue_comment', {comment: unknown, issue: {number: 19143}});
+        expect(harness.created).toHaveLength(1);
+
+        const renamed = issueComment('renamed-newcomer', new Date(Date.now() - 1000).toISOString(),
+            'Could someone explain the expected input?', {id: 9102, userId: 7001});
+        comments.set(19143, [...comments.get(19143), renamed]);
+        await harness.execute('issue_comment', {comment: renamed, issue: {number: 19143}});
+        expect(harness.created).toHaveLength(1);
+        expect(harness.assigned).toEqual([]);
+
+        const claim = issueComment('renamed-newcomer', new Date().toISOString(), '/claim', {id: 9103, userId: 7001});
+        comments.set(19143, [...comments.get(19143), claim]);
+        await harness.execute('issue_comment', {comment: claim, issue: {number: 19143}});
+        expect(harness.created).toHaveLength(2);
+        expect(harness.created[1].body).toContain(replyMarker('renamed-newcomer'));
+        expect(harness.created[1].body).toContain('Assigned to you');
+        expect(harness.assigned).toEqual([{assignees: ['renamed-newcomer'], issue_number: 19143, owner: 'neomjs', repo: 'neo'}]);
+        expect(harness.unassigned).toEqual([]);
+        expect(harness.updated).toEqual([])
+    });
+
+    test('the commenter\'s own upstream PR on a later linked-reference page suppresses guidance', async () => {
+        const
+            unknown = issueComment('newcomer', new Date().toISOString(), 'What input does this need?', {id: 9201, userId: 7001}),
+            harness = createWorkflowHarness({
+                issues        : new Map([[19143, curatedIssue()]]),
+                issueComments : new Map([[19143, [unknown]]]),
+                graphqlHandler: ({after}) => ({repository: {issue: {closedByPullRequestsReferences: after === null
+                    ? {nodes: [forkRef(1)], pageInfo: {endCursor: 'next', hasNextPage: true}}
+                    : {nodes: [{author: {login: 'newcomer'}, number: 21999, repository: {nameWithOwner: 'neomjs/neo'}, state: 'OPEN'}], pageInfo: {hasNextPage: false}}
+                }}})
+            });
+
+        await harness.execute('issue_comment', {comment: unknown, issue: {number: 19143}});
+        expect(harness.graphqlCalls.map(call => call.vars.after)).toEqual([null, 'next']);
+        expect(harness.created).toEqual([]);
+        expect(harness.assigned).toEqual([]);
+        expect(harness.unassigned).toEqual([]);
+        expect(harness.updated).toEqual([])
+    });
+
+    test('a second snapshot catches a new holder, closure or guidance before any hint is posted', async () => {
+        for (const change of ['assignee', 'closed', 'claim', 'own-claim', 'hint', 'pull-request']) {
+            const
+                unknown  = issueComment('newcomer', new Date(Date.now() - 2000).toISOString(), 'What input does this need?', {id: 9301, userId: 7001}),
+                issues   = new Map([[19143, curatedIssue()]]),
+                comments = new Map([[19143, [unknown]]]),
+                harness  = createWorkflowHarness({
+                    issues,
+                    issueComments : comments,
+                    graphqlHandler: (vars, call) => {
+                        // The first snapshot has already copied its issue/comments; later reads see these replacements.
+                        if (call === 1) {
+                            if (change === 'assignee') issues.set(19143, curatedIssue({assignees: [{id: 7002, login: 'new-holder'}]}));
+                            if (change === 'closed') issues.set(19143, curatedIssue({state: 'closed'}));
+                            if (change === 'claim' || change === 'own-claim') comments.set(19143, [unknown,
+                                issueComment(change === 'claim' ? 'new-holder' : 'newcomer', new Date().toISOString(), '/claim',
+                                    {id: 9302, userId: change === 'claim' ? 7002 : 7001})]);
+                            if (change === 'hint') comments.set(19143, [unknown,
+                                issueComment('github-actions[bot]', new Date().toISOString(), marker, {id: 9303, type: 'Bot'})]);
+                        }
+                        const nodes = change === 'pull-request' && call > 1
+                            ? [{author: {login: 'new-holder'}, number: 21999, repository: {nameWithOwner: 'neomjs/neo'}, state: 'OPEN'}]
+                            : [];
+                        return {repository: {issue: {closedByPullRequestsReferences: {nodes, pageInfo: {hasNextPage: false}}}}}
+                    }
+                });
+
+            await harness.execute('issue_comment', {comment: unknown, issue: {number: 19143}});
+            expect(harness.graphqlCalls, change).toHaveLength(2);
+            expect(harness.created, change).toEqual([]);
+            expect(harness.assigned, change).toEqual([]);
+            expect(harness.unassigned, change).toEqual([]);
+            expect(harness.updated, change).toEqual([])
+        }
+    });
+
+    test('incomplete initial or final holder snapshots cannot produce guidance or ownership writes', async () => {
+        for (const failAt of [1, 2]) {
+            const
+                unknown = issueComment('newcomer', new Date().toISOString(), 'What input does this need?', {id: 9401, userId: 7001}),
+                harness = createWorkflowHarness({
+                    issues        : new Map([[19143, curatedIssue()]]),
+                    issueComments : new Map([[19143, [unknown]]]),
+                    graphqlHandler: (vars, call) => {
+                        if (call === failAt) {
+                            if (failAt === 2) throw new Error('final holder read unavailable');
+                            return {repository: {issue: {closedByPullRequestsReferences: {nodes: []}}}}
+                        }
+                        return {repository: {issue: {closedByPullRequestsReferences: {nodes: [], pageInfo: {hasNextPage: false}}}}}
+                    }
+                });
+
+            await expect(harness.execute('issue_comment', {comment: unknown, issue: {number: 19143}}))
+                .rejects.toThrow(/Incomplete state read/);
+            expect(harness.created).toEqual([]);
+            expect(harness.assigned).toEqual([]);
+            expect(harness.unassigned).toEqual([]);
+            expect(harness.updated).toEqual([])
         }
     });
 });
