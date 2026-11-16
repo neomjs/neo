@@ -594,7 +594,8 @@
     "/learn/guides/datahandling/Scheduler": {
         "title": "Building Resource Schedulers | Neo.mjs",
         "description": "Learn how to build interactive resource schedulers with Neo.scheduler.Container: resource stores, event stores, time axes, and booking edits.",
-        "schemaType": "TechArticle"
+        "schemaType": "TechArticle",
+        "lastmod": "2026-11-16"
     },
     "/learn/guides/datahandling/Gantt": {
         "title": "Building Gantt Charts with Linked Tasks | Neo.mjs",
