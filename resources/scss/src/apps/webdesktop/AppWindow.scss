@@ -31,6 +31,14 @@
     }
 }
 
+// The open permission panel stays above windows (`PermissionPanel.scss`), so a maximized window keeps to its left and
+// its header actions stay in reach. The panel is in the DOM only while it is open.
+@media (min-width: 601px) {
+    body:has(.webdesktop-permission-panel) .neo-dialog.webdesktop-window.neo-maximized {
+        width: calc(100% - 320px) !important;
+    }
+}
+
 // A phone has no room for a floating window: every window fills the area above the 60px taskbar, as a maximized one
 // does above, so maximizing has nothing left to do.
 @media (max-width: 600px) {

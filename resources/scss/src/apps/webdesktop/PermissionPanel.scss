@@ -1,8 +1,11 @@
+// The panel belongs to the taskbar, so it stays above every app window (`AppWindow.mjs` stacks them below 100)
 .webdesktop-permission-panel {
     backdrop-filter : blur(28px) saturate(160%);
     background-color: var(--webdesktop-glass-strong);
     border-left     : 1px solid var(--webdesktop-glass-border);
+    position        : relative;
     width           : 320px;
+    z-index         : 100;
 
     .webdesktop-panel-header {
         padding: 22px 20px 12px;
@@ -29,6 +32,5 @@
         inset      : 0;
         position   : absolute;
         width      : auto;
-        z-index    : 1;
     }
 }
