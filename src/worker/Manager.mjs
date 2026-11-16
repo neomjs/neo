@@ -232,20 +232,7 @@ class Manager extends Base {
             });
 
             if (swVersion?.version && swVersion.version !== Neo.config.version) {
-                const
-                    key        = 'neoVersionReload',
-                    lastReload = parseInt(sessionStorage.getItem(key) || '0'),
-                    now        = Date.now();
-
-                if (now - lastReload < 5000) {
-                    console.error('Reload loop detected. Aborting version enforcement.');
-                    return
-                }
-
-                sessionStorage.setItem(key, String(now));
-
-                console.error(`Version Mismatch! Client: ${Neo.config.version}, SW: ${swVersion.version}. Reloading.`);
-                location.reload(true)
+                this.reloadOnce(`Version Mismatch! Client: ${Neo.config.version}, SW: ${swVersion.version}. Reloading.`)
             }
         }
     }
@@ -728,6 +715,28 @@ class Manager extends Base {
                 delete promises[replyId]
             }
         }
+    }
+
+    /**
+     * @summary Reloads the page to load one consistent set of files, unless it reloaded for this within the last five
+     * seconds: a mismatch that a reload does not cure would otherwise reload forever.
+     * @param {String} message Logged when the reload starts
+     */
+    reloadOnce(message) {
+        const
+            key        = 'neoVersionReload',
+            lastReload = parseInt(sessionStorage.getItem(key) || '0'),
+            now        = Date.now();
+
+        if (now - lastReload < 5000) {
+            console.error('Reload loop detected. Aborting version enforcement.');
+            return
+        }
+
+        sessionStorage.setItem(key, String(now));
+
+        console.error(message);
+        location.reload(true)
     }
 
     /**

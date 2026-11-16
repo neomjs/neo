@@ -1,6 +1,7 @@
 import fs                                        from 'fs-extra';
 import path                                      from 'path';
 import {spawnSync}                               from 'child_process';
+import {getBuildId}                              from '../../util/buildId.mjs';
 import {copyDistAppAssets, excludedResourcesFor} from '../../util/distAppAssets.mjs';
 import {minifyHtml}                              from '../../util/minifyHtml.mjs';
 import * as Terser                               from 'terser';
@@ -99,6 +100,7 @@ export default async function(env) {
 
         Object.assign(content, {
             basePath,
+            buildId : getBuildId(),
             mainPath: '../main.js',
             workerBasePath
         });

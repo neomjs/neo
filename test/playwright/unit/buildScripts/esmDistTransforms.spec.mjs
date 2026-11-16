@@ -299,9 +299,10 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
          */
         test('a relative basePath still gains the output-tree offset', () => {
             const config = transforms.rewriteNeoConfig(
-                {appPath: 'apps/x/app.mjs', basePath: '../../'}, {insideNeo: true});
+                {appPath: 'apps/x/app.mjs', basePath: '../../'}, {buildId: 'b1', insideNeo: true});
 
             expect(config.basePath).toBe('../../../../');
+            expect(config.buildId, 'the service worker keys its cache on the build run').toBe('b1');
             expect(config.environment).toBe('dist/esm');
             expect(config.mainPath).toBe('./Main.mjs')
         });

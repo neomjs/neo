@@ -6,6 +6,7 @@ import fs              from 'fs-extra';
 import inquirer        from 'inquirer';
 import os              from 'os';
 import path            from 'path';
+import {getBuildId}    from '../util/buildId.mjs';
 import {sanitizeInput} from '../util/sanitizer.mjs';
 
 
@@ -126,6 +127,9 @@ if (programOpts.info) {
 
         programOpts.noquestions && cpArgs.push('-n');
         insideNeo               && cpArgs.push('-f');
+
+        // One id for the whole run: every build step below inherits it through process.env
+        console.log(chalk.green(`Build id: ${getBuildId()}`));
 
         if (npminstall === 'yes') {
             childProcess = spawnSync(npmCmd, ['i'], cpOpts);

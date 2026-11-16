@@ -38,13 +38,23 @@ class ServiceWorker extends Base {
                 opts            = {type: 'module'},
                 path            = (useMjsFiles ? config.basePath : config.workerBasePath) + fileName,
                 {serviceWorker} = navigator,
-                registration;
+                previous, registration, scriptUrl;
 
             if (distEsm) {
                 path = path.substring(6)
             }
 
+            // A build registers its worker under its own id: the changed script URL makes the browser install it
+            // although its bytes may equal the previous build's, and the worker keys its cache on the id
+            if (config.buildId) {
+                path += '?buildId=' + encodeURIComponent(config.buildId)
+            }
+
+            scriptUrl    = new URL(path, document.baseURI).href;
+            previous     = (await serviceWorker.getRegistration(scriptUrl))?.active;
             registration = await serviceWorker.register(path, opts);
+
+            previous && previous.scriptURL !== scriptUrl && me.reloadWhenActive(registration, scriptUrl);
 
             window.addEventListener('beforeunload', me.onBeforeUnload.bind(me));
 
@@ -73,6 +83,27 @@ class ServiceWorker extends Base {
         WorkerManager.sendMessage('service', {
             action: 'unregisterPort'
         })
+    }
+
+    /**
+     * @summary Reloads the page once the new build's worker is active, for a page that started on another build's.
+     *
+     * Until the new worker takes over, the previous one answers this page's workers from the previous build's cache,
+     * so the session can run files of two builds. Its activation deletes that cache, and the reload loads one build.
+     * @param {ServiceWorkerRegistration} registration
+     * @param {String}                    scriptUrl    The absolute URL of the new build's worker
+     */
+    reloadWhenActive(registration, scriptUrl) {
+        let reload = () => WorkerManager.reloadOnce(`The build changed, ${scriptUrl} is active. Reloading.`),
+            worker = registration.installing || registration.waiting;
+
+        if (registration.active?.scriptURL === scriptUrl) {
+            reload()
+        } else {
+            worker?.addEventListener('statechange', () => {
+                worker.state === 'activated' && reload()
+            })
+        }
     }
 }
 

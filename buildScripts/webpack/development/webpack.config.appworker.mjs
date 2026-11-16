@@ -1,6 +1,7 @@
 import fs                                        from 'fs-extra';
 import path                                      from 'path';
 import {spawnSync}                               from 'child_process';
+import {getBuildId}                              from '../../util/buildId.mjs';
 import {copyDistAppAssets, excludedResourcesFor} from '../../util/distAppAssets.mjs';
 import workerContextRebasePlugin                 from '../workerContextRebasePlugin.mjs';
 
@@ -80,6 +81,7 @@ export default env => {
 
         Object.assign(content, {
             basePath,
+            buildId    : getBuildId(),
             environment: 'dist/development',
             mainPath   : '../main.js',
             workerBasePath

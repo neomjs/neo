@@ -38,8 +38,16 @@ class ServiceBase extends Base {
          */
         className: 'Neo.worker.ServiceBase',
         /**
+         * The build this worker serves. `Neo.main.addon.ServiceWorker` registers the worker with
+         * `?buildId=<Neo.config.buildId>`, and `construct()` reads it from the worker's own URL.
+         * `null` in development mode, which builds nothing.
+         * @member {String|null} buildId=null
+         */
+        buildId: null,
+        /**
          * The name of the CacheStorage key.
-         * Appends the `version` property to create unique cache entries (e.g., "neo-runtime-1.0.0").
+         * Appends the `version`, and the `buildId` of a build, to create unique cache entries
+         * (e.g., "neo-runtime-1.0.0" or "neo-runtime-1.0.0-mi2k3x9").
          * @member {String} cacheName_='neo-runtime'
          * @reactive
          */
@@ -155,6 +163,7 @@ class ServiceBase extends Base {
             bind = name => me[name].bind(me);
 
         me.channelPorts = [];
+        me.buildId    ??= new URLSearchParams(globalThis.location?.search).get('buildId');
 
         // Bind standard Service Worker lifecycle events to class methods.
         Object.assign(globalThis, {
@@ -170,17 +179,21 @@ class ServiceBase extends Base {
 
     /**
      * Triggered when accessing the cacheName config.
-     * Appends the application version to ensure cache invalidation on upgrades.
+     * Appends the application version to ensure cache invalidation on upgrades, and the build id so that a redeploy
+     * which keeps its version never answers from the previous build's cache.
      * @param {String} value
      * @protected
      */
     beforeGetCacheName(value) {
-        return value + '-' + this.version
+        let {buildId, version} = this;
+
+        return buildId ? `${value}-${version}-${buildId}` : `${value}-${version}`
     }
 
     /**
      * Lazy cleanup of old caches.
-     * Iterates over all caches and removes those matching the prefix but not the current version.
+     * Iterates over all caches and removes those matching the prefix but not the current name: other versions and
+     * other builds.
      * @returns {Promise<void>}
      */
     async cleanUpCaches() {
