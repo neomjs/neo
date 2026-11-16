@@ -151,20 +151,21 @@ test.describe('WebDesktop.view.ViewportController window rules', () => {
 
         const {apps, controller} = harness,
               destroyed          = [],
-              listeners          = () => (apps.toJSON().listeners.filter || []).length,
+              listeners          = () => ['filter', 'rowsChange'].map(name => (apps.toJSON().listeners[name] || []).length),
               fake               = id => ({destroy() {this.isDestroyed = true; destroyed.push(id)}, isDestroyed: false});
 
         let importDone;
 
-        controller.onAppsFilter = proto.onAppsFilter;
-        controller.windows      = {
+        controller.onAppsFilter     = proto.onAppsFilter;
+        controller.onAppsRowsChange = proto.onAppsRowsChange;
+        controller.windows          = {
             help: new Promise(resolve => {importDone = () => resolve(fake('help'))}),
             mail: Promise.resolve(fake('mail'))
         };
 
-        apps.on('filter', controller.onAppsFilter, controller);
+        apps.on({filter: controller.onAppsFilter, rowsChange: controller.onAppsRowsChange, scope: controller});
 
-        const before = listeners();
+        const [filters, rowsChanges] = listeners();
 
         proto.releaseWindows.call(controller);
         importDone();
@@ -173,7 +174,7 @@ test.describe('WebDesktop.view.ViewportController window rules', () => {
 
         expect(destroyed.sort()).toEqual(['help', 'mail']);
         expect(controller.windows).toEqual({});
-        expect(listeners()).toBe(before - 1)
+        expect(listeners()).toEqual([filters - 1, rowsChanges - 1])
     })
 });
 
