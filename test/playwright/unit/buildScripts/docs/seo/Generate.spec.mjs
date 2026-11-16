@@ -1659,4 +1659,70 @@ test.describe('docs SEO generator #20919: News hub routes and SharedWorker WebSo
         expect(sharedWorkerPost.title).not.toMatch(/\bframework\b/i);
         expect(sharedWorkerPost.description).not.toMatch(/\bframework\b/i);
     });
+
+    test('collectExampleRoutes and getSeoJson exclude testbeds/opt-outs, qualify standalone metadata, and prevent duplicate standalone titles (#21169)', async () => {
+        const rootDir      = process.cwd();
+        const isolatedRoot = path.join(tempDir, 'standalone-seo');
+        const seoJsonPath  = path.join(isolatedRoot, 'apps/portal/resources/data/seo.json');
+        const examplesPath = path.join(isolatedRoot, 'apps/portal/resources/data/examples.json');
+
+        await fs.outputFile(path.join(isolatedRoot, 'apps/portal/index.html'), '<!DOCTYPE html><html><head><title>Portal</title></head></html>');
+        await fs.outputFile(path.join(isolatedRoot, 'apps/ai/neural-link/index.html'), '<!DOCTYPE html><html><head><title>Neo.mjs Neural Link Testbed</title></head></html>');
+        await fs.outputFile(path.join(isolatedRoot, 'examples/dashboard/crossWindowWitness/index.html'), '<!DOCTYPE html><html><head><title>#15065 Cross-Window Witness</title></head></html>');
+        await fs.outputFile(path.join(isolatedRoot, 'apps/route/index.html'), '<!DOCTYPE html><html><head><title>Route</title></head></html>');
+        await fs.outputJson(path.join(isolatedRoot, 'apps/route/neo-config.json'), {seo: false});
+        await fs.outputFile(path.join(isolatedRoot, 'examples/panel/index.html'), '<!DOCTYPE html><html><head><title>Neo Panels</title></head></html>');
+        await fs.outputFile(
+            path.join(isolatedRoot, 'examples/grid/bigData/index.html'),
+            '<!DOCTYPE html><html><head><title>JavaScript Data Grid — 100k Rows | Neo.mjs</title><meta name="description" content="Explicit big data description."></head></html>'
+        );
+        await fs.outputJson(examplesPath, [
+            {
+                id     : 'panel-demo',
+                name   : 'Panels',
+                feature: 'Switchable Neo.panel.Container headers in a worker thread',
+                lookFor: 'Click header tools to collapse panels.',
+                urls   : {devmode: 'examples/panel/index.html'}
+            }
+        ]);
+
+        const routes = await collectExampleRoutes(isolatedRoot);
+        expect(routes.map(route => route.id)).toEqual([
+            '/examples/grid/bigData/index.html',
+            '/examples/panel/index.html'
+        ]);
+
+        const fixtureSeo = await getSeoJson({
+            blogIndexPath    : path.join(isolatedRoot, 'no-blog.json'),
+            examplesPath,
+            familyDefinitions: [],
+            learnDir         : path.join(isolatedRoot, 'no-learn'),
+            releaseNotesRoot : path.join(isolatedRoot, 'no-notes'),
+            releasesPath     : path.join(isolatedRoot, 'no-releases.json'),
+            root             : isolatedRoot,
+            seoJsonPath,
+            treeFilePath     : path.join(isolatedRoot, 'no-tree.json')
+        });
+
+        expect(fixtureSeo['/apps/ai/neural-link/index.html']).toBeUndefined();
+        expect(fixtureSeo['/examples/dashboard/crossWindowWitness/index.html']).toBeUndefined();
+        expect(fixtureSeo['/apps/route/index.html']).toBeUndefined();
+        expect(fixtureSeo['/examples/grid/bigData/index.html']).toEqual({
+            title      : 'JavaScript Data Grid — 100k Rows | Neo.mjs',
+            description: 'Explicit big data description.',
+            schemaType : 'WebPage'
+        });
+        expect(fixtureSeo['/examples/panel/index.html']).toEqual({
+            title      : 'Panels — Web Worker JavaScript UI Demo | Neo.mjs',
+            description: 'Switchable Neo.panel.Container headers in a worker thread. Click header tools to collapse panels.',
+            schemaType : 'WebPage'
+        });
+
+        // Verify live repo standalone titles and seo.json alignment
+        const repoRoutes = await collectExampleRoutes(rootDir);
+        const repoIds    = new Set(repoRoutes.map(route => route.id));
+        expect(repoIds.has('/apps/ai/neural-link/index.html')).toBe(false);
+        expect(repoIds.has('/examples/dashboard/crossWindowWitness/index.html')).toBe(false);
+        expect(new Set(repoRoutes.map(route => route.name)).size).toBe(repoRoutes.length);
+    });
 });

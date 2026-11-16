@@ -114,7 +114,7 @@ test.describe('Portal.service.Seo (#20945)', () => {
             // Mechanical parity check: every top-level and published /examples/<family> route in seo.json
             // must resolve to the exact same title in Portal.service.Seo#getTitle
             for (const [route, meta] of Object.entries(seoJson)) {
-                if (!route.startsWith('/learn/') && !route.startsWith('/news/blog/') && !route.startsWith('/news/releases/')) {
+                if (!route.startsWith('/learn/') && !route.startsWith('/news/blog/') && !route.startsWith('/news/releases/') && !route.endsWith('.html')) {
                     expect(SeoService.getTitle(route), `routeTitles mismatch for ${route}`).toBe(meta.title)
                 }
             }

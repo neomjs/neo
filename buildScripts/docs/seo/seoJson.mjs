@@ -44,6 +44,16 @@ export const TOP_LEVEL_SOURCE_PATHS = {
 };
 
 /**
+ * Standalone entrypoints omitted from `sitemap-core.xml`, `seo.json`, and `llms.txt`.
+ * @type {Set<String>}
+ */
+export const NON_INDEXABLE_STANDALONE_PATHS = new Set([
+    'apps/portal/index.html',
+    'apps/ai/neural-link/index.html',
+    'examples/dashboard/crossWindowWitness/index.html'
+]);
+
+/**
  * @summary Normalizes an absolute file or directory path into a repository-relative POSIX git pathspec.
  * @param {String} filePath Absolute file or directory path.
  * @param {String} [root=ROOT_DIR] Repository root.
@@ -1003,10 +1013,71 @@ function getNameFromExamplePath(examplePath) {
 }
 
 /**
+ * @summary Builds `title` and `description` metadata for a standalone app or example `index.html` route,
+ * preserving already-qualified `| Neo.mjs` HTML titles while enriching bare names from `examples.json`.
+ * @param {Object} exampleRoute
+ * @param {Object|null} [catalogRecord=null]
+ * @returns {{title: String, description: String}}
+ */
+export function formatStandaloneExampleSeo(exampleRoute, catalogRecord=null) {
+    const rawTitle  = String(exampleRoute?.name || '').trim();
+    const fallback  = getNameFromExamplePath(String(exampleRoute?.id || '').replace(/^\/+/, ''));
+    const baseName  = rawTitle || (catalogRecord?.name ? String(catalogRecord.name).trim() : '') || fallback;
+    const baseLabel = baseName
+        .replace(/\s*[—|-]\s*Living Docking Showcase$/i, '')
+        .replace(/^Neo(?:\.mjs)?(?:\s*[-—–·:]\s*|\s+)/i, '')
+        .trim() || fallback;
+
+    let title;
+
+    if (/\|\s*Neo\.mjs\s*$/i.test(rawTitle)) {
+        title = rawTitle;
+    } else {
+        const routeId    = String(exampleRoute?.id || '');
+        const qualifiers = (catalogRecord?.sharedWorkers || /multiWindow|shared|crossWindow|tearOut|dock/i.test(routeId))
+            ? ['Multi-Window JavaScript Demo | Neo.mjs', 'Multi-Window Demo | Neo.mjs', 'Live Demo | Neo.mjs']
+            : /^\/examples\/(?:grid|table)/i.test(routeId)
+                ? ['Web Worker Data Grid Demo | Neo.mjs', 'Data Grid Demo | Neo.mjs', 'Live Demo | Neo.mjs']
+                : /^\/apps\//i.test(routeId)
+                    ? ['Multi-Threaded JavaScript App | Neo.mjs', 'JavaScript App | Neo.mjs', 'Live App | Neo.mjs']
+                    : ['Web Worker JavaScript UI Demo | Neo.mjs', 'JavaScript UI Demo | Neo.mjs', 'Live Demo | Neo.mjs'];
+
+        title = `${truncateDescription(baseLabel, 58)} | Neo.mjs`;
+
+        for (const qualifier of qualifiers) {
+            const candidate = `${baseLabel} — ${qualifier}`;
+
+            if (candidate.length <= 68) {
+                title = candidate;
+                break;
+            }
+        }
+    }
+
+    let description;
+
+    if (exampleRoute?.description) {
+        description = truncateDescription(exampleRoute.description, 160);
+    } else if (catalogRecord?.feature) {
+        const feature = String(catalogRecord.feature).trim().replace(/\.+$/, '');
+        const detail  = catalogRecord?.lookFor ? String(catalogRecord.lookFor).trim() : 'Runs off the main thread in Neo.mjs Web Workers.';
+        description   = truncateDescription(`${feature}. ${detail}`, 160);
+    } else {
+        const kind = /^\/apps\//i.test(String(exampleRoute?.id || '')) ? 'app' : 'example';
+        description = truncateDescription(
+            `Live runnable ${baseLabel} ${kind} in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.`,
+            160
+        );
+    }
+
+    return {description, title};
+}
+
+/**
  * @summary Collects standalone app and example `index.html` routes under `apps/` and `examples/`,
- * excluding the Portal shell (`apps/portal/index.html`) and multi-window popup helpers (`/childapp/`, `/childapps/`).
+ * excluding non-indexable harnesses (`NON_INDEXABLE_STANDALONE_PATHS`, `seo: false` configs, and popup childapps).
  * @param {String} [root=ROOT_DIR] Repository root.
- * @returns {Promise<Array<{category: String, filePath: String, id: String, name: String}>>}
+ * @returns {Promise<Array<{category: String, description: (String|null), filePath: String, id: String, name: String}>>}
  */
 export async function collectExampleRoutes(root=ROOT_DIR) {
     let files = await fg('{apps,examples}/**/index.html', {
@@ -1015,24 +1086,42 @@ export async function collectExampleRoutes(root=ROOT_DIR) {
     });
 
     files = files.filter(file =>
-        file !== 'apps/portal/index.html' &&
+        !NON_INDEXABLE_STANDALONE_PATHS.has(file) &&
         !/(?:^|\/)childapps?(?:\/|$)/.test(file)
     );
 
     files.sort((a, b) => a.localeCompare(b));
 
-    return Promise.all(files.map(async file => {
-        const filePath   = path.resolve(root, file);
+    const routes = await Promise.all(files.map(async file => {
+        const filePath      = path.resolve(root, file);
+        const neoConfigPath = path.join(path.dirname(filePath), 'neo-config.json');
+
+        if (await fs.pathExists(neoConfigPath)) {
+            try {
+                const neoConfig = await fs.readJSON(neoConfigPath);
+
+                if (neoConfig?.seo === false || neoConfig?.excludeFromSitemap === true) {
+                    return null;
+                }
+            } catch {
+                // Ignore malformed config fixtures when reading optional SEO opt-out flags.
+            }
+        }
+
         const content    = await fs.readFile(filePath, 'utf-8');
-        const titleMatch = content.match(/<title>(.*?)<\/title>/i);
+        const portalMeta = extractPortalIndexMetadata(content);
+        const rawTitle   = /<title\b[^>]*>([\s\S]*?)<\/title>/i.exec(content)?.[1]?.replace(/\s+/g, ' ').trim();
 
         return {
-            category: 'file',
+            category   : 'file',
+            description: portalMeta?.description || null,
             filePath,
-            id      : `/${file}`,
-            name    : titleMatch ? titleMatch[1] : getNameFromExamplePath(file)
+            id         : `/${file}`,
+            name       : portalMeta?.title || rawTitle || getNameFromExamplePath(file)
         };
     }));
+
+    return routes.filter(Boolean);
 }
 
 /**
@@ -1176,6 +1265,7 @@ export async function getSeoJson(options={}) {
             route !== '/' &&
             route !== '/home' &&
             !route.startsWith(`${cleanBase}/`) &&
+            !route.startsWith('/apps/') &&
             !route.startsWith('/examples/') &&
             !route.startsWith('/news/blog/') &&
             !route.startsWith('/news/releases/')
@@ -1334,12 +1424,15 @@ export async function getSeoJson(options={}) {
         };
     }
 
-    const publishedFamilies = await getPublishedExampleFamilies({
-        examplesPath,
-        examplesTabContainerPath,
-        familyDefinitions,
-        root
-    });
+    const [publishedFamilies, standaloneRoutes] = await Promise.all([
+        getPublishedExampleFamilies({
+            examplesPath,
+            examplesTabContainerPath,
+            familyDefinitions,
+            root
+        }),
+        collectExampleRoutes(root)
+    ]);
 
     for (const family of publishedFamilies) {
         const recordPaths = family.records
@@ -1353,6 +1446,43 @@ export async function getSeoJson(options={}) {
             title,
             description: formatExampleFamilyDescription(subject, family.records),
             schemaType : 'CollectionPage',
+            ...(lastmod && {lastmod})
+        };
+    }
+
+    const examplesCatalogByRoute = new Map();
+
+    if (await fs.pathExists(examplesPath)) {
+        try {
+            const catalog = await fs.readJSON(examplesPath);
+
+            if (Array.isArray(catalog)) {
+                for (const record of catalog) {
+                    const devPath = record?.urls?.devmode || (
+                        typeof record?.sourceUrl === 'string' && !/^https?:\/\//i.test(record.sourceUrl)
+                            ? `${record.sourceUrl.replace(/\/+$/, '')}/index.html`
+                            : null
+                    );
+
+                    if (devPath) {
+                        examplesCatalogByRoute.set(`/${devPath.replace(/^\/+/, '')}`, record);
+                    }
+                }
+            }
+        } catch {
+            // Fall back to source HTML metadata when examples.json is absent or malformed in isolated fixtures.
+        }
+    }
+
+    for (const exampleRoute of standaloneRoutes) {
+        const catalogRecord        = examplesCatalogByRoute.get(exampleRoute.id) || null;
+        const {description, title} = formatStandaloneExampleSeo(exampleRoute, catalogRecord);
+        const lastmod              = resolveRouteLastmod(exampleRoute.id, [path.dirname(exampleRoute.filePath)]);
+
+        seo[exampleRoute.id] = {
+            title,
+            description,
+            schemaType: 'WebPage',
             ...(lastmod && {lastmod})
         };
     }

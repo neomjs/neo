@@ -18,6 +18,7 @@ import {
     getSsgArchiveRoutes
 } from './generate.mjs';
 import {
+    NON_INDEXABLE_STANDALONE_PATHS,
     getMaxReleaseMajor,
     getSeoJson,
     hasReliableGitHistory,
@@ -489,6 +490,10 @@ export async function verifySeoArtifacts(options={}) {
         if (pathname === '/apps/portal/index.html') {
             throw new Error(`sitemap-core.xml must not contain Portal shell "${loc}".`);
         }
+
+        if (NON_INDEXABLE_STANDALONE_PATHS.has(pathname.replace(/^\/+/, ''))) {
+            throw new Error(`sitemap-core.xml must not advertise non-indexable standalone path "${pathname}".`);
+        }
     }
 
     if (!coreLocSet.has(expectedRootUrl)) {
@@ -555,7 +560,8 @@ export async function verifySeoArtifacts(options={}) {
         }
     }
 
-    const coreLastmodByLoc = new Map(coreUrlEntries.map(item => [item.loc, item.lastmod]));
+    const coreLastmodByLoc     = new Map(coreUrlEntries.map(item => [item.loc, item.lastmod]));
+    const seenStandaloneTitles = new Map();
 
     for (const loc of coreLocs) {
         const pathname = new URL(loc).pathname;
@@ -563,10 +569,6 @@ export async function verifySeoArtifacts(options={}) {
 
         if (lastmod !== null && lastmod !== undefined && Number.isNaN(Date.parse(lastmod))) {
             throw new Error(`sitemap-core.xml route "${loc}" has invalid <lastmod> "${lastmod}".`);
-        }
-
-        if (pathname.endsWith('.html')) {
-            continue;
         }
 
         const entry = seoJson[pathname];
@@ -588,6 +590,16 @@ export async function verifySeoArtifacts(options={}) {
 
         if (pathname !== '/' && pathname !== '/home' && title === 'Neo.mjs') {
             throw new Error(`seo.json deep route "${pathname}" must not fall back to bare "Neo.mjs" title.`);
+        }
+
+        if (pathname.endsWith('.html')) {
+            const priorRoute = seenStandaloneTitles.get(title);
+
+            if (priorRoute) {
+                throw new Error(`seo.json standalone routes "${priorRoute}" and "${pathname}" share duplicate title "${title}".`);
+            }
+
+            seenStandaloneTitles.set(title, pathname);
         }
 
         if (typeof entry.robots === 'string' && /\bnoindex\b/i.test(entry.robots)) {
