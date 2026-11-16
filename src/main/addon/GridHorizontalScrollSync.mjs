@@ -6,6 +6,10 @@ import DomAccess from '../DomAccess.mjs';
  *
  * The scrollbar is the single source: its scroll moves the body and the header, and a scroll the header makes on its
  * own moves the scrollbar first.
+ *
+ * The addon listens to the document once, in the capture phase, and routes each `scroll` and `wheel` by the id of a
+ * registered node. A grid may register before its nodes are in the document, since the App worker's call can arrive
+ * ahead of the VDom worker's delta, and a node replaced later keeps its sync.
  * @class Neo.main.addon.GridHorizontalScrollSync
  * @extends Neo.main.addon.Base
  */
@@ -32,10 +36,73 @@ class GridHorizontalScrollSync extends Base {
     }
 
     /**
+     * The registered nodes by id, each with its registration and its role: `header`, `scroller` or `view`.
+     * @member {Map<String, Object>} nodes=new Map()
+     * @protected
+     */
+    nodes = new Map()
+    /**
      * @member {Map<String, Object>} registrations=new Map()
      * @protected
      */
     registrations = new Map()
+
+    /**
+     * @summary Listens to the document's `scroll` and `wheel` events in the capture phase, which reaches the document
+     * before any target. A `scroll` does not bubble.
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+
+        let me = this;
+
+        Neo.bindMethods(me, ['onDocumentScroll', 'onDocumentWheel']);
+
+        document.addEventListener('scroll', me.onDocumentScroll, {capture: true});
+        document.addEventListener('wheel',  me.onDocumentWheel,  {capture: true, passive: true})
+    }
+
+    /**
+     * @summary Stops listening to the document.
+     * @param {...*} args
+     */
+    destroy(...args) {
+        let me = this;
+
+        document.removeEventListener('scroll', me.onDocumentScroll, {capture: true});
+        document.removeEventListener('wheel',  me.onDocumentWheel,  {capture: true});
+
+        super.destroy(...args)
+    }
+
+    /**
+     * @summary Routes the scroll of a registered scrollbar to {@link #onScroll} and that of a registered centre header
+     * to {@link #onHeaderScroll}.
+     * @param {Event} event
+     */
+    onDocumentScroll(event) {
+        let node = this.nodes.get(event.target.id);
+
+        if (node?.role === 'scroller') {
+            this.onScroll(node.registration, event)
+        } else if (node?.role === 'header') {
+            this.onHeaderScroll(node.registration, event)
+        }
+    }
+
+    /**
+     * @summary Routes a wheel to {@link #onWheel} for every registered view on its path.
+     * @param {Event} event
+     */
+    onDocumentWheel(event) {
+        let node;
+
+        for (const element of event.composedPath()) {
+            node = element.id && this.nodes.get(element.id);
+            node?.role === 'view' && this.onWheel(node.registration.scrollerId, event)
+        }
+    }
 
     /**
      * @summary Routes a scroll the centre header made on its own into the scrollbar, the single source of the
@@ -108,7 +175,8 @@ class GridHorizontalScrollSync extends Base {
     }
 
     /**
-     * @summary Binds a grid's scrollbar, centre header and wheel listeners, replacing an earlier registration of `id`.
+     * @summary Registers a grid's scrollbar, centre header and view, replacing an earlier registration of `id`. The
+     * nodes need not be in the document yet: {@link #onDocumentScroll} and {@link #onDocumentWheel} find them by id.
      * @param {Object} data
      * @param {String} data.id
      * @param {String} data.scrollerId
@@ -135,17 +203,14 @@ class GridHorizontalScrollSync extends Base {
             headerId,
             groupHeaderId,
             followerIds     : new Set(followerIds || []),
-            headerScrollLeft: DomAccess.getElement(headerId)?.scrollLeft ?? 0,
-            wheelListener   : me.onWheel.bind(me, scrollerId)
+            headerScrollLeft: DomAccess.getElement(headerId)?.scrollLeft ?? 0
         };
 
-        registration.headerScrollListener = me.onHeaderScroll.bind(me, registration);
-        registration.scrollListener       = me.onScroll.bind(me, registration);
+        me.nodes.set(scrollerId,       {registration, role: 'scroller'});
+        me.nodes.set(headerId,         {registration, role: 'header'});
+        me.nodes.set(viewId || bodyId, {registration, role: 'view'});
 
         scrollerNode = DomAccess.getElement(scrollerId);
-        scrollerNode?.addEventListener('scroll', registration.scrollListener);
-        DomAccess.getElement(headerId)?.addEventListener('scroll', registration.headerScrollListener);
-        DomAccess.getElement(viewId || bodyId)?.addEventListener('wheel', registration.wheelListener, {passive: true});
 
         if (scrollerNode && registration.followerIds.size > 0) {
             let scrollLeft = scrollerNode.scrollLeft;
@@ -194,7 +259,7 @@ class GridHorizontalScrollSync extends Base {
     }
 
     /**
-     * @summary Removes every listener {@link #register} bound for `id`.
+     * @summary Ends the sync of the grid registered as `id`. A node another registration took over keeps that one.
      * @param {Object} data
      * @param {String} data.id
      */
@@ -203,10 +268,10 @@ class GridHorizontalScrollSync extends Base {
             registration = me.registrations.get(id);
 
         if (registration) {
-            DomAccess.getElement(registration.scrollerId)?.removeEventListener('scroll', registration.scrollListener);
-            DomAccess.getElement(registration.headerId)?.removeEventListener('scroll', registration.headerScrollListener);
-            DomAccess.getElement(registration.viewId || registration.bodyId)?.removeEventListener('wheel', registration.wheelListener);
-            registration.followerIds?.clear();
+            [registration.scrollerId, registration.headerId, registration.viewId || registration.bodyId].forEach(nodeId => {
+                me.nodes.get(nodeId)?.registration === registration && me.nodes.delete(nodeId)
+            });
+
             me.registrations.delete(id);
         }
     }

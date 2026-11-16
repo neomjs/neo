@@ -13,7 +13,11 @@ import * as core      from '../../../../src/core/_export.mjs';
 import ScrollManager  from '../../../../src/grid/ScrollManager.mjs';
 
 /**
- * Unit tests for synchronizing --grid-scroll-left onto follower rows outside grid.body.
+ * Unit tests for synchronizing --grid-scroll-left onto follower rows outside grid.body, and for a registration that
+ * comes before its nodes or outlives one of them.
+ *
+ * A mock element's `trigger()` delivers an event the way a browser does: to the document's listeners first, which the
+ * capture phase reaches before the target, then to the element's own.
  * @see Neo.grid.ScrollManager
  * @see Neo.main.addon.GridHorizontalScrollSync
  * @see https://github.com/neomjs/neo/issues/20966
@@ -75,7 +79,13 @@ test.describe('GridHorizontalScrollSync & ScrollManager follower rows', () => {
                 },
                 _listeners: listeners,
                 trigger(type, eventObj = {}) {
-                    (listeners[type] || []).forEach(fn => fn({target: this, ...eventObj}));
+                    const event = Object.assign(new Event(type), eventObj);
+
+                    // As a browser reports it: the node the event reached, and its path
+                    Object.defineProperties(event, {composedPath: {value: () => [this]}, target: {value: this}});
+
+                    documentRef.dispatchEvent(event);
+                    (listeners[type] || []).forEach(fn => fn(event));
                 }
             };
         };
@@ -162,6 +172,72 @@ test.describe('GridHorizontalScrollSync & ScrollManager follower rows', () => {
             expect(elements['grid-body'].style.getPropertyValue('--grid-scroll-left')).toBe('300px');
             expect(elements['follower-row-1'].style.getPropertyValue('--grid-scroll-left')).toBe('0px');
             expect(elements['follower-row-1'].style.getPropertyValue('--grid-scroll-left')).not.toBe('300px');
+        });
+
+        test('a registration made before its nodes are in the document syncs once they are', () => {
+            const present = {};
+
+            DomAccess.getElement = id => present[id] || null;
+
+            addon.register({
+                id         : 'test-grid__h_scroll',
+                scrollerId : 'grid-scroller',
+                bodyId     : 'grid-body',
+                headerId   : 'grid-header',
+                viewId     : 'grid-view',
+                followerIds: ['follower-row-1']
+            });
+
+            // The VDom worker's delta lands after the App worker's registration
+            Object.assign(present, elements);
+
+            elements['grid-scroller'].scrollLeft = 120;
+            elements['grid-scroller'].trigger('scroll');
+
+            expect(elements['grid-body'].style.getPropertyValue('--grid-scroll-left')).toBe('120px');
+            expect(elements['grid-header'].scrollLeft).toBe(120);
+            expect(elements['follower-row-1'].style.getPropertyValue('--grid-scroll-left')).toBe('120px');
+
+            elements['grid-view'].trigger('wheel', {deltaX: 30});
+            expect(elements['grid-scroller'].scrollLeft, 'the view\'s wheel moves the scrollbar').toBe(150)
+        });
+
+        test('a node replaced after the registration keeps the sync', () => {
+            addon.register({
+                id        : 'test-grid__h_scroll',
+                scrollerId: 'grid-scroller',
+                bodyId    : 'grid-body',
+                headerId  : 'grid-header',
+                viewId    : 'grid-view'
+            });
+
+            // A re-render puts a new scrollbar under the same id
+            elements['grid-scroller'] = createElement('grid-scroller', 80);
+            elements['grid-scroller'].trigger('scroll');
+
+            expect(elements['grid-body'].style.getPropertyValue('--grid-scroll-left')).toBe('80px')
+        });
+
+        test('unregister ends the sync of its grid, and another grid keeps its own', () => {
+            Object.assign(elements, {
+                'second-scroller': createElement('second-scroller', 0),
+                'second-body'    : createElement('second-body', 0),
+                'second-header'  : createElement('second-header', 0),
+                'second-view'    : createElement('second-view', 0)
+            });
+
+            addon.register({id: 'test-grid__h_scroll',   scrollerId: 'grid-scroller',   bodyId: 'grid-body',   headerId: 'grid-header',   viewId: 'grid-view'});
+            addon.register({id: 'second-grid__h_scroll', scrollerId: 'second-scroller', bodyId: 'second-body', headerId: 'second-header', viewId: 'second-view'});
+
+            addon.unregister({id: 'test-grid__h_scroll'});
+
+            elements['grid-scroller'].scrollLeft = 90;
+            elements['grid-scroller'].trigger('scroll');
+            elements['second-scroller'].scrollLeft = 60;
+            elements['second-scroller'].trigger('scroll');
+
+            expect(elements['grid-body'].style.getPropertyValue('--grid-scroll-left'), 'the unregistered grid').toBe('');
+            expect(elements['second-body'].style.getPropertyValue('--grid-scroll-left'), 'the other grid').toBe('60px')
         });
     });
 
