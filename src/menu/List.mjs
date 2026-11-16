@@ -933,17 +933,21 @@ class List extends BaseList {
      * Records contributed to a group after mount therefore appear without rebuilding the cascade, and
      * order follows the Structural Layer — so a sort applied to the tree store reaches every level.
      * Additions the tree store's filters hide stay out.
+     *
+     * A level renders structure, not expansion: a collapse projects rows out that `TreeStore#get()` still
+     * resolves, so only a node the tree no longer holds leaves the level, and an expansion re-adds none it lists.
      * @param {Object} data
      * @param {Object[]} data.addedItems
      * @param {Object[]} data.removedItems
      * @protected
      */
     onSourceStoreMutate(data) {
-        let me            = this,
-            {sourceStore} = me,
-            removed       = (data.removedItems || []).filter(record => me.belongsToLevel(record)),
-            added         = (data.addedItems   || [])
-                .filter(record => me.belongsToLevel(record) && sourceStore.isKept(record))
+        let me                   = this,
+            {sourceStore, store} = me,
+            removed              = (data.removedItems || [])
+                .filter(record => me.belongsToLevel(record) && !sourceStore.get(sourceStore.getKey(record))),
+            added                = (data.addedItems || [])
+                .filter(record => me.belongsToLevel(record) && sourceStore.isKept(record) && !store.get(sourceStore.getKey(record)))
                 // Resolve every addition through the source before inserting it. The mutate payload can
                 // carry raw data, and letting the level store hydrate that would mint a SECOND record
                 // instance for the same key. Levels resolve a later recordChange by identity, so a clone
@@ -953,8 +957,8 @@ class List extends BaseList {
         // Splicing the level store is enough to repaint it: the collection turns a mutation into a
         // `load` (via onCollectionMutate), which list.Base already re-renders on. Calling createItems()
         // here as well rendered the level twice per contribution.
-        removed.length && me.store.remove(removed);
-        added.length   && me.store.add(added);
+        removed.length && store.remove(removed);
+        added.length   && store.add(added);
 
         me.#hideOrphanedSubMenu()
     }
