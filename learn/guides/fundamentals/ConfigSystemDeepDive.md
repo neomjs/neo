@@ -225,12 +225,16 @@ class MyList extends Component {
 
 *   **`value`**: The default value of the config. It is the only key that is required.
 *   **`clone`**: How a value is copied when it is assigned. `'deep'` (the default), `'shallow'` or `'none'`.
-*   **`cloneOnGet`**: How a value is copied when it is read. When unset it follows `clone`: `'shallow'` for a
-    `'deep'` or `'shallow'` clone, `'none'` for `'none'`.
+*   **`cloneOnGet`**: How a value is copied when it is read: `'deep'`, `'shallow'` or `'none'`. Unset (`null`) by
+    default, and independent of `clone`. The generated getter always copies a `Date`. While `cloneOnGet` is unset it
+    also returns arrays as a copy (`value.slice()`) and plain objects as they are. `'deep'` deep-clones the value,
+    `'shallow'` copies arrays and plain objects one level deep, and `'none'` skips the default array copy.
 *   **`isEqual`**: The function the setter uses to decide whether a value has changed. Defaults to `Neo.isEqual`,
     a deep comparison. `() => false` makes every assignment count as a change.
-*   **`merge`**: The strategy for merging the default with a subclass's or an instance's value during class setup.
-    `'deep'` (the default), `'shallow'`, `'replace'`, `'deepArrays'`, or a function `(defaultValue, instanceValue)`.
+*   **`merge`**: The strategy for merging the default with a subclass's or an instance's value. `'replace'` (the
+    default), `'deep'`, `'shallow'`, `'deepArrays'`, or a function `(defaultValue, instanceValue)`. A subclass's
+    `static config` is merged while the class is set up (`Neo.setupClass`); an instance's config object is merged
+    while the instance is constructed (`Base#mergeConfig`).
 
 A subclass can replace a descriptor it inherits with a descriptor of its own; see
 [Declarative Config Merging → Advanced: Overriding Config Descriptors](./DeclarativeConfigMerging.md#advanced-overriding-config-descriptors).
