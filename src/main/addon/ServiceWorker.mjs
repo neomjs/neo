@@ -86,37 +86,51 @@ class ServiceWorker extends Base {
     }
 
     /**
-     * @summary Activates the new build's worker and reloads the page once it is active, for a page that started on
-     * another build's.
+     * @summary Moves a page that started on another build's worker to the new build.
      *
      * Until the new worker takes over, the previous one answers this page's workers from the previous build's cache,
-     * so the session can run files of two builds. Its activation deletes that cache, and the reload loads one build.
+     * so the session can run files of two builds. The new worker's activation deletes that cache, and a reload then
+     * loads one build. Its install handler calls `skipWaiting()`, yet Chromium can leave it waiting while the previous
+     * worker serves this page, so the page asks again through `onSkipWaiting()`, once a second for up to a minute:
+     * - a page the previous worker controls, inside its scope, reloads as soon as the new worker is installed:
+     *   Chromium activates a waiting worker for that navigation, and can leave it waiting for as long as the page lives
+     * - a page outside the scope reloads once the new worker is active
      *
-     * The worker's install handler calls `skipWaiting()`, yet Chromium can still leave it waiting while the previous
-     * build's worker serves this page's workers, and does not retry once that worker is idle. Asking again through
-     * `onSkipWaiting()`, once a second for up to a minute, activates it.
+     * Each reload happens at most once per build and state in a tab's session, so a worker another tab keeps waiting
+     * cannot start a reload loop.
      * @param {ServiceWorkerRegistration} registration
      * @param {String}                    scriptUrl    The absolute URL of the new build's worker
      */
     reloadWhenActive(registration, scriptUrl) {
         let worker = registration.installing || registration.waiting,
-            reload = () => WorkerManager.reloadOnce(`The build changed, ${scriptUrl} is active. Reloading.`),
             ask    = (attempts=60) => {
                 if (worker.state === 'installed' && attempts > 0) {
                     worker.postMessage({action: 'skipWaiting'});
                     setTimeout(() => ask(attempts - 1), 1000)
                 }
+            },
+            reload = state => {
+                const key = `neoBuildReload:${scriptUrl}:${state}`;
+
+                if (!sessionStorage.getItem(key)) {
+                    sessionStorage.setItem(key, '1');
+                    WorkerManager.reloadOnce(`The build changed, ${scriptUrl} is ${state}. Reloading.`)
+                }
+            },
+            settle = () => {
+                if (worker.state === 'installed') {
+                    ask();
+                    navigator.serviceWorker.controller && reload('installed')
+                }
+
+                worker.state === 'activated' && reload('activated')
             };
 
         if (registration.active?.scriptURL === scriptUrl) {
-            reload()
+            reload('activated')
         } else if (worker) {
-            worker.addEventListener('statechange', () => {
-                worker.state === 'installed' && ask();
-                worker.state === 'activated' && reload()
-            });
-
-            ask()
+            worker.addEventListener('statechange', settle);
+            settle()
         }
     }
 }
