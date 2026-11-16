@@ -1051,7 +1051,7 @@ test.describe('Tests scope classifier — the e2e engine tier predicate', () => 
     test('a new reader of the claim or standing helper requires a browser reachability check', () => {
         // Standing imports the claim helper. Catch new readers of either, including script, config and workflow callers.
         const readers = execFileSync('git', ['grep', '--untracked', '-Il', '-E', 'claimResponse|contributorStanding', '--',
-            '*.mjs', '*.cjs', '*.js', '*.ts', '*.html', '*.json', '*.sh', '.github/actions', '.github/workflows/test-e2e.yml',
+            '*.mjs', '*.cjs', '*.js', '*.ts', '*.html', 'package.json', '*.sh', '.github/actions', '.github/workflows/test-e2e.yml',
             ':!test/playwright/unit'], {cwd: repoRoot, encoding: 'utf8'}).trim().split('\n');
 
         expect(readers).toContain('buildScripts/util/contributorStanding.mjs');
