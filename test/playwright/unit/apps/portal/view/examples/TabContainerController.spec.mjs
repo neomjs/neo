@@ -81,7 +81,7 @@ test.describe('Portal examples family navigation', () => {
         // Scheduler and Gantt are defined and in the catalog; neither has a cover yet, so neither has a tab
         expect(view.getTabButtons().map(button => button.text)).toEqual(['Featured', 'Grid & Table', 'Forms', 'Multi-Window', 'Calendar']);
         expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/grid', '/examples/forms', '/examples/multi-window', '/examples/calendar']);
-        expect(view.getCatalogStore().getCount()).toBe(101);
+        expect(view.getCatalogStore().getCount()).toBe(98);
         expect(view.getCard(0).store.getCount()).toBe(28);
         expect(view.getCard(0).store.items.map(record => record.id)).toEqual(featuredExampleIds);
         expect(view.getCard(1).store.items.map(record => record.id)).toEqual(coveredGridTableIds);
@@ -93,7 +93,7 @@ test.describe('Portal examples family navigation', () => {
         for (let index = 0; index < 5; index++) {
             view.getCard(index).store.forEach(record => expect(record.image, record.id).toBeTruthy())
         }
-        expect(view.getCatalogStore().items.filter(record => !view.hasCover(record))).toHaveLength(54);
+        expect(view.getCatalogStore().items.filter(record => !view.hasCover(record))).toHaveLength(51);
         expect(view.getCard(0).store.getSource()).toBe(view.getCatalogStore());
         expect(view.getCard(1).store.getSource()).toBe(view.getCatalogStore());
         expect(view.getCard(0).store.model).toBe(view.getCatalogStore().model);
@@ -258,8 +258,8 @@ const catalog            = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examp
           'container-fragment', 'layout-card', 'layout-cube', 'list-animate',
           'list-base', 'list-buffered', 'list-chip', 'list-circle',
           'list-color', 'menu-context', 'menu-list', 'menu-panel',
-          'menu-tree', 'panel', 'popover', 'tabs',
-          'toolbar-breadcrumb', 'toolbar-paging', 'tree', 'tree-accordion'
+          'panel', 'popover', 'tabs', 'toolbar-breadcrumb',
+          'tree-accordion'
       ],
       newExampleIds = [
           'grid-animated-row-sorting', 'grid-cell-editing', 'grid-container', 'grid-content-sized-rows',
@@ -346,12 +346,12 @@ test.describe('Portal examples canonical catalog', () => {
         })
     }
 
-    test('loads 101 logical examples with unique stable string identities', () => {
+    test('loads 98 logical examples with unique stable string identities', () => {
         const {store} = createList(),
               ids     = [];
 
-        expect(catalog).toHaveLength(101);
-        expect(store.getCount()).toBe(101);
+        expect(catalog).toHaveLength(98);
+        expect(store.getCount()).toBe(98);
 
         store.forEach(record => {
             expect(typeof record.id, record.name).toBe('string');
@@ -359,7 +359,7 @@ test.describe('Portal examples canonical catalog', () => {
             ids.push(record.id)
         });
 
-        expect(new Set(ids).size).toBe(101);
+        expect(new Set(ids).size).toBe(98);
         expect(list.catalogMode).toBe('dist_prod')
     });
 
