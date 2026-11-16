@@ -16,6 +16,7 @@ import {
     decidePullRequestTarget,
     decideReply,
     decideTargetRemoval,
+    decideWithdrawal,
     earlierClaim,
     holders,
     isClaim,
@@ -26,8 +27,10 @@ import {
     releaseMarker,
     renderOverlapNotice,
     renderReply,
+    renderWithdrawalReply,
     replyMarker,
-    staleAssignees
+    staleAssignees,
+    withdrawalMarker
 } from '../../../../../buildScripts/util/claimResponse.mjs';
 
 const REPO_URL = 'https://github.com/neomjs/neo';
@@ -1913,6 +1916,329 @@ test.describe('buildScripts/util/claimResponse', () => {
             } finally {
                 if (prevWorkspace === undefined) delete process.env.GITHUB_WORKSPACE;
                 else process.env.GITHUB_WORKSPACE = prevWorkspace
+            }
+        });
+    });
+
+    test.describe('assigned claimant withdrawal recognition, unassignment, and workflow guards', () => {
+        test('isWithdrawal separates actual releases and combined claim words from scheduled deferrals', () => {
+            const expectedReleases = [
+                'Unclaiming this: I closed #21058 (see the note there). The issue is free for anyone; the branch on that PR has a verified fix plus tests if useful.',
+                "I'm withdrawing my claim.",
+                'Please unassign me.',
+                "I'm stepping back from this one.",
+                'Consider it available.',
+                "Sorry, I can't work on this anymore."
+            ];
+            for (const text of expectedReleases) {
+                expect(isWithdrawal(text), text).toBe(true)
+            }
+
+            const nonReleases = [
+                "I can't finish this before Friday, the PR comes Monday.",
+                'Still working on this.',
+                "Please unassign me — wait, I'll take this one after all.",
+                'Consider it available\n/claim'
+            ];
+            for (const text of nonReleases) {
+                expect(isWithdrawal(text), text).toBe(false)
+            }
+        });
+
+        test('replays an assigned withdrawal so the next claimant is first in line, prevents clock reset, and allows re-claiming', () => {
+            const
+                claimedAt = '2026-11-16T04:00:00Z',
+                wrenClaim = comment('wren', claimedAt, '/claim', {id: 7101}),
+                botAccept = comment('github-actions[bot]', '2026-11-16T04:00:02Z',
+                    decideClaim({comment: wrenClaim, comments: [wrenClaim], issue: gfiIssue(), repoUrl: REPO_URL}).assignedBody,
+                    {type: 'Bot'}),
+                assignEv    = {actor: {login: 'github-actions[bot]', type: 'Bot'}, assignee: {login: 'wren'}, created_at: '2026-11-16T04:00:02Z', event: 'assigned'},
+                realRelease = comment('wren', '2026-11-16T04:27:50Z',
+                    'Unclaiming this: I closed #21058 (see the note there). The issue is free for anyone; the branch on that PR has a verified fix plus tests if useful. — Wren (AI agent)',
+                    {id: 7101}),
+                pleaseFree  = comment('wren', '2026-11-16T04:27:50Z', 'Please unassign me.', {id: 7101}),
+                newcomer    = comment('next-dev', '2026-11-16T04:28:30Z', "I'd like to work on this.", {id: 7201}),
+                stillAssigned = gfiIssue({assignees: [{id: 7101, login: 'wren'}]});
+
+            // Control without withdrawal refuses the newcomer
+            const control = decideClaim({
+                candidates: CANDIDATES,
+                comment   : newcomer,
+                comments  : [wrenClaim, botAccept, newcomer],
+                events    : [assignEv],
+                issue     : stillAssigned,
+                repoUrl   : REPO_URL
+            });
+            expect(control.assign).toBe(false);
+            expect(control.body).toContain('This one is taken');
+
+            // Both real withdrawal prose and explicit unassign free the issue immediately, even while still listed on assignees
+            for (const releaseComment of [realRelease, pleaseFree]) {
+                expect(holders({
+                    claimant  : 'next-dev',
+                    comment   : newcomer,
+                    comments  : [wrenClaim, botAccept, releaseComment, newcomer],
+                    events    : [assignEv],
+                    issue     : stillAssigned,
+                    repository: 'neomjs/neo'
+                })).toEqual([]);
+
+                const decision = decideClaim({
+                    candidates: CANDIDATES,
+                    comment   : newcomer,
+                    comments  : [wrenClaim, botAccept, releaseComment, newcomer],
+                    events    : [assignEv],
+                    issue     : stillAssigned,
+                    repoUrl   : REPO_URL
+                });
+                expect(decision.assign).toBe(true);
+                expect(decision.unassign).toEqual(['wren']);
+            }
+
+            // Failed removeAssignees fallback also does NOT restart the 3-day window from a day-2 withdrawal comment
+            const
+                day2Release  = comment('wren', daysAfter(claimedAt, 2), pleaseFree.body, {id: 7101}),
+                day4Newcomer = comment('day4-dev', daysAfter(claimedAt, CLAIM_WINDOW_DAYS + 1), '/claim', {id: 7202});
+            expect(staleAssignees({
+                comment   : day4Newcomer,
+                comments  : [wrenClaim, botAccept, day2Release, day4Newcomer],
+                events    : [assignEv],
+                issue     : stillAssigned,
+                repository: 'neomjs/neo'
+            })).toEqual(['wren']);
+            expect(holders({
+                claimant  : 'day4-dev',
+                comment   : day4Newcomer,
+                comments  : [wrenClaim, botAccept, day2Release, day4Newcomer],
+                events    : [assignEv],
+                issue     : stillAssigned,
+                repository: 'neomjs/neo'
+            })).toEqual([]);
+
+            // After unassignment, the withdrawing contributor can re-claim via `/claim` and receive a fresh assignment
+            const
+                unassignEv = {actor: {login: 'github-actions[bot]', type: 'Bot'}, assignee: {login: 'wren'}, created_at: '2026-11-16T04:27:52Z', event: 'unassigned'},
+                reclaim    = comment('wren', '2026-11-16T05:00:00Z', '/claim', {id: 7101}),
+                reDecision = decideClaim({
+                    candidates: CANDIDATES,
+                    comment   : reclaim,
+                    comments  : [wrenClaim, botAccept, realRelease, reclaim],
+                    events    : [assignEv, unassignEv],
+                    issue     : gfiIssue(),
+                    repoUrl   : REPO_URL
+                });
+            expect(reDecision.assign).toBe(true);
+            expect(reDecision.assignedBody).toContain('Assigned to you');
+        });
+
+        test('decideWithdrawal keeps author open PR holdings while unassigning and deduplicates replies across cycles', () => {
+            const
+                wrenClaim = comment('wren', '2026-11-16T04:00:00Z', '/claim', {id: 7101}),
+                assignEv  = {actor: {login: 'github-actions[bot]', type: 'Bot'}, assignee: {login: 'wren'}, created_at: '2026-11-16T04:00:02Z', event: 'assigned'},
+                withdraw1 = comment('wren', '2026-11-16T04:27:50Z', 'Please unassign me.', {id: 7101}),
+                assigned  = gfiIssue({assignees: [{id: 7101, login: 'wren'}], state: 'open'}),
+                openPrs   = [{author: 'wren', number: 21500, repository: 'neomjs/neo'}];
+
+            const withPr = decideWithdrawal({
+                comment         : withdraw1,
+                comments        : [wrenClaim, withdraw1],
+                events          : [assignEv],
+                issue           : assigned,
+                openPullRequests: openPrs,
+                repoUrl         : REPO_URL
+            });
+            expect(withPr.unassign).toBe('wren');
+            expect(withPr.body).toContain('Unassigned you, though #21500 is still open and keeps holding this issue');
+            expect(withPr.body).toContain(withdrawalMarker('wren'));
+
+            // A subsequent claim sees only the open PR holding the issue even if removeAssignees did not drop the assignee
+            const newcomer = comment('other-dev', '2026-11-16T04:28:30Z', '/claim', {id: 7201});
+            expect(holders({
+                claimant        : 'other-dev',
+                comment         : newcomer,
+                comments        : [wrenClaim, withdraw1, newcomer],
+                events          : [assignEv],
+                issue           : assigned,
+                openPullRequests: openPrs,
+                repository      : 'neomjs/neo'
+            })).toEqual([{kind: 'pull-request', login: 'wren', number: 21500}]);
+            const nextClaim = decideClaim({
+                candidates      : CANDIDATES,
+                comment         : newcomer,
+                comments        : [wrenClaim, withdraw1, newcomer],
+                events          : [assignEv],
+                issue           : assigned,
+                openPullRequests: openPrs,
+                repoUrl         : REPO_URL
+            });
+            expect(nextClaim.assign).toBe(false);
+            expect(nextClaim.body).toContain('#21500 is open for it');
+            expect(nextClaim.body).not.toContain('assigned to');
+
+            // Duplicate withdrawal comment adds no reply until a fresh claim or assignment starts a new cycle
+            const
+                botReply  = comment('github-actions[bot]', '2026-11-16T04:27:52Z', withPr.body, {type: 'Bot'}),
+                withdraw2 = comment('wren', '2026-11-16T04:29:00Z', 'Consider it available.', {id: 7101});
+            expect(decideWithdrawal({
+                comment : withdraw2,
+                comments: [wrenClaim, withdraw1, botReply, withdraw2],
+                events  : [assignEv],
+                issue   : assigned,
+                repoUrl : REPO_URL
+            })).toBeNull();
+
+            const
+                reclaim   = comment('wren', '2026-11-16T05:00:00Z', '/claim', {id: 7101}),
+                assign2   = {actor: {login: 'github-actions[bot]', type: 'Bot'}, assignee: {login: 'wren'}, created_at: '2026-11-16T05:00:02Z', event: 'assigned'},
+                withdraw3 = comment('wren', '2026-11-16T05:10:00Z', "I'm stepping back from this one.", {id: 7101});
+            expect(decideWithdrawal({
+                comment : withdraw3,
+                comments: [wrenClaim, withdraw1, botReply, reclaim, withdraw3],
+                events  : [assignEv, assign2],
+                issue   : assigned,
+                repoUrl : REPO_URL
+            }).unassign).toBe('wren')
+        });
+
+        test('workflow github-script unassigns only verified outside assignees, deduplicates replies, and ignores team/non-assignee/closed targets', async () => {
+            const
+                workflowPath  = path.resolve(process.cwd(), '.github/workflows/claim-responder.yml'),
+                raw           = fs.readFileSync(workflowPath, 'utf8'),
+                scriptBlock   = raw.split('script: |\n')[1].split('\n').map(line => line.slice(12)).join('\n'),
+                AsyncFunction = Object.getPrototypeOf(async function () {}).constructor,
+                runStep       = new AsyncFunction('github', 'context', 'core', scriptBlock),
+                prevWorkspace = process.env.GITHUB_WORKSPACE;
+
+            const runWithdrawalHarness = async ({
+                assignees    = [{id: 7101, login: 'outside-dev'}],
+                association  = 'NONE',
+                commentsSeed = [],
+                eventsSeed   = [],
+                labels       = [{name: 'good first issue'}],
+                login        = 'outside-dev',
+                openPrs      = [],
+                permission   = 'read',
+                removeImpl   = null,
+                state        = 'open',
+                text         = 'Please unassign me.'
+            } = {}) => {
+                const
+                    targetComment = comment(login, '2026-11-16T04:27:50Z', text, {association, id: 7101}),
+                    issue         = {assignees: assignees.map(a => ({...a})), labels, number: 19143, state},
+                    comments      = [...commentsSeed, targetComment],
+                    events        = [...eventsSeed],
+                    created       = [],
+                    unassigned    = [],
+                    warnings      = [];
+
+                const github = {
+                    graphql : async () => ({
+                        repository: {
+                            issue: {
+                                closedByPullRequestsReferences: {
+                                    nodes   : openPrs,
+                                    pageInfo: {hasNextPage: false}
+                                }
+                            }
+                        }
+                    }),
+                    paginate: async fn => {
+                        if (fn === github.rest.issues.listComments) return [...comments];
+                        if (fn === github.rest.issues.listEvents)   return [...events];
+                        if (fn === github.rest.issues.listForRepo)  return [];
+                        throw new Error('unexpected paginate')
+                    },
+                    rest: {
+                        issues: {
+                            addAssignees : async () => ({data: issue}),
+                            createComment: async args => {
+                                created.push(args);
+                                const entry = comment('github-actions[bot]', '2026-11-16T04:27:52Z', args.body, {type: 'Bot'});
+                                comments.push(entry);
+                                return {data: entry}
+                            },
+                            get            : async () => ({data: issue}),
+                            listComments   : Symbol('listComments'),
+                            listEvents     : Symbol('listEvents'),
+                            listForRepo    : Symbol('listForRepo'),
+                            removeAssignees: async args => {
+                                unassigned.push(args);
+                                if (removeImpl) return removeImpl(args, issue);
+                                issue.assignees = issue.assignees.filter(a => !args.assignees.includes(a.login));
+                                return {data: issue}
+                            }
+                        },
+                        repos : {getCollaboratorPermissionLevel: async () => ({data: {permission}})},
+                        search: {issuesAndPullRequests: async () => ({data: {incomplete_results: false, items: [], total_count: 0}})}
+                    }
+                };
+
+                process.env.GITHUB_WORKSPACE = process.cwd();
+                try {
+                    await runStep(
+                        github,
+                        {payload: {comment: targetComment, issue: {number: 19143}}, repo: {owner: 'neomjs', repo: 'neo'}},
+                        {info: () => {}, warning: msg => warnings.push(msg)}
+                    )
+                } finally {
+                    if (prevWorkspace === undefined) delete process.env.GITHUB_WORKSPACE;
+                    else process.env.GITHUB_WORKSPACE = prevWorkspace
+                }
+
+                return {comments, created, issue, unassigned, warnings}
+            };
+
+            // 1. Removes only withdrawing assignee, leaves co-assignee, replies once, suppresses second withdrawal comment
+            const claim1    = comment('outside-dev', '2026-11-16T04:00:00Z', '/claim', {id: 7101});
+            const assigned1 = {actor: {login: 'github-actions[bot]', type: 'Bot'}, assignee: {login: 'outside-dev'}, created_at: '2026-11-16T04:00:02Z', event: 'assigned'};
+            const ok        = await runWithdrawalHarness({
+                assignees   : [{id: 7101, login: 'outside-dev'}, {id: 9001, login: 'co-assignee'}],
+                commentsSeed: [claim1],
+                eventsSeed  : [assigned1],
+                text        : 'Unclaiming this: I closed #21058 (see the note there). The issue is free for anyone; the branch on that PR has a verified fix plus tests if useful.'
+            });
+            expect(ok.unassigned).toEqual([{assignees: ['outside-dev'], issue_number: 19143, owner: 'neomjs', repo: 'neo'}]);
+            expect(ok.issue.assignees.map(a => a.login)).toEqual(['co-assignee']);
+            expect(ok.created).toHaveLength(1);
+            expect(ok.created[0].body).toContain('this issue is free again');
+            expect(ok.created[0].body).toContain('/claim');
+            expect(ok.created[0].body).toContain(withdrawalMarker('outside-dev'));
+            expect(ok.warnings).toEqual([]);
+
+            // Replay / second withdrawal comment emits zero replies even if assignee lingered
+            const second = await runWithdrawalHarness({
+                commentsSeed: ok.comments,
+                eventsSeed  : [assigned1],
+                text        : 'Please unassign me.'
+            });
+            expect(second.unassigned).toEqual([]);
+            expect(second.created).toEqual([]);
+
+            // 2. Unverified removeAssignees (still assigned in response or throws) warns and posts nothing
+            const unverified = await runWithdrawalHarness({
+                removeImpl: (_args, issue) => ({data: issue})
+            });
+            expect(unverified.unassigned).toHaveLength(1);
+            expect(unverified.created).toEqual([]);
+            expect(unverified.warnings).toHaveLength(1);
+
+            const rejected = await runWithdrawalHarness({
+                removeImpl: () => { throw new Error('forbidden') }
+            });
+            expect(rejected.unassigned).toHaveLength(1);
+            expect(rejected.created).toEqual([]);
+            expect(rejected.warnings[0]).toMatch(/forbidden/);
+
+            // 3. Team assignee (association or collaborator write permission), non-assignee, closed issue, and uncurated issue are untouched
+            const teamMember  = await runWithdrawalHarness({assignees: [{id: 8001, login: 'team-dev'}], association: 'MEMBER', login: 'team-dev'});
+            const hiddenTeam  = await runWithdrawalHarness({assignees: [{id: 8001, login: 'team-dev'}], login: 'team-dev', permission: 'write'});
+            const nonAssignee = await runWithdrawalHarness({assignees: [{id: 9999, login: 'someone-else'}]});
+            const closedIssue = await runWithdrawalHarness({state: 'closed'});
+            const uncurated   = await runWithdrawalHarness({labels: [{name: 'bug'}]});
+
+            for (const untouched of [teamMember, hiddenTeam, nonAssignee, closedIssue, uncurated]) {
+                expect(untouched.unassigned).toEqual([]);
+                expect(untouched.created).toEqual([])
             }
         });
     });
