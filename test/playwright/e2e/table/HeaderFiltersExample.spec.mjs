@@ -28,6 +28,7 @@ test.describe('examples/tableFiltering', () => {
         await expect(page.getByRole('option', {name: 'Canada', exact: true})).toBeVisible();
         await country.press('ArrowDown');
         await country.press('Enter');
+        await expect(country).toHaveValue('Canada');
         await expect(rows).toHaveCount(10);
         expect(await rows.evaluateAll(nodes => nodes.every(row => row.querySelectorAll('.neo-table-cell')[1].textContent.trim() === 'Canada'))).toBe(true);
         await countryBox.scrollIntoViewIfNeeded();
@@ -54,6 +55,7 @@ test.describe('examples/tableFiltering', () => {
         await expect(page.getByRole('option', {name: 'Canada', exact: true})).toBeVisible();
         await country.press('ArrowDown');
         await country.press('Enter');
+        await expect(country).toHaveValue('Canada');
         await expect(rows).toHaveCount(2);
 
         await customer.fill('');
@@ -85,6 +87,7 @@ test.describe('examples/tableFiltering', () => {
         await expect(page.getByRole('option', {name: 'Canada', exact: true})).toBeVisible();
         await country.press('ArrowDown');
         await country.press('Enter');
+        await expect(country).toHaveValue('Canada');
         await expect(rows).toHaveCount(2);
         await testInfo.attach('table-filtering-desktop-two-filters', {body: await page.screenshot(), contentType: 'image/png'});
         await customer.fill('');
@@ -102,6 +105,7 @@ test.describe('examples/tableFiltering', () => {
         await expect(page.getByRole('option', {name: 'Canada', exact: true})).toBeVisible();
         await country.press('ArrowDown');
         await country.press('Enter');
+        await expect(country).toHaveValue('Canada');
         await expect(rows).toHaveCount(2);
         await testInfo.attach('table-filtering-phone-two-filters', {body: await page.screenshot(), contentType: 'image/png'});
         await customer.fill('');
