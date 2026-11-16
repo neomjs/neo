@@ -4,6 +4,7 @@ import Collection          from '../collection/Base.mjs';
 import GridBody            from './Body.mjs';
 import ScrollManager       from './ScrollManager.mjs';
 import Store               from '../data/Store.mjs';
+import StoreUtil           from '../util/Store.mjs';
 import FooterToolbar       from './footer/Toolbar.mjs';
 import SearchToolbar       from './SearchToolbar.mjs';
 import HorizontalScrollbar from './HorizontalScrollbar.mjs';
@@ -972,26 +973,14 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     * In case you want to update multiple existing records in parallel,
-     * using this method is faster than updating each record one by one.
-     * At least until we introduce row based vdom updates.
+     * @summary Updates existing rows through one store batch, leaving Turbo Mode rows unhydrated.
+     * Body updates follow the store's `rowsChange` event. Key, undeclared and calculated fields are ignored.
      * @param {Object[]} records
      */
     bulkUpdateRecords(records) {
-        let {body, store} = this,
-            {keyProperty} = store;
+        const {store} = this;
 
-        if (body) {
-            body.silentVdomUpdate = true;
-
-            for (let i = 0, len = records.length; i < len; i++) {
-                store.get(records[i][keyProperty])?.set(records[i])
-            }
-
-            body.silentVdomUpdate = false;
-
-            body.update()
-        }
+        store.updateRows(StoreUtil.toRowChanges(store, records))
     }
 
     /**
