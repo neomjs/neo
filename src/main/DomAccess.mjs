@@ -854,6 +854,16 @@ class DomAccess extends Base {
     }
 
     /**
+     * @summary The Neo id a DOM node carries, the inverse of {@link #getElement}: its `id` while
+     * `Neo.config.useDomIds`, its `data-neo-id` otherwise.
+     * @param {HTMLElement|Window|Document|null} node
+     * @returns {String|null} Null for a node without one, like the document or the window
+     */
+    getNodeId(node) {
+        return (Neo.config.useDomIds ? node?.id : node?.dataset?.neoId) || null
+    }
+
+    /**
      * @param {String|HTMLElement} nodeId='document.body'
      * @returns {HTMLElement|null}
      * @protected

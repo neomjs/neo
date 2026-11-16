@@ -95,6 +95,47 @@ test.describe('Neo.main.addon.GridHorizontalScrollSync in the browser', () => {
         await expect.poll(() => read(page), {message: 'the consumed wheel moved nothing'}).toEqual({body: '80px', header: 80, scroller: 80})
     });
 
+    test('a grid keyed by data-neo-id syncs while useDomIds is false', async ({page}) => {
+        await page.evaluate(() => {
+            Neo.config.useDomIds = false;
+            Neo.main.addon.GridHorizontalScrollSync.register({
+                id        : 'probe-data__h_scroll',
+                scrollerId: 'probe-data-scroller',
+                bodyId    : 'probe-data-body',
+                headerId  : 'probe-data-header',
+                viewId    : 'probe-data-view'
+            });
+
+            // The renderer writes the Neo id as data-neo-id in this mode, and no DOM id
+            const node = (id, style, parent = document.body) => {
+                const element = document.createElement('div');
+
+                element.dataset.neoId = id;
+                Object.assign(element.style, style);
+                parent.appendChild(element);
+                return element
+            };
+
+            node('probe-data-scroller-content', {height: '1px', width: '1000px'}, node('probe-data-scroller', {height: '20px', overflowX: 'auto', width: '300px'}));
+            node('probe-data-header-content',   {height: '1px', width: '1000px'}, node('probe-data-header',   {height: '20px', overflowX: 'hidden', width: '300px'}));
+            node('probe-data-body', {height: '20px', width: '300px'});
+            node('probe-data-control', {height: '50px', width: '100px'}, node('probe-data-view', {height: '100px', width: '300px'}))
+        });
+
+        await page.evaluate(() => document.querySelector('[data-neo-id="probe-data-control"]')
+            .dispatchEvent(new WheelEvent('wheel', {bubbles: true, deltaX: 40})));
+
+        await expect.poll(() => page.evaluate(() => {
+            const node = id => document.querySelector(`[data-neo-id="${id}"]`);
+
+            return {
+                body    : node('probe-data-body').style.getPropertyValue('--grid-scroll-left'),
+                header  : node('probe-data-header').scrollLeft,
+                scroller: node('probe-data-scroller').scrollLeft
+            }
+        })).toEqual({body: '40px', header: 40, scroller: 40})
+    });
+
     test('an unregistered grid no longer follows its scrollbar', async ({page}) => {
         await scrollTo(page, 40);
         expect(await read(page), 'control: the registered grid follows').toEqual({body: '40px', header: 40, scroller: 40});
