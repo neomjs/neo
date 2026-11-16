@@ -100,7 +100,8 @@ class EffectButton extends Component {
          */
         menu_: null,
         /**
-         * The pressed state of the Button
+         * The pressed state of the Button. `null` marks a plain button (no toggle semantics),
+         * a Boolean value renders the `aria-pressed` attribute for assistive technology.
          * @member {Boolean|null} pressed_=null
          * @reactive
          */
@@ -225,21 +226,27 @@ class EffectButton extends Component {
      * @protected
      */
     getVdomConfig() {
-        let me   = this,
-            link = !me.editRoute && me.route || me.url,
-            tag  = link ? 'a' : 'button';
+        let me         = this,
+            link       = !me.editRoute && me.route || me.url,
+            tag        = link ? 'a' : 'button',
+            vdomConfig = {
+                tag,
+                cls    : me.getVdomCls(),
+                href   : link ? (link.startsWith('#') ? link : '#' + link) : null,
+                id     : me.id,
+                style  : me.style,
+                target : me.url ? me.urlTarget : null,
+                type   : tag === 'button' ? 'button' : null,
+                cn     : me.getVdomChildren()
+            };
 
-        return {
-            tag,
-            'aria-pressed': Neo.isBoolean(me.pressed) ? String(me.pressed) : null,
-            cls           : this.getVdomCls(),
-            href          : link ? (link.startsWith('#') ? link : '#' + link) : null,
-            id            : me.id,
-            style         : me.style,
-            target        : me.url ? me.urlTarget : null,
-            type          : tag === 'button' ? 'button' : null,
-            cn            : this.getVdomChildren()
-        };
+        // A Boolean marks a toggle and renders aria-pressed, null marks a plain button.
+        // aria-pressed is only valid for the button role, so a link root omits it.
+        if (tag === 'button' && Neo.isBoolean(me.pressed)) {
+            vdomConfig['aria-pressed'] = String(me.pressed === true)
+        }
+
+        return vdomConfig
     }
 
     /**
