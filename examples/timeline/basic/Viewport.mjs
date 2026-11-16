@@ -98,7 +98,7 @@ class TimelineViewport extends Viewport {
         const grid        = this.getItem('grid'),
               column      = grid.columns.get('timeline'),
               eventStore  = column?.eventStore,
-              selection   = grid.view.selectionModel?.selectedRows?.[0],
+              selection   = grid.view.selectionModel?.getRowRecord(grid.view.selectionModel.selectedRows[0])?.id,
               selectedRow = selection || 'r-1',
               event       = eventStore?.items.find(r => r.resourceId === selectedRow) || eventStore?.items[0];
 
