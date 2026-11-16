@@ -2,6 +2,11 @@
     50%  {background-color: var(--button-ripple-background-color);}
 }
 
+// The same keyframes under a second name: a change inside a live mark switches to them, which restarts the animation
+@keyframes grid-animated-cell-alt {
+    50%  {background-color: var(--button-ripple-background-color);}
+}
+
 .neo-grid-container {
     .neo-grid-row, .neo-grid-row.neo-even {
         .neo-grid-cell {
@@ -9,6 +14,10 @@
                 animation-name           : grid-animated-cell;
                 animation-duration       : .4s;
                 animation-timing-function: ease-in-out;
+
+                &.neo-animated-alt {
+                    animation-name: grid-animated-cell-alt;
+                }
             }
         }
     }
