@@ -229,6 +229,13 @@ class Row extends Component {
             }
         }
 
+        // A column whose cells carry state, like AnimatedChange's change marks, renders it with every pass
+        let stateCls = column.getCellStateCls?.(rendererConfig);
+
+        if (stateCls) {
+            NeoArray.add(cellCls, stateCls)
+        }
+
         if (rendererOutput instanceof AbstractComponent) {
             me.components ??= {};
 

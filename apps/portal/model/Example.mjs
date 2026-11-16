@@ -22,7 +22,7 @@ class Example extends Model {
          * `featured` independently marks a showcase record and defaults to false; it does not assign a family.
          * `feature` states what the example demonstrates and `lookFor` gives a concrete action.
          * Optional `scope` qualifies external dependencies or limits of that demonstration.
-         * `image` names an existing published cover; null selects the typographic fallback.
+         * `image` names an existing published cover; a record without one stays in the catalog and gets no card.
          * Relative destinations resolve against List.baseUrl or List.sourceBaseUrl; HTTP links
          * remain explicit, including external apps whose mode routes differ from Engine paths.
          *

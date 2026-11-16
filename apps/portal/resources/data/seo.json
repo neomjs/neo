@@ -590,6 +590,11 @@
         "schemaType": "TechArticle",
         "lastmod": "2026-02-10"
     },
+    "/learn/guides/datahandling/Scheduler": {
+        "title": "Building Resource Schedulers | Neo.mjs",
+        "description": "Learn how to build interactive resource schedulers with Neo.scheduler.Container: resource stores, event stores, time axes, and booking edits.",
+        "schemaType": "TechArticle"
+    },
     "/learn/guides/datahandling/Gantt": {
         "title": "Building Gantt Charts with Linked Tasks | Neo.mjs",
         "description": "Learn how to build interactive Gantt charts with Neo.gantt.Container: hierarchical task trees, dependency records, cascade propagation, and working calendars.",
@@ -1039,7 +1044,7 @@
     },
     "/examples/calendar": {
         "title": "Neo.mjs Calendar Examples",
-        "description": "Explore 4 live Neo.mjs Calendar examples: A full calendar with day, week, month and year views, a month navigator and color-coded calendars..",
+        "description": "Explore 5 live Neo.mjs Calendar examples: A full calendar with day, week, month and year views, a month navigator and color-coded calendars..",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-14"
     }

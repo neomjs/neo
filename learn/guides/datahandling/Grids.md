@@ -602,6 +602,11 @@ const myGrid = Neo.create(GridContainer, {
 });
 ```
 
+To read a selection at the time of an action, like a toolbar button's handler, use `grid.view.selectedRecords`: the
+selected rows' records, or `[]` when the model selects cells or columns, or there is none. `grid.view.selectedRows`
+holds the grid's row ids instead, which are the store's internal ids while `useInternalId` is `true` (the default), not
+the record keys. To react to a change, listen to the model's `selectionChange` event, which carries the `records`.
+
 ## Cell Editing
 
 A grid that renders only what is visible meets a hard question the moment someone types into it. The cell under the

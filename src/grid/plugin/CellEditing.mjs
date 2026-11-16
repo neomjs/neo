@@ -213,16 +213,16 @@ class CellEditing extends Plugin {
         let me              = this,
             {columns, view} = me.owner,
             [cellId]        = view.selectedCells,
-            [rowId]         = view.selectedRows,
+            [rowRecord]     = view.selectedRecords,
             column, dataField, record;
 
         if (cellId) {
             dataField = view.getDataField(cellId);
             record    = view.getRecordFromLogicalId(cellId)
-        } else if (rowId) {
+        } else if (rowRecord) {
             column    = columns.get(me.lastDataField);
             dataField = (column?.editable ? column : columns.items.find(item => item.editable))?.dataField;
-            record    = view.rowSelectionModel.getRowRecord(rowId)
+            record    = rowRecord
         }
 
         record && dataField && me.editInSight(record, dataField)
