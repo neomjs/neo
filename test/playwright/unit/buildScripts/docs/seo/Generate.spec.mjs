@@ -282,10 +282,28 @@ test.describe('docs SEO generator example family routes (#20727)', () => {
             expect(subject, title).toMatch(/JavaScript/)
         }
 
-        expect(getExampleFamilySeo({family: 'charts', title: 'Charts'})).toEqual({
-            subject: 'JavaScript Charts',
-            title  : 'JavaScript Charts Examples | Neo.mjs'
+        expect(getExampleFamilySeo({family: 'new-group', title: 'New Group'})).toEqual({
+            subject: 'JavaScript New Group',
+            title  : 'JavaScript New Group Examples | Neo.mjs'
         })
+    });
+
+    test('a group publishes through alsoIn, and a record counts only where production can open it', async () => {
+        const examplesTabContainerPath = path.resolve(process.cwd(), 'apps/portal/view/examples/TabContainer.mjs'),
+              examplesPath             = path.join(tempDir, 'examples.json'),
+              urls                     = {dist_prod: 'dist/production/examples/dialog/index.html'};
+
+        await fs.writeJSON(examplesPath, [
+            {id: 'dialog-drag-drop', family: 'dialogs', alsoIn: ['drag-drop'], image: 'devmode/dialog.png', urls, feature: 'Draggable dialogs'},
+            {id: 'tree-hidden-in-prod', family: 'tree', image: 'devmode/tree.png', hiddenIn: ['dist_prod'], urls, feature: 'Hidden in production'},
+            {id: 'tree-dev-only', family: 'tree', image: 'devmode/tree.png', urls: {devmode: 'examples/tree/index.html'}, feature: 'No production build'}
+        ]);
+
+        const published = await getPublishedExampleFamilies({examplesPath, examplesTabContainerPath, root: tempDir});
+
+        // Definition order, with the alsoIn member counted in both groups; neither tree record is one production opens
+        expect(published.map(item => item.route)).toEqual(['/examples/drag-drop', '/examples/dialogs']);
+        expect(published.map(item => item.records.map(record => record.id))).toEqual([['dialog-drag-drop'], ['dialog-drag-drop']])
     });
 
     test('extracts familyDefinitions from TabContainer.mjs, refuses unreadable AST shapes, and emits only covered families', async () => {
@@ -327,6 +345,7 @@ test.describe('docs SEO generator example family routes (#20727)', () => {
                 name   : 'Buffered Data Grid with 5M cells',
                 family : 'grid-table',
                 image  : 'devmode/grid-big-data.png',
+                urls   : {dist_prod: 'dist/production/examples/grid/bigData/index.html'},
                 feature: 'Buffered rendering in both directions.'
             },
             {
@@ -1138,7 +1157,7 @@ test.describe('docs SEO generator #20915: git lastmod fallback and sitemap-core 
             data: [{id: 'blog/json-ld-xss', isLeaf: true, name: 'JSON-LD XSS', path: 'learn/blog/json-ld-xss.md'}]
         });
         await fs.outputJson(path.join(noGitRoot, 'apps/portal/resources/data/examples.json'), [
-            {id: 'grid-big-data', name: 'Big Data Grid', family: 'grid-table', image: 'devmode/grid-big-data.png', feature: 'Buffered rendering'}
+            {id: 'grid-big-data', name: 'Big Data Grid', family: 'grid-table', image: 'devmode/grid-big-data.png', urls: {dist_prod: 'dist/production/examples/grid/bigData/index.html'}, feature: 'Buffered rendering'}
         ]);
         await fs.outputFile(
             path.join(releaseNotesRoot, 'v13.4.0.md'),
