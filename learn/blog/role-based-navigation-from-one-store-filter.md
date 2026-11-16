@@ -14,7 +14,7 @@ After sign-in, a backend returns the user's permissions, and every menu, sub men
 
 The question came from our community chat: what is the proper way to show menu and sub-menu items that depend on the permissions a backend returns after sign-in?
 
-The usual answer is imperative. A navigation service reads the permission list and builds the items of each menu. The launcher builds its own list, and an app window that is already open has to be found and closed by hand when a permission is revoked. Every view carries its own copy of the rule, and the copies drift apart.
+An imperative implementation can build a separate item list for each menu. The launcher can carry another copy, while open windows need a revocation handler. Duplicating the rule across those views creates opportunities for them to drift.
 
 ## Permissions are state, navigation is data
 
