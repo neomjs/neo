@@ -1051,15 +1051,75 @@
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-16"
     },
-    "/examples/multi-window": {
-        "title": "Multi-Window JavaScript App Examples — SharedWorker State | Neo.mjs",
-        "description": "Explore 7 live multi-window JavaScript app examples: A living-data workspace whose panes can leave the browser window.",
-        "schemaType": "CollectionPage",
-        "lastmod": "2026-11-16"
-    },
     "/examples/calendar": {
         "title": "MIT JavaScript Calendar — Day, Week, Month & Year Views | Neo.mjs",
         "description": "Explore 1 live JavaScript calendar example: A full calendar with day, week, month and year views, a month navigator and color-coded calendars.",
+        "schemaType": "CollectionPage",
+        "lastmod": "2026-11-16"
+    },
+    "/examples/tabs": {
+        "title": "JavaScript Tab Container — Tab Bars on Any Side | Neo.mjs",
+        "description": "Explore 1 live JavaScript tab container example: Tab buttons whose text, icon, color and badge change live.",
+        "schemaType": "CollectionPage",
+        "lastmod": "2026-11-16"
+    },
+    "/examples/dashboard": {
+        "title": "JavaScript Dashboard & Docking — Panes That Pop Out | Neo.mjs",
+        "description": "Explore 1 live JavaScript dashboard example: A scripted layout tour splits, groups and auto-hides live panes.",
+        "schemaType": "CollectionPage",
+        "lastmod": "2026-11-16"
+    },
+    "/examples/drag-drop": {
+        "title": "JavaScript Drag & Drop Examples — Across Windows | Neo.mjs",
+        "description": "Explore 2 live JavaScript drag and drop examples: A draggable dialog can move into a second browser window.",
+        "schemaType": "CollectionPage",
+        "lastmod": "2026-11-16"
+    },
+    "/examples/lists": {
+        "title": "JavaScript Lists & Galleries — 3D Helix & Gallery Views | Neo.mjs",
+        "description": "Explore 4 live JavaScript list and gallery examples: Image items on a 3D helix that you reshape live.",
+        "schemaType": "CollectionPage",
+        "lastmod": "2026-11-16"
+    },
+    "/examples/dialogs": {
+        "title": "JavaScript Dialogs & Overlays — Live Examples | Neo.mjs",
+        "description": "Explore 1 live JavaScript dialog example: Dialogs that drag by their header and open further dialogs.",
+        "schemaType": "CollectionPage",
+        "lastmod": "2026-11-16"
+    },
+    "/examples/charts": {
+        "title": "JavaScript Charts, Canvas & Maps — OffscreenCanvas Demos | Neo.mjs",
+        "description": "Explore 1 live JavaScript chart and canvas example: A chart of up to a million points, drawn in a canvas worker.",
+        "schemaType": "CollectionPage",
+        "lastmod": "2026-11-16"
+    },
+    "/examples/components": {
+        "title": "JavaScript UI Component Examples — Off the Main Thread | Neo.mjs",
+        "description": "Explore 1 live JavaScript UI component example: A liquid glass panel that bends the photo beneath it as it drifts.",
+        "schemaType": "CollectionPage",
+        "lastmod": "2026-11-16"
+    },
+    "/examples/multi-window": {
+        "title": "Multi-Window JavaScript App Examples — SharedWorker State | Neo.mjs",
+        "description": "Explore 6 live multi-window JavaScript app examples: A living-data workspace whose panes can leave the browser window.",
+        "schemaType": "CollectionPage",
+        "lastmod": "2026-11-16"
+    },
+    "/examples/state": {
+        "title": "JavaScript State Management Examples — Reactive Stores | Neo.mjs",
+        "description": "Explore 1 live JavaScript state management example: Nested state providers bind button texts through the formatters shown beside them.",
+        "schemaType": "CollectionPage",
+        "lastmod": "2026-11-16"
+    },
+    "/examples/platform": {
+        "title": "JavaScript Web Worker Examples — Workers & Platform | Neo.mjs",
+        "description": "Explore 2 live JavaScript web worker examples: A chart of up to a million points, drawn in a canvas worker.",
+        "schemaType": "CollectionPage",
+        "lastmod": "2026-11-16"
+    },
+    "/examples/apps": {
+        "title": "JavaScript Web App Examples — Full Apps on Worker Threads | Neo.mjs",
+        "description": "Explore 8 live JavaScript web app examples: A living-data workspace whose panes can leave the browser window.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-16"
     },
@@ -1209,13 +1269,13 @@
     },
     "/examples/component/coronaGallery/index.html": {
         "title": "COVID19 Gallery — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Live runnable COVID19 Gallery example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "description": "COVID country statistics in a 3D gallery, sorted by the figure you pick. Under Sort By, choose Deaths, then raise Amount Rows in Gallery Controls.",
         "schemaType": "WebPage",
         "lastmod": "2026-03-07"
     },
     "/examples/component/coronaHelix/index.html": {
         "title": "COVID19 Helix — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Live runnable COVID19 Helix example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "description": "COVID country statistics on a 3D helix, sorted by the figure you pick. Under Sort By, choose Deaths and watch the countries reorder along the helix.",
         "schemaType": "WebPage",
         "lastmod": "2026-03-07"
     },
@@ -1227,7 +1287,7 @@
     },
     "/examples/component/gallery/index.html": {
         "title": "Gallery — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Live runnable Gallery example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "description": "Image items in a 3D gallery that you reshape live. Raise Amount Rows in Gallery Controls until the wall fills the window, then press Order by Row.",
         "schemaType": "WebPage",
         "lastmod": "2025-12-21"
     },
@@ -1239,7 +1299,7 @@
     },
     "/examples/component/helix/index.html": {
         "title": "Helix — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Live runnable Helix example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "description": "Image items on a 3D helix that you reshape live. Scroll over the helix, then change Radius and Perspective in Helix Controls.",
         "schemaType": "WebPage",
         "lastmod": "2025-11-19"
     },
@@ -1797,7 +1857,7 @@
     },
     "/examples/stateProvider/advanced/index.html": {
         "title": "state.Provider: advanced — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Live runnable state.Provider: advanced example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "description": "Nested state providers bind button texts through the formatters shown beside them. Edit data.button2Text and watch both buttons follow: the first reads from...",
         "schemaType": "WebPage",
         "lastmod": "2025-09-23"
     },
@@ -1857,7 +1917,7 @@
     },
     "/examples/tab/container/index.html": {
         "title": "TabContainer — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Live runnable TabContainer example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "description": "Tab buttons whose text, icon, color and badge change live. Type a new Tab 1 text and a badgeText, then pick another badgePosition.",
         "schemaType": "WebPage",
         "lastmod": "2026-08-20"
     },

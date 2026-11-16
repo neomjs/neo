@@ -42,7 +42,9 @@ test.describe('Portal Connect', () => {
                 'https://github.com/neomjs/neo-agent-brain',
                 'https://github.com/orgs/neomjs/discussions',
                 'https://github.com/neomjs/neo/blob/dev/CONTRIBUTING.md',
-                'https://github.com/orgs/neomjs/discussions',
+                'https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA',
+                'https://discord.gg/6p8paPq',
+                'https://github.com/orgs/neomjs/discussions/new?category=q-a',
                 'https://www.linkedin.com/in/tobiasuhlig/'
             ]);
 
@@ -58,7 +60,7 @@ test.describe('Portal Connect', () => {
 
             // One public link, exactly one private one, and nothing that reads as an offer.
             expect(await cardEl.getByRole('link').evaluateAll(nodes => nodes.map(node => node.getAttribute('href')))).toEqual([
-                'https://github.com/orgs/neomjs/discussions',
+                'https://github.com/orgs/neomjs/discussions/new?category=q-a',
                 'https://www.linkedin.com/in/tobiasuhlig/'
             ]);
             await expect(cardEl).not.toContainText(/[$€£]|\bpric(e|ing)\b/i);
@@ -81,6 +83,14 @@ test.describe('Portal Connect', () => {
             const contribute = root.getByRole('link', {name: 'Contribute a change', exact: true});
             await expect(contribute).toBeFocused();
             await expect(contribute).toBeInViewport();
+
+            for (const name of ['Slack', 'Discord']) {
+                await page.keyboard.press('Tab');
+                const chat = root.getByRole('link', {name, exact: true});
+                await expect(chat).toBeFocused();
+                await expect(chat).toBeInViewport();
+            }
+
             await page.keyboard.press('Tab');
             await expect(root.getByRole('link', {name: 'Ask in the discussions', exact: true})).toBeFocused();
             await page.keyboard.press('Tab');

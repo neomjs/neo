@@ -14,6 +14,7 @@ import {fileURLToPath}               from 'node:url';
 import {getPublishedExampleFamilies} from '../../../../../../../buildScripts/docs/seo/seoJson.mjs';
 import Neo                           from '../../../../../../../src/Neo.mjs';
 import * as core                     from '../../../../../../../src/core/_export.mjs';
+import Example                       from '../../../../../../../apps/portal/model/Example.mjs';
 import ExamplesList                  from '../../../../../../../apps/portal/view/examples/List.mjs';
 import ExamplesStore                 from '../../../../../../../apps/portal/store/Examples.mjs';
 import ExamplesTabContainer          from '../../../../../../../apps/portal/view/examples/TabContainer.mjs';
@@ -25,6 +26,14 @@ const
     dataRoot  = path.join(repoRoot, 'apps/portal/resources/data');
 
 let exampleView;
+
+/**
+ * @summary The live tab index of a route, so an arm does not depend on how many groups publish before it.
+ * @param {Portal.view.examples.TabContainer} view
+ * @param {String} route
+ * @returns {Number}
+ */
+const tabIndex = (view, route) => view.getTabButtons().find(button => button.route === route).index;
 
 /**
  * @summary Constructs the real section with an owned in-memory catalog and no network fetch.
@@ -75,25 +84,38 @@ test.describe('Portal examples family navigation', () => {
         })
     }
 
-    test('publishes only Featured and families with a covered record from one definition source', () => {
-        const view = createView();
+    test('publishes only Featured and groups with a covered member from one definition source', () => {
+        const view = createView(),
+              ids  = route => view.getCard(tabIndex(view, route)).store.items.map(record => record.id);
 
-        // Scheduler and Gantt are defined and in the catalog; neither has a cover yet, so neither has a tab
-        expect(view.getTabButtons().map(button => button.text)).toEqual(['Featured', 'Grid & Table', 'Forms', 'Multi-Window', 'Calendar']);
-        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/grid', '/examples/forms', '/examples/multi-window', '/examples/calendar']);
+        // Tree, Scheduler, Gantt and others are defined and have records; none has a cover yet, so none has a tab
+        expect(view.getTabButtons().map(button => button.text)).toEqual([
+            'Featured', 'Grid & Table', 'Forms & Fields', 'Calendar', 'Tab Container', 'Dashboard & Docking', 'Drag & Drop',
+            'Lists & Galleries', 'Dialogs & Overlays', 'Charts, Canvas & Maps', 'More components', 'Multi-Window',
+            'State & Data', 'Workers & Platform', 'Apps'
+        ]);
+        expect(view.getTabButtons().map(button => button.route)).toEqual(publishedRoutes);
         expect(view.getCatalogStore().getCount()).toBe(77);
         expect(view.getCard(0).store.getCount()).toBe(28);
         expect(view.getCard(0).store.items.map(record => record.id)).toEqual(featuredExampleIds);
-        expect(view.getCard(1).store.items.map(record => record.id)).toEqual(coveredGridTableIds);
-        expect(view.getCard(2).store.items.map(record => record.id)).toEqual(['date-selector', 'date-field', 'combobox-field']);
-        expect(view.getCard(3).store.items.map(record => record.id)).toEqual(coveredMultiWindowIds);
-        expect(view.getCard(4).store.items.map(record => record.id)).toEqual(['calendar']);
+        expect(ids('/examples/grid')).toEqual(coveredGridTableIds);
+        expect(ids('/examples/forms')).toEqual(['date-selector', 'date-field', 'combobox-field']);
+        expect(ids('/examples/multi-window')).toEqual(coveredMultiWindowIds);
+        expect(ids('/examples/calendar')).toEqual(['calendar']);
+        // a group lists its home records and the records whose alsoIn names it, in catalog order
+        expect(ids('/examples/drag-drop')).toEqual(['multi-window-drag-drop', 'dialog-drag-drop']);
+        expect(ids('/examples/apps')).toEqual([
+            'workstation', 'webdesktop', 'devindex', 'shared-covid', 'multi-window-drag-drop', 'colors-dashboard',
+            'covid-dashboard', 'portal'
+        ]);
 
         // every card of every tab has a cover; the catalog keeps the records that wait for one
-        for (let index = 0; index < 5; index++) {
+        for (let index = 0; index < view.getCount(); index++) {
             view.getCard(index).store.forEach(record => expect(record.image, record.id).toBeTruthy())
         }
-        expect(view.getCatalogStore().items.filter(record => !view.hasCover(record))).toHaveLength(30);
+        expect(view.getCatalogStore().items.filter(record => !record.image)).toHaveLength(30);
+        expect(view.getCatalogStore().items.filter(record => record.image && !Example.publishes(record, 'dist_prod')).map(record => record.id))
+            .toEqual(['realworld', 'realworld-v2']);
         expect(view.getCard(0).store.getSource()).toBe(view.getCatalogStore());
         expect(view.getCard(1).store.getSource()).toBe(view.getCatalogStore());
         expect(view.getCard(0).store.model).toBe(view.getCatalogStore().model);
@@ -118,15 +140,20 @@ test.describe('Portal examples family navigation', () => {
             expect(view.getCard(1).catalogMode).toBe(mode.id)
         }
 
-        await controller.onExamplesRoute({itemId: 'grid'});
-        expect(view.activeIndex).toBe(1);
-        await controller.onExamplesRoute({itemId: 'forms'});
-        expect(view.activeIndex).toBe(2);
-        // a defined family without a cover has no tab yet: its route lands on Featured
+        // The loop above ends in Dev mode, which publishes no More components tab. Every group path defined on dev
+        // before the groups became data still resolves in production.
+        await controller.onExamplesRoute({itemId: 'dist_prod'});
+
+        for (const itemId of ['grid', 'forms', 'multi-window', 'calendar', 'components', 'state']) {
+            await controller.onExamplesRoute({itemId});
+            expect(view.activeIndex, itemId).toBe(tabIndex(view, '/examples/' + itemId))
+        }
+
+        // a defined group without a cover has no tab yet, and an unknown one none at all: both land on Featured
         await controller.onExamplesRoute({itemId: 'gantt'});
         expect(view.activeIndex).toBe(0);
-        await controller.onExamplesRoute({itemId: 'multi-window'});
-        expect(view.activeIndex).toBe(3);
+        await controller.onExamplesRoute({itemId: 'drag-drop'});
+        expect(view.activeIndex).toBe(tabIndex(view, '/examples/drag-drop'));
         await controller.onExamplesRoute({itemId: 'unknown'});
         expect(view.activeIndex).toBe(0)
     });
@@ -167,15 +194,15 @@ test.describe('Portal examples family navigation', () => {
         expect(view.getCard(1).catalogMode).toBe('dist_esm')
     });
 
-    test('a newly published family needs no additional tab or controller entry', () => {
+    test('a newly published group needs no additional tab or controller entry', () => {
         const view = createView([...catalog, {
-            ...catalog[0], id: 'test-components-example', family: 'components', featured: false,
-            feature: 'A component', lookFor: 'Inspect it.'
+            ...catalog[0], id: 'test-tree-example', family: 'tree', alsoIn: [], featured: false,
+            feature: 'A tree', lookFor: 'Inspect it.'
         }]);
 
-        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/grid', '/examples/forms', '/examples/multi-window', '/examples/calendar', '/examples/components']);
-        expect(view.getCard(5).store.getCount()).toBe(1);
-        expect(view.getTabButtons()[5].iconCls).toBe(view.familyDefinitions.find(item => item.family === 'components').iconCls)
+        expect(view.getTabButtons().map(button => button.route)).toEqual([...publishedRoutes.slice(0, 2), '/examples/tree', ...publishedRoutes.slice(2)]);
+        expect(view.getCard(2).store.getCount()).toBe(1);
+        expect(view.getTabButtons()[2].iconCls).toBe(view.familyDefinitions.find(item => item.family === 'tree').iconCls)
     });
 
     test('the build publishes the search routes of exactly the families the section shows as tabs', async () => {
@@ -199,31 +226,34 @@ test.describe('Portal examples family navigation', () => {
         fs.rmSync(folder, {force: true, recursive: true});
 
         expect(published.map(family => family.route)).toEqual(view.getTabButtons().map(button => button.route).slice(1));
-        expect(published.map(family => family.route)).toEqual(['/examples/grid', '/examples/forms', '/examples/multi-window', '/examples/calendar', '/examples/scheduler', '/examples/gantt', '/examples/components']);
+        expect(published.map(family => family.route)).toEqual([
+            ...publishedRoutes.slice(1, 4), '/examples/scheduler', '/examples/gantt', ...publishedRoutes.slice(4)
+        ]);
         published.forEach((family, index) => {
             expect(family.records.map(record => record.id), family.route).toEqual(view.getCard(index + 1).store.items.map(record => record.id))
         })
     });
 
     for (const [name, images, published] of [
-        ['a family whose records have no cover gets no tab', [null], false],
-        ['the first covered record publishes its family, and a record without a cover stays off its tab', ['devmode/workstation-13-2.jpg', null], true]
+        ['a group whose records have no cover gets no tab', [null], false],
+        ['the first covered record publishes its group, and a record without a cover stays off its tab', ['devmode/workstation-13-2.jpg', null], true]
     ]) {
         test(name, () => {
             const records = images.map((image, index) => ({
-                      ...catalog[0], id: 'test-components-' + index, family: 'components', featured: false,
-                      feature: 'A component', lookFor: 'Inspect it.', image
+                      ...catalog[0], id: 'test-tree-' + index, family: 'tree', alsoIn: [], featured: false,
+                      feature: 'A tree', lookFor: 'Inspect it.', image
                   })),
-                  routes  = ['/examples', '/examples/grid', '/examples/forms', '/examples/multi-window', '/examples/calendar'],
                   view    = createView([...catalog, ...records]);
 
             records.forEach(record => {
-                expect(view.getCatalogStore().get(record.id).family).toBe('components');
-                expect(view.hasCover(view.getCatalogStore().get(record.id))).toBe(!!record.image)
+                expect(view.getCatalogStore().get(record.id).family).toBe('tree');
+                expect(Example.publishes(view.getCatalogStore().get(record.id), 'dist_prod')).toBe(!!record.image)
             });
 
-            expect(view.getTabButtons().map(button => button.route)).toEqual(published ? [...routes, '/examples/components'] : routes);
-            published && expect(view.getCard(5).store.items.map(item => item.id)).toEqual(['test-components-0'])
+            expect(view.getTabButtons().map(button => button.route)).toEqual(
+                published ? [...publishedRoutes.slice(0, 2), '/examples/tree', ...publishedRoutes.slice(2)] : publishedRoutes
+            );
+            published && expect(view.getCard(2).store.items.map(item => item.id)).toEqual(['test-tree-0'])
         })
     }
 
@@ -239,7 +269,66 @@ test.describe('Portal examples family navigation', () => {
 
         store.remove(store.items.filter(record => record.family === 'grid-table'));
         store.fire('load');
-        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/forms', '/examples/multi-window', '/examples/calendar'])
+        expect(view.getTabButtons().map(button => button.route)).toEqual(publishedRoutes.filter(route => route !== '/examples/grid'))
+    });
+
+    test('a record with alsoIn shows once in each of its groups and counts once in the catalog', () => {
+        const view = createView(),
+              ids  = route => view.getCard(tabIndex(view, route)).store.items.map(record => record.id);
+
+        expect(ids('/examples/dialogs')).toEqual(['dialog-drag-drop']);
+        expect(ids('/examples/drag-drop').filter(id => id === 'dialog-drag-drop')).toHaveLength(1);
+        expect(ids('/examples/platform')).toEqual(['offscreen-canvas', 'shared-offscreen-canvas']);
+        expect(ids('/examples/charts')).toEqual(['offscreen-canvas']);
+        expect(view.getCatalogStore().items.filter(record => record.id === 'dialog-drag-drop')).toHaveLength(1);
+        expect(view.getCatalogStore().getCount()).toBe(77)
+    });
+
+    for (const mode of ['dist_prod', 'dist_esm', 'dist_dev', 'devmode']) {
+        test(`the ${mode} build publishes the groups with a card it can open`, () => {
+            const view = createView(catalog, mode);
+
+            // Dev mode hides liquid-glass, the one covered member of More components
+            expect(view.getTabButtons().map(button => button.route)).toEqual(
+                mode === 'devmode' ? publishedRoutes.filter(route => route !== '/examples/components') : publishedRoutes
+            )
+        })
+    }
+
+    test('a build selection republishes the groups, and an open group that loses its cards yields to Featured', async () => {
+        const view       = createView(),
+              controller = view.getController();
+
+        await controller.onExamplesRoute({itemId: 'components'});
+        expect(view.activeIndex).toBe(tabIndex(view, '/examples/components'));
+
+        controller.onSelectBuild({id: 'devmode'});
+        expect(view.getTabButtons().map(button => button.route)).not.toContain('/examples/components');
+        expect(view.activeIndex).toBe(0);
+        // every list's store follows the build: Featured no longer holds the card Dev mode cannot open
+        expect(view.getCard(0).store.items.map(record => record.id)).not.toContain('liquid-glass');
+
+        controller.onSelectBuild({id: 'dist_prod'});
+        expect(view.getTabButtons().map(button => button.route)).toEqual(publishedRoutes);
+        expect(view.getCard(tabIndex(view, '/examples/components')).store.items.map(record => record.id)).toEqual(['liquid-glass'])
+    });
+
+    test('an open group stays selected when a build switch inserts or removes a tab before it', async () => {
+        const view       = createView(),
+              controller = view.getController(),
+              openRoute  = () => view.getTabButtons()[view.activeIndex].route;
+
+        await controller.onExamplesRoute({itemId: 'multi-window'});
+        expect(openRoute()).toBe('/examples/multi-window');
+
+        // Dev mode removes More components, which precedes Multi-Window
+        controller.onSelectBuild({id: 'devmode'});
+        expect(openRoute()).toBe('/examples/multi-window');
+
+        // Production inserts it again before the open tab
+        controller.onSelectBuild({id: 'dist_prod'});
+        expect(openRoute()).toBe('/examples/multi-window');
+        expect(view.activeIndex).toBe(tabIndex(view, '/examples/multi-window'))
     });
 });
 
@@ -270,11 +359,17 @@ const catalog            = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examp
           'dock-layouts', 'dock-cross-window', 'dock-tear-out',
           'multi-window-helix', 'multi-window-state-provider'
       ],
-      // the records of a family that name a cover: the cards its overview shows
+      // the records of a group that name a cover: the cards its overview shows
       coveredGridTableIds   = ['grid-tree-big-data', 'grid-big-data', 'grid-issues', 'table-filtering', ...newExampleIds],
       coveredMultiWindowIds = [
           'workstation', 'shared-covid', 'multi-window-covid-gallery', 'shared-offscreen-canvas',
-          'multi-window-drag-drop', 'colors-dashboard', 'dock-choreography'
+          'multi-window-drag-drop', 'colors-dashboard'
+      ],
+      // Featured and the 14 groups with a card a production build opens on this catalog, in definition order
+      publishedRoutes = [
+          '/examples', '/examples/grid', '/examples/forms', '/examples/calendar', '/examples/tabs', '/examples/dashboard',
+          '/examples/drag-drop', '/examples/lists', '/examples/dialogs', '/examples/charts', '/examples/components',
+          '/examples/multi-window', '/examples/state', '/examples/platform', '/examples/apps'
       ];
 
 /**
@@ -397,16 +492,60 @@ test.describe('Portal examples canonical catalog', () => {
         })
     });
 
-    test('every published family record has both a feature and an observation, with rejecting controls', () => {
+    test('every record has a home group, and alsoIn names only other defined groups', () => {
+        const groups = ExamplesTabContainer.config.familyDefinitions.map(definition => definition.family).filter(Boolean),
+              moved  = {
+                  apps      : ['webdesktop', 'devindex', 'covid-dashboard', 'portal', 'realworld', 'realworld-v2'],
+                  components: ['liquid-glass'],
+                  dashboard : ['dock-choreography', 'dock-layouts', 'dock-cross-window', 'dock-tear-out'],
+                  dialogs   : ['dialog-drag-drop'],
+                  gantt     : ['gantt-basic'],
+                  layouts   : ['layout-form'],
+                  lists     : ['helix', 'covid-helix', 'covid-gallery', 'gallery'],
+                  platform  : ['offscreen-canvas'],
+                  scheduler : ['scheduler-basic'],
+                  state     : ['state-provider'],
+                  tabs      : ['tab-container'],
+                  timeline  : ['timeline-basic']
+              };
+
+        expect(groups).toHaveLength(22);
+        catalog.forEach(record => {
+            expect(groups, record.id).toContain(record.family);
+            (record.alsoIn || []).forEach(group => {
+                expect(groups, record.id).toContain(group);
+                expect(group, record.id).not.toBe(record.family)
+            })
+        });
+
+        // the 23 records the data pass moved, and the alsoIn lists it wrote
+        Object.entries(moved).forEach(([group, ids]) => ids.forEach(id => expect(catalog.find(record => record.id === id).family, id).toBe(group)));
+        expect(Object.values(moved).flat()).toHaveLength(23);
+        expect(Object.fromEntries(catalog.filter(record => record.alsoIn?.length).map(record => [record.id, record.alsoIn]))).toEqual({
+            'workstation'            : ['apps'],
+            'shared-covid'           : ['apps'],
+            'offscreen-canvas'       : ['charts'],
+            'shared-offscreen-canvas': ['platform'],
+            'multi-window-drag-drop' : ['apps', 'drag-drop'],
+            'dialog-drag-drop'       : ['drag-drop'],
+            'colors-dashboard'       : ['apps'],
+            'form-app'               : ['apps'],
+            'layout-form'            : ['forms'],
+            'dock-cross-window'      : ['multi-window'],
+            'dock-tear-out'          : ['multi-window', 'drag-drop']
+        })
+    });
+
+    test('every record that publishes a card has both a feature and an observation, with rejecting controls', () => {
         function check(records) {
-            records.filter(record => record.family).forEach(record => {
+            records.filter(record => modes.some(mode => Example.publishes(record, mode))).forEach(record => {
                 expect(record.feature?.trim(), record.id + ' feature').toBeTruthy();
                 expect(record.lookFor?.trim(), record.id + ' lookFor').toBeTruthy()
             })
         }
 
         check(catalog);
-        const example = catalog.find(record => record.family);
+        const example = catalog.find(record => Example.publishes(record, 'dist_prod'));
         expect(() => check([{...example, feature: ''}])).toThrow();
         expect(() => check([{...example, lookFor: ''}])).toThrow()
     });
@@ -433,16 +572,21 @@ test.describe('Portal examples canonical catalog', () => {
     });
 
     test('the Multi-Window overview borrows the catalog records and respects each build destination', () => {
-        const view = createView(), catalogStore = view.getCatalogStore(), store = view.getCard(3).store;
+        const view         = createView(),
+              catalogStore = view.getCatalogStore(),
+              list         = view.getCard(tabIndex(view, '/examples/multi-window')),
+              {store}      = list;
 
         expect(store.getSource()).toBe(catalogStore);
         expect(store.items.map(record => record.id)).toEqual(coveredMultiWindowIds);
+        // the dock examples moved home to Dashboard & Docking; two of them stay listed here through alsoIn
         expect(catalogStore.items.filter(record => record.family === 'multi-window').map(record => record.id)).toEqual([
-            ...coveredMultiWindowIds, ...multiWindowExampleIds
+            ...coveredMultiWindowIds, 'multi-window-helix', 'multi-window-state-provider'
         ]);
+        expect(catalogStore.items.filter(record => Example.belongsTo(record, 'multi-window') && record.family !== 'multi-window')
+            .map(record => record.id)).toEqual(['dock-cross-window', 'dock-tear-out']);
 
         for (const mode of modes) {
-            const list = view.getCard(3);
 
             list.catalogMode = mode;
             expect(store.items.filter(record => !list.isHiddenItem(record)).map(record => record.id)).toEqual(
@@ -479,13 +623,18 @@ test.describe('Portal examples canonical catalog', () => {
 
         expect(store.items.map(record => record.id)).toEqual(completeIds);
 
+        // the list hides what its store would filter out: a record without a cover publishes no card in any mode
+        const uncovered = completeIds.filter(id => !store.get(id).image);
+
+        expect(uncovered).toHaveLength(30);
+
         cases.forEach(([mode, workstationUrl, choreographyUrl]) => {
             list.catalogMode = mode;
             expect(list.environment).toBe(mode === 'devmode' ? 'development' : mode === 'dist_dev' ? 'dist/development' : 'dist/production');
 
             const visible = store.items.filter(record => !list.isHiddenItem(record));
 
-            expect(visible.map(record => record.id), mode).toEqual(completeIds.filter(id => !excluded[mode].includes(id)));
+            expect(visible.map(record => record.id), mode).toEqual(completeIds.filter(id => !excluded[mode].includes(id) && !uncovered.includes(id)));
             expect(list.createLink(visible[0]).href).toBe(list.baseUrl + workstationUrl);
             expect(list.createLink(store.get('dock-choreography')).href).toBe(list.baseUrl + choreographyUrl)
         })
@@ -564,7 +713,7 @@ test.describe('Portal examples canonical catalog', () => {
         const {store} = createList(),
               byCls   = (node, cls) => node.cls?.includes(cls) ? node : (node.cn || []).map(child => byCls(child, cls)).find(Boolean);
 
-        store.items.filter(record => record.family).forEach(record => {
+        store.items.filter(record => modes.some(mode => Example.publishes(record, mode))).forEach(record => {
             const content = list.createItemContent(record, 0)[0],
                   details = content.cn.find(node => node.cls?.includes('neo-item-bottom-position')),
                   more    = details.cn.find(node => node.cls?.includes('portal-example-more')),
