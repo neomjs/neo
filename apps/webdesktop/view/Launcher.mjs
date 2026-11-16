@@ -142,6 +142,22 @@ class Launcher extends List {
     }
 
     /**
+     * A tap (a finger or a pen) opens an app, since it has no double-click; a mouse click only selects. The click's own
+     * `pointerType` decides, so a touch-capable computer used with a mouse still selects. A browser that reports no
+     * pointer on a click leaves it `undefined`, and the device decides (`Neo.config.hasTouchEvents`).
+     * @param {Object} node
+     * @param {Object} data
+     */
+    onItemClick(node, data) {
+        super.onItemClick(node, data);
+
+        let {pointerType} = data,
+            isTap         = pointerType === undefined ? Neo.config.hasTouchEvents : pointerType === 'touch' || pointerType === 'pen';
+
+        isTap && this.fireOpenApp(data.path)
+    }
+
+    /**
      * A double-click opens an app; a single click only selects it, as on a desktop.
      * @param {Object} data
      */

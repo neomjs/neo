@@ -281,5 +281,36 @@ test.describe('WebDesktop launcher arrangement', () => {
         provider.setData('permissions', ['view-mail', 'view-messages', 'view-calendar']);
 
         expect(rendered()).toEqual(['communication', 'calendar', 'messages', 'mail'])
+    });
+
+    test('the click\'s pointer decides: a finger or pen tap opens an app, a mouse click selects, on one touch device', () => {
+        const opened    = [],
+              realTouch = Neo.config.hasTouchEvents,
+              node      = icon('mail'),
+              click     = pointerType => launcher.onItemClick(node, {path: [node, {cls: [], id: launcher.id}], pointerType});
+
+        launcher.on('openApp', ({record}) => opened.push(record.id));
+
+        try {
+            // A touch-capable computer, used with a mouse, a finger and a pen
+            Neo.config.hasTouchEvents = true;
+
+            click('mouse');
+            expect(opened, 'a mouse click only selects').toEqual([]);
+
+            click('touch');
+            click('pen');
+            expect(opened).toEqual(['mail', 'mail']);
+
+            // A browser that reports no pointer on a click: the device decides
+            opened.length = 0;
+            click(undefined);
+            Neo.config.hasTouchEvents = false;
+            click(undefined);
+
+            expect(opened).toEqual(['mail'])
+        } finally {
+            Neo.config.hasTouchEvents = realTouch
+        }
     })
 });
