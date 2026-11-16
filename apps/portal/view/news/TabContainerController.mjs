@@ -41,7 +41,7 @@ class TabContainerController extends Controller {
      * `Neo.tab.Container.createItems()` transforms the user `items` into `[HeaderToolbar, Strip,
      * BodyContainer]`, so the original `item.header.route` is gone at route time. The header buttons
      * survive that transform and carry both `route` (a `Neo.button.Base` config) and `index` (the
-     * original tab index the framework also reads on click).
+     * original tab index the engine also reads on click).
      * @param {String} route
      */
     activateRoute(route) {

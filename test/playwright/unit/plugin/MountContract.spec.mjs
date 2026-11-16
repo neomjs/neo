@@ -57,6 +57,30 @@ test.describe('Neo.plugin.Base — the owner-mounted contract', () => {
         owner.destroy()
     });
 
+    test('an owner mounted before the plugin attaches re-runs the callback on its remount too', () => {
+        let calls = 0;
+
+        class CountingMounted extends Plugin {
+            static config = {className: 'Neo.plugin.MountContractCounterMounted'}
+            onOwnerMounted() { calls++ }
+        }
+
+        Neo.setupClass(CountingMounted);
+
+        const owner  = createOwner({mounted: true}),
+              plugin = Neo.create(CountingMounted, {owner});
+
+        expect(calls, 'a mounted owner runs it at once').toBe(1);
+
+        owner.mounted = false;
+        owner.mounted = true;
+
+        expect(calls, 'and its remount runs it again, as for an owner that mounts later').toBe(2);
+
+        plugin.destroy();
+        owner.destroy()
+    });
+
     test('the constructed callback stays bounded, which is the half that IS once', () => {
         let calls = 0;
 
