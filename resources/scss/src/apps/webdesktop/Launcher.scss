@@ -19,7 +19,7 @@
         flex-direction: column;
         gap           : 8px;
         margin        : 0;
-        transition    : background-color .15s ease, transform .2s cubic-bezier(.2, .8, .2, 1);
+        transition    : background-color var(--motion-fast) var(--ease-out-soft), transform var(--motion-base) var(--ease-out-soft);
 
         &:hover {
             transform: translateY(-2px);
@@ -40,7 +40,7 @@
         font-size      : 24px;
         height         : 56px;
         justify-content: center;
-        transition     : box-shadow .2s ease;
+        transition     : box-shadow var(--motion-base) var(--ease-out-soft);
         width          : 56px;
     }
 
@@ -88,4 +88,27 @@
 .webdesktop-launcher-proxy .neo-list-item {
     background-color: var(--webdesktop-glass-active);
     box-shadow      : 0 18px 40px -12px rgba(0, 0, 0, .55);
+}
+
+// A phone: tiles a step smaller in narrower gutters, so a 375px screen holds four columns
+@media (max-width: 600px) {
+    .webdesktop-launcher {
+        gap                  : 4px;
+        grid-template-columns: repeat(auto-fill, 80px);
+        padding              : 16px;
+    }
+
+    .webdesktop-launcher,
+    .webdesktop-launcher-proxy {
+        .webdesktop-app-icon {
+            border-radius: 14px;
+            font-size    : 21px;
+            height       : 48px;
+            width        : 48px;
+        }
+
+        .webdesktop-app-label {
+            font-size: 12px;
+        }
+    }
 }
