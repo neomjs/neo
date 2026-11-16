@@ -90,7 +90,7 @@ test.describe('Portal examples family navigation', () => {
         for (let index = 0; index < 5; index++) {
             view.getCard(index).store.forEach(record => expect(record.image, record.id).toBeTruthy())
         }
-        expect(view.getCatalogStore().items.filter(record => !view.hasCover(record))).toHaveLength(47);
+        expect(view.getCatalogStore().items.filter(record => !view.hasCover(record))).toHaveLength(30);
         expect(view.getCard(0).store.getSource()).toBe(view.getCatalogStore());
         expect(view.getCard(1).store.getSource()).toBe(view.getCatalogStore());
         expect(view.getCard(0).store.model).toBe(view.getCatalogStore().model);
@@ -238,7 +238,7 @@ const catalog            = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examp
           'multi-window-helix', 'multi-window-state-provider'
       ],
       // the records of a family that name a cover: the cards its overview shows
-      coveredGridTableIds   = ['grid-tree-big-data', 'grid-big-data', 'grid-issues', 'table-filtering'],
+      coveredGridTableIds   = ['grid-tree-big-data', 'grid-big-data', 'grid-issues', 'table-filtering', ...newExampleIds],
       coveredMultiWindowIds = [
           'workstation', 'shared-covid', 'multi-window-covid-gallery', 'shared-offscreen-canvas',
           'multi-window-drag-drop', 'colors-dashboard', 'dock-choreography'
@@ -393,7 +393,7 @@ test.describe('Portal examples canonical catalog', () => {
             }
         });
 
-        expect(ids).toEqual([...coveredGridTableIds, ...newExampleIds]);
+        expect(ids).toEqual(coveredGridTableIds);
         expect(counts).toEqual({Grid: 14, Table: 7});
         expect(store.items.map(record => record.id)).toEqual(coveredGridTableIds);
         expect(store.getSource()).toBe(catalogStore)
@@ -516,8 +516,9 @@ test.describe('Portal examples canonical catalog', () => {
 
         expect(issues).toHaveLength(1);
         expect(issues[0].id).toBe('grid-issues');
-        expect(issues[0].image).toBe('devmode/grid-issues-13-3.jpg');
-        expect(fs.existsSync(path.join(repoRoot, 'apps/portal/resources/images/examples', issues[0].image))).toBe(true);
+        expect(issues[0].image).toBe('devmode/grid-issues-14.jpg');
+        const recipes = JSON.parse(fs.readFileSync(path.join(dataRoot, 'example-captures.json'), 'utf8')).recipes;
+        expect(recipes.filter(recipe => recipe.id === issues[0].id)).toHaveLength(1);
 
         modes.forEach(mode => {
             list.catalogMode = mode;
@@ -560,6 +561,9 @@ test.describe('Portal examples canonical catalog', () => {
 
         expect(store.get('json-grid-container').scope).toContain('static JSON');
         expect(store.get('grid-covid').scope).toContain('external API');
-        expect(list.getBackgroundImageStyle(store.get('grid-tree')).backgroundImage).not.toContain('url(')
+        expect(list.getBackgroundImageStyle(store.get('grid-tree')).backgroundImage).toContain('grid-tree-14.jpg');
+        const uncovered = store.items.find(record => !record.image);
+        expect(uncovered).toBeDefined();
+        expect(list.getBackgroundImageStyle(uncovered).backgroundImage).not.toContain('url(')
     })
 });
