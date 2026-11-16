@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Workbench sketch: button/base (neo #21143)</title>
+<style>
+    :root {
+        --ground: #f3f4f6; --card: #fff; --line: #dde1e7; --ink: #1d2733; --mute: #66717f;
+        --accent: #1c60a0; --stage: #f8f9fb; --dot: #d9dee6;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--ground); color: var(--ink); font: 15px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+    .page { display: grid; grid-template-columns: 480px 1fr; gap: 20px; padding: 20px; min-height: 100vh; align-items: start; }
+    .left { display: flex; flex-direction: column; gap: 20px; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; }
+
+    /* stage */
+    .stage-head { padding: 16px 20px 14px; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; align-items: center; }
+    .stage-head h1 { margin: 0; font-size: 22px; line-height: 1.2; }
+    .stage-head code { color: var(--mute); font: 13px ui-monospace, Menlo, monospace; }
+    .stage-head p { margin: 6px 0 0; grid-column: 1 / -1; }
+    .links { display: flex; gap: 14px; font-size: 13px; }
+    .links a { color: var(--accent); font-weight: 600; }
+    .head-controls { display: none; }
+    .stage { height: 300px; display: grid; place-items: center; background: var(--stage);
+             background-image: radial-gradient(var(--dot) 1px, transparent 1px); background-size: 16px 16px; }
+    .try { padding: 12px 20px; border-top: 1px solid var(--line); color: var(--mute); font-size: 14px; }
+    .try b { color: var(--ink); font-weight: 600; }
+    .later { border: 1px dashed #b9c1cc; border-radius: 10px; padding: 14px 20px; color: var(--mute); font-size: 13px; }
+    .later b { display: block; color: var(--ink); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 4px; }
+
+    /* the component, as the candidate renders it */
+    .btn { position: relative; width: 150px; height: 50px; background: #fff; border: 1px solid var(--line); border-radius: 3px;
+           display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--accent); font-weight: 700; font-size: 12px; letter-spacing: .02em; }
+    .btn svg { width: 13px; height: 13px; fill: var(--accent); }
+    .badge { position: absolute; top: -9px; right: -10px; background: var(--accent); color: #fff; font-size: 13px; font-weight: 400; padding: 1px 4px; border-radius: 3px; }
+
+    /* inspector */
+    .insp-head { display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--line); }
+    .insp-head h2 { margin: 0; font-size: 16px; flex: 1; }
+    .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; font-size: 13px; }
+    .seg span { padding: 6px 12px; color: var(--mute); }
+    .seg .on { background: var(--accent); color: #fff; }
+    .reset { border: 1px solid var(--accent); color: var(--accent); background: #fff; border-radius: 6px; padding: 6px 14px; font-size: 13px; font-weight: 600; }
+    .groups { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 32px; padding: 10px 20px 22px; }
+    .group h3 { margin: 12px 0 8px; font-size: 11px; letter-spacing: .09em; text-transform: uppercase; color: var(--mute); border-bottom: 1px solid var(--line); padding-bottom: 5px; }
+    .row { display: grid; grid-template-columns: 160px 1fr; align-items: center; gap: 10px; padding: 4px 0; }
+    .row label { font-size: 14px; }
+    .field { border: 1px solid var(--line); border-radius: 3px; padding: 4px 8px; font-size: 13px; background: #fff; min-height: 28px; max-width: 200px; }
+    .radio { display: flex; flex-wrap: wrap; gap: 5px 6px; }
+    .radio span { border: 1px solid var(--line); border-radius: 12px; padding: 2px 9px; font-size: 12px; color: var(--mute); }
+    .radio .on { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+    .check { width: 15px; height: 15px; border: 1px solid #9aa3ae; border-radius: 2px; }
+    .check.on { background: var(--accent); border-color: var(--accent); position: relative; }
+    .check.on::after { content: ""; position: absolute; left: 4px; top: 1px; width: 4px; height: 8px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+    .tag { position: fixed; right: 10px; bottom: 8px; font-size: 11px; color: var(--mute); background: #fff; border: 1px dashed var(--line); border-radius: 4px; padding: 2px 6px; }
+
+    @media (max-width: 480px) {
+        .page { display: block; padding: 0; }
+        .left { display: contents; }
+        .card { border-radius: 0; border-left: 0; border-right: 0; }
+        .stage-card { position: sticky; top: 0; z-index: 2; box-shadow: 0 2px 8px rgba(0, 0, 0, .1); }
+        .stage-head { padding: 8px 12px; }
+        .stage-head h1 { font-size: 18px; }
+        .stage-head p, .try, .links, .later, .insp-head .seg, .insp-head .reset { display: none; }
+        .head-controls { display: flex; gap: 8px; }
+        .head-controls .seg span, .head-controls .reset { padding: 12px 13px; font-size: 14px; }
+        .stage { height: 180px; }
+        .insp-head { padding: 10px 14px; }
+        .groups { grid-template-columns: 1fr; padding: 0 14px 24px; }
+        .row { grid-template-columns: 140px 1fr; min-height: 44px; }
+        .field { max-width: none; min-height: 36px; padding: 8px; }
+        .check { width: 22px; height: 22px; }
+        .check.on::after { left: 7px; top: 3px; width: 5px; height: 11px; }
+        .radio span { padding: 7px 11px; font-size: 13px; }
+    }
+</style>
+</head>
+<body>
+<div class="page">
+    <div class="left">
+        <section class="card stage-card">
+            <header class="stage-head">
+                <div>
+                    <h1>Button</h1>
+                    <code>Neo.button.Base</code>
+                </div>
+                <nav class="links"><a>Source</a><a>API docs</a></nav>
+                <div class="head-controls"><span class="seg"><span class="on">Light</span><span>Dark</span></span><span class="reset">Reset</span></div>
+                <p>A button with text, an icon and a badge. Every config on the right changes it as you type.</p>
+            </header>
+            <div class="stage">
+                <div class="btn">
+                    <svg viewBox="0 0 576 512"><path d="M280 148 96 300v164a16 16 0 0 0 16 16l112-.3a16 16 0 0 0 16-16V368a16 16 0 0 1 16-16h64a16 16 0 0 1 16 16v95.6a16 16 0 0 0 16 16l112 .4a16 16 0 0 0 16-16V300L296 148a12 12 0 0 0-16 0zM572 251l-84-69V44a12 12 0 0 0-12-12h-56a12 12 0 0 0-12 12v72l-90-74a48 48 0 0 0-60 0L4 251a12 12 0 0 0-2 17l26 31a12 12 0 0 0 17 2l235-194a12 12 0 0 1 16 0l235 194a12 12 0 0 0 17-2l26-31a12 12 0 0 0-2-17z"/></svg>
+                    HELLO WORLD
+                    <span class="badge">Badge</span>
+                </div>
+            </div>
+            <div class="try"><b>Try:</b> type a new badgeText, then pick another iconPosition.</div>
+        </section>
+        <div class="later"><b>Second slice, #21144</b>This example's config as code, and a link that carries the state.</div>
+    </div>
+
+    <section class="card">
+        <header class="insp-head">
+            <h2>Inspector</h2>
+            <span class="seg"><span class="on">Light</span><span>Dark</span></span>
+            <span class="reset">Reset</span>
+        </header>
+        <div class="groups">
+            <div class="group">
+                <h3>Text</h3>
+                <div class="row"><label>text</label><span class="field">Hello World</span></div>
+                <div class="row"><label>badgeText</label><span class="field">Badge</span></div>
+                <div class="row"><label>iconCls</label><span class="field">fa fa-home</span></div>
+                <div class="row"><label>iconColor</label><span class="field"></span></div>
+                <div class="row"><label>tooltip</label><span class="field"></span></div>
+            </div>
+            <div class="group">
+                <h3>Choices</h3>
+                <div class="row"><label>iconPosition</label><span class="radio"><span>top</span><span>right</span><span>bottom</span><span class="on">left</span></span></div>
+                <div class="row"><label>badgePosition</label><span class="radio"><span>bottom-left</span><span>bottom-right</span><span>top-left</span><span class="on">top-right</span></span></div>
+                <div class="row"><label>ui</label><span class="radio"><span class="on">primary</span><span>secondary</span><span>tertiary</span></span></div>
+            </div>
+            <div class="group">
+                <h3>Sizes</h3>
+                <div class="row"><label>width</label><span class="field">150</span></div>
+                <div class="row"><label>height</label><span class="field">50</span></div>
+                <div class="row"><label>rippleEffectDuration</label><span class="field">400</span></div>
+            </div>
+            <div class="group">
+                <h3>Flags</h3>
+                <div class="row"><label>disabled</label><span class="check"></span></div>
+                <div class="row"><label>useRippleEffect</label><span class="check on"></span></div>
+            </div>
+        </div>
+    </section>
+</div>
+<span class="tag">sketch, not a capture · neo #21143</span>
+</body>
+</html>
