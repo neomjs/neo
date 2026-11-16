@@ -180,13 +180,14 @@ test.describe('WebDesktop.view.ViewportController window rules', () => {
 test.describe('WebDesktop.view.ViewportController arrangements', () => {
     const realAddon = Neo.main.addon.LocalStorage;
 
-    let apps, controller, state, storage;
+    let apps, controller, state, storage, tasks;
 
     const editor = {id: 'editor', permissions: ['view-mail', 'view-calendar']},
           guest  = {id: 'guest',  permissions: ['view-help']};
 
     test.beforeEach(() => {
         apps    = Neo.create(Apps);
+        tasks   = Neo.create(Tasks);
         state   = {account: null};
         storage = {[proto.getArrangementKey(editor)]: JSON.stringify({communication: ['calendar', 'mail', 'messages']})};
 
@@ -201,9 +202,11 @@ test.describe('WebDesktop.view.ViewportController arrangements', () => {
             component        : {windowId: 1},
             getArrangementKey: proto.getArrangementKey,
             getState         : key => state[key],
-            getStore         : key => ({apps})[key],
+            getStore         : key => ({apps, tasks})[key],
+            hideAllWindows   : proto.hideAllWindows,
             readArrangement  : proto.readArrangement,
-            setState         : data => Object.assign(state, data)
+            setState         : data => Object.assign(state, data),
+            windows          : {}
         };
 
         apps.on({rowsChange: proto.onAppsRowsChange, scope: controller})
@@ -211,7 +214,27 @@ test.describe('WebDesktop.view.ViewportController arrangements', () => {
 
     test.afterEach(() => {
         apps.destroy();
+        tasks.destroy();
         Neo.main.addon.LocalStorage = realAddon
+    });
+
+    test('a sign-in still reading its arrangement does not outlive a sign-out', async () => {
+        let reply;
+
+        Neo.main.addon.LocalStorage.readLocalStorageItem = ({key}) => new Promise(resolve => {
+            reply = () => resolve({key, value: storage[key] ?? null})
+        });
+
+        state.account = guest;
+
+        // Editor's click was dispatched while Guest was active, and its read is still out when Guest signs out
+        const signIn = proto.onAccountItemClick.call(controller, {record: editor});
+
+        proto.onSignOutButtonClick.call(controller);
+        reply();
+        await signIn;
+
+        expect(state.account).toBeNull()
     });
 
     test('an account signs in with its saved arrangement, and a new order is saved under it', async () => {

@@ -194,11 +194,13 @@ class ViewportController extends Controller {
     }
 
     /**
+     * Signs out. A sign-in whose arrangement is still being read does not outlive it.
      * @param {Object} data
      */
     onSignOutButtonClick(data) {
         let me = this;
 
+        me.pendingSignIn = null;
         me.hideAllWindows();
         me.getStore('tasks').clear();
 
