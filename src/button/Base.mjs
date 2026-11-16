@@ -383,15 +383,19 @@ class Button extends Component {
      * @protected
      */
     afterSetPressed(value, oldValue) {
-        let vdomRoot = this.getVdomRoot();
-
-        if (value === null) {
-            delete vdomRoot['aria-pressed']
-        } else {
-            vdomRoot['aria-pressed'] = String(value === true)
-        }
-
+        this.syncAriaPressedState();
         this.updatePressedCls(value === true)
+    }
+
+    /**
+     * @summary Reconciles `aria-pressed` when the explicit ARIA role changes.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetRole(value, oldValue) {
+        this.syncAriaPressedState();
+        super.afterSetRole(value, oldValue)
     }
 
     /**
@@ -689,6 +693,21 @@ class Button extends Component {
     }
 
     /**
+     * @summary Reconciles `aria-pressed` with the Button's effective root tag and role.
+     * @protected
+     */
+    syncAriaPressedState() {
+        let vdomRoot = this.getVdomRoot(),
+            {role}   = this;
+
+        if (vdomRoot.tag === 'button' && (!role || role === 'button') && this.pressed !== null) {
+            vdomRoot['aria-pressed'] = String(this.pressed === true)
+        } else {
+            delete vdomRoot['aria-pressed']
+        }
+    }
+
+    /**
      * @summary Reconciles the native disabled attribute with the Button's effective root tag.
      *
      * Button roots are polymorphic: URL and non-editing route configs render anchors, while the
@@ -738,6 +757,7 @@ class Button extends Component {
             delete vdomRoot.target
         }
 
+        me.syncAriaPressedState();
         me.syncNativeDisabledState();
         me.update()
     }

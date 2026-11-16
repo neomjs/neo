@@ -92,4 +92,147 @@ test.describe('Neo.button.Base aria-pressed (Node.js)', () => {
 
         tabs.destroy();
     });
+
+    test('configured navigation links omit aria-pressed initially and when pressed changes', async () => {
+        const urlButton = Neo.create(Button, {
+            appName,
+            text   : 'Details',
+            pressed: true,
+            url    : '#details'
+        });
+
+        try {
+            const {vnode} = await urlButton.initVnode();
+            expect(vnode.nodeName).toBe('a');
+            expect(vnode.attributes?.href).toBe('#details');
+            expect(vnode.attributes?.['aria-pressed']).toBeUndefined();
+            expect(urlButton.cls.includes('pressed')).toBe(true);
+
+            urlButton.mounted = true;
+            await urlButton.set({pressed: false});
+            expect(urlButton.vdom.tag).toBe('a');
+            expect(urlButton.vdom['aria-pressed']).toBeUndefined();
+            expect(urlButton.cls.includes('pressed')).toBe(false);
+
+            await urlButton.set({pressed: true});
+            expect(urlButton.vdom.tag).toBe('a');
+            expect(urlButton.vdom['aria-pressed']).toBeUndefined();
+            expect(urlButton.cls.includes('pressed')).toBe(true)
+        } finally {
+            urlButton.destroy()
+        }
+
+        const routeLink = Neo.create(Button, {
+            appName,
+            text   : 'Overview',
+            pressed: false,
+            route  : 'overview'
+        });
+
+        try {
+            const {vnode} = await routeLink.initVnode();
+            expect(vnode.nodeName).toBe('a');
+            expect(vnode.attributes?.href).toBe('#overview');
+            expect(vnode.attributes?.['aria-pressed']).toBeUndefined()
+        } finally {
+            routeLink.destroy()
+        }
+
+        const editRouteButton = Neo.create(Button, {
+            appName,
+            text     : 'Edit Route',
+            pressed  : true,
+            route    : 'overview',
+            editRoute: true
+        });
+
+        try {
+            const {vnode} = await editRouteButton.initVnode();
+            expect(vnode.nodeName).toBe('button');
+            expect(vnode.attributes?.['aria-pressed']).toBe('true')
+        } finally {
+            editRouteButton.destroy()
+        }
+    });
+
+    test('button to link and back restores aria-pressed matching pressed state while plain buttons keep it absent', async () => {
+        const button = Neo.create(Button, {
+            appName,
+            text   : 'Details',
+            pressed: true
+        });
+
+        try {
+            const {vnode} = await button.initVnode();
+            expect(vnode.nodeName).toBe('button');
+            expect(vnode.attributes?.['aria-pressed']).toBe('true');
+
+            button.mounted = true;
+
+            await button.set({url: '#details'});
+            expect(button.vdom.tag).toBe('a');
+            expect(button.vdom.href).toBe('#details');
+            expect(button.vdom['aria-pressed']).toBeUndefined();
+            expect(button.cls.includes('pressed')).toBe(true);
+
+            await button.set({url: null});
+            expect(button.vdom.tag).toBe('button');
+            expect(button.vdom.href).toBeUndefined();
+            expect(button.vdom['aria-pressed']).toBe('true');
+            expect(button.cls.includes('pressed')).toBe(true);
+
+            await button.set({pressed: false, url: '#other'});
+            expect(button.vdom.tag).toBe('a');
+            expect(button.vdom['aria-pressed']).toBeUndefined();
+
+            await button.set({url: null});
+            expect(button.vdom.tag).toBe('button');
+            expect(button.vdom['aria-pressed']).toBe('false');
+
+            await button.set({route: 'panel'});
+            expect(button.vdom.tag).toBe('a');
+            expect(button.vdom['aria-pressed']).toBeUndefined();
+
+            await button.set({route: null});
+            expect(button.vdom.tag).toBe('button');
+            expect(button.vdom['aria-pressed']).toBe('false')
+        } finally {
+            button.destroy()
+        }
+
+        const plain = Neo.create(Button, {appName, text: 'Plain'});
+
+        try {
+            await plain.initVnode();
+            plain.mounted = true;
+            await plain.set({url: '#plain'});
+            expect(plain.vdom.tag).toBe('a');
+            expect(plain.vdom['aria-pressed']).toBeUndefined();
+
+            await plain.set({url: null});
+            expect(plain.vdom.tag).toBe('button');
+            expect(plain.vdom['aria-pressed']).toBeUndefined()
+        } finally {
+            plain.destroy()
+        }
+
+        const tabs = Neo.create(TabContainer, {
+            appName,
+            items: [{header: {text: 'One'}, module: Component}]
+        });
+
+        try {
+            const [tabButton] = tabs.getTabButtons();
+            tabButton.route = '/one';
+            expect(tabButton.vdom.tag).toBe('a');
+            expect(tabButton.vdom['aria-pressed']).toBeUndefined();
+
+            tabButton.route = null;
+            expect(tabButton.vdom.tag).toBe('button');
+            expect(tabButton.vdom['aria-pressed']).toBeUndefined();
+            expect(tabButton.vdom['aria-selected']).toBe(true)
+        } finally {
+            tabs.destroy()
+        }
+    });
 });
