@@ -12,10 +12,13 @@
 #   heads never carry stuck failed checks.
 #
 # Security boundary: `pull_request_target` runs with repository write permissions against fork PRs, so this workflow
-# checks out ONLY the two pure rule modules from the default branch (`github.event.repository.default_branch`), never
-# checks out or executes pull request head code, treats event fields strictly as data, resolves hidden team membership
-# through repository collaborator permission lookups, and serializes both event families behind one repository-wide
-# `claim-responder` concurrency group.
+# accepts direct Engine events and `workflow_call` with zero inputs, verifies `job.workflow_sha` is a full 40-character
+# commit SHA, and sparse-checks out ONLY the two pure rule modules from `neomjs/neo` at `${{ job.workflow_sha }}`
+# (making the running script and rule modules one reviewed commit by construction). It never checks out or reads caller
+# repository or pull request head files, treats event fields strictly as data, resolves hidden team membership through
+# collaborator permission lookups on the target repository, and owns the sole repository-wide `claim-responder`
+# concurrency group on `jobs.respond` (thin sibling callers omit `concurrency:` so parent and child jobs never
+# deadlock on the same group).
 name: Claim responder
 
 on:
@@ -23,9 +26,10 @@ on:
     types: [created]
   pull_request_target:
     types: [opened, reopened, edited, closed]
+  workflow_call:
 
 permissions:
-  contents: read       # the sparse checkout of the two rule modules from the default branch
+  contents: read       # the sparse checkout of the two rule modules at job.workflow_sha
   issues: write        # auto-assignment and release notices on curated issues
   pull-requests: write # overlap and residual-scope notices on pull requests
 
@@ -50,10 +54,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - name: Verify defining workflow commit
+        env:
+          WORKFLOW_SHA: ${{ job.workflow_sha }}
+        run: |
+          if [[ ! "$WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::job.workflow_sha must resolve to a full 40-character neomjs/neo commit SHA."
+            exit 1
+          fi
+
       - name: Check out the reply module
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.repository.default_branch }}
+          repository: neomjs/neo
+          ref: ${{ job.workflow_sha }}
           persist-credentials: false
           sparse-checkout: |
             buildScripts/util/claimResponse.mjs
