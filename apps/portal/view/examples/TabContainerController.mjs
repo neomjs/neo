@@ -1,7 +1,8 @@
 import Component from '../../../../src/controller/Component.mjs';
+import Example   from '../../model/Example.mjs';
 
 /**
- * @summary Routes published families and shares one build selection without mirroring tab indexes.
+ * @summary Routes published groups and shares one build selection without mirroring tab indexes.
  * @class Portal.view.examples.TabContainerController
  * @extends Neo.controller.Component
  */
@@ -34,39 +35,46 @@ class TabContainerController extends Component {
     catalogLoadPromise = null
 
     /**
-     * @summary Reconciles family availability after the canonical catalog has loaded.
+     * @summary Reconciles group availability after the canonical catalog has loaded.
      */
     onComponentConstructed() {
         const store = this.component.getCatalogStore();
 
-        store.on('load', this.onCatalogLoad, this);
-        store.getCount() && this.onCatalogLoad()
+        store.on('load', this.publishFamilies, this);
+        store.getCount() && this.publishFamilies()
     }
 
     /**
-     * @summary Publishes only families with a covered record, deriving every header from the view's definitions.
-     * A family whose records all lack a cover would open on an empty tab, so it gets none.
+     * @summary Publishes Featured and every group with a member that publishes a card in the selected build
+     * (`Portal.model.Example.publishes()`), deriving every header from the view's definitions. A group without one
+     * would open on an empty tab, so it gets none, and an open group that loses its last card yields to Featured.
+     * Runs on each catalog load and build selection.
      */
-    onCatalogLoad() {
-        const view      = this.component,
-              families  = new Set(),
-              available = new Set();
+    publishFamilies() {
+        const view                             = this.component,
+              {catalogMode, familyDefinitions} = view,
+              published                        = view.getCatalogStore().items.filter(record => Example.publishes(record, catalogMode)),
+              available                        = new Set(),
+              openRoute                        = view.getTabButtons()[view.activeIndex]?.route;
 
-        view.getCatalogStore().forEach(record => view.hasCover(record) && families.add(record.family));
-        view.familyDefinitions.forEach(definition => {
-            if (definition.family === null || families.has(definition.family)) available.add(definition.route)
+        familyDefinitions.forEach(({family, route}) => {
+            if (family === null || published.some(record => Example.belongsTo(record, family))) available.add(route)
         });
 
         view.getTabButtons().slice().reverse().forEach(button => {
             if (!available.has(button.route)) view.removeAt(button.index)
         });
 
-        view.familyDefinitions.forEach((definition, rank) => {
+        familyDefinitions.forEach((definition, rank) => {
             if (available.has(definition.route) && !view.getTabButtons().some(button => button.route === definition.route)) {
-                const next = view.getTabButtons().find(button => view.familyDefinitions.findIndex(item => item.route === button.route) > rank);
+                const next = view.getTabButtons().find(button => familyDefinitions.findIndex(item => item.route === button.route) > rank);
                 view.insert(next ? next.index : view.getCount(), view.createFamilyItem(definition))
             }
-        })
+        });
+
+        if (openRoute && !available.has(openRoute)) {
+            view.activeIndex = view.getTabButtons().find(button => button.route === '/examples').index
+        }
     }
 
     /**
