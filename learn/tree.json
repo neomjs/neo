@@ -94,6 +94,8 @@
             {"name": "Dynamic Grids & Virtualization",                 "parentId": "guides/datahandling",                                 "id": "guides/datahandling/DynamicGrids"},
             {"name": "Pooled Grid Animation Contract",                  "parentId": "guides/datahandling",                                 "id": "guides/datahandling/PooledGridAnimation"},
             {"name": "Streaming Data & Progressive Rendering",         "parentId": "guides/datahandling",                                 "id": "guides/datahandling/Streaming"},
+            {"name": "Resource Schedulers",                             "parentId": "guides/datahandling",                                 "id": "guides/datahandling/Scheduler"},
+            {"name": "Gantt Charts & Linked Tasks",                     "parentId": "guides/datahandling",                                 "id": "guides/datahandling/Gantt"},
             {"name": "Tables (Stores)",                                "parentId": "guides/datahandling",                                 "id": "guides/datahandling/Tables"},
             {"name": "Using data.Store",                               "parentId": "guides/datahandling",                                 "id": "guides/datahandling/UsingStores"},
             {"name": "TreeStore & Hierarchical Data",                  "parentId": "guides/datahandling",                                 "id": "guides/datahandling/TreeStore"},

@@ -415,8 +415,9 @@ class Resizable extends Plugin {
             }
         }
 
+        // A container that is no ancestor of the dragged element (a dialog lives on the body) is measured by its id
         if (!me.boundaryContainerRect) {
-            owner.getDomRect(me.boundaryContainerRect).then(rect => {
+            owner.getDomRect(containerId).then(rect => {
                 me.boundaryContainerRect = rect
             })
         }

@@ -55,6 +55,12 @@ class RecordFactory extends Base {
      * @private
      */
     #recordObservers = new WeakMap()
+    /**
+     * @summary Monotonic write counter per generated record class for derived store caches.
+     * @member {WeakMap} #recordWriteEpochs=new WeakMap()
+     * @private
+     */
+    #recordWriteEpochs = new WeakMap()
 
     /**
      * @summary Resolves field mappings (dot and `[index]` segments, preserving falsy leaves and yielding `undefined` when absent so `defaultValue` applies) and assigns model default values.
@@ -427,6 +433,28 @@ class RecordFactory extends Base {
     }
 
     /**
+     * @summary Advances the write epoch of a record's generated class.
+     * @param {Object} record
+     * @private
+     */
+    #bumpWriteEpoch(record) {
+        const cls = record?.constructor;
+        if (cls) {
+            this.#recordWriteEpochs.set(cls, (this.#recordWriteEpochs.get(cls) ?? 0) + 1)
+        }
+    }
+
+    /**
+     * @summary Returns the monotonic field-write epoch for a record or generated record class.
+     * @param {Function|Object} recordOrClass
+     * @returns {Number}
+     */
+    getWriteEpoch(recordOrClass) {
+        const cls = typeof recordOrClass === 'function' ? recordOrClass : recordOrClass?.constructor;
+        return cls ? (this.#recordWriteEpochs.get(cls) ?? 0) : 0
+    }
+
+    /**
      * Tests if a given object is an instance of a class created by this factory
      * @param {Object} record
      * @returns {Boolean}
@@ -444,7 +472,8 @@ class RecordFactory extends Base {
      * what changed. An override that bypasses the admitted native write rejects the operation.
      * The seal must throw to refuse. Its owner manages membership and any external side effects.
      * @param {Neo.data.Model} model
-     * @param {Object[]} updates Distinct current records of this model. The store owner manages membership.
+     * @param {Object[]} updates Distinct current records of this model. The store owner manages membership: a record
+     * joins when its store's `getRow()` answers it, the lookup `Neo.data.Store#updateRows` finds rows with.
      * @param {Object} updates[].record The original record instance.
      * @param {Object} updates[].fields Declared field names and their inputs. Use dotted names for nested fields.
      * @param {Function} [seal] Synchronous final adoption. Participating records reject further writes here.
@@ -459,7 +488,7 @@ class RecordFactory extends Base {
         const seen   = new Set(), checkpoints = updates.map(({record, fields: input}) => {
             if (!input || typeof input !== 'object' || Array.isArray(input)) throw new TypeError('Expected a field map');
             const fields = Object.freeze({...input});
-            if (!Record || !(record instanceof Record) || (store && (store.allItems || store).get(store.getKey(record)) !== record) ||
+            if (!Record || !(record instanceof Record) || (store && store.getRow(store.getKey(record)) !== record) ||
                 seen.has(record) || this.#preparedFields?.has(record) ||
                 Object.hasOwn(fields, key)) {
                 throw new TypeError('Expected non-key fields on a record of this model')
@@ -503,6 +532,7 @@ class RecordFactory extends Base {
                     else delete owner[field]
                 }
                 record[versionSymbol] = version;
+                this.#bumpWriteEpoch(record);
                 if (!model.trackModifiedFields) record[isModifiedSymbol] = modified
             }
             throw error
@@ -854,6 +884,10 @@ class RecordFactory extends Base {
 
         if (hasChangedFields) {
             record[versionSymbol]++;
+
+            if (!useOriginalData) {
+                me.#bumpWriteEpoch(record)
+            }
 
             calculatedFieldsMap.forEach((value, key) => {
                 if (value.virtual) return;

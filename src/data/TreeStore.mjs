@@ -780,6 +780,30 @@ class TreeStore extends Store {
     }
 
     /**
+     * @summary Tells whether the active filters keep a node, expansion aside.
+     *
+     * Filtering is ancestor-aware (see {@link #filter}): a node is kept when it matches, when an ancestor
+     * matched, or when a descendant matched. Without an active filter every node is kept. A
+     * level-at-a-time consumer pairs this with {@link #getChildren}, which reads the Structural Layer and
+     * therefore returns filtered-out children too.
+     * @param {Number|String|Object|Neo.data.Record} nodeOrKey A record, a raw node, or its key
+     * @returns {Boolean}
+     */
+    isKept(nodeOrKey) {
+        let me           = this,
+            {_keptNodes} = me,
+            key;
+
+        if (!_keptNodes) {
+            return true
+        }
+
+        key = me.isItem(nodeOrKey) ? me.getKey(nodeOrKey) : nodeOrKey;
+
+        return _keptNodes.has(key) || _keptNodes.has(me.getCanonicalKey(key))
+    }
+
+    /**
      * @summary Answers from the Structural Layer too, so a row under a collapsed parent or one the filters hide is held.
      * The visible projection answers first, as in {@link #get}: after a re-add it can hold a node apart from its
      * Structural Layer entry, and a batch writes the row `get()` hydrates.

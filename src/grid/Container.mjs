@@ -671,7 +671,11 @@ class GridContainer extends BaseContainer {
      */
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
-        oldValue !== undefined && this.addResizeObserver(value);
+
+        if (oldValue !== undefined) {
+            this.addResizeObserver(value);
+            this.getPlugin('grid-cell-editing')?.onOwnerMountedChange(value)
+        }
 
         let {scrollManager} = this;
 
@@ -754,7 +758,8 @@ class GridContainer extends BaseContainer {
 
     /**
      * Triggered after the store config got changed.
-     * Automatically infers the `isTreeGrid` state based on the store's type.
+     * Automatically infers the `isTreeGrid` state based on the store's type, and hands the store to the bodies,
+     * scrollbar, view, toolbars and the columns that declare a `store` config.
      * @param {Neo.data.Store|Neo.data.TreeStore|null} value
      * @param {Neo.data.Store|Neo.data.TreeStore|null} oldValue
      * @protected
@@ -787,6 +792,9 @@ class GridContainer extends BaseContainer {
         }
 
         if (me.searchToolbar && me.searchToolbar.store !== value) me.searchToolbar.store = value;
+
+        // columns that declare a store config (animatedChange) follow it; any other must not gain a property
+        me.columns?.items?.forEach(column => {if (column.isConfig('store')) column.store = value});
 
         me.syncValueBandingFields();
         me.syncFilteredHeaders()
@@ -859,6 +867,8 @@ class GridContainer extends BaseContainer {
         if (scrollManager) {
             scrollManager.windowId = value
         }
+
+        this.getPlugin('grid-cell-editing')?.onOwnerWindowIdChange(value, oldValue)
     }
 
     /**
