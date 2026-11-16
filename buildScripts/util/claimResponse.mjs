@@ -66,31 +66,34 @@ export const CLAIM_WINDOW_DAYS = 3;
 export const CLAIM_RELEASE_SINCE = null;
 
 const
-    DAY_MS                            = 24 * 60 * 60 * 1000,
-    MARKER_PREFIX                     = '<!-- claim-responder:',
-    NEO_CLAIM_RECORD                  = /<!-- neo-claim:v(\d+) (\{[^\n]*?\}) -->/g,
-    REFUSED_COMMENT                   = /<!-- claim-refused:(\d+) -->/,
-    REPO_PATTERN                      = /^[^/\s]+\/[^/\s]+$/,
-    CAPACITY_REFUSAL_START            = Object.freeze(["you're already assigned to ", 'you already hold ']),
-    CLAIM_TARGET                      = String.raw`(this|it|#\d+|the\s[^\n]{1,80}?\brow\b)`,
-    APOSTROPHE_LOOKALIKES             = /[\u{2018}\u{2019}\u{2BC}\u{B4}]/gu,
-    SLASH_WITHDRAWAL_PATTERN          = /^\s*\/(unassign|unclaim)\b/im,
-    UNCONDITIONAL_WITHDRAWAL_PATTERNS = Object.freeze([
-        /\bunclaim(?:ing)?\b/gi,
-        /\b(?:please\s+)?unassign\s+me\b/gi,
-        /\b(?:withdraw(?:ing|n)?|withdrew)\s+(?:(?:my|this|the)\s+claim|from\s+(?:this|it|#\d+))\b/gi,
-        /\b(?:drop(?:ping)?|releas(?:e|ing)|giv(?:e|ing)\s+(?:back|up))\s+(?:(?:my|this|the)\s+)?claim\b/gi,
-        /\bstepping\s+(?:back|away)\b/gi,
-        /\bconsider\s+(?:it|this)\s+available\b/gi,
-        /\b(?:issue|this|it)\s+is\s+(?:now\s+)?(?:free|available)\s+for\s+(?:anyone|others|another)\b/gi
+    DAY_MS                   = 24 * 60 * 60 * 1000,
+    MARKER_PREFIX            = '<!-- claim-responder:',
+    NEO_CLAIM_RECORD         = /<!-- neo-claim:v(\d+) (\{[^\n]*?\}) -->/g,
+    REFUSED_COMMENT          = /<!-- claim-refused:(\d+) -->/,
+    REPO_PATTERN             = /^[^/\s]+\/[^/\s]+$/,
+    CAPACITY_REFUSAL_START   = Object.freeze(["you're already assigned to ", 'you already hold ']),
+    CLAIM_TARGET             = String.raw`(this|it|#\d+|the\s[^\n]{1,80}?\brow\b)`,
+    APOSTROPHE_LOOKALIKES    = /[\u{2018}\u{2019}\u{2BC}\u{B4}]/gu,
+    SLASH_WITHDRAWAL_PATTERN = /^\s*\/(unassign|unclaim)\b/im,
+    INLINE_QUOTE_PATTERN     = /`[^`\n]*`|"[^"\n]*"|(?:^|(?<=[\s([:;,-]))'[^'\n]+'(?=$|[\s.,!?;:)\]-])/g,
+    SENTENCE_MATCH_PATTERN            = /[^.!?\n]+[.!?\n]?/g,
+    CONDITIONAL_SENTENCE              = /^(?:if|unless|whether|when|whenever|in\s+case|suppos(?:e|ing)|assum(?:e|ing))\b/i,
+    CLAUSE_SPLIT_PATTERN              = /[;,:\u2013\u2014]+|\s+-\s+|\b(?:so|therefore|thus)\s+|\band\s+(?=(?:i\b|i'|please\b|unclaim|withdraw|drop|releas|giv|step|consider))/i,
+    POLITE_LEAD                       = String.raw`(?:(?:sorry|apologies|unfortunately|hey|hi|hello)\s+)?`,
+    AFFIRMATIVE_SUBJECT               = String.raw`(?:(?:i'?m|i\s+am|i'?ll|i\s+will|i'?ve|i\s+have|i'?d\s+like\s+to|i\s+(?:want|need|have)\s+to|i)\s+(?:now\s+|hereby\s+|going\s+to\s+)?)`,
+    AFFIRMATIVE_WITHDRAWAL_PATTERNS   = Object.freeze([
+        new RegExp(String.raw`^${POLITE_LEAD}(?:please\s+)?unassign\s+me\b`, 'i'),
+        new RegExp(String.raw`^${POLITE_LEAD}${AFFIRMATIVE_SUBJECT}?unclaim(?:ing)?(?:\s+(?:this|it|#\d+))?\b`, 'i'),
+        new RegExp(String.raw`^${POLITE_LEAD}${AFFIRMATIVE_SUBJECT}?(?:withdraw(?:ing|n)?|withdrew)\s+(?:(?:my|this|the)\s+claim|from\s+(?:this|it|#\d+))\b`, 'i'),
+        new RegExp(String.raw`^${POLITE_LEAD}${AFFIRMATIVE_SUBJECT}?(?:drop(?:ping|ped)?|releas(?:e|ed|ing)|giv(?:e|en|ing)\s+(?:back|up))\s+(?:(?:my|this|the)\s+)?claim\b`, 'i'),
+        new RegExp(String.raw`^${POLITE_LEAD}${AFFIRMATIVE_SUBJECT}?step(?:ping)?\s+(?:back|away)\b`, 'i'),
+        new RegExp(String.raw`^${POLITE_LEAD}(?:please\s+)?consider\s+(?:it|this)\s+available\b`, 'i'),
+        new RegExp(String.raw`^${POLITE_LEAD}(?:the\s+)?(?:issue|this|it)\s+is\s+(?:now\s+)?(?:free|available)\s+for\s+(?:anyone|others|another)\b`, 'i')
     ]),
-    // Clause-local markers used to detect negated withdrawals linearly without backtracking regexes.
-    CLAUSE_BREAK_PATTERN = /[.,!?;:()\n\u2013\u2014]|\s-\s|\b(?:but|however|though|although|so|therefore|thus)\b/,
-    NEGATION_TOKENS      = Object.freeze(new Set(['not', 'never', 'neither', 'nor', 'without', 'cannot', 'hardly', 'scarcely', 'cant', 'wont', 'dont', 'didnt', 'doesnt', 'isnt', 'arent', 'wasnt', 'werent', 'shouldnt', 'wouldnt', 'couldnt', 'havent', 'hasnt', 'hadnt'])),
-    NO_NEGATION_NOUNS    = Object.freeze(new Set(['intention', 'plan', 'plans', 'need', 'reason', 'desire'])),
-    INVERTED_AUX         = Object.freeze(new Set(['am', 'are', 'is', 'was', 'were', 'do', 'does', 'did', 'have', 'has', 'had', 'can', 'could', 'will', 'would', 'should', 'may', 'might', 'must'])),
-    MODAL_WITHDRAWAL_PATTERN  = /\b(?:can'?t|cannot|won'?t|will\s+not|(?:no\s+longer|not)\s+(?:able|going|planning)\s+to)\s+(?:be\s+able\s+to\s+)?(?:work(?:\s+on)?|take|continue|finish|proceed)\b([^.!?\n]*)/gi,
-    DEFERRAL_CLAUSE_PATTERN   = /\b(?:before|by|until|till|today|tonight|tomorrow|this\s+(?:morning|afternoon|evening|week|weekend)|right\s+now|yet)\b/i,
+    MODAL_CLAUSE_WITHDRAWAL           = new RegExp(String.raw`^${POLITE_LEAD}(?:(?:i'?m|i\s+am)\s+(?:no\s+longer|not)\s+(?:able|going|planning)\s+to|(?:i\s+)?(?:can'?t|cannot|won'?t|will\s+not|(?:no\s+longer|not)\s+(?:able|going|planning)\s+to))\s+(?:be\s+able\s+to\s+)?(?:work(?:\s+on)?|take|continue|finish|proceed)\b(.*)$`, 'i'),
+    WITHDRAWAL_TOPIC_WORD             = /\b(?:unclaim|unassign|withdraw|drop|releas|giv(?:e|en|ing)\s+(?:back|up)|step(?:ping)?\s+(?:back|away))/i,
+    WITHDRAWAL_NEGATION_WORD          = /\b(?:not|never|cannot|without|no)\b|n't\b/i,
+    DEFERRAL_CLAUSE_PATTERN           = /\b(?:before|by|until|till|today|tonight|tomorrow|this\s+(?:morning|afternoon|evening|week|weekend)|right\s+now|yet)\b/i,
     CONTINUATION_PATTERN      = /\b(?:(?:the\s+|a\s+)?(?:pr|pull\s+request|fix|patch|work|branch)\s+(?:comes|is\s+coming|will\s+be\s+(?:up|ready|open|opened|pushed|submitted|sent|soon|tomorrow|tonight|today|this\b|on\b|by\b)|is\s+(?:still\s+)?(?:underway|in\s+progress|ongoing|nearly\s+ready|almost\s+ready))|(?:i'?ll|i\s+will)\s+(?:push|open|submit|send|finish)|still\s+(?:working\s+on|underway|in\s+progress|on\s+it))\b/i,
     CLAIM_PATTERNS         = Object.freeze([
         /\b(i'?d|i would|i'?m|i am|i)\s+(really\s+|also\s+)?(like|love|want|wish|hope|happy|keen|eager)\s+(to\s+)?(work|take|claim|pick|handle|tackle|contribute|fix|give)\b/i,
@@ -133,51 +136,37 @@ export function isClaim(body) {
 }
 
 /**
- * @summary Linear clause-local negation check avoiding backtracking quantifiers before a withdrawal verb.
- * @param {String} prefix Comment text preceding a candidate withdrawal phrase
+ * @summary Matches prose withdrawals only on non-question, non-conditional clauses stated affirmatively by the claimant.
+ * @param {String} text Stripped comment text from {@link claimText}
  * @returns {Boolean}
  * @private
  */
-function isClauseNegated(prefix) {
-    const clause = String(prefix || '').slice(-120).toLowerCase().split(CLAUSE_BREAK_PATTERN).at(-1) || '';
-    let   tokens = clause.match(/[a-z']+/g) || [];
-
-    for (let i = tokens.length - 1; i >= 0; i--) {
-        const tok = tokens[i], prev = tokens[i - 1] || '';
-        if (tok === "i'm" || tok === "i'll" || tok === "i've" || tok === "i'd" || (tok === 'i' && !INVERTED_AUX.has(prev))) {
-            tokens = tokens.slice(i);
-            break
+function hasAffirmativeProseWithdrawal(text) {
+    const cleaned = text.replace(INLINE_QUOTE_PATTERN, ' ');
+    for (const rawSentence of cleaned.match(SENTENCE_MATCH_PATTERN) || []) {
+        const sentence = rawSentence.trim();
+        if (!sentence || sentence.endsWith('?') || CONDITIONAL_SENTENCE.test(sentence)) continue;
+        for (const rawClause of sentence.split(CLAUSE_SPLIT_PATTERN)) {
+            const clause = rawClause.trim();
+            if (!clause) continue;
+            if (AFFIRMATIVE_WITHDRAWAL_PATTERNS.some(pattern => pattern.test(clause))) return true;
+            const modal = clause.match(MODAL_CLAUSE_WITHDRAWAL);
+            if (modal && !DEFERRAL_CLAUSE_PATTERN.test(modal[1] || '')) return true;
         }
     }
-
-    const tail = tokens.slice(-6);
-    for (let i = 0; i < tail.length; i++) {
-        const tok = tail[i], next = tail[i + 1] || '', third = tail[i + 2] || '';
-        if (tok.endsWith("n't") || NEGATION_TOKENS.has(tok)) return true;
-        if (tok === 'no' && (next === 'longer' || (NO_NEGATION_NOUNS.has(next) && (third === 'to' || third === 'of')))) return true;
-        if ((tok === 'instead' && next === 'of') || (tok === 'rather' && next === 'than') || (tok === 'far' && next === 'from')) return true;
-    }
-
     return false
 }
 
 /**
- * @summary Evaluates prose withdrawal patterns and separates unnegated releases from clause-negated denials.
+ * @summary Detects sentences explicitly denying a withdrawal so later denials supersede an older `/unclaim`.
  * @param {String} text Stripped comment text from {@link claimText}
- * @returns {{negated: Boolean, unnegated: Boolean}}
+ * @returns {Boolean}
  * @private
  */
-function scanProseWithdrawals(text) {
-    let negated = false, unnegated = false;
-
-    for (const pattern of UNCONDITIONAL_WITHDRAWAL_PATTERNS) {
-        for (const match of text.matchAll(pattern)) {
-            if (isClauseNegated(text.slice(0, match.index))) negated = true;
-            else unnegated = true;
-        }
-    }
-
-    return {negated, unnegated}
+function hasWithdrawalDenial(text) {
+    return text.split(/[.!?\n]+/).some(sentence =>
+        WITHDRAWAL_TOPIC_WORD.test(sentence) && WITHDRAWAL_NEGATION_WORD.test(sentence)
+    )
 }
 
 /**
@@ -193,13 +182,8 @@ export function isWithdrawal(body) {
     if (CLAIM_PATTERNS.some(pattern => pattern.test(text))) return false;
     if (SLASH_WITHDRAWAL_PATTERN.test(text)) return true;
     if (CONTINUATION_PATTERN.test(text)) return false;
-    if (scanProseWithdrawals(text).unnegated) return true;
 
-    for (const match of text.matchAll(MODAL_WITHDRAWAL_PATTERN)) {
-        if (!DEFERRAL_CLAUSE_PATTERN.test(match[1] || '')) return true;
-    }
-
-    return false
+    return hasAffirmativeProseWithdrawal(text)
 }
 
 /**
@@ -818,7 +802,7 @@ export function decideWithdrawal({comment, issue, comments = [], events = [], op
             if (isWithdrawalReply(other, self) || (isClaimReply(other, self) && !refusedClaim(other, self))) return true;
             if (String(other.user?.login || '').toLowerCase() !== self || !isOutsideHuman(other)) return false;
             const otherText = claimText(other.body);
-            return isClaim(other.body) || scanProseWithdrawals(otherText).negated || CONTINUATION_PATTERN.test(otherText)
+            return isClaim(other.body) || hasWithdrawalDenial(otherText) || CONTINUATION_PATTERN.test(otherText)
         }) || sortedEvents.some(ev =>
             (ev.event === 'assigned' || ev.event === 'unassigned') &&
             String(ev.assignee?.login || '').toLowerCase() === self &&

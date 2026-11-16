@@ -1933,7 +1933,9 @@ test.describe('buildScripts/util/claimResponse', () => {
                 "I'm no longer able to work on this.",
                 "I wasn't stepping back earlier, please unassign me now.",
                 "Sorry I couldn't finish this, stepping back.",
-                "Because I can't get my build working I'm stepping back."
+                "I couldn't reproduce this and I'm stepping back.",
+                "I ran out of bandwidth so I'm withdrawing my claim.",
+                "Because I can't get my build working, I'm stepping back."
             ];
             for (const text of expectedReleases) {
                 expect(isWithdrawal(text), text).toBe(true)
@@ -1950,24 +1952,31 @@ test.describe('buildScripts/util/claimResponse', () => {
                 'I am not withdrawing my claim.',
                 'I do not plan to withdraw my claim.',
                 "I'm not considering withdrawing my claim.",
+                'I do not think I should withdraw my claim.',
+                "I don't think I'm withdrawing my claim.",
+                'I have no plans at all to withdraw my claim.',
                 "I'm not dropping my claim.",
                 'not giving up the claim',
                 'I am no longer stepping back from this.',
                 'Never unclaiming this.',
                 "Please don't unassign me.",
-                "I'm not going to work on this tonight, I'll push tomorrow."
+                "I'm not going to work on this tonight, I'll push tomorrow.",
+                'What happens if I withdraw my claim?',
+                'Am I stepping back from this? No.',
+                "If something comes up, I'll withdraw my claim.",
+                'Commenting `/unclaim` or "please unassign me" returns the claim.'
             ];
             for (const text of nonReleases) {
                 expect(isWithdrawal(text), text).toBe(false)
             }
 
-            // Linear-time bound under repetitive modifier input (ReDoS guard)
+            // Linear-time bound under repetitive input (ReDoS guard)
             const t0 = performance.now();
-            expect(isWithdrawal(`not${' going to be'.repeat(200)}! withdrawing my claim`)).toBe(true);
-            expect(isWithdrawal(`not${' be planning to'.repeat(200)}! withdrawing my claim`)).toBe(true);
+            expect(isWithdrawal(`sorry ${'not '.repeat(200)}withdrawing my claim`)).toBe(false);
+            expect(isWithdrawal(`sorry, ${'a, '.repeat(200)}withdrawing my claim`)).toBe(true);
             expect(performance.now() - t0).toBeLessThan(50);
 
-            // Exact assigned-fixture check for ordinary continuing negations
+            // Exact assigned-fixture check for ordinary continuing negations and two-subject denials
             const
                 claim1    = comment('outside-dev', '2026-11-16T04:00:00Z', '/claim', {id: 7101}),
                 assigned1 = {actor: {login: 'github-actions[bot]', type: 'Bot'}, assignee: {login: 'outside-dev'}, created_at: '2026-11-16T04:00:02Z', event: 'assigned'},
@@ -1975,7 +1984,9 @@ test.describe('buildScripts/util/claimResponse', () => {
 
             for (const phrase of [
                 'I do not plan to withdraw my claim. The fix is still underway.',
-                "I'm not considering withdrawing my claim. I am still working on it."
+                "I'm not considering withdrawing my claim. I am still working on it.",
+                'I do not think I should withdraw my claim.',
+                'I have no plans at all to withdraw my claim.'
             ]) {
                 const note = comment('outside-dev', '2026-11-16T10:00:00Z', phrase, {id: 7101});
                 expect(decideWithdrawal({comment: note, comments: [claim1, note], events: [assigned1], issue: openIssue, repoUrl: REPO_URL})).toBeNull();
