@@ -619,4 +619,131 @@ test.describe('Neo.main.DomEvents', () => {
             oldAddon === undefined ? delete Neo.main.addon : (Neo.main.addon = oldAddon)
         }
     });
+
+    /**
+     * @summary Runs `fn` with a fresh owner over a stub location, History API and window, in one router mode.
+     * The stub history moves the stub location the way a browser does.
+     * @param {Object} options
+     * @param {String} [options.base='']
+     * @param {String} options.mode
+     * @param {String} options.url
+     * @param {Function} fn
+     */
+    function withRouter({base='', mode, url}, fn) {
+        const manager  = Neo.worker.Manager,
+              config   = {routerBasePath: Neo.config.routerBasePath, routerMode: Neo.config.routerMode},
+              globals  = {history: globalThis.history, location: globalThis.location},
+              send     = manager.sendMessage,
+              location = {pathname: '/', search: ''},
+              calls    = [],
+              sent     = [],
+              go       = href => {
+                  const next = new URL(href, `https://neomjs.com${location.pathname}${location.search}`);
+                  Object.assign(location, {hash: next.hash, pathname: next.pathname, search: next.search})
+              };
+
+        let owner;
+
+        go(url);
+        Object.assign(Neo.config, {routerBasePath: base, routerMode: mode});
+        globalThis.location = location;
+        globalThis.history  = {
+            state       : null,
+            pushState   : (state, title, href) => {calls.push(['push', href]); go(href)},
+            replaceState: (state, title, href) => {calls.push(['replace', href]); go(href)}
+        };
+        globalThis.window   = new EventTarget();
+        manager.sendMessage = (dest, msg) => sent.push(msg.data.hashString);
+
+        try {
+            owner = Neo.create(WindowDomEvents);
+            fn({calls, go, location, owner, sent, window: globalThis.window})
+        } finally {
+            owner?.destroy();
+            Object.assign(Neo.config, config);
+            Object.entries(globals).forEach(([key, value]) => {
+                value === undefined ? delete globalThis[key] : globalThis[key] = value
+            });
+            manager.sendMessage = send
+        }
+    }
+
+    test('the router defaults to hash mode without a base path', () => {
+        expect(Neo.config.routerMode).toBe('hash');
+        expect(Neo.config.routerBasePath).toBe('')
+    });
+
+    test('hash mode keeps the route in location.hash and forwards every hash change, as before', () => {
+        withRouter({mode: 'hash', url: '/#/learn/Intro'}, ({calls, location, owner, sent, window}) => {
+            expect(owner.getRouteConfig(7)).toMatchObject({hashString: '/learn/Intro', windowId: 7});
+
+            owner.onHashChange();
+            owner.onHashChange();
+            expect(sent).toEqual(['/learn/Intro', '/learn/Intro']);
+
+            owner.setRoute('/news/blog');
+            expect(location.hash).toBe('/news/blog');
+
+            window.dispatchEvent(new Event('popstate'));
+            expect(sent).toHaveLength(2);
+            expect(calls).toEqual([])
+        })
+    });
+
+    test('pathname mode reads the path after routerBasePath with its search; the base path alone is no route', () => {
+        withRouter({base: '/docs', mode: 'pathname', url: '/docs/learn/Intro?deck=training'}, ({go, owner}) => {
+            expect(owner.getRoute()).toBe('/learn/Intro?deck=training');
+
+            for (const href of ['/docs', '/docs/', '/docs?theme=dark']) {
+                go(href);
+                expect(owner.getRoute(), href).toBe('')
+            }
+
+            expect(owner.getRouteConfig(1)).toBeNull();
+
+            go('/docsearch/Intro');
+            expect(owner.getRoute(), 'a sibling of the base path is not under it').toBe('/docsearch/Intro')
+        })
+    });
+
+    test('pathname mode pushes a changed route under the base path and sends it once', () => {
+        withRouter({base: '/docs', mode: 'pathname', url: '/docs/learn/Intro'}, ({calls, owner, sent}) => {
+            owner.setRoute('/news/blog');
+            owner.setRoute('/news/blog');
+            owner.setRoute('home');
+            owner.setRoute('');
+
+            expect(calls).toEqual([['push', '/docs/news/blog'], ['push', '/docs/home'], ['push', '/docs/']]);
+            expect(sent).toEqual(['/news/blog', '/home', ''])
+        })
+    });
+
+    test('pathname mode moves a #/… link into the path as a whole route, and an in-page anchor changes nothing', () => {
+        withRouter({mode: 'pathname', url: '/learn/Intro?deck=training'}, ({calls, go, location, owner, sent}) => {
+            go('#section');
+            owner.onHashChange();
+            expect(calls).toEqual([]);
+            expect(sent).toEqual([]);
+
+            go('#/news/blog');
+            owner.onHashChange();
+            expect(calls).toEqual([['replace', '/news/blog']]);
+            expect(location.hash).toBe('');
+            expect(sent).toEqual(['/news/blog'])
+        })
+    });
+
+    test('pathname mode boots a #/… bookmark into its path with the page search; Back or Forward sends only a changed route', () => {
+        withRouter({mode: 'pathname', url: '/?utm_source=news#/learn/Intro'}, ({calls, go, owner, sent, window}) => {
+            expect(calls).toEqual([['replace', '/learn/Intro?utm_source=news']]);
+            expect(owner.getRouteConfig(1)).toMatchObject({hashString: '/learn/Intro?utm_source=news', windowId: 1});
+
+            window.dispatchEvent(new Event('popstate'));
+            expect(sent, 'the boot route is not new').toEqual([]);
+
+            go('/news/blog');
+            window.dispatchEvent(new Event('popstate'));
+            expect(sent).toEqual(['/news/blog'])
+        })
+    });
 });

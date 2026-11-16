@@ -139,6 +139,11 @@ class DomEvents extends Base {
      * @member {Object|null} #fontEvents=null
      */
     #fontEvents = null
+    /**
+     * The route the App worker last received, in `'pathname'` mode
+     * @member {String|null} #lastRoute=null
+     */
+    #lastRoute = null
 
     /**
      * @summary Registers main-thread DOM and native font events.
@@ -160,6 +165,14 @@ class DomEvents extends Base {
         if (Neo.config.useSharedWorkers) {
             window.addEventListener('beforeunload', me.onBeforeUnload.bind(me));
             window.addEventListener('pagehide',     me.onPageHide    .bind(me))
+        }
+
+        // The History API fires no hashchange: Back and Forward report a 'pathname' route as popstate. A #/… URL
+        // from hash mode becomes its path before any worker reads the route.
+        if (Neo.config.routerMode === 'pathname') {
+            window.addEventListener('popstate', me.sendRoute.bind(me));
+            me.upgradeHashRoute(true);
+            me.#lastRoute = me.getRoute()
         }
 
         // Unsupported browsers keep the measurements made with their currently available fonts.
@@ -420,6 +433,38 @@ class DomEvents extends Base {
     }
 
     /**
+     * @summary The current route: the hash in `'hash'` mode. In `'pathname'` mode, the path after
+     * `Neo.config.routerBasePath`, with its search.
+     * @returns {String} '' without a route
+     */
+    getRoute() {
+        let {routerBasePath, routerMode} = Neo.config,
+            {hash, pathname, search}     = location,
+            path;
+
+        if (routerMode !== 'pathname') {
+            return hash.substring(1)
+        }
+
+        path = pathname === routerBasePath || pathname.startsWith(routerBasePath + '/') ?
+            pathname.substring(routerBasePath.length) :
+            pathname;
+
+        return path && path !== '/' ? path + search : ''
+    }
+
+    /**
+     * @summary The current route in the shape a worker receives as `Neo.config.hash`.
+     * @param {Number} windowId
+     * @returns {Object|null} null without a route
+     */
+    getRouteConfig(windowId) {
+        let hashString = this.getRoute();
+
+        return hashString ? {hash: this.parseHash(hashString), hashString, windowId} : null
+    }
+
+    /**
      * @param {Object[]} path
      * @param {HTMLElement} target
      * @param {String} [eventName]
@@ -650,21 +695,17 @@ class DomEvents extends Base {
     }
 
     /**
-     *
+     * @summary Forwards a hash change to the App worker. In `'pathname'` mode only a `#/…` link is a route: it moves
+     * into the path first, replacing the entry the link pushed. Any other fragment is an in-page anchor.
      */
     onHashChange() {
-        let {Manager}  = Neo.worker,
-            hashString = location.hash.substring(1);
+        let me = this;
 
-        Manager.sendMessage('app', {
-            action: 'hashChange',
-            data  : {
-                appNames: Manager.appNames,
-                hash    : this.parseHash(hashString),
-                hashString,
-                windowId: Manager.windowId
-            }
-        })
+        if (Neo.config.routerMode === 'pathname' && !me.upgradeHashRoute()) {
+            return
+        }
+
+        me.sendRoute()
     }
 
     /**
@@ -1128,6 +1169,50 @@ class DomEvents extends Base {
     }
 
     /**
+     * @summary Sends the current route to the App worker. In `'pathname'` mode an unchanged route is not sent:
+     * following an in-page anchor pops a history entry of the same path.
+     */
+    sendRoute() {
+        let me         = this,
+            {Manager}  = Neo.worker,
+            hashString = me.getRoute();
+
+        if (Neo.config.routerMode === 'pathname') {
+            if (hashString === me.#lastRoute) {
+                return
+            }
+
+            me.#lastRoute = hashString
+        }
+
+        Manager.sendMessage('app', {
+            action: 'hashChange',
+            data  : {
+                appNames: Manager.appNames,
+                hash    : me.parseHash(hashString),
+                hashString,
+                windowId: Manager.windowId
+            }
+        })
+    }
+
+    /**
+     * @summary Moves the route. `'hash'` mode assigns the hash. `'pathname'` mode pushes the path and sends the
+     * route itself, since the History API fires no event for its own changes.
+     * @param {String} route
+     */
+    setRoute(route) {
+        let me = this;
+
+        if (Neo.config.routerMode !== 'pathname') {
+            location.hash = route
+        } else if (route !== me.getRoute()) {
+            history.pushState(null, '', Neo.config.routerBasePath + (route.startsWith('/') ? route : `/${route}`));
+            me.sendRoute()
+        }
+    }
+
+    /**
      * hello <foo>world thorsten! 3 < 4 and 5 > 3
      * @param {String} value
      * @returns {String}
@@ -1181,6 +1266,27 @@ class DomEvents extends Base {
      */
     unregisterPreventDefaultKeys(data) {
         delete preventDefaultKeys[data.id]
+    }
+
+    /**
+     * @summary In `'pathname'` mode, moves a `#/…` route (a hash-mode link or bookmark) into the path, replacing the
+     * current history entry.
+     * @param {Boolean} [keepSearch=false] true keeps the page's search, as a bookmark from hash mode carries it;
+     * a link names a whole route
+     * @returns {Boolean} true if the hash was a route
+     */
+    upgradeHashRoute(keepSearch=false) {
+        let {hash, search} = location,
+            route;
+
+        if (Neo.config.routerMode !== 'pathname' || !hash.startsWith('#/')) {
+            return false
+        }
+
+        route = hash.substring(1);
+
+        history.replaceState(history.state, '', Neo.config.routerBasePath + route + (keepSearch && !route.includes('?') ? search : ''));
+        return true
     }
 }
 
