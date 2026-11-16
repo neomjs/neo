@@ -71,6 +71,12 @@ and a drop writes the apps' `order` field once (`store.updateRows()`). The apps 
 and the start menu follow. The filter never touches `order`, so a permission change keeps the remaining icons in place.
 Each account's arrangement is saved to `localStorage` and applied when it signs in.
 
+## Phones and touch
+
+Below 600px the taskbar shows icons only, keeping each control's accessible name, the permission panel becomes a sheet
+over the workspace, and every window fills the area above the taskbar. A touch device (`Neo.config.hasTouchEvents`)
+has no double-click, so a single tap opens an app there.
+
 ## Files
 
 | File | Responsibility |

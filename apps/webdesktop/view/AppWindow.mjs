@@ -2,10 +2,31 @@ import AppView from './AppView.mjs';
 import Dialog  from '../../../src/dialog/Base.mjs';
 
 /**
- * Shared by every app window, so the window a user touches last is drawn on top
+ * The z-index below the lowest window. Windows stay under the engine's floating layer (menus at 100, drag proxies and
+ * dialogs at 1000) and under the permission panel, so the taskbar's menu and panel open above every window.
  * @type {Number}
  */
-let zIndex = 100;
+const baseZIndex = 10;
+
+/**
+ * Every app window, back to front. A window's z-index is its place here, counted up from `baseZIndex`, so raising
+ * windows never climbs: the demo opens one window per app, which keeps the stack far below 100.
+ * @type {WebDesktop.view.AppWindow[]}
+ */
+const stack = [];
+
+/**
+ * Gives each window the z-index of its place in the stack; a window already at its place is left alone
+ */
+function restack() {
+    stack.forEach((appWindow, index) => {
+        let zIndex = baseZIndex + index + 1;
+
+        if (appWindow.style.zIndex !== zIndex) {
+            appWindow.style = {...appWindow.style, zIndex}
+        }
+    })
+}
 
 /**
  * @summary One app's window. Created on the first open, then kept: closing hides it, and reopening shows it again.
@@ -64,9 +85,12 @@ class AppWindow extends Dialog {
      * @param {Object} config
      */
     construct(config) {
-        super.construct({style: {zIndex: ++zIndex}, ...config});
+        super.construct({style: {zIndex: baseZIndex + stack.length + 1}, ...config});
 
         let me = this;
+
+        stack.push(me);
+        restack();
 
         me.addDomListeners({
             mousedown: me.toFront,
@@ -75,13 +99,28 @@ class AppWindow extends Dialog {
     }
 
     /**
+     * Leaves the stack. The windows above keep their z-index until the next raise closes the gap.
+     * @param {...*} args
+     */
+    destroy(...args) {
+        let index = stack.indexOf(this);
+
+        index > -1 && stack.splice(index, 1);
+
+        super.destroy(...args)
+    }
+
+    /**
      * Draws this window above every other app window
      */
     toFront() {
-        let me = this;
+        let me    = this,
+            index = stack.indexOf(me);
 
-        if (me.style.zIndex !== zIndex) {
-            me.style = {...me.style, zIndex: ++zIndex}
+        if (index > -1 && index < stack.length - 1) {
+            stack.splice(index, 1);
+            stack.push(me);
+            restack()
         }
     }
 }

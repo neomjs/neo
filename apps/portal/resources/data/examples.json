@@ -30,7 +30,8 @@
         "scope": "The accounts and their permissions are demonstration data; hiding UI is not authorization.",
         "featured": true,
         "environments": [
-            "Desktop"
+            "Desktop",
+            "Mobile"
         ],
         "image": "devmode/webdesktop-14-0.jpg",
         "name": "Web Desktop",
@@ -1196,6 +1197,23 @@
         "component": "Scheduler",
         "feature": "Resource bookings on an editable timeline",
         "lookFor": "Move a booking to another studio or time. Reload after it saves to see the same booking in its new slot."
+    },
+    {
+        "id": "timeline-basic",
+        "image": null,
+        "name": "Resource Timeline",
+        "sourceUrl": "examples/timeline/basic",
+        "urls": {
+            "devmode": "examples/timeline/basic/index.html",
+            "dist_dev": "dist/development/examples/timeline/basic/index.html",
+            "dist_esm": "dist/esm/examples/timeline/basic/index.html",
+            "dist_prod": "dist/production/examples/timeline/basic/index.html"
+        },
+        "hiddenIn": [],
+        "family": "calendar",
+        "component": "Timeline",
+        "feature": "A plain grid mounting the timeline column with interval bars",
+        "lookFor": "Click Shift to advance the interval by one hour and watch the bar follow the record change."
     },
     {
         "id": "dock-choreography",

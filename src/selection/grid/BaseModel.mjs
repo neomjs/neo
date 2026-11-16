@@ -30,7 +30,9 @@ class BaseModel extends Model {
             value         : []
         },
         /**
-         * The record ids this model holds selected; the descriptor for the reason above.
+         * The grid's row ids this model holds selected: the store's internal ids while the grid's `useInternalId`
+         * is `true` (the default), the record keys otherwise. `getRowRecord()` resolves one to its record, and
+         * `Neo.grid.View#selectedRecords` reads them all. The descriptor for the reason above.
          * @member {Number[]|String[]} selectedRows_=[]
          * @protected
          * @reactive
