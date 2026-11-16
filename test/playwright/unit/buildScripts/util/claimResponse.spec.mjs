@@ -1373,7 +1373,7 @@ test.describe('buildScripts/util/claimResponse', () => {
                     pullLinks   = new Map([
                         [19143, []],
                         [20691, []],
-                        [20692, [{author: {login: 'merged-author'}, merged: true, number: 21400, repository: {nameWithOwner: 'neomjs/neo'}}]]
+                        [20692, [{author: {login: 'merged-author'}, merged: true, number: 21400, repository: {nameWithOwner: 'neomjs/neo'}, state: 'MERGED'}]]
                     ]),
                     pullDetails = new Map(),
                     created     = [],

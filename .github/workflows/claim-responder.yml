@@ -73,7 +73,10 @@ jobs:
             } = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/claimResponse.mjs`);
             const {owner, repo} = context.repo;
 
-            const MAX_LINKED_PR_PAGES = 20;
+            const
+              LINKED_PR_STATES    = new Set(['OPEN', 'CLOSED', 'MERGED']),
+              MAX_LINKED_PR_PAGES = 20,
+              REPO_NAME_PATTERN   = /^[^/\s]+\/[^/\s]+$/;
 
             const loadCompleteLinkedPrRefs = async (issueNumber, {includeClosedPrs = false, pageSize = 50} = {}) => {
               const
@@ -110,9 +113,14 @@ jobs:
                 }
 
                 for (const node of nodes) {
+                  // GitHub GraphQL redacts inaccessible private cross-repository PR references as explicit `null` entries.
                   if (node === null) continue;
+                  const repoName = node?.repository?.nameWithOwner;
                   if (typeof node !== 'object' || !Number.isSafeInteger(node.number) || node.number < 1 ||
-                    typeof node.state !== 'string' || (includeClosedPrs && typeof node.merged !== 'boolean')) {
+                    !LINKED_PR_STATES.has(node.state) ||
+                    typeof repoName !== 'string' || !REPO_NAME_PATTERN.test(repoName) ||
+                    (node.author != null && (typeof node.author !== 'object' || typeof node.author.login !== 'string' || !node.author.login.trim())) ||
+                    (includeClosedPrs && (typeof node.merged !== 'boolean' || node.merged !== (node.state === 'MERGED')))) {
                     throw new Error(`Incomplete state read for #${issueNumber}: malformed linked pull request node`)
                   }
                   collected.push(node)
@@ -291,6 +299,7 @@ jobs:
                     initialStates.set(issueNumber, await loadTargetState(issueNumber));
                   }
 
+                  const eligibleTargets = [];
                   for (const issueNumber of targets) {
                     const state1 = initialStates.get(issueNumber);
                     const first  = decidePullRequestRelease({
@@ -302,9 +311,14 @@ jobs:
                       releaseSince,
                       repoUrl
                     });
-                    if (!first) continue;
+                    if (first) {
+                      eligibleTargets.push(issueNumber)
+                    }
+                  }
 
-                    // Re-read live state immediately before posting so a concurrent claim suppresses any false availability notice.
+                  // Finish final re-reads and release decisions across all eligible targets before posting the first notice.
+                  const pendingReleases = [];
+                  for (const issueNumber of eligibleTargets) {
                     const state2 = await loadTargetState(issueNumber);
                     const fresh  = decidePullRequestRelease({
                       comments        : state2.comments,
@@ -319,8 +333,11 @@ jobs:
                       core.info(`Release notice suppressed after race re-check on #${issueNumber}.`);
                       continue
                     }
+                    pendingReleases.push({body: fresh.body, issueNumber})
+                  }
 
-                    await github.rest.issues.createComment({owner, repo, issue_number: issueNumber, body: fresh.body});
+                  for (const {body, issueNumber} of pendingReleases) {
+                    await github.rest.issues.createComment({owner, repo, issue_number: issueNumber, body});
                     core.info(`Posted release notice on #${issueNumber} for closed PR #${pullRequest.number}.`)
                   }
                 } catch (error) {

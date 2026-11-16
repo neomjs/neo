@@ -47,6 +47,7 @@ function issueComment(login, createdAt, body, {association = 'NONE', id, type = 
  */
 function createWorkflowHarness({
     assignedRepoItems = () => [],
+    createCommentHook = null,
     graphqlHandler,
     issueEvents       = new Map(),
     issueComments     = new Map(),
@@ -91,7 +92,17 @@ function createWorkflowHarness({
                     target.assignees = [...(target.assignees || []), ...args.assignees.map(login => ({login}))];
                     return {data: target}
                 },
-                createComment  : async args => { created.push(args); return {data: {}} },
+                createComment  : async args => {
+                    if (createCommentHook) await createCommentHook(args);
+                    created.push(args);
+                    const entry = issueComment('github-actions[bot]', '2026-11-16T02:10:05Z', args.body, {type: 'Bot'});
+                    if (args.issue_number >= 21500) {
+                        prComments.set(args.issue_number, [...(prComments.get(args.issue_number) || []), entry])
+                    } else {
+                        issueComments.set(args.issue_number, [...(issueComments.get(args.issue_number) || []), entry])
+                    }
+                    return {data: entry}
+                },
                 get            : async ({issue_number}) => ({data: issues.get(issue_number)}),
                 listComments   : Symbol('listComments'),
                 listEvents     : Symbol('listEvents'),
@@ -455,6 +466,184 @@ test.describe('claim-responder linked-PR pagination and whole-event preflight (#
         } finally {
             if (prevReleaseSince === undefined) delete process.env.NEO_CLAIM_RELEASE_SINCE;
             else process.env.NEO_CLAIM_RELEASE_SINCE = prevReleaseSince
+        }
+    });
+
+    test('AC-2: unmerged close finishes final reads and release decisions across all targets before posting any notice', async () => {
+        const
+            prevReleaseSince = process.env.NEO_CLAIM_RELEASE_SINCE,
+            displacedA       = issueComment('displaced-a', '2026-11-16T02:02:00Z', '/claim', {id: 8101}),
+            refusalA         = issueComment('github-actions[bot]', '2026-11-16T02:02:05Z',
+                `This one is taken.\n\n${replyMarker('displaced-a')}\n<!-- claim-refused:8101 -->`,
+                {type: 'Bot'}),
+            displacedB       = issueComment('displaced-b', '2026-11-16T02:03:00Z', '/claim', {id: 8102}),
+            refusalB         = issueComment('github-actions[bot]', '2026-11-16T02:03:05Z',
+                `This one is taken.\n\n${replyMarker('displaced-b')}\n<!-- claim-refused:8102 -->`,
+                {type: 'Bot'}),
+            closedPr         = {
+                author_association: 'NONE',
+                body              : 'Resolves #19143\nResolves #20691',
+                closed_at         : '2026-11-16T02:10:00Z',
+                created_at        : '2026-11-16T02:00:00Z',
+                merged            : false,
+                number            : 21500,
+                user              : {id: 7001, login: 'outside-dev', type: 'User'}
+            };
+
+        process.env.NEO_CLAIM_RELEASE_SINCE = '2026-11-15T00:00:00Z';
+        try {
+            // 1. Both initial reads succeed and the first final read succeeds, then the second final read throws -> ZERO writes
+            let   calls20691      = 0;
+            const secondFinalFail = createWorkflowHarness({
+                issues        : new Map([[19143, curatedIssue({number: 19143})], [20691, curatedIssue({number: 20691})]]),
+                issueComments : new Map([[19143, [displacedA, refusalA]], [20691, [displacedB, refusalB]]]),
+                graphqlHandler: ({number}) => {
+                    if (number === 20691 && ++calls20691 > 1) throw new Error('final read failure for #20691');
+                    return {repository: {issue: {closedByPullRequestsReferences: {nodes: [], pageInfo: {hasNextPage: false}}}}}
+                }
+            });
+
+            await secondFinalFail.execute('pull_request_target', {action: 'closed', pull_request: closedPr});
+            expect(secondFinalFail.created).toEqual([]);
+            expect(secondFinalFail.warnings).toHaveLength(1);
+            expect(secondFinalFail.warnings[0]).toMatch(/final read failure for #20691/);
+
+            // 2. Successful initial + final reads on both targets post both notices cleanly
+            const bothOk = createWorkflowHarness({
+                issues        : new Map([[19143, curatedIssue({number: 19143})], [20691, curatedIssue({number: 20691})]]),
+                issueComments : new Map([[19143, [displacedA, refusalA]], [20691, [displacedB, refusalB]]]),
+                graphqlHandler: () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: [], pageInfo: {hasNextPage: false}}}}})
+            });
+
+            await bothOk.execute('pull_request_target', {action: 'closed', pull_request: closedPr});
+            expect(bothOk.created.map(call => call.issue_number)).toEqual([19143, 20691]);
+            expect(bothOk.warnings).toEqual([]);
+
+            // 3. Fresh final read observes a new upstream open PR holding the first target -> suppresses it and posts the second only
+            let   calls19143        = 0;
+            const lateHolderOnFirst = createWorkflowHarness({
+                issues        : new Map([[19143, curatedIssue({number: 19143})], [20691, curatedIssue({number: 20691})]]),
+                issueComments : new Map([[19143, [displacedA, refusalA]], [20691, [displacedB, refusalB]]]),
+                graphqlHandler: ({number}) => {
+                    if (number === 19143 && ++calls19143 > 1) {
+                        return {
+                            repository: {
+                                issue: {
+                                    closedByPullRequestsReferences: {
+                                        nodes   : [{author: {login: 'new-holder'}, merged: false, number: 21510, repository: {nameWithOwner: 'neomjs/neo'}, state: 'OPEN'}],
+                                        pageInfo: {hasNextPage: false}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    return {repository: {issue: {closedByPullRequestsReferences: {nodes: [], pageInfo: {hasNextPage: false}}}}}
+                }
+            });
+
+            await lateHolderOnFirst.execute('pull_request_target', {action: 'closed', pull_request: closedPr});
+            expect(lateHolderOnFirst.created.map(call => call.issue_number)).toEqual([20691]);
+
+            // 4. Write failure on second notice after first landed -> rerun skips already-notified target and writes the second once
+            let   failWriteB = true;
+            const retryWrite = createWorkflowHarness({
+                issues           : new Map([[19143, curatedIssue({number: 19143})], [20691, curatedIssue({number: 20691})]]),
+                issueComments    : new Map([[19143, [displacedA, refusalA]], [20691, [displacedB, refusalB]]]),
+                graphqlHandler   : () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: [], pageInfo: {hasNextPage: false}}}}}),
+                createCommentHook: async ({issue_number}) => {
+                    if (issue_number === 20691 && failWriteB) {
+                        failWriteB = false;
+                        throw new Error('transient comment write error')
+                    }
+                }
+            });
+
+            await retryWrite.execute('pull_request_target', {action: 'closed', pull_request: closedPr});
+            expect(retryWrite.created.map(call => call.issue_number)).toEqual([19143]);
+            expect(retryWrite.warnings).toHaveLength(1);
+            expect(retryWrite.warnings[0]).toMatch(/transient comment write error/);
+
+            await retryWrite.execute('pull_request_target', {action: 'closed', pull_request: closedPr});
+            expect(retryWrite.created.map(call => call.issue_number)).toEqual([19143, 20691])
+        } finally {
+            if (prevReleaseSince === undefined) delete process.env.NEO_CLAIM_RELEASE_SINCE;
+            else process.env.NEO_CLAIM_RELEASE_SINCE = prevReleaseSince
+        }
+    });
+
+    test('AC-2/AC-3: populated linked-PR nodes require valid state and repository identity while foreign/empty/redacted controls allow claims', async () => {
+        const
+            claim = issueComment('newcomer', '2026-11-16T02:00:00Z', '/claim'),
+            pr    = {
+                author_association: 'NONE',
+                body              : 'Resolves #19143',
+                created_at        : '2026-11-16T02:00:00Z',
+                number            : 21500,
+                user              : {id: 7001, login: 'outside-dev', type: 'User'}
+            },
+            badNodes = [
+                {author: {login: 'someone'}, number: 21600, state: 'OPEN'},
+                {author: {login: 'someone'}, number: 21601, repository: null, state: 'OPEN'},
+                {author: {login: 'someone'}, number: 21602, repository: {}, state: 'OPEN'},
+                {author: {login: 'someone'}, number: 21603, repository: {nameWithOwner: 'bad-slug'}, state: 'OPEN'},
+                {author: {login: 'someone'}, number: 21604, repository: {nameWithOwner: 'neomjs/neo'}, state: 'UNKNOWN'},
+                {author: {login: 'someone'}, number: 21605, repository: {nameWithOwner: 'neomjs/neo'}, state: 'open'},
+                {author: {login: 'someone'}, number: 21606, repository: {nameWithOwner: 'neomjs/neo'}, state: ''}
+            ];
+
+        for (const badNode of badNodes) {
+            const commentRun = createWorkflowHarness({
+                issues        : new Map([[19143, curatedIssue({number: 19143})]]),
+                issueComments : new Map([[19143, [claim]]]),
+                graphqlHandler: () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: [badNode], pageInfo: {hasNextPage: false}}}}})
+            });
+
+            await expect(commentRun.execute('issue_comment', {comment: claim, issue: {number: 19143}}))
+                .rejects.toThrow(/malformed linked pull request node/);
+            expect(commentRun.assigned).toEqual([]);
+            expect(commentRun.created).toEqual([]);
+
+            const prRun = createWorkflowHarness({
+                issues        : new Map([[19143, curatedIssue({number: 19143})]]),
+                graphqlHandler: () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: [{...badNode, merged: false}], pageInfo: {hasNextPage: false}}}}})
+            });
+
+            await expect(prRun.execute('pull_request_target', {action: 'opened', pull_request: pr}))
+                .rejects.toThrow(/malformed linked pull request node/);
+            expect(prRun.assigned).toEqual([]);
+            expect(prRun.created).toEqual([])
+        }
+
+        // Inconsistent closed/merged flag rejected when includeClosedPrs is true
+        const mismatchedMerged = createWorkflowHarness({
+            issues        : new Map([[19143, curatedIssue({number: 19143})]]),
+            graphqlHandler: () => ({
+                repository: {
+                    issue: {
+                        closedByPullRequestsReferences: {
+                            nodes   : [{author: {login: 'someone'}, merged: true, number: 21607, repository: {nameWithOwner: 'neomjs/neo'}, state: 'CLOSED'}],
+                            pageInfo: {hasNextPage: false}
+                        }
+                    }
+                }
+            })
+        });
+
+        await expect(mismatchedMerged.execute('pull_request_target', {action: 'opened', pull_request: pr}))
+            .rejects.toThrow(/malformed linked pull request node/);
+        expect(mismatchedMerged.assigned).toEqual([]);
+
+        // Controls: known foreign-repository PR, empty list, and explicit redacted null allow valid claims
+        for (const nodes of [[{author: {login: 'fork-dev'}, number: 99, repository: {nameWithOwner: 'fork-dev/neo'}, state: 'OPEN'}], [], [null]]) {
+            const ok = createWorkflowHarness({
+                issues        : new Map([[19143, curatedIssue({number: 19143})]]),
+                issueComments : new Map([[19143, [claim]]]),
+                graphqlHandler: () => ({repository: {issue: {closedByPullRequestsReferences: {nodes, pageInfo: {hasNextPage: false}}}}})
+            });
+
+            await ok.execute('issue_comment', {comment: claim, issue: {number: 19143}});
+            expect(ok.assigned).toEqual([{assignees: ['newcomer'], issue_number: 19143, owner: 'neomjs', repo: 'neo'}]);
+            expect(ok.created[0].body).toContain('Assigned to you')
         }
     });
 });
