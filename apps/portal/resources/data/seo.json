@@ -17,12 +17,12 @@
     "/examples": {
         "title": "Live JavaScript Examples — Web Worker Grids & Multi-Window UI | Neo.mjs",
         "description": "Interactive Neo.mjs examples running off the main thread: 100k-row virtual-scrolling data grids, SharedWorker multi-window apps, calendars & OffscreenCanvas.",
-        "lastmod": "2026-11-14"
+        "lastmod": "2026-11-16"
     },
     "/learn": {
         "title": "Developer Guides — Web Worker UI Engine, SharedWorker & AI Agent OS | Neo.mjs",
         "description": "Learn how to build off-main-thread JavaScript apps and AI Agent OS workflows with Neo.mjs: Web Worker UIs, multi-window SharedWorkers, data grids & MCP tools.",
-        "lastmod": "2026-11-15"
+        "lastmod": "2026-11-16"
     },
     "/news": {
         "title": "News, Blog & Release Notes — Multi-Threaded JavaScript Engine | Neo.mjs",
@@ -32,7 +32,7 @@
     "/news/blog": {
         "title": "Engineering Blog — Web Worker UI Architecture & AI Agent OS | Neo.mjs",
         "description": "Engineering deep dives from the Neo.mjs team on Web Worker data grids, SharedWorker multi-window UIs, OffscreenCanvas, GraphRAG memory, and MCP servers.",
-        "lastmod": "2026-11-14"
+        "lastmod": "2026-11-16"
     },
     "/news/discussions": {
         "title": "Architectural Discussions & RFCs — Neo.mjs Engine & Agent OS",
@@ -80,7 +80,7 @@
         "title": "Using These Topics — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "Welcome to the Neo.mjs learning base! Neo.mjs is a complete application platform — 461 classes in 39 namespaces from grid, forms, calendar, and dashboard...",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-07"
+        "lastmod": "2026-11-15"
     },
     "/learn/benefits/Introduction": {
         "title": "What Is Neo.mjs?",
@@ -97,7 +97,8 @@
     "/learn/benefits/EnterpriseEvaluation": {
         "title": "Evaluating Neo.mjs for Enterprise Web Applications | Neo.mjs",
         "description": "What an architecture review asks before adopting the Neo.mjs engine: licence, supply chain, maintainers, upgrades, browsers, security, accessibility.",
-        "schemaType": "TechArticle"
+        "schemaType": "TechArticle",
+        "lastmod": "2026-11-15"
     },
     "/learn/benefits/body/ApplicationEngine": {
         "title": "The Application Engine for the AI Era - Neo.mjs",
@@ -187,7 +188,7 @@
         "title": "Workspaces and Applications — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "The purpose of this tutorial is to let you see the structure of a Neo.mjs workspace, and the structure of an application.",
         "schemaType": "TechArticle",
-        "lastmod": "2026-07-19"
+        "lastmod": "2026-11-16"
     },
     "/learn/gettingstarted/DescribingTheUI": {
         "title": "Describing a View — Multi-Threaded JavaScript Application Engine | Neo.mjs",
@@ -408,7 +409,7 @@
         "title": "Main Thread Addons: Interacting with the Browser - Neo.mjs",
         "description": "Neo.mjs is multi-threaded. There are worker threads that handle data access, application logic, and keeping track of DOM updates. Practically all your...",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-15"
+        "lastmod": "2026-11-16"
     },
     "/learn/guides/coreengine/WhyEnhance": {
         "title": "Reactive JavaScript Class System for Web Worker UIs | Neo.mjs",
@@ -570,7 +571,7 @@
         "title": "JavaScript Data Grid Guide: Virtual Scrolling & Pooled Cells | Neo.mjs",
         "description": "Build high-performance JavaScript data grids with Neo.grid.Container: virtual scrolling, pooled DOM cells, sorting, header filters, and inline editing.",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-14"
+        "lastmod": "2026-11-16"
     },
     "/learn/guides/datahandling/DynamicGrids": {
         "title": "100k-Row JavaScript Data Grid: Dynamic Columns & Virtual Scrolling | Neo.mjs",
@@ -593,7 +594,8 @@
     "/learn/guides/datahandling/Gantt": {
         "title": "Building Gantt Charts with Linked Tasks | Neo.mjs",
         "description": "Learn how to build interactive Gantt charts with Neo.gantt.Container: hierarchical task trees, dependency records, cascade propagation, and working calendars.",
-        "schemaType": "TechArticle"
+        "schemaType": "TechArticle",
+        "lastmod": "2026-11-16"
     },
     "/learn/guides/datahandling/Tables": {
         "title": "Tables (Stores) — Neo.mjs Developer Guide",
@@ -857,6 +859,12 @@
         "schemaType": "TechArticle",
         "lastmod": "2026-08-31"
     },
+    "/news/blog/role-based-navigation-from-one-store-filter": {
+        "title": "Role-Based Menus from User Permissions in One Store Filter | Neo.mjs",
+        "description": "Show menus, sub menus and app windows by the permissions a backend returns at sign-in: one state value, one tree store, one fail-closed filter. Runnable demo.",
+        "schemaType": "BlogPosting",
+        "lastmod": "2026-11-16"
+    },
     "/news/blog/one-websocket-across-browser-windows-with-sharedworkers": {
         "title": "SharedWorker WebSocket & Off-Main-Thread UI Across Windows | Neo.mjs",
         "description": "Share one live WebSocket across multiple browser windows in a SharedWorker without copying state per tab: stores, VDOM diffing, and reconnect logic in one heap.",
@@ -1019,28 +1027,34 @@
         "schemaType": "TechArticle",
         "lastmod": "2026-11-09"
     },
+    "/news/releases/14.0.0": {
+        "title": "Neo.mjs v14.0.0 Release Notes",
+        "description": "Release Type: Pending the operator. Planned as a major: Engine 14 — The Front Door (ROADMAP). Stability: Pending the operator. It is set at the cut...",
+        "schemaType": "TechArticle",
+        "lastmod": "2026-11-16"
+    },
     "/examples/grid": {
-        "title": "Neo.mjs Grid & Table Examples",
-        "description": "Explore 21 live Neo.mjs Grid & Table examples: A tree hierarchy at scale: up to 100,000 rows, 200 columns and 20 levels.",
+        "title": "JavaScript Data Grid Examples — 100k Rows in a Web Worker | Neo.mjs",
+        "description": "Explore 4 live JavaScript data grid examples: A tree hierarchy at scale: up to 100,000 rows, 200 columns and 20 levels.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-14"
+        "lastmod": "2026-11-16"
     },
     "/examples/forms": {
-        "title": "Neo.mjs Forms Examples",
-        "description": "Explore 24 live Neo.mjs Forms examples: The standalone date selector component; A date field with picker and live configuration.",
+        "title": "JavaScript Form Examples — Fields, Pickers & Validation | Neo.mjs",
+        "description": "Explore 3 live JavaScript form examples: The standalone date selector component; A date field with picker and live configuration.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-14"
+        "lastmod": "2026-11-16"
     },
     "/examples/multi-window": {
-        "title": "Neo.mjs Multi-Window Examples",
-        "description": "Explore 12 live Neo.mjs Multi-Window examples: A living-data workspace whose panes can leave the browser window.",
+        "title": "Multi-Window JavaScript App Examples — SharedWorker State | Neo.mjs",
+        "description": "Explore 7 live multi-window JavaScript app examples: A living-data workspace whose panes can leave the browser window.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-14"
+        "lastmod": "2026-11-16"
     },
     "/examples/calendar": {
-        "title": "Neo.mjs Calendar Examples",
-        "description": "Explore 4 live Neo.mjs Calendar examples: A full calendar with day, week, month and year views, a month navigator and color-coded calendars..",
+        "title": "MIT JavaScript Calendar — Day, Week, Month & Year Views | Neo.mjs",
+        "description": "Explore 1 live JavaScript calendar example: A full calendar with day, week, month and year views, a month navigator and color-coded calendars.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-14"
+        "lastmod": "2026-11-16"
     }
 }

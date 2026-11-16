@@ -26,7 +26,8 @@ class Seo extends Base {
         className: 'Portal.service.Seo',
         /**
          * Static client-side window titles for top-level Portal sections, `/news/*` tabs, and `/examples/*` families,
-         * aligned with `apps/portal/resources/data/seo.json` top-level and family titles.
+         * aligned with `apps/portal/resources/data/seo.json` top-level titles and with every family title in
+         * `EXAMPLE_FAMILY_SEO` (`buildScripts/docs/seo/seoJson.mjs`).
          * @member {Object<String,String>} routeTitles
          */
         routeTitles: {
@@ -34,12 +35,15 @@ class Seo extends Base {
             '/about-us'             : 'About Us - Neo.mjs',
             '/docs'                 : 'API Documentation — Multi-Threaded JavaScript Application Engine | Neo.mjs',
             '/examples'             : 'Live JavaScript Examples — Web Worker Grids & Multi-Window UI | Neo.mjs',
-            '/examples/calendar'    : 'Neo.mjs Calendar Examples',
-            '/examples/components'  : 'Neo.mjs Components Examples',
-            '/examples/forms'       : 'Neo.mjs Forms Examples',
-            '/examples/grid'        : 'Neo.mjs Grid & Table Examples',
-            '/examples/multi-window': 'Neo.mjs Multi-Window Examples',
-            '/examples/state'       : 'Neo.mjs State & Data Examples',
+            '/examples/board'       : 'JavaScript Kanban Board — Columns, Swimlanes & Cards | Neo.mjs',
+            '/examples/calendar'    : 'MIT JavaScript Calendar — Day, Week, Month & Year Views | Neo.mjs',
+            '/examples/components'  : 'JavaScript UI Component Examples — Off the Main Thread | Neo.mjs',
+            '/examples/forms'       : 'JavaScript Form Examples — Fields, Pickers & Validation | Neo.mjs',
+            '/examples/gantt'       : 'MIT JavaScript Gantt Chart — Linked, Editable Tasks | Neo.mjs',
+            '/examples/grid'        : 'JavaScript Data Grid Examples — 100k Rows in a Web Worker | Neo.mjs',
+            '/examples/multi-window': 'Multi-Window JavaScript App Examples — SharedWorker State | Neo.mjs',
+            '/examples/scheduler'   : 'MIT JavaScript Resource Scheduler — Editable Timeline | Neo.mjs',
+            '/examples/state'       : 'JavaScript State Management Examples — Reactive Stores | Neo.mjs',
             '/home'                 : 'Neo.mjs - An Agent Institution',
             '/learn'                : 'Developer Guides — Web Worker UI Engine, SharedWorker & AI Agent OS | Neo.mjs',
             '/news'                 : 'News, Blog & Release Notes — Multi-Threaded JavaScript Engine | Neo.mjs',

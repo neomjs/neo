@@ -3,7 +3,7 @@ import {decodePng}    from '../utils/pngPixels.mjs';
 
 const PORTAL   = '/apps/portal/index.html',
       FAMILY   = '.portal-examples-family-overview',
-      FAMILIES = ['Featured', 'Grid & Table', 'Forms', 'Multi-Window', 'Calendar'];
+      FAMILIES = ['Featured', 'Grid & Table', 'Forms', 'Multi-Window', 'Calendar', 'Scheduler', 'Gantt'];
 
 /**
  * @summary Reads the mounted list from this page's App Worker, rather than a sibling Portal.
@@ -189,8 +189,9 @@ test.describe('Portal example catalog', () => {
             await selectFamily(page, 'Featured')
         }
 
-        await page.goto(`${PORTAL}#/examples/calendar`);
+        await page.goto(`${PORTAL}#/examples/gantt`);
         await expect(page.locator(FAMILY).getByRole('link', {name: 'Community Garden Plan', exact: true})).toBeVisible();
+        await page.goto(`${PORTAL}#/examples/scheduler`);
         await expect(page.locator(FAMILY).getByRole('link', {name: 'Studio Bookings', exact: true})).toBeVisible();
 
         await page.goto(`${PORTAL}#/examples/forms`);

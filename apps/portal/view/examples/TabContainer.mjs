@@ -43,6 +43,9 @@ class ExamplesTabContainer extends TabContainer {
             {family: 'forms',        title: 'Forms',          route: '/examples/forms',        iconCls: 'fa fa-keyboard'},
             {family: 'multi-window', title: 'Multi-Window',   route: '/examples/multi-window', iconCls: 'far fa-window-restore'},
             {family: 'calendar',     title: 'Calendar',       route: '/examples/calendar',     iconCls: 'fa fa-calendar'},
+            {family: 'scheduler',    title: 'Scheduler',      route: '/examples/scheduler',    iconCls: 'fa fa-calendar-week'},
+            {family: 'gantt',        title: 'Gantt',          route: '/examples/gantt',        iconCls: 'fa fa-chart-gantt'},
+            {family: 'board',        title: 'Board',          route: '/examples/board',        iconCls: 'fa fa-table-columns'},
             {family: 'components',   title: 'Components',     route: '/examples/components',   iconCls: 'fa fa-cubes'},
             {family: 'state',        title: 'State & Data',   route: '/examples/state',        iconCls: 'fa fa-database'}
         ],

@@ -76,17 +76,17 @@ test.describe('Portal examples family navigation', () => {
     test('publishes only Featured and families with records from one definition source', () => {
         const view = createView();
 
-        expect(view.getTabButtons().map(button => button.text)).toEqual(['Featured', 'Grid & Table', 'Forms', 'Multi-Window', 'Calendar']);
-        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/grid', '/examples/forms', '/examples/multi-window', '/examples/calendar']);
+        expect(view.getTabButtons().map(button => button.text)).toEqual(['Featured', 'Grid & Table', 'Forms', 'Multi-Window', 'Calendar', 'Scheduler', 'Gantt']);
+        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/grid', '/examples/forms', '/examples/multi-window', '/examples/calendar', '/examples/scheduler', '/examples/gantt']);
         expect(view.getCatalogStore().getCount()).toBe(76);
         expect(view.getCard(0).store.getCount()).toBe(28);
         expect(view.getCard(0).store.items.map(record => record.id)).toEqual(featuredExampleIds);
         expect(view.getCard(1).store.getCount()).toBe(21);
         expect(view.getCard(2).store.getCount()).toBe(24);
         expect(view.getCard(3).store.getCount()).toBe(12);
-        expect(view.getCard(4).store.items.map(record => record.id)).toEqual([
-            'calendar', 'calendar-weekview', 'gantt-basic', 'scheduler-basic'
-        ]);
+        expect(view.getCard(4).store.items.map(record => record.id)).toEqual(['calendar', 'calendar-weekview']);
+        expect(view.getCard(5).store.items.map(record => record.id)).toEqual(['scheduler-basic']);
+        expect(view.getCard(6).store.items.map(record => record.id)).toEqual(['gantt-basic']);
         expect(view.getCard(0).store.getSource()).toBe(view.getCatalogStore());
         expect(view.getCard(1).store.getSource()).toBe(view.getCatalogStore());
         expect(view.getCard(0).store.model).toBe(view.getCatalogStore().model);
@@ -163,9 +163,9 @@ test.describe('Portal examples family navigation', () => {
             feature: 'A component', lookFor: 'Inspect it.'
         }]);
 
-        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/grid', '/examples/forms', '/examples/multi-window', '/examples/calendar', '/examples/components']);
-        expect(view.getCard(5).store.getCount()).toBe(1);
-        expect(view.getCard(5).fallbackIconCls).toBe(view.familyDefinitions.find(item => item.family === 'components').iconCls)
+        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/grid', '/examples/forms', '/examples/multi-window', '/examples/calendar', '/examples/scheduler', '/examples/gantt', '/examples/components']);
+        expect(view.getCard(7).store.getCount()).toBe(1);
+        expect(view.getCard(7).fallbackIconCls).toBe(view.familyDefinitions.find(item => item.family === 'components').iconCls)
     });
 
     test('an arriving catalog populates the borrowed family stores and withdraws an empty family', () => {
@@ -180,7 +180,7 @@ test.describe('Portal examples family navigation', () => {
 
         store.remove(store.items.filter(record => record.family === 'grid-table'));
         store.fire('load');
-        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/forms', '/examples/multi-window', '/examples/calendar'])
+        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/forms', '/examples/multi-window', '/examples/calendar', '/examples/scheduler', '/examples/gantt'])
     });
 });
 

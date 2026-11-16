@@ -1175,7 +1175,7 @@
             "dist_prod": "dist/production/examples/gantt/basic/index.html"
         },
         "hiddenIn": [],
-        "family": "calendar",
+        "family": "gantt",
         "component": "Gantt",
         "feature": "A project plan with linked, editable tasks",
         "lookFor": "Move a task and follow its dependencies. Create a link, then reload to see the saved plan."
@@ -1192,7 +1192,7 @@
             "dist_prod": "dist/production/examples/scheduler/basic/index.html"
         },
         "hiddenIn": [],
-        "family": "calendar",
+        "family": "scheduler",
         "component": "Scheduler",
         "feature": "Resource bookings on an editable timeline",
         "lookFor": "Move a booking to another studio or time. Reload after it saves to see the same booking in its new slot."
