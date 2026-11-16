@@ -29,7 +29,7 @@ async function servePathnameMode(page) {
         }})
     });
 
-    await page.route(/\/apps\/route\/(home|section1|section2)$/, async route => {
+    await page.route(/\/apps\/route\/(home|section1|section2)(\?[^#]*)?$/, async route => {
         const response = await route.fetch({url: new URL('/apps/route/index.html', route.request().url()).href}),
               html     = (await response.text()).replace('<head>', '<head>\n    <base href="/apps/route/">');
 
@@ -90,6 +90,29 @@ test('pathname mode turns a #/… bookmark and a #/… redirect into paths', asy
     await page.getByRole('button', {name: 'Section 1'}).click();
     await expect.poll(() => shownCard(page)).toBe(card.section1);
     await expect(page).toHaveURL(/\/apps\/route\/section1$/)
+});
+
+test('pathname mode keeps the page search out of the route, keeps a bookmark anchor last, and pushes one entry per route', async ({page}) => {
+    await servePathnameMode(page);
+
+    // a campaign link lands on its route, and its search stays in the URL
+    await page.goto('/apps/route/section1?utm_source=news');
+    await expect.poll(() => shownCard(page)).toBe(card.section1);
+    await expect(page).toHaveURL(/\/apps\/route\/section1\?utm_source=news$/);
+
+    // the bare and the canonical form of one route add one history entry
+    await page.evaluate(() => Neo.Main.setRoute({value: 'section2'}));
+    await page.evaluate(() => Neo.Main.setRoute({value: '/section2'}));
+    await expect.poll(() => shownCard(page)).toBe(card.section2);
+
+    await page.goBack();
+    await expect.poll(() => shownCard(page)).toBe(card.section1);
+    await expect(page).toHaveURL(/\/apps\/route\/section1\?utm_source=news$/);
+
+    // a bookmark with a page search and its own anchor: path, search, then fragment
+    await page.goto('/apps/route/index.html?utm_source=news#/section2#top');
+    await expect.poll(() => shownCard(page)).toBe(card.section2);
+    await expect(page).toHaveURL(/\/apps\/route\/section2\?utm_source=news#top$/)
 });
 
 test('hash mode stays the default: a #/… route boots, and a button moves the hash', async ({page}) => {

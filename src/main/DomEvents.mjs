@@ -434,12 +434,13 @@ class DomEvents extends Base {
 
     /**
      * @summary The current route: the hash in `'hash'` mode. In `'pathname'` mode, the path after
-     * `Neo.config.routerBasePath`, with its search.
+     * `Neo.config.routerBasePath`. The page's search stays out of the route in both modes, so a campaign query
+     * leaves a controller's route match alone.
      * @returns {String} '' without a route
      */
     getRoute() {
         let {routerBasePath, routerMode} = Neo.config,
-            {hash, pathname, search}     = location,
+            {hash, pathname}             = location,
             path;
 
         if (routerMode !== 'pathname') {
@@ -450,7 +451,7 @@ class DomEvents extends Base {
             pathname.substring(routerBasePath.length) :
             pathname;
 
-        return path && path !== '/' ? path + search : ''
+        return path && path !== '/' ? path : ''
     }
 
     /**
@@ -1205,9 +1206,15 @@ class DomEvents extends Base {
         let me = this;
 
         if (Neo.config.routerMode !== 'pathname') {
-            location.hash = route
-        } else if (route !== me.getRoute()) {
-            history.pushState(null, '', Neo.config.routerBasePath + (route.startsWith('/') ? route : `/${route}`));
+            location.hash = route;
+            return
+        }
+
+        // 'home' and '/home' are one route, and '' and '/' the root: one history entry each
+        route = '/' + route.replace(/^\/+/, '');
+
+        if (route !== (me.getRoute() || '/') + (route.includes('?') ? location.search : '')) {
+            history.pushState(null, '', Neo.config.routerBasePath + route);
             me.sendRoute()
         }
     }
@@ -1270,22 +1277,23 @@ class DomEvents extends Base {
 
     /**
      * @summary In `'pathname'` mode, moves a `#/…` route (a hash-mode link or bookmark) into the path, replacing the
-     * current history entry.
+     * current history entry. The URL is composed in order: the route's path, its query and the page's search, then
+     * the route's own anchor (`#/learn/Intro#section`) as the fragment.
      * @param {Boolean} [keepSearch=false] true keeps the page's search, as a bookmark from hash mode carries it;
      * a link names a whole route
      * @returns {Boolean} true if the hash was a route
      */
     upgradeHashRoute(keepSearch=false) {
         let {hash, search} = location,
-            route;
+            [, route, query = '', anchor = ''] = hash.match(/^#(\/[^?#]*)(?:\?([^#]*))?(#.*)?$/) || [];
 
-        if (Neo.config.routerMode !== 'pathname' || !hash.startsWith('#/')) {
+        if (Neo.config.routerMode !== 'pathname' || !route) {
             return false
         }
 
-        route = hash.substring(1);
+        query = [query, keepSearch ? search.substring(1) : ''].filter(Boolean).join('&');
 
-        history.replaceState(history.state, '', Neo.config.routerBasePath + route + (keepSearch && !route.includes('?') ? search : ''));
+        history.replaceState(history.state, '', Neo.config.routerBasePath + route + (query && `?${query}`) + anchor);
         return true
     }
 }

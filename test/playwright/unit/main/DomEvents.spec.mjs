@@ -690,9 +690,10 @@ test.describe('Neo.main.DomEvents', () => {
         })
     });
 
-    test('pathname mode reads the path after routerBasePath with its search; the base path alone is no route', () => {
+    test('pathname mode reads the path after routerBasePath, never its search; the base path alone is no route', () => {
         withRouter({base: '/docs', mode: 'pathname', url: '/docs/learn/Intro?deck=training'}, ({go, owner}) => {
-            expect(owner.getRoute()).toBe('/learn/Intro?deck=training');
+            expect(owner.getRoute(), 'the page search stays out of the route, as in hash mode').toBe('/learn/Intro');
+            expect(owner.getRouteConfig(1)).toMatchObject({hashString: '/learn/Intro', windowId: 1});
 
             for (const href of ['/docs', '/docs/', '/docs?theme=dark']) {
                 go(href);
@@ -706,12 +707,14 @@ test.describe('Neo.main.DomEvents', () => {
         })
     });
 
-    test('pathname mode pushes a changed route under the base path and sends it once', () => {
+    test('pathname mode pushes a changed route under the base path once, whether it is written bare or canonical', () => {
         withRouter({base: '/docs', mode: 'pathname', url: '/docs/learn/Intro'}, ({calls, owner, sent}) => {
             owner.setRoute('/news/blog');
-            owner.setRoute('/news/blog');
+            owner.setRoute('news/blog');
             owner.setRoute('home');
+            owner.setRoute('/home');
             owner.setRoute('');
+            owner.setRoute('/');
 
             expect(calls).toEqual([['push', '/docs/news/blog'], ['push', '/docs/home'], ['push', '/docs/']]);
             expect(sent).toEqual(['/news/blog', '/home', ''])
@@ -733,10 +736,10 @@ test.describe('Neo.main.DomEvents', () => {
         })
     });
 
-    test('pathname mode boots a #/… bookmark into its path with the page search; Back or Forward sends only a changed route', () => {
+    test('pathname mode boots a #/… bookmark into its path, the page search kept in the URL and out of the route; Back or Forward sends only a changed route', () => {
         withRouter({mode: 'pathname', url: '/?utm_source=news#/learn/Intro'}, ({calls, go, owner, sent, window}) => {
             expect(calls).toEqual([['replace', '/learn/Intro?utm_source=news']]);
-            expect(owner.getRouteConfig(1)).toMatchObject({hashString: '/learn/Intro?utm_source=news', windowId: 1});
+            expect(owner.getRouteConfig(1)).toMatchObject({hashString: '/learn/Intro', windowId: 1});
 
             window.dispatchEvent(new Event('popstate'));
             expect(sent, 'the boot route is not new').toEqual([]);
@@ -744,6 +747,21 @@ test.describe('Neo.main.DomEvents', () => {
             go('/news/blog');
             window.dispatchEvent(new Event('popstate'));
             expect(sent).toEqual(['/news/blog'])
+        })
+    });
+
+    test('pathname mode composes a #/… bookmark with its own query and anchor as path, query, then fragment', () => {
+        withRouter({mode: 'pathname', url: '/?utm_source=news#/learn/benefits/Introduction#the-problem'}, ({calls, go, location, owner}) => {
+            expect(calls).toEqual([['replace', '/learn/benefits/Introduction?utm_source=news#the-problem']]);
+            expect(location.search).toBe('?utm_source=news');
+            expect(location.hash).toBe('#the-problem');
+            expect(owner.getRoute()).toBe('/learn/benefits/Introduction');
+
+            // a link names a whole route: its own query and anchor, not the page's search
+            go('#/news/blog?page=2#top');
+            owner.onHashChange();
+            expect(calls[1]).toEqual(['replace', '/news/blog?page=2#top']);
+            expect(owner.getRoute()).toBe('/news/blog')
         })
     });
 });
