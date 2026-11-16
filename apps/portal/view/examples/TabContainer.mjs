@@ -5,6 +5,7 @@ import ExampleStore           from '../../store/Examples.mjs';
 import List                   from './List.mjs';
 import TabContainer           from '../shared/TabContainer.mjs';
 import TabContainerController from './TabContainerController.mjs';
+import TabOverflow            from '../../../../src/tab/plugin/Overflow.mjs';
 
 /**
  * @summary Publishes the example groups that have a card to show in the selected build, and that selection.
@@ -44,6 +45,16 @@ class ExamplesTabContainer extends TabContainer {
          * @reactive
          */
         dragResortable: true,
+        /**
+         * The section's groups need more height than a desktop bar has, so its overflow control stays. It joins the
+         * bar's action rail beside the build menu (`projectAsAction`), inside the section, so it leaves with the
+         * section instead of floating over the next one.
+         * @member {Object} headerToolbar
+         */
+        headerToolbar: {
+            cls    : ['portal-shared-tab-header-toolbar', 'neo-tab-header-toolbar'],
+            plugins: [{module: TabOverflow, projectAsAction: true}]
+        },
         /**
          * The single ordered source of the example groups: id (`family`), band, title, route and tab icon.
          * Featured comes first and is no group: it lists the records marked `featured`. A group lists its home
