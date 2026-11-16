@@ -1,0 +1,22 @@
+// An app window drawn as desktop glass. `.neo-dialog` in the selector outranks the dialog's own chrome rules.
+.neo-dialog.webdesktop-window {
+    // A dialog renders outside the viewport, so it needs its own see-through containers
+    --container-background-color: transparent;
+
+    backdrop-filter : blur(30px) saturate(160%);
+    background-color: var(--webdesktop-glass-strong);
+    border          : 1px solid var(--webdesktop-glass-border);
+    border-radius   : 16px;
+    box-shadow      : var(--webdesktop-shadow);
+    color           : var(--webdesktop-ink);
+    overflow        : hidden;
+
+    // Declared on the header itself, so they win over the theme's dialog values inherited from the window
+    .neo-header-toolbar {
+        --dialog-header-color     : var(--webdesktop-ink);
+        --dialog-icon-color       : var(--webdesktop-ink-dim);
+        --toolbar-background-color: transparent;
+
+        border-bottom: 1px solid var(--webdesktop-glass-border);
+    }
+}

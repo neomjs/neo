@@ -1,0 +1,63 @@
+.webdesktop-task-list {
+    --list-container-list-color        : var(--webdesktop-ink);
+    --list-item-background-color      : transparent;
+    --list-item-background-color-active: var(--webdesktop-glass-active);
+    --list-item-background-color-hover : var(--webdesktop-glass-hover);
+    --list-item-focus-outline          : 2px solid var(--webdesktop-accent);
+    --list-item-focus-outline-offset   : -2px;
+    --list-item-padding                : 0 12px 0 8px;
+
+    align-items: center;
+    display    : flex;
+    gap        : 4px;
+    margin-left: 6px;
+    overflow   : visible;
+
+    .neo-list-item {
+        align-items  : center;
+        border-radius: 12px;
+        display      : flex;
+        gap          : 8px;
+        height       : 40px;
+        position     : relative;
+
+        // The open indicator: a bar under a running app, a dot under a minimized one
+        &::after {
+            background-color: var(--webdesktop-accent);
+            border-radius   : 2px;
+            bottom          : 3px;
+            content         : '';
+            height          : 3px;
+            left            : 50%;
+            position        : absolute;
+            transform       : translateX(-50%);
+            transition      : width .2s ease;
+            width           : 18px;
+        }
+
+        &.webdesktop-task-minimized {
+            opacity: .65;
+
+            &::after {
+                width: 6px;
+            }
+        }
+    }
+
+    .webdesktop-task-icon {
+        align-items     : center;
+        background-color: var(--webdesktop-app-color);
+        border-radius   : 8px;
+        color           : #fff;
+        display         : flex;
+        font-size       : 13px;
+        height          : 26px;
+        justify-content : center;
+        width           : 26px;
+    }
+
+    .webdesktop-task-text {
+        font-size  : 13px;
+        font-weight: 600;
+    }
+}

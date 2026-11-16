@@ -1,0 +1,52 @@
+.webdesktop-app-view {
+    align-items    : center;
+    display        : flex;
+    flex-direction : column;
+    gap            : 10px;
+    height         : 100%;
+    justify-content: center;
+    padding        : 24px 32px 32px;
+    text-align     : center;
+
+    // The launcher's tile, larger: the window renders outside the launcher's scope
+    .webdesktop-app-icon {
+        align-items    : center;
+        background     : linear-gradient(145deg, color-mix(in srgb, var(--webdesktop-app-color) 70%, white), var(--webdesktop-app-color) 55%, color-mix(in srgb, var(--webdesktop-app-color) 82%, black));
+        border-radius  : 22px;
+        box-shadow     : 0 16px 34px -12px color-mix(in srgb, var(--webdesktop-app-color) 80%, transparent), inset 0 1px 0 rgba(255, 255, 255, .35);
+        color          : #fff;
+        display        : flex;
+        font-size      : 34px;
+        height         : 80px;
+        justify-content: center;
+        margin-bottom  : 6px;
+        width          : 80px;
+    }
+
+    h2 {
+        font-family: inherit;
+        font-size  : 22px;
+        font-weight: 700;
+        margin     : 0;
+    }
+
+    p {
+        color      : var(--webdesktop-ink-dim);
+        font-family: inherit;
+        font-size  : 14px;
+        margin     : 0;
+    }
+
+    .webdesktop-app-grant {
+        align-items     : center;
+        background-color: var(--webdesktop-glass-hover);
+        border          : 1px solid var(--webdesktop-glass-border);
+        border-radius   : 999px;
+        color           : var(--webdesktop-ink-dim);
+        display         : inline-flex;
+        font-size       : 12.5px;
+        gap             : 8px;
+        margin-top      : 10px;
+        padding         : 6px 12px;
+    }
+}

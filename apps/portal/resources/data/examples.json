@@ -25,8 +25,8 @@
     {
         "id": "webdesktop",
         "component": "State Provider",
-        "feature": "A desktop whose icons and menus follow the signed-in account's permissions through one store filter",
-        "lookFor": "Sign in as two accounts and compare the apps they get, then open Permissions and switch one: the icons, the start menu and its submenus update in place.",
+        "feature": "A desktop whose icons, menus and windows follow the signed-in account's permissions through one store filter",
+        "lookFor": "Sign in as two accounts and compare the apps they get. Double-click an icon to open its window, then open Permissions and switch that app off: its icon, its menu entry and its window go.",
         "scope": "The accounts and their permissions are demonstration data; hiding UI is not authorization.",
         "featured": true,
         "environments": [

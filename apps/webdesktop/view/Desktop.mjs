@@ -28,10 +28,11 @@ class Desktop extends Container {
          * @member {Object[]} items
          */
         items: [{
-            ntype : 'container',
-            cls   : ['webdesktop-workspace'],
-            flex  : 1,
-            layout: {ntype: 'hbox', align: 'stretch'},
+            ntype    : 'container',
+            cls      : ['webdesktop-workspace'],
+            flex     : 1,
+            layout   : {ntype: 'hbox', align: 'stretch'},
+            reference: 'workspace',
 
             items: [{
                 ntype : 'container',
@@ -42,6 +43,7 @@ class Desktop extends Container {
                 items: [{
                     module   : Launcher,
                     flex     : 1,
+                    listeners: {openApp: 'onLauncherOpenApp'},
                     reference: 'launcher'
                 }, {
                     ntype: 'component',
