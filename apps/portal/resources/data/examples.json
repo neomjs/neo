@@ -32,7 +32,7 @@
         "environments": [
             "Desktop"
         ],
-        "image": null,
+        "image": "devmode/webdesktop-14-0.jpg",
         "name": "Web Desktop",
         "sourceUrl": "apps/webdesktop",
         "urls": {
