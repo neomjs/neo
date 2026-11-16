@@ -1,4 +1,5 @@
 import DependencyModel from './DependencyModel.mjs';
+import RecordFactory   from '../data/RecordFactory.mjs';
 import Store           from '../data/Store.mjs';
 
 /**
@@ -11,6 +12,13 @@ import Store           from '../data/Store.mjs';
  * @see Neo.gantt.DependencyLayer
  */
 class DependencyStore extends Store {
+    #indexedCount        = -1
+    #indexedItems        = null
+    #indexedMutations    = -1
+    #indexedRecordEpochs = null
+    #predecessors        = null
+    #successors          = null
+
     static config = {
         /**
          * @member {String} className='Neo.gantt.DependencyStore'
@@ -89,28 +97,190 @@ class DependencyStore extends Store {
     }
 
     /**
+     * @summary Drops cached predecessor and successor endpoint buckets.
+     * @private
+     */
+    #clearEndpointIndex() {
+        this.#indexedCount        = -1;
+        this.#indexedItems        = null;
+        this.#indexedMutations    = -1;
+        this.#indexedRecordEpochs = null;
+        this.#predecessors        = null;
+        this.#successors          = null
+    }
+
+    /**
+     * @summary Clears cached endpoints alongside a silent collection clear.
+     * @param {Boolean} [reset=true] True to also clear `allItems`.
+     */
+    clearSilent(reset=true) {
+        super.clearSilent(reset);
+        this.#clearEndpointIndex()
+    }
+
+    /**
+     * @summary Releases cached endpoint buckets before destroying the store.
+     */
+    destroy() {
+        this.#clearEndpointIndex();
+        super.destroy()
+    }
+
+    /**
+     * @summary Checks whether cached endpoint buckets match current store membership, order, and record epochs.
+     * @returns {Boolean}
+     * @private
+     */
+    #hasValidEndpointIndex() {
+        if (
+            !this.#predecessors ||
+            this.#indexedItems !== this._items ||
+            this.#indexedCount !== this.getCount() ||
+            this.#indexedMutations !== this.getCountMutations()
+        ) {
+            return false
+        }
+
+        for (const [cls, epoch] of this.#indexedRecordEpochs) {
+            if (RecordFactory.getWriteEpoch(cls) !== epoch) {
+                return false
+            }
+        }
+
+        return true
+    }
+
+    /**
+     * @summary Rebuilds predecessor and successor buckets once when membership, order, or endpoints changed.
+     * @private
+     */
+    #ensureEndpointIndex() {
+        if (this.#hasValidEndpointIndex()) {
+            return
+        }
+
+        const
+            count         = this.getCount(),
+            items         = this._items,
+            mutations     = this.getCountMutations(),
+            predecessors  = new Map(),
+            successors    = new Map(),
+            recordClasses = new Set(),
+            pushEdge      = (map, key, edge) => {
+                let bucket = map.get(key);
+                if (!bucket) {
+                    bucket = [];
+                    map.set(key, bucket)
+                }
+                bucket.push(edge)
+            };
+
+        for (let i = 0; i < count; i++) {
+            const edge = this.getAt(i);
+            if (edge) {
+                if (RecordFactory.isRecord(edge)) {
+                    recordClasses.add(edge.constructor)
+                }
+                pushEdge(successors,   String(edge.fromId), edge);
+                pushEdge(predecessors, String(edge.toId),   edge)
+            }
+        }
+
+        const recordEpochs = new Map();
+        for (const cls of recordClasses) {
+            recordEpochs.set(cls, RecordFactory.getWriteEpoch(cls))
+        }
+
+        this.#indexedCount        = count;
+        this.#indexedItems        = items;
+        this.#indexedMutations    = mutations;
+        this.#indexedRecordEpochs = recordEpochs;
+        this.#predecessors        = predecessors;
+        this.#successors          = successors
+    }
+
+    /**
+     * @summary Returns a fresh array of cached edges for one endpoint direction.
+     * @param {String|Number} taskId
+     * @param {Boolean} incoming
+     * @returns {Neo.gantt.DependencyModel[]}
+     * @private
+     */
+    #lookupEdges(taskId, incoming) {
+        if (taskId === null || taskId === undefined) {
+            return []
+        }
+
+        this.#ensureEndpointIndex();
+        const edges = (incoming ? this.#predecessors : this.#successors).get(String(taskId));
+        return edges ? edges.slice() : []
+    }
+
+    /**
+     * @summary Invalidates endpoint bucket order after moving an item in place.
+     * @param {Number} fromIndex
+     * @param {Number} toIndex
+     */
+    move(fromIndex, toIndex) {
+        super.move(fromIndex, toIndex);
+        this.#clearEndpointIndex()
+    }
+
+    /**
+     * @summary Invalidates endpoint bucket order after reversing items in place.
+     * @returns {Object[]}
+     */
+    reverse() {
+        const items = super.reverse();
+        this.#clearEndpointIndex();
+        return items
+    }
+
+    /**
+     * @summary Invalidates endpoint bucket order after in-place sorting.
+     * @param {Object[]} arr
+     * @protected
+     */
+    sortArray(arr) {
+        super.sortArray(arr);
+        if (arr === this._items) {
+            this.#clearEndpointIndex()
+        }
+    }
+
+    /**
+     * @summary Invalidates cached endpoints when `updateRows` modifies `fromId` or `toId`.
+     * @param {Object[]} rows
+     * @returns {Error[]}
+     * @protected
+     */
+    writeRows(rows) {
+        const touchesEndpoints = rows.some(row => row?.values && (Object.hasOwn(row.values, 'fromId') || Object.hasOwn(row.values, 'toId')));
+        if (touchesEndpoints) {
+            this.#clearEndpointIndex();
+            if (this.allItems instanceof DependencyStore) {
+                this.allItems.#clearEndpointIndex()
+            }
+        }
+        try {
+            return super.writeRows(rows)
+        } finally {
+            if (touchesEndpoints) {
+                this.#clearEndpointIndex();
+                if (this.allItems instanceof DependencyStore) {
+                    this.allItems.#clearEndpointIndex()
+                }
+            }
+        }
+    }
+
+    /**
      * @summary Returns all dependency records whose `toId` matches `taskId`.
      * @param {String|Number} taskId
      * @returns {Neo.gantt.DependencyModel[]}
      */
     getPredecessors(taskId) {
-        if (taskId === null || taskId === undefined) {
-            return []
-        }
-
-        const
-            target = String(taskId),
-            result = [],
-            count  = this.getCount();
-
-        for (let i = 0; i < count; i++) {
-            const edge = this.getAt(i);
-            if (edge && String(edge.toId) === target) {
-                result.push(edge)
-            }
-        }
-
-        return result
+        return this.#lookupEdges(taskId, true)
     }
 
     /**
@@ -119,23 +289,7 @@ class DependencyStore extends Store {
      * @returns {Neo.gantt.DependencyModel[]}
      */
     getSuccessors(taskId) {
-        if (taskId === null || taskId === undefined) {
-            return []
-        }
-
-        const
-            target = String(taskId),
-            result = [],
-            count  = this.getCount();
-
-        for (let i = 0; i < count; i++) {
-            const edge = this.getAt(i);
-            if (edge && String(edge.fromId) === target) {
-                result.push(edge)
-            }
-        }
-
-        return result
+        return this.#lookupEdges(taskId, false)
     }
 }
 
