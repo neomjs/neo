@@ -44,14 +44,15 @@ class TabContainerController extends Component {
     }
 
     /**
-     * @summary Publishes only families with records, deriving every header from the view's definitions.
+     * @summary Publishes only families with a covered record, deriving every header from the view's definitions.
+     * A family whose records all lack a cover would open on an empty tab, so it gets none.
      */
     onCatalogLoad() {
         const view      = this.component,
               families  = new Set(),
               available = new Set();
 
-        view.getCatalogStore().forEach(record => families.add(record.family));
+        view.getCatalogStore().forEach(record => view.hasCover(record) && families.add(record.family));
         view.familyDefinitions.forEach(definition => {
             if (definition.family === null || families.has(definition.family)) available.add(definition.route)
         });
