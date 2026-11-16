@@ -130,13 +130,13 @@ class ExamplesTabContainer extends TabContainer {
     }
 
     /**
-     * @summary Whether a record publishes a card: it names a cover. The one rule the family stores filter by
-     * and the controller publishes tabs by.
+     * @summary A visible record with a cover publishes a card. Both family stores and the tab controller use
+     * this rule so a hidden record alone never publishes a family.
      * @param {Object} record A catalog record or its raw row
      * @returns {Boolean}
      */
     hasCover(record) {
-        return !!record.image
+        return !record.hidden && !!record.image
     }
 
     /**

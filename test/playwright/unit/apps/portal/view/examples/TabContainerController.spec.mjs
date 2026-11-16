@@ -182,6 +182,8 @@ test.describe('Portal examples family navigation', () => {
         const cover = catalog.find(record => record.image).image,
               rows  = [
                   ...catalog.map(record => ['scheduler-basic', 'gantt-basic'].includes(record.id) ? {...record, image: cover} : record),
+                  {...catalog[0], id: 'test-state-hidden',     family: 'state',      featured: false, image: cover, hidden: true},
+                  {...catalog[0], id: 'test-gantt-hidden',     family: 'gantt',      featured: false, image: cover, hidden: true},
                   {...catalog[0], id: 'test-board-waiting',    family: 'board',      featured: false, image: null},
                   {...catalog[0], id: 'test-components-shown', family: 'components', featured: false, image: cover}
               ],
