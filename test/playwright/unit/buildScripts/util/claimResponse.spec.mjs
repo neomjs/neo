@@ -1,6 +1,7 @@
 import fs             from 'node:fs';
 import path           from 'node:path';
 import {test, expect} from '@playwright/test';
+import * as yaml      from 'js-yaml';
 
 import {
     CLAIM_RELEASE_SINCE,
@@ -1358,7 +1359,8 @@ test.describe('buildScripts/util/claimResponse', () => {
             expect(raw).toContain('types: [opened, reopened, edited, closed]');
             expect(raw).toContain('pull-requests: write');
             expect(raw).toContain('NEO_CLAIM_RELEASE_SINCE: ${{ vars.NEO_CLAIM_RELEASE_SINCE }}');
-            expect(raw).toContain('ref: ${{ github.event.repository.default_branch }}');
+            expect(raw).toContain('repository: neomjs/neo');
+            expect(raw).toContain('ref: ${{ inputs.engine_commit || github.event.repository.default_branch }}');
             expect(raw).not.toContain('github.event.pull_request.head');
 
             const createHarness = ({permission = 'read', mergedCount = 0, nextIssueReadHook, graphqlHasNextPage = false} = {}) => {
@@ -1658,6 +1660,112 @@ test.describe('buildScripts/util/claimResponse', () => {
                 else process.env.GITHUB_WORKSPACE = prevWorkspace;
                 if (prevReleaseSince === undefined) delete process.env.NEO_CLAIM_RELEASE_SINCE;
                 else process.env.NEO_CLAIM_RELEASE_SINCE = prevReleaseSince
+            }
+        });
+
+        test('workflow exposes pinned workflow_call contract, forbids caller-repo file reads or script interpolation, and executes against sibling repositories', async () => {
+            const
+                workflowPath  = path.resolve(process.cwd(), '.github/workflows/claim-responder.yml'),
+                raw           = fs.readFileSync(workflowPath, 'utf8'),
+                workflow      = yaml.load(raw),
+                steps         = workflow?.jobs?.respond?.steps ?? [],
+                verifyStep    = steps.find(step => step.name === 'Verify Engine commit pin'),
+                checkoutSteps = steps.filter(step => String(step.uses || '').startsWith('actions/checkout@')),
+                checkoutStep  = checkoutSteps[0],
+                scriptStep    = steps.find(step => step.name === 'Answer the claim'),
+                sparseLines   = String(checkoutStep?.with?.['sparse-checkout'] || '').trim().split(/\r?\n/).map(s => s.trim()),
+                prevWorkspace = process.env.GITHUB_WORKSPACE;
+
+            expect(Object.keys(workflow.on).sort()).toEqual(['issue_comment', 'pull_request_target', 'workflow_call']);
+            expect(Object.keys(workflow.on.workflow_call.inputs)).toEqual(['engine_commit']);
+            expect(workflow.on.workflow_call.inputs.engine_commit).toMatchObject({
+                required: true,
+                type    : 'string'
+            });
+
+            expect(verifyStep).toBeTruthy();
+            expect(verifyStep.if).toBe("github.repository != 'neomjs/neo' || inputs.engine_commit != ''");
+            expect(verifyStep.env).toEqual({ENGINE_COMMIT: '${{ inputs.engine_commit }}'});
+            expect(String(verifyStep.run)).not.toContain('${{');
+
+            expect(checkoutSteps).toHaveLength(1);
+            expect(checkoutStep.with).toMatchObject({
+                repository                 : 'neomjs/neo',
+                ref                        : '${{ inputs.engine_commit || github.event.repository.default_branch }}',
+                'persist-credentials'      : false,
+                'sparse-checkout-cone-mode': false
+            });
+            expect(sparseLines).toEqual([
+                'buildScripts/util/claimResponse.mjs',
+                'buildScripts/util/contributorStanding.mjs'
+            ]);
+
+            expect(scriptStep?.uses).toMatch(/^actions\/github-script@/);
+            expect(String(scriptStep?.with?.script || '')).not.toContain('${{');
+
+            const
+                AsyncFunction = Object.getPrototypeOf(async function () {}).constructor,
+                runStep       = new AsyncFunction('github', 'context', 'core', String(scriptStep.with.script)),
+                issue         = gfiIssue({number: 1764, state: 'open'}),
+                assigned      = [],
+                created       = [],
+                siblingClaim  = comment('outside-sibling-dev', '2026-11-16T02:00:00Z', "I'd like to work on this.", {id: 8801});
+
+            const github = {
+                graphql : async () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: []}}}}),
+                paginate: async fn => {
+                    if (fn === github.rest.issues.listComments) return [siblingClaim];
+                    if (fn === github.rest.issues.listEvents)   return [];
+                    if (fn === github.rest.issues.listForRepo)  return [];
+                    throw new Error('unexpected paginate')
+                },
+                rest: {
+                    issues: {
+                        addAssignees: async args => {
+                            assigned.push(args);
+                            return {data: {...issue, assignees: [{id: 8801, login: 'outside-sibling-dev'}]}}
+                        },
+                        createComment: async args => { created.push(args); return {data: {}} },
+                        get          : async () => ({data: issue}),
+                        listComments : Symbol('listComments'),
+                        listEvents   : Symbol('listEvents'),
+                        listForRepo  : Symbol('listForRepo')
+                    },
+                    repos : {getCollaboratorPermissionLevel: async () => ({data: {permission: 'read'}})},
+                    search: {
+                        issuesAndPullRequests: async ({q}) => q.startsWith('org:')
+                            ? {data: {incomplete_results: false, total_count: 0}}
+                            : {data: {items: []}}
+                    }
+                }
+            };
+
+            process.env.GITHUB_WORKSPACE = process.cwd();
+            try {
+                await runStep(
+                    github,
+                    {
+                        eventName: 'issue_comment',
+                        payload  : {action: 'created', comment: siblingClaim, issue: {number: 1764, state: 'open'}},
+                        repo     : {owner: 'neomjs', repo: 'neo-agent-brain'}
+                    },
+                    {info: () => {}, warning: () => {}}
+                );
+
+                expect(assigned).toEqual([{
+                    assignees   : ['outside-sibling-dev'],
+                    issue_number: 1764,
+                    owner       : 'neomjs',
+                    repo        : 'neo-agent-brain'
+                }]);
+                expect(created).toHaveLength(1);
+                expect(created[0].owner).toBe('neomjs');
+                expect(created[0].repo).toBe('neo-agent-brain');
+                expect(created[0].issue_number).toBe(1764);
+                expect(created[0].body).toContain('Assigned to you')
+            } finally {
+                if (prevWorkspace === undefined) delete process.env.GITHUB_WORKSPACE;
+                else process.env.GITHUB_WORKSPACE = prevWorkspace
             }
         });
     });
