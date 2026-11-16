@@ -157,5 +157,31 @@ test.describe('WebDesktop.view.ViewportStateProvider', () => {
         instances.push(taskbar);
 
         expect(button.vdom['aria-label']).toBe('Switch theme')
+    });
+
+    test('an open start-menu level survives its group collapsing and expanding, and the last revoke closes it', async () => {
+        provider.setData('permissions', ['view-mail', 'view-calendar']);
+
+        const root  = createMenu({store: apps}),
+              group = root.store.get('communication');
+
+        root.showSubMenu(root.getItemId(root.store.getKey(group)), group);
+
+        const submenu = root.activeSubMenu;
+
+        instances.push(submenu, root);
+
+        apps.collapse('communication');
+
+        expect(ids(submenu.store)).toEqual(['mail', 'calendar']);
+
+        await apps.expand('communication');
+
+        expect(ids(submenu.store)).toEqual(['mail', 'calendar']);
+        expect(root.activeSubMenu).toBe(submenu);
+
+        provider.setData('permissions', []);
+
+        expect(root.activeSubMenu).toBeNull()
     })
 });
