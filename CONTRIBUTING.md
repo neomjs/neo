@@ -145,6 +145,13 @@ independently: this one as the `neo.mjs` npm package, the Brain as container ima
    To keep the project moving, a claim lasts 3 days, and any comment you leave on the ticket starts the 3 days again.
    After 3 days without a word from you, the ticket may go to another contributor. If your plans change, comment
    `/unclaim` (or "please unassign me") on the ticket to give the claim back — an automatic reply confirms the release.
+   An open pull request targeting a curated issue holds that issue while the pull request remains open.
+   The claim responder assigns the pull request's author when they have commented on the issue and are eligible
+   under the claim rules above.
+   An automatic notice may explain an overlap with another pull request, an already-completed issue, or a released
+   claim when a pull request closes without merging.
+   If two PRs cover the same fix, a maintainer will link them, tell both contributors who is coordinating and what
+   happens next, and explain the choice to both before either patch lands.
 4. Please make sure that pull requests are always related to an issue inside our <a href="../../issues">Issues Tracker</a>.
    Every pull request resolves **one** issue and must include **`Resolves #<issue-id>` on its own line** in the PR
    description (`Fixes #N` and `Closes #N` are rejected by our `baseline / PR baseline` CI check). Opening a PR in the
@@ -165,6 +172,33 @@ independently: this one as the `neo.mjs` npm package, the Brain as container ima
     1. It is simply impossible to verify if contributed code is self-written.
     2. Adding new npm packages => dependencies / devDependencies is fine, in case there are no licensing conflicts.
 7. Refer to the <a href="learn/guides/fundamentals/CodebaseOverview.md">codebase overview</a> to understand how our repository is structured.
+
+#### Your standing
+
+Merged pull requests across the organisation's public repositories count toward your standing:
+
+| Standing | Merged pull requests |
+|---|---|
+| Contributor | 1 |
+| Returning Contributor | 5 |
+| Bronze Contributor | 10 |
+| Silver Contributor | 25 |
+| Gold Contributor | 50 |
+| Diamond Contributor | 100 |
+| Core Contributor | 250 |
+
+The comment on a merge reports your standing and merged pull-request count, shows progress toward the next rung when
+one remains, and may suggest unclaimed issues. It introduces your badge on your first eligible merge and links your
+record once its folder has been generated. The badge updates when a scheduled run counts the merge.
+
+Your record lives at `https://neomjs.com/badges/<login>-<id>/`: replace `<login>` with your lowercase GitHub login and
+`<id>` with your numeric GitHub account id, or follow the record link in your merge comment. The record shows three
+badge forms - **card**, **plate** and **medal** - with one ready-to-copy HTML line for each. Copy a line into your
+profile README or site to display that form.
+
+The badge is generated from GitHub's public merge record and identifies the GitHub account whose contributions it
+counts. Deleting the line from your README or site removes the badge there. To have your account left out of the
+records, [open an issue in neomjs/pages](https://github.com/neomjs/pages/issues) from that GitHub account.
 
 ### 4.  In case you created a nice app or component using Neo.mjs, please let us know about it.
 1.  We are always interested to feature client projects in blog posts or on social media.
