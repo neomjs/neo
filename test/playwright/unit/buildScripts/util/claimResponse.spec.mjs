@@ -1,6 +1,8 @@
+import {execFileSync} from 'node:child_process';
 import fs             from 'node:fs';
 import path           from 'node:path';
 import {test, expect} from '@playwright/test';
+import * as yaml      from 'js-yaml';
 
 import {
     CLAIM_RELEASE_SINCE,
@@ -550,7 +552,7 @@ test.describe('buildScripts/util/claimResponse', () => {
                 const posted = [], assignedCalls = [], unassignedCalls = [], warnings = [], listForRepoCalls = [], countQueries = [];
 
                 const github = {
-                    graphql : async () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: []}}}}),
+                    graphql : async () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: [], pageInfo: {hasNextPage: false}}}}}),
                     paginate: async (fn, args) => {
                         if (fn === github.rest.issues.listComments) return comments;
                         if (fn === github.rest.issues.listEvents)   return events;
@@ -716,7 +718,7 @@ test.describe('buildScripts/util/claimResponse', () => {
                     burstPosted     = [];
 
                 const sharedGithub = {
-                    graphql : async () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: []}}}}),
+                    graphql : async () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: [], pageInfo: {hasNextPage: false}}}}}),
                     paginate: async (fn, args) => {
                         if (fn === sharedGithub.rest.issues.listComments) return commentsByIssue.get(args.issue_number) || [];
                         if (fn === sharedGithub.rest.issues.listEvents)   return [];
@@ -802,7 +804,7 @@ test.describe('buildScripts/util/claimResponse', () => {
                   comments = [], events = [], created = [], updated = [], assigned = [], warnings = [];
             let   current = first, aliceAtCapacity = true, failUpdate = false;
             const github  = {
-                graphql : async () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: []}}}}),
+                graphql : async () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: [], pageInfo: {hasNextPage: false}}}}}),
                 paginate: async (fn, args) => {
                     if (fn === github.rest.issues.listComments) return comments;
                     if (fn === github.rest.issues.listEvents) return events;
@@ -1358,7 +1360,8 @@ test.describe('buildScripts/util/claimResponse', () => {
             expect(raw).toContain('types: [opened, reopened, edited, closed]');
             expect(raw).toContain('pull-requests: write');
             expect(raw).toContain('NEO_CLAIM_RELEASE_SINCE: ${{ vars.NEO_CLAIM_RELEASE_SINCE }}');
-            expect(raw).toContain('ref: ${{ github.event.repository.default_branch }}');
+            expect(raw).toContain('repository: neomjs/neo');
+            expect(raw).toContain('ref: ${{ job.workflow_sha }}');
             expect(raw).not.toContain('github.event.pull_request.head');
 
             const createHarness = ({permission = 'read', mergedCount = 0, nextIssueReadHook, graphqlHasNextPage = false} = {}) => {
@@ -1373,7 +1376,7 @@ test.describe('buildScripts/util/claimResponse', () => {
                     pullLinks   = new Map([
                         [19143, []],
                         [20691, []],
-                        [20692, [{author: {login: 'merged-author'}, merged: true, number: 21400, repository: {nameWithOwner: 'neomjs/neo'}}]]
+                        [20692, [{author: {login: 'merged-author'}, merged: true, number: 21400, repository: {nameWithOwner: 'neomjs/neo'}, state: 'MERGED'}]]
                     ]),
                     pullDetails = new Map(),
                     created     = [],
@@ -1658,6 +1661,258 @@ test.describe('buildScripts/util/claimResponse', () => {
                 else process.env.GITHUB_WORKSPACE = prevWorkspace;
                 if (prevReleaseSince === undefined) delete process.env.NEO_CLAIM_RELEASE_SINCE;
                 else process.env.NEO_CLAIM_RELEASE_SINCE = prevReleaseSince
+            }
+        });
+
+        test('workflow exposes zero-input workflow_call pinned by job.workflow_sha, keeps single claim-responder queue owner, and executes against sibling repositories', async () => {
+            const
+                workflowPath  = path.resolve(process.cwd(), '.github/workflows/claim-responder.yml'),
+                raw           = fs.readFileSync(workflowPath, 'utf8'),
+                workflow      = yaml.load(raw),
+                respondJob    = workflow?.jobs?.respond,
+                steps         = respondJob?.steps ?? [],
+                verifyStep    = steps.find(step => step.name === 'Verify defining workflow commit'),
+                checkoutSteps = steps.filter(step => String(step.uses || '').startsWith('actions/checkout@')),
+                checkoutStep  = checkoutSteps[0],
+                scriptStep    = steps.find(step => step.name === 'Answer the claim'),
+                sparseLines   = String(checkoutStep?.with?.['sparse-checkout'] || '').trim().split(/\r?\n/).map(s => s.trim()),
+                prevWorkspace = process.env.GITHUB_WORKSPACE;
+
+            expect(Object.keys(workflow.on).sort()).toEqual(['issue_comment', 'pull_request_target', 'workflow_call']);
+            expect(workflow.on.workflow_call).toBeNull();
+
+            expect(workflow.concurrency).toBeUndefined();
+            expect(Object.keys(workflow.jobs)).toEqual(['respond']);
+            expect(respondJob?.concurrency).toEqual({
+                group               : 'claim-responder',
+                'cancel-in-progress': false,
+                queue               : 'max'
+            });
+
+            expect(verifyStep).toBeTruthy();
+            expect(verifyStep.if).toBeUndefined();
+            expect(verifyStep.env).toEqual({WORKFLOW_SHA: '${{ job.workflow_sha }}'});
+            expect(String(verifyStep.run)).not.toContain('${{');
+
+            expect(checkoutSteps).toHaveLength(1);
+            expect(checkoutStep.with).toMatchObject({
+                repository                 : 'neomjs/neo',
+                ref                        : '${{ job.workflow_sha }}',
+                'persist-credentials'      : false,
+                'sparse-checkout-cone-mode': false
+            });
+            expect(sparseLines).toEqual([
+                'buildScripts/util/claimResponse.mjs',
+                'buildScripts/util/contributorStanding.mjs'
+            ]);
+
+            expect(scriptStep?.uses).toMatch(/^actions\/github-script@/);
+            expect(String(scriptStep?.with?.script || '')).not.toContain('${{');
+
+            // Execute the actual shell revision guard across valid 40-hex defining commits and invalid refs
+            const
+                definingSha    = '8dfdf6da6ec994300e951c6a56e582d6ab95c4a1',
+                alternateSha   = '79f1de332a10193722b7934f21277001616b8501',
+                runVerifyGuard = workflowSha => execFileSync('bash', ['-eo', 'pipefail', '-c', String(verifyStep.run)], {
+                    env  : {...process.env, WORKFLOW_SHA: workflowSha},
+                    stdio: 'pipe'
+                });
+
+            expect(() => runVerifyGuard(definingSha)).not.toThrow();
+            expect(() => runVerifyGuard(alternateSha)).not.toThrow();
+            for (const badRef of ['dev', '', '8dfdf6da6ec994300e951c6a56e582d6ab95c4a']) {
+                expect(() => runVerifyGuard(badRef), `expected guard rejection for ${JSON.stringify(badRef)}`).toThrow();
+            }
+
+            // Contract validator modeling GitHub Actions reusable-workflow dispatch and queue ownership
+            const validateThinCallerContract = (callerYaml, calledWorkflow, runtime) => {
+                const
+                    caller     = yaml.load(callerYaml),
+                    jobEntries = Object.entries(caller?.jobs ?? {}),
+                    calledJobs = Object.values(calledWorkflow?.jobs ?? {});
+
+                if (jobEntries.length !== 1) {
+                    throw new Error('Caller must declare exactly one workflow_call job');
+                }
+
+                const [callerJobName, callerJob] = jobEntries[0];
+
+                if (caller?.concurrency || callerJob?.concurrency) {
+                    throw new Error(`Nested concurrency group deadlock: caller '${callerJobName}' must omit concurrency`);
+                }
+
+                if (Array.isArray(callerJob?.steps) && callerJob.steps.length > 0) {
+                    throw new Error('Thin caller must not declare steps or check out files');
+                }
+
+                const usesMatch = String(callerJob?.uses || '').match(/^neomjs\/neo\/\.github\/workflows\/claim-responder\.yml@([0-9a-f]{40})$/);
+
+                if (!usesMatch) {
+                    throw new Error(`Caller uses ref must pin a full 40-hex SHA on neomjs/neo: ${callerJob?.uses ?? '<missing>'}`);
+                }
+
+                const declaredInputs = calledWorkflow?.on?.workflow_call?.inputs ?? {};
+
+                if (callerJob?.with && Object.keys(callerJob.with).length > 0) {
+                    const unknownKeys = Object.keys(callerJob.with).filter(key => !Object.hasOwn(declaredInputs, key));
+
+                    if (unknownKeys.length > 0) {
+                        throw new Error(`Zero-input workflow_call rejects caller inputs: ${unknownKeys.join(', ')}`);
+                    }
+                }
+
+                const owners = [
+                    ...(caller?.concurrency?.group === 'claim-responder' ? ['caller:workflow'] : []),
+                    ...(callerJob?.concurrency?.group === 'claim-responder' ? [`caller:${callerJobName}`] : []),
+                    ...Object.entries(calledWorkflow?.jobs ?? {})
+                        .filter(([, job]) => job?.concurrency?.group === 'claim-responder')
+                        .map(([name]) => `called:${name}`)
+                ];
+
+                if (owners.length !== 1 || calledJobs.length !== 1) {
+                    throw new Error(`Expected exactly one claim-responder concurrency owner, found ${owners.join(', ') || 'none'}`);
+                }
+
+                const workflowSha = runtime.repository === 'neomjs/neo' ? runtime.directWorkflowSha : usesMatch[1];
+
+                runVerifyGuard(workflowSha);
+
+                return {
+                    checkoutRef      : workflowSha,
+                    concurrencyOwners: owners,
+                    callerShaIgnored : runtime.callerRepoSha
+                };
+            };
+
+            const validCallerYaml = [
+                'name: Claim responder',
+                'on:',
+                '  issue_comment:',
+                '    types: [created]',
+                '  pull_request_target:',
+                '    types: [opened, reopened, edited, closed]',
+                'jobs:',
+                '  call-responder:',
+                `    uses: neomjs/neo/.github/workflows/claim-responder.yml@${definingSha}`,
+                '    secrets: inherit'
+            ].join('\n');
+
+            // Valid single-pin sibling caller: single concurrency owner, checks out defining SHA even when caller repo SHA differs
+            expect(validateThinCallerContract(validCallerYaml, workflow, {
+                repository   : 'neomjs/neo-agent-brain',
+                callerRepoSha: alternateSha
+            })).toEqual({
+                checkoutRef      : definingSha,
+                concurrencyOwners: ['called:respond'],
+                callerShaIgnored : alternateSha
+            });
+
+            // Direct Engine run: checks out job.workflow_sha directly with single concurrency owner
+            expect(validateThinCallerContract(validCallerYaml, workflow, {
+                repository       : 'neomjs/neo',
+                directWorkflowSha: alternateSha,
+                callerRepoSha    : alternateSha
+            })).toEqual({
+                checkoutRef      : alternateSha,
+                concurrencyOwners: ['called:respond'],
+                callerShaIgnored : alternateSha
+            });
+
+            // Two different well-formed SHAs AND redundant matching engine_commit are both rejected under zero-input contract
+            expect(() => validateThinCallerContract(
+                `${validCallerYaml}\n    with:\n      engine_commit: ${alternateSha}`,
+                workflow,
+                {repository: 'neomjs/neo-agent-brain', callerRepoSha: alternateSha}
+            )).toThrow(/Zero-input workflow_call rejects caller inputs: engine_commit/);
+
+            expect(() => validateThinCallerContract(
+                `${validCallerYaml}\n    with:\n      engine_commit: ${definingSha}`,
+                workflow,
+                {repository: 'neomjs/neo-agent-brain', callerRepoSha: alternateSha}
+            )).toThrow(/Zero-input workflow_call rejects caller inputs: engine_commit/);
+
+            // Unpinned caller ref and caller-declared claim-responder concurrency (nested lock deadlock) are rejected
+            expect(() => validateThinCallerContract(
+                validCallerYaml.replace(definingSha, 'dev'),
+                workflow,
+                {repository: 'neomjs/neo-agent-brain', callerRepoSha: alternateSha}
+            )).toThrow(/40-hex SHA/);
+
+            expect(() => validateThinCallerContract(
+                `${validCallerYaml}\n    concurrency:\n      group: claim-responder\n      cancel-in-progress: false\n      queue: max`,
+                workflow,
+                {repository: 'neomjs/neo-agent-brain', callerRepoSha: alternateSha}
+            )).toThrow(/Nested concurrency group deadlock/);
+
+            expect(() => validateThinCallerContract(
+                `concurrency:\n  group: claim-responder\n${validCallerYaml}`,
+                workflow,
+                {repository: 'neomjs/neo-agent-brain', callerRepoSha: alternateSha}
+            )).toThrow(/Nested concurrency group deadlock/);
+
+            const
+                AsyncFunction = Object.getPrototypeOf(async function () {}).constructor,
+                runStep       = new AsyncFunction('github', 'context', 'core', String(scriptStep.with.script)),
+                issue         = gfiIssue({number: 1764, state: 'open'}),
+                assigned      = [],
+                created       = [],
+                siblingClaim  = comment('outside-sibling-dev', '2026-11-16T02:00:00Z', "I'd like to work on this.", {id: 8801});
+
+            const github = {
+                graphql : async () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: [], pageInfo: {hasNextPage: false}}}}}),
+                paginate: async fn => {
+                    if (fn === github.rest.issues.listComments) return [siblingClaim];
+                    if (fn === github.rest.issues.listEvents)   return [];
+                    if (fn === github.rest.issues.listForRepo)  return [];
+                    throw new Error('unexpected paginate')
+                },
+                rest: {
+                    issues: {
+                        addAssignees: async args => {
+                            assigned.push(args);
+                            return {data: {...issue, assignees: [{id: 8801, login: 'outside-sibling-dev'}]}}
+                        },
+                        createComment: async args => { created.push(args); return {data: {}} },
+                        get          : async () => ({data: issue}),
+                        listComments : Symbol('listComments'),
+                        listEvents   : Symbol('listEvents'),
+                        listForRepo  : Symbol('listForRepo')
+                    },
+                    repos : {getCollaboratorPermissionLevel: async () => ({data: {permission: 'read'}})},
+                    search: {
+                        issuesAndPullRequests: async ({q}) => q.startsWith('org:')
+                            ? {data: {incomplete_results: false, total_count: 0}}
+                            : {data: {items: []}}
+                    }
+                }
+            };
+
+            process.env.GITHUB_WORKSPACE = process.cwd();
+            try {
+                await runStep(
+                    github,
+                    {
+                        eventName: 'issue_comment',
+                        payload  : {action: 'created', comment: siblingClaim, issue: {number: 1764, state: 'open'}},
+                        repo     : {owner: 'neomjs', repo: 'neo-agent-brain'}
+                    },
+                    {info: () => {}, warning: () => {}}
+                );
+
+                expect(assigned).toEqual([{
+                    assignees   : ['outside-sibling-dev'],
+                    issue_number: 1764,
+                    owner       : 'neomjs',
+                    repo        : 'neo-agent-brain'
+                }]);
+                expect(created).toHaveLength(1);
+                expect(created[0].owner).toBe('neomjs');
+                expect(created[0].repo).toBe('neo-agent-brain');
+                expect(created[0].issue_number).toBe(1764);
+                expect(created[0].body).toContain('Assigned to you')
+            } finally {
+                if (prevWorkspace === undefined) delete process.env.GITHUB_WORKSPACE;
+                else process.env.GITHUB_WORKSPACE = prevWorkspace
             }
         });
     });

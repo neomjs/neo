@@ -402,10 +402,11 @@ test.describe('Neo tab header actions', () => {
             ]
         }));
 
-        await new Promise(resolve => setTimeout(resolve, 10));
+        const bar = tabs.getTabBar();
 
-        const bar      = tabs.getTabBar(),
-              sortZone = bar.sortZone;
+        await expect.poll(() => bar.sortZone).toBeTruthy();
+
+        const {sortZone} = bar;
 
         expect(sortZone.dragHandleSelector).toBe('.neo-tab-header-button');
         expect(sortZone.getDraggableItems(bar.items)).toEqual(tabs.getTabButtons());

@@ -113,3 +113,78 @@ test.describe('Neo.component.Base floating round trip', () => {
         expect(resized.registered).toBe(false)
     })
 });
+
+test.describe('A button menu fits its window', () => {
+    const triggerId = 'alignment-menu-button';
+
+    async function openCommands(page, count) {
+        await page.setViewportSize({width: 480, height: 360});
+        await page.goto('/test/playwright/component/apps/empty-viewport/index.html');
+        await expect(page.locator('#component-test-viewport')).toBeVisible();
+
+        const result = await page.evaluate(({id, count}) => Neo.worker.App.createNeoInstance({
+            id, ntype: 'button', importPath: '../button/Base.mjs', parentId: 'component-test-viewport',
+            text: 'Commands', style: {position: 'fixed', bottom: '4px', right: '8px'},
+            menu: Array.from({length: count}, (_,i) => ({text: `Command ${i + 1}`, route: `/command-${i + 1}`}))
+        }), {id: triggerId, count});
+
+        expect(result.success).toBe(true);
+        await page.locator(`#${triggerId}`).click();
+
+        const menu = page.locator('.neo-menu-list.neo-floating');
+        await expect(menu.locator('.neo-list-item')).toHaveCount(count);
+        return menu
+    }
+
+    // The geometry must describe a single resolved side, including after the same mounted menu realigns.
+    const geometry = menu => menu.evaluate(el => {
+        const rect = el.getBoundingClientRect(),
+              cls  = [...el.classList].filter(name => name.startsWith('neo-aligned-'));
+
+        return {
+            contained : rect.left >= -1 && rect.top >= -1 && rect.right <= innerWidth + 1 && rect.bottom <= innerHeight + 1,
+            directions: cls,
+            scrolls   : el.scrollHeight > el.clientHeight + 1
+        }
+    });
+
+    test('an oversized menu scrolls to a working command, reopens and regains its natural size', async ({page}) => {
+        const menu = await openCommands(page, 27);
+        await expect.poll(() => geometry(menu)).toMatchObject({contained: true, scrolls: true, directions: [expect.any(String)]});
+
+        const last = menu.getByText('Command 27', {exact: true});
+        await menu.hover();
+        await page.mouse.wheel(0, 3000);
+        await expect(last).toBeInViewport({ratio: 1});
+        await last.click();
+        await expect(page).toHaveURL(/#\/command-27$/);
+        await expect(menu).toHaveCount(0);
+
+        const trigger = page.locator(`#${triggerId}`);
+        await trigger.click();
+        await expect.poll(() => geometry(menu)).toMatchObject({contained: true, scrolls: true, directions: [expect.any(String)]});
+        const [originalSide] = (await geometry(menu)).directions;
+
+        // The resized window puts the trigger in the opposite corner in the same layout pass.
+        await page.addStyleTag({content: `@media (min-height: 800px) {
+            #${triggerId} { top: 8px; left: 8px; bottom: auto !important; right: auto !important; }
+        }`});
+        await page.setViewportSize({width: 1100, height: 1200});
+        await expect.poll(async () => (await trigger.boundingBox()).y).toBeLessThan(32);
+        await expect.poll(() => geometry(menu)).toMatchObject({contained: true, scrolls: false, directions: [expect.any(String)]});
+        await expect.poll(async () => (await geometry(menu)).directions).not.toContain(originalSide);
+        await expect(last).toBeInViewport({ratio: 1})
+    });
+
+    test('a short menu keeps its content height', async ({page}) => {
+        const menu = await openCommands(page, 1),
+              row  = menu.locator('.neo-list-item');
+
+        await expect.poll(() => geometry(menu)).toMatchObject({contained: true, scrolls: false, directions: [expect.any(String)]});
+        const contentHeight = await menu.evaluate(el => {
+            const style = getComputedStyle(el);
+            return el.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom)
+        });
+        expect(Math.abs(contentHeight - await row.evaluate(el => el.offsetHeight))).toBeLessThanOrEqual(1)
+    })
+});
