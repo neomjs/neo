@@ -2,7 +2,8 @@
 # the clock, and counts outside pull requests targeting curated issues as claims:
 #
 # - `issue_comment` (`created`): assigns first-in-line outside claimants under their standing cap (clearing any lapsed
-#   >3-day silent outside assignee), names holders on held issues, and offers rotated alternatives.
+#   >3-day silent outside assignee), names holders on held issues, and offers rotated alternatives. An unrecognized
+#   outside comment gets one claiming hint per account on an unclaimed issue; a hint never reserves it.
 # - `pull_request_target` (`opened`, `reopened`, `edited`, `closed`): requests assignment for outside authors targeting
 #   unclaimed curated issues (attaching authors GitHub permits — issue commenters or the issue author — without
 #   fabricating issue comments), posts neutral overlap or residual-scope notices on held or already-completed issues,
@@ -83,7 +84,7 @@ jobs:
         with:
           script: |
             const {
-              CLAIM_RELEASE_SINCE, TEAM_ASSOCIATIONS, changedCloseTargets, closeTargets, curatedLabel, decideClaim,
+              CLAIM_RELEASE_SINCE, TEAM_ASSOCIATIONS, changedCloseTargets, closeTargets, curatedLabel, decideClaim, decideClaimHint,
               decidePullRequestRelease, decidePullRequestTarget, decideTargetRemoval, decideWithdrawal, isClaim,
               isOutsideHuman, isTeamPermission, isWithdrawal
             } = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/claimResponse.mjs`);
@@ -162,6 +163,30 @@ jobs:
               throw new Error(`Incomplete state read for #${issueNumber}: exceeded pagination bound`)
             };
 
+            const loadTargetState = async (issueNumber, {includeClosedPrs = true} = {}) => {
+              const [{data: issue}, comments, events, linkedNodes] = await Promise.all([
+                github.rest.issues.get({owner, repo, issue_number: issueNumber}),
+                github.paginate(github.rest.issues.listComments, {owner, repo, issue_number: issueNumber, per_page: 100}),
+                github.paginate(github.rest.issues.listEvents,   {owner, repo, issue_number: issueNumber, per_page: 100}),
+                loadCompleteLinkedPrRefs(issueNumber, {includeClosedPrs, pageSize: 50})
+              ]);
+              if (!issue || typeof issue !== 'object' || issue.number !== issueNumber ||
+                !Array.isArray(comments) || !Array.isArray(events)) {
+                throw new Error(`Incomplete state read for #${issueNumber}`)
+              }
+              return {
+                comments,
+                events,
+                issue,
+                mergedPullRequests: linkedNodes
+                  .filter(pr => pr.merged === true)
+                  .map(pr => ({number: pr.number, author: pr.author?.login, repository: pr.repository?.nameWithOwner})),
+                openPullRequests  : linkedNodes
+                  .filter(pr => pr.state === 'OPEN')
+                  .map(pr => ({number: pr.number, author: pr.author?.login, repository: pr.repository?.nameWithOwner}))
+              }
+            };
+
             if (context.eventName === 'pull_request_target' || context.payload.pull_request) {
               const
                 action      = context.payload.action,
@@ -205,29 +230,6 @@ jobs:
                   core.warning(`Could not resolve contributor standing; using one-claim limit: ${error.message}`)
                 }
                 return claimLimit
-              };
-
-              const loadTargetState = async issueNumber => {
-                const [{data: issue}, comments, events, linkedNodes] = await Promise.all([
-                  github.rest.issues.get({owner, repo, issue_number: issueNumber}),
-                  github.paginate(github.rest.issues.listComments, {owner, repo, issue_number: issueNumber, per_page: 100}),
-                  github.paginate(github.rest.issues.listEvents,   {owner, repo, issue_number: issueNumber, per_page: 100}),
-                  loadCompleteLinkedPrRefs(issueNumber, {includeClosedPrs: true, pageSize: 50})
-                ]);
-                if (!issue || typeof issue !== 'object' || !Number.isSafeInteger(issue.number)) {
-                  throw new Error(`Incomplete state read for #${issueNumber}`)
-                }
-                return {
-                  comments,
-                  events,
-                  issue,
-                  mergedPullRequests: linkedNodes
-                    .filter(pr => pr.merged === true)
-                    .map(pr => ({number: pr.number, author: pr.author?.login, repository: pr.repository?.nameWithOwner})),
-                  openPullRequests  : linkedNodes
-                    .filter(pr => pr.state === 'OPEN')
-                    .map(pr => ({number: pr.number, author: pr.author?.login, repository: pr.repository?.nameWithOwner}))
-                }
               };
 
               const findCandidates = async label => github.rest.search.issuesAndPullRequests({
@@ -512,8 +514,8 @@ jobs:
             const claimComment                 = isClaim(comment?.body);
             const withdrawalComment            = !claimComment && isWithdrawal(comment?.body);
 
-            if (!isOutsideHuman(comment) || (!claimComment && !withdrawalComment)) {
-              core.info('No reply: not an outside contributor claim or withdrawal.');
+            if (!isOutsideHuman(comment)) {
+              core.info('No reply: not an outside contributor.');
               return
             }
 
@@ -522,6 +524,20 @@ jobs:
 
             if (issue.state !== 'open' || !label) {
               core.info('No reply: issue is closed or no longer curated.');
+              return
+            }
+
+            if (!claimComment && !withdrawalComment) {
+              const repoUrl = `https://github.com/${owner}/${repo}`;
+              const hint = state => decideClaimHint({...state, comment, repoUrl, now: new Date().toISOString()});
+              if (!hint(await loadTargetState(issue.number, {includeClosedPrs: false}))) return;
+
+              // Reconcile delivered hints and holders again just before writing, including newer claim comments.
+              const body = hint(await loadTargetState(issue.number, {includeClosedPrs: false}));
+              if (body) {
+                await github.rest.issues.createComment({owner, repo, issue_number: issue.number, body});
+                core.info(`Posted claiming guidance for ${comment.user.login}.`)
+              }
               return
             }
 

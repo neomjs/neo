@@ -12,6 +12,7 @@ import {
     claimText,
     closeTargets,
     decideClaim,
+    decideClaimHint,
     decidePullRequestRelease,
     decidePullRequestTarget,
     decideReply,
@@ -146,6 +147,142 @@ test.describe('buildScripts/util/claimResponse', () => {
             // The fold makes no claim that the ASCII spelling would not make
             for (const body of ['I don’t want to work on this, just a note.', '```\n// I’d like to work on this\n```']) {
                 expect(isClaim(body), body).toBe(false)
+            }
+        });
+    });
+
+    test.describe('decideClaimHint guidance without ownership (#21194)', () => {
+        const
+            now     = '2026-11-16T21:30:00Z',
+            issue   = gfiIssue({number: 42, state: 'open'}),
+            unknown = comment('outside-dev', '2026-11-16T21:18:45Z',
+                'I can help after we agree on scope and payment. Work will not begin until we agree.', {id: 123}),
+            marker  = '<!-- claim-guidance:v1 {"repo":"neomjs/neo","issue":42,"to":123} -->',
+            hint    = (overrides = {}) => decideClaimHint({
+                comment: unknown, comments: [unknown], events: [], issue, now, openPullRequests: [], repoUrl: REPO_URL, ...overrides
+            });
+
+        test('returns guidance, with a separate account-scoped receipt, for unknown comments on either curated label', () => {
+            for (const body of [unknown.body, 'How do I run only my spec?']) {
+                const note = {...unknown, body};
+                expect(isClaim(body)).toBe(false);
+                const result = hint({comment: note, comments: [note]});
+                expect(typeof result).toBe('string');
+                expect(result).toContain('`/claim`');
+                expect(result).toContain(`${REPO_URL}/blob/dev/CONTRIBUTING.md`);
+                expect(result.split('\n')).toContain(marker);
+                expect(result).not.toContain(replyMarker('outside-dev'));
+                expect(result).not.toContain(withdrawalMarker('outside-dev'));
+                expect(result).not.toContain('<!-- neo-claim:');
+            }
+            expect(hint({issue: {...issue, labels: [{name: 'help wanted'}]}})).toEqual(expect.any(String));
+        });
+
+        test('does not guide recognized claims, releases, team comments, bots, or ineligible targets', () => {
+            for (const body of ['/claim', "I'd like to work on this.", '/unclaim', 'Please unassign me.']) {
+                expect(hint({comment: {...unknown, body}}), body).toBeNull();
+            }
+            for (const association of ['MEMBER', 'COLLABORATOR', 'OWNER']) {
+                expect(hint({comment: {...unknown, author_association: association}}), association).toBeNull();
+            }
+            expect(hint({comment: {...unknown, user: {...unknown.user, type: 'Bot'}}})).toBeNull();
+            for (const target of [
+                {...issue, state: 'closed'}, {...issue, labels: [{name: 'bug'}]}, {...issue, pull_request: {}},
+                {...issue, assignees: undefined}
+            ]) {
+                expect(hint({issue: target})).toBeNull();
+            }
+        });
+
+        test('requires numeric account identity and a valid current observation with complete holder inputs', () => {
+            for (const id of [undefined, 0, -1, 1.5, '123', Number.MAX_SAFE_INTEGER + 1]) {
+                expect(hint({comment: {...unknown, user: {...unknown.user, id}}}), String(id)).toBeNull();
+            }
+            for (const at of [undefined, null, 'not-a-date', '2026-11-16T21:18:44Z']) {
+                expect(hint({now: at}), String(at)).toBeNull();
+            }
+            for (const key of ['comments', 'events', 'openPullRequests']) {
+                expect(hint({[key]: undefined}), key).toBeNull();
+            }
+            expect(hint()).toEqual(expect.any(String));
+        });
+
+        test('every current assignee blocks guidance, even a stale outside assignee or the commenter', () => {
+            const oldClaim = comment('silent-dev', daysAfter(now, -CLAIM_WINDOW_DAYS - 1), '/claim', {id: 456});
+            expect(staleAssignees({
+                comment: {...unknown, created_at: now}, comments: [oldClaim, unknown], events: [],
+                issue  : {...issue, assignees: [oldClaim.user]}, repository: 'neomjs/neo'
+            })).toEqual(['silent-dev']);
+            for (const assignee of [oldClaim.user, unknown.user, {login: 'maintainer', id: 999}]) {
+                expect(hint({issue: {...issue, assignees: [assignee]}, comments: [oldClaim, unknown]})).toBeNull();
+            }
+        });
+
+        test('uses current holder state, including own claims and upstream PRs newer than the triggering comment', () => {
+            const
+                ownClaim   = comment('outside-dev', '2026-11-16T21:20:00Z', '/claim', {id: 123}),
+                otherClaim = comment('other-dev', '2026-11-16T21:20:00Z', '/claim', {id: 456}),
+                release    = comment('other-dev', '2026-11-16T21:25:00Z', '/unclaim', {id: 456}),
+                expired    = comment('silent-dev', daysAfter(now, -CLAIM_WINDOW_DAYS - 1), '/claim', {id: 789});
+            for (const claim of [ownClaim, otherClaim]) {
+                expect(hint({comments: [unknown, claim]})).toBeNull();
+            }
+            expect(hint({comments: [unknown, otherClaim, release]})).toEqual(expect.any(String));
+            expect(hint({comments: [expired, unknown]})).toEqual(expect.any(String));
+            expect(hint({comments: [unknown, otherClaim], events: [{
+                assignee: otherClaim.user, created_at: release.created_at, event: 'unassigned'
+            }]})).toEqual(expect.any(String));
+            for (const author of ['outside-dev', 'other-dev']) {
+                expect(hint({openPullRequests: [{author, number: 43, repository: 'neomjs/neo'}]})).toBeNull();
+            }
+            expect(hint({openPullRequests: [{author: 'other-dev', number: 43, repository: 'outside/neo'}]})).toEqual(expect.any(String));
+        });
+
+        test('deduplicates replay and account renames, while keeping repository, issue and other accounts independent', () => {
+            const
+                reply   = comment('github-actions[bot]', '2026-11-16T21:19:00Z', hint(), {type: 'Bot'}),
+                renamed = comment('renamed-dev', '2026-11-16T21:21:00Z', 'Is this available?', {id: 123});
+            expect(unknown.id).not.toBe(unknown.user.id);
+            expect(hint({comments: [unknown, reply]})).toBeNull();
+            expect(hint({comment: renamed, comments: [unknown, reply, renamed]})).toBeNull();
+            expect(hint({
+                comment: {...renamed, user: {...renamed.user, login: 'outside-dev', id: 456}}, comments: [unknown, reply]
+            })).toEqual(expect.any(String));
+            expect(hint({issue: {...issue, number: 43}, comments: [unknown, reply]})).toEqual(expect.any(String));
+            expect(hint({repoUrl: 'https://github.com/neomjs/neo-agent-brain', comments: [unknown, reply]})).toEqual(expect.any(String));
+            expect(hint({repoUrl: 'https://github.com/NEOMJS/NEO', comments: [unknown, reply]})).toBeNull();
+        });
+
+        test('ignores copied, other-bot, inline, malformed and unknown-version guidance receipts', () => {
+            const genuine = comment('github-actions[bot]', '2026-11-16T21:19:00Z', marker, {type: 'Bot'});
+            expect(hint({comments: [unknown, genuine]})).toBeNull();
+            for (const forged of [
+                {...genuine, user: {login: 'outside-dev', type: 'User', id: 123}},
+                {...genuine, user: {login: 'other-app[bot]', type: 'Bot'}},
+                {...genuine, user: {login: 'github-actions[bot]', type: 'User'}},
+                {...genuine, body: `An example: ${marker}`},
+                {...genuine, body: marker.replace(':v1 ', ':v2 ')},
+                {...genuine, body: marker.replace('"to":123', '"to":"123"')},
+                {...genuine, body: marker.replace('"to":123', '"to":456')},
+                {...genuine, body: marker.replace('{"repo"', '{broken "repo"')}
+            ]) {
+                expect(hint({comments: [unknown, forged]}), forged.body).toEqual(expect.any(String));
+            }
+        });
+
+        test('a hint reserves nothing and cannot suppress the same contributor or another contributor later claiming', () => {
+            const reply = comment('github-actions[bot]', '2026-11-16T21:19:00Z', hint(), {type: 'Bot'});
+            expect(claimRecords([reply])).toEqual([]);
+            for (const [login, id] of [['outside-dev', 123], ['other-dev', 456]]) {
+                const
+                    laterClaim = comment(login, '2026-11-16T21:22:00Z', '/claim', {id}),
+                    comments   = [unknown, reply, laterClaim],
+                    options    = {comment: laterClaim, comments, events: [], issue, repoUrl: REPO_URL};
+                expect(earlierClaim({...options, claimant: login})).toBeNull();
+                expect(holders({...options, claimant: login, repository: 'neomjs/neo'})).toEqual([]);
+                const decision = decideClaim(options);
+                expect(decision.assign).toBe(true);
+                expect(decision.assignedBody).toContain('Assigned to you');
             }
         });
     });
