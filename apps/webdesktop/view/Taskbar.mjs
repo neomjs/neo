@@ -35,7 +35,8 @@ class Taskbar extends Toolbar {
             text   : 'Permissions'
         }, {
             handler: 'onThemeButtonClick',
-            iconCls: 'fas fa-sun'
+            iconCls: 'fas fa-sun',
+            vdom   : {'aria-label': 'Switch theme'}
         }, {
             module: AccountChip,
             bind  : {account: data => data.account}

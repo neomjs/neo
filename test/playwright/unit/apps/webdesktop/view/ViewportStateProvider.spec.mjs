@@ -26,6 +26,9 @@ import Instance              from '../../../../../../src/manager/Instance.mjs';
 import MenuList              from '../../../../../../src/menu/List.mjs';
 import Apps                  from '../../../../../../apps/webdesktop/store/Apps.mjs';
 import Launcher              from '../../../../../../apps/webdesktop/view/Launcher.mjs';
+import PermissionList        from '../../../../../../apps/webdesktop/view/PermissionList.mjs';
+import Permissions           from '../../../../../../apps/webdesktop/store/Permissions.mjs';
+import Taskbar               from '../../../../../../apps/webdesktop/view/Taskbar.mjs';
 import ViewportStateProvider from '../../../../../../apps/webdesktop/view/ViewportStateProvider.mjs';
 
 /**
@@ -128,5 +131,31 @@ test.describe('WebDesktop.view.ViewportStateProvider', () => {
 
         expect(ids(root.store)).toEqual(['communication']);
         expect(ids(communication.store)).toEqual(['messages'])
+    });
+
+    test('a permission row states its grant to assistive technology, and a toggle updates the same row', () => {
+        const store = Neo.create(Permissions),
+              list  = Neo.create(PermissionList, {appName, bind: null, granted: ['view-mail'], store}),
+              row   = key => list.vdom.cn[store.indexOf(key)];
+
+        instances.push(list, store);
+
+        expect(list.vdom).toMatchObject({role: 'listbox', 'aria-label': 'Permissions', 'aria-multiselectable': true});
+        expect(row('view-mail')).toMatchObject({role: 'option', 'aria-selected': true});
+        expect(row('view-help')['aria-selected']).toBe(false);
+
+        list.granted = ['view-help'];
+
+        expect(row('view-mail')['aria-selected']).toBe(false);
+        expect(row('view-help')['aria-selected']).toBe(true)
+    });
+
+    test('the icon-only theme button has an accessible name', () => {
+        const taskbar = Neo.create(Taskbar, {appName}),
+              button  = taskbar.items.find(item => item.handler === 'onThemeButtonClick');
+
+        instances.push(taskbar);
+
+        expect(button.vdom['aria-label']).toBe('Switch theme')
     })
 });

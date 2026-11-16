@@ -45,8 +45,22 @@ class PermissionList extends List {
          * @member {String[]} granted_=[]
          * @reactive
          */
-        granted_: []
+        granted_: [],
+        /**
+         * @member {String} role='listbox'
+         */
+        role: 'listbox',
+        /**
+         * @member {Object} _vdom
+         * @protected
+         */
+        _vdom: {tag: 'ul', 'aria-label': 'Permissions', 'aria-multiselectable': true, cn: []}
     }
+
+    /**
+     * @member {String} itemRole='option'
+     */
+    itemRole = 'option'
 
     /**
      * Triggered after the granted config got changed
@@ -56,6 +70,22 @@ class PermissionList extends List {
      */
     afterSetGranted(value, oldValue) {
         oldValue !== undefined && this.store?.getCount() > 0 && this.createItems()
+    }
+
+    /**
+     * A row is an option whose selection is its grant, as in `Neo.list.ValuePicker`, so assistive technology reads the
+     * state the switch paints.
+     * @param {WebDesktop.model.Permission} record
+     * @param {Number} index
+     * @param {Number} [poolIndex=index]
+     * @returns {Object|null}
+     */
+    createItem(record, index, poolIndex=index) {
+        let item = super.createItem(record, index, poolIndex);
+
+        item && (item['aria-selected'] = this.granted.includes(record.id));
+
+        return item
     }
 
     /**
