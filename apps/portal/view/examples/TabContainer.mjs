@@ -33,8 +33,8 @@ class ExamplesTabContainer extends TabContainer {
          */
         dragResortable: true,
         /**
-         * The single ordered source of family identity, title, route and fallback icon.
-         * Featured is independent of home-family membership; other tabs require catalog records.
+         * The single ordered source of family identity, title, route and tab icon.
+         * Featured is independent of home-family membership; other tabs require a covered catalog record.
          * @member {Object[]} familyDefinitions
          */
         familyDefinitions: [
@@ -97,27 +97,43 @@ class ExamplesTabContainer extends TabContainer {
 
     /**
      * @summary Projects one family through a model-backed Store over the provider's catalog.
+     *
+     * The store lists the family's covered records only (`hasCover()`): a record without a cover stays in the
+     * catalog and gets no card, so an overview never shows a placeholder.
      * @param {Object} definition
      * @returns {Object}
      */
     createFamilyItem(definition) {
-        const featured = definition.family === null,
-              catalog  = this.getCatalogStore();
+        const me       = this,
+              featured = definition.family === null,
+              catalog  = me.getCatalogStore();
 
         return {
-            module         : List,
-            bind           : {catalogMode: data => data.catalogMode},
-            cls            : featured ? [] : ['portal-examples-family-overview'],
-            fallbackIconCls: definition.iconCls,
-            reference      : 'examples-' + (featured ? 'featured' : definition.route.slice('/examples/'.length)) + '-list',
-            store          : {
+            module   : List,
+            bind     : {catalogMode: data => data.catalogMode},
+            cls      : [featured ? 'portal-examples-featured' : 'portal-examples-family-overview'],
+            reference: 'examples-' + (featured ? 'featured' : definition.route.slice('/examples/'.length)) + '-list',
+            store    : {
                 module  : ExampleStore,
                 model   : catalog.model,
                 sourceId: catalog.id,
-                filters : [{property: featured ? 'featured' : 'family', operator: '===', value: featured || definition.family}]
+                filters : [
+                    {property: featured ? 'featured' : 'family', operator: '===', value: featured || definition.family},
+                    {property: 'image', fields: ['image'], filterBy: ({item}) => !me.hasCover(item)}
+                ]
             },
             header: {iconCls: definition.iconCls, route: definition.route, text: definition.title}
         }
+    }
+
+    /**
+     * @summary Whether a record publishes a card: it names a cover. The one rule the family stores filter by
+     * and the controller publishes tabs by.
+     * @param {Object} record A catalog record or its raw row
+     * @returns {Boolean}
+     */
+    hasCover(record) {
+        return !!record.image
     }
 
     /**
