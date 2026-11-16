@@ -30,7 +30,8 @@
         "scope": "The accounts and their permissions are demonstration data; hiding UI is not authorization.",
         "featured": true,
         "environments": [
-            "Desktop"
+            "Desktop",
+            "Mobile"
         ],
         "image": "devmode/webdesktop-14-0.jpg",
         "name": "Web Desktop",
