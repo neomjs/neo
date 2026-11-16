@@ -15,7 +15,7 @@
 | Our RAG index, as it stood that morning | 26 |
 | Our RAG index that evening, two bugs fixed * | 33 |
 
-\* In-sample: the fix was written with these questions in view.
+\* In-sample: the fix was written with these questions in view. The vector and index rows search code, guides, tickets and pull request threads; the grep rows search the two checkouts.
 
 <img width="100%" alt="Bar chart of the measurement: 40 real questions from a team of AI coding agents, counted by how often a file that answers the question is among the first five results. Vector search 15. Grep hits ranked by match count 10, by distinct words 30, by BM25 34. The RAG index 26 in the morning and 33 after two fixes that evening." src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/blog/codebase-knowledge-base-for-ai-coding-agents/rag-vs-grep-40-questions.png" />
 
@@ -95,7 +95,7 @@ The slices showed where it still lost: on questions only the source can answer. 
 
 ## 3. Where the index wins, and where it is stale
 
-On the 34 questions whose answering file the index had seen, the repaired index finds 32 and BM25 finds 28. That is the index earning its place. It finds "What is a state provider in Neo?", whose three words are everywhere in the code, and a question about a button's configs whose answer sits in a parent class. BM25 misses both.
+On the 34 questions whose answering file the index had seen, the repaired index finds 32 and BM25 finds 28. That is four questions, on a set the fix had seen, and it is where the index earns its place. It finds "What is a state provider in Neo?", whose three words are everywhere in the code, and a question about a button's configs whose answer sits in a parent class. BM25 misses both.
 
 On the other six questions the index finds one and BM25 finds all six. Their answering files are newer than the index. The tickets and pull requests in it were current to the day, but its source files and guides had not been re-ingested since August: an operations gap of ours, with [its own ticket](https://github.com/neomjs/neo-agent-brain/issues/419). A search for `promoteStandaloneWal` cannot find a file the index has never seen.
 
@@ -128,7 +128,7 @@ flowchart TD
 
 ## Test it on your code
 
-**1. Score a ranker on your own questions.** Take ten questions your agent really asked, from its transcripts. Write each one on a line, then a tab, then the file that answers it. Finding those files is most of the work: allow an evening.
+**1. Score a ranker on your own questions.** Take ten questions your agent really asked, from its transcripts. Write each one on a line, then a tab, then the file that answers it. Finding those files is most of the work: allow an evening. Ten questions are enough to tell a 10 from a 30. They cannot tell a 33 from a 34.
 
 ```text
 What is a state provider in Neo?	learn/guides/datahandling/StateProviders.md
