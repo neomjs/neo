@@ -93,14 +93,12 @@ class TimelineViewport extends Viewport {
         }]
     }
 
-    /**
-     * Advances the first interval of the selected row (or the first event) by 1 hour.
-     */
+    /** @summary Moves one interval an hour later through its record. */
     onShiftInterval() {
         const grid        = this.getItem('grid'),
               column      = grid.columns.get('timeline'),
               eventStore  = column?.eventStore,
-              selection   = grid.selectionModel?.selectedRecordIds?.[0],
+              selection   = grid.view.selectionModel?.selectedRows?.[0],
               selectedRow = selection || 'r-1',
               event       = eventStore?.items.find(r => r.resourceId === selectedRow) || eventStore?.items[0];
 
