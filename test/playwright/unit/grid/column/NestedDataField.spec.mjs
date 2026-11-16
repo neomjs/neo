@@ -70,12 +70,11 @@ test.afterAll(() => {
 
 /**
  * `AnimatedChange` (and `AnimatedCurrency` through it) subscribes to its grid's store at construction, so
- * these columns get a stub parent: a store that accepts the listener and a body that counts row lookups.
- * @param {Array} [rows=[]] Collects the records a matched change looks up
+ * these columns get a stub parent: a store that keys records and accepts the listener.
  * @returns {Object}
  */
-function stubParent(rows=[]) {
-    return {body: {getRow(row) {rows.push(row); return null}}, store: {on() {}, un() {}}}
+function stubParent() {
+    return {store: {getKey: row => row.id, on() {}, un() {}}}
 }
 
 /**
@@ -124,21 +123,23 @@ test.describe('Neo.grid.column.AnimatedCurrency compareField', () => {
 
 test.describe('Neo.grid.column.AnimatedChange', () => {
     /**
-     * Runs one record change through the column. A matched change asks the grid body for the row,
-     * so the stub body's `getRow` calls tell whether the column would animate.
+     * Runs one record change through the column. A matched change marks the record, so a recorder in place of the
+     * column's `mark` tells whether the column would animate.
      * @param {String}   dataField
      * @param {Object[]} fields
      * @returns {Promise<Boolean>}
      */
     async function animates(dataField, fields) {
-        const rows   = [],
-              column = Neo.create(AnimatedChangeColumn, {dataField, parent: stubParent(rows)});
+        const marked = [],
+              column = Neo.create(AnimatedChangeColumn, {dataField, parent: stubParent()});
+
+        column.mark = record => {marked.push(record)};
 
         await column.onRecordChange({fields, record: {id: 1}});
 
         column.destroy();
 
-        return rows.length > 0
+        return marked.length > 0
     }
 
     test('a flat dataField animates on its own change only', async () => {
