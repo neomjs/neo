@@ -85,9 +85,10 @@ class ViewportController extends Controller {
 
     /**
      * Hides every window without animation: their launcher icons may be gone already.
+     * @returns {Promise<Array>} Settles once every window, one still being imported included, has left the DOM
      */
     hideAllWindows() {
-        Object.values(this.windows).forEach(promise => promise.then(window => {window.hidden || window.hide(false)}))
+        return Promise.all(Object.values(this.windows).map(promise => promise.then(window => {window.hidden || window.hide(false)})))
     }
 
     /**
@@ -194,15 +195,18 @@ class ViewportController extends Controller {
     }
 
     /**
-     * Signs out. A sign-in whose arrangement is still being read does not outlive it.
+     * Signs out. A sign-in whose arrangement is still being read does not outlive it. The windows leave the DOM before
+     * the account changes: a window still mounted would re-render its content for the empty account, and that update
+     * would land after the window's removal.
      * @param {Object} data
      */
-    onSignOutButtonClick(data) {
+    async onSignOutButtonClick(data) {
         let me = this;
 
         me.pendingSignIn = null;
-        me.hideAllWindows();
         me.getStore('tasks').clear();
+
+        await me.hideAllWindows();
 
         me.setState({
             account         : null,

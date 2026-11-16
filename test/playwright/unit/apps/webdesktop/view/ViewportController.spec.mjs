@@ -146,6 +146,23 @@ test.describe('WebDesktop.view.ViewportController window rules', () => {
         expect(hides).toEqual([{animate: false, id: 'mail'}, {animate: false, id: 'help'}])
     });
 
+    // A window still mounted when the account changes re-renders its content, and that update lands after its removal
+    test('signing out hides every window before the account changes', async () => {
+        harness = createHarness(['view-mail', 'view-help']);
+
+        const {addWindow, controller, hides} = harness,
+              hiddenAtStateChange            = [];
+
+        addWindow('mail');
+        addWindow('help');
+
+        controller.setState = () => hiddenAtStateChange.push(hides.length);
+
+        await proto.onSignOutButtonClick.call(controller);
+
+        expect(hiddenAtStateChange).toEqual([2])
+    });
+
     test('teardown destroys every window, open or still being imported, and leaves the apps store', async () => {
         harness = createHarness(['view-mail']);
 
