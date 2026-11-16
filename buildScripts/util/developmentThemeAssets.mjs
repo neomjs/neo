@@ -288,7 +288,8 @@ export function runDevelopmentThemeBuild({repoRoot = REPO_ROOT} = {}) {
         const child = spawn(
             npmCommand,
             ['run', 'build-themes', '--', '-n', '-e', 'dev', '-t', 'all'],
-            {cwd: repoRoot, stdio: 'inherit'}
+            // Windows ships npm as a .cmd shim; Node refuses to spawn one without a shell.
+            {cwd: repoRoot, stdio: 'inherit', shell: process.platform === 'win32'}
         );
 
         child.once('error', error => reject(new Error(
