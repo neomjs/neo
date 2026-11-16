@@ -34,9 +34,56 @@ class Launcher extends List {
          */
         displayField: 'text',
         /**
+         * @member {Object} keys={Enter:'onKeyDownEnter'}
+         */
+        keys: {
+            Enter: 'onKeyDownEnter'
+        },
+        /**
          * @member {Boolean} useHeaders=true
          */
         useHeaders: true
+    }
+
+    /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+
+        let me = this;
+
+        me.addDomListeners({
+            dblclick: me.onItemDblClick,
+            scope   : me
+        })
+    }
+
+    /**
+     * Fires `openApp` for the app item on an event path, if there is one.
+     * @param {Object[]} path
+     * @protected
+     */
+    fireOpenApp(path) {
+        let me   = this,
+            item = path.find(node => node.cls?.includes(me.itemCls) && !node.cls.includes('neo-list-header'));
+
+        item && me.fire('openApp', {record: me.store.get(me.getItemRecordId(item.id))})
+    }
+
+    /**
+     * A double-click opens an app; a single click only selects it, as on a desktop.
+     * @param {Object} data
+     */
+    onItemDblClick(data) {
+        this.fireOpenApp(data.path)
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onKeyDownEnter(data) {
+        this.fireOpenApp(data.path)
     }
 
     /**
