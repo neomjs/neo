@@ -47,8 +47,9 @@ class TabContainerController extends Component {
     /**
      * @summary Publishes Featured and every group with a member that publishes a card in the selected build
      * (`Portal.model.Example.publishes()`), deriving every header from the view's definitions. A group without one
-     * would open on an empty tab, so it gets none, and an open group that loses its last card yields to Featured.
-     * Runs on each catalog load and build selection.
+     * would open on an empty tab, so it gets none. The open group stays open at its new index when a tab is inserted
+     * or removed before it, and yields to Featured when it loses its last card. Runs on each catalog load and build
+     * selection.
      */
     publishFamilies() {
         const view                             = this.component,
@@ -72,8 +73,11 @@ class TabContainerController extends Component {
             }
         });
 
-        if (openRoute && !available.has(openRoute)) {
-            view.activeIndex = view.getTabButtons().find(button => button.route === '/examples').index
+        // An insertion before the open tab does not move activeIndex with it
+        if (openRoute) {
+            const route = available.has(openRoute) ? openRoute : '/examples';
+
+            view.activeIndex = view.getTabButtons().find(button => button.route === route).index
         }
     }
 

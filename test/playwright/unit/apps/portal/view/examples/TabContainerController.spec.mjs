@@ -312,6 +312,24 @@ test.describe('Portal examples family navigation', () => {
         expect(view.getTabButtons().map(button => button.route)).toEqual(publishedRoutes);
         expect(view.getCard(tabIndex(view, '/examples/components')).store.items.map(record => record.id)).toEqual(['liquid-glass'])
     });
+
+    test('an open group stays selected when a build switch inserts or removes a tab before it', async () => {
+        const view       = createView(),
+              controller = view.getController(),
+              openRoute  = () => view.getTabButtons()[view.activeIndex].route;
+
+        await controller.onExamplesRoute({itemId: 'multi-window'});
+        expect(openRoute()).toBe('/examples/multi-window');
+
+        // Dev mode removes More components, which precedes Multi-Window
+        controller.onSelectBuild({id: 'devmode'});
+        expect(openRoute()).toBe('/examples/multi-window');
+
+        // Production inserts it again before the open tab
+        controller.onSelectBuild({id: 'dist_prod'});
+        expect(openRoute()).toBe('/examples/multi-window');
+        expect(view.activeIndex).toBe(tabIndex(view, '/examples/multi-window'))
+    });
 });
 
 const catalog            = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'), 'utf8')),
@@ -608,7 +626,7 @@ test.describe('Portal examples canonical catalog', () => {
         // the list hides what its store would filter out: a record without a cover publishes no card in any mode
         const uncovered = completeIds.filter(id => !store.get(id).image);
 
-        expect(uncovered).toHaveLength(47);
+        expect(uncovered).toHaveLength(30);
 
         cases.forEach(([mode, workstationUrl, choreographyUrl]) => {
             list.catalogMode = mode;
