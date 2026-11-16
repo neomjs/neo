@@ -16,6 +16,10 @@ import DomAccess from '../DomAccess.mjs';
  * It uses a granular locking mechanism (`coordinatingNodes`) to prevent infinite "ping-pong" feedback loops
  * when two-way sync is active or when other programmatic scrolling addons (like `GridDragScroll`) mutate the DOM.
  *
+ * The addon listens to the document once, in the capture phase, and routes each scroll by the id of the node that
+ * scrolled. A registration may arrive before its nodes are in the document, since the App worker's call can overtake
+ * the VDom worker's delta, and a node replaced later keeps its sync.
+ *
  * Key concepts: scroll synchronization, custom scrollbar, virtual scrolling, grid, main thread addon, DOM manipulation, event handling.
  *
  * @class Neo.main.addon.ScrollSync
@@ -63,19 +67,50 @@ class ScrollSync extends Base {
      * @protected
      */
     registrations = new Map()
+    /**
+     * The links of each source node id: `{isSyncBack, registration, toId}`, one per registration it drives.
+     * @member {Map<String, Set<Object>>} sources=new Map()
+     * @protected
+     */
+    sources = new Map()
 
     /**
-     * Creates and attaches a scroll event listener to a DOM node.
-     * @param {String} fromId      - The ID of the DOM node to listen to for scroll events.
-     * @param {String} toId        - The ID of the DOM node to scroll when the event is fired.
-     * @param {String} direction   - The scroll direction to sync ('vertical', 'horizontal', or 'both').
-     * @param {Boolean} isSyncBack - True if this listener is for the sync back in a two-way binding.
-     * @returns {Function|null} The created listener function, or null if the element does not exist.
+     * @summary Listens to the document's scroll events in the capture phase, since a scroll does not bubble.
+     * @param {Object} config
      */
-    addScrollListener(fromId, toId, direction, isSyncBack) {
-        let listener = this.onScroll.bind(this, toId, direction, isSyncBack);
-        DomAccess.getElement(fromId)?.addEventListener('scroll', listener);
-        return listener
+    construct(config) {
+        super.construct(config);
+
+        let me = this;
+
+        Neo.bindMethods(me, ['onDocumentScroll']);
+
+        document.addEventListener('scroll', me.onDocumentScroll, {capture: true})
+    }
+
+    /**
+     * @summary Stops listening to the document and releases the scroll locks.
+     * @param {...*} args
+     */
+    destroy(...args) {
+        let me = this;
+
+        document.removeEventListener('scroll', me.onDocumentScroll, {capture: true});
+        me.coordinatingNodes.forEach(timeoutId => clearTimeout(timeoutId));
+
+        super.destroy(...args)
+    }
+
+    /**
+     * @summary Adds a source link: a scroll of `nodeId` scrolls the link's target.
+     * @param {String} nodeId
+     * @param {Object} link {isSyncBack, registration, toId}
+     * @protected
+     */
+    addSource(nodeId, link) {
+        let {sources} = this;
+
+        sources.has(nodeId) ? sources.get(nodeId).add(link) : sources.set(nodeId, new Set([link]))
     }
 
     /**
@@ -94,6 +129,16 @@ class ScrollSync extends Base {
         me.coordinatingNodes.set(nodeId, setTimeout(() => {
             me.coordinatingNodes.delete(nodeId)
         }, me.lockTimeout))
+    }
+
+    /**
+     * @summary Routes a scroll of a registered source node to {@link #onScroll}, once per registration it drives.
+     * @param {Event} event
+     */
+    onDocumentScroll(event) {
+        this.sources.get(event.target.id)?.forEach(({isSyncBack, registration, toId}) => {
+            this.onScroll(toId, registration.direction, isSyncBack, event)
+        })
     }
 
     /**
@@ -136,8 +181,9 @@ class ScrollSync extends Base {
     }
 
     /**
-     * Registers a scroll synchronization between two DOM nodes.
-     * The method is idempotent: calling it multiple times with the same `id` will not create duplicate listeners.
+     * Registers a scroll synchronization between two DOM nodes. The nodes need not be in the document yet:
+     * {@link #onDocumentScroll} finds them by id.
+     * The method is idempotent: calling it multiple times with the same `id` will not create duplicate links.
      * If the registration parameters have changed, the old registration will be removed and a new one will be created.
      * @param {Object}  data
      * @param {String}  direction='vertical' 'horizontal', 'vertical' or 'both'
@@ -160,25 +206,12 @@ class ScrollSync extends Base {
             me.unregister({id})
         }
 
-        registration = {
-            direction,
-            fromId,
-            id,
-            toId,
-            twoWay,
-            listeners: []
-        };
+        registration = {direction, fromId, id, toId, twoWay};
 
-        registration.listeners.push({
-            listener: me.addScrollListener(fromId, toId, direction, false),
-            fromId
-        });
+        me.addSource(fromId, {isSyncBack: false, registration, toId});
 
         if (twoWay) {
-            registration.listeners.push({
-                listener: me.addScrollListener(toId, fromId, direction, true),
-                fromId  : toId
-            })
+            me.addSource(toId, {isSyncBack: true, registration, toId: fromId})
         }
 
         me.registrations.set(id, registration)
@@ -229,12 +262,13 @@ class ScrollSync extends Base {
             registration = me.registrations.get(id);
 
         if (registration) {
-            // It is safe to call removeEventListener even if the element does not exist anymore.
-            registration.listeners.forEach(item => {
-                DomAccess.getElement(item.fromId)?.removeEventListener('scroll', item.listener)
+            [registration.fromId, registration.toId].forEach(nodeId => {
+                let links = me.sources.get(nodeId);
+
+                links?.forEach(link => {link.registration === registration && links.delete(link)});
+                links?.size === 0 && me.sources.delete(nodeId)
             });
 
-            // Remove the registration from the map to prevent memory leaks.
             me.registrations.delete(id)
         }
     }
