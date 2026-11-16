@@ -202,6 +202,7 @@ test.describe('WebDesktop.view.ViewportController arrangements', () => {
             getArrangementKey: proto.getArrangementKey,
             getState         : key => state[key],
             getStore         : key => ({apps})[key],
+            readArrangement  : proto.readArrangement,
             setState         : data => Object.assign(state, data)
         };
 
@@ -237,5 +238,56 @@ test.describe('WebDesktop.view.ViewportController arrangements', () => {
 
         expect(apps.getChildren('communication').map(record => record.id)).toEqual(['mail', 'messages', 'calendar']);
         expect(state.account).toBe(guest)
+    });
+
+    test('of two quick sign-ins the later one wins in either reply order, and a restored order is never saved', async () => {
+        const editorKey = proto.getArrangementKey(editor),
+              saved     = storage[editorKey],
+              replies   = [];
+
+        Neo.main.addon.LocalStorage.readLocalStorageItem = ({key}) => new Promise(resolve => {
+            replies.push(() => resolve({key, value: storage[key] ?? null}))
+        });
+
+        for (const order of [[0, 1], [1, 0]]) {
+            state.account  = null;
+            replies.length = 0;
+
+            const first  = proto.onAccountItemClick.call(controller, {record: editor}),
+                  second = proto.onAccountItemClick.call(controller, {record: guest});
+
+            order.forEach(index => replies[index]());
+            await Promise.all([first, second]);
+
+            expect(state.account).toBe(guest);
+            expect(apps.getChildren('communication').map(record => record.id)).toEqual(['mail', 'messages', 'calendar'])
+        }
+
+        // A click that reaches the controller after an account signed in restores an order, it does not arrange one
+        Neo.main.addon.LocalStorage.readLocalStorageItem = async ({key}) => ({key, value: storage[key] ?? null});
+        state.account = editor;
+
+        await proto.onAccountItemClick.call(controller, {record: guest});
+
+        expect(Object.keys(storage)).toEqual([editorKey]);
+        expect(storage[editorKey]).toBe(saved)
+    });
+
+    test('an unreadable arrangement signs the account in with the catalog order', async () => {
+        const reads = [
+            async () => {throw new Error('storage blocked')},
+            async ({key}) => ({key, value: '{not json'}),
+            async ({key}) => ({key, value: JSON.stringify({communication: 'calendar'})})
+        ];
+
+        for (const read of reads) {
+            Neo.main.addon.LocalStorage.readLocalStorageItem = read;
+            state.account = null;
+
+            await proto.onAccountItemClick.call(controller, {record: editor});
+
+            expect(state.account).toBe(editor);
+            expect(apps.getChildren('communication').map(record => record.id)).toEqual(['mail', 'messages', 'calendar'])
+        }
     })
 });

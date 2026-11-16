@@ -27,7 +27,8 @@ export const catalog = [
 /**
  * @summary Each node's place among its siblings: the arrangement's order first, then the catalog's.
  * @param {Object} [arrangement={}] Parent key → child keys, in an account's order. A child it does not name follows
- * the named ones in catalog order, so an app added to the catalog later still shows up.
+ * the named ones in catalog order, so an app added to the catalog later still shows up; a value that is no array
+ * names none.
  * @returns {Map<String, Number>} Node key → order
  */
 export function orderOf(arrangement={}) {
@@ -39,7 +40,8 @@ export function orderOf(arrangement={}) {
     });
 
     children.forEach((ids, parentId) => {
-        let named = (arrangement[parentId] || []).filter(id => ids.includes(id));
+        let saved = arrangement[parentId],
+            named = Array.isArray(saved) ? [...new Set(saved)].filter(id => ids.includes(id)) : [];
 
         [...named, ...ids.filter(id => !named.includes(id))].forEach((id, index) => order.set(id, index))
     });

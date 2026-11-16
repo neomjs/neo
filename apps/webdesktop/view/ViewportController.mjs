@@ -23,6 +23,19 @@ class ViewportController extends Controller {
      * @member {Object} windows={}
      */
     windows = {}
+    /**
+     * The latest sign-in while its saved arrangement is being read. A later click replaces it, so the last click signs
+     * in, whichever read answers first.
+     * @member {Object|null} pendingSignIn=null
+     * @protected
+     */
+    pendingSignIn = null
+    /**
+     * True while a sign-in restores a saved arrangement: that write is no new order, so nothing is saved
+     * @member {Boolean} restoringArrangement=false
+     * @protected
+     */
+    restoringArrangement = false
 
     /**
      * Creates an app's window on first use. It grows out of the app's launcher icon, and its own state provider holds
@@ -78,24 +91,31 @@ class ViewportController extends Controller {
     }
 
     /**
-     * Signs an account in with its own icon arrangement, or the catalog order if it saved none. The arrangement is in
-     * place before the grants render the desktop, and with no account signed in yet, applying it saves nothing.
+     * Signs an account in with its saved icon arrangement, or the catalog order if it has none. The arrangement is in
+     * place before the grants render the desktop. Of two quick clicks the later one signs in.
      * @param {Object}                   data
      * @param {WebDesktop.model.Account} data.record
      */
     async onAccountItemClick({record}) {
-        let me      = this,
-            {value} = await Neo.main.addon.LocalStorage.readLocalStorageItem({
-                key     : me.getArrangementKey(record),
-                windowId: me.component.windowId
-            });
+        let me          = this,
+            signIn      = me.pendingSignIn = {record},
+            arrangement = await me.readArrangement(record);
 
-        me.getStore('apps').arrange(value ? JSON.parse(value) : {});
+        if (me.pendingSignIn === signIn) {
+            me.pendingSignIn        = null;
+            me.restoringArrangement = true;
 
-        me.setState({
-            account    : record,
-            permissions: [...record.permissions]
-        })
+            try {
+                me.getStore('apps').arrange(arrangement)
+            } finally {
+                me.restoringArrangement = false
+            }
+
+            me.setState({
+                account    : record,
+                permissions: [...record.permissions]
+            })
+        }
     }
 
     /**
@@ -118,7 +138,7 @@ class ViewportController extends Controller {
         let me      = this,
             account = me.getState('account');
 
-        account && Neo.main.addon.LocalStorage.updateLocalStorageItem({
+        account && !me.restoringArrangement && Neo.main.addon.LocalStorage.updateLocalStorageItem({
             key     : me.getArrangementKey(account),
             value   : JSON.stringify(me.getStore('apps').getArrangement()),
             windowId: me.component.windowId
@@ -282,6 +302,28 @@ class ViewportController extends Controller {
     }
 
     /**
+     * Reads an account's saved arrangement. It is a preference: a failed read or an unreadable value gives the catalog
+     * order and never blocks the sign-in.
+     * @param {WebDesktop.model.Account} account
+     * @returns {Promise<Object>} Group key → app keys, or `{}`
+     */
+    async readArrangement(account) {
+        let me = this;
+
+        try {
+            let {value} = await Neo.main.addon.LocalStorage.readLocalStorageItem({
+                    key     : me.getArrangementKey(account),
+                    windowId: me.component.windowId
+                }),
+                arrangement = value && JSON.parse(value);
+
+            return Neo.isObject(arrangement) ? arrangement : {}
+        } catch {
+            return {}
+        }
+    }
+
+    /**
      * Destroys every window, open or still being imported, and stops listening to the apps store, which the desktop's
      * provider owns and destroys after this controller.
      * @protected
@@ -289,7 +331,11 @@ class ViewportController extends Controller {
     releaseWindows() {
         let me = this;
 
-        me.getStore('apps')?.un('filter', me.onAppsFilter, me);
+        me.getStore('apps')?.un({
+            filter    : me.onAppsFilter,
+            rowsChange: me.onAppsRowsChange,
+            scope     : me
+        });
 
         Object.values(me.windows).forEach(promise => promise.then(window => {window.isDestroyed || window.destroy(true)}));
 
