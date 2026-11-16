@@ -143,7 +143,8 @@ independently: this one as the `neo.mjs` npm package, the Brain as container ima
    but we merge the first approve-worthy PR for a ticket, so if someone else holds it or gets there first, your work
    may not land. A claim is what protects your time.
    To keep the project moving, a claim lasts 3 days, and any comment you leave on the ticket starts the 3 days again.
-   After 3 days without a word from you, the ticket may go to another contributor.
+   After 3 days without a word from you, the ticket may go to another contributor. If your plans change, comment
+   `/unclaim` (or "please unassign me") on the ticket to give the claim back — an automatic reply confirms the release.
 4. Please make sure that pull requests are always related to an issue inside our <a href="../../issues">Issues Tracker</a>.
    Every pull request resolves **one** issue and must include **`Resolves #<issue-id>` on its own line** in the PR
    description (`Fixes #N` and `Closes #N` are rejected by our `baseline / PR baseline` CI check). Opening a PR in the

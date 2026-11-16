@@ -54,7 +54,8 @@ The synchronous lifecycle methods are called in the following order:
 
 While you *can* define a standard JavaScript `constructor()` method on a Neo.mjs class, it is strongly discouraged and
 considered a bad practice. The engine provides the `construct()` lifecycle hook for a very specific and powerful
-reason: **pre-processing configs**.
+reason: **pre-processing configs**. The tour chapter
+[Why Enhance JS Classes?](../coreengine/WhyEnhance.md) shows the native `constructor` trap with a worked example.
 
 #### The `constructor()` Limitation
 
@@ -101,6 +102,8 @@ the Neo.mjs lifecycle and config system, a flexibility that the standard `constr
 
 After the synchronous creation methods are complete, the instance lifecycle moves into an optional asynchronous phase.
 This is where you should place any logic that cannot be executed synchronously, such as loading external files or fetching data.
+Why this phase exists at all, and what breaks without it, is the story of the core engine tour's chapter
+[Instance Lifecycle & `initAsync`](../coreengine/Lifecycle.md).
 
 ### `initAsync()`: The Asynchronous Entry Point
 
@@ -109,6 +112,11 @@ The core of this phase is the `async initAsync()` method. It is scheduled as a m
 *   **Execution**: This microtask calls and `await`s `initAsync()`. This is the designated place for all asynchronous
     initialization logic. When overriding `initAsync()`, it is crucial to call `await super.initAsync()` at the
     beginning of your implementation.
+*   **What the base method does**: `Neo.core.Base#initAsync()` registers the remote methods first. When the class
+    has a `remote` config, it awaits `initRemote()`, which is why an override opens with `await super.initAsync()`:
+    otherwise the registration is delayed until your own work is done. How the remote methods then travel between
+    the workers is described in
+    [Main Thread Addons → Asynchronous Initialization](./MainThreadAddons.md#asynchronous-initialization-initasync-and-the-isready-config).
 
 ```javascript readonly
 // In your class

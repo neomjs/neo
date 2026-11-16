@@ -13,16 +13,49 @@ import * as core      from '../../../../src/core/_export.mjs';
 import ScrollManager  from '../../../../src/grid/ScrollManager.mjs';
 
 /**
- * Unit tests for synchronizing --grid-scroll-left onto follower rows outside grid.body.
+ * Unit tests for synchronizing --grid-scroll-left onto follower rows outside grid.body, and for a registration that
+ * comes before its nodes or outlives one of them.
+ *
+ * A mock element's `trigger()` delivers an event in a browser's order: the document's capture listeners, then each
+ * node on the path from the target up, then the document's bubble listeners. A `scroll` stops at its target, and
+ * `stopPropagation()` stops the rest.
  * @see Neo.grid.ScrollManager
  * @see Neo.main.addon.GridHorizontalScrollSync
  * @see https://github.com/neomjs/neo/issues/20966
  */
+
+/**
+ * @summary A document that keeps each listener's phase, so a spec can run the capture and bubble listeners apart.
+ */
+class PhasedDocument extends EventTarget {
+    phased = []
+
+    addEventListener(type, fn, options) {
+        this.phased.push({capture: options === true || !!options?.capture, fn, type});
+        super.addEventListener(type, fn, options)
+    }
+
+    removeEventListener(type, fn, options) {
+        const capture = options === true || !!options?.capture;
+
+        this.phased = this.phased.filter(item => !(item.type === type && item.fn === fn && item.capture === capture));
+        super.removeEventListener(type, fn, options)
+    }
+
+    /**
+     * @param {Event}   event
+     * @param {Boolean} capture True for the capture listeners, false for the bubble listeners
+     */
+    fire(event, capture) {
+        this.phased.filter(item => item.type === event.type && item.capture === capture).forEach(item => item.fn(event))
+    }
+}
+
 const
     originalDocument  = globalThis.document,
     originalDomAccess = Neo.main?.DomAccess,
     originalWindow    = globalThis.window,
-    documentRef       = new EventTarget(),
+    documentRef       = new PhasedDocument(),
     windowRef         = new EventTarget();
 
 documentRef.body           = {};
@@ -74,8 +107,25 @@ test.describe('GridHorizontalScrollSync & ScrollManager follower rows', () => {
                     }
                 },
                 _listeners: listeners,
-                trigger(type, eventObj = {}) {
-                    (listeners[type] || []).forEach(fn => fn({target: this, ...eventObj}));
+                trigger(type, eventObj = {}, path = [this]) {
+                    const event = Object.assign(new Event(type, {bubbles: type !== 'scroll'}), eventObj);
+                    let stopped = false;
+
+                    // As a browser reports it: the node the event reached, its path, and whether a node consumed it
+                    Object.defineProperties(event, {
+                        composedPath   : {value: () => path},
+                        stopPropagation: {value: () => {stopped = true}},
+                        target         : {value: this}
+                    });
+
+                    documentRef.fire(event, true);
+
+                    for (const node of path) {
+                        (node._listeners[type] || []).forEach(fn => fn(event));
+                        if (stopped || !event.bubbles) return
+                    }
+
+                    documentRef.fire(event, false)
                 }
             };
         };
@@ -162,6 +212,124 @@ test.describe('GridHorizontalScrollSync & ScrollManager follower rows', () => {
             expect(elements['grid-body'].style.getPropertyValue('--grid-scroll-left')).toBe('300px');
             expect(elements['follower-row-1'].style.getPropertyValue('--grid-scroll-left')).toBe('0px');
             expect(elements['follower-row-1'].style.getPropertyValue('--grid-scroll-left')).not.toBe('300px');
+        });
+
+        test('a registration made before its nodes are in the document syncs once they are', () => {
+            const present = {};
+
+            DomAccess.getElement = id => present[id] || null;
+
+            addon.register({
+                id         : 'test-grid__h_scroll',
+                scrollerId : 'grid-scroller',
+                bodyId     : 'grid-body',
+                headerId   : 'grid-header',
+                viewId     : 'grid-view',
+                followerIds: ['follower-row-1']
+            });
+
+            // The VDom worker's delta lands after the App worker's registration
+            Object.assign(present, elements);
+
+            elements['grid-scroller'].scrollLeft = 120;
+            elements['grid-scroller'].trigger('scroll');
+
+            expect(elements['grid-body'].style.getPropertyValue('--grid-scroll-left')).toBe('120px');
+            expect(elements['grid-header'].scrollLeft).toBe(120);
+            expect(elements['follower-row-1'].style.getPropertyValue('--grid-scroll-left')).toBe('120px');
+
+            elements['grid-view'].trigger('wheel', {deltaX: 30});
+            expect(elements['grid-scroller'].scrollLeft, 'the view\'s wheel moves the scrollbar').toBe(150)
+        });
+
+        test('a node replaced after the registration keeps the sync', () => {
+            addon.register({
+                id        : 'test-grid__h_scroll',
+                scrollerId: 'grid-scroller',
+                bodyId    : 'grid-body',
+                headerId  : 'grid-header',
+                viewId    : 'grid-view'
+            });
+
+            // A re-render puts a new scrollbar under the same id
+            elements['grid-scroller'] = createElement('grid-scroller', 80);
+            elements['grid-scroller'].trigger('scroll');
+
+            expect(elements['grid-body'].style.getPropertyValue('--grid-scroll-left')).toBe('80px')
+        });
+
+        test('a wheel a nested control consumes leaves the scrollbar, and one it passes on moves it', () => {
+            addon.register({
+                id        : 'test-grid__h_scroll',
+                scrollerId: 'grid-scroller',
+                bodyId    : 'grid-body',
+                headerId  : 'grid-header',
+                viewId    : 'grid-view'
+            });
+
+            const control = createElement('nested-control', 0),
+                  path    = [control, elements['grid-view']];
+
+            control.trigger('wheel', {deltaX: 40}, path);
+            expect(elements['grid-scroller'].scrollLeft, 'control: a wheel inside the view moves the scrollbar').toBe(40);
+
+            control.addEventListener('wheel', event => event.stopPropagation());
+            control.trigger('wheel', {deltaX: 40}, path);
+            expect(elements['grid-scroller'].scrollLeft, 'a consumed wheel').toBe(40)
+        });
+
+        test('nodes keyed by data-neo-id sync while useDomIds is false', () => {
+            const {useDomIds} = Neo.config;
+
+            Neo.config.useDomIds = false;
+
+            try {
+                // The ids live in data-neo-id, as the renderer writes them in this mode
+                for (const element of Object.values(elements)) {
+                    element.dataset = {neoId: element.id};
+                    element.id      = ''
+                }
+
+                addon.register({
+                    id        : 'test-grid__h_scroll',
+                    scrollerId: 'grid-scroller',
+                    bodyId    : 'grid-body',
+                    headerId  : 'grid-header',
+                    viewId    : 'grid-view'
+                });
+
+                elements['grid-scroller'].scrollLeft = 70;
+                elements['grid-scroller'].trigger('scroll');
+                expect(elements['grid-body'].style.getPropertyValue('--grid-scroll-left')).toBe('70px');
+                expect(elements['grid-header'].scrollLeft).toBe(70);
+
+                elements['grid-view'].trigger('wheel', {deltaX: 10});
+                expect(elements['grid-scroller'].scrollLeft, 'the view\'s wheel moves the scrollbar').toBe(80)
+            } finally {
+                Neo.config.useDomIds = useDomIds
+            }
+        });
+
+        test('unregister ends the sync of its grid, and another grid keeps its own', () => {
+            Object.assign(elements, {
+                'second-scroller': createElement('second-scroller', 0),
+                'second-body'    : createElement('second-body', 0),
+                'second-header'  : createElement('second-header', 0),
+                'second-view'    : createElement('second-view', 0)
+            });
+
+            addon.register({id: 'test-grid__h_scroll',   scrollerId: 'grid-scroller',   bodyId: 'grid-body',   headerId: 'grid-header',   viewId: 'grid-view'});
+            addon.register({id: 'second-grid__h_scroll', scrollerId: 'second-scroller', bodyId: 'second-body', headerId: 'second-header', viewId: 'second-view'});
+
+            addon.unregister({id: 'test-grid__h_scroll'});
+
+            elements['grid-scroller'].scrollLeft = 90;
+            elements['grid-scroller'].trigger('scroll');
+            elements['second-scroller'].scrollLeft = 60;
+            elements['second-scroller'].trigger('scroll');
+
+            expect(elements['grid-body'].style.getPropertyValue('--grid-scroll-left'), 'the unregistered grid').toBe('');
+            expect(elements['second-body'].style.getPropertyValue('--grid-scroll-left'), 'the other grid').toBe('60px')
         });
     });
 

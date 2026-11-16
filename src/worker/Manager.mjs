@@ -294,23 +294,20 @@ class Manager extends Base {
      * document base beside its location, so workspace connections honor the page's base element.
      */
     createWorkers() {
-        let me                   = this,
-            config               = Neo.clone(NeoConfig, true),
-            {hash, href, search} = location,
-            {windowId}           = me,
-            ssrData              = window.__NEO_SSR__,
+        let me             = this,
+            config         = Neo.clone(NeoConfig, true),
+            {href, search} = location,
+            {windowId}     = me,
+            route          = DomEvents.getRouteConfig(windowId),
+            ssrData        = window.__NEO_SSR__,
             key, value;
 
         // remove configs which are not relevant for the workers scope
         delete config.cesiumJsToken;
 
-        // pass the initial hash value as Neo.configs
-        if (hash) {
-            config.hash = {
-                hash      : DomEvents.parseHash(hash.substring(1)),
-                hashString: hash.substring(1),
-                windowId
-            }
+        // pass the initial route as Neo.configs
+        if (route) {
+            config.hash = route
         }
 
         config.url = {base: document.baseURI, href, search};
@@ -873,19 +870,16 @@ class Manager extends Base {
         item.worker = me.createWorker(item);
 
         // 3. Register Config
-        let config               = Neo.clone(NeoConfig, true),
-            {hash, href, search} = location,
-            {windowId}           = me;
+        let config         = Neo.clone(NeoConfig, true),
+            {href, search} = location,
+            {windowId}     = me,
+            route          = DomEvents.getRouteConfig(windowId);
 
         delete config.cesiumJsToken;
         config.url = {base: document.baseURI, href, search};
 
-        if (hash) {
-            config.hash = {
-                hash      : DomEvents.parseHash(hash.substring(1)),
-                hashString: hash.substring(1),
-                windowId
-            }
+        if (route) {
+            config.hash = route
         }
 
         let workerConfig = {...config, windowId};

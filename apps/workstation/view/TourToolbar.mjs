@@ -1,6 +1,12 @@
 import Toolbar from '../../../src/toolbar/Base.mjs';
 
 /**
+ * The caption the planning arrangement shows while no tour runs: the operations room's line is the tour's.
+ * @type {String}
+ */
+const planningCaption = 'The planning desk: the team\'s work above the release plan it serves, on one calendar.';
+
+/**
  * @summary Lightweight tour chrome bound to the workspace's provider before playback is activated.
  *
  * Two screenplays share the bar: the dense tour (no windows) and the film (windows born through
@@ -45,7 +51,7 @@ class TourToolbar extends Toolbar {
             ntype : 'container',
             layout: {ntype: 'vbox', align: 'stretch', pack: 'center'},
             items : [{
-                bind     : {html: 'tour.caption'},
+                bind     : {html: data => data.dock.perspective.active === 'planning' && !data.tour.running ? planningCaption : data.tour.caption},
                 cls      : ['workstation-tour-caption'],
                 flex     : 'none',
                 ntype    : 'component',
@@ -68,6 +74,28 @@ class TourToolbar extends Toolbar {
             ntype    : 'button',
             reference: 'tour-continue',
             text     : 'Continue'
+        }, {
+            // The declared arrangements, one pressed: the workspace's committed perspective
+            cls      : ['workstation-arrangement-switch'],
+            layout   : {ntype: 'hbox', align: 'center'},
+            ntype    : 'container',
+            reference: 'arrangement-switch',
+            role     : 'group',
+            items    : [{
+                bind     : {pressed: data => data.dock.perspective.active === 'shipped'},
+                handler  : 'onShowOperations',
+                iconCls  : 'fa fa-gauge-high',
+                ntype    : 'button',
+                reference: 'arrangement-operations',
+                text     : 'Operations'
+            }, {
+                bind     : {pressed: data => data.dock.perspective.active === 'planning'},
+                handler  : 'onShowPlanning',
+                iconCls  : 'fa fa-calendar-days',
+                ntype    : 'button',
+                reference: 'arrangement-planning',
+                text     : 'Planning'
+            }]
         }, {
             cls      : ['workstation-theme-button'],
             handler  : 'onToggleWorkspaceTheme',

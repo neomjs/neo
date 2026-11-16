@@ -2,10 +2,10 @@
  * @file test/playwright/unit/grid/column/AnimatedChange.spec.mjs
  * @summary An animatedChange column follows its grid's store: set after construction, swapped, or removed.
  *
- * The column animates a cell when its store publishes `recordChange`, and asks the grid body for the edited record's
- * row after a 20 ms frame wait. Each arm replaces the body's `getRow` with a recorder, so the recorded ids name the
- * edits that reached the column. An edit that must go unheard is followed by one on another record that must be heard:
- * the column's waits end in the order the edits came, so a wrongly heard edit shows up in the polled list.
+ * The column marks a cell when its store publishes `recordChange`. Each arm replaces the column's `mark` with a
+ * recorder, so the recorded ids name the edits that reached the column. An edit that must go unheard is followed by
+ * one on another record that must be heard: the marks come in the order the edits came, so a wrongly heard edit shows
+ * up in the polled list.
  *
  * @see Neo.grid.column.AnimatedChange
  * @see Neo.grid.Container#afterSetStore
@@ -70,18 +70,15 @@ function createGrid(type, dataField, config) {
 }
 
 /**
- * Replaces the grid body's row lookup with a recorder. A matched change makes the column ask for the edited record's
- * row once its 20 ms frame wait is over.
+ * Replaces the animated column's `mark` with a recorder: an edit that reached the column marks the edited record.
  * @param {Neo.grid.Container} grid
- * @returns {Number[]} The id of each record looked up, in order
+ * @param {String}             dataField The field of the animated column
+ * @returns {Number[]} The id of each record marked, in order
  */
-function recordLookups(grid) {
+function recordMarks(grid, dataField) {
     const ids = [];
 
-    grid.body.getRow = record => {
-        ids.push(record.id);
-        return null
-    };
+    grid.columns.get(dataField).mark = record => {ids.push(record.id)};
 
     return ids
 }
@@ -104,7 +101,7 @@ test.describe('Neo.grid.column.AnimatedChange', () => {
 
         expect(() => {grid = createGrid('animatedChange', 'load')}).not.toThrow();
 
-        const lookups = recordLookups(grid),
+        const lookups = recordMarks(grid, 'load'),
               other   = createStore(9),
               store   = createStore(1);
 
@@ -121,7 +118,7 @@ test.describe('Neo.grid.column.AnimatedChange', () => {
         const first   = createStore(1),
               second  = createStore(2),
               grid    = createGrid('animatedChange', 'load', {store: first}),
-              lookups = recordLookups(grid);
+              lookups = recordMarks(grid, 'load');
 
         // Control: the column hears the store the grid was created with
         edit(first, 1, 'load');
@@ -137,7 +134,7 @@ test.describe('Neo.grid.column.AnimatedChange', () => {
     test('a store set to null leaves the column without a store, and a store set again is heard', async () => {
         const store   = createStore(1, 3),
               grid    = createGrid('animatedChange', 'load', {store}),
-              lookups = recordLookups(grid);
+              lookups = recordMarks(grid, 'load');
 
         // Control: the column hears the grid's store
         edit(store, 1, 'load');
@@ -153,23 +150,21 @@ test.describe('Neo.grid.column.AnimatedChange', () => {
         await expect.poll(() => lookups).toEqual([1, 3])
     });
 
-    test('a locked column asks the body that renders it for its row', async () => {
-        const store = createStore(1),
-              grid  = Neo.create(GridContainer, {
-                  columns: [{dataField: 'load', locked: 'start', text: 'Load', type: 'animatedChange'}, {dataField: 'id', text: 'Id'}],
-                  store
-              }),
-              asked = {start: [], center: []};
+    test('a locked column reads its cells from the body that renders them', () => {
+        const grid = Neo.create(GridContainer, {
+            columns: [
+                {dataField: 'load',  locked: 'start', text: 'Load', type: 'animatedChange'},
+                {dataField: 'price', text: 'Price', type: 'animatedChange'},
+                {dataField: 'id',    text: 'Id'}
+            ],
+            store: createStore(1)
+        });
 
         grids.push(grid);
 
         expect(grid.bodyStart, 'control: the grid has a locked-start body').toBeTruthy();
-
-        grid.bodyStart.getRow = record => {asked.start.push(record.id); return null};
-        grid.body     .getRow = record => {asked.center.push(record.id); return null};
-
-        edit(store, 1, 'load');
-        await expect.poll(() => asked).toEqual({start: [1], center: []})
+        expect(grid.columns.get('load').getBody()).toBe(grid.bodyStart);
+        expect(grid.columns.get('price').getBody(), 'control: a center column reads the center body').toBe(grid.body)
     });
 
     test('a column without a store config does not gain one', () => {
@@ -193,7 +188,7 @@ test.describe('Neo.grid.column.AnimatedCurrency', () => {
 
         expect(() => {grid = createGrid('animatedCurrency', 'price')}).not.toThrow();
 
-        const lookups = recordLookups(grid),
+        const lookups = recordMarks(grid, 'price'),
               first   = createStore(1),
               second  = createStore(2);
 

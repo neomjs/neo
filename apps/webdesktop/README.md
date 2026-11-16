@@ -44,6 +44,39 @@ Two details make it correct:
 Hiding UI is not authorization. The backend must check every permission on its own endpoints; this filter only
 decides what the UI offers.
 
+## Windows
+
+Double-click an icon, or press Enter on it, and the app opens in a window that grows out of the icon. The window is
+a `Neo.dialog.Base`, created on first use through a lazy `import()` and kept afterwards (`view/ViewportController.mjs`):
+
+```javascript
+Neo.create(AppWindow, {
+    animateTargetId    : launcher.getItemId(launcher.store.get(record.id)),
+    appName,
+    boundaryContainerId: me.getReference('workspace').id,
+    stateProvider      : {data: {app: record}, parent: me.getStateProvider()},
+    windowId
+})
+```
+
+A floating dialog sits outside the component tree, so its state provider names the desktop's as its parent: the
+window binds `app` from its own provider and `account` from the parent. The taskbar lists the open windows from a
+`tasks` store. When the permission filter drops an app, its window closes, minimized or not.
+
+## Arranging icons
+
+Drag an icon before or after another icon of its group, or press Ctrl+Shift+Left or Right (Cmd+Shift on macOS). The
+launcher is draggable through `Neo.draggable.list.SortZone`: during the drag only the view previews the new order,
+and a drop writes the apps' `order` field once (`store.updateRows()`). The apps store sorts by `order`, so the launcher
+and the start menu follow. The filter never touches `order`, so a permission change keeps the remaining icons in place.
+Each account's arrangement is saved to `localStorage` and applied when it signs in.
+
+## Phones and touch
+
+Below 600px the taskbar shows icons only, keeping each control's accessible name, the permission panel becomes a sheet
+over the workspace, and every window fills the area above the taskbar. A touch device (`Neo.config.hasTouchEvents`)
+has no double-click, so a single tap opens an app there.
+
 ## Files
 
 | File | Responsibility |
@@ -53,3 +86,5 @@ decides what the UI offers.
 | `store/Permissions.mjs`, `view/PermissionList.mjs` | The panel that simulates the backend changing permissions. |
 | `view/SignIn.mjs`, `view/AccountList.mjs` | The lock screen. |
 | `view/Desktop.mjs`, `view/Launcher.mjs`, `view/Taskbar.mjs` | The signed-in desktop. |
+| `view/AppWindow.mjs`, `view/AppView.mjs` | An app's window and its content. |
+| `store/Tasks.mjs`, `view/TaskList.mjs` | The open windows in the taskbar. |

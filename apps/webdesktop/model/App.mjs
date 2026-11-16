@@ -30,6 +30,11 @@ class App extends TreeModel {
             name: 'iconCls',
             type: 'String'
         }, {
+            // menu.List calls the handler of a chosen item: an app opens through the viewport controller
+            name     : 'handler',
+            type     : 'String',
+            calculate: data => data.isLeaf === false ? null : 'onStartMenuAppChoose'
+        }, {
             name: 'id',
             type: 'String'
         }, {
@@ -37,6 +42,10 @@ class App extends TreeModel {
             name     : 'isHeader',
             type     : 'Boolean',
             calculate: data => data.isLeaf === false
+        }, {
+            // The place among its siblings: the apps store sorts by it, and the launcher's drag writes it
+            name: 'order',
+            type: 'Number'
         }, {
             name: 'permission',
             type: 'String'

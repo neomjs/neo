@@ -3,6 +3,8 @@
 
     .webdesktop-workspace {
         min-height: 0;
+        // The permission sheet of a phone layout covers it
+        position  : relative;
     }
 
     .webdesktop-launcher-area {
