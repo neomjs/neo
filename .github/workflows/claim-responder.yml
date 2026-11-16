@@ -14,7 +14,7 @@
 #
 # Security boundary: `pull_request_target` runs with repository write permissions against fork PRs, so this workflow
 # accepts direct Engine events and `workflow_call` with zero inputs, verifies `job.workflow_sha` is a full 40-character
-# commit SHA, and fetches ONLY the two pure rule modules from `neomjs/neo` at `${{ job.workflow_sha }}` through the
+# commit SHA, and fetches ONLY the three pure rule modules from `neomjs/neo` at `${{ job.workflow_sha }}` through the
 # contents API (making the running script and rule modules one reviewed commit by construction). It has no checkout
 # step: on a merged close that commit is the pull request's own merge commit, which `actions/checkout` refuses for a
 # fork. It never reads caller repository or pull request head files, treats event fields strictly as data, resolves
@@ -31,7 +31,7 @@ on:
   workflow_call:
 
 permissions:
-  contents: read       # the two rule modules, read at job.workflow_sha through the contents API
+  contents: read       # the three rule modules, read at job.workflow_sha through the contents API
   issues: write        # auto-assignment and release notices on curated issues
   pull-requests: write # overlap and residual-scope notices on pull requests
 
@@ -71,7 +71,7 @@ jobs:
           WORKFLOW_SHA: ${{ job.workflow_sha }}
         run: |
           mkdir -p buildScripts/util
-          for module in claimResponse.mjs contributorStanding.mjs; do
+          for module in claimResponse.mjs contributorStanding.mjs claimGuidance.mjs; do
             gh api -H 'Accept: application/vnd.github.raw' \
               "repos/neomjs/neo/contents/buildScripts/util/${module}?ref=${WORKFLOW_SHA}" > "buildScripts/util/${module}"
             test -s "buildScripts/util/${module}"
@@ -84,10 +84,11 @@ jobs:
         with:
           script: |
             const {
-              CLAIM_RELEASE_SINCE, TEAM_ASSOCIATIONS, changedCloseTargets, closeTargets, curatedLabel, decideClaim, decideClaimHint,
+              CLAIM_RELEASE_SINCE, TEAM_ASSOCIATIONS, changedCloseTargets, closeTargets, curatedLabel, decideClaim,
               decidePullRequestRelease, decidePullRequestTarget, decideTargetRemoval, decideWithdrawal, isClaim,
               isOutsideHuman, isTeamPermission, isWithdrawal
             } = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/claimResponse.mjs`);
+            const {decideClaimHint} = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/claimGuidance.mjs`);
             const {owner, repo} = context.repo;
 
             const

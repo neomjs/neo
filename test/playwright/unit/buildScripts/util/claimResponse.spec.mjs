@@ -12,7 +12,6 @@ import {
     claimText,
     closeTargets,
     decideClaim,
-    decideClaimHint,
     decidePullRequestRelease,
     decidePullRequestTarget,
     decideReply,
@@ -33,6 +32,7 @@ import {
     staleAssignees,
     withdrawalMarker
 } from '../../../../../buildScripts/util/claimResponse.mjs';
+import {decideClaimHint} from '../../../../../buildScripts/util/claimGuidance.mjs';
 
 const REPO_URL = 'https://github.com/neomjs/neo';
 
@@ -684,7 +684,7 @@ test.describe('buildScripts/util/claimResponse', () => {
 
             expect(raw).not.toMatch(/^concurrency:/m);
             expect(raw).toMatch(/\n    if: >-[\s\S]*?\n    concurrency:\n      group: claim-responder\n      cancel-in-progress: false\n      queue: max\n/);
-            expect(raw).toContain('for module in claimResponse.mjs contributorStanding.mjs; do');
+            expect(raw).toContain('for module in claimResponse.mjs contributorStanding.mjs claimGuidance.mjs; do');
 
             process.env.GITHUB_WORKSPACE = process.cwd();
 
@@ -819,6 +819,7 @@ test.describe('buildScripts/util/claimResponse', () => {
                     try {
                         fs.mkdirSync(util, {recursive: true});
                         fs.copyFileSync(path.resolve(process.cwd(), 'buildScripts/util/claimResponse.mjs'), path.join(util, 'claimResponse.mjs'));
+                        fs.copyFileSync(path.resolve(process.cwd(), 'buildScripts/util/claimGuidance.mjs'), path.join(util, 'claimGuidance.mjs'));
                         if (broken) fs.writeFileSync(path.join(util, 'contributorStanding.mjs'), 'export const = broken');
                         const fallback = await runScenario({workspace, assignedItems: oneHeld, addAssigneesImpl: async () => { throw new Error('must not assign') }});
                         expect(fallback.assignedCalls).toEqual([]);
