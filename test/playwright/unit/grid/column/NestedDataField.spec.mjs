@@ -70,12 +70,13 @@ test.afterAll(() => {
 
 /**
  * `AnimatedChange` (and `AnimatedCurrency` through it) subscribes to its grid's store at construction, so
- * these columns get a stub parent: a store that accepts the listener and a body that counts row lookups.
+ * these columns get a stub parent: a store that keys records and accepts the listener, and a body that counts row
+ * lookups.
  * @param {Array} [rows=[]] Collects the records a matched change looks up
  * @returns {Object}
  */
 function stubParent(rows=[]) {
-    return {body: {getRow(row) {rows.push(row); return null}}, store: {on() {}, un() {}}}
+    return {body: {getRow(row) {rows.push(row); return null}}, store: {getKey: row => row.id, on() {}, un() {}}}
 }
 
 /**

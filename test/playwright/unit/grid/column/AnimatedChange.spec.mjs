@@ -2,10 +2,10 @@
  * @file test/playwright/unit/grid/column/AnimatedChange.spec.mjs
  * @summary An animatedChange column follows its grid's store: set after construction, swapped, or removed.
  *
- * The column animates a cell when its store publishes `recordChange`, and asks the grid body for the edited record's
- * row after a 20 ms frame wait. Each arm replaces the body's `getRow` with a recorder, so the recorded ids name the
- * edits that reached the column. An edit that must go unheard is followed by one on another record that must be heard:
- * the column's waits end in the order the edits came, so a wrongly heard edit shows up in the polled list.
+ * The column animates a cell when its store publishes `recordChange`, and asks the grid body for a single edit's row
+ * at once. Each arm replaces the body's `getRow` with a recorder, so the recorded ids name the edits that reached the
+ * column. An edit that must go unheard is followed by one on another record that must be heard: the lookups come in
+ * the order the edits came, so a wrongly heard edit shows up in the polled list.
  *
  * @see Neo.grid.column.AnimatedChange
  * @see Neo.grid.Container#afterSetStore
@@ -70,8 +70,8 @@ function createGrid(type, dataField, config) {
 }
 
 /**
- * Replaces the grid body's row lookup with a recorder. A matched change makes the column ask for the edited record's
- * row once its 20 ms frame wait is over.
+ * Replaces the grid body's row lookup with a recorder. A matched single edit makes the column ask for the edited
+ * record's row.
  * @param {Neo.grid.Container} grid
  * @returns {Number[]} The id of each record looked up, in order
  */
