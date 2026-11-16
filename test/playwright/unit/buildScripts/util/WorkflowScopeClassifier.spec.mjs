@@ -1048,14 +1048,17 @@ test.describe('Tests scope classifier — the e2e engine tier predicate', () => 
         }
     });
 
-    test('a new reader of the claim or standing helper requires a browser reachability check', () => {
-        // Standing imports the claim helper. Catch new readers of either, including script, config and workflow callers.
-        const readers = execFileSync('git', ['grep', '--untracked', '-Il', '-E', 'claimResponse|contributorStanding', '--',
+    test('a new reader of the claim, standing or guidance helper requires a browser reachability check', () => {
+        // Standing and guidance import claim rules; all three are read only by contributor workflows and unit tests.
+        // Include guidance in the search so a future browser consumer of it reopens this boundary too.
+        const readers = execFileSync('git', ['grep', '--untracked', '-Il', '-E', 'claimResponse|contributorStanding|claimGuidance', '--',
             '*.mjs', '*.cjs', '*.js', '*.ts', '*.html', 'package.json', '*.sh', '.github/actions', '.github/workflows/test-e2e.yml',
             ':!test/playwright/unit'], {cwd: repoRoot, encoding: 'utf8'}).trim().split('\n');
 
         expect(readers).toContain('buildScripts/util/contributorStanding.mjs');
-        expect(readers.filter(file => !['buildScripts/util/claimResponse.mjs', 'buildScripts/util/contributorStanding.mjs'].includes(file)),
+        expect(readers).toContain('buildScripts/util/claimGuidance.mjs');
+        expect(readers.filter(file => !['buildScripts/util/claimResponse.mjs', 'buildScripts/util/contributorStanding.mjs',
+            'buildScripts/util/claimGuidance.mjs'].includes(file)),
             'check the new reader against the Engine browser launch chain').toEqual([]);
     });
 
