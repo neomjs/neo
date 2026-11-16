@@ -104,7 +104,7 @@ MountableMenuList = Neo.setupClass(MountableMenuList);
 
 /**
  * @summary A toolbar-owner stub whose `mounted` is a reactive config, as on a real toolbar, so the plugin
- * observes it. Tests replace `getLayoutRect`.
+ * observes it. Like `component.Base`, a later transition to mounted fires `mounted`. Tests replace `getLayoutRect`.
  */
 class MountableToolbarOwner extends Neo.core.Base {
     static config = {
@@ -113,20 +113,24 @@ class MountableToolbarOwner extends Neo.core.Base {
         theme_   : 'neo-theme-neo-dark'
     }
 
-    appName  = 'test-app'
-    dock     = 'top'
-    items    = [{id: 'b1'}, {id: 'b2'}]
-    parent   = {activeIndex: 0, on() {}, un() {}}
-    windowId = 1
+    appName          = 'test-app'
+    dock             = 'top'
+    items            = [{id: 'b1'}, {id: 'b2'}]
+    mountedListeners = []
+    parent           = {activeIndex: 0, on() {}, un() {}}
+    windowId         = 1
 
     add() {return {}}
     addDomListeners() {}
+    afterSetMounted(value, oldValue) {
+        oldValue !== undefined && value && this.mountedListeners.forEach(({fn, scope}) => fn.call(scope))
+    }
     getActionItems() {return []}
     async getLayoutRect() {return []}
     getParents() {return []}
     getTabButtons() {return this.items}
     getTheme() {return this.theme}
-    on() {}
+    on(name, fn, scope) {name === 'mounted' && this.mountedListeners.push({fn, scope})}
     remove() {}
     removeDomListeners() {}
     un() {}
@@ -1646,11 +1650,11 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
             expect(plugin.control).toBe(null);
             expect([...live], 'unmounting the toolbar takes its button along').toEqual([]);
 
-            // Mounted again on an overflowing bar, it projects afresh: plugin.Base runs onOwnerMounted() per mount
+            // Mounted again on an overflowing bar, it projects afresh through plugin.Base's `mounted` subscription,
+            // which also holds for this owner, mounted before the plugin attached
             owner.items         = ['b1', 'b2'].map(id => ({id, text: id, hidden: false, vdom: {}, addCls() {}, removeCls() {}, show() {}}));
             owner.getLayoutRect = async ids => ids[0] === owner.id ? [{width: 15}] : [{width: 10}, {width: 10}];
             owner.mounted       = true;
-            plugin.onOwnerMounted();
             await new Promise(resolve => setTimeout(resolve, 0));
             expect(plugin.control, 'a fresh control, never the retired one').toBeTruthy();
             expect(plugin.control).not.toBe(control);
