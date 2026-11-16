@@ -23,6 +23,19 @@ class ViewportController extends Controller {
      * @member {Object} windows={}
      */
     windows = {}
+    /**
+     * The latest sign-in while its saved arrangement is being read. A later click replaces it, so the last click signs
+     * in, whichever read answers first.
+     * @member {Object|null} pendingSignIn=null
+     * @protected
+     */
+    pendingSignIn = null
+    /**
+     * True while a sign-in restores a saved arrangement: that write is no new order, so nothing is saved
+     * @member {Boolean} restoringArrangement=false
+     * @protected
+     */
+    restoringArrangement = false
 
     /**
      * Creates an app's window on first use. It grows out of the app's launcher icon, and its own state provider holds
@@ -63,6 +76,14 @@ class ViewportController extends Controller {
     }
 
     /**
+     * @param {WebDesktop.model.Account} account
+     * @returns {String} The localStorage key of an account's icon arrangement
+     */
+    getArrangementKey(account) {
+        return `neo-webdesktop-arrangement-${account.id}`
+    }
+
+    /**
      * Hides every window without animation: their launcher icons may be gone already.
      */
     hideAllWindows() {
@@ -70,14 +91,31 @@ class ViewportController extends Controller {
     }
 
     /**
+     * Signs an account in with its saved icon arrangement, or the catalog order if it has none. The arrangement is in
+     * place before the grants render the desktop. Of two quick clicks the later one signs in.
      * @param {Object}                   data
      * @param {WebDesktop.model.Account} data.record
      */
-    onAccountItemClick({record}) {
-        this.setState({
-            account    : record,
-            permissions: [...record.permissions]
-        })
+    async onAccountItemClick({record}) {
+        let me          = this,
+            signIn      = me.pendingSignIn = {record},
+            arrangement = await me.readArrangement(record);
+
+        if (me.pendingSignIn === signIn) {
+            me.pendingSignIn        = null;
+            me.restoringArrangement = true;
+
+            try {
+                me.getStore('apps').arrange(arrangement)
+            } finally {
+                me.restoringArrangement = false
+            }
+
+            me.setState({
+                account    : record,
+                permissions: [...record.permissions]
+            })
+        }
     }
 
     /**
@@ -94,6 +132,20 @@ class ViewportController extends Controller {
     }
 
     /**
+     * Saves the signed-in account's arrangement whenever the apps store writes a new order: a drop, a keyboard move.
+     */
+    onAppsRowsChange() {
+        let me      = this,
+            account = me.getState('account');
+
+        account && !me.restoringArrangement && Neo.main.addon.LocalStorage.updateLocalStorageItem({
+            key     : me.getArrangementKey(account),
+            value   : JSON.stringify(me.getStore('apps').getArrangement()),
+            windowId: me.component.windowId
+        })
+    }
+
+    /**
      * The start menu is a `menu.List` cascade over the apps store: every level reads the same filtered tree.
      */
     onComponentConstructed() {
@@ -107,7 +159,11 @@ class ViewportController extends Controller {
             store: me.getStore('apps')
         };
 
-        me.getStore('apps').on('filter', me.onAppsFilter, me)
+        me.getStore('apps').on({
+            filter    : me.onAppsFilter,
+            rowsChange: me.onAppsRowsChange,
+            scope     : me
+        })
     }
 
     /**
@@ -138,11 +194,13 @@ class ViewportController extends Controller {
     }
 
     /**
+     * Signs out. A sign-in whose arrangement is still being read does not outlive it.
      * @param {Object} data
      */
     onSignOutButtonClick(data) {
         let me = this;
 
+        me.pendingSignIn = null;
         me.hideAllWindows();
         me.getStore('tasks').clear();
 
@@ -246,6 +304,28 @@ class ViewportController extends Controller {
     }
 
     /**
+     * Reads an account's saved arrangement. It is a preference: a failed read or an unreadable value gives the catalog
+     * order and never blocks the sign-in.
+     * @param {WebDesktop.model.Account} account
+     * @returns {Promise<Object>} Group key → app keys, or `{}`
+     */
+    async readArrangement(account) {
+        let me = this;
+
+        try {
+            let {value} = await Neo.main.addon.LocalStorage.readLocalStorageItem({
+                    key     : me.getArrangementKey(account),
+                    windowId: me.component.windowId
+                }),
+                arrangement = value && JSON.parse(value);
+
+            return Neo.isObject(arrangement) ? arrangement : {}
+        } catch {
+            return {}
+        }
+    }
+
+    /**
      * Destroys every window, open or still being imported, and stops listening to the apps store, which the desktop's
      * provider owns and destroys after this controller.
      * @protected
@@ -253,7 +333,11 @@ class ViewportController extends Controller {
     releaseWindows() {
         let me = this;
 
-        me.getStore('apps')?.un('filter', me.onAppsFilter, me);
+        me.getStore('apps')?.un({
+            filter    : me.onAppsFilter,
+            rowsChange: me.onAppsRowsChange,
+            scope     : me
+        });
 
         Object.values(me.windows).forEach(promise => promise.then(window => {window.isDestroyed || window.destroy(true)}));
 

@@ -1,5 +1,7 @@
-// The list drawn as a desktop: no list chrome, icon tiles on the wallpaper, groups as headings
-.webdesktop-launcher {
+// The list drawn as a desktop: no list chrome, icon tiles on the wallpaper, groups as headings.
+// A dragged icon's proxy is mounted on the body, so it carries the tile rules under its own class.
+.webdesktop-launcher,
+.webdesktop-launcher-proxy {
     --list-container-list-color          : var(--webdesktop-ink);
     --list-item-background-color         : transparent;
     --list-item-background-color-active  : var(--webdesktop-glass-active);
@@ -9,29 +11,6 @@
     --list-item-focus-outline            : 2px solid var(--webdesktop-accent);
     --list-item-focus-outline-offset     : 2px;
     --list-item-padding                  : 10px 4px 8px;
-
-    align-content        : start;
-    display              : grid;
-    gap                  : 6px 8px;
-    grid-template-columns: repeat(auto-fill, 100px);
-    padding              : 28px 32px;
-
-    .neo-list-header {
-        border-bottom : 1px solid var(--webdesktop-glass-border);
-        color         : var(--webdesktop-ink-dim);
-        font-size     : 11px;
-        font-weight   : 700;
-        grid-column   : 1 / -1;
-        letter-spacing: .09em;
-        margin        : 14px 0 6px;
-        padding       : 0 2px 8px;
-        text-shadow   : var(--webdesktop-label-shadow);
-        text-transform: uppercase;
-
-        &:first-child {
-            margin-top: 0;
-        }
-    }
 
     .neo-list-item:not(.neo-list-header) {
         align-items   : center;
@@ -72,4 +51,41 @@
         text-align : center;
         text-shadow: var(--webdesktop-label-shadow);
     }
+}
+
+.webdesktop-launcher {
+    align-content        : start;
+    display              : grid;
+    gap                  : 6px 8px;
+    grid-template-columns: repeat(auto-fill, 100px);
+    padding              : 28px 32px;
+
+    .neo-list-header {
+        border-bottom : 1px solid var(--webdesktop-glass-border);
+        color         : var(--webdesktop-ink-dim);
+        font-size     : 11px;
+        font-weight   : 700;
+        grid-column   : 1 / -1;
+        letter-spacing: .09em;
+        margin        : 14px 0 6px;
+        padding       : 0 2px 8px;
+        text-shadow   : var(--webdesktop-label-shadow);
+        text-transform: uppercase;
+
+        &:first-child {
+            margin-top: 0;
+        }
+    }
+
+    // The icon a drag moves keeps its slot, faded, while the proxy carries it
+    .neo-list-item.neo-sort-source {
+        opacity  : .3;
+        transform: none;
+    }
+}
+
+// The proxy is the icon lifted off the desktop
+.webdesktop-launcher-proxy .neo-list-item {
+    background-color: var(--webdesktop-glass-active);
+    box-shadow      : 0 18px 40px -12px rgba(0, 0, 0, .55);
 }
