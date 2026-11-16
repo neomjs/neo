@@ -577,6 +577,7 @@
  "Neo.util.Matrix": "Neo.core.Base",
  "Neo.util.Performance": "Neo.core.Base",
  "Neo.util.Rectangle": "DOMRect",
+ "Neo.util.Store": "Neo.core.Base",
  "Neo.util.String": "Neo.core.Base",
  "Neo.util.Style": "Neo.core.Base",
  "Neo.util.VDom": "Neo.core.Base",
