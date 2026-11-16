@@ -1964,7 +1964,15 @@ test.describe('buildScripts/util/claimResponse', () => {
                 'What happens if I withdraw my claim?',
                 'Am I stepping back from this? No.',
                 "If something comes up, I'll withdraw my claim.",
-                'Commenting `/unclaim` or "please unassign me" returns the claim.'
+                'Commenting `/unclaim` or "please unassign me" returns the claim.',
+                'I will withdraw my claim if someone else would like it.',
+                '/unclaim if someone else can finish it',
+                'I have not, and never will, withdraw my claim.',
+                'Do not write: I withdraw my claim.',
+                'It would be wrong to say, I withdraw my claim.',
+                'I know I should not say, I cannot work on this anymore.',
+                'Do not give up and unclaim this.',
+                'Do not write — I withdraw my claim.'
             ];
             for (const text of nonReleases) {
                 expect(isWithdrawal(text), text).toBe(false)
@@ -1976,7 +1984,7 @@ test.describe('buildScripts/util/claimResponse', () => {
             expect(isWithdrawal(`sorry, ${'a, '.repeat(200)}withdrawing my claim`)).toBe(true);
             expect(performance.now() - t0).toBeLessThan(50);
 
-            // Exact assigned-fixture check for ordinary continuing negations and two-subject denials
+            // Exact assigned-fixture check for ordinary continuing negations, two-subject denials, trailing conditionals, and comma-split denials
             const
                 claim1    = comment('outside-dev', '2026-11-16T04:00:00Z', '/claim', {id: 7101}),
                 assigned1 = {actor: {login: 'github-actions[bot]', type: 'Bot'}, assignee: {login: 'outside-dev'}, created_at: '2026-11-16T04:00:02Z', event: 'assigned'},
@@ -1986,7 +1994,15 @@ test.describe('buildScripts/util/claimResponse', () => {
                 'I do not plan to withdraw my claim. The fix is still underway.',
                 "I'm not considering withdrawing my claim. I am still working on it.",
                 'I do not think I should withdraw my claim.',
-                'I have no plans at all to withdraw my claim.'
+                'I have no plans at all to withdraw my claim.',
+                'I will withdraw my claim if someone else would like it.',
+                '/unclaim if someone else can finish it',
+                'I have not, and never will, withdraw my claim.',
+                'Do not write: I withdraw my claim.',
+                'It would be wrong to say, I withdraw my claim.',
+                'I know I should not say, I cannot work on this anymore.',
+                'Do not give up and unclaim this.',
+                'Do not write — I withdraw my claim.'
             ]) {
                 const note = comment('outside-dev', '2026-11-16T10:00:00Z', phrase, {id: 7101});
                 expect(decideWithdrawal({comment: note, comments: [claim1, note], events: [assigned1], issue: openIssue, repoUrl: REPO_URL})).toBeNull();

@@ -74,19 +74,25 @@ const
     CAPACITY_REFUSAL_START   = Object.freeze(["you're already assigned to ", 'you already hold ']),
     CLAIM_TARGET             = String.raw`(this|it|#\d+|the\s[^\n]{1,80}?\brow\b)`,
     APOSTROPHE_LOOKALIKES    = /[\u{2018}\u{2019}\u{2BC}\u{B4}]/gu,
-    SLASH_WITHDRAWAL_PATTERN = /^\s*\/(unassign|unclaim)\b/im,
+    SLASH_WITHDRAWAL_PATTERN = /^\s*\/(unassign|unclaim)(?:[ \t]+me)?[ \t.!]*$/im,
     INLINE_QUOTE_PATTERN     = /`[^`\n]*`|"[^"\n]*"|(?:^|(?<=[\s([:;,-]))'[^'\n]+'(?=$|[\s.,!?;:)\]-])/g,
-    SENTENCE_MATCH_PATTERN            = /[^.!?\n]+[.!?\n]?/g,
-    CONDITIONAL_SENTENCE              = /^(?:if|unless|whether|when|whenever|in\s+case|suppos(?:e|ing)|assum(?:e|ing))\b/i,
-    CLAUSE_SPLIT_PATTERN              = /[;,:\u2013\u2014]+|\s+-\s+|\b(?:so|therefore|thus)\s+|\band\s+(?=(?:i\b|i'|please\b|unclaim|withdraw|drop|releas|giv|step|consider))/i,
+    SENTENCE_MATCH_PATTERN            = /[^.!?\n;]+[.!?\n;]?/g,
+    CONDITIONAL_SENTENCE              = /\b(?:if(?!\s+(?:useful|helpful|needed)\b)|unless|whether|when|whenever|provided\s+that|in\s+case|suppos(?:e|ing)|assum(?:e|ing))\b/i,
+    STRONG_CLAUSE_SPLIT_PATTERN       = /\b(?:so|therefore|thus)\s+/i,
+    WEAK_CLAUSE_SPLIT_PATTERN         = /[,:\u2013\u2014]+|\s+-\s+|\band\s+(?=(?:i\b|i'|please\b|unclaim|withdraw|drop|releas|giv|step|consider))/i,
+    PRIOR_NEGATION_OR_FRAME           = /\b(?:not|never|no|neither|nor|without|say|said|saying|write|wrote|written|writing|post|posted|posting|type|typed|typing|comment|commented|reply|replied|quote|quoted|mean|meant|meaning|read|reads|sound|sounds|phrase|wording|example|such\s+as|instead\s+of|rather\s+than|wrong|mistake|false|pretend|imagine)\b|n't\b/i,
+    PRIOR_HARD_FRAME                  = /\b(?:say|said|saying|write|wrote|written|writing|post|posted|posting|type|typed|typing|comment|commented|reply|replied|quote|quoted|mean|meant|meaning|read|reads|sound|sounds|phrase|wording|example|such\s+as|instead\s+of|rather\s+than|wrong|mistake|false|pretend|imagine|think|thought|plan|planned|planning|intend|intended|consider|considering|want|wanted|should|would)\b/i,
+    PRIOR_INABILITY_REASON            = /\b(?:work(?:\s+on)?|finish|continue|proceed|time|bandwidth|capacity|reproduce|build|compile|run|running|pass|passing|setup|set\s+up|environment|docker|windows|mac|linux|figure(?:\s+it)?\s+out|get\s+(?:it|this|the\b))\b/i,
+    PRIOR_CONTRAST_RESET              = /\b(?:earlier|before|previously|yesterday)\b/i,
+    PRIOR_DANGLING_TAIL               = /(?:\b(?:not|never|no|and|or|but|will|would|can|could|should|do|does|did|have|has|had|am|is|are|to)|n't)$/i,
     POLITE_LEAD                       = String.raw`(?:(?:sorry|apologies|unfortunately|hey|hi|hello)\s+)?`,
     AFFIRMATIVE_SUBJECT               = String.raw`(?:(?:i'?m|i\s+am|i'?ll|i\s+will|i'?ve|i\s+have|i'?d\s+like\s+to|i\s+(?:want|need|have)\s+to|i)\s+(?:now\s+|hereby\s+|going\s+to\s+)?)`,
     AFFIRMATIVE_WITHDRAWAL_PATTERNS   = Object.freeze([
         new RegExp(String.raw`^${POLITE_LEAD}(?:please\s+)?unassign\s+me\b`, 'i'),
-        new RegExp(String.raw`^${POLITE_LEAD}${AFFIRMATIVE_SUBJECT}?unclaim(?:ing)?(?:\s+(?:this|it|#\d+))?\b`, 'i'),
-        new RegExp(String.raw`^${POLITE_LEAD}${AFFIRMATIVE_SUBJECT}?(?:withdraw(?:ing|n)?|withdrew)\s+(?:(?:my|this|the)\s+claim|from\s+(?:this|it|#\d+))\b`, 'i'),
-        new RegExp(String.raw`^${POLITE_LEAD}${AFFIRMATIVE_SUBJECT}?(?:drop(?:ping|ped)?|releas(?:e|ed|ing)|giv(?:e|en|ing)\s+(?:back|up))\s+(?:(?:my|this|the)\s+)?claim\b`, 'i'),
-        new RegExp(String.raw`^${POLITE_LEAD}${AFFIRMATIVE_SUBJECT}?step(?:ping)?\s+(?:back|away)\b`, 'i'),
+        new RegExp(String.raw`^${POLITE_LEAD}(?:${AFFIRMATIVE_SUBJECT}unclaim(?:ing)?|unclaiming|unclaim\s+(?:this|it|#\d+))\b`, 'i'),
+        new RegExp(String.raw`^${POLITE_LEAD}(?:${AFFIRMATIVE_SUBJECT}(?:withdraw(?:ing|n)?|withdrew)|withdrawing)\s+(?:(?:my|this|the)\s+claim|from\s+(?:this|it|#\d+))\b`, 'i'),
+        new RegExp(String.raw`^${POLITE_LEAD}(?:${AFFIRMATIVE_SUBJECT}(?:drop(?:ping|ped)?|releas(?:e|ed|ing)|giv(?:e|en|ing)\s+(?:back|up))|(?:dropping|releasing|giving\s+(?:back|up)))\s+(?:(?:my|this|the)\s+)?claim\b`, 'i'),
+        new RegExp(String.raw`^${POLITE_LEAD}(?:${AFFIRMATIVE_SUBJECT}step(?:ping|ped)?|stepping)\s+(?:back|away)\b`, 'i'),
         new RegExp(String.raw`^${POLITE_LEAD}(?:please\s+)?consider\s+(?:it|this)\s+available\b`, 'i'),
         new RegExp(String.raw`^${POLITE_LEAD}(?:the\s+)?(?:issue|this|it)\s+is\s+(?:now\s+)?(?:free|available)\s+for\s+(?:anyone|others|another)\b`, 'i')
     ]),
@@ -146,12 +152,23 @@ function hasAffirmativeProseWithdrawal(text) {
     for (const rawSentence of cleaned.match(SENTENCE_MATCH_PATTERN) || []) {
         const sentence = rawSentence.trim();
         if (!sentence || sentence.endsWith('?') || CONDITIONAL_SENTENCE.test(sentence)) continue;
-        for (const rawClause of sentence.split(CLAUSE_SPLIT_PATTERN)) {
-            const clause = rawClause.trim();
-            if (!clause) continue;
-            if (AFFIRMATIVE_WITHDRAWAL_PATTERNS.some(pattern => pattern.test(clause))) return true;
-            const modal = clause.match(MODAL_CLAUSE_WITHDRAWAL);
-            if (modal && !DEFERRAL_CLAUSE_PATTERN.test(modal[1] || '')) return true;
+        for (const strongClause of sentence.split(STRONG_CLAUSE_SPLIT_PATTERN)) {
+            let priorBlocked = false;
+            for (const rawClause of strongClause.split(WEAK_CLAUSE_SPLIT_PATTERN)) {
+                const clause = rawClause.trim();
+                if (!clause) continue;
+                if (!priorBlocked) {
+                    if (AFFIRMATIVE_WITHDRAWAL_PATTERNS.some(pattern => pattern.test(clause))) return true;
+                    const modal = clause.match(MODAL_CLAUSE_WITHDRAWAL);
+                    if (modal && !DEFERRAL_CLAUSE_PATTERN.test(modal[1] || '')) return true;
+                }
+                if (PRIOR_NEGATION_OR_FRAME.test(clause)) {
+                    const allowedInability = (PRIOR_INABILITY_REASON.test(clause) || PRIOR_CONTRAST_RESET.test(clause)) &&
+                        !PRIOR_HARD_FRAME.test(clause) &&
+                        !PRIOR_DANGLING_TAIL.test(clause);
+                    if (!allowedInability) priorBlocked = true;
+                }
+            }
         }
     }
     return false
