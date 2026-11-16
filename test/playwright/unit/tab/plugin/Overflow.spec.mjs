@@ -1607,6 +1607,9 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         await new Promise(resolve => setTimeout(resolve, 0));
         const {live, restore} = mockFloatingControls();
 
+        // Buttons a split can be applied to, so only the toolbar's unmount can keep the control from being created
+        plugin.owner.items = ['b1', 'b2'].map(id => ({id, text: id, hidden: false, vdom: {}, addCls() {}, removeCls() {}, show() {}}));
+
         // The bar overflows now, and the toolbar unmounts while the DOM round-trip is in flight
         plugin.owner.getLayoutRect = async ids => {
             plugin.owner.mounted = false;
