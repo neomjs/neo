@@ -377,6 +377,15 @@ class ComboBox extends Picker {
         }
     }
 
+    clear() {
+        // Prevent forceSelection from restoring the prior typeahead match on blur.
+        this.activeRecord    = null;
+        this.activeRecordId  = null;
+        this.lastManualInput = null;
+        this.valueBeforeInput = null;
+        super.clear()
+    }
+
     /**
      * Triggered before the listConfig config gets changed.
      * @param {Object} value
