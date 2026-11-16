@@ -4,7 +4,8 @@
  * the scroll position where it was, also when a forced view pass rebuilds the rows while the batch repaint is in flight.
  *
  * `Neo.grid.column.AnimatedChange` marks a changed cell, and a render after the mark's window takes it off again, so
- * the spec records each mark with a MutationObserver instead of reading the class later.
+ * the first arm records each mark with a MutationObserver instead of reading the class later. The forced-pass arm
+ * widens the window and reads the DOM the forced repaint settled.
  *
  * @see Neo.data.Store#updateRows
  * @see Neo.grid.Body#onStoreRowsChange
@@ -117,35 +118,61 @@ test.describe('Grid BigData: a store batch repaints the visible rows in place (#
     });
 
     test('the marks survive a forced view pass that rebuilds the rows while the batch repaint is in flight', async ({page, neuralLink}) => {
-        const {app, headerRows, indexes, keys, marked, readRow, store} = await openMiddle(page, neuralLink),
+        const {app, headerRows, indexes, keys, readRow, store} = await openMiddle(page, neuralLink),
               gridId = await page.locator(GRID).getAttribute('id'),
               worker = page.workers().find(item => item.url().includes('/worker/App'));
 
         // The ordering a loaded CI runner produced: the batch repaint is in flight when a forced view pass rebuilds the
-        // rows. Holding the repaint's acknowledgement makes that ordering certain instead of rare.
+        // rows. Holding the repaint's acknowledgement makes that ordering certain instead of rare. Asked for inside the
+        // held flight, the pass defers until the flight resolves, then rebuilds the rows in a repaint of its own.
+        // `__forcedPass` records each step: the flight held, the rows rebuilt, the rebuild's repaint done.
         await worker.evaluate(id => {
-            const body          = Neo.get(id).body,
-                  {updateBatch} = Neo.vdom.Helper;
+            const grid             = Neo.get(id),
+                  {body}           = grid,
+                  {createViewData} = body,
+                  {updateBatch}    = Neo.vdom.Helper,
+                  pass             = globalThis.__forcedPass = {held: false, rebuilt: false, repainted: false};
 
-            let held = false;
+            // A window no runner delay outlasts, so the settled DOM below is read inside it
+            grid.columns.get('counter').markDuration = 60000;
 
             Neo.vdom.Helper.updateBatch = async function(data) {
                 const result = await updateBatch.call(this, data);
 
-                if (!held && body.isVdomUpdating && JSON.stringify(data).includes('Batched')) {
-                    held = true;
+                if (!pass.held && body.isVdomUpdating && JSON.stringify(data).includes('Batched')) {
+                    pass.held = true;
                     body.createViewData(false, true);
                     await new Promise(resolve => setTimeout(resolve, 120))
                 }
 
                 return result
+            };
+
+            body.createViewData = function(silent, force) {
+                // Outside a flight, the forced pass rebuilds instead of deferring
+                const rebuild = pass.held && !pass.rebuilt && force && !this.isVdomUpdating;
+
+                createViewData.call(this, silent, force);
+
+                if (rebuild) {
+                    pass.rebuilt = true;
+                    this.promiseUpdate().then(() => {pass.repainted = true})
+                }
             }
         }, gridId);
 
         await writeBatch(app, store, keys);
 
+        await expect.poll(() => worker.evaluate(() => globalThis.__forcedPass), {
+            message: 'the batch repaint was held, and the forced pass rebuilt the rows and repainted them',
+            timeout: 5000
+        }).toEqual({held: true, rebuilt: true, repainted: true});
+
         await expect.poll(() => Promise.all(indexes.map(readRow)), {timeout: 5000}).toEqual(batchedRows(indexes));
-        await expect.poll(marked, {message: 'each changed counter cell was marked through the forced pass', timeout: 5000})
-            .toEqual(indexes.map(index => index + 1 + headerRows))
+
+        expect(await page.evaluate(({grid, rows}) => rows.map(rowIndex => document.querySelector(
+            `${grid} .neo-grid-body .neo-grid-row[aria-rowindex="${rowIndex}"] .neo-grid-cell[data-field="counter"]`
+        ).classList.contains('neo-animated')), {grid: GRID, rows: indexes.map(index => index + 1 + headerRows)}),
+        'each changed counter cell keeps its mark in the DOM the forced repaint settled').toEqual([true, true, true])
     })
 });
