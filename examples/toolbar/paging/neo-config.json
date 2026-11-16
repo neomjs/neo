@@ -4,5 +4,6 @@
     "environment"  : "development",
     "mainPath"     : "./Main.mjs",
     "remotesApiUrl": "remotes-api.json",
+    "seo"          : false,
     "themes"       : ["neo-theme-dark", "neo-theme-light"]
 }

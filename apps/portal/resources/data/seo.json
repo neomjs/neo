@@ -69,7 +69,7 @@
     "/services": {
         "title": "Connect with Neo.mjs",
         "description": "Build an app with Neo.mjs, explore persistent project memory for coding agents, join the public development work, or reach the maintainers directly.",
-        "lastmod": "2026-11-14"
+        "lastmod": "2026-11-16"
     },
     "/home": {
         "title": "Neo.mjs - An Agent Institution",
@@ -1122,5 +1122,899 @@
         "description": "Explore 8 live JavaScript web app examples: A living-data workspace whose panes can leave the browser window.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-16"
+    },
+    "/apps/colors/index.html": {
+        "title": "Colors Dashboard — Multi-Window JavaScript Demo | Neo.mjs",
+        "description": "The dashboard's color grid keeps updating in its own window. Press Grid to detach it, press Start and watch the popup update; close it to return the grid.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-14"
+    },
+    "/apps/covid/index.html": {
+        "title": "COVID-19 IN NUMBERS — Multi-Threaded JavaScript App | Neo.mjs",
+        "description": "Country statistics and country selection. Browse the country table and choose a country from the picker.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-05"
+    },
+    "/apps/email/index.html": {
+        "title": "Email — Multi-Threaded JavaScript App | Neo.mjs",
+        "description": "Live runnable Email app in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-06"
+    },
+    "/apps/finance/index.html": {
+        "title": "Finance Dashboard — Multi-Threaded JavaScript App | Neo.mjs",
+        "description": "Live runnable Finance Dashboard app in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-08-12"
+    },
+    "/apps/form/index.html": {
+        "title": "Form — Multi-Threaded JavaScript App | Neo.mjs",
+        "description": "A complete form application: 15 pages behind a side navigation. Open pages from the side navigation and step through their fields.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-05"
+    },
+    "/apps/legit/index.html": {
+        "title": "Legit — Multi-Threaded JavaScript App | Neo.mjs",
+        "description": "Live runnable Legit app in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-07-03"
+    },
+    "/apps/realworld/index.html": {
+        "title": "Conduit — Multi-Threaded JavaScript App | Neo.mjs",
+        "description": "Live runnable Conduit app in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-15"
+    },
+    "/apps/realworld2/index.html": {
+        "title": "RealWorld2 — Multi-Threaded JavaScript App | Neo.mjs",
+        "description": "Live runnable RealWorld2 app in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-15"
+    },
+    "/apps/route/index.html": {
+        "title": "Route — Multi-Threaded JavaScript App | Neo.mjs",
+        "description": "Live runnable Route app in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-07-11"
+    },
+    "/apps/sharedcovid/index.html": {
+        "title": "SharedCovid MainWindow — Multi-Window JavaScript Demo | Neo.mjs",
+        "description": "A historical country-data chart can move into its own window. Maximise Historical Data, inspect its chart in the popup, then close the popup to return it...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-05"
+    },
+    "/apps/shareddialog/index.html": {
+        "title": "SharedDialog — Multi-Window JavaScript Demo | Neo.mjs",
+        "description": "A draggable dialog can move into a second browser window. Open the docked window, create a dialog and drag its header across into the other window.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-06-14"
+    },
+    "/apps/webdesktop/index.html": {
+        "title": "Web Desktop — Multi-Threaded JavaScript App | Neo.mjs",
+        "description": "A desktop whose icons, menus and windows follow the signed-in account's permissions through one store filter. Sign in as two accounts and compare the apps...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-16"
+    },
+    "/apps/workstation/index.html": {
+        "title": "Workstation — Multi-Window JavaScript Demo | Neo.mjs",
+        "description": "A living-data workspace whose panes can leave the browser window. Pop out the 100k Matrix tab, use it in its own window, then close that window to bring it...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-16"
+    },
+    "/examples/button/base/index.html": {
+        "title": "Button — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Button example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-04-09"
+    },
+    "/examples/button/effect/index.html": {
+        "title": "EffectButton — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable EffectButton example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-11-19"
+    },
+    "/examples/button/split/index.html": {
+        "title": "SplitButton — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable SplitButton example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-11-19"
+    },
+    "/examples/calendar/basic/index.html": {
+        "title": "Calendar Basic — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "A full calendar with day, week, month and year views, a month navigator and color-coded calendars. Switch between Day, Week, Month and Year views, then...",
+        "schemaType": "WebPage",
+        "lastmod": "2025-04-07"
+    },
+    "/examples/calendar/weekview/index.html": {
+        "title": "Calendar WeekView — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "A dedicated week view lays timed sample events across seven day columns with an hourly axis. Follow a sample event down its day column and compare its start...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-06-01"
+    },
+    "/examples/charts/index.html": {
+        "title": "amCharts — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable amCharts example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2024-08-17"
+    },
+    "/examples/component/canvas/index.html": {
+        "title": "OffscreenCanvas Web Worker Rendering Example | Neo.mjs",
+        "description": "Live Neo.mjs OffscreenCanvas example running 60fps canvas rendering inside a dedicated Web Worker off the browser main thread.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-14"
+    },
+    "/examples/component/carousel/index.html": {
+        "title": "Carousel — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Carousel example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2024-08-17"
+    },
+    "/examples/component/chip/index.html": {
+        "title": "Chip — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Chip example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2024-08-17"
+    },
+    "/examples/component/circle/index.html": {
+        "title": "Circle — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Circle example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2024-08-17"
+    },
+    "/examples/component/clock/index.html": {
+        "title": "Clock — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Clock example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2024-08-17"
+    },
+    "/examples/component/coronaGallery/index.html": {
+        "title": "COVID19 Gallery — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "COVID country statistics in a 3D gallery, sorted by the figure you pick. Under Sort By, choose Deaths, then raise Amount Rows in Gallery Controls.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-03-07"
+    },
+    "/examples/component/coronaHelix/index.html": {
+        "title": "COVID19 Helix — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "COVID country statistics on a 3D helix, sorted by the figure you pick. Under Sort By, choose Deaths and watch the countries reorder along the helix.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-03-07"
+    },
+    "/examples/component/dateSelector/index.html": {
+        "title": "DateSelector — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "The standalone date selector component. Pick a date and jump months with the radios.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-11-19"
+    },
+    "/examples/component/gallery/index.html": {
+        "title": "Gallery — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Image items in a 3D gallery that you reshape live. Raise Amount Rows in Gallery Controls until the wall fills the window, then press Order by Row.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-12-21"
+    },
+    "/examples/component/graphScene/index.html": {
+        "title": "GraphScene — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable GraphScene example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-05"
+    },
+    "/examples/component/helix/index.html": {
+        "title": "Helix — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Image items on a 3D helix that you reshape live. Scroll over the helix, then change Radius and Perspective in Helix Controls.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-11-19"
+    },
+    "/examples/component/magicmovetext/index.html": {
+        "title": "Magic Move - Text — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Magic Move - Text example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-02-22"
+    },
+    "/examples/component/markdown/index.html": {
+        "title": "Markdown VDOM (streaming) — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Markdown VDOM (streaming) example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-06-13"
+    },
+    "/examples/component/multiWindowCoronaGallery/index.html": {
+        "title": "Multi-Window Corona Gallery — Multi-Window JavaScript Demo | Neo.mjs",
+        "description": "Gallery controls move into a second window while still controlling the gallery. Maximise Gallery Controls, change Translate X in the popup, then close it to...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-01-21"
+    },
+    "/examples/component/multiWindowHelix/index.html": {
+        "title": "Multi-Window Helix — Multi-Window JavaScript Demo | Neo.mjs",
+        "description": "Helix controls stay connected from their own window. Maximise Helix Controls, change Translate X in the popup, then close it to return the controls.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-01-21"
+    },
+    "/examples/component/mwc/button/index.html": {
+        "title": "MWC Button — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable MWC Button example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2024-08-17"
+    },
+    "/examples/component/mwc/buttons/index.html": {
+        "title": "MWC Buttons — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable MWC Buttons example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2024-11-18"
+    },
+    "/examples/component/mwc/textField/index.html": {
+        "title": "MWC TextField — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable MWC TextField example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2024-08-17"
+    },
+    "/examples/component/mwc/textFields/index.html": {
+        "title": "MWC TextFields — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable MWC TextFields example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2024-11-18"
+    },
+    "/examples/component/process/index.html": {
+        "title": "Process Component — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Process Component example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2024-08-17"
+    },
+    "/examples/component/process/realWorldExample/index.html": {
+        "title": "Process Real World Example — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Process Real World Example example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2024-08-17"
+    },
+    "/examples/component/progress/index.html": {
+        "title": "Progress — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Progress example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2024-08-17"
+    },
+    "/examples/component/splitter/index.html": {
+        "title": "Splitter — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Splitter example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-08-28"
+    },
+    "/examples/component/statusbadge/index.html": {
+        "title": "StatusBadge — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable StatusBadge example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-11-19"
+    },
+    "/examples/component/timer/index.html": {
+        "title": "Timer — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Timer example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-12-21"
+    },
+    "/examples/component/toast/index.html": {
+        "title": "Toast Component — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Toast Component example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-05"
+    },
+    "/examples/component/video/index.html": {
+        "title": "Video — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Video example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-12-21"
+    },
+    "/examples/component/wrapper/cesiumJS/index.html": {
+        "title": "CesiumJS Component — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable CesiumJS Component example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2024-08-17"
+    },
+    "/examples/component/wrapper/googleMaps/index.html": {
+        "title": "GoogleMaps Component — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable GoogleMaps Component example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-09-17"
+    },
+    "/examples/component/wrapper/monacoEditor/index.html": {
+        "title": "Monaco Editor — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Monaco Editor example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-11-19"
+    },
+    "/examples/component/wrapper/openStreetMaps/index.html": {
+        "title": "OpenStreetMaps/OpenLayers Component — JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable OpenStreetMaps/OpenLayers Component example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-10-20"
+    },
+    "/examples/container/accordion/index.html": {
+        "title": "Accordion — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Accordion example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2024-08-17"
+    },
+    "/examples/container/base/index.html": {
+        "title": "Containers — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Containers example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2024-08-17"
+    },
+    "/examples/container/fragment/index.html": {
+        "title": "Fragment Example — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Fragment Example example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-01-14"
+    },
+    "/examples/core/config/index.html": {
+        "title": "config system — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable config system example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-07-11"
+    },
+    "/examples/dashboard/base/index.html": {
+        "title": "Dashboard — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Dashboard example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-08-22"
+    },
+    "/examples/dashboard/choreography/index.html": {
+        "title": "Dock Choreography — Multi-Window JavaScript Demo | Neo.mjs",
+        "description": "A scripted layout tour splits, groups and auto-hides live panes. Press Tour and watch the editor clock keep ticking as the panes rearrange.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-09-09"
+    },
+    "/examples/dashboard/crossWindow/index.html": {
+        "title": "Cross-Window Dock — Multi-Window JavaScript Demo | Neo.mjs",
+        "description": "A live workbench travels between windows without restarting its counter. Press Tour and follow Workbench into the popup and home again as its counter keeps...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-08"
+    },
+    "/examples/dashboard/dock/index.html": {
+        "title": "Dashboard — Dock Layout — Multi-Window JavaScript Demo | Neo.mjs",
+        "description": "Named perspectives rearrange the same dock panes. Switch from Operator to Review and watch the split proportions and active pane change.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-12"
+    },
+    "/examples/dashboard/tearOut/index.html": {
+        "title": "Dock Tear-Out — Multi-Window JavaScript Demo | Neo.mjs",
+        "description": "A Notes pane keeps its draft when it moves to a separate window. Type a draft in Notes, use its pop-out action, then close the popup and find the draft back...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-10-11"
+    },
+    "/examples/data/pipeline/index.html": {
+        "title": "Data Pipeline — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Data Pipeline example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-03-26"
+    },
+    "/examples/date/selectorContainer/index.html": {
+        "title": "Date SelectorContainer — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "The date SelectorContainer variant, standalone. Pick a date and jump months with the radios; compare it with the component variant.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-16"
+    },
+    "/examples/dialog/index.html": {
+        "title": "Dialog — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Dialog example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-12-21"
+    },
+    "/examples/fields/index.html": {
+        "title": "Fields — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Adding and removing field triggers at runtime. Remove the triggers with the button, add one back, and click it on the field.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-11-19"
+    },
+    "/examples/fieldWithPrefix/index.html": {
+        "title": "Field with Prefix — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Input masks from the PrefixField plugin: a phone pattern and a digits-only date. Type into the phone field and watch the +1 (___) ___-___-____ mask carry...",
+        "schemaType": "WebPage",
+        "lastmod": "2024-08-17"
+    },
+    "/examples/form/field/checkbox/index.html": {
+        "title": "CheckBoxField — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "A checkbox wired to a live configuration panel: disabled, readOnly, required, error, label position and width. Flip disabled or readOnly in the panel, set...",
+        "schemaType": "WebPage",
+        "lastmod": "2025-11-19"
+    },
+    "/examples/form/field/chip/index.html": {
+        "title": "ChipField — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "A chip field selecting multiple store entries as removable chips. Remove a state chip with its icon, pick more states from the list, and watch the value...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-08-25"
+    },
+    "/examples/form/field/color/index.html": {
+        "title": "ColorField — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "A color picker field listing entries from a store. Pick a color from the dropdown, then clear the field with its trigger.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-11-19"
+    },
+    "/examples/form/field/combobox/index.html": {
+        "title": "ComboBox — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "A combo box over a store with a live configuration panel. Type to filter the list, choose an entry, then toggle readOnly or required from the panel.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-11-19"
+    },
+    "/examples/form/field/date/index.html": {
+        "title": "DateField — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "A date field with picker and live configuration. Pick a date, type an invalid one to see the error state, and move the label between left and top.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-11-19"
+    },
+    "/examples/form/field/email/index.html": {
+        "title": "EmailField — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "An email field validating its address. Replace the address with one missing an @ to see the failure state, then restore a valid one.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-11-19"
+    },
+    "/examples/form/field/fileupload/index.html": {
+        "title": "FileUploadField — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "A file upload field wired to upload, status, download and delete endpoints. Choose a file and watch it stage on the field; the upload itself needs the local...",
+        "schemaType": "WebPage",
+        "lastmod": "2024-08-17"
+    },
+    "/examples/form/field/number/index.html": {
+        "title": "NumberField — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "A number field which clears back to its original value. Change the number, then use the clear trigger — the original 20 returns.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-11-19"
+    },
+    "/examples/form/field/picker/index.html": {
+        "title": "PickerField — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "A picker field which clears back to its original value. Open the picker, choose another entry, then clear the field — the original value returns.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-11-19"
+    },
+    "/examples/form/field/radio/index.html": {
+        "title": "RadioField — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "A single radio field with a live configuration panel. Select the radio and adjust its label text or position from the panel.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-11-19"
+    },
+    "/examples/form/field/select/index.html": {
+        "title": "SelectField — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "A select field over a fruit store. Pick a fruit from the list, then change the selection again.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-06"
+    },
+    "/examples/form/field/switch/index.html": {
+        "title": "SwitchField — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "A switch field with a live configuration panel. Flip the switch and adjust its label from the panel.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-11-19"
+    },
+    "/examples/form/field/text/index.html": {
+        "title": "TextField — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "A text field with the full live configuration panel. Type, clear via the trigger, and toggle required to see the empty-value failure.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-05"
+    },
+    "/examples/form/field/textarea/index.html": {
+        "title": "TextAreaField — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "A text area with a live character count and a 200-character limit. Type and watch the character count track the 200-character limit.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-05"
+    },
+    "/examples/form/field/time/index.html": {
+        "title": "TimeField — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "A time field with picker and inline label. Pick a different time and clear the field with the trigger.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-11-19"
+    },
+    "/examples/form/field/trigger/copyToClipboard/index.html": {
+        "title": "Copy to Clipboard Triggers — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "A text field with a copy-to-clipboard trigger that appears on hover. Hover the field, copy its value with the clipboard trigger, and paste it anywhere.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-11-19"
+    },
+    "/examples/form/field/url/index.html": {
+        "title": "UrlField — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "A URL field with placeholder and clear trigger. Type an address over the placeholder and clear it with the trigger.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-11-19"
+    },
+    "/examples/form/fieldset/index.html": {
+        "title": "Fieldset — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "A fieldset grouping number fields under a titled frame. Adjust the inner number values and try the title field in the panel.",
+        "schemaType": "WebPage",
+        "lastmod": "2024-08-17"
+    },
+    "/examples/functional/button/base/index.html": {
+        "title": "Functional Button — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Functional Button example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-11-19"
+    },
+    "/examples/functional/defineComponent/index.html": {
+        "title": "Functional Component — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Functional Component example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-07-14"
+    },
+    "/examples/functional/hostComponent/index.html": {
+        "title": "Functional Component Hosting Component — Live Demo | Neo.mjs",
+        "description": "Live runnable Functional Component Hosting Component example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in...",
+        "schemaType": "WebPage",
+        "lastmod": "2025-07-15"
+    },
+    "/examples/functional/nestedComponents/index.html": {
+        "title": "Deeply Nested Functional and Classic Components | Neo.mjs",
+        "description": "Live runnable Deeply Nested Functional and Classic Components example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-06"
+    },
+    "/examples/functional/nestedTemplateComponent/index.html": {
+        "title": "Functional Nested Templates — JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Functional Nested Templates example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-08-04"
+    },
+    "/examples/functional/templateComponent/index.html": {
+        "title": "Functional Template Component — JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Functional Template Component example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-07-31"
+    },
+    "/examples/gantt/basic/index.html": {
+        "title": "Project plan · Neo Gantt — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "A project plan with linked, editable tasks. Move a task and follow its dependencies. Create a link, then reload to see the saved plan.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-14"
+    },
+    "/examples/grid/animatedRowSorting/index.html": {
+        "title": "Grid: Animated Row Sorting — Web Worker Data Grid Demo | Neo.mjs",
+        "description": "Animated sorting and filtering. Sort a header or filter Firstname, then adjust the transition duration to watch the rows move.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-10-20"
+    },
+    "/examples/grid/bigData/index.html": {
+        "title": "JavaScript Data Grid — 100k Rows & 200 Columns in a Web Worker | Neo.mjs",
+        "description": "Interactive Neo.mjs JavaScript Data Grid benchmark streaming 100,000 rows and 200 columns in a Web Worker with virtual scrolling and zero main-thread blocking.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-14"
+    },
+    "/examples/grid/cellEditing/index.html": {
+        "title": "Grid CellEditing — Web Worker Data Grid Demo | Neo.mjs",
+        "description": "Typed cell editors. Edit text, a stepped number, date or country; compare the protected GitHub ID and switch selection modes.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-09"
+    },
+    "/examples/grid/container/index.html": {
+        "title": "GridContainer — Web Worker Data Grid Demo | Neo.mjs",
+        "description": "Cell, row and column selection. Switch between cell, row, column and combined selection, then change the grid height.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-09-13"
+    },
+    "/examples/grid/contentSizedRows/index.html": {
+        "title": "GridContainer - Content-Sized Rows — Data Grid Demo | Neo.mjs",
+        "description": "Wrapped content with locked columns. Toggle content-sized rows, edit a summary, filter, or jump through 10,000 records; scroll to the wrapped Details column.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-10-13"
+    },
+    "/examples/grid/covid/index.html": {
+        "title": "CovidGrid — Web Worker Data Grid Demo | Neo.mjs",
+        "description": "API-loaded country statistics. Sort formatted numeric columns and compare country flags and colored measures.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-07-11"
+    },
+    "/examples/grid/headerGroups/index.html": {
+        "title": "Grid Header Groups — Web Worker Data Grid Demo | Neo.mjs",
+        "description": "Quarter and month column headers. Explore month columns beneath quarter headers while Region and the Year total stay locked at opposite edges.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-09"
+    },
+    "/examples/grid/issues/index.html": {
+        "title": "GridContainer - neomjs/neo Issues — Data Grid Demo | Neo.mjs",
+        "description": "Searchable issue snapshot with wrapped rows. Search the issue snapshot, open column menus, toggle content-sized rows, and compare light and dark themes.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-10-16"
+    },
+    "/examples/grid/nestedRecordFields/index.html": {
+        "title": "Grid: Nested Record Fields — Web Worker Data Grid Demo | Neo.mjs",
+        "description": "Nested records and component cells. Open Edit to change nested user fields and watch modified-cell highlighting; compare header-only and full-column dragging.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-08-12"
+    },
+    "/examples/grid/tree/index.html": {
+        "title": "Tree Grid Example — Web Worker Data Grid Demo | Neo.mjs",
+        "description": "Hierarchical rows. Expand and collapse the sample file hierarchy in the Name column.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-03-15"
+    },
+    "/examples/grid/treeBigData/index.html": {
+        "title": "TreeGrid - Big Data — Web Worker Data Grid Demo | Neo.mjs",
+        "description": "A tree hierarchy at scale: up to 100,000 rows, 200 columns and 20 levels. Open the ☰ panel, raise rows and depth, then expand all; filter by name and toggle...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-09-13"
+    },
+    "/examples/grid/valueBanding/index.html": {
+        "title": "Grid Value Banding — Web Worker Data Grid Demo | Neo.mjs",
+        "description": "Bands for repeated values. Toggle Department value bands and compare them with striped rows; Country banding stays on.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-03-18"
+    },
+    "/examples/layout/card/index.html": {
+        "title": "Card Layout — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Card Layout example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-11-19"
+    },
+    "/examples/layout/cube/index.html": {
+        "title": "Cube Layout — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Cube Layout example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-11-19"
+    },
+    "/examples/layout/form/index.html": {
+        "title": "Form Layout — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "A form composed by the layout-form layout with shared itemDefaults. Note both fields share the clearable textfield defaults while their labels differ in length.",
+        "schemaType": "WebPage",
+        "lastmod": "2024-08-17"
+    },
+    "/examples/list/animate/index.html": {
+        "title": "AnimatedList — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable AnimatedList example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-03"
+    },
+    "/examples/list/base/index.html": {
+        "title": "List — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable List example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2024-08-17"
+    },
+    "/examples/list/buffered/index.html": {
+        "title": "Buffered List — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Buffered List example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-08-31"
+    },
+    "/examples/list/chip/index.html": {
+        "title": "ChipList — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable ChipList example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2024-08-17"
+    },
+    "/examples/list/circle/index.html": {
+        "title": "CircleList — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable CircleList example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-11-19"
+    },
+    "/examples/list/color/index.html": {
+        "title": "ColorList — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable ColorList example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-07-11"
+    },
+    "/examples/menu/context/index.html": {
+        "title": "Context Menu — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Context Menu example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-08-29"
+    },
+    "/examples/menu/list/index.html": {
+        "title": "MenuList — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable MenuList example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2024-08-17"
+    },
+    "/examples/menu/panel/index.html": {
+        "title": "Menu — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Menu example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2024-08-17"
+    },
+    "/examples/menu/tree/index.html": {
+        "title": "MenuList TreeStore — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable MenuList TreeStore example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-08-29"
+    },
+    "/examples/panel/index.html": {
+        "title": "Panels — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Panels example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-06-16"
+    },
+    "/examples/popover/index.html": {
+        "title": "Popover — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Popover example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-16"
+    },
+    "/examples/preloadingAssets/index.html": {
+        "title": "Preloading Assets — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Preloading Assets example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-07-11"
+    },
+    "/examples/remotesApi/basic/index.html": {
+        "title": "Remotes API Basic — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Remotes API Basic example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2024-08-18"
+    },
+    "/examples/scheduler/basic/index.html": {
+        "title": "Studio bookings · Neo Scheduler — JavaScript UI Demo | Neo.mjs",
+        "description": "Resource bookings on an editable timeline. Move a booking to another studio or time. Reload after it saves to see the same booking in its new slot.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-15"
+    },
+    "/examples/serverside/gridContainer/index.html": {
+        "title": "Load Grid Container — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Grid configuration loaded on demand. Click Load Grid Container to create the grid from a fetched configuration document.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-05-30"
+    },
+    "/examples/serverside/toolbarItems/index.html": {
+        "title": "Load Toolbar Items — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Load Toolbar Items example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-05"
+    },
+    "/examples/sitemap/index.html": {
+        "title": "Sitemap — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Sitemap example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2024-08-18"
+    },
+    "/examples/stateProvider/advanced/index.html": {
+        "title": "state.Provider: advanced — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Nested state providers bind button texts through the formatters shown beside them. Edit data.button2Text and watch both buttons follow: the first reads from...",
+        "schemaType": "WebPage",
+        "lastmod": "2025-09-23"
+    },
+    "/examples/stateProvider/dialog/index.html": {
+        "title": "state.Provider: dialog — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable state.Provider: dialog example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-07-11"
+    },
+    "/examples/stateProvider/extendedClass/index.html": {
+        "title": "state.Provider: extended class — JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable state.Provider: extended class example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web...",
+        "schemaType": "WebPage",
+        "lastmod": "2025-07-11"
+    },
+    "/examples/stateProvider/inline/index.html": {
+        "title": "state.Provider: inline definition — JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable state.Provider: inline definition example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web...",
+        "schemaType": "WebPage",
+        "lastmod": "2025-07-29"
+    },
+    "/examples/stateProvider/inlineNoStateProvider/index.html": {
+        "title": "inline example without using a state.Provider — Live Demo | Neo.mjs",
+        "description": "Live runnable inline example without using a state.Provider example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and...",
+        "schemaType": "WebPage",
+        "lastmod": "2025-07-11"
+    },
+    "/examples/stateProvider/multiWindow/index.html": {
+        "title": "stateProvider.multiWindow — Multi-Window JavaScript Demo | Neo.mjs",
+        "description": "Two windows bind their user labels to one shared state provider. Open the companion page, use Edit user and watch the name change in both windows.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-11-20"
+    },
+    "/examples/stateProvider/multiWindow2/index.html": {
+        "title": "stateProvider.multiWindow2 — Multi-Window JavaScript Demo | Neo.mjs",
+        "description": "Live runnable stateProvider.multiWindow2 example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2024-11-29"
+    },
+    "/examples/stateProvider/nestedData/index.html": {
+        "title": "state.Provider: nested data — JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable state.Provider: nested data example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-07-11"
+    },
+    "/examples/stateProvider/table/index.html": {
+        "title": "table & bound store — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable table & bound store example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-07-11"
+    },
+    "/examples/stateProvider/twoWay/index.html": {
+        "title": "state.Provider: 2 way binding — JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable state.Provider: 2 way binding example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-07-29"
+    },
+    "/examples/tab/container/index.html": {
+        "title": "TabContainer — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Tab buttons whose text, icon, color and badge change live. Type a new Tab 1 text and a badgeText, then pick another badgePosition.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-08-20"
+    },
+    "/examples/table/cellEditing/index.html": {
+        "title": "Table CellEditing — Web Worker Data Grid Demo | Neo.mjs",
+        "description": "Typed editors in a table. Edit text, number, date and country cells; test the non-editable GitHub ID and disable editing.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-09"
+    },
+    "/examples/table/container/index.html": {
+        "title": "TableContainer — Web Worker Data Grid Demo | Neo.mjs",
+        "description": "Selection modes and embedded controls. Switch selection models, toggle fit width or column dragging, and open a cell menu.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-09-18"
+    },
+    "/examples/table/covid/index.html": {
+        "title": "CovidTable — Web Worker Data Grid Demo | Neo.mjs",
+        "description": "API-loaded country statistics. Compare formatted statistics, country flags and colored values in the Table implementation.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-07-18"
+    },
+    "/examples/table/nestedRecordFields/index.html": {
+        "title": "Table: Nested Record Fields — Web Worker Data Grid Demo | Neo.mjs",
+        "description": "Nested record editing. Use a row's Edit button to change nested names and country, then observe modified-cell highlighting.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-09-16"
+    },
+    "/examples/tableFiltering/index.html": {
+        "title": "Table Filtering — Web Worker Data Grid Demo | Neo.mjs",
+        "description": "Live runnable Table Filtering example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-11-19"
+    },
+    "/examples/tableStore/index.html": {
+        "title": "Table & Store — Web Worker Data Grid Demo | Neo.mjs",
+        "description": "Reactive Store updates. Change one cell or update every cell repeatedly; sort and drag headers, reset sorting, and switch selection modes.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-11-19"
+    },
+    "/examples/tabs/index.html": {
+        "title": "Tabs — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Tabs example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-06-16"
+    },
+    "/examples/timeline/basic/index.html": {
+        "title": "Resource Timeline · Neo Timeline — JavaScript UI Demo | Neo.mjs",
+        "description": "A plain grid mounting the timeline column with interval bars. Click Shift to advance the interval by one hour and watch the bar follow the record change.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-16"
+    },
+    "/examples/todoList/version1/index.html": {
+        "title": "TodoList version1 — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable TodoList version1 example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-07-13"
+    },
+    "/examples/todoList/version2/index.html": {
+        "title": "TodoList version2 — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable TodoList version2 example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2024-09-10"
+    },
+    "/examples/toolbar/breadcrumb/index.html": {
+        "title": "Breadcrumb Toolbar — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Breadcrumb Toolbar example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-07-11"
+    },
+    "/examples/tree/index.html": {
+        "title": "Tree — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Tree example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-12-11"
+    },
+    "/examples/treeAccordion/index.html": {
+        "title": "TreeAccordion — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable TreeAccordion example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-16"
+    },
+    "/examples/videoMove/index.html": {
+        "title": "Moving a Video Tag — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Moving a Video Tag example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2024-11-12"
+    },
+    "/examples/viewport/index.html": {
+        "title": "Viewport — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Viewport example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-06-16"
+    },
+    "/examples/worker/task/index.html": {
+        "title": "TaskWorker — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable TaskWorker example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2025-07-11"
     }
 }

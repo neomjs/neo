@@ -1,9 +1,18 @@
-import * as acorn     from 'acorn';
-import {execFileSync} from 'child_process';
-import fg             from 'fast-glob';
-import fs             from 'fs-extra';
-import path           from 'path';
-import semver         from 'semver';
+import * as acorn from 'acorn';
+import fg         from 'fast-glob';
+import fs         from 'fs-extra';
+import path       from 'path';
+import semver     from 'semver';
+import {
+    FRONTMATTER_BLOCK_PATTERN, chunkArray, extractFrontmatterDateOnly, formatLastmodDate, getChangedGitPaths,
+    getChangedLastmod, getGitLastModifiedBatch, getGitLastmodDateMap, getGitPath, hasReliableGitHistory,
+    lookupNewestGitDate, normalizeIsoDateOnly
+} from './gitLastmod.mjs';
+
+export {
+    chunkArray, extractFrontmatterDateOnly, formatLastmodDate, getChangedGitPaths, getChangedLastmod,
+    getGitLastModifiedBatch, getGitLastmodDateMap, getGitPath, hasReliableGitHistory, normalizeIsoDateOnly
+};
 
 /**
  * @module buildScripts.docs.seo.seoJson
@@ -12,13 +21,8 @@ import semver         from 'semver';
  * curated top-level entries and pre-baked `lastmod` fallbacks when `.git` history is unavailable.
  */
 
-const ROOT_DIR                  = process.cwd();
-const DEFAULT_BASE_PATH         = '/learn';
-const GIT_LOG_CHUNK_SIZE        = 200;
-const GIT_LOG_MAX_BUFFER        = 64 * 1024 * 1024;
-const STATUS_RENAME_CODES       = new Set(['R', 'C']);
-const FRONTMATTER_BLOCK_PATTERN = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
-const ISO_DATE_ONLY_PATTERN     = /^\d{4}-\d{2}-\d{2}$/;
+const ROOT_DIR          = process.cwd();
+const DEFAULT_BASE_PATH = '/learn';
 
 /**
  * Source-file dependencies for curated top-level Portal and News hub routes so `seo.json` and
@@ -44,88 +48,14 @@ export const TOP_LEVEL_SOURCE_PATHS = {
 };
 
 /**
- * @summary Normalizes an absolute file or directory path into a repository-relative POSIX git pathspec.
- * @param {String} filePath Absolute file or directory path.
- * @param {String} [root=ROOT_DIR] Repository root.
- * @returns {String}
+ * Standalone entrypoints omitted from `sitemap-core.xml`, `seo.json`, and `llms.txt`.
+ * @type {Set<String>}
  */
-export function getGitPath(filePath, root=ROOT_DIR) {
-    return path.relative(root, filePath).split(path.sep).join('/');
-}
-
-/**
- * @summary Checks whether `root` owns a non-shallow `.git` directory or worktree pointer whose commit
- * history is reliable for per-route `lastmod` derivation.
- *
- * Requiring `.git` directly under `root` prevents `node_modules/neo.mjs` installs and temporary test
- * directories from inheriting an enclosing workspace's unrelated git history while supporting both
- * standard clones (`.git` directory) and git worktrees (`.git` file).
- * @param {String} [root=ROOT_DIR] Repository root.
- * @returns {Boolean}
- */
-export function hasReliableGitHistory(root=ROOT_DIR) {
-    try {
-        if (!fs.existsSync(path.join(root, '.git'))) {
-            return false;
-        }
-
-        const isShallow = execFileSync(
-            'git',
-            ['rev-parse', '--is-shallow-repository'],
-            {cwd: root, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore']}
-        ).trim();
-
-        return isShallow !== 'true';
-    } catch {
-        return false;
-    }
-}
-
-/**
- * @summary Normalizes a raw date string or ISO timestamp into `YYYY-MM-DD`, returning `null` when invalid.
- * @param {String|null|undefined} rawValue
- * @returns {String|null}
- */
-export function normalizeIsoDateOnly(rawValue) {
-    if (!rawValue || typeof rawValue !== 'string') {
-        return null;
-    }
-
-    const trimmed = rawValue.trim();
-
-    if (ISO_DATE_ONLY_PATTERN.test(trimmed)) {
-        return trimmed;
-    }
-
-    const ms = Date.parse(trimmed);
-
-    return Number.isNaN(ms) ? null : new Date(ms).toISOString().slice(0, 10);
-}
-
-/**
- * @summary Extracts a normalized `YYYY-MM-DD` date from YAML frontmatter fields when present.
- * @param {String} [rawContent='']
- * @param {String[]} [fields=['publishedAt', 'updatedAt', 'createdAt']]
- * @returns {String|null}
- */
-export function extractFrontmatterDateOnly(rawContent='', fields=['publishedAt', 'updatedAt', 'createdAt']) {
-    const frontmatter = FRONTMATTER_BLOCK_PATTERN.exec(String(rawContent))?.[1];
-
-    if (!frontmatter) {
-        return null;
-    }
-
-    for (const field of fields) {
-        const raw = new RegExp(`^${field}:\\s*["']?([^"'\\r\\n]+)["']?\\s*$`, 'm').exec(frontmatter)?.[1];
-        const iso = normalizeIsoDateOnly(raw);
-
-        if (iso) {
-            return iso;
-        }
-    }
-
-    return null;
-}
+export const NON_INDEXABLE_STANDALONE_PATHS = new Set([
+    'apps/portal/index.html',
+    'apps/ai/neural-link/index.html',
+    'examples/dashboard/crossWindowWitness/index.html'
+]);
 
 /**
  * @summary Extracts a single-line scalar YAML frontmatter field (`seoTitle`, `seoDescription`, etc.),
@@ -250,311 +180,6 @@ export function isIndexableReleaseVersion(version, maxMajor) {
     }
 
     return major >= maxMajor - 1;
-}
-
-/**
- * @summary Collects newest per-file `YYYY-MM-DD` commit dates across `scanPaths` in a single batched
- * `git log --format="commit:%cs" --name-only` pass instead of spawning per-file `git` subprocesses.
- * @param {String[]} [scanPaths=[]] Repository-relative or absolute paths to include in the `git log` pass.
- * @param {String} [root=ROOT_DIR] Repository root.
- * @returns {Map<String, String>} Map of repository-relative POSIX file path -> `YYYY-MM-DD`.
- */
-export function getGitLastmodDateMap(scanPaths=[], root=ROOT_DIR) {
-    const dateMap = new Map();
-
-    if (!hasReliableGitHistory(root)) {
-        return dateMap;
-    }
-
-    const relativeScanPaths = Array.from(new Set(
-        scanPaths
-            .filter(Boolean)
-            .map(target => path.isAbsolute(target) ? getGitPath(target, root) : target.split(path.sep).join('/'))
-            .map(relPath => relPath.replace(/\/+$/, ''))
-            .filter(relPath => relPath && !relPath.startsWith('..') && fs.existsSync(path.resolve(root, relPath)))
-    ));
-
-    if (relativeScanPaths.length === 0) {
-        return dateMap;
-    }
-
-    try {
-        const output = execFileSync(
-            'git',
-            ['log', '--format=commit:%cs', '--name-only', '--', ...relativeScanPaths],
-            {cwd: root, encoding: 'utf-8', maxBuffer: 64 * 1024 * 1024, stdio: ['pipe', 'pipe', 'ignore']}
-        );
-
-        let currentDate = null;
-
-        for (const rawLine of output.split('\n')) {
-            const line = rawLine.trim();
-
-            if (!line) {
-                continue;
-            }
-
-            if (line.startsWith('commit:')) {
-                currentDate = line.slice('commit:'.length);
-                continue;
-            }
-
-            if (currentDate && !dateMap.has(line)) {
-                dateMap.set(line, currentDate);
-            }
-        }
-    } catch {
-        // Return empty map on git execution errors so callers fall back gracefully.
-    }
-
-    return dateMap;
-}
-
-/**
- * @summary Splits an array into bounded chunks that stay below shell argument limits.
- * @param {Array} items
- * @param {Number} size
- * @returns {Array<Array>}
- */
-export function chunkArray(items, size) {
-    const chunks = [];
-
-    for (let i = 0; i < items.length; i += size) {
-        chunks.push(items.slice(i, i + size));
-    }
-
-    return chunks;
-}
-
-/**
- * @summary Formats a `Date` instance as a sitemap-compatible ISO timestamp without milliseconds.
- * @param {Date} date
- * @returns {String}
- */
-export function formatLastmodDate(date) {
-    return date.toISOString().replace(/\.\d{3}Z$/, 'Z');
-}
-
-/**
- * @summary Gets working-tree paths changed relative to `HEAD` when `root` has a reliable `.git` history.
- * @param {String} [root=ROOT_DIR] Repository root.
- * @returns {Set<String>} Repository-relative POSIX paths.
- */
-export function getChangedGitPaths(root=ROOT_DIR) {
-    const paths = new Set();
-
-    if (!hasReliableGitHistory(root)) {
-        return paths;
-    }
-
-    try {
-        const result = execFileSync(
-            'git',
-            ['status', '--porcelain=v1', '-z', '--untracked-files=all'],
-            {cwd: root, encoding: 'utf-8', maxBuffer: GIT_LOG_MAX_BUFFER, stdio: ['pipe', 'pipe', 'ignore']}
-        );
-
-        const entries = result.split('\0');
-
-        for (let i = 0; i < entries.length; i++) {
-            const entry = entries[i];
-
-            if (!entry) {
-                continue;
-            }
-
-            const status  = entry.slice(0, 2);
-            const gitPath = entry.slice(3);
-
-            if (STATUS_RENAME_CODES.has(status[0]) || STATUS_RENAME_CODES.has(status[1])) {
-                i++;
-            }
-
-            if (gitPath) {
-                paths.add(gitPath);
-            }
-        }
-    } catch {
-        // Git status is an optimization for uncommitted CI mutations; ignore if unavailable.
-    }
-
-    return paths;
-}
-
-/**
- * @summary Gets the newest working-tree `mtime` for a modified source path.
- * @param {String} gitPath Repository-relative POSIX path.
- * @param {Set<String>} changedGitPaths Changed path set from `git status`.
- * @param {Boolean} [isDirectory=false] True if `gitPath` represents a directory.
- * @param {String} [root=ROOT_DIR] Repository root.
- * @returns {String|null}
- */
-export function getChangedLastmod(gitPath, changedGitPaths, isDirectory=false, root=ROOT_DIR) {
-    let lastmod = null;
-
-    function updateLastmod(changedGitPath) {
-        try {
-            const filePath = path.join(root, ...changedGitPath.split('/'));
-            const mtime    = fs.statSync(filePath).mtime;
-
-            if (!lastmod || mtime > lastmod) {
-                lastmod = mtime;
-            }
-        } catch {
-            // Deleted paths are not emitted as sitemap routes; missing files can be ignored.
-        }
-    }
-
-    if (changedGitPaths.has(gitPath)) {
-        updateLastmod(gitPath);
-    }
-
-    if (isDirectory) {
-        const gitPathWithSlash = gitPath.endsWith('/') ? gitPath : `${gitPath}/`;
-
-        for (const changedGitPath of changedGitPaths) {
-            if (changedGitPath.startsWith(gitPathWithSlash)) {
-                updateLastmod(changedGitPath);
-            }
-        }
-    }
-
-    return lastmod ? formatLastmodDate(lastmod) : null;
-}
-
-/**
- * @summary Gets git commit `<lastmod>` ISO timestamps for multiple files or directories in bounded batches.
- * @param {String[]} filePaths Array of absolute file paths.
- * @param {String} [root=ROOT_DIR] Repository root.
- * @returns {Map<String, String>} Map of `filePath` -> ISO date string.
- */
-export function getGitLastModifiedBatch(filePaths, root=ROOT_DIR) {
-    const dateMap     = new Map();
-    const inRepoPaths = Array.from(new Set(filePaths)).filter(filePath => !getGitPath(filePath, root).startsWith('../'));
-
-    if (inRepoPaths.length === 0 || !hasReliableGitHistory(root)) {
-        return dateMap;
-    }
-
-    const pathDescriptors = inRepoPaths.map(filePath => {
-        let isDirectory = false;
-
-        try {
-            isDirectory = fs.statSync(filePath).isDirectory();
-        } catch {
-            isDirectory = false;
-        }
-
-        return {
-            filePath,
-            gitPath: getGitPath(filePath, root),
-            isDirectory
-        };
-    });
-
-    try {
-        for (const chunk of chunkArray(pathDescriptors, GIT_LOG_CHUNK_SIZE)) {
-            try {
-                const filePathByGitPath = new Map(
-                    chunk.filter(({isDirectory}) => !isDirectory).map(({filePath, gitPath}) => [gitPath, filePath])
-                );
-                const directoryDescriptors = chunk
-                    .filter(({isDirectory}) => isDirectory)
-                    .map(descriptor => ({
-                        ...descriptor,
-                        gitPathWithSlash: descriptor.gitPath.endsWith('/') ? descriptor.gitPath : `${descriptor.gitPath}/`
-                    }));
-
-                const result = execFileSync(
-                    'git',
-                    ['log', '--format=__NEO_DATE__%cI', '--name-only', '--', ...chunk.map(({gitPath}) => gitPath)],
-                    {cwd: root, encoding: 'utf-8', maxBuffer: GIT_LOG_MAX_BUFFER, stdio: ['pipe', 'pipe', 'ignore']}
-                );
-
-                let currentDate = null;
-
-                for (const rawLine of result.split('\n')) {
-                    const line = rawLine.trim();
-
-                    if (!line) {
-                        continue;
-                    }
-
-                    if (line.startsWith('__NEO_DATE__')) {
-                        currentDate = line.slice('__NEO_DATE__'.length);
-                        continue;
-                    }
-
-                    if (!currentDate) {
-                        continue;
-                    }
-
-                    const filePath = filePathByGitPath.get(line);
-
-                    if (filePath && !dateMap.has(filePath)) {
-                        dateMap.set(filePath, currentDate);
-                    }
-
-                    for (const descriptor of directoryDescriptors) {
-                        if (!dateMap.has(descriptor.filePath) && line.startsWith(descriptor.gitPathWithSlash)) {
-                            dateMap.set(descriptor.filePath, currentDate);
-                        }
-                    }
-                }
-            } catch {
-                continue;
-            }
-        }
-    } catch (error) {
-        console.warn('Git is not available or error occurred:', error.message);
-    }
-
-    return dateMap;
-}
-
-/**
- * @summary Resolves the newest `YYYY-MM-DD` git commit date across one or more file or directory paths
- * from a precomputed `gitDateMap`.
- * @param {Map<String, String>} gitDateMap
- * @param {String[]} [candidatePaths=[]] Absolute file or directory paths.
- * @param {String} [root=ROOT_DIR] Repository root.
- * @returns {String|null}
- */
-function lookupNewestGitDate(gitDateMap, candidatePaths=[], root=ROOT_DIR) {
-    if (!gitDateMap || gitDateMap.size === 0) {
-        return null;
-    }
-
-    let newest = null;
-
-    for (const candidatePath of candidatePaths) {
-        if (!candidatePath) {
-            continue;
-        }
-
-        const gitPath = getGitPath(candidatePath, root).replace(/\/+$/, '');
-
-        if (!gitPath || gitPath.startsWith('..')) {
-            continue;
-        }
-
-        const exactDate = gitDateMap.get(gitPath);
-
-        if (exactDate && (!newest || exactDate > newest)) {
-            newest = exactDate;
-            continue;
-        }
-
-        const prefix = `${gitPath}/`;
-
-        for (const [trackedPath, date] of gitDateMap.entries()) {
-            if (trackedPath.startsWith(prefix) && (!newest || date > newest)) {
-                newest = date;
-            }
-        }
-    }
-
-    return newest;
 }
 
 /**
@@ -752,7 +377,7 @@ export function extractMarkdownSeoMetadata(rawContent='', options={}) {
             .split(/\r?\n/)
             .map(line => line.replace(/^>\s?/, '').replace(/^[-*]\s+/, ''))
             .join(' ');
-        const cleaned      = stripInlineMarkdown(unwrapped);
+        const cleaned = stripInlineMarkdown(unwrapped);
 
         if (cleaned.length < 35) {
             continue;
@@ -1019,10 +644,71 @@ function getNameFromExamplePath(examplePath) {
 }
 
 /**
+ * @summary Builds `title` and `description` metadata for a standalone app or example `index.html` route,
+ * preserving already-qualified `| Neo.mjs` HTML titles while enriching bare names from `examples.json`.
+ * @param {Object} exampleRoute
+ * @param {Object|null} [catalogRecord=null]
+ * @returns {{title: String, description: String}}
+ */
+export function formatStandaloneExampleSeo(exampleRoute, catalogRecord=null) {
+    const rawTitle  = String(exampleRoute?.name || '').trim();
+    const fallback  = getNameFromExamplePath(String(exampleRoute?.id || '').replace(/^\/+/, ''));
+    const baseName  = rawTitle || (catalogRecord?.name ? String(catalogRecord.name).trim() : '') || fallback;
+    const baseLabel = baseName
+        .replace(/\s*[—|-]\s*Living Docking Showcase$/i, '')
+        .replace(/^Neo(?:\.mjs)?(?:\s*[-—–·:]\s*|\s+)/i, '')
+        .trim() || fallback;
+
+    let title;
+
+    if (/\|\s*Neo\.mjs\s*$/i.test(rawTitle)) {
+        title = rawTitle;
+    } else {
+        const routeId    = String(exampleRoute?.id || '');
+        const qualifiers = (catalogRecord?.sharedWorkers || /multiWindow|shared|crossWindow|tearOut|dock/i.test(routeId))
+            ? ['Multi-Window JavaScript Demo | Neo.mjs', 'Multi-Window Demo | Neo.mjs', 'Live Demo | Neo.mjs']
+            : /^\/examples\/(?:grid|table)/i.test(routeId)
+                ? ['Web Worker Data Grid Demo | Neo.mjs', 'Data Grid Demo | Neo.mjs', 'Live Demo | Neo.mjs']
+                : /^\/apps\//i.test(routeId)
+                    ? ['Multi-Threaded JavaScript App | Neo.mjs', 'JavaScript App | Neo.mjs', 'Live App | Neo.mjs']
+                    : ['Web Worker JavaScript UI Demo | Neo.mjs', 'JavaScript UI Demo | Neo.mjs', 'Live Demo | Neo.mjs'];
+
+        title = `${truncateDescription(baseLabel, 58)} | Neo.mjs`;
+
+        for (const qualifier of qualifiers) {
+            const candidate = `${baseLabel} — ${qualifier}`;
+
+            if (candidate.length <= 68) {
+                title = candidate;
+                break;
+            }
+        }
+    }
+
+    let description;
+
+    if (exampleRoute?.description) {
+        description = truncateDescription(exampleRoute.description, 160);
+    } else if (catalogRecord?.feature) {
+        const feature = String(catalogRecord.feature).trim().replace(/\.+$/, '');
+        const detail  = catalogRecord?.lookFor ? String(catalogRecord.lookFor).trim() : 'Runs off the main thread in Neo.mjs Web Workers.';
+        description   = truncateDescription(`${feature}. ${detail}`, 160);
+    } else {
+        const kind = /^\/apps\//i.test(String(exampleRoute?.id || '')) ? 'app' : 'example';
+        description = truncateDescription(
+            `Live runnable ${baseLabel} ${kind} in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.`,
+            160
+        );
+    }
+
+    return {description, title};
+}
+
+/**
  * @summary Collects standalone app and example `index.html` routes under `apps/` and `examples/`,
- * excluding the Portal shell (`apps/portal/index.html`) and multi-window popup helpers (`/childapp/`, `/childapps/`).
+ * excluding non-indexable harnesses (`NON_INDEXABLE_STANDALONE_PATHS`, `seo: false` configs, and popup childapps).
  * @param {String} [root=ROOT_DIR] Repository root.
- * @returns {Promise<Array<{category: String, filePath: String, id: String, name: String}>>}
+ * @returns {Promise<Array<{category: String, description: (String|null), filePath: String, id: String, name: String, sourceTitle: String}>>}
  */
 export async function collectExampleRoutes(root=ROOT_DIR) {
     let files = await fg('{apps,examples}/**/index.html', {
@@ -1031,24 +717,43 @@ export async function collectExampleRoutes(root=ROOT_DIR) {
     });
 
     files = files.filter(file =>
-        file !== 'apps/portal/index.html' &&
+        !NON_INDEXABLE_STANDALONE_PATHS.has(file) &&
         !/(?:^|\/)childapps?(?:\/|$)/.test(file)
     );
 
     files.sort((a, b) => a.localeCompare(b));
 
-    return Promise.all(files.map(async file => {
-        const filePath   = path.resolve(root, file);
+    const routes = await Promise.all(files.map(async file => {
+        const filePath      = path.resolve(root, file);
+        const neoConfigPath = path.join(path.dirname(filePath), 'neo-config.json');
+
+        if (await fs.pathExists(neoConfigPath)) {
+            try {
+                const neoConfig = await fs.readJSON(neoConfigPath);
+
+                if (neoConfig?.seo === false || neoConfig?.excludeFromSitemap === true) {
+                    return null;
+                }
+            } catch {
+                // Ignore malformed config fixtures when reading optional SEO opt-out flags.
+            }
+        }
+
         const content    = await fs.readFile(filePath, 'utf-8');
-        const titleMatch = content.match(/<title>(.*?)<\/title>/i);
+        const portalMeta = extractPortalIndexMetadata(content);
+        const rawTitle   = /<title\b[^>]*>([\s\S]*?)<\/title>/i.exec(content)?.[1]?.replace(/\s+/g, ' ').trim();
 
         return {
-            category: 'file',
+            category   : 'file',
+            description: portalMeta?.description || null,
             filePath,
-            id      : `/${file}`,
-            name    : titleMatch ? titleMatch[1] : getNameFromExamplePath(file)
+            id         : `/${file}`,
+            name       : portalMeta?.title || rawTitle || getNameFromExamplePath(file),
+            sourceTitle: rawTitle || ''
         };
     }));
+
+    return routes.filter(Boolean);
 }
 
 /**
@@ -1068,8 +773,8 @@ export async function resolveLearnTreeLeaves(options={}) {
         treeFilePath = path.join(learnDir, 'tree.json')
     } = options;
 
-    const tree   = await fs.readJSON(treeFilePath);
-    const nodes  = (Array.isArray(tree) ? tree : Array.isArray(tree?.data) ? tree.data : [])
+    const tree  = await fs.readJSON(treeFilePath);
+    const nodes = (Array.isArray(tree) ? tree : Array.isArray(tree?.data) ? tree.data : [])
         .filter(node => node?.id && node.isLeaf !== false && !node.route);
     const leaves = [];
 
@@ -1192,6 +897,7 @@ export async function getSeoJson(options={}) {
             route !== '/' &&
             route !== '/home' &&
             !route.startsWith(`${cleanBase}/`) &&
+            !route.startsWith('/apps/') &&
             !route.startsWith('/examples/') &&
             !route.startsWith('/news/blog/') &&
             !route.startsWith('/news/releases/')
@@ -1350,12 +1056,15 @@ export async function getSeoJson(options={}) {
         };
     }
 
-    const publishedFamilies = await getPublishedExampleFamilies({
-        examplesPath,
-        examplesTabContainerPath,
-        familyDefinitions,
-        root
-    });
+    const [publishedFamilies, standaloneRoutes] = await Promise.all([
+        getPublishedExampleFamilies({
+            examplesPath,
+            examplesTabContainerPath,
+            familyDefinitions,
+            root
+        }),
+        collectExampleRoutes(root)
+    ]);
 
     for (const family of publishedFamilies) {
         const recordPaths = family.records
@@ -1369,6 +1078,44 @@ export async function getSeoJson(options={}) {
             title,
             description: formatExampleFamilyDescription(subject, family.records),
             schemaType : 'CollectionPage',
+            ...(lastmod && {lastmod})
+        };
+    }
+
+    const examplesCatalogByRoute = new Map();
+
+    if (await fs.pathExists(examplesPath)) {
+        try {
+            const catalog = await fs.readJSON(examplesPath);
+
+            if (Array.isArray(catalog)) {
+                for (const record of catalog) {
+                    const rawTarget = record?.urls?.devmode || (
+                        typeof record?.sourceUrl === 'string' && !/^https?:\/\//i.test(record.sourceUrl)
+                            ? `${record.sourceUrl.replace(/\/+$/, '')}/index.html`
+                            : null
+                    );
+                    const devPath = rawTarget ? String(rawTarget).split(/[?#]/, 1)[0] : null;
+
+                    if (devPath) {
+                        examplesCatalogByRoute.set(`/${devPath.replace(/^\/+/, '')}`, record);
+                    }
+                }
+            }
+        } catch {
+            // Fall back to source HTML metadata when examples.json is absent or malformed in isolated fixtures.
+        }
+    }
+
+    for (const exampleRoute of standaloneRoutes) {
+        const catalogRecord        = examplesCatalogByRoute.get(exampleRoute.id) || null;
+        const {description, title} = formatStandaloneExampleSeo(exampleRoute, catalogRecord);
+        const lastmod              = resolveRouteLastmod(exampleRoute.id, [path.dirname(exampleRoute.filePath)]);
+
+        seo[exampleRoute.id] = {
+            title,
+            description,
+            schemaType: 'WebPage',
             ...(lastmod && {lastmod})
         };
     }
