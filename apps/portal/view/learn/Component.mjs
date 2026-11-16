@@ -1,4 +1,5 @@
-import ContentComponent from '../../../../src/app/content/Component.mjs';
+import ContentComponent   from '../../../../src/app/content/Component.mjs';
+import {rewriteRepoLinks} from '../../Util.mjs';
 
 /**
  * @class Portal.view.learn.Component
@@ -32,6 +33,20 @@ class Component extends ContentComponent {
             pagesFolder = path.includes('/learn/') ? '' : 'pages/';
 
         return path + `${pagesFolder + record.id.replaceAll('.', '/')}.md`
+    }
+
+    /**
+     * @summary Resolves the relative links the learn route leaves alone against the guide's folder in the
+     * repository, so a link to a source file opens it on GitHub.
+     * @param {String} html
+     * @returns {String}
+     */
+    rewriteLinks(html) {
+        let me   = this,
+            path = me.getContentPath(me.record);
+
+        // Less the base path, the fetch path is the file's path in the repository
+        return rewriteRepoLinks(super.rewriteLinks(html), path.slice(Neo.config.basePath.length))
     }
 }
 

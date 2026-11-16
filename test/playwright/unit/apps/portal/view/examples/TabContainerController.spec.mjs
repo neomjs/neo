@@ -78,14 +78,14 @@ test.describe('Portal examples family navigation', () => {
 
         expect(view.getTabButtons().map(button => button.text)).toEqual(['Featured', 'Grid & Table', 'Forms', 'Multi-Window', 'Calendar']);
         expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/grid', '/examples/forms', '/examples/multi-window', '/examples/calendar']);
-        expect(view.getCatalogStore().getCount()).toBe(76);
+        expect(view.getCatalogStore().getCount()).toBe(77);
         expect(view.getCard(0).store.getCount()).toBe(28);
         expect(view.getCard(0).store.items.map(record => record.id)).toEqual(featuredExampleIds);
         expect(view.getCard(1).store.getCount()).toBe(21);
         expect(view.getCard(2).store.getCount()).toBe(24);
         expect(view.getCard(3).store.getCount()).toBe(12);
         expect(view.getCard(4).store.items.map(record => record.id)).toEqual([
-            'calendar', 'calendar-weekview', 'gantt-basic', 'scheduler-basic'
+            'calendar', 'calendar-weekview', 'gantt-basic', 'scheduler-basic', 'timeline-basic'
         ]);
         expect(view.getCard(0).store.getSource()).toBe(view.getCatalogStore());
         expect(view.getCard(1).store.getSource()).toBe(view.getCatalogStore());
@@ -273,12 +273,12 @@ test.describe('Portal examples canonical catalog', () => {
         })
     }
 
-    test('loads 76 logical examples with unique stable string identities', () => {
+    test('loads 77 logical examples with unique stable string identities', () => {
         const {store} = createList(),
               ids     = [];
 
-        expect(catalog).toHaveLength(76);
-        expect(store.getCount()).toBe(76);
+        expect(catalog).toHaveLength(77);
+        expect(store.getCount()).toBe(77);
 
         store.forEach(record => {
             expect(typeof record.id, record.name).toBe('string');
@@ -286,7 +286,7 @@ test.describe('Portal examples canonical catalog', () => {
             ids.push(record.id)
         });
 
-        expect(new Set(ids).size).toBe(76);
+        expect(new Set(ids).size).toBe(77);
         expect(list.catalogMode).toBe('dist_prod')
     });
 
@@ -395,7 +395,7 @@ test.describe('Portal examples canonical catalog', () => {
               orderedEstablishedIds = [
                   ...establishedIds.slice(0, calendarIndex + 1), 'calendar-weekview', ...establishedIds.slice(calendarIndex + 1)
               ],
-              completeIds = [...orderedEstablishedIds, ...newExampleIds, ...formExampleIds, 'gantt-basic', 'scheduler-basic', 'dock-choreography', ...multiWindowExampleIds, 'realworld', 'realworld-v2'],
+              completeIds = [...orderedEstablishedIds, ...newExampleIds, ...formExampleIds, 'gantt-basic', 'scheduler-basic', 'timeline-basic', 'dock-choreography', ...multiWindowExampleIds, 'realworld', 'realworld-v2'],
               excluded = {
                   devmode  : ['portal', 'liquid-glass', 'realworld', 'realworld-v2'],
                   dist_dev : ['realworld', 'realworld-v2'],
