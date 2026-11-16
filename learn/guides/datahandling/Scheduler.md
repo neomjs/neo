@@ -4,11 +4,11 @@ seoDescription: "Learn how to build interactive resource schedulers with Neo.sch
 ---
 # Building Resource Schedulers
 
-The `Neo.scheduler.Container` is an application component designed for allocating, visualizing, and adjusting event bookings against an array of resources across a continuous temporal axis. It extends `Neo.grid.Container` and combines locked resource columns with an interactive, virtualized timeline canvas.
+The `Neo.scheduler.Container` is an application component designed for allocating, visualizing, and adjusting event bookings against the records of a resource store across a continuous temporal axis. It extends `Neo.grid.Container` and combines locked resource columns with an interactive timeline column.
 
 ## 1. What a Scheduler Is in Neo.mjs
 
-In Neo.mjs, a scheduler is not an unstructured canvas or a collection of disconnected DOM elements. It is an architectural fusion of a multi-body grid and a timeline:
+In Neo.mjs, a scheduler is not an unstructured drawing surface or a collection of disconnected DOM elements. It is an architectural fusion of a multi-body grid and a timeline:
 
 - **Rows are records:** Each row represents a resource (such as a room, vehicle, or staff member) provided by the grid's primary `store` (`Neo.data.Store`).
 - **Bars are records:** Each rendered bar represents a scheduled booking or event backed by an `eventStore` (`Neo.timeline.store.Events`), containing `Neo.timeline.model.Event` records.
@@ -47,7 +47,7 @@ class MainViewport extends Viewport {
             reference      : 'scheduler',
             rowHeight      : 64,
             resourceColumns: [{dataField: 'name', text: 'Studio', width: 200, locked: 'start'}],
-            store          : {data: rooms},
+            store          : {model: {fields: [{name: 'id'}, {name: 'name'}]}, data: rooms},
             eventStore     : {data: bookings},
             timeAxis       : {
                 start      : '2026-11-09',
@@ -69,7 +69,7 @@ export default Neo.setupClass(MainViewport);
 
 The scheduler balances two distinct data stores:
 
-- **Resource Store (`store`):** Holds resource records. The scheduler inspects the field identified by `resourceIdField` (which defaults to `'id'`) on each record to establish the row identity.
+- **Resource Store (`store`):** Holds resource records. The scheduler inspects the field identified by `resourceIdField` (which defaults to `'id'`) on each record to establish the row identity. The resource store needs a model that names `id` and every field a resource column shows, ensuring the grid binds and maps records to rows.
 - **Event Store (`eventStore`):** An instance of `Neo.timeline.store.Events` managing `Neo.timeline.model.Event` records.
 
 Each event record defines canonical scheduling fields:
