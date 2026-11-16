@@ -4,7 +4,7 @@ import os                        from 'node:os';
 import path                      from 'node:path';
 import {createRequire}           from 'node:module';
 import mainAddonContextPlugin    from '../../../../buildScripts/webpack/mainAddonContextPlugin.mjs';
-import {mainAddonPackageRoots}   from '../../../../buildScripts/util/mainAddonPackages.mjs';
+import {mainAddonPackageRoots}   from '../../../../buildScripts/util/declaredPackageRoots.mjs';
 import workerContextRebasePlugin from '../../../../buildScripts/webpack/workerContextRebasePlugin.mjs';
 
 const require           = createRequire(import.meta.url),
@@ -114,6 +114,8 @@ test.describe('check-consumer-runtime-build — rule logic', () => {
           ENGINE_RENDERER  = './node_modules/neo.mjs/src/canvas/Header.mjs',
           GRAPH_SCENE      = './node_modules/neo.mjs/src/canvas/GraphScene.mjs',
           PROBE_RENDERER   = './apps/probe/canvas/ProbeRenderer.mjs',
+          PACKAGE_RENDERER = './node_modules/neo-fixture-renderer/src/canvas/FixtureRenderer.mjs',
+          PLAIN_RENDERER   = './node_modules/neo-fixture-plain/src/canvas/PlainRenderer.mjs',
           CONSUMER         = './apps/probe/data/ConsumerOnly.mjs',
           ROOT_ONLY        = './RootOnly.mjs',
           UNRELATED        = './client/src/Unrelated.mjs',
@@ -357,16 +359,16 @@ test.describe('check-consumer-runtime-build — rule logic', () => {
         expect(failures[1]).toContain('dist/marked.mjs is absent, expected present')
     });
 
-    test('a Canvas compile reaching the engine renderers and the consumer renderer passes, concatenated or not', () => {
+    test('a Canvas compile reaching the engine renderers, the consumer renderer and the declared package renderer passes, concatenated or not', () => {
         expect(collectConsumerBuildFailures(
-            {mode: 'production/canvas', moduleNames: [`${ENGINE_RENDERER} + 1 modules`, GRAPH_SCENE, PROBE_RENDERER], errors: []},
+            {mode: 'production/canvas', moduleNames: [`${ENGINE_RENDERER} + 1 modules`, GRAPH_SCENE, PROBE_RENDERER, PACKAGE_RENDERER], errors: []},
             CANVAS_EXPECTATIONS
         )).toEqual([])
     });
 
     test('a Canvas compile whose renderer root left the package fails on the engine renderers (#19163)', () => {
         const failures = collectConsumerBuildFailures(
-            {mode: 'production/canvas', moduleNames: [PROBE_RENDERER], errors: []},
+            {mode: 'production/canvas', moduleNames: [PROBE_RENDERER, PACKAGE_RENDERER], errors: []},
             CANVAS_EXPECTATIONS
         );
 
@@ -377,12 +379,26 @@ test.describe('check-consumer-runtime-build — rule logic', () => {
 
     test('a Canvas compile without the graph-scene renderer fails on it alone', () => {
         const failures = collectConsumerBuildFailures(
-            {mode: 'production/canvas', moduleNames: [ENGINE_RENDERER, PROBE_RENDERER], errors: []},
+            {mode: 'production/canvas', moduleNames: [ENGINE_RENDERER, PROBE_RENDERER, PACKAGE_RENDERER], errors: []},
             CANVAS_EXPECTATIONS
         );
 
         expect(failures).toHaveLength(1);
         expect(failures[0]).toContain('src/canvas/GraphScene.mjs is absent, expected present')
+    });
+
+    test('a Canvas compile fails without the declared package renderer, and with an undeclared one', () => {
+        const engine = [ENGINE_RENDERER, GRAPH_SCENE, PROBE_RENDERER],
+              absent = collectConsumerBuildFailures({mode: 'development/canvas', moduleNames: engine, errors: []}, CANVAS_EXPECTATIONS),
+              leaked = collectConsumerBuildFailures(
+                  {mode: 'development/canvas', moduleNames: [...engine, PACKAGE_RENDERER, PLAIN_RENDERER], errors: []},
+                  CANVAS_EXPECTATIONS
+              );
+
+        expect(absent).toHaveLength(1);
+        expect(absent[0]).toContain('neo-fixture-renderer/src/canvas/FixtureRenderer.mjs is absent, expected present');
+        expect(leaked).toHaveLength(1);
+        expect(leaked[0]).toContain('neo-fixture-plain/src/canvas/PlainRenderer.mjs is present, expected absent')
     });
 
     test('workerContextRebasePlugin and mainAddonContextPlugin emit POSIX relative specifiers that enhanced-resolve parses with module: false (#6619)', () => {
@@ -515,7 +531,7 @@ test.describe('check-consumer-runtime-build — rule logic', () => {
 
         const canvasFailures = collectConsumerBuildFailures({
             mode       : 'production/canvas',
-            moduleNames: [ENGINE_RENDERER, GRAPH_SCENE, PROBE_RENDERER, `${adapterLeak} + 1 modules`],
+            moduleNames: [ENGINE_RENDERER, GRAPH_SCENE, PROBE_RENDERER, PACKAGE_RENDERER, `${adapterLeak} + 1 modules`],
             errors     : []
         }, CANVAS_EXPECTATIONS);
         expect(canvasFailures).toHaveLength(2);

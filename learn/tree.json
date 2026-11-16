@@ -3,6 +3,7 @@
     {"name": "Benefits: The Self-Evolving Software Organism",          "parentId": null,                                 "isLeaf": false, "id": "Benefits"},
         {"name": "Introduction",                                       "parentId": "Benefits",                                            "id": "benefits/Introduction"},
         {"name": "Architecture Overview",                              "parentId": "Benefits",                                            "id": "benefits/ArchitectureOverview"},
+        {"name": "Enterprise Evaluation",                              "parentId": "Benefits",                                            "id": "benefits/EnterpriseEvaluation"},
         {"name": "The Body - Application Engine", "parentId": "Benefits", "isLeaf": false, "id": "benefits/body"},
             {"name": "Application Engine",              "parentId": "benefits/body", "id": "benefits/body/ApplicationEngine"},
             {"name": "Object Permanence",              "parentId": "benefits/body", "id": "benefits/body/ObjectPermanence"},
@@ -93,6 +94,8 @@
             {"name": "Dynamic Grids & Virtualization",                 "parentId": "guides/datahandling",                                 "id": "guides/datahandling/DynamicGrids"},
             {"name": "Pooled Grid Animation Contract",                  "parentId": "guides/datahandling",                                 "id": "guides/datahandling/PooledGridAnimation"},
             {"name": "Streaming Data & Progressive Rendering",         "parentId": "guides/datahandling",                                 "id": "guides/datahandling/Streaming"},
+            {"name": "Resource Schedulers",                             "parentId": "guides/datahandling",                                 "id": "guides/datahandling/Scheduler"},
+            {"name": "Gantt Charts & Linked Tasks",                     "parentId": "guides/datahandling",                                 "id": "guides/datahandling/Gantt"},
             {"name": "Tables (Stores)",                                "parentId": "guides/datahandling",                                 "id": "guides/datahandling/Tables"},
             {"name": "Using data.Store",                               "parentId": "guides/datahandling",                                 "id": "guides/datahandling/UsingStores"},
             {"name": "TreeStore & Hierarchical Data",                  "parentId": "guides/datahandling",                                 "id": "guides/datahandling/TreeStore"},
@@ -142,6 +145,8 @@
         {"name": "Neo.mjs vs Solid.js",                                "parentId": "comparisons",                                         "id": "comparisons/NeoVsSolid"},
         {"name": "Neo.mjs vs Next.js",                                 "parentId": "comparisons",                                         "id": "comparisons/NeoVsNextJs"},
         {"name": "Neo.mjs vs Ext.js",                                  "parentId": "comparisons",                                         "id": "comparisons/NeoVsExtJs"},
+        {"name": "Neo.mjs vs AG Grid",                                 "parentId": "comparisons",                                         "id": "comparisons/NeoVsAgGrid"},
+        {"name": "Neo.mjs vs Bryntum",                                 "parentId": "comparisons",                                         "id": "comparisons/NeoVsBryntum"},
     {"name": "Glossary",                                               "parentId": null,                                                  "id": "Glossary"},
     {"name": "API Docs",                                               "parentId": null,                                                  "id": "ApiDocs", "route": "/docs"}
 ]}

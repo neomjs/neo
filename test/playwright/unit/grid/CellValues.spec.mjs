@@ -174,6 +174,12 @@ test.describe('Neo.grid.Container#getCellValues', () => {
         expect(values[0][2]).toBeUndefined();
         expect(values[1][0]).toBe('Ada');
         expect(values[1][1]).toEqual({city: 'Berlin'});
+        // the plain row is resolved on a copy and stays as it was
+        expect(row).toEqual({name: 'Cy', address: {city: 'Oslo'}});
+
+        // a record is read, never resolved
+        resolveFieldCalls = 0;
+        grid.getCellValues({mode: 'raw', records: [store.get(1)]});
         expect(resolveFieldCalls).toBe(0)
     });
 
@@ -276,6 +282,108 @@ test.describe('Neo.grid.Container#getCellValues', () => {
         const record = store.get(52);
 
         expect([record.get('scaled'), record.get('mappedScaled')]).toEqual([52000, 52000])
+    });
+
+    test('a Turbo Mode row reads a path below a mapped field as its record does', async () => {
+        store = Neo.create(Store, {
+            autoInitRecords: false,
+            data           : Array.from({length: 60}, (_, i) => ({id: i + 1, address: {city: `City ${i + 1}`}})),
+            keyProperty    : 'id',
+            model          : {fields: [{name: 'id', type: 'Integer'}, {name: 'geo', mapping: 'address'}]}
+        });
+        grid = await createGrid(store, [{dataField: 'geo.city', text: 'City'}]);
+
+        const raw = store.items.find(item => item.id === 52 && typeof item.get !== 'function');
+
+        expect(grid.getCellValues({mode: 'raw', records: [raw]})).toEqual([['City 52']]);
+        expect(Object.hasOwn(raw, 'geo')).toBe(false);
+        expect(grid.getCellValues({mode: 'raw', records: [store.get(52)]})).toEqual([['City 52']])
+    });
+
+    test('a Turbo Mode row of a model without complex fields reads defaults and types as its record does', async () => {
+        store = Neo.create(Store, {
+            autoInitRecords: false,
+            data           : Array.from({length: 60}, (_, i) => ({id: i + 1, n: String(i + 1)})),
+            keyProperty    : 'id',
+            model          : {fields: [{name: 'id', type: 'Integer'}, {name: 'flag', defaultValue: 'x'}, {name: 'n', type: 'Integer'}]}
+        });
+        grid = await createGrid(store, [{dataField: 'flag', text: 'Flag'}, {dataField: 'n', text: 'N'}]);
+
+        const raw = store.items.find(item => item.id === 52 && typeof item.get !== 'function');
+
+        expect(store.model.hasComplexFields).toBe(false);
+        expect(grid.getCellValues({mode: 'raw', records: [raw]})).toEqual([['x', 52]]);
+        expect(Object.keys(raw)).toEqual(['id', 'n']);
+        expect(raw.n).toBe('52');
+        expect(grid.getCellValues({mode: 'raw', records: [store.get(52)]})).toEqual([['x', 52]])
+    });
+
+    test('a Turbo Mode row reads the same values in any column order, and they equal its record\'s', async () => {
+        store = Neo.create(Store, {
+            autoInitRecords: false,
+            data           : Array.from({length: 60}, (_, i) => ({
+                id     : i + 1,
+                amount : String(i + 1).padStart(3, '0'),
+                details: JSON.stringify({city: `City ${i + 1}`}),
+                address: {code: String(i + 1).padStart(3, '0')}
+            })),
+            keyProperty: 'id',
+            model      : {fields: [
+                {name: 'id',      type: 'Integer'},
+                {name: 'amount',  type: 'Integer'},
+                {name: 'code',    mapping: 'amount'},
+                {name: 'details', convert: value => typeof value === 'string' ? JSON.parse(value) : value},
+                {name: 'address', fields: [{name: 'code', type: 'Integer'}]}
+            ]}
+        });
+        grid = await createGrid(store, [
+            {dataField: 'amount',       text: 'Amount'},
+            {dataField: 'code',         text: 'Code'},
+            {dataField: 'details.city', text: 'City'},
+            {dataField: 'address.code', text: 'Address code'}
+        ]);
+
+        const
+            raw      = store.items.find(item => item.id === 7 && typeof item.get !== 'function'),
+            fields   = ['amount', 'code', 'details.city', 'address.code'],
+            expected = [7, '007', 'City 7', 7],
+            read     = names => grid.getCellValues({dataFields: names, mode: 'raw', records: [raw]})[0];
+
+        expect(read(fields)).toEqual(expected);
+        expect(read([...fields].reverse())).toEqual([...expected].reverse());
+        expect(raw.address).toEqual({code: '007'});
+        expect(grid.getCellValues({dataFields: fields, mode: 'raw', records: [store.get(7)]})[0]).toEqual(expected)
+    });
+
+    test('a mapping reads what the record\'s earlier fields assigned: a default, a mapped value, nothing from a later field', async () => {
+        store = Neo.create(Store, {
+            autoInitRecords: false,
+            data           : Array.from({length: 60}, (_, i) => ({id: i + 1, raw: {amt: i + 1}})),
+            keyProperty    : 'id',
+            model          : {fields: [
+                {name: 'id',     type: 'Integer'},
+                {name: 'amount', defaultValue: 'D'},
+                {name: 'code',   mapping: 'amount'},
+                {name: 'total',  mapping: 'raw.amt'},
+                {name: 'sum',    mapping: 'total'},
+                {name: 'early',  mapping: 'late'},
+                {name: 'late',   defaultValue: 'L'}
+            ]}
+        });
+        const fields = ['amount', 'code', 'total', 'sum', 'early', 'late'];
+
+        grid = await createGrid(store, fields.map(dataField => ({dataField, text: dataField})));
+
+        const
+            raw      = store.items.find(item => item.id === 7 && typeof item.get !== 'function'),
+            expected = ['D', 'D', 7, 7, undefined, 'L'],
+            read     = names => grid.getCellValues({dataFields: names, mode: 'raw', records: [raw]})[0];
+
+        expect(read(fields)).toEqual(expected);
+        expect(read([...fields].reverse())).toEqual([...expected].reverse());
+        expect(Object.keys(raw)).toEqual(['id', 'raw']);
+        expect(raw.raw).toEqual({amt: 7});
+        expect(grid.getCellValues({dataFields: fields, mode: 'raw', records: [store.get(7)]})[0]).toEqual(expected)
     });
 
     test('a column pointed at another field at runtime is read under its new dataField', async () => {

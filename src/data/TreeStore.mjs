@@ -713,8 +713,7 @@ class TreeStore extends Store {
     }
 
     /**
-     * Overrides Store:get() to ensure records can be retrieved even if they are hidden
-     * (not in the active flattened view).
+     * @summary Retrieves a visible or hidden node by key, falling back to {@link #getCanonicalKey} on a miss.
      * @param {Number|String|Object|Neo.data.Record} key
      * @returns {Object|null}
      */
@@ -726,10 +725,12 @@ class TreeStore extends Store {
         let me   = this,
             item = super.get(key); // Check the standard visible map first (fastest)
 
-        if (!item && me.#allRecordsMap.has(key)) {
-            // Fallback to the full tree map for hidden nodes.
-            // Pass it through hydrateRecord to ensure Turbo Mode lazy instantiation works.
-            item = me.hydrateRecord(me.#allRecordsMap.get(key))
+        if (!item) {
+            let lookupKey = me.#allRecordsMap.has(key) ? key : me.getCanonicalKey(key);
+
+            if (lookupKey !== undefined && me.#allRecordsMap.has(lookupKey)) {
+                item = me.hydrateRecord(me.#allRecordsMap.get(lookupKey))
+            }
         }
 
         return item || null
@@ -765,9 +766,54 @@ class TreeStore extends Store {
      */
     getChildren(parentId='root') {
         let me       = this,
-            children = me.#childrenMap.get(parentId) || [];
+            children = me.#childrenMap.get(parentId);
 
-        return children.map(item => me.hydrateRecord(item))
+        if (!children && parentId !== 'root') {
+            let canonicalKey = me.getCanonicalKey(parentId);
+
+            if (canonicalKey !== undefined && canonicalKey !== parentId) {
+                children = me.#childrenMap.get(canonicalKey)
+            }
+        }
+
+        return (children || []).map(item => me.hydrateRecord(item))
+    }
+
+    /**
+     * @summary Tells whether the active filters keep a node, expansion aside.
+     *
+     * Filtering is ancestor-aware (see {@link #filter}): a node is kept when it matches, when an ancestor
+     * matched, or when a descendant matched. Without an active filter every node is kept. A
+     * level-at-a-time consumer pairs this with {@link #getChildren}, which reads the Structural Layer and
+     * therefore returns filtered-out children too.
+     * @param {Number|String|Object|Neo.data.Record} nodeOrKey A record, a raw node, or its key
+     * @returns {Boolean}
+     */
+    isKept(nodeOrKey) {
+        let me           = this,
+            {_keptNodes} = me,
+            key;
+
+        if (!_keptNodes) {
+            return true
+        }
+
+        key = me.isItem(nodeOrKey) ? me.getKey(nodeOrKey) : nodeOrKey;
+
+        return _keptNodes.has(key) || _keptNodes.has(me.getCanonicalKey(key))
+    }
+
+    /**
+     * @summary Answers from the Structural Layer too, so a row under a collapsed parent or one the filters hide is held.
+     * The visible projection answers first, as in {@link #get}: after a re-add it can hold a node apart from its
+     * Structural Layer entry, and a batch writes the row `get()` hydrates.
+     * @param {Number|String} key
+     * @returns {Object|Neo.data.Record|undefined}
+     * @protected
+     */
+    getRow(key) {
+        const me = this;
+        return super.getRow(key) ?? me.#allRecordsMap.get(me.#allRecordsMap.has(key) ? key : me.getCanonicalKey(key))
     }
 
     /**
@@ -888,7 +934,7 @@ class TreeStore extends Store {
             me.#allRecordsMap.set(key, record);
 
             // Heal the children map to keep structural references consistent
-            const parentId = record.parentId || 'root';
+            const parentId = item.parentId || 'root';
             const siblings = me.#childrenMap.get(parentId);
 
             if (siblings) {
@@ -1107,6 +1153,14 @@ class TreeStore extends Store {
                     let data = items[i];
                     key      = me.getKey(data);
                     parentId = data.parentId || 'root';
+
+                    if (parentId !== 'root' && !me.#allRecordsMap.has(parentId)) {
+                        parentId = me.getCanonicalKey(parentId) ?? parentId;
+
+                        if (!RecordFactory.isRecord(data)) {
+                            data.parentId = parentId
+                        }
+                    }
 
                     // Soft Hydration for hierarchical fields
                     if (data.depth === undefined) {

@@ -198,3 +198,120 @@ test.describe('Neo.canvas.GraphScene — a WebGL2 scene on the canvas worker', (
         expect(resized.counts, 'a resize keeps the scene').toEqual(SCENE)
     })
 });
+
+test.describe('GraphScene native pointer origin', () => {
+    test.use({deviceScaleFactor: 2, viewport: {width: 1000, height: 700}});
+
+    test('a native pointer stays canvas-local through pane translation and offset resize', async ({context, page, neuralLink}, testInfo) => {
+        const marker       = 'graph-scene-pointer-origin', expected = {x: 30, y: 20}, errors = [], observations = [];
+        let   rendererHits = 0, app, canvasId, pane, stats, phase = 'instrumentation';
+        page.on('pageerror', error => errors.push(error.message));
+        page.on('console', message => {if (message.type() === 'error') errors.push(message.text())});
+
+        // Installed before navigation, outside the other describe's beforeEach. Only expose inherited input;
+        // the example's real renderer, pointer handler, worker transport and scene remain the exercised path.
+        await context.route('**/examples/component/graphScene/canvas/Renderer.mjs*', async route => {
+            const response = await route.fetch(), source = await response.text(),
+                  needle   = 'return {...super.getStats(), lodLap:';
+            expect(source.split(needle), 'the served example still has exactly one getStats instrumentation site').toHaveLength(2);
+            rendererHits++;
+            await route.fulfill({response, body: source.replace(needle,
+                `return {...super.getStats(), pointerOriginProbe: {marker: '${marker}', mouse: {...this.mouse}}, lodLap:`)})
+        });
+
+        const read = () => app.callMethod(canvasId, 'getStats', []);
+        try {
+            await page.goto(EXAMPLE);
+            await expect(page.locator('canvas')).toBeVisible({timeout: 30000});
+            app = await neuralLink.connectToApp('Neo.examples.component.graphScene');
+            const instances = await app.findInstances({className: 'Neo.examples.component.graphScene.SceneCanvas'}, ['id']);
+            canvasId = (Array.isArray(instances) ? instances[0] : instances)?.id;
+            expect(canvasId, 'the actual example SceneCanvas is discoverable without a stats-button click').toBeTruthy();
+            const canvas = page.locator(`[id="${canvasId}"]`);
+            await expect.poll(async () => (stats = await read()).pointerOriginProbe?.marker,
+                {message: 'positive coverage: getStats from the actual canvas worker carries the routed marker'}).toBe(marker);
+            expect(rendererHits).toBeGreaterThan(0);
+
+            /** @summary Reads renderer state without moving the pointer onto the example's stats button. */
+            const ready = async () => {
+                await expect.poll(async () => {
+                    stats = await read();
+                    const box = await canvas.boundingBox(), host = await app.getComponent(canvasId, ['isCanvasReady', 'offscreenRegistered']);
+                    return host.isCanvasReady && host.offscreenRegistered && stats.frames > 0 && !stats.owed &&
+                        stats.counts?.nodes === SCENE.nodes && box && stats.canvas[0] === Math.floor(box.width * 2) &&
+                        stats.canvas[1] === Math.floor(box.height * 2)
+                }, {message: 'the real scene and drawing buffer settle at the current native canvas size'}).toBe(true)
+            };
+            await ready();
+            pane = await canvas.evaluate(node => {
+                const outer = node.parentElement;
+                if (!outer?.id || getComputedStyle(outer).transform !== 'none') throw new Error('Expected an identified, initially untransformed outer pane');
+                window.graphScenePointerSample = null;
+                const record = event => {
+                    const rect = node.getBoundingClientRect();
+                    window.graphScenePointerSample = {type: event.type, trusted: event.isTrusted, targetId: event.target.id,
+                        x: event.clientX - rect.left, y: event.clientY - rect.top}
+                };
+                node.addEventListener('mousemove', record, {capture: true});
+                node.addEventListener('wheel', record, {capture: true, passive: true});
+                return {id: outer.id, transform: outer.style.transform}
+            });
+
+            /** @summary Requires the trusted native event and the inherited renderer mouse to agree at (30,20). */
+            const point = async label => {
+                phase = label;
+                const box = await canvas.boundingBox();
+                await page.mouse.move(box.x + expected.x, box.y + expected.y);
+                await expect.poll(() => page.evaluate(() => window.graphScenePointerSample)).toEqual({
+                    type: 'mousemove', trusted: true, targetId: canvasId, ...expected
+                });
+                await expect.poll(async () => {
+                    stats = await read();
+                    return {x: stats.pointerOriginProbe.mouse.x, y: stats.pointerOriginProbe.mouse.y}
+                }, {message: `${label}: the real renderer receives canvas-local (30,20)`}).toEqual(expected);
+                observations.push({phase, box, mouse: stats.pointerOriginProbe.mouse, canvas: stats.canvas})
+            };
+            await point('before translation');
+            const before = await canvas.boundingBox(), buffer = stats.canvas;
+            await page.mouse.move(1, 1);
+            await expect.poll(async () => (await read()).pointerOriginProbe.mouse.x).toBe(-1000);
+            await page.evaluate(id => {document.getElementById(id).style.transform = 'translateX(80px)'}, pane.id);
+            await expect.poll(async () => (await canvas.boundingBox()).x).toBeCloseTo(before.x + 80, 3);
+            const translated = await canvas.boundingBox();
+            expect(translated.width).toBe(before.width);
+            expect(translated.height).toBe(before.height);
+            expect(translated.y).toBe(before.y);
+            expect((await read()).canvas, 'translation does not resize the drawing buffer').toEqual(buffer);
+            await point('after position-only translation');
+
+            phase = 'wheel at translated canvas';
+            const distance = stats.camera.dist;
+            await page.mouse.wheel(0, -120);
+            await expect.poll(() => page.evaluate(() => window.graphScenePointerSample)).toEqual({
+                type: 'wheel', trusted: true, targetId: canvasId, ...expected
+            });
+            await expect.poll(async () => (stats = await read()).camera.dist).toBeLessThan(distance);
+            expect({x: stats.pointerOriginProbe.mouse.x, y: stats.pointerOriginProbe.mouse.y}).toEqual(expected);
+
+            await page.mouse.move(1, 1);
+            await expect.poll(async () => (await read()).pointerOriginProbe.mouse.x).toBe(-1000);
+            await page.setViewportSize({width: 800, height: 600});
+            await ready();
+            const resized = await canvas.boundingBox();
+            expect(resized.x).toBeCloseTo(before.x + 80, 3);
+            expect(resized.width).toBeLessThan(translated.width);
+            expect(resized.height).toBeLessThan(translated.height);
+            await point('after resize at nonzero origin');
+            expect(errors).toEqual([])
+        } finally {
+            if (app && canvasId) stats = await read().catch(error => ({error: error.message}));
+            await testInfo.attach('native-pointer-origin.json', {
+                body: JSON.stringify({phase, expected, rendererHits, stats, observations, errors}, null, 2), contentType: 'application/json'
+            });
+            if (pane) await page.evaluate(({id, transform}) => {
+                const node = document.getElementById(id);
+                if (node) node.style.transform = transform
+            }, pane)
+        }
+    })
+});

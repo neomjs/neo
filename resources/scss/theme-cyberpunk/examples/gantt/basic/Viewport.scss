@@ -1,0 +1,11 @@
+:where(.neo-theme-cyberpunk) {
+    --project-header-bg    : var(--cyber-bg);
+    --project-border       : var(--cyber-border);
+    --project-title        : var(--cyber-cyan);
+    --project-muted        : var(--cyber-text);
+    --project-control      : var(--cyber-bg-alt);
+    --project-hover        : color-mix(in srgb, var(--cyber-cyan) 14%, transparent);
+    --project-selected     : var(--cyber-cyan);
+    --project-selected-text: var(--cyber-bg);
+    --project-focus        : var(--cyber-gold);
+}

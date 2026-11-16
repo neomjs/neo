@@ -64,7 +64,7 @@ class SearchToolbar extends Toolbar {
                 menu   : {cls: ['neo-grid-search-scope-menu'], items: []}
             }, {
                 module : Button, reference: 'case', text: 'Aa', ui: 'ghost',
-                tooltip: 'Match case', pressed: false, vdom: {'aria-label': 'Match case'},
+                tooltip: 'Match case', vdom: {'aria-label': 'Match case'},
                 handler: () => me.writeSearch({caseSensitive: !me.getSearchFilter()?.caseSensitive})
             }]
         }, {

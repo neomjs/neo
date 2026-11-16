@@ -43,6 +43,13 @@ class Focus extends CoreBase {
     }
 
     /**
+     * Tracks top history entries whose window subsequently completed a `focusLeave` without a new `focusEnter`.
+     * @member {WeakSet} leftHistoryEntries
+     * @protected
+     */
+    leftHistoryEntries = new WeakSet()
+
+    /**
      * @summary Records a focus entry in its originating window's bounded history.
      * @param {Object} opts
      * @param {String} opts.windowId Originating window from the DOM event envelope
@@ -53,6 +60,7 @@ class Focus extends CoreBase {
     addToHistory(opts) {
         let history = this.history[opts.windowId] ||= [];
 
+        this.leftHistoryEntries.delete(opts);
         history.unshift(opts);
         history.length > this.maxHistoryLength && history.pop()
     }
@@ -71,13 +79,25 @@ class Focus extends CoreBase {
     }
 
     /**
+     * @summary Leaves focus for the originating window, skipping components actively focused in another window.
      * @param {Object} opts
+     * @param {String} [opts.windowId]
      * @param {Array}  opts.componentPath Component ids upwards
      * @param {Object} opts.data dom event infos
      * @protected
      */
     focusLeave(opts) {
-        this.setComponentFocus(opts, false)
+        let me            = this,
+            {windowId}    = opts,
+            hasWindow     = windowId != null,
+            latest        = hasWindow && me.history[windowId]?.[0],
+            componentPath = hasWindow
+                ? opts.componentPath.filter(id => !me.isFocusedInAnotherWindow(id, windowId))
+                : opts.componentPath;
+
+        latest && me.leftHistoryEntries.add(latest);
+
+        componentPath.length && me.setComponentFocus({...opts, componentPath}, false)
     }
 
     /**
@@ -136,6 +156,33 @@ class Focus extends CoreBase {
         const oldIds = new Set(oldComponentPath);
 
         return newComponentPath.find(id => oldIds.has(id)) || null
+    }
+
+    /**
+     * Checks whether a component currently belongs to another window's active (un-left) latest focus path.
+     * Prevents a delayed focusout from the previous window from clearing `containsFocus` or firing
+     * `focusLeave` after the component has moved to and received focus in another window.
+     * @param {String} id
+     * @param {String|Number} windowId
+     * @returns {Boolean}
+     * @protected
+     */
+    isFocusedInAnotherWindow(id, windowId) {
+        let me             = this,
+            originWindowId = String(windowId),
+            otherWindowId, entry;
+
+        for (otherWindowId in me.history) {
+            if (otherWindowId !== originWindowId) {
+                entry = me.history[otherWindowId]?.[0];
+
+                if (entry && !me.leftHistoryEntries.has(entry) && entry.componentPath.includes(id)) {
+                    return true
+                }
+            }
+        }
+
+        return false
     }
 
     /**

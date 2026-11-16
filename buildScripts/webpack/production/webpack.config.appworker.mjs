@@ -1,10 +1,10 @@
-import fs                        from 'fs-extra';
-import path                      from 'path';
-import {spawnSync}               from 'child_process';
-import {copyDistAppAssets}       from '../../util/distAppAssets.mjs';
-import {minifyHtml}              from '../../util/minifyHtml.mjs';
-import * as Terser               from 'terser';
-import workerContextRebasePlugin from '../workerContextRebasePlugin.mjs';
+import fs                                        from 'fs-extra';
+import path                                      from 'path';
+import {spawnSync}                               from 'child_process';
+import {copyDistAppAssets, excludedResourcesFor} from '../../util/distAppAssets.mjs';
+import {minifyHtml}                              from '../../util/minifyHtml.mjs';
+import * as Terser                               from 'terser';
+import workerContextRebasePlugin                 from '../workerContextRebasePlugin.mjs';
 
 const
     cwd            = process.cwd(),
@@ -44,10 +44,12 @@ export default async function(env) {
     const copyResources = resourcesPath => {
         let inputPath  = path.resolve(cwd, resourcesPath),
             outputPath = path.resolve(cwd, buildTarget.folder, resourcesPath),
+            excluded   = excludedResourcesFor(resourcesPath),
+            excludeArg = excluded.length ? ` -x ${excluded.join(',')}` : '',
             childProcess, content, filePath;
 
         if (fs.existsSync(inputPath)) {
-            childProcess = spawnSync('node', [`${neoPath}/buildScripts/util/copyFolder.mjs -s ${inputPath} -t ${outputPath}`], cpOpts);
+            childProcess = spawnSync('node', [`${neoPath}/buildScripts/util/copyFolder.mjs -s ${inputPath} -t ${outputPath}${excludeArg}`], cpOpts);
             childProcess.status && process.exit(childProcess.status);
 
             // Minify all json files inside the copied resources folder

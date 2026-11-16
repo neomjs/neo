@@ -1,0 +1,9 @@
+:where(.neo-theme-light) { // .neo-gantt
+    --neo-gantt-divider-color   : var(--grid-container-border-color, #ddd);
+    --neo-gantt-arrow-color     : var(--button-text-color, #1c60a0);
+    --neo-gantt-highlight-color : #c62828;
+    --neo-gantt-summary-bg      : #e6ebf1;
+    --neo-gantt-summary-border  : var(--grid-header-button-background-color, #5d83a7);
+    --neo-gantt-milestone-bg    : #fef3c7;
+    --neo-gantt-milestone-border: #b45309;
+}

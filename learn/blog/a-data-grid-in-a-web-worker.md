@@ -1,3 +1,7 @@
+---
+seoTitle: "JavaScript Data Grid in a Web Worker: 100k+ Rows Off the Main Thread | Neo.mjs"
+seoDescription: "How Neo.mjs runs a JavaScript data grid in a Web Worker: 100k rows, 200 columns, virtual scrolling, and 0ms main-thread blocking in open benchmarks."
+---
 # The main thread is the wrong place for a data grid
 
 **A large JavaScript data grid can freeze the page when its data changes, because it works on the main thread: the one thread a browser tab has for your code, its layout and every click. This is the story of a grid that moved its work into a web worker, a thread that cannot touch the page at all. It covers how the grid renders anyway, what an open benchmark measured for it and against it, and a public app that streams 50,000 GitHub developers into it.**

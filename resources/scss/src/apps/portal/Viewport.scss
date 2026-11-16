@@ -21,13 +21,13 @@ body {
     .neo-layout-cube {
         &.neo-animate {
             .neo-box {
-                transition: transform 800ms ease-in-out;
+                transition: transform var(--motion-stage) var(--ease-out-soft);
             }
         }
 
         .neo-face {
             opacity: 0.8;
-            transition: opacity 50ms ease-out;
+            transition: opacity var(--motion-fast) var(--ease-out-soft);
         }
 
         .neo-plane {
@@ -76,7 +76,7 @@ body {
         position        : relative;
         text-align      : left;
         text-decoration : none;
-        transition      : transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+        transition      : transform var(--motion-base) var(--ease-out-soft), box-shadow var(--motion-base) var(--ease-out-soft), border-color var(--motion-base) var(--ease-out-soft);
 
             &:hover {
                 border-color: var(--sem-color-border-focus);
@@ -92,7 +92,7 @@ body {
             margin        : 0 0 1rem 0;
             padding-bottom: 0.5rem;
             text-align    : left;
-            transition    : color 0.2s ease;
+            transition    : color var(--motion-fast) var(--ease-out-soft);
         }
 
         h4.portal-content-box-headline {
@@ -120,6 +120,87 @@ body {
                     color: var(--sem-color-text-primary-default);
                 }
             }
+        }
+    }
+
+    .portal-glass-card {
+        backdrop-filter        : blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        background             : var(--portal-glass-card-background);
+        border                 : var(--portal-glass-card-border);
+        border-radius          : 16px;
+        box-shadow             : var(--portal-glass-card-shadow);
+        box-sizing             : border-box;
+        flex-shrink            : 0;
+        margin-left            : auto;
+        margin-right           : auto;
+        max-width              : 800px;
+        min-height             : fit-content;
+        opacity                : 1;
+        padding                : 2.5em;
+        transition             : transform var(--motion-base) var(--ease-out-soft), box-shadow var(--motion-base) var(--ease-out-soft), border-color var(--motion-base) var(--ease-out-soft);
+        width                  : 100%;
+
+        &:hover {
+            border-color: var(--portal-glass-card-hover-border);
+            box-shadow  : var(--portal-glass-card-hover-shadow);
+            transform   : translateY(-5px);
+        }
+
+        .portal-content-box-headline {
+            font-size    : 1.5em;
+            font-weight  : 600;
+            margin-bottom: 1em;
+            margin-top   : 0;
+            opacity      : 0.9;
+        }
+
+        .portal-content-box-content {
+            font-size  : 1.1em;
+            line-height: 1.7;
+            opacity    : var(--portal-glass-card-text-opacity);
+
+            a {
+                color          : var(--portal-glass-card-link-color);
+                font-weight    : 600;
+                text-decoration: none;
+                transition     : color var(--motion-fast) var(--ease-out-soft);
+
+                &:hover {
+                    color          : var(--portal-glass-card-link-hover-color);
+                    text-decoration: underline;
+                }
+
+                &:focus-visible {
+                    outline       : 2px solid var(--portal-glass-card-link-color);
+                    outline-offset: 4px;
+                }
+            }
+
+            ul {
+                margin-top  : 1em;
+                padding-left: 1.5em;
+
+                li {
+                    list-style-type: disc;
+                    margin-bottom  : 0.5em;
+                }
+            }
+        }
+
+        .portal-connect-links {
+            display  : flex;
+            flex-wrap: wrap;
+            gap      : 0.75em 1.5em;
+        }
+    }
+}
+
+@media (max-width: 600px) {
+    .neo-viewport {
+        .portal-glass-card {
+            border-radius: 12px;
+            padding      : 1.5em;
         }
     }
 }

@@ -1,17 +1,30 @@
+import {execFileSync} from 'node:child_process';
 import fs             from 'node:fs';
 import path           from 'node:path';
 import {test, expect} from '@playwright/test';
+import * as yaml      from 'js-yaml';
 
 import {
+    CLAIM_RELEASE_SINCE,
     CLAIM_WINDOW_DAYS,
+    changedCloseTargets,
+    claimRecords,
     claimText,
+    closeTargets,
     decideClaim,
+    decidePullRequestRelease,
+    decidePullRequestTarget,
     decideReply,
+    decideTargetRemoval,
     earlierClaim,
     holders,
     isClaim,
+    isTeamPermission,
     isWithdrawal,
+    overlapMarker,
     pickAlternatives,
+    releaseMarker,
+    renderOverlapNotice,
     renderReply,
     replyMarker,
     staleAssignees
@@ -19,17 +32,25 @@ import {
 
 const REPO_URL = 'https://github.com/neomjs/neo';
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * An ISO timestamp `days` after `base`, so a holding or lapsing case tracks {@link CLAIM_WINDOW_DAYS} instead of
+ * repeating its number. A case that hard-codes the offset silently tests the old window after the constant moves.
+ */
+const daysAfter = (base, days) => new Date(Date.parse(base) + days * DAY_MS).toISOString();
+
 let nextId = 1;
 
 /**
  * A REST-shaped issue comment. `association` defaults to an outside contributor.
  */
-const comment = (login, createdAt, body, {association = 'NONE', type = 'User'} = {}) => ({
+const comment = (login, createdAt, body, {association = 'NONE', id, type = 'User'} = {}) => ({
     author_association: association,
     body,
     created_at        : createdAt,
     id                : nextId++,
-    user              : {login, type}
+    user              : {login, type, ...(Number.isSafeInteger(id) ? {id} : {})}
 });
 
 const gfiIssue = (overrides = {}) => ({
@@ -104,6 +125,36 @@ test.describe('buildScripts/util/claimResponse', () => {
                 expect(isClaim(body), body).toBe(false)
             }
         });
+
+        test('a claim typed with an apostrophe look-alike (’ ‘ ʼ ´) reads as its ASCII spelling (#21057)', () => {
+            expect(claimText('I’d like to take this.')).toBe("I'd like to take this.");
+
+            for (const body of [
+                'I’d like to take this.',
+                'I’m working on this',
+                'I’ll take this',
+                'I‘d like to take this.',
+                'Iʼd like to take this.',
+                'I´d like to take this.'
+            ]) {
+                expect(isClaim(body), body).toBe(true)
+            }
+
+            // The fold makes no claim that the ASCII spelling would not make
+            for (const body of ['I don’t want to work on this, just a note.', '```\n// I’d like to work on this\n```']) {
+                expect(isClaim(body), body).toBe(false)
+            }
+        });
+    });
+
+    test('isTeamPermission names the team by who can write, and throws on a value that is no permission', () => {
+        expect(['admin', 'maintain', 'write'].map(isTeamPermission)).toEqual([true, true, true]);
+        expect(['triage', 'read', 'none'].map(isTeamPermission)).toEqual([false, false, false]);
+
+        // An account that cannot be told apart is not an outside one
+        for (const unnamed of [undefined, null, '', 'owner', 'WRITE']) {
+            expect(() => isTeamPermission(unnamed)).toThrow('names no repository permission')
+        }
     });
 
     test('isWithdrawal recognises a claim given back', () => {
@@ -111,6 +162,11 @@ test.describe('buildScripts/util/claimResponse', () => {
         expect(isWithdrawal('Please unassign me, I ran out of time.')).toBe(true);
         expect(isWithdrawal(withdrawnClaim.body)).toBe(false);
         expect(isWithdrawal(secondClaim.body)).toBe(false)
+    });
+
+    test('isWithdrawal recognises a claim given back with an apostrophe look-alike (#21057)', () => {
+        expect(isWithdrawal('Sorry, I can’t work on this anymore')).toBe(true);
+        expect(isWithdrawal('I won’t continue with this')).toBe(true)
     });
 
     test.describe('decideReply', () => {
@@ -175,9 +231,10 @@ test.describe('buildScripts/util/claimResponse', () => {
 
         test(`an unassigned earlier claim holds for ${CLAIM_WINDOW_DAYS} days, then lapses`, () => {
             const
-                participleClaim = comment('participle-claimant', '2026-09-25T12:00:00Z', 'Claiming #19143. Working on the fix.'),
-                recent          = comment('newcomer', '2026-09-26T15:00:00Z', 'Can I take this?'),
-                late            = comment('newcomer', '2026-10-01T15:41:00Z', 'Can I take this?');
+                claimAt         = '2026-09-23T15:40:38Z',
+                participleClaim = comment('participle-claimant', daysAfter(claimAt, 0), 'Claiming #19143. Working on the fix.'),
+                recent          = comment('newcomer', daysAfter(claimAt, CLAIM_WINDOW_DAYS - 1), 'Can I take this?'),
+                late            = comment('newcomer', daysAfter(claimAt, CLAIM_WINDOW_DAYS + 1), 'Can I take this?');
 
             expect(decideReply({comment: recent, comments: [firstClaim, recent], issue: gfiIssue(), candidates: CANDIDATES, repoUrl: REPO_URL})).toContain('This one is taken: [first-claimant](https://github.com/first-claimant) asked first.');
             expect(decideReply({comment: recent, comments: [participleClaim, recent], issue: gfiIssue(), candidates: CANDIDATES, repoUrl: REPO_URL})).toContain('This one is taken: [participle-claimant](https://github.com/participle-claimant) asked first.');
@@ -186,10 +243,12 @@ test.describe('buildScripts/util/claimResponse', () => {
 
         test(`any later comment from the claimant keeps the claim: the ${CLAIM_WINDOW_DAYS} days run from their latest word`, () => {
             const
-                claim    = comment('slow-claimant', '2026-10-31T10:00:00Z', "I'd like to work on this."),
-                progress = comment('slow-claimant', '2026-11-07T10:00:00Z', 'Implementation is complete; tests are in progress.'),
-                second   = comment('newcomer', '2026-11-08T10:00:00Z', "I'd like to work on this."),
-                silent   = comment('newcomer', '2026-11-14T10:00:01Z', "I'd like to work on this.");
+                claimAt    = '2026-10-31T10:00:00Z',
+                claim      = comment('slow-claimant', claimAt, "I'd like to work on this."),
+                progressAt = daysAfter(claimAt, CLAIM_WINDOW_DAYS * 2),
+                progress   = comment('slow-claimant', progressAt, 'Implementation is complete; tests are in progress.'),
+                second     = comment('newcomer', daysAfter(progressAt, 1), "I'd like to work on this."),
+                silent     = comment('newcomer', daysAfter(progressAt, CLAIM_WINDOW_DAYS + 1), "I'd like to work on this.");
 
             expect(isClaim(progress.body)).toBe(false);
             expect(decideReply({comment: second, comments: [claim, progress, second], issue: gfiIssue(), candidates: CANDIDATES, repoUrl: REPO_URL})).toContain('This one is taken: [slow-claimant](https://github.com/slow-claimant) asked first.');
@@ -232,14 +291,37 @@ test.describe('buildScripts/util/claimResponse', () => {
         });
     });
 
-    test('renderReply says so when nothing else is free', () => {
+    test('renderReply links to the list when it has no verified alternatives', () => {
         const reply = renderReply({claimant: 'second-claimant', holders: [{kind: 'assignee', login: 'first-claimant'}], alternatives: [], label: 'good first issue', repoUrl: REPO_URL});
 
-        expect(reply).toContain('No other `good first issue` issue is free right now.');
+        expect(reply).toContain('list of open `good first issue` issues');
         expect(reply).toContain(`${REPO_URL}/blob/dev/CONTRIBUTING.md`)
     });
 
-    test.describe('decideClaim, single-issue cap, 7-day expiry, unassign release and workflow script', () => {
+    test.describe(`decideClaim, single-issue cap, ${CLAIM_WINDOW_DAYS}-day expiry, unassign release and workflow script`, () => {
+        test('the window is three days: a claim four days old has lapsed, and the reply names the window', () => {
+            const
+                claimAt    = '2026-11-01T10:00:00Z',
+                oldClaim   = comment('StaleClaimant', claimAt, "I'd like to claim this issue."),
+                day4Claim  = comment('day4-newcomer', daysAfter(claimAt, 4), "I'd like to work on this."),
+                staleIssue = gfiIssue({assignees: [{login: 'StaleClaimant'}]});
+
+            // The ticket's decision, not the current constant: seven days would keep this issue parked
+            expect(CLAIM_WINDOW_DAYS).toBe(3);
+            expect(staleAssignees({
+                comment   : day4Claim,
+                comments  : [oldClaim, day4Claim],
+                issue     : staleIssue,
+                repository: 'neomjs/neo'
+            })).toEqual(['StaleClaimant']);
+            expect(decideClaim({
+                comment : day4Claim,
+                comments: [oldClaim, day4Claim],
+                issue   : staleIssue,
+                repoUrl : REPO_URL
+            }).assignedBody).toContain('reserves this issue for 3 days')
+        });
+
         test('first in line with no other curated assignment gets assign: true and assignedBody while decideReply stays String|null', () => {
             const decision = decideClaim({
                 candidates: CANDIDATES,
@@ -259,14 +341,15 @@ test.describe('buildScripts/util/claimResponse', () => {
             expect(typeof decideReply({comment: firstClaim, comments: [firstClaim], issue: gfiIssue(), repoUrl: REPO_URL})).toBe('string')
         });
 
-        test(`an outside-contributor assignee holds at 6 days and lapses after ${CLAIM_WINDOW_DAYS} silent days unless they have an open PR or team status`, () => {
+        test(`an outside-contributor assignee holds until day ${CLAIM_WINDOW_DAYS - 1} and lapses after ${CLAIM_WINDOW_DAYS} silent days unless they have an open PR or team status`, () => {
             const
-                initialClaim  = comment('StaleClaimant', '2026-11-01T10:00:00Z', "I'd like to claim this issue."),
-                day6Claim     = comment('day6-newcomer', '2026-11-07T10:00:00Z', "I'd like to work on this."),
-                day8Claim     = comment('day8-newcomer', '2026-11-09T10:00:01Z', "I'd like to work on this."),
+                claimAt       = '2026-11-01T10:00:00Z',
+                initialClaim  = comment('StaleClaimant', claimAt, "I'd like to claim this issue."),
+                day6Claim     = comment('holding-newcomer', daysAfter(claimAt, CLAIM_WINDOW_DAYS - 1), "I'd like to work on this."),
+                day8Claim     = comment('lapsed-newcomer', daysAfter(claimAt, CLAIM_WINDOW_DAYS + 1), "I'd like to work on this."),
                 assignedIssue = gfiIssue({assignees: [{login: 'StaleClaimant'}]});
 
-            // 6 days silent: still holds
+            // One day short of the window: still holds
             const day6Decision = decideClaim({
                 candidates: CANDIDATES,
                 comment   : day6Claim,
@@ -278,7 +361,7 @@ test.describe('buildScripts/util/claimResponse', () => {
             expect(day6Decision.assign).toBe(false);
             expect(day6Decision.body).toContain("This one is taken: it's assigned to [StaleClaimant](https://github.com/StaleClaimant).");
 
-            // 8 days silent with no open PR: lapses and hands over with unassign: ['StaleClaimant']
+            // Past the window with no open PR: lapses and hands over with unassign: ['StaleClaimant']
             expect(staleAssignees({
                 comment   : day8Claim,
                 comments  : [initialClaim, day8Claim],
@@ -303,9 +386,9 @@ test.describe('buildScripts/util/claimResponse', () => {
 
             expect(day8Decision.assign).toBe(true);
             expect(day8Decision.unassign).toEqual(['StaleClaimant']);
-            expect(day8Decision.assignedBody).toContain('Thanks for claiming this, @day8-newcomer, and welcome! Assigned to you');
+            expect(day8Decision.assignedBody).toContain('Thanks for claiming this, @lapsed-newcomer, and welcome! Assigned to you');
 
-            // 8 days silent on issue comments, but has an open PR into neomjs/neo: still holds
+            // Past the window on issue comments, but has an open PR into neomjs/neo: still holds
             const withPrDecision = decideClaim({
                 candidates      : CANDIDATES,
                 comment         : day8Claim,
@@ -318,12 +401,12 @@ test.describe('buildScripts/util/claimResponse', () => {
             expect(withPrDecision.assign).toBe(false);
             expect(withPrDecision.body).toContain("it's assigned to [StaleClaimant](https://github.com/StaleClaimant) and #20799 is open for it.");
 
-            // 8 days since initial claim comment, but manually assigned 3 days ago: still holds
+            // Past the window since the initial claim comment, but manually assigned inside it: still holds
             const recentAssignDecision = decideClaim({
                 candidates: CANDIDATES,
                 comment   : day8Claim,
                 comments  : [initialClaim, day8Claim],
-                events    : [{event: 'assigned', assignee: {login: 'StaleClaimant'}, created_at: '2026-11-06T10:00:00Z'}],
+                events    : [{event: 'assigned', assignee: {login: 'StaleClaimant'}, created_at: daysAfter(claimAt, CLAIM_WINDOW_DAYS - 1)}],
                 issue     : assignedIssue,
                 repoUrl   : REPO_URL
             });
@@ -356,6 +439,79 @@ test.describe('buildScripts/util/claimResponse', () => {
             expect(decision.body).toContain(replyMarker('second-claimant'))
         });
 
+        test('a fresh claim retries a prior capacity refusal against current slots and holders', () => {
+            const
+                issue = gfiIssue(),
+                ask   = comment('AdaCat', '2026-11-14T12:00:00Z', '/claim'),
+                again = comment('AdaCat', '2026-11-14T13:01:00Z', '/claim'),
+                make  = (request, replies, extra = {}) => decideClaim({
+                    comment: request, comments: [ask, ...replies, again], issue, repoUrl: REPO_URL, claimLimit: 1, ...extra
+                }),
+                denied = make(ask, [], {heldByClaimant: [20957]});
+
+            expect(denied.assign).toBe(false);
+            expect(denied.body).toContain('You already hold #20957. From five merged pull requests you can hold two at once.');
+
+            const firstReply = comment('github-actions[bot]', '2026-11-14T12:00:02Z', denied.body, {type: 'Bot'});
+            expect(make(ask, [firstReply])).toBeNull(); // a replay after the blocking issue closed
+            const stillBlocked = make(again, [firstReply], {heldByClaimant: [20957]});
+            expect(stillBlocked).toMatchObject({assign: false, updateCommentId: firstReply.id});
+            expect(make(again, [{...firstReply, body: stillBlocked.body}])).toBeNull(); // edited refusal covers this event
+            expect(make(again, [firstReply], {issue: gfiIssue({assignees: [{login: 'Other'}]})}).assign).toBe(false);
+            expect(make(again, [firstReply], {openPullRequests: [{number: 23, author: 'Other', repository: 'neomjs/neo'}]}).assign).toBe(false);
+            expect(make(again, [firstReply]).assign).toBe(true);
+            expect(make({...again, body: 'Thanks for the update!'}, [firstReply])).toBeNull();
+            for (const foreign of [
+                {...firstReply, user: {type: 'Bot', login: 'another-app[bot]'}},
+                {...firstReply, user: {type: 'User', login: 'other'}},
+                {...firstReply, body: firstReply.body.replace(replyMarker(ask.user.login), replyMarker('other'))}
+            ]) {
+                expect(make(again, [foreign], {heldByClaimant: [20957]}).updateCommentId).toBeUndefined()
+            }
+            expect(decideReply({comment: again, comments: [ask, firstReply, again], issue, repoUrl: REPO_URL})).toBeNull();
+
+            const accepted = comment('github-actions[bot]', '2026-11-14T13:01:03Z', make(again, [firstReply]).assignedBody, {type: 'Bot'});
+            expect(make(again, [firstReply, accepted])).toBeNull();
+        });
+
+        test('old-style refusals allow a fresh retry without reserving the issue against another contributor', () => {
+            const
+                first  = comment('MyLogin', '2026-11-14T11:00:00Z', '/claim'),
+                next   = comment('another', '2026-11-14T12:00:00Z', '/claim'),
+                retry  = comment('mylogin', '2026-11-14T13:00:00Z', '/claim'),
+                decide = (claim, comments) => decideClaim({comment: claim, comments, issue: gfiIssue(), repoUrl: REPO_URL, claimLimit: 1});
+
+            for (const reason of ["You're already assigned to #12", "This one is taken: it's assigned to someone else"]) {
+                const bot = comment('github-actions[bot]', '2026-11-14T11:01:00Z',
+                    `Thanks, @MyLogin! ${reason}.\n\n${replyMarker('MyLogin')}`, {type: 'Bot'});
+                expect(decide(retry, [first, bot, retry]).assign).toBe(true);
+                expect(decide(next, [first, bot, next]).assign).toBe(true);
+                expect(decide(retry, [first, bot, next, retry]).assign).toBe(false);
+            }
+        });
+
+        test('a queued claimant can proceed when the first claim was refused while the workflow was running', () => {
+            const
+                at     = '2026-11-14T12:00:00Z',
+                first  = comment('first', at, '/claim'),
+                next   = comment('next', at, '/claim'),
+                issue  = gfiIssue(),
+                decide = (claim, comments, heldByClaimant = []) => decideClaim({
+                    comment: claim, comments, heldByClaimant, claimLimit: 1, issue, repoUrl: REPO_URL
+                }),
+                refused = comment('github-actions[bot]', at, decide(first, [first, next], [12]).body, {type: 'Bot'});
+
+            expect(decide(next, [first, next, refused]).assign).toBe(true);
+            expect(decide(first, [first, next, refused])).toBeNull();
+
+            const queuedRetry = {...next, user: first.user};
+            expect(decide(queuedRetry, [first, queuedRetry, refused]).assign).toBe(true);
+
+            const withdraw = comment('first', at, 'Please unassign me.');
+            const claimant = comment('third', at, '/claim');
+            expect(decide(claimant, [first, withdraw, claimant]).assign).toBe(true);
+        });
+
         test('a maintainer unassignment event releases an earlier claim just like a withdrawal', () => {
             const
                 sprayed    = comment('spray-account', '2026-11-11T02:34:01Z', "I'd love to work on it. Could you please assign it to me?"),
@@ -377,7 +533,7 @@ test.describe('buildScripts/util/claimResponse', () => {
             expect(decision.assignedBody).toContain('Thanks for claiming this, @newcomer, and welcome! Assigned to you')
         });
 
-        test('workflow github-script auto-assigns verified first-in-line claims, falls back if assignment does not stick, and enforces the 1-issue cap', async () => {
+        test('workflow github-script assigns claims under their standing limit and falls back safely', async () => {
             const
                 workflowPath  = path.resolve(process.cwd(), '.github/workflows/claim-responder.yml'),
                 raw           = fs.readFileSync(workflowPath, 'utf8'),
@@ -388,14 +544,15 @@ test.describe('buildScripts/util/claimResponse', () => {
 
             expect(raw).not.toMatch(/^concurrency:/m);
             expect(raw).toMatch(/\n    if: >-[\s\S]*?\n    concurrency:\n      group: claim-responder\n      cancel-in-progress: false\n      queue: max\n/);
+            expect(raw).toMatch(/sparse-checkout: \|\n {12}buildScripts\/util\/claimResponse\.mjs\n {12}buildScripts\/util\/contributorStanding\.mjs/);
 
             process.env.GITHUB_WORKSPACE = process.cwd();
 
-            const runScenario = async ({assignedItems = [], addAssigneesImpl, claim = firstClaim, comments = [firstClaim], events = [], issue = gfiIssue({state: 'open'})}) => {
-                const posted = [], assignedCalls = [], unassignedCalls = [], warnings = [], listForRepoCalls = [];
+            const runScenario = async ({assignedItems = [], addAssigneesImpl, claim = firstClaim, comments = [firstClaim], events = [], issue = gfiIssue({state: 'open'}), count = {total_count: 0, incomplete_results: false}, alternativesError, workspace = process.cwd()}) => {
+                const posted = [], assignedCalls = [], unassignedCalls = [], warnings = [], listForRepoCalls = [], countQueries = [];
 
                 const github = {
-                    graphql : async () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: []}}}}),
+                    graphql : async () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: [], pageInfo: {hasNextPage: false}}}}}),
                     paginate: async (fn, args) => {
                         if (fn === github.rest.issues.listComments) return comments;
                         if (fn === github.rest.issues.listEvents)   return events;
@@ -414,20 +571,30 @@ test.describe('buildScripts/util/claimResponse', () => {
                         },
                         search: {
                             issuesAndPullRequests: async ({q}) => {
+                                if (q.startsWith('org:')) {
+                                    countQueries.push(q);
+                                    if (count instanceof Error) throw count;
+                                    return {data: count}
+                                }
                                 expect(q).not.toContain('assignee:');
+                                if (alternativesError) throw alternativesError;
                                 return {data: {items: [{number: 20691}, {number: 20692}]}}
                             }
                         }
                     }
                 };
 
-                await runStep(
-                    github,
-                    {payload: {comment: claim, issue: {number: issue.number}}, repo: {owner: 'neomjs', repo: 'neo'}},
-                    {info: () => {}, warning: msg => warnings.push(msg)}
-                );
+                const previous = process.env.GITHUB_WORKSPACE;
+                process.env.GITHUB_WORKSPACE = workspace;
+                try {
+                    await runStep(
+                        github,
+                        {payload: {comment: claim, issue: {number: issue.number}}, repo: {owner: 'neomjs', repo: 'neo'}},
+                        {info: () => {}, warning: msg => warnings.push(msg)}
+                    )
+                } finally { process.env.GITHUB_WORKSPACE = previous }
 
-                return {assignedCalls, listForRepoCalls, posted, unassignedCalls, warnings}
+                return {assignedCalls, countQueries, listForRepoCalls, posted, unassignedCalls, warnings}
             };
 
             try {
@@ -442,11 +609,13 @@ test.describe('buildScripts/util/claimResponse', () => {
                 expect(ok.posted).toHaveLength(1);
                 expect(ok.posted[0].body).toContain('Assigned to you — you can start now.');
                 expect(ok.warnings).toEqual([]);
+                expect(ok.countQueries).toEqual(['org:neomjs is:public is:pr is:merged author:first-claimant']);
 
                 // 2. GitHub returns HTTP 201 with empty assignees -> posts fallback body without removing stale assignees
                 const
-                    staleClaim = comment('StaleClaimant', '2026-11-01T10:00:00Z', "I'd like to claim this issue."),
-                    freshClaim = comment('day8-newcomer', '2026-11-09T10:00:01Z', "I'd like to work on this."),
+                    staleAt    = '2026-11-01T10:00:00Z',
+                    staleClaim = comment('StaleClaimant', staleAt, "I'd like to claim this issue."),
+                    freshClaim = comment('lapsed-newcomer', daysAfter(staleAt, CLAIM_WINDOW_DAYS + 1), "I'd like to work on this."),
                     staleIssue = gfiIssue({assignees: [{login: 'StaleClaimant'}], state: 'open'});
 
                 const dropped = await runScenario({
@@ -471,9 +640,55 @@ test.describe('buildScripts/util/claimResponse', () => {
                 expect(capped.assignedCalls).toEqual([]);
                 expect(capped.unassignedCalls).toEqual([]);
                 expect(capped.posted).toHaveLength(1);
-                expect(capped.posted[0].body).toContain("You're already assigned to #20717");
+                expect(capped.posted[0].body).toContain('You already hold #20717');
 
-                // 4. Lapsed silent outside assignee (8 days quiet) -> assigns newcomer and removes StaleClaimant
+                // A returning contributor may take a second, but not a third, curated issue.
+                const oneHeld   = [{number: 20717, labels: [{name: 'good first issue'}]}],
+                      twoHeld   = [...oneHeld, {number: 20718, labels: [{name: 'help wanted'}]}],
+                      returning = {total_count: 5, incomplete_results: false},
+                      second    = await runScenario({assignedItems: oneHeld, count: returning,
+                          addAssigneesImpl: async ({assignees}) => ({data: {assignees: assignees.map(login => ({login}))}})}),
+                      third = await runScenario({assignedItems: twoHeld, count: returning,
+                          addAssigneesImpl: async () => { throw new Error('must not assign') }});
+                expect(second.assignedCalls).toHaveLength(1);
+                expect(second.posted[0].body).toContain('Assigned to you');
+                expect(third.assignedCalls).toEqual([]);
+                expect(third.posted[0].body).toContain('You already hold #20717 and #20718');
+                expect(second.countQueries).toHaveLength(1);
+                expect(third.countQueries).toHaveLength(1);
+
+                // Failed, incomplete and malformed count responses leave the existing one-claim cap.
+                for (const count of [new Error('search refused'), {total_count: 5, incomplete_results: true},
+                    {total_count: '5', incomplete_results: false}, {total_count: 5}, {total_count: -1, incomplete_results: false}]) {
+                    const fallback = await runScenario({assignedItems: oneHeld, count, addAssigneesImpl: async () => { throw new Error('must not assign') }});
+                    expect(fallback.assignedCalls).toEqual([]);
+                    expect(fallback.posted[0].body).toContain('You already hold #20717');
+                    expect(fallback.warnings).toHaveLength(1)
+                }
+
+                // The claim module has no imports, so even a missing or broken standing module can answer safely.
+                const limited = new Error('search rate limited');
+                const outage  = await runScenario({count: limited, alternativesError: limited, assignedItems: oneHeld});
+                expect(outage.warnings).toHaveLength(2);
+                expect(outage.assignedCalls).toEqual([]);
+                expect(outage.posted[0].body).toContain('You already hold #20717');
+
+                for (const broken of [false, true]) {
+                    const workspace = fs.mkdtempSync(path.join(process.env.TMPDIR || '/tmp', 'neo-claim-standing-')),
+                          util      = path.join(workspace, 'buildScripts/util');
+                    try {
+                        fs.mkdirSync(util, {recursive: true});
+                        fs.copyFileSync(path.resolve(process.cwd(), 'buildScripts/util/claimResponse.mjs'), path.join(util, 'claimResponse.mjs'));
+                        if (broken) fs.writeFileSync(path.join(util, 'contributorStanding.mjs'), 'export const = broken');
+                        const fallback = await runScenario({workspace, assignedItems: oneHeld, addAssigneesImpl: async () => { throw new Error('must not assign') }});
+                        expect(fallback.assignedCalls).toEqual([]);
+                        expect(fallback.posted[0].body).toContain('You already hold #20717');
+                        expect(fallback.warnings).toHaveLength(1);
+                        expect(fallback.countQueries).toHaveLength(0)
+                    } finally { fs.rmSync(workspace, {recursive: true, force: true}) }
+                }
+
+                // 4. Lapsed silent outside assignee (past the claim window) -> assigns newcomer and removes StaleClaimant
                 const handedOver = await runScenario({
                     addAssigneesImpl: async ({assignees}) => ({data: {assignees: assignees.map(login => ({login}))}}),
                     claim           : freshClaim,
@@ -481,26 +696,29 @@ test.describe('buildScripts/util/claimResponse', () => {
                     issue           : staleIssue
                 });
 
-                expect(handedOver.assignedCalls).toEqual([{assignees: ['day8-newcomer'], issue_number: 19143, owner: 'neomjs', repo: 'neo'}]);
+                expect(handedOver.assignedCalls).toEqual([{assignees: ['lapsed-newcomer'], issue_number: 19143, owner: 'neomjs', repo: 'neo'}]);
                 expect(handedOver.unassignedCalls).toEqual([{assignees: ['StaleClaimant'], issue_number: 19143, owner: 'neomjs', repo: 'neo'}]);
                 expect(handedOver.posted).toHaveLength(1);
-                expect(handedOver.posted[0].body).toContain('Thanks for claiming this, @day8-newcomer, and welcome! Assigned to you');
+                expect(handedOver.posted[0].body).toContain('Thanks for claiming this, @lapsed-newcomer, and welcome! Assigned to you');
                 expect(handedOver.warnings).toEqual([]);
 
                 // 5. One account claims two free curated issues in sequence -> only the first is assigned (even when search lags)
+                let mergedCount = 0;
                 const
                     burstFirst  = comment('burst-claimant', '2026-11-11T02:34:01Z', "I'd love to work on this."),
                     burstSecond = comment('burst-claimant', '2026-11-11T02:34:03Z', "I'd love to work on this too."),
+                    burstThird  = comment('burst-claimant', '2026-11-11T02:34:05Z', "I'd like to work on this too."),
                     store       = new Map([
                         [19143, gfiIssue({number: 19143, state: 'open'})],
-                        [20691, gfiIssue({number: 20691, state: 'open'})]
+                        [20691, gfiIssue({number: 20691, state: 'open'})],
+                        [20692, gfiIssue({number: 20692, state: 'open'})]
                     ]),
-                    commentsByIssue = new Map([[19143, [burstFirst]], [20691, [burstSecond]]]),
+                    commentsByIssue = new Map([[19143, [burstFirst]], [20691, [burstSecond]], [20692, [burstThird]]]),
                     burstAssigned   = [],
                     burstPosted     = [];
 
                 const sharedGithub = {
-                    graphql : async () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: []}}}}),
+                    graphql : async () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: [], pageInfo: {hasNextPage: false}}}}}),
                     paginate: async (fn, args) => {
                         if (fn === sharedGithub.rest.issues.listComments) return commentsByIssue.get(args.issue_number) || [];
                         if (fn === sharedGithub.rest.issues.listEvents)   return [];
@@ -529,7 +747,9 @@ test.describe('buildScripts/util/claimResponse', () => {
                         },
                         search: {
                             // Lagging search index still shows both issues unassigned during the second run
-                            issuesAndPullRequests: async () => ({data: {items: [{number: 19143}, {number: 20691}, {number: 20692}]}})
+                            issuesAndPullRequests: async ({q}) => q.startsWith('org:')
+                                ? {data: {total_count: mergedCount, incomplete_results: false}}
+                                : {data: {items: [{number: 19143}, {number: 20691}, {number: 20692}]}}
                         }
                     }
                 };
@@ -550,13 +770,1149 @@ test.describe('buildScripts/util/claimResponse', () => {
                 expect(burstPosted[0]).toMatchObject({issue_number: 19143});
                 expect(burstPosted[0].body).toContain('Assigned to you — you can start now.');
                 expect(burstPosted[1]).toMatchObject({issue_number: 20691});
-                expect(burstPosted[1].body).toContain("You're already assigned to #19143");
+                expect(burstPosted[1].body).toContain('You already hold #19143');
+
+                // The same lagging-search sequence at the returning rung assigns twice, then refuses.
+                store.get(19143).assignees = [];
+                burstAssigned.length = 0;
+                burstPosted.length = 0;
+                mergedCount = 5;
+                for (const [claim, number] of [[burstFirst, 19143], [burstSecond, 20691], [burstThird, 20692]]) {
+                    await runStep(sharedGithub, {payload: {comment: claim, issue: {number}}, repo: {owner: 'neomjs', repo: 'neo'}},
+                        {info: () => {}, warning: () => {}})
+                }
+                expect(burstAssigned.map(call => call.issue_number)).toEqual([19143, 20691]);
+                expect(burstPosted[2].body).toContain('You already hold #19143 and #20691');
             } finally {
                 if (prevWorkspace === undefined) {
                     delete process.env.GITHUB_WORKSPACE
                 } else {
                     process.env.GITHUB_WORKSPACE = prevWorkspace
                 }
+            }
+        });
+
+        test('workflow edits the matching refusal on retry, keeps it non-reserving, and assigns after capacity clears', async () => {
+            const raw      = fs.readFileSync(path.resolve(process.cwd(), '.github/workflows/claim-responder.yml'), 'utf8'),
+                  script   = raw.split('script: |\n')[1].split('\n').map(line => line.slice(12)).join('\n'),
+                  run      = new (Object.getPrototypeOf(async function () {}).constructor)('github', 'context', 'core', script),
+                  first    = comment('alice', '2026-11-15T10:00:00Z', '/claim'),
+                  retry    = comment('alice', '2026-11-15T10:01:00Z', '/claim'),
+                  other    = comment('bob', '2026-11-15T10:02:00Z', '/claim'),
+                  later    = comment('alice', '2026-11-15T10:03:00Z', '/claim'),
+                  issue    = gfiIssue({number: 19143, state: 'open'}),
+                  comments = [], events = [], created = [], updated = [], assigned = [], warnings = [];
+            let   current = first, aliceAtCapacity = true, failUpdate = false;
+            const github  = {
+                graphql : async () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: [], pageInfo: {hasNextPage: false}}}}}),
+                paginate: async (fn, args) => {
+                    if (fn === github.rest.issues.listComments) return comments;
+                    if (fn === github.rest.issues.listEvents) return events;
+                    if (fn === github.rest.issues.listForRepo) return args.assignee === 'alice' && aliceAtCapacity
+                        ? [{number: 20717, labels: [{name: 'good first issue'}]}] : [];
+                    throw new Error('unexpected pagination')
+                },
+                rest: {
+                    issues: {
+                        get            : async () => ({data: issue}),
+                        listComments   : Symbol('comments'), listEvents: Symbol('events'), listForRepo: Symbol('assigned'),
+                        addAssignees   : async args => { assigned.push(args); issue.assignees = args.assignees.map(login => ({login})); return {data: issue} },
+                        removeAssignees: async () => ({data:{}}),
+                        createComment  : async args => {
+                            created.push(args);
+                            comments.push(comment('github-actions[bot]', current.created_at, args.body, {type:'Bot'}));
+                            return {data: {}}
+                        },
+                        updateComment: async args => {
+                            updated.push(args);
+                            if (failUpdate) throw new Error('update refused');
+                            const target = comments.find(row => row.id === args.comment_id);
+                            if (!target) throw new Error('missing target');
+                            target.body = args.body;
+                            return {data: target}
+                        }
+                    },
+                    search: {issuesAndPullRequests: async ({q}) => q.startsWith('org:')
+                        ? {data:{total_count:0,incomplete_results:false}} : {data:{items:[]}}}
+                }
+            },
+            core = {info: () => {}, warning: message => warnings.push(message)},
+            previous = process.env.GITHUB_WORKSPACE,
+            invoke = async claim => {
+                current = claim;
+                if (!comments.some(row => row.id === claim.id)) comments.push(claim);
+                await run(github, {payload:{comment:claim,issue:{number:issue.number}},repo:{owner:'neomjs',repo:'neo'}}, core)
+            };
+
+            process.env.GITHUB_WORKSPACE = process.cwd();
+            try {
+                await invoke(first);
+                expect(created).toHaveLength(1);
+                expect(assigned).toHaveLength(0);
+                const refusal = comments.find(row => row.user.login === 'github-actions[bot]');
+                expect(refusal.body).toContain('You already hold #20717');
+
+                failUpdate = true;
+                const prior = refusal.body;
+                await expect(invoke(retry)).rejects.toThrow('update refused');
+                expect(created).toHaveLength(1);
+                expect(updated).toHaveLength(1);
+                expect(refusal.body).toBe(prior);
+                expect(warnings).toEqual([]);
+                failUpdate = false;
+                warnings.length = 0;
+                await invoke(retry);
+                expect(created).toHaveLength(1);
+                expect(updated).toHaveLength(2);
+                expect(updated[1].comment_id).toBe(refusal.id);
+                const edited = refusal.body;
+
+                await invoke(retry);
+                expect([created.length, updated.length, assigned.length]).toEqual([1, 2, 0]);
+                expect(refusal.body).toBe(edited);
+
+                await invoke(other);
+                expect(assigned.map(call => call.assignees)).toEqual([['bob']]);
+                expect(created).toHaveLength(2);
+                issue.assignees = [];
+                events.push({event:'unassigned',assignee:{login:'bob'},created_at:'2026-11-15T10:02:30Z'});
+                aliceAtCapacity = false;
+                await invoke(later);
+                expect(assigned.map(call => call.assignees)).toEqual([['bob'], ['alice']]);
+                expect(created).toHaveLength(3);
+                expect(warnings).toEqual([]);
+
+                // GitHub IDs break timestamp ties: create the second claim only after the bot reply,
+                // as a real same-second retry does, rather than preallocating its synthetic ID.
+                comments.length = 0; events.length = 0; created.length = 0; updated.length = 0; assigned.length = 0;
+                issue.assignees = [];
+                aliceAtCapacity = true;
+                const sameFirst = comment('alice', '2026-11-15T11:00:00Z', '/claim');
+                await invoke(sameFirst);
+                const sameRefusal = comments.find(row => row.user.login === 'github-actions[bot]'),
+                      sameRetry   = comment('alice', '2026-11-15T11:00:00Z', '/claim');
+                expect(sameFirst.id).toBeLessThan(sameRefusal.id);
+                expect(sameRefusal.id).toBeLessThan(sameRetry.id);
+                await invoke(sameRetry);
+                await invoke(sameRetry);
+                expect([created.length, updated.length, assigned.length]).toEqual([1, 1, 0]);
+                expect(updated[0].comment_id).toBe(sameRefusal.id)
+            } finally {
+                if (previous === undefined) delete process.env.GITHUB_WORKSPACE;
+                else process.env.GITHUB_WORKSPACE = previous
+            }
+        });
+
+    });
+
+    test.describe('pull_request_target claim, overlap, reconciliation and release rules (#21022)', () => {
+        const pullRequestFixture = ({
+            number      = 21500,
+            login       = 'pr-contributor',
+            id          = 7001,
+            type        = 'User',
+            association = 'NONE',
+            body        = 'Resolves #19143',
+            createdAt   = '2026-11-15T17:10:00Z',
+            closedAt    = null,
+            merged      = false
+        } = {}) => ({
+            author_association: association,
+            body,
+            closed_at         : closedAt,
+            created_at        : createdAt,
+            merged,
+            number,
+            user              : {id, login, type}
+        });
+
+        test('closeTargets and changedCloseTargets parse closing keywords safely and ignore non-target changes', () => {
+            const body = [
+                'Summary line',
+                'Resolves #101',
+                'Fixes: neomjs/neo#102',
+                'Closes https://github.com/NeoMJS/Neo/issues/103',
+                'Resolves #101',
+                'Closes otherorg/other#104',
+                'Fixes https://github.com/other/repo/issues/105',
+                '<!-- Resolves #106 -->',
+                '`Resolves #107`',
+                '> Fixes #108',
+                '```md\nCloses #109\n```',
+                '~~~text\nResolves #110\n~~~',
+                '<!<!-- Resolves #111 -->-->',
+                'Inline ```Resolves #112``` code'
+            ].join('\n');
+
+            expect(closeTargets(body, 'neomjs/neo')).toEqual([101, 102, 103]);
+
+            const startedAt = Date.now();
+            expect(closeTargets(`Resolves${' :'.repeat(60)} no-target`, 'neomjs/neo')).toEqual([]);
+            expect(Date.now() - startedAt).toBeLessThan(50);
+
+            const basePr = pullRequestFixture({body: 'Resolves #101\n- [ ] task'});
+            expect(changedCloseTargets({action: 'opened', pullRequest: basePr, repository: 'neomjs/neo'})).toEqual({
+                added  : [101],
+                removed: []
+            });
+            expect(changedCloseTargets({
+                action     : 'edited',
+                changes    : {body: {from: 'Resolves #101\n- [ ] task'}},
+                pullRequest: {...basePr, body: 'Resolves #101\n- [x] task\nUpdated prose'},
+                repository : 'neomjs/neo'
+            })).toEqual({added: [], removed: []});
+            expect(changedCloseTargets({
+                action     : 'edited',
+                changes    : {title: {from: 'old title'}},
+                pullRequest: basePr,
+                repository : 'neomjs/neo'
+            })).toEqual({added: [], removed: []});
+            expect(changedCloseTargets({
+                action     : 'edited',
+                changes    : {body: {from: 'Resolves #101'}},
+                pullRequest: {...basePr, body: 'Fixes #202'},
+                repository : 'neomjs/neo'
+            })).toEqual({added: [202], removed: [101]});
+            expect(changedCloseTargets({
+                action     : 'edited',
+                changes    : {body: {from: null}},
+                pullRequest: {...basePr, body: 'Resolves #101'},
+                repository : 'neomjs/neo'
+            })).toEqual({added: [101], removed: []});
+        });
+
+        test('overlapMarker, releaseMarker and claimRecords enforce exact wire spelling and bot provenance', () => {
+            expect(overlapMarker({heldBy: 'pr:21500', issue: 19143, pr: 21501})).toBe(
+                '<!-- neo-claim:v1 {"kind":"overlap","issue":19143,"pr":21501,"heldBy":"pr:21500"} -->'
+            );
+            expect(overlapMarker({heldBy: 'user:4242', issue: 19143, pr: 21501})).toBe(
+                '<!-- neo-claim:v1 {"kind":"overlap","issue":19143,"pr":21501,"heldBy":"user:4242"} -->'
+            );
+            expect(releaseMarker({issue: 19143, login: 'alice', pr: 21500, repo: 'neomjs/neo', to: 9001})).toBe(
+                '<!-- neo-claim:v1 {"kind":"release","repo":"neomjs/neo","issue":19143,"pr":21500,"to":9001,"login":"alice"} -->'
+            );
+
+            const
+                validOverlap = overlapMarker({heldBy: 'pr:21500', issue: 19143, pr: 21501}),
+                validRelease = releaseMarker({issue: 19143, login: 'alice', pr: 21500, repo: 'neomjs/neo', to: 9001}),
+                botComment   = comment('github-actions[bot]', '2026-11-15T17:15:00Z',
+                    `${validOverlap}\n${validRelease}\n<!-- neo-claim:v2 {"kind":"release"} -->\n<!-- neo-claim:v1 {broken -->`,
+                    {type: 'Bot'}),
+                copied       = comment('contributor', '2026-11-15T17:16:00Z', validRelease),
+                otherBot     = comment('other-app[bot]', '2026-11-15T17:17:00Z', validRelease, {type: 'Bot'});
+
+            expect(claimRecords([botComment, copied, otherBot])).toEqual([
+                {commentId: botComment.id, heldBy: 'pr:21500', issue: 19143, kind: 'overlap', pr: 21501},
+                {commentId: botComment.id, issue: 19143, kind: 'release', login: 'alice', pr: 21500, repo: 'neomjs/neo', to: 9001}
+            ]);
+
+            expect(() => overlapMarker({heldBy: 'bad', issue: 1, pr: 2})).toThrow();
+            expect(() => releaseMarker({issue: 1, login: 'a', pr: 2, repo: 'noslash', to: 3})).toThrow();
+        });
+
+        test('decidePullRequestTarget assigns unclaimed issues, emits neutral overlap/residual notices, and is idempotent', () => {
+            const pr = pullRequestFixture();
+
+            // Unclaimed open curated issue -> assigns cleanly and creates no issue comment
+            const assigned = decidePullRequestTarget({
+                candidates : CANDIDATES,
+                issue      : gfiIssue({state: 'open'}),
+                pullRequest: pr,
+                repoUrl    : REPO_URL
+            });
+            expect(assigned).toEqual({assign: true, unassign: []});
+
+            // Stale outside assignee (>3d silent) is evicted on PR claim
+            const
+                staleClaim = comment('stale-user', '2026-11-01T10:00:00Z', "I'd like to work on this.", {id: 101}),
+                staleIssue = gfiIssue({assignees: [{id: 101, login: 'stale-user'}], state: 'open'});
+            expect(decidePullRequestTarget({
+                comments   : [staleClaim],
+                issue      : staleIssue,
+                pullRequest: pr,
+                repoUrl    : REPO_URL
+            })).toEqual({assign: true, unassign: ['stale-user']});
+
+            // Capacity cap blocks assignment silently without creating an overlap notice
+            expect(decidePullRequestTarget({
+                claimLimit  : 1,
+                heldByAuthor: [20717],
+                issue       : gfiIssue({state: 'open'}),
+                pullRequest : pr,
+                repoUrl     : REPO_URL
+            })).toEqual({assign: false});
+            expect(decidePullRequestTarget({
+                claimLimit  : 2,
+                heldByAuthor: [20717],
+                issue       : gfiIssue({state: 'open'}),
+                pullRequest : pr,
+                repoUrl     : REPO_URL
+            })).toEqual({assign: true, unassign: []});
+
+            // Held by another open PR -> neutral overlap notice without "taken", ending in overlapMarker(pr:<n>)
+            const heldByPr = decidePullRequestTarget({
+                candidates      : CANDIDATES,
+                issue           : gfiIssue({state: 'open'}),
+                openPullRequests: [{author: 'earlier-author', number: 21499, repository: 'neomjs/neo'}],
+                pullRequest     : pr,
+                repoUrl         : REPO_URL
+            });
+            expect(heldByPr.assign).toBe(false);
+            expect(heldByPr.prNotice.toLowerCase()).not.toContain('taken');
+            expect(heldByPr.prNotice).toContain('#21499 is already open for it');
+            expect(heldByPr.prNotice).toContain(overlapMarker({heldBy: 'pr:21499', issue: 19143, pr: 21500}));
+
+            // Held by assignee -> overlapMarker(user:<id>)
+            const heldByAssignee = decidePullRequestTarget({
+                candidates : CANDIDATES,
+                comments   : [comment('holder-login', '2026-11-15T10:00:00Z', "I'll take this.", {id: 5001})],
+                issue      : gfiIssue({assignees: [{id: 5001, login: 'holder-login'}], state: 'open'}),
+                pullRequest: pr,
+                repoUrl    : REPO_URL
+            });
+            expect(heldByAssignee.assign).toBe(false);
+            expect(heldByAssignee.prNotice.toLowerCase()).not.toContain('taken');
+            expect(heldByAssignee.prNotice).toContain(overlapMarker({heldBy: 'user:5001', issue: 19143, pr: 21500}));
+
+            // Existing bot overlap marker suppresses duplicate comment on reopen/redelivery
+            const botOverlap = comment('github-actions[bot]', '2026-11-15T17:11:00Z', heldByPr.prNotice, {type: 'Bot'});
+            expect(decidePullRequestTarget({
+                candidates      : CANDIDATES,
+                issue           : gfiIssue({state: 'open'}),
+                openPullRequests: [{author: 'earlier-author', number: 21499, repository: 'neomjs/neo'}],
+                prComments      : [botOverlap],
+                pullRequest     : pr,
+                repoUrl         : REPO_URL
+            })).toBeNull();
+
+            // Already assigned to the PR author -> idempotent null on reopen/redelivery
+            expect(decidePullRequestTarget({
+                issue      : gfiIssue({assignees: [{id: 7001, login: 'pr-contributor'}], state: 'open'}),
+                pullRequest: pr,
+                repoUrl    : REPO_URL
+            })).toBeNull();
+
+            // Closed curated issue already completed by a merged PR -> residual-scope review notice
+            const completed = decidePullRequestTarget({
+                candidates        : CANDIDATES,
+                issue             : gfiIssue({state: 'closed'}),
+                mergedPullRequests: [{author: 'earlier-author', number: 21400, repository: 'neomjs/neo'}],
+                pullRequest       : pr,
+                repoUrl           : REPO_URL
+            });
+            expect(completed.assign).toBe(false);
+            expect(completed.prNotice).toContain('residual-scope review');
+            expect(completed.prNotice).toContain('#21400');
+            expect(completed.prNotice).toContain(overlapMarker({heldBy: 'pr:21400', issue: 19143, pr: 21500}));
+
+            // Prior opening overlap notice never suppresses completed-issue notice when holder merges; second merge delivery does
+            const afterOverlapMerge = decidePullRequestTarget({
+                candidates        : CANDIDATES,
+                issue             : gfiIssue({state: 'closed'}),
+                mergedPullRequests: [{author: 'earlier-author', number: 21499, repository: 'neomjs/neo'}],
+                prComments        : [botOverlap],
+                pullRequest       : pr,
+                repoUrl           : REPO_URL
+            });
+            expect(afterOverlapMerge.assign).toBe(false);
+            expect(afterOverlapMerge.prNotice).toContain('residual-scope review');
+            expect(afterOverlapMerge.prNotice).toContain(overlapMarker({heldBy: 'pr:21499', issue: 19143, pr: 21500}));
+            expect(decidePullRequestTarget({
+                candidates        : CANDIDATES,
+                issue             : gfiIssue({state: 'closed'}),
+                mergedPullRequests: [{author: 'earlier-author', number: 21499, repository: 'neomjs/neo'}],
+                prComments        : [
+                    botOverlap,
+                    comment('github-actions[bot]', '2026-11-15T17:20:00Z', afterOverlapMerge.prNotice, {type: 'Bot'})
+                ],
+                pullRequest: pr,
+                repoUrl    : REPO_URL
+            })).toBeNull();
+
+            // Unknown identity fails visibly
+            expect(() => decidePullRequestTarget({
+                issue      : gfiIssue({state: 'open'}),
+                pullRequest: {...pr, user: {login: 'pr-contributor', type: 'User'}},
+                repoUrl    : REPO_URL
+            })).toThrow();
+            expect(() => renderOverlapNotice({
+                author     : 'pr-contributor',
+                holders    : [{kind: 'assignee', login: 'no-id-holder'}],
+                issueNumber: 19143,
+                label      : 'good first issue',
+                prNumber   : 21500,
+                repoUrl    : REPO_URL
+            })).toThrow();
+        });
+
+        test('decideTargetRemoval releases only verifiable PR-created bot assignments and throws on uncertain provenance', () => {
+            const
+                pr    = pullRequestFixture({createdAt: '2026-11-15T17:10:00Z'}),
+                issue = gfiIssue({assignees: [{id: 7001, login: 'pr-contributor'}], state: 'open'});
+
+            // Bot-assigned at/after PR created, no independent claim or sibling PR -> unassign
+            expect(decideTargetRemoval({
+                events     : [{actor: {login: 'github-actions[bot]', type: 'Bot'}, assignee: {login: 'pr-contributor'}, created_at: '2026-11-15T17:10:04Z', event: 'assigned'}],
+                issue,
+                pullRequest: pr,
+                repository : 'neomjs/neo'
+            })).toEqual({assignee: 'pr-contributor', unassign: true});
+
+            // Prior refused comment claim does NOT count as an independent live claim
+            const
+                refusedOld = comment('pr-contributor', '2026-11-14T10:00:00Z', '/claim', {id: 7001}),
+                botRefused = comment('github-actions[bot]', '2026-11-14T10:00:05Z',
+                    `Thanks, @pr-contributor! This one is taken: someone else.\n\n${replyMarker('pr-contributor')}\n<!-- claim-refused:${refusedOld.id} -->`,
+                    {type: 'Bot'});
+            expect(decideTargetRemoval({
+                comments   : [refusedOld, botRefused],
+                events     : [{actor: {login: 'github-actions[bot]', type: 'Bot'}, assignee: {login: 'pr-contributor'}, created_at: '2026-11-15T17:10:04Z', event: 'assigned'}],
+                issue,
+                pullRequest: pr,
+                repository : 'neomjs/neo'
+            })).toEqual({assignee: 'pr-contributor', unassign: true});
+
+            // Manual maintainer assignment stays
+            expect(decideTargetRemoval({
+                events     : [{actor: {login: 'tobiu', type: 'User'}, assignee: {login: 'pr-contributor'}, created_at: '2026-11-15T17:12:00Z', event: 'assigned'}],
+                issue,
+                pullRequest: pr,
+                repository : 'neomjs/neo'
+            })).toEqual({unassign: false});
+
+            // Independent live claim comment stays
+            expect(decideTargetRemoval({
+                comments   : [comment('pr-contributor', '2026-11-15T16:50:00Z', "I'd like to work on this.", {id: 7001})],
+                events     : [{actor: {login: 'github-actions[bot]', type: 'Bot'}, assignee: {login: 'pr-contributor'}, created_at: '2026-11-15T16:50:05Z', event: 'assigned'}],
+                issue,
+                pullRequest: pr,
+                repository : 'neomjs/neo'
+            })).toEqual({unassign: false});
+
+            // Another open PR targeting the issue keeps ownership
+            expect(decideTargetRemoval({
+                events          : [{actor: {login: 'github-actions[bot]', type: 'Bot'}, assignee: {login: 'pr-contributor'}, created_at: '2026-11-15T17:10:04Z', event: 'assigned'}],
+                issue,
+                openPullRequests: [{author: 'pr-contributor', number: 21509, repository: 'neomjs/neo'}],
+                pullRequest     : pr,
+                repository      : 'neomjs/neo'
+            })).toEqual({unassign: false});
+
+            // Uncertain provenance cases fail visibly
+            expect(() => decideTargetRemoval({events: [], issue, pullRequest: pr, repository: 'neomjs/neo'})).toThrow('no assigned event');
+            expect(() => decideTargetRemoval({
+                events     : [{actor: {login: 'other-bot[bot]', type: 'Bot'}, assignee: {login: 'pr-contributor'}, created_at: '2026-11-15T17:10:04Z', event: 'assigned'}],
+                issue,
+                pullRequest: pr,
+                repository : 'neomjs/neo'
+            })).toThrow('unexpected actor');
+            expect(() => decideTargetRemoval({
+                events     : [{actor: {login: 'github-actions[bot]', type: 'Bot'}, assignee: {login: 'pr-contributor'}, created_at: '2026-11-15T16:00:00Z', event: 'assigned'}],
+                issue,
+                pullRequest: pr,
+                repository : 'neomjs/neo'
+            })).toThrow('predates PR');
+        });
+
+        test('decidePullRequestRelease respects activation boundary, notifies once in order, handles renames, and ignores fake markers', () => {
+            const
+                activationCut = '2026-11-15T17:25:00Z',
+                prClosedAfter = pullRequestFixture({closedAt: '2026-11-15T17:30:00Z', createdAt: '2026-11-15T17:10:00Z', merged: false}),
+                prClosedPrior = pullRequestFixture({closedAt: '2026-11-15T16:59:59Z', createdAt: '2026-11-15T16:00:00Z', merged: false}),
+                cAlice        = comment('alice-old', '2026-11-15T17:12:00Z', "I'd like to work on this.", {id: 101}),
+                cBob          = comment('bob', '2026-11-15T17:13:00Z', '/claim', {id: 102}),
+                cBobWithdraw  = comment('bob', '2026-11-15T17:14:00Z', "I'm stepping back from this one.", {id: 102}),
+                cCap          = comment('carol', '2026-11-15T17:15:00Z', '/claim', {id: 103}),
+                botCapRefusal = comment('github-actions[bot]', '2026-11-15T17:15:02Z',
+                    `Thanks, @carol! You already hold #20717.\n\n${replyMarker('carol')}\n<!-- claim-refused:${cCap.id} -->`,
+                    {type: 'Bot'}),
+                cDan          = comment('dan', '2026-11-15T17:16:00Z', 'Can I work on this?', {id: 104}),
+                botTakenReply = comment('github-actions[bot]', '2026-11-15T17:16:02Z',
+                    `Thanks, @dan! This one is taken: #21500 is open for it.\n\n${replyMarker('dan')}\n<!-- claim-refused:${cDan.id} -->`,
+                    {type: 'Bot'}),
+                botAliceTaken = comment('github-actions[bot]', '2026-11-15T17:12:02Z',
+                    `Thanks, @alice-old! This one is taken: #21500 is open for it.\n\n${replyMarker('alice-old')}\n<!-- claim-refused:${cAlice.id} -->`,
+                    {type: 'Bot'}),
+                aliceRenamed  = comment('alice-new', '2026-11-15T17:20:00Z', 'Still watching from my renamed handle.', {id: 101}),
+                fakeCopy      = comment('spoof', '2026-11-15T17:25:00Z',
+                    releaseMarker({issue: 19143, login: 'alice-new', pr: 21500, repo: 'neomjs/neo', to: 101}) + '\n' +
+                    releaseMarker({issue: 19143, login: 'dan', pr: 21500, repo: 'neomjs/neo', to: 104}));
+
+            // Default module export keeps release notices disabled until repository activation supplies an explicit cut
+            expect(CLAIM_RELEASE_SINCE).toBeNull();
+            expect(decidePullRequestRelease({
+                comments   : [cAlice, botAliceTaken],
+                issue      : gfiIssue({state: 'open'}),
+                pullRequest: prClosedAfter,
+                repoUrl    : REPO_URL
+            })).toBeNull();
+
+            // Pre-activation closes and null activation gates never fire
+            expect(decidePullRequestRelease({
+                comments    : [cAlice, botAliceTaken],
+                issue       : gfiIssue({state: 'open'}),
+                pullRequest : prClosedPrior,
+                releaseSince: activationCut,
+                repoUrl     : REPO_URL
+            })).toBeNull();
+            expect(decidePullRequestRelease({
+                comments    : [cAlice, botAliceTaken],
+                issue       : gfiIssue({state: 'open'}),
+                pullRequest : prClosedAfter,
+                releaseSince: null,
+                repoUrl     : REPO_URL
+            })).toBeNull();
+            expect(() => decidePullRequestRelease({
+                comments    : [cAlice, botAliceTaken],
+                issue       : gfiIssue({state: 'open'}),
+                pullRequest : prClosedAfter,
+                releaseSince: 'not-a-date',
+                repoUrl     : REPO_URL
+            })).toThrow('Invalid release activation boundary');
+
+            // Merged closes never emit release notice
+            expect(decidePullRequestRelease({
+                comments    : [cAlice, botAliceTaken],
+                issue       : gfiIssue({state: 'open'}),
+                pullRequest : {...prClosedAfter, merged: true},
+                releaseSince: activationCut,
+                repoUrl     : REPO_URL
+            })).toBeNull();
+
+            // Live holder (excluding closing PR) suppresses release notice
+            expect(decidePullRequestRelease({
+                comments        : [cAlice, botAliceTaken],
+                issue           : gfiIssue({state: 'open'}),
+                openPullRequests: [{author: 'other', number: 21505, repository: 'neomjs/neo'}],
+                pullRequest     : prClosedAfter,
+                releaseSince    : activationCut,
+                repoUrl         : REPO_URL
+            })).toBeNull();
+
+            // Valid unmerged close: notifies alice-new (renamed, id 101) and dan (104) in first-claim order,
+            // excludes bob (withdrawn) and carol (capacity-only refusal), ignores contributor-copied marker.
+            const first = decidePullRequestRelease({
+                comments    : [cAlice, botAliceTaken, cBob, cBobWithdraw, cCap, botCapRefusal, cDan, botTakenReply, aliceRenamed, fakeCopy],
+                issue       : gfiIssue({state: 'open'}),
+                pullRequest : prClosedAfter,
+                releaseSince: activationCut,
+                repoUrl     : REPO_URL
+            });
+            expect(first.notified).toEqual([
+                {id: 101, login: 'alice-new'},
+                {id: 104, login: 'dan'}
+            ]);
+            expect(first.body).toContain('@alice-new @dan');
+            expect(first.body.indexOf('@alice-new')).toBeLessThan(first.body.indexOf('@dan'));
+            expect(first.body).toContain('#21500 closed without merging');
+            expect(first.body).toContain('grants no priority and does not guarantee');
+            expect(first.body).toContain(releaseMarker({issue: 19143, login: 'alice-new', pr: 21500, repo: 'neomjs/neo', to: 101}));
+            expect(first.body).toContain(releaseMarker({issue: 19143, login: 'dan', pr: 21500, repo: 'neomjs/neo', to: 104}));
+
+            // Close -> reopen -> close with same PR + renamed login under same numeric user id emits zero duplicate notice
+            const botRelease = comment('github-actions[bot]', '2026-11-15T17:30:05Z', first.body, {type: 'Bot'});
+            expect(decidePullRequestRelease({
+                comments    : [cAlice, botAliceTaken, aliceRenamed, cDan, botTakenReply, botRelease],
+                issue       : gfiIssue({state: 'open'}),
+                pullRequest : {...prClosedAfter, user: {...prClosedAfter.user}, closed_at: '2026-11-15T17:40:00Z'},
+                releaseSince: activationCut,
+                repoUrl     : REPO_URL
+            })).toBeNull();
+
+            // Reusing old login with a NEW numeric account id (1999) is NOT blocked by old release marker for id 101
+            const newAccountSameLogin = comment('alice-old', '2026-11-15T17:35:00Z', '/claim', {id: 1999});
+            const botNewTaken         = comment('github-actions[bot]', '2026-11-15T17:35:02Z',
+                `Thanks, @alice-old! This one is taken: #21500 is open for it.\n\n${replyMarker('alice-old')}\n<!-- claim-refused:${newAccountSameLogin.id} -->`,
+                {type: 'Bot'});
+            expect(decidePullRequestRelease({
+                comments    : [cAlice, botAliceTaken, cDan, botTakenReply, botRelease, newAccountSameLogin, botNewTaken],
+                issue       : gfiIssue({state: 'open'}),
+                pullRequest : {...prClosedAfter, closed_at: '2026-11-15T17:45:00Z'},
+                releaseSince: activationCut,
+                repoUrl     : REPO_URL
+            }).notified).toEqual([{id: 1999, login: 'alice-old'}]);
+
+            // Incomplete claimant identity (no numeric user id) fails visibly
+            const cNoId        = comment('no-id-claimant', '2026-11-15T17:12:00Z', '/claim');
+            const botNoIdTaken = comment('github-actions[bot]', '2026-11-15T17:12:02Z',
+                `Thanks, @no-id-claimant! This one is taken: #21500 is open for it.\n\n${replyMarker('no-id-claimant')}\n<!-- claim-refused:${cNoId.id} -->`,
+                {type: 'Bot'});
+            expect(() => decidePullRequestRelease({
+                comments    : [cNoId, botNoIdTaken],
+                issue       : gfiIssue({state: 'open'}),
+                pullRequest : prClosedAfter,
+                releaseSince: activationCut,
+                repoUrl     : REPO_URL
+            })).toThrow('missing numeric user id');
+        });
+
+        test('workflow github-script handles pull_request_target lifecycle, security boundary, provenance, and release race checks', async () => {
+            const
+                workflowPath     = path.resolve(process.cwd(), '.github/workflows/claim-responder.yml'),
+                raw              = fs.readFileSync(workflowPath, 'utf8'),
+                scriptBlock      = raw.split('script: |\n')[1].split('\n').map(line => line.slice(12)).join('\n'),
+                AsyncFunction    = Object.getPrototypeOf(async function () {}).constructor,
+                runStep          = new AsyncFunction('github', 'context', 'core', scriptBlock),
+                prevWorkspace    = process.env.GITHUB_WORKSPACE,
+                prevReleaseSince = process.env.NEO_CLAIM_RELEASE_SINCE;
+
+            expect(raw).toContain('pull_request_target:');
+            expect(raw).toContain('types: [opened, reopened, edited, closed]');
+            expect(raw).toContain('pull-requests: write');
+            expect(raw).toContain('NEO_CLAIM_RELEASE_SINCE: ${{ vars.NEO_CLAIM_RELEASE_SINCE }}');
+            expect(raw).toContain('repository: neomjs/neo');
+            expect(raw).toContain('ref: ${{ job.workflow_sha }}');
+            expect(raw).not.toContain('github.event.pull_request.head');
+
+            const createHarness = ({permission = 'read', mergedCount = 0, nextIssueReadHook, graphqlHasNextPage = false} = {}) => {
+                const
+                    issues      = new Map([
+                        [19143, gfiIssue({assignees: [], number: 19143, state: 'open'})],
+                        [20691, gfiIssue({assignees: [], number: 20691, state: 'open'})],
+                        [20692, gfiIssue({assignees: [], number: 20692, state: 'closed'})]
+                    ]),
+                    comments    = new Map([[19143, []], [20691, []], [20692, []], [21500, []], [21501, []]]),
+                    events      = new Map([[19143, []], [20691, []], [20692, []]]),
+                    pullLinks   = new Map([
+                        [19143, []],
+                        [20691, []],
+                        [20692, [{author: {login: 'merged-author'}, merged: true, number: 21400, repository: {nameWithOwner: 'neomjs/neo'}, state: 'MERGED'}]]
+                    ]),
+                    pullDetails = new Map(),
+                    created     = [],
+                    assigned    = [],
+                    unassigned  = [],
+                    warnings    = [];
+                let reads = 0;
+
+                const github = {
+                    graphql : async (query, vars) => ({
+                        repository: {
+                            issue: {
+                                closedByPullRequestsReferences: {
+                                    nodes   : pullLinks.get(vars.number) || [],
+                                    pageInfo: {hasNextPage: graphqlHasNextPage}
+                                }
+                            }
+                        }
+                    }),
+                    paginate: async (fn, args) => {
+                        if (fn === github.rest.issues.listComments) return [...(comments.get(args.issue_number) || [])];
+                        if (fn === github.rest.issues.listEvents)   return [...(events.get(args.issue_number) || [])];
+                        if (fn === github.rest.issues.listForRepo) {
+                            return [...issues.values()].filter(item =>
+                                item.state === args.state &&
+                                (item.assignees || []).some(a => a.login.toLowerCase() === args.assignee.toLowerCase())
+                            )
+                        }
+                        throw new Error('unexpected paginate')
+                    },
+                    rest: {
+                        issues: {
+                            addAssignees: async args => {
+                                assigned.push(args);
+                                const
+                                    target        = issues.get(args.issue_number),
+                                    issueComments = comments.get(args.issue_number) || [],
+                                    canAttach     = login => {
+                                        const lower = String(login).toLowerCase();
+                                        return String(target.user?.login || '').toLowerCase() === lower ||
+                                            issueComments.some(c => String(c.user?.login || '').toLowerCase() === lower)
+                                    },
+                                    attachable    = args.assignees.filter(canAttach);
+
+                                target.assignees = [
+                                    ...(target.assignees || []),
+                                    ...attachable
+                                        .filter(login => !(target.assignees || []).some(a => a.login.toLowerCase() === login.toLowerCase()))
+                                        .map(login => ({id: 7001, login}))
+                                ];
+                                return {data: target}
+                            },
+                            createComment: async args => {
+                                created.push(args);
+                                const list  = comments.get(args.issue_number) || [];
+                                const entry = comment('github-actions[bot]', '2026-11-15T17:30:05Z', args.body, {type: 'Bot'});
+                                list.push(entry);
+                                comments.set(args.issue_number, list);
+                                return {data: entry}
+                            },
+                            get: async ({issue_number}) => {
+                                reads += 1;
+                                if (nextIssueReadHook) nextIssueReadHook({comments, events, issue_number, issues, pullLinks, reads});
+                                return {data: issues.get(issue_number)}
+                            },
+                            listComments   : Symbol('listComments'),
+                            listEvents     : Symbol('listEvents'),
+                            listForRepo    : Symbol('listForRepo'),
+                            removeAssignees: async args => {
+                                unassigned.push(args);
+                                const target = issues.get(args.issue_number);
+                                target.assignees = (target.assignees || []).filter(a =>
+                                    !args.assignees.some(login => login.toLowerCase() === a.login.toLowerCase())
+                                );
+                                return {data: target}
+                            }
+                        },
+                        pulls: {
+                            get: async ({pull_number}) => ({data: pullDetails.get(pull_number)})
+                        },
+                        repos: {
+                            getCollaboratorPermissionLevel: async ({username}) => ({
+                                data: {permission: typeof permission === 'function' ? permission(username) : permission}
+                            })
+                        },
+                        search: {
+                            issuesAndPullRequests: async ({q}) => q.startsWith('org:')
+                                ? {data: {incomplete_results: false, total_count: mergedCount}}
+                                : {data: {items: [{number: 20691}, {number: 20695}]}}
+                        }
+                    }
+                };
+
+                const runPrEvent = (action, pullRequest, changes) => runStep(
+                    github,
+                    {eventName: 'pull_request_target', payload: {action, changes, pull_request: pullRequest}, repo: {owner: 'neomjs', repo: 'neo'}},
+                    {info: () => {}, warning: msg => warnings.push(msg)}
+                );
+
+                return {assigned, comments, created, events, issues, pullDetails, pullLinks, runPrEvent, unassigned, warnings}
+            };
+
+            process.env.GITHUB_WORKSPACE = process.cwd();
+            try {
+                // 1. Opening on unclaimed curated issue assigns attachable author + target swap unassigns old issue and claims new issue + edits without target delta do nothing
+                const hUnattachable  = createHarness();
+                const prUnattachable = {
+                    author_association: 'NONE',
+                    body              : 'Resolves #19143',
+                    created_at        : '2026-11-15T17:10:00Z',
+                    number            : 21498,
+                    user              : {id: 7002, login: 'silent-author', type: 'User'}
+                };
+                hUnattachable.pullLinks.set(19143, [{author: {login: 'silent-author'}, merged: false, number: 21498, repository: {nameWithOwner: 'neomjs/neo'}, state: 'OPEN'}]);
+                await hUnattachable.runPrEvent('opened', prUnattachable);
+                expect(hUnattachable.issues.get(19143).assignees).toEqual([]);
+                expect(hUnattachable.created).toEqual([]);
+                expect(hUnattachable.warnings).toEqual(['GitHub did not attach silent-author as assignee on #19143.']);
+
+                const h1  = createHarness();
+                const pr1 = {
+                    author_association: 'NONE',
+                    body              : 'Resolves #19143',
+                    created_at        : '2026-11-15T17:10:00Z',
+                    number            : 21500,
+                    user              : {id: 7001, login: 'outside-dev', type: 'User'}
+                };
+                h1.comments.set(19143, [comment('outside-dev', '2026-11-15T17:00:00Z', 'Investigating the reproduction steps.', {id: 7001})]);
+                h1.issues.get(20691).user = {id: 7001, login: 'outside-dev'};
+                h1.pullLinks.set(19143, [{author: {login: 'outside-dev'}, merged: false, number: 21500, repository: {nameWithOwner: 'neomjs/neo'}, state: 'OPEN'}]);
+                await h1.runPrEvent('opened', pr1);
+                expect(h1.assigned).toEqual([{assignees: ['outside-dev'], issue_number: 19143, owner: 'neomjs', repo: 'neo'}]);
+                expect(h1.issues.get(19143).assignees.map(a => a.login)).toEqual(['outside-dev']);
+                expect(h1.created).toEqual([]);
+
+                // Redelivery / reopen / checklist edit make zero extra assignments or comments
+                await h1.runPrEvent('reopened', pr1);
+                await h1.runPrEvent('edited', {...pr1, body: 'Resolves #19143\n- [x] done'}, {body: {from: 'Resolves #19143'}});
+                expect(h1.assigned).toHaveLength(1);
+                expect(h1.created).toEqual([]);
+
+                // Bot assigned event enables clean swap from old issue to new issue without exceeding 1-slot cap
+                h1.events.get(19143).push({
+                    actor     : {login: 'github-actions[bot]', type: 'Bot'},
+                    assignee  : {login: 'outside-dev'},
+                    created_at: '2026-11-15T17:10:02Z',
+                    event     : 'assigned'
+                });
+                h1.pullLinks.set(19143, []);
+                await h1.runPrEvent('edited', {...pr1, body: 'Resolves #20691'}, {body: {from: 'Resolves #19143'}});
+                expect(h1.unassigned).toEqual([{assignees: ['outside-dev'], issue_number: 19143, owner: 'neomjs', repo: 'neo'}]);
+                expect(h1.assigned.map(c => c.issue_number)).toEqual([19143, 20691]);
+                expect(h1.issues.get(20691).assignees.map(a => a.login)).toEqual(['outside-dev']);
+
+                // 2. Hidden team membership is skipped without assignment
+                const hTeam = createHarness({permission: 'write'});
+                await hTeam.runPrEvent('opened', {...pr1, author_association: 'CONTRIBUTOR'});
+                expect(hTeam.assigned).toEqual([]);
+                expect(hTeam.created).toEqual([]);
+
+                // 3. Unknown permission or truncated GraphQL fails visibly with zero writes
+                const hBadPerm = createHarness({permission: 'mystery'});
+                await expect(hBadPerm.runPrEvent('opened', pr1)).rejects.toThrow('names no repository permission');
+                expect(hBadPerm.assigned).toEqual([]);
+
+                const hTrunc = createHarness({graphqlHasNextPage: true});
+                await expect(hTrunc.runPrEvent('opened', pr1)).rejects.toThrow('Incomplete state read');
+                expect(hTrunc.assigned).toEqual([]);
+
+                // 4. Removing target with uncertain provenance throws BEFORE mutating anything (even if a new target was added in same edit)
+                const hUncertain = createHarness();
+                hUncertain.issues.get(19143).assignees = [{id: 7001, login: 'outside-dev'}];
+                await expect(hUncertain.runPrEvent(
+                    'edited',
+                    {...pr1, body: 'Resolves #20691'},
+                    {body: {from: 'Resolves #19143'}}
+                )).rejects.toThrow('no assigned event');
+                expect(hUncertain.unassigned).toEqual([]);
+                expect(hUncertain.assigned).toEqual([]);
+
+                // 5. Merged team PR closing the issue notifies an open outside PR carrying an opening overlap notice once, and warns cleanly if closed-event reads throw
+                const hMerged       = createHarness({permission: username => username === 'team-dev' ? 'maintain' : 'read'});
+                const outsideOpenPr = {
+                    author_association: 'NONE',
+                    body              : 'Resolves #19143',
+                    created_at        : '2026-11-15T17:10:00Z',
+                    number            : 21501,
+                    user              : {id: 8001, login: 'second-dev', type: 'User'}
+                };
+                const mergedTeamPr = {
+                    author_association: 'MEMBER',
+                    body              : 'Resolves #19143',
+                    closed_at         : '2026-11-15T17:25:00Z',
+                    created_at        : '2026-11-15T17:05:00Z',
+                    merged            : true,
+                    number            : 21500,
+                    user              : {id: 9001, login: 'team-dev', type: 'User'}
+                };
+                hMerged.pullDetails.set(21501, outsideOpenPr);
+                hMerged.pullLinks.set(19143, [
+                    {author: {login: 'team-dev'}, merged: false, number: 21500, repository: {nameWithOwner: 'neomjs/neo'}, state: 'OPEN'},
+                    {author: {login: 'second-dev'}, merged: false, number: 21501, repository: {nameWithOwner: 'neomjs/neo'}, state: 'OPEN'}
+                ]);
+                await hMerged.runPrEvent('opened', outsideOpenPr);
+                expect(hMerged.created).toHaveLength(1);
+                expect(hMerged.created[0].body).toContain(overlapMarker({heldBy: 'pr:21500', issue: 19143, pr: 21501}));
+
+                hMerged.pullLinks.set(19143, [{author: {login: 'second-dev'}, merged: false, number: 21501, repository: {nameWithOwner: 'neomjs/neo'}, state: 'OPEN'}]);
+                await hMerged.runPrEvent('closed', mergedTeamPr);
+                await hMerged.runPrEvent('closed', mergedTeamPr);
+                expect(hMerged.created).toHaveLength(2);
+                expect(hMerged.created[1].issue_number).toBe(21501);
+                expect(hMerged.created[1].body).toContain('residual-scope review');
+                expect(hMerged.created[1].body).toContain(overlapMarker({heldBy: 'pr:21500', issue: 19143, pr: 21501}));
+
+                const hMergedThrow = createHarness({
+                    permission       : username => username === 'team-dev' ? 'maintain' : 'read',
+                    nextIssueReadHook: () => {
+                        throw new Error('boom on merged close')
+                    }
+                });
+                await hMergedThrow.runPrEvent('closed', mergedTeamPr);
+                expect(hMergedThrow.created).toEqual([]);
+                expect(hMergedThrow.warnings).toHaveLength(1);
+                expect(hMergedThrow.warnings[0]).toMatch(/boom on merged close/);
+
+                // 6. Unmerged close hold & race re-check: default (unset env + null export) emits nothing; when activated,
+                // a concurrent claimant arriving between read 1 and read 2 suppresses any release comment
+                const displaced      = comment('displaced-dev', '2026-11-15T17:12:00Z', "I'd like to claim this.", {id: 8002});
+                const displacedReply = comment('github-actions[bot]', '2026-11-15T17:12:03Z',
+                    `Thanks, @displaced-dev! This one is taken: #21500 is open for it.\n\n${replyMarker('displaced-dev')}\n<!-- claim-refused:${displaced.id} -->`,
+                    {type: 'Bot'});
+                const closedPr = {
+                    author_association: 'NONE',
+                    body              : 'Resolves #19143',
+                    closed_at         : '2026-11-15T17:35:00Z',
+                    created_at        : '2026-11-15T17:10:00Z',
+                    merged            : false,
+                    number            : 21500,
+                    user              : {id: 7001, login: 'outside-dev', type: 'User'}
+                };
+
+                delete process.env.NEO_CLAIM_RELEASE_SINCE;
+                const hDefaultHold = createHarness();
+                hDefaultHold.comments.set(19143, [displaced, displacedReply]);
+                await hDefaultHold.runPrEvent('closed', closedPr);
+                expect(hDefaultHold.created).toEqual([]);
+
+                process.env.NEO_CLAIM_RELEASE_SINCE = '2026-11-15T17:25:00Z';
+
+                const hRace = createHarness({
+                    nextIssueReadHook: ({issues: liveIssues, reads: r}) => {
+                        if (r === 2) liveIssues.get(19143).assignees = [{id: 8003, login: 'racer'}]
+                    }
+                });
+                hRace.comments.set(19143, [displaced, displacedReply]);
+                await hRace.runPrEvent('closed', closedPr);
+                expect(hRace.created).toEqual([]);
+
+                // Without race, unmerged close notifies displaced-dev once and close -> reopen -> close stays silent
+                const hRel = createHarness();
+                hRel.comments.set(19143, [displaced, displacedReply]);
+                await hRel.runPrEvent('closed', closedPr);
+                await hRel.runPrEvent('closed', {...closedPr, closed_at: '2026-11-15T17:45:00Z'});
+                expect(hRel.created).toHaveLength(1);
+                expect(hRel.created[0].issue_number).toBe(19143);
+                expect(hRel.created[0].body).toContain('@displaced-dev');
+                expect(hRel.created[0].body).toContain(releaseMarker({issue: 19143, login: 'displaced-dev', pr: 21500, repo: 'neomjs/neo', to: 8002}));
+
+                // Throwing read on unmerged close warns cleanly without failing the closed head
+                const hRelThrow = createHarness({
+                    nextIssueReadHook: () => {
+                        throw new Error('boom on unmerged close')
+                    }
+                });
+                await hRelThrow.runPrEvent('closed', closedPr);
+                expect(hRelThrow.created).toEqual([]);
+                expect(hRelThrow.warnings).toHaveLength(1);
+                expect(hRelThrow.warnings[0]).toMatch(/boom on unmerged close/);
+            } finally {
+                if (prevWorkspace === undefined) delete process.env.GITHUB_WORKSPACE;
+                else process.env.GITHUB_WORKSPACE = prevWorkspace;
+                if (prevReleaseSince === undefined) delete process.env.NEO_CLAIM_RELEASE_SINCE;
+                else process.env.NEO_CLAIM_RELEASE_SINCE = prevReleaseSince
+            }
+        });
+
+        test('workflow exposes zero-input workflow_call pinned by job.workflow_sha, keeps single claim-responder queue owner, and executes against sibling repositories', async () => {
+            const
+                workflowPath  = path.resolve(process.cwd(), '.github/workflows/claim-responder.yml'),
+                raw           = fs.readFileSync(workflowPath, 'utf8'),
+                workflow      = yaml.load(raw),
+                respondJob    = workflow?.jobs?.respond,
+                steps         = respondJob?.steps ?? [],
+                verifyStep    = steps.find(step => step.name === 'Verify defining workflow commit'),
+                checkoutSteps = steps.filter(step => String(step.uses || '').startsWith('actions/checkout@')),
+                checkoutStep  = checkoutSteps[0],
+                scriptStep    = steps.find(step => step.name === 'Answer the claim'),
+                sparseLines   = String(checkoutStep?.with?.['sparse-checkout'] || '').trim().split(/\r?\n/).map(s => s.trim()),
+                prevWorkspace = process.env.GITHUB_WORKSPACE;
+
+            expect(Object.keys(workflow.on).sort()).toEqual(['issue_comment', 'pull_request_target', 'workflow_call']);
+            expect(workflow.on.workflow_call).toBeNull();
+
+            expect(workflow.concurrency).toBeUndefined();
+            expect(Object.keys(workflow.jobs)).toEqual(['respond']);
+            expect(respondJob?.concurrency).toEqual({
+                group               : 'claim-responder',
+                'cancel-in-progress': false,
+                queue               : 'max'
+            });
+
+            expect(verifyStep).toBeTruthy();
+            expect(verifyStep.if).toBeUndefined();
+            expect(verifyStep.env).toEqual({WORKFLOW_SHA: '${{ job.workflow_sha }}'});
+            expect(String(verifyStep.run)).not.toContain('${{');
+
+            expect(checkoutSteps).toHaveLength(1);
+            expect(checkoutStep.with).toMatchObject({
+                repository                 : 'neomjs/neo',
+                ref                        : '${{ job.workflow_sha }}',
+                'persist-credentials'      : false,
+                'sparse-checkout-cone-mode': false
+            });
+            expect(sparseLines).toEqual([
+                'buildScripts/util/claimResponse.mjs',
+                'buildScripts/util/contributorStanding.mjs'
+            ]);
+
+            expect(scriptStep?.uses).toMatch(/^actions\/github-script@/);
+            expect(String(scriptStep?.with?.script || '')).not.toContain('${{');
+
+            // Execute the actual shell revision guard across valid 40-hex defining commits and invalid refs
+            const
+                definingSha    = '8dfdf6da6ec994300e951c6a56e582d6ab95c4a1',
+                alternateSha   = '79f1de332a10193722b7934f21277001616b8501',
+                runVerifyGuard = workflowSha => execFileSync('bash', ['-eo', 'pipefail', '-c', String(verifyStep.run)], {
+                    env  : {...process.env, WORKFLOW_SHA: workflowSha},
+                    stdio: 'pipe'
+                });
+
+            expect(() => runVerifyGuard(definingSha)).not.toThrow();
+            expect(() => runVerifyGuard(alternateSha)).not.toThrow();
+            for (const badRef of ['dev', '', '8dfdf6da6ec994300e951c6a56e582d6ab95c4a']) {
+                expect(() => runVerifyGuard(badRef), `expected guard rejection for ${JSON.stringify(badRef)}`).toThrow();
+            }
+
+            // Contract validator modeling GitHub Actions reusable-workflow dispatch and queue ownership
+            const validateThinCallerContract = (callerYaml, calledWorkflow, runtime) => {
+                const
+                    caller     = yaml.load(callerYaml),
+                    jobEntries = Object.entries(caller?.jobs ?? {}),
+                    calledJobs = Object.values(calledWorkflow?.jobs ?? {});
+
+                if (jobEntries.length !== 1) {
+                    throw new Error('Caller must declare exactly one workflow_call job');
+                }
+
+                const [callerJobName, callerJob] = jobEntries[0];
+
+                if (caller?.concurrency || callerJob?.concurrency) {
+                    throw new Error(`Nested concurrency group deadlock: caller '${callerJobName}' must omit concurrency`);
+                }
+
+                if (Array.isArray(callerJob?.steps) && callerJob.steps.length > 0) {
+                    throw new Error('Thin caller must not declare steps or check out files');
+                }
+
+                const usesMatch = String(callerJob?.uses || '').match(/^neomjs\/neo\/\.github\/workflows\/claim-responder\.yml@([0-9a-f]{40})$/);
+
+                if (!usesMatch) {
+                    throw new Error(`Caller uses ref must pin a full 40-hex SHA on neomjs/neo: ${callerJob?.uses ?? '<missing>'}`);
+                }
+
+                const declaredInputs = calledWorkflow?.on?.workflow_call?.inputs ?? {};
+
+                if (callerJob?.with && Object.keys(callerJob.with).length > 0) {
+                    const unknownKeys = Object.keys(callerJob.with).filter(key => !Object.hasOwn(declaredInputs, key));
+
+                    if (unknownKeys.length > 0) {
+                        throw new Error(`Zero-input workflow_call rejects caller inputs: ${unknownKeys.join(', ')}`);
+                    }
+                }
+
+                const owners = [
+                    ...(caller?.concurrency?.group === 'claim-responder' ? ['caller:workflow'] : []),
+                    ...(callerJob?.concurrency?.group === 'claim-responder' ? [`caller:${callerJobName}`] : []),
+                    ...Object.entries(calledWorkflow?.jobs ?? {})
+                        .filter(([, job]) => job?.concurrency?.group === 'claim-responder')
+                        .map(([name]) => `called:${name}`)
+                ];
+
+                if (owners.length !== 1 || calledJobs.length !== 1) {
+                    throw new Error(`Expected exactly one claim-responder concurrency owner, found ${owners.join(', ') || 'none'}`);
+                }
+
+                const workflowSha = runtime.repository === 'neomjs/neo' ? runtime.directWorkflowSha : usesMatch[1];
+
+                runVerifyGuard(workflowSha);
+
+                return {
+                    checkoutRef      : workflowSha,
+                    concurrencyOwners: owners,
+                    callerShaIgnored : runtime.callerRepoSha
+                };
+            };
+
+            const validCallerYaml = [
+                'name: Claim responder',
+                'on:',
+                '  issue_comment:',
+                '    types: [created]',
+                '  pull_request_target:',
+                '    types: [opened, reopened, edited, closed]',
+                'jobs:',
+                '  call-responder:',
+                `    uses: neomjs/neo/.github/workflows/claim-responder.yml@${definingSha}`,
+                '    secrets: inherit'
+            ].join('\n');
+
+            // Valid single-pin sibling caller: single concurrency owner, checks out defining SHA even when caller repo SHA differs
+            expect(validateThinCallerContract(validCallerYaml, workflow, {
+                repository   : 'neomjs/neo-agent-brain',
+                callerRepoSha: alternateSha
+            })).toEqual({
+                checkoutRef      : definingSha,
+                concurrencyOwners: ['called:respond'],
+                callerShaIgnored : alternateSha
+            });
+
+            // Direct Engine run: checks out job.workflow_sha directly with single concurrency owner
+            expect(validateThinCallerContract(validCallerYaml, workflow, {
+                repository       : 'neomjs/neo',
+                directWorkflowSha: alternateSha,
+                callerRepoSha    : alternateSha
+            })).toEqual({
+                checkoutRef      : alternateSha,
+                concurrencyOwners: ['called:respond'],
+                callerShaIgnored : alternateSha
+            });
+
+            // Two different well-formed SHAs AND redundant matching engine_commit are both rejected under zero-input contract
+            expect(() => validateThinCallerContract(
+                `${validCallerYaml}\n    with:\n      engine_commit: ${alternateSha}`,
+                workflow,
+                {repository: 'neomjs/neo-agent-brain', callerRepoSha: alternateSha}
+            )).toThrow(/Zero-input workflow_call rejects caller inputs: engine_commit/);
+
+            expect(() => validateThinCallerContract(
+                `${validCallerYaml}\n    with:\n      engine_commit: ${definingSha}`,
+                workflow,
+                {repository: 'neomjs/neo-agent-brain', callerRepoSha: alternateSha}
+            )).toThrow(/Zero-input workflow_call rejects caller inputs: engine_commit/);
+
+            // Unpinned caller ref and caller-declared claim-responder concurrency (nested lock deadlock) are rejected
+            expect(() => validateThinCallerContract(
+                validCallerYaml.replace(definingSha, 'dev'),
+                workflow,
+                {repository: 'neomjs/neo-agent-brain', callerRepoSha: alternateSha}
+            )).toThrow(/40-hex SHA/);
+
+            expect(() => validateThinCallerContract(
+                `${validCallerYaml}\n    concurrency:\n      group: claim-responder\n      cancel-in-progress: false\n      queue: max`,
+                workflow,
+                {repository: 'neomjs/neo-agent-brain', callerRepoSha: alternateSha}
+            )).toThrow(/Nested concurrency group deadlock/);
+
+            expect(() => validateThinCallerContract(
+                `concurrency:\n  group: claim-responder\n${validCallerYaml}`,
+                workflow,
+                {repository: 'neomjs/neo-agent-brain', callerRepoSha: alternateSha}
+            )).toThrow(/Nested concurrency group deadlock/);
+
+            const
+                AsyncFunction = Object.getPrototypeOf(async function () {}).constructor,
+                runStep       = new AsyncFunction('github', 'context', 'core', String(scriptStep.with.script)),
+                issue         = gfiIssue({number: 1764, state: 'open'}),
+                assigned      = [],
+                created       = [],
+                siblingClaim  = comment('outside-sibling-dev', '2026-11-16T02:00:00Z', "I'd like to work on this.", {id: 8801});
+
+            const github = {
+                graphql : async () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: [], pageInfo: {hasNextPage: false}}}}}),
+                paginate: async fn => {
+                    if (fn === github.rest.issues.listComments) return [siblingClaim];
+                    if (fn === github.rest.issues.listEvents)   return [];
+                    if (fn === github.rest.issues.listForRepo)  return [];
+                    throw new Error('unexpected paginate')
+                },
+                rest: {
+                    issues: {
+                        addAssignees: async args => {
+                            assigned.push(args);
+                            return {data: {...issue, assignees: [{id: 8801, login: 'outside-sibling-dev'}]}}
+                        },
+                        createComment: async args => { created.push(args); return {data: {}} },
+                        get          : async () => ({data: issue}),
+                        listComments : Symbol('listComments'),
+                        listEvents   : Symbol('listEvents'),
+                        listForRepo  : Symbol('listForRepo')
+                    },
+                    repos : {getCollaboratorPermissionLevel: async () => ({data: {permission: 'read'}})},
+                    search: {
+                        issuesAndPullRequests: async ({q}) => q.startsWith('org:')
+                            ? {data: {incomplete_results: false, total_count: 0}}
+                            : {data: {items: []}}
+                    }
+                }
+            };
+
+            process.env.GITHUB_WORKSPACE = process.cwd();
+            try {
+                await runStep(
+                    github,
+                    {
+                        eventName: 'issue_comment',
+                        payload  : {action: 'created', comment: siblingClaim, issue: {number: 1764, state: 'open'}},
+                        repo     : {owner: 'neomjs', repo: 'neo-agent-brain'}
+                    },
+                    {info: () => {}, warning: () => {}}
+                );
+
+                expect(assigned).toEqual([{
+                    assignees   : ['outside-sibling-dev'],
+                    issue_number: 1764,
+                    owner       : 'neomjs',
+                    repo        : 'neo-agent-brain'
+                }]);
+                expect(created).toHaveLength(1);
+                expect(created[0].owner).toBe('neomjs');
+                expect(created[0].repo).toBe('neo-agent-brain');
+                expect(created[0].issue_number).toBe(1764);
+                expect(created[0].body).toContain('Assigned to you')
+            } finally {
+                if (prevWorkspace === undefined) delete process.env.GITHUB_WORKSPACE;
+                else process.env.GITHUB_WORKSPACE = prevWorkspace
             }
         });
     });

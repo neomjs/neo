@@ -58,7 +58,7 @@ test.describe('Portal examples family navigation', () => {
         }
 
         expect(hrefs(view.getCard(0).vdom)).toContain('https://neomjs.com/dist/esm/apps/workstation/index.html');
-        expect(hrefs(view.getCard(1).vdom)).toContain('https://neomjs.com/dist/esm/examples/grid/cellEditing/index.html')
+        expect(hrefs(view.getCard(1).vdom)).toContain('https://neomjs.com/dist/esm/examples/grid/treeBigData/index.html')
     });
 
     for (const mode of ['dist_prod', 'dist_esm']) {
@@ -67,21 +67,30 @@ test.describe('Portal examples family navigation', () => {
                   list  = view.getCard(1),
                   items = list.getVdomRoot().cn;
 
-            expect(list.store.getCount()).toBe(21);
-            expect(items).toHaveLength(21);
-            expect(new Set(items.map(item => item.id)).size).toBe(21)
+            expect(list.store.getCount()).toBe(coveredGridTableIds.length);
+            expect(items).toHaveLength(coveredGridTableIds.length);
+            expect(new Set(items.map(item => item.id)).size).toBe(coveredGridTableIds.length)
         })
     }
 
-    test('publishes only Featured and families with records from one definition source', () => {
+    test('publishes only Featured and families with a covered record from one definition source', () => {
         const view = createView();
 
-        expect(view.getTabButtons().map(button => button.text)).toEqual(['Featured', 'Grid & Table']);
-        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/grid']);
-        expect(view.getCatalogStore().getCount()).toBe(46);
-        expect(view.getCard(0).store.getCount()).toBe(27);
+        expect(view.getTabButtons().map(button => button.text)).toEqual(['Featured', 'Grid & Table', 'Forms', 'Multi-Window', 'Calendar']);
+        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/grid', '/examples/forms', '/examples/multi-window', '/examples/calendar']);
+        expect(view.getCatalogStore().getCount()).toBe(77);
+        expect(view.getCard(0).store.getCount()).toBe(28);
         expect(view.getCard(0).store.items.map(record => record.id)).toEqual(featuredExampleIds);
-        expect(view.getCard(1).store.getCount()).toBe(21);
+        expect(view.getCard(1).store.items.map(record => record.id)).toEqual(coveredGridTableIds);
+        expect(view.getCard(2).store.items.map(record => record.id)).toEqual(['date-selector', 'date-field', 'combobox-field']);
+        expect(view.getCard(3).store.items.map(record => record.id)).toEqual(coveredMultiWindowIds);
+        expect(view.getCard(4).store.items.map(record => record.id)).toEqual(['calendar']);
+
+        // every card of every tab has a cover; the catalog keeps the records that wait for one
+        for (let index = 0; index < 5; index++) {
+            view.getCard(index).store.forEach(record => expect(record.image, record.id).toBeTruthy())
+        }
+        expect(view.getCatalogStore().items.filter(record => !view.hasCover(record))).toHaveLength(47);
         expect(view.getCard(0).store.getSource()).toBe(view.getCatalogStore());
         expect(view.getCard(1).store.getSource()).toBe(view.getCatalogStore());
         expect(view.getCard(0).store.model).toBe(view.getCatalogStore().model);
@@ -109,7 +118,9 @@ test.describe('Portal examples family navigation', () => {
         await controller.onExamplesRoute({itemId: 'grid'});
         expect(view.activeIndex).toBe(1);
         await controller.onExamplesRoute({itemId: 'forms'});
-        expect(view.activeIndex).toBe(0);
+        expect(view.activeIndex).toBe(2);
+        await controller.onExamplesRoute({itemId: 'multi-window'});
+        expect(view.activeIndex).toBe(3);
         await controller.onExamplesRoute({itemId: 'unknown'});
         expect(view.activeIndex).toBe(0)
     });
@@ -152,14 +163,36 @@ test.describe('Portal examples family navigation', () => {
 
     test('a newly published family needs no additional tab or controller entry', () => {
         const view = createView([...catalog, {
-            ...catalog[0], id: 'test-forms-example', family: 'forms', featured: false,
-            feature: 'A form field', lookFor: 'Enter a value.'
+            ...catalog[0], id: 'test-components-example', family: 'components', featured: false,
+            feature: 'A component', lookFor: 'Inspect it.'
         }]);
 
-        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/grid', '/examples/forms']);
-        expect(view.getCard(2).store.getCount()).toBe(1);
-        expect(view.getCard(2).fallbackIconCls).toBe(view.familyDefinitions.find(item => item.family === 'forms').iconCls)
+        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/grid', '/examples/forms', '/examples/multi-window', '/examples/calendar', '/examples/components']);
+        expect(view.getCard(5).store.getCount()).toBe(1);
+        expect(view.getTabButtons()[5].iconCls).toBe(view.familyDefinitions.find(item => item.family === 'components').iconCls)
     });
+
+    for (const [name, images, published] of [
+        ['a family whose records have no cover gets no tab', [null], false],
+        ['the first covered record publishes its family, and a record without a cover stays off its tab', ['devmode/workstation-13-2.jpg', null], true]
+    ]) {
+        test(name, () => {
+            const records = images.map((image, index) => ({
+                      ...catalog[0], id: 'test-components-' + index, family: 'components', featured: false,
+                      feature: 'A component', lookFor: 'Inspect it.', image
+                  })),
+                  routes  = ['/examples', '/examples/grid', '/examples/forms', '/examples/multi-window', '/examples/calendar'],
+                  view    = createView([...catalog, ...records]);
+
+            records.forEach(record => {
+                expect(view.getCatalogStore().get(record.id).family).toBe('components');
+                expect(view.hasCover(view.getCatalogStore().get(record.id))).toBe(!!record.image)
+            });
+
+            expect(view.getTabButtons().map(button => button.route)).toEqual(published ? [...routes, '/examples/components'] : routes);
+            published && expect(view.getCard(5).store.items.map(item => item.id)).toEqual(['test-components-0'])
+        })
+    }
 
     test('an arriving catalog populates the borrowed family stores and withdraws an empty family', () => {
         const view = createView([]), store = view.getCatalogStore();
@@ -167,19 +200,20 @@ test.describe('Portal examples family navigation', () => {
         expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples']);
         store.add(structuredClone(catalog));
         store.fire('load');
-        expect(view.getCard(0).store.getCount()).toBe(27);
-        expect(view.getCard(1).store.getCount()).toBe(21);
+        expect(view.getCard(0).store.getCount()).toBe(28);
+        expect(view.getCard(1).store.getCount()).toBe(coveredGridTableIds.length);
+        expect(view.getCard(2).store.getCount()).toBe(3);
 
         store.remove(store.items.filter(record => record.family === 'grid-table'));
         store.fire('load');
-        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples'])
+        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/forms', '/examples/multi-window', '/examples/calendar'])
     });
 });
 
 const catalog            = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'), 'utf8')),
       modes              = ['devmode', 'dist_dev', 'dist_esm', 'dist_prod'],
       featuredExampleIds = [
-          'workstation', 'devindex', 'grid-tree-big-data', 'shared-covid', 'grid-big-data', 'grid-issues',
+          'workstation', 'webdesktop', 'devindex', 'grid-tree-big-data', 'shared-covid', 'grid-big-data', 'grid-issues',
           'calendar', 'helix', 'multi-window-covid-gallery', 'offscreen-canvas', 'shared-offscreen-canvas',
           'multi-window-drag-drop', 'tab-container', 'state-provider', 'dialog-drag-drop',
           'colors-dashboard', 'covid-dashboard', 'covid-helix', 'covid-gallery', 'gallery',
@@ -191,6 +225,23 @@ const catalog            = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examp
           'grid-covid', 'grid-header-groups', 'grid-locked-columns', 'grid-nested-record-fields',
           'grid-tree', 'grid-value-banding', 'json-grid-container', 'table-cell-editing',
           'table-container', 'table-covid', 'table-nested-record-fields', 'table-store', 'table-performance'
+      ],
+      formExampleIds = [
+          'checkbox-field', 'chip-field', 'color-field', 'email-field', 'fileupload-field',
+          'number-field', 'picker-field', 'radio-field', 'select-field', 'switch-field',
+          'text-field', 'textarea-field', 'time-field', 'url-field', 'copy-to-clipboard-trigger',
+          'fieldset', 'field-with-prefix', 'fields-runtime-triggers', 'layout-form',
+          'date-selector-container', 'form-app'
+      ],
+      multiWindowExampleIds = [
+          'dock-layouts', 'dock-cross-window', 'dock-tear-out',
+          'multi-window-helix', 'multi-window-state-provider'
+      ],
+      // the records of a family that name a cover: the cards its overview shows
+      coveredGridTableIds   = ['grid-tree-big-data', 'grid-big-data', 'grid-issues', 'table-filtering'],
+      coveredMultiWindowIds = [
+          'workstation', 'shared-covid', 'multi-window-covid-gallery', 'shared-offscreen-canvas',
+          'multi-window-drag-drop', 'colors-dashboard', 'dock-choreography'
       ];
 
 /**
@@ -254,12 +305,12 @@ test.describe('Portal examples canonical catalog', () => {
         })
     }
 
-    test('loads 46 logical examples with unique stable string identities', () => {
+    test('loads 77 logical examples with unique stable string identities', () => {
         const {store} = createList(),
               ids     = [];
 
-        expect(catalog).toHaveLength(46);
-        expect(store.getCount()).toBe(46);
+        expect(catalog).toHaveLength(77);
+        expect(store.getCount()).toBe(77);
 
         store.forEach(record => {
             expect(typeof record.id, record.name).toBe('string');
@@ -267,8 +318,50 @@ test.describe('Portal examples canonical catalog', () => {
             ids.push(record.id)
         });
 
-        expect(new Set(ids).size).toBe(46);
+        expect(new Set(ids).size).toBe(77);
         expect(list.catalogMode).toBe('dist_prod')
+    });
+
+    test('catalogs the basic and dedicated week-view Calendar examples in order', () => {
+        const index = catalog.findIndex(record => record.id === 'calendar'),
+              [basic, weekview] = catalog.slice(index, index + 2),
+              urls = {
+                  devmode : 'examples/calendar',
+                  dist_dev: 'dist/development/examples/calendar',
+                  dist_esm: 'dist/esm/examples/calendar',
+                  dist_prod: 'dist/production/examples/calendar'
+              };
+
+        expect([basic?.id, weekview?.id]).toEqual(['calendar', 'calendar-weekview']);
+        expect(basic).toMatchObject({
+            family   : 'calendar',
+            component: 'Calendar',
+            feature  : expect.any(String),
+            lookFor  : expect.any(String)
+        });
+        expect(weekview).toMatchObject({
+            id       : 'calendar-weekview',
+            name     : 'Calendar Week View',
+            family   : 'calendar',
+            component: 'Calendar',
+            feature  : expect.any(String),
+            lookFor  : expect.any(String),
+            featured : false,
+            image    : null,
+            sourceUrl: 'examples/calendar/weekview',
+            urls     : {
+                devmode : `${urls.devmode}/weekview/index.html`,
+                dist_dev: `${urls.dist_dev}/weekview/index.html`,
+                dist_esm: `${urls.dist_esm}/weekview/index.html`,
+                dist_prod: `${urls.dist_prod}/weekview/index.html`
+            }
+        });
+        expect(basic.urls).toEqual({
+            devmode : `${urls.devmode}/basic/index.html`,
+            dist_dev: `${urls.dist_dev}/basic/index.html`,
+            dist_esm: `${urls.dist_esm}/basic/index.html`,
+            dist_prod: `${urls.dist_prod}/basic/index.html`
+        })
     });
 
     test('every published family record has both a feature and an observation, with rejecting controls', () => {
@@ -285,30 +378,59 @@ test.describe('Portal examples canonical catalog', () => {
         expect(() => check([{...example, lookFor: ''}])).toThrow()
     });
 
-    test('the overview selects the 21 Grid and Table identities from the same catalog', () => {
-        const view  = createView(),
-              store = view.getCard(1).store,
-              ids   = [], counts = {Grid: 0, Table: 0};
+    test('the catalog holds the 21 Grid and Table identities and the overview shows the covered ones', () => {
+        const view         = createView(),
+              catalogStore = view.getCatalogStore(),
+              store        = view.getCard(1).store,
+              ids          = [], counts = {Grid: 0, Table: 0};
 
-        store.forEach(record => {
-            ids.push(record.id);
-            expect(record.family).toBe('grid-table');
-            counts[record.component]++;
-            expect(record.feature, record.id).toBeTruthy();
-            expect(record.lookFor, record.id).toBeTruthy()
+        catalogStore.forEach(record => {
+            if (record.family === 'grid-table') {
+                ids.push(record.id);
+                counts[record.component]++;
+                expect(record.feature, record.id).toBeTruthy();
+                expect(record.lookFor, record.id).toBeTruthy()
+            }
         });
 
-        expect(ids).toEqual(['grid-tree-big-data', 'grid-big-data', 'grid-issues', 'table-filtering', ...newExampleIds]);
+        expect(ids).toEqual([...coveredGridTableIds, ...newExampleIds]);
         expect(counts).toEqual({Grid: 14, Table: 7});
-        expect(store.getSource()).toBe(view.getCatalogStore())
+        expect(store.items.map(record => record.id)).toEqual(coveredGridTableIds);
+        expect(store.getSource()).toBe(catalogStore)
     });
 
-    test('preserves the complete established card order and inserts only new examples before choreography', () => {
+    test('the Multi-Window overview borrows the catalog records and respects each build destination', () => {
+        const view = createView(), catalogStore = view.getCatalogStore(), store = view.getCard(3).store;
+
+        expect(store.getSource()).toBe(catalogStore);
+        expect(store.items.map(record => record.id)).toEqual(coveredMultiWindowIds);
+        expect(catalogStore.items.filter(record => record.family === 'multi-window').map(record => record.id)).toEqual([
+            ...coveredMultiWindowIds, ...multiWindowExampleIds
+        ]);
+
+        for (const mode of modes) {
+            const list = view.getCard(3);
+
+            list.catalogMode = mode;
+            expect(store.items.filter(record => !list.isHiddenItem(record)).map(record => record.id)).toEqual(
+                store.items.map(record => record.id).filter(id => mode !== 'dist_esm' || id !== 'shared-offscreen-canvas')
+            )
+        }
+
+        expect(catalogStore.get('dock-layouts').sharedWorkers).toBe(false);
+        expect(catalogStore.get('dock-tear-out').sharedWorkers).toBe(true)
+    });
+
+    test('preserves the established order and inserts the Multi-Window block after choreography', () => {
         const {store} = createList(),
               // The production catalog established this sequence before canonicalization. ESM alone
               // placed OffscreenCanvas before Covid Gallery; the shared sequence follows production.
               establishedIds = featuredExampleIds.slice(0, -1),
-              completeIds = [...establishedIds, ...newExampleIds, 'dock-choreography', 'realworld', 'realworld-v2'],
+              calendarIndex = establishedIds.indexOf('calendar'),
+              orderedEstablishedIds = [
+                  ...establishedIds.slice(0, calendarIndex + 1), 'calendar-weekview', ...establishedIds.slice(calendarIndex + 1)
+              ],
+              completeIds = [...orderedEstablishedIds, ...newExampleIds, ...formExampleIds, 'gantt-basic', 'scheduler-basic', 'timeline-basic', 'dock-choreography', ...multiWindowExampleIds, 'realworld', 'realworld-v2'],
               excluded = {
                   devmode  : ['portal', 'liquid-glass', 'realworld', 'realworld-v2'],
                   dist_dev : ['realworld', 'realworld-v2'],
@@ -332,7 +454,7 @@ test.describe('Portal examples canonical catalog', () => {
 
             expect(visible.map(record => record.id), mode).toEqual(completeIds.filter(id => !excluded[mode].includes(id)));
             expect(list.createLink(visible[0]).href).toBe(list.baseUrl + workstationUrl);
-            expect(list.createLink(visible.at(-1)).href).toBe(list.baseUrl + choreographyUrl)
+            expect(list.createLink(store.get('dock-choreography')).href).toBe(list.baseUrl + choreographyUrl)
         })
     });
 
@@ -404,30 +526,32 @@ test.describe('Portal examples canonical catalog', () => {
         })
     });
 
-    test('renders catalog captions and honest scope beside the real example links', () => {
-        const {store} = createList();
+    test('renders title and proof line on the cover, and the action, scope and links behind them', () => {
+        const {store} = createList(),
+              byCls   = (node, cls) => node.cls?.includes(cls) ? node : (node.cn || []).map(child => byCls(child, cls)).find(Boolean);
 
-        store.items.filter(record => record.family === 'grid-table').forEach(record => {
-            const content     = list.createItemContent(record, 0)[0],
-                  details     = content.cn.find(node => node.cls?.includes('neo-item-bottom-position')),
-                  feature     = details.cn.find(node => node.cls?.includes('portal-example-feature')),
-                  lookFor     = details.cn.find(node => node.cls?.includes('portal-example-look-for')),
-                  placeholder = content.cn.find(node => node.cls?.includes('portal-example-placeholder'));
+        store.items.filter(record => record.family).forEach(record => {
+            const content = list.createItemContent(record, 0)[0],
+                  details = content.cn.find(node => node.cls?.includes('neo-item-bottom-position')),
+                  more    = details.cn.find(node => node.cls?.includes('portal-example-more')),
+                  feature = details.cn.find(node => node.cls?.includes('portal-example-feature')),
+                  lookFor = byCls(more, 'portal-example-look-for');
 
+            // always on the cover: the link and the proof line, in that order, then the part the styles open
+            expect(details.cn.map(node => node.cls?.[0] ?? node.tag), record.id).toEqual(['neo-title', 'portal-example-feature', 'portal-example-more']);
             expect(feature.text, record.id).toBe(record.feature);
             expect(feature.removeDom, record.id).toBe(false);
             expect(lookFor.text, record.id).toBe(record.lookFor);
             expect(lookFor.removeDom, record.id).toBe(false);
             expect(details.cn[0].href, record.id).toBe(list.createLink(record).href);
-            expect(placeholder.removeDom, record.id).toBe(!!record.image);
-            expect(placeholder.cn[1].text, record.id).toBe(record.component)
+            expect(byCls(more, 'neo-github-image').href, record.id).toBe(list.createSourceLink(record).href);
+            expect(byCls(content, 'portal-example-placeholder'), record.id).toBeUndefined()
         });
 
         ['grid-covid', 'table-covid', 'json-grid-container'].forEach(id => {
             const record  = store.get(id),
                   content = list.createItemContent(record, 0)[0],
-                  scope   = content.cn.find(node => node.cls?.includes('neo-item-bottom-position')).cn
-                      .find(node => node.cls?.includes('portal-example-scope'));
+                  scope   = byCls(content, 'portal-example-scope');
 
             expect(record.scope, id).toBeTruthy();
             expect(scope.text, id).toBe(record.scope);

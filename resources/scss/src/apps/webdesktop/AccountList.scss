@@ -1,0 +1,39 @@
+.webdesktop-account-list {
+    --list-container-list-color          : var(--webdesktop-ink);
+    --list-item-background-color         : transparent;
+    --list-item-background-color-active  : var(--webdesktop-glass-active);
+    --list-item-background-color-hover   : var(--webdesktop-glass-hover);
+    --list-item-background-color-selected: var(--webdesktop-glass-active);
+    --list-item-color-selected           : var(--webdesktop-ink);
+    --list-item-focus-outline            : 2px solid var(--webdesktop-accent);
+    --list-item-focus-outline-offset     : -2px;
+    --list-item-padding                  : 10px 12px;
+
+    display       : flex;
+    flex-direction: column;
+    gap           : 4px;
+
+    .neo-list-item {
+        align-items  : center;
+        border-radius: 14px;
+        display      : flex;
+        gap          : 14px;
+        transition   : background-color var(--motion-fast) var(--ease-out-soft);
+
+        &:hover .webdesktop-account-go {
+            opacity  : 1;
+            transform: translateX(0);
+        }
+    }
+
+    .webdesktop-account-text {
+        flex: 1;
+    }
+
+    .webdesktop-account-go {
+        color     : var(--webdesktop-ink-dim);
+        opacity   : 0;
+        transform : translateX(-6px);
+        transition: opacity var(--motion-fast) var(--ease-out-soft), transform var(--motion-base) var(--ease-out-soft);
+    }
+}

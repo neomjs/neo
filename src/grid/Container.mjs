@@ -431,6 +431,10 @@ class GridContainer extends BaseContainer {
         me._columns = me.createColumns(me.columns);
         me.updateColCount();
 
+        // The View registers its selection model while it is created above, before this container has an
+        // ariaWrapper to write on; the model states aria-multiselectable as soon as the root exists.
+        me.view.selectionModel?.syncAriaMultiselectable();
+
         me.syncSearchToolbar();
 
         me.syncValueBandingFields();
@@ -667,7 +671,11 @@ class GridContainer extends BaseContainer {
      */
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
-        oldValue !== undefined && this.addResizeObserver(value);
+
+        if (oldValue !== undefined) {
+            this.addResizeObserver(value);
+            this.getPlugin('grid-cell-editing')?.onOwnerMountedChange(value)
+        }
 
         let {scrollManager} = this;
 
@@ -750,7 +758,8 @@ class GridContainer extends BaseContainer {
 
     /**
      * Triggered after the store config got changed.
-     * Automatically infers the `isTreeGrid` state based on the store's type.
+     * Automatically infers the `isTreeGrid` state based on the store's type, and hands the store to the bodies,
+     * scrollbar, view, toolbars and the columns that declare a `store` config.
      * @param {Neo.data.Store|Neo.data.TreeStore|null} value
      * @param {Neo.data.Store|Neo.data.TreeStore|null} oldValue
      * @protected
@@ -783,6 +792,9 @@ class GridContainer extends BaseContainer {
         }
 
         if (me.searchToolbar && me.searchToolbar.store !== value) me.searchToolbar.store = value;
+
+        // columns that declare a store config (animatedChange) follow it; any other must not gain a property
+        me.columns?.items?.forEach(column => {if (column.isConfig('store')) column.store = value});
 
         me.syncValueBandingFields();
         me.syncFilteredHeaders()
@@ -834,11 +846,12 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     * @summary Keeps the ScrollManager realm aligned on initial attachment and later window transfers.
+     * @summary Keeps the ScrollManager realm and the columns aligned on initial attachment and later window transfers.
      *
      * Grids can be constructed while detached, so their first real `windowId` transition is
      * `null` → id. Forwarding only when `oldValue` was truthy left the ScrollManager permanently
      * windowless and routed its main-thread addon registrations through the first-port fallback.
+     * Columns are not components, so no container cascade reaches them; each loads its theme files when its id arrives.
      * Triggered after the windowId config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
@@ -849,9 +862,13 @@ class GridContainer extends BaseContainer {
 
         let {scrollManager} = this;
 
+        this._columns?.items?.forEach(column => {column.windowId = value});
+
         if (scrollManager) {
             scrollManager.windowId = value
         }
+
+        this.getPlugin('grid-cell-editing')?.onOwnerWindowIdChange(value, oldValue)
     }
 
     /**
@@ -1419,7 +1436,8 @@ class GridContainer extends BaseContainer {
      * `mode: 'export'` yields the column's `exportRenderer({record, value})` when it has one, else the record's
      * value. `undefined` becomes `null`, and an object or array that is not a `Date` becomes its JSON text, so a
      * serializer formats only strings, numbers, booleans, dates and `null`. `mode: 'raw'` skips export formatting;
-     * for a raw Turbo Mode row, the Store resolves requested complex model fields on a copy before the column reads it.
+     * for a raw Turbo Mode row, the Store resolves the requested model fields on a copy (`Neo.data.Store#resolveRow()`),
+     * so the column reads what the row's record holds.
      *
      * @example
      *     grid.getCellValues();                                          // every record × every column

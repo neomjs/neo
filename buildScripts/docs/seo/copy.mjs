@@ -21,6 +21,7 @@ const
         'llms-all.txt',
         'sitemap.xml',
         'sitemap-core.xml',
+        'sitemap-discussions.xml',
         'sitemap-archive.xml'
     ];
 

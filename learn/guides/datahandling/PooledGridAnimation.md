@@ -1,3 +1,7 @@
+---
+seoTitle: "Virtual Scrolling & Pooled Row Animation in JavaScript Data Grids | Neo.mjs"
+seoDescription: "Animate TreeGrid expand and collapse transitions in virtualized JavaScript data grids using snapshot overlays without breaking fixed DOM row pooling."
+---
 # Pooled Grid Animation Contract
 
 Neo grids virtualize rows by recycling a fixed DOM pool. That is the right default for

@@ -1,0 +1,14 @@
+:where(.neo-theme-neo-dark) { // .neo-timeline-cell / .neo-timeline-bar
+    --neo-timeline-gridline-color         : rgba(255, 255, 255, 0.05);
+    --neo-timeline-gridline-step          : 120px;
+    --neo-timeline-bar-background         : #1e3346;
+    --neo-timeline-bar-border-color       : #38bdf8;
+    --neo-timeline-bar-hover-border-color : #5eead4;
+    --neo-timeline-bar-progress-background: rgba(94, 234, 212, 0.22);
+    --neo-timeline-bar-color              : #e3e8f0;
+    --neo-timeline-bar-radius             : 4px;
+    --neo-timeline-bar-shadow             : 0 1px 2px rgba(0, 0, 0, 0.35);
+    --neo-timeline-focus-color            : #5eead4;
+    --neo-timeline-non-working-bg         : rgba(255, 255, 255, 0.03);
+    --neo-timeline-non-working-border     : rgba(255, 255, 255, 0.06);
+}

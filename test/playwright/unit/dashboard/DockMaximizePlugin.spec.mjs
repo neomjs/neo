@@ -416,16 +416,18 @@ test.describe('dock maximize as a declinable plugin', () => {
         return {plugin, shell}
     };
 
-    for (const descriptor of [
-        {operation: 'setActiveItem', tabsNodeId: 'main-tabs', itemId: 'beta'},
-        {operation: 'moveItem', itemId: 'beta', targetNodeId: 'main-tabs', index: 0},
-        {operation: 'closeItem', itemId: 'alpha'}
+    for (const [descriptor, staged] of [
+        [{operation: 'setActiveItem', tabsNodeId: 'main-tabs', itemId: 'beta'}, false],
+        [{operation: 'moveItem', itemId: 'beta', targetNodeId: 'main-tabs', index: 0}, true],
+        [{operation: 'closeItem', itemId: 'alpha'}, true]
     ]) {
-        test(`a maximized node keeps its class through the staged refresh of a ${descriptor.operation} confined to it`, async () => {
+        test(`a maximized node keeps its class through the ${staged ? 'staged' : 'in-place'} refresh of a ${descriptor.operation} confined to it`, async () => {
             const {plugin, shell} = await commitWhileMaximized(descriptor),
                   node            = workspace.dockModel.nodes['main-tabs'];
 
-            expect(workspace.items[0], 'the commit took the staged transaction, which re-derives a retained node\'s cls').not.toBe(shell);
+            staged
+                ? expect(workspace.items[0], 'the commit took the staged transaction, which re-derives a retained node\'s cls').not.toBe(shell)
+                : expect(workspace.items[0], 'an activation lands in place, so nothing re-derives the cls').toBe(shell);
             expect(tabsOf('main-tabs').activeIndex, 'and projected the commit').toBe(node.items.indexOf(node.activeItemId));
             expect(plugin.maximizedNodeId).toBe('main-tabs');
             expect(tabsOf('main-tabs').cls, 'so the pane never lays out at its docked size').toContain('neo-dock-maximized');

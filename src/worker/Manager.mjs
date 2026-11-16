@@ -294,23 +294,20 @@ class Manager extends Base {
      * document base beside its location, so workspace connections honor the page's base element.
      */
     createWorkers() {
-        let me                   = this,
-            config               = Neo.clone(NeoConfig, true),
-            {hash, href, search} = location,
-            {windowId}           = me,
-            ssrData              = window.__NEO_SSR__,
+        let me             = this,
+            config         = Neo.clone(NeoConfig, true),
+            {href, search} = location,
+            {windowId}     = me,
+            route          = DomEvents.getRouteConfig(windowId),
+            ssrData        = window.__NEO_SSR__,
             key, value;
 
         // remove configs which are not relevant for the workers scope
         delete config.cesiumJsToken;
 
-        // pass the initial hash value as Neo.configs
-        if (hash) {
-            config.hash = {
-                hash      : DomEvents.parseHash(hash.substring(1)),
-                hashString: hash.substring(1),
-                windowId
-            }
+        // pass the initial route as Neo.configs
+        if (route) {
+            config.hash = route
         }
 
         config.url = {base: document.baseURI, href, search};
@@ -412,9 +409,10 @@ class Manager extends Base {
      *
      * This helper method centralizes the logic for both standard VDOM updates and direct `App.applyDeltas` calls.
      * Its primary purpose is to enforce the **"delayed reply"** pattern:
-     * - If the update contains visual changes (deltas), it registers a promise and queues the update for the next animation frame.
+     * - If the update contains DOM deltas or component metadata, it registers a promise and queues the update for the next animation frame.
      *   The reply to the worker is sent only *after* the main thread has processed the queue, ensuring the DOM is updated.
-     * - If the update is a no-op (zero deltas), it sends an immediate reply to avoid unnecessary latency.
+     *   Metadata-only updates still run Main's before/after-delta hooks.
+     * - If the update has neither deltas nor metadata entries, it sends an immediate reply to avoid unnecessary latency.
      *
      * This method also handles the firing of the `updateVdom` event, which triggers the actual processing in `Main.mjs`.
      *
@@ -425,9 +423,9 @@ class Manager extends Base {
      *                                  If false, constructs a new success reply (App worker path).
      */
     handleDomUpdate(data, deltas, replyDest, forward=false) {
-        let me = this;
+        const me = this, payload = forward ? data.data : data;
 
-        if (deltas?.length > 0) {
+        if (deltas?.length > 0 || Object.keys(payload.meta || {}).length > 0) {
             me.promiseForwardMessage(data).then(msgData => {
                 me.sendMessage(replyDest, forward ? msgData : {action: 'reply', replyId: msgData.id, success: true})
             }).catch(({originalData, error}) => {
@@ -872,19 +870,16 @@ class Manager extends Base {
         item.worker = me.createWorker(item);
 
         // 3. Register Config
-        let config               = Neo.clone(NeoConfig, true),
-            {hash, href, search} = location,
-            {windowId}           = me;
+        let config         = Neo.clone(NeoConfig, true),
+            {href, search} = location,
+            {windowId}     = me,
+            route          = DomEvents.getRouteConfig(windowId);
 
         delete config.cesiumJsToken;
         config.url = {base: document.baseURI, href, search};
 
-        if (hash) {
-            config.hash = {
-                hash      : DomEvents.parseHash(hash.substring(1)),
-                hashString: hash.substring(1),
-                windowId
-            }
+        if (route) {
+            config.hash = route
         }
 
         let workerConfig = {...config, windowId};

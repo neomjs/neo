@@ -121,7 +121,8 @@ class Button extends Component {
          */
         menu_: null,
         /**
-         * The pressed state of the Button
+         * The pressed state of the Button. `null` marks a plain button (no toggle semantics),
+         * a Boolean value renders the `aria-pressed` attribute for assistive technology.
          * @member {Boolean|null} pressed_=null
          * @reactive
          */
@@ -382,20 +383,42 @@ class Button extends Component {
      * @protected
      */
     afterSetPressed(value, oldValue) {
-        let me       = this,
-            cls      = me.cls,
-            vdomRoot = me.getVdomRoot();
+        this.syncAriaPressedState();
+        this.updatePressedCls(value === true)
+    }
 
-        NeoArray.toggle(cls, 'pressed', value === true);
+    /**
+     * @summary Reconciles `aria-pressed` when the explicit ARIA role changes.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetRole(value, oldValue) {
+        this.syncAriaPressedState();
+        super.afterSetRole(value, oldValue)
+    }
 
-        if (Neo.isBoolean(value)) {
-            vdomRoot['aria-pressed'] = String(value)
+    /**
+     * Toggles the pressed CSS class and publishes it together with the `aria-pressed` state
+     * written by `afterSetPressed`, so one transition sends one update. Subclasses with a role
+     * other than `button` (e.g. tab headers, which state their selection through `aria-selected`)
+     * skip the `aria-pressed` projection while reusing this.
+     * @param {Boolean} pressed
+     * @protected
+     */
+    updatePressedCls(pressed) {
+        let cls    = this.cls,
+            hadCls = NeoArray.hasItem(cls, 'pressed');
+
+        NeoArray.toggle(cls, 'pressed', pressed);
+
+        if (hadCls === pressed) {
+            // a null <-> false transition does not change the class list, so the cls
+            // assignment would not fire afterSetCls — send the update directly
+            this.update()
         } else {
-            delete vdomRoot['aria-pressed']
+            this.cls = cls // afterSetCls publishes the class change and the attribute together
         }
-
-        me.cls = cls;
-        me.update()
     }
 
     /**
@@ -670,6 +693,21 @@ class Button extends Component {
     }
 
     /**
+     * @summary Reconciles `aria-pressed` with the Button's effective root tag and role.
+     * @protected
+     */
+    syncAriaPressedState() {
+        let vdomRoot = this.getVdomRoot(),
+            {role}   = this;
+
+        if (vdomRoot.tag === 'button' && (!role || role === 'button') && this.pressed !== null) {
+            vdomRoot['aria-pressed'] = String(this.pressed === true)
+        } else {
+            delete vdomRoot['aria-pressed']
+        }
+    }
+
+    /**
      * @summary Reconciles the native disabled attribute with the Button's effective root tag.
      *
      * Button roots are polymorphic: URL and non-editing route configs render anchors, while the
@@ -719,6 +757,7 @@ class Button extends Component {
             delete vdomRoot.target
         }
 
+        me.syncAriaPressedState();
         me.syncNativeDisabledState();
         me.update()
     }

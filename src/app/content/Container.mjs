@@ -2,10 +2,12 @@ import {isDescriptor, mergeFrom} from '../../core/ConfigSymbols.mjs';
 import Container                 from '../../container/Base.mjs';
 import PageContainer             from './PageContainer.mjs';
 import SectionsContainer         from './SectionsContainer.mjs';
-import Splitter                  from '../../component/Splitter.mjs';
+import Splitter                  from './Splitter.mjs';
 import TreeList                  from './TreeList.mjs';
 
 /**
+ * @summary Renders the article before navigation while CSS preserves the visual column order.
+ *
  * @class Neo.app.content.Container
  * @extends Neo.container.Base
  */
@@ -36,7 +38,7 @@ class MainContainer extends Container {
                     layout   : 'fit',
                     reference: 'sidenav-container',
                     tag      : 'aside',
-                    weight   : 10,
+                    weight   : 40,
                     items    : {
                         tree: {
                             module     : TreeList,
@@ -57,18 +59,18 @@ class MainContainer extends Container {
                     module      : Splitter,
                     bind        : {hidden: data => data.size === 'x-small'},
                     cls         : ['main-content-splitter'],
-                    resizeTarget: 'previous',
+                    resizeTarget: 'next',
                     size        : 3,
-                    weight      : 20
+                    weight      : 30
                 },
                 pageContainer: {
                     [mergeFrom]: 'pageContainerConfig',
-                    weight     : 30
+                    weight     : 10
                 },
                 'page-sections-container': {
                     module   : SectionsContainer,
                     reference: 'page-sections-container',
-                    weight   : 40
+                    weight   : 20
                 }
             }
         },

@@ -1,4 +1,8 @@
-# Neo.mjs Grids
+---
+seoTitle: "JavaScript Data Grid Guide: Virtual Scrolling & Pooled Cells | Neo.mjs"
+seoDescription: "Build high-performance JavaScript data grids with Neo.grid.Container: virtual scrolling, pooled DOM cells, sorting, header filters, and inline editing."
+---
+# JavaScript Data Grids: Virtual Scrolling & Pooled Cells
 
 The `Neo.grid.Container` is a powerful and highly performant component for displaying tabular data. It is designed to
 handle large datasets with ease, thanks to its virtual rendering engine, which only renders the DOM for the visible
@@ -598,6 +602,11 @@ const myGrid = Neo.create(GridContainer, {
 });
 ```
 
+To read a selection at the time of an action, like a toolbar button's handler, use `grid.view.selectedRecords`: the
+selected rows' records, or `[]` when the model selects cells or columns, or there is none. `grid.view.selectedRows`
+holds the grid's row ids instead, which are the store's internal ids while `useInternalId` is `true` (the default), not
+the record keys. To react to a change, listen to the model's `selectionChange` event, which carries the `records`.
+
 ## Cell Editing
 
 A grid that renders only what is visible meets a hard question the moment someone types into it. The cell under the
@@ -819,6 +828,128 @@ myGrid.getPlugin('grid-cell-editing').disabled = true;
 While a grid edits, the cells of its columns that cannot be edited carry `aria-readonly="true"`, and the editable ones
 carry nothing. The marks follow the configuration: a column turned non-editable at runtime is read-only in every
 rendered row, and a disabled or destroyed plugin leaves no cell read-only.
+
+## Exporting and Reading Cell Values
+
+A buffered grid renders only a window of its rows. The rows outside the window are not in the DOM, and the cells that are
+rendered hold markup made for display: a formatted date, a badge, a link. Reading either one back gives you a part of
+the data in a shape nobody asked for. So the grid never exports from the DOM. It reads the store, which holds every
+record, and it reads it the same way each time.
+
+That read is one value walk, `getCellValues()`. It returns cells as values, one array per record. `toCsv()` serializes
+that walk to text, and `exportCsv()` hands the text to the browser as a download. Because every reader goes through the
+same walk, a CSV file, the clipboard, a spreadsheet writer and an agent all get the same value for the same cell.
+
+### CSV Text with `toCsv()`
+
+`toCsv()` returns the grid's CSV as a String. It does not download anything, so you can show it, copy it or send it to a
+server.
+
+```javascript readonly
+myGrid.toCsv();                        // 'Name,Revenue\r\nAda,10\r\n…'
+myGrid.toCsv({delimiter: ';'});        // the same text, with ';' between fields
+myGrid.toCsv({header: false});         // rows only
+myGrid.toCsv({escapeFormulas: false}); // formula-like strings unchanged
+```
+
+It takes three options.
+
+| Option | Default | What it does |
+|---|---|---|
+| `delimiter` | `','` | The field separator. Use `';'` for spreadsheets in locales that write a decimal comma. |
+| `escapeFormulas` | `true` | Prefixes a leading `'` to string cells that start with `=`, `+`, `-`, `@`, a tab or a CR. |
+| `header` | `true` | Writes a first line with each column's header text, or its `dataField` when it has none. `false` omits it. |
+
+`escapeFormulas` exists because a spreadsheet runs a cell that starts with `=` as a formula, and the text in your store
+may have come from a user. With the prefix, the spreadsheet shows the text and runs nothing. Numbers are never prefixed,
+so `-5` stays `-5`. Set `escapeFormulas: false` only when the file is for a reader that is not a spreadsheet: it writes
+formula-like strings unchanged.
+
+What ends up in the text follows from the walk:
+
+- **Rows.** One line per store record, in the store's current filter and sort. Rows the grid has not rendered are
+  included. The store holds the data, and the rendered rows are only a window onto it.
+- **Columns.** The grid's columns in display order: locked start, center, then locked end. Only a column with a
+  `dataField` is included, in `dataFields` order.
+- **Cells.** The value `getCellValues()` yields in `export` mode: `record.get(dataField)`, or the return value of the
+  column's `exportRenderer({record, value})` when it has one.
+
+Quoting follows RFC 4180. A field that contains the delimiter, a double quote, a CR or an LF is wrapped in double
+quotes, and its inner quotes are doubled. Lines are separated by CRLF, with no line break after the last one. A `Date` becomes an ISO 8601 string, and `null`
+or `undefined` becomes an empty field.
+
+### Downloading with `exportCsv()`
+
+`exportCsv()` builds the same text and downloads it as a file. It takes the `toCsv()` options plus `fileName`, which
+defaults to `'export.csv'`. It is async, and the Promise resolves `true` once the browser has the download.
+
+```javascript readonly
+await myGrid.exportCsv({fileName: 'revenue.csv', delimiter: ';'});
+```
+
+A grid lives in the App Worker, and a worker has no DOM, so it cannot start a download. `exportCsv()` therefore sends
+the text to `Neo.main.addon.FileDownload` on the main thread of the grid's window. The addon wraps it in a Blob and
+clicks a hidden anchor that carries `download`. That works in every browser, and it shows no file picker and asks for no
+permission.
+
+You set nothing up. The addon loads on demand the first time you export, so an app that never exports never loads it,
+and you do not register it as a main-thread addon.
+
+### Exported Values with `exportRenderer`
+
+A column's `renderer` returns markup for the screen. Markup is the wrong thing to put in a file, so a `renderer` is
+never exported. Without an `exportRenderer`, a cell exports the record's value, `record.get(dataField)`. A dotted
+`dataField` such as `address.city` exports the nested value.
+
+A column whose exported value needs formatting sets `exportRenderer`. It receives `{record, value}`, and what it
+returns replaces the record's value for that cell.
+
+```javascript readonly
+columns: [{
+    dataField: 'revenue',
+    text     : 'Revenue',
+
+    // Display: markup, null-safe
+    renderer: ({value}) => value == null ? '' : `<span class="revenue">$${value.toFixed(2)}</span>`,
+
+    // Export: plain text, so the file holds `12.50` or `n/a`, never a `<span>`
+    exportRenderer: ({value}) => value == null ? 'n/a' : value.toFixed(2)
+}]
+```
+
+### Reading Cells with `getCellValues()`
+
+`getCellValues()` returns the cells of the grid as values: `values[rowIndex][columnIndex]`, one array per record and
+one value per column.
+
+```javascript readonly
+myGrid.getCellValues();                                          // every record × every column
+myGrid.getCellValues({dataFields: ['name'], records: [record]}); // [['Ada']]
+```
+
+| Option | Default | What it does |
+|---|---|---|
+| `dataFields` | `myGrid.dataFields` | The columns to read, in the order given. |
+| `mode` | `'export'` | How a cell turns into a value. See the table below. |
+| `records` | `myGrid.store.items` | The rows to read, in the order given. Every store record, in the current filter and sort order. |
+
+`myGrid.dataFields` is a read-only getter. It holds the `dataField` of every column that has one, in display order:
+locked start, center, locked end. Because `getCellValues()` reads these by default, `values[row][column]` maps back to
+a column. Pass `dataFields` and `records` to read just a part of the grid; the values come back in the order given.
+`records` accepts records, or raw row objects when the store runs in Turbo Mode.
+
+The default `mode` is `'export'`. There are two modes, and any other mode throws an `unknown mode` error.
+
+| Mode | The value of a cell |
+|---|---|
+| `'export'` (default) | The column's `exportRenderer` result when it has one, else the record's value. `undefined` becomes `null`, and an object or array that is not a `Date` becomes its JSON text. The result holds only strings, numbers, booleans, dates and `null`, which is what a serializer formats. A `dataField` that no column carries yields `null`. |
+| `'raw'` | The record's value, untouched. `exportRenderer` is ignored, objects stay objects and dates stay `Date` instances. A `dataField` that no column carries yields `undefined`. |
+
+In `'raw'` mode, a raw Turbo Mode row is not turned into a record. The store resolves the requested model fields on a
+copy, so the column reads what the row's record holds.
+
+`toCsv()` is this walk, serialized. A reader that needs a different value adds an `exportRenderer` to the column. It
+does not walk the records itself.
 
 ## Performance and Big Data
 

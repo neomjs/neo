@@ -7,18 +7,30 @@ import Neo            from '../../../../../src/Neo.mjs';
 import * as core      from '../../../../../src/core/_export.mjs';
 import HighlightJs    from '../../../../../src/util/HighlightJs.mjs';
 
-const originalDocument = globalThis.document,
-    previousDomAccess  = Neo.main?.DomAccess;
+const importDocument  = globalThis.document,
+    previousDomAccess = Neo.main?.DomAccess;
+let DomAccess, HighlightJS;
+
+// Main imports need a DOM facade while they initialize; it is not the lifetime of a test group.
 globalThis.document = new EventTarget();
 globalThis.document.baseURI = 'https://example.test/apps/demo/index.html';
 previousDomAccess && delete Neo.main.DomAccess;
-const {default: DomAccess}   = await import('../../../../../src/main/DomAccess.mjs');
-const {default: HighlightJS} = await import('../../../../../src/main/addon/HighlightJS.mjs');
+try {
+    ({default: DomAccess}   = await import('../../../../../src/main/DomAccess.mjs'));
+    ({default: HighlightJS} = await import('../../../../../src/main/addon/HighlightJS.mjs'))
+} finally {
+    importDocument === undefined ? delete globalThis.document : globalThis.document = importDocument;
+    previousDomAccess && (Neo.main.DomAccess = previousDomAccess)
+}
 
-test.describe('Neo.main.addon.HighlightJS resource loading', () => {
-    let originalBase, originalHljs, originalLoad, originalScript, originalStylesheet, originalUtilHljs;
+test.describe('Neo.main.addon.HighlightJS resources and line lifetime', () => {
+    let originalBase, originalHljs, originalLoad, originalScript, originalStylesheet, originalUtilHljs, originalDocument;
 
+    // A parallel worker can re-enter this cached module after another group has finished.
     test.beforeEach(() => {
+        originalDocument = globalThis.document;
+        globalThis.document = new EventTarget();
+        globalThis.document.baseURI = 'https://example.test/apps/demo/index.html';
         originalBase       = Neo.config.basePath;
         originalHljs       = globalThis.hljs;
         originalLoad       = HighlightJs.load;
@@ -34,12 +46,8 @@ test.describe('Neo.main.addon.HighlightJS resource loading', () => {
         HighlightJs.hljs                = originalUtilHljs;
         DomAccess.loadScript            = originalScript;
         Neo.main.addon.Stylesheet       = originalStylesheet;
-        originalHljs === undefined ? delete globalThis.hljs : globalThis.hljs = originalHljs
-    });
-
-    test.afterAll(() => {
-        originalDocument === undefined ? delete globalThis.document : globalThis.document = originalDocument;
-        previousDomAccess && (Neo.main.DomAccess = previousDomAccess)
+        originalHljs === undefined ? delete globalThis.hljs : globalThis.hljs = originalHljs;
+        originalDocument === undefined ? delete globalThis.document : globalThis.document = originalDocument
     });
 
     test('default loads the shared module before the line-number plugin', async () => {
@@ -104,5 +112,55 @@ test.describe('Neo.main.addon.HighlightJS resource loading', () => {
             '/custom/theme.css'
         ]);
         expect(addon.themePath).toBe('/custom/theme.css')
+    });
+
+    for (const operation of ['addLine', 'removeLine']) {
+        test(`a late ${operation} request for a removed code leaf does no DOM work (#20869)`, () => {
+            const lookups = [];
+            document.getElementById = id => {lookups.push(id); return null};
+
+            expect(() => HighlightJS.prototype.syntaxHighlightLine.call({isReady: true}, {
+                vnodeId: 'retired-code-leaf', [operation]: 20
+            })).not.toThrow();
+            expect(lookups).toEqual(['retired-code-leaf'])
+        })
+    }
+
+    test('a mounted code leaf adds and removes line marks and scrolls only the added line', () => {
+        const added = new Set(), removed = new Set(['neo-highlighted-line']), scrolls = [], selectors = [],
+              rows  = {
+                  '[data-line-number="20"]': {parentNode: {
+                      classList     : {add: cls => added.add(cls)},
+                      scrollIntoView: options => scrolls.push({line: 20, options})
+                  }},
+                  '[data-line-number="1"]': {parentNode: {
+                      classList     : {remove: cls => removed.delete(cls)},
+                      scrollIntoView: () => {throw new Error('removing a line must not scroll')}
+                  }}
+              };
+        document.getElementById = id => {
+            expect(id).toBe('mounted-code-leaf');
+            return {querySelector: selector => {selectors.push(selector); return rows[selector]}}
+        };
+
+        HighlightJS.prototype.syntaxHighlightLine.call({isReady: true}, {
+            vnodeId: 'mounted-code-leaf', addLine: 20, removeLine: 1
+        });
+
+        expect([...added]).toEqual(['neo-highlighted-line']);
+        expect([...removed]).toEqual([]);
+        expect(selectors).toEqual(['[data-line-number="20"]', '[data-line-number="1"]']);
+        expect(scrolls).toEqual([{line: 20, options: {behavior: 'smooth', block: 'start', inline: 'nearest'}}])
+    });
+
+    test('library readiness caches the original line request before any DOM lookup', () => {
+        const data  = {vnodeId: 'not-published-yet', addLine: 20, removeLine: 1},
+              calls = [], queued = Promise.resolve(),
+              addon = {isReady: false, cacheMethodCall: call => {calls.push(call); return queued}};
+        document.getElementById = () => {throw new Error('DOM lookup before the library is ready')};
+
+        expect(HighlightJS.prototype.syntaxHighlightLine.call(addon, data)).toBe(queued);
+        expect(calls).toEqual([{fn: 'syntaxHighlightLine', data}]);
+        expect(calls[0].data).toBe(data)
     });
 });

@@ -1,0 +1,13 @@
+:where(.neo-theme-light) { // .neo-timeline-event-editor
+    --neo-timeline-editor-width                : 440px;
+    --neo-timeline-editor-background           : var(--grid-container-cell-background-color, #ffffff);
+    --neo-timeline-editor-border-color         : var(--dialog-border-color, #ddd);
+    --neo-timeline-editor-color                : #1f2933;
+    --neo-timeline-editor-radius               : 4px;
+    --neo-timeline-editor-shadow               : var(--dialog-box-shadow, 0 8px 24px rgba(0, 0, 0, 0.18));
+    --neo-timeline-editor-font-family          : var(--neo-font-family);
+    --neo-timeline-editor-font-size            : 14px;
+    --neo-timeline-editor-accent-color         : var(--button-text-color, #1c60a0);
+    --neo-timeline-editor-accent-contrast-color: var(--button-background-color, #ffffff);
+    --neo-timeline-editor-cancel-background    : var(--grid-container-cell-background-color-even, #f2f2f2);
+}

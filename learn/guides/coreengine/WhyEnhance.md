@@ -1,3 +1,7 @@
+---
+seoTitle: "Reactive JavaScript Class System for Web Worker UIs | Neo.mjs"
+seoDescription: "Why Neo.mjs enhances ES6 classes with Neo.create() and construct(): solving the super() initialization trap for declarative configs and reactivity."
+---
 # Why Enhance JS Classes? (`construct` vs `constructor`)
 
 When building a high-performance, multi-threaded application platform like Neo.mjs, the vanilla JavaScript `class` system quickly hits an architectural wall. While ES6 classes are a vast improvement over raw prototype manipulation, they lack the built-in mechanisms required for a declarative UI engine: automated reactivity, a unified initialization lifecycle, and robust configuration merging.
@@ -6,9 +10,9 @@ The most significant limitation arises from the native initialization sequence i
 
 ## The `constructor` Trap in Native JS
 
-In native JavaScript, class fields (properties defined directly on the class body) are initialized *after* the `super()` call to the parent constructor finishes. 
+In native JavaScript, class fields (properties defined directly on the class body) are initialized *after* the `super()` call to the parent constructor finishes.
 
-This creates a fundamental "chicken and egg" problem when you want a generic base class to automatically handle configurations provided by its specialized subclasses. 
+This creates a fundamental "chicken and egg" problem when you want a generic base class to automatically handle configurations provided by its specialized subclasses.
 
 Consider this standard JS example:
 
@@ -18,7 +22,7 @@ class BaseComponent {
         // Attempting to merge provided config with class defaults.
         // The problem: SubComponent hasn't initialized `this.defaultColor` yet!
         this.color = config.color || this.defaultColor;
-        
+
         console.log('Base constructor called. Color is:', this.color);
     }
 }

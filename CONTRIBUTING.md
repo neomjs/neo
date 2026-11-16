@@ -98,13 +98,17 @@ Neo.mjs thrives on community engagement. One of the most impactful ways to contr
 4.  **Represent Neo.mjs:** Interested in giving a talk or a workshop at a developer conference? We'd love to support you. Just reach out!
 5.  **Uphold our values:** Please stick to our <a href=".github/CODE_OF_CONDUCT.md">Code of Conduct</a> in all interactions.
 
-### 2.  Use the issues tracker
-1. In case you got an idea for a new feature
-2. In case you find a bug
-    1. Ideally, you create a new breaking test inside the tests folder.
-    This saves a lot of time and ensures the bug will stay fixed once the ticket is resolved.
-3. Please like or comment on current tickets.
-    This is a great help to figure out which tickets are the most important ones for the Neo.mjs community.
+### 2. Ways to take part
+
+| You … | Do this | What happens next |
+|---|---|---|
+| found a bug | open a [bug report](https://github.com/neomjs/neo/issues/new/choose) (the issue chooser's first entry) | a maintainer answers and labels it. If you want to fix it yourself, say so in the report |
+| have an idea for a feature | start a Discussion in [Ideas](https://github.com/neomjs/neo/discussions/categories/ideas) | maintainers and contributors shape it there; an idea that has settled becomes a ticket |
+| want to join a design conversation | comment on an open Discussion in [Ideas](https://github.com/neomjs/neo/discussions/categories/ideas) | nothing to ask for: design threads are open to everyone |
+| have a question | ask in [Q&A](https://github.com/neomjs/neo/discussions/categories/q-a) | |
+| want to write code | take a curated issue ([item 3](#3--contribute-to-the-neomjs-code-base)) | |
+| built something with Neo.mjs | post it in [Show and tell](https://github.com/neomjs/neo/discussions/categories/show-and-tell) | |
+| want to talk to someone | join [Discord](https://discord.gg/6p8paPq) or [Slack](https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA) | Discord is the main room and keeps a searchable history; Slack is real-time chat and keeps 90 days |
 
 ### 3.  Contribute to the Neo.mjs code base
 
@@ -117,29 +121,44 @@ independently: this one as the `neo.mjs` npm package, the Brain as container ima
 1. **Looking for somewhere to start?** Take an issue labelled <a href="../../issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22">good first issue</a>
    or <a href="../../issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22">help wanted</a>: comment on one to claim it (see 3).
    No approval round needed; they are already approved. Most carry both labels, and both are open to you whether this
-   is your first pull request or your tenth. Good first issue means the ticket holds everything you need to finish it;
+   is your first pull request or your tenth.
+   Maintainers could resolve these themselves. We leave them open because contributing is the fastest way to get to know
+   the engine, so read `help wanted` as "help accepted".
+   Good first issue means the ticket holds everything you need to finish it;
    it is no promise that the work is small. An unassigned issue in the roadmap's milestone works the same way.
 
    **The listed issues are already claimed, or nothing fits?** Ask in <a href="https://github.com/neomjs/neo/discussions/categories/q-a">Q&A</a>.
    Tell us which example you tried and what area you would like to work on, so we can help you find an existing Engine issue.
-2. For a new idea or bug without an existing ticket, please create an issue inside our <a href="../../issues">Issues Tracker</a> first and wait for approval.
-   This ensures that your idea fits the scope of the project and makes it less likely to get a rejected PR.
+2. Every pull request needs an issue. For a bug without an existing ticket, open a bug report as described above;
+   that report is the issue for your fix. If you want to fix it yourself, say so in the report.
+   For a new idea, start a Discussion in [Ideas](https://github.com/neomjs/neo/discussions/categories/ideas) first;
+   once it has settled and becomes a ticket, a pull request can implement it.
    We will do our best to reply to new tickets within 7d max. In case we don't, feel free to bump the ticket.
 3. **Claim before you start.** To work on an existing ticket, comment there. An automatic reply tells you whether you
-   are first in line. On curated issues (`good first issue` and `help wanted`, one open curated claim at a time), a
-   first-in-line claim also assigns you automatically so the issue list shows it is taken: start right away. A
+   are first in line. On curated issues (`good first issue` and `help wanted`), the bot assigns the first eligible
+   claimant. You can hold one open curated claim in this repository, or two once you have five merged pull requests
+   across the public `neomjs` repositories. If your claim was declined, comment `/claim` here again once the
+   issue or one of your slots becomes free. The bot checks the current holders before assigning it. A
    maintainer can unassign and release a claim from an account that sprays them. You can open a PR without a claim,
    but we merge the first approve-worthy PR for a ticket, so if someone else holds it or gets there first, your work
    may not land. A claim is what protects your time.
-   To keep the project moving, a claim lasts 7 days, and any comment you leave on the ticket starts the 7 days again.
-   After 7 days without a word from you, the ticket may go to another contributor.
+   To keep the project moving, a claim lasts 3 days, and any comment you leave on the ticket starts the 3 days again.
+   After 3 days without a word from you, the ticket may go to another contributor.
 4. Please make sure that pull requests are always related to an issue inside our <a href="../../issues">Issues Tracker</a>.
    Every pull request resolves **one** issue and must include **`Resolves #<issue-id>` on its own line** in the PR
    description (`Fixes #N` and `Closes #N` are rejected by our `baseline / PR baseline` CI check). Opening a PR in the
-   GitHub web UI pre-fills <a href=".github/PULL_REQUEST_TEMPLATE.md">`.github/PULL_REQUEST_TEMPLATE.md`</a>; if you open
-   a PR via `gh pr create` or an AI coding agent, include the standalone `Resolves #<issue-id>` line (and for AI-authored
-   PRs, follow `.agents/skills/pull-request/SKILL.md` / `.agents/skills/pull-request/references/pull-request-workflow.md`
-   §9). You can verify a PR body locally with `npx neo-agent-skills-pr-body --body-file <path-to-body.md> --close-target-only`.
+   GitHub web UI pre-fills <a href=".github/PULL_REQUEST_TEMPLATE.md">`.github/PULL_REQUEST_TEMPLATE.md`</a> with the
+   same canonical structure used by `.agents/skills/pull-request/SKILL.md` (`Resolves #<issue-id>`, concise outcome
+   summary, `Evidence:`, `## AC Evidence`, `## Deltas from ticket`, `## Test Evidence`, `## Post-Merge Validation`, and
+   `Authored by `); if you open a PR via `gh pr create` or an AI coding agent, keep that structure and include the
+   standalone `Resolves #<issue-id>` line (for full details, see
+   `.agents/skills/pull-request/references/pull-request-workflow.md` §9). You can verify a PR body locally with
+   `npx neo-agent-skills-pr-body --body-file <path-to-body.md>` (or `--close-target-only` for non-AI human PRs).
+   After pushing a requested fix, leave a short comment on the PR saying what changed and which check you ran.
+   That gives the reviewer a clear handoff, especially if CI needs a maintainer to approve or rerun it.
+   If another merge into `dev` causes a conflict, the maintainer handling your review will coordinate the update.
+   We'll handle mechanical integration where we have permission and ask you when a resolution needs your judgment.
+   You can leave a mergeable branch as it is while it waits for review.
 5. Please create PRs for the `dev` branch, not for `main`.
 6. Please do not copy code from other frameworks / libraries. So far, the entire Neo.mjs code base is written from scratch.
     1. It is simply impossible to verify if contributed code is self-written.
@@ -154,7 +173,13 @@ independently: this one as the `neo.mjs` npm package, the Brain as container ima
 We actively welcome contributions from artificial intelligence, LLMs, and autonomous agent swarms (such as the [AI Village](https://github.com/neomjs/neo/issues/9535)). We are building the foundation for "Agentic UI"—making the web readable by humans, and **both readable and writable by machines**.
 
 **For Human Operators of AI Agents:**
-1. **Transparency:** If you use an AI agent to generate a Pull Request or formulate an issue, please briefly mention which model or agent framework was used (e.g., "Generated by Gemini 3.1 Pro," "Automated via Claude").
+1. **Transparency:** If an LLM or AI agent helped author or assist with a Pull Request, specify the **model, exact
+   version, reasoning effort (write `reasoning: default` if your tool exposes no effort setting), and agent
+   framework/harness** on the PR's `Authored by ` line (comma-separated — e.g.,
+   `Authored by @<github-handle> (Gemini 3.1 Pro, reasoning: high, Antigravity).` or
+   `Authored by @<github-handle> (Claude Sonnet 4.6, reasoning: default, Claude Code).`; write `(no LLM)` if no LLM was
+   used). **Why:** every PR naming a model lab is routed for **cross-rival-lab review** (reviewed by a maintainer running
+   a different lab's model; PRs naming no model may be reviewed by any maintainer).
 2. **Accountability:** You remain responsible for the code your agent submits. Please review generated PRs for architectural consistency and ensure they follow our <a href=".github/CODING_GUIDELINES.md">Coding Guidelines</a>.
 3. **Setup:** Your agent needs nothing beyond the clone above — `npm install` runs our `prepare` script and materializes
    our published `neo-agent-skills` workflows into `.agents/skills/` and `.claude/skills/` (if `--ignore-scripts` was
@@ -163,7 +188,7 @@ We actively welcome contributions from artificial intelligence, LLMs, and autono
    To go further, see the <a href=".github/AI_QUICK_START.md">AI Quick Start Guide</a> for our local Knowledge Base and Memory Core, and <a href="https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/StrategicWorkflows.md">Strategic Workflows</a> (in the Brain repository) for working effectively with the agents.
 
 **For Autonomous Agents (If you are reading this):**
-1. **Start here:** you need nothing private — no account, container or model provider. Run `npx -p neo-agent-skills neo-agent-skills-agents-md --repo neo --audience contributor` for what an outside agent should know first; the root `AGENTS.md`, which `npm install` generates from the [sections in neo-agent-skills](https://github.com/neomjs/neo-agent-skills/tree/dev/agents-md), is written for this project's own maintainer agents. Ensure `.agents/skills/` is materialized (`npm install` or `npm run prepare`), read `.agents/skills/unit-test/SKILL.md` before running tests, and read `.agents/skills/pull-request/SKILL.md` (`.agents/skills/pull-request/references/pull-request-workflow.md` §9) before committing or opening a PR — your PR body must carry a standalone `Resolves #<issue-id>` line (`Fixes #N` and `Closes #N` fail CI) and can be verified locally via `npx neo-agent-skills-pr-body --body-file <path-to-body.md>`.
+1. **Start here:** you need nothing private — no account, container or model provider. Run `npx -p neo-agent-skills neo-agent-skills-agents-md --repo neo --audience contributor` for what an outside agent should know first; the root `AGENTS.md`, which `npm install` generates from the [sections in neo-agent-skills](https://github.com/neomjs/neo-agent-skills/tree/dev/agents-md), is written for this project's own maintainer agents. Ensure `.agents/skills/` is materialized (`npm install` or `npm run prepare`), read `.agents/skills/unit-test/SKILL.md` before running tests, and read `.agents/skills/pull-request/SKILL.md` (`.agents/skills/pull-request/references/pull-request-workflow.md` §9) before committing or opening a PR — your PR body must carry a standalone `Resolves #<issue-id>` line (`Fixes #N` and `Closes #N` fail CI), include the required `§9.1` sections plus the exact model, version, reasoning effort (or `default`), and agent/harness on `Authored by ` (for cross-rival-lab review routing), and pass `npx neo-agent-skills-pr-body --body-file <path-to-body.md>`.
 2. **JSON-First UI:** Neo.mjs components are defined via JSON VDOM blueprints, not JSX or HTML templates. This makes structural manipulation and UI inspection mathematically natural for you.
 3. **The Neural Link:** We offer a bi-directional MCP bridge (`neo-agent-brain:ai/mcp/server/neural-link/`). You can query the live Scene Graph and manipulate the application state without modifying source code or reloading the browser. See our <a href=".github/AGENT_ARCHITECTURE.md">Agent Architecture</a> to learn how you can orchestrate our runtime.
 
