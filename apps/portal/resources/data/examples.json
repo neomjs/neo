@@ -72,7 +72,7 @@
             "Desktop",
             "Mobile"
         ],
-        "image": "devmode/treeGridBigData.png",
+        "image": "devmode/grid-tree-big-data-14.jpg",
         "name": "TreeGrid - Big Data",
         "sourceUrl": "examples/grid/treeBigData",
         "urls": {
@@ -114,7 +114,7 @@
             "Desktop",
             "Mobile"
         ],
-        "image": "devmode/bigData.png",
+        "image": "devmode/grid-big-data-14.jpg",
         "name": "Buffered Data Grid with 5M cells",
         "sourceUrl": "examples/grid/bigData",
         "urls": {
@@ -136,7 +136,7 @@
             "Desktop",
             "Mobile"
         ],
-        "image": "devmode/grid-issues-13-3.jpg",
+        "image": "devmode/grid-issues-14.jpg",
         "name": "GitHub Issues Grid",
         "sourceUrl": "examples/grid/issues",
         "urls": {
@@ -405,7 +405,7 @@
     {
         "id": "table-filtering",
         "featured": true,
-        "image": "devmode/tableFiltering.png",
+        "image": "devmode/table-filtering-14.jpg",
         "name": "Table Filtering",
         "sourceUrl": "examples/tableFiltering",
         "urls": {
@@ -513,7 +513,7 @@
     },
     {
         "id": "grid-animated-row-sorting",
-        "image": null,
+        "image": "devmode/grid-animated-row-sorting-14.jpg",
         "name": "Animated Row Sorting",
         "sourceUrl": "examples/grid/animatedRowSorting",
         "urls": {
@@ -530,7 +530,7 @@
     },
     {
         "id": "grid-cell-editing",
-        "image": null,
+        "image": "devmode/grid-cell-editing-14.jpg",
         "name": "Grid Cell Editing",
         "sourceUrl": "examples/grid/cellEditing",
         "urls": {
@@ -547,7 +547,7 @@
     },
     {
         "id": "grid-container",
-        "image": null,
+        "image": "devmode/grid-container-14.jpg",
         "name": "Grid Selection Modes",
         "sourceUrl": "examples/grid/container",
         "urls": {
@@ -564,7 +564,7 @@
     },
     {
         "id": "grid-content-sized-rows",
-        "image": null,
+        "image": "devmode/grid-content-sized-rows-14.jpg",
         "name": "Content-Sized Grid Rows",
         "sourceUrl": "examples/grid/contentSizedRows",
         "urls": {
@@ -581,7 +581,7 @@
     },
     {
         "id": "grid-covid",
-        "image": null,
+        "image": "devmode/grid-covid-14.jpg",
         "name": "COVID-19 Country Grid",
         "sourceUrl": "examples/grid/covid",
         "urls": {
@@ -599,7 +599,7 @@
     },
     {
         "id": "grid-header-groups",
-        "image": null,
+        "image": "devmode/grid-header-groups-14.jpg",
         "name": "Grouped Grid Headers",
         "sourceUrl": "examples/grid/headerGroups",
         "urls": {
@@ -616,7 +616,7 @@
     },
     {
         "id": "grid-locked-columns",
-        "image": null,
+        "image": "devmode/grid-locked-columns-14.jpg",
         "name": "Locked Grid Columns",
         "sourceUrl": "examples/grid/lockedColumns",
         "urls": {
@@ -633,7 +633,7 @@
     },
     {
         "id": "grid-nested-record-fields",
-        "image": null,
+        "image": "devmode/grid-nested-record-fields-14.jpg",
         "name": "Nested Grid Records",
         "sourceUrl": "examples/grid/nestedRecordFields",
         "urls": {
@@ -650,7 +650,7 @@
     },
     {
         "id": "grid-tree",
-        "image": null,
+        "image": "devmode/grid-tree-14.jpg",
         "name": "Tree Grid",
         "sourceUrl": "examples/grid/tree",
         "urls": {
@@ -667,7 +667,7 @@
     },
     {
         "id": "grid-value-banding",
-        "image": null,
+        "image": "devmode/grid-value-banding-14.jpg",
         "name": "Grid Value Banding",
         "sourceUrl": "examples/grid/valueBanding",
         "urls": {
@@ -684,7 +684,7 @@
     },
     {
         "id": "json-grid-container",
-        "image": null,
+        "image": "devmode/json-grid-container-14.jpg",
         "name": "JSON-Defined Grid",
         "sourceUrl": "examples/serverside/gridContainer",
         "urls": {
@@ -702,7 +702,7 @@
     },
     {
         "id": "table-cell-editing",
-        "image": null,
+        "image": "devmode/table-cell-editing-14.jpg",
         "name": "Table Cell Editing",
         "sourceUrl": "examples/table/cellEditing",
         "urls": {
@@ -719,7 +719,7 @@
     },
     {
         "id": "table-container",
-        "image": null,
+        "image": "devmode/table-container-14.jpg",
         "name": "Table Configuration",
         "sourceUrl": "examples/table/container",
         "urls": {
@@ -736,7 +736,7 @@
     },
     {
         "id": "table-covid",
-        "image": null,
+        "image": "devmode/table-covid-14.jpg",
         "name": "COVID-19 Country Table",
         "sourceUrl": "examples/table/covid",
         "urls": {
@@ -754,7 +754,7 @@
     },
     {
         "id": "table-nested-record-fields",
-        "image": null,
+        "image": "devmode/table-nested-record-fields-14.jpg",
         "name": "Nested Table Records",
         "sourceUrl": "examples/table/nestedRecordFields",
         "urls": {
@@ -771,7 +771,7 @@
     },
     {
         "id": "table-store",
-        "image": null,
+        "image": "devmode/table-store-14.jpg",
         "name": "Table and Store Updates",
         "sourceUrl": "examples/tableStore",
         "urls": {
@@ -788,7 +788,7 @@
     },
     {
         "id": "table-performance",
-        "image": null,
+        "image": "devmode/table-performance-14.jpg",
         "name": "Table Refresh Performance",
         "sourceUrl": "examples/tablePerformance",
         "urls": {
