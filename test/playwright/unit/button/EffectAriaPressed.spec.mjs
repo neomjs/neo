@@ -60,4 +60,39 @@ test.describe('Neo.button.Effect aria-pressed (Node.js)', () => {
             tab.destroy()
         }
     });
+
+    test('a pressed toggle drops aria-pressed while it renders a link, and regains it as a button', () => {
+        const button = Neo.create(EffectButton, {text: 'Details', pressed: true});
+
+        try {
+            expect(button.vdom.tag).toBe('button');
+            expect(button.vdom['aria-pressed']).toBe('true');
+
+            button.url = 'https://neomjs.com';
+            expect(button.vdom.tag).toBe('a');
+            expect(button.vdom['aria-pressed']).toBeUndefined();
+            expect(button.vdom.cls).toContain('pressed');
+
+            button.url = null;
+            expect(button.vdom.tag).toBe('button');
+            expect(button.vdom['aria-pressed']).toBe('true');
+
+            button.pressed = false;
+            expect(button.vdom['aria-pressed']).toBe('false')
+        } finally {
+            button.destroy()
+        }
+    });
+
+    test('a pressed toggle with a route renders a link without aria-pressed', () => {
+        const button = Neo.create(EffectButton, {text: 'Details', route: '#details', editRoute: false, pressed: true});
+
+        try {
+            expect(button.vdom.tag).toBe('a');
+            expect(button.vdom.href).toBe('#details');
+            expect(button.vdom['aria-pressed']).toBeUndefined()
+        } finally {
+            button.destroy()
+        }
+    });
 });

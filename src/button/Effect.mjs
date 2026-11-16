@@ -240,8 +240,9 @@ class EffectButton extends Component {
                 cn     : me.getVdomChildren()
             };
 
-        // A Boolean marks a toggle and renders aria-pressed, null marks a plain button
-        if (me.pressed !== null) {
+        // A Boolean marks a toggle and renders aria-pressed, null marks a plain button.
+        // aria-pressed is only valid for the button role, so a link root omits it.
+        if (tag === 'button' && me.pressed !== null) {
             vdomConfig['aria-pressed'] = String(me.pressed === true)
         }
 
