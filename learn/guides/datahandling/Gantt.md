@@ -43,7 +43,7 @@ const dependencies = [
 
 class MainViewport extends Viewport {
     static config = {
-        className: 'MainViewport',
+        className: 'MyApp.view.MainViewport',
         layout   : {ntype: 'fit'},
         items    : [{
             module             : Gantt,
@@ -86,21 +86,22 @@ The data model for tasks is `Neo.gantt.TaskModel`. It extends `Neo.data.TreeMode
 - **`collapsed` (Boolean):** Controls the expansion state of child nodes in the tree column (defaults to `false`).
 - **`startDate` & `endDate` (Date | String):** ISO date strings or Date objects specifying the start and completion instants.
 - **`duration` (Number) & `durationUnit` (String):** Explicit span length (defaults to `'hour'`).
-- **`milestone` (Boolean):** When `true`, indicates a point-in-time milestone rendered as a diamond glyph rather than an extended bar.
+- **`milestone` (Boolean):** When `true`, indicates a point-in-time milestone rendered as a round marker rather than an extended bar.
 - **`percentDone` (Number):** Completion percentage from `0` to `100`, visually rendered as an interior progress fill on the task bar.
 
-Tasks are updated reactively using model setters. For example, moving a task by one day:
+Tasks are moved and updated through the chart so that dependencies cascade and change events fire. For example, moving a task by one day:
 
 ```javascript
-const task = gantt.store.get('task1');
-task.set({
-    startDate: '2026-11-10T00:00:00Z',
-    endDate  : '2026-11-11T00:00:00Z',
+gantt.moveTask('task1', {
+    startDate  : '2026-11-10T00:00:00Z',
+    endDate    : '2026-11-11T00:00:00Z',
     percentDone: 45
 });
 ```
 
-Because `TaskStore` is a hierarchical tree store, folding or unfolding summary nodes through `task.set({collapsed: true})` automatically toggles child row visibility in both the grid and timeline areas.
+A direct write on a record (`task.set(...)`) updates that record's data directly, but bypasses the cascade engine and fires no `taskChange` event.
+
+Because `TaskStore` is a hierarchical tree store, a parent folds through `gantt.store.collapse('phase1')` and opens through `gantt.store.expand('phase1')`, automatically toggling child row visibility in both the grid and timeline areas.
 
 ## 4. The Dependency Record
 
@@ -141,7 +142,7 @@ A positive `lag` creates mandatory downtime between tasks, while a negative lag 
 
 The cascade subsystem (`Neo.gantt.Cascade`) maintains schedule integrity whenever task dates change:
 
-- **Automated Propagation:** When `cascadeDependencies: true` (the default setting), modifying a task's dates triggers downstream topological recomputation. Successors shift forward to respect incoming constraints or shift backward if preceding tasks conclude ahead of schedule.
+- **Automated Propagation:** When `cascadeDependencies: true` (the default setting), an edit through the chart (dragging a bar, the editor, keyboard navigation, or `gantt.moveTask()`) triggers downstream topological recomputation. Successors shift forward to respect incoming constraints or shift backward if preceding tasks conclude ahead of schedule. A direct write on a record (`task.set(...)`) changes that record only without triggering a cascade.
 - **Manual Scheduling:** Setting `cascadeDependencies: false` disables automated propagation. Predecessor adjustments leave successor dates unchanged, allowing manual timeline adjustments.
 - **Cycle Detection:** When computing required dates, `Cascade` inspects incoming edges. If a circular loop is encountered, cycles are detected and broken in discovery order.
 
@@ -161,14 +162,14 @@ When a cascade completes, it returns an array of mutation descriptors:
 ]
 ```
 
-In the live example, advancing `Site Survey` by 24 hours automatically causes `Architectural Blueprint` and `Material Procurement` to shift forward by 24 hours in sequence. Disabling `cascadeDependencies` retains downstream tasks at their existing dates.
+In the chart above, advancing `Site Survey` by 24 hours automatically causes `Architectural Blueprint` and `Material Procurement` to shift forward by 24 hours in sequence. Disabling `cascadeDependencies` retains downstream tasks at their existing dates.
 
 ## 6. Working Time & Calendars
 
 Real-world schedules frequently observe non-working days such as weekends and holidays:
 
 - **`useWorkingTime: true`:** When enabled (defaults to `false`), durations and lags calculate against the calendar of `Neo.timeline.TimeAxis`.
-- **`nonWorkingDays`:** An array of day indices on `timeAxis` (e.g. `nonWorkingDays: [0, 6]` for Saturday and Sunday).
+- **`nonWorkingDays`:** An array of day indices on `timeAxis` (defaults to `[0, 6]` for Saturday and Sunday).
 - **Calendar Adjustments:** When active, tasks and lags that cross non-working intervals automatically stretch across the calendar without shortening the allocated working hours.
 - **Snapping:** Using `snapMinutes` ensures tasks align cleanly to shifts or hour boundaries.
 
@@ -176,7 +177,7 @@ Real-world schedules frequently observe non-working days such as weekends and ho
 
 `Neo.gantt.Container` provides direct gesture interaction for creating and adjusting links:
 
-- **`dependencyCreation: true`:** Enables interactive link drag handles on task bars. Users can click and drag from the edge of a predecessor task to connect to a successor task. This configuration can also be supplied as a filter function `({fromTask, toTask, fromEdge, toEdge}) => boolean` to enforce domain-specific link rules.
-- **`schedule` Service:** Applications can lend an optional schedule service to `Neo.gantt.Container` using the `schedule` configuration to intercept commits, provide multi-user synchronization, or validate enterprise business logic.
+- **`dependencyCreation: true`:** Enables interactive link drag handles on task bars. Users can click and drag from the edge of a predecessor task to connect to a successor task. This configuration can also be supplied as a filter function `(from, to) => Boolean` where both arguments are task records (with `to` being `null` while only the start of a prospective link is tested) to enforce domain-specific link rules.
+- **`schedule` Service:** An application can lend the chart a schedule service via the `schedule` config. The service decides and writes task edits and links itself, and can accept, defer, or refuse changes.
 
-To inspect a complete application with local persistence, zoom presets, and interactive toolbar controls, see the runnable [Gantt Basic Example](../../../examples/gantt/basic/index.html). For related data patterns, explore the guides for [Grids](Grids.md) and [TreeStore](TreeStore.md).
+To inspect a complete application with local persistence, zoom presets, and interactive toolbar controls, see the [Gantt Basic Example source](https://github.com/neomjs/neo/blob/dev/examples/gantt/basic/Viewport.mjs). For related data patterns, explore the guides for [Grids](Grids.md) and [TreeStore](TreeStore.md).
