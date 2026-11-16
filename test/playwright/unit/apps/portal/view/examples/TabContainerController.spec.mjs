@@ -78,8 +78,8 @@ test.describe('Portal examples family navigation', () => {
 
         expect(view.getTabButtons().map(button => button.text)).toEqual(['Featured', 'Grid & Table', 'Forms', 'Multi-Window', 'Calendar']);
         expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/grid', '/examples/forms', '/examples/multi-window', '/examples/calendar']);
-        expect(view.getCatalogStore().getCount()).toBe(75);
-        expect(view.getCard(0).store.getCount()).toBe(27);
+        expect(view.getCatalogStore().getCount()).toBe(76);
+        expect(view.getCard(0).store.getCount()).toBe(28);
         expect(view.getCard(0).store.items.map(record => record.id)).toEqual(featuredExampleIds);
         expect(view.getCard(1).store.getCount()).toBe(21);
         expect(view.getCard(2).store.getCount()).toBe(24);
@@ -174,7 +174,7 @@ test.describe('Portal examples family navigation', () => {
         expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples']);
         store.add(structuredClone(catalog));
         store.fire('load');
-        expect(view.getCard(0).store.getCount()).toBe(27);
+        expect(view.getCard(0).store.getCount()).toBe(28);
         expect(view.getCard(1).store.getCount()).toBe(21);
         expect(view.getCard(2).store.getCount()).toBe(24);
 
@@ -187,7 +187,7 @@ test.describe('Portal examples family navigation', () => {
 const catalog            = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'), 'utf8')),
       modes              = ['devmode', 'dist_dev', 'dist_esm', 'dist_prod'],
       featuredExampleIds = [
-          'workstation', 'devindex', 'grid-tree-big-data', 'shared-covid', 'grid-big-data', 'grid-issues',
+          'workstation', 'webdesktop', 'devindex', 'grid-tree-big-data', 'shared-covid', 'grid-big-data', 'grid-issues',
           'calendar', 'helix', 'multi-window-covid-gallery', 'offscreen-canvas', 'shared-offscreen-canvas',
           'multi-window-drag-drop', 'tab-container', 'state-provider', 'dialog-drag-drop',
           'colors-dashboard', 'covid-dashboard', 'covid-helix', 'covid-gallery', 'gallery',
@@ -273,12 +273,12 @@ test.describe('Portal examples canonical catalog', () => {
         })
     }
 
-    test('loads 75 logical examples with unique stable string identities', () => {
+    test('loads 76 logical examples with unique stable string identities', () => {
         const {store} = createList(),
               ids     = [];
 
-        expect(catalog).toHaveLength(75);
-        expect(store.getCount()).toBe(75);
+        expect(catalog).toHaveLength(76);
+        expect(store.getCount()).toBe(76);
 
         store.forEach(record => {
             expect(typeof record.id, record.name).toBe('string');
@@ -286,7 +286,7 @@ test.describe('Portal examples canonical catalog', () => {
             ids.push(record.id)
         });
 
-        expect(new Set(ids).size).toBe(75);
+        expect(new Set(ids).size).toBe(76);
         expect(list.catalogMode).toBe('dist_prod')
     });
 
