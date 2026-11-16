@@ -3,7 +3,11 @@ import {decodePng}    from '../utils/pngPixels.mjs';
 
 const PORTAL   = '/apps/portal/index.html',
       FAMILY   = '.portal-examples-family-overview',
-      FAMILIES = ['Featured', 'Grid & Table', 'Forms', 'Multi-Window', 'Calendar', 'Components'];
+      FAMILIES = [
+          'Featured', 'Grid & Table', 'Forms & Fields', 'Calendar', 'Tab Container', 'Dashboard & Docking', 'Drag & Drop',
+          'Lists & Galleries', 'Dialogs & Overlays', 'Charts, Canvas & Maps', 'More components', 'Multi-Window',
+          'State & Data', 'Workers & Platform', 'Apps'
+      ];
 
 /**
  * @summary Reads the mounted list from this page's App Worker, rather than a sibling Portal.
@@ -181,10 +185,11 @@ test.describe('Portal example catalog', () => {
         ]) {
             await page.getByRole('button', {name: /^Build: /}).click();
             await page.locator('.neo-menu-list:visible .neo-list-item').filter({hasText: label}).click();
+            // Dev mode cannot open liquid-glass, the one covered member of More components, so that group has no list
             await expect.poll(async () => {
                 const lists = await app.queryComponent({className: 'Portal.view.examples.List'}, ['catalogMode']);
                 return lists.map(item => item.properties.catalogMode)
-            }).toEqual(FAMILIES.map(() => mode));
+            }).toEqual(FAMILIES.filter(name => mode !== 'devmode' || name !== 'More components').map(() => mode));
             await expect(page.locator('.portal-examples-list:visible').getByRole('link', {name: 'Workstation', exact: true}))
                 .toHaveAttribute('href', `https://neomjs.com/${prefix}apps/workstation/index.html`);
 
@@ -192,8 +197,8 @@ test.describe('Portal example catalog', () => {
             await expect(page.locator(FAMILY).getByRole('link', {name: 'TreeGrid - Big Data', exact: true}))
                 .toHaveAttribute('href', `https://neomjs.com/${prefix}examples/grid/treeBigData/index.html`);
             await selectFamily(page, 'Multi-Window');
-            // the seven covered records; the external OffscreenCanvas demo has no ESM destination
-            await expect(page.locator(`${FAMILY} .portal-example-feature`)).toHaveCount(mode === 'dist_esm' ? 6 : 7);
+            // the six covered records; the external OffscreenCanvas demo has no ESM destination
+            await expect(page.locator(`${FAMILY} .portal-example-feature`)).toHaveCount(mode === 'dist_esm' ? 5 : 6);
             await expect(page.locator(FAMILY).getByRole('link', {name: 'Colors Dashboard', exact: true}))
                 .toHaveAttribute('href', `https://neomjs.com/${prefix}apps/colors/index.html`);
             await selectFamily(page, 'Featured')
@@ -265,29 +270,29 @@ test.describe('Portal example catalog', () => {
                     await page.getByRole('tab', {name: 'Grid & Table', exact: true}).click();
                 }
 
-                await expect(overview.locator('.portal-example-feature')).toHaveCount(4);
+                await expect(overview.locator('.portal-example-feature')).toHaveCount(21);
                 const columns = await overview.evaluate(node => getComputedStyle(node).gridTemplateColumns.split(' ').length);
                 expect(columns).toBe(viewport.width === 1440 ? 3 : viewport.width <= 600 ? 1 : 2);
                 const list = await readList(app);
                 expect(list.id).toBe(await overview.getAttribute('id'));
                 // the overview's Store lists the covered records; the catalog keeps the others for their covers
-                expect(list.properties.store.count).toBe(4);
+                expect(list.properties.store.count).toBe(21);
                 expect(list.properties.store.model.className).toBe('Portal.model.Example');
                 await expect(overview.locator('.neo-title').nth(0)).toHaveText('TreeGrid - Big Data');
                 await expect(overview.locator('.neo-title').nth(1)).toHaveText('Buffered Data Grid with 5M cells');
                 await expect(overview.locator('.neo-title').nth(2)).toHaveText('GitHub Issues Grid');
 
                 const covered = overview.locator('.portal-example-image-card .neo-item-bottom-position');
-                await expect(covered).toHaveCount(4);
+                await expect(covered).toHaveCount(21);
 
-                // No cover, no card: the 17 records that wait for a cover render nothing, and no placeholder exists.
-                await expect(overview.locator('.neo-list-item').filter({hasText: 'Animated Row Sorting'})).toHaveCount(0);
+                // All 21 Grid/Table records now have recorded covers; no placeholder is needed.
+                await expect(overview.locator('.neo-list-item').filter({hasText: 'Animated Row Sorting'})).toHaveCount(1);
                 await expect(overview.locator('.portal-example-placeholder')).toHaveCount(0);
 
                 const issues = overview.locator('.neo-list-item').filter({hasText: 'GitHub Issues Grid'});
                 await expect(issues.locator('.portal-example-feature')).toHaveText('Searchable issue snapshot with wrapped rows');
                 expect(await issues.locator('.preview-image').evaluate(node => getComputedStyle(node).backgroundImage))
-                    .toContain('grid-issues-13-3.jpg');
+                    .toContain('grid-issues-14.jpg');
 
                 const geometry = await expectCardLayout(overview, viewport.width);
                 await expectCaptionContrast(covered.nth(2), testInfo, 'issues-caption-contrast');
@@ -341,7 +346,7 @@ test.describe('Portal example catalog', () => {
 
                 // A stable string identity also survives the lazy-cover path at the end of the list.
                 await overview.locator('.neo-list-item').last().scrollIntoViewIfNeeded();
-                await expect(overview.locator('.neo-list-item').last().getByRole('link', {name: 'Table Filtering'})).toBeVisible()
+                await expect(overview.locator('.neo-list-item').last().getByRole('link', {name: 'Table Refresh Performance'})).toBeVisible()
             })
         }
     }
@@ -352,7 +357,7 @@ test.describe('Portal example catalog', () => {
 
         await page.getByRole('tab', {name: 'Grid & Table', exact: true}).click();
         await expect(page).toHaveURL(/#\/examples\/grid$/);
-        await expect(page.locator(`${FAMILY} .portal-example-feature`)).toHaveCount(4);
+        await expect(page.locator(`${FAMILY} .portal-example-feature`)).toHaveCount(21);
 
         for (const [mode, prefix] of [
             ['dist_prod', 'dist/production/'], ['dist_esm', 'dist/esm/'],
@@ -382,7 +387,7 @@ test.describe('Portal example catalog', () => {
         await page.goto(`${PORTAL}#/examples/devmode`);
         app = await neuralLink.connectToApp('Portal');
         await page.getByRole('tab', {name: 'Grid & Table', exact: true}).click();
-        await expect(page.locator('.portal-examples-list:visible .portal-example-feature')).toHaveCount(4);
+        await expect(page.locator('.portal-examples-list:visible .portal-example-feature')).toHaveCount(21);
         const gridList = await readList(app);
         await app.setProperties(gridList.id, {baseUrl: `${baseURL}/`});
         await app.callMethod(gridList.id, 'createItems');

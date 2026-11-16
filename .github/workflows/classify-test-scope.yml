@@ -434,7 +434,8 @@ jobs:
               file === 'apps/portal/resources/data/seo.json' ||
               file === 'apps/portal/resources/data/ssg-archive-routes.json';
             const isOutsideE2eLaunchChain   = file =>
-              /^buildScripts\/(create|helpers|release)\//.test(file) && file !== 'buildScripts/create/move.mjs';
+              file === 'buildScripts/util/claimResponse.mjs' || // contributor workflows and their unit tests
+              (/^buildScripts\/(create|helpers|release)\//.test(file) && file !== 'buildScripts/create/move.mjs');
 
             const isE2eTestSupportPath = file =>
               file.startsWith('test/playwright/component/apps/') || (

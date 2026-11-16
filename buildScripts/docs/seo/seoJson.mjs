@@ -866,18 +866,59 @@ export function extractExampleFamilyDefinitions(source='') {
 }
 
 /**
+ * @summary Search-intent wording per example family, keyed by `familyDefinitions` `family`.
+ * `title` is the route's `<title>` (at most 68 characters): what a reader searches for, and the capability that sets
+ * the family apart. `subject` is the plain-English noun its description counts. `Portal.service.Seo#routeTitles`
+ * repeats each title as the SPA window title.
+ * @type {Object<String, {subject: String, title: String}>}
+ */
+export const EXAMPLE_FAMILY_SEO = {
+    apps          : {subject: 'JavaScript web app',              title: 'JavaScript Web App Examples — Full Apps on Worker Threads | Neo.mjs'},
+    board         : {subject: 'JavaScript kanban board',         title: 'JavaScript Kanban Board — Columns, Swimlanes & Cards | Neo.mjs'},
+    buttons       : {subject: 'JavaScript button and menu',      title: 'JavaScript Buttons, Menus & Toolbars — Live Examples | Neo.mjs'},
+    calendar      : {subject: 'JavaScript calendar',             title: 'MIT JavaScript Calendar — Day, Week, Month & Year Views | Neo.mjs'},
+    charts        : {subject: 'JavaScript chart and canvas',     title: 'JavaScript Charts, Canvas & Maps — OffscreenCanvas Demos | Neo.mjs'},
+    components    : {subject: 'JavaScript UI component',         title: 'JavaScript UI Component Examples — Off the Main Thread | Neo.mjs'},
+    dashboard     : {subject: 'JavaScript dashboard',            title: 'JavaScript Dashboard & Docking — Panes That Pop Out | Neo.mjs'},
+    dialogs       : {subject: 'JavaScript dialog',               title: 'JavaScript Dialogs & Overlays — Live Examples | Neo.mjs'},
+    'drag-drop'   : {subject: 'JavaScript drag and drop',        title: 'JavaScript Drag & Drop Examples — Across Windows | Neo.mjs'},
+    forms         : {subject: 'JavaScript form',                 title: 'JavaScript Form Examples — Fields, Pickers & Validation | Neo.mjs'},
+    functional    : {subject: 'JavaScript functional component', title: 'JavaScript Functional Component Examples | Neo.mjs'},
+    gantt         : {subject: 'JavaScript Gantt chart',          title: 'MIT JavaScript Gantt Chart — Linked, Editable Tasks | Neo.mjs'},
+    'grid-table'  : {subject: 'JavaScript data grid',            title: 'JavaScript Data Grid Examples — 100k Rows in a Web Worker | Neo.mjs'},
+    layouts       : {subject: 'JavaScript layout',               title: 'JavaScript Containers & Layouts — Flexbox, Card & Form | Neo.mjs'},
+    lists         : {subject: 'JavaScript list and gallery',     title: 'JavaScript Lists & Galleries — 3D Helix & Gallery Views | Neo.mjs'},
+    'multi-window': {subject: 'multi-window JavaScript app',     title: 'Multi-Window JavaScript App Examples — SharedWorker State | Neo.mjs'},
+    platform      : {subject: 'JavaScript web worker',           title: 'JavaScript Web Worker Examples — Workers & Platform | Neo.mjs'},
+    scheduler     : {subject: 'JavaScript resource scheduler',   title: 'MIT JavaScript Resource Scheduler — Editable Timeline | Neo.mjs'},
+    state         : {subject: 'JavaScript state management',     title: 'JavaScript State Management Examples — Reactive Stores | Neo.mjs'},
+    tabs          : {subject: 'JavaScript tab container',        title: 'JavaScript Tab Container — Tab Bars on Any Side | Neo.mjs'},
+    timeline      : {subject: 'JavaScript timeline',             title: 'JavaScript Timeline Examples — Events on a Time Axis | Neo.mjs'},
+    tree          : {subject: 'JavaScript tree',                 title: 'JavaScript Tree Examples — Tree List & Accordion | Neo.mjs'}
+};
+
+/**
+ * @summary Returns a family's search wording from {@link EXAMPLE_FAMILY_SEO}, or a plain fallback built from its
+ * tab title for a family that has none yet.
+ * @param {{family: String, title: String}} definition A `familyDefinitions` entry
+ * @returns {{subject: String, title: String}}
+ */
+export function getExampleFamilySeo({family, title}) {
+    return EXAMPLE_FAMILY_SEO[family] || {subject: `JavaScript ${title}`, title: `JavaScript ${title} Examples | Neo.mjs`}
+}
+
+/**
  * @summary Builds a concise SEO description for a published `/examples/<family>` overview route
- * from its non-hidden `examples.json` catalog records, keeping only complete highlights that fit
- * within 160 characters.
- * @param {String} title
+ * from its covered `examples.json` records, keeping only complete highlights that fit within 160 characters.
+ * @param {String} subject The family's plain-English noun, e.g. 'JavaScript data grid'
  * @param {Object[]} [records=[]]
  * @returns {String}
  */
-function formatExampleFamilyDescription(title='', records=[]) {
+function formatExampleFamilyDescription(subject='', records=[]) {
     const count      = records.length;
-    const prefix     = `Explore ${count} live Neo.mjs ${title} ${count === 1 ? 'example' : 'example' + 's'}`;
+    const prefix     = `Explore ${count} live ${subject} ${count === 1 ? 'example' : 'examples'}`;
     const candidates = records
-        .map(record => stripInlineMarkdown(record?.feature || record?.name || ''))
+        .map(record => stripInlineMarkdown(record?.feature || record?.name || '').replace(/\.+$/, ''))
         .filter(Boolean)
         .slice(0, 3);
     const highlights = [];
@@ -900,9 +941,13 @@ function formatExampleFamilyDescription(title='', records=[]) {
 }
 
 /**
- * @summary Returns the ordered example family definitions (`family !== null`) from
- * `apps/portal/view/examples/TabContainer.mjs` that have at least one non-hidden record in
- * `apps/portal/resources/data/examples.json`.
+ * @summary Returns the ordered example groups (`family !== null`) from `apps/portal/view/examples/TabContainer.mjs`
+ * that have at least one member in `apps/portal/resources/data/examples.json` publishing a card in production, each
+ * with those members: a group publishes its search route once its overview has a card to show there.
+ *
+ * A member is a record whose home `family` is the group or whose `alsoIn` names it. A card publishes in production
+ * when the record names a cover and production can open it, the rule of `Portal.model.Example.publishes()` for
+ * `dist_prod`, which this build script cannot import. `TabContainerController.spec.mjs` holds the two to one result.
  * @param {Object} [options={}]
  * @param {String} [options.examplesPath]
  * @param {String} [options.examplesTabContainerPath]
@@ -928,14 +973,14 @@ export async function getPublishedExampleFamilies(options={}) {
 
     const examplesRaw = await fs.readJSON(examplesPath);
     const records     = (Array.isArray(examplesRaw) ? examplesRaw : Array.isArray(examplesRaw?.data) ? examplesRaw.data : [])
-        .filter(record => record && !record.hidden);
+        .filter(record => record?.image && !record.hidden && !record.hiddenIn?.includes('dist_prod') && record.urls?.dist_prod);
 
     return definitions
         .filter(definition => definition?.family && definition?.route)
         .map(definition => ({
             ...definition,
             filePath: examplesPath,
-            records : records.filter(record => record.family === definition.family)
+            records : records.filter(record => record.family === definition.family || record.alsoIn?.includes(definition.family))
         }))
         .filter(definition => definition.records.length > 0);
 }
@@ -1317,11 +1362,12 @@ export async function getSeoJson(options={}) {
             .map(record => record?.sourceUrl)
             .filter(sourceUrl => typeof sourceUrl === 'string' && !/^https?:\/\//i.test(sourceUrl))
             .map(sourceUrl => path.resolve(root, sourceUrl));
-        const lastmod     = resolveRouteLastmod(family.route, [family.filePath, ...recordPaths]);
+        const lastmod          = resolveRouteLastmod(family.route, [family.filePath, ...recordPaths]);
+        const {subject, title} = getExampleFamilySeo(family);
 
         seo[family.route] = {
-            title      : `Neo.mjs ${family.title} Examples`,
-            description: formatExampleFamilyDescription(family.title, family.records),
+            title,
+            description: formatExampleFamilyDescription(subject, family.records),
             schemaType : 'CollectionPage',
             ...(lastmod && {lastmod})
         };

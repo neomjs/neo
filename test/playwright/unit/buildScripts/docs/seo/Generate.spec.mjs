@@ -34,6 +34,8 @@ import {
 import createReleaseIndex from '../../../../../../buildScripts/docs/index/release.mjs';
 import verifySeoArtifacts from '../../../../../../buildScripts/docs/seo/verify.mjs';
 
+import {EXAMPLE_FAMILY_SEO, getExampleFamilySeo} from '../../../../../../buildScripts/docs/seo/seoJson.mjs';
+
 test.describe('docs SEO generator release-note link guard', () => {
     test('getDisallowedReleaseNoteGithubLinks returns only mutable or release-ref Neo source links', () => {
         const links = getDisallowedReleaseNoteGithubLinks([
@@ -267,7 +269,44 @@ test.describe('docs SEO generator example family routes (#20727)', () => {
         await fs.remove(tempDir);
     });
 
-    test('extracts familyDefinitions from TabContainer.mjs, refuses unreadable AST shapes, and emits only populated families', async () => {
+    test('every defined family names its search intent within the title limit', async () => {
+        const source      = await fs.readFile(path.resolve(process.cwd(), 'apps/portal/view/examples/TabContainer.mjs'), 'utf-8'),
+              definitions = extractExampleFamilyDefinitions(source).filter(item => item.family);
+
+        expect(definitions.map(item => item.family).sort()).toEqual(Object.keys(EXAMPLE_FAMILY_SEO).sort());
+
+        for (const {subject, title} of Object.values(EXAMPLE_FAMILY_SEO)) {
+            expect(title.length, title).toBeLessThanOrEqual(68);
+            expect(title, title).not.toMatch(/framework/i);
+            expect(title, title).toMatch(/JavaScript/);
+            expect(subject, title).toMatch(/JavaScript/)
+        }
+
+        expect(getExampleFamilySeo({family: 'new-group', title: 'New Group'})).toEqual({
+            subject: 'JavaScript New Group',
+            title  : 'JavaScript New Group Examples | Neo.mjs'
+        })
+    });
+
+    test('a group publishes through alsoIn, and a record counts only where production can open it', async () => {
+        const examplesTabContainerPath = path.resolve(process.cwd(), 'apps/portal/view/examples/TabContainer.mjs'),
+              examplesPath             = path.join(tempDir, 'examples.json'),
+              urls                     = {dist_prod: 'dist/production/examples/dialog/index.html'};
+
+        await fs.writeJSON(examplesPath, [
+            {id: 'dialog-drag-drop', family: 'dialogs', alsoIn: ['drag-drop'], image: 'devmode/dialog.png', urls, feature: 'Draggable dialogs'},
+            {id: 'tree-hidden-in-prod', family: 'tree', image: 'devmode/tree.png', hiddenIn: ['dist_prod'], urls, feature: 'Hidden in production'},
+            {id: 'tree-dev-only', family: 'tree', image: 'devmode/tree.png', urls: {devmode: 'examples/tree/index.html'}, feature: 'No production build'}
+        ]);
+
+        const published = await getPublishedExampleFamilies({examplesPath, examplesTabContainerPath, root: tempDir});
+
+        // Definition order, with the alsoIn member counted in both groups; neither tree record is one production opens
+        expect(published.map(item => item.route)).toEqual(['/examples/drag-drop', '/examples/dialogs']);
+        expect(published.map(item => item.records.map(record => record.id))).toEqual([['dialog-drag-drop'], ['dialog-drag-drop']])
+    });
+
+    test('extracts familyDefinitions from TabContainer.mjs, refuses unreadable AST shapes, and emits only covered families', async () => {
         const examplesTabContainerPath = path.resolve(process.cwd(), 'apps/portal/view/examples/TabContainer.mjs');
         const tabContainerSource       = await fs.readFile(examplesTabContainerPath, 'utf-8');
         const definitions              = extractExampleFamilyDefinitions(tabContainerSource);
@@ -305,13 +344,30 @@ test.describe('docs SEO generator example family routes (#20727)', () => {
                 id     : 'grid-big-data',
                 name   : 'Buffered Data Grid with 5M cells',
                 family : 'grid-table',
-                feature: 'Buffered rendering in both directions'
+                image  : 'devmode/grid-big-data.png',
+                urls   : {dist_prod: 'dist/production/examples/grid/bigData/index.html'},
+                feature: 'Buffered rendering in both directions.'
+            },
+            {
+                id     : 'grid-uncovered',
+                name   : 'Uncovered Grid',
+                family : 'grid-table',
+                image  : null,
+                feature: 'Must not count: a record without a cover gets no card'
+            },
+            {
+                id     : 'gantt-basic',
+                name   : 'Community Garden Plan',
+                family : 'gantt',
+                image  : null,
+                feature: 'Must not publish a family whose records have no cover'
             },
             {
                 id     : 'hidden-forms-demo',
                 name   : 'Hidden Forms Demo',
                 family : 'forms',
                 hidden : true,
+                image  : 'devmode/forms.png',
                 feature: 'Must not publish an empty family tab'
             }
         ]);
@@ -351,10 +407,11 @@ test.describe('docs SEO generator example family routes (#20727)', () => {
         });
 
         expect(seoJson['/examples/grid']).toEqual({
-            title      : 'Neo.mjs Grid & Table Examples',
-            description: 'Explore 1 live Neo.mjs Grid & Table example: Buffered rendering in both directions.',
+            title      : 'JavaScript Data Grid Examples — 100k Rows in a Web Worker | Neo.mjs',
+            description: 'Explore 1 live JavaScript data grid example: Buffered rendering in both directions.',
             schemaType : 'CollectionPage'
         });
+        expect(seoJson['/examples/gantt']).toBeUndefined();
         expect(seoJson['/examples/forms']).toBeUndefined();
         expect(seoJson['/examples/multi-window']).toBeUndefined();
         expect(seoJson['/examples/calendar']).toBeUndefined();
@@ -1100,7 +1157,7 @@ test.describe('docs SEO generator #20915: git lastmod fallback and sitemap-core 
             data: [{id: 'blog/json-ld-xss', isLeaf: true, name: 'JSON-LD XSS', path: 'learn/blog/json-ld-xss.md'}]
         });
         await fs.outputJson(path.join(noGitRoot, 'apps/portal/resources/data/examples.json'), [
-            {id: 'grid-big-data', name: 'Big Data Grid', family: 'grid-table', feature: 'Buffered rendering'}
+            {id: 'grid-big-data', name: 'Big Data Grid', family: 'grid-table', image: 'devmode/grid-big-data.png', urls: {dist_prod: 'dist/production/examples/grid/bigData/index.html'}, feature: 'Buffered rendering'}
         ]);
         await fs.outputFile(
             path.join(releaseNotesRoot, 'v13.4.0.md'),

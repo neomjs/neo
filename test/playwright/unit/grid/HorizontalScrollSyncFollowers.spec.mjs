@@ -278,6 +278,38 @@ test.describe('GridHorizontalScrollSync & ScrollManager follower rows', () => {
             expect(elements['grid-scroller'].scrollLeft, 'a consumed wheel').toBe(40)
         });
 
+        test('nodes keyed by data-neo-id sync while useDomIds is false', () => {
+            const {useDomIds} = Neo.config;
+
+            Neo.config.useDomIds = false;
+
+            try {
+                // The ids live in data-neo-id, as the renderer writes them in this mode
+                for (const element of Object.values(elements)) {
+                    element.dataset = {neoId: element.id};
+                    element.id      = ''
+                }
+
+                addon.register({
+                    id        : 'test-grid__h_scroll',
+                    scrollerId: 'grid-scroller',
+                    bodyId    : 'grid-body',
+                    headerId  : 'grid-header',
+                    viewId    : 'grid-view'
+                });
+
+                elements['grid-scroller'].scrollLeft = 70;
+                elements['grid-scroller'].trigger('scroll');
+                expect(elements['grid-body'].style.getPropertyValue('--grid-scroll-left')).toBe('70px');
+                expect(elements['grid-header'].scrollLeft).toBe(70);
+
+                elements['grid-view'].trigger('wheel', {deltaX: 10});
+                expect(elements['grid-scroller'].scrollLeft, 'the view\'s wheel moves the scrollbar').toBe(80)
+            } finally {
+                Neo.config.useDomIds = useDomIds
+            }
+        });
+
         test('unregister ends the sync of its grid, and another grid keeps its own', () => {
             Object.assign(elements, {
                 'second-scroller': createElement('second-scroller', 0),

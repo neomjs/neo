@@ -1,12 +1,14 @@
 import Button                 from '../../../../src/button/Base.mjs';
 import StateProvider          from '../../../../src/state/Provider.mjs';
+import Example                from '../../model/Example.mjs';
 import ExampleStore           from '../../store/Examples.mjs';
 import List                   from './List.mjs';
 import TabContainer           from '../shared/TabContainer.mjs';
 import TabContainerController from './TabContainerController.mjs';
+import TabOverflow            from '../../../../src/tab/plugin/Overflow.mjs';
 
 /**
- * @summary Publishes the available example families and one shared build selection.
+ * @summary Publishes the example groups that have a card to show in the selected build, and that selection.
  * @class Portal.view.examples.TabContainer
  * @extends Portal.view.shared.TabContainer
  */
@@ -23,6 +25,17 @@ class ExamplesTabContainer extends TabContainer {
          */
         activeIndex: null,
         /**
+         * @member {Object} bind
+         */
+        bind: {catalogMode: data => data.catalogMode},
+        /**
+         * The selected build mode, bound to the state provider's `catalogMode`. The group stores filter by it, and the
+         * controller publishes the groups that have a card to show in it.
+         * @member {String|null} catalogMode_=null
+         * @reactive
+         */
+        catalogMode_: null,
+        /**
          * @member {Neo.controller.Component} controller=TabContainerController
          * @reactive
          */
@@ -33,18 +46,48 @@ class ExamplesTabContainer extends TabContainer {
          */
         dragResortable: true,
         /**
-         * The single ordered source of family identity, title, route and tab icon.
-         * Featured is independent of home-family membership; other tabs require a covered catalog record.
+         * The section's groups need more height than a desktop bar has, so its overflow control stays. It joins the
+         * bar's action rail beside the build menu (`projectAsAction`), inside the section, so it leaves with the
+         * section instead of floating over the next one.
+         * @member {Object} headerToolbar
+         */
+        headerToolbar: {
+            cls    : ['portal-shared-tab-header-toolbar', 'neo-tab-header-toolbar'],
+            plugins: [{module: TabOverflow, projectAsAction: true}]
+        },
+        /**
+         * The single ordered source of the example groups: id (`family`), band, title, route and tab icon.
+         * Featured comes first and is no group: it lists the records marked `featured`. A group lists its home
+         * records and the records whose `alsoIn` names it, and gets a tab while one of them publishes a card in the
+         * active build mode (`Portal.model.Example.publishes()`). An entry may also carry a `sentence` and the `tile`
+         * record whose cover stands for the group. Every value is a literal: `buildScripts/docs/seo/seoJson.mjs`
+         * reads this list from the source.
          * @member {Object[]} familyDefinitions
          */
         familyDefinitions: [
-            {family: null,           title: 'Featured',       route: '/examples',              iconCls: 'fa fa-star'},
-            {family: 'grid-table',   title: 'Grid & Table',   route: '/examples/grid',         iconCls: 'fa fa-table'},
-            {family: 'forms',        title: 'Forms',          route: '/examples/forms',        iconCls: 'fa fa-keyboard'},
-            {family: 'multi-window', title: 'Multi-Window',   route: '/examples/multi-window', iconCls: 'far fa-window-restore'},
-            {family: 'calendar',     title: 'Calendar',       route: '/examples/calendar',     iconCls: 'fa fa-calendar'},
-            {family: 'components',   title: 'Components',     route: '/examples/components',   iconCls: 'fa fa-cubes'},
-            {family: 'state',        title: 'State & Data',   route: '/examples/state',        iconCls: 'fa fa-database'}
+            {family: null,           band: null,                title: 'Featured',                  route: '/examples',              iconCls: 'fa fa-star'},
+            {family: 'grid-table',   band: 'Complex widgets',   title: 'Grid & Table',              route: '/examples/grid',         iconCls: 'fa fa-table'},
+            {family: 'tree',         band: 'Complex widgets',   title: 'Tree',                      route: '/examples/tree',         iconCls: 'fa fa-folder-tree'},
+            {family: 'forms',        band: 'Complex widgets',   title: 'Forms & Fields',            route: '/examples/forms',        iconCls: 'fa fa-keyboard'},
+            {family: 'calendar',     band: 'Complex widgets',   title: 'Calendar',                  route: '/examples/calendar',     iconCls: 'fa fa-calendar'},
+            {family: 'scheduler',    band: 'Complex widgets',   title: 'Scheduler',                 route: '/examples/scheduler',    iconCls: 'fa fa-calendar-week'},
+            {family: 'gantt',        band: 'Complex widgets',   title: 'Gantt',                     route: '/examples/gantt',        iconCls: 'fa fa-chart-gantt'},
+            {family: 'board',        band: 'Complex widgets',   title: 'Kanban Board',              route: '/examples/board',        iconCls: 'fa fa-table-columns'},
+            {family: 'timeline',     band: 'Complex widgets',   title: 'Timeline',                  route: '/examples/timeline',     iconCls: 'fa fa-timeline'},
+            {family: 'tabs',         band: 'Complex widgets',   title: 'Tab Container',             route: '/examples/tabs',         iconCls: 'fa fa-folder-open'},
+            {family: 'layouts',      band: 'Complex widgets',   title: 'Containers & Layouts',      route: '/examples/layouts',      iconCls: 'fa fa-table-cells-large'},
+            {family: 'dashboard',    band: 'Complex widgets',   title: 'Dashboard & Docking',       route: '/examples/dashboard',    iconCls: 'far fa-window-maximize'},
+            {family: 'drag-drop',    band: 'Complex widgets',   title: 'Drag & Drop',               route: '/examples/drag-drop',    iconCls: 'fa fa-up-down-left-right'},
+            {family: 'buttons',      band: 'Component shelves', title: 'Buttons, Menus & Toolbars', route: '/examples/buttons',      iconCls: 'fa fa-square-caret-down'},
+            {family: 'lists',        band: 'Component shelves', title: 'Lists & Galleries',         route: '/examples/lists',        iconCls: 'fa fa-list'},
+            {family: 'dialogs',      band: 'Component shelves', title: 'Dialogs & Overlays',        route: '/examples/dialogs',      iconCls: 'fa fa-message'},
+            {family: 'charts',       band: 'Component shelves', title: 'Charts, Canvas & Maps',     route: '/examples/charts',       iconCls: 'fa fa-chart-line'},
+            {family: 'components',   band: 'Component shelves', title: 'More components',           route: '/examples/components',   iconCls: 'fa fa-cubes'},
+            {family: 'multi-window', band: 'Platform proofs',   title: 'Multi-Window',              route: '/examples/multi-window', iconCls: 'far fa-window-restore'},
+            {family: 'state',        band: 'Platform proofs',   title: 'State & Data',              route: '/examples/state',        iconCls: 'fa fa-database'},
+            {family: 'functional',   band: 'Platform proofs',   title: 'Functional Components',     route: '/examples/functional',   iconCls: 'fa fa-code'},
+            {family: 'platform',     band: 'Platform proofs',   title: 'Workers & Platform',        route: '/examples/platform',     iconCls: 'fa fa-microchip'},
+            {family: 'apps',         band: 'Applications',      title: 'Apps',                      route: '/examples/apps',         iconCls: 'fa fa-rocket'}
         ],
         /**
          * Build labels and legacy route identities.
@@ -67,6 +110,22 @@ class ExamplesTabContainer extends TabContainer {
             stores: {
                 catalog: {module: ExampleStore, url: '../../apps/portal/resources/data/examples.json'}
             }
+        }
+    }
+
+    /**
+     * @summary Moves every list's `catalogMode` filter to the new build, then republishes the groups for it.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetCatalogMode(value, oldValue) {
+        let me = this;
+
+        // During construction no list exists yet: createFamilyItem() reads the value it starts with
+        if (me.isConstructed) {
+            me.getCardContainer().items.forEach(list => {list.store.getFilter('catalogMode').value = value});
+            me.getController().publishFamilies()
         }
     }
 
@@ -96,10 +155,11 @@ class ExamplesTabContainer extends TabContainer {
     }
 
     /**
-     * @summary Projects one family through a model-backed Store over the provider's catalog.
+     * @summary Projects Featured or one group through a model-backed Store over the provider's catalog.
      *
-     * The store lists the family's covered records only (`hasCover()`): a record without a cover stays in the
-     * catalog and gets no card, so an overview never shows a placeholder.
+     * A group's store holds its home records and the records whose `alsoIn` names it. Each store keeps only the
+     * records that publish a card in the build mode (`Portal.model.Example.publishes()`): a record without a cover
+     * stays in the catalog and gets no card, so an overview never shows a placeholder.
      * @param {Object} definition
      * @returns {Object}
      */
@@ -118,22 +178,14 @@ class ExamplesTabContainer extends TabContainer {
                 model   : catalog.model,
                 sourceId: catalog.id,
                 filters : [
-                    {property: featured ? 'featured' : 'family', operator: '===', value: featured || definition.family},
-                    {property: 'image', fields: ['image'], filterBy: ({item}) => !me.hasCover(item)}
+                    featured
+                        ? {property: 'featured', operator: '===', value: true}
+                        : {property: 'family', fields: ['alsoIn', 'family'], value: definition.family, filterBy: ({item, value}) => !Example.belongsTo(item, value)},
+                    {property: 'catalogMode', fields: ['hidden', 'hiddenIn', 'image', 'urls'], value: me.catalogMode, filterBy: ({item, value}) => !Example.publishes(item, value)}
                 ]
             },
             header: {iconCls: definition.iconCls, route: definition.route, text: definition.title}
         }
-    }
-
-    /**
-     * @summary Whether a record publishes a card: it names a cover. The one rule the family stores filter by
-     * and the controller publishes tabs by.
-     * @param {Object} record A catalog record or its raw row
-     * @returns {Boolean}
-     */
-    hasCover(record) {
-        return !!record.image
     }
 
     /**

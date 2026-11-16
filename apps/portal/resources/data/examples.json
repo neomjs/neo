@@ -2,6 +2,7 @@
     {
         "id": "workstation",
         "family": "multi-window",
+        "alsoIn": ["apps"],
         "component": "Dock Workspace",
         "feature": "A living-data workspace whose panes can leave the browser window",
         "lookFor": "Pop out the 100k Matrix tab, use it in its own window, then close that window to bring it back.",
@@ -24,6 +25,7 @@
     },
     {
         "id": "webdesktop",
+        "family": "apps",
         "component": "State Provider",
         "feature": "A desktop whose icons, menus and windows follow the signed-in account's permissions through one store filter",
         "lookFor": "Sign in as two accounts and compare the apps they get. Double-click an icon to open its window, then open Permissions and switch that app off: its icon, its menu entry and its window go.",
@@ -46,6 +48,7 @@
     },
     {
         "id": "devindex",
+        "family": "apps",
         "featured": true,
         "environments": [
             "Desktop",
@@ -72,7 +75,7 @@
             "Desktop",
             "Mobile"
         ],
-        "image": "devmode/treeGridBigData.png",
+        "image": "devmode/grid-tree-big-data-14.jpg",
         "name": "TreeGrid - Big Data",
         "sourceUrl": "examples/grid/treeBigData",
         "urls": {
@@ -90,6 +93,7 @@
     {
         "id": "shared-covid",
         "family": "multi-window",
+        "alsoIn": ["apps"],
         "component": "Shared Views",
         "feature": "A historical country-data chart can move into its own window",
         "lookFor": "Maximise Historical Data, inspect its chart in the popup, then close the popup to return it beside the table.",
@@ -114,7 +118,7 @@
             "Desktop",
             "Mobile"
         ],
-        "image": "devmode/bigData.png",
+        "image": "devmode/grid-big-data-14.jpg",
         "name": "Buffered Data Grid with 5M cells",
         "sourceUrl": "examples/grid/bigData",
         "urls": {
@@ -136,7 +140,7 @@
             "Desktop",
             "Mobile"
         ],
-        "image": "devmode/grid-issues-13-3.jpg",
+        "image": "devmode/grid-issues-14.jpg",
         "name": "GitHub Issues Grid",
         "sourceUrl": "examples/grid/issues",
         "urls": {
@@ -190,18 +194,21 @@
     },
     {
         "id": "helix",
+        "family": "lists",
+        "feature": "Image items on a 3D helix that you reshape live",
+        "lookFor": "Scroll over the helix, then change Radius and Perspective in Helix Controls.",
         "featured": true,
         "image": "devmode/helix.png",
         "name": "component.Helix",
         "sourceUrl": "examples/component/helix",
         "urls": {
-            "devmode": "examples/component/helix/index.html"
+            "devmode": "examples/component/helix/index.html",
+            "dist_dev": "dist/development/examples/component/helix/index.html",
+            "dist_esm": "dist/esm/examples/component/helix/index.html",
+            "dist_prod": "dist/production/examples/component/helix/index.html"
         },
         "hiddenIn": [],
-        "family": "components",
-        "component": "Helix",
-        "feature": "A 3D helix arranges image cards around a rotating column.",
-        "lookFor": "Drag the helix to rotate it, then change its radius, perspective and item spacing in the controls panel."
+        "component": "Helix"
     },
     {
         "id": "multi-window-covid-gallery",
@@ -225,6 +232,11 @@
     },
     {
         "id": "offscreen-canvas",
+        "family": "platform",
+        "alsoIn": ["charts"],
+        "feature": "A chart of up to a million points, drawn in a canvas worker",
+        "lookFor": "Choose 1,000,000 items, then press Stop Main: the toolbar clock stops while the chart keeps moving.",
+        "scope": "External demo. Requires OffscreenCanvas and WebGL support.",
         "featured": true,
         "image": "devmode/offscreenCanvas.png",
         "name": "OffscreenCanvas",
@@ -242,15 +254,12 @@
             "dist_prod": "https://neomjs.github.io/pages2/workspace/neo-offscreen-canvas-demo/dist/production/apps/myapp/index.html"
         },
         "hiddenIn": [],
-        "family": "components",
-        "component": "Canvas",
-        "feature": "A WebGL point scene renders through an OffscreenCanvas outside the main thread.",
-        "lookFor": "Move the pointer across the animated point field and resize the window to see the worker-rendered canvas respond.",
-        "scope": "External Chromium demo that requires OffscreenCanvas and WebGL support."
+        "component": "Canvas"
     },
     {
         "id": "shared-offscreen-canvas",
         "family": "multi-window",
+        "alsoIn": ["platform"],
         "component": "OffscreenCanvas",
         "feature": "A rendered canvas moves into a second browser window",
         "lookFor": "Press Move Canvas and find the colored point scene in the popup.",
@@ -270,6 +279,7 @@
     {
         "id": "multi-window-drag-drop",
         "family": "multi-window",
+        "alsoIn": ["apps", "drag-drop"],
         "component": "Dialog",
         "feature": "A draggable dialog can move into a second browser window",
         "lookFor": "Open the docked window, create a dialog and drag its header across into the other window.",
@@ -289,6 +299,9 @@
     },
     {
         "id": "tab-container",
+        "family": "tabs",
+        "feature": "Tab buttons whose text, icon, color and badge change live",
+        "lookFor": "Type a new Tab 1 text and a badgeText, then pick another badgePosition.",
         "featured": true,
         "image": "devmode/tabContainer.png",
         "name": "tab.Container",
@@ -303,6 +316,9 @@
     },
     {
         "id": "state-provider",
+        "family": "state",
+        "feature": "Nested state providers bind button texts through the formatters shown beside them",
+        "lookFor": "Edit data.button2Text and watch both buttons follow: the first reads from two providers. Then press Add a third button & textfield.",
         "featured": true,
         "image": "devmode/model-component-example.png",
         "name": "State Provider Example",
@@ -317,6 +333,10 @@
     },
     {
         "id": "dialog-drag-drop",
+        "family": "dialogs",
+        "alsoIn": ["drag-drop"],
+        "feature": "Dialogs that drag by their header and open further dialogs",
+        "lookFor": "Press Create Dialog, drag the dialog by its header, then create a second one from inside it.",
         "featured": true,
         "image": "devmode/dragdrop.png",
         "name": "Dialog drag&drop",
@@ -332,6 +352,7 @@
     {
         "id": "colors-dashboard",
         "family": "multi-window",
+        "alsoIn": ["apps"],
         "component": "Dashboard",
         "feature": "The dashboard's color grid keeps updating in its own window",
         "lookFor": "Press Grid to detach it, press Start and watch the popup update; close it to return the grid.",
@@ -351,6 +372,7 @@
     },
     {
         "id": "covid-dashboard",
+        "family": "apps",
         "featured": true,
         "image": "devmode/covidDashboard.png",
         "name": "Covid Dashboard",
@@ -368,54 +390,63 @@
     },
     {
         "id": "covid-helix",
+        "family": "lists",
+        "feature": "COVID country statistics on a 3D helix, sorted by the figure you pick",
+        "lookFor": "Under Sort By, choose Deaths and watch the countries reorder along the helix.",
+        "scope": "Uses a static COVID data snapshot hosted on Pages.",
         "featured": true,
         "image": "devmode/coronaHelix.png",
         "name": "COVID-19 Helix",
         "sourceUrl": "examples/component/coronaHelix",
         "urls": {
-            "devmode": "examples/component/coronaHelix/index.html"
+            "devmode": "examples/component/coronaHelix/index.html",
+            "dist_dev": "dist/development/examples/component/coronaHelix/index.html",
+            "dist_esm": "dist/esm/examples/component/coronaHelix/index.html",
+            "dist_prod": "dist/production/examples/component/coronaHelix/index.html"
         },
         "hiddenIn": [],
-        "family": "components",
-        "component": "Helix",
-        "feature": "A 3D helix turns historical country statistics into sortable cards.",
-        "lookFor": "Select a country and use the sorting buttons; the selected card stays reachable while the helix reorders.",
-        "scope": "Uses a published COVID-19 data snapshot by default and may use a live public data API."
+        "component": "Helix"
     },
     {
         "id": "covid-gallery",
+        "family": "lists",
+        "feature": "COVID country statistics in a 3D gallery, sorted by the figure you pick",
+        "lookFor": "Under Sort By, choose Deaths, then raise Amount Rows in Gallery Controls.",
+        "scope": "Uses a static COVID data snapshot hosted on Pages.",
         "featured": true,
         "image": "devmode/coronaGallery.png",
         "name": "COVID-19 Gallery",
         "sourceUrl": "examples/component/coronaGallery",
         "urls": {
-            "devmode": "examples/component/coronaGallery/index.html"
+            "devmode": "examples/component/coronaGallery/index.html",
+            "dist_dev": "dist/development/examples/component/coronaGallery/index.html",
+            "dist_esm": "dist/esm/examples/component/coronaGallery/index.html",
+            "dist_prod": "dist/production/examples/component/coronaGallery/index.html"
         },
         "hiddenIn": [],
-        "family": "components",
-        "component": "Gallery",
-        "feature": "A 3D gallery lays country statistics out as a navigable wall of cards.",
-        "lookFor": "Use the arrow keys to move through the cards, then change row count, spacing and perspective in the controls panel.",
-        "scope": "Uses a published COVID-19 data snapshot by default and may use a live public data API."
+        "component": "Gallery"
     },
     {
         "id": "gallery",
+        "family": "lists",
+        "feature": "Image items in a 3D gallery that you reshape live",
+        "lookFor": "Raise Amount Rows in Gallery Controls until the wall fills the window, then press Order by Row.",
         "featured": true,
         "image": "devmode/gallery.png",
         "name": "component.Gallery",
         "sourceUrl": "examples/component/gallery",
         "urls": {
-            "devmode": "examples/component/gallery/index.html"
+            "devmode": "examples/component/gallery/index.html",
+            "dist_dev": "dist/development/examples/component/gallery/index.html",
+            "dist_esm": "dist/esm/examples/component/gallery/index.html",
+            "dist_prod": "dist/production/examples/component/gallery/index.html"
         },
         "hiddenIn": [],
-        "family": "components",
-        "component": "Gallery",
-        "feature": "A virtualized 3D gallery arranges a large image store into configurable rows and columns.",
-        "lookFor": "Navigate with the arrow keys and change rows, item count, spacing or perspective in the controls panel."
+        "component": "Gallery"
     },
     {
         "id": "canvas",
-        "family": "components",
+        "family": "charts",
         "component": "Canvas",
         "feature": "A canvas keeps rendering while it switches between main-thread and offscreen drawing.",
         "lookFor": "Toggle offscreen and change width or height in the configuration panel; the rendered scene remains visible.",
@@ -424,13 +455,16 @@
         "name": "Canvas",
         "sourceUrl": "examples/component/canvas",
         "urls": {
-            "devmode": "examples/component/canvas/index.html"
+            "devmode": "examples/component/canvas/index.html",
+            "dist_dev": "dist/development/examples/component/canvas/index.html",
+            "dist_esm": "dist/esm/examples/component/canvas/index.html",
+            "dist_prod": "dist/production/examples/component/canvas/index.html"
         },
         "hiddenIn": []
     },
     {
         "id": "carousel",
-        "family": "components",
+        "family": "lists",
         "component": "Carousel",
         "feature": "An automatically advancing carousel cycles through styled testimonial cards.",
         "lookFor": "Watch the slides rotate, then change autoRun or resize the carousel with the range fields.",
@@ -438,7 +472,10 @@
         "name": "component.Carousel",
         "sourceUrl": "examples/component/carousel",
         "urls": {
-            "devmode": "examples/component/carousel/index.html"
+            "devmode": "examples/component/carousel/index.html",
+            "dist_dev": "dist/development/examples/component/carousel/index.html",
+            "dist_esm": "dist/esm/examples/component/carousel/index.html",
+            "dist_prod": "dist/production/examples/component/carousel/index.html"
         },
         "hiddenIn": []
     },
@@ -452,7 +489,10 @@
         "name": "component.Chip",
         "sourceUrl": "examples/component/chip",
         "urls": {
-            "devmode": "examples/component/chip/index.html"
+            "devmode": "examples/component/chip/index.html",
+            "dist_dev": "dist/development/examples/component/chip/index.html",
+            "dist_esm": "dist/esm/examples/component/chip/index.html",
+            "dist_prod": "dist/production/examples/component/chip/index.html"
         },
         "hiddenIn": []
     },
@@ -466,7 +506,10 @@
         "name": "component.Circle",
         "sourceUrl": "examples/component/circle",
         "urls": {
-            "devmode": "examples/component/circle/index.html"
+            "devmode": "examples/component/circle/index.html",
+            "dist_dev": "dist/development/examples/component/circle/index.html",
+            "dist_esm": "dist/esm/examples/component/circle/index.html",
+            "dist_prod": "dist/production/examples/component/circle/index.html"
         },
         "hiddenIn": []
     },
@@ -480,13 +523,16 @@
         "name": "component.Clock",
         "sourceUrl": "examples/component/clock",
         "urls": {
-            "devmode": "examples/component/clock/index.html"
+            "devmode": "examples/component/clock/index.html",
+            "dist_dev": "dist/development/examples/component/clock/index.html",
+            "dist_esm": "dist/esm/examples/component/clock/index.html",
+            "dist_prod": "dist/production/examples/component/clock/index.html"
         },
         "hiddenIn": []
     },
     {
         "id": "graph-scene",
-        "family": "components",
+        "family": "charts",
         "component": "GraphScene",
         "feature": "A worker-rendered WebGL graph supports orbiting, zooming, large node sets and level-of-detail passes.",
         "lookFor": "Choose 100k clustered, drag to orbit, and press Read stats to compare nodes, edges and renderer state.",
@@ -495,7 +541,10 @@
         "name": "GraphScene",
         "sourceUrl": "examples/component/graphScene",
         "urls": {
-            "devmode": "examples/component/graphScene/index.html"
+            "devmode": "examples/component/graphScene/index.html",
+            "dist_dev": "dist/development/examples/component/graphScene/index.html",
+            "dist_esm": "dist/esm/examples/component/graphScene/index.html",
+            "dist_prod": "dist/production/examples/component/graphScene/index.html"
         },
         "hiddenIn": []
     },
@@ -509,7 +558,10 @@
         "name": "MagicMoveText",
         "sourceUrl": "examples/component/magicmovetext",
         "urls": {
-            "devmode": "examples/component/magicmovetext/index.html"
+            "devmode": "examples/component/magicmovetext/index.html",
+            "dist_dev": "dist/development/examples/component/magicmovetext/index.html",
+            "dist_esm": "dist/esm/examples/component/magicmovetext/index.html",
+            "dist_prod": "dist/production/examples/component/magicmovetext/index.html"
         },
         "hiddenIn": []
     },
@@ -523,7 +575,10 @@
         "name": "Markdown VDOM",
         "sourceUrl": "examples/component/markdown",
         "urls": {
-            "devmode": "examples/component/markdown/index.html"
+            "devmode": "examples/component/markdown/index.html",
+            "dist_dev": "dist/development/examples/component/markdown/index.html",
+            "dist_esm": "dist/esm/examples/component/markdown/index.html",
+            "dist_prod": "dist/production/examples/component/markdown/index.html"
         },
         "hiddenIn": []
     },
@@ -537,7 +592,10 @@
         "name": "MWC Button",
         "sourceUrl": "examples/component/mwc/button",
         "urls": {
-            "devmode": "examples/component/mwc/button/index.html"
+            "devmode": "examples/component/mwc/button/index.html",
+            "dist_dev": "dist/development/examples/component/mwc/button/index.html",
+            "dist_esm": "dist/esm/examples/component/mwc/button/index.html",
+            "dist_prod": "dist/production/examples/component/mwc/button/index.html"
         },
         "hiddenIn": []
     },
@@ -551,7 +609,10 @@
         "name": "MWC Buttons",
         "sourceUrl": "examples/component/mwc/buttons",
         "urls": {
-            "devmode": "examples/component/mwc/buttons/index.html"
+            "devmode": "examples/component/mwc/buttons/index.html",
+            "dist_dev": "dist/development/examples/component/mwc/buttons/index.html",
+            "dist_esm": "dist/esm/examples/component/mwc/buttons/index.html",
+            "dist_prod": "dist/production/examples/component/mwc/buttons/index.html"
         },
         "hiddenIn": []
     },
@@ -565,7 +626,10 @@
         "name": "MWC TextField",
         "sourceUrl": "examples/component/mwc/textField",
         "urls": {
-            "devmode": "examples/component/mwc/textField/index.html"
+            "devmode": "examples/component/mwc/textField/index.html",
+            "dist_dev": "dist/development/examples/component/mwc/textField/index.html",
+            "dist_esm": "dist/esm/examples/component/mwc/textField/index.html",
+            "dist_prod": "dist/production/examples/component/mwc/textField/index.html"
         },
         "hiddenIn": []
     },
@@ -579,7 +643,10 @@
         "name": "MWC TextFields",
         "sourceUrl": "examples/component/mwc/textFields",
         "urls": {
-            "devmode": "examples/component/mwc/textFields/index.html"
+            "devmode": "examples/component/mwc/textFields/index.html",
+            "dist_dev": "dist/development/examples/component/mwc/textFields/index.html",
+            "dist_esm": "dist/esm/examples/component/mwc/textFields/index.html",
+            "dist_prod": "dist/production/examples/component/mwc/textFields/index.html"
         },
         "hiddenIn": []
     },
@@ -593,7 +660,10 @@
         "name": "component.Process",
         "sourceUrl": "examples/component/process",
         "urls": {
-            "devmode": "examples/component/process/index.html"
+            "devmode": "examples/component/process/index.html",
+            "dist_dev": "dist/development/examples/component/process/index.html",
+            "dist_esm": "dist/esm/examples/component/process/index.html",
+            "dist_prod": "dist/production/examples/component/process/index.html"
         },
         "hiddenIn": []
     },
@@ -608,7 +678,10 @@
         "name": "Process Real-World Example",
         "sourceUrl": "examples/component/process/realWorldExample",
         "urls": {
-            "devmode": "examples/component/process/realWorldExample/index.html"
+            "devmode": "examples/component/process/realWorldExample/index.html",
+            "dist_dev": "dist/development/examples/component/process/realWorldExample/index.html",
+            "dist_esm": "dist/esm/examples/component/process/realWorldExample/index.html",
+            "dist_prod": "dist/production/examples/component/process/realWorldExample/index.html"
         },
         "hiddenIn": []
     },
@@ -622,7 +695,10 @@
         "name": "component.Progress",
         "sourceUrl": "examples/component/progress",
         "urls": {
-            "devmode": "examples/component/progress/index.html"
+            "devmode": "examples/component/progress/index.html",
+            "dist_dev": "dist/development/examples/component/progress/index.html",
+            "dist_esm": "dist/esm/examples/component/progress/index.html",
+            "dist_prod": "dist/production/examples/component/progress/index.html"
         },
         "hiddenIn": []
     },
@@ -636,7 +712,10 @@
         "name": "component.Splitter",
         "sourceUrl": "examples/component/splitter",
         "urls": {
-            "devmode": "examples/component/splitter/index.html"
+            "devmode": "examples/component/splitter/index.html",
+            "dist_dev": "dist/development/examples/component/splitter/index.html",
+            "dist_esm": "dist/esm/examples/component/splitter/index.html",
+            "dist_prod": "dist/production/examples/component/splitter/index.html"
         },
         "hiddenIn": []
     },
@@ -650,7 +729,10 @@
         "name": "component.StatusBadge",
         "sourceUrl": "examples/component/statusbadge",
         "urls": {
-            "devmode": "examples/component/statusbadge/index.html"
+            "devmode": "examples/component/statusbadge/index.html",
+            "dist_dev": "dist/development/examples/component/statusbadge/index.html",
+            "dist_esm": "dist/esm/examples/component/statusbadge/index.html",
+            "dist_prod": "dist/production/examples/component/statusbadge/index.html"
         },
         "hiddenIn": []
     },
@@ -664,13 +746,16 @@
         "name": "component.Timer",
         "sourceUrl": "examples/component/timer",
         "urls": {
-            "devmode": "examples/component/timer/index.html"
+            "devmode": "examples/component/timer/index.html",
+            "dist_dev": "dist/development/examples/component/timer/index.html",
+            "dist_esm": "dist/esm/examples/component/timer/index.html",
+            "dist_prod": "dist/production/examples/component/timer/index.html"
         },
         "hiddenIn": []
     },
     {
         "id": "toast",
-        "family": "components",
+        "family": "dialogs",
         "component": "Toast",
         "feature": "A live form previews toast configuration and launches a temporary notification.",
         "lookFor": "Enter a message, choose a position and style, then press Create toast; the code preview updates and the toast appears.",
@@ -678,7 +763,10 @@
         "name": "component.Toast",
         "sourceUrl": "examples/component/toast",
         "urls": {
-            "devmode": "examples/component/toast/index.html"
+            "devmode": "examples/component/toast/index.html",
+            "dist_dev": "dist/development/examples/component/toast/index.html",
+            "dist_esm": "dist/esm/examples/component/toast/index.html",
+            "dist_prod": "dist/production/examples/component/toast/index.html"
         },
         "hiddenIn": []
     },
@@ -693,13 +781,16 @@
         "name": "component.Video",
         "sourceUrl": "examples/component/video",
         "urls": {
-            "devmode": "examples/component/video/index.html"
+            "devmode": "examples/component/video/index.html",
+            "dist_dev": "dist/development/examples/component/video/index.html",
+            "dist_esm": "dist/esm/examples/component/video/index.html",
+            "dist_prod": "dist/production/examples/component/video/index.html"
         },
         "hiddenIn": []
     },
     {
         "id": "cesium-js",
-        "family": "components",
+        "family": "charts",
         "component": "CesiumJS",
         "feature": "A CesiumJS globe is wrapped as a Neo component with a camera controlled from a toolbar.",
         "lookFor": "Drag and zoom the globe, then press Fly to San Fran and follow the camera movement.",
@@ -708,7 +799,10 @@
         "name": "CesiumJS",
         "sourceUrl": "examples/component/wrapper/cesiumJS",
         "urls": {
-            "devmode": "examples/component/wrapper/cesiumJS/index.html"
+            "devmode": "examples/component/wrapper/cesiumJS/index.html",
+            "dist_dev": "dist/development/examples/component/wrapper/cesiumJS/index.html",
+            "dist_esm": "dist/esm/examples/component/wrapper/cesiumJS/index.html",
+            "dist_prod": "dist/production/examples/component/wrapper/cesiumJS/index.html"
         },
         "hiddenIn": []
     },
@@ -722,13 +816,16 @@
         "name": "Monaco Editor",
         "sourceUrl": "examples/component/wrapper/monacoEditor",
         "urls": {
-            "devmode": "examples/component/wrapper/monacoEditor/index.html"
+            "devmode": "examples/component/wrapper/monacoEditor/index.html",
+            "dist_dev": "dist/development/examples/component/wrapper/monacoEditor/index.html",
+            "dist_esm": "dist/esm/examples/component/wrapper/monacoEditor/index.html",
+            "dist_prod": "dist/production/examples/component/wrapper/monacoEditor/index.html"
         },
         "hiddenIn": []
     },
     {
         "id": "open-street-maps",
-        "family": "components",
+        "family": "charts",
         "component": "OpenStreetMaps",
         "feature": "An OpenLayers map wraps a static earthquake record and exposes camera, zoom and marker controls.",
         "lookFor": "Fly between San Francisco and Iceland, change the zoom, then hide and restore the marker.",
@@ -737,13 +834,16 @@
         "name": "OpenStreetMaps / OpenLayers",
         "sourceUrl": "examples/component/wrapper/openStreetMaps",
         "urls": {
-            "devmode": "examples/component/wrapper/openStreetMaps/index.html"
+            "devmode": "examples/component/wrapper/openStreetMaps/index.html",
+            "dist_dev": "dist/development/examples/component/wrapper/openStreetMaps/index.html",
+            "dist_esm": "dist/esm/examples/component/wrapper/openStreetMaps/index.html",
+            "dist_prod": "dist/production/examples/component/wrapper/openStreetMaps/index.html"
         },
         "hiddenIn": []
     },
     {
         "id": "am-charts",
-        "family": "components",
+        "family": "charts",
         "component": "AmChart",
         "feature": "An amCharts pie chart wrapper renders a labelled dataset and interactive legend.",
         "lookFor": "Hover the pie segments and legend entries to compare each country's share.",
@@ -752,13 +852,16 @@
         "name": "amCharts Pie",
         "sourceUrl": "examples/charts",
         "urls": {
-            "devmode": "examples/charts/index.html"
+            "devmode": "examples/charts/index.html",
+            "dist_dev": "dist/development/examples/charts/index.html",
+            "dist_esm": "dist/esm/examples/charts/index.html",
+            "dist_prod": "dist/production/examples/charts/index.html"
         },
         "hiddenIn": []
     },
     {
         "id": "video-move",
-        "family": "components",
+        "family": "platform",
         "component": "Video",
         "feature": "A mounted video component moves between two containers without being recreated.",
         "lookFor": "Press Move Video and watch the same player switch sides between the two panels.",
@@ -767,14 +870,17 @@
         "name": "Moving a Video",
         "sourceUrl": "examples/videoMove",
         "urls": {
-            "devmode": "examples/videoMove/index.html"
+            "devmode": "examples/videoMove/index.html",
+            "dist_dev": "dist/development/examples/videoMove/index.html",
+            "dist_esm": "dist/esm/examples/videoMove/index.html",
+            "dist_prod": "dist/production/examples/videoMove/index.html"
         },
         "hiddenIn": []
     },
     {
         "id": "table-filtering",
         "featured": true,
-        "image": "devmode/tableFiltering.png",
+        "image": "devmode/table-filtering-14.jpg",
         "name": "Table Filtering",
         "sourceUrl": "examples/tableFiltering",
         "urls": {
@@ -845,6 +951,7 @@
     },
     {
         "id": "portal",
+        "family": "apps",
         "featured": true,
         "environments": [
             "Desktop",
@@ -866,6 +973,10 @@
     },
     {
         "id": "liquid-glass",
+        "family": "components",
+        "feature": "A liquid glass panel that bends the photo beneath it as it drifts",
+        "lookFor": "Watch the glass panel cross the room photo and distort what lies under it.",
+        "scope": "External demo.",
         "featured": true,
         "image": "devmode/liquid-glass.png",
         "name": "Liquid Glass effect",
@@ -879,15 +990,11 @@
         "hiddenIn": [
             "devmode"
         ],
-        "family": "components",
-        "component": "Component",
-        "feature": "An interactive glass-like surface refracts a moving backdrop around ordinary controls.",
-        "lookFor": "Move the pointer across the two buttons and the surrounding surface to see the highlight and refraction follow the cursor.",
-        "scope": "External pointer-driven demo; requires a GPU-accelerated browser for the intended effect."
+        "component": "Component"
     },
     {
         "id": "grid-animated-row-sorting",
-        "image": null,
+        "image": "devmode/grid-animated-row-sorting-14.jpg",
         "name": "Animated Row Sorting",
         "sourceUrl": "examples/grid/animatedRowSorting",
         "urls": {
@@ -904,7 +1011,7 @@
     },
     {
         "id": "grid-cell-editing",
-        "image": null,
+        "image": "devmode/grid-cell-editing-14.jpg",
         "name": "Grid Cell Editing",
         "sourceUrl": "examples/grid/cellEditing",
         "urls": {
@@ -921,7 +1028,7 @@
     },
     {
         "id": "grid-container",
-        "image": null,
+        "image": "devmode/grid-container-14.jpg",
         "name": "Grid Selection Modes",
         "sourceUrl": "examples/grid/container",
         "urls": {
@@ -938,7 +1045,7 @@
     },
     {
         "id": "grid-content-sized-rows",
-        "image": null,
+        "image": "devmode/grid-content-sized-rows-14.jpg",
         "name": "Content-Sized Grid Rows",
         "sourceUrl": "examples/grid/contentSizedRows",
         "urls": {
@@ -955,7 +1062,7 @@
     },
     {
         "id": "grid-covid",
-        "image": null,
+        "image": "devmode/grid-covid-14.jpg",
         "name": "COVID-19 Country Grid",
         "sourceUrl": "examples/grid/covid",
         "urls": {
@@ -973,7 +1080,7 @@
     },
     {
         "id": "grid-header-groups",
-        "image": null,
+        "image": "devmode/grid-header-groups-14.jpg",
         "name": "Grouped Grid Headers",
         "sourceUrl": "examples/grid/headerGroups",
         "urls": {
@@ -990,7 +1097,7 @@
     },
     {
         "id": "grid-locked-columns",
-        "image": null,
+        "image": "devmode/grid-locked-columns-14.jpg",
         "name": "Locked Grid Columns",
         "sourceUrl": "examples/grid/lockedColumns",
         "urls": {
@@ -1007,7 +1114,7 @@
     },
     {
         "id": "grid-nested-record-fields",
-        "image": null,
+        "image": "devmode/grid-nested-record-fields-14.jpg",
         "name": "Nested Grid Records",
         "sourceUrl": "examples/grid/nestedRecordFields",
         "urls": {
@@ -1024,7 +1131,7 @@
     },
     {
         "id": "grid-tree",
-        "image": null,
+        "image": "devmode/grid-tree-14.jpg",
         "name": "Tree Grid",
         "sourceUrl": "examples/grid/tree",
         "urls": {
@@ -1041,7 +1148,7 @@
     },
     {
         "id": "grid-value-banding",
-        "image": null,
+        "image": "devmode/grid-value-banding-14.jpg",
         "name": "Grid Value Banding",
         "sourceUrl": "examples/grid/valueBanding",
         "urls": {
@@ -1058,7 +1165,7 @@
     },
     {
         "id": "json-grid-container",
-        "image": null,
+        "image": "devmode/json-grid-container-14.jpg",
         "name": "JSON-Defined Grid",
         "sourceUrl": "examples/serverside/gridContainer",
         "urls": {
@@ -1076,7 +1183,7 @@
     },
     {
         "id": "table-cell-editing",
-        "image": null,
+        "image": "devmode/table-cell-editing-14.jpg",
         "name": "Table Cell Editing",
         "sourceUrl": "examples/table/cellEditing",
         "urls": {
@@ -1093,7 +1200,7 @@
     },
     {
         "id": "table-container",
-        "image": null,
+        "image": "devmode/table-container-14.jpg",
         "name": "Table Configuration",
         "sourceUrl": "examples/table/container",
         "urls": {
@@ -1110,7 +1217,7 @@
     },
     {
         "id": "table-covid",
-        "image": null,
+        "image": "devmode/table-covid-14.jpg",
         "name": "COVID-19 Country Table",
         "sourceUrl": "examples/table/covid",
         "urls": {
@@ -1128,7 +1235,7 @@
     },
     {
         "id": "table-nested-record-fields",
-        "image": null,
+        "image": "devmode/table-nested-record-fields-14.jpg",
         "name": "Nested Table Records",
         "sourceUrl": "examples/table/nestedRecordFields",
         "urls": {
@@ -1145,7 +1252,7 @@
     },
     {
         "id": "table-store",
-        "image": null,
+        "image": "devmode/table-store-14.jpg",
         "name": "Table and Store Updates",
         "sourceUrl": "examples/tableStore",
         "urls": {
@@ -1162,7 +1269,7 @@
     },
     {
         "id": "table-performance",
-        "image": null,
+        "image": "devmode/table-performance-14.jpg",
         "name": "Table Refresh Performance",
         "sourceUrl": "examples/tablePerformance",
         "urls": {
@@ -1496,7 +1603,8 @@
             "dist_prod": "dist/production/examples/layout/form/index.html"
         },
         "hiddenIn": [],
-        "family": "forms",
+        "family": "layouts",
+        "alsoIn": ["forms"],
         "component": "Form",
         "feature": "A form composed by the layout-form layout with shared itemDefaults",
         "lookFor": "Note both fields share the clearable textfield defaults while their labels differ in length."
@@ -1534,6 +1642,7 @@
         },
         "hiddenIn": [],
         "family": "forms",
+        "alsoIn": ["apps"],
         "component": "Form",
         "feature": "A complete form application: 15 pages behind a side navigation",
         "lookFor": "Open pages from the side navigation and step through their fields."
@@ -1550,7 +1659,7 @@
             "dist_prod": "dist/production/examples/gantt/basic/index.html"
         },
         "hiddenIn": [],
-        "family": "calendar",
+        "family": "gantt",
         "component": "Gantt",
         "feature": "A project plan with linked, editable tasks",
         "lookFor": "Move a task and follow its dependencies. Create a link, then reload to see the saved plan."
@@ -1567,7 +1676,7 @@
             "dist_prod": "dist/production/examples/scheduler/basic/index.html"
         },
         "hiddenIn": [],
-        "family": "calendar",
+        "family": "scheduler",
         "component": "Scheduler",
         "feature": "Resource bookings on an editable timeline",
         "lookFor": "Move a booking to another studio or time. Reload after it saves to see the same booking in its new slot."
@@ -1584,14 +1693,14 @@
             "dist_prod": "dist/production/examples/timeline/basic/index.html"
         },
         "hiddenIn": [],
-        "family": "calendar",
+        "family": "timeline",
         "component": "Timeline",
         "feature": "A plain grid mounting the timeline column with interval bars",
         "lookFor": "Click Shift to advance the interval by one hour and watch the bar follow the record change."
     },
     {
         "id": "dock-choreography",
-        "family": "multi-window",
+        "family": "dashboard",
         "component": "Dock Workspace",
         "feature": "A scripted layout tour splits, groups and auto-hides live panes",
         "lookFor": "Press Tour and watch the editor clock keep ticking as the panes rearrange.",
@@ -1614,7 +1723,7 @@
     {
         "id": "dock-layouts",
         "name": "Dock Layouts",
-        "family": "multi-window",
+        "family": "dashboard",
         "component": "Dock Workspace",
         "feature": "Named perspectives rearrange the same dock panes",
         "lookFor": "Switch from Operator to Review and watch the split proportions and active pane change.",
@@ -1632,7 +1741,8 @@
     {
         "id": "dock-cross-window",
         "name": "Dock Perspectives and Pop-outs",
-        "family": "multi-window",
+        "family": "dashboard",
+        "alsoIn": ["multi-window"],
         "component": "Dock Workspace",
         "feature": "A live workbench travels between windows without restarting its counter",
         "lookFor": "Press Tour and follow Workbench into the popup and home again as its counter keeps running.",
@@ -1650,7 +1760,8 @@
     {
         "id": "dock-tear-out",
         "name": "Dock Pane Pop-out",
-        "family": "multi-window",
+        "family": "dashboard",
+        "alsoIn": ["multi-window", "drag-drop"],
         "component": "Dock Workspace",
         "feature": "A Notes pane keeps its draft when it moves to a separate window",
         "lookFor": "Type a draft in Notes, use its pop-out action, then close the popup and find the draft back in Notes.",
@@ -1703,6 +1814,7 @@
     },
     {
         "id": "realworld",
+        "family": "apps",
         "image": "devmode/realworldApp.png",
         "name": "RealWorld App",
         "sourceUrl": "apps/realworld",
@@ -1721,6 +1833,7 @@
     },
     {
         "id": "realworld-v2",
+        "family": "apps",
         "image": "devmode/realworldApp2.png",
         "name": "RealWorld App v2</br>(in progress)",
         "sourceUrl": "apps/realworld2",

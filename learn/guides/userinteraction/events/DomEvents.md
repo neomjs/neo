@@ -1,5 +1,9 @@
 # DOM Events
 
+This page covers the events the browser fires on DOM nodes and how a component subscribes to them from the app
+worker. Events that Neo instances fire themselves, such as a button's `click` or a store's `load`, are described in
+[Custom Events](CustomEvents.md).
+
 ## Delegated global DOM Events
 
 By default, Neo.mjs will attach DOM event listeners for all common events to the `document.body`.
