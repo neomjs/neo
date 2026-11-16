@@ -1,4 +1,5 @@
 import DependencyModel from './DependencyModel.mjs';
+import RecordFactory   from '../data/RecordFactory.mjs';
 import Store           from '../data/Store.mjs';
 
 /**
@@ -11,11 +12,12 @@ import Store           from '../data/Store.mjs';
  * @see Neo.gantt.DependencyLayer
  */
 class DependencyStore extends Store {
-    #indexedCount     = -1
-    #indexedItems     = null
-    #indexedMutations = -1
-    #predecessors     = null
-    #successors       = null
+    #indexedCount        = -1
+    #indexedItems        = null
+    #indexedMutations    = -1
+    #indexedRecordEpochs = null
+    #predecessors        = null
+    #successors          = null
 
     static config = {
         /**
@@ -99,11 +101,12 @@ class DependencyStore extends Store {
      * @private
      */
     #clearEndpointIndex() {
-        this.#indexedCount     = -1;
-        this.#indexedItems     = null;
-        this.#indexedMutations = -1;
-        this.#predecessors     = null;
-        this.#successors       = null
+        this.#indexedCount        = -1;
+        this.#indexedItems        = null;
+        this.#indexedMutations    = -1;
+        this.#indexedRecordEpochs = null;
+        this.#predecessors        = null;
+        this.#successors          = null
     }
 
     /**
@@ -124,23 +127,46 @@ class DependencyStore extends Store {
     }
 
     /**
+     * @summary Checks whether cached endpoint buckets match current store membership, order, and record epochs.
+     * @returns {Boolean}
+     * @private
+     */
+    #hasValidEndpointIndex() {
+        if (
+            !this.#predecessors ||
+            this.#indexedItems !== this._items ||
+            this.#indexedCount !== this.getCount() ||
+            this.#indexedMutations !== this.getCountMutations()
+        ) {
+            return false
+        }
+
+        for (const [cls, epoch] of this.#indexedRecordEpochs) {
+            if (RecordFactory.getWriteEpoch(cls) !== epoch) {
+                return false
+            }
+        }
+
+        return true
+    }
+
+    /**
      * @summary Rebuilds predecessor and successor buckets once when membership, order, or endpoints changed.
      * @private
      */
     #ensureEndpointIndex() {
-        const
-            count     = this.getCount(),
-            items     = this._items,
-            mutations = this.getCountMutations();
-
-        if (this.#predecessors && this.#indexedItems === items && this.#indexedCount === count && this.#indexedMutations === mutations) {
+        if (this.#hasValidEndpointIndex()) {
             return
         }
 
         const
-            predecessors = new Map(),
-            successors   = new Map(),
-            pushEdge     = (map, key, edge) => {
+            count         = this.getCount(),
+            items         = this._items,
+            mutations     = this.getCountMutations(),
+            predecessors  = new Map(),
+            successors    = new Map(),
+            recordClasses = new Set(),
+            pushEdge      = (map, key, edge) => {
                 let bucket = map.get(key);
                 if (!bucket) {
                     bucket = [];
@@ -152,16 +178,25 @@ class DependencyStore extends Store {
         for (let i = 0; i < count; i++) {
             const edge = this.getAt(i);
             if (edge) {
+                if (RecordFactory.isRecord(edge)) {
+                    recordClasses.add(edge.constructor)
+                }
                 pushEdge(successors,   String(edge.fromId), edge);
                 pushEdge(predecessors, String(edge.toId),   edge)
             }
         }
 
-        this.#indexedCount     = count;
-        this.#indexedItems     = items;
-        this.#indexedMutations = mutations;
-        this.#predecessors     = predecessors;
-        this.#successors       = successors
+        const recordEpochs = new Map();
+        for (const cls of recordClasses) {
+            recordEpochs.set(cls, RecordFactory.getWriteEpoch(cls))
+        }
+
+        this.#indexedCount        = count;
+        this.#indexedItems        = items;
+        this.#indexedMutations    = mutations;
+        this.#indexedRecordEpochs = recordEpochs;
+        this.#predecessors        = predecessors;
+        this.#successors          = successors
     }
 
     /**
@@ -192,15 +227,13 @@ class DependencyStore extends Store {
     }
 
     /**
-     * @summary Invalidates cached endpoints when `fromId` or `toId` changes on a record.
-     * @param {Object} data
+     * @summary Invalidates endpoint bucket order after reversing items in place.
+     * @returns {Object[]}
      */
-    onRecordChange(data) {
-        const fields = data?.fields;
-        if (!Array.isArray(fields) || !fields.length || fields.some(field => field?.name === 'fromId' || field?.name === 'toId')) {
-            this.#clearEndpointIndex()
-        }
-        super.onRecordChange(data)
+    reverse() {
+        const items = super.reverse();
+        this.#clearEndpointIndex();
+        return items
     }
 
     /**
@@ -224,13 +257,19 @@ class DependencyStore extends Store {
     writeRows(rows) {
         const touchesEndpoints = rows.some(row => row?.values && (Object.hasOwn(row.values, 'fromId') || Object.hasOwn(row.values, 'toId')));
         if (touchesEndpoints) {
-            this.#clearEndpointIndex()
+            this.#clearEndpointIndex();
+            if (this.allItems instanceof DependencyStore) {
+                this.allItems.#clearEndpointIndex()
+            }
         }
         try {
             return super.writeRows(rows)
         } finally {
             if (touchesEndpoints) {
-                this.#clearEndpointIndex()
+                this.#clearEndpointIndex();
+                if (this.allItems instanceof DependencyStore) {
+                    this.allItems.#clearEndpointIndex()
+                }
             }
         }
     }
