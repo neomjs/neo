@@ -394,6 +394,26 @@ test.describe('Neo.main.DomEvents', () => {
         }
     });
 
+    // An app that answers a tap differently from a click needs the pointer of each event, not the device's
+    test('a click reaches the app with the pointer type that produced it; a mouse event without one sends undefined', () => {
+        const
+            sent  = [],
+            mouse = (type, extra) => ({
+                altKey : false, button: 0, buttons: 0, clientX: 10, clientY: 20, composedPath: () => [node, documentRef.body],
+                ctrlKey: false, metaKey: false, preventDefault: () => {}, shiftKey: false, stopPropagation: () => {}, type, ...extra
+            });
+
+        DomEvents.getEventData     = ({type}) => ({type});
+        DomEvents.sendMessageToApp = data => sent.push(data);
+
+        DomEvents.onClick(mouse('click', {pointerType: 'touch'}));
+        DomEvents.onClick(mouse('click', {pointerType: 'mouse'}));
+        DomEvents.onDoubleClick(mouse('dblclick'));
+
+        expect(sent.map(({pointerType, type}) => [type, pointerType])).toEqual([['click', 'touch'], ['click', 'mouse'], ['dblclick', undefined]]);
+        expect(sent[0]).toMatchObject({button: 0, clientX: 10, clientY: 20, type: 'click'})
+    });
+
     // A wheel the main thread keeps never reaches the app, so there is no order to restore: the waiting move keeps
     // its frame, and the next move in that frame replaces it.
     test('a wheel the main thread keeps leaves a waiting move to its frame', () => {
