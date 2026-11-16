@@ -14,10 +14,19 @@ test.beforeAll(() => {
         registerDisabledInputChars  : () => {},
         unregisterDisabledInputChars: () => {}
     };
-    if (Neo.main.DomAccess) {
-        Neo.main.DomAccess.applyBodyCls ??= () => {};
+    Neo.main.DomAccess ??= {};
+    Neo.main.DomAccess.applyBodyCls ??= () => {};
+    Neo.main.DomAccess.setBodyCls   ??= async () => {};
+});
+
+test.afterAll(() => {
+    if (Neo.main) {
+        delete Neo.main.DomEvents;
+        delete Neo.main.DomAccess?.applyBodyCls;
+        delete Neo.main.DomAccess?.setBodyCls;
     }
 });
+
 import ButtonMainContainer from '../../../../examples/button/base/MainContainer.mjs';
 import FieldMainContainer  from '../../../../examples/form/field/text/MainContainer.mjs';
 import ListMainContainer   from '../../../../examples/list/base/MainContainer.mjs';
@@ -52,7 +61,18 @@ test.describe('ConfigurationViewport Workbench (Stage, Inspector, Reset, Theme)'
         viewport.destroy();
     });
 
-    test('button/base example: config change modifies component and reset restores initial value', async () => {
+    test('initial theme connects to Portal default (neo-theme-neo-dark)', async () => {
+        const viewport = Neo.create(FieldMainContainer, {
+            autoMount: false
+        });
+
+        expect(viewport.theme).toBe('neo-theme-neo-dark');
+        expect(viewport.exampleComponent.theme).toBe('neo-theme-neo-dark');
+
+        viewport.destroy();
+    });
+
+    test('button/base: choose badge position bottom-left, reset restores example and inspector control', async () => {
         const viewport = Neo.create(ButtonMainContainer, {
             autoMount: false
         });
@@ -60,50 +80,77 @@ test.describe('ConfigurationViewport Workbench (Stage, Inspector, Reset, Theme)'
         const initialBadgePosition = viewport.exampleComponent.badgePosition;
         expect(initialBadgePosition).toBe('top-right');
 
-        // Change badgePosition via onRadioChange
+        const radioBottomLeft = viewport.down({valueLabel: 'bottom-left'});
+        const radioTopRight   = viewport.down({valueLabel: 'top-right'});
+
+        expect(radioTopRight.checked).toBe(true);
+        expect(radioBottomLeft.checked).toBe(false);
+
+        // User chooses badge position bottom-left
+        radioBottomLeft.checked = true;
         viewport.onRadioChange('badgePosition', 'bottom-left', {value: true});
         expect(viewport.exampleComponent.badgePosition).toBe('bottom-left');
+        expect(radioBottomLeft.checked).toBe(true);
 
         // Execute reset
         viewport.onReset();
-        expect(viewport.exampleComponent.badgePosition).toBe(initialBadgePosition);
+
+        // Both example component and inspector radio are restored
+        expect(viewport.exampleComponent.badgePosition).toBe('top-right');
+        expect(radioTopRight.checked).toBe(true);
+        expect(radioBottomLeft.checked).toBe(false);
 
         viewport.destroy();
     });
 
-    test('form/field/text example: config change modifies component and reset restores initial value', async () => {
+    test('form/field/text: edit labelText, reset restores example and inspector control', async () => {
         const viewport = Neo.create(FieldMainContainer, {
             autoMount: false
         });
 
-        const initialDisabled = viewport.exampleComponent.disabled;
-        expect(initialDisabled).toBe(false);
+        const labelField = viewport.down({labelText: 'labelText'});
+        expect(labelField).toBeDefined();
+        expect(viewport.exampleComponent.labelText).toBe('Label');
+        expect(labelField.value).toBe('Label');
 
-        // Change disabled state
-        viewport.onConfigChange('disabled', {value: true});
-        expect(viewport.exampleComponent.disabled).toBe(true);
+        // User edits labelText to "Changed field label"
+        labelField.value = 'Changed field label';
+        viewport.onConfigChange('labelText', {value: 'Changed field label'});
+        expect(viewport.exampleComponent.labelText).toBe('Changed field label');
+        expect(labelField.value).toBe('Changed field label');
 
         // Execute reset
         viewport.onReset();
-        expect(viewport.exampleComponent.disabled).toBe(initialDisabled);
+
+        // Both example component and inspector input are restored
+        expect(viewport.exampleComponent.labelText).toBe('Label');
+        expect(labelField.value).toBe('Label');
 
         viewport.destroy();
     });
 
-    test('list/base example: config change modifies component and reset restores initial value', async () => {
+    test('list/base: edit width from 100 to 180, reset restores example and inspector control', async () => {
         const viewport = Neo.create(ListMainContainer, {
             autoMount: false
         });
 
-        const initialActiveIndex = viewport.exampleComponent.activeIndex;
+        const widthField = viewport.down({labelText: 'width'});
+        expect(widthField).toBeDefined();
+        expect(viewport.exampleComponent.width).toBe(100);
+        expect(widthField.value).toBe(100);
 
-        // Change activeIndex
-        viewport.onConfigChange('activeIndex', {value: 4});
-        expect(viewport.exampleComponent.activeIndex).toBe(4);
+        // User edits width to 180
+        widthField.value = 180;
+        viewport.onConfigChange('width', {value: 180});
+        expect(viewport.exampleComponent.width).toBe(180);
+        expect(widthField.value).toBe(180);
 
         // Execute reset
         viewport.onReset();
-        expect(viewport.exampleComponent.activeIndex).toBe(initialActiveIndex);
+
+        // Both example component and inspector spinbutton are restored
+        expect(viewport.exampleComponent.width).toBe(100);
+        expect(widthField.value).toBe(100);
 
         viewport.destroy();
     });

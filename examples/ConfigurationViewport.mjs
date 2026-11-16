@@ -6,10 +6,10 @@ import {bindAppend} from '../src/util/Function.mjs';
 
 // Default themes
 const themes = [
-    {name: 'neo-theme-light',     label: 'Theme Light'},
-    {name: 'neo-theme-dark',      label: 'Theme Dark'},
+    {name: 'neo-theme-neo-dark',  label: 'Theme Neo-Dark'},
     {name: 'neo-theme-neo-light', label: 'Theme Neo-Light'},
-    {name: 'neo-theme-neo-dark',  label: 'Theme Neo-Dark'}
+    {name: 'neo-theme-light',     label: 'Theme Light'},
+    {name: 'neo-theme-dark',      label: 'Theme Dark'}
 ];
 
 /**
@@ -95,14 +95,14 @@ class ConfigurationViewport extends Viewport {
     getAvailableThemes() {
         const configured  = Neo.config.themes;
         const themeLabels = {
+            'neo-theme-neo-dark' : 'Theme Neo-Dark',
+            'neo-theme-neo-light': 'Theme Neo-Light',
             'neo-theme-light'    : 'Theme Light',
             'neo-theme-dark'     : 'Theme Dark',
-            'neo-theme-neo-light': 'Theme Neo-Light',
-            'neo-theme-neo-dark' : 'Theme Neo-Dark',
             'neo-theme-cyberpunk': 'Theme Cyberpunk'
         };
 
-        if (Array.isArray(configured) && configured.length > 0) {
+        if (Array.isArray(configured) && configured.length > 0 && configured.includes('neo-theme-neo-dark')) {
             return configured.map(name => ({
                 name,
                 label: themeLabels[name] || name
@@ -178,28 +178,40 @@ class ConfigurationViewport extends Viewport {
             Object.assign(me.initialConfigValues, Neo.clone(me.exampleComponent.originalConfig, true, true));
         }
 
-        // Recursively snapshot controls and extract referenced configs
+        const inspector = me.items?.[1];
+
         const inspectControl = (item) => {
             if (!item) return;
 
-            let controlSnapshot = {
-                item,
-                initialValue  : item.value,
-                initialChecked: item.checked
-            };
+            if (item.ntype !== 'button' && !item.isButton && item.ntype !== 'label') {
+                const hasChecked = typeof item.checked === 'boolean';
+                const hasValue   = 'value' in item;
 
-            if (item.name && me.exampleComponent && (item.name in me.exampleComponent)) {
-                me.initialConfigValues[item.name] = me.exampleComponent[item.name];
+                if (hasChecked || hasValue) {
+                    me.initialControlStates.push({
+                        item,
+                        hasChecked,
+                        initialChecked: item.checked,
+                        hasValue,
+                        initialValue  : item.value
+                    });
+                }
+
+                if (item.name && me.exampleComponent && (item.name in me.exampleComponent)) {
+                    me.initialConfigValues[item.name] = me.exampleComponent[item.name];
+                }
             }
-
-            me.initialControlStates.push(controlSnapshot);
 
             if (Array.isArray(item.items)) {
                 item.items.forEach(inspectControl);
             }
         };
 
-        me.configurationComponents.forEach(inspectControl);
+        if (inspector) {
+            inspectControl(inspector);
+        } else if (Array.isArray(me.configurationComponents)) {
+            me.configurationComponents.forEach(inspectControl);
+        }
     }
 
     /**
@@ -219,11 +231,20 @@ class ConfigurationViewport extends Viewport {
 
         // 2. Reset controls
         if (me.initialControlStates) {
-            me.initialControlStates.forEach(({item, initialValue, initialChecked}) => {
-                if (initialChecked !== undefined) {
-                    item.checked = initialChecked;
+            // Uncheck radios and checkboxes that were not initially checked
+            me.initialControlStates.forEach(({item, hasChecked, initialChecked}) => {
+                if (hasChecked && !initialChecked) {
+                    item.checked = false;
                 }
-                if (initialValue !== undefined) {
+            });
+
+            // Restore checked state for initially checked and values for inputs
+            me.initialControlStates.forEach(({item, hasChecked, initialChecked, hasValue, initialValue}) => {
+                if (hasChecked) {
+                    if (initialChecked) {
+                        item.checked = true;
+                    }
+                } else if (hasValue) {
                     item.value = initialValue;
                 }
             });
@@ -233,7 +254,7 @@ class ConfigurationViewport extends Viewport {
     /**
      * Constructs the workbench stage and inspector panel
      */
-    async onConstructed() {
+    onConstructed() {
         let me    = this,
             style = me.exampleContainerConfig?.style,
             exampleComponentType, theme;
@@ -253,7 +274,11 @@ class ConfigurationViewport extends Viewport {
         let configs = me.createConfigurationComponents();
 
         if (configs instanceof Promise) {
-            me.configurationComponents = await configs || [];
+            configs.then(resolved => {
+                me.configurationComponents = resolved || [];
+                me.snapshotInitialState();
+            });
+            me.configurationComponents = [];
         } else {
             me.configurationComponents = configs || [];
         }
@@ -263,9 +288,11 @@ class ConfigurationViewport extends Viewport {
         }
 
         const availableThemes = me.getAvailableThemes();
-        theme = me.exampleComponent?.getTheme?.() || (Neo.config.themes?.includes('neo-theme-neo-light') ? 'neo-theme-neo-light' : (availableThemes[0]?.name || 'neo-theme-neo-light'));
-
-        me.snapshotInitialState();
+        theme = me.theme || (availableThemes.some(t => t.name === 'neo-theme-neo-dark') ? 'neo-theme-neo-dark' : availableThemes[0]?.name);
+        me.theme = theme;
+        if (me.exampleComponent) {
+            me.exampleComponent.theme = theme;
+        }
 
         const currentThemeObj = availableThemes.find(t => t.name === theme) || availableThemes[0];
         const nextThemeIndex  = (availableThemes.indexOf(currentThemeObj) + 1) % availableThemes.length;
@@ -334,22 +361,13 @@ class ConfigurationViewport extends Viewport {
                     width               : me.configItemWidth
                 },
 
-                items: [...me.configurationComponents, {
-                    module : Button,
-                    handler: bindAppend(me.onSwitchTheme, me, 'cmp'),
-                    style  : {marginTop: '20px'},
-                    text   : nextThemeObj.label,
-                    width  : 130
-                }, {
-                    module : Button,
-                    handler: me.logInstance.bind(me),
-                    text   : 'Log Instance',
-                    width  : 130
-                }]
+                items: me.configurationComponents
             }]
         }];
 
         super.onConstructed();
+
+        me.snapshotInitialState();
     }
 
     /**
@@ -381,7 +399,8 @@ class ConfigurationViewport extends Viewport {
         if (target === 'cmp') {
             me.exampleComponent.theme = newTheme;
         } else {
-            if (me.app?.mainView) {
+            me.theme = newTheme;
+            if (me.app?.mainView && me.app.mainView !== me) {
                 me.app.mainView.theme = newTheme;
             }
             if (me.exampleComponent) {

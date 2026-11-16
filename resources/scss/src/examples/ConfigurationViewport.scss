@@ -62,7 +62,9 @@
         .neo-workbench-stage,
         .neo-example-container {
             flex      : none !important;
+            height    : 280px !important;
             margin    : 10px !important;
+            max-height: 40vh !important;
             min-height: 240px !important;
             width     : calc(100% - 20px) !important;
         }
