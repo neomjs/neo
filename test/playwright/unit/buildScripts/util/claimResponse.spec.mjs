@@ -1931,7 +1931,9 @@ test.describe('buildScripts/util/claimResponse', () => {
                 "Sorry, I can't work on this anymore.",
                 'Giving up the claim.',
                 "I'm no longer able to work on this.",
-                "I wasn't stepping back earlier, please unassign me now."
+                "I wasn't stepping back earlier, please unassign me now.",
+                "Sorry I couldn't finish this, stepping back.",
+                "Because I can't get my build working I'm stepping back."
             ];
             for (const text of expectedReleases) {
                 expect(isWithdrawal(text), text).toBe(true)
@@ -1943,7 +1945,11 @@ test.describe('buildScripts/util/claimResponse', () => {
                 "Please unassign me — wait, I'll take this one after all.",
                 'Consider it available\n/claim',
                 'I am not withdrawing my claim. The fix is still underway.',
+                'I do not plan to withdraw my claim. The fix is still underway.',
+                "I'm not considering withdrawing my claim. I am still working on it.",
                 'I am not withdrawing my claim.',
+                'I do not plan to withdraw my claim.',
+                "I'm not considering withdrawing my claim.",
                 "I'm not dropping my claim.",
                 'not giving up the claim',
                 'I am no longer stepping back from this.',
@@ -1953,6 +1959,26 @@ test.describe('buildScripts/util/claimResponse', () => {
             ];
             for (const text of nonReleases) {
                 expect(isWithdrawal(text), text).toBe(false)
+            }
+
+            // Linear-time bound under repetitive modifier input (ReDoS guard)
+            const t0 = performance.now();
+            expect(isWithdrawal(`not${' going to be'.repeat(200)}! withdrawing my claim`)).toBe(true);
+            expect(isWithdrawal(`not${' be planning to'.repeat(200)}! withdrawing my claim`)).toBe(true);
+            expect(performance.now() - t0).toBeLessThan(50);
+
+            // Exact assigned-fixture check for ordinary continuing negations
+            const
+                claim1    = comment('outside-dev', '2026-11-16T04:00:00Z', '/claim', {id: 7101}),
+                assigned1 = {actor: {login: 'github-actions[bot]', type: 'Bot'}, assignee: {login: 'outside-dev'}, created_at: '2026-11-16T04:00:02Z', event: 'assigned'},
+                openIssue = gfiIssue({assignees: [{id: 7101, login: 'outside-dev'}], state: 'open'});
+
+            for (const phrase of [
+                'I do not plan to withdraw my claim. The fix is still underway.',
+                "I'm not considering withdrawing my claim. I am still working on it."
+            ]) {
+                const note = comment('outside-dev', '2026-11-16T10:00:00Z', phrase, {id: 7101});
+                expect(decideWithdrawal({comment: note, comments: [claim1, note], events: [assigned1], issue: openIssue, repoUrl: REPO_URL})).toBeNull();
             }
         });
 

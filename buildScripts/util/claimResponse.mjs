@@ -84,8 +84,11 @@ const
         /\bconsider\s+(?:it|this)\s+available\b/gi,
         /\b(?:issue|this|it)\s+is\s+(?:now\s+)?(?:free|available)\s+for\s+(?:anyone|others|another)\b/gi
     ]),
-    // Negation words immediately governing a withdrawal phrase (within the same clause) keep the hold intact.
-    NEGATED_WITHDRAWAL_PREFIX = /(?:[a-z]+n't\b|\b(?:cannot|not|never|no\s+longer|without|instead\s+of|rather\s+than|far\s+from|no\s+(?:intention|plan|plans|need|reason)\s+(?:to|of)))(?:\s+(?:actually|currently|really|still|yet|even|ever|at\s+all|please|be|being|going\s+to(?:\s+be)?|planning\s+(?:to(?:\s+be)?|on)|trying\s+to|about\s+to|want(?:ing)?\s+to|intend(?:ing)?\s+to))*\s*$/i,
+    // Clause-local markers used to detect negated withdrawals linearly without backtracking regexes.
+    CLAUSE_BREAK_PATTERN = /[.,!?;:()\n\u2013\u2014]|\s-\s|\b(?:but|however|though|although|so|therefore|thus)\b/,
+    NEGATION_TOKENS      = Object.freeze(new Set(['not', 'never', 'neither', 'nor', 'without', 'cannot', 'hardly', 'scarcely', 'cant', 'wont', 'dont', 'didnt', 'doesnt', 'isnt', 'arent', 'wasnt', 'werent', 'shouldnt', 'wouldnt', 'couldnt', 'havent', 'hasnt', 'hadnt'])),
+    NO_NEGATION_NOUNS    = Object.freeze(new Set(['intention', 'plan', 'plans', 'need', 'reason', 'desire'])),
+    INVERTED_AUX         = Object.freeze(new Set(['am', 'are', 'is', 'was', 'were', 'do', 'does', 'did', 'have', 'has', 'had', 'can', 'could', 'will', 'would', 'should', 'may', 'might', 'must'])),
     MODAL_WITHDRAWAL_PATTERN  = /\b(?:can'?t|cannot|won'?t|will\s+not|(?:no\s+longer|not)\s+(?:able|going|planning)\s+to)\s+(?:be\s+able\s+to\s+)?(?:work(?:\s+on)?|take|continue|finish|proceed)\b([^.!?\n]*)/gi,
     DEFERRAL_CLAUSE_PATTERN   = /\b(?:before|by|until|till|today|tonight|tomorrow|this\s+(?:morning|afternoon|evening|week|weekend)|right\s+now|yet)\b/i,
     CONTINUATION_PATTERN      = /\b(?:(?:the\s+|a\s+)?(?:pr|pull\s+request|fix|patch|work|branch)\s+(?:comes|is\s+coming|will\s+be\s+(?:up|ready|open|opened|pushed|submitted|sent|soon|tomorrow|tonight|today|this\b|on\b|by\b)|is\s+(?:still\s+)?(?:underway|in\s+progress|ongoing|nearly\s+ready|almost\s+ready))|(?:i'?ll|i\s+will)\s+(?:push|open|submit|send|finish)|still\s+(?:working\s+on|underway|in\s+progress|on\s+it))\b/i,
@@ -130,6 +133,35 @@ export function isClaim(body) {
 }
 
 /**
+ * @summary Linear clause-local negation check avoiding backtracking quantifiers before a withdrawal verb.
+ * @param {String} prefix Comment text preceding a candidate withdrawal phrase
+ * @returns {Boolean}
+ * @private
+ */
+function isClauseNegated(prefix) {
+    const clause = String(prefix || '').slice(-120).toLowerCase().split(CLAUSE_BREAK_PATTERN).at(-1) || '';
+    let   tokens = clause.match(/[a-z']+/g) || [];
+
+    for (let i = tokens.length - 1; i >= 0; i--) {
+        const tok = tokens[i], prev = tokens[i - 1] || '';
+        if (tok === "i'm" || tok === "i'll" || tok === "i've" || tok === "i'd" || (tok === 'i' && !INVERTED_AUX.has(prev))) {
+            tokens = tokens.slice(i);
+            break
+        }
+    }
+
+    const tail = tokens.slice(-6);
+    for (let i = 0; i < tail.length; i++) {
+        const tok = tail[i], next = tail[i + 1] || '', third = tail[i + 2] || '';
+        if (tok.endsWith("n't") || NEGATION_TOKENS.has(tok)) return true;
+        if (tok === 'no' && (next === 'longer' || (NO_NEGATION_NOUNS.has(next) && (third === 'to' || third === 'of')))) return true;
+        if ((tok === 'instead' && next === 'of') || (tok === 'rather' && next === 'than') || (tok === 'far' && next === 'from')) return true;
+    }
+
+    return false
+}
+
+/**
  * @summary Evaluates prose withdrawal patterns and separates unnegated releases from clause-negated denials.
  * @param {String} text Stripped comment text from {@link claimText}
  * @returns {{negated: Boolean, unnegated: Boolean}}
@@ -140,7 +172,7 @@ function scanProseWithdrawals(text) {
 
     for (const pattern of UNCONDITIONAL_WITHDRAWAL_PATTERNS) {
         for (const match of text.matchAll(pattern)) {
-            if (NEGATED_WITHDRAWAL_PREFIX.test(text.slice(0, match.index))) negated = true;
+            if (isClauseNegated(text.slice(0, match.index))) negated = true;
             else unnegated = true;
         }
     }
@@ -159,8 +191,9 @@ export function isWithdrawal(body) {
     const text = claimText(body);
 
     if (CLAIM_PATTERNS.some(pattern => pattern.test(text))) return false;
-    if (SLASH_WITHDRAWAL_PATTERN.test(text) || scanProseWithdrawals(text).unnegated) return true;
+    if (SLASH_WITHDRAWAL_PATTERN.test(text)) return true;
     if (CONTINUATION_PATTERN.test(text)) return false;
+    if (scanProseWithdrawals(text).unnegated) return true;
 
     for (const match of text.matchAll(MODAL_WITHDRAWAL_PATTERN)) {
         if (!DEFERRAL_CLAUSE_PATTERN.test(match[1] || '')) return true;
