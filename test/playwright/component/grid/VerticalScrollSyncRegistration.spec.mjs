@@ -69,6 +69,37 @@ test.describe('Neo.main.addon.ScrollSync in the browser', () => {
         expect(await read(page), 'the scrollbar scrolls the view').toEqual({bar: 80, view: 80})
     });
 
+    test('a pair keyed by data-neo-id syncs both ways while useDomIds is false', async ({page}) => {
+        await page.evaluate(() => {
+            Neo.config.useDomIds = false;
+            Neo.main.addon.ScrollSync.register({fromId: 'probe-data-view', id: 'probe-data', toId: 'probe-data-bar'});
+
+            for (const id of ['probe-data-view', 'probe-data-bar']) {
+                const node    = document.createElement('div'),
+                      content = document.createElement('div');
+
+                // The renderer writes the Neo id as data-neo-id in this mode, and no DOM id
+                node.dataset.neoId = id;
+                Object.assign(node.style, {height: '100px', overflowY: 'auto', width: '100px'});
+                content.style.height = '1000px';
+                node.appendChild(content);
+                document.body.appendChild(node)
+            }
+        });
+
+        const node    = id => `document.querySelector('[data-neo-id="${id}"]')`,
+              readAll = () => page.evaluate(`({bar: ${node('probe-data-bar')}.scrollTop, view: ${node('probe-data-view')}.scrollTop})`),
+              scroll  = (id, top) => page.evaluate(`(() => {const n = ${node(id)}; n.scrollTop = ${top}; n.dispatchEvent(new Event('scroll'))})()`);
+
+        await scroll('probe-data-view', 40);
+        expect(await readAll()).toEqual({bar: 40, view: 40});
+
+        await expect.poll(() => page.evaluate(() => Neo.main.addon.ScrollSync.coordinatingNodes.has('probe-data-bar'))).toBe(false);
+
+        await scroll('probe-data-bar', 80);
+        expect(await readAll(), 'the scrollbar scrolls the view').toEqual({bar: 80, view: 80})
+    });
+
     test('an unregistered pair stops syncing', async ({page}) => {
         await scrollTo(page, 'probe-view', 40);
         expect(await read(page), 'control: the registered pair syncs').toEqual({bar: 40, view: 40});

@@ -133,6 +133,33 @@ test.describe('Neo.main.addon.ScrollSync', () => {
         expect(nodes.bar.scrollTop).toBe(30)
     });
 
+    test('nodes keyed by data-neo-id sync and keep the echo lock while useDomIds is false', () => {
+        const {useDomIds} = Neo.config;
+
+        Neo.config.useDomIds = false;
+
+        try {
+            // The ids live in data-neo-id, as the renderer writes them in this mode
+            for (const node of Object.values(nodes)) {
+                node.dataset = {neoId: node.id};
+                node.id      = ''
+            }
+
+            Object.assign(present, {bar: nodes.bar, view: nodes.view});
+            addon.register({fromId: 'view', id: 'grid-1', toId: 'bar'});
+
+            nodes.view.scrollTop = 40;
+            nodes.view.trigger('scroll');
+            expect(nodes.bar.scrollTop).toBe(40);
+
+            nodes.view.scrollTop = 50;
+            nodes.bar.trigger('scroll');
+            expect(nodes.view.scrollTop, 'the echo leaves the source alone').toBe(50)
+        } finally {
+            Neo.config.useDomIds = useDomIds
+        }
+    });
+
     test('unregister ends the sync, and another registration keeps its own', () => {
         const other = {bar2: createNode('bar2'), view2: createNode('view2')};
 

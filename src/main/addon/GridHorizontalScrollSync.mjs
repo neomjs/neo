@@ -7,9 +7,9 @@ import DomAccess from '../DomAccess.mjs';
  * The scrollbar is the single source: its scroll moves the body and the header, and a scroll the header makes on its
  * own moves the scrollbar first.
  *
- * The addon listens to the document once and routes each `scroll` and `wheel` by the id of a registered node. A grid
- * may register before its nodes are in the document, since the App worker's call can arrive ahead of the VDom
- * worker's delta, and a node replaced later keeps its sync.
+ * The addon listens to the document once and routes each `scroll` and `wheel` by the Neo id of a registered node
+ * (`DomAccess.getNodeId()`, for either DOM identity mode). A grid may register before its nodes are in the document,
+ * since the App worker's call can arrive ahead of the VDom worker's delta, and a node replaced later keeps its sync.
  * @class Neo.main.addon.GridHorizontalScrollSync
  * @extends Neo.main.addon.Base
  */
@@ -82,7 +82,7 @@ class GridHorizontalScrollSync extends Base {
      * @param {Event} event
      */
     onDocumentScroll(event) {
-        let node = this.nodes.get(event.target.id);
+        let node = this.nodes.get(DomAccess.getNodeId(event.target));
 
         if (node?.role === 'scroller') {
             this.onScroll(node.registration, event)
@@ -99,7 +99,7 @@ class GridHorizontalScrollSync extends Base {
         let node;
 
         for (const element of event.composedPath()) {
-            node = element.id && this.nodes.get(element.id);
+            node = this.nodes.get(DomAccess.getNodeId(element));
             node?.role === 'view' && this.onWheel(node.registration.scrollerId, event)
         }
     }

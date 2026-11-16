@@ -16,9 +16,10 @@ import DomAccess from '../DomAccess.mjs';
  * It uses a granular locking mechanism (`coordinatingNodes`) to prevent infinite "ping-pong" feedback loops
  * when two-way sync is active or when other programmatic scrolling addons (like `GridDragScroll`) mutate the DOM.
  *
- * The addon listens to the document once, in the capture phase, and routes each scroll by the id of the node that
- * scrolled. A registration may arrive before its nodes are in the document, since the App worker's call can overtake
- * the VDom worker's delta, and a node replaced later keeps its sync.
+ * The addon listens to the document once, in the capture phase, and routes each scroll by the Neo id of the node that
+ * scrolled (`DomAccess.getNodeId()`, for either DOM identity mode). A registration may arrive before its nodes are in
+ * the document, since the App worker's call can overtake the VDom worker's delta, and a node replaced later keeps its
+ * sync.
  *
  * Key concepts: scroll synchronization, custom scrollbar, virtual scrolling, grid, main thread addon, DOM manipulation, event handling.
  *
@@ -136,7 +137,7 @@ class ScrollSync extends Base {
      * @param {Event} event
      */
     onDocumentScroll(event) {
-        this.sources.get(event.target.id)?.forEach(({isSyncBack, registration, toId}) => {
+        this.sources.get(DomAccess.getNodeId(event.target))?.forEach(({isSyncBack, registration, toId}) => {
             this.onScroll(toId, registration.direction, isSyncBack, event)
         })
     }
@@ -152,7 +153,7 @@ class ScrollSync extends Base {
      */
     onScroll(toId, direction, isSyncBack, event) {
         let me     = this,
-            fromId = event.target.id;
+            fromId = DomAccess.getNodeId(event.target);
 
         // GATEKEEPER: If the source node is currently locked by a programmatic mutation, ignore this event.
         if (me.coordinatingNodes.has(fromId)) {
