@@ -86,23 +86,37 @@ class ServiceWorker extends Base {
     }
 
     /**
-     * @summary Reloads the page once the new build's worker is active, for a page that started on another build's.
+     * @summary Activates the new build's worker and reloads the page once it is active, for a page that started on
+     * another build's.
      *
      * Until the new worker takes over, the previous one answers this page's workers from the previous build's cache,
      * so the session can run files of two builds. Its activation deletes that cache, and the reload loads one build.
+     *
+     * The worker's install handler calls `skipWaiting()`, yet Chromium can still leave it waiting while the previous
+     * build's worker serves this page's workers, and does not retry once that worker is idle. Asking again through
+     * `onSkipWaiting()`, once a second for up to a minute, activates it.
      * @param {ServiceWorkerRegistration} registration
      * @param {String}                    scriptUrl    The absolute URL of the new build's worker
      */
     reloadWhenActive(registration, scriptUrl) {
-        let reload = () => WorkerManager.reloadOnce(`The build changed, ${scriptUrl} is active. Reloading.`),
-            worker = registration.installing || registration.waiting;
+        let worker = registration.installing || registration.waiting,
+            reload = () => WorkerManager.reloadOnce(`The build changed, ${scriptUrl} is active. Reloading.`),
+            ask    = (attempts=60) => {
+                if (worker.state === 'installed' && attempts > 0) {
+                    worker.postMessage({action: 'skipWaiting'});
+                    setTimeout(() => ask(attempts - 1), 1000)
+                }
+            };
 
         if (registration.active?.scriptURL === scriptUrl) {
             reload()
-        } else {
-            worker?.addEventListener('statechange', () => {
+        } else if (worker) {
+            worker.addEventListener('statechange', () => {
+                worker.state === 'installed' && ask();
                 worker.state === 'activated' && reload()
-            })
+            });
+
+            ask()
         }
     }
 }
