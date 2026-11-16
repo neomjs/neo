@@ -410,6 +410,64 @@ test.describe('Neo.menu.List driven by a TreeStore', () => {
         expect(root.activeSubMenu).toBeNull()
     });
 
+    /**
+     * Opens root → File → New and returns every level.
+     * @param {Neo.menu.List} root
+     * @returns {Object}
+     */
+    function openFileNewCascade(root) {
+        const file = root.store.get('file');
+
+        root.showSubMenu(root.getItemId(root.store.getKey(file)), file);
+
+        const fileLevel = root.activeSubMenu,
+              newRecord = fileLevel.store.get('file-new');
+
+        fileLevel.showSubMenu(fileLevel.getItemId(fileLevel.store.getKey(newRecord)), newRecord);
+
+        menus.push(fileLevel, fileLevel.activeSubMenu);
+
+        return {fileLevel, newLevel: fileLevel.activeSubMenu}
+    }
+
+    test('a collapse in the tree is no removal: an open cascade survives the collapse/expand round trip', async () => {
+        await treeStore.expand('file');
+        await treeStore.expand('file-new');
+
+        const root = createMenu({store: treeStore});
+
+        menus.push(root);
+
+        const {fileLevel, newLevel} = openFileNewCascade(root);
+
+        // The Projection Layer drops the branch's visible descendants, the Structural Layer keeps them
+        treeStore.collapse('file');
+
+        expect(fileLevel.store.items.map(item => item.id)).toEqual(['file-new', 'file-open']);
+        expect(newLevel.store.items.map(item => item.id)).toEqual(['file-new-f']);
+        expect(fileLevel.activeSubMenu).toBe(newLevel);
+
+        await treeStore.expand('file');
+
+        // Exactly once: the expansion re-projects rows no level let go of
+        expect(fileLevel.store.items.map(item => item.id)).toEqual(['file-new', 'file-open']);
+        expect(newLevel.store.items.map(item => item.id)).toEqual(['file-new-f']);
+        expect(fileLevel.activeSubMenu).toBe(newLevel)
+    });
+
+    test('removing the item of the open submenu from the tree hides that submenu', () => {
+        const root = createMenu({store: treeStore});
+
+        menus.push(root);
+
+        const {fileLevel} = openFileNewCascade(root);
+
+        treeStore.remove('file-new');
+
+        expect(fileLevel.store.items.map(item => item.id)).toEqual(['file-open']);
+        expect(fileLevel.activeSubMenu).toBeNull()
+    });
+
     test('a destroyed level leaves no listener behind on the still-live source', () => {
         const root   = createMenu({store: treeStore}),
               level1 = createMenu({...root.getSubMenuData(root.store.get('file'))});

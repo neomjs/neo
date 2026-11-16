@@ -1,0 +1,75 @@
+// The list drawn as a desktop: no list chrome, icon tiles on the wallpaper, groups as headings
+.webdesktop-launcher {
+    --list-container-list-color          : var(--webdesktop-ink);
+    --list-item-background-color         : transparent;
+    --list-item-background-color-active  : var(--webdesktop-glass-active);
+    --list-item-background-color-hover   : var(--webdesktop-glass-hover);
+    --list-item-background-color-selected: var(--webdesktop-glass-active);
+    --list-item-color-selected           : var(--webdesktop-ink);
+    --list-item-focus-outline            : 2px solid var(--webdesktop-accent);
+    --list-item-focus-outline-offset     : 2px;
+    --list-item-padding                  : 10px 4px 8px;
+
+    align-content        : start;
+    display              : grid;
+    gap                  : 6px 8px;
+    grid-template-columns: repeat(auto-fill, 100px);
+    padding              : 28px 32px;
+
+    .neo-list-header {
+        border-bottom : 1px solid var(--webdesktop-glass-border);
+        color         : var(--webdesktop-ink-dim);
+        font-size     : 11px;
+        font-weight   : 700;
+        grid-column   : 1 / -1;
+        letter-spacing: .09em;
+        margin        : 14px 0 6px;
+        padding       : 0 2px 8px;
+        text-shadow   : var(--webdesktop-label-shadow);
+        text-transform: uppercase;
+
+        &:first-child {
+            margin-top: 0;
+        }
+    }
+
+    .neo-list-item:not(.neo-list-header) {
+        align-items   : center;
+        border-radius : 16px;
+        display       : flex;
+        flex-direction: column;
+        gap           : 8px;
+        margin        : 0;
+        transition    : background-color .15s ease, transform .2s cubic-bezier(.2, .8, .2, 1);
+
+        &:hover {
+            transform: translateY(-2px);
+
+            .webdesktop-app-icon {
+                box-shadow: 0 16px 34px -10px color-mix(in srgb, var(--webdesktop-app-color) 85%, transparent), inset 0 1px 0 rgba(255, 255, 255, .35);
+            }
+        }
+    }
+
+    .webdesktop-app-icon {
+        align-items    : center;
+        background     : linear-gradient(145deg, color-mix(in srgb, var(--webdesktop-app-color) 70%, white), var(--webdesktop-app-color) 55%, color-mix(in srgb, var(--webdesktop-app-color) 82%, black));
+        border-radius  : 16px;
+        box-shadow     : 0 10px 24px -10px color-mix(in srgb, var(--webdesktop-app-color) 75%, transparent), inset 0 1px 0 rgba(255, 255, 255, .35);
+        color          : #fff;
+        display        : flex;
+        font-size      : 24px;
+        height         : 56px;
+        justify-content: center;
+        transition     : box-shadow .2s ease;
+        width          : 56px;
+    }
+
+    .webdesktop-app-label {
+        font-size  : 12.5px;
+        font-weight: 600;
+        line-height: 1.2;
+        text-align : center;
+        text-shadow: var(--webdesktop-label-shadow);
+    }
+}
