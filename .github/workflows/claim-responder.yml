@@ -82,8 +82,8 @@ jobs:
           script: |
             const {
               CLAIM_RELEASE_SINCE, TEAM_ASSOCIATIONS, changedCloseTargets, closeTargets, curatedLabel, decideClaim,
-              decidePullRequestRelease, decidePullRequestTarget, decideTargetRemoval, isClaim, isOutsideHuman,
-              isTeamPermission
+              decidePullRequestRelease, decidePullRequestTarget, decideTargetRemoval, decideWithdrawal, isClaim,
+              isOutsideHuman, isTeamPermission, isWithdrawal
             } = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/claimResponse.mjs`);
             const {owner, repo} = context.repo;
 
@@ -507,9 +507,11 @@ jobs:
             }
 
             const {comment, issue: eventIssue} = context.payload;
+            const claimComment                 = isClaim(comment?.body);
+            const withdrawalComment            = !claimComment && isWithdrawal(comment?.body);
 
-            if (!isOutsideHuman(comment) || !isClaim(comment.body)) {
-              core.info('No reply: not an outside contributor claim.');
+            if (!isOutsideHuman(comment) || (!claimComment && !withdrawalComment)) {
+              core.info('No reply: not an outside contributor claim or withdrawal.');
               return
             }
 
@@ -518,6 +520,77 @@ jobs:
 
             if (issue.state !== 'open' || !label) {
               core.info('No reply: issue is closed or no longer curated.');
+              return
+            }
+
+            if (withdrawalComment) {
+              const
+                author          = String(comment.user?.login || '').toLowerCase(),
+                matchedAssignee = (issue.assignees || []).find(assignee => String(assignee?.login || '').toLowerCase() === author);
+
+              if (!matchedAssignee) {
+                core.info('No unassign: withdrawing commenter is not assigned.');
+                return
+              }
+
+              if (typeof github.rest.repos?.getCollaboratorPermissionLevel === 'function') {
+                const {data: permissionData} = await github.rest.repos.getCollaboratorPermissionLevel({
+                  owner,
+                  repo,
+                  username: matchedAssignee.login
+                });
+                if (isTeamPermission(permissionData?.permission)) {
+                  core.info('No unassign: assignee holds team permission.');
+                  return
+                }
+              }
+
+              const [comments, events, linkedNodes] = await Promise.all([
+                github.paginate(github.rest.issues.listComments, {owner, repo, issue_number: issue.number, per_page: 100}),
+                github.paginate(github.rest.issues.listEvents,   {owner, repo, issue_number: issue.number, per_page: 100}),
+                loadCompleteLinkedPrRefs(issue.number, {includeClosedPrs: false, pageSize: 50})
+              ]);
+
+              const openPullRequests = linkedNodes
+                .filter(pullRequest => pullRequest.state === 'OPEN')
+                .map(pullRequest => ({number: pullRequest.number, author: pullRequest.author?.login, repository: pullRequest.repository?.nameWithOwner}));
+
+              const decision = decideWithdrawal({
+                comment,
+                comments,
+                events,
+                issue,
+                openPullRequests,
+                repoUrl: `https://github.com/${owner}/${repo}`
+              });
+
+              if (!decision) {
+                core.info('No unassign: withdrawal already processed or ineligible.');
+                return
+              }
+
+              try {
+                const {data: updated} = await github.rest.issues.removeAssignees({
+                  assignees   : [decision.unassign],
+                  issue_number: issue.number,
+                  owner,
+                  repo
+                });
+                const stillAssigned = !Array.isArray(updated?.assignees) || updated.assignees.some(
+                  assignee => String(assignee?.login || '').toLowerCase() === String(decision.unassign).toLowerCase()
+                );
+
+                if (stillAssigned) {
+                  core.warning(`GitHub did not remove ${decision.unassign} as assignee on #${issue.number}.`);
+                  return
+                }
+              } catch (error) {
+                core.warning(`Could not unassign ${decision.unassign} on #${issue.number}: ${error.message}`);
+                return
+              }
+
+              await github.rest.issues.createComment({owner, repo, issue_number: issue.number, body: decision.body});
+              core.info(`Unassigned ${decision.unassign} on withdrawal.`);
               return
             }
 
