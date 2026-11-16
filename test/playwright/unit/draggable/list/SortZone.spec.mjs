@@ -212,6 +212,22 @@ test.describe('Neo.draggable.list.SortZone', () => {
         expect(rendered()).toEqual(['g1', 'a3', 'a1', 'a2', 'g2', 'b1', 'b2'])
     });
 
+    test('a release commits nothing the list stopped showing during the drag', async () => {
+        for (const [dragged, hidden] of [['a1', 'A1'], ['a1', 'A2']]) {
+            store.clearFilters();
+
+            await drag(dragged);
+            move('a2', 90);
+
+            // The dragged record, then the slot's target, leaves the list mid-drag
+            store.filters = [{operator: 'excluded', property: 'text', value: [hidden, 'G1', 'G2']}];
+
+            await zone.onDragEnd({});
+
+            expect(orders()).toEqual({a1: 0, a2: 1, a3: 2, b1: 0, b2: 1})
+        }
+    });
+
     test('moveRecord() commits without a pointer and fires sort once per change', () => {
         const events = [];
 
