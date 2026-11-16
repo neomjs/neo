@@ -4,15 +4,16 @@ import Panel        from '../src/container/Panel.mjs';
 import Viewport     from '../src/container/Viewport.mjs';
 import {bindAppend} from '../src/util/Function.mjs';
 
-// add custom themes here
+// Default themes
 const themes = [
     {name: 'neo-theme-light',     label: 'Theme Light'},
     {name: 'neo-theme-dark',      label: 'Theme Dark'},
-    {name: 'neo-theme-neo-light', label: 'Theme Neo-Light'}
-]
+    {name: 'neo-theme-neo-light', label: 'Theme Neo-Light'},
+    {name: 'neo-theme-neo-dark',  label: 'Theme Neo-Dark'}
+];
 
 /**
- * Base class for example Apps which should be configurable
+ * Base class for example Apps which should be configurable (workbench stage, inspector, reset)
  * @class Neo.examples.ConfigurationViewport
  * @extends Neo.container.Viewport
  * @abstract
@@ -30,9 +31,9 @@ class ConfigurationViewport extends Viewport {
          */
         ntype: 'configuration-viewport',
         /**
-         * @member {String[]} baseCls=['neo-examples-configuration-viewport','neo-viewport']
+         * @member {String[]} baseCls=['neo-examples-configuration-viewport','neo-viewport','neo-workbench']
          */
-        baseCls: ['neo-examples-configuration-viewport', 'neo-viewport'],
+        baseCls: ['neo-examples-configuration-viewport', 'neo-viewport', 'neo-workbench'],
         /**
          * @member {Number} configItemLabelWidth=150
          */
@@ -46,7 +47,7 @@ class ConfigurationViewport extends Viewport {
          */
         configPanelFlex: 1,
         /**
-         * @member {Number} configPanelMaxWidth=null
+         * @member {Number|null} configPanelMaxWidth=null
          */
         configPanelMaxWidth: null,
         /**
@@ -58,7 +59,7 @@ class ConfigurationViewport extends Viewport {
          */
         exampleComponent: null,
         /**
-         * @member {Number} exampleComponentFlex=1
+         * @member {Number} exampleComponentFlex=2
          */
         exampleComponentFlex: 2,
         /**
@@ -72,11 +73,11 @@ class ConfigurationViewport extends Viewport {
      * Override this method to create the components to show inside the configuration container.
      * The method can optionally be async => Use this for functional components,
      * where you want to subscribe controls to "classic" components inside functional components.
-     * @see:Neo.examples.functional.hostComponent.MainContainer
+     * @see Neo.examples.functional.hostComponent.MainContainer
      * @returns {Promise<Object[]>|Object[]|null}
      */
     async createConfigurationComponents() {
-        return null
+        return null;
     }
 
     /**
@@ -84,14 +85,38 @@ class ConfigurationViewport extends Viewport {
      * @returns {Object|Neo.component.Base|null}
      */
     createExampleComponent() {
-        return null
+        return null;
+    }
+
+    /**
+     * Returns the available themes for theme switching
+     * @returns {Object[]}
+     */
+    getAvailableThemes() {
+        const configured  = Neo.config.themes;
+        const themeLabels = {
+            'neo-theme-light'    : 'Theme Light',
+            'neo-theme-dark'     : 'Theme Dark',
+            'neo-theme-neo-light': 'Theme Neo-Light',
+            'neo-theme-neo-dark' : 'Theme Neo-Dark',
+            'neo-theme-cyberpunk': 'Theme Cyberpunk'
+        };
+
+        if (Array.isArray(configured) && configured.length > 0) {
+            return configured.map(name => ({
+                name,
+                label: themeLabels[name] || name
+            }));
+        }
+
+        return themes;
     }
 
     /**
      * @param {Object} data
      */
     logInstance(data) {
-        console.log(this.exampleComponent)
+        console.log(this.exampleComponent);
     }
 
     /**
@@ -99,11 +124,114 @@ class ConfigurationViewport extends Viewport {
      * @param {Object} opts
      */
     onConfigChange(config, opts) {
-        this.exampleComponent[config] = opts.value
+        if (!this.initialConfigValues) {
+            this.initialConfigValues = {};
+        }
+        if (!(config in this.initialConfigValues) && this.exampleComponent) {
+            this.initialConfigValues[config] = this.exampleComponent[config];
+        }
+        this.exampleComponent[config] = opts.value;
     }
 
     /**
-     *
+     * @param {String} config
+     * @param {Object} opts
+     */
+    onConfigRecordChange(config, opts) {
+        if (!this.initialConfigValues) {
+            this.initialConfigValues = {};
+        }
+        if (!(config in this.initialConfigValues) && this.exampleComponent) {
+            this.initialConfigValues[config] = this.exampleComponent[config];
+        }
+        this.exampleComponent[config] = opts.value?.['id'];
+    }
+
+    /**
+     * @param {String} config
+     * @param {String} value
+     * @param {Object} opts
+     */
+    onRadioChange(config, value, opts) {
+        if (!this.initialConfigValues) {
+            this.initialConfigValues = {};
+        }
+        if (!(config in this.initialConfigValues) && this.exampleComponent) {
+            this.initialConfigValues[config] = this.exampleComponent[config];
+        }
+        if (opts.value === true) {
+            this.exampleComponent[config] = value;
+        }
+    }
+
+    /**
+     * Snapshots the initial state of the example component configs and inspector controls
+     */
+    snapshotInitialState() {
+        let me = this;
+
+        me.initialConfigValues  = {};
+        me.initialControlStates = [];
+
+        // Snapshot original configs passed during component creation
+        if (me.exampleComponent?.originalConfig) {
+            Object.assign(me.initialConfigValues, Neo.clone(me.exampleComponent.originalConfig, true, true));
+        }
+
+        // Recursively snapshot controls and extract referenced configs
+        const inspectControl = (item) => {
+            if (!item) return;
+
+            let controlSnapshot = {
+                item,
+                initialValue  : item.value,
+                initialChecked: item.checked
+            };
+
+            if (item.name && me.exampleComponent && (item.name in me.exampleComponent)) {
+                me.initialConfigValues[item.name] = me.exampleComponent[item.name];
+            }
+
+            me.initialControlStates.push(controlSnapshot);
+
+            if (Array.isArray(item.items)) {
+                item.items.forEach(inspectControl);
+            }
+        };
+
+        me.configurationComponents.forEach(inspectControl);
+    }
+
+    /**
+     * Restores all configs of the example component and controls to their initial values
+     */
+    onReset() {
+        let me = this;
+
+        // 1. Reset example component configs
+        if (me.initialConfigValues && me.exampleComponent) {
+            Object.entries(me.initialConfigValues).forEach(([config, val]) => {
+                if (config !== 'id' && config !== 'vnode' && config !== 'vdom') {
+                    me.exampleComponent[config] = val;
+                }
+            });
+        }
+
+        // 2. Reset controls
+        if (me.initialControlStates) {
+            me.initialControlStates.forEach(({item, initialValue, initialChecked}) => {
+                if (initialChecked !== undefined) {
+                    item.checked = initialChecked;
+                }
+                if (initialValue !== undefined) {
+                    item.value = initialValue;
+                }
+            });
+        }
+    }
+
+    /**
+     * Constructs the workbench stage and inspector panel
      */
     async onConstructed() {
         let me    = this,
@@ -111,7 +239,7 @@ class ConfigurationViewport extends Viewport {
             exampleComponentType, theme;
 
         if (style) {
-            delete me.exampleContainerConfig.style
+            delete me.exampleContainerConfig.style;
         }
 
         me.exampleComponent = me.createExampleComponent();
@@ -119,46 +247,80 @@ class ConfigurationViewport extends Viewport {
         exampleComponentType = Neo.typeOf(me.exampleComponent);
 
         if (exampleComponentType === 'NeoClass' || exampleComponentType === 'Object') {
-            me.exampleComponent = Neo.create(me.exampleComponent)
+            me.exampleComponent = Neo.create(me.exampleComponent);
         }
 
-        me.configurationComponents = await me.createConfigurationComponents() || [];
+        let configs = me.createConfigurationComponents();
 
-        theme = me.exampleComponent.getTheme?.() || 'neo-theme-light';
+        if (configs instanceof Promise) {
+            me.configurationComponents = await configs || [];
+        } else {
+            me.configurationComponents = configs || [];
+        }
+
+        if (me.isDestroyed) {
+            return;
+        }
+
+        const availableThemes = me.getAvailableThemes();
+        theme = me.exampleComponent?.getTheme?.() || (Neo.config.themes?.includes('neo-theme-neo-light') ? 'neo-theme-neo-light' : (availableThemes[0]?.name || 'neo-theme-neo-light'));
+
+        me.snapshotInitialState();
+
+        const currentThemeObj = availableThemes.find(t => t.name === theme) || availableThemes[0];
+        const nextThemeIndex  = (availableThemes.indexOf(currentThemeObj) + 1) % availableThemes.length;
+        const nextThemeObj    = availableThemes[nextThemeIndex] || currentThemeObj;
 
         me.items = [{
             module: Container,
-            cls   : ['neo-example-container'],
+            cls   : ['neo-example-container', 'neo-workbench-stage'],
             items : [me.exampleComponent],
             flex  : me.exampleComponentFlex,
             layout: 'base',
-            style : {overflow: 'auto', padding: '20px', ...style},
+            style : {
+                alignItems    : 'center',
+                display       : 'flex',
+                justifyContent: 'center',
+                overflow      : 'auto',
+                padding       : '30px',
+                position      : 'relative',
+                ...style
+            },
             ...me.exampleContainerConfig
         }, {
             module: Panel,
-            cls   : ['neo-panel', 'neo-container', 'neo-configuration-panel'],
+            cls   : ['neo-panel', 'neo-container', 'neo-configuration-panel', 'neo-workbench-inspector'],
             flex  : me.configPanelFlex,
 
             style: {
-                maxWidth: me.configPanelMaxWidth + 'px',
+                maxWidth: me.configPanelMaxWidth ? me.configPanelMaxWidth + 'px' : null,
                 margin  : '20px',
-                minWidth: me.configPanelMinWidth + 'px'
+                minWidth: me.configPanelMinWidth ? me.configPanelMinWidth + 'px' : null
             },
 
             headers: [{
-                cls  : ['neo-configuration-header-toolbar'],
+                cls  : ['neo-configuration-header-toolbar', 'neo-workbench-toolbar'],
                 dock : 'top',
                 items: [{
                     ntype: 'label',
-                    text : 'Configuration'
+                    cls  : ['neo-workbench-title'],
+                    text : 'Inspector'
                 }, {
                     ntype: 'component',
                     flex : 1
                 }, {
                     module : Button,
+                    cls    : ['neo-button-reset'],
+                    handler: me.onReset.bind(me),
+                    id     : me.id + '__resetButton',
+                    text   : 'Reset'
+                }, {
+                    module : Button,
+                    cls    : ['neo-button-theme-switch'],
                     handler: me.onSwitchTheme.bind(me),
-                    id     : me.id + '__' + 'switchThemeButton',
-                    text   : theme === 'neo-theme-dark' ? 'Theme Light' : 'Theme Dark'
+                    id     : me.id + '__switchThemeButton',
+                    style  : {marginLeft: '8px'},
+                    text   : nextThemeObj.label
                 }]
             }],
 
@@ -176,7 +338,7 @@ class ConfigurationViewport extends Viewport {
                     module : Button,
                     handler: bindAppend(me.onSwitchTheme, me, 'cmp'),
                     style  : {marginTop: '20px'},
-                    text   : theme === 'neo-theme-dark' ? 'Theme Light' : 'Theme Dark',
+                    text   : nextThemeObj.label,
                     width  : 130
                 }, {
                     module : Button,
@@ -187,18 +349,7 @@ class ConfigurationViewport extends Viewport {
             }]
         }];
 
-        super.onConstructed()
-    }
-
-    /**
-     * @param {String} config
-     * @param {String} value
-     * @param {Object} opts
-     */
-    onRadioChange(config, value, opts) {
-        if (opts.value === true) { // we only want to listen to check events, not uncheck
-            this.exampleComponent[config] = value
-        }
+        super.onConstructed();
     }
 
     /**
@@ -206,26 +357,36 @@ class ConfigurationViewport extends Viewport {
      * @param {String} target
      */
     onSwitchTheme(data, target) {
-        let me          = this,
-            button      = data.component,
-            countThemes = themes.length,
+        let me              = this,
+            button          = data.component,
+            availableThemes = me.getAvailableThemes(),
+            countThemes     = availableThemes.length,
             futureIndex, newTheme, themeIndex;
 
-        themes.forEach((theme, index) => {
-            if (button.text === theme.label) {
-                newTheme   = theme.name;
-                themeIndex = index;
-            }
-        });
+        themeIndex = availableThemes.findIndex(t => t.label === button.text);
+        if (themeIndex === -1) {
+            themeIndex = 0;
+        }
 
-        futureIndex = (themeIndex + countThemes +1) % countThemes;
+        newTheme = availableThemes[themeIndex].name;
+        futureIndex = (themeIndex + 1) % countThemes;
 
-        button.text = themes[futureIndex].label;
+        button.text = availableThemes[futureIndex].label;
+
+        const otherBtn = me.down({id: me.id + '__switchThemeButton'});
+        if (otherBtn && otherBtn !== button) {
+            otherBtn.text = button.text;
+        }
 
         if (target === 'cmp') {
-            me.exampleComponent.theme = newTheme
+            me.exampleComponent.theme = newTheme;
         } else {
-            me.app.mainView.theme = newTheme
+            if (me.app?.mainView) {
+                me.app.mainView.theme = newTheme;
+            }
+            if (me.exampleComponent) {
+                me.exampleComponent.theme = newTheme;
+            }
         }
     }
 }
