@@ -142,6 +142,19 @@ class Launcher extends List {
     }
 
     /**
+     * A tap opens an app on a touch device, which has no double-click; with a mouse a click only selects. The signal is
+     * the device's (`Neo.config.hasTouchEvents`): click data carries no pointer type, so on a touch screen with a
+     * mouse a click opens as well.
+     * @param {Object} node
+     * @param {Object} data
+     */
+    onItemClick(node, data) {
+        super.onItemClick(node, data);
+
+        Neo.config.hasTouchEvents && this.fireOpenApp(data.path)
+    }
+
+    /**
      * A double-click opens an app; a single click only selects it, as on a desktop.
      * @param {Object} data
      */

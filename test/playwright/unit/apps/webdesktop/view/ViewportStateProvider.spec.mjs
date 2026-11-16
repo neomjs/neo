@@ -281,5 +281,28 @@ test.describe('WebDesktop launcher arrangement', () => {
         provider.setData('permissions', ['view-mail', 'view-messages', 'view-calendar']);
 
         expect(rendered()).toEqual(['communication', 'calendar', 'messages', 'mail'])
+    });
+
+    test('a tap opens an app on a touch device; a mouse click only selects', () => {
+        const opened    = [],
+              realTouch = Neo.config.hasTouchEvents,
+              node      = icon('mail'),
+              click     = () => launcher.onItemClick(node, {path: [node, {cls: [], id: launcher.id}]});
+
+        launcher.on('openApp', ({record}) => opened.push(record.id));
+
+        try {
+            Neo.config.hasTouchEvents = false;
+            click();
+
+            expect(opened).toEqual([]);
+
+            Neo.config.hasTouchEvents = true;
+            click();
+
+            expect(opened).toEqual(['mail'])
+        } finally {
+            Neo.config.hasTouchEvents = realTouch
+        }
     })
 });

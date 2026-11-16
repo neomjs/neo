@@ -21,3 +21,14 @@
         }
     }
 }
+
+// A phone: the panel becomes a sheet over the workspace instead of squeezing the launcher beside it
+@media (max-width: 600px) {
+    .webdesktop-permission-panel {
+        border-left: none;
+        inset      : 0;
+        position   : absolute;
+        width      : auto;
+        z-index    : 1;
+    }
+}

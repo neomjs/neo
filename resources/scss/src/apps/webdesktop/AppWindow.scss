@@ -30,3 +30,22 @@
         width        : 100% !important;
     }
 }
+
+// A phone has no room for a floating window: every window fills the area above the 60px taskbar, so maximizing has
+// nothing left to do. A window is `position: fixed` on the body, so the percentages read the viewport.
+@media (max-width: 600px) {
+    .neo-dialog.webdesktop-window {
+        &,
+        &.neo-maximized {
+            border-radius: 0;
+            height       : calc(100% - 60px) !important;
+            left         : 0 !important;
+            top          : 0 !important;
+            width        : 100% !important;
+        }
+
+        .neo-toolbar-action[aria-label="maximize"] {
+            display: none;
+        }
+    }
+}
