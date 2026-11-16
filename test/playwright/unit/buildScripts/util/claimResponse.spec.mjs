@@ -550,7 +550,7 @@ test.describe('buildScripts/util/claimResponse', () => {
                 const posted = [], assignedCalls = [], unassignedCalls = [], warnings = [], listForRepoCalls = [], countQueries = [];
 
                 const github = {
-                    graphql : async () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: []}}}}),
+                    graphql : async () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: [], pageInfo: {hasNextPage: false}}}}}),
                     paginate: async (fn, args) => {
                         if (fn === github.rest.issues.listComments) return comments;
                         if (fn === github.rest.issues.listEvents)   return events;
@@ -716,7 +716,7 @@ test.describe('buildScripts/util/claimResponse', () => {
                     burstPosted     = [];
 
                 const sharedGithub = {
-                    graphql : async () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: []}}}}),
+                    graphql : async () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: [], pageInfo: {hasNextPage: false}}}}}),
                     paginate: async (fn, args) => {
                         if (fn === sharedGithub.rest.issues.listComments) return commentsByIssue.get(args.issue_number) || [];
                         if (fn === sharedGithub.rest.issues.listEvents)   return [];
@@ -802,7 +802,7 @@ test.describe('buildScripts/util/claimResponse', () => {
                   comments = [], events = [], created = [], updated = [], assigned = [], warnings = [];
             let   current = first, aliceAtCapacity = true, failUpdate = false;
             const github  = {
-                graphql : async () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: []}}}}),
+                graphql : async () => ({repository: {issue: {closedByPullRequestsReferences: {nodes: [], pageInfo: {hasNextPage: false}}}}}),
                 paginate: async (fn, args) => {
                     if (fn === github.rest.issues.listComments) return comments;
                     if (fn === github.rest.issues.listEvents) return events;
