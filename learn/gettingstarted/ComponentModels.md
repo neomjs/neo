@@ -129,3 +129,5 @@ because the third copy of `MyPanel` has its own view model with the `foo` proper
 
 The Neo.mjs state provider and binding approach is simple and powerful. It gives you easy control 
 over the scope of a value, which means you can share properties as globally or narrowly as needed.
+The reference page [Shared Bindable Data (State Providers)](../guides/datahandling/StateProviders.md) continues
+with formulas, nested providers, class based providers and stores.
