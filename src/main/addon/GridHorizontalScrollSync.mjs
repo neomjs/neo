@@ -7,9 +7,9 @@ import DomAccess from '../DomAccess.mjs';
  * The scrollbar is the single source: its scroll moves the body and the header, and a scroll the header makes on its
  * own moves the scrollbar first.
  *
- * The addon listens to the document once, in the capture phase, and routes each `scroll` and `wheel` by the id of a
- * registered node. A grid may register before its nodes are in the document, since the App worker's call can arrive
- * ahead of the VDom worker's delta, and a node replaced later keeps its sync.
+ * The addon listens to the document once and routes each `scroll` and `wheel` by the id of a registered node. A grid
+ * may register before its nodes are in the document, since the App worker's call can arrive ahead of the VDom
+ * worker's delta, and a node replaced later keeps its sync.
  * @class Neo.main.addon.GridHorizontalScrollSync
  * @extends Neo.main.addon.Base
  */
@@ -48,8 +48,8 @@ class GridHorizontalScrollSync extends Base {
     registrations = new Map()
 
     /**
-     * @summary Listens to the document's `scroll` and `wheel` events in the capture phase, which reaches the document
-     * before any target. A `scroll` does not bubble.
+     * @summary Listens to the document's `scroll` events in the capture phase, since a scroll does not bubble, and to
+     * `wheel` events as they bubble, so a nested control that consumes a wheel keeps it from the grid.
      * @param {Object} config
      */
     construct(config) {
@@ -60,7 +60,7 @@ class GridHorizontalScrollSync extends Base {
         Neo.bindMethods(me, ['onDocumentScroll', 'onDocumentWheel']);
 
         document.addEventListener('scroll', me.onDocumentScroll, {capture: true});
-        document.addEventListener('wheel',  me.onDocumentWheel,  {capture: true, passive: true})
+        document.addEventListener('wheel',  me.onDocumentWheel,  {passive: true})
     }
 
     /**
@@ -71,7 +71,7 @@ class GridHorizontalScrollSync extends Base {
         let me = this;
 
         document.removeEventListener('scroll', me.onDocumentScroll, {capture: true});
-        document.removeEventListener('wheel',  me.onDocumentWheel,  {capture: true});
+        document.removeEventListener('wheel',  me.onDocumentWheel);
 
         super.destroy(...args)
     }
