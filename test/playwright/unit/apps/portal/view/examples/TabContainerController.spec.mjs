@@ -76,9 +76,9 @@ test.describe('Portal examples family navigation', () => {
     test('publishes only Featured and families with records from one definition source', () => {
         const view = createView();
 
-        expect(view.getTabButtons().map(button => button.text)).toEqual(['Featured', 'Grid & Table', 'Forms', 'Multi-Window', 'Calendar']);
-        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/grid', '/examples/forms', '/examples/multi-window', '/examples/calendar']);
-        expect(view.getCatalogStore().getCount()).toBe(76);
+        expect(view.getTabButtons().map(button => button.text)).toEqual(['Featured', 'Grid & Table', 'Forms', 'Multi-Window', 'Calendar', 'Components']);
+        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/grid', '/examples/forms', '/examples/multi-window', '/examples/calendar', '/examples/components']);
+        expect(view.getCatalogStore().getCount()).toBe(100);
         expect(view.getCard(0).store.getCount()).toBe(28);
         expect(view.getCard(0).store.items.map(record => record.id)).toEqual(featuredExampleIds);
         expect(view.getCard(1).store.getCount()).toBe(21);
@@ -87,6 +87,7 @@ test.describe('Portal examples family navigation', () => {
         expect(view.getCard(4).store.items.map(record => record.id)).toEqual([
             'calendar', 'calendar-weekview', 'gantt-basic', 'scheduler-basic'
         ]);
+        expect(view.getCard(5).store.getCount()).toBe(30);
         expect(view.getCard(0).store.getSource()).toBe(view.getCatalogStore());
         expect(view.getCard(1).store.getSource()).toBe(view.getCatalogStore());
         expect(view.getCard(0).store.model).toBe(view.getCatalogStore().model);
@@ -159,13 +160,13 @@ test.describe('Portal examples family navigation', () => {
 
     test('a newly published family needs no additional tab or controller entry', () => {
         const view = createView([...catalog, {
-            ...catalog[0], id: 'test-components-example', family: 'components', featured: false,
+            ...catalog[0], id: 'test-state-example', family: 'state', featured: false,
             feature: 'A component', lookFor: 'Inspect it.'
         }]);
 
-        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/grid', '/examples/forms', '/examples/multi-window', '/examples/calendar', '/examples/components']);
-        expect(view.getCard(5).store.getCount()).toBe(1);
-        expect(view.getCard(5).fallbackIconCls).toBe(view.familyDefinitions.find(item => item.family === 'components').iconCls)
+        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/grid', '/examples/forms', '/examples/multi-window', '/examples/calendar', '/examples/components', '/examples/state']);
+        expect(view.getCard(6).store.getCount()).toBe(1);
+        expect(view.getCard(6).fallbackIconCls).toBe(view.familyDefinitions.find(item => item.family === 'state').iconCls)
     });
 
     test('an arriving catalog populates the borrowed family stores and withdraws an empty family', () => {
@@ -180,7 +181,7 @@ test.describe('Portal examples family navigation', () => {
 
         store.remove(store.items.filter(record => record.family === 'grid-table'));
         store.fire('load');
-        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/forms', '/examples/multi-window', '/examples/calendar'])
+        expect(view.getTabButtons().map(button => button.route)).toEqual(['/examples', '/examples/forms', '/examples/multi-window', '/examples/calendar', '/examples/components'])
     });
 });
 
@@ -206,6 +207,12 @@ const catalog            = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examp
           'text-field', 'textarea-field', 'time-field', 'url-field', 'copy-to-clipboard-trigger',
           'fieldset', 'field-with-prefix', 'fields-runtime-triggers', 'layout-form',
           'date-selector-container', 'form-app'
+      ],
+      componentExampleIds = [
+          'canvas', 'carousel', 'chip', 'circle', 'clock', 'graph-scene', 'magic-move-text',
+          'markdown', 'mwc-button', 'mwc-buttons', 'mwc-text-field', 'mwc-text-fields',
+          'process', 'process-real-world', 'progress', 'splitter', 'status-badge', 'timer',
+          'toast', 'video', 'cesium-js', 'monaco-editor', 'am-charts', 'video-move'
       ],
       multiWindowExampleIds = [
           'dock-layouts', 'dock-cross-window', 'dock-tear-out',
@@ -273,12 +280,12 @@ test.describe('Portal examples canonical catalog', () => {
         })
     }
 
-    test('loads 76 logical examples with unique stable string identities', () => {
+    test('loads 100 logical examples with unique stable string identities', () => {
         const {store} = createList(),
               ids     = [];
 
-        expect(catalog).toHaveLength(76);
-        expect(store.getCount()).toBe(76);
+        expect(catalog).toHaveLength(100);
+        expect(store.getCount()).toBe(100);
 
         store.forEach(record => {
             expect(typeof record.id, record.name).toBe('string');
@@ -286,7 +293,7 @@ test.describe('Portal examples canonical catalog', () => {
             ids.push(record.id)
         });
 
-        expect(new Set(ids).size).toBe(76);
+        expect(new Set(ids).size).toBe(100);
         expect(list.catalogMode).toBe('dist_prod')
     });
 
@@ -386,6 +393,22 @@ test.describe('Portal examples canonical catalog', () => {
         expect(store.get('dock-tear-out').sharedWorkers).toBe(true)
     });
 
+    test('the Components overview catalogs every component, chart and wrapper demonstration', () => {
+        const view  = createView(),
+              store = view.getCard(5).store;
+
+        expect(store.getSource()).toBe(view.getCatalogStore());
+        expect(store.items.map(record => record.id)).toEqual([
+            'helix', 'offscreen-canvas', 'covid-helix', 'covid-gallery', 'gallery',
+            ...componentExampleIds, 'liquid-glass'
+        ]);
+
+        store.forEach(record => {
+            expect(record.feature, record.id).toBeTruthy();
+            expect(record.lookFor, record.id).toBeTruthy()
+        })
+    });
+
     test('preserves the established order and inserts the Multi-Window block after choreography', () => {
         const {store} = createList(),
               // The production catalog established this sequence before canonicalization. ESM alone
@@ -395,12 +418,20 @@ test.describe('Portal examples canonical catalog', () => {
               orderedEstablishedIds = [
                   ...establishedIds.slice(0, calendarIndex + 1), 'calendar-weekview', ...establishedIds.slice(calendarIndex + 1)
               ],
-              completeIds = [...orderedEstablishedIds, ...newExampleIds, ...formExampleIds, 'gantt-basic', 'scheduler-basic', 'dock-choreography', ...multiWindowExampleIds, 'realworld', 'realworld-v2'],
+              galleryIndex = orderedEstablishedIds.indexOf('gallery'),
+              internalComponentIds = ['helix', 'covid-helix', 'covid-gallery', 'gallery', ...componentExampleIds],
+              completeIds = [
+                  ...orderedEstablishedIds.slice(0, galleryIndex + 1),
+                  ...componentExampleIds,
+                  ...orderedEstablishedIds.slice(galleryIndex + 1),
+                  ...newExampleIds, ...formExampleIds, 'gantt-basic', 'scheduler-basic',
+                  'dock-choreography', ...multiWindowExampleIds, 'realworld', 'realworld-v2'
+              ],
               excluded = {
                   devmode  : ['portal', 'liquid-glass', 'realworld', 'realworld-v2'],
-                  dist_dev : ['realworld', 'realworld-v2'],
-                  dist_esm : ['shared-offscreen-canvas', 'realworld', 'realworld-v2'],
-                  dist_prod: ['realworld', 'realworld-v2']
+                  dist_dev : [...internalComponentIds, 'realworld', 'realworld-v2'],
+                  dist_esm : [...internalComponentIds, 'shared-offscreen-canvas', 'realworld', 'realworld-v2'],
+                  dist_prod: [...internalComponentIds, 'realworld', 'realworld-v2']
               },
               cases   = [
                   ['devmode', 'apps/workstation/index.html', 'examples/dashboard/choreography/index.html'],

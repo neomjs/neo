@@ -194,12 +194,13 @@
         "name": "component.Helix",
         "sourceUrl": "examples/component/helix",
         "urls": {
-            "devmode": "examples/component/helix/index.html",
-            "dist_dev": "dist/development/examples/component/helix/index.html",
-            "dist_esm": "dist/esm/examples/component/helix/index.html",
-            "dist_prod": "dist/production/examples/component/helix/index.html"
+            "devmode": "examples/component/helix/index.html"
         },
-        "hiddenIn": []
+        "hiddenIn": [],
+        "family": "components",
+        "component": "Helix",
+        "feature": "A 3D helix arranges image cards around a rotating column.",
+        "lookFor": "Drag the helix to rotate it, then change its radius, perspective and item spacing in the controls panel."
     },
     {
         "id": "multi-window-covid-gallery",
@@ -239,7 +240,12 @@
             "dist_esm": "https://neomjs.github.io/pages2/workspace/neo-offscreen-canvas-demo/dist/esm/apps/myapp/index.html",
             "dist_prod": "https://neomjs.github.io/pages2/workspace/neo-offscreen-canvas-demo/dist/production/apps/myapp/index.html"
         },
-        "hiddenIn": []
+        "hiddenIn": [],
+        "family": "components",
+        "component": "Canvas",
+        "feature": "A WebGL point scene renders through an OffscreenCanvas outside the main thread.",
+        "lookFor": "Move the pointer across the animated point field and resize the window to see the worker-rendered canvas respond.",
+        "scope": "External Chromium demo that requires OffscreenCanvas and WebGL support."
     },
     {
         "id": "shared-offscreen-canvas",
@@ -366,12 +372,14 @@
         "name": "COVID-19 Helix",
         "sourceUrl": "examples/component/coronaHelix",
         "urls": {
-            "devmode": "examples/component/coronaHelix/index.html",
-            "dist_dev": "dist/development/examples/component/coronaHelix/index.html",
-            "dist_esm": "dist/esm/examples/component/coronaHelix/index.html",
-            "dist_prod": "dist/production/examples/component/coronaHelix/index.html"
+            "devmode": "examples/component/coronaHelix/index.html"
         },
-        "hiddenIn": []
+        "hiddenIn": [],
+        "family": "components",
+        "component": "Helix",
+        "feature": "A 3D helix turns historical country statistics into sortable cards.",
+        "lookFor": "Select a country and use the sorting buttons; the selected card stays reachable while the helix reorders.",
+        "scope": "Uses a published COVID-19 data snapshot by default and may use a live public data API."
     },
     {
         "id": "covid-gallery",
@@ -380,12 +388,14 @@
         "name": "COVID-19 Gallery",
         "sourceUrl": "examples/component/coronaGallery",
         "urls": {
-            "devmode": "examples/component/coronaGallery/index.html",
-            "dist_dev": "dist/development/examples/component/coronaGallery/index.html",
-            "dist_esm": "dist/esm/examples/component/coronaGallery/index.html",
-            "dist_prod": "dist/production/examples/component/coronaGallery/index.html"
+            "devmode": "examples/component/coronaGallery/index.html"
         },
-        "hiddenIn": []
+        "hiddenIn": [],
+        "family": "components",
+        "component": "Gallery",
+        "feature": "A 3D gallery lays country statistics out as a navigable wall of cards.",
+        "lookFor": "Use the arrow keys to move through the cards, then change row count, spacing and perspective in the controls panel.",
+        "scope": "Uses a published COVID-19 data snapshot by default and may use a live public data API."
     },
     {
         "id": "gallery",
@@ -394,10 +404,354 @@
         "name": "component.Gallery",
         "sourceUrl": "examples/component/gallery",
         "urls": {
-            "devmode": "examples/component/gallery/index.html",
-            "dist_dev": "dist/development/examples/component/gallery/index.html",
-            "dist_esm": "dist/esm/examples/component/gallery/index.html",
-            "dist_prod": "dist/production/examples/component/gallery/index.html"
+            "devmode": "examples/component/gallery/index.html"
+        },
+        "hiddenIn": [],
+        "family": "components",
+        "component": "Gallery",
+        "feature": "A virtualized 3D gallery arranges a large image store into configurable rows and columns.",
+        "lookFor": "Navigate with the arrow keys and change rows, item count, spacing or perspective in the controls panel."
+    },
+    {
+        "id": "canvas",
+        "family": "components",
+        "component": "Canvas",
+        "feature": "A canvas keeps rendering while it switches between main-thread and offscreen drawing.",
+        "lookFor": "Toggle offscreen and change width or height in the configuration panel; the rendered scene remains visible.",
+        "scope": "The offscreen mode requires browser support for OffscreenCanvas.",
+        "image": null,
+        "name": "Canvas",
+        "sourceUrl": "examples/component/canvas",
+        "urls": {
+            "devmode": "examples/component/canvas/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "carousel",
+        "family": "components",
+        "component": "Carousel",
+        "feature": "An automatically advancing carousel cycles through styled testimonial cards.",
+        "lookFor": "Watch the slides rotate, then change autoRun or resize the carousel with the range fields.",
+        "image": null,
+        "name": "component.Carousel",
+        "sourceUrl": "examples/component/carousel",
+        "urls": {
+            "devmode": "examples/component/carousel/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "chip",
+        "family": "components",
+        "component": "Chip",
+        "feature": "A compact chip combines an icon, editable text and an optional close action.",
+        "lookFor": "Change the text or icon class, toggle closable, and use the remove affordance.",
+        "image": null,
+        "name": "component.Chip",
+        "sourceUrl": "examples/component/chip",
+        "urls": {
+            "devmode": "examples/component/chip/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "circle",
+        "family": "components",
+        "component": "Circle",
+        "feature": "A three-dimensional circle distributes items around a configurable radius.",
+        "lookFor": "Change the item size, maximum item count and rotation, then press Expand, Collapse or Flip.",
+        "image": null,
+        "name": "component.Circle",
+        "sourceUrl": "examples/component/circle",
+        "urls": {
+            "devmode": "examples/component/circle/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "clock",
+        "family": "components",
+        "component": "Clock",
+        "feature": "A clock face renders a settable time with adjustable size and typography.",
+        "lookFor": "Change the time to 09:45 and compare the hands, then resize the clock and its text.",
+        "image": null,
+        "name": "component.Clock",
+        "sourceUrl": "examples/component/clock",
+        "urls": {
+            "devmode": "examples/component/clock/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "graph-scene",
+        "family": "components",
+        "component": "GraphScene",
+        "feature": "A worker-rendered WebGL graph supports orbiting, zooming, large node sets and level-of-detail passes.",
+        "lookFor": "Choose 100k clustered, drag to orbit, and press Read stats to compare nodes, edges and renderer state.",
+        "scope": "Requires WebGL. The largest scene is generated locally in the browser.",
+        "image": null,
+        "name": "GraphScene",
+        "sourceUrl": "examples/component/graphScene",
+        "urls": {
+            "devmode": "examples/component/graphScene/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "magic-move-text",
+        "family": "components",
+        "component": "MagicMoveText",
+        "feature": "Characters animate between changing strings while remaining inside one text component.",
+        "lookFor": "Wait for automatic cycling or change autoCycle, then adjust the move and fade colors to follow the transition.",
+        "image": null,
+        "name": "MagicMoveText",
+        "sourceUrl": "examples/component/magicmovetext",
+        "urls": {
+            "devmode": "examples/component/magicmovetext/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "markdown",
+        "family": "components",
+        "component": "Markdown VDOM",
+        "feature": "Markdown is parsed into VDOM subtrees and supports incremental streaming updates.",
+        "lookFor": "Press Stream demo and watch headings, lists, code, a table and a quote render progressively.",
+        "image": null,
+        "name": "Markdown VDOM",
+        "sourceUrl": "examples/component/markdown",
+        "urls": {
+            "devmode": "examples/component/markdown/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "mwc-button",
+        "family": "components",
+        "component": "MWC Button",
+        "feature": "A Material button exposes dense, outlined, raised, icon and disabled states.",
+        "lookFor": "Toggle outlined and raised, change the label or icon, and compare the button states.",
+        "image": null,
+        "name": "MWC Button",
+        "sourceUrl": "examples/component/mwc/button",
+        "urls": {
+            "devmode": "examples/component/mwc/button/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "mwc-buttons",
+        "family": "components",
+        "component": "MWC Button",
+        "feature": "Two tabs compare standard, outlined, raised, unelevated, dense and icon button variants.",
+        "lookFor": "Switch between Tab 1 and Tab 2 and compare each button style.",
+        "image": null,
+        "name": "MWC Buttons",
+        "sourceUrl": "examples/component/mwc/buttons",
+        "urls": {
+            "devmode": "examples/component/mwc/buttons/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "mwc-text-field",
+        "family": "components",
+        "component": "MWC TextField",
+        "feature": "A Material text field exposes helper text, leading and trailing icons, outlined styling and validation.",
+        "lookFor": "Change the value and press Check validity, then toggle outlined or disabled in the configuration panel.",
+        "image": null,
+        "name": "MWC TextField",
+        "sourceUrl": "examples/component/mwc/textField",
+        "urls": {
+            "devmode": "examples/component/mwc/textField/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "mwc-text-fields",
+        "family": "components",
+        "component": "MWC TextField",
+        "feature": "Filled and outlined text-field variants show optional icons and helper copy side by side.",
+        "lookFor": "Switch between the Filled and Outlined tabs and compare the field decorations.",
+        "image": null,
+        "name": "MWC TextFields",
+        "sourceUrl": "examples/component/mwc/textFields",
+        "urls": {
+            "devmode": "examples/component/mwc/textFields/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "process",
+        "family": "components",
+        "component": "Process",
+        "feature": "A process component connects ordered steps with configurable orientation, arrows and icons.",
+        "lookFor": "Toggle horizontal and change the arrow or icon color; the stages reflow without losing their order.",
+        "image": null,
+        "name": "component.Process",
+        "sourceUrl": "examples/component/process",
+        "urls": {
+            "devmode": "examples/component/process/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "process-real-world",
+        "family": "components",
+        "component": "Process",
+        "feature": "An electric-vehicle trip calculator turns staged battery and odometer inputs into remaining range and consumption.",
+        "lookFor": "Set the start and end battery percentages and odometer readings; the result fields update and the save button becomes available.",
+        "scope": "Loads the current Berlin temperature from the Open-Meteo public API; all other values are demonstration data.",
+        "image": null,
+        "name": "Process Real-World Example",
+        "sourceUrl": "examples/component/process/realWorldExample",
+        "urls": {
+            "devmode": "examples/component/process/realWorldExample/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "progress",
+        "family": "components",
+        "component": "Progress",
+        "feature": "A labelled progress bar exposes a percentage value and configurable dimensions.",
+        "lookFor": "Change the value, label and size in the configuration panel and watch the bar and label update.",
+        "image": null,
+        "name": "component.Progress",
+        "sourceUrl": "examples/component/progress",
+        "urls": {
+            "devmode": "examples/component/progress/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "splitter",
+        "family": "components",
+        "component": "Splitter",
+        "feature": "A draggable splitter resizes adjacent panels in either orientation.",
+        "lookFor": "Drag the divider, then toggle horizontal and live resize in the configuration panel.",
+        "image": null,
+        "name": "component.Splitter",
+        "sourceUrl": "examples/component/splitter",
+        "urls": {
+            "devmode": "examples/component/splitter/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "status-badge",
+        "family": "components",
+        "component": "StatusBadge",
+        "feature": "Status badges support alert, error, info, neutral and success states with configurable labels and icons.",
+        "lookFor": "Switch the state radio and toggle the state or side icons; the badge label and decoration update.",
+        "image": null,
+        "name": "component.StatusBadge",
+        "sourceUrl": "examples/component/statusbadge",
+        "urls": {
+            "devmode": "examples/component/statusbadge/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "timer",
+        "family": "components",
+        "component": "Timer",
+        "feature": "A circular countdown timer accepts a duration and animates a gradient progress ring.",
+        "lookFor": "Enter 10s and press play; the card flips to the countdown and the ring drains as time passes.",
+        "image": null,
+        "name": "component.Timer",
+        "sourceUrl": "examples/component/timer",
+        "urls": {
+            "devmode": "examples/component/timer/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "toast",
+        "family": "components",
+        "component": "Toast",
+        "feature": "A live form previews toast configuration and launches a temporary notification.",
+        "lookFor": "Enter a message, choose a position and style, then press Create toast; the code preview updates and the toast appears.",
+        "image": null,
+        "name": "component.Toast",
+        "sourceUrl": "examples/component/toast",
+        "urls": {
+            "devmode": "examples/component/toast/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "video",
+        "family": "components",
+        "component": "Video",
+        "feature": "A video component plays a remote MP4 and keeps the player inside a themed panel.",
+        "lookFor": "Play the sample video, then use the sun or moon action to switch the surrounding theme.",
+        "scope": "Loads a sample MP4 from Apple's public media host.",
+        "image": null,
+        "name": "component.Video",
+        "sourceUrl": "examples/component/video",
+        "urls": {
+            "devmode": "examples/component/video/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "cesium-js",
+        "family": "components",
+        "component": "CesiumJS",
+        "feature": "A CesiumJS globe is wrapped as a Neo component with a camera controlled from a toolbar.",
+        "lookFor": "Drag and zoom the globe, then press Fly to San Fran and follow the camera movement.",
+        "scope": "Loads CesiumJS, terrain and imagery services over the network.",
+        "image": null,
+        "name": "CesiumJS",
+        "sourceUrl": "examples/component/wrapper/cesiumJS",
+        "urls": {
+            "devmode": "examples/component/wrapper/cesiumJS/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "monaco-editor",
+        "family": "components",
+        "component": "Monaco Editor",
+        "feature": "A Monaco editor wrapper exposes themes, cursor behavior, read-only state, minimap and sizing options.",
+        "lookFor": "Edit the sample function, then switch editor theme and cursor style or toggle the minimap.",
+        "image": null,
+        "name": "Monaco Editor",
+        "sourceUrl": "examples/component/wrapper/monacoEditor",
+        "urls": {
+            "devmode": "examples/component/wrapper/monacoEditor/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "am-charts",
+        "family": "components",
+        "component": "AmChart",
+        "feature": "An amCharts pie chart wrapper renders a labelled dataset and interactive legend.",
+        "lookFor": "Hover the pie segments and legend entries to compare each country's share.",
+        "scope": "Uses the bundled charting library; the country values are static demonstration data.",
+        "image": null,
+        "name": "amCharts Pie",
+        "sourceUrl": "examples/charts",
+        "urls": {
+            "devmode": "examples/charts/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "video-move",
+        "family": "components",
+        "component": "Video",
+        "feature": "A mounted video component moves between two containers without being recreated.",
+        "lookFor": "Press Move Video and watch the same player switch sides between the two panels.",
+        "scope": "Loads a sample MP4 from Apple's public media host.",
+        "image": null,
+        "name": "Moving a Video",
+        "sourceUrl": "examples/videoMove",
+        "urls": {
+            "devmode": "examples/videoMove/index.html"
         },
         "hiddenIn": []
     },
@@ -508,7 +862,12 @@
         },
         "hiddenIn": [
             "devmode"
-        ]
+        ],
+        "family": "components",
+        "component": "Component",
+        "feature": "An interactive glass-like surface refracts a moving backdrop around ordinary controls.",
+        "lookFor": "Move the pointer across the two buttons and the surrounding surface to see the highlight and refraction follow the cursor.",
+        "scope": "External pointer-driven demo; requires a GPU-accelerated browser for the intended effect."
     },
     {
         "id": "grid-animated-row-sorting",
