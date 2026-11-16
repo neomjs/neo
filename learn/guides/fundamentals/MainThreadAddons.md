@@ -347,12 +347,14 @@ emitted Engine. To keep the addon and the page on the same class system, every p
 the addon that imports Engine must live inside a declared `neo.mainAddons` root, including helpers.
 
 Dependencies outside those roots retain their host location unless another build input already emits them.
-For example, an addon in `src/main/addon` can import `../../shared/Helper.mjs`. If static imports or
-re-exports through that host helper reach Engine, the ESM build rejects the addon's import and names the
-importer, specifier and remedy: declare `src/shared` as another addon root or move the helper inside an
-existing declared root so its Engine imports are rewritten too. A helper with no Engine dependency keeps
-its host path. This check does not inspect dynamic `import()`, even with a literal path: a host helper can
-still load a second Engine graph dynamically. Keep those Engine-dependent helpers inside declared roots too.
+For example, an addon in `src/main/addon` can import `../../shared/Helper.mjs`. If static imports,
+re-exports or literal dynamic `import()` paths from the addon or through that host helper reach Engine,
+the ESM build rejects the addon's import and names the importer, specifier and remedy: declare
+`src/shared` as another addon root or move the helper inside an existing declared root so its Engine
+imports are rewritten too. A helper with no Engine dependency keeps its host path. Computed dynamic
+`import()` expressions cannot be resolved at build time and are not inspected: a computed path in the
+addon or a host helper can still load a second Engine graph dynamically. Keep those Engine-dependent
+helpers inside declared roots too.
 
 ## Asynchronous Initialization: `initAsync` and the `isReady` config
 
