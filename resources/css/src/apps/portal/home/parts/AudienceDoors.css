@@ -115,7 +115,7 @@
                 border       : 0;
                 border-radius: 0;
                 color        : var(--sem-color-text-neutral-contrast);
-                font-family  : var(--core-fontfamily-mono), monospace;
+                font-family  : var(--core-fontfamily-mono);
                 font-size    : 0.85rem;
                 font-weight  : 500;
                 padding      : 0;
