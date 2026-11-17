@@ -53,11 +53,8 @@ async function loadThemeStylesheets(page) {
               ];
 
         if (directory.startsWith('theme-neo-')) {
-            files.unshift(
-                `/dist/development/css/${directory}/design-tokens/Core.css`,
-                `/dist/development/css/${directory}/design-tokens/Semantic.css`,
-                `/dist/development/css/${directory}/design-tokens/Component.css`
-            )
+            // The neo themes' design tokens live in their Global sheet
+            files.unshift(`/dist/development/css/${directory}/Global.css`)
         }
 
         return files
