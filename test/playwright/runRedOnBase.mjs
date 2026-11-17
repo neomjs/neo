@@ -24,7 +24,12 @@ function report(label, specs, list = false) {
     const args = ['node_modules/@playwright/test/cli.js', 'test', '-c', 'test/playwright/playwright.config.unit.mjs',
         '--reporter=json', '--retries=0', '--workers=1', ...list ? ['--list'] : [],
         ...specs.map(file => file.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$')],
-          result = spawnSync(process.execPath, args, {cwd: root, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024}),
+          result = spawnSync(process.execPath, args, {
+              cwd: root, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024,
+              // The base and original passes pair the parent's lockfile with the head install on purpose - the head
+              // dependencies stay installed, so the install-mismatch guard is suspended exactly there.
+              env: label.startsWith('head') ? process.env : {...process.env, NEO_RED_ON_BASE: '1'}
+          }),
           file = path.join(artifacts, `${label}.json`);
 
     writeFileSync(file, result.stdout || '');

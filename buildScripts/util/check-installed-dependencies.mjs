@@ -59,6 +59,12 @@ export function findInstallDrift(lock, installed) {
  * @param {String} [root] The repository root; by default the repository this file belongs to
  */
 export function assertInstallMatchesLock(root = ROOT) {
+    // test/playwright/runRedOnBase.mjs sets this for its base and original passes, which pair the parent's lockfile
+    // with the head install by design. The drift check would otherwise kill that comparison before any spec loads.
+    if (process.env.NEO_RED_ON_BASE === '1') {
+        return
+    }
+
     const lockPath      = path.join(root, 'package-lock.json'),
           installedPath = path.join(root, 'node_modules', '.package-lock.json'),
           readJson      = file => JSON.parse(fs.readFileSync(file, 'utf8'));
