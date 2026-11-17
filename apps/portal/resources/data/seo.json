@@ -92,7 +92,7 @@
         "title": "Neo.mjs Architecture Overview",
         "description": "Neo has four areas a reader should keep separate before the details start:",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-07"
+        "lastmod": "2026-11-17"
     },
     "/learn/benefits/EnterpriseEvaluation": {
         "title": "Evaluating Neo.mjs for Enterprise Web Applications | Neo.mjs",
@@ -1208,7 +1208,7 @@
         "lastmod": "2026-11-16"
     },
     "/examples/board/basic/index.html": {
-        "title": "Sprint board · Neo Board — JavaScript UI Demo | Neo.mjs",
+        "title": "Sprint board · Neo Board — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A kanban board and a table over one store of cards. Drag a card to another column, and the table beside the board shows its new status.",
         "schemaType": "WebPage",
         "lastmod": "2026-11-17"
