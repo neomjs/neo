@@ -95,7 +95,7 @@ test.describe('Portal examples family navigation', () => {
             'State & Data', 'Workers & Platform', 'Apps'
         ]);
         expect(view.getTabButtons().map(button => button.route)).toEqual(publishedRoutes);
-        expect(view.getCatalogStore().getCount()).toBe(78);
+        expect(view.getCatalogStore().getCount()).toBe(79);
         expect(view.getCard(0).store.getCount()).toBe(28);
         expect(view.getCard(0).store.items.map(record => record.id)).toEqual(featuredExampleIds);
         expect(ids('/examples/grid')).toEqual(coveredGridTableIds);
@@ -281,7 +281,7 @@ test.describe('Portal examples family navigation', () => {
         expect(ids('/examples/platform')).toEqual(['offscreen-canvas', 'shared-offscreen-canvas']);
         expect(ids('/examples/charts')).toEqual(['offscreen-canvas']);
         expect(view.getCatalogStore().items.filter(record => record.id === 'dialog-drag-drop')).toHaveLength(1);
-        expect(view.getCatalogStore().getCount()).toBe(78)
+        expect(view.getCatalogStore().getCount()).toBe(79)
     });
 
     for (const mode of ['dist_prod', 'dist_esm', 'dist_dev', 'devmode']) {
@@ -433,12 +433,12 @@ test.describe('Portal examples canonical catalog', () => {
         })
     }
 
-    test('loads 78 logical examples with unique stable string identities', () => {
+    test('loads 79 logical examples with unique stable string identities', () => {
         const {store} = createList(),
               ids     = [];
 
-        expect(catalog).toHaveLength(78);
-        expect(store.getCount()).toBe(78);
+        expect(catalog).toHaveLength(79);
+        expect(store.getCount()).toBe(79);
 
         store.forEach(record => {
             expect(typeof record.id, record.name).toBe('string');
@@ -446,7 +446,7 @@ test.describe('Portal examples canonical catalog', () => {
             ids.push(record.id)
         });
 
-        expect(new Set(ids).size).toBe(78);
+        expect(new Set(ids).size).toBe(79);
         expect(list.catalogMode).toBe('dist_prod')
     });
 
