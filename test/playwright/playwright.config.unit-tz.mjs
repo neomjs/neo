@@ -44,7 +44,8 @@ export default defineConfig({
     testMatch: [
         '**/util/Date.spec.mjs',
         '**/form/field/DateSubmitValue.spec.mjs',
-        '**/selection/DateSelectorModel.spec.mjs'
+        '**/selection/DateSelectorModel.spec.mjs',
+        '**/examples/grid/cellEditing/MainStore.spec.mjs'
     ],
     fullyParallel: true,
     ...buildUnitRunPolicy({isCI}),

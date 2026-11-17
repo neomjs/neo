@@ -584,8 +584,8 @@
         "hiddenIn": [],
         "family": "grid-table",
         "component": "Grid",
-        "feature": "Typed cell editors",
-        "lookFor": "Edit text, a stepped number, date or country; compare the protected GitHub ID and switch selection modes."
+        "feature": "An order sheet with typed editors, a refused quantity and a calculated line total",
+        "lookFor": "Double-click or press Enter to edit, Tab to move on. A quantity over 50 is refused, and the line total follows each edit."
     },
     {
         "id": "grid-container",
