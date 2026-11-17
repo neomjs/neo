@@ -359,13 +359,8 @@ class ConfigurationViewport extends Viewport {
      * Constructs the workbench stage and inspector panel
      */
     onConstructed() {
-        let me    = this,
-            style = me.exampleContainerConfig?.style,
+        let me = this,
             exampleComponentType, theme;
-
-        if (style) {
-            delete me.exampleContainerConfig.style;
-        }
 
         me.exampleComponent = me.createExampleComponent();
 
@@ -408,7 +403,7 @@ class ConfigurationViewport extends Viewport {
         const nextThemeObj    = availableThemes[nextThemeIndex] || currentThemeObj;
 
         const isCompact = !me.isWideComponent();
-        const stageCls  = ['neo-example-container', 'neo-workbench-stage'];
+        const stageCls  = ['neo-workbench-stage'];
         if (isCompact) {
             stageCls.push('neo-stage-compact');
         }
@@ -442,16 +437,22 @@ class ConfigurationViewport extends Viewport {
         me.items = [{
             module: Container,
             cls   : stageCls,
-            items : [stageHeader, me.exampleComponent],
+            items : [stageHeader, {
+                module: Container,
+                cls   : ['neo-example-container'],
+                flex  : 1,
+                items : [me.exampleComponent],
+                layout: 'base',
+                ...me.exampleContainerConfig,
+                style : {
+                    overflow: 'auto',
+                    padding : '20px',
+                    position: 'relative',
+                    ...me.exampleContainerConfig?.style
+                }
+            }],
             flex  : me.exampleComponentFlex,
-            layout: 'base',
-            style : {
-                overflow: 'auto',
-                padding : '20px',
-                position: 'relative',
-                ...style
-            },
-            ...me.exampleContainerConfig
+            layout: 'base'
         }, {
             module: Panel,
             cls   : ['neo-panel', 'neo-container', 'neo-configuration-panel', 'neo-workbench-inspector'],
