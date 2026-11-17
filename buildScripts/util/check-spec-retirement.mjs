@@ -158,6 +158,22 @@ export function parseDeletedPaths(output) {
 }
 
 /**
+ * @summary The commit's renames, as `[from, to]` pairs — what {@link landedDeletions} follows a path back through.
+ *
+ * Only two-path `R` rows count. A merge's combined `RR path` names no source, so it carries no lineage.
+ *
+ * @param {String} output `git show --name-status -M` output.
+ * @returns {Array<String[]>} `[from, to]` pairs, in encounter order.
+ */
+export function parseRenames(output) {
+    return String(output || '')
+        .split('\n')
+        .map(line => line.trim().split(/\t/))
+        .filter(([status, ...paths]) => status?.startsWith('R') && paths.length === 2)
+        .map(([, from, to]) => [from, to])
+}
+
+/**
  * @summary The account line: the marker at the head of its own line, followed by actual content.
  *
  * A substring test is not a grammar. `includes('spec-retired:')` accepted the marker with nothing
@@ -436,6 +452,7 @@ export function createGit(root) {
         deletedPaths: sha        => parseDeletedPaths(git.nameStatus(sha)),
         mergeBase   : (from, to) => exec(`${at} merge-base ${from} ${to}`),
         message     : sha        => tryExec(`${at} log -1 ${sha} --format=%B`),
+        renames     : sha        => parseRenames(git.nameStatus(sha)),
         subject     : sha        => tryExec(`${at} log -1 ${sha} --format=%s`),
         treePaths   : sha        => exec(`${at} ls-tree -r --name-only ${sha}`).split('\n').map(path => path.trim()).filter(Boolean)
     };
@@ -458,12 +475,17 @@ export const defaultGit = createGit();
  * the GitHub web UI makes exactly such a delete commit. CI scans `origin/dev..HEAD`, so its merge base
  * is the `dev` the pull request lands on.
  *
- * Both reads fail CLOSED, for the reason {@link collectViolations} gives for the commit tree.
+ * A deleted path is first followed back through the range's earlier renames to the base path it came
+ * from. A base spec renamed and then deleted under its new name removes base coverage, although the
+ * base never held the new name.
+ *
+ * Both tree reads fail CLOSED, for the reason {@link collectViolations} gives for the commit tree.
  * @param {String} range Rev-list range, `<from>..<to>`.
  * @param {Object} git Git port.
- * @returns {Function} `spec => Boolean`, true when the range deletes the spec for good.
+ * @param {String[]} shas The range's commits, newest first, as `revList` returns them.
+ * @returns {Function} `(spec, sha) => Boolean`, true when the range deletes the spec `sha` deleted for good.
  */
-export function landedDeletions(range, git) {
+export function landedDeletions(range, git, shas) {
     const [from, to] = range.split('..');
     let base;
 
@@ -481,7 +503,19 @@ export function landedDeletions(range, git) {
         }
     });
 
-    return spec => baseTree.has(spec) && !tipTree.has(spec)
+    // Oldest first: each commit sees the lineage of the renames before it
+    const origin = new Map(), lineage = new Map();
+
+    [...shas].reverse().forEach(sha => {
+        lineage.set(sha, new Map(origin));
+        git.renames(sha).forEach(([from, to]) => origin.set(to, origin.get(from) ?? from))
+    });
+
+    return (spec, sha) => {
+        const source = lineage.get(sha).get(spec) ?? spec;
+
+        return baseTree.has(source) && !tipTree.has(source) && !tipTree.has(spec)
+    }
 }
 
 /**
@@ -557,8 +591,8 @@ export function collectViolations(ranges, git = defaultGit) {
             let specs = git.deletedSpecs(sha);
 
             if (specs.length > 0) {
-                landed ??= landedDeletions(range, git);
-                specs = specs.filter(landed)
+                landed ??= landedDeletions(range, git, shas);
+                specs = specs.filter(spec => landed(spec, sha))
             }
 
             if (specs.length === 0) {

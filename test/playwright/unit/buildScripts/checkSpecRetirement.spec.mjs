@@ -17,6 +17,7 @@ import {
     formatSurvivingSubjectFailure,
     hasRetirementAccount,
     parseDeletedSpecs,
+    parseRenames,
     pendingRanges,
     retirementAccounts,
     unaccountedSurvivors
@@ -123,6 +124,17 @@ test.describe('check-spec-retirement', () => {
 
             expect(parseDeletedSpecs(block)).toEqual([SPEC]);
         });
+    });
+
+    test('parseRenames reads two-path rename rows only; a merge\'s `RR` row names no source', () => {
+        expect(parseRenames([
+            'R100\ttest/playwright/unit/a.spec.mjs\ttest/playwright/unit/b.spec.mjs',
+            'D\ttest/playwright/unit/c.spec.mjs',
+            'RR\ttest/playwright/unit/d.spec.mjs',
+            'C75\ttest/playwright/unit/e.spec.mjs\ttest/playwright/unit/f.spec.mjs'
+        ].join('\n'))).toEqual([['test/playwright/unit/a.spec.mjs', 'test/playwright/unit/b.spec.mjs']]);
+
+        expect(parseRenames('')).toEqual([]);
     });
 
     test.describe('hasRetirementAccount', () => {
@@ -512,6 +524,7 @@ test.describe('check-spec-retirement', () => {
                 deletedPaths: () => [SPEC],
                 mergeBase   : () => 'base',
                 message     : () => 'chore: split\n\nspec-retired: moved to Brain',
+                renames     : () => [],
                 subject     : () => 'chore: split',
                 treePaths   : sha => trees[sha] || ['buildScripts/util/check-block-alignment.mjs'],
                 ...overrides
@@ -702,6 +715,57 @@ test.describe('check-spec-retirement', () => {
 
                 run(`git mv test/playwright/unit/examples/3-Workbench.spec.mjs ${spec}`);
                 run('git commit -q -m "test: rename the new spec onto its path"');
+
+                expect(collectViolations(['base..HEAD'], createGit(root))).toEqual({unaccounted: [], survived: []});
+            } finally {
+                rmSync(root, {recursive: true, force: true})
+            }
+        });
+
+        test('a base spec renamed and then deleted still needs an account (#21256 review)', () => {
+            // The deleting commit names the NEW path, which the base never held, yet the coverage it
+            // removes is the base spec's. Real git, real port.
+            const
+                root    = mkdtempSync(join(tmpdir(), 'spec-retirement-')),
+                run     = command => execSync(command, {cwd: root, encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore']}),
+                spec    = 'test/playwright/unit/examples/Existing.spec.mjs',
+                renamed = 'test/playwright/unit/examples/Renamed.spec.mjs';
+
+            try {
+                run('git init -q -b main');
+                run('git config user.email fixture@example.com');
+                run('git config user.name Fixture');
+
+                mkdirSync(join(root, 'test/playwright/unit/examples'), {recursive: true});
+                writeFileSync(join(root, spec), 'export const arms = 1;\n');
+                run('git add -A');
+                run('git commit -q -m base');
+                run('git tag base');
+
+                run(`git mv ${spec} ${renamed}`);
+                run('git commit -q -m "test: rename the spec"');
+                run('git tag renamed');
+
+                rmSync(join(root, renamed));
+                run('git add -A');
+                run('git commit -q -m "chore: drop the spec"');
+
+                const deleting = run('git rev-parse HEAD').trim();
+
+                // A pure rename moves the coverage and owes nothing
+                expect(collectViolations(['base..renamed'], createGit(root))).toEqual({unaccounted: [], survived: []});
+
+                // Renamed, then deleted: the base's coverage is gone, and the deleting commit answers for it
+                expect(collectViolations(['base..HEAD'], createGit(root)).unaccounted).toEqual([{
+                    sha    : deleting,
+                    specs  : [renamed],
+                    subject: 'chore: drop the spec'
+                }]);
+
+                // Restored at the new path, the coverage is back and the deletion owes nothing
+                writeFileSync(join(root, renamed), 'export const arms = 1;\n');
+                run('git add -A');
+                run('git commit -q -m "test: restore the spec"');
 
                 expect(collectViolations(['base..HEAD'], createGit(root))).toEqual({unaccounted: [], survived: []});
             } finally {
