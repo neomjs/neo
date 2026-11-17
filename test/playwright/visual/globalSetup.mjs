@@ -38,8 +38,8 @@ const THEME_GUIDANCE =
     '  fresh for the rest of the session, so this failure stops recurring';
 
 export default function globalSetup() {
-    const newestScss = newestMtime(path.join(repoRoot, 'resources/scss'), '.scss'),
-          newestCss  = newestMtime(path.join(repoRoot, 'dist/development/css'), '.css');
+    const newestSource = newestMtime(path.join(repoRoot, 'resources/css'), '.css'),
+          newestCss    = newestMtime(path.join(repoRoot, 'dist/development/css'), '.css');
 
     if (newestCss === 0) {
         throw new Error(
@@ -49,9 +49,9 @@ export default function globalSetup() {
         )
     }
 
-    if (newestScss > newestCss) {
+    if (newestSource > newestCss) {
         throw new Error(
-            'visual harness: the built theme CSS is OLDER than the newest SCSS source — a baseline over ' +
+            'visual harness: the built theme CSS is OLDER than the newest theme source — a baseline over ' +
             'stale artifacts is a poisoned golden:\n' + THEME_GUIDANCE
         )
     }

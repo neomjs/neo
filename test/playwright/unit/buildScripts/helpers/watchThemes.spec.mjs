@@ -13,7 +13,8 @@ import {
 
 /**
  * @summary Pins watch-themes lifecycle reconciliation: low-latency content changes, exact
- * add/rename/delete output + map state, partial failure visibility, and startup readiness.
+ * add/rename/delete output + map state, build failure visibility, the copy (never compile)
+ * contract, and startup readiness.
  */
 test.describe('buildScripts/helpers/watchThemes (#15585)', () => {
     const roots = [];
@@ -27,7 +28,7 @@ test.describe('buildScripts/helpers/watchThemes (#15585)', () => {
             name,
             version: '1.0.0'
         }));
-        fs.mkdirSync(path.join(root, 'resources/scss/src'), {recursive: true});
+        fs.mkdirSync(path.join(root, 'resources/css/src'), {recursive: true});
 
         return root
     }
@@ -59,18 +60,8 @@ test.describe('buildScripts/helpers/watchThemes (#15585)', () => {
         return className.split('.').reduce((scope, segment) => scope?.[segment], themeMap)
     }
 
-    async function buildFixtureEntry(entry, {logger}) {
+    async function buildFixtureEntry(entry) {
         const source = fs.readFileSync(entry.sourcePath, 'utf8');
-
-        if (
-            source.includes("@use 'tokens'") &&
-            !fs.existsSync(path.join(path.dirname(entry.sourcePath), '_tokens.scss'))
-        ) {
-            const message = `[watch-themes] SCSS build failed for ${entry.filename}: missing tokens partial`;
-
-            logger.error(message);
-            throw new Error(message)
-        }
 
         fs.mkdirSync(path.dirname(entry.outputPath), {recursive: true});
         fs.writeFileSync(entry.outputPath, `/* ${entry.filename} */\n${source}`);
@@ -85,8 +76,8 @@ test.describe('buildScripts/helpers/watchThemes (#15585)', () => {
         return reconcileThemeStructure({...options, build: buildFixtureEntry})
     }
 
-    function writeScss(root, filename, content='.fixture { color: red; }') {
-        const target = path.join(root, 'resources/scss', filename);
+    function writeSource(root, filename, content='.fixture { color: red; }') {
+        const target = path.join(root, 'resources/css', filename);
 
         fs.mkdirSync(path.dirname(target), {recursive: true});
         fs.writeFileSync(target, content);
@@ -103,9 +94,9 @@ test.describe('buildScripts/helpers/watchThemes (#15585)', () => {
             root       = createRoot(),
             calls      = [],
             {logger}   = createLogger(),
-            sourceFile = writeScss(root, 'src/Panel.scss');
+            sourceFile = writeSource(root, 'src/Panel.css');
 
-        await handleThemeWatchEvent('change', 'src/Panel.scss', {
+        await handleThemeWatchEvent('change', 'src/Panel.css', {
             build    : async filename => calls.push(['build', filename]),
             logger,
             reconcile: async () => {
@@ -116,7 +107,25 @@ test.describe('buildScripts/helpers/watchThemes (#15585)', () => {
         });
 
         expect(fs.existsSync(sourceFile)).toBe(true);
-        expect(calls).toEqual([['build', 'src/Panel.scss']])
+        expect(calls).toEqual([['build', 'src/Panel.css']])
+    });
+
+    test('a content change copies the source, nesting kept, with a source map back to it', async () => {
+        const
+            root     = createRoot(),
+            {logger} = createLogger();
+
+        writeSource(root, 'src/Panel.css', '.panel {\n    .child {\n        color: red;\n    }\n}\n');
+
+        await handleThemeWatchEvent('change', 'src/Panel.css', {logger, repoRoot: root});
+
+        const
+            output = fs.readFileSync(path.join(root, 'dist/development/css/src/Panel.css'), 'utf8'),
+            map    = JSON.parse(fs.readFileSync(path.join(root, 'dist/development/css/src/Panel.css.map'), 'utf8'));
+
+        expect(output).toContain('.panel {\n    .child {');
+        expect(output).toContain('/*# sourceMappingURL=Panel.css.map */');
+        expect(map.sources).toEqual(['../../../../resources/css/src/Panel.css'])
     });
 
     test('one structural event reconciles add, rename, delete, source maps, and the exact map', async () => {
@@ -124,11 +133,11 @@ test.describe('buildScripts/helpers/watchThemes (#15585)', () => {
             root     = createRoot(),
             {logger} = createLogger();
 
-        writeScss(root, 'src/Initial.scss');
+        writeSource(root, 'src/Initial.css');
         await reconcileFixture({logger, repoRoot: root});
 
-        writeScss(root, 'src/Added.scss', '.added { display: flex; }');
-        await handleThemeWatchEvent('rename', 'src/Added.scss', {
+        writeSource(root, 'src/Added.css', '.added { display: flex; }');
+        await handleThemeWatchEvent('rename', 'src/Added.css', {
             logger,
             reconcile: reconcileFixture,
             repoRoot : root
@@ -138,13 +147,13 @@ test.describe('buildScripts/helpers/watchThemes (#15585)', () => {
         expect(mapLeaf(root, 'Neo.Added')).toEqual(['src']);
 
         fs.renameSync(
-            path.join(root, 'resources/scss/src/Added.scss'),
-            path.join(root, 'resources/scss/src/Renamed.scss')
+            path.join(root, 'resources/css/src/Added.css'),
+            path.join(root, 'resources/css/src/Renamed.css')
         );
 
         // macOS is allowed to report only the retired filename. The census still discovers and
         // builds the new path before replacing the map.
-        await handleThemeWatchEvent('rename', 'src/Added.scss', {
+        await handleThemeWatchEvent('rename', 'src/Added.css', {
             logger,
             reconcile: reconcileFixture,
             repoRoot : root
@@ -156,8 +165,8 @@ test.describe('buildScripts/helpers/watchThemes (#15585)', () => {
         expect(mapLeaf(root, 'Neo.Added')).toBeUndefined();
         expect(mapLeaf(root, 'Neo.Renamed')).toEqual(['src']);
 
-        fs.rmSync(path.join(root, 'resources/scss/src/Renamed.scss'));
-        await handleThemeWatchEvent('rename', 'src/Renamed.scss', {
+        fs.rmSync(path.join(root, 'resources/css/src/Renamed.css'));
+        await handleThemeWatchEvent('rename', 'src/Renamed.css', {
             logger,
             reconcile: reconcileFixture,
             repoRoot : root
@@ -168,36 +177,29 @@ test.describe('buildScripts/helpers/watchThemes (#15585)', () => {
         expect(mapLeaf(root, 'Neo.Renamed')).toBeUndefined()
     });
 
-    test('a deleted partial rebuilds its owning root and fails loudly when an importer breaks', async () => {
+    test('a source the build cannot parse fails loudly', async () => {
         const
             root             = createRoot(),
-            {errors, logger} = createLogger(),
-            partial          = writeScss(root, 'src/_tokens.scss', '$color: red;');
+            {errors, logger} = createLogger();
 
-        writeScss(root, 'src/Panel.scss', "@use 'tokens';\n.panel { color: tokens.$color; }");
-        await reconcileFixture({logger, repoRoot: root});
-        fs.rmSync(partial);
+        writeSource(root, 'src/Broken.css', '.broken {\n    color: red;\n');
 
         await expect(
-            handleThemeWatchEvent('rename', 'src/_tokens.scss', {
-                logger,
-                reconcile: reconcileFixture,
-                repoRoot : root
-            })
-        ).rejects.toThrow('[watch-themes] rename reconcile failed for src/_tokens.scss');
+            handleThemeWatchEvent('rename', 'src/Broken.css', {logger, repoRoot: root})
+        ).rejects.toThrow('[watch-themes] rename reconcile failed for src/Broken.css');
 
         expect(errors.some(message => message.includes(
-            '[watch-themes] SCSS build failed for src/Panel.scss'
+            '[watch-themes] build failed for src/Broken.css'
         ))).toBe(true)
     });
 
     test('workspace regeneration preserves framework classes and removes retired local entries', () => {
         const root = createRoot('theme-workspace');
 
-        writeScss(root, 'src/Local.scss');
-        writeScss(
+        writeSource(root, 'src/Local.css');
+        writeSource(
             path.join(root, 'node_modules/neo.mjs'),
-            'src/Base.scss'
+            'src/Base.css'
         );
         fs.writeFileSync(path.join(root, 'resources/theme-map.json'), JSON.stringify({
             Neo: {Retired: ['src']}
@@ -214,8 +216,8 @@ test.describe('buildScripts/helpers/watchThemes (#15585)', () => {
         const
             root     = createRoot(),
             {logger} = createLogger(),
-            panel    = writeScss(root, 'src/Panel.scss'),
-            other    = writeScss(root, 'src/Other.scss');
+            panel    = writeSource(root, 'src/Panel.css'),
+            other    = writeSource(root, 'src/Other.css');
 
         fs.utimesSync(panel, 1, 1);
         fs.utimesSync(other, 1, 1);
@@ -237,7 +239,7 @@ test.describe('buildScripts/helpers/watchThemes (#15585)', () => {
         expect(state.stale).toEqual([])
     });
 
-    test('successful startup preloads Sass before opening the watcher', async () => {
+    test('successful startup reconciles before opening the watcher', async () => {
         const
             root     = createRoot(),
             calls    = [],
@@ -245,19 +247,18 @@ test.describe('buildScripts/helpers/watchThemes (#15585)', () => {
             watcher  = {close() {}};
 
         const result = await startThemeWatcher({
-            inspect     : () => ({ready: true}),
-            loadCompiler: async () => calls.push('compiler'),
+            inspect  : () => ({ready: true}),
             logger,
-            reconcile   : async () => calls.push('reconcile'),
-            repoRoot    : root,
-            watch       : () => {
+            reconcile: async () => calls.push('reconcile'),
+            repoRoot : root,
+            watch    : () => {
                 calls.push('watch');
                 return watcher
             }
         });
 
         expect(result).toBe(watcher);
-        expect(calls).toEqual(['reconcile', 'compiler', 'watch'])
+        expect(calls).toEqual(['reconcile', 'watch'])
     });
 
     test('startup refuses loudly before the canonical initial build', async () => {
@@ -267,7 +268,7 @@ test.describe('buildScripts/helpers/watchThemes (#15585)', () => {
             {logger} = createLogger();
 
         await expect(startThemeWatcher({
-            inspect: () => ({
+            inspect  : () => ({
                 invalidMap: null,
                 mapMissing: [],
                 missing   : ['resources/theme-map.json'],
@@ -275,10 +276,10 @@ test.describe('buildScripts/helpers/watchThemes (#15585)', () => {
                 stale     : [],
                 symlinked : []
             }),
-            loadCompiler: async () => calls.push('compiler'),
             logger,
-            repoRoot    : root,
-            watch       : () => { throw new Error('watch must not start') }
+            reconcile: async () => calls.push('reconcile'),
+            repoRoot : root,
+            watch    : () => { throw new Error('watch must not start') }
         })).rejects.toThrow(
             'Recovery: npm run build-themes -- -n -e dev -t all'
         );
