@@ -53,7 +53,7 @@ export const INVITATIONS = Object.freeze({
 
 const
     BADGE_ROOT      = 'https://neomjs.com/badges',
-    ENGINE_PATHS    = Object.freeze(['src/', 'apps/', 'examples/', 'resources/scss/']),
+    ENGINE_PATHS    = Object.freeze(['src/', 'apps/', 'examples/', 'resources/css/']),
     GENERIC_LABELS  = new Set([...CURATED_LABELS, 'ai', 'bug', 'documentation', 'enhancement']),
     HEADS_UP_PREFIX = '<!-- contributor-heads-up:',
     MARKER_PREFIX   = '<!-- merge-comment:',

@@ -1,0 +1,3 @@
+:where(.neo-theme-neo-dark) { /* .portal-services-component */
+    --portal-services-headline-shadow: 0 0 20px rgba(62, 99, 221, 0.3);
+}

@@ -20,7 +20,7 @@ const
  * that was deleted.
  *
  * Every case drives the real `collectThemeSurfaceFailures` through its injected `surface` argument
- * against SCSS written to a temp tree. Nothing here reads the repository's own theme files: a guard
+ * against CSS written to a temp tree. Nothing here reads the repository's own theme files: a guard
  * asserted against the tree it guards passes for as long as the tree is clean and stops testing the
  * guard the moment someone fixes the tree.
  *
@@ -46,12 +46,12 @@ test.describe('check-theme-surfaces.mjs — Workstation theme contract (#17922)'
 
     /**
      * Writes one fixture surface and returns the shape the guard accepts.
-     * `views` maps a file name below the view root to its SCSS body.
+     * `views` maps a file name below the view root to its CSS body.
      */
     const surface = ({dark = '', light = '', modeInvariant = [], views = {}} = {}) => {
             const
-                darkPath  = path.join(tmpRoot, 'dark.scss'),
-                lightPath = path.join(tmpRoot, 'light.scss'),
+                darkPath  = path.join(tmpRoot, 'dark.css'),
+                lightPath = path.join(tmpRoot, 'light.css'),
                 viewDir   = path.join(tmpRoot, 'views');
 
             fs.writeFileSync(darkPath,  dark,  'utf8');
@@ -73,7 +73,7 @@ test.describe('check-theme-surfaces.mjs — Workstation theme contract (#17922)'
         clean = {
             dark : ':root {\n    --workstation-bg: #101014;\n    --workstation-ink: #f5f5f7;\n}\n',
             light: ':root {\n    --workstation-bg: #ffffff;\n    --workstation-ink: #101014;\n}\n',
-            views: {'Viewport.scss': '.neo-workstation {\n    background: var(--workstation-bg);\n    color: var(--workstation-ink);\n}\n'}
+            views: {'Viewport.css': '.neo-workstation {\n    background: var(--workstation-bg);\n    color: var(--workstation-ink);\n}\n'}
         };
 
     test('a surface satisfying parity, token-only and completeness reports nothing', () => {
@@ -139,7 +139,7 @@ test.describe('check-theme-surfaces.mjs — Workstation theme contract (#17922)'
             const failures = collectThemeSurfaceFailures(surface({
                 dark : ':root {\n    --workstation-base: #101014;\n' + alias + '}\n',
                 light: ':root {\n    --workstation-base: #ffffff;\n' + alias + '}\n',
-                views: {'Viewport.scss': '.neo-workstation {\n    background: var(--workstation-panel);\n}\n'}
+                views: {'Viewport.css': '.neo-workstation {\n    background: var(--workstation-panel);\n}\n'}
             }));
 
             expect(failures).toEqual([])
@@ -153,7 +153,7 @@ test.describe('check-theme-surfaces.mjs — Workstation theme contract (#17922)'
             const failures = collectThemeSurfaceFailures(surface({
                 dark : body,
                 light: body,
-                views: {'Viewport.scss': '.neo-workstation {\n    background: var(--workstation-panel);\n}\n'}
+                views: {'Viewport.css': '.neo-workstation {\n    background: var(--workstation-panel);\n}\n'}
             }));
 
             expect(failures.some(f => f.includes('--workstation-panel') && f.includes('byte-identical'))).toBe(true)
@@ -161,14 +161,14 @@ test.describe('check-theme-surfaces.mjs — Workstation theme contract (#17922)'
     });
 
     test.describe('[token-only]', () => {
-        const withView = body => collectThemeSurfaceFailures(surface({...clean, views: {'Viewport.scss': body}})),
+        const withView  = body => collectThemeSurfaceFailures(surface({...clean, views: {'Viewport.css': body}})),
               tokenOnly = failures => failures.filter(f => f.startsWith('[token-only]'));
 
         test('a bare hex literal is rejected and carries file:line', () => {
             const failures = tokenOnly(withView('.neo-workstation {\n    color: #ff0000;\n}\n'));
 
             expect(failures.length).toBe(1);
-            expect(failures[0]).toContain('Viewport.scss:2');
+            expect(failures[0]).toContain('Viewport.css:2');
             expect(failures[0]).toContain('#ff0000')
         });
 
@@ -189,7 +189,7 @@ test.describe('check-theme-surfaces.mjs — Workstation theme contract (#17922)'
         });
 
         test('a color inside a line comment is not a declaration', () => {
-            expect(tokenOnly(withView('.a {\n    // was #ff0000 before the token layer\n    color: var(--workstation-ink);\n}\n'))).toEqual([])
+            expect(tokenOnly(withView('.a {\n    /* was #ff0000 before the token layer */\n    color: var(--workstation-ink);\n}\n'))).toEqual([])
         });
 
         test('a color inside a block comment is not a declaration', () => {
@@ -200,14 +200,14 @@ test.describe('check-theme-surfaces.mjs — Workstation theme contract (#17922)'
             expect(tokenOnly(withView('.a {\n    content: "red";\n}\n'))).toEqual([])
         });
 
-        test('every SCSS file below the view root is walked, not just the top level', () => {
+        test('every stylesheet below the view root is walked, not just the top level', () => {
             const failures = tokenOnly(collectThemeSurfaceFailures(surface({
                 ...clean,
-                views: {'nested/deep/Panel.scss': '.a {\n    color: #ff0000;\n}\n'}
+                views: {'nested/deep/Panel.css': '.a {\n    color: #ff0000;\n}\n'}
             })));
 
             expect(failures.length).toBe(1);
-            expect(failures[0]).toContain('Panel.scss:2')
+            expect(failures[0]).toContain('Panel.css:2')
         })
     });
 
@@ -215,7 +215,7 @@ test.describe('check-theme-surfaces.mjs — Workstation theme contract (#17922)'
         test('a consumed token undefined in either skin is reported for both', () => {
             const failures = collectThemeSurfaceFailures(surface({
                 ...clean,
-                views: {'Viewport.scss': '.a {\n    color: var(--workstation-missing);\n}\n'}
+                views: {'Viewport.css': '.a {\n    color: var(--workstation-missing);\n}\n'}
             }));
 
             expect(failures).toContain('[completeness] --workstation-missing is undefined in the dark skin');
@@ -226,7 +226,7 @@ test.describe('check-theme-surfaces.mjs — Workstation theme contract (#17922)'
             const failures = collectThemeSurfaceFailures(surface({
                 dark : ':root {\n    --workstation-bg: #101014;\n    --workstation-only: #202024;\n}\n',
                 light: ':root {\n    --workstation-bg: #ffffff;\n}\n',
-                views: {'Viewport.scss': '.a {\n    background: var(--workstation-only);\n}\n'}
+                views: {'Viewport.css': '.a {\n    background: var(--workstation-only);\n}\n'}
             }));
 
             expect(failures).toContain('[completeness] --workstation-only is undefined in the light skin')
@@ -235,7 +235,7 @@ test.describe('check-theme-surfaces.mjs — Workstation theme contract (#17922)'
         test('a component-local token is defined by its own view and exempt', () => {
             const failures = collectThemeSurfaceFailures(surface({
                 ...clean,
-                views: {'Viewport.scss': '.a {\n    --workstation-local: 4px;\n    padding: var(--workstation-local);\n}\n'}
+                views: {'Viewport.css': '.a {\n    --workstation-local: 4px;\n    padding: var(--workstation-local);\n}\n'}
             }));
 
             expect(failures.filter(f => f.startsWith('[completeness]'))).toEqual([])

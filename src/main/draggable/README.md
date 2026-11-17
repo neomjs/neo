@@ -42,7 +42,7 @@ gesture has two windows, and each has its own mechanism:
 
 | Window | Carried by | Why |
 |---|---|---|
-| press → threshold | `neo-drag-active` and the iframe shield keyed on it (`Global.scss`) | nothing is engaged yet; a press that never becomes a drag must still click its own element |
+| press → threshold | `neo-drag-active` and the iframe shield keyed on it (`Global.css`) | nothing is engaged yet; a press that never becomes a drag must still click its own element |
 | `drag:start` → terminal | pointer capture on `document.documentElement` | no click is at stake, and a lost release here would strand an engaged drag |
 
 Capture routes every later event of the pointer to the document, whatever lies under it (an

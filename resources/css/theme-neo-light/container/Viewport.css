@@ -1,0 +1,3 @@
+:where(.neo-theme-neo-light) { /* .neo-viewport */
+    --viewport-background-color: #fff;
+}

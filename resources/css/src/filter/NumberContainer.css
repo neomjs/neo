@@ -1,0 +1,7 @@
+.neo-filter-numbercontainer {
+    .neo-button {
+        /* The row stretches the toggle to its field: the neo themes' 48px standalone height would outgrow a header */
+        height: auto;
+        margin: 5px 5px 5px 0;
+    }
+}

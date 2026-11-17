@@ -1,0 +1,10 @@
+:where(.neo-theme-neo-dark) { /* .covid-header-container */
+    --covid-header-active-background-color   : rgba(100, 181, 246, .25);
+    --covid-header-active-color              : rgb(58.1181252989%, 80.0047824008%, 97.5681492109%);
+    --covid-header-cases-background-color    : rgba(187, 187, 187, .25);
+    --covid-header-cases-color               : #eeeeee;
+    --covid-header-deaths-background-color   : rgba(251, 103, 103, .25);
+    --covid-header-deaths-color              : rgb(98.9441930618%, 59.8793363499%, 59.8793363499%);
+    --covid-header-recovered-background-color: rgba( 40, 218, 111, .25);
+    --covid-header-recovered-color           : rgb(28.9677523902%, 85.9342083941%, 51.4730189596%);
+}

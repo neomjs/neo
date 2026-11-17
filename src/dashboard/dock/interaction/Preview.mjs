@@ -44,6 +44,13 @@ class Preview extends Component {
          */
         ntype: 'dock-preview',
         /**
+         * The accent values and the dock motion tokens this overlay paints with live in the shared
+         * dashboard container sheets. Declaring them keeps every window that mounts the overlay
+         * paint-complete, as `DropIndicators` does.
+         * @member {String[]} additionalThemeFiles=['Neo.dashboard.Container']
+         */
+        additionalThemeFiles: ['Neo.dashboard.Container'],
+        /**
          * @member {String[]} baseCls=['neo-dock-preview']
          * @protected
          */
