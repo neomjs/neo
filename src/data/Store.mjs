@@ -406,8 +406,9 @@ class Store extends Collection {
     }
 
     /**
-     * @param value
-     * @param oldValue
+     * @summary Replaces what the store holds with the assigned data, whether an assignment, `add()` or a load put it there.
+     * @param {Object[]|Neo.data.Model[]|null} value
+     * @param {Object[]|Neo.data.Model[]|null} oldValue
      * @protected
      */
     afterSetData(value, oldValue) {
@@ -415,7 +416,7 @@ class Store extends Collection {
 
         if (me.configsApplied) {
             if (value) {
-                if (oldValue) {
+                if (oldValue || me.holdsRecords()) {
                     me.clear()
                 }
 
@@ -1069,6 +1070,16 @@ class Store extends Collection {
      */
     prepareAddedItems(items) {
         return this.createRecord([...items])
+    }
+
+    /**
+     * @summary Whether the store holds a record, one a filter hides included.
+     * Overridable: {@link Neo.data.TreeStore#holdsRecords} reads its structural layer.
+     * @returns {Boolean}
+     * @protected
+     */
+    holdsRecords() {
+        return this.count > 0 || this.allItems?.count > 0
     }
 
     /**

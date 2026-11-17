@@ -780,6 +780,15 @@ class TreeStore extends Store {
     }
 
     /**
+     * @summary Whether the store holds a node, a collapsed or filtered-out one included.
+     * @returns {Boolean}
+     * @protected
+     */
+    holdsRecords() {
+        return this.#allRecordsMap.size > 0
+    }
+
+    /**
      * @summary Tells whether the active filters keep a node, expansion aside.
      *
      * Filtering is ancestor-aware (see {@link #filter}): a node is kept when it matches, when an ancestor
