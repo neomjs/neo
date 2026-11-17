@@ -1,4 +1,5 @@
 import Button          from '../button/Base.mjs';
+import CheckBox        from '../form/field/CheckBox.mjs';
 import DateField       from '../form/field/Date.mjs';
 import DateUtil        from '../util/Date.mjs';
 import Dialog          from '../dialog/Base.mjs';
@@ -9,6 +10,12 @@ import TextAreaField   from '../form/field/TextArea.mjs';
 import TextField       from '../form/field/Text.mjs';
 import Toolbar         from '../toolbar/Base.mjs';
 import {getTitleField} from './CardItems.mjs';
+
+/**
+ * The model field types a Number field edits
+ * @type {Set<String>}
+ */
+const numberTypes = new Set(['float', 'int', 'integer', 'number']);
 
 /**
  * @summary The board's shared card editor dialog: one instance per board, holding a `Neo.form.Container` bound to the
@@ -23,6 +30,11 @@ import {getTitleField} from './CardItems.mjs';
  *   and merges all other changed fields into one `record.set()` call.
  * - Otherwise, if one or more fields changed, it calls `record.set(changed)` once.
  * - If nothing changed, or on {@link #cancel} / `Escape`, it writes nothing.
+ *
+ * The form follows the board's model. A standard field (title, description, status, lane, assignees, tags, progress,
+ * color, due date) is built when the model declares it and an edit can write it, the title and status always, and the
+ * model's other writable fields follow under labels read from their names. A store with another model rebuilds the
+ * form on the next open. {@link #fields} names the form's fields instead.
  * @class Neo.board.CardEditor
  * @extends Neo.dialog.Base
  */
@@ -75,6 +87,14 @@ class CardEditor extends Dialog {
          */
         draggable: false,
         /**
+         * The form's fields, in order. A name picks the standard field of that name, or the field the board's model
+         * declares under it; an object is a field config of its own (`{module, name, labelText, ...}`). `null` builds
+         * the standard fields the model declares, then the model's other fields. A board passes it through
+         * `cardEditorConfig`.
+         * @member {Array<String|Object>|null} fields=null
+         */
+        fields: null,
+        /**
          * @member {Boolean} hidden=true
          */
         hidden: true,
@@ -117,11 +137,24 @@ class CardEditor extends Dialog {
      */
     form = null
     /**
+     * The model the form's fields were built for. A derived form whose board store brings another model is rebuilt
+     * on the next {@link #syncFormFields}.
+     * @member {Neo.data.Model|null} formModel=null
+     */
+    formModel = null
+    /**
      * Snapshot of normalized initial field values when {@link #record} is bound, so untouched fields never report a
      * synthetic diff.
      * @member {Object} initialValues={}
      */
     initialValues = {}
+    /**
+     * The name of the standard lane field while the form holds it: the control that follows the board's swimlanes,
+     * hidden and left out of the save while the board has none. A field that {@link #fields} supplies as a config of
+     * its own is an ordinary field, whatever its name.
+     * @member {String|null} laneControlName=null
+     */
+    laneControlName = null
 
     /**
      * @param {Object} config
@@ -159,6 +192,31 @@ class CardEditor extends Dialog {
     }
 
     /**
+     * @summary Fills the form with its fields, {@link #getFieldConfigs} and then {@link #ensureModelFields}, for the
+     * model of the board's current store. The fields of an earlier build retire first, with the date pickers they own.
+     */
+    buildFields() {
+        let me     = this,
+            {form} = me;
+
+        me.fieldMap.forEach(field => {
+            field.dateSelector?.destroy?.()
+        });
+
+        me.fieldMap.clear();
+        form.removeAll(true);
+
+        me.formModel = me.board?.store?.model || null;
+        form.add(me.getFieldConfigs());
+
+        form.items.forEach(field => {
+            me.fieldMap.set(field.name, field)
+        });
+
+        me.ensureModelFields()
+    }
+
+    /**
      * @summary Discards any unsaved edits and hides the dialog without writing to the record
      */
     cancel() {
@@ -172,89 +230,11 @@ class CardEditor extends Dialog {
     }
 
     /**
-     * @summary Builds the form container, its standard fields, any additional model fields, and the Save/Cancel footer
+     * @summary Builds the form container, its fields ({@link #buildFields}) and the Save/Cancel footer
      */
     createForm() {
         let me                  = this,
-            {appName, windowId} = me,
-            titleField          = me.getTitleField(),
-            statusField         = me.board?.statusField || 'status',
-            laneField           = me.board?.laneField || 'lane',
-            standardFields      = [
-                {
-                    module   : TextField,
-                    clearable: false,
-                    id       : `${me.id}__field__${titleField}`,
-                    labelText: 'Title',
-                    name     : titleField
-                },
-                {
-                    module   : TextAreaField,
-                    clearable: false,
-                    id       : `${me.id}__field__description`,
-                    labelText: 'Description',
-                    name     : 'description'
-                },
-                {
-                    module      : SelectField,
-                    displayField: 'name',
-                    id          : `${me.id}__field__${statusField}`,
-                    labelText   : 'Status',
-                    name        : statusField,
-                    options     : me.getStatusOptions(me.record),
-                    valueField  : 'id'
-                },
-                {
-                    module      : SelectField,
-                    displayField: 'name',
-                    hidden      : !me.board?.laneField,
-                    id          : `${me.id}__field__${laneField}`,
-                    labelText   : 'Lane',
-                    name        : laneField,
-                    options     : me.getLaneOptions(me.record),
-                    valueField  : 'id'
-                },
-                {
-                    module   : TextField,
-                    clearable: false,
-                    id       : `${me.id}__field__assignees`,
-                    labelText: 'Assignees',
-                    name     : 'assignees'
-                },
-                {
-                    module   : TextField,
-                    clearable: false,
-                    id       : `${me.id}__field__tags`,
-                    labelText: 'Tags',
-                    name     : 'tags'
-                },
-                {
-                    module        : NumberField,
-                    clearable     : false,
-                    disabledChars : null,
-                    id            : `${me.id}__field__progress`,
-                    labelText     : 'Progress',
-                    maxValue      : 100,
-                    minValue      : 0,
-                    name          : 'progress',
-                    useSpinButtons: false
-                },
-                {
-                    module   : TextField,
-                    clearable: false,
-                    id       : `${me.id}__field__color`,
-                    labelText: 'Color',
-                    name     : 'color'
-                },
-                {
-                    module   : DateField,
-                    clearable: false,
-                    id       : `${me.id}__field__dueDate`,
-                    labelText: 'Due date',
-                    name     : 'dueDate',
-                    triggers : []
-                }
-            ];
+            {appName, windowId} = me;
 
         me.form = Neo.create({
             module  : FormContainer,
@@ -262,16 +242,11 @@ class CardEditor extends Dialog {
             cls     : ['neo-board-card-editor-form'],
             flex    : 1,
             id      : `${me.id}__form`,
-            items   : standardFields,
             parentId: me.id,
             windowId
         });
 
-        me.form.items.forEach(field => {
-            me.fieldMap.set(field.name, field)
-        });
-
-        me.ensureModelFields();
+        me.buildFields();
 
         me.footerToolbar = Neo.create({
             module  : Toolbar,
@@ -304,6 +279,38 @@ class CardEditor extends Dialog {
     }
 
     /**
+     * @summary The config of a form field for a field of the model: a Number field for number types, a Date field
+     * for `Date`, a CheckBox for `Boolean` and a Text field for the rest, labelled from its name (`startDate` reads
+     * "Start date").
+     * @param {String} name
+     * @param {Object|null} [fieldDef] The model's field definition, when the model declares the field
+     * @returns {Object}
+     */
+    createModelFieldConfig(name, fieldDef) {
+        let me      = this,
+            rawType = String(fieldDef?.type || '').toLowerCase(),
+            module  = numberTypes.has(rawType) ? NumberField : rawType === 'date' ? DateField : rawType === 'boolean' ? CheckBox : TextField,
+            config  = {
+                module,
+                appName  : me.appName,
+                id       : `${me.id}__field__${name}`,
+                labelText: Neo.capitalize(Neo.decamel(name).replace(/-/g, ' ')),
+                name,
+                windowId : me.windowId
+            };
+
+        if (module === NumberField) {
+            Object.assign(config, {clearable: false, disabledChars: null, useSpinButtons: false})
+        } else if (module === DateField) {
+            Object.assign(config, {clearable: false, triggers: []})
+        } else if (module === TextField) {
+            config.clearable = false
+        }
+
+        return config
+    }
+
+    /**
      * @summary Cleans up child pickers and fields on teardown
      * @param {...*} args
      */
@@ -316,8 +323,9 @@ class CardEditor extends Dialog {
     }
 
     /**
-     * @summary Adds form fields for any custom model fields not covered by the default set; unknown field types render
-     * as `Neo.form.field.Text`.
+     * @summary Adds a form field ({@link #createModelFieldConfig}) for each field of the board's model the form does
+     * not hold yet: the key, the order field and calculated fields stay out. A form that {@link #fields} names takes
+     * none.
      */
     ensureModelFields() {
         let me          = this,
@@ -326,49 +334,32 @@ class CardEditor extends Dialog {
             keyProperty = board?.store?.keyProperty || board?.store?.model?.keyProperty || 'id',
             orderField  = board?.orderField || 'order';
 
+        if (me.fields) {
+            return
+        }
+
         modelFields.forEach(fieldDef => {
             const name = fieldDef?.name;
 
-            if (!name || name === keyProperty || name === orderField || me.fieldMap.has(name)) {
+            if (!name || name === keyProperty || name === orderField || fieldDef.calculate || me.fieldMap.has(name)) {
                 return
             }
 
-            const
-                rawType = String(fieldDef.type || '').toLowerCase(),
-                module  = rawType === 'int' || rawType === 'integer' || rawType === 'float' || rawType === 'number'
-                    ? NumberField
-                    : rawType === 'date'
-                        ? DateField
-                        : TextField,
-                config  = {
-                    module,
-                    appName  : me.appName,
-                    clearable: false,
-                    id       : `${me.id}__field__${name}`,
-                    labelText: name,
-                    name,
-                    windowId : me.windowId
-                };
-
-            if (module === NumberField) {
-                config.disabledChars  = null;
-                config.useSpinButtons = false
-            } else if (module === DateField) {
-                config.triggers = []
-            }
-
-            const field = me.form.add(config);
+            const field = me.form.add(me.createModelFieldConfig(name, fieldDef));
             me.fieldMap.set(name, field)
         })
     }
 
     /**
-     * @summary Converts a record field value into the representation stored on its form field
+     * @summary Converts a record field value into the representation stored on its form field. A `Date` becomes the
+     * `yyyy-mm-dd` a Date field holds, so a date the user leaves alone compares equal and writes nothing.
      * @param {String} name
      * @param {*} value
      * @returns {*}
      */
     formatFieldValue(name, value) {
+        const field = this.fieldMap.get(name);
+
         if (name === 'assignees') {
             if (Array.isArray(value)) {
                 return value.map(person => typeof person === 'string' ? person : person?.name ?? '').filter(Boolean).join(', ')
@@ -387,14 +378,16 @@ class CardEditor extends Dialog {
             return value == null || value === '' ? null : Number(value)
         }
 
-        if (name === 'dueDate' && value instanceof Date) {
+        if (value instanceof Date && (name === 'dueDate' || field instanceof DateField)) {
             return DateUtil.convertToyyyymmdd(value)
         }
 
-        const field = this.fieldMap.get(name);
-
         if (field instanceof NumberField) {
             return value == null || value === '' ? null : Number(value)
+        }
+
+        if (field instanceof CheckBox) {
+            return Boolean(value)
         }
 
         return value ?? ''
@@ -415,12 +408,12 @@ class CardEditor extends Dialog {
         }
 
         me.fieldMap.forEach((field, name) => {
-            if (name === (me.board?.laneField || 'lane') && !laneField) {
+            if (name === me.laneControlName && !laneField) {
                 return
             }
 
             const
-                currentRaw = field.value,
+                currentRaw = me.getFieldValue(name),
                 initialRaw = me.initialValues[name];
 
             if (me.isSameFieldValue(currentRaw, initialRaw)) {
@@ -447,12 +440,45 @@ class CardEditor extends Dialog {
     }
 
     /**
-     * @summary Returns the current value of the form field `name`
+     * @summary The configs of the form's fields, in order: {@link #fields} when set, otherwise the standard fields
+     * ({@link #getStandardFieldConfigs}) the board's model declares and lets an edit write, calculated ones staying
+     * out. The title and status fields are always built, and a model that declares no fields keeps every standard
+     * field. Records {@link #laneControlName}: the standard lane field is the lane control, a config of the same name
+     * is not.
+     * @returns {Object[]}
+     */
+    getFieldConfigs() {
+        let me          = this,
+            {board}     = me,
+            model       = board?.store?.model,
+            declared    = model?.fieldsMap?.size ? model.fieldsMap : null,
+            standard    = me.getStandardFieldConfigs(),
+            laneControl = standard.find(config => config.name === (board?.laneField || 'lane')),
+            alwaysBuilt = [me.getTitleField(), board?.statusField || 'status'],
+            configs;
+
+        if (me.fields) {
+            configs = me.fields.map(entry => Neo.isString(entry)
+                ? standard.find(config => config.name === entry) || me.createModelFieldConfig(entry, model?.getField(entry))
+                : {id: `${me.id}__field__${entry.name}`, ...entry})
+        } else {
+            configs = standard.filter(({name}) => !declared || alwaysBuilt.includes(name) || declared.has(name) && !declared.get(name).calculate)
+        }
+
+        me.laneControlName = configs.includes(laneControl) ? laneControl.name : null;
+
+        return configs
+    }
+
+    /**
+     * @summary Returns the current value of the form field `name`; a CheckBox answers whether it is checked
      * @param {String} name
      * @returns {*}
      */
     getFieldValue(name) {
-        return this.getField(name)?.value
+        const field = this.getField(name);
+
+        return field instanceof CheckBox ? field.checked : field?.value
     }
 
     /**
@@ -489,6 +515,95 @@ class CardEditor extends Dialog {
         }
 
         return [...seen.values()]
+    }
+
+    /**
+     * @summary The configs of the standard fields, in form order: the title, description, status, lane, assignees,
+     * tags, progress, color and due date of `Neo.board.CardModel`, the title, status and lane under the names the board
+     * reads
+     * @returns {Object[]}
+     */
+    getStandardFieldConfigs() {
+        let me          = this,
+            titleField  = me.getTitleField(),
+            statusField = me.board?.statusField || 'status',
+            laneField   = me.board?.laneField || 'lane';
+
+        return [
+            {
+                module   : TextField,
+                clearable: false,
+                id       : `${me.id}__field__${titleField}`,
+                labelText: 'Title',
+                name     : titleField
+            },
+            {
+                module   : TextAreaField,
+                clearable: false,
+                id       : `${me.id}__field__description`,
+                labelText: 'Description',
+                name     : 'description'
+            },
+            {
+                module      : SelectField,
+                displayField: 'name',
+                id          : `${me.id}__field__${statusField}`,
+                labelText   : 'Status',
+                name        : statusField,
+                options     : me.getStatusOptions(me.record),
+                valueField  : 'id'
+            },
+            {
+                module      : SelectField,
+                displayField: 'name',
+                hidden      : !me.board?.laneField,
+                id          : `${me.id}__field__${laneField}`,
+                labelText   : 'Lane',
+                name        : laneField,
+                options     : me.getLaneOptions(me.record),
+                valueField  : 'id'
+            },
+            {
+                module   : TextField,
+                clearable: false,
+                id       : `${me.id}__field__assignees`,
+                labelText: 'Assignees',
+                name     : 'assignees'
+            },
+            {
+                module   : TextField,
+                clearable: false,
+                id       : `${me.id}__field__tags`,
+                labelText: 'Tags',
+                name     : 'tags'
+            },
+            {
+                module        : NumberField,
+                clearable     : false,
+                disabledChars : null,
+                id            : `${me.id}__field__progress`,
+                labelText     : 'Progress',
+                maxValue      : 100,
+                minValue      : 0,
+                name          : 'progress',
+                useSpinButtons: false
+            },
+            {
+                module   : TextField,
+                clearable: false,
+                id       : `${me.id}__field__color`,
+                labelText: 'Color',
+                name     : 'color'
+            },
+            {
+                module   : DateField,
+                clearable: false,
+                id       : `${me.id}__field__dueDate`,
+                labelText: 'Due date',
+                name     : 'dueDate',
+                triggers : []
+            }
+        ]
     }
 
     /**
@@ -626,6 +741,10 @@ class CardEditor extends Dialog {
             return rawValue === '' || rawValue == null ? null : Number(rawValue)
         }
 
+        if (field instanceof CheckBox) {
+            return Boolean(rawValue)
+        }
+
         if (rawValue === '' && currentRecordValue === null) {
             return null
         }
@@ -701,28 +820,35 @@ class CardEditor extends Dialog {
     }
 
     /**
-     * @summary Sets the value of form field `name`
+     * @summary Sets the value of form field `name`; a CheckBox is checked for a truthy value
      * @param {String} name
      * @param {*} value
      */
     setFieldValue(name, value) {
         const field = this.getField(name);
 
-        if (field) {
+        if (field instanceof CheckBox) {
+            field.checked = Boolean(value)
+        } else if (field) {
             field.value = value
         }
     }
 
     /**
-     * @summary Populates all form fields and option stores from `record` and records `initialValues`
+     * @summary Populates all form fields and option stores from `record` and records `initialValues`. A derived form
+     * whose board store brings another model than the one it was built for is rebuilt first ({@link #buildFields}); a
+     * form that {@link #fields} names keeps its fields.
      * @param {Object|null} record
      */
     syncFormFields(record) {
         let me          = this,
             {board}     = me,
             statusField = board?.statusField || 'status',
-            laneField   = board?.laneField || 'lane',
             statusInput, laneInput;
+
+        if (!me.fields && me.formModel !== (board?.store?.model || null)) {
+            me.buildFields()
+        }
 
         me.ensureModelFields();
         me.initialValues = {};
@@ -732,7 +858,7 @@ class CardEditor extends Dialog {
             statusInput.options = me.getStatusOptions(record)
         }
 
-        laneInput = me.fieldMap.get(laneField);
+        laneInput = me.laneControlName && me.fieldMap.get(me.laneControlName);
         laneInput?.set({
             hidden : !board?.laneField,
             options: me.getLaneOptions(record)
@@ -742,7 +868,7 @@ class CardEditor extends Dialog {
             const formatted = record ? me.formatFieldValue(name, record[name]) : '';
 
             me.initialValues[name] = formatted;
-            field.value            = formatted
+            me.setFieldValue(name, formatted)
         })
     }
 }

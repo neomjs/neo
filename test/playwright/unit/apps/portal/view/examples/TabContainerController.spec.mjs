@@ -95,7 +95,7 @@ test.describe('Portal examples family navigation', () => {
             'State & Data', 'Workers & Platform', 'Apps'
         ]);
         expect(view.getTabButtons().map(button => button.route)).toEqual(publishedRoutes);
-        expect(view.getCatalogStore().getCount()).toBe(79);
+        expect(view.getCatalogStore().getCount()).toBe(73);
         expect(view.getCard(0).store.getCount()).toBe(28);
         expect(view.getCard(0).store.items.map(record => record.id)).toEqual(featuredExampleIds);
         expect(ids('/examples/grid')).toEqual(coveredGridTableIds);
@@ -281,7 +281,7 @@ test.describe('Portal examples family navigation', () => {
         expect(ids('/examples/platform')).toEqual(['offscreen-canvas', 'shared-offscreen-canvas']);
         expect(ids('/examples/charts')).toEqual(['offscreen-canvas']);
         expect(view.getCatalogStore().items.filter(record => record.id === 'dialog-drag-drop')).toHaveLength(1);
-        expect(view.getCatalogStore().getCount()).toBe(79)
+        expect(view.getCatalogStore().getCount()).toBe(73)
     });
 
     for (const mode of ['dist_prod', 'dist_esm', 'dist_dev', 'devmode']) {
@@ -345,8 +345,7 @@ const catalog            = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examp
       newExampleIds = [
           'grid-animated-row-sorting', 'grid-cell-editing', 'grid-container', 'grid-content-sized-rows',
           'grid-covid', 'grid-filtering', 'grid-header-groups', 'grid-locked-columns', 'grid-nested-record-fields',
-          'grid-tree', 'grid-value-banding', 'json-grid-container', 'table-cell-editing',
-          'table-container', 'table-covid', 'table-nested-record-fields', 'table-store', 'table-performance'
+          'grid-tree', 'grid-value-banding', 'table-container'
       ],
       formExampleIds = [
           'checkbox-field', 'chip-field', 'color-field', 'email-field', 'fileupload-field',
@@ -433,12 +432,12 @@ test.describe('Portal examples canonical catalog', () => {
         })
     }
 
-    test('loads 79 logical examples with unique stable string identities', () => {
+    test('loads 73 logical examples with unique stable string identities', () => {
         const {store} = createList(),
               ids     = [];
 
-        expect(catalog).toHaveLength(79);
-        expect(store.getCount()).toBe(79);
+        expect(catalog).toHaveLength(73);
+        expect(store.getCount()).toBe(73);
 
         store.forEach(record => {
             expect(typeof record.id, record.name).toBe('string');
@@ -446,7 +445,7 @@ test.describe('Portal examples canonical catalog', () => {
             ids.push(record.id)
         });
 
-        expect(new Set(ids).size).toBe(79);
+        expect(new Set(ids).size).toBe(73);
         expect(list.catalogMode).toBe('dist_prod')
     });
 
@@ -550,7 +549,7 @@ test.describe('Portal examples canonical catalog', () => {
         expect(() => check([{...example, lookFor: ''}])).toThrow()
     });
 
-    test('the catalog holds the 21 Grid and Table identities and the overview shows the covered ones', () => {
+    test('the catalog holds the 15 Grid and Table identities and the overview shows the covered ones', () => {
         const view         = createView(),
               catalogStore = view.getCatalogStore(),
               store        = view.getCard(1).store,
@@ -566,7 +565,7 @@ test.describe('Portal examples canonical catalog', () => {
         });
 
         expect(ids).toEqual(coveredGridTableIds);
-        expect(counts).toEqual({Grid: 15, Table: 7});
+        expect(counts).toEqual({Grid: 14, Table: 2});
         expect(store.items.map(record => record.id)).toEqual(coveredGridTableIds);
         expect(store.getSource()).toBe(catalogStore)
     });
@@ -731,7 +730,7 @@ test.describe('Portal examples canonical catalog', () => {
             expect(byCls(content, 'portal-example-placeholder'), record.id).toBeUndefined()
         });
 
-        ['grid-covid', 'table-covid', 'json-grid-container'].forEach(id => {
+        ['grid-covid', 'grid-issues'].forEach(id => {
             const record  = store.get(id),
                   content = list.createItemContent(record, 0)[0],
                   scope   = byCls(content, 'portal-example-scope');
@@ -741,7 +740,7 @@ test.describe('Portal examples canonical catalog', () => {
             expect(scope.removeDom, id).toBe(false)
         });
 
-        expect(store.get('json-grid-container').scope).toContain('static JSON');
+        expect(store.get('grid-issues').scope).toContain('issue snapshot');
         expect(store.get('grid-covid').scope).toContain('external API');
         expect(list.getBackgroundImageStyle(store.get('grid-tree')).backgroundImage).toContain('grid-tree-14.jpg');
         const uncovered = store.items.find(record => !record.image);

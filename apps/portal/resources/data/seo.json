@@ -603,6 +603,12 @@
         "schemaType": "TechArticle",
         "lastmod": "2026-11-16"
     },
+    "/learn/guides/datahandling/Board": {
+        "title": "Building Kanban Boards | Neo.mjs",
+        "description": "Learn how to build a kanban board with Neo.board.Container: columns projected from one store, swimlanes, card moves through moveCard, card items, and long...",
+        "schemaType": "TechArticle",
+        "lastmod": "2026-11-17"
+    },
     "/learn/guides/datahandling/Tables": {
         "title": "Tables (Stores) — Neo.mjs Developer Guide",
         "description": "A task board starts with three rows. Then someone asks for an “open tasks” view, a priority order, an editor, and a count that stays correct when a task is...",
@@ -1047,7 +1053,7 @@
     },
     "/examples/grid": {
         "title": "JavaScript Data Grid Examples — 100k Rows in a Web Worker | Neo.mjs",
-        "description": "Explore 22 live JavaScript data grid examples: A tree hierarchy at scale: up to 100,000 rows, 200 columns and 20 levels.",
+        "description": "Explore 16 live JavaScript data grid examples: A tree hierarchy at scale: up to 100,000 rows, 200 columns and 20 levels.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-17"
     },
@@ -1677,13 +1683,13 @@
     },
     "/examples/grid/bigData/index.html": {
         "title": "JavaScript Data Grid — 100k Rows & 200 Columns in a Web Worker | Neo.mjs",
-        "description": "Interactive Neo.mjs JavaScript Data Grid benchmark streaming 100,000 rows and 200 columns in a Web Worker with virtual scrolling and zero main-thread blocking.",
+        "description": "Interactive Neo.mjs JavaScript Data Grid with up to 100,000 rows and 200 columns in a Web Worker, with virtual scrolling and zero main-thread blocking.",
         "schemaType": "WebPage",
         "lastmod": "2026-11-14"
     },
     "/examples/grid/cellEditing/index.html": {
         "title": "Grid CellEditing — Web Worker Data Grid Demo | Neo.mjs",
-        "description": "Typed cell editors. Edit text, a stepped number, date or country; compare the protected GitHub ID and switch selection modes.",
+        "description": "An order sheet with typed editors, a refused quantity and a calculated line total. Double-click or press Enter to edit, Tab to move on. A quantity over 50...",
         "schemaType": "WebPage",
         "lastmod": "2026-11-09"
     },
@@ -1728,6 +1734,12 @@
         "description": "Nested records and component cells. Open Edit to change nested user fields and watch modified-cell highlighting; compare header-only and full-column dragging.",
         "schemaType": "WebPage",
         "lastmod": "2025-08-12"
+    },
+    "/examples/grid/pinnedColumns/index.html": {
+        "title": "JavaScript Data Grid with Pinned Columns | Neo.mjs",
+        "description": "A Neo.mjs JavaScript Data Grid with columns pinned at both edges: product and region stay at the start, the total at the end, while 36 months scroll between.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-17"
     },
     "/examples/grid/tree/index.html": {
         "title": "Tree Grid Example — Web Worker Data Grid Demo | Neo.mjs",
@@ -1855,12 +1867,6 @@
         "schemaType": "WebPage",
         "lastmod": "2026-11-15"
     },
-    "/examples/serverside/gridContainer/index.html": {
-        "title": "Load Grid Container — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Grid configuration loaded on demand. Click Load Grid Container to create the grid from a fetched configuration document.",
-        "schemaType": "WebPage",
-        "lastmod": "2025-05-30"
-    },
     "/examples/serverside/toolbarItems/index.html": {
         "title": "Load Toolbar Items — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "Live runnable Load Toolbar Items example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
@@ -1939,39 +1945,15 @@
         "schemaType": "WebPage",
         "lastmod": "2026-08-20"
     },
-    "/examples/table/cellEditing/index.html": {
-        "title": "Table CellEditing — Web Worker Data Grid Demo | Neo.mjs",
-        "description": "Typed editors in a table. Edit text, number, date and country cells; test the non-editable GitHub ID and disable editing.",
-        "schemaType": "WebPage",
-        "lastmod": "2026-11-09"
-    },
     "/examples/table/container/index.html": {
         "title": "TableContainer — Web Worker Data Grid Demo | Neo.mjs",
         "description": "Selection modes and embedded controls. Switch selection models, toggle fit width or column dragging, and open a cell menu.",
         "schemaType": "WebPage",
         "lastmod": "2026-09-18"
     },
-    "/examples/table/covid/index.html": {
-        "title": "CovidTable — Web Worker Data Grid Demo | Neo.mjs",
-        "description": "API-loaded country statistics. Compare formatted statistics, country flags and colored values in the Table implementation.",
-        "schemaType": "WebPage",
-        "lastmod": "2026-07-18"
-    },
-    "/examples/table/nestedRecordFields/index.html": {
-        "title": "Table: Nested Record Fields — Web Worker Data Grid Demo | Neo.mjs",
-        "description": "Nested record editing. Use a row's Edit button to change nested names and country, then observe modified-cell highlighting.",
-        "schemaType": "WebPage",
-        "lastmod": "2026-09-16"
-    },
     "/examples/tableFiltering/index.html": {
         "title": "Table Filtering — Web Worker Data Grid Demo | Neo.mjs",
         "description": "Live runnable Table Filtering example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
-        "schemaType": "WebPage",
-        "lastmod": "2025-11-19"
-    },
-    "/examples/tableStore/index.html": {
-        "title": "Table & Store — Web Worker Data Grid Demo | Neo.mjs",
-        "description": "Reactive Store updates. Change one cell or update every cell repeatedly; sort and drag headers, reset sorting, and switch selection modes.",
         "schemaType": "WebPage",
         "lastmod": "2025-11-19"
     },
