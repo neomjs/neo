@@ -145,6 +145,18 @@ class MainContainer extends Viewport {
         }]
     }
 
+    /**
+     * @summary Releases the page's observations of the grid's Store, which outlives the page.
+     * @param {...*} args
+     */
+    destroy(...args) {
+        let me = this;
+
+        me.getReference('grid')?.store?.un({filter: me.updateCount, load: me.updateCount, scope: me});
+
+        super.destroy(...args)
+    }
+
     /** @summary Counts the orders after every filter change and reflects the boot theme. */
     onConstructed() {
         super.onConstructed();
