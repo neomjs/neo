@@ -1,3 +1,4 @@
+import BoardPane                           from './BoardPane.mjs';
 import Container                           from '../../../src/container/Base.mjs';
 import VesselWorkspace                     from './VesselWorkspace.mjs';
 import Feed                                from '../store/Feed.mjs';
@@ -33,21 +34,24 @@ import '../../../src/tab/Container.mjs';
 import '../../../src/toolbar/Base.mjs';
 
 /**
- * The planning arrangement: the team's schedule above the release plan.
+ * The planning arrangement: the team's board above its schedule, two views of one set of work items. The
+ * release plan is the board's neighbour tab, so it too stands above the schedule on the same calendar, and
+ * each pane gets the height it needs in one window.
  * @type {Object}
  */
 const planningDocument = Object.freeze({
     schema: 'neo.dock.zone.v1',
     root  : 'root',
     items : {
-        scheduler: {title: 'Team schedule'},
-        gantt    : {title: 'Release plan'}
+        board    : {title: 'Team board'},
+        gantt    : {title: 'Release plan'},
+        scheduler: {title: 'Team schedule'}
     },
     nodes: {
         root            : {type: 'edge-zone', zones: {center: {nodeId: 'planning-split'}}},
-        'planning-split': {type: 'split', orientation: 'vertical', children: ['schedule-tabs', 'plan-tabs'], sizes: [0.415, 0.585]},
-        'schedule-tabs' : {type: 'tabs', items: ['scheduler'], activeItemId: 'scheduler'},
-        'plan-tabs'     : {type: 'tabs', items: ['gantt'], activeItemId: 'gantt'}
+        'planning-split': {type: 'split', orientation: 'vertical', children: ['plan-tabs', 'schedule-tabs'], sizes: [0.58, 0.42]},
+        'plan-tabs'     : {type: 'tabs', items: ['board', 'gantt'], activeItemId: 'board'},
+        'schedule-tabs' : {type: 'tabs', items: ['scheduler'], activeItemId: 'scheduler'}
     }
 });
 
@@ -698,6 +702,7 @@ class Workspace extends VesselWorkspace {
         const provider = this.getStateProvider();
         if (itemId === 'scale') return Neo.create(ScalePane, {store: provider.getStore('scale')});
         if (itemId === 'feed') return Neo.create(FeedPane, {store: provider.getStore('feed')});
+        if (itemId === 'board') return Neo.create(BoardPane, {people: provider.getStore('people'), store: provider.getStore('workItems')});
 
         if (itemId === 'scheduler') {
             const workItems = provider.getStore('workItems');

@@ -3,7 +3,8 @@
 Workstation is Neo.mjs's standalone dense-workspace flagship: twenty live panes, a renderer-rich
 100,000-record grid, a capped feed ingesting ten records per second, real tab overflow, semantic
 split-and-return docking, and a deterministic tour across dark and light themes. A second
-arrangement, **Planning**, puts a team's schedule above the release plan it serves, on one calendar.
+arrangement, **Planning**, shows one set of work items as a board and as a schedule, beside the release
+plan they serve.
 
 It is an independent application under `apps/workstation/` with its own boot surface and theme.
 
@@ -36,7 +37,7 @@ assembles the ordinary views and starts the existing Feed store. No tour driver 
 | `view/TopologyToolbar.mjs` | Topology controls and live Group history bindings; borrows the workspace's commands and provider. |
 | `view/TourToolbar.mjs`, `view/StatusComponent.mjs` | Lightweight playback chrome, the arrangement switch, and a caption and readout that state the arrangement on screen, bound directly to the existing stores. |
 | `view/FeedPane.mjs`, `view/ScalePane.mjs`, `view/ResidentComponent.mjs` | The data views and resident presentation, with the same pane identities across docking. |
-| `view/SchedulerPane.mjs`, `view/GanttPane.mjs`, `view/planningCalendar.mjs` | The planning panes: the team's work items by person and day, and the release plan with its cascading links, on one calendar: one window, scale, locked width and label format. |
+| `view/BoardPane.mjs`, `view/SchedulerPane.mjs`, `view/GanttPane.mjs`, `view/planningCalendar.mjs` | The planning panes: the team's work items as cards by status and as bars by person and day, and the release plan with its cascading links. The schedule and the plan share one calendar: one window, scale, locked width and label format, which the cards name their days in. |
 | `store/Feed.mjs` | One explicit-start producer, five records every 500 ms, monotonic IDs and the newest-first 500-record cap. Its timer retires with the store. |
 | `store/plan.mjs`, `store/WorkItems.mjs`, `store/People.mjs`, `store/PlanTasks.mjs`, `store/PlanLinks.mjs` | The seeded plan, as whole-day offsets from one UTC day, and the stores it seeds. `WorkItems` is the one record store the schedule and the board read. |
 

@@ -4,7 +4,7 @@ import Toolbar from '../../../src/toolbar/Base.mjs';
  * The caption the planning arrangement shows while no tour runs: the operations room's line is the tour's.
  * @type {String}
  */
-const planningCaption = 'The planning desk: the team\'s work above the release plan it serves, on one calendar.';
+const planningCaption = 'The planning desk: one set of work items as a board and as a schedule, beside the release plan they serve.';
 
 /**
  * @summary Lightweight tour chrome bound to the workspace's provider before playback is activated.
