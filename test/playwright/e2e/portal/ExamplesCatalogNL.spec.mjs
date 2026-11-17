@@ -339,8 +339,11 @@ test.describe('Portal examples section', () => {
                 const app = await neuralLink.connectToApp('Portal');
                 await expect(page.locator(`.neo-viewport.${theme}`)).toBeVisible();
 
-                // the cards of the first band: every group card is one link to its page
+                // the cards of the first band: every group card is one link to its page. The caption is measured in the
+                // web font it renders in, not in the fallback that stands in while the font loads.
                 const band = page.locator('.portal-examples-overview:visible .portal-examples-overview-band').first().locator('.portal-examples-group-list');
+                await expect(band.locator('.neo-list-item')).toHaveCount(6);
+                await page.evaluate(() => document.fonts.ready);
                 await expectCardLayout(band, viewport.width);
                 await expect(band.locator('.neo-list-item').first().locator('a.content')).toHaveAttribute('href', '#/examples/grid');
                 await expectCaptionContrast(band.locator('.neo-item-bottom-position').first(), testInfo, 'group-caption-contrast');

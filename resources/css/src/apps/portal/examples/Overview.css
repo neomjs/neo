@@ -93,7 +93,8 @@
             }
         }
 
-        .portal-examples-overview-start-cards {
+        /* Outranks the list's own `display: grid`, whichever sheet loads last */
+        .portal-examples-overview-start-cards.portal-examples-list.neo-list {
             display: none;
         }
 
