@@ -396,10 +396,12 @@ test.describe('claim-responder linked-PR pagination and whole-event preflight (#
     });
 
     test('AC-2/AC-3: valid empty and null-redacted pages keep allowing valid claims and preserve core safeguards', async () => {
+        // Both claims are fixed: staleness compares their two times, never the clock
         const
-            staleAt = new Date(Date.now() - (CLAIM_WINDOW_DAYS + 1) * DAY_MS).toISOString(),
+            freshAt = '2026-11-16T02:00:00Z',
+            staleAt = new Date(Date.parse(freshAt) - (CLAIM_WINDOW_DAYS + 1) * DAY_MS).toISOString(),
             stale   = issueComment('StaleDev', staleAt, '/claim', {id: 4001}),
-            fresh   = issueComment('newcomer', '2026-11-16T02:00:00Z', '/claim', {id: 4002});
+            fresh   = issueComment('newcomer', freshAt, '/claim', {id: 4002});
 
         // Empty complete result + redacted private cross-repo null node permits lapsed handover claim
         const emptyComment = createWorkflowHarness({
