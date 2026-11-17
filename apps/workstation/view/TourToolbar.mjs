@@ -75,8 +75,11 @@ class TourToolbar extends Toolbar {
             reference: 'tour-continue',
             text     : 'Continue'
         }, {
-            // The declared arrangements, one pressed: the workspace's committed perspective
+            // Shown only when the workspace declares both arrangements, the committed one pressed. A
+            // workspace that declares one has nothing to switch to.
+            bind     : {hidden: data => !['shipped', 'planning'].every(name => data.dock.declaredPerspectives.includes(name))},
             cls      : ['workstation-arrangement-switch'],
+            hidden   : true,
             layout   : {ntype: 'hbox', align: 'center'},
             ntype    : 'container',
             reference: 'arrangement-switch',
