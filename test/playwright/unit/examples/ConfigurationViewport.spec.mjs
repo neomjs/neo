@@ -7,29 +7,68 @@ import Neo                   from '../../../../src/Neo.mjs';
 import * as core             from '../../../../src/core/_export.mjs';
 import ConfigurationViewport from '../../../../examples/ConfigurationViewport.mjs';
 
+let origDomEvents;
+let origApplyBodyCls;
+let origSetBodyCls;
+let hadDomEvents;
+let hadDomAccess;
+let hadApplyBodyCls;
+let hadSetBodyCls;
+
 test.beforeAll(() => {
     Neo.main ??= {};
+    hadDomEvents  = 'DomEvents' in Neo.main;
+    origDomEvents = Neo.main.DomEvents;
     Neo.main.DomEvents ??= {
         isSingleton                 : true,
         registerDisabledInputChars  : () => {},
         unregisterDisabledInputChars: () => {}
     };
+
+    hadDomAccess = 'DomAccess' in Neo.main;
     Neo.main.DomAccess ??= {};
+
+    hadApplyBodyCls  = 'applyBodyCls' in Neo.main.DomAccess;
+    origApplyBodyCls = Neo.main.DomAccess.applyBodyCls;
     Neo.main.DomAccess.applyBodyCls ??= () => {};
-    Neo.main.DomAccess.setBodyCls   ??= async () => {};
+
+    hadSetBodyCls  = 'setBodyCls' in Neo.main.DomAccess;
+    origSetBodyCls = Neo.main.DomAccess.setBodyCls;
+    Neo.main.DomAccess.setBodyCls ??= async () => {};
 });
 
 test.afterAll(() => {
     if (Neo.main) {
-        delete Neo.main.DomEvents;
-        delete Neo.main.DomAccess?.applyBodyCls;
-        delete Neo.main.DomAccess?.setBodyCls;
+        if (hadDomEvents) {
+            Neo.main.DomEvents = origDomEvents;
+        } else {
+            delete Neo.main.DomEvents;
+        }
+
+        if (Neo.main.DomAccess) {
+            if (hadApplyBodyCls) {
+                Neo.main.DomAccess.applyBodyCls = origApplyBodyCls;
+            } else {
+                delete Neo.main.DomAccess.applyBodyCls;
+            }
+
+            if (hadSetBodyCls) {
+                Neo.main.DomAccess.setBodyCls = origSetBodyCls;
+            } else {
+                delete Neo.main.DomAccess.setBodyCls;
+            }
+
+            if (!hadDomAccess && Object.keys(Neo.main.DomAccess).length === 0) {
+                delete Neo.main.DomAccess;
+            }
+        }
     }
 });
 
-import ButtonMainContainer from '../../../../examples/button/base/MainContainer.mjs';
-import FieldMainContainer  from '../../../../examples/form/field/text/MainContainer.mjs';
-import ListMainContainer   from '../../../../examples/list/base/MainContainer.mjs';
+import ButtonMainContainer     from '../../../../examples/button/base/MainContainer.mjs';
+import FieldMainContainer      from '../../../../examples/form/field/text/MainContainer.mjs';
+import ListMainContainer       from '../../../../examples/list/base/MainContainer.mjs';
+import FunctionalMainContainer from '../../../../examples/functional/hostComponent/MainContainer.mjs';
 
 test.describe('ConfigurationViewport Workbench (Stage, Inspector, Reset, Theme)', () => {
     test('renders stage and inspector with reset button and theme switch', async () => {
@@ -43,7 +82,12 @@ test.describe('ConfigurationViewport Workbench (Stage, Inspector, Reset, Theme)'
         const stage = viewport.items[0];
         expect(stage.cls).toContain('neo-workbench-stage');
         expect(stage.cls).toContain('neo-example-container');
-        expect(stage.items[0]).toBe(viewport.exampleComponent);
+        expect(stage.items).toContain(viewport.exampleComponent);
+
+        // Stage Header
+        const stageTitle = stage.down({reference: 'stage-title'});
+        expect(stageTitle).toBeDefined();
+        expect(stageTitle.text).toBe('Base');
 
         // Inspector
         const inspector = viewport.items[1];
@@ -62,6 +106,9 @@ test.describe('ConfigurationViewport Workbench (Stage, Inspector, Reset, Theme)'
     });
 
     test('initial theme connects to Portal default (neo-theme-neo-dark)', async () => {
+        const prevThemes = Neo.config.themes;
+        Neo.config.themes = ['neo-theme-neo-dark', 'neo-theme-neo-light', 'neo-theme-light', 'neo-theme-dark'];
+
         const viewport = Neo.create(FieldMainContainer, {
             autoMount: false
         });
@@ -70,6 +117,7 @@ test.describe('ConfigurationViewport Workbench (Stage, Inspector, Reset, Theme)'
         expect(viewport.exampleComponent.theme).toBe('neo-theme-neo-dark');
 
         viewport.destroy();
+        Neo.config.themes = prevThemes;
     });
 
     test('button/base: choose badge position bottom-left, reset restores example and inspector control', async () => {
@@ -151,6 +199,28 @@ test.describe('ConfigurationViewport Workbench (Stage, Inspector, Reset, Theme)'
         // Both example component and inspector spinbutton are restored
         expect(viewport.exampleComponent.width).toBe(100);
         expect(widthField.value).toBe(100);
+
+        viewport.destroy();
+    });
+
+    test('functional/hostComponent: mounts async controls and captures reset state', async () => {
+        const viewport = Neo.create(FunctionalMainContainer, {
+            autoMount: false
+        });
+
+        // Wait for createConfigurationComponents microtasks and timeout
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        const textField = viewport.down({labelText: 'Button Text'});
+        expect(textField).toBeDefined();
+
+        // Edit control value
+        textField.value = 'New Button Text';
+        expect(textField.value).toBe('New Button Text');
+
+        // Execute reset
+        viewport.onReset();
+        expect(textField.value).toBe('Click Me (Neo Button)');
 
         viewport.destroy();
     });

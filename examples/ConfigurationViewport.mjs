@@ -70,6 +70,110 @@ class ConfigurationViewport extends Viewport {
     }
 
     /**
+     * Categorizes a configuration item into one of: 'choices', 'text', 'sizes', 'flags', 'actions'
+     * @param {Object} item
+     * @returns {String}
+     */
+    classifyControl(item) {
+        if (!item) return 'text';
+        const mod       = item.module;
+        const ntype     = item.ntype || mod?.prototype?.ntype || '';
+        const className = mod?.prototype?.className || '';
+        const label     = (item.labelText || item.name || '').toLowerCase();
+
+        // Flags (checkboxes, switches)
+        if (ntype === 'checkbox' || ntype === 'switch' || className.includes('CheckBox') || className.includes('Switch')) {
+            return 'flags';
+        }
+
+        // Choices (radios, comboboxes, selects)
+        if (ntype === 'radio' || ntype === 'combobox' || ntype === 'select' ||
+            className.includes('Radio') || className.includes('ComboBox') || className.includes('Select') ||
+            typeof item.valueLabel === 'string' || item.name === 'badgePosition' || item.name === 'labelPosition') {
+            return 'choices';
+        }
+
+        // Sizes (numbers, ranges, dimension configs)
+        if (ntype === 'numberfield' || ntype === 'rangeslider' ||
+            className.includes('Number') || className.includes('Range') ||
+            label.includes('width') || label.includes('height') || label.includes('size') ||
+            label.includes('margin') || label.includes('padding') || label.includes('radius')) {
+            return 'sizes';
+        }
+
+        // Actions (buttons)
+        if (ntype === 'button' || className.includes('Button') || item.handler) {
+            return 'actions';
+        }
+
+        // Text (textfields, textareas)
+        return 'text';
+    }
+
+    /**
+     * Groups inspector controls by type: choices, text, sizes, flags, actions
+     * @param {Object[]} components
+     * @returns {Object[]}
+     */
+    groupConfigurationComponents(components) {
+        if (!Array.isArray(components) || components.length === 0) {
+            return [];
+        }
+
+        const groups = {
+            choices: [],
+            text   : [],
+            sizes  : [],
+            flags  : [],
+            actions: []
+        };
+
+        const groupOrder  = ['choices', 'text', 'sizes', 'flags', 'actions'];
+        const groupLabels = {
+            choices: 'Choices',
+            text   : 'Text',
+            sizes  : 'Sizes',
+            flags  : 'Flags',
+            actions: 'Actions'
+        };
+
+        components.forEach(item => {
+            const groupKey = this.classifyControl(item);
+            (groups[groupKey] || groups.text).push(item);
+        });
+
+        const result = [];
+        groupOrder.forEach(key => {
+            const list = groups[key];
+            if (list.length > 0) {
+                result.push({
+                    ntype: 'label',
+                    cls  : ['neo-inspector-group-title'],
+                    text : groupLabels[key]
+                });
+                result.push(...list);
+            }
+        });
+
+        return result;
+    }
+
+    /**
+     * Checks if the example component requires wide/full-width stage layout
+     * @returns {Boolean}
+     */
+    isWideComponent() {
+        const cmp = this.exampleComponent;
+        if (!cmp) return false;
+        const cls   = (cmp.className || '').toLowerCase();
+        const ntype = (cmp.ntype || '').toLowerCase();
+        return cls.includes('grid') || cls.includes('table') || cls.includes('tab.') ||
+               cls.includes('tabs') || cls.includes('tabheader') || cls.includes('canvas') ||
+               cls.includes('gallery') || cls.includes('portal') ||
+               ntype.includes('grid') || ntype.includes('table') || ntype.includes('tab');
+    }
+
+    /**
      * Override this method to create the components to show inside the configuration container.
      * The method can optionally be async => Use this for functional components,
      * where you want to subscribe controls to "classic" components inside functional components.
@@ -102,7 +206,7 @@ class ConfigurationViewport extends Viewport {
             'neo-theme-cyberpunk': 'Theme Cyberpunk'
         };
 
-        if (Array.isArray(configured) && configured.length > 0 && configured.includes('neo-theme-neo-dark')) {
+        if (Array.isArray(configured) && configured.length > 0) {
             return configured.map(name => ({
                 name,
                 label: themeLabels[name] || name
@@ -275,12 +379,17 @@ class ConfigurationViewport extends Viewport {
 
         if (configs instanceof Promise) {
             configs.then(resolved => {
+                if (me.isDestroyed) return;
                 me.configurationComponents = resolved || [];
+                const body = me.down({reference: 'inspector-body'});
+                if (body && me.configurationComponents.length > 0) {
+                    body.add(me.groupConfigurationComponents(me.configurationComponents));
+                }
                 me.snapshotInitialState();
             });
             me.configurationComponents = [];
         } else {
-            me.configurationComponents = configs || [];
+            me.configurationComponents = me.groupConfigurationComponents(configs || []);
         }
 
         if (me.isDestroyed) {
@@ -288,7 +397,7 @@ class ConfigurationViewport extends Viewport {
         }
 
         const availableThemes = me.getAvailableThemes();
-        theme = me.theme || (availableThemes.some(t => t.name === 'neo-theme-neo-dark') ? 'neo-theme-neo-dark' : availableThemes[0]?.name);
+        theme = me.theme || me.exampleComponent?.getTheme?.() || availableThemes[0]?.name;
         me.theme = theme;
         if (me.exampleComponent) {
             me.exampleComponent.theme = theme;
@@ -298,10 +407,42 @@ class ConfigurationViewport extends Viewport {
         const nextThemeIndex  = (availableThemes.indexOf(currentThemeObj) + 1) % availableThemes.length;
         const nextThemeObj    = availableThemes[nextThemeIndex] || currentThemeObj;
 
+        const isCompact = !me.isWideComponent();
+        const stageCls  = ['neo-example-container', 'neo-workbench-stage'];
+        if (isCompact) {
+            stageCls.push('neo-stage-compact');
+        }
+
+        const compName  = me.componentName || me.exampleComponent?.className?.split('.').pop() || 'Component';
+        const compClass = me.exampleComponent?.className || '';
+        const compDesc  = me.description || me.exampleComponent?.description || '';
+
+        const stageHeader = {
+            module   : Container,
+            cls      : ['neo-workbench-stage-header'],
+            reference: 'stage-header',
+            items    : [{
+                ntype    : 'label',
+                cls      : ['neo-workbench-stage-title'],
+                reference: 'stage-title',
+                text     : compName
+            }, {
+                ntype    : 'label',
+                cls      : ['neo-workbench-stage-subtitle'],
+                reference: 'stage-subtitle',
+                text     : compClass
+            }, ...(compDesc ? [{
+                ntype    : 'label',
+                cls      : ['neo-workbench-stage-desc'],
+                reference: 'stage-desc',
+                text     : compDesc
+            }] : [])]
+        };
+
         me.items = [{
             module: Container,
-            cls   : ['neo-example-container', 'neo-workbench-stage'],
-            items : [me.exampleComponent],
+            cls   : stageCls,
+            items : [stageHeader, me.exampleComponent],
             flex  : me.exampleComponentFlex,
             layout: 'base',
             style : {
@@ -349,9 +490,10 @@ class ConfigurationViewport extends Viewport {
             }],
 
             items: [{
-                module: Container,
-                layout: {ntype: 'vbox', align: null},
-                cls   : ['neo-configuration-panel-body'],
+                module      : Container,
+                reference   : 'inspector-body',
+                layout      : {ntype: 'vbox', align: null},
+                cls         : ['neo-configuration-panel-body'],
                 itemDefaults: {
                     clearToOriginalValue: true,
                     labelWidth          : me.configItemLabelWidth,
