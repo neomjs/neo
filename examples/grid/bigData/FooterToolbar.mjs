@@ -10,8 +10,8 @@ const format     = new Intl.NumberFormat('en-US').format,
  * @summary The grid's size in its first frame: rows × columns = cells, and the largest size Settings offers.
  *
  * `Neo.grid.footer.Toolbar` binds the store's `load` and `filter` events, so the line follows every size the
- * Settings panel generates and every filter. Below the largest size, a second label names it: the size the page
- * title promises.
+ * Settings panel generates and every filter; a store assigned after its load is shown at once. Below the largest size,
+ * a second label names it: the size the page title promises.
  * @class Neo.examples.grid.bigData.FooterToolbar
  * @extends Neo.grid.footer.Toolbar
  */
@@ -45,6 +45,24 @@ class FooterToolbar extends GridFooterToolbar {
          * @reactive
          */
         layout: {ntype: 'flexbox', align: 'center', direction: 'row', pack: 'start', wrap: 'wrap'}
+    }
+
+    /**
+     * Triggered after the store config got changed. A store assigned after its load fires no further load event, so
+     * the line shows the size the store holds now. The first assignment arrives before the labels exist;
+     * `onConstructed()` covers it.
+     * @param {Neo.data.Store|null} value
+     * @param {Neo.data.Store|null} oldValue
+     * @protected
+     */
+    afterSetStore(value, oldValue) {
+        value && this.getItem('size') && this.updateSize()
+    }
+
+    /** @summary Shows the size of a store that arrived with the configuration, already loaded. */
+    onConstructed() {
+        super.onConstructed();
+        this.store && this.updateSize()
     }
 
     /**
