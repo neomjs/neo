@@ -1826,6 +1826,52 @@ class Store extends Collection {
     }
 
     /**
+     * @summary Whether a row batch may write a declared model field under the store's resolved key.
+     * @param {String} name Fully qualified field name.
+     * @param {Object|null} field Field from the store model.
+     * @param {String} keyProperty The store's resolved key field.
+     * @returns {Boolean}
+     * @private
+     */
+    #isWritableRowField(name, field, keyProperty) {
+        return !!field && !field.calculate && name !== keyProperty
+    }
+
+    /**
+     * @summary Applies whole-record updates to existing rows as one batch.
+     *
+     * The key locates the row. Only declared writable fields are copied, including leaves of nested input
+     * objects. The caller's objects stay untouched. Field eligibility is shared with {@link #updateRows}.
+     * @param {Object[]} records Whole-record input containing the store's key field.
+     * @returns {{errors: Error[], missing: Array}} The result of {@link #updateRows}.
+     */
+    updateRecords(records) {
+        const me          = this,
+              keyProperty = me.getKeyProperty(),
+              {model}     = me;
+
+        function collect(data, values, prefix='') {
+            for (const [name, value] of Object.entries(data)) {
+                const path  = prefix + name,
+                      field = model.getField(path);
+
+                if (me.#isWritableRowField(path, field, keyProperty)) {
+                    values[path] = value
+                } else if (!field && Neo.isObject(value)) {
+                    collect(value, values, path + '.')
+                }
+            }
+        }
+
+        return me.updateRows(records.map(record => {
+            const values = {};
+
+            collect(record, values);
+            return {key: record[keyProperty], values}
+        }))
+    }
+
+    /**
      * @summary Writes a batch of row edits as one change: Turbo Mode rows stay raw, and the batch publishes once.
      *
      * A raw row is written in place, as its own data for those fields: nothing is hydrated, and the values Soft
@@ -1868,7 +1914,7 @@ class Store extends Collection {
             for (const name in values) {
                 const field = model.getField(name);
 
-                if (!field || field.calculate || name === keyProperty) {
+                if (!me.#isWritableRowField(name, field, keyProperty)) {
                     throw new TypeError(`Expected a declared, non-key, non-calculated field: ${name}`)
                 }
             }
