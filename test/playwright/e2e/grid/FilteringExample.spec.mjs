@@ -85,6 +85,20 @@ test.describe('Grid header filters example', () => {
         await expect(page.locator(COUNT)).toHaveText('27 of 10,000 orders')
     });
 
+    test.describe('west of UTC', () => {
+        test.use({timezoneId: 'America/Los_Angeles'});
+
+        test('a typed day stays in its field and keeps that day\'s orders', async ({page}) => {
+            const input = header(page, 'Date').locator('input');
+
+            await input.fill('2026-03-01');
+            await expect(page.locator(COUNT)).toHaveText('27 of 10,000 orders');
+            await expect(page.locator(`${GRID} .neo-grid-cell[data-field='date']`).first()).toHaveText('Mar 1, 2026');
+            // The header projects the Store's filter back into its field: a UTC midnight would read Feb 28 here
+            expect(await input.inputValue()).toBe('2026-03-01')
+        })
+    });
+
     test('the status radios keep the paid orders, the open ones, or all', async ({page}) => {
         // The native radio is 0px wide (keyboard focus stays on it); its label takes the click
         const labels = header(page, 'Status').locator('.neo-checkbox-label');

@@ -125,7 +125,7 @@ class MainContainer extends Viewport {
                 filterConfig: {operator: '==='},
                 flex        : 1,
                 minWidth    : 290,
-                renderer    : ({value}) => value ? day(value) : '',
+                renderer    : ({value}) => value ? day(new Date(value)) : '',
                 text        : 'Date',
 
                 editorConfig: {

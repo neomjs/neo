@@ -20,7 +20,9 @@ class MainModel extends Model {
             {name: 'customer', type: 'String'},
             {name: 'category', type: 'String'},
             {name: 'amount',   type: 'Integer'},
-            {name: 'date',     type: 'Date'},
+            // A calendar day as its ISO string: a Date field turns the typed day into UTC midnight, which the
+            // header projects back as the previous day west of UTC
+            {name: 'date',     type: 'String'},
             {name: 'paid',     type: 'Boolean'}
         ]
     }
