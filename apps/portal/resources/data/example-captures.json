@@ -321,7 +321,7 @@
       ],
       "after": [
         {"selector": "#myTableFilterContainer .neo-table-body tr", "count": 8},
-        {"selector": "#myTableFilterContainer .neo-table-body .neo-table-cell[data-field='customer']", "text": "Avery"}
+        {"selector": "#myTableFilterContainer .neo-table-body .neo-table-cell[id$='__customer']", "text": "Avery"}
       ],
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },
