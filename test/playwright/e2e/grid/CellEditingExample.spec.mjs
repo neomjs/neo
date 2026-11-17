@@ -178,7 +178,7 @@ test.describe('Grid cell editing on the public example', () => {
         await retype(page, '60');
         await page.keyboard.press('Enter');
 
-        await expect(page.locator(`${EDITOR} .neo-textfield-error`), 'the refusal is shown').toHaveText('Max value violation: 60 / 50');
+        await expect(page.locator(`${EDITOR} .neo-textfield-error`), 'the refusal is shown').toHaveText('At most 50');
         await expect(page.locator(INPUT), 'the editor stays open on the draft').toHaveValue('60');
 
         await page.keyboard.press('Escape');

@@ -25,7 +25,7 @@
       "id": "grid-cell-editing",
       "viewport": {"width": 1280, "height": 720},
       "theme": "dark",
-      "state": "A quantity of 60 refused in the order sheet's open editor, in the dark grid.",
+      "state": "A quantity of 60 refused in the order sheet's open editor (at most 50), in the dark grid.",
       "ready": [
         {"selector": ".neo-grid-cell[data-field='quantity']"},
         {"selector": ".neo-configuration-header-toolbar .neo-button", "text": "Theme Dark"}
@@ -36,7 +36,7 @@
         {"kind": "fill", "selector": ".neo-grid-editor input", "value": "60"},
         {"kind": "press", "selector": ".neo-grid-editor input", "key": "Enter"}
       ],
-      "after": [{"selector": ".neo-grid-editor .neo-textfield-error", "text": "Max value violation: 60 / 50"}],
+      "after": [{"selector": ".neo-grid-editor .neo-textfield-error", "text": "At most 50"}],
       "region": {"selector": ".neo-example-container", "anchor": "top-left", "width": 640, "height": 360}
     },
     {

@@ -140,10 +140,11 @@ class MainContainer extends ConfigurationViewport {
 
                 // A quantity above 50 is refused: the editor shows its error and stays open
                 editor: {
-                    module   : NumberField,
-                    clearable: false,
-                    maxValue : 50,
-                    minValue : 1
+                    module           : NumberField,
+                    clearable        : false,
+                    errorTextMaxValue: ({maxValue}) => `At most ${maxValue}`,
+                    maxValue         : 50,
+                    minValue         : 1
                 }
             }, {
                 cellAlign: 'right',
