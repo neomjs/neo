@@ -1,3 +1,7 @@
+/* The structure the three news timeline views share (tickets / pull requests / discussions): badges,
+   labels, the front-matter table and the timeline. It lives on their base `Portal.view.content.Component`,
+   so the prototype-chain theme walk loads it once for each view, in the browser and in SSR, like the
+   palette in this class's theme sheets. */
 .portal-news-tickets-component,
 .portal-news-discussions-component,
 .portal-news-pulls-component {

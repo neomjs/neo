@@ -43,8 +43,8 @@
    theme's own (0,2,0) and resolve on load order, and an equal-specificity load-order tie is not a
    contract — CSS is emitted per source file, so no readable source order decides it.
 
-   The grid half is written out twice because a grid also renders outside the viewport: its
-   column-drag proxy (see the proxy block below). Each copy names the other; keep them identical. */
+   The grid rules also reach a grid's column-drag proxy, which renders outside the viewport (see the
+   proxy note below), so each lists the proxy beside the viewport. */
 
 /* Theme classes live on the grid primitives themselves, so inherited variables alone cannot
    out-rank their light-skin defaults — which is why these must travel with the pane and not
@@ -54,11 +54,12 @@
    colours: on the planning desk a bar's colour is its work item's status. */
 
 :root .workstation-viewport[class*="neo-theme-"],
-:root .workstation-viewport [class*="neo-theme-"] {
+:root .workstation-viewport [class*="neo-theme-"],
+body:has(.workstation-viewport) .neo-grid-container.neo-dragproxy,
+body:has(.workstation-viewport) .neo-grid-container.neo-dragproxy [class*="neo-theme-"] {
     /* Workstation is a standalone instrument, so generic grid/tab primitives inherit its own
        palette in both skins instead of leaking their default blue/purple values. */
-    /* A copy of the shared grid-tokens block; the other copy: this file. Keep them identical. */
-    --grid-container-border-color              : var(--workstation-line);
+    --grid-container-border-color             : var(--workstation-line);
     --grid-container-cell-background-color     : var(--workstation-panel);
     --grid-container-cell-background-color-even: var(--workstation-panel-2);
     --grid-container-color                     : var(--workstation-ink-dim);
@@ -78,6 +79,10 @@
     --grid-cellrowmodel-selected-row-cell-color           : var(--workstation-ink);
     --grid-rowmodel-selected-cell-background-color        : color-mix(in srgb, var(--workstation-signal) 22%, var(--workstation-panel));
     --grid-rowmodel-selected-cell-color                   : var(--workstation-ink);
+}
+
+:root .workstation-viewport[class*="neo-theme-"],
+:root .workstation-viewport [class*="neo-theme-"] {
     --neo-gantt-divider-color        : var(--workstation-line);
     --neo-scheduler-divider-color    : var(--workstation-line);
     --neo-timeline-border-color      : var(--workstation-line);
@@ -234,81 +239,37 @@
             color: var(--workstation-ink);
         }
     }
-
-    /* A copy of the shared grid-header-button block; the other copy: this file. Keep them identical. */
-    /* A header-group cell is a header cell and reads these tokens too (`grid/header/GroupRow.css`) */
-    .neo-grid-header-button,
-    .neo-grid-header-group-row {
-        --grid-header-button-background-color      : var(--workstation-panel-2);
-        --grid-header-button-background-color-hover: color-mix(in srgb, var(--workstation-signal) 12%, var(--workstation-panel-2));
-        --grid-header-button-background-image      : none;
-        --grid-header-button-color                 : var(--workstation-ink);
-        --grid-header-button-color-hover           : var(--workstation-ink);
-        --grid-header-button-glyph-color           : var(--workstation-ink-dim);
-        --grid-header-button-glyph-color-hover     : var(--workstation-signal);
-        --grid-header-button-justify-content       : flex-end;
-        --grid-header-button-padding               : 0 10px;
-    }
-
-    /* Hidden sort glyphs must not indent unsorted labels (most visibly the narrow `#`
-       column). Keep the glyph on the physical right edge without participating in flex. */
-    .neo-grid-header-button .neo-button-glyph {
-        position: absolute;
-        right   : 10px;
-    }
 }
 
 /* A grid's column-drag proxy is a body-mounted embodiment, like the overflow menu in `Workspace.css`:
-   it carries the live theme class but sits outside `.workstation-viewport`, so nothing above reaches
-   it. It lives in this sheet because a `?popout=` vessel drags grid columns too. (0,3,1) out-ranks
-   the theme's (0,2,0) on the proxy and on every skin-carrying element inside it. */
-body:has(.workstation-viewport) .neo-grid-container.neo-dragproxy {
-    &,
-    [class*="neo-theme-"] {
-        /* A copy of the shared grid-tokens block; the other copy: this file. Keep them identical. */
-    --grid-container-border-color              : var(--workstation-line);
-    --grid-container-cell-background-color     : var(--workstation-panel);
-    --grid-container-cell-background-color-even: var(--workstation-panel-2);
-    --grid-container-color                     : var(--workstation-ink-dim);
-    --grid-cell-background-color-hover         : color-mix(in srgb, var(--workstation-signal) 10%, var(--workstation-panel));
-    --grid-cell-progress-active-color          : var(--workstation-signal);
-    --grid-cell-progress-track-color           : var(--workstation-line);
+   it carries the live theme class but sits outside `.workstation-viewport`, so a rule scoped to the
+   viewport alone never reaches it. It lives in this sheet because a `?popout=` vessel drags grid
+   columns too, so every grid rule here lists it beside the viewport: (0,3,1) out-ranks the theme's
+   (0,2,0) on the proxy and on every skin-carrying element inside it. The lists stay flat; nested
+   under one parent list, each arm would take the weight of the most specific one. */
 
-    /* Selection, in every selection model, is a signal wash a step above hover: the selected cell
-       strongest, a selected row 22%, the row or column around a selected cell 16% */
-    --grid-cellmodel-selected-cell-background-color       : color-mix(in srgb, var(--workstation-signal) 30%, var(--workstation-panel));
-    --grid-cellmodel-selected-cell-color                  : var(--workstation-ink);
-    --grid-cellmodel-selected-column-cell-background-color: color-mix(in srgb, var(--workstation-signal) 16%, var(--workstation-panel));
-    --grid-cellmodel-selected-column-cell-color           : var(--workstation-ink);
-    --grid-cellrowmodel-selected-cell-background-color    : color-mix(in srgb, var(--workstation-signal) 30%, var(--workstation-panel));
-    --grid-cellrowmodel-selected-cell-color               : var(--workstation-ink);
-    --grid-cellrowmodel-selected-row-cell-background-color: color-mix(in srgb, var(--workstation-signal) 16%, var(--workstation-panel));
-    --grid-cellrowmodel-selected-row-cell-color           : var(--workstation-ink);
-    --grid-rowmodel-selected-cell-background-color        : color-mix(in srgb, var(--workstation-signal) 22%, var(--workstation-panel));
-    --grid-rowmodel-selected-cell-color                   : var(--workstation-ink);
-    }
+/* A header-group cell is a header cell and reads these tokens too (`grid/header/GroupRow.css`) */
+.workstation-viewport .neo-grid-header-button,
+.workstation-viewport .neo-grid-header-group-row,
+body:has(.workstation-viewport) .neo-grid-container.neo-dragproxy .neo-grid-header-button,
+body:has(.workstation-viewport) .neo-grid-container.neo-dragproxy .neo-grid-header-group-row {
+    --grid-header-button-background-color      : var(--workstation-panel-2);
+    --grid-header-button-background-color-hover: color-mix(in srgb, var(--workstation-signal) 12%, var(--workstation-panel-2));
+    --grid-header-button-background-image      : none;
+    --grid-header-button-color                 : var(--workstation-ink);
+    --grid-header-button-color-hover           : var(--workstation-ink);
+    --grid-header-button-glyph-color           : var(--workstation-ink-dim);
+    --grid-header-button-glyph-color-hover     : var(--workstation-signal);
+    --grid-header-button-justify-content       : flex-end;
+    --grid-header-button-padding               : 0 10px;
+}
 
-    /* A copy of the shared grid-header-button block; the other copy: this file. Keep them identical. */
-    /* A header-group cell is a header cell and reads these tokens too (`grid/header/GroupRow.css`) */
-    .neo-grid-header-button,
-    .neo-grid-header-group-row {
-        --grid-header-button-background-color      : var(--workstation-panel-2);
-        --grid-header-button-background-color-hover: color-mix(in srgb, var(--workstation-signal) 12%, var(--workstation-panel-2));
-        --grid-header-button-background-image      : none;
-        --grid-header-button-color                 : var(--workstation-ink);
-        --grid-header-button-color-hover           : var(--workstation-ink);
-        --grid-header-button-glyph-color           : var(--workstation-ink-dim);
-        --grid-header-button-glyph-color-hover     : var(--workstation-signal);
-        --grid-header-button-justify-content       : flex-end;
-        --grid-header-button-padding               : 0 10px;
-    }
-
-    /* Hidden sort glyphs must not indent unsorted labels (most visibly the narrow `#`
-       column). Keep the glyph on the physical right edge without participating in flex. */
-    .neo-grid-header-button .neo-button-glyph {
-        position: absolute;
-        right   : 10px;
-    }
+/* Hidden sort glyphs must not indent unsorted labels (most visibly the narrow `#`
+   column). Keep the glyph on the physical right edge without participating in flex. */
+.workstation-viewport .neo-grid-header-button .neo-button-glyph,
+body:has(.workstation-viewport) .neo-grid-container.neo-dragproxy .neo-grid-header-button .neo-button-glyph {
+    position: absolute;
+    right   : 10px;
 }
 
 /* Already scoped to the viewport, but it lived in `Workspace.css` — gate 2 satisfied, gate 1 not.

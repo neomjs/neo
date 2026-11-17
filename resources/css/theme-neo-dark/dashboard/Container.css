@@ -2,10 +2,8 @@
    resources/css/src/dashboard/Container.css reads — indicator/chip surfaces, the
    body-mounted drag proxy, the cross-window arrival pulse, AND the accept/signal accent
    family, which that structure sheet also paints with (drop indicators, chips, the
-   Signal-glow variant). The accents are this theme's preview-accents block, copied here and
-   into dock/interaction/Preview.css, so this sheet resolves standalone: a host may load this
-   file without ever loading DockPreview.css,
-   which is exactly what `additionalThemeFiles: ['Neo.dashboard.Container']` does.
+   Signal-glow variant). This is the accents' one values sheet: the preview overlay and the drop
+   indicators load it through `additionalThemeFiles: ['Neo.dashboard.Container']`.
 
    `:where()` is deliberate and load-bearing: it contributes ZERO specificity, so these
    engine defaults lose to every application projection (`:root .neo-theme-*` and higher)
@@ -14,8 +12,9 @@
    mounted drag proxy carries the theme class directly, so it resolves these values the
    same way whether or not an app projects its own.
 
-   Provenance: the converged application language. `signal-ground`, the proxy ground/shadow
-   and the line color are the values agentos and the workstation independently ship;
+   Provenance: the converged application language. The accents, `signal-ground`, the proxy
+   ground/shadow and the line color are the values agentos and the workstation independently
+   ship (the signal teal is the preview design artifact's «Signal glow» identity);
    `--dock-preview-ground` keeps the cockpit's indicator ground byte-near its former
    `--fm-panel-2` read (the app-palette leak this layer retires). */
 
@@ -24,7 +23,6 @@
        Signal-glow variant with. `--agent-dock-preview-signal{,-fill}` are read WITHOUT a
        literal fallback over there, so omitting them here does not degrade to a default —
        the whole declaration drops and the chip renders with no ground and no border. */
-    /* A copy of the shared preview-accents block; the other copy: theme-neo-dark/dashboard/dock/interaction/Preview.css. Keep them identical. */
     --agent-dock-preview-accept      : #5eead4;
     --agent-dock-preview-accept-fill : rgba(94, 234, 212, 0.20);
     --agent-dock-preview-reject      : #f4718b;
@@ -44,8 +42,8 @@
     --dock-arrival-outline            : rgba(94, 234, 212, 0.55);
 
     /* The drag proxy (mounts at document.body with the theme class stamped on it).
-       The border literal duplicates the signal teal from DockPreview.css on purpose:
-       each values file must resolve standalone. */
+       The border repeats the signal teal above as a literal, so an app's projection of the
+       accent tokens leaves it unchanged. */
     --agent-dock-proxy-border         : color-mix(in srgb, #5eead4 38%, #262f3d);
     --agent-dock-proxy-ground         : #141a23;
     --agent-dock-proxy-shadow         : #0b0e13;

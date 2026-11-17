@@ -1,5 +1,4 @@
 :where(.neo-theme-cyberpunk) {
-    /* A copy of the shared preview-accents block; the other copy: theme-cyberpunk/dashboard/dock/interaction/Preview.css. Keep them identical. */
     --agent-dock-preview-accept      : #00d2ff;
     --agent-dock-preview-accept-fill : rgba(0, 210, 255, 0.20);
     --agent-dock-preview-reject      : #ff4757;
