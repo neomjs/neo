@@ -608,13 +608,15 @@ export function holders({claimant, comment, comments = [], events = [], issue, o
  * @param {Number[]} [options.alternatives=[]] From {@link pickAlternatives}
  * @param {String} options.label The curated label the alternatives share
  * @param {String} options.repoUrl e.g. `https://github.com/neomjs/neo`
+ * @param {Boolean} [options.welcomeBack=false] True when the claimant has a merged pull request across the organisation
  * @returns {String}
  */
-export function renderReply({assigned = false, claimant, claimLimit, commentId, heldByClaimant = [], holders: held = [], alternatives = [], label, repoUrl}) {
+export function renderReply({assigned = false, claimant, claimLimit, commentId, heldByClaimant = [], holders: held = [], alternatives = [], label, repoUrl, welcomeBack = false}) {
     const
         contributing = `${repoUrl}/blob/dev/CONTRIBUTING.md`,
         footer       = `<sub>An automatic reply. [How claims work](${contributing})</sub>\n${replyMarker(claimant)}`,
-        refusal      = Number.isSafeInteger(commentId) ? `${footer}\n<!-- claim-refused:${commentId} -->` : footer;
+        refusal      = Number.isSafeInteger(commentId) ? `${footer}\n<!-- claim-refused:${commentId} -->` : footer,
+        welcome      = welcomeBack === true ? 'welcome back' : 'welcome';
 
     if (held.length < 1) {
         if (heldByClaimant.length > 0) {
@@ -631,7 +633,7 @@ export function renderReply({assigned = false, claimant, claimLimit, commentId, 
 
         if (assigned) {
             return [
-                `Thanks for claiming this, @${claimant}, and welcome! Assigned to you — you can start now.`,
+                `Thanks for claiming this, @${claimant}, and ${welcome}! Assigned to you — you can start now.`,
                 '',
                 `Your claim reserves this issue for ${CLAIM_WINDOW_DAYS} days (any comment here resets the clock; we still merge the first approve-worthy PR if another lands first or a claim goes quiet).`,
                 '',
@@ -640,7 +642,7 @@ export function renderReply({assigned = false, claimant, claimLimit, commentId, 
         }
 
         return [
-            `Thanks for claiming this, @${claimant}, and welcome! You're first in line, so you can start now.`,
+            `Thanks for claiming this, @${claimant}, and ${welcome}! You're first in line, so you can start now.`,
             '',
             'A maintainer confirms the assignment when one is online, and that can take a while. You don\'t need to wait for it.',
             '',
@@ -683,10 +685,12 @@ export function renderReply({assigned = false, claimant, claimLimit, commentId, 
  * @param {Number[]} [options.heldByClaimant=[]] Open curated issue numbers already assigned to `claimant`
  * @param {Number} [options.claimLimit] One by default, or two when the workflow verifies returning standing.
  * @param {String} options.repoUrl
+ * @param {Boolean} [options.welcomeBack=false] True when the workflow verified a merged pull request across the
+ * organisation (`standing(count).rung` is not null). The greetings then say "welcome back".
  * @returns {{assign: Boolean, assignedBody?: String, body: String, unassign?: String[], updateCommentId?: Number}|null}
  * A still-blocked retry updates the workflow's existing refusal and the comment ID it covers.
  */
-export function decideClaim({comment, issue, comments = [], events = [], openPullRequests = [], candidates = [], heldByClaimant = [], claimLimit, repoUrl}) {
+export function decideClaim({comment, issue, comments = [], events = [], openPullRequests = [], candidates = [], heldByClaimant = [], claimLimit, repoUrl, welcomeBack = false}) {
     const
         claimant = comment?.user?.login,
         label    = curatedLabel(issue);
@@ -744,8 +748,8 @@ export function decideClaim({comment, issue, comments = [], events = [], openPul
 
     return {
         assign      : true,
-        assignedBody: renderReply({assigned: true, claimant, label, repoUrl}),
-        body        : renderReply({assigned: false, claimant, label, repoUrl}),
+        assignedBody: renderReply({assigned: true, claimant, label, repoUrl, welcomeBack}),
+        body        : renderReply({assigned: false, claimant, label, repoUrl, welcomeBack}),
         unassign    : staleAssignees({comment, comments, events, issue, openPullRequests, repository})
     }
 }
