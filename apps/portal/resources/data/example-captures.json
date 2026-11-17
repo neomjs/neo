@@ -25,16 +25,18 @@
       "id": "grid-cell-editing",
       "viewport": {"width": 1280, "height": 720},
       "theme": "dark",
-      "state": "Random Date cell editor open in the dark grid.",
+      "state": "A quantity of 60 refused in the order sheet's open editor, in the dark grid.",
       "ready": [
-        {"selector": ".neo-grid-cell[data-field='randomDate']"},
+        {"selector": ".neo-grid-cell[data-field='quantity']"},
         {"selector": ".neo-configuration-header-toolbar .neo-button", "text": "Theme Dark"}
       ],
       "steps": [
         {"kind": "click", "selector": ".neo-configuration-header-toolbar .neo-button", "text": "Theme Dark"},
-        {"kind": "dblclick", "selector": ".neo-grid-cell[data-field='randomDate']", "nth": 1}
+        {"kind": "dblclick", "selector": ".neo-grid-cell[data-field='quantity']", "nth": 1},
+        {"kind": "fill", "selector": ".neo-grid-editor input", "value": "60"},
+        {"kind": "press", "selector": ".neo-grid-editor input", "key": "Enter"}
       ],
-      "after": [{"selector": ".neo-grid-editor input"}],
+      "after": [{"selector": ".neo-grid-editor .neo-textfield-error", "text": "Max value violation: 60 / 50"}],
       "region": {"selector": ".neo-example-container", "anchor": "top-left", "width": 640, "height": 360}
     },
     {
