@@ -605,7 +605,7 @@
     },
     "/learn/guides/datahandling/Board": {
         "title": "Building Kanban Boards | Neo.mjs",
-        "description": "Learn how to build a kanban board with Neo.board.Container: columns projected from one store, swimlanes, card moves through moveCard, card items, and long columns.",
+        "description": "Learn how to build a kanban board with Neo.board.Container: columns projected from one store, swimlanes, card moves through moveCard, card items, and long...",
         "schemaType": "TechArticle",
         "lastmod": "2026-11-17"
     },
@@ -1053,7 +1053,7 @@
     },
     "/examples/grid": {
         "title": "JavaScript Data Grid Examples — 100k Rows in a Web Worker | Neo.mjs",
-        "description": "Explore 15 live JavaScript data grid examples: A tree hierarchy at scale: up to 100,000 rows, 200 columns and 20 levels.",
+        "description": "Explore 16 live JavaScript data grid examples: A tree hierarchy at scale: up to 100,000 rows, 200 columns and 20 levels.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-17"
     },
@@ -1313,7 +1313,7 @@
         "title": "GraphScene — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "Live runnable GraphScene example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-17"
+        "lastmod": "2026-11-05"
     },
     "/examples/component/helix/index.html": {
         "title": "Helix — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1685,11 +1685,11 @@
         "title": "JavaScript Data Grid — 100k Rows & 200 Columns in a Web Worker | Neo.mjs",
         "description": "Interactive Neo.mjs JavaScript Data Grid with up to 100,000 rows and 200 columns in a Web Worker, with virtual scrolling and zero main-thread blocking.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-17"
+        "lastmod": "2026-11-14"
     },
     "/examples/grid/cellEditing/index.html": {
         "title": "Grid CellEditing — Web Worker Data Grid Demo | Neo.mjs",
-        "description": "Typed cell editors. Edit text, a stepped number, date or country; compare the protected GitHub ID and switch selection modes.",
+        "description": "An order sheet with typed editors, a refused quantity and a calculated line total. Double-click or press Enter to edit, Tab to move on. A quantity over 50...",
         "schemaType": "WebPage",
         "lastmod": "2026-11-09"
     },
@@ -1703,13 +1703,19 @@
         "title": "GridContainer - Content-Sized Rows — Data Grid Demo | Neo.mjs",
         "description": "Wrapped content with locked columns. Toggle content-sized rows, edit a summary, filter, or jump through 10,000 records; scroll to the wrapped Details column.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-17"
+        "lastmod": "2026-10-13"
     },
     "/examples/grid/covid/index.html": {
         "title": "CovidGrid — Web Worker Data Grid Demo | Neo.mjs",
         "description": "API-loaded country statistics. Sort formatted numeric columns and compare country flags and colored measures.",
         "schemaType": "WebPage",
         "lastmod": "2025-07-11"
+    },
+    "/examples/grid/filtering/index.html": {
+        "title": "JavaScript Data Grid with Column Filters | Neo.mjs",
+        "description": "A Neo.mjs JavaScript Data Grid filters 10,000 orders from its column headers: text, a category, an amount, a date and a status, with a live count.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-17"
     },
     "/examples/grid/headerGroups/index.html": {
         "title": "Grid Header Groups — Web Worker Data Grid Demo | Neo.mjs",
