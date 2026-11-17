@@ -738,8 +738,8 @@
         "hiddenIn": [],
         "family": "grid-table",
         "component": "Grid",
-        "feature": "Bands for repeated values",
-        "lookFor": "Toggle Department value bands and compare them with striped rows; Country banding stays on."
+        "feature": "Country and department value banding",
+        "lookFor": "Compare unequal country bands in a fictional staff directory. Enable Department banding for a second level, or switch on alternating row stripes."
     },
     {
         "id": "table-container",
