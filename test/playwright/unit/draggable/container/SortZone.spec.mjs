@@ -1303,6 +1303,7 @@ test.describe('SortZone drag end after the drop destroyed the owner', () => {
             dragComponent : items[0],
             dragEnd       : () => {},
             dragFocusOwner: null,
+            isResortable  : SortZone.prototype.isResortable,
             itemStyles    : [{}, {}],
             owner         : spyComponent('toolbar', writes, destroyed),
             ownerStyle    : {height: null, minWidth: null, position: null, width: null},

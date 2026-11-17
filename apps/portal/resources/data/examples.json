@@ -1209,6 +1209,23 @@
         "lookFor": "Open pages from the side navigation and step through their fields."
     },
     {
+        "id": "board-basic",
+        "image": null,
+        "name": "Sprint Board",
+        "sourceUrl": "examples/board/basic",
+        "urls": {
+            "devmode": "examples/board/basic/index.html",
+            "dist_dev": "dist/development/examples/board/basic/index.html",
+            "dist_esm": "dist/esm/examples/board/basic/index.html",
+            "dist_prod": "dist/production/examples/board/basic/index.html"
+        },
+        "hiddenIn": [],
+        "family": "board",
+        "component": "Board",
+        "feature": "A kanban board and a table over one store of cards",
+        "lookFor": "Drag a card to another column, and the table beside the board shows its new status."
+    },
+    {
         "id": "gantt-basic",
         "image": null,
         "name": "Community Garden Plan",
