@@ -44,6 +44,16 @@ const DefaultConfig = {
      */
     basePath: './',
     /**
+     * The build run the app's files come from. The build writes it into each app's `neo-config.json`, which loads
+     * network-first. Development mode builds nothing and keeps `null`. `Neo.main.addon.ServiceWorker` registers the
+     * service worker under it, so a redeploy that keeps its version still replaces the previous build's cache.
+     * @default null
+     * @memberOf! module:Neo
+     * @name config.buildId
+     * @type String|null
+     */
+    buildId: null,
+    /**
      * Pass a token in case you are using the CesiumJS main thread addon
      * See: https://github.com/neomjs/neo/blob/dev/src/main/addon/CesiumJS.mjs
      * @default undefined
