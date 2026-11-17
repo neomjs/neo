@@ -446,6 +446,43 @@ class WorkItemModel extends Model {
 
 Neo.setupClass(WorkItemModel);
 
+/**
+ * @summary A model whose standard `progress` is calculated from another field.
+ * @class Test.Unit.Board.CardEditor.CalculatedProgressModel
+ * @extends Neo.data.Model
+ */
+class CalculatedProgressModel extends Model {
+    static config = {
+        className  : 'Test.Unit.Board.CardEditor.CalculatedProgressModel',
+        keyProperty: 'id',
+        fields     : [
+            {name: 'id'},
+            {name: 'title',    type: 'String'},
+            {name: 'status',   type: 'String'},
+            {name: 'order',    type: 'Float'},
+            {name: 'units',    type: 'Int', defaultValue: 0},
+            {name: 'progress', type: 'Int', calculate: data => data.units * 2}
+        ]
+    }
+}
+
+Neo.setupClass(CalculatedProgressModel);
+
+/**
+ * @summary The smallest model a board reads: a title, a status and an order.
+ * @class Test.Unit.Board.CardEditor.TitleStatusModel
+ * @extends Neo.data.Model
+ */
+class TitleStatusModel extends Model {
+    static config = {
+        className  : 'Test.Unit.Board.CardEditor.TitleStatusModel',
+        keyProperty: 'id',
+        fields     : [{name: 'id'}, {name: 'title', type: 'String'}, {name: 'status', type: 'String'}, {name: 'order', type: 'Float'}]
+    }
+}
+
+Neo.setupClass(TitleStatusModel);
+
 const workItems = () => [
     {id: 'w1', title: 'Build the booking screens', status: 'backlog', order: 1000, progress: 45, startDate: new Date(Date.UTC(2026, 10, 15)), resourceId: 'priya'},
     {id: 'w2', title: 'Write the test plan',       status: 'done',    order: 1000, progress: 100, allDay: true, resourceId: 'lena'}
@@ -519,6 +556,56 @@ test.describe('Neo.board.CardEditor follows the model it edits', () => {
         expect(editor.save(), 'the save writes the two edited fields').toEqual({progress: 60, resourceId: 'tom'});
         expect(events.map(event => event.names), 'in one record change, which the calculated label follows')
             .toEqual([['label', 'progress', 'resourceId']])
+    });
+
+    test('a calculated standard field is not offered, so no edit to it is lost; the field it reads is', () => {
+        store = createStore([{id: 'p1', title: 'Measured card', status: 'backlog', order: 1000, units: 25}], CalculatedProgressModel);
+        board = createBoard({store});
+
+        const editor = board.openCardEditor('p1');
+
+        expect([...editor.fieldMap.keys()]).toEqual(['title', 'status', 'units']);
+
+        editor.setFieldValue('units', 35);
+
+        expect(editor.save()).toEqual({units: 35});
+        expect(store.get('p1').progress, 'the calculated field follows its input').toBe(70)
+    });
+
+    test('a field `fields` supplies as a config named lane is an ordinary field: shown, and saved without swimlanes', () => {
+        store = createStore();
+        board = createBoard({store, cardEditorConfig: {
+            fields: ['title', 'status', {module: TextField, labelText: 'Lane', name: 'lane'}]
+        }});
+
+        const editor = board.openCardEditor('c1');
+
+        expect(editor.getField('lane').hidden, 'the board has no swimlanes, and the field is not their control').toBe(false);
+
+        editor.setFieldValue('lane', 'B');
+
+        expect(editor.save()).toEqual({lane: 'B'});
+        expect(store.get('c1').lane).toBe('B')
+    });
+
+    test('a store with another model rebuilds the reused editor\'s derived form and retires the fields it lacks', () => {
+        store = createStore();
+        board = createBoard({store});
+
+        const editor = board.openCardEditor('c1'),
+              first  = store,
+              tagsId = editor.getField('tags').id;
+
+        store = board.store = Neo.create(Store, {keyProperty: 'id', model: TitleStatusModel, data: [{id: 'n1', title: 'Next', status: 'backlog', order: 1000}]});
+        first.destroy();
+
+        expect(board.openCardEditor('n1'), 'the board keeps its one editor').toBe(editor);
+        expect([...editor.fieldMap.keys()]).toEqual(['title', 'status']);
+        expect(InstanceManager.get(tagsId), 'the tags field of the first model retired').toBeFalsy();
+
+        editor.setFieldValue('title', 'Renamed');
+
+        expect(editor.save()).toEqual({title: 'Renamed'})
     });
 
     test('a CardModel store keeps every standard field, in the order it always had', () => {

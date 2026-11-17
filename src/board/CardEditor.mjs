@@ -32,8 +32,9 @@ const numberTypes = new Set(['float', 'int', 'integer', 'number']);
  * - If nothing changed, or on {@link #cancel} / `Escape`, it writes nothing.
  *
  * The form follows the board's model. A standard field (title, description, status, lane, assignees, tags, progress,
- * color, due date) is built when the model declares it, the title and status always, and the model's other fields
- * follow under labels read from their names. {@link #fields} names the form's fields instead.
+ * color, due date) is built when the model declares it and an edit can write it, the title and status always, and the
+ * model's other writable fields follow under labels read from their names. A store with another model rebuilds the
+ * form on the next open. {@link #fields} names the form's fields instead.
  * @class Neo.board.CardEditor
  * @extends Neo.dialog.Base
  */
@@ -136,11 +137,24 @@ class CardEditor extends Dialog {
      */
     form = null
     /**
+     * The model the form's fields were built for. A derived form whose board store brings another model is rebuilt
+     * on the next {@link #syncFormFields}.
+     * @member {Neo.data.Model|null} formModel=null
+     */
+    formModel = null
+    /**
      * Snapshot of normalized initial field values when {@link #record} is bound, so untouched fields never report a
      * synthetic diff.
      * @member {Object} initialValues={}
      */
     initialValues = {}
+    /**
+     * The name of the standard lane field while the form holds it: the control that follows the board's swimlanes,
+     * hidden and left out of the save while the board has none. A field that {@link #fields} supplies as a config of
+     * its own is an ordinary field, whatever its name.
+     * @member {String|null} laneControlName=null
+     */
+    laneControlName = null
 
     /**
      * @param {Object} config
@@ -178,6 +192,31 @@ class CardEditor extends Dialog {
     }
 
     /**
+     * @summary Fills the form with its fields, {@link #getFieldConfigs} and then {@link #ensureModelFields}, for the
+     * model of the board's current store. The fields of an earlier build retire first, with the date pickers they own.
+     */
+    buildFields() {
+        let me     = this,
+            {form} = me;
+
+        me.fieldMap.forEach(field => {
+            field.dateSelector?.destroy?.()
+        });
+
+        me.fieldMap.clear();
+        form.removeAll(true);
+
+        me.formModel = me.board?.store?.model || null;
+        form.add(me.getFieldConfigs());
+
+        form.items.forEach(field => {
+            me.fieldMap.set(field.name, field)
+        });
+
+        me.ensureModelFields()
+    }
+
+    /**
      * @summary Discards any unsaved edits and hides the dialog without writing to the record
      */
     cancel() {
@@ -191,8 +230,7 @@ class CardEditor extends Dialog {
     }
 
     /**
-     * @summary Builds the form container, its fields ({@link #getFieldConfigs}, then {@link #ensureModelFields}) and
-     * the Save/Cancel footer
+     * @summary Builds the form container, its fields ({@link #buildFields}) and the Save/Cancel footer
      */
     createForm() {
         let me                  = this,
@@ -204,16 +242,11 @@ class CardEditor extends Dialog {
             cls     : ['neo-board-card-editor-form'],
             flex    : 1,
             id      : `${me.id}__form`,
-            items   : me.getFieldConfigs(),
             parentId: me.id,
             windowId
         });
 
-        me.form.items.forEach(field => {
-            me.fieldMap.set(field.name, field)
-        });
-
-        me.ensureModelFields();
+        me.buildFields();
 
         me.footerToolbar = Neo.create({
             module  : Toolbar,
@@ -375,7 +408,7 @@ class CardEditor extends Dialog {
         }
 
         me.fieldMap.forEach((field, name) => {
-            if (name === (me.board?.laneField || 'lane') && !laneField) {
+            if (name === me.laneControlName && !laneField) {
                 return
             }
 
@@ -408,8 +441,10 @@ class CardEditor extends Dialog {
 
     /**
      * @summary The configs of the form's fields, in order: {@link #fields} when set, otherwise the standard fields
-     * ({@link #getStandardFieldConfigs}) the board's model declares. The title and status fields are always built,
-     * and a model that declares no fields keeps every standard field.
+     * ({@link #getStandardFieldConfigs}) the board's model declares and lets an edit write, calculated ones staying
+     * out. The title and status fields are always built, and a model that declares no fields keeps every standard
+     * field. Records {@link #laneControlName}: the standard lane field is the lane control, a config of the same name
+     * is not.
      * @returns {Object[]}
      */
     getFieldConfigs() {
@@ -418,15 +453,21 @@ class CardEditor extends Dialog {
             model       = board?.store?.model,
             declared    = model?.fieldsMap?.size ? model.fieldsMap : null,
             standard    = me.getStandardFieldConfigs(),
-            alwaysBuilt = [me.getTitleField(), board?.statusField || 'status'];
+            laneControl = standard.find(config => config.name === (board?.laneField || 'lane')),
+            alwaysBuilt = [me.getTitleField(), board?.statusField || 'status'],
+            configs;
 
         if (me.fields) {
-            return me.fields.map(entry => Neo.isString(entry)
+            configs = me.fields.map(entry => Neo.isString(entry)
                 ? standard.find(config => config.name === entry) || me.createModelFieldConfig(entry, model?.getField(entry))
                 : {id: `${me.id}__field__${entry.name}`, ...entry})
+        } else {
+            configs = standard.filter(({name}) => !declared || alwaysBuilt.includes(name) || declared.has(name) && !declared.get(name).calculate)
         }
 
-        return standard.filter(({name}) => !declared || declared.has(name) || alwaysBuilt.includes(name))
+        me.laneControlName = configs.includes(laneControl) ? laneControl.name : null;
+
+        return configs
     }
 
     /**
@@ -794,15 +835,20 @@ class CardEditor extends Dialog {
     }
 
     /**
-     * @summary Populates all form fields and option stores from `record` and records `initialValues`
+     * @summary Populates all form fields and option stores from `record` and records `initialValues`. A derived form
+     * whose board store brings another model than the one it was built for is rebuilt first ({@link #buildFields}); a
+     * form that {@link #fields} names keeps its fields.
      * @param {Object|null} record
      */
     syncFormFields(record) {
         let me          = this,
             {board}     = me,
             statusField = board?.statusField || 'status',
-            laneField   = board?.laneField || 'lane',
             statusInput, laneInput;
+
+        if (!me.fields && me.formModel !== (board?.store?.model || null)) {
+            me.buildFields()
+        }
 
         me.ensureModelFields();
         me.initialValues = {};
@@ -812,7 +858,7 @@ class CardEditor extends Dialog {
             statusInput.options = me.getStatusOptions(record)
         }
 
-        laneInput = me.fieldMap.get(laneField);
+        laneInput = me.laneControlName && me.fieldMap.get(me.laneControlName);
         laneInput?.set({
             hidden : !board?.laneField,
             options: me.getLaneOptions(record)
