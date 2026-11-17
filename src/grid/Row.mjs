@@ -413,13 +413,12 @@ class Row extends Component {
 
         let {
                 cellPoolSize, columnPositions, colspanField, highlightModifiedCells,
-                mountedColumns, rowHeight, store
+                mountedColumns, store
             }              = gridBody,
             // selection is the View's: a row paints its projection and never holds or mutates it
             view               = gridContainer?.view,
             cellSelectionModel = view?.cellSelectionModel ?? null,
             selectionModel     = view?.selectionModel ?? null,
-            {rowGeometry}  = gridBody,
             recordId       = gridBody.getRecordId(record),
             countColumns   = columns.getCount(),
             cellEditing    = gridContainer.getPlugin('grid-cell-editing'),
@@ -436,7 +435,7 @@ class Row extends Component {
             // Content-sized rows take height and offset from the view's geometry, fixed rows multiply
             style: {
                 display  : null, // Reset display in case it was hidden
-                height   : (rowGeometry ? rowGeometry.heightAt(rowIndex) : rowHeight) + 'px',
+                height   : me.getRowHeight(rowIndex) + 'px',
                 transform: me.getRowTransform(gridBody.getRowOffset(rowIndex))
             }
         });
@@ -731,6 +730,20 @@ class Row extends Component {
     }
 
     /**
+     * The height in px this row renders at an index: the grid's `rowHeight`, or in content-sized mode the view's
+     * geometry height without the extra height. The extra is room below the row inside its slot, so the cells
+     * keep the row's own height and a click there does not reach the row.
+     * @param {Number} rowIndex
+     * @returns {Number}
+     * @protected
+     */
+    getRowHeight(rowIndex) {
+        let {rowGeometry, rowHeight} = this.parent;
+
+        return rowGeometry ? rowGeometry.heightAt(rowIndex) - rowGeometry.extraHeightAt(rowIndex) : rowHeight
+    }
+
+    /**
      * The transform that places this row at an offset in px. `--grid-row-pin-offset` is the scroll pinning
      * delta of the `GridRowScrollPinning` main-thread addon.
      * @param {Number} offset
@@ -743,7 +756,7 @@ class Row extends Component {
     /**
      * Rows move while their record and index stay the same: every row when the view crosses into another scroll page,
      * and a content-sized row when a row above it changes its height. True if the page offset, height or offset this
-     * row rendered no longer matches the view's.
+     * row rendered no longer matches the view's. A change of only its extra height leaves the row itself current.
      * @returns {Boolean}
      * @protected
      */
@@ -755,7 +768,7 @@ class Row extends Component {
             {style}       = me.vdom;
 
         return !!me.record && (me.renderedPageOffset !== gridBody.pageOffset || !!rowGeometry && (
-            style.height    !== rowGeometry.heightAt(rowIndex) + 'px' ||
+            style.height    !== me.getRowHeight(rowIndex) + 'px' ||
             style.transform !== me.getRowTransform(gridBody.getRowOffset(rowIndex))
         ))
     }

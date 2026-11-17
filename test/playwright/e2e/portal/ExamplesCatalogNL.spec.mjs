@@ -6,8 +6,8 @@ const PORTAL = '/apps/portal/index.html',
       PAGE   = '.portal-examples-group-page:visible',
       CARDS  = `${PAGE} .portal-examples-list`,
       GROUPS = [
-          'Grid & Table', 'Forms & Fields', 'Calendar', 'Tab Container', 'Dashboard & Docking', 'Drag & Drop',
-          'Lists & Galleries', 'Dialogs & Overlays', 'Charts, Canvas & Maps', 'More components', 'Multi-Window',
+          'Grid & Table', 'Forms & Fields', 'Calendar', 'Scheduler', 'Gantt', 'Tab Container', 'Dashboard & Docking',
+          'Drag & Drop', 'Lists & Galleries', 'Dialogs & Overlays', 'Charts, Canvas & Maps', 'More components', 'Multi-Window',
           'State & Data', 'Workers & Platform', 'Apps'
       ];
 
@@ -235,16 +235,16 @@ test.describe('Portal examples section', () => {
         const headline = page.locator('.portal-examples-overview:visible .portal-examples-overview-headline'),
               counts   = page.locator(`${INDEX} .portal-examples-group-index-count`);
 
-        await expect(headline).toHaveText('40 live examples in 14 groups');
-        expect((await counts.allTextContents()).filter(text => !text.startsWith('(')).reduce((sum, text) => sum + Number(text), 0)).toBe(40);
+        await expect(headline).toHaveText('42 live examples in 16 groups');
+        expect((await counts.allTextContents()).filter(text => !text.startsWith('(')).reduce((sum, text) => sum + Number(text), 0)).toBe(42);
         await expect(page.locator(`${INDEX} .portal-examples-group-index-note`)).toBeVisible();
 
         // Dev mode cannot open liquid-glass, the one card of More components
         await selectBuild(page, 'Dev mode');
-        await expect(headline).toHaveText('39 live examples in 13 groups');
+        await expect(headline).toHaveText('41 live examples in 15 groups');
         await expect(page.locator(INDEX).getByRole('link', {name: /^More components, /})).toHaveCount(0);
         await selectBuild(page, 'Production build');
-        await expect(headline).toHaveText('40 live examples in 14 groups')
+        await expect(headline).toHaveText('42 live examples in 16 groups')
     });
 
     test('the index is a navigation landmark of links: Tab reaches every entry, Enter opens it, no entry claims to be a tab', async ({page, neuralLink}) => {
@@ -345,7 +345,7 @@ test.describe('Portal examples section', () => {
         const pill  = page.locator(`${PAGE} .portal-examples-group-button`),
               sheet = page.locator(`${PAGE} .portal-examples-group-index-sheet`);
 
-        await expect(pill).toContainText('14 groups');
+        await expect(pill).toContainText('16 groups');
 
         // without the index the cards take the width: three columns, none under 410 px
         const layout = await readDesktopPage(page);
@@ -364,9 +364,9 @@ test.describe('Portal examples section', () => {
 
         const next = page.locator(`${PAGE} nav.portal-examples-group-index-next a`);
 
-        await expect(next).toHaveAccessibleName(/^Next group: Tab Container, /);
+        await expect(next).toHaveAccessibleName(/^Next group: Scheduler, /);
         await next.click();
-        await expectOpenPage(page, 'Tab Container')
+        await expectOpenPage(page, 'Scheduler')
     });
 
     test('what the boards cannot show: direct entry, history, the build kept across groups, the scroll of each group', async ({page, neuralLink}) => {
@@ -395,7 +395,7 @@ test.describe('Portal examples section', () => {
         await expect.poll(() => page.locator(PAGE).evaluate(node => node.scrollTop)).toBe(600);
 
         // a group without a card in this build, and an unknown one, open the overview
-        await page.goto(`${PORTAL}#/examples/gantt`);
+        await page.goto(`${PORTAL}#/examples/board`);
         await expect(page.locator(INDEX)).toBeVisible();
         await page.goto(`${PORTAL}#/examples/unknown`);
         await expect(page.locator(INDEX)).toBeVisible()
@@ -459,7 +459,7 @@ test.describe('Portal examples section', () => {
                 // the cards of the first band: every group card is one link to its page. The caption is measured in the
                 // web font it renders in, not in the fallback that stands in while the font loads.
                 const band = page.locator('.portal-examples-overview:visible .portal-examples-overview-band').first().locator('.portal-examples-group-list');
-                await expect(band.locator('.neo-list-item')).toHaveCount(6);
+                await expect(band.locator('.neo-list-item')).toHaveCount(8);
                 await page.evaluate(() => document.fonts.ready);
                 await expectCardLayout(band, viewport.width);
                 await expect(band.locator('.neo-list-item').first().locator('a.content')).toHaveAttribute('href', '#/examples/grid');

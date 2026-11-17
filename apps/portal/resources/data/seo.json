@@ -1069,6 +1069,18 @@
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-17"
     },
+    "/examples/scheduler": {
+        "title": "MIT JavaScript Resource Scheduler — Editable Timeline | Neo.mjs",
+        "description": "Explore 1 live JavaScript resource scheduler example: Resource bookings on an editable timeline.",
+        "schemaType": "CollectionPage",
+        "lastmod": "2026-11-17"
+    },
+    "/examples/gantt": {
+        "title": "MIT JavaScript Gantt Chart — Linked, Editable Tasks | Neo.mjs",
+        "description": "Explore 1 live JavaScript Gantt chart example: A project plan with linked, editable tasks.",
+        "schemaType": "CollectionPage",
+        "lastmod": "2026-11-17"
+    },
     "/examples/tabs": {
         "title": "JavaScript Tab Container — Tab Bars on Any Side | Neo.mjs",
         "description": "Explore 1 live JavaScript tab container example: Tab buttons whose text, icon, color and badge change live.",

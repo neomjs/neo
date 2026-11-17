@@ -4,14 +4,20 @@ import {expect, test} from '../../fixtures.mjs';
  * @summary Grid row geometry in a real browser. Content-sized rows sit at the summed height of the rows above
  * them, the scroll extent is the summed height of all rows, no row of the viewport stays unrendered at any scroll
  * position, and keyboard navigation brings each row fully into view, the final one included. Fixed-height rows
- * are the control for keyboard scrolling: both modes align a row against the view's visible height.
+ * are the control for keyboard scrolling: both modes align a row against the view's visible height. A row with an
+ * extra height keeps its cells at its own height in every body, and the extra below them is not part of the row.
  *
  * Fixtures:
  * - `test/playwright/component/apps/grid-content-sized`, grid `#grid-content-sized`: 300 rows whose heights
  *   repeat {@link HEIGHTS}, handed to `grid.View#setRowHeights` in place of measurement.
  * - `test/playwright/component/apps/grid-focus`, grid `#grid-focus-long`: 400 rows of the fixed 32px height.
+ * - `test/playwright/component/apps/grid-row-extra`, grid `#grid-row-extra`: the content-sized grid with locked
+ *   start and end columns, {@link EXTRA} on record 2, and a log of the record id of every `rowClick`.
  */
 const CONTENT_SIZED = '#grid-content-sized',
+      EXTRA_GRID    = '#grid-row-extra',
+      // Mirrors the grid-row-extra fixture: record 2's row is 96px tall, with 120px of room below it
+      EXTRA         = {extra: 120, height: 96, id: 2},
       FIXED         = '#grid-focus-long',
       // Mirrors the content-sized fixture
       HEIGHTS       = [32, 96, 48, 240, 32, 64],
@@ -162,6 +168,61 @@ test.describe('Grid content-sized rows', () => {
         await page.keyboard.press('ArrowDown');
         await expect.poll(() => selectedRow(page, CONTENT_SIZED)).toEqual({id: 1, visible: true});
         expect((await viewport(page, CONTENT_SIZED)).scrollTop).toBe(0)
+    })
+});
+
+test.describe('Grid content-sized rows with an extra height', () => {
+    test.use({viewport: {width: 1200, height: 800}});
+
+    test.beforeEach(async ({page}) => {
+        await page.goto('/test/playwright/component/apps/grid-row-extra/index.html');
+        await page.waitForSelector(`${EXTRA_GRID} .neo-grid-row[data-record-id]`, {state: 'visible', timeout: 30000})
+    });
+
+    test('the cells keep the row height in all three bodies, and a click inside the extra is no rowClick', async ({page}) => {
+        // Per body, relative to its top: the row of record 2 with its cell heights, and the top of record 3's row
+        const bodies = await page.evaluate(({grid, id}) => {
+            const bodies = [...document.querySelectorAll(`${grid} .neo-grid-body`)],
+                  rowOf  = id => [...bodies[0].querySelectorAll('.neo-grid-row[data-record-id]')]
+                      .find(row => row.querySelector('[data-field="id"]')?.textContent === String(id)).dataset.recordId,
+                  ids    = [rowOf(id), rowOf(id + 1)];
+
+            return bodies.map(body => {
+                const top         = body.getBoundingClientRect().top,
+                      [row, next] = ids.map(recordId => body.querySelector(`.neo-grid-row[data-record-id="${recordId}"]`)),
+                      rect        = row.getBoundingClientRect();
+
+                return {
+                    cells  : [...row.querySelectorAll('.neo-grid-cell')].map(cell => Math.round(cell.getBoundingClientRect().height)),
+                    height : Math.round(rect.height),
+                    nextTop: Math.round(next.getBoundingClientRect().top - top),
+                    top    : Math.round(rect.top - top)
+                }
+            })
+        }, {grid: EXTRA_GRID, id: EXTRA.id});
+
+        expect(bodies.length, 'the start, center and end bodies').toBe(3);
+
+        // Soft, so the click arm below reports too
+        bodies.forEach((body, index) => {
+            expect(body.cells.length, `body ${index} renders cells`).toBeGreaterThan(0);
+            expect.soft(body, `body ${index}`).toEqual({
+                cells  : body.cells.map(() => EXTRA.height),
+                height : EXTRA.height,
+                nextTop: offsets[EXTRA.id] + EXTRA.extra,
+                top    : offsets[EXTRA.id - 1]
+            })
+        });
+
+        // Halfway down the extra in the center body, then record 1's name cell as the control: the log reads [1]
+        // only if the first click reached no row
+        const center = await page.locator(`${EXTRA_GRID} .neo-grid-body`).nth(1).boundingBox();
+
+        await page.mouse.click(center.x + 40, center.y + offsets[EXTRA.id - 1] + EXTRA.height + EXTRA.extra / 2);
+        await page.locator(`${EXTRA_GRID} .neo-grid-row[data-record-id] [data-field="name"]`).getByText('Row 1', {exact: true}).click();
+
+        await expect.poll(() => page.evaluate(id => Neo.worker.App.getConfigs({id, keys: 'rowClickLog'}), EXTRA_GRID.slice(1)))
+            .toEqual([1])
     })
 });
 
