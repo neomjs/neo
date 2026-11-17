@@ -14,7 +14,9 @@ const countries = ['DE', 'US', 'FR', 'NL', 'SK', 'AT', 'GB', 'DK'];
 
 /**
  * @summary 40 order lines from a formula over the row index, so every load, the cover and the specs see the same
- * sheet. Deliveries fall between 1 December 2026 and 31 January 2027, the range the date editor accepts.
+ * sheet. Deliveries fall between 1 December 2026 and 31 January 2027, the range the date editor accepts. Each is a local
+ * calendar day, the day the cell and the editor show: a date-only string would parse as UTC midnight, which reads as
+ * the previous day west of Greenwich.
  * @class Neo.examples.grid.cellEditing.MainStore
  * @extends Neo.data.Store
  */
@@ -29,7 +31,7 @@ class MainStore extends Store {
 
             return {
                 country : countries[index % countries.length],
-                delivery: new Date(Date.UTC(2026, 11, 1 + (index * 5) % 60)).toISOString().slice(0, 10),
+                delivery: new Date(2026, 11, 1 + (index * 5) % 60),
                 item,
                 orderId : `SO-${1001 + index}`,
                 quantity: 1 + (index * 7) % 24,
