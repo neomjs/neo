@@ -1,6 +1,7 @@
 import BoardContainer                from '../../../src/board/Container.mjs';
 import {cardItems, registerCardItem} from '../../../src/board/CardItems.mjs';
 import {daysLabel}                   from './planningCalendar.mjs';
+import SelectField                   from '../../../src/form/field/Select.mjs';
 
 /**
  * @summary The planning arrangement's board: the team's work items as cards, one column per status.
@@ -57,13 +58,28 @@ class BoardPane extends BoardContainer {
     }
 
     /**
-     * @summary Re-renders every card when the team changes after construction.
+     * @summary Names the card editor's fields for a work item, its person chosen among the team, and re-renders
+     * every card when the team changes after construction. A work item's days are the schedule's to move.
      * @param {Neo.data.Store|null} value
      * @param {Neo.data.Store|null} oldValue
      * @protected
      */
     afterSetPeople(value, oldValue) {
-        oldValue !== undefined && this.cardMap.forEach(card => card.renderItems())
+        let me = this;
+
+        me.cardEditorConfig = {...me.cardEditorConfig, fields: [
+            'title',
+            'status',
+            {module: SelectField, displayField: 'name', labelText: 'Person', name: 'resourceId', store: value, valueField: 'id'},
+            'progress',
+            'description'
+        ]};
+
+        if (oldValue !== undefined) {
+            me.cardEditor?.destroy();
+            me.cardEditor = null;
+            me.cardMap.forEach(card => card.renderItems())
+        }
     }
 }
 

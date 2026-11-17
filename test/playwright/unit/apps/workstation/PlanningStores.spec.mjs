@@ -51,7 +51,13 @@ const
 
 test.beforeEach(() => {
     Neo.ns('Neo.main.addon.DragDrop', true);
-    Neo.main.addon.DragDrop = {setConfigs: () => Promise.resolve({}), setDragProxyElement: () => Promise.resolve()}
+    Neo.main.addon.DragDrop = {setConfigs: () => Promise.resolve({}), setDragProxyElement: () => Promise.resolve()};
+
+    // A card's editor is a modal dialog: the main thread's focus and mask calls have no window here
+    Neo.ns('Neo.main.DomAccess', true);
+    Neo.main.DomAccess.selectNode    ??= () => {};
+    Neo.main.DomAccess.syncModalMask ??= () => {};
+    Neo.main.DomAccess.trapFocus     ??= () => {}
 });
 
 test('the plan day is midnight UTC of the day that holds the clock', () => {
@@ -244,6 +250,36 @@ test.describe('the planning panes', () => {
         expect(changes).toEqual([{id: 'wi-9', fields: ['endDate', 'startDate']}]);
         expect(footer(board.getCard(record)).days, 'the card shows the new days').toBe('19–23 Nov');
         expect(board.getCardPosition(record).status, 'and keeps its column').toBe('done')
+    });
+
+    test('a card\'s editor offers the work item\'s own fields, its person among the team; a person chosen there moves the bar', () => {
+        const people    = Neo.create(People),
+              workItems = Neo.create(WorkItems, {baseDate: BASE});
+
+        stores = [people, workItems];
+        board  = Neo.create(BoardPane, {appName, people, store: workItems});
+        pane   = Neo.create(SchedulerPane, {
+            ...planningAxis(BASE),
+            appName,
+            eventStore   : workItems,
+            store        : people,
+            viewportWidth: 1600
+        });
+
+        pane.body.set({availableHeight: 400, containerWidth: 1600});
+        pane.timelineColumn.refreshMountedRows();
+
+        const editor = board.openCardEditor('wi-9'),
+              person = editor.getField('resourceId');
+
+        expect([...editor.fieldMap.keys()], 'no fields the work item lacks; its days stay the schedule\'s').toEqual(['title', 'status', 'resourceId', 'progress', 'description']);
+        expect([person.labelText, person.store], 'the person is chosen in the team store itself').toEqual(['Person', people]);
+
+        editor.setFieldValue('resourceId', 'maya');
+
+        expect(editor.save()).toEqual({resourceId: 'maya'});
+        expect(rowBars(pane, people.indexOf(people.get('maya'))).map(node => node.data.eventId), 'the bar moves to her row').toContain('wi-9');
+        expect(people.isDestroyed, 'and the editor borrows the team, never owns it').toBeFalsy()
     });
 
     test('a status written to the shared record repaints its bar; a bar moved in the schedule is one record change', () => {
