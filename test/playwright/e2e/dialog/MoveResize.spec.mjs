@@ -48,13 +48,12 @@ async function moveBy(page, dialog, dx, dy) {
 }
 
 /**
- * Drags the dialog's right resize handle, and measures the drag proxy halfway through
+ * Presses the dialog's right resize handle
  * @param {import('@playwright/test').Page} page
  * @param {import('@playwright/test').Locator} dialog
- * @param {Number} dx
- * @returns {Promise<Object>} The proxy's box halfway through the gesture
+ * @returns {Promise<{hx: Number, hy: Number}>} Where the pointer went down
  */
-async function resizeRightBy(page, dialog, dx) {
+async function pressRightHandle(page, dialog) {
     const box    = await dialog.boundingBox(),
           x      = box.x + box.width - 3,
           y      = box.y + box.height / 2,
@@ -73,6 +72,20 @@ async function resizeRightBy(page, dialog, dx) {
 
     await page.mouse.move(hx, hy);
     await page.mouse.down();
+
+    return {hx, hy}
+}
+
+/**
+ * Drags the dialog's right resize handle, and measures the drag proxy halfway through
+ * @param {import('@playwright/test').Page} page
+ * @param {import('@playwright/test').Locator} dialog
+ * @param {Number} dx
+ * @returns {Promise<Object>} The proxy's box halfway through the gesture
+ */
+async function resizeRightBy(page, dialog, dx) {
+    const {hx, hy} = await pressRightHandle(page, dialog);
+
     await page.mouse.move(hx + dx / 2, hy, {steps: 8});
     await page.waitForTimeout(100);
 
@@ -125,5 +138,31 @@ test.describe('dialog move and resize', () => {
 
         expect(near(moved.width, resized.width), `${moved.width} px after the move, ${resized.width} px before`).toBe(true);
         expect(near(moved.x, resized.x - 100, 4), 'the move landed').toBe(true)
+    });
+
+    test('Escape cancels a resize: the moved dialog keeps its size and its opacity once the preview is gone', async ({page}) => {
+        const dialog  = await openDialog(page),
+              opacity = () => dialog.evaluate(node => getComputedStyle(node).opacity);
+
+        await moveBy(page, dialog, -120, 60);
+
+        const before   = await dialog.boundingBox(),
+              initial  = await opacity(),
+              {hx, hy} = await pressRightHandle(page, dialog);
+
+        await page.mouse.move(hx + 150, hy, {steps: 16});
+        await expect.poll(async () => (await page.locator('.neo-dragproxy').first().boundingBox())?.width ?? 0,
+            'the preview grows').toBeGreaterThan(before.width + 100);
+        expect(await opacity(), 'the gesture dims the dialog').toBe('0.3');
+
+        await page.keyboard.press('Escape');
+        await page.mouse.up();
+        await expect(page.locator('.neo-dragproxy')).toHaveCount(0);
+        await page.waitForTimeout(300);
+
+        const after = await dialog.boundingBox();
+
+        expect(near(after.width, before.width) && near(after.x, before.x), `${after.width} px wide at ${after.x}, ${before.width} px at ${before.x} before`).toBe(true);
+        expect(await opacity(), 'the dialog is as opaque as before the gesture').toBe(initial)
     })
 });

@@ -67,3 +67,50 @@ test.describe('Neo.plugin.Resizable boundary container', () => {
         expect(plugin.boundaryContainerRect).toBe(rect)
     })
 });
+
+/**
+ * A stub plugin past drag:start, resizing into `style` as a dialog does
+ * @param {Number|undefined} opacity The owner's opacity before the gesture
+ * @returns {Object}
+ */
+function startedGesture(opacity) {
+    const plugin = {
+        addBodyCursorCls   : Neo.emptyFn,
+        closeGesture       : Resizable.prototype.closeGesture,
+        delegationCls      : 'neo-dialog',
+        dragZone           : {dragEnd: Neo.emptyFn, dragProxy: {style: {height: '300px', width: '750px'}}, dragStart: Neo.emptyFn},
+        owner              : {focus: Neo.emptyFn, getDomRect: async () => ({}), style: {left: '40px', top: '20px', ...opacity === undefined ? {} : {opacity}}},
+        removeAllNodes     : Neo.emptyFn,
+        removeBodyCursorCls: Neo.emptyFn,
+        styleConfig        : 'style'
+    };
+
+    Resizable.prototype.onDragStart.call(plugin, {path: []});
+
+    return plugin
+}
+
+test.describe('Neo.plugin.Resizable gesture ends', () => {
+    for (const opacity of [0.8, undefined]) {
+        const kept = opacity === undefined ? {} : {opacity};
+
+        test(`a release commits the preview's box and gives back the owner's opacity (${opacity ?? 'none'})`, () => {
+            const plugin = startedGesture(opacity);
+
+            expect(plugin.owner.style.opacity, 'the gesture dims the owner').toBe(0.3);
+
+            Resizable.prototype.onDragEnd.call(plugin, {});
+
+            expect(plugin.owner.style).toEqual({height: '300px', left: '40px', top: '20px', transform: 'none', width: '750px', ...kept})
+        });
+
+        test(`a cancel commits nothing and gives back the owner's opacity (${opacity ?? 'none'})`, () => {
+            const plugin = startedGesture(opacity);
+
+            Resizable.prototype.onDragCancel.call(plugin);
+
+            expect(plugin.owner.style).toEqual({left: '40px', top: '20px', ...kept});
+            expect(plugin.isDragging).toBe(false)
+        })
+    }
+});
