@@ -242,74 +242,36 @@
         "height": 360
       },
       "theme": "dark",
-      "state": "The first visible folder opens three levels with one selected row; the native 20000-row control shows the scale.",
+      "state": "The first frame's open path, Engineering to Team Atlas, with Squad Alpha opened to its pods and people; the footer states the 20,000 rows.",
       "ready": [
         {
-          "selector": ".neo-grid-row[aria-level='1'] .neo-tree-toggle.is-collapsed"
+          "selector": ".neo-grid-row[aria-level='3'] .neo-tree-toggle.is-expanded"
         }
       ],
       "steps": [
         {
           "kind": "click",
-          "selector": ".neo-grid-header-button",
-          "text": "Tree"
+          "selector": ".neo-grid-row[aria-level='4']:has-text('Squad Alpha') .neo-tree-toggle"
         },
         {
           "kind": "wait",
-          "selector": "[role='columnheader'][aria-sort='descending']:has-text('Tree')"
-        },
-        {
-          "kind": "click",
-          "selector": ".neo-examples-treebigdata-controls-container .controls-container-button"
-        },
-        {
-          "kind": "click",
-          "selector": ".neo-grid-row[aria-level='1'] .neo-tree-toggle.is-collapsed",
-          "nth": 0
-        },
-        {
-          "kind": "wait",
-          "selector": ".neo-grid-row[aria-level='2'] .neo-tree-toggle.is-collapsed"
-        },
-        {
-          "kind": "click",
-          "selector": ".neo-grid-row[aria-level='2'] .neo-tree-toggle.is-collapsed",
-          "nth": 0
-        },
-        {
-          "kind": "wait",
-          "selector": ".neo-grid-row[aria-level='3'] .neo-grid-cell[data-field='name']"
-        },
-        {
-          "kind": "click",
-          "selector": ".neo-grid-row[aria-level='3'] .neo-grid-cell[data-field='name']",
-          "nth": 0
+          "selector": ".neo-grid-row[aria-level='5'] .neo-grid-cell[data-field='name']"
         }
       ],
       "after": [
         {
-          "selector": "[role='columnheader'][aria-sort='descending']",
-          "text": "Tree"
-        },
-        {
-          "selector": ".neo-examples-treebigdata-controls-container.neo-expanded",
+          "selector": ".neo-grid-row[aria-level='4'][aria-expanded='true'] .neo-grid-cell[data-field='name']",
+          "text": "Squad Alpha",
           "inRegion": true
         },
         {
-          "selector": ".neo-combobox:has-text('Amount Rows') input[role='combobox']",
-          "value": "20000",
+          "selector": ".neo-grid-row[aria-level='5'] .neo-grid-cell[data-field='name']",
+          "text": "John Thompson",
           "inRegion": true
         },
         {
-          "selector": ".neo-grid-row[data-row-id='0'][aria-level='1'][aria-expanded='true'] .neo-grid-cell[data-field='name']",
-          "inRegion": true
-        },
-        {
-          "selector": ".neo-grid-row[data-row-id='1'][aria-level='2'][aria-expanded='true'] .neo-grid-cell[data-field='name']",
-          "inRegion": true
-        },
-        {
-          "selector": ".neo-grid-row[data-row-id='2'][aria-level='3'].neo-selected .neo-grid-cell[data-field='name']",
+          "selector": ".neo-examples-treebigdata-footer",
+          "text": "20,000 rows",
           "inRegion": true
         }
       ],

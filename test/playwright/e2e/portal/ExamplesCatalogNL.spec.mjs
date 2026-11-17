@@ -396,7 +396,7 @@ test.describe('Portal example catalog', () => {
         const grid = await gridPopup;
         await expect(grid).toHaveURL(/\/examples\/grid\/treeBigData\/index.html$/);
         await expect(grid.locator('.neo-grid-container')).toBeVisible();
-        await expect(grid.getByText('Firstname', {exact: true}).first()).toBeVisible();
+        await expect(grid.getByText('Organization', {exact: true}).first()).toBeVisible();
         await grid.close()
     })
 });

@@ -87,8 +87,8 @@
         "hiddenIn": [],
         "family": "grid-table",
         "component": "Grid",
-        "feature": "A tree hierarchy at scale: up to 100,000 rows, 200 columns and 20 levels",
-        "lookFor": "Open the ☰ panel, raise rows and depth, then expand all; filter by name and toggle helper lines or value bands."
+        "feature": "An organization of 20,000 people and units as a tree grid, up to 100,000 rows, 200 columns and 20 levels",
+        "lookFor": "Open a squad to its people, give kudos from a cell, then raise rows and depth in ☰ and expand all; filter by first name."
     },
     {
         "id": "shared-covid",
