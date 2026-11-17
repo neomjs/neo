@@ -46,9 +46,10 @@ test('grid Reset with nothing changed keeps the grid body rendered', async ({pag
     }).length);
 
     await expect.poll(countVisibleRows).toBeGreaterThan(0);
-    const before = await countVisibleRows();
+    const before      = await countVisibleRows();
+    const totalBefore = await rows.count();
     await page.getByRole('button', {name: 'Reset', exact: true}).click();
     await page.waitForTimeout(500);
     await expect.poll(countVisibleRows).toBe(before);
-    await expect(rows).toHaveCount(before);
+    await expect(rows).toHaveCount(totalBefore);
 });
