@@ -1077,7 +1077,8 @@ class TreeStore extends Store {
      * - **Removals:** When a node is removed, this method recursively identifies and deletes all of its
      *   deep descendants from the Structural Layer, preventing memory leaks and ghost nodes.
      * - **Additions/Moves:** When nodes are added (or moved to a new parent via Drag & Drop), they are
-     *   ingested into the Structural Layer.
+     *   ingested into the Structural Layer. The whole batch is ingested before any visible subtree is
+     *   collected, so a node and the descendants that follow it in the same call project together.
      * - **ARIA Synchronization:** After any mutation, the O(N) `updateSiblingStats` is called on affected
      *   parents to recalculate `siblingCount` and `siblingIndex`. This trade-off guarantees O(1) reads
      *   during the `grid.Row` hot-path rendering.
@@ -1153,8 +1154,9 @@ class TreeStore extends Store {
         let insertIndex = index;
 
         if (toAddArray) {
-            let items    = Array.isArray(toAddArray) ? toAddArray : [toAddArray],
-                newRoots = [];
+            let items         = Array.isArray(toAddArray) ? toAddArray : [toAddArray],
+                attachedRoots = [],
+                newRoots      = [];
 
             if (items.length > 0) {
                 // 2a. Ingest nodes into the Structural Layer maps
@@ -1242,7 +1244,8 @@ class TreeStore extends Store {
                         let parentNode = me.#allRecordsMap.get(parentId);
                         // Visible means projected; a store that is still processing its configs has no projection yet
                         if (parentNode.collapsed === false && me.map?.has(parentId)) {
-                            me.collectVisibleDescendants(data, visibleToAdd);
+                            // Collected after this loop: later items of the batch can still be its descendants
+                            attachedRoots.push(data);
 
                             if (!Neo.isNumber(insertIndex)) {
                                 let calcIndex = me.getInsertIndexForNode(data);
@@ -1254,7 +1257,12 @@ class TreeStore extends Store {
                     }
                 }
 
-                // 2b. Calculate the visible delta for all new roots
+                // 2b. Calculate the visible delta once the structural maps hold the whole batch:
+                // the subtrees attached under a projected parent, then the new roots
+                for (i = 0, len = attachedRoots.length; i < len; i++) {
+                    me.collectVisibleDescendants(attachedRoots[i], visibleToAdd)
+                }
+
                 for (i = 0, len = newRoots.length; i < len; i++) {
                     me.collectVisibleDescendants(newRoots[i], visibleToAdd);
 
