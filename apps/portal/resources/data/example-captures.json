@@ -112,6 +112,21 @@
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },
     {
+      "id": "grid-export",
+      "viewport": {"width": 760, "height": 580},
+      "theme": "default",
+      "state": "The CSV pane open beside the invoices, with the formula-like customer of INV-1004 escaped.",
+      "ready": [{"selector": ".neo-grid-cell[data-field='invoice']", "text": "INV-1001"}],
+      "steps": [
+        {"kind": "click", "selector": ".export-controls .neo-button", "text": "Show CSV"}
+      ],
+      "after": [
+        {"selector": ".export-pane-text", "text": "INV-1004,'=SUM(B2:B9) Holdings"},
+        {"selector": ".neo-grid-cell[data-field='customer']", "text": "=SUM(B2:B9) Holdings", "inRegion": true}
+      ],
+      "region": {"selector": ".export-body", "anchor": "top-left", "offsetX": 110, "offsetY": 0, "width": 640, "height": 360}
+    },
+    {
       "id": "grid-header-groups",
       "viewport": {"width": 1280, "height": 720},
       "theme": "dark",

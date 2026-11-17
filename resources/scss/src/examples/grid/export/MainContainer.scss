@@ -1,0 +1,146 @@
+// Keep the example's palette on each theme carrier, including proxies mounted outside its viewport.
+.neo-examples-grid-export,
+.neo-examples-grid-export [class*="neo-theme-"],
+body:has(.neo-examples-grid-export) .neo-dragproxy,
+body:has(.neo-examples-grid-export) .neo-dragproxy [class*="neo-theme-"] {
+    --grid-container-border-color                 : var(--grid-export-border);
+    --grid-container-cell-background-color        : var(--grid-export-surface);
+    --grid-container-cell-background-color-even   : var(--grid-export-alternate);
+    --grid-container-color                        : var(--grid-export-text);
+    --grid-container-font-size                    : 13px;
+    --grid-cell-background-color-hover            : var(--grid-export-hover);
+    --grid-header-button-background-color         : var(--grid-export-header);
+    --grid-header-button-background-color-hover   : var(--grid-export-hover);
+    --grid-header-button-background-image         : none;
+    --grid-header-button-border-right-color       : var(--grid-export-border);
+    --grid-header-button-color                    : var(--grid-export-text);
+    --grid-header-button-color-hover              : var(--grid-export-accent);
+    --grid-header-button-font-size                : 12px;
+    --grid-header-button-font-weight              : 600;
+    --grid-header-button-glyph-color              : var(--grid-export-muted);
+    --grid-header-button-glyph-color-hover        : var(--grid-export-accent);
+    --grid-rowmodel-selected-cell-background-color: var(--grid-export-hover);
+    --grid-rowmodel-selected-cell-color           : var(--grid-export-title);
+
+    .neo-grid-row .neo-grid-cell {
+        font-variant-numeric: tabular-nums;
+    }
+}
+
+.neo-examples-grid-export.neo-viewport {
+    background-color: var(--grid-export-background);
+    color           : var(--grid-export-text);
+    font-family     : var(--neo-font-family);
+
+    .export-toolbar {
+        background-color: var(--grid-export-background);
+        gap             : 20px;
+        padding         : 24px 24px 12px;
+    }
+
+    .export-toolbar,
+    .export-controls {
+        .neo-button {
+            border       : 1px solid var(--grid-export-border);
+            border-radius: 8px;
+            color        : var(--grid-export-title);
+            height       : auto;
+            padding      : 8px 12px;
+        }
+    }
+
+    .export-title {
+        color         : var(--grid-export-title);
+        font-size     : 24px;
+        font-weight   : 700;
+        letter-spacing: -0.025em;
+        line-height   : 1.2;
+    }
+
+    .export-instruction {
+        color      : var(--grid-export-muted);
+        font-size  : 13px;
+        line-height: 1.5;
+        margin-top : 6px;
+    }
+
+    .export-controls {
+        background-color: var(--grid-export-background);
+        gap             : 12px 16px;
+        padding         : 0 24px 16px;
+
+        .export-delimiter {
+            background-color: transparent;
+            gap             : 12px;
+        }
+
+        // The primary action: filled with the accent, so it reads as the one that leaves the page
+        .neo-button:not(.neo-button-secondary) {
+            background-color: var(--grid-export-accent);
+            border-color    : var(--grid-export-accent);
+            color           : var(--grid-export-surface);
+        }
+    }
+
+    .export-body {
+        box-shadow: 0 -1px 0 var(--grid-export-border);
+        min-height: 0;
+    }
+
+    .neo-grid-container {
+        background-color: var(--grid-export-surface);
+    }
+
+    .export-pane {
+        background-color: var(--grid-export-header);
+        border-left     : 1px solid var(--grid-export-border);
+        flex            : 0 0 42%;
+        min-width       : 0;
+    }
+
+    .export-pane-title {
+        border-bottom : 1px solid var(--grid-export-border);
+        color         : var(--grid-export-accent);
+        font-size     : 12px;
+        font-weight   : 700;
+        letter-spacing: 0.04em;
+        padding       : 10px 16px;
+    }
+
+    .export-pane-text {
+        color      : var(--grid-export-code);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size  : 12px;
+        line-height: 1.6;
+        margin     : 0;
+        overflow   : auto;
+        padding    : 12px 16px;
+        white-space: pre;
+    }
+
+    // A phone stacks the pane under the grid, so both stay readable
+    @media (max-width: 700px) {
+        .export-toolbar {
+            gap    : 12px;
+            padding: 18px 16px 10px;
+        }
+
+        .export-title {
+            font-size: 20px;
+        }
+
+        .export-controls {
+            padding: 0 16px 12px;
+        }
+
+        .export-body {
+            flex-direction: column;
+        }
+
+        .export-pane {
+            border-left: none;
+            border-top : 1px solid var(--grid-export-border);
+            flex       : 0 0 45%;
+        }
+    }
+}

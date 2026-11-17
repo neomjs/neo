@@ -1729,6 +1729,12 @@
         "schemaType": "WebPage",
         "lastmod": "2026-11-17"
     },
+    "/examples/grid/export/index.html": {
+        "title": "JavaScript Data Grid CSV Export | Neo.mjs",
+        "description": "A Neo.mjs JavaScript Data Grid that exports what it shows as CSV: filter and sort 300 invoices, preview the CSV beside the grid, then download it.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-17"
+    },
     "/examples/grid/headerGroups/index.html": {
         "title": "Grid Header Groups — Web Worker Data Grid Demo | Neo.mjs",
         "description": "Quarter and month column headers. Explore month columns beneath quarter headers while Region and the Year total stay locked at opposite edges.",
