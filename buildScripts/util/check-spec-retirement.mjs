@@ -418,8 +418,8 @@ export function formatSurvivingSubjectFailure(violations) {
  * consumed path rather than in a helper: a tree read that failed open, and a survivor search that
  * read the whole commit body. Helper-level green said nothing about either.
  *
- * `treePaths` is STRICT where the others are tolerant, and the asymmetry is the point — see
- * {@link collectViolations}.
+ * `treePaths` and `mergeBase` are STRICT where the others are tolerant, and the asymmetry is the
+ * point — see {@link collectViolations}.
  *
  * @param {String} [root] Repository to read; defaults to the working directory.
  * @returns {Object}
@@ -430,13 +430,14 @@ export function createGit(root) {
     const at = root ? `git -C '${root}'` : 'git';
 
     const git = {
-        revList     : range => exec(`${at} rev-list ${range}`).split('\n').map(sha => sha.trim()).filter(Boolean),
-        nameStatus  : sha   => tryExec(`${at} show ${sha} --name-status -M --format=`),
-        deletedSpecs: sha   => parseDeletedSpecs(git.nameStatus(sha)),
-        deletedPaths: sha   => parseDeletedPaths(git.nameStatus(sha)),
-        message     : sha   => tryExec(`${at} log -1 ${sha} --format=%B`),
-        subject     : sha   => tryExec(`${at} log -1 ${sha} --format=%s`),
-        treePaths   : sha   => exec(`${at} ls-tree -r --name-only ${sha}`).split('\n').map(path => path.trim()).filter(Boolean)
+        revList     : range      => exec(`${at} rev-list ${range}`).split('\n').map(sha => sha.trim()).filter(Boolean),
+        nameStatus  : sha        => tryExec(`${at} show ${sha} --name-status -M --format=`),
+        deletedSpecs: sha        => parseDeletedSpecs(git.nameStatus(sha)),
+        deletedPaths: sha        => parseDeletedPaths(git.nameStatus(sha)),
+        mergeBase   : (from, to) => exec(`${at} merge-base ${from} ${to}`),
+        message     : sha        => tryExec(`${at} log -1 ${sha} --format=%B`),
+        subject     : sha        => tryExec(`${at} log -1 ${sha} --format=%s`),
+        treePaths   : sha        => exec(`${at} ls-tree -r --name-only ${sha}`).split('\n').map(path => path.trim()).filter(Boolean)
     };
 
     return git
@@ -449,6 +450,41 @@ export function createGit(root) {
 export const defaultGit = createGit();
 
 /**
+ * @summary The spec deletions a range lands: specs its merge base holds and its tip no longer does.
+ *
+ * The guard protects coverage the base already has, and a squash merge lands a range's net diff. A
+ * commit can delete a spec that a later commit restores at its path, or one the range itself added;
+ * neither reaches the base as a deletion, so neither commit owes an account. Replacing a file through
+ * the GitHub web UI makes exactly such a delete commit. CI scans `origin/dev..HEAD`, so its merge base
+ * is the `dev` the pull request lands on.
+ *
+ * Both reads fail CLOSED, for the reason {@link collectViolations} gives for the commit tree.
+ * @param {String} range Rev-list range, `<from>..<to>`.
+ * @param {Object} git Git port.
+ * @returns {Function} `spec => Boolean`, true when the range deletes the spec for good.
+ */
+export function landedDeletions(range, git) {
+    const [from, to] = range.split('..');
+    let base;
+
+    try {
+        base = git.mergeBase(from, to)
+    } catch {
+        throw new Error(`check-spec-retirement: cannot resolve the merge base of \`${range}\`.`)
+    }
+
+    const [baseTree, tipTree] = [base, to].map(sha => {
+        try {
+            return new Set(git.treePaths(sha))
+        } catch (error) {
+            throw new Error(`check-spec-retirement: cannot read the tree of ${sha.slice(0, 10)} (${error.code || error.message}).`)
+        }
+    });
+
+    return spec => baseTree.has(spec) && !tipTree.has(spec)
+}
+
+/**
  * @summary Collects unaccounted spec deletions across the pushed ranges.
  *
  * **The tree read fails CLOSED.** It was a `tryExec`, and that is the defect this revision repairs:
@@ -459,6 +495,9 @@ export const defaultGit = createGit();
  * reproduce it, because the bug is not the size, it is that an unreadable tree and a clean one
  * returned the same value. So the read now throws and the caller refuses, on the same reasoning the
  * range read above already used.
+ *
+ * A deleting commit answers only for the deletions its range lands ({@link landedDeletions}). The two
+ * trees that decide it are read once per range, and only once a commit of the range deletes a spec.
  *
  * @param {String[]} ranges Rev-list ranges.
  * @param {Object} [git=defaultGit] Git port; injected by the spec to drive the consumed path.
@@ -494,6 +533,8 @@ export function collectViolations(ranges, git = defaultGit) {
             )
         }
 
+        let landed = null;
+
         shas.forEach(sha => {
             // Two properties of this exact invocation are load-bearing.
             //
@@ -513,7 +554,12 @@ export function collectViolations(ranges, git = defaultGit) {
             // `--first-parent` would report the second case as a deletion too, demanding an account on
             // every merge that carries an already-accounted retirement — a false positive on exactly
             // the workflow this guard is meant to permit.
-            const specs = git.deletedSpecs(sha);
+            let specs = git.deletedSpecs(sha);
+
+            if (specs.length > 0) {
+                landed ??= landedDeletions(range, git);
+                specs = specs.filter(landed)
+            }
 
             if (specs.length === 0) {
                 return
