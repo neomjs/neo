@@ -3,15 +3,16 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../src/Neo.mjs';
 import * as core      from '../../../../../src/core/_export.mjs';
 import '../../../../../src/manager/Instance.mjs';
-import EventStore                              from '../../../../../src/timeline/store/Events.mjs';
-import GanttPane                               from '../../../../../apps/workstation/view/GanttPane.mjs';
-import People                                  from '../../../../../apps/workstation/store/People.mjs';
-import PlanLinks                               from '../../../../../apps/workstation/store/PlanLinks.mjs';
-import PlanTasks                               from '../../../../../apps/workstation/store/PlanTasks.mjs';
-import SchedulerPane                           from '../../../../../apps/workstation/view/SchedulerPane.mjs';
-import WorkItems                               from '../../../../../apps/workstation/store/WorkItems.mjs';
-import {planDay}                               from '../../../../../apps/workstation/store/plan.mjs';
-import {lockedWidth, planningAxis, planWindow} from '../../../../../apps/workstation/view/planningCalendar.mjs';
+import EventStore                                         from '../../../../../src/timeline/store/Events.mjs';
+import BoardPane                                          from '../../../../../apps/workstation/view/BoardPane.mjs';
+import GanttPane                                          from '../../../../../apps/workstation/view/GanttPane.mjs';
+import People                                             from '../../../../../apps/workstation/store/People.mjs';
+import PlanLinks                                          from '../../../../../apps/workstation/store/PlanLinks.mjs';
+import PlanTasks                                          from '../../../../../apps/workstation/store/PlanTasks.mjs';
+import SchedulerPane                                      from '../../../../../apps/workstation/view/SchedulerPane.mjs';
+import WorkItems                                          from '../../../../../apps/workstation/store/WorkItems.mjs';
+import {planDay}                                          from '../../../../../apps/workstation/store/plan.mjs';
+import {daysLabel, lockedWidth, planningAxis, planWindow} from '../../../../../apps/workstation/view/planningCalendar.mjs';
 
 const appName = 'WorkstationPlanningStoresTest';
 
@@ -138,6 +139,24 @@ test('the planning calendar starts on a Monday and holds the whole plan, whateve
     }
 });
 
+test('a work item\'s days are named the calendar\'s way, the exclusive end read as its last day', () => {
+    expect(daysLabel(at(1), at(5))).toBe('17–20 Nov');
+    expect(daysLabel(at(12), at(18)), 'across a month').toBe('28 Nov – 3 Dec');
+    expect(daysLabel(at(1), at(2)), 'one day').toBe('17 Nov')
+});
+
+test('each board column wears the colour the schedule dresses its status\'s bars in', () => {
+    const colors = Object.fromEntries(BoardPane.config.columns.map(column => [column.status, column.color]));
+
+    expect(Object.keys(colors), 'one column per work-item status, in the order work moves').toEqual(STATUSES);
+
+    for (const [status, cls] of Object.entries(SchedulerPane.statusBarCls)) {
+        const variant = cls.match(/^neo-scheduler-bar-(\w+)$/)?.[1];
+
+        variant && expect(colors[status], `${status} reads its bars' border`).toBe(`var(--neo-scheduler-bar-${variant}-border)`)
+    }
+});
+
 test('the release plan is a tree whose links are tight: each task starts where its latest predecessor ends', () => {
     const tasks = Neo.create(PlanTasks, {baseDate: BASE}),
           links = Neo.create(PlanLinks);
@@ -165,16 +184,67 @@ test('the release plan is a tree whose links are tight: each task starts where i
 });
 
 test.describe('the planning panes', () => {
-    let pane, stores;
+    let board, pane, stores;
 
     test.afterEach(() => {
+        board?.destroy();
         pane?.destroy();
         stores?.forEach(store => store.destroy());
-        pane = stores = null
+        board = pane = stores = null
     });
 
     /** The bars the schedule renders in one person's row. */
     const rowBars = (scheduler, index) => scheduler.body.items[index]?.vdom?.cn?.[0]?.cn?.[0]?.cn?.[0]?.cn || [];
+
+    /** A card's footer: the days it names and the person its avatar names. */
+    const footer = card => {
+        const node = card.vdom.cn.find(item => item.cls?.includes('workstation-card-plan'));
+
+        return node && {days: node.cn[0].text, person: node.cn[1]?.cn?.[0]?.title ?? null}
+    };
+
+    test('the board and the schedule are two views of one store: a card move is one record change its bar shows, a bar move changes the days its card shows', () => {
+        const people    = Neo.create(People),
+              workItems = Neo.create(WorkItems, {baseDate: BASE}),
+              changes   = [];
+
+        stores = [people, workItems];
+        board  = Neo.create(BoardPane, {appName, people, store: workItems});
+        pane   = Neo.create(SchedulerPane, {
+            ...planningAxis(BASE),
+            appName,
+            eventStore   : workItems,
+            store        : people,
+            viewportWidth: 1600
+        });
+
+        pane.body.set({availableHeight: 400, containerWidth: 1600});
+        pane.timelineColumn.refreshMountedRows();
+
+        const record = workItems.get('wi-9'),
+              bar    = () => rowBars(pane, people.indexOf(people.get('tom'))).find(node => node.data.eventId === 'wi-9');
+
+        expect(board.items.map(column => column.count), 'three work items in each status').toEqual([3, 3, 3, 3, 3]);
+        expect(footer(board.getCard(record)), 'a card names its days and its person').toEqual({days: '18–22 Nov', person: 'Tom Okafor'});
+
+        workItems.on('recordChange', ({fields, record}) => changes.push({id: record.id, fields: fields.map(field => field.name).sort()}));
+
+        // A card moved into Done on the board
+        board.moveCard({record, status: 'done', index: 0});
+
+        expect(changes).toEqual([{id: 'wi-9', fields: ['order', 'status']}]);
+        expect(board.getCardPosition(record)).toMatchObject({index: 0, status: 'done'});
+        expect(bar().data.status, 'the bar shows the card\'s new column').toBe('done');
+        expect(bar().cls).toContain('neo-scheduler-bar-emerald');
+
+        // A bar moved in the schedule
+        changes.length = 0;
+        expect(pane.moveEvent('wi-9', {startDate: at(3), endDate: at(8)}, {source: 'keyboard'})).toBeTruthy();
+
+        expect(changes).toEqual([{id: 'wi-9', fields: ['endDate', 'startDate']}]);
+        expect(footer(board.getCard(record)).days, 'the card shows the new days').toBe('19–23 Nov');
+        expect(board.getCardPosition(record).status, 'and keeps its column').toBe('done')
+    });
 
     test('a status written to the shared record repaints its bar; a bar moved in the schedule is one record change', () => {
         const people    = Neo.create(People),
