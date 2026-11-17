@@ -109,14 +109,26 @@ test.describe('examples/tableFiltering', () => {
         await expect(rows).toHaveCount(2);
         await testInfo.attach('table-filtering-phone-two-filters', {body: await page.screenshot(), contentType: 'image/png'});
         await customer.fill('');
-        await countryBox.locator('.neo-trigger-clear').scrollIntoViewIfNeeded();
-        await countryBox.locator('.neo-trigger-clear').click({force: true});
+        await country.focus();
+        await page.keyboard.press('ControlOrMeta+a');
+        await page.keyboard.press('Backspace');
+        await country.blur();
+        await page.locator('body').click({position: {x: 1, y: 1}});
         await expect(country).toHaveValue('');
         await expect(rows).toHaveCount(80);
+
+        const firstCell = table.locator('.neo-table-cell').first(),
+              initialBg = await firstCell.evaluate(el => getComputedStyle(el).backgroundColor);
 
         for (const nextTheme of ['Dark theme', 'Light theme']) {
             await page.getByRole('button', {name: nextTheme}).click();
             await expect(page.getByRole('button', {name: nextTheme === 'Dark theme' ? 'Light theme' : 'Dark theme'})).toBeVisible();
+
+            if (nextTheme === 'Dark theme') {
+                await expect.poll(async () => firstCell.evaluate(el => getComputedStyle(el).backgroundColor)).not.toBe(initialBg);
+            } else {
+                await expect.poll(async () => firstCell.evaluate(el => getComputedStyle(el).backgroundColor)).toBe(initialBg);
+            }
 
             await customer.fill('Avery');
             await expect(rows).toHaveCount(8);

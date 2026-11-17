@@ -90,7 +90,7 @@ class MainContainer extends Viewport {
                     store: {
                         autoLoad   : true,
                         keyProperty: 'code',
-                        url        : '/resources/examples/data/countries.json',
+                        url        : '../../resources/examples/data/countries.json',
 
                         model: {
                             fields: [{
@@ -147,16 +147,19 @@ class MainContainer extends Viewport {
         }]
     }
 
+    /** @summary Reflects the effective boot theme, including a theme selected by the example URL. */
     onConstructed() {
         super.onConstructed();
         this.syncThemeButton()
     }
 
+    /** @summary Toggles the viewport between light and dark themes and updates the button label. */
     onThemeButtonClick() {
         this.theme = this.getTheme() === 'neo-theme-neo-dark' ? 'neo-theme-neo-light' : 'neo-theme-neo-dark';
         this.syncThemeButton()
     }
 
+    /** @summary Labels the button with the theme its next click will select. */
     syncThemeButton() {
         const dark = this.getTheme() === 'neo-theme-neo-dark';
         this.getReference('themeButton').set({
