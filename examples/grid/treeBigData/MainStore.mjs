@@ -172,9 +172,8 @@ class MainStore extends TreeStore {
 
         console.log('Start generating data and adding to collection');
 
-        if (me.items?.length > 0) {
-            me.clear(false)
-        }
+        // A regeneration retires the whole population: a filter can hide every row the store still holds
+        me.isConstructed && me.clear();
 
         me.add(data);
 
