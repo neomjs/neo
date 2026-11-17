@@ -71,6 +71,25 @@ body:has(.neo-examples-grid-pinned-columns) .neo-dragproxy [class*="neo-theme-"]
         box-shadow      : 0 -1px 0 var(--pinned-columns-border);
     }
 
+    // A styled scrollbar is drawn even where the platform overlays them (macOS), so the first frame shows that the
+    // centre scrolls. It fills the 17px track the engine reserves below the body.
+    .neo-grid-horizontal-scrollbar {
+        &::-webkit-scrollbar {
+            height: 16px;
+        }
+
+        &::-webkit-scrollbar-track {
+            background-color: var(--pinned-columns-header);
+        }
+
+        &::-webkit-scrollbar-thumb {
+            background-clip : padding-box;
+            background-color: var(--pinned-columns-muted);
+            border          : 4px solid transparent;
+            border-radius   : 8px;
+        }
+    }
+
     @media (max-width: 700px) {
         .pinned-columns-toolbar {
             gap    : 12px;

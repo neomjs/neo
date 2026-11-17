@@ -2,11 +2,14 @@ import {expect, test} from '../../fixtures.mjs';
 
 /**
  * @summary `examples/grid/pinnedColumns`: product and region pinned at the start, the total at the end, 36 months
- * between them. Scrolling the centre moves the months and no pinned column; a phone still shows a whole month between
- * the pinned ones; the arrow keys move the selection.
+ * between them. Scrolling the centre moves the months and no pinned column; the first frame draws the centre's
+ * scrollbar; a phone still shows a whole month between the pinned ones; the arrow keys move the selection.
  */
 const GRID = '.neo-grid-container',
       URL  = '/examples/grid/pinnedColumns/index.html';
+
+// Draw scrollbars the way a visitor's browser does: the default headless flag hides every one of them
+test.use({launchOptions: {ignoreDefaultArgs: ['--hide-scrollbars']}});
 
 /**
  * @param {Object} page
@@ -57,6 +60,19 @@ test.describe('Pinned columns example', () => {
         await expect.poll(async () => (await cell(page, 'm5')).left).toBe(june.left - 360);
         expect(await header(page, 'Product')).toEqual(product);
         expect(await header(page, 'Total')).toEqual(total)
+    });
+
+    test('the first frame draws the centre scrollbar', async ({page}) => {
+        await page.setViewportSize({width: 1440, height: 900});
+        await ready(page);
+
+        // An overlay scrollbar (macOS) takes no layout space and stays hidden until the visitor scrolls
+        const drawn = await page.evaluate(grid => {
+            const scrollbar = document.querySelector(`${grid} .neo-grid-horizontal-scrollbar`);
+            return scrollbar.offsetHeight - scrollbar.clientHeight
+        }, GRID);
+
+        expect(drawn, 'the example draws its own 16px scrollbar').toBe(16)
     });
 
     test('a phone shows a whole month between the pinned columns', async ({page}) => {
