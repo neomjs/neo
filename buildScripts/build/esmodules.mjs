@@ -7,6 +7,7 @@ import {createEsmBuildPlan}    from '../util/esmBuildGraph.mjs';
 import {minifyHtml}            from '../util/minifyHtml.mjs';
 import {canvasModulePackageRoots, mainAddonPackageRoots} from '../util/declaredPackageRoots.mjs';
 import {processFileContent}    from '../util/astTemplateProcessor.mjs';
+import * as BuildId            from '../util/buildId.mjs';
 
 import {
     esmOutputRoot,
@@ -200,6 +201,9 @@ emitFiles().then(() => {
     if (missing.length + wrongEngine.length > 0) {
         process.exit(1)
     }
+
+    // Only a successful build publishes its id. Under `build-all` (`--no-stamp`) the whole run publishes it at its end
+    BuildId.stampDeferred() || BuildId.stampBuildId({buildId: BuildId.getBuildId(), distPath: path.resolve(root, esmOutputRoot)});
 
     const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
     console.log(`\nTotal time for dist/esm: ${processTime}s`);

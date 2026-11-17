@@ -38,13 +38,23 @@ class ServiceWorker extends Base {
                 opts            = {type: 'module'},
                 path            = (useMjsFiles ? config.basePath : config.workerBasePath) + fileName,
                 {serviceWorker} = navigator,
-                registration;
+                previous, registration, scriptUrl;
 
             if (distEsm) {
                 path = path.substring(6)
             }
 
+            // A build registers its worker under its own id: the changed script URL makes the browser install it
+            // although its bytes may equal the previous build's, and the worker keys its cache on the id
+            if (config.buildId) {
+                path += '?buildId=' + encodeURIComponent(config.buildId)
+            }
+
+            scriptUrl    = new URL(path, document.baseURI).href;
+            previous     = (await serviceWorker.getRegistration(scriptUrl))?.active;
             registration = await serviceWorker.register(path, opts);
+
+            previous && previous.scriptURL !== scriptUrl && me.reloadWhenActive(registration, scriptUrl);
 
             window.addEventListener('beforeunload', me.onBeforeUnload.bind(me));
 
@@ -73,6 +83,51 @@ class ServiceWorker extends Base {
         WorkerManager.sendMessage('service', {
             action: 'unregisterPort'
         })
+    }
+
+    /**
+     * @summary Reloads a page that started on another build's worker, once the new build's worker is active.
+     *
+     * Until the new worker takes over, the previous one answers this page's workers from the previous build's cache,
+     * so the session can run files of two builds. The new worker's activation deletes that cache, and the reload loads
+     * one build. Its install handler calls `skipWaiting()`, yet Chromium can leave it waiting while the previous worker
+     * serves this page, so the page asks again through `onSkipWaiting()`, once a second for up to a minute. A page
+     * inside the scope, which the previous worker controls itself, can keep it waiting until the page navigates. The
+     * page does not force that navigation: in the replay, one started while the previous worker served the page's
+     * startup froze the page.
+     *
+     * The reload happens at most once per build in a tab's session, so registrations that change hands between builds
+     * cannot start a reload loop.
+     * @param {ServiceWorkerRegistration} registration
+     * @param {String}                    scriptUrl    The absolute URL of the new build's worker
+     */
+    reloadWhenActive(registration, scriptUrl) {
+        let worker = registration.installing || registration.waiting,
+            ask    = (attempts=60) => {
+                if (worker.state === 'installed' && attempts > 0) {
+                    worker.postMessage({action: 'skipWaiting'});
+                    setTimeout(() => ask(attempts - 1), 1000)
+                }
+            },
+            reload = () => {
+                const key = `neoBuildReload:${scriptUrl}`;
+
+                if (!sessionStorage.getItem(key)) {
+                    sessionStorage.setItem(key, '1');
+                    WorkerManager.reloadOnce(`The build changed, ${scriptUrl} is active. Reloading.`)
+                }
+            };
+
+        if (registration.active?.scriptURL === scriptUrl) {
+            reload()
+        } else if (worker) {
+            worker.addEventListener('statechange', () => {
+                worker.state === 'installed' && ask();
+                worker.state === 'activated' && reload()
+            });
+
+            ask()
+        }
     }
 }
 

@@ -22,7 +22,7 @@ export default Neo.setupClass(MyComponent);
 
 ## What Does `setupClass` Do?
 
-`Neo.setupClass` acts as a class factory. It performs several critical, heavy-lifting operations that transform a standard JS class into a powerful, declarative Neo component.
+`Neo.setupClass` acts as a class factory. It performs several critical, heavy-lifting operations that transform a standard JS class into a powerful, declarative Neo component. What a class author writes for it, the `static config` block and the lifecycle hooks, is the subject of [Extending Neo Classes](../fundamentals/ExtendingNeoClasses.md).
 
 ### 1. Prototype Chain Walking & Config Merging
 
@@ -193,7 +193,7 @@ class PageContainer extends Container {
 }
 ```
 
-When a user creates this container, they can simply pass `contentConfig: { style: { padding: '20px' } }`. During the `construct()` phase, `core.Base` sees the `[mergeFrom]` symbol and automatically deep-merges that custom config block exactly where the symbol is placed inside the `items` tree. This is incredibly powerful for creating highly customizable, deeply nested widgets.
+When a user creates this container, they can simply pass `contentConfig: { style: { padding: '20px' } }`. During the `construct()` phase, `core.Base` sees the `[mergeFrom]` symbol and automatically deep-merges that custom config block exactly where the symbol is placed inside the `items` tree. This is incredibly powerful for creating highly customizable, deeply nested widgets. The reference for `mergeFrom`, including structural injection and overriding a config descriptor in a subclass, is [Declarative Config Merging & Structural Injection](../fundamentals/DeclarativeConfigMerging.md).
 
 ### 7. The "Gatekeeper" Pattern (Mixed Environments)
 

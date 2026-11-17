@@ -55,6 +55,12 @@ class RecordFactory extends Base {
      * @private
      */
     #recordObservers = new WeakMap()
+    /**
+     * @summary Monotonic write counter per generated record class for derived store caches.
+     * @member {WeakMap} #recordWriteEpochs=new WeakMap()
+     * @private
+     */
+    #recordWriteEpochs = new WeakMap()
 
     /**
      * @summary Resolves field mappings (dot and `[index]` segments, preserving falsy leaves and yielding `undefined` when absent so `defaultValue` applies) and assigns model default values.
@@ -427,6 +433,28 @@ class RecordFactory extends Base {
     }
 
     /**
+     * @summary Advances the write epoch of a record's generated class.
+     * @param {Object} record
+     * @private
+     */
+    #bumpWriteEpoch(record) {
+        const cls = record?.constructor;
+        if (cls) {
+            this.#recordWriteEpochs.set(cls, (this.#recordWriteEpochs.get(cls) ?? 0) + 1)
+        }
+    }
+
+    /**
+     * @summary Returns the monotonic field-write epoch for a record or generated record class.
+     * @param {Function|Object} recordOrClass
+     * @returns {Number}
+     */
+    getWriteEpoch(recordOrClass) {
+        const cls = typeof recordOrClass === 'function' ? recordOrClass : recordOrClass?.constructor;
+        return cls ? (this.#recordWriteEpochs.get(cls) ?? 0) : 0
+    }
+
+    /**
      * Tests if a given object is an instance of a class created by this factory
      * @param {Object} record
      * @returns {Boolean}
@@ -504,6 +532,7 @@ class RecordFactory extends Base {
                     else delete owner[field]
                 }
                 record[versionSymbol] = version;
+                this.#bumpWriteEpoch(record);
                 if (!model.trackModifiedFields) record[isModifiedSymbol] = modified
             }
             throw error
@@ -855,6 +884,10 @@ class RecordFactory extends Base {
 
         if (hasChangedFields) {
             record[versionSymbol]++;
+
+            if (!useOriginalData) {
+                me.#bumpWriteEpoch(record)
+            }
 
             calculatedFieldsMap.forEach((value, key) => {
                 if (value.virtual) return;

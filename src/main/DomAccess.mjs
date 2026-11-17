@@ -295,8 +295,9 @@ class DomAccess extends Base {
 
         // Get an aligned clone of myRect aligned according to the align object
         const
-            myRect = me.getBoundingClientRect(data),
-            result = data.result = myRect.alignTo(align);
+            myRect           = me.getBoundingClientRect(data),
+            previousPosition = lastAlign?.result?.position, // syncAligns can pass the saved record itself
+            result           = data.result = myRect.alignTo(align);
 
         Object.assign(style, {
             top      : 0,
@@ -315,15 +316,9 @@ class DomAccess extends Base {
         // Place box shadow at correct edge. Swapped only on a real zone change, so an ordinary
         // resync leaves the class — and anything keyed on it, including a CSS entrance animation and
         // the shadow repaint — completely untouched.
-        const
-            previousPosition = lastAlign?.result?.position,
-            positionCls      = `neo-aligned-${result.position}`;
+        const positionCls = `neo-aligned-${result.position}`;
 
-        // Guarded on the SUBJECT, not on the cached align record. Keying off `lastAlign` looks
-        // equivalent and is not: a subject can lose the class without the record changing — a hidden
-        // menu is removed from the DOM and remounts as a fresh element, so it comes back classless
-        // while `_aligns` still reports the same zone. That guard silently never re-added the class,
-        // and a reused menu stayed unaligned for the rest of its life.
+        // A remounted subject needs the class even if its recorded alignment side is unchanged.
         if (!subject.classList.contains(positionCls)) {
             previousPosition && subject.classList.remove(`neo-aligned-${previousPosition}`);
             subject.classList.add(positionCls)
@@ -856,6 +851,16 @@ class DomAccess extends Base {
                 document.querySelector(`[data-neo-id='${nodeId}']`);
 
         return node || null
+    }
+
+    /**
+     * @summary The Neo id a DOM node carries, the inverse of {@link #getElement}: its `id` while
+     * `Neo.config.useDomIds`, its `data-neo-id` otherwise.
+     * @param {HTMLElement|Window|Document|null} node
+     * @returns {String|null} Null for a node without one, like the document or the window
+     */
+    getNodeId(node) {
+        return (Neo.config.useDomIds ? node?.id : node?.dataset?.neoId) || null
     }
 
     /**

@@ -83,6 +83,12 @@ test.describe('buildScripts/docs/seo/verify.mjs (#20774 / #20915)', () => {
                     lastmod    : '2025-11-01',
                     robots     : 'noindex, follow',
                     schemaType : 'TechArticle'
+                },
+                '/examples/grid/bigData/index.html': {
+                    title      : 'JavaScript Data Grid — 100k Rows & 200 Columns in a Web Worker | Neo.mjs',
+                    description: 'Interactive Neo.mjs JavaScript Data Grid benchmark streaming 100,000 rows and 200 columns in a Web Worker.',
+                    lastmod    : '2026-11-10',
+                    schemaType : 'WebPage'
                 }
             },
             ssgArchiveRoutes: {
@@ -96,7 +102,7 @@ test.describe('buildScripts/docs/seo/verify.mjs (#20774 / #20915)', () => {
                 '<?xml version="1.0" encoding="UTF-8"?>',
                 '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
                 '  <url><loc>https://neomjs.com/</loc><lastmod>2026-10-21</lastmod></url>',
-                '  <url><loc>https://neomjs.com/examples/grid/bigData/index.html</loc></url>',
+                '  <url><loc>https://neomjs.com/examples/grid/bigData/index.html</loc><lastmod>2026-11-10</lastmod></url>',
                 '  <url><loc>https://neomjs.com/learn/benefits/Introduction</loc><lastmod>2026-11-10</lastmod></url>',
                 '  <url><loc>https://neomjs.com/news/blog/json-ld-xss</loc><lastmod>2026-11-12</lastmod></url>',
                 '  <url><loc>https://neomjs.com/news/releases/13.4.0</loc><lastmod>2026-11-09</lastmod></url>',
@@ -572,5 +578,68 @@ test.describe('buildScripts/docs/seo/verify.mjs (#20774 / #20915)', () => {
             'llms.txt must reference "/llms-full.txt".',
             'llms.txt must reference "/llms-all.txt".'
         ]);
+    });
+
+    test('rejects excluded testbeds, missing standalone .html seo.json entries, and duplicate standalone titles (#21169)', async () => {
+        for (const blockedPath of ['/examples/dashboard/crossWindowWitness/index.html', '/apps/ai/neural-link/index.html']) {
+            const testbedBundle = {
+                ...buildValidBundle(),
+                sitemapCoreXml: [
+                    '<urlset>',
+                    '  <url><loc>https://neomjs.com/</loc><lastmod>2026-10-21</lastmod></url>',
+                    `  <url><loc>https://neomjs.com${blockedPath}</loc></url>`,
+                    '</urlset>'
+                ].join('\n')
+            };
+            await expect(verifySeoArtifacts(testbedBundle)).rejects.toThrow(/non-indexable standalone path/);
+        }
+
+        const missingStandaloneSeoBundle = buildValidBundle();
+        delete missingStandaloneSeoBundle.seoJson['/examples/grid/bigData/index.html'];
+        await expect(verifySeoArtifacts(missingStandaloneSeoBundle)).rejects.toThrow(/missing metadata entry.*\/examples\/grid\/bigData\/index\.html/);
+
+        const duplicateTitleBundle = buildValidBundle();
+        duplicateTitleBundle.seoJson['/examples/tree/index.html'] = {
+            title      : duplicateTitleBundle.seoJson['/examples/grid/bigData/index.html'].title,
+            description: 'Duplicate standalone title fixture.',
+            lastmod    : '2026-11-10',
+            schemaType : 'WebPage'
+        };
+        duplicateTitleBundle.sitemapCoreXml = duplicateTitleBundle.sitemapCoreXml.replace(
+            '</urlset>',
+            '  <url><loc>https://neomjs.com/examples/tree/index.html</loc><lastmod>2026-11-10</lastmod></url>\n</urlset>'
+        );
+        await expect(verifySeoArtifacts(duplicateTitleBundle)).rejects.toThrow(/share duplicate title/);
+
+        const duplicateSourceTitleBundle = buildValidBundle();
+        await fs.outputFile(
+            path.join(rootDir, 'examples/button/base/index.html'),
+            '<!DOCTYPE html><html><head><title>Neo Button</title></head></html>'
+        );
+        await fs.outputFile(
+            path.join(rootDir, 'examples/grid/valueBanding/index.html'),
+            '<!DOCTYPE html><html><head><title>Neo Button</title></head></html>'
+        );
+        duplicateSourceTitleBundle.seoJson['/examples/button/base/index.html'] = {
+            title      : 'Button — Web Worker JavaScript UI Demo | Neo.mjs',
+            description: 'Button base demo in Neo.mjs.',
+            lastmod    : '2026-11-10',
+            schemaType : 'WebPage'
+        };
+        duplicateSourceTitleBundle.seoJson['/examples/grid/valueBanding/index.html'] = {
+            title      : 'Button — Web Worker Data Grid Demo | Neo.mjs',
+            description: 'Grid value banding demo in Neo.mjs.',
+            lastmod    : '2026-11-10',
+            schemaType : 'WebPage'
+        };
+        duplicateSourceTitleBundle.sitemapCoreXml = duplicateSourceTitleBundle.sitemapCoreXml.replace(
+            '</urlset>',
+            [
+                '  <url><loc>https://neomjs.com/examples/button/base/index.html</loc><lastmod>2026-11-10</lastmod></url>',
+                '  <url><loc>https://neomjs.com/examples/grid/valueBanding/index.html</loc><lastmod>2026-11-10</lastmod></url>',
+                '</urlset>'
+            ].join('\n')
+        );
+        await expect(verifySeoArtifacts(duplicateSourceTitleBundle)).rejects.toThrow(/share duplicate source HTML <title> "Neo Button"/);
     });
 });

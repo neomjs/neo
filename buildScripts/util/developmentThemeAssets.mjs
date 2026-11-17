@@ -2,7 +2,9 @@ import {spawn} from 'node:child_process';
 import fs      from 'node:fs';
 import path    from 'node:path';
 
-export const DEVELOPMENT_THEME_BUILD_COMMAND = 'npm run build-themes -- -n -e dev -t all';
+const THEME_BUILD_ARGS = ['run', 'build-themes', '--', '-n', '-e', 'dev', '-t', 'all'];
+
+export const DEVELOPMENT_THEME_BUILD_COMMAND = ['npm', ...THEME_BUILD_ARGS].join(' ');
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '../..');
 
@@ -285,11 +287,12 @@ export function runDevelopmentThemeBuild({repoRoot = REPO_ROOT} = {}) {
     const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
     return new Promise((resolve, reject) => {
-        const child = spawn(
-            npmCommand,
-            ['run', 'build-themes', '--', '-n', '-e', 'dev', '-t', 'all'],
-            {cwd: repoRoot, stdio: 'inherit'}
-        );
+        // A Windows shell plus a separate argument array is the DEP0190 shape: every supported Node
+        // runtime deprecates it, and a runtime that treats deprecations as errors kills the build. The
+        // fixed command already exists as one string, so the shell receives that and no argument array.
+        const child = process.platform === 'win32'
+            ? spawn(DEVELOPMENT_THEME_BUILD_COMMAND, {cwd: repoRoot, stdio: 'inherit', shell: true})
+            : spawn(npmCommand, THEME_BUILD_ARGS, {cwd: repoRoot, stdio: 'inherit'});
 
         child.once('error', error => reject(new Error(
             `Development theme preflight could not run \`${DEVELOPMENT_THEME_BUILD_COMMAND}\`: ${error.message}`
