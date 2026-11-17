@@ -1751,7 +1751,7 @@
         "title": "TreeGrid - Big Data — Web Worker Data Grid Demo | Neo.mjs",
         "description": "A tree hierarchy at scale: up to 100,000 rows, 200 columns and 20 levels. Open the ☰ panel, raise rows and depth, then expand all; filter by name and toggle...",
         "schemaType": "WebPage",
-        "lastmod": "2026-09-13"
+        "lastmod": "2026-11-17"
     },
     "/examples/grid/valueBanding/index.html": {
         "title": "Grid Value Banding — Web Worker Data Grid Demo | Neo.mjs",
