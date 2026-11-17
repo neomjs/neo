@@ -615,8 +615,7 @@ export function renderReply({assigned = false, claimant, claimLimit, commentId, 
     const
         contributing = `${repoUrl}/blob/dev/CONTRIBUTING.md`,
         footer       = `<sub>An automatic reply. [How claims work](${contributing})</sub>\n${replyMarker(claimant)}`,
-        refusal      = Number.isSafeInteger(commentId) ? `${footer}\n<!-- claim-refused:${commentId} -->` : footer,
-        welcome      = welcomeBack === true ? 'welcome back' : 'welcome';
+        refusal      = Number.isSafeInteger(commentId) ? `${footer}\n<!-- claim-refused:${commentId} -->` : footer;
 
     if (held.length < 1) {
         if (heldByClaimant.length > 0) {
@@ -633,7 +632,7 @@ export function renderReply({assigned = false, claimant, claimLimit, commentId, 
 
         if (assigned) {
             return [
-                `Thanks for claiming this, @${claimant}, and ${welcome}! Assigned to you — you can start now.`,
+                `Thanks for claiming this, @${claimant}, and ${welcomeBack === true ? 'welcome back' : 'welcome'}! Assigned to you — you can start now.`,
                 '',
                 `Your claim reserves this issue for ${CLAIM_WINDOW_DAYS} days (any comment here resets the clock; we still merge the first approve-worthy PR if another lands first or a claim goes quiet).`,
                 '',
@@ -642,7 +641,7 @@ export function renderReply({assigned = false, claimant, claimLimit, commentId, 
         }
 
         return [
-            `Thanks for claiming this, @${claimant}, and ${welcome}! You're first in line, so you can start now.`,
+            `Thanks for claiming this, @${claimant}, and ${welcomeBack === true ? 'welcome back' : 'welcome'}! You're first in line, so you can start now.`,
             '',
             'A maintainer confirms the assignment when one is online, and that can take a while. You don\'t need to wait for it.',
             '',
