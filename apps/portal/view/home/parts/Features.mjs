@@ -59,7 +59,7 @@ class Features extends BaseContainer {
                 'Components are persistent objects, not ephemeral render results.',
                 'Retain state and identity even when detached from the DOM.',
                 'Enables Runtime Permutation: Drag active dashboards between windows.',
-                'The "Lego Technic" model vs. "Melted Plastic" (other frameworks).'
+                'The "Lego Technic" model vs. "Melted Plastic" (conventional frameworks).'
             ]
         }, {
             header: 'State Subsystem',

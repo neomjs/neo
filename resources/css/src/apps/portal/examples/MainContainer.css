@@ -1,0 +1,12 @@
+.portal-examples-main-container {
+    background-color: var(--portal-examples-bg);
+    color           : var(--portal-examples-text);
+    flex-shrink     : 1 !important;
+    min-width       : 0;
+
+    .portal-examples-build-control.neo-button {
+        border-radius: 8px;
+        font-size    : 14px;
+        white-space  : nowrap;
+    }
+}

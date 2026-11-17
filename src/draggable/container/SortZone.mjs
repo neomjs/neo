@@ -348,6 +348,15 @@ class SortZone extends DragZone {
     }
 
     /**
+     * @summary The owner-level switch that admits a drag start and commits its drop: the owner's `dragResortable`.
+     * A zone whose owner keeps a separate switch for these items (a board's columns beside its cards) overrides it.
+     * @returns {Boolean}
+     */
+    isResortable() {
+        return Boolean(this.owner?.dragResortable)
+    }
+
+    /**
      * @summary Returns the VDOM root cloned into the drag proxy for `draggedItem`.
      * @param {Neo.component.Base} draggedItem
      * @param {Object|null} [handleNode=null] The matched drag handle VDOM node resolved from `owner.vdom` when `dragHandleSelector` is active
@@ -665,7 +674,7 @@ class SortZone extends DragZone {
             return
         }
 
-        if (owner.dragResortable) {
+        if (me.isResortable()) {
             if (me.dragPlaceholder) {
                 const
                     component = me.dragComponent,
@@ -972,7 +981,7 @@ class SortZone extends DragZone {
             handleNode                                                               = null,
             draggedItem, index, indexMap, itemStyle, pinnedItems, rect, sortableItems;
 
-        if (owner.dragResortable) {
+        if (me.isResortable()) {
             if (ignoreDragSelector) {
                 const ignoreClassName = ignoreDragSelector.startsWith('.') ? ignoreDragSelector.substring(1) : ignoreDragSelector;
                 if (data.path[0].cls.includes(ignoreClassName)) {

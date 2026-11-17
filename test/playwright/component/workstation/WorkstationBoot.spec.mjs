@@ -45,6 +45,9 @@ const
     FEED_PANE  = '.workstation-pane-feed:not(.workstation-placeholder)',
     FEED_KEY   = 'workstation-vessel:feed';
 
+/** The workspace the shipped arrangement lives in, `VesselWorkspace.MAIN_WORKSPACE_ID`. */
+const MAIN_KEY = 'workstation-main';
+
 /**
  * Reads one Group's persisted topology collection from the page's IndexedDB — the durable record a cold
  * boot hydrates — through the same database, store and key the library's adapter writes.
@@ -206,7 +209,11 @@ test.describe('workstation boot — the rendered outcome of each URL mode', () =
         await popup.close()
     });
 
-    test('a cold boot retains the saved workspace and Reset brings its pane back', async ({page, context}) => {
+    test('a cold boot retains the saved workspace and Reset brings its pane back', async ({baseURL, browser, page, context}) => {
+        // The two waits after Reset declare 30 s and 60 s, and a slow hosted runner spent most of the
+        // default 30 s budget before them, so the budget cut the last wait short
+        test.setTimeout(150000);
+
         await page.goto(APP);
         await page.waitForSelector(DOCK_HOST, {state: 'attached', timeout: 60000});
 
@@ -224,25 +231,49 @@ test.describe('workstation boot — the rendered outcome of each URL mode', () =
             return Object.keys(collection?.topologies?.[collection.activeLayoutId]?.workspaces ?? {})
         }, {message: 'the saved topology carries the vessel workspace', timeout: 30000}).toContain(FEED_KEY);
 
+        // A cold boot is a new context restored from the storage the auto-save wrote. A new page in this
+        // context could still reach the SharedWorker the closing windows leave behind and adopt its live
+        // root instead of hydrating (`ViewportController#decide`).
+        const storageState = await context.storageState({indexedDB: true}),
+              viewport     = page.viewportSize();
+
         await popup.close();
         await page.close();
 
-        // A cold boot with the same carrier hydrates the saved topology: the vessel workspace is
-        // retained and disconnected. Reset is the compact toolbar's cold recovery path.
-        const cold = await context.newPage();
+        const coldContext = await browser.newContext({baseURL, storageState, viewport});
 
-        await cold.addInitScript(({key, identity}) => {
-            if (!sessionStorage.getItem(key)) sessionStorage.setItem(key, JSON.stringify(identity))
-        }, {key: 'neo-topology-identity', identity: carrier});
-        await cold.goto(APP);
-        await cold.waitForSelector(DOCK_HOST, {state: 'attached', timeout: 60000});
+        try {
+            // The same carrier hydrates the saved topology, the vessel workspace retained and disconnected.
+            // Reset is the compact toolbar's cold recovery path.
+            const cold = await coldContext.newPage();
 
-        await expect(cold.locator('.workstation-topologybar').getByRole('button'))
-            .toHaveText(['Reset to default', 'Undo', 'Redo']);
-        expect(await cold.locator(FEED_PANE).count(), 'the pane is not in the root while its workspace is a window').toBe(0);
-        await cold.getByRole('button', {name: 'Reset to default', exact: true}).click();
-        await expect(cold.locator(FEED_PANE).first(), 'Reset returns the retained pane to the default arrangement')
-            .toBeVisible({timeout: 60000})
+            await cold.addInitScript(({key, identity}) => {
+                if (!sessionStorage.getItem(key)) sessionStorage.setItem(key, JSON.stringify(identity))
+            }, {key: 'neo-topology-identity', identity: carrier});
+            await cold.goto(APP);
+            await cold.waitForSelector(DOCK_HOST, {state: 'attached', timeout: 60000});
+
+            await expect(cold.locator('.workstation-topologybar').getByRole('button'))
+                .toHaveText(['Reset to default', 'Undo', 'Redo']);
+            expect(await cold.locator(FEED_PANE).count(), 'the pane is not in the root while its workspace is a window').toBe(0);
+            await cold.getByRole('button', {name: 'Reset to default', exact: true}).click();
+
+            // The saved document first, then the render, so a stall in either fails at its own step
+            await expect.poll(async () => {
+                const collection = await readPersistedTopology(cold, carrier.groupId),
+                      workspaces = collection?.topologies?.[collection.activeLayoutId]?.workspaces ?? {};
+
+                return {
+                    main  : Object.keys(workspaces[MAIN_KEY]?.items ?? {}).includes('feed'),
+                    vessel: Object.keys(workspaces[FEED_KEY]?.items ?? {})
+                }
+            }, {message: 'the saved topology gives the pane back to the main workspace', timeout: 30000})
+                .toEqual({main: true, vessel: []});
+            await expect(cold.locator(FEED_PANE).first(), 'Reset returns the retained pane to the default arrangement')
+                .toBeVisible({timeout: 60000})
+        } finally {
+            await coldContext.close()
+        }
     });
 
     test('a popout URL takes the popout branch and does not mount a default host', async ({page}) => {

@@ -171,6 +171,11 @@ class View extends Base {
      */
     #heldHeights = null
     /**
+     * Content-sized rows: extra heights that arrived during a thumb drag, applied at its end
+     * @member {Map|null} #heldExtraHeights=null
+     */
+    #heldExtraHeights = null
+    /**
      * Estimate refinement and font reset held alongside a thumb drag's height batch.
      * @member {Boolean} #heldEstimate=false
      */
@@ -454,24 +459,28 @@ class View extends Base {
     }
 
     /**
-     * Triggered after the isThumbDragging config got changed. The end of a drag applies the heights held during it.
+     * Triggered after the isThumbDragging config got changed. The end of a drag applies the heights and extra
+     * heights held during it.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
      */
     afterSetIsThumbDragging(value, oldValue) {
         let me       = this,
+            extras   = me.#heldExtraHeights,
             heights  = me.#heldHeights,
             estimate = me.#heldEstimate;
 
         if (!value) {
             me.#heldHeights = null;
+            me.#heldExtraHeights = null;
             me.#heldEstimate = false;
             if (me.#heldReset) {
                 me.#heldReset = false;
                 me.resetRowHeights()
             }
-            heights && me.setRowHeights(heights, estimate)
+            heights && me.setRowHeights(heights, estimate);
+            extras && me.setRowExtraHeights(extras);
             me.#fontRefresh?.heights.size && me.commitFontHeights()
         }
     }
@@ -609,6 +618,7 @@ class View extends Base {
         // Heights held during a thumb drag are keyed by the records of the old store
         if (oldValue) {
             me.#heldHeights = null;
+            me.#heldExtraHeights = null;
             me.#heldEstimate = false;
             me.#heldReset = false
         }
@@ -1562,6 +1572,30 @@ class View extends Base {
         me.#navigationTarget = target;
 
         Neo.main.DomAccess.scrollTo({id: me.id, value: target.scrollTop, windowId: me.windowId})
+    }
+
+    /**
+     * @summary Applies extra row heights in content-sized mode: room below a row's cells for something that is not
+     * a cell. Each one adds to its row's measured or estimated height, but never to the measured mean that refines the
+     * estimate of unseen rows. Like {@link #setRowHeights}, the row at the scroll offset holds still on screen,
+     * and during a thumb drag the extra heights wait for the drag's end. A wrap or font change keeps them; a new
+     * store clears them.
+     * @param {Map<Number|String, Number|null>} heights Extra heights in px, keyed by record id. `0` or `null`
+     * removes the extra height of a record.
+     * @returns {Boolean} True if at least one extra height changed now. Always false without content-sized rows.
+     */
+    setRowExtraHeights(heights) {
+        let me = this, {rowGeometry} = me;
+
+        if (!rowGeometry) return false;
+
+        if (me.isThumbDragging) {
+            me.#heldExtraHeights ??= new Map();
+            heights.forEach((extra, recordId) => me.#heldExtraHeights.set(recordId, extra));
+            return false
+        }
+
+        return me.#changeRowHeights(() => rowGeometry.setExtraHeights(heights))
     }
 
     /**

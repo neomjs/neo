@@ -103,6 +103,42 @@ class MountableMenuList extends Neo.core.Base {
 MountableMenuList = Neo.setupClass(MountableMenuList);
 
 /**
+ * @summary A toolbar-owner stub whose `mounted` is a reactive config, as on a real toolbar, so the plugin
+ * observes it. Like `component.Base`, a later transition to mounted fires `mounted`. Tests replace `getLayoutRect`.
+ */
+class MountableToolbarOwner extends Neo.core.Base {
+    static config = {
+        className: 'Test.Unit.Tab.Plugin.Overflow.MountableToolbarOwner',
+        mounted_ : true,
+        theme_   : 'neo-theme-neo-dark'
+    }
+
+    appName          = 'test-app'
+    dock             = 'top'
+    items            = [{id: 'b1'}, {id: 'b2'}]
+    mountedListeners = []
+    parent           = {activeIndex: 0, on() {}, un() {}}
+    windowId         = 1
+
+    add() {return {}}
+    addDomListeners() {}
+    afterSetMounted(value, oldValue) {
+        oldValue !== undefined && value && this.mountedListeners.forEach(({fn, scope}) => fn.call(scope))
+    }
+    getActionItems() {return []}
+    async getLayoutRect() {return []}
+    getParents() {return []}
+    getTabButtons() {return this.items}
+    getTheme() {return this.theme}
+    on(name, fn, scope) {name === 'mounted' && this.mountedListeners.push({fn, scope})}
+    remove() {}
+    removeDomListeners() {}
+    un() {}
+    up() {return {activeIndex: 0}}
+}
+MountableToolbarOwner = Neo.setupClass(MountableToolbarOwner);
+
+/**
  * @summary Focused tests for the Neo.tab.plugin.Overflow re-entrancy contract — the part of
  * the runtime overflow plugin that must survive a resize / activation storm without stranding state.
  *
@@ -1512,6 +1548,121 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         } finally {
             Neo.create = originalCreate;
             plugin.destroy()
+        }
+    });
+
+    /**
+     * @summary Replaces the floating control with a probe whose insert lands on demand, and records the
+     * inserts that are live in the page.
+     * @returns {{live: Set<String>, restore: Function}}
+     */
+    const mockFloatingControls = () => {
+        const originalCreate = Neo.create, live = new Set();
+
+        Neo.create = (config, ...args) => {
+            if (!config?.cls?.includes('neo-tab-overflow-control')) return originalCreate(config, ...args);
+            return {
+                id: `control-${live.size}-${Math.random()}`, menu: config.menu, mounted: false, isVnodeInitializing: false, isDestroyed: false,
+                addDomListeners() {}, alignTo() {},
+                initVnode() {
+                    return new Promise(resolve => {this.land = () => {live.add(this.id); this.mounted = true; resolve()}})
+                },
+                destroy() {this.isDestroyed = true; live.delete(this.id)}
+            }
+        };
+
+        return {live, restore: () => {Neo.create = originalCreate}}
+    };
+
+    test('a toolbar that unmounts retires its floating control, landed or with its insert in flight', async () => {
+        const plugin = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]);
+        await new Promise(resolve => setTimeout(resolve, 0));
+        const {live, restore} = mockFloatingControls(), hidden = [{text: 'Agents', index: 0}], tab = {activeIndex: 0};
+
+        try {
+            plugin.syncControl(hidden, tab);
+            const landed = plugin.control;
+            landed.land();
+            await new Promise(resolve => setTimeout(resolve, 0));
+            plugin.owner.mounted = false;
+            plugin.onOwnerUnmounted();
+            expect(plugin.control).toBe(null);
+            expect(landed.isDestroyed, 'a landed control goes with its toolbar').toBe(true);
+
+            plugin.owner.mounted = true;
+            plugin.syncControl(hidden, tab);
+            const pending = plugin.control;
+            plugin.owner.mounted = false;
+            plugin.onOwnerUnmounted();
+            expect(plugin.control).toBe(null);
+            expect(pending.isDestroyed, 'an insert in flight is held until it settles').toBe(false);
+            pending.land();
+            await new Promise(resolve => setTimeout(resolve, 0));
+            expect(pending.isDestroyed).toBe(true);
+            expect([...live], 'no button outlives its toolbar').toEqual([])
+        } finally {
+            restore();
+            plugin.destroy()
+        }
+    });
+
+    test('a measurement that returns after its toolbar unmounted creates no control', async () => {
+        const plugin = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]);
+        await new Promise(resolve => setTimeout(resolve, 0));
+        const {live, restore} = mockFloatingControls();
+
+        // Buttons a split can be applied to, so only the toolbar's unmount can keep the control from being created
+        plugin.owner.items = ['b1', 'b2'].map(id => ({id, text: id, hidden: false, vdom: {}, addCls() {}, removeCls() {}, show() {}}));
+
+        // The bar overflows now, and the toolbar unmounts while the DOM round-trip is in flight
+        plugin.owner.getLayoutRect = async ids => {
+            plugin.owner.mounted = false;
+            return ids[0] === 'tab-overflow-test-owner' ? [{width: 15}] : [{width: 10}, {width: 10}]
+        };
+
+        try {
+            await plugin.project(true);
+            expect(plugin.control, 'no split is applied for a toolbar that is gone').toBe(null);
+            expect([...live]).toEqual([])
+        } finally {
+            restore();
+            plugin.destroy()
+        }
+    });
+
+    test('a toolbar whose mounted config turns false retires the floating control through the plugin', async () => {
+        const {live, restore} = mockFloatingControls(),
+              owner           = Neo.create(MountableToolbarOwner);
+
+        owner.getLayoutRect = async ids => ids[0] === owner.id ? [{width: 1000}] : [{width: 10}, {width: 10}];
+
+        const plugin = Neo.create(Overflow, {owner});
+
+        try {
+            await new Promise(resolve => setTimeout(resolve, 0));
+            plugin.syncControl([{text: 'Agents', index: 0}], {activeIndex: 0});
+            const control = plugin.control;
+            control.land();
+            await new Promise(resolve => setTimeout(resolve, 0));
+            expect([...live]).toEqual([control.id]);
+
+            owner.mounted = false;
+            expect(plugin.control).toBe(null);
+            expect([...live], 'unmounting the toolbar takes its button along').toEqual([]);
+
+            // Mounted again on an overflowing bar, it projects afresh through plugin.Base's `mounted` subscription,
+            // which also holds for this owner, mounted before the plugin attached
+            owner.items         = ['b1', 'b2'].map(id => ({id, text: id, hidden: false, vdom: {}, addCls() {}, removeCls() {}, show() {}}));
+            owner.getLayoutRect = async ids => ids[0] === owner.id ? [{width: 15}] : [{width: 10}, {width: 10}];
+            owner.mounted       = true;
+            await new Promise(resolve => setTimeout(resolve, 0));
+            expect(plugin.control, 'a fresh control, never the retired one').toBeTruthy();
+            expect(plugin.control).not.toBe(control);
+            expect(plugin.control.menu.items.map(item => item.text), 'its menu lists this bar\'s hidden tab').toEqual(['b2'])
+        } finally {
+            restore();
+            plugin.destroy();
+            owner.destroy()
         }
     });
 

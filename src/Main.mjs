@@ -262,12 +262,11 @@ class Main extends core.Base {
     }
 
     /**
-     * Edit the location.hash value
-     * A value of null will remove the given key.
-     * @param {Object} data
+     * @summary Edits the key-value pairs of the route; a value of null removes its key.
+     * @param {Object|String} data
      */
     editRoute(data) {
-        let hashObj = DomEvents.parseHash(window.location.hash.substr(1)),
+        let hashObj = DomEvents.parseHash(DomEvents.getRoute()),
             hashArr = [];
 
         if (typeof data === 'string') {
@@ -283,7 +282,7 @@ class Main extends core.Base {
             }
         });
 
-        window.location.hash = hashArr.join('&')
+        DomEvents.setRoute(hashArr.join('&'))
     }
 
     /**
@@ -795,12 +794,12 @@ class Main extends core.Base {
     }
 
     /**
-     * Change the location.hash value
+     * @summary Moves the route, kept where `Neo.config.routerMode` names.
      * @param {Object} data
      * @param {String} data.value
      */
     setRoute(data) {
-        window.location.hash = data.value
+        DomEvents.setRoute(data.value)
     }
 
     /**
@@ -1313,7 +1312,7 @@ class Main extends core.Base {
     /**
      * @summary Reads the light/dark hint the active theme declares, or `undefined` when none does.
      *
-     * Every theme states its own scheme as `--neo-color-scheme` in its `Global.scss`, because the
+     * Every theme states its own scheme as `--neo-color-scheme` in its `Global.css`, because the
      * name cannot be trusted to carry it: `theme-cyberpunk` is dark and is named neither. The token
      * is declared on the element holding the `neo-theme-*` class rather than on the document root,
      * so the read has to find that element; custom properties inherit downward only.

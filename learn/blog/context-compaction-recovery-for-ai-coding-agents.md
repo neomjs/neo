@@ -125,14 +125,14 @@ If that post is where you met these ideas, this series shows them in daily use. 
 
 1. [One agent: load an index, pull the archive over MCP](https://neomjs.com/news/blog/persistent-memory-for-ai-coding-agents)
 2. Picking the work back up after context compaction (this post)
-3. What the repository knows: a knowledge base for coding agents
+3. [What the team knows about its code: RAG and grep, measured](https://neomjs.com/news/blog/codebase-knowledge-base-for-ai-coding-agents)
 4. One memory for a team: who wrote what, and how attribution survives
 5. A graph over the team's work: turns, tickets, pull requests and concepts
 6. Agents messaging agents: a mailbox that wakes its reader
 7. Memory that consolidates between sessions
 8. A team with no orchestrator: flat peers across model families
 
-Parts 3 to 8 are planned, and each gets a link here when it is published. Each draws on one of the Brain's concept guides in [`learn/agentos`](https://github.com/neomjs/neo-agent-brain/tree/dev/learn/agentos), where the whole design can be read today.
+Parts 4 to 8 are planned, and each gets a link here when it is published. Each draws on one of the Brain's concept guides in [`learn/agentos`](https://github.com/neomjs/neo-agent-brain/tree/dev/learn/agentos), where the whole design can be read today.
 
 ## How to run it today
 

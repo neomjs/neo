@@ -14,6 +14,7 @@ import Operations              from '../../../../../src/dashboard/dock/model/Ope
 import WorkspaceDocument       from '../../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 import '../../../../../src/manager/Instance.mjs';
 import TransactionManager from '../../../../../src/manager/Transaction.mjs';
+import BoardPane          from '../../../../../apps/workstation/view/BoardPane.mjs';
 import GanttPane          from '../../../../../apps/workstation/view/GanttPane.mjs';
 import SchedulerPane      from '../../../../../apps/workstation/view/SchedulerPane.mjs';
 import Workspace          from '../../../../../apps/workstation/view/Workspace.mjs';
@@ -94,10 +95,38 @@ test('the Workstation declares a planning arrangement beside the shipped one', (
 
     try {
         expect(workspace.declaredPerspectives()).toEqual(['shipped', 'planning']);
-        expect(itemsOf(workspace.perspectiveSelection.document('planning'))).toEqual(['gantt', 'scheduler']);
+        expect(itemsOf(workspace.perspectiveSelection.document('planning'))).toEqual(['board', 'gantt', 'scheduler']);
         expect(workspace.activePerspective, 'a cold boot still opens on the shipped arrangement').toBe('shipped')
     } finally {
         workspace.destroy()
+    }
+});
+
+test('the arrangement switch shows only when the workspace declares both of its arrangements', async () => {
+    class OneArrangementWorkspace extends Workspace {
+        static config = {
+            className   : 'Test.Unit.Workstation.PlanningArrangement.OneArrangementWorkspace',
+            perspectives: {shipped: initialDocument}
+        }
+    }
+
+    const Single    = Neo.setupClass(OneArrangementWorkspace),
+          engine    = Neo.create(Workspace, {windowId: Neo.config.windowId}),
+          single    = Neo.create(Single,    {windowId: Neo.config.windowId}),
+          reference = (workspace, name) => workspace.down({reference: name});
+
+    try {
+        // Bindings settle after the providers run their formulas
+        await new Promise(resolve => setTimeout(resolve, 20));
+
+        expect(single.declaredPerspectives()).toEqual(['shipped']);
+        expect(reference(engine, 'arrangement-switch').hidden).toBe(false);
+        expect(reference(engine, 'arrangement-operations').pressed, 'the active arrangement is pressed').toBe(true);
+        expect(reference(engine, 'arrangement-planning').pressed).toBe(false);
+        expect(reference(single, 'arrangement-switch').hidden, 'one declared arrangement leaves nothing to switch to').toBe(true)
+    } finally {
+        engine.destroy();
+        single.destroy()
     }
 });
 
@@ -107,12 +136,17 @@ test('the planning panes borrow the root provider\'s stores rather than holding 
     try {
         const provider  = workspace.getStateProvider(),
               planning  = workspace.perspectiveSelection.document('planning'),
+              board     = workspace.resolvePane('board', planning.items.board),
               scheduler = workspace.resolvePane('scheduler', planning.items.scheduler),
               gantt     = workspace.resolvePane('gantt', planning.items.gantt),
               day       = provider.getStore('workItems').baseDate;
 
+        expect(board).toBeInstanceOf(BoardPane);
+        expect(board.store, 'the board binds the work-item store').toBe(provider.getStore('workItems'));
+        expect(board.people, 'and names each card\'s person from the team').toBe(provider.getStore('people'));
+
         expect(scheduler).toBeInstanceOf(SchedulerPane);
-        expect(scheduler.eventStore, 'the work-item store a board binds too').toBe(provider.getStore('workItems'));
+        expect(scheduler.eventStore, 'the schedule binds the same instance').toBe(board.store);
         expect(scheduler.store).toBe(provider.getStore('people'));
         expect(scheduler.timeAxis.start < day && day < scheduler.timeAxis.end, 'the schedule opens around the plan day').toBe(true);
 
@@ -135,7 +169,7 @@ test('choosing an arrangement is one undoable commit that carries its name', asy
         expect(await workspace.resetTopology('planning')).toMatchObject({errors: [], reset: true});
         await workspace.refreshPromise;
 
-        expect(itemsOf(workspace.dockModel)).toEqual(['gantt', 'scheduler']);
+        expect(itemsOf(workspace.dockModel)).toEqual(['board', 'gantt', 'scheduler']);
         expect(workspace.getState('dock.perspective')).toEqual({active: 'planning', modified: false, pending: null});
         expect(workspace.captureTopology('probe').topology.metadata.declaredPerspective, 'a save records the arrangement').toBe('planning');
         expect(status(), 'the readout states the planning desk\'s own facts').toBe('<span>6 people</span><span>15 work items</span><span>15 plan tasks</span>');
@@ -220,7 +254,7 @@ test('choosing an arrangement takes its panes back from their windows', async ()
         expect(await workspace.resetTopology('planning')).toMatchObject({errors: [], reset: true});
         await workspace.refreshPromise;
 
-        expect(itemsOf(workspace.dockModel), 'main shows the whole planning arrangement').toEqual(['gantt', 'scheduler']);
+        expect(itemsOf(workspace.dockModel), 'main shows the whole planning arrangement').toEqual(['board', 'gantt', 'scheduler']);
         expect(workspace.workspaceSet.getParticipant(vesselId).getDocument().items.scheduler, 'its window gave the schedule back').toBeUndefined();
         expect(workspace.getState('dock.perspective').active).toBe('planning')
     } finally {

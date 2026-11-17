@@ -34,6 +34,8 @@ import {
 import createReleaseIndex from '../../../../../../buildScripts/docs/index/release.mjs';
 import verifySeoArtifacts from '../../../../../../buildScripts/docs/seo/verify.mjs';
 
+import {EXAMPLE_FAMILY_SEO, getExampleFamilySeo} from '../../../../../../buildScripts/docs/seo/seoJson.mjs';
+
 test.describe('docs SEO generator release-note link guard', () => {
     test('getDisallowedReleaseNoteGithubLinks returns only mutable or release-ref Neo source links', () => {
         const links = getDisallowedReleaseNoteGithubLinks([
@@ -267,24 +269,60 @@ test.describe('docs SEO generator example family routes (#20727)', () => {
         await fs.remove(tempDir);
     });
 
-    test('extracts familyDefinitions from TabContainer.mjs, refuses unreadable AST shapes, and emits only populated families', async () => {
-        const examplesTabContainerPath = path.resolve(process.cwd(), 'apps/portal/view/examples/TabContainer.mjs');
-        const tabContainerSource       = await fs.readFile(examplesTabContainerPath, 'utf-8');
-        const definitions              = extractExampleFamilyDefinitions(tabContainerSource);
+    test('every defined family names its search intent within the title limit', async () => {
+        const source      = await fs.readFile(path.resolve(process.cwd(), 'apps/portal/view/examples/MainContainer.mjs'), 'utf-8'),
+              definitions = extractExampleFamilyDefinitions(source).filter(item => item.family);
+
+        expect(definitions.map(item => item.family).sort()).toEqual(Object.keys(EXAMPLE_FAMILY_SEO).sort());
+
+        for (const {subject, title} of Object.values(EXAMPLE_FAMILY_SEO)) {
+            expect(title.length, title).toBeLessThanOrEqual(68);
+            expect(title, title).not.toMatch(/framework/i);
+            expect(title, title).toMatch(/JavaScript/);
+            expect(subject, title).toMatch(/JavaScript/)
+        }
+
+        expect(getExampleFamilySeo({family: 'new-group', title: 'New Group'})).toEqual({
+            subject: 'JavaScript New Group',
+            title  : 'JavaScript New Group Examples | Neo.mjs'
+        })
+    });
+
+    test('a group publishes through alsoIn, and a record counts only where production can open it', async () => {
+        const examplesMainContainerPath = path.resolve(process.cwd(), 'apps/portal/view/examples/MainContainer.mjs'),
+              examplesPath              = path.join(tempDir, 'examples.json'),
+              urls                      = {dist_prod: 'dist/production/examples/dialog/index.html'};
+
+        await fs.writeJSON(examplesPath, [
+            {id: 'dialog-drag-drop', family: 'dialogs', alsoIn: ['drag-drop'], image: 'devmode/dialog.png', urls, feature: 'Draggable dialogs'},
+            {id: 'tree-hidden-in-prod', family: 'tree', image: 'devmode/tree.png', hiddenIn: ['dist_prod'], urls, feature: 'Hidden in production'},
+            {id: 'tree-dev-only', family: 'tree', image: 'devmode/tree.png', urls: {devmode: 'examples/tree/index.html'}, feature: 'No production build'}
+        ]);
+
+        const published = await getPublishedExampleFamilies({examplesPath, examplesMainContainerPath, root: tempDir});
+
+        // Definition order, with the alsoIn member counted in both groups; neither tree record is one production opens
+        expect(published.map(item => item.route)).toEqual(['/examples/drag-drop', '/examples/dialogs']);
+        expect(published.map(item => item.records.map(record => record.id))).toEqual([['dialog-drag-drop'], ['dialog-drag-drop']])
+    });
+
+    test('extracts familyDefinitions from MainContainer.mjs, refuses unreadable AST shapes, and emits only covered families', async () => {
+        const examplesMainContainerPath = path.resolve(process.cwd(), 'apps/portal/view/examples/MainContainer.mjs');
+        const mainContainerSource       = await fs.readFile(examplesMainContainerPath, 'utf-8');
+        const definitions               = extractExampleFamilyDefinitions(mainContainerSource);
 
         expect(definitions.length).toBeGreaterThan(1);
         expect(definitions[0]).toEqual({
-            family: null,
-            route : '/examples',
-            title : 'Featured'
+            family: 'grid-table',
+            route : '/examples/grid',
+            title : 'Grid & Table'
         });
 
-        const nonFeatured    = definitions.slice(1);
-        const familyRouteIds = nonFeatured.map(item => item.route);
+        const familyRouteIds = definitions.map(item => item.route);
 
-        expect(new Set(familyRouteIds).size).toBe(nonFeatured.length);
+        expect(new Set(familyRouteIds).size).toBe(definitions.length);
 
-        for (const item of nonFeatured) {
+        for (const item of definitions) {
             expect(typeof item.family).toBe('string');
             expect(item.family.length).toBeGreaterThan(0);
             expect(typeof item.title).toBe('string');
@@ -293,7 +331,7 @@ test.describe('docs SEO generator example family routes (#20727)', () => {
         }
 
         expect(() => extractExampleFamilyDefinitions('')).toThrow(/non-empty string/);
-        expect(() => extractExampleFamilyDefinitions('class TabContainer {}')).toThrow(/no definitions found/);
+        expect(() => extractExampleFamilyDefinitions('class MainContainer {}')).toThrow(/no definitions found/);
         expect(() => extractExampleFamilyDefinitions('const config = {familyDefinitions: SOME_IDENTIFIER};')).toThrow(/ArrayExpression/);
         expect(() => extractExampleFamilyDefinitions('const config = {familyDefinitions: [{family: "grid-table", route: "/examples/grid"}]};')).toThrow(/Incomplete familyDefinitions entry/);
 
@@ -305,13 +343,30 @@ test.describe('docs SEO generator example family routes (#20727)', () => {
                 id     : 'grid-big-data',
                 name   : 'Buffered Data Grid with 5M cells',
                 family : 'grid-table',
-                feature: 'Buffered rendering in both directions'
+                image  : 'devmode/grid-big-data.png',
+                urls   : {dist_prod: 'dist/production/examples/grid/bigData/index.html'},
+                feature: 'Buffered rendering in both directions.'
+            },
+            {
+                id     : 'grid-uncovered',
+                name   : 'Uncovered Grid',
+                family : 'grid-table',
+                image  : null,
+                feature: 'Must not count: a record without a cover gets no card'
+            },
+            {
+                id     : 'gantt-basic',
+                name   : 'Community Garden Plan',
+                family : 'gantt',
+                image  : null,
+                feature: 'Must not publish a family whose records have no cover'
             },
             {
                 id     : 'hidden-forms-demo',
                 name   : 'Hidden Forms Demo',
                 family : 'forms',
                 hidden : true,
+                image  : 'devmode/forms.png',
                 feature: 'Must not publish an empty family tab'
             }
         ]);
@@ -325,10 +380,10 @@ test.describe('docs SEO generator example family routes (#20727)', () => {
 
         await expect(getPublishedExampleFamilies({examplesPath, root: tempDir})).rejects.toThrow();
 
-        const published = await getPublishedExampleFamilies({examplesPath, examplesTabContainerPath, root: tempDir});
+        const published = await getPublishedExampleFamilies({examplesPath, examplesMainContainerPath, root: tempDir});
         expect(published.map(item => item.route)).toEqual(['/examples/grid']);
 
-        const familyRoutes = await collectExampleFamilyRoutes({examplesPath, examplesTabContainerPath, root: tempDir});
+        const familyRoutes = await collectExampleFamilyRoutes({examplesPath, examplesMainContainerPath, root: tempDir});
         expect(familyRoutes).toEqual([
             {
                 category: 'example-family',
@@ -341,7 +396,7 @@ test.describe('docs SEO generator example family routes (#20727)', () => {
         const seoJson = await getSeoJson({
             blogIndexPath   : path.join(tempDir, 'no-blog.json'),
             examplesPath,
-            examplesTabContainerPath,
+            examplesMainContainerPath,
             learnDir        : path.join(tempDir, 'no-learn'),
             releaseNotesRoot: path.join(tempDir, 'no-notes'),
             releasesPath    : path.join(tempDir, 'no-releases.json'),
@@ -351,10 +406,11 @@ test.describe('docs SEO generator example family routes (#20727)', () => {
         });
 
         expect(seoJson['/examples/grid']).toEqual({
-            title      : 'Neo.mjs Grid & Table Examples',
-            description: 'Explore 1 live Neo.mjs Grid & Table example: Buffered rendering in both directions.',
+            title      : 'JavaScript Data Grid Examples — 100k Rows in a Web Worker | Neo.mjs',
+            description: 'Explore 1 live JavaScript data grid example: Buffered rendering in both directions.',
             schemaType : 'CollectionPage'
         });
+        expect(seoJson['/examples/gantt']).toBeUndefined();
         expect(seoJson['/examples/forms']).toBeUndefined();
         expect(seoJson['/examples/multi-window']).toBeUndefined();
         expect(seoJson['/examples/calendar']).toBeUndefined();
@@ -365,7 +421,7 @@ test.describe('docs SEO generator example family routes (#20727)', () => {
             baseUrl       : 'https://neomjs.com/',
             corpusRoot,
             examplesPath,
-            examplesTabContainerPath,
+            examplesMainContainerPath,
             includeLastmod: false,
             releaseNotesRoot
         };
@@ -1082,8 +1138,8 @@ test.describe('docs SEO generator #20915: git lastmod fallback and sitemap-core 
         expect(hasReliableGitHistory(noGitRoot)).toBe(false);
 
         await fs.copy(
-            path.resolve(process.cwd(), 'apps/portal/view/examples/TabContainer.mjs'),
-            path.join(noGitRoot, 'apps/portal/view/examples/TabContainer.mjs')
+            path.resolve(process.cwd(), 'apps/portal/view/examples/MainContainer.mjs'),
+            path.join(noGitRoot, 'apps/portal/view/examples/MainContainer.mjs')
         );
         await fs.outputFile(
             path.join(noGitRoot, 'learn/benefits/Introduction.md'),
@@ -1100,7 +1156,7 @@ test.describe('docs SEO generator #20915: git lastmod fallback and sitemap-core 
             data: [{id: 'blog/json-ld-xss', isLeaf: true, name: 'JSON-LD XSS', path: 'learn/blog/json-ld-xss.md'}]
         });
         await fs.outputJson(path.join(noGitRoot, 'apps/portal/resources/data/examples.json'), [
-            {id: 'grid-big-data', name: 'Big Data Grid', family: 'grid-table', feature: 'Buffered rendering'}
+            {id: 'grid-big-data', name: 'Big Data Grid', family: 'grid-table', image: 'devmode/grid-big-data.png', urls: {dist_prod: 'dist/production/examples/grid/bigData/index.html'}, feature: 'Buffered rendering'}
         ]);
         await fs.outputFile(
             path.join(releaseNotesRoot, 'v13.4.0.md'),
@@ -1620,5 +1676,103 @@ test.describe('docs SEO generator #20919: News hub routes and SharedWorker WebSo
         expect(sharedWorkerPost.description.length).toBeLessThanOrEqual(160);
         expect(sharedWorkerPost.title).not.toMatch(/\bframework\b/i);
         expect(sharedWorkerPost.description).not.toMatch(/\bframework\b/i);
+    });
+
+    test('collectExampleRoutes and getSeoJson exclude testbeds/opt-outs, qualify standalone metadata, and prevent duplicate standalone titles (#21169)', async () => {
+        const rootDir      = process.cwd();
+        const isolatedRoot = path.join(tempDir, 'standalone-seo');
+        const seoJsonPath  = path.join(isolatedRoot, 'apps/portal/resources/data/seo.json');
+        const examplesPath = path.join(isolatedRoot, 'apps/portal/resources/data/examples.json');
+
+        await fs.outputFile(path.join(isolatedRoot, 'apps/portal/index.html'), '<!DOCTYPE html><html><head><title>Portal</title></head></html>');
+        await fs.outputFile(path.join(isolatedRoot, 'apps/ai/neural-link/index.html'), '<!DOCTYPE html><html><head><title>Neo.mjs Neural Link Testbed</title></head></html>');
+        await fs.outputFile(path.join(isolatedRoot, 'examples/dashboard/crossWindowWitness/index.html'), '<!DOCTYPE html><html><head><title>#15065 Cross-Window Witness</title></head></html>');
+        await fs.outputFile(path.join(isolatedRoot, 'apps/route/index.html'), '<!DOCTYPE html><html><head><title>Route</title></head></html>');
+        await fs.outputJson(path.join(isolatedRoot, 'apps/route/neo-config.json'), {seo: false});
+        await fs.outputFile(path.join(isolatedRoot, 'apps/sharedcovid/index.html'), '<!DOCTYPE html><html><head><title>Shared Covid</title></head></html>');
+        await fs.outputFile(path.join(isolatedRoot, 'examples/panel/index.html'), '<!DOCTYPE html><html><head><title>Neo Panels</title></head></html>');
+        await fs.outputFile(
+            path.join(isolatedRoot, 'examples/grid/bigData/index.html'),
+            '<!DOCTYPE html><html><head><title>JavaScript Data Grid — 100k Rows | Neo.mjs</title><meta name="description" content="Explicit big data description."></head></html>'
+        );
+        const fixtureCatalog = [
+            {
+                id           : 'shared-covid',
+                name         : 'Multi Window Covid App',
+                feature      : 'Historical country data can move into its own window',
+                lookFor      : 'Maximize Historical Data to open the chart popup.',
+                sharedWorkers: true,
+                urls         : {devmode: 'apps/sharedcovid/index.html?view=chart#mainview=table'}
+            },
+            {
+                id     : 'panel-demo',
+                name   : 'Panels',
+                feature: 'Switchable Neo.panel.Container headers in a worker thread',
+                lookFor: 'Click header tools to collapse panels.',
+                urls   : {devmode: 'examples/panel/index.html'}
+            }
+        ];
+        await fs.outputJson(examplesPath, fixtureCatalog);
+
+        const routes = await collectExampleRoutes(isolatedRoot);
+        expect(routes.map(route => route.id)).toEqual([
+            '/apps/sharedcovid/index.html',
+            '/examples/grid/bigData/index.html',
+            '/examples/panel/index.html'
+        ]);
+
+        const fixtureSeo = await getSeoJson({
+            blogIndexPath    : path.join(isolatedRoot, 'no-blog.json'),
+            examplesPath,
+            familyDefinitions: [],
+            learnDir         : path.join(isolatedRoot, 'no-learn'),
+            releaseNotesRoot : path.join(isolatedRoot, 'no-notes'),
+            releasesPath     : path.join(isolatedRoot, 'no-releases.json'),
+            root             : isolatedRoot,
+            seoJsonPath,
+            treeFilePath     : path.join(isolatedRoot, 'no-tree.json')
+        });
+
+        expect(fixtureSeo['/apps/ai/neural-link/index.html']).toBeUndefined();
+        expect(fixtureSeo['/examples/dashboard/crossWindowWitness/index.html']).toBeUndefined();
+        expect(fixtureSeo['/apps/route/index.html']).toBeUndefined();
+        expect(fixtureSeo['/apps/sharedcovid/index.html']).toEqual({
+            title      : 'Shared Covid — Multi-Window JavaScript Demo | Neo.mjs',
+            description: 'Historical country data can move into its own window. Maximize Historical Data to open the chart popup.',
+            schemaType : 'WebPage'
+        });
+        expect((await fs.readJSON(examplesPath))[0].urls.devmode).toBe('apps/sharedcovid/index.html?view=chart#mainview=table');
+        expect(fixtureSeo['/examples/grid/bigData/index.html']).toEqual({
+            title      : 'JavaScript Data Grid — 100k Rows | Neo.mjs',
+            description: 'Explicit big data description.',
+            schemaType : 'WebPage'
+        });
+        expect(fixtureSeo['/examples/panel/index.html']).toEqual({
+            title      : 'Panels — Web Worker JavaScript UI Demo | Neo.mjs',
+            description: 'Switchable Neo.panel.Container headers in a worker thread. Click header tools to collapse panels.',
+            schemaType : 'WebPage'
+        });
+
+        // Verify live repo standalone titles, opt-outs, and catalog caption joins
+        const repoRoutes  = await collectExampleRoutes(rootDir);
+        const repoIds     = new Set(repoRoutes.map(route => route.id));
+        const liveSeoJson = await fs.readJSON(path.resolve(rootDir, 'apps/portal/resources/data/seo.json'));
+
+        expect(repoIds.has('/apps/ai/neural-link/index.html')).toBe(false);
+        expect(repoIds.has('/examples/dashboard/crossWindowWitness/index.html')).toBe(false);
+        for (const optedOutRoute of [
+            '/examples/grid/lockedColumns/index.html',
+            '/examples/tablePerformance/index.html',
+            '/examples/toolbar/paging/index.html'
+        ]) {
+            expect(repoIds.has(optedOutRoute)).toBe(false);
+            expect(liveSeoJson[optedOutRoute]).toBeUndefined();
+            expect(await fs.pathExists(path.resolve(rootDir, optedOutRoute.slice(1)))).toBe(true);
+        }
+        expect(liveSeoJson['/apps/sharedcovid/index.html']?.description).toBe(
+            'A historical country-data chart can move into its own window. Maximise Historical Data, inspect its chart in the popup, then close the popup to return it...'
+        );
+        expect(new Set(repoRoutes.map(route => route.name)).size).toBe(repoRoutes.length);
+        expect(new Set(repoRoutes.map(route => route.sourceTitle)).size).toBe(repoRoutes.length);
     });
 });

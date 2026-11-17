@@ -2,7 +2,9 @@ import {spawn} from 'node:child_process';
 import fs      from 'node:fs';
 import path    from 'node:path';
 
-export const DEVELOPMENT_THEME_BUILD_COMMAND = 'npm run build-themes -- -n -e dev -t all';
+const THEME_BUILD_ARGS = ['run', 'build-themes', '--', '-n', '-e', 'dev', '-t', 'all'];
+
+export const DEVELOPMENT_THEME_BUILD_COMMAND = ['npm', ...THEME_BUILD_ARGS].join(' ');
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '../..');
 
@@ -35,8 +37,8 @@ export function newestMtime(dir, extension) {
 }
 
 /**
- * @summary Converts the canonical non-partial SCSS source tree into the complete development-CSS
- * output census. The builder reads these same `src` + `theme*` roots; the generated theme map is
+ * @summary Converts the canonical theme source tree into the complete development-CSS output
+ * census. The builder reads these same `src` + `theme*` roots; the generated theme map is
  * intentionally not the authority because it is additive and can retain retired class paths.
  * @param {String} [repoRoot] Repository root.
  * @returns {String[]} Repo-relative CSS paths, sorted and deduplicated.
@@ -52,25 +54,23 @@ export function getExpectedDevelopmentCss(repoRoot = REPO_ROOT) {
 
             if (entry.isDirectory()) {
                 visit(fullPath, targetRoot)
-            } else if (entry.name.endsWith('.scss') && !entry.name.startsWith('_')) {
-                const relative = path.relative(targetRoot, fullPath).replace(/\.scss$/, '.css');
-
+            } else if (entry.name.endsWith('.css')) {
                 files.add(path.join(
                     'dist/development/css',
                     path.basename(targetRoot),
-                    relative
+                    path.relative(targetRoot, fullPath)
                 ))
             }
         }
     }
 
-    const scssRoot = path.join(repoRoot, 'resources/scss');
+    const cssRoot = path.join(repoRoot, 'resources/css');
 
-    if (!fs.existsSync(scssRoot)) return [];
+    if (!fs.existsSync(cssRoot)) return [];
 
-    fs.readdirSync(scssRoot, {withFileTypes: true}).forEach(entry => {
+    fs.readdirSync(cssRoot, {withFileTypes: true}).forEach(entry => {
         if (entry.isDirectory() && !entry.isSymbolicLink() && (entry.name === 'src' || entry.name.includes('theme'))) {
-            const targetRoot = path.join(scssRoot, entry.name);
+            const targetRoot = path.join(cssRoot, entry.name);
 
             visit(targetRoot, targetRoot)
         }
@@ -80,11 +80,11 @@ export function getExpectedDevelopmentCss(repoRoot = REPO_ROOT) {
 }
 
 /**
- * @summary Converts the canonical non-partial SCSS source tree into the complete theme-map class
- * census — every class the runtime can ask the map for. Derivation mirrors the builder's
- * `getScssFiles` exactly: dot-joined relative path; the `apps.*` namespace stays top-level,
- * everything else takes the `Neo.` prefix. The map itself is never the census authority: it is
- * additive and can retain retired class paths.
+ * @summary Converts the canonical theme source tree into the complete theme-map class census —
+ * every class the runtime can ask the map for. Derivation mirrors the builder's `getCssFiles`
+ * exactly: dot-joined relative path; the `apps.*` namespace stays top-level, everything else
+ * takes the `Neo.` prefix. The map itself is never the census authority: it is additive and can
+ * retain retired class paths.
  * @param {String} [repoRoot] Repository root.
  * @returns {Object[]} `{className, root}` entries, sorted by className then root.
  */
@@ -99,8 +99,8 @@ export function getExpectedThemeClasses(repoRoot = REPO_ROOT) {
 
             if (entry.isDirectory()) {
                 visit(fullPath, rootName, `${relativePath}/${entry.name}`)
-            } else if (entry.name.endsWith('.scss') && !entry.name.startsWith('_')) {
-                const base     = entry.name.slice(0, -'.scss'.length),
+            } else if (entry.name.endsWith('.css')) {
+                const base     = entry.name.slice(0, -'.css'.length),
                       relative = relativePath === '' ? base : `${relativePath.substring(1)}/${base}`;
 
                 let className = relative.split('/').join('.');
@@ -112,13 +112,13 @@ export function getExpectedThemeClasses(repoRoot = REPO_ROOT) {
         }
     }
 
-    const scssRoot = path.join(repoRoot, 'resources/scss');
+    const cssRoot = path.join(repoRoot, 'resources/css');
 
-    if (!fs.existsSync(scssRoot)) return [];
+    if (!fs.existsSync(cssRoot)) return [];
 
-    fs.readdirSync(scssRoot, {withFileTypes: true}).forEach(entry => {
+    fs.readdirSync(cssRoot, {withFileTypes: true}).forEach(entry => {
         if (entry.isDirectory() && !entry.isSymbolicLink() && (entry.name === 'src' || entry.name.includes('theme'))) {
-            visit(path.join(scssRoot, entry.name), entry.name, '')
+            visit(path.join(cssRoot, entry.name), entry.name, '')
         }
     });
 
@@ -172,24 +172,24 @@ function hasSymlinkSegment(repoRoot, target) {
 
 /**
  * @summary Inspects whether this checkout has a complete, current development theme build.
- * Every non-partial SCSS input must have a local CSS output at least as new as the newest SCSS
- * source. The independently generated theme map is held to the same freshness boundary AND to a
- * completeness boundary: every census class must be present with its source root, or the runtime
- * never requests that stylesheet (a fresh file on disk the map does not reach is unstyled).
+ * Every theme source must have a local CSS output at least as new as the newest source. The
+ * independently generated theme map is held to the same freshness boundary AND to a completeness
+ * boundary: every census class must be present with its source root, or the runtime never
+ * requests that stylesheet (a fresh file on disk the map does not reach is unstyled).
  * @param {Object} [options]
  * @param {String} [options.repoRoot] Repository root to inspect.
  * @returns {{expectedCss: String[], invalidMap: String|null, mapMissing: String[], missing: String[],
- *            newestScss: Number, ready: Boolean, stale: String[], symlinked: String[]}}
+ *            newestSource: Number, ready: Boolean, stale: String[], symlinked: String[]}}
  */
 export function inspectDevelopmentThemeAssets({repoRoot = REPO_ROOT} = {}) {
     const
-        cssRoot    = path.join(repoRoot, 'dist/development/css'),
-        mapPath    = path.join(repoRoot, 'resources/theme-map.json'),
-        newestScss = newestMtime(path.join(repoRoot, 'resources/scss'), '.scss'),
-        mapMissing = [],
-        missing    = [],
-        stale      = [],
-        symlinked  = [];
+        cssRoot      = path.join(repoRoot, 'dist/development/css'),
+        mapPath      = path.join(repoRoot, 'resources/theme-map.json'),
+        newestSource = newestMtime(path.join(repoRoot, 'resources/css'), '.css'),
+        mapMissing   = [],
+        missing      = [],
+        stale        = [],
+        symlinked    = [];
 
     let expectedCss = getExpectedDevelopmentCss(repoRoot),
         invalidMap  = null,
@@ -239,8 +239,8 @@ export function inspectDevelopmentThemeAssets({repoRoot = REPO_ROOT} = {}) {
         symlinked.push('dist/development/css')
     }
 
-    if (mapStat?.mtimeMs < newestScss) stale.push('resources/theme-map.json');
-    if (expectedCss.length === 0) invalidMap ??= 'SCSS source tree contains no buildable theme files';
+    if (mapStat?.mtimeMs < newestSource) stale.push('resources/theme-map.json');
+    if (expectedCss.length === 0) invalidMap ??= 'theme source tree contains no buildable theme files';
 
     expectedCss.forEach(relativePath => {
         const absolutePath = path.join(repoRoot, relativePath);
@@ -255,7 +255,7 @@ export function inspectDevelopmentThemeAssets({repoRoot = REPO_ROOT} = {}) {
 
             if (!stat.isFile()) {
                 missing.push(relativePath)
-            } else if (stat.mtimeMs < newestScss) {
+            } else if (stat.mtimeMs < newestSource) {
                 stale.push(relativePath)
             }
         } catch {
@@ -268,8 +268,8 @@ export function inspectDevelopmentThemeAssets({repoRoot = REPO_ROOT} = {}) {
         invalidMap,
         mapMissing,
         missing  : [...new Set(missing)].sort(),
-        newestScss,
-        ready    : newestScss > 0 && !invalidMap && mapMissing.length === 0 && missing.length === 0 && stale.length === 0 && symlinked.length === 0,
+        newestSource,
+        ready    : newestSource > 0 && !invalidMap && mapMissing.length === 0 && missing.length === 0 && stale.length === 0 && symlinked.length === 0,
         stale    : [...new Set(stale)].sort(),
         symlinked: [...new Set(symlinked)].sort()
     }
@@ -285,11 +285,12 @@ export function runDevelopmentThemeBuild({repoRoot = REPO_ROOT} = {}) {
     const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
     return new Promise((resolve, reject) => {
-        const child = spawn(
-            npmCommand,
-            ['run', 'build-themes', '--', '-n', '-e', 'dev', '-t', 'all'],
-            {cwd: repoRoot, stdio: 'inherit'}
-        );
+        // A Windows shell plus a separate argument array is the DEP0190 shape: every supported Node
+        // runtime deprecates it, and a runtime that treats deprecations as errors kills the build. The
+        // fixed command already exists as one string, so the shell receives that and no argument array.
+        const child = process.platform === 'win32'
+            ? spawn(DEVELOPMENT_THEME_BUILD_COMMAND, {cwd: repoRoot, stdio: 'inherit', shell: true})
+            : spawn(npmCommand, THEME_BUILD_ARGS, {cwd: repoRoot, stdio: 'inherit'});
 
         child.once('error', error => reject(new Error(
             `Development theme preflight could not run \`${DEVELOPMENT_THEME_BUILD_COMMAND}\`: ${error.message}`

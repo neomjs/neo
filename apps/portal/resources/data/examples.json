@@ -2,6 +2,7 @@
     {
         "id": "workstation",
         "family": "multi-window",
+        "alsoIn": ["apps"],
         "component": "Dock Workspace",
         "feature": "A living-data workspace whose panes can leave the browser window",
         "lookFor": "Pop out the 100k Matrix tab, use it in its own window, then close that window to bring it back.",
@@ -24,6 +25,7 @@
     },
     {
         "id": "webdesktop",
+        "family": "apps",
         "component": "State Provider",
         "feature": "A desktop whose icons, menus and windows follow the signed-in account's permissions through one store filter",
         "lookFor": "Sign in as two accounts and compare the apps they get. Double-click an icon to open its window, then open Permissions and switch that app off: its icon, its menu entry and its window go.",
@@ -46,6 +48,7 @@
     },
     {
         "id": "devindex",
+        "family": "apps",
         "featured": true,
         "environments": [
             "Desktop",
@@ -72,7 +75,7 @@
             "Desktop",
             "Mobile"
         ],
-        "image": "devmode/treeGridBigData.png",
+        "image": "devmode/grid-tree-big-data-14.jpg",
         "name": "TreeGrid - Big Data",
         "sourceUrl": "examples/grid/treeBigData",
         "urls": {
@@ -84,12 +87,13 @@
         "hiddenIn": [],
         "family": "grid-table",
         "component": "Grid",
-        "feature": "A tree hierarchy at scale: up to 100,000 rows, 200 columns and 20 levels",
-        "lookFor": "Open the ☰ panel, raise rows and depth, then expand all; filter by name and toggle helper lines or value bands."
+        "feature": "An organization of 20,000 people and units as a tree grid, up to 100,000 rows, 200 columns and 20 levels",
+        "lookFor": "Open a squad to its people, give kudos from a cell, then raise rows and depth in ☰ and expand all; filter by first name."
     },
     {
         "id": "shared-covid",
         "family": "multi-window",
+        "alsoIn": ["apps"],
         "component": "Shared Views",
         "feature": "A historical country-data chart can move into its own window",
         "lookFor": "Maximise Historical Data, inspect its chart in the popup, then close the popup to return it beside the table.",
@@ -114,8 +118,8 @@
             "Desktop",
             "Mobile"
         ],
-        "image": "devmode/bigData.png",
-        "name": "Buffered Data Grid with 5M cells",
+        "image": "devmode/grid-big-data-14.jpg",
+        "name": "Data Grid: 100k Rows & 200 Columns",
         "sourceUrl": "examples/grid/bigData",
         "urls": {
             "devmode": "examples/grid/bigData/index.html",
@@ -126,8 +130,8 @@
         "hiddenIn": [],
         "family": "grid-table",
         "component": "Grid",
-        "feature": "Buffered rendering in both directions, configurable up to 100,000 rows × 200 columns",
-        "lookFor": "Open the ☰ panel, raise rows and columns, then scroll both ways; filter by name and press a counter button inside a cell."
+        "feature": "Opens at 20,000 × 50 and scales to 100,000 × 200, row-buffered, data in a Web Worker",
+        "lookFor": "Read the size below the rows, raise rows and columns in ☰ Settings, then scroll both ways and press a button in a cell."
     },
     {
         "id": "grid-issues",
@@ -136,7 +140,7 @@
             "Desktop",
             "Mobile"
         ],
-        "image": "devmode/grid-issues-13-3.jpg",
+        "image": "devmode/grid-issues-14.jpg",
         "name": "GitHub Issues Grid",
         "sourceUrl": "examples/grid/issues",
         "urls": {
@@ -190,6 +194,9 @@
     },
     {
         "id": "helix",
+        "family": "lists",
+        "feature": "Image items on a 3D helix that you reshape live",
+        "lookFor": "Scroll over the helix, then change Radius and Perspective in Helix Controls.",
         "featured": true,
         "image": "devmode/helix.png",
         "name": "component.Helix",
@@ -224,6 +231,11 @@
     },
     {
         "id": "offscreen-canvas",
+        "family": "platform",
+        "alsoIn": ["charts"],
+        "feature": "A chart of up to a million points, drawn in a canvas worker",
+        "lookFor": "Choose 1,000,000 items, then press Stop Main: the toolbar clock stops while the chart keeps moving.",
+        "scope": "External demo. Requires OffscreenCanvas and WebGL support.",
         "featured": true,
         "image": "devmode/offscreenCanvas.png",
         "name": "OffscreenCanvas",
@@ -245,6 +257,7 @@
     {
         "id": "shared-offscreen-canvas",
         "family": "multi-window",
+        "alsoIn": ["platform"],
         "component": "OffscreenCanvas",
         "feature": "A rendered canvas moves into a second browser window",
         "lookFor": "Press Move Canvas and find the colored point scene in the popup.",
@@ -264,6 +277,7 @@
     {
         "id": "multi-window-drag-drop",
         "family": "multi-window",
+        "alsoIn": ["apps", "drag-drop"],
         "component": "Dialog",
         "feature": "A draggable dialog can move into a second browser window",
         "lookFor": "Open the docked window, create a dialog and drag its header across into the other window.",
@@ -283,6 +297,9 @@
     },
     {
         "id": "tab-container",
+        "family": "tabs",
+        "feature": "Tab buttons whose text, icon, color and badge change live",
+        "lookFor": "Type a new Tab 1 text and a badgeText, then pick another badgePosition.",
         "featured": true,
         "image": "devmode/tabContainer.png",
         "name": "tab.Container",
@@ -297,6 +314,9 @@
     },
     {
         "id": "state-provider",
+        "family": "state",
+        "feature": "Nested state providers bind button texts through the formatters shown beside them",
+        "lookFor": "Edit data.button2Text and watch both buttons follow: the first reads from two providers. Then press Add a third button & textfield.",
         "featured": true,
         "image": "devmode/model-component-example.png",
         "name": "State Provider Example",
@@ -311,6 +331,10 @@
     },
     {
         "id": "dialog-drag-drop",
+        "family": "dialogs",
+        "alsoIn": ["drag-drop"],
+        "feature": "Dialogs that drag by their header and open further dialogs",
+        "lookFor": "Press Create Dialog, drag the dialog by its header, then create a second one from inside it.",
         "featured": true,
         "image": "devmode/dragdrop.png",
         "name": "Dialog drag&drop",
@@ -326,6 +350,7 @@
     {
         "id": "colors-dashboard",
         "family": "multi-window",
+        "alsoIn": ["apps"],
         "component": "Dashboard",
         "feature": "The dashboard's color grid keeps updating in its own window",
         "lookFor": "Press Grid to detach it, press Start and watch the popup update; close it to return the grid.",
@@ -345,6 +370,7 @@
     },
     {
         "id": "covid-dashboard",
+        "family": "apps",
         "featured": true,
         "image": "devmode/covidDashboard.png",
         "name": "Covid Dashboard",
@@ -362,6 +388,10 @@
     },
     {
         "id": "covid-helix",
+        "family": "lists",
+        "feature": "COVID country statistics on a 3D helix, sorted by the figure you pick",
+        "lookFor": "Under Sort By, choose Deaths and watch the countries reorder along the helix.",
+        "scope": "Uses a static COVID data snapshot hosted on Pages.",
         "featured": true,
         "image": "devmode/coronaHelix.png",
         "name": "COVID-19 Helix",
@@ -376,6 +406,10 @@
     },
     {
         "id": "covid-gallery",
+        "family": "lists",
+        "feature": "COVID country statistics in a 3D gallery, sorted by the figure you pick",
+        "lookFor": "Under Sort By, choose Deaths, then raise Amount Rows in Gallery Controls.",
+        "scope": "Uses a static COVID data snapshot hosted on Pages.",
         "featured": true,
         "image": "devmode/coronaGallery.png",
         "name": "COVID-19 Gallery",
@@ -390,6 +424,9 @@
     },
     {
         "id": "gallery",
+        "family": "lists",
+        "feature": "Image items in a 3D gallery that you reshape live",
+        "lookFor": "Raise Amount Rows in Gallery Controls until the wall fills the window, then press Order by Row.",
         "featured": true,
         "image": "devmode/gallery.png",
         "name": "component.Gallery",
@@ -405,7 +442,7 @@
     {
         "id": "table-filtering",
         "featured": true,
-        "image": "devmode/tableFiltering.png",
+        "image": "devmode/table-filtering-14.jpg",
         "name": "Table Filtering",
         "sourceUrl": "examples/tableFiltering",
         "urls": {
@@ -476,6 +513,7 @@
     },
     {
         "id": "portal",
+        "family": "apps",
         "featured": true,
         "environments": [
             "Desktop",
@@ -497,6 +535,10 @@
     },
     {
         "id": "liquid-glass",
+        "family": "components",
+        "feature": "A liquid glass panel that bends the photo beneath it as it drifts",
+        "lookFor": "Watch the glass panel cross the room photo and distort what lies under it.",
+        "scope": "External demo.",
         "featured": true,
         "image": "devmode/liquid-glass.png",
         "name": "Liquid Glass effect",
@@ -513,7 +555,7 @@
     },
     {
         "id": "grid-animated-row-sorting",
-        "image": null,
+        "image": "devmode/grid-animated-row-sorting-14.jpg",
         "name": "Animated Row Sorting",
         "sourceUrl": "examples/grid/animatedRowSorting",
         "urls": {
@@ -530,7 +572,7 @@
     },
     {
         "id": "grid-cell-editing",
-        "image": null,
+        "image": "devmode/grid-cell-editing-14.jpg",
         "name": "Grid Cell Editing",
         "sourceUrl": "examples/grid/cellEditing",
         "urls": {
@@ -542,12 +584,12 @@
         "hiddenIn": [],
         "family": "grid-table",
         "component": "Grid",
-        "feature": "Typed cell editors",
-        "lookFor": "Edit text, a stepped number, date or country; compare the protected GitHub ID and switch selection modes."
+        "feature": "An order sheet with typed editors, a refused quantity and a calculated line total",
+        "lookFor": "Double-click or press Enter to edit, Tab to move on. A quantity over 50 is refused, and the line total follows each edit."
     },
     {
         "id": "grid-container",
-        "image": null,
+        "image": "devmode/grid-container-14.jpg",
         "name": "Grid Selection Modes",
         "sourceUrl": "examples/grid/container",
         "urls": {
@@ -564,7 +606,7 @@
     },
     {
         "id": "grid-content-sized-rows",
-        "image": null,
+        "image": "devmode/grid-content-sized-rows-14.jpg",
         "name": "Content-Sized Grid Rows",
         "sourceUrl": "examples/grid/contentSizedRows",
         "urls": {
@@ -580,26 +622,60 @@
         "lookFor": "Toggle content-sized rows, edit a summary, filter, or jump through 10,000 records; scroll to the wrapped Details column."
     },
     {
-        "id": "grid-covid",
-        "image": null,
-        "name": "COVID-19 Country Grid",
-        "sourceUrl": "examples/grid/covid",
+        "id": "grid-countries",
+        "image": "devmode/grid-countries-14.jpg",
+        "name": "Country Statistics Grid",
+        "sourceUrl": "examples/grid/countries",
         "urls": {
-            "devmode": "examples/grid/covid/index.html",
-            "dist_dev": "dist/development/examples/grid/covid/index.html",
-            "dist_esm": "dist/esm/examples/grid/covid/index.html",
-            "dist_prod": "dist/production/examples/grid/covid/index.html"
+            "devmode": "examples/grid/countries/index.html",
+            "dist_dev": "dist/development/examples/grid/countries/index.html",
+            "dist_esm": "dist/esm/examples/grid/countries/index.html",
+            "dist_prod": "dist/production/examples/grid/countries/index.html"
         },
         "hiddenIn": [],
         "family": "grid-table",
         "component": "Grid",
-        "feature": "API-loaded country statistics",
-        "lookFor": "Sort formatted numeric columns and compare country flags and colored measures.",
-        "scope": "Loads statistics from an external API; availability and data freshness depend on that service."
+        "feature": "217 economies from a World Bank dataset shipped with the example, with flags, formatted figures and growth tinted by value",
+        "lookFor": "Sort by any figure: growth turns green or red, rank and country stay in place, and the arrow keys move the selection.",
+        "scope": "Shows the World Bank's latest indicators (CC BY 4.0) as retrieved on 17 Nov 2026; the flags load from an outside image host."
+    },
+    {
+        "id": "grid-filtering",
+        "image": "devmode/grid-filtering-14.jpg",
+        "name": "Grid Header Filters",
+        "sourceUrl": "examples/grid/filtering",
+        "urls": {
+            "devmode": "examples/grid/filtering/index.html",
+            "dist_dev": "dist/development/examples/grid/filtering/index.html",
+            "dist_esm": "dist/esm/examples/grid/filtering/index.html",
+            "dist_prod": "dist/production/examples/grid/filtering/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "component": "Grid",
+        "feature": "Five typed filters in the column headers: text, ComboBox, amount, date and status",
+        "lookFor": "Pick a category and compare an amount: the count says how many of 10,000 orders stay, and Reset clears every field."
+    },
+    {
+        "id": "grid-export",
+        "image": "devmode/grid-export-14.jpg",
+        "name": "Grid CSV Export",
+        "sourceUrl": "examples/grid/export",
+        "urls": {
+            "devmode": "examples/grid/export/index.html",
+            "dist_dev": "dist/development/examples/grid/export/index.html",
+            "dist_esm": "dist/esm/examples/grid/export/index.html",
+            "dist_prod": "dist/production/examples/grid/export/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "component": "Grid",
+        "feature": "CSV export of the filtered and sorted rows with toCsv() and exportCsv()",
+        "lookFor": "Filter and sort 300 invoices, show the CSV beside the grid, switch to semicolons, then download it."
     },
     {
         "id": "grid-header-groups",
-        "image": null,
+        "image": "devmode/grid-header-groups-14.jpg",
         "name": "Grouped Grid Headers",
         "sourceUrl": "examples/grid/headerGroups",
         "urls": {
@@ -616,24 +692,24 @@
     },
     {
         "id": "grid-locked-columns",
-        "image": null,
-        "name": "Locked Grid Columns",
-        "sourceUrl": "examples/grid/lockedColumns",
+        "image": "devmode/grid-locked-columns-14.jpg",
+        "name": "Pinned Grid Columns",
+        "sourceUrl": "examples/grid/pinnedColumns",
         "urls": {
-            "devmode": "examples/grid/lockedColumns/index.html",
-            "dist_dev": "dist/development/examples/grid/lockedColumns/index.html",
-            "dist_esm": "dist/esm/examples/grid/lockedColumns/index.html",
-            "dist_prod": "dist/production/examples/grid/lockedColumns/index.html"
+            "devmode": "examples/grid/pinnedColumns/index.html",
+            "dist_dev": "dist/development/examples/grid/pinnedColumns/index.html",
+            "dist_esm": "dist/esm/examples/grid/pinnedColumns/index.html",
+            "dist_prod": "dist/production/examples/grid/pinnedColumns/index.html"
         },
         "hiddenIn": [],
         "family": "grid-table",
         "component": "Grid",
-        "feature": "Columns locked at both edges",
-        "lookFor": "Scroll the wide center while identity columns stay at the start and Updated stays at the end."
+        "feature": "Columns pinned with locked: product and region at the start, the total at the end",
+        "lookFor": "Scroll sideways through 36 months: product, region and total stay; the arrow keys move the selection."
     },
     {
         "id": "grid-nested-record-fields",
-        "image": null,
+        "image": "devmode/grid-nested-record-fields-14.jpg",
         "name": "Nested Grid Records",
         "sourceUrl": "examples/grid/nestedRecordFields",
         "urls": {
@@ -650,7 +726,7 @@
     },
     {
         "id": "grid-tree",
-        "image": null,
+        "image": "devmode/grid-tree-14.jpg",
         "name": "Tree Grid",
         "sourceUrl": "examples/grid/tree",
         "urls": {
@@ -667,7 +743,7 @@
     },
     {
         "id": "grid-value-banding",
-        "image": null,
+        "image": "devmode/grid-value-banding-14.jpg",
         "name": "Grid Value Banding",
         "sourceUrl": "examples/grid/valueBanding",
         "urls": {
@@ -679,47 +755,12 @@
         "hiddenIn": [],
         "family": "grid-table",
         "component": "Grid",
-        "feature": "Bands for repeated values",
-        "lookFor": "Toggle Department value bands and compare them with striped rows; Country banding stays on."
-    },
-    {
-        "id": "json-grid-container",
-        "image": null,
-        "name": "JSON-Defined Grid",
-        "sourceUrl": "examples/serverside/gridContainer",
-        "urls": {
-            "devmode": "examples/serverside/gridContainer/index.html",
-            "dist_dev": "dist/development/examples/serverside/gridContainer/index.html",
-            "dist_esm": "dist/esm/examples/serverside/gridContainer/index.html",
-            "dist_prod": "dist/production/examples/serverside/gridContainer/index.html"
-        },
-        "hiddenIn": [],
-        "family": "grid-table",
-        "component": "Grid",
-        "feature": "Grid configuration loaded on demand",
-        "lookFor": "Click Load Grid Container to create the grid from a fetched configuration document.",
-        "scope": "Loads a static JSON configuration with inline records; this example does not use a server-side row model."
-    },
-    {
-        "id": "table-cell-editing",
-        "image": null,
-        "name": "Table Cell Editing",
-        "sourceUrl": "examples/table/cellEditing",
-        "urls": {
-            "devmode": "examples/table/cellEditing/index.html",
-            "dist_dev": "dist/development/examples/table/cellEditing/index.html",
-            "dist_esm": "dist/esm/examples/table/cellEditing/index.html",
-            "dist_prod": "dist/production/examples/table/cellEditing/index.html"
-        },
-        "hiddenIn": [],
-        "family": "grid-table",
-        "component": "Table",
-        "feature": "Typed editors in a table",
-        "lookFor": "Edit text, number, date and country cells; test the non-editable GitHub ID and disable editing."
+        "feature": "Country and department value banding",
+        "lookFor": "Compare unequal country bands in a fictional staff directory. Enable Department banding for a second level, or switch on alternating row stripes."
     },
     {
         "id": "table-container",
-        "image": null,
+        "image": "devmode/table-container-14.jpg",
         "name": "Table Configuration",
         "sourceUrl": "examples/table/container",
         "urls": {
@@ -733,75 +774,6 @@
         "component": "Table",
         "feature": "Selection modes and embedded controls",
         "lookFor": "Switch selection models, toggle fit width or column dragging, and open a cell menu."
-    },
-    {
-        "id": "table-covid",
-        "image": null,
-        "name": "COVID-19 Country Table",
-        "sourceUrl": "examples/table/covid",
-        "urls": {
-            "devmode": "examples/table/covid/index.html",
-            "dist_dev": "dist/development/examples/table/covid/index.html",
-            "dist_esm": "dist/esm/examples/table/covid/index.html",
-            "dist_prod": "dist/production/examples/table/covid/index.html"
-        },
-        "hiddenIn": [],
-        "family": "grid-table",
-        "component": "Table",
-        "feature": "API-loaded country statistics",
-        "lookFor": "Compare formatted statistics, country flags and colored values in the Table implementation.",
-        "scope": "Loads statistics from an external API; availability and data freshness depend on that service."
-    },
-    {
-        "id": "table-nested-record-fields",
-        "image": null,
-        "name": "Nested Table Records",
-        "sourceUrl": "examples/table/nestedRecordFields",
-        "urls": {
-            "devmode": "examples/table/nestedRecordFields/index.html",
-            "dist_dev": "dist/development/examples/table/nestedRecordFields/index.html",
-            "dist_esm": "dist/esm/examples/table/nestedRecordFields/index.html",
-            "dist_prod": "dist/production/examples/table/nestedRecordFields/index.html"
-        },
-        "hiddenIn": [],
-        "family": "grid-table",
-        "component": "Table",
-        "feature": "Nested record editing",
-        "lookFor": "Use a row's Edit button to change nested names and country, then observe modified-cell highlighting."
-    },
-    {
-        "id": "table-store",
-        "image": null,
-        "name": "Table and Store Updates",
-        "sourceUrl": "examples/tableStore",
-        "urls": {
-            "devmode": "examples/tableStore/index.html",
-            "dist_dev": "dist/development/examples/tableStore/index.html",
-            "dist_esm": "dist/esm/examples/tableStore/index.html",
-            "dist_prod": "dist/production/examples/tableStore/index.html"
-        },
-        "hiddenIn": [],
-        "family": "grid-table",
-        "component": "Table",
-        "feature": "Reactive Store updates",
-        "lookFor": "Change one cell or update every cell repeatedly; sort and drag headers, reset sorting, and switch selection modes."
-    },
-    {
-        "id": "table-performance",
-        "image": null,
-        "name": "Table Refresh Performance",
-        "sourceUrl": "examples/tablePerformance",
-        "urls": {
-            "devmode": "examples/tablePerformance/index.html",
-            "dist_dev": "dist/development/examples/tablePerformance/index.html",
-            "dist_esm": "dist/esm/examples/tablePerformance/index.html",
-            "dist_prod": "dist/production/examples/tablePerformance/index.html"
-        },
-        "hiddenIn": [],
-        "family": "grid-table",
-        "component": "Table",
-        "feature": "Repeated table-data replacement",
-        "lookFor": "Set row counts and refresh intervals across three tables; compare docked-column arrangements and scrollbar styles."
     },
     {
         "id": "checkbox-field",
@@ -1122,7 +1094,8 @@
             "dist_prod": "dist/production/examples/layout/form/index.html"
         },
         "hiddenIn": [],
-        "family": "forms",
+        "family": "layouts",
+        "alsoIn": ["forms"],
         "component": "Form",
         "feature": "A form composed by the layout-form layout with shared itemDefaults",
         "lookFor": "Note both fields share the clearable textfield defaults while their labels differ in length."
@@ -1160,13 +1133,31 @@
         },
         "hiddenIn": [],
         "family": "forms",
+        "alsoIn": ["apps"],
         "component": "Form",
         "feature": "A complete form application: 15 pages behind a side navigation",
         "lookFor": "Open pages from the side navigation and step through their fields."
     },
     {
-        "id": "gantt-basic",
+        "id": "board-basic",
         "image": null,
+        "name": "Sprint Board",
+        "sourceUrl": "examples/board/basic",
+        "urls": {
+            "devmode": "examples/board/basic/index.html",
+            "dist_dev": "dist/development/examples/board/basic/index.html",
+            "dist_esm": "dist/esm/examples/board/basic/index.html",
+            "dist_prod": "dist/production/examples/board/basic/index.html"
+        },
+        "hiddenIn": [],
+        "family": "board",
+        "component": "Board",
+        "feature": "A kanban board and a table over one store of cards",
+        "lookFor": "Drag a card to another column, and the table beside the board shows its new status."
+    },
+    {
+        "id": "gantt-basic",
+        "image": "devmode/gantt-basic-14.jpg",
         "name": "Community Garden Plan",
         "sourceUrl": "examples/gantt/basic",
         "urls": {
@@ -1176,14 +1167,14 @@
             "dist_prod": "dist/production/examples/gantt/basic/index.html"
         },
         "hiddenIn": [],
-        "family": "calendar",
+        "family": "gantt",
         "component": "Gantt",
         "feature": "A project plan with linked, editable tasks",
         "lookFor": "Move a task and follow its dependencies. Create a link, then reload to see the saved plan."
     },
     {
         "id": "scheduler-basic",
-        "image": null,
+        "image": "devmode/scheduler-basic-14.jpg",
         "name": "Studio Bookings",
         "sourceUrl": "examples/scheduler/basic",
         "urls": {
@@ -1193,7 +1184,7 @@
             "dist_prod": "dist/production/examples/scheduler/basic/index.html"
         },
         "hiddenIn": [],
-        "family": "calendar",
+        "family": "scheduler",
         "component": "Scheduler",
         "feature": "Resource bookings on an editable timeline",
         "lookFor": "Move a booking to another studio or time. Reload after it saves to see the same booking in its new slot."
@@ -1210,14 +1201,14 @@
             "dist_prod": "dist/production/examples/timeline/basic/index.html"
         },
         "hiddenIn": [],
-        "family": "calendar",
+        "family": "timeline",
         "component": "Timeline",
         "feature": "A plain grid mounting the timeline column with interval bars",
         "lookFor": "Click Shift to advance the interval by one hour and watch the bar follow the record change."
     },
     {
         "id": "dock-choreography",
-        "family": "multi-window",
+        "family": "dashboard",
         "component": "Dock Workspace",
         "feature": "A scripted layout tour splits, groups and auto-hides live panes",
         "lookFor": "Press Tour and watch the editor clock keep ticking as the panes rearrange.",
@@ -1240,7 +1231,7 @@
     {
         "id": "dock-layouts",
         "name": "Dock Layouts",
-        "family": "multi-window",
+        "family": "dashboard",
         "component": "Dock Workspace",
         "feature": "Named perspectives rearrange the same dock panes",
         "lookFor": "Switch from Operator to Review and watch the split proportions and active pane change.",
@@ -1258,7 +1249,8 @@
     {
         "id": "dock-cross-window",
         "name": "Dock Perspectives and Pop-outs",
-        "family": "multi-window",
+        "family": "dashboard",
+        "alsoIn": ["multi-window"],
         "component": "Dock Workspace",
         "feature": "A live workbench travels between windows without restarting its counter",
         "lookFor": "Press Tour and follow Workbench into the popup and home again as its counter keeps running.",
@@ -1276,7 +1268,8 @@
     {
         "id": "dock-tear-out",
         "name": "Dock Pane Pop-out",
-        "family": "multi-window",
+        "family": "dashboard",
+        "alsoIn": ["multi-window", "drag-drop"],
         "component": "Dock Workspace",
         "feature": "A Notes pane keeps its draft when it moves to a separate window",
         "lookFor": "Type a draft in Notes, use its pop-out action, then close the popup and find the draft back in Notes.",
@@ -1329,6 +1322,7 @@
     },
     {
         "id": "realworld",
+        "family": "apps",
         "image": "devmode/realworldApp.png",
         "name": "RealWorld App",
         "sourceUrl": "apps/realworld",
@@ -1347,6 +1341,7 @@
     },
     {
         "id": "realworld-v2",
+        "family": "apps",
         "image": "devmode/realworldApp2.png",
         "name": "RealWorld App v2</br>(in progress)",
         "sourceUrl": "apps/realworld2",

@@ -7,19 +7,20 @@ import isEntryModule        from '../../util/isEntryModule.mjs';
 import {requireContentRoot} from '../../util/contentRoot.mjs';
 import {sanitizeInput}      from '../../util/sanitizer.mjs';
 import {
-    TOP_LEVEL_SOURCE_PATHS, chunkArray, collectExampleFamilyRoutes, collectExampleRoutes,
-    extractExampleFamilyDefinitions, extractFrontmatterDateOnly, extractFrontmatterField,
+    NON_INDEXABLE_STANDALONE_PATHS, TOP_LEVEL_SOURCE_PATHS, chunkArray, collectExampleFamilyRoutes,
+    collectExampleRoutes, extractExampleFamilyDefinitions, extractFrontmatterDateOnly, extractFrontmatterField,
     extractMarkdownSeoMetadata, extractPortalIndexMetadata, formatLastmodDate, formatLearnSeoTitle,
-    getChangedGitPaths, getChangedLastmod, getGitLastModifiedBatch, getGitPath, getMaxReleaseMajor,
-    getPublishedExampleFamilies, getSeoJson, hasReliableGitHistory, isIndexableReleaseVersion,
+    formatStandaloneExampleSeo, getChangedGitPaths, getChangedLastmod, getGitLastModifiedBatch, getGitPath,
+    getMaxReleaseMajor, getPublishedExampleFamilies, getSeoJson, hasReliableGitHistory, isIndexableReleaseVersion,
     isRedirectMarkdown, normalizeIsoDateOnly, resolveLearnTreeLeaves
 } from './seoJson.mjs';
 
 export {
-    TOP_LEVEL_SOURCE_PATHS, collectExampleFamilyRoutes, collectExampleRoutes, extractExampleFamilyDefinitions,
-    extractFrontmatterField, extractMarkdownSeoMetadata, extractPortalIndexMetadata, formatLearnSeoTitle,
-    getMaxReleaseMajor, getPublishedExampleFamilies, getSeoJson, hasReliableGitHistory,
-    isIndexableReleaseVersion, isRedirectMarkdown, resolveLearnTreeLeaves
+    NON_INDEXABLE_STANDALONE_PATHS, TOP_LEVEL_SOURCE_PATHS, collectExampleFamilyRoutes, collectExampleRoutes,
+    extractExampleFamilyDefinitions, extractFrontmatterField, extractMarkdownSeoMetadata,
+    extractPortalIndexMetadata, formatLearnSeoTitle, formatStandaloneExampleSeo, getMaxReleaseMajor,
+    getPublishedExampleFamilies, getSeoJson, hasReliableGitHistory, isIndexableReleaseVersion,
+    isRedirectMarkdown, resolveLearnTreeLeaves
 };
 
 /**

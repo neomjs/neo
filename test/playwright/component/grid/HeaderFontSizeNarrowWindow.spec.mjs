@@ -1,8 +1,8 @@
 import {test, expect} from '@playwright/test';
 
 /**
- * The grid header's text keeps its own size in a narrow window. `grid/header/Button.scss` counters
- * the narrow-window text size of `button/Base.scss` under the same `(max-width: 600px)` query, and
+ * The grid header's text keeps its own size in a narrow window. `grid/header/Button.css` counters
+ * the narrow-window text size of `button/Base.css` under the same `(max-width: 600px)` query, and
  * that counter-rule pointed at the default button label size (1rem) instead of the header's own
  * variable: a pane torn out into a 458 px popup grew its header text from 13 px to 16 px while the
  * same pane docked in a wide window did not. The fixture (`apps/grid-focus`) mounts two grids; the

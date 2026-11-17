@@ -1,0 +1,251 @@
+.portal-examples-list.neo-list {
+    /* The scrim and the muted text derive from one opaque surface, so text never carries alpha. */
+    --portal-examples-list-scrim     : color-mix(in srgb, var(--portal-examples-list-surface) 95%, transparent);
+    --portal-examples-list-text-muted: color-mix(in srgb, var(--portal-examples-list-text) 78%, var(--portal-examples-list-surface));
+
+    align-content        : start;
+    display              : grid;
+    gap                  : 20px;
+    grid-auto-rows       : max-content;
+    /* No card below 410 px: a 640 px cover frame keeps its text at 0.64 of its size */
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 410px), 1fr));
+    padding              : 16px 16px 0;
+    transition           : padding var(--portal-transition-duration) var(--ease-out-soft);
+
+    .neo-list-item {
+        border-radius: 16px;
+        box-shadow   : 0 0 0 1px var(--portal-examples-list-edge), 0 10px 28px rgba(0, 0, 0, 0.32);
+        cursor       : default;
+        display      : block;
+        margin       : 0;
+        outline      : 1px solid transparent;
+        overflow     : hidden;
+        padding      : 0;
+        transition   : box-shadow var(--motion-fast) var(--ease-out-soft), outline-color var(--motion-fast) var(--ease-out-soft), transform var(--motion-fast) var(--ease-out-soft);
+        white-space  : normal;
+        width        : 100%;
+
+        &:hover {
+            outline       : 1px solid var(--portal-examples-list-link-hover);
+            outline-offset: -1px;
+            transform     : translateY(-2px);
+        }
+
+        &:focus-visible {
+            outline       : 2px solid var(--portal-examples-list-link-hover);
+            outline-offset: -2px;
+        }
+    }
+
+    .content {
+        /* The cover is the card: a 16:9 frame the caption stands on, never a second half beside it. */
+        aspect-ratio  : 16 / 9;
+        container-type: inline-size;
+        position      : relative;
+        width         : 100%;
+    }
+
+    .preview-image {
+        background-image   : linear-gradient(140deg, var(--portal-examples-list-gradient-start), var(--portal-examples-list-gradient-end));
+        background-position: center top;
+        background-size    : cover;
+        height             : 100%;
+        inset              : 0;
+        position           : absolute;
+        width              : 100%;
+    }
+
+    .neo-item-bottom-position {
+        /* The scrim is solid behind every line of text and fades only inside the top padding: a white cover stays legible. */
+        background     : linear-gradient(to top, var(--portal-examples-list-scrim) 0%, var(--portal-examples-list-scrim) calc(100% - 28px), transparent 100%);
+        bottom         : 0;
+        box-sizing     : border-box;
+        color          : var(--portal-examples-list-text);
+        display        : flex;
+        flex-direction : column;
+        justify-content: flex-end;
+        left           : 0;
+        max-height     : 100%;
+        overflow       : hidden;
+        overflow-wrap  : anywhere;
+        padding        : 30px 18px 13px;
+        position       : absolute;
+        right          : 0;
+        z-index        : 2;
+    }
+
+    .neo-title {
+        color          : inherit;
+        display        : flex;
+        flex           : none;
+        font-size      : 18px;
+        font-weight    : 600;
+        line-height    : 1.25;
+        text-decoration: none;
+        transition     : color var(--motion-fast) var(--ease-out-soft);
+        width          : fit-content;
+    }
+
+    .portal-example-feature,
+    .portal-example-look-for,
+    .portal-example-scope {
+        -webkit-box-orient: vertical;
+        display           : -webkit-box;
+        overflow          : hidden;
+    }
+
+    .portal-example-feature {
+        -webkit-line-clamp: 2;
+        flex              : none;
+        font-size         : 14px;
+        line-height       : 1.4;
+        margin-top        : 4px;
+    }
+
+    /* The action line, the limits and the links wait behind hover, focus and selection. */
+    .portal-example-more {
+        display           : grid;
+        flex              : none;
+        grid-template-rows: 0fr;
+        transition        : grid-template-rows var(--motion-fast) var(--ease-out-soft);
+    }
+
+    .portal-example-more-inner {
+        min-height: 0;
+        overflow  : hidden;
+    }
+
+    .neo-list-item:hover,
+    .neo-list-item:focus-within,
+    .neo-list-item.neo-selected {
+        .portal-example-more {
+            grid-template-rows: 1fr;
+        }
+    }
+
+    .portal-example-look-for {
+        -webkit-line-clamp: 3;
+        color             : var(--portal-examples-list-text-muted);
+        font-size         : 13px;
+        line-height       : 1.45;
+        margin            : 6px 0 0;
+    }
+
+    .portal-example-scope {
+        -webkit-line-clamp: 2;
+        color             : var(--portal-examples-list-text-muted);
+        font-size         : 11.5px;
+        line-height       : 1.4;
+        margin            : 6px 0 0;
+    }
+
+    /* A narrow card has room for less: the clamp keeps the links inside it. */
+    @container (max-width: 430px) {
+        .portal-example-look-for {
+            -webkit-line-clamp: 2;
+        }
+
+        .portal-example-scope {
+            -webkit-line-clamp: 1;
+        }
+    }
+
+    .neo-top-20 {
+        align-items: center;
+        display    : flex;
+        margin-top : 10px;
+    }
+
+    .neo-github-image {
+        color          : inherit;
+        font-size      : 17px;
+        height         : 17px;
+        text-decoration: none;
+        transition     : color var(--motion-fast) var(--ease-out-soft);
+        width          : 17px;
+    }
+
+    .neo-title,
+    .neo-github-image {
+        &:hover,
+        &:focus-visible {
+            color: var(--portal-examples-list-link-hover);
+        }
+    }
+
+    .neo-inner-content {
+        color      : var(--portal-examples-list-text-muted);
+        font-size  : 11.5px;
+        margin-left: 8px;
+    }
+
+    .neo-inner-details {
+        line-height: 1.4;
+    }
+
+    .neo-multi-window {
+        align-items    : center;
+        background     : var(--portal-examples-list-scrim);
+        border-radius  : 50%;
+        box-shadow     : 0 5px 10px rgba(0, 0, 0, 0.3);
+        color          : var(--portal-examples-list-text);
+        display        : flex;
+        height         : 2em;
+        justify-content: center;
+        position       : absolute;
+        right          : 1em;
+        top            : 1em;
+        width          : 2em;
+        z-index        : 3;
+    }
+
+    @media (max-width: 600px) {
+        gap    : 12px;
+        padding: 8px 8px 0;
+
+        .neo-list-item {
+            border-radius: 12px;
+        }
+
+        .neo-item-bottom-position {
+            padding: 28px 14px 11px;
+        }
+
+        .neo-title {
+            font-size: 17px;
+        }
+
+        /* A phone card is 180 px high: one line of proof at rest, the whole line once the card is open. */
+        .portal-example-feature {
+            -webkit-line-clamp: 1;
+            font-size         : 13.5px;
+        }
+
+        /* One column has room to grow: a tapped card opens under its cover, with nothing clamped. */
+        .neo-list-item.neo-selected {
+            .content {
+                aspect-ratio: auto;
+            }
+
+            .preview-image {
+                aspect-ratio: 16 / 9;
+                height      : auto;
+                inset       : auto;
+                position    : relative;
+            }
+
+            .neo-item-bottom-position {
+                background: var(--portal-examples-list-surface);
+                max-height: none;
+                padding   : 12px 14px 13px;
+                position  : relative;
+            }
+
+            .portal-example-feature,
+            .portal-example-look-for,
+            .portal-example-scope {
+                -webkit-line-clamp: unset;
+            }
+        }
+    }
+}

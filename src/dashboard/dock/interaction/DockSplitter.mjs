@@ -32,7 +32,7 @@ class DockSplitter extends Splitter {
      * @summary The `--dock-splitter-*` contract, projected onto the drag proxy by
      * {@link Neo.dashboard.dock.interaction.DockSplitter#projectProxyTokens}.
      *
-     * The SSOT is the `.neo-dashboard` token block in `resources/scss/src/dashboard/Container.scss`;
+     * The SSOT is the `.neo-dashboard` token block in `resources/css/src/dashboard/Container.css`;
      * this is a restatement, and a restatement drifts. The guard is the parity spec, which parses
      * that block and fails when the two sets diverge — so an engine token added without a line here
      * turns a test red instead of silently dropping out of every drag proxy.

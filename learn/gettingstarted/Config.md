@@ -153,3 +153,5 @@ class MainView extends Container {
 MainView = Neo.setupClass(MainView);
 ```
 
+The reference for everything on this page, including how `set()` applies several configs at once and how the
+generated setters work inside, is [Config System Deep Dive](../guides/fundamentals/ConfigSystemDeepDive.md).

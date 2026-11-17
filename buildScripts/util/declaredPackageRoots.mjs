@@ -2,18 +2,20 @@ import fs   from 'node:fs';
 import path from 'node:path';
 
 /**
- * @summary Reads the roots installed dependencies declare under one `neo` manifest key, for webpack and emitted-ESM
- * builds.
- * @description Each key is one role's admission: `neo.mainAddons` reaches the Main addon context only, and
- * `neo.canvasModules` reaches the Canvas worker's module context only, so no declaration crosses into another
- * role's context. Each root stays within its declaring package, including when that package is linked. The caller
+ * @summary Reads the roots installed dependencies declare under one `neo` manifest key, for webpack, emitted-ESM
+ * and theme builds.
+ * @description Each key is one role's admission: `neo.mainAddons` reaches the Main addon context only,
+ * `neo.canvasModules` reaches the Canvas worker's module context only, and `neo.css` names a package's theme
+ * source root (`themeCssRoots`), so no declaration crosses into another role's context. Each root stays within its declaring package, including when that package is linked. The caller
  * owns its build context or output tree; this reader creates neither and never scans undeclared package trees.
  * Each entry names its key, so a consumer that holds both kinds can name the declaration a root came from.
  * @param {String} workspaceRoot The consuming workspace whose manifest names the dependencies.
  * @param {String} key The manifest key under `neo`, such as `mainAddons` or `canvasModules`.
+ * @param {Object} [options]
+ * @param {Boolean} [options.single=false] The key declares one directory as a string, as `neo.css` does.
  * @returns {Array<{key: String, packageName: String, sourceRoot: String, relativeRoot: String}>}
  */
-export function declaredPackageRoots(workspaceRoot, key) {
+export function declaredPackageRoots(workspaceRoot, key, {single = false} = {}) {
     const manifest = JSON.parse(fs.readFileSync(path.join(workspaceRoot, 'package.json'), 'utf8')),
           names    = Object.keys({...manifest.dependencies, ...manifest.devDependencies, ...manifest.optionalDependencies}).sort(),
           field    = `neo.${key}`,
@@ -30,12 +32,12 @@ export function declaredPackageRoots(workspaceRoot, key) {
 
         const declared = JSON.parse(fs.readFileSync(manifestPath, 'utf8')).neo?.[key];
         if (declared === undefined) continue;
-        if (!Array.isArray(declared)) {
-            throw new Error(`${packageName}: ${field} must be an array of package-relative directories`)
+        if (single ? typeof declared !== 'string' : !Array.isArray(declared)) {
+            throw new Error(`${packageName}: ${field} must be ${single ? 'a package-relative directory' : 'an array of package-relative directories'}`)
         }
 
         const packageReal = fs.realpathSync(packageRoot), seen = new Set();
-        for (const root of declared) {
+        for (const root of single ? [declared] : declared) {
             if (typeof root !== 'string' || !root || root.includes('\\') || path.posix.isAbsolute(root) ||
                 /^[A-Za-z]:/.test(root) || root.split('/').includes('..')) {
                 throw new Error(`${packageName}: invalid ${field} root ${JSON.stringify(root)}`)

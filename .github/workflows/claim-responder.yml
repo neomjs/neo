@@ -2,7 +2,8 @@
 # the clock, and counts outside pull requests targeting curated issues as claims:
 #
 # - `issue_comment` (`created`): assigns first-in-line outside claimants under their standing cap (clearing any lapsed
-#   >3-day silent outside assignee), names holders on held issues, and offers rotated alternatives.
+#   >3-day silent outside assignee), names holders on held issues, and offers rotated alternatives. An unrecognized
+#   outside comment gets one claiming hint per account on an unclaimed issue; a hint never reserves it.
 # - `pull_request_target` (`opened`, `reopened`, `edited`, `closed`): requests assignment for outside authors targeting
 #   unclaimed curated issues (attaching authors GitHub permits — issue commenters or the issue author — without
 #   fabricating issue comments), posts neutral overlap or residual-scope notices on held or already-completed issues,
@@ -13,12 +14,13 @@
 #
 # Security boundary: `pull_request_target` runs with repository write permissions against fork PRs, so this workflow
 # accepts direct Engine events and `workflow_call` with zero inputs, verifies `job.workflow_sha` is a full 40-character
-# commit SHA, and sparse-checks out ONLY the two pure rule modules from `neomjs/neo` at `${{ job.workflow_sha }}`
-# (making the running script and rule modules one reviewed commit by construction). It never checks out or reads caller
-# repository or pull request head files, treats event fields strictly as data, resolves hidden team membership through
-# collaborator permission lookups on the target repository, and owns the sole repository-wide `claim-responder`
-# concurrency group on `jobs.respond` (thin sibling callers omit `concurrency:` so parent and child jobs never
-# deadlock on the same group).
+# commit SHA, and fetches ONLY the three pure rule modules from `neomjs/neo` at `${{ job.workflow_sha }}` through the
+# contents API (making the running script and rule modules one reviewed commit by construction). It has no checkout
+# step: on a merged close that commit is the pull request's own merge commit, which `actions/checkout` refuses for a
+# fork. It never reads caller repository or pull request head files, treats event fields strictly as data, resolves
+# hidden team membership through collaborator permission lookups on the target repository, and owns the sole
+# repository-wide `claim-responder` concurrency group on `jobs.respond` (thin sibling callers omit `concurrency:` so
+# parent and child jobs never deadlock on the same group).
 name: Claim responder
 
 on:
@@ -29,7 +31,7 @@ on:
   workflow_call:
 
 permissions:
-  contents: read       # the sparse checkout of the two rule modules at job.workflow_sha
+  contents: read       # the three rule modules, read at job.workflow_sha through the contents API
   issues: write        # auto-assignment and release notices on curated issues
   pull-requests: write # overlap and residual-scope notices on pull requests
 
@@ -63,16 +65,17 @@ jobs:
             exit 1
           fi
 
-      - name: Check out the reply module
-        uses: actions/checkout@v7
-        with:
-          repository: neomjs/neo
-          ref: ${{ job.workflow_sha }}
-          persist-credentials: false
-          sparse-checkout: |
-            buildScripts/util/claimResponse.mjs
-            buildScripts/util/contributorStanding.mjs
-          sparse-checkout-cone-mode: false
+      - name: Fetch the reply modules
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WORKFLOW_SHA: ${{ job.workflow_sha }}
+        run: |
+          mkdir -p buildScripts/util
+          for module in claimResponse.mjs contributorStanding.mjs claimGuidance.mjs; do
+            gh api -H 'Accept: application/vnd.github.raw' \
+              "repos/neomjs/neo/contents/buildScripts/util/${module}?ref=${WORKFLOW_SHA}" > "buildScripts/util/${module}"
+            test -s "buildScripts/util/${module}"
+          done
 
       - name: Answer the claim
         uses: actions/github-script@v9
@@ -82,9 +85,10 @@ jobs:
           script: |
             const {
               CLAIM_RELEASE_SINCE, TEAM_ASSOCIATIONS, changedCloseTargets, closeTargets, curatedLabel, decideClaim,
-              decidePullRequestRelease, decidePullRequestTarget, decideTargetRemoval, isClaim, isOutsideHuman,
-              isTeamPermission
+              decidePullRequestRelease, decidePullRequestTarget, decideTargetRemoval, decideWithdrawal, isClaim,
+              isOutsideHuman, isTeamPermission, isWithdrawal
             } = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/claimResponse.mjs`);
+            const {decideClaimHint} = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/claimGuidance.mjs`);
             const {owner, repo} = context.repo;
 
             const
@@ -160,6 +164,30 @@ jobs:
               throw new Error(`Incomplete state read for #${issueNumber}: exceeded pagination bound`)
             };
 
+            const loadTargetState = async (issueNumber, {includeClosedPrs = true} = {}) => {
+              const [{data: issue}, comments, events, linkedNodes] = await Promise.all([
+                github.rest.issues.get({owner, repo, issue_number: issueNumber}),
+                github.paginate(github.rest.issues.listComments, {owner, repo, issue_number: issueNumber, per_page: 100}),
+                github.paginate(github.rest.issues.listEvents,   {owner, repo, issue_number: issueNumber, per_page: 100}),
+                loadCompleteLinkedPrRefs(issueNumber, {includeClosedPrs, pageSize: 50})
+              ]);
+              if (!issue || typeof issue !== 'object' || issue.number !== issueNumber ||
+                !Array.isArray(comments) || !Array.isArray(events)) {
+                throw new Error(`Incomplete state read for #${issueNumber}`)
+              }
+              return {
+                comments,
+                events,
+                issue,
+                mergedPullRequests: linkedNodes
+                  .filter(pr => pr.merged === true)
+                  .map(pr => ({number: pr.number, author: pr.author?.login, repository: pr.repository?.nameWithOwner})),
+                openPullRequests  : linkedNodes
+                  .filter(pr => pr.state === 'OPEN')
+                  .map(pr => ({number: pr.number, author: pr.author?.login, repository: pr.repository?.nameWithOwner}))
+              }
+            };
+
             if (context.eventName === 'pull_request_target' || context.payload.pull_request) {
               const
                 action      = context.payload.action,
@@ -203,29 +231,6 @@ jobs:
                   core.warning(`Could not resolve contributor standing; using one-claim limit: ${error.message}`)
                 }
                 return claimLimit
-              };
-
-              const loadTargetState = async issueNumber => {
-                const [{data: issue}, comments, events, linkedNodes] = await Promise.all([
-                  github.rest.issues.get({owner, repo, issue_number: issueNumber}),
-                  github.paginate(github.rest.issues.listComments, {owner, repo, issue_number: issueNumber, per_page: 100}),
-                  github.paginate(github.rest.issues.listEvents,   {owner, repo, issue_number: issueNumber, per_page: 100}),
-                  loadCompleteLinkedPrRefs(issueNumber, {includeClosedPrs: true, pageSize: 50})
-                ]);
-                if (!issue || typeof issue !== 'object' || !Number.isSafeInteger(issue.number)) {
-                  throw new Error(`Incomplete state read for #${issueNumber}`)
-                }
-                return {
-                  comments,
-                  events,
-                  issue,
-                  mergedPullRequests: linkedNodes
-                    .filter(pr => pr.merged === true)
-                    .map(pr => ({number: pr.number, author: pr.author?.login, repository: pr.repository?.nameWithOwner})),
-                  openPullRequests  : linkedNodes
-                    .filter(pr => pr.state === 'OPEN')
-                    .map(pr => ({number: pr.number, author: pr.author?.login, repository: pr.repository?.nameWithOwner}))
-                }
               };
 
               const findCandidates = async label => github.rest.search.issuesAndPullRequests({
@@ -507,9 +512,11 @@ jobs:
             }
 
             const {comment, issue: eventIssue} = context.payload;
+            const claimComment                 = isClaim(comment?.body);
+            const withdrawalComment            = !claimComment && isWithdrawal(comment?.body);
 
-            if (!isOutsideHuman(comment) || !isClaim(comment.body)) {
-              core.info('No reply: not an outside contributor claim.');
+            if (!isOutsideHuman(comment)) {
+              core.info('No reply: not an outside contributor.');
               return
             }
 
@@ -518,6 +525,91 @@ jobs:
 
             if (issue.state !== 'open' || !label) {
               core.info('No reply: issue is closed or no longer curated.');
+              return
+            }
+
+            if (!claimComment && !withdrawalComment) {
+              const repoUrl = `https://github.com/${owner}/${repo}`;
+              const hint = state => decideClaimHint({...state, comment, repoUrl, now: new Date().toISOString()});
+              if (!hint(await loadTargetState(issue.number, {includeClosedPrs: false}))) return;
+
+              // Reconcile delivered hints and holders again just before writing, including newer claim comments.
+              const body = hint(await loadTargetState(issue.number, {includeClosedPrs: false}));
+              if (body) {
+                await github.rest.issues.createComment({owner, repo, issue_number: issue.number, body});
+                core.info(`Posted claiming guidance for ${comment.user.login}.`)
+              }
+              return
+            }
+
+            if (withdrawalComment) {
+              const
+                author          = String(comment.user?.login || '').toLowerCase(),
+                matchedAssignee = (issue.assignees || []).find(assignee => String(assignee?.login || '').toLowerCase() === author);
+
+              if (!matchedAssignee) {
+                core.info('No unassign: withdrawing commenter is not assigned.');
+                return
+              }
+
+              if (typeof github.rest.repos?.getCollaboratorPermissionLevel === 'function') {
+                const {data: permissionData} = await github.rest.repos.getCollaboratorPermissionLevel({
+                  owner,
+                  repo,
+                  username: matchedAssignee.login
+                });
+                if (isTeamPermission(permissionData?.permission)) {
+                  core.info('No unassign: assignee holds team permission.');
+                  return
+                }
+              }
+
+              const [comments, events, linkedNodes] = await Promise.all([
+                github.paginate(github.rest.issues.listComments, {owner, repo, issue_number: issue.number, per_page: 100}),
+                github.paginate(github.rest.issues.listEvents,   {owner, repo, issue_number: issue.number, per_page: 100}),
+                loadCompleteLinkedPrRefs(issue.number, {includeClosedPrs: false, pageSize: 50})
+              ]);
+
+              const openPullRequests = linkedNodes
+                .filter(pullRequest => pullRequest.state === 'OPEN')
+                .map(pullRequest => ({number: pullRequest.number, author: pullRequest.author?.login, repository: pullRequest.repository?.nameWithOwner}));
+
+              const decision = decideWithdrawal({
+                comment,
+                comments,
+                events,
+                issue,
+                openPullRequests,
+                repoUrl: `https://github.com/${owner}/${repo}`
+              });
+
+              if (!decision) {
+                core.info('No unassign: withdrawal already processed or ineligible.');
+                return
+              }
+
+              try {
+                const {data: updated} = await github.rest.issues.removeAssignees({
+                  assignees   : [decision.unassign],
+                  issue_number: issue.number,
+                  owner,
+                  repo
+                });
+                const stillAssigned = !Array.isArray(updated?.assignees) || updated.assignees.some(
+                  assignee => String(assignee?.login || '').toLowerCase() === String(decision.unassign).toLowerCase()
+                );
+
+                if (stillAssigned) {
+                  core.warning(`GitHub did not remove ${decision.unassign} as assignee on #${issue.number}.`);
+                  return
+                }
+              } catch (error) {
+                core.warning(`Could not unassign ${decision.unassign} on #${issue.number}: ${error.message}`);
+                return
+              }
+
+              await github.rest.issues.createComment({owner, repo, issue_number: issue.number, body: decision.body});
+              core.info(`Unassigned ${decision.unassign} on withdrawal.`);
               return
             }
 

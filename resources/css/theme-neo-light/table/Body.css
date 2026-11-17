@@ -1,0 +1,15 @@
+:where(.neo-theme-neo-light) { /* .neo-table-body */
+    --table-cell-background-color-hover                    : rgb(91.2429971989%, 91.3865546218%, 92.6785714286%);
+    --table-cell-ismodified-color                          : orange;
+    --table-cell-ismodified-size                           : 10px;
+    --table-cellmodel-selected-cell-background-color       : rgb(80.8010521282%, 90.8340506934%, 98.8852223816%);
+    --table-cellmodel-selected-cell-color                  : #2b2b2b;
+    --table-cellmodel-selected-column-cell-background-color: rgb(93.0669558146%, 93.3683925183%, 96.0310834011%);
+    --table-cellmodel-selected-column-cell-color           : #2b2b2b;
+    --table-cellrowmodel-selected-cell-background-color    : rgb(80.8010521282%, 90.8340506934%, 98.8852223816%);
+    --table-cellrowmodel-selected-cell-color               : #2b2b2b;
+    --table-cellrowmodel-selected-row-cell-background-color: rgb(93.0669558146%, 93.3683925183%, 96.0310834011%);
+    --table-cellrowmodel-selected-row-cell-color           : #2b2b2b;
+    --table-rowmodel-selected-cell-background-color        : rgb(80.8010521282%, 90.8340506934%, 98.8852223816%);
+    --table-rowmodel-selected-cell-color                   : #2b2b2b;
+}

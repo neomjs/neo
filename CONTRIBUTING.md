@@ -30,8 +30,8 @@ then selects *zero tests* rather than failing one. Skip the second and the serve
 warns and tells you this exact command. Together they take under ten seconds.
 
 **Your own JavaScript never needs a build** — Neo.mjs runs your edits as native ES modules, so you change a file and
-reload. That does not extend to **SCSS**: styles compile into `dist/development/css`, so re-run `build-themes` after a
-`.scss` change, or keep `npm run watch-themes` going while you work on one.
+reload. That does not extend to **styles**: `build-themes` copies the sheets under `resources/css` into
+`dist/development/css`, so re-run it after a `.css` change, or keep `npm run watch-themes` going while you work on one.
 
 Running the tests:
 
@@ -143,7 +143,8 @@ independently: this one as the `neo.mjs` npm package, the Brain as container ima
    but we merge the first approve-worthy PR for a ticket, so if someone else holds it or gets there first, your work
    may not land. A claim is what protects your time.
    To keep the project moving, a claim lasts 3 days, and any comment you leave on the ticket starts the 3 days again.
-   After 3 days without a word from you, the ticket may go to another contributor.
+   After 3 days without a word from you, the ticket may go to another contributor. If your plans change, comment
+   `/unclaim` (or "please unassign me") on the ticket to give the claim back — an automatic reply confirms the release.
 4. Please make sure that pull requests are always related to an issue inside our <a href="../../issues">Issues Tracker</a>.
    Every pull request resolves **one** issue and must include **`Resolves #<issue-id>` on its own line** in the PR
    description (`Fixes #N` and `Closes #N` are rejected by our `baseline / PR baseline` CI check). Opening a PR in the

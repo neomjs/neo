@@ -153,7 +153,7 @@ class Button extends BaseButton {
 
     /**
      * @summary Marks the header root and describes it as filtered. With a menu, the menu keeps its trigger shown;
-     * without one, the header shows its own mark (Button.scss).
+     * without one, the header shows its own mark (Button.css).
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
@@ -568,6 +568,11 @@ class Button extends BaseButton {
 
             if (value && field?.type?.toLowerCase() === 'date') {
                 value = new Date(value)
+            }
+
+            // A ComboBox's value is a record; rows hold its display value
+            if (Neo.isRecord(value)) {
+                value = value[me.filterField.displayField]
             }
 
             if (!filter) {

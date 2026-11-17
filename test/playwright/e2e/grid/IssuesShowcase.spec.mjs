@@ -111,10 +111,18 @@ test('streamed batches preserve the scrolled view through completion', async ({p
         let controller;
         const stream = new ReadableStream({start(value) {controller = value}});
         store.pipeline.connection.read = async () => ({stream, total: 0});
-        globalThis.__storeStreamWitness = {controller, loading: store.load()};
+        // Records the view's scroll-to-top dispatches: an ordinary load sends one per grid body (grid.Body#onStoreLoad)
+        const access = Neo.main.DomAccess, scrollTo = access.scrollTo, resets = [];
+        access.scrollTo = function(data) {
+            const result = scrollTo.call(this, data);
+            data.id === grid.view.id && data.direction === 'top' && resets.push(result);
+            return result
+        };
+        globalThis.__storeStreamWitness = {controller, loading: store.load(), resets, restore: () => {access.scrollTo = scrollTo}};
         return grid.view.id
     }, gridId);
-    const enqueue = (from, count) => worker.evaluate(({from, count}) => {
+    const resetCount = () => worker.evaluate(() => __storeStreamWitness.resets.length);
+    const enqueue    = (from, count) => worker.evaluate(({from, count}) => {
         const rows = Array.from({length: count}, (_, i) => ({
             id  : from + i, title: 'Stream record ' + (from + i), summary: 'Controlled arriving batch',
             type: 'Task', area: 'Grid', state: 'Open', author: 'neo-gpt-sophie', created: '2026-11-07', comments: 0
@@ -123,6 +131,15 @@ test('streamed batches preserve the scrolled view through completion', async ({p
     }, {from, count});
 
     try {
+        // The load that opens the stream is an ordinary one, so the bodies scroll the view to the top after
+        // grid.Body#onStoreLoad's 50ms. Wheel only once those resets landed: one applied after the wheel reads 0.
+        await worker.evaluate(async () => {
+            await new Promise(resolve => setTimeout(resolve, 50));
+            await Promise.all(__storeStreamWitness.resets)
+        });
+        const resets = await resetCount();
+        expect(resets).toBeGreaterThan(0);
+
         await enqueue(1, 200);
         await expect.poll(async () => (await read())['store.count']).toBe(200);
         expect((await read())['store.isStreaming']).toBe(true);
@@ -139,7 +156,8 @@ test('streamed batches preserve the scrolled view through completion', async ({p
             expect((await read())['store.isStreaming']).toBe(true);
             // The ordinary-load reset is dispatched after 50ms; observe past that boundary for each batch.
             await page.waitForTimeout(150);
-            expect(await scrollTop()).toBe(position)
+            expect(await scrollTop()).toBe(position);
+            expect(await resetCount()).toBe(resets)
         }
         await worker.evaluate(async () => {
             __storeStreamWitness.controller.close();
@@ -147,10 +165,12 @@ test('streamed batches preserve the scrolled view through completion', async ({p
         });
         await expect.poll(async () => (await read())['store.isStreaming']).toBe(false);
         await page.waitForTimeout(150);
-        expect(await scrollTop()).toBe(position)
+        expect(await scrollTop()).toBe(position);
+        expect(await resetCount()).toBe(resets)
     } finally {
         await worker.evaluate(() => {
             try {__storeStreamWitness.controller.close()} catch {}
+            __storeStreamWitness.restore();
             delete globalThis.__storeStreamWitness
         })
     }

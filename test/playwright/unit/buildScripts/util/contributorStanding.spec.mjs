@@ -157,7 +157,7 @@ test.describe('buildScripts/util/contributorStanding', () => {
 
     test('the invitation follows what the pull request changed', () => {
         expect(invitation(ENGINE)).toBe(INVITATIONS.engine);
-        expect(invitation(['resources/scss/src/grid/Body.scss', 'CONTRIBUTING.md'])).toBe(INVITATIONS.engine);
+        expect(invitation(['resources/css/src/grid/Body.css', 'CONTRIBUTING.md'])).toBe(INVITATIONS.engine);
         expect(invitation(DOCS)).toBe(INVITATIONS.skills);
         expect(invitation([])).toBe(INVITATIONS.skills)
     });

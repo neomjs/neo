@@ -1,9 +1,18 @@
-import * as acorn     from 'acorn';
-import {execFileSync} from 'child_process';
-import fg             from 'fast-glob';
-import fs             from 'fs-extra';
-import path           from 'path';
-import semver         from 'semver';
+import * as acorn from 'acorn';
+import fg         from 'fast-glob';
+import fs         from 'fs-extra';
+import path       from 'path';
+import semver     from 'semver';
+import {
+    FRONTMATTER_BLOCK_PATTERN, chunkArray, extractFrontmatterDateOnly, formatLastmodDate, getChangedGitPaths,
+    getChangedLastmod, getGitLastModifiedBatch, getGitLastmodDateMap, getGitPath, hasReliableGitHistory,
+    lookupNewestGitDate, normalizeIsoDateOnly
+} from './gitLastmod.mjs';
+
+export {
+    chunkArray, extractFrontmatterDateOnly, formatLastmodDate, getChangedGitPaths, getChangedLastmod,
+    getGitLastModifiedBatch, getGitLastmodDateMap, getGitPath, hasReliableGitHistory, normalizeIsoDateOnly
+};
 
 /**
  * @module buildScripts.docs.seo.seoJson
@@ -12,13 +21,8 @@ import semver         from 'semver';
  * curated top-level entries and pre-baked `lastmod` fallbacks when `.git` history is unavailable.
  */
 
-const ROOT_DIR                  = process.cwd();
-const DEFAULT_BASE_PATH         = '/learn';
-const GIT_LOG_CHUNK_SIZE        = 200;
-const GIT_LOG_MAX_BUFFER        = 64 * 1024 * 1024;
-const STATUS_RENAME_CODES       = new Set(['R', 'C']);
-const FRONTMATTER_BLOCK_PATTERN = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
-const ISO_DATE_ONLY_PATTERN     = /^\d{4}-\d{2}-\d{2}$/;
+const ROOT_DIR          = process.cwd();
+const DEFAULT_BASE_PATH = '/learn';
 
 /**
  * Source-file dependencies for curated top-level Portal and News hub routes so `seo.json` and
@@ -44,88 +48,14 @@ export const TOP_LEVEL_SOURCE_PATHS = {
 };
 
 /**
- * @summary Normalizes an absolute file or directory path into a repository-relative POSIX git pathspec.
- * @param {String} filePath Absolute file or directory path.
- * @param {String} [root=ROOT_DIR] Repository root.
- * @returns {String}
+ * Standalone entrypoints omitted from `sitemap-core.xml`, `seo.json`, and `llms.txt`.
+ * @type {Set<String>}
  */
-export function getGitPath(filePath, root=ROOT_DIR) {
-    return path.relative(root, filePath).split(path.sep).join('/');
-}
-
-/**
- * @summary Checks whether `root` owns a non-shallow `.git` directory or worktree pointer whose commit
- * history is reliable for per-route `lastmod` derivation.
- *
- * Requiring `.git` directly under `root` prevents `node_modules/neo.mjs` installs and temporary test
- * directories from inheriting an enclosing workspace's unrelated git history while supporting both
- * standard clones (`.git` directory) and git worktrees (`.git` file).
- * @param {String} [root=ROOT_DIR] Repository root.
- * @returns {Boolean}
- */
-export function hasReliableGitHistory(root=ROOT_DIR) {
-    try {
-        if (!fs.existsSync(path.join(root, '.git'))) {
-            return false;
-        }
-
-        const isShallow = execFileSync(
-            'git',
-            ['rev-parse', '--is-shallow-repository'],
-            {cwd: root, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore']}
-        ).trim();
-
-        return isShallow !== 'true';
-    } catch {
-        return false;
-    }
-}
-
-/**
- * @summary Normalizes a raw date string or ISO timestamp into `YYYY-MM-DD`, returning `null` when invalid.
- * @param {String|null|undefined} rawValue
- * @returns {String|null}
- */
-export function normalizeIsoDateOnly(rawValue) {
-    if (!rawValue || typeof rawValue !== 'string') {
-        return null;
-    }
-
-    const trimmed = rawValue.trim();
-
-    if (ISO_DATE_ONLY_PATTERN.test(trimmed)) {
-        return trimmed;
-    }
-
-    const ms = Date.parse(trimmed);
-
-    return Number.isNaN(ms) ? null : new Date(ms).toISOString().slice(0, 10);
-}
-
-/**
- * @summary Extracts a normalized `YYYY-MM-DD` date from YAML frontmatter fields when present.
- * @param {String} [rawContent='']
- * @param {String[]} [fields=['publishedAt', 'updatedAt', 'createdAt']]
- * @returns {String|null}
- */
-export function extractFrontmatterDateOnly(rawContent='', fields=['publishedAt', 'updatedAt', 'createdAt']) {
-    const frontmatter = FRONTMATTER_BLOCK_PATTERN.exec(String(rawContent))?.[1];
-
-    if (!frontmatter) {
-        return null;
-    }
-
-    for (const field of fields) {
-        const raw = new RegExp(`^${field}:\\s*["']?([^"'\\r\\n]+)["']?\\s*$`, 'm').exec(frontmatter)?.[1];
-        const iso = normalizeIsoDateOnly(raw);
-
-        if (iso) {
-            return iso;
-        }
-    }
-
-    return null;
-}
+export const NON_INDEXABLE_STANDALONE_PATHS = new Set([
+    'apps/portal/index.html',
+    'apps/ai/neural-link/index.html',
+    'examples/dashboard/crossWindowWitness/index.html'
+]);
 
 /**
  * @summary Extracts a single-line scalar YAML frontmatter field (`seoTitle`, `seoDescription`, etc.),
@@ -250,311 +180,6 @@ export function isIndexableReleaseVersion(version, maxMajor) {
     }
 
     return major >= maxMajor - 1;
-}
-
-/**
- * @summary Collects newest per-file `YYYY-MM-DD` commit dates across `scanPaths` in a single batched
- * `git log --format="commit:%cs" --name-only` pass instead of spawning per-file `git` subprocesses.
- * @param {String[]} [scanPaths=[]] Repository-relative or absolute paths to include in the `git log` pass.
- * @param {String} [root=ROOT_DIR] Repository root.
- * @returns {Map<String, String>} Map of repository-relative POSIX file path -> `YYYY-MM-DD`.
- */
-export function getGitLastmodDateMap(scanPaths=[], root=ROOT_DIR) {
-    const dateMap = new Map();
-
-    if (!hasReliableGitHistory(root)) {
-        return dateMap;
-    }
-
-    const relativeScanPaths = Array.from(new Set(
-        scanPaths
-            .filter(Boolean)
-            .map(target => path.isAbsolute(target) ? getGitPath(target, root) : target.split(path.sep).join('/'))
-            .map(relPath => relPath.replace(/\/+$/, ''))
-            .filter(relPath => relPath && !relPath.startsWith('..') && fs.existsSync(path.resolve(root, relPath)))
-    ));
-
-    if (relativeScanPaths.length === 0) {
-        return dateMap;
-    }
-
-    try {
-        const output = execFileSync(
-            'git',
-            ['log', '--format=commit:%cs', '--name-only', '--', ...relativeScanPaths],
-            {cwd: root, encoding: 'utf-8', maxBuffer: 64 * 1024 * 1024, stdio: ['pipe', 'pipe', 'ignore']}
-        );
-
-        let currentDate = null;
-
-        for (const rawLine of output.split('\n')) {
-            const line = rawLine.trim();
-
-            if (!line) {
-                continue;
-            }
-
-            if (line.startsWith('commit:')) {
-                currentDate = line.slice('commit:'.length);
-                continue;
-            }
-
-            if (currentDate && !dateMap.has(line)) {
-                dateMap.set(line, currentDate);
-            }
-        }
-    } catch {
-        // Return empty map on git execution errors so callers fall back gracefully.
-    }
-
-    return dateMap;
-}
-
-/**
- * @summary Splits an array into bounded chunks that stay below shell argument limits.
- * @param {Array} items
- * @param {Number} size
- * @returns {Array<Array>}
- */
-export function chunkArray(items, size) {
-    const chunks = [];
-
-    for (let i = 0; i < items.length; i += size) {
-        chunks.push(items.slice(i, i + size));
-    }
-
-    return chunks;
-}
-
-/**
- * @summary Formats a `Date` instance as a sitemap-compatible ISO timestamp without milliseconds.
- * @param {Date} date
- * @returns {String}
- */
-export function formatLastmodDate(date) {
-    return date.toISOString().replace(/\.\d{3}Z$/, 'Z');
-}
-
-/**
- * @summary Gets working-tree paths changed relative to `HEAD` when `root` has a reliable `.git` history.
- * @param {String} [root=ROOT_DIR] Repository root.
- * @returns {Set<String>} Repository-relative POSIX paths.
- */
-export function getChangedGitPaths(root=ROOT_DIR) {
-    const paths = new Set();
-
-    if (!hasReliableGitHistory(root)) {
-        return paths;
-    }
-
-    try {
-        const result = execFileSync(
-            'git',
-            ['status', '--porcelain=v1', '-z', '--untracked-files=all'],
-            {cwd: root, encoding: 'utf-8', maxBuffer: GIT_LOG_MAX_BUFFER, stdio: ['pipe', 'pipe', 'ignore']}
-        );
-
-        const entries = result.split('\0');
-
-        for (let i = 0; i < entries.length; i++) {
-            const entry = entries[i];
-
-            if (!entry) {
-                continue;
-            }
-
-            const status  = entry.slice(0, 2);
-            const gitPath = entry.slice(3);
-
-            if (STATUS_RENAME_CODES.has(status[0]) || STATUS_RENAME_CODES.has(status[1])) {
-                i++;
-            }
-
-            if (gitPath) {
-                paths.add(gitPath);
-            }
-        }
-    } catch {
-        // Git status is an optimization for uncommitted CI mutations; ignore if unavailable.
-    }
-
-    return paths;
-}
-
-/**
- * @summary Gets the newest working-tree `mtime` for a modified source path.
- * @param {String} gitPath Repository-relative POSIX path.
- * @param {Set<String>} changedGitPaths Changed path set from `git status`.
- * @param {Boolean} [isDirectory=false] True if `gitPath` represents a directory.
- * @param {String} [root=ROOT_DIR] Repository root.
- * @returns {String|null}
- */
-export function getChangedLastmod(gitPath, changedGitPaths, isDirectory=false, root=ROOT_DIR) {
-    let lastmod = null;
-
-    function updateLastmod(changedGitPath) {
-        try {
-            const filePath = path.join(root, ...changedGitPath.split('/'));
-            const mtime    = fs.statSync(filePath).mtime;
-
-            if (!lastmod || mtime > lastmod) {
-                lastmod = mtime;
-            }
-        } catch {
-            // Deleted paths are not emitted as sitemap routes; missing files can be ignored.
-        }
-    }
-
-    if (changedGitPaths.has(gitPath)) {
-        updateLastmod(gitPath);
-    }
-
-    if (isDirectory) {
-        const gitPathWithSlash = gitPath.endsWith('/') ? gitPath : `${gitPath}/`;
-
-        for (const changedGitPath of changedGitPaths) {
-            if (changedGitPath.startsWith(gitPathWithSlash)) {
-                updateLastmod(changedGitPath);
-            }
-        }
-    }
-
-    return lastmod ? formatLastmodDate(lastmod) : null;
-}
-
-/**
- * @summary Gets git commit `<lastmod>` ISO timestamps for multiple files or directories in bounded batches.
- * @param {String[]} filePaths Array of absolute file paths.
- * @param {String} [root=ROOT_DIR] Repository root.
- * @returns {Map<String, String>} Map of `filePath` -> ISO date string.
- */
-export function getGitLastModifiedBatch(filePaths, root=ROOT_DIR) {
-    const dateMap     = new Map();
-    const inRepoPaths = Array.from(new Set(filePaths)).filter(filePath => !getGitPath(filePath, root).startsWith('../'));
-
-    if (inRepoPaths.length === 0 || !hasReliableGitHistory(root)) {
-        return dateMap;
-    }
-
-    const pathDescriptors = inRepoPaths.map(filePath => {
-        let isDirectory = false;
-
-        try {
-            isDirectory = fs.statSync(filePath).isDirectory();
-        } catch {
-            isDirectory = false;
-        }
-
-        return {
-            filePath,
-            gitPath: getGitPath(filePath, root),
-            isDirectory
-        };
-    });
-
-    try {
-        for (const chunk of chunkArray(pathDescriptors, GIT_LOG_CHUNK_SIZE)) {
-            try {
-                const filePathByGitPath = new Map(
-                    chunk.filter(({isDirectory}) => !isDirectory).map(({filePath, gitPath}) => [gitPath, filePath])
-                );
-                const directoryDescriptors = chunk
-                    .filter(({isDirectory}) => isDirectory)
-                    .map(descriptor => ({
-                        ...descriptor,
-                        gitPathWithSlash: descriptor.gitPath.endsWith('/') ? descriptor.gitPath : `${descriptor.gitPath}/`
-                    }));
-
-                const result = execFileSync(
-                    'git',
-                    ['log', '--format=__NEO_DATE__%cI', '--name-only', '--', ...chunk.map(({gitPath}) => gitPath)],
-                    {cwd: root, encoding: 'utf-8', maxBuffer: GIT_LOG_MAX_BUFFER, stdio: ['pipe', 'pipe', 'ignore']}
-                );
-
-                let currentDate = null;
-
-                for (const rawLine of result.split('\n')) {
-                    const line = rawLine.trim();
-
-                    if (!line) {
-                        continue;
-                    }
-
-                    if (line.startsWith('__NEO_DATE__')) {
-                        currentDate = line.slice('__NEO_DATE__'.length);
-                        continue;
-                    }
-
-                    if (!currentDate) {
-                        continue;
-                    }
-
-                    const filePath = filePathByGitPath.get(line);
-
-                    if (filePath && !dateMap.has(filePath)) {
-                        dateMap.set(filePath, currentDate);
-                    }
-
-                    for (const descriptor of directoryDescriptors) {
-                        if (!dateMap.has(descriptor.filePath) && line.startsWith(descriptor.gitPathWithSlash)) {
-                            dateMap.set(descriptor.filePath, currentDate);
-                        }
-                    }
-                }
-            } catch {
-                continue;
-            }
-        }
-    } catch (error) {
-        console.warn('Git is not available or error occurred:', error.message);
-    }
-
-    return dateMap;
-}
-
-/**
- * @summary Resolves the newest `YYYY-MM-DD` git commit date across one or more file or directory paths
- * from a precomputed `gitDateMap`.
- * @param {Map<String, String>} gitDateMap
- * @param {String[]} [candidatePaths=[]] Absolute file or directory paths.
- * @param {String} [root=ROOT_DIR] Repository root.
- * @returns {String|null}
- */
-function lookupNewestGitDate(gitDateMap, candidatePaths=[], root=ROOT_DIR) {
-    if (!gitDateMap || gitDateMap.size === 0) {
-        return null;
-    }
-
-    let newest = null;
-
-    for (const candidatePath of candidatePaths) {
-        if (!candidatePath) {
-            continue;
-        }
-
-        const gitPath = getGitPath(candidatePath, root).replace(/\/+$/, '');
-
-        if (!gitPath || gitPath.startsWith('..')) {
-            continue;
-        }
-
-        const exactDate = gitDateMap.get(gitPath);
-
-        if (exactDate && (!newest || exactDate > newest)) {
-            newest = exactDate;
-            continue;
-        }
-
-        const prefix = `${gitPath}/`;
-
-        for (const [trackedPath, date] of gitDateMap.entries()) {
-            if (trackedPath.startsWith(prefix) && (!newest || date > newest)) {
-                newest = date;
-            }
-        }
-    }
-
-    return newest;
 }
 
 /**
@@ -752,7 +377,7 @@ export function extractMarkdownSeoMetadata(rawContent='', options={}) {
             .split(/\r?\n/)
             .map(line => line.replace(/^>\s?/, '').replace(/^[-*]\s+/, ''))
             .join(' ');
-        const cleaned      = stripInlineMarkdown(unwrapped);
+        const cleaned = stripInlineMarkdown(unwrapped);
 
         if (cleaned.length < 35) {
             continue;
@@ -776,15 +401,15 @@ export function extractMarkdownSeoMetadata(rawContent='', options={}) {
 }
 
 /**
- * @summary Extracts the `familyDefinitions` config array from `apps/portal/view/examples/TabContainer.mjs`
- * via AST parsing so `TabContainer.mjs` remains the single source of truth without booting the UI runtime.
+ * @summary Extracts the `familyDefinitions` config array from `apps/portal/view/examples/MainContainer.mjs`
+ * via AST parsing so `MainContainer.mjs` remains the single source of truth without booting the UI runtime.
  * Throws when `familyDefinitions` is missing, non-array, or contains non-literal/incomplete entries.
  * @param {String} [source='']
  * @returns {Array<{family: String|null, title: String, route: String}>}
  */
 export function extractExampleFamilyDefinitions(source='') {
     if (!source || typeof source !== 'string') {
-        throw new Error('Failed to extract familyDefinitions from TabContainer.mjs: source must be a non-empty string.');
+        throw new Error('Failed to extract familyDefinitions from MainContainer.mjs: source must be a non-empty string.');
     }
 
     const ast           = acorn.parse(source, {ecmaVersion: 'latest', sourceType: 'module'});
@@ -805,25 +430,25 @@ export function extractExampleFamilyDefinitions(source='') {
             foundProperty = true;
 
             if (node.value?.type !== 'ArrayExpression') {
-                throw new Error('Invalid familyDefinitions in TabContainer.mjs: expected an ArrayExpression.');
+                throw new Error('Invalid familyDefinitions in MainContainer.mjs: expected an ArrayExpression.');
             }
 
             for (const element of node.value.elements) {
                 if (element?.type !== 'ObjectExpression') {
-                    throw new Error('Invalid familyDefinitions entry in TabContainer.mjs: expected an ObjectExpression.');
+                    throw new Error('Invalid familyDefinitions entry in MainContainer.mjs: expected an ObjectExpression.');
                 }
 
                 const entry = {};
 
                 for (const prop of element.properties) {
                     if (prop?.type !== 'Property') {
-                        throw new Error('Invalid familyDefinitions property in TabContainer.mjs: expected a Property.');
+                        throw new Error('Invalid familyDefinitions property in MainContainer.mjs: expected a Property.');
                     }
 
                     const propKey = prop.key?.name ?? prop.key?.value;
 
                     if (!propKey || prop.value?.type !== 'Literal') {
-                        throw new Error(`Invalid familyDefinitions property "${propKey || 'unknown'}" in TabContainer.mjs: expected a Literal value.`);
+                        throw new Error(`Invalid familyDefinitions property "${propKey || 'unknown'}" in MainContainer.mjs: expected a Literal value.`);
                     }
 
                     entry[propKey] = prop.value.value;
@@ -834,7 +459,7 @@ export function extractExampleFamilyDefinitions(source='') {
                 const hasValidTitle  = typeof entry.title === 'string' && entry.title.length > 0;
 
                 if (!hasValidFamily || !hasValidRoute || !hasValidTitle) {
-                    throw new Error('Incomplete familyDefinitions entry in TabContainer.mjs: each entry requires literal family, route, and title.');
+                    throw new Error('Incomplete familyDefinitions entry in MainContainer.mjs: each entry requires literal family, route, and title.');
                 }
 
                 definitions.push({
@@ -859,25 +484,66 @@ export function extractExampleFamilyDefinitions(source='') {
     walk(ast);
 
     if (!foundProperty || definitions.length === 0) {
-        throw new Error('Failed to extract familyDefinitions from TabContainer.mjs: no definitions found.');
+        throw new Error('Failed to extract familyDefinitions from MainContainer.mjs: no definitions found.');
     }
 
     return definitions;
 }
 
 /**
+ * @summary Search-intent wording per example family, keyed by `familyDefinitions` `family`.
+ * `title` is the route's `<title>` (at most 68 characters): what a reader searches for, and the capability that sets
+ * the family apart. `subject` is the plain-English noun its description counts. `Portal.service.Seo#routeTitles`
+ * repeats each title as the SPA window title.
+ * @type {Object<String, {subject: String, title: String}>}
+ */
+export const EXAMPLE_FAMILY_SEO = {
+    apps          : {subject: 'JavaScript web app',              title: 'JavaScript Web App Examples — Full Apps on Worker Threads | Neo.mjs'},
+    board         : {subject: 'JavaScript kanban board',         title: 'JavaScript Kanban Board — Columns, Swimlanes & Cards | Neo.mjs'},
+    buttons       : {subject: 'JavaScript button and menu',      title: 'JavaScript Buttons, Menus & Toolbars — Live Examples | Neo.mjs'},
+    calendar      : {subject: 'JavaScript calendar',             title: 'MIT JavaScript Calendar — Day, Week, Month & Year Views | Neo.mjs'},
+    charts        : {subject: 'JavaScript chart and canvas',     title: 'JavaScript Charts, Canvas & Maps — OffscreenCanvas Demos | Neo.mjs'},
+    components    : {subject: 'JavaScript UI component',         title: 'JavaScript UI Component Examples — Off the Main Thread | Neo.mjs'},
+    dashboard     : {subject: 'JavaScript dashboard',            title: 'JavaScript Dashboard & Docking — Panes That Pop Out | Neo.mjs'},
+    dialogs       : {subject: 'JavaScript dialog',               title: 'JavaScript Dialogs & Overlays — Live Examples | Neo.mjs'},
+    'drag-drop'   : {subject: 'JavaScript drag and drop',        title: 'JavaScript Drag & Drop Examples — Across Windows | Neo.mjs'},
+    forms         : {subject: 'JavaScript form',                 title: 'JavaScript Form Examples — Fields, Pickers & Validation | Neo.mjs'},
+    functional    : {subject: 'JavaScript functional component', title: 'JavaScript Functional Component Examples | Neo.mjs'},
+    gantt         : {subject: 'JavaScript Gantt chart',          title: 'MIT JavaScript Gantt Chart — Linked, Editable Tasks | Neo.mjs'},
+    'grid-table'  : {subject: 'JavaScript data grid',            title: 'JavaScript Data Grid Examples — 100k Rows in a Web Worker | Neo.mjs'},
+    layouts       : {subject: 'JavaScript layout',               title: 'JavaScript Containers & Layouts — Flexbox, Card & Form | Neo.mjs'},
+    lists         : {subject: 'JavaScript list and gallery',     title: 'JavaScript Lists & Galleries — 3D Helix & Gallery Views | Neo.mjs'},
+    'multi-window': {subject: 'multi-window JavaScript app',     title: 'Multi-Window JavaScript App Examples — SharedWorker State | Neo.mjs'},
+    platform      : {subject: 'JavaScript web worker',           title: 'JavaScript Web Worker Examples — Workers & Platform | Neo.mjs'},
+    scheduler     : {subject: 'JavaScript resource scheduler',   title: 'MIT JavaScript Resource Scheduler — Editable Timeline | Neo.mjs'},
+    state         : {subject: 'JavaScript state management',     title: 'JavaScript State Management Examples — Reactive Stores | Neo.mjs'},
+    tabs          : {subject: 'JavaScript tab container',        title: 'JavaScript Tab Container — Tab Bars on Any Side | Neo.mjs'},
+    timeline      : {subject: 'JavaScript timeline',             title: 'JavaScript Timeline Examples — Events on a Time Axis | Neo.mjs'},
+    tree          : {subject: 'JavaScript tree',                 title: 'JavaScript Tree Examples — Tree List & Accordion | Neo.mjs'}
+};
+
+/**
+ * @summary Returns a family's search wording from {@link EXAMPLE_FAMILY_SEO}, or a plain fallback built from its
+ * tab title for a family that has none yet.
+ * @param {{family: String, title: String}} definition A `familyDefinitions` entry
+ * @returns {{subject: String, title: String}}
+ */
+export function getExampleFamilySeo({family, title}) {
+    return EXAMPLE_FAMILY_SEO[family] || {subject: `JavaScript ${title}`, title: `JavaScript ${title} Examples | Neo.mjs`}
+}
+
+/**
  * @summary Builds a concise SEO description for a published `/examples/<family>` overview route
- * from its non-hidden `examples.json` catalog records, keeping only complete highlights that fit
- * within 160 characters.
- * @param {String} title
+ * from its covered `examples.json` records, keeping only complete highlights that fit within 160 characters.
+ * @param {String} subject The family's plain-English noun, e.g. 'JavaScript data grid'
  * @param {Object[]} [records=[]]
  * @returns {String}
  */
-function formatExampleFamilyDescription(title='', records=[]) {
+function formatExampleFamilyDescription(subject='', records=[]) {
     const count      = records.length;
-    const prefix     = `Explore ${count} live Neo.mjs ${title} ${count === 1 ? 'example' : 'example' + 's'}`;
+    const prefix     = `Explore ${count} live ${subject} ${count === 1 ? 'example' : 'examples'}`;
     const candidates = records
-        .map(record => stripInlineMarkdown(record?.feature || record?.name || ''))
+        .map(record => stripInlineMarkdown(record?.feature || record?.name || '').replace(/\.+$/, ''))
         .filter(Boolean)
         .slice(0, 3);
     const highlights = [];
@@ -900,12 +566,16 @@ function formatExampleFamilyDescription(title='', records=[]) {
 }
 
 /**
- * @summary Returns the ordered example family definitions (`family !== null`) from
- * `apps/portal/view/examples/TabContainer.mjs` that have at least one non-hidden record in
- * `apps/portal/resources/data/examples.json`.
+ * @summary Returns the ordered example groups (`family !== null`) from `apps/portal/view/examples/MainContainer.mjs`
+ * that have at least one member in `apps/portal/resources/data/examples.json` publishing a card in production, each
+ * with those members: a group publishes its search route once its overview has a card to show there.
+ *
+ * A member is a record whose home `family` is the group or whose `alsoIn` names it. A card publishes in production
+ * when the record names a cover and production can open it, the rule of `Portal.model.Example.publishes()` for
+ * `dist_prod`, which this build script cannot import. `MainContainerController.spec.mjs` holds the two to one result.
  * @param {Object} [options={}]
  * @param {String} [options.examplesPath]
- * @param {String} [options.examplesTabContainerPath]
+ * @param {String} [options.examplesMainContainerPath]
  * @param {Array<{family: String|null, title: String, route: String}>} [options.familyDefinitions]
  * @param {String} [options.root=ROOT_DIR]
  * @returns {Promise<Array<{family: String, filePath: String, records: Object[], route: String, title: String}>>}
@@ -914,7 +584,7 @@ export async function getPublishedExampleFamilies(options={}) {
     const {
         root                     = ROOT_DIR,
         examplesPath             = path.resolve(root, 'apps/portal/resources/data/examples.json'),
-        examplesTabContainerPath = path.resolve(root, 'apps/portal/view/examples/TabContainer.mjs'),
+        examplesMainContainerPath = path.resolve(root, 'apps/portal/view/examples/MainContainer.mjs'),
         familyDefinitions
     } = options;
 
@@ -924,25 +594,25 @@ export async function getPublishedExampleFamilies(options={}) {
 
     const definitions = Array.isArray(familyDefinitions)
         ? familyDefinitions
-        : extractExampleFamilyDefinitions(await fs.readFile(examplesTabContainerPath, 'utf-8'));
+        : extractExampleFamilyDefinitions(await fs.readFile(examplesMainContainerPath, 'utf-8'));
 
     const examplesRaw = await fs.readJSON(examplesPath);
     const records     = (Array.isArray(examplesRaw) ? examplesRaw : Array.isArray(examplesRaw?.data) ? examplesRaw.data : [])
-        .filter(record => record && !record.hidden);
+        .filter(record => record?.image && !record.hidden && !record.hiddenIn?.includes('dist_prod') && record.urls?.dist_prod);
 
     return definitions
         .filter(definition => definition?.family && definition?.route)
         .map(definition => ({
             ...definition,
             filePath: examplesPath,
-            records : records.filter(record => record.family === definition.family)
+            records : records.filter(record => record.family === definition.family || record.alsoIn?.includes(definition.family))
         }))
         .filter(definition => definition.records.length > 0);
 }
 
 /**
  * @summary Collects populated `/examples/<family>` overview routes from
- * `apps/portal/view/examples/TabContainer.mjs` (`familyDefinitions`) and `apps/portal/resources/data/examples.json`.
+ * `apps/portal/view/examples/MainContainer.mjs` (`familyDefinitions`) and `apps/portal/resources/data/examples.json`.
  * @param {Object} [options={}]
  * @returns {Promise<Array<{category: String, filePath: String, id: String, name: String}>>}
  */
@@ -974,10 +644,71 @@ function getNameFromExamplePath(examplePath) {
 }
 
 /**
+ * @summary Builds `title` and `description` metadata for a standalone app or example `index.html` route,
+ * preserving already-qualified `| Neo.mjs` HTML titles while enriching bare names from `examples.json`.
+ * @param {Object} exampleRoute
+ * @param {Object|null} [catalogRecord=null]
+ * @returns {{title: String, description: String}}
+ */
+export function formatStandaloneExampleSeo(exampleRoute, catalogRecord=null) {
+    const rawTitle  = String(exampleRoute?.name || '').trim();
+    const fallback  = getNameFromExamplePath(String(exampleRoute?.id || '').replace(/^\/+/, ''));
+    const baseName  = rawTitle || (catalogRecord?.name ? String(catalogRecord.name).trim() : '') || fallback;
+    const baseLabel = baseName
+        .replace(/\s*[—|-]\s*Living Docking Showcase$/i, '')
+        .replace(/^Neo(?:\.mjs)?(?:\s*[-—–·:]\s*|\s+)/i, '')
+        .trim() || fallback;
+
+    let title;
+
+    if (/\|\s*Neo\.mjs\s*$/i.test(rawTitle)) {
+        title = rawTitle;
+    } else {
+        const routeId    = String(exampleRoute?.id || '');
+        const qualifiers = (catalogRecord?.sharedWorkers || /multiWindow|shared|crossWindow|tearOut|dock/i.test(routeId))
+            ? ['Multi-Window JavaScript Demo | Neo.mjs', 'Multi-Window Demo | Neo.mjs', 'Live Demo | Neo.mjs']
+            : /^\/examples\/(?:grid|table)/i.test(routeId)
+                ? ['Web Worker Data Grid Demo | Neo.mjs', 'Data Grid Demo | Neo.mjs', 'Live Demo | Neo.mjs']
+                : /^\/apps\//i.test(routeId)
+                    ? ['Multi-Threaded JavaScript App | Neo.mjs', 'JavaScript App | Neo.mjs', 'Live App | Neo.mjs']
+                    : ['Web Worker JavaScript UI Demo | Neo.mjs', 'JavaScript UI Demo | Neo.mjs', 'Live Demo | Neo.mjs'];
+
+        title = `${truncateDescription(baseLabel, 58)} | Neo.mjs`;
+
+        for (const qualifier of qualifiers) {
+            const candidate = `${baseLabel} — ${qualifier}`;
+
+            if (candidate.length <= 68) {
+                title = candidate;
+                break;
+            }
+        }
+    }
+
+    let description;
+
+    if (exampleRoute?.description) {
+        description = truncateDescription(exampleRoute.description, 160);
+    } else if (catalogRecord?.feature) {
+        const feature = String(catalogRecord.feature).trim().replace(/\.+$/, '');
+        const detail  = catalogRecord?.lookFor ? String(catalogRecord.lookFor).trim() : 'Runs off the main thread in Neo.mjs Web Workers.';
+        description   = truncateDescription(`${feature}. ${detail}`, 160);
+    } else {
+        const kind = /^\/apps\//i.test(String(exampleRoute?.id || '')) ? 'app' : 'example';
+        description = truncateDescription(
+            `Live runnable ${baseLabel} ${kind} in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.`,
+            160
+        );
+    }
+
+    return {description, title};
+}
+
+/**
  * @summary Collects standalone app and example `index.html` routes under `apps/` and `examples/`,
- * excluding the Portal shell (`apps/portal/index.html`) and multi-window popup helpers (`/childapp/`, `/childapps/`).
+ * excluding non-indexable harnesses (`NON_INDEXABLE_STANDALONE_PATHS`, `seo: false` configs, and popup childapps).
  * @param {String} [root=ROOT_DIR] Repository root.
- * @returns {Promise<Array<{category: String, filePath: String, id: String, name: String}>>}
+ * @returns {Promise<Array<{category: String, description: (String|null), filePath: String, id: String, name: String, sourceTitle: String}>>}
  */
 export async function collectExampleRoutes(root=ROOT_DIR) {
     let files = await fg('{apps,examples}/**/index.html', {
@@ -986,24 +717,43 @@ export async function collectExampleRoutes(root=ROOT_DIR) {
     });
 
     files = files.filter(file =>
-        file !== 'apps/portal/index.html' &&
+        !NON_INDEXABLE_STANDALONE_PATHS.has(file) &&
         !/(?:^|\/)childapps?(?:\/|$)/.test(file)
     );
 
     files.sort((a, b) => a.localeCompare(b));
 
-    return Promise.all(files.map(async file => {
-        const filePath   = path.resolve(root, file);
+    const routes = await Promise.all(files.map(async file => {
+        const filePath      = path.resolve(root, file);
+        const neoConfigPath = path.join(path.dirname(filePath), 'neo-config.json');
+
+        if (await fs.pathExists(neoConfigPath)) {
+            try {
+                const neoConfig = await fs.readJSON(neoConfigPath);
+
+                if (neoConfig?.seo === false || neoConfig?.excludeFromSitemap === true) {
+                    return null;
+                }
+            } catch {
+                // Ignore malformed config fixtures when reading optional SEO opt-out flags.
+            }
+        }
+
         const content    = await fs.readFile(filePath, 'utf-8');
-        const titleMatch = content.match(/<title>(.*?)<\/title>/i);
+        const portalMeta = extractPortalIndexMetadata(content);
+        const rawTitle   = /<title\b[^>]*>([\s\S]*?)<\/title>/i.exec(content)?.[1]?.replace(/\s+/g, ' ').trim();
 
         return {
-            category: 'file',
+            category   : 'file',
+            description: portalMeta?.description || null,
             filePath,
-            id      : `/${file}`,
-            name    : titleMatch ? titleMatch[1] : getNameFromExamplePath(file)
+            id         : `/${file}`,
+            name       : portalMeta?.title || rawTitle || getNameFromExamplePath(file),
+            sourceTitle: rawTitle || ''
         };
     }));
+
+    return routes.filter(Boolean);
 }
 
 /**
@@ -1023,8 +773,8 @@ export async function resolveLearnTreeLeaves(options={}) {
         treeFilePath = path.join(learnDir, 'tree.json')
     } = options;
 
-    const tree   = await fs.readJSON(treeFilePath);
-    const nodes  = (Array.isArray(tree) ? tree : Array.isArray(tree?.data) ? tree.data : [])
+    const tree  = await fs.readJSON(treeFilePath);
+    const nodes = (Array.isArray(tree) ? tree : Array.isArray(tree?.data) ? tree.data : [])
         .filter(node => node?.id && node.isLeaf !== false && !node.route);
     const leaves = [];
 
@@ -1057,7 +807,7 @@ export async function resolveLearnTreeLeaves(options={}) {
  * @param {String} [options.basePath='/learn']
  * @param {String} [options.blogIndexPath]
  * @param {String} [options.examplesPath]
- * @param {String} [options.examplesTabContainerPath]
+ * @param {String} [options.examplesMainContainerPath]
  * @param {Array<{family: (String|null), title: String, route: String, iconCls: (String|undefined)}>} [options.familyDefinitions]
  * @param {String} [options.learnDir]
  * @param {String} [options.releaseNotesRoot]
@@ -1075,7 +825,7 @@ export async function getSeoJson(options={}) {
         treeFilePath             = path.join(learnDir, 'tree.json'),
         blogIndexPath            = path.resolve(root, 'apps/portal/resources/data/blog.json'),
         examplesPath             = path.resolve(root, 'apps/portal/resources/data/examples.json'),
-        examplesTabContainerPath,
+        examplesMainContainerPath,
         familyDefinitions,
         releasesPath             = path.resolve(root, 'apps/portal/resources/data/releases.json'),
         releaseNotesRoot         = path.resolve(root, '.github/RELEASE_NOTES'),
@@ -1147,6 +897,7 @@ export async function getSeoJson(options={}) {
             route !== '/' &&
             route !== '/home' &&
             !route.startsWith(`${cleanBase}/`) &&
+            !route.startsWith('/apps/') &&
             !route.startsWith('/examples/') &&
             !route.startsWith('/news/blog/') &&
             !route.startsWith('/news/releases/')
@@ -1305,24 +1056,66 @@ export async function getSeoJson(options={}) {
         };
     }
 
-    const publishedFamilies = await getPublishedExampleFamilies({
-        examplesPath,
-        examplesTabContainerPath,
-        familyDefinitions,
-        root
-    });
+    const [publishedFamilies, standaloneRoutes] = await Promise.all([
+        getPublishedExampleFamilies({
+            examplesPath,
+            examplesMainContainerPath,
+            familyDefinitions,
+            root
+        }),
+        collectExampleRoutes(root)
+    ]);
 
     for (const family of publishedFamilies) {
         const recordPaths = family.records
             .map(record => record?.sourceUrl)
             .filter(sourceUrl => typeof sourceUrl === 'string' && !/^https?:\/\//i.test(sourceUrl))
             .map(sourceUrl => path.resolve(root, sourceUrl));
-        const lastmod     = resolveRouteLastmod(family.route, [family.filePath, ...recordPaths]);
+        const lastmod          = resolveRouteLastmod(family.route, [family.filePath, ...recordPaths]);
+        const {subject, title} = getExampleFamilySeo(family);
 
         seo[family.route] = {
-            title      : `Neo.mjs ${family.title} Examples`,
-            description: formatExampleFamilyDescription(family.title, family.records),
+            title,
+            description: formatExampleFamilyDescription(subject, family.records),
             schemaType : 'CollectionPage',
+            ...(lastmod && {lastmod})
+        };
+    }
+
+    const examplesCatalogByRoute = new Map();
+
+    if (await fs.pathExists(examplesPath)) {
+        try {
+            const catalog = await fs.readJSON(examplesPath);
+
+            if (Array.isArray(catalog)) {
+                for (const record of catalog) {
+                    const rawTarget = record?.urls?.devmode || (
+                        typeof record?.sourceUrl === 'string' && !/^https?:\/\//i.test(record.sourceUrl)
+                            ? `${record.sourceUrl.replace(/\/+$/, '')}/index.html`
+                            : null
+                    );
+                    const devPath = rawTarget ? String(rawTarget).split(/[?#]/, 1)[0] : null;
+
+                    if (devPath) {
+                        examplesCatalogByRoute.set(`/${devPath.replace(/^\/+/, '')}`, record);
+                    }
+                }
+            }
+        } catch {
+            // Fall back to source HTML metadata when examples.json is absent or malformed in isolated fixtures.
+        }
+    }
+
+    for (const exampleRoute of standaloneRoutes) {
+        const catalogRecord        = examplesCatalogByRoute.get(exampleRoute.id) || null;
+        const {description, title} = formatStandaloneExampleSeo(exampleRoute, catalogRecord);
+        const lastmod              = resolveRouteLastmod(exampleRoute.id, [path.dirname(exampleRoute.filePath)]);
+
+        seo[exampleRoute.id] = {
+            title,
+            description,
+            schemaType: 'WebPage',
             ...(lastmod && {lastmod})
         };
     }
