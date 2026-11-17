@@ -434,18 +434,17 @@
       "id": "table-filtering",
       "viewport": {"width": 640, "height": 720},
       "theme": "default",
-      "state": "The unfiltered business-customer table and its typed header filters in a compact viewport.",
+      "state": "The business-customer table filtered by \"Avery\" in the Customer field, showing 8 of 80 rows.",
       "ready": [
         {"selector": "#myTableFilterContainer .neo-table-header-toolbar .neo-table-header-button", "text": "Customer"},
         {"selector": "#myTableFilterContainer .neo-table-body tr"}
       ],
-      "steps": [],
+      "steps": [
+        {"kind": "fill", "selector": "#myTableFilterContainer .neo-table-header-toolbar .neo-textfield input", "nth": 0, "value": "Avery"}
+      ],
       "after": [
-        {"selector": "#myTableFilterContainer .neo-table-body tr", "count": 80},
-        {"selector": "#myTableFilterContainer .neo-table-header-toolbar .neo-table-header-button", "text": "Country"},
-        {"selector": "#myTableFilterContainer .neo-table-header-toolbar .neo-table-header-button", "text": "Open Orders"},
-        {"selector": "#myTableFilterContainer .neo-table-header-toolbar .neo-table-header-button", "text": "Last Order"},
-        {"selector": "#myTableFilterContainer .neo-table-header-toolbar .neo-table-header-button", "text": "Active"}
+        {"selector": "#myTableFilterContainer .neo-table-body tr", "count": 8},
+        {"selector": "#myTableFilterContainer .neo-table-body .neo-table-cell[data-field='customer']", "text": "Avery"}
       ],
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     }
