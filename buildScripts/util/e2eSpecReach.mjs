@@ -35,7 +35,7 @@ export const FOUNDATION = [
     /^src\/(core|main|manager|util|vdom|worker)\//,
     /^src\/canvas\//,
     /^src\/[^/]+\.mjs$/,
-    /^resources\/scss\//
+    /^resources\/css\//
 ];
 
 /**

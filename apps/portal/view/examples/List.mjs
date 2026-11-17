@@ -178,20 +178,14 @@ class List extends BaseList {
      * @returns {Object}
      */
     createLink(record) {
-        let url          = record.urls[this.catalogMode],
-            externalLink = url?.startsWith('http'),
+        let externalLink = record.urls[this.catalogMode]?.startsWith('http'),
 
         vdom = {
             tag : 'a',
             cls : ['neo-title'],
-            href: url,
+            href: Example.href(record, this.catalogMode, this.baseUrl),
             text: record.name.replace(List.nameRegEx, '$1')
         };
-
-        // We can use a shorter syntax for pointing examples to neomjs.com, but not all examples have to be there.
-        if (!externalLink) {
-            vdom.href = url ? this.baseUrl + url : null
-        }
 
         // Do not open multi-window examples inside a new browser window, in case the environment is the same.
         // E.g. opening the multi-window covid app & the portal app inside the same app worker is problematic.
@@ -283,9 +277,12 @@ class List extends BaseList {
             needsUpdate = false,
             node;
 
+        // A card's intersection can arrive after a build switch dropped its record: nothing to preload
+        if (!record) return;
+
         for (; i < len; i++) {
             record = store.getAt(i);
-            node = VDomUtil.getByFlag(me.vdom, `image-${record.id}`);
+            node = VDomUtil.getByFlag(me.vdom, `image-${store.getKey(record)}`);
 
             if (!node.style) {
                 needsUpdate = true;

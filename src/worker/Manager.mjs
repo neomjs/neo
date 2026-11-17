@@ -232,26 +232,17 @@ class Manager extends Base {
             });
 
             if (swVersion?.version && swVersion.version !== Neo.config.version) {
-                const
-                    key        = 'neoVersionReload',
-                    lastReload = parseInt(sessionStorage.getItem(key) || '0'),
-                    now        = Date.now();
-
-                if (now - lastReload < 5000) {
-                    console.error('Reload loop detected. Aborting version enforcement.');
-                    return
-                }
-
-                sessionStorage.setItem(key, String(now));
-
-                console.error(`Version Mismatch! Client: ${Neo.config.version}, SW: ${swVersion.version}. Reloading.`);
-                location.reload(true)
+                this.reloadOnce(`Version Mismatch! Client: ${Neo.config.version}, SW: ${swVersion.version}. Reloading.`)
             }
         }
     }
 
     /**
      * Creates a web worker using the passed options as well as adding error & message event listeners.
+     *
+     * A build's worker URL carries its `buildId`: a shared worker is keyed by its URL and name, so a page of a new
+     * build starts its own workers instead of joining those another tab of the previous build still runs. The name
+     * stays as it is, since a canvas worker reads its group from it.
      * @param {Object} opts
      * @returns {SharedWorker|Worker}
      */
@@ -259,7 +250,8 @@ class Manager extends Base {
         let me            = this,
             {canvasGroup} = me,
             {fileName}    = opts,
-            filePath      = (opts.basePath || Neo.config.workerBasePath) + fileName,
+            {buildId}     = Neo.config,
+            filePath      = (opts.basePath || Neo.config.workerBasePath) + fileName + (buildId ? `?buildId=${encodeURIComponent(buildId)}` : ''),
             isCanvas      = opts === me.workers.canvas,
             name          = isCanvas ? CANVAS_WORKER_NAME_PREFIX + canvasGroup : `neomjs-${fileName.substring(0, fileName.indexOf('.')).toLowerCase()}-worker`,
             isShared      = me.sharedWorkersEnabled && NeoConfig.useSharedWorkers,
@@ -728,6 +720,28 @@ class Manager extends Base {
                 delete promises[replyId]
             }
         }
+    }
+
+    /**
+     * @summary Reloads the page to load one consistent set of files, unless it reloaded for this within the last five
+     * seconds: a mismatch that a reload does not cure would otherwise reload forever.
+     * @param {String} message Logged when the reload starts
+     */
+    reloadOnce(message) {
+        const
+            key        = 'neoVersionReload',
+            lastReload = parseInt(sessionStorage.getItem(key) || '0'),
+            now        = Date.now();
+
+        if (now - lastReload < 5000) {
+            console.error('Reload loop detected. Aborting version enforcement.');
+            return
+        }
+
+        sessionStorage.setItem(key, String(now));
+
+        console.error(message);
+        location.reload(true)
     }
 
     /**

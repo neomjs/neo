@@ -7,6 +7,7 @@ import inquirer        from 'inquirer';
 import path            from 'path';
 import {createRequire} from 'node:module';
 import {sanitizeInput} from '../util/sanitizer.mjs';
+import * as BuildId    from '../util/buildId.mjs';
 
 const __dirname   = path.resolve(),
       cwd         = process.cwd(),
@@ -29,6 +30,7 @@ program
     .option('-f, --framework')
     .option('-n, --noquestions')
     .option('-t, --threads <value>', '"all", "app", "canvas", "data", "main", "service", "task", "vdom"', sanitizeInput)
+    .option('--no-stamp',            'leave publishing the build id to the build that runs this one')
     .allowUnknownOption()
     .on('--help', () => {
         console.log('\nIn case you have any issues, please create a ticket here:');
@@ -108,17 +110,23 @@ if (programOpts.info) {
             }
         }
 
-        // dist/development
+        const builtDists = [];
+
         if (env === 'all' || env === 'dev') {
             console.log(chalk.blue(`${programName} starting dist/development`));
             parseThreads(`${webpackPath}/development/webpack.config`);
+            builtDists.push('dist/development')
         }
 
-        // dist/production
         if (env === 'all' || env === 'prod') {
             console.log(chalk.blue(`${programName} starting dist/production`));
             parseThreads(`${webpackPath}/production/webpack.config`);
+            builtDists.push('dist/production')
         }
+
+        // A failed thread exits before this line, so the id is published only once every selected environment built,
+        // including a build of a single thread. Under `build-all` (`--no-stamp`) the whole run publishes it at its end
+        BuildId.stampDeferred() || builtDists.forEach(dist => BuildId.stampBuildId({buildId: BuildId.getBuildId(), distPath: path.resolve(cwd, dist)}));
 
         const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
         console.log(`\nTotal time for ${programName}: ${processTime}s`);

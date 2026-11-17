@@ -7,7 +7,7 @@ import {lockedWidth}      from './planningCalendar.mjs';
  * The workspace hands this pane the provider's `people` store as its rows and the `workItems` store as its
  * events: the instance the board pane binds as well. A bar moved here and a card moved on the board are
  * both one `record.set()` on the same record, so each view shows the other's edit, in any window. Its time
- * axis and labels come from the planning calendar, which the release plan below it shares.
+ * axis and labels come from the planning calendar, which the release plan above it shares.
  *
  * A bar wears its work item's status: the family's colour variants for work in hand, the default bar for
  * ready work and a muted bar for the backlog.

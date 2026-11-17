@@ -122,7 +122,7 @@ test.describe('e2e spec reach', () => {
 
     test('the blind spots name what loads by name or by computed path', () => {
         ['src/core/Base.mjs', 'src/main/addon/Mermaid.mjs', 'src/worker/App.mjs', 'src/vdom/Helper.mjs',
-            'src/canvas/Helper.mjs', 'src/Neo.mjs', 'resources/scss/src/grid/Container.scss']
+            'src/canvas/Helper.mjs', 'src/Neo.mjs', 'resources/css/src/grid/Container.css']
             .forEach(file => expect(FOUNDATION.some(rule => rule.test(file)), file).toBe(true));
 
         ['src/grid/Container.mjs', 'src/plugin/Responsive.mjs', 'apps/portal/app.mjs']

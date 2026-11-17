@@ -18,7 +18,7 @@ class Example extends Model {
          * List.catalogMode selects the key. A missing target hides the example in that mode.
          * `sourceUrl` is the common source link; optional `sourceUrls` overrides it by mode.
          * `hiddenIn` lists curated mode exclusions (empty by default); `hidden` hides every mode.
-         * `family` names the record's home group, one id of `Portal.view.examples.TabContainer#familyDefinitions`;
+         * `family` names the record's home group, one id of `Portal.view.examples.MainContainer#familyDefinitions`;
          * `alsoIn` lists the other groups that show it (empty by default). `component` names its renderer.
          * `featured` independently marks a showcase record and defaults to false; it does not assign a family.
          * `feature` states what the example demonstrates and `lookFor` gives a concrete action.
@@ -105,6 +105,19 @@ class Example extends Model {
      */
     static belongsTo(record, family) {
         return record.family === family || !!record.alsoIn?.includes(family)
+    }
+
+    /**
+     * @summary The address a record opens in a build mode: its explicit external link, or its path below `baseUrl`.
+     * @param {Object} record A catalog record or its raw row
+     * @param {String} mode A build mode id, e.g. 'dist_prod'
+     * @param {String} [baseUrl='https://neomjs.com/']
+     * @returns {String|null} null when the mode cannot open the record
+     */
+    static href(record, mode, baseUrl='https://neomjs.com/') {
+        const url = record.urls?.[mode];
+
+        return !url ? null : url.startsWith('http') ? url : baseUrl + url
     }
 
     /**

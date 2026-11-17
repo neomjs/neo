@@ -3,7 +3,7 @@ import {test, expect} from '@playwright/test';
 /**
  * The splitter's affordance, measured on a rendered splitter rather than on stylesheet text.
  *
- * The sibling `dockSplitterLayering.spec.mjs` censuses SCSS source: it proves no application
+ * The sibling `dockSplitterLayering.spec.mjs` censuses the theme sources: it proves no application
  * stylesheet paints a splitter and that the engine's identity slots ship empty. That is the
  * ownership question. It cannot answer the one this ticket is actually about — whether a consumer
  * that sets nothing gets a *findable* drag target — because a source guard sees declarations, not
@@ -166,7 +166,7 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter — the rendered affo
         const withoutToken = await activeHandle();
 
         // Shaped the way a consuming app writes one: the token lands on the SPLITTER's own selector
-        // under an app-root class, which is what `Workspace.scss` and `FleetCockpit.scss` both do.
+        // under an app-root class, which is what `Workspace.css` and `FleetCockpit.css` both do.
         // Setting it on an ancestor instead would test a mechanism no app uses — and would not even
         // work, because the engine re-declares its token defaults on every `.neo-dashboard`.
         await page.evaluate(() => {

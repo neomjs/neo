@@ -4,7 +4,6 @@ import os                             from 'node:os';
 import path                           from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import {test, expect}                 from '@playwright/test';
-import {compile}                      from 'sass';
 import {moduleInfo, moduleClassNames} from '../../../../buildScripts/util/moveSourceTransforms.mjs';
 import {planMove, applyMove}          from '../../../../buildScripts/util/movePlan.mjs';
 
@@ -13,6 +12,12 @@ const repoRoot  = fileURLToPath(new URL('../../../../', import.meta.url)),
     destination = 'examples/functional/moved/Panel.mjs',
     oldName     = 'Neo.examples.functional.defineComponent.Component',
     newName     = 'Neo.examples.functional.moved.Panel';
+
+/** @summary The CSS a browser assembles from a stylesheet: its relative `@import`s inlined, recursively. */
+function bundle(file) {
+    return fs.readFileSync(file, 'utf8').replace(/@import\s+(?:url\()?["']?([^"')]+)["']?\)?\s*;/g,
+        (match, url) => bundle(path.resolve(path.dirname(file), url)))
+}
 
 /** @summary Records the complete small fixture tree, including installed package bytes, before a refusal. */
 function snapshot(root) {
@@ -63,7 +68,7 @@ test.describe('move namespace ownership (#5086)', () => {
     });
 
     for (const alias of [false, true]) {
-        test(`moves an executable functional component and its SCSS through the ${alias ? 'aliased' : 'named'} Engine factory import`, () => {
+        test(`moves an executable functional component and its sheets through the ${alias ? 'aliased' : 'named'} Engine factory import`, () => {
             const binding = alias ? 'defineView' : 'defineComponent',
                 imported  = alias ? 'defineComponent as defineView' : 'defineComponent';
             write('src/functional/_export.mjs', `export function defineComponent(spec) {
@@ -76,12 +81,12 @@ export default ${binding}({
 });`);
             write('entry.mjs', `export {default} from './${source}';`);
             for (const surface of ['src', 'theme-light']) {
-                write(`resources/scss/${surface}/examples/functional/defineComponent/Component.scss`,
+                write(`resources/css/${surface}/examples/functional/defineComponent/Component.css`,
                     '.functional-component { padding: 3px; }')
             }
-            write('resources/scss/bundle.scss', `@use 'src/examples/functional/defineComponent/Component' as structural;
-@use 'theme-light/examples/functional/defineComponent/Component' as themed;`);
-            const original = execute(), css = compile(path.join(root, 'resources/scss/bundle.scss')).css,
+            write('resources/css/bundle.css', `@import 'src/examples/functional/defineComponent/Component.css';
+@import 'theme-light/examples/functional/defineComponent/Component.css';`);
+            const original = execute(), css = bundle(path.join(root, 'resources/css/bundle.css')),
                 plan       = planMove({root, source, destination});
 
             expect(original).toEqual({className: oldName, vdom: {text: 'functional content'}});
@@ -90,10 +95,10 @@ export default ${binding}({
             expect(execute()).toEqual({...original, className: newName});
             expect(plan.classNames).toEqual([[oldName, newName]]);
             for (const surface of ['src', 'theme-light']) {
-                expect(fs.existsSync(path.join(root, `resources/scss/${surface}/examples/functional/defineComponent/Component.scss`))).toBe(false);
-                expect(fs.existsSync(path.join(root, `resources/scss/${surface}/examples/functional/moved/Panel.scss`))).toBe(true)
+                expect(fs.existsSync(path.join(root, `resources/css/${surface}/examples/functional/defineComponent/Component.css`))).toBe(false);
+                expect(fs.existsSync(path.join(root, `resources/css/${surface}/examples/functional/moved/Panel.css`))).toBe(true)
             }
-            expect(compile(path.join(root, 'resources/scss/bundle.scss')).css).toBe(css)
+            expect(bundle(path.join(root, 'resources/css/bundle.css'))).toBe(css)
         })
     }
 
@@ -101,7 +106,7 @@ export default ${binding}({
         const code = `function defineComponent(spec) { return spec; }
 export default defineComponent({config: {className: '${oldName}'}});`;
         write(source, code);
-        write('resources/scss/src/examples/functional/defineComponent/Component.scss', '.unrelated { padding: 1px; }');
+        write('resources/css/src/examples/functional/defineComponent/Component.css', '.unrelated { padding: 1px; }');
         const plan = planMove({root, source, destination});
 
         expect(moduleInfo(code).classNames).toEqual([]);
@@ -110,7 +115,7 @@ export default defineComponent({config: {className: '${oldName}'}});`;
         expect(plan.classNames).toEqual([]);
         applyMove(plan);
         expect(fs.readFileSync(path.join(root, destination), 'utf8')).toBe(code);
-        expect(fs.existsSync(path.join(root, 'resources/scss/src/examples/functional/defineComponent/Component.scss'))).toBe(true)
+        expect(fs.existsSync(path.join(root, 'resources/css/src/examples/functional/defineComponent/Component.css'))).toBe(true)
     });
 
     test('does not grant namespace ownership to an identically named factory from another package', () => {

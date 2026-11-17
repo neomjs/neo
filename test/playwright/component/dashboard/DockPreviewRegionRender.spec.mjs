@@ -8,7 +8,7 @@ import {test, expect} from '@playwright/test';
  * **Why this arm exists at all.** Three layers of coverage already touch this surface and none of
  * them can fail on it: the e2e symmetry spec compares band *thicknesses*, the unit spec asserts the
  * *stylesheet as source text* (`readFileSync` + `toContain`), and neither renders an affordance. A
- * test that reads its own SCSS cannot observe what a browser composites, which is how an edge that
+ * test that reads its own stylesheet cannot observe what a browser composites, which is how an edge that
  * paints far darker than its siblings shipped with everything green.
  *
  * So this mounts the real renderer, drives one affordance per edge and both split positions through

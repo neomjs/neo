@@ -37,7 +37,6 @@
         "check-package-contents"               : "node ./buildScripts/util/check-package-contents.mjs",
         "check-reactive-tags"                  : "node ./buildScripts/helpers/checkReactiveTags.mjs",
         "check-relative-links"                 : "node ./buildScripts/util/check-relative-links.mjs",
-        "convert-design-tokens"                : "node ./buildScripts/helpers/convertDesignTokens.mjs",
         "create-app"                           : "node ./buildScripts/create/app.mjs",
         "create-app-minimal"                   : "node ./buildScripts/create/appMinimal.mjs",
         "create-class"                         : "node ./buildScripts/create/class.mjs",
@@ -129,13 +128,11 @@
         "marked"                       : "^18.1.0",
         "mermaid"                      : "^12.1.0",
         "monaco-editor"                : "0.57.0",
-        "neo-agent-skills"             : "1.9.12",
+        "neo-agent-skills"             : "1.10.2",
         "parse5"                       : "^8.0.1",
         "postcss"                      : "^8.5.29",
-        "postcss-scss"                 : "^4.0.9",
         "postcss-selector-parser"      : "^7.1.7",
         "postcss-value-parser"         : "^4.2.0",
-        "sass"                         : "^1.105.1",
         "semver"                       : "^7.8.5",
         "terser"                       : "^5.51.2",
         "url"                          : "^0.11.4",
@@ -182,7 +179,7 @@
         "src/**/*.mjs": [
             "node ./buildScripts/util/check-class-module-scope.mjs"
         ],
-        "resources/scss/**/*.scss": [
+        "resources/css/**/*.css": [
             "node ./buildScripts/util/check-theme-coverage.mjs",
             "node ./buildScripts/util/check-theme-value-files.mjs"
         ],

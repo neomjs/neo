@@ -2,10 +2,10 @@ import {expect, test} from '../../fixtures.mjs';
 
 /**
  * @summary The grid cell components render with their own styles. The App Worker loads a class's CSS from the path of
- * its `className`, so a component whose class moves without its SCSS renders unstyled and throws nothing.
+ * its `className`, so a component whose class moves without its stylesheet renders unstyled and throws nothing.
  *
  * Fixture: `apps/grid-component-columns`, grid `#grid-component-columns`. Each arm reads a computed value that only the
- * component's own SCSS sets, or for `IconLink` also its theme file.
+ * component's own stylesheet sets, or for `IconLink` also its theme file.
  */
 test.describe('grid cell components load their own styles', () => {
     const GRID = '#grid-component-columns';
@@ -44,7 +44,7 @@ test.describe('grid cell components load their own styles', () => {
         await expect.poll(() => style(inCell(page, 'login', '.neo-github-user'), 'column-gap'), {timeout: 10000}).toBe('10px')
     });
 
-    test('IconLink, from its own SCSS and its theme file', async ({page}) => {
+    test('IconLink, from its own stylesheet and its theme file', async ({page}) => {
         await expect.poll(() => style(inCell(page, 'topRepo', '.neo-icon-link .neo-link-label'), 'margin-left'), {timeout: 10000}).not.toBe('0px');
         await expect.poll(() => style(inCell(page, 'topRepo', '.neo-icon-link'), '--icon-link-color')).not.toBe('')
     })

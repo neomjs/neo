@@ -254,12 +254,10 @@ test.describe('Neo.form.field.Chip', () => {
 
     test('neo-light and neo-dark both resolve chip tokens through the field layout', async ({page}) => {
         await loadStylesheets(page, [
-            '/dist/development/css/theme-neo-light/design-tokens/Core.css',
-            '/dist/development/css/theme-neo-light/design-tokens/Semantic.css',
+            '/dist/development/css/theme-neo-light/Global.css',
             '/dist/development/css/theme-neo-light/component/Chip.css',
             '/dist/development/css/theme-neo-light/form/field/Text.css',
-            '/dist/development/css/theme-neo-dark/design-tokens/Core.css',
-            '/dist/development/css/theme-neo-dark/design-tokens/Semantic.css',
+            '/dist/development/css/theme-neo-dark/Global.css',
             '/dist/development/css/theme-neo-dark/component/Chip.css',
             '/dist/development/css/theme-neo-dark/form/field/Text.css'
         ]);

@@ -1,7 +1,7 @@
 import {test, expect} from '@playwright/test';
 
 /**
- * Global element typography lives in `resources/scss/src/Global.scss` as `var(--token, revert)` per
+ * Global element typography lives in `resources/css/src/Global.css` as `var(--token, revert)` per
  * property. A family that declares the token gets its value; a family that declares nothing gets the
  * user-agent stylesheet.
  *
@@ -34,7 +34,7 @@ const
     // neo-dark maps `--global-mark-background-color` to `--green-900`, which resolves to black.
     NEO_MARK_BG   = 'rgb(0, 0, 0)',
     UA_MARK_BG    = 'rgb(255, 255, 0)',
-    // From the composed `resources/scss/src/util/HighlightJs.scss` — an AUTHOR rule, not the UA's.
+    // From the composed `resources/css/src/util/HighlightJs.css` — an AUTHOR rule, not the UA's.
     // The user agent's own `code` font is bare `monospace`; landing there means the author origin was
     // discarded rather than declined.
     AUTHOR_CODE_FAMILY = 'Menlo, monospace',

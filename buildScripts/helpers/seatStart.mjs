@@ -13,10 +13,10 @@ import {runStage}                     from '../util/prepare.mjs';
  * through the same `agents-md` stage `prepare` runs: a deleted file, or the committed pointer a
  * fast-forward wrote back, holds the rules again before the harness launches.
  *
- * The fast-forward is also the "pull with peer scss changes" after which the operator workflow
- * calls for `build-themes`, and nothing else rebuilds the compiled CSS. This entry point runs the
+ * The fast-forward is also the "pull with peer theme changes" after which the operator workflow
+ * calls for `build-themes`, and nothing else rebuilds the built CSS. This entry point runs the
  * canonical development theme build only when `inspectDevelopmentThemeAssets()` finds the outputs
- * missing or stale, so a Start that brings in no SCSS change does not build.
+ * missing or stale, so a Start that brings in no theme source change does not build.
  *
  * Each step runs whatever the other did; a failure in either fails the Start, and the Fleet shows
  * it on the seat's start row.

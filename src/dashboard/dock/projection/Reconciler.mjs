@@ -6,7 +6,7 @@ import Base      from '../../../core/Base.mjs';
 // in place through its own reactive `railItems`, never as structural children.
 const projectionNodeTypes = new Set(['edge-rail', 'edge-zone', 'split', 'tabs']);
 
-// The outgoing shell from the visibility swap until its destruction. `dashboard/Container.scss` takes
+// The outgoing shell from the visibility swap until its destruction. `dashboard/Container.css` takes
 // it out of layout; hidden by visibility alone it keeps its width in the host's flex row.
 const retiringShellCls = 'neo-dashboard-dock-shell-retiring';
 

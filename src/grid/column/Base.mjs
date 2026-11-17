@@ -248,8 +248,8 @@ class Column extends Base {
      * they hook into the theme engine exactly like components do.
      *
      * This is a powerful architectural pattern. It allows specific column implementations
-     * (like `Neo.grid.column.Icon` or `Neo.grid.column.Component`) to inject their own SCSS
-     * theme files (e.g., `resources/scss/theme-neo-dark/grid/column/IconLink.scss`).
+     * (like `Neo.grid.column.Icon` or `Neo.grid.column.Component`) to inject their own
+     * theme files (e.g., `resources/css/theme-neo-dark/grid/column/IconLink.css`).
      *
      * **Best Practice:**
      * Because columns do not render their own outer DOM nodes with unique CSS classes,

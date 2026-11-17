@@ -1,4 +1,5 @@
 import {test, expect} from '../../fixtures.mjs';
+import {daysLabel}    from '../../../../apps/workstation/view/planningCalendar.mjs';
 import {popOut}       from '../utils/workstationPopOut.mjs';
 
 /**
@@ -7,13 +8,10 @@ import {popOut}       from '../utils/workstationPopOut.mjs';
  * a switch or a reset empties them.
  *
  * The arrangement is reached the way a viewer reaches it, through the Planning control in the top bar.
- * The claim under test is the engine's, not the panes': the schedule and the board read ONE store
- * instance, so an edit is one record change that every view in every window shows without wiring. The
- * schedule is therefore popped into its own window before it is edited, and every record is read back
- * from the App Worker's store rather than from the DOM of the window that made the edit.
- *
- * The board pane joins this arrangement with `Neo.board`; until then the card's write is the one
- * `record.set()` its move makes, issued through the schedule's single writer.
+ * The claim under test is the engine's, not the panes': the board and the schedule read ONE store
+ * instance, so an edit is one record change that every view in every window shows without wiring. Each
+ * edit is a viewer's gesture, a card dragged or moved by keyboard and a bar moved by keyboard, and every
+ * record is read back from the App Worker's store rather than from the DOM of the window that made the edit.
  *
  * Requires a Neural Link runtime root:
  *
@@ -65,42 +63,103 @@ const openPlanningDesk = async (page, neuralLink) => {
     await expect.poll(async () => (await app.getComponent(id, ['activePerspective'])).activePerspective,
         {message: 'the Planning control selects the declared arrangement', timeout: 15000}).toBe('planning');
     await expect.poll(async () => Object.keys((await app.getComponent(id, ['dockModel'])).dockModel.items).sort(),
-        {message: 'main shows the planning panes', timeout: 15000}).toEqual(['gantt', 'scheduler']);
+        {message: 'main shows the planning panes', timeout: 15000}).toEqual(['board', 'gantt', 'scheduler']);
+    await expect(page.locator('.workstation-pane-board .neo-board-card').first()).toBeVisible({timeout: 30000});
     await expect(page.locator('.workstation-pane-scheduler .neo-timeline-bar').first()).toBeVisible({timeout: 30000});
-    await expect(page.locator('.workstation-pane-gantt .neo-timeline-bar').first()).toBeVisible({timeout: 30000});
 
-    return {app, id}
+    return {app, boardId: await app.callMethod(id, 'getPaneIdentity', ['board']), id}
 };
+
+/**
+ * Shows the release plan, the board's neighbour tab, above the schedule. The switch is a dock commit whose
+ * projection animates the panes it reflows, so this waits until no pane is in motion.
+ */
+const showPlan = async page => {
+    await page.getByRole('tab', {name: 'Release plan'}).click();
+    await expect(page.locator('.workstation-pane-gantt .neo-timeline-bar').first()).toBeVisible({timeout: 30000});
+    await expect.poll(() => page.evaluate(() => document.getAnimations()
+        .filter(animation => animation.playState === 'running' && animation.effect?.target?.closest?.('.workstation-dock-host')).length),
+        {message: 'the desk comes to rest after the switch', timeout: 10000}).toBe(0)
+};
+
+/** The days a card names for a record, in the calendar's own words. */
+const cardDays = record => daysLabel(new Date(record.startDate), new Date(record.endDate));
 
 test.describe('Workstation planning desk (Neural Link)', () => {
     test.setTimeout(180000);
     test.use({viewport: VIEWPORT});
 
-    test('one store across two windows: a card write repaints the popped-out bar, a bar moved there is one record change', async ({page, neuralLink}) => {
-        const {app, id} = await openPlanningDesk(page, neuralLink),
-              paneId    = await app.callMethod(id, 'getPaneIdentity', ['scheduler']),
-              storeId   = (await app.getComponent(id, ['stateProvider.stores.workItems.id']))['stateProvider.stores.workItems.id'];
+    test('in one window: a card dragged to another column is one record change its bar shows, a bar moved is one its card shows', async ({page, neuralLink}) => {
+        const {app, boardId, id} = await openPlanningDesk(page, neuralLink),
+              paneId             = await app.callMethod(id, 'getPaneIdentity', ['scheduler']),
+              storeId            = (await app.getComponent(id, ['stateProvider.stores.workItems.id']))['stateProvider.stores.workItems.id'],
+              cardId             = `${boardId}__card__wi-9`;
 
         expect(storeId, 'the root provider owns the work-item store').toBeTruthy();
-        expect((await app.getComponent(paneId, ['eventStore.id']))['eventStore.id'], 'the schedule binds that instance').toBe(storeId);
+        expect((await app.getComponent(boardId, ['store.id']))['store.id'], 'the board binds that instance').toBe(storeId);
+        expect((await app.getComponent(paneId, ['eventStore.id']))['eventStore.id'], 'and so does the schedule').toBe(storeId);
 
-        const {popup} = await popOut({app, page, workspaceId: id, itemId: 'scheduler'});
+        // A real pointer drag of a Ready card into Done: the board's zone commits the drop through its single writer
+        const from = await page.locator(`[id="${cardId}"]`).boundingBox(),
+              to   = await page.locator(`[id="${boardId}__col__done"]`).boundingBox(),
+              bar  = page.locator('.workstation-pane-scheduler .neo-timeline-bar[data-event-id="wi-9"]');
+
+        await expect(bar).toHaveAttribute('data-status', 'ready');
+
+        await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(from.x + from.width / 2 + 20, from.y + from.height / 2, {steps: 4});
+        await page.mouse.move(to.x + to.width / 2, to.y + 60, {steps: 16});
+        await page.mouse.up();
+
+        await expect.poll(async () => (await readRecord(app, storeId, 'wi-9')).status,
+            {message: 'the drop is the record\'s new status', timeout: 15000}).toBe('done');
+        await expect(page.locator(`[id="${boardId}__col__done"] [id="${cardId}"]`), 'the card sits in Done').toBeVisible();
+        await expect(bar, 'the schedule\'s bar for that record shows it').toHaveAttribute('data-status', 'done', {timeout: 15000});
+        await expect(bar).toHaveClass(/neo-scheduler-bar-emerald/);
+
+        // A bar moved in the schedule, by keyboard: one day later
+        const before = await readRecord(app, storeId, 'wi-9');
+
+        await expect(page.locator(`[id="${cardId}"] .workstation-card-days`)).toHaveText(cardDays(before));
+
+        await bar.focus();
+        await page.keyboard.press('ArrowRight');
+
+        await expect.poll(async () => time((await readRecord(app, storeId, 'wi-9')).startDate),
+            {message: 'the record holds the new start', timeout: 15000}).toBe(time(before.startDate) + DAY);
+        await expect(page.locator(`[id="${cardId}"] .workstation-card-days`), 'the card shows the new days')
+            .toHaveText(cardDays(await readRecord(app, storeId, 'wi-9')));
+        await expect(page.locator(`[id="${boardId}__col__done"] [id="${cardId}"]`), 'and stays in its column').toBeVisible()
+    });
+
+    test('one store across two windows: a card moved on the board repaints its bar in the schedule\'s window, a bar moved there changes the card\'s days', async ({page, neuralLink}) => {
+        const {app, boardId, id} = await openPlanningDesk(page, neuralLink),
+              paneId             = await app.callMethod(id, 'getPaneIdentity', ['scheduler']),
+              storeId            = (await app.getComponent(id, ['stateProvider.stores.workItems.id']))['stateProvider.stores.workItems.id'],
+              {popup}            = await popOut({app, page, workspaceId: id, itemId: 'scheduler'});
 
         try {
             expect((await app.getComponent(paneId, ['eventStore.id']))['eventStore.id'],
-                'the popped-out schedule still reads the same store instance').toBe(storeId);
+                'the popped-out schedule still reads the board\'s store instance').toBe(storeId);
 
-            // The write a board makes when a card lands in the Done column: one record change
-            expect(await app.callMethod(paneId, 'moveEvent', ['wi-9', {fields: {order: 4000, status: 'done'}}])).toBeTruthy();
+            // A Ready card moved by keyboard in the main window, one column to the right
+            await page.locator(`[id="${boardId}__card__wi-9"]`).click();
+            await page.keyboard.press('Control+ArrowRight');
+
+            await expect.poll(async () => (await readRecord(app, storeId, 'wi-9')).status,
+                {message: 'the card move is the record\'s new status', timeout: 15000}).toBe('in-progress');
 
             const bar = popup.locator('.neo-timeline-bar[data-event-id="wi-9"]');
 
-            await expect(bar, 'the bar in the other window shows the card\'s new column').toHaveAttribute('data-status', 'done', {timeout: 15000});
-            await expect(bar).toHaveClass(/neo-scheduler-bar-emerald/);
-            expect((await readRecord(app, storeId, 'wi-9')).status).toBe('done');
+            await expect(bar, 'the bar in the other window shows the card\'s new column').toHaveAttribute('data-status', 'in-progress', {timeout: 15000});
+            await expect(bar).toHaveClass(/neo-scheduler-bar-amber/);
 
             // A bar moved in the popped-out schedule, by keyboard: one day later
-            const before = await readRecord(app, storeId, 'wi-6');
+            const before = await readRecord(app, storeId, 'wi-6'),
+                  days   = page.locator(`[id="${boardId}__card__wi-6"] .workstation-card-days`);
+
+            await expect(days).toHaveText(cardDays(before));
 
             await popup.locator('.neo-timeline-bar[data-event-id="wi-6"]').focus();
             await popup.keyboard.press('ArrowRight');
@@ -108,25 +167,29 @@ test.describe('Workstation planning desk (Neural Link)', () => {
             await expect.poll(async () => time((await readRecord(app, storeId, 'wi-6')).startDate),
                 {message: 'the shared record holds the new start', timeout: 15000}).toBe(time(before.startDate) + DAY);
             expect(time((await readRecord(app, storeId, 'wi-6')).endDate), 'and the new end').toBe(time(before.endDate) + DAY);
+            await expect(days, 'the card in the main window shows the new days').toHaveText(cardDays(await readRecord(app, storeId, 'wi-6')));
 
             // The arrangement survives a reload of either window; the SharedWorker keeps the records.
             // The popup first: an opener reload drops the native handle, and a popup reloaded after it
             // waits for its reconnect lease (README, "Layout controls and persistence").
             await popup.reload();
             await expect(popup.locator(`#${paneId}`), 'the reloaded popup re-adopts the same schedule pane').toBeVisible({timeout: 30000});
-            await expect(popup.locator('.neo-timeline-bar[data-event-id="wi-9"]')).toHaveAttribute('data-status', 'done', {timeout: 15000});
+            await expect(popup.locator('.neo-timeline-bar[data-event-id="wi-9"]')).toHaveAttribute('data-status', 'in-progress', {timeout: 15000});
 
             await page.reload();
             await page.waitForSelector('.workstation-arrangement-switch', {timeout: 60000});
-            await expect(page.locator('.workstation-pane-gantt .neo-timeline-bar').first()).toBeVisible({timeout: 30000});
+            await expect(page.locator(`[id="${boardId}__col__in-progress"] [id="${boardId}__card__wi-9"]`),
+                'the reloaded main window shows the moved card in its new column').toBeVisible({timeout: 30000});
 
             const reloaded = await neuralLink.connectToApp('Workstation'),
                   rootId   = await workspaceId(reloaded);
 
             expect((await reloaded.getComponent(rootId, ['activePerspective'])).activePerspective).toBe('planning');
-            expect(Object.keys((await reloaded.getComponent(rootId, ['dockModel'])).dockModel.items), 'main keeps the plan; the schedule stays out').toEqual(['gantt']);
+            expect(Object.keys((await reloaded.getComponent(rootId, ['dockModel'])).dockModel.items).sort(),
+                'main keeps the board and the plan; the schedule stays out').toEqual(['board', 'gantt']);
             await expect(page.getByRole('button', {name: 'Planning'})).toHaveClass(/pressed/);
             await expect(popup.locator(`#${paneId}`), 'the popup keeps the schedule through the opener\'s reload').toBeVisible();
+            await expect(days, 'the card kept the moved bar\'s days').toHaveText(cardDays(await readRecord(reloaded, storeId, 'wi-6')));
             expect(time((await readRecord(reloaded, storeId, 'wi-6')).startDate), 'the moved bar kept its date').toBe(time(before.startDate) + DAY)
         } finally {
             !popup.isClosed() && await popup.close()
@@ -135,6 +198,7 @@ test.describe('Workstation planning desk (Neural Link)', () => {
 
     test('the schedule and the plan share one calendar: weeks line up, no title is cut, a person is one lane', async ({page, neuralLink}) => {
         await openPlanningDesk(page, neuralLink);
+        await showPlan(page);
 
         const desk = await page.evaluate(() => Object.fromEntries(['scheduler', 'gantt'].map(itemId => {
             const pane = document.querySelector(`.workstation-pane-${itemId}`);
@@ -166,6 +230,7 @@ test.describe('Workstation planning desk (Neural Link)', () => {
                   successor: await readRecord(app, storeId, 'account-design')
               };
 
+        await showPlan(page);
         await page.locator('.workstation-pane-gantt .neo-timeline-bar[data-event-id="flow-design"]').focus();
         await page.keyboard.press('ArrowRight');
 
@@ -302,7 +367,7 @@ test.describe('Workstation planning desk (Neural Link)', () => {
             const workspaces = await coldApp.callMethod(coldId, 'getDockTopologyWorkspaces'),
                   owners     = Object.entries(workspaces).filter(([, document]) => document.items?.scheduler).map(([key]) => key);
 
-            expect(Object.keys(workspaces['workstation-main'].items), 'main holds the plan').toEqual(['gantt']);
+            expect(Object.keys(workspaces['workstation-main'].items).sort(), 'main holds the board and the plan').toEqual(['board', 'gantt']);
             expect(owners, 'the schedule is still owned by one window of its own').toHaveLength(1);
             expect(owners[0]).not.toBe('workstation-main')
         } finally {

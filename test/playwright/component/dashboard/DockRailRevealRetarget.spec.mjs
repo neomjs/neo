@@ -179,7 +179,7 @@ test.describe('Neo.dashboard.dock.interaction.RevealOverlay — a retarget slide
      * The arm above proves each generation RUNS an animation. That is not enough, and the gap is
      * the reason this one exists: the two generations exist only so the `animation-name` differs —
      * a CSS animation restarts on nothing else — while the geometry they animate must stay equal.
-     * Emitted from one SCSS declaration they cannot diverge; maintained as twins they could, and
+     * The plain-CSS source writes the generations out as twins, so they can diverge, and
      * the symptom is a rendering glitch nobody would read as a CSS error: alternating retargets
      * travelling different distances, wrong on every second interaction. Presence is identical in
      * both worlds, so only a comparison of the two generations' own keyframes discriminates.
@@ -239,12 +239,12 @@ test.describe('Neo.dashboard.dock.interaction.RevealOverlay — a retarget slide
     /**
      * The arm above reads what the browser will actually interpolate, which is the stronger claim —
      * but it can only reach the ONE edge this fixture's rail uses. A hand-written `from-top-b` with
-     * different geometry would emit, build, and pass it. The `@each` is what makes that structurally
-     * impossible; this arm is the backstop for a loop someone later unwinds in part, so it has to
-     * cover all four pairs rather than the one on screen.
+     * different geometry would build and pass it. Every pair is written out by hand in the source, so
+     * this arm is what keeps them twins, and it has to cover all four pairs rather than the one on
+     * screen.
      *
      * Read from the live stylesheets, so what is compared is the SHIPPED CSS — the same artifact the
-     * browser resolves — rather than the SCSS source, which is the thing under suspicion.
+     * browser resolves — rather than the source, which is the thing under suspicion.
      */
     test('every generation pair is emitted identically — the backstop covers all four edges, not only the rail under test', async ({page}) => {
         const pairs = await page.evaluate(() => {

@@ -96,6 +96,7 @@
             {"name": "Streaming Data & Progressive Rendering",         "parentId": "guides/datahandling",                                 "id": "guides/datahandling/Streaming"},
             {"name": "Resource Schedulers",                             "parentId": "guides/datahandling",                                 "id": "guides/datahandling/Scheduler"},
             {"name": "Gantt Charts & Linked Tasks",                     "parentId": "guides/datahandling",                                 "id": "guides/datahandling/Gantt"},
+            {"name": "Kanban Boards",                                   "parentId": "guides/datahandling",                                 "id": "guides/datahandling/Board"},
             {"name": "Tables (Stores)",                                "parentId": "guides/datahandling",                                 "id": "guides/datahandling/Tables"},
             {"name": "Using data.Store",                               "parentId": "guides/datahandling",                                 "id": "guides/datahandling/UsingStores"},
             {"name": "TreeStore & Hierarchical Data",                  "parentId": "guides/datahandling",                                 "id": "guides/datahandling/TreeStore"},

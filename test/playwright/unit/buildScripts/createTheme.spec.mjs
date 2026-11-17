@@ -5,19 +5,18 @@ import fs                          from 'node:fs';
 import os                          from 'node:os';
 import path                        from 'node:path';
 import {fileURLToPath}             from 'node:url';
-import {compile}                   from 'sass';
 import postcss                     from 'postcss';
 import {generateTheme, listThemes} from '../../../../buildScripts/create/theme.mjs';
 
 const repoRoot      = fileURLToPath(new URL('../../../../', import.meta.url)),
       createPath    = path.join(repoRoot, 'buildScripts/create/theme.mjs'),
       buildPath     = path.join(repoRoot, 'buildScripts/build/themes.mjs'),
-      shippedThemes = fs.readdirSync(path.join(repoRoot, 'resources/scss'), {withFileTypes: true})
+      shippedThemes = fs.readdirSync(path.join(repoRoot, 'resources/css'), {withFileTypes: true})
           .filter(entry => entry.isDirectory() && entry.name.startsWith('theme-'))
           .map(entry => entry.name).sort();
 
 test.describe('buildScripts/create/theme.mjs consumer workspace scaffolding', () => {
-    let root, engineRoot, scssRoot;
+    let root, engineRoot, cssRoot;
 
     const write = (file, value) => {
         fs.mkdirSync(path.dirname(file), {recursive: true});
@@ -90,7 +89,7 @@ test.describe('buildScripts/create/theme.mjs consumer workspace scaffolding', ()
     test.beforeEach(() => {
         root       = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'neo-create-theme-'));
         engineRoot = path.join(root, 'node_modules/neo.mjs');
-        scssRoot   = path.join(root, 'resources/scss');
+        cssRoot    = path.join(root, 'resources/css');
 
         write(path.join(root, 'package.json'), JSON.stringify({
             name        : 'theme-consumer-fixture',
@@ -100,38 +99,40 @@ test.describe('buildScripts/create/theme.mjs consumer workspace scaffolding', ()
         fs.mkdirSync(engineRoot, {recursive: true});
         fs.copyFileSync(path.join(repoRoot, 'package.json'), path.join(engineRoot, 'package.json'));
 
-        // Physical npm layout: Sass must resolve from the consumer's actual package, not a symlink.
+        // Physical npm layout: the build must resolve from the consumer's actual package, not a symlink.
         for (const theme of ['theme-neo-dark', 'theme-light']) {
-            fs.cpSync(path.join(repoRoot, 'resources/scss', theme), path.join(engineRoot, 'resources/scss', theme), {recursive: true});
+            fs.cpSync(path.join(repoRoot, 'resources/css', theme), path.join(engineRoot, 'resources/css', theme), {recursive: true});
         }
 
-        fs.copyFileSync(path.join(repoRoot, 'resources/scss/_motion.scss'), path.join(engineRoot, 'resources/scss/_motion.scss'));
-        fs.mkdirSync(path.join(engineRoot, 'resources/scss/src/button'), {recursive: true});
-        fs.copyFileSync(path.join(repoRoot, 'resources/scss/src/button/Base.scss'), path.join(engineRoot, 'resources/scss/src/button/Base.scss'));
+        for (const sheet of ['Global.css', 'button/Base.css']) {
+            fs.mkdirSync(path.dirname(path.join(engineRoot, 'resources/css/src', sheet)), {recursive: true});
+            fs.copyFileSync(path.join(repoRoot, 'resources/css/src', sheet), path.join(engineRoot, 'resources/css/src', sheet));
+        }
     });
 
     test.afterEach(() => {
         fs.rmSync(root, {recursive: true, force: true});
     });
 
-    test('snapshots every base file and internal partial, preserves selector weight, and leaves the base unchanged', () => {
-        const base   = path.join(engineRoot, 'resources/scss/theme-neo-dark'),
+    test('snapshots every base file, preserves selector weight, and leaves the base unchanged', () => {
+        const base   = path.join(engineRoot, 'resources/css/theme-neo-dark'),
               before = snapshot(base);
 
         generate();
 
-        const target = path.join(scssRoot, 'theme-acme'),
+        const target = path.join(cssRoot, 'theme-acme'),
               after  = snapshot(target);
 
         expect(after.map(([file]) => file)).toEqual(before.map(([file]) => file));
-        expect(read(path.join(target, 'Global.scss'))).toContain(':where(.neo-theme-acme)');
-        expect(read(path.join(target, 'button/Base.scss'))).toContain(':where(.neo-theme-acme)');
-        expect(read(path.join(target, 'design-tokens/_all.scss'))).toContain('@use "Core"');
+        expect(read(path.join(target, 'Global.css'))).toContain(':where(.neo-theme-acme)');
+        expect(read(path.join(target, 'Global.css'))).toMatch(/--core-fontfamily-sans\s*:/);
+        // The motion vocabulary belongs to every theme root through the Engine's src/Global.css, never to a snapshot
+        expect(read(path.join(target, 'Global.css'))).not.toContain('--motion-fast');
+        expect(read(path.join(target, 'button/Base.css'))).toContain(':where(.neo-theme-acme)');
         expect(snapshot(base)).toEqual(before);
-        expect(fs.existsSync(path.join(scssRoot, '_motion.scss'))).toBe(false);
     });
 
-    test('the noninteractive CLI produces a theme that the real consumer builder compiles and maps', () => {
+    test('the noninteractive CLI produces a theme that the real consumer builder builds and maps', () => {
         test.setTimeout(60_000);
 
         execFileSync(process.execPath, [createPath, '--name', 'theme-acme', '--base', 'theme-neo-dark', '--noquestions'], {
@@ -141,37 +142,40 @@ test.describe('buildScripts/create/theme.mjs consumer workspace scaffolding', ()
             cwd: root, encoding: 'utf8', stdio: 'pipe'
         });
 
-        const cssRoot = path.join(root, 'dist/development/css/theme-acme'),
-              global  = read(path.join(cssRoot, 'Global.css')),
-              button  = read(path.join(cssRoot, 'button/Base.css')),
-              map     = JSON.parse(read(path.join(root, 'resources/theme-map.json')));
+        const distRoot   = path.join(root, 'dist/development/css'),
+              global     = read(path.join(distRoot, 'theme-acme/Global.css')),
+              button     = read(path.join(distRoot, 'theme-acme/button/Base.css')),
+              structural = read(path.join(distRoot, 'src/Global.css')),
+              map        = JSON.parse(read(path.join(root, 'resources/theme-map.json')));
 
         expect(global).toContain(':where(.neo-theme-acme)');
-        expect(global).toContain('--motion-fast: 120ms');
-        expect(global).toContain('--neo-color-scheme: dark');
-        expect(global).toContain('--core-fontfamily-sans:');
+        expect(global).toMatch(/--neo-color-scheme\s*:\s*dark/);
+        expect(global).toMatch(/--core-fontfamily-sans\s*:/);
         expect(global).not.toContain('.neo-theme-neo-dark');
+        expect(structural).toMatch(/--motion-fast\s*:\s*120ms/);
         expect(button).toContain(':where(.neo-theme-acme)');
-        expect(button).toContain('--button-background-color:');
+        expect(button).toMatch(/--button-background-color\s*:/);
         expect(button).not.toContain('.neo-theme-neo-dark');
         expect(map.Neo.Global).toContain('theme-acme');
         expect(map.Neo.button.Base).toEqual(expect.arrayContaining(['src', 'theme-acme']));
         expect(JSON.parse(read(path.join(root, 'dist/development/resources/theme-map.json')))).toEqual(map);
-        expect(fs.existsSync(path.join(scssRoot, '_motion.scss'))).toBe(false);
     });
 
     test('the installed generator resolves its build tools inside the installed Engine', () => {
         const installedPath = path.join(engineRoot, 'buildScripts/create/theme.mjs'),
               lock          = JSON.parse(read(path.join(repoRoot, 'package-lock.json'))),
               manifest      = JSON.parse(read(path.join(engineRoot, 'package.json'))),
-              parsers       = ['postcss-scss', 'postcss-selector-parser', 'postcss-value-parser'],
+              parsers       = ['postcss', 'postcss-selector-parser'],
               packages      = new Set(parsers);
 
         expect(manifest.dependencies).toBeUndefined();
         for (const name of parsers) expect(manifest.devDependencies[name]).toBeTruthy();
 
-        fs.mkdirSync(path.dirname(installedPath), {recursive: true});
-        fs.copyFileSync(createPath, installedPath);
+        // The generator and the modules it imports, as the installed Engine ships them
+        for (const relative of ['buildScripts/create/theme.mjs', 'buildScripts/util/themeCssRoots.mjs', 'buildScripts/util/declaredPackageRoots.mjs']) {
+            fs.mkdirSync(path.dirname(path.join(engineRoot, relative)), {recursive: true});
+            fs.copyFileSync(path.join(repoRoot, relative), path.join(engineRoot, relative));
+        }
 
         // The scaffolder installs Engine development tools in this nested package. Keep the
         // fixture physical and limited to the parsers' graph so repository resolution cannot help.
@@ -198,60 +202,66 @@ test.describe('buildScripts/create/theme.mjs consumer workspace scaffolding', ()
             cwd: root, encoding: 'utf8', stdio: 'pipe'
         });
 
-        expect(read(path.join(scssRoot, 'theme-acme/Global.scss'))).toContain(':where(.neo-theme-acme)');
-        expect(read(path.join(scssRoot, 'theme-acme/button/Base.scss'))).toContain(':where(.neo-theme-acme)');
+        expect(read(path.join(cssRoot, 'theme-acme/Global.css'))).toContain(':where(.neo-theme-acme)');
+        expect(read(path.join(cssRoot, 'theme-acme/button/Base.css'))).toContain(':where(.neo-theme-acme)');
     });
 
     for (const baseTheme of shippedThemes) {
-        test(`every ${baseTheme} entry compiles with only the exact theme class retargeted`, () => {
-            test.setTimeout(60_000);
-
-            const base = path.join(engineRoot, 'resources/scss', baseTheme);
-            fs.cpSync(path.join(repoRoot, 'resources/scss', baseTheme), base, {recursive: true});
+        test(`every ${baseTheme} sheet keeps its shape with only the exact theme class retargeted`, () => {
+            const base = path.join(engineRoot, 'resources/css', baseTheme);
+            fs.cpSync(path.join(repoRoot, 'resources/css', baseTheme), base, {recursive: true});
             generate({baseTheme});
 
-            const target  = path.join(scssRoot, 'theme-acme'),
-                  entries = folder => snapshot(folder).map(([file]) => file)
-                      .filter(file => file.endsWith('.scss') && !path.basename(file).startsWith('_')),
+            const target    = path.join(cssRoot, 'theme-acme'),
+                  entries   = folder => snapshot(folder).map(([file]) => file).filter(file => file.endsWith('.css')),
                   originals = entries(base);
 
             expect(originals.length).toBeGreaterThan(0);
             expect(entries(target)).toEqual(originals);
 
             for (const entry of originals) {
-                const originalCss  = compile(path.join(base, entry)).css,
-                      generatedCss = compile(path.join(target, entry)).css;
-
-                expect(cssShape(generatedCss), `${baseTheme}/${entry}`).toEqual(
-                    cssShape(originalCss, `neo-${baseTheme}`, 'neo-theme-acme')
+                expect(cssShape(read(path.join(target, entry))), `${baseTheme}/${entry}`).toEqual(
+                    cssShape(read(path.join(base, entry)), `neo-${baseTheme}`, 'neo-theme-acme')
                 );
             }
         });
     }
 
-    test('lists installed, declaring-package and workspace themes once, without admitting unrelated packages', () => {
-        for (const theme of shippedThemes) {
-            fs.cpSync(path.join(repoRoot, 'resources/scss', theme), path.join(engineRoot, 'resources/scss', theme), {recursive: true});
-        }
+    // A consumer whose name merely contains `neo.mjs` is still a consumer: only the exact name marks the Engine
+    for (const consumer of ['theme-consumer-fixture', 'neo.mjs-demo']) {
+        test(`lists installed, declaring-package and workspace themes once for ${consumer}, without admitting unrelated packages`, () => {
+            for (const theme of shippedThemes) {
+                fs.cpSync(path.join(repoRoot, 'resources/css', theme), path.join(engineRoot, 'resources/css', theme), {recursive: true});
+            }
 
-        write(path.join(root, 'package.json'), JSON.stringify({
-            name        : 'theme-consumer-fixture',
-            version     : '1.0.0',
-            dependencies: {'neo.mjs': '1.0.0', '@fixture/skin': '1.0.0', 'plain-skin': '1.0.0'}
-        }));
-        write(path.join(root, 'node_modules/@fixture/skin/package.json'), JSON.stringify({name: '@fixture/skin', neo: {scss: 'skin'}}));
-        write(path.join(root, 'node_modules/@fixture/skin/skin/theme-package/Global.scss'), ':root { --fixture: package; }');
-        write(path.join(scssRoot, 'theme-workspace/Global.scss'), ':root { --fixture: workspace; }');
-        write(path.join(scssRoot, 'theme-neo-dark/Global.scss'), ':root { --fixture: duplicate; }');
-        write(path.join(scssRoot, 'theme-fake'), 'not a folder');
+            write(path.join(root, 'package.json'), JSON.stringify({
+                name        : consumer,
+                version     : '1.0.0',
+                dependencies: {'neo.mjs': '1.0.0', '@fixture/skin': '1.0.0', 'plain-skin': '1.0.0'}
+            }));
+            write(path.join(root, 'node_modules/@fixture/skin/package.json'), JSON.stringify({name: '@fixture/skin', neo: {css: 'skin'}}));
+            write(path.join(root, 'node_modules/@fixture/skin/skin/theme-package/Global.css'), ':root { --fixture: package; }');
+            write(path.join(cssRoot, 'theme-workspace/Global.css'), ':root { --fixture: workspace; }');
+            write(path.join(cssRoot, 'theme-neo-dark/Global.css'), ':root { --fixture: duplicate; }');
+            write(path.join(cssRoot, 'theme-fake'), 'not a folder');
 
-        for (const name of ['plain-skin', 'unlisted-skin']) {
-            const pkg = path.join(root, 'node_modules', name);
-            write(path.join(pkg, 'package.json'), JSON.stringify({name, ...(name === 'unlisted-skin' ? {neo: {scss: 'skin'}} : {})}));
-            write(path.join(pkg, 'skin/theme-ignored/Global.scss'), ':root { --fixture: ignored; }');
-        }
+            for (const name of ['plain-skin', 'unlisted-skin']) {
+                const pkg = path.join(root, 'node_modules', name);
+                write(path.join(pkg, 'package.json'), JSON.stringify({name, ...(name === 'unlisted-skin' ? {neo: {css: 'skin'}} : {})}));
+                write(path.join(pkg, 'skin/theme-ignored/Global.css'), ':root { --fixture: ignored; }');
+            }
 
-        expect(listThemes(root)).toEqual([...new Set([...shippedThemes, 'theme-package', 'theme-workspace'])].sort());
+            expect(listThemes(root)).toEqual([...new Set([...shippedThemes, 'theme-package', 'theme-workspace'])].sort());
+        });
+    }
+
+    test('inside the Engine, named exactly neo.mjs, only its own themes are listed', () => {
+        write(path.join(root, 'package.json'), JSON.stringify({name: 'neo.mjs', version: '1.0.0', dependencies: {'@fixture/skin': '1.0.0'}}));
+        write(path.join(root, 'node_modules/@fixture/skin/package.json'), JSON.stringify({name: '@fixture/skin', neo: {css: 'skin'}}));
+        write(path.join(root, 'node_modules/@fixture/skin/skin/theme-package/Global.css'), ':root { --fixture: package; }');
+        write(path.join(cssRoot, 'theme-engine/Global.css'), ':root { --fixture: engine; }');
+
+        expect(listThemes(root)).toEqual(['theme-engine']);
     });
 
     test('noninteractive CLI requires both flags and refuses incomplete input without writes or a prompt', () => {
@@ -272,126 +282,72 @@ test.describe('buildScripts/create/theme.mjs consumer workspace scaffolding', ()
     test('declared packages extend the base and sparse workspace files win without dropping engine files', () => {
         const packageRoot = path.join(root, 'node_modules/@fixture/skin'),
               packageCss  = path.join(packageRoot, 'skin'),
-              button      = read(path.join(engineRoot, 'resources/scss/theme-neo-dark/button/Base.scss'));
+              button      = read(path.join(engineRoot, 'resources/css/theme-neo-dark/button/Base.css'));
 
         write(path.join(root, 'package.json'), JSON.stringify({
             name        : 'theme-consumer-fixture',
             version     : '1.0.0',
             dependencies: {'neo.mjs': '1.0.0', '@fixture/skin': '1.0.0', 'plain-skin': '1.0.0'}
         }));
-        write(path.join(packageRoot, 'package.json'), JSON.stringify({name: '@fixture/skin', neo: {scss: 'skin'}}));
-        write(path.join(packageCss, 'theme-neo-dark/button/Base.scss'), button + '\n:where(.neo-theme-neo-dark) { --fixture-layer: package; }\n');
-        write(path.join(packageCss, 'theme-neo-dark/apps/fixture/Widget.scss'), ':where(.neo-theme-neo-dark) { --fixture-widget: package; }\n');
-        write(path.join(scssRoot, 'theme-neo-dark/button/Base.scss'), button + '\n:where(.neo-theme-neo-dark) { --fixture-layer: workspace; }\n');
+        write(path.join(packageRoot, 'package.json'), JSON.stringify({name: '@fixture/skin', neo: {css: 'skin'}}));
+        write(path.join(packageCss, 'theme-neo-dark/button/Base.css'), button + '\n:where(.neo-theme-neo-dark) { --fixture-layer: package; }\n');
+        write(path.join(packageCss, 'theme-neo-dark/apps/fixture/Widget.css'), ':where(.neo-theme-neo-dark) { --fixture-widget: package; }\n');
+        write(path.join(cssRoot, 'theme-neo-dark/button/Base.css'), button + '\n:where(.neo-theme-neo-dark) { --fixture-layer: workspace; }\n');
 
         for (const name of ['plain-skin', 'unlisted-skin']) {
             const pkg = path.join(root, 'node_modules', name);
-            write(path.join(pkg, 'package.json'), JSON.stringify({name, ...(name === 'unlisted-skin' ? {neo: {scss: 'skin'}} : {})}));
-            write(path.join(pkg, 'skin/theme-neo-dark/Ignored.scss'), ':where(.neo-theme-neo-dark) { --ignored: true; }\n');
+            write(path.join(pkg, 'package.json'), JSON.stringify({name, ...(name === 'unlisted-skin' ? {neo: {css: 'skin'}} : {})}));
+            write(path.join(pkg, 'skin/theme-neo-dark/Ignored.css'), ':where(.neo-theme-neo-dark) { --ignored: true; }\n');
         }
 
         generate();
 
-        const target = path.join(scssRoot, 'theme-acme');
+        const target = path.join(cssRoot, 'theme-acme');
 
-        expect(read(path.join(target, 'button/Base.scss'))).toContain('--fixture-layer: workspace');
-        expect(read(path.join(target, 'button/Base.scss'))).not.toContain('--fixture-layer: package');
-        expect(read(path.join(target, 'apps/fixture/Widget.scss'))).toContain(':where(.neo-theme-acme)');
-        expect(fs.existsSync(path.join(target, 'Global.scss'))).toBe(true);
-        expect(fs.existsSync(path.join(target, 'design-tokens/_all.scss'))).toBe(true);
-        expect(fs.existsSync(path.join(target, 'Ignored.scss'))).toBe(false);
+        expect(read(path.join(target, 'button/Base.css'))).toContain('--fixture-layer: workspace');
+        expect(read(path.join(target, 'button/Base.css'))).not.toContain('--fixture-layer: package');
+        expect(read(path.join(target, 'apps/fixture/Widget.css'))).toContain(':where(.neo-theme-acme)');
+        expect(fs.existsSync(path.join(target, 'Global.css'))).toBe(true);
+        expect(fs.existsSync(path.join(target, 'Ignored.css'))).toBe(false);
     });
 
-    test('rebases external Sass directives while retaining internal imports and exact selector boundaries', () => {
-        const sourceRoot = path.join(engineRoot, 'resources/scss'),
-              base       = path.join(sourceRoot, 'theme-directives');
-
-        write(path.join(sourceRoot, '_used.scss'), '$value: red;\n');
-        write(path.join(sourceRoot, '_forwarded.scss'), '.shared-forwarded { color: teal; }\n');
-        write(path.join(sourceRoot, '_imported.scss'), '$imported: blue;\n');
-        write(path.join(base, 'Global.scss'), ':root .neo-theme-directives { --fixture-global: true; }\n');
-        write(path.join(base, '_inside.scss'), '@mixin values { --from-inside: green; }\n');
-        write(path.join(base, 'Base.scss'), [
-            '@use "../used" as used;',
-            '@use "./inside" as inside;',
-            '@forward "../forwarded";',
-            '@import "../imported";',
-            ':root .neo-theme-directives { --from-used: #{used.$value}; --from-imported: #{$imported}; @include inside.values; }',
-            '.neo-theme-directives-extra { --unrelated-selector: retained; }'
-        ].join('\n'));
-
-        generate({baseTheme: 'theme-directives'});
-
-        const target = path.join(scssRoot, 'theme-acme/Base.scss'),
-              css    = compile(target).css;
-
-        expect(css).toContain(':root .neo-theme-acme');
-        expect(css).toContain('--from-used: red');
-        expect(css).toContain('--from-imported: blue');
-        expect(css).toContain('--from-inside: green');
-        expect(css).toContain('.shared-forwarded');
-        expect(css).toContain('.neo-theme-directives-extra');
-        expect(css).not.toContain('.neo-theme-acme-extra');
-        expect(read(target)).toContain('@use "./inside"');
-        expect(fs.existsSync(path.join(scssRoot, 'theme-acme/_used.scss'))).toBe(false);
-    });
-
-    test('rebases every URL in a multi-import whose dependencies exist only in the installed package', () => {
-        const sourceRoot = path.join(engineRoot, 'resources/scss'),
-              base       = path.join(sourceRoot, 'theme-multiimport');
-
-        write(path.join(sourceRoot, '_first.scss'), '$first: red;\n');
-        write(path.join(sourceRoot, '_second.scss'), '$second: blue;\n');
-        write(path.join(base, 'Global.scss'), [
-            '@import "../first",',
-            "        '../second';",
-            ':where(.neo-theme-multiimport) { --first: #{$first}; --second: #{$second}; }'
-        ].join('\n'));
-
-        generate({baseTheme: 'theme-multiimport'});
-
-        const css = compile(path.join(scssRoot, 'theme-acme/Global.scss')).css;
-
-        expect(css).toContain(':where(.neo-theme-acme)');
-        expect(css).toContain('--first: red');
-        expect(css).toContain('--second: blue');
-        expect(fs.existsSync(path.join(scssRoot, '_first.scss'))).toBe(false);
-        expect(fs.existsSync(path.join(scssRoot, '_second.scss'))).toBe(false);
-    });
-
-    test('renames selector classes without changing class-looking literals, assets or Sass selector syntax', () => {
-        const base      = path.join(engineRoot, 'resources/scss/theme-literals'),
+    test('renames selector classes without changing class-looking literals, assets or nesting', () => {
+        const base      = path.join(engineRoot, 'resources/css/theme-literals'),
               assetName = 'icon.neo-theme-literals.svg',
               asset     = '<svg xmlns="http://www.w3.org/2000/svg"><title>.neo-theme-literals</title></svg>';
 
         write(path.join(base, assetName), asset);
-        write(path.join(base, 'Global.scss'), [
-            "$part: 'glyph';",
+        write(path.join(base, 'Global.css'), [
             ':where(.neo-theme-literals) {',
             '    content: ".neo-theme-literals";',
             '    --quoted-theme: ".neo-theme-literals";',
             '    --raw-theme: .neo-theme-literals;',
             `    background-image: url("./${assetName}");`,
-            '    & > .fixture-#{$part} { --nested: true; }',
+            '    & > .fixture-glyph { --nested: true; }',
             '}',
             '.neo-theme-literals[data-theme=".neo-theme-literals"] { outline: 0; }',
             '.scope {',
-            '    &.neo-theme-literals .fixture-#{$part} { --interpolated: true; }',
+            '    &.neo-theme-literals .fixture-glyph { --scoped: true; }',
             '}'
         ].join('\n'));
 
         generate({baseTheme: 'theme-literals'});
 
-        const target       = path.join(scssRoot, 'theme-acme'),
-              css          = compile(path.join(target, 'Global.scss')).css,
-              declarations = new Map();
+        const target       = path.join(cssRoot, 'theme-acme'),
+              ast          = postcss.parse(read(path.join(target, 'Global.css'))),
+              declarations = new Map(),
+              selectors    = [];
 
-        postcss.parse(css).walkDecls(declaration => declarations.set(declaration.prop, declaration.value));
+        ast.walkDecls(declaration => declarations.set(declaration.prop, declaration.value));
+        ast.walkRules(rule => selectors.push(rule.selector));
 
-        expect(css).toContain(':where(.neo-theme-acme) > .fixture-glyph');
-        expect(css).toContain('.scope.neo-theme-acme .fixture-glyph');
-        expect(css).toContain('.neo-theme-acme[data-theme=".neo-theme-literals"]');
-        expect(css).not.toContain('[data-theme=".neo-theme-acme"]');
+        expect(selectors).toEqual([
+            ':where(.neo-theme-acme)',
+            '& > .fixture-glyph',
+            '.neo-theme-acme[data-theme=".neo-theme-literals"]',
+            '.scope',
+            '&.neo-theme-acme .fixture-glyph'
+        ]);
         expect(declarations.get('content')).toBe('".neo-theme-literals"');
         expect(declarations.get('--quoted-theme')).toBe('".neo-theme-literals"');
         expect(declarations.get('--raw-theme')).toBe('.neo-theme-literals');
@@ -414,42 +370,42 @@ test.describe('buildScripts/create/theme.mjs consumer workspace scaffolding', ()
     });
 
     test('refuses existing local and installed destinations without overwriting either', () => {
-        write(path.join(scssRoot, 'theme-acme/keep.txt'), 'caller-owned');
+        write(path.join(cssRoot, 'theme-acme/keep.txt'), 'caller-owned');
 
         refuseWithoutWrites({});
         refuseWithoutWrites({themeName: 'theme-light'});
     });
 
     test('rejects a symlink within a base tree before copying any files', () => {
-        const secret = path.join(root, 'outside.scss');
+        const secret = path.join(root, 'outside.css');
 
         write(secret, ':root { --outside: untouched; }\n');
-        fs.symlinkSync(secret, path.join(engineRoot, 'resources/scss/theme-neo-dark/_linked.scss'));
+        fs.symlinkSync(secret, path.join(engineRoot, 'resources/css/theme-neo-dark/linked.css'));
 
         refuseWithoutWrites({});
     });
 
     test('rejects symlink destination ancestry without writing through it', () => {
-        const outside = path.join(root, 'outside-scss');
+        const outside = path.join(root, 'outside-css');
 
         fs.mkdirSync(outside);
-        fs.mkdirSync(path.dirname(scssRoot), {recursive: true});
-        fs.symlinkSync(outside, scssRoot, 'dir');
+        fs.mkdirSync(path.dirname(cssRoot), {recursive: true});
+        fs.symlinkSync(outside, cssRoot, 'dir');
 
         refuseWithoutWrites({});
         expect(fs.readdirSync(outside)).toEqual([]);
     });
 
     test('also generates from an engine checkout without an installed neo package', () => {
-        fs.cpSync(path.join(engineRoot, 'resources/scss'), scssRoot, {recursive: true});
+        fs.cpSync(path.join(engineRoot, 'resources/css'), cssRoot, {recursive: true});
         fs.copyFileSync(path.join(repoRoot, 'package.json'), path.join(root, 'package.json'));
         fs.rmSync(path.join(root, 'node_modules'), {recursive: true});
 
         generate({baseTheme: 'theme-light'});
 
-        const target = path.join(scssRoot, 'theme-acme');
+        const target = path.join(cssRoot, 'theme-acme');
 
-        expect(read(path.join(target, 'button/Base.scss'))).toContain(':root .neo-theme-acme');
-        expect(compile(path.join(target, 'Global.scss')).css).toContain('--motion-fast: 120ms');
+        expect(read(path.join(target, 'button/Base.css'))).toContain(':root .neo-theme-acme');
+        expect(read(path.join(target, 'Global.css'))).toContain(':root .neo-theme-acme');
     });
 });

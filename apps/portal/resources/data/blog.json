@@ -9,6 +9,14 @@
             "path": null
         },
         {
+            "date": "2026-11-17",
+            "id": "blog/codebase-knowledge-base-for-ai-coding-agents",
+            "isLeaf": true,
+            "name": "Codebase RAG vs grep for AI coding agents: the same grep hits scored 10, 30 or 34 of 40 (part 3 of 8)",
+            "parentId": "2026",
+            "path": "learn/blog/codebase-knowledge-base-for-ai-coding-agents.md"
+        },
+        {
             "date": "2026-11-16",
             "id": "blog/role-based-navigation-from-one-store-filter",
             "isLeaf": true,
