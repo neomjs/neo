@@ -71,7 +71,7 @@ async function boot(page, policy, {waitForApp = true} = {}) {
         }
 
         stamped.push({type, path: new URL(request.url()).pathname});
-        const response = await route.fetch();
+        const response = await route.fetch({maxRetries: 2});
 
         await route.fulfill({
             response,

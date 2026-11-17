@@ -287,7 +287,7 @@ async function holdOwnerScroll(context) {
           signature = '    async scrollToIndex(index, itemRect) {';
     let   hits    = 0;
     const handler = async route => {
-        const response = await route.fetch(), source = await response.text();
+        const response = await route.fetch({maxRetries: 2}), source = await response.text();
         expect(source.split(signature)).toHaveLength(2);
         hits++;
         await route.fulfill({response, body: source.replace(signature, `
