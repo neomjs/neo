@@ -8,6 +8,7 @@ import inquirer        from 'inquirer';
 import path            from 'path';
 import postcss         from 'postcss';
 import {sanitizeInput} from '../util/sanitizer.mjs';
+import {themeCssRoots} from '../util/themeCssRoots.mjs';
 
 const
     __dirname        = path.resolve(),
@@ -20,26 +21,7 @@ const
     program          = new Command(),
     cssPath          = 'resources/css/',
     frameworkCssPath = path.resolve(neoPath, cssPath),
-    workspaceCssPath = path.resolve(cwd, cssPath),
-    packageCssPaths  = insideNeo ? [] : [
-        ...new Set([
-            ...Object.keys(packageJson.dependencies    || {}),
-            ...Object.keys(packageJson.devDependencies || {})
-        ])
-    ].flatMap(depName => {
-        const depPackagePath = path.resolve(cwd, 'node_modules', depName, 'package.json');
-
-        if (!fs.existsSync(depPackagePath)) {
-            return [];
-        }
-
-        const depCss = requireJson(depPackagePath).neo?.css;
-
-        return depCss ? [path.resolve(cwd, 'node_modules', depName, depCss)] : [];
-    }),
-    cssRoots         = insideNeo
-        ? [frameworkCssPath]
-        : [...new Set([frameworkCssPath, ...packageCssPaths, workspaceCssPath])],
+    cssRoots         = themeCssRoots(cwd),
     cssFolders       = cssRoots.flatMap(root => fs.existsSync(root) ? fs.readdirSync(root) : []),
     themeMapFile     = 'resources/theme-map.json',
     themeFolders     = [...new Set(cssFolders.filter(folder => folder.includes('theme')))],

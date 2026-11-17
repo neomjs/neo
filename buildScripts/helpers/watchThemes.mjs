@@ -1,9 +1,10 @@
-import autoprefixer  from 'autoprefixer';
-import chalk         from 'chalk';
-import fs            from 'fs-extra';
-import path          from 'node:path';
-import postcss       from 'postcss';
-import isEntryModule from '../util/isEntryModule.mjs';
+import autoprefixer    from 'autoprefixer';
+import chalk           from 'chalk';
+import fs              from 'fs-extra';
+import path            from 'node:path';
+import postcss         from 'postcss';
+import isEntryModule   from '../util/isEntryModule.mjs';
+import {themeCssRoots} from '../util/themeCssRoots.mjs';
 import {
     DEVELOPMENT_THEME_BUILD_COMMAND,
     inspectDevelopmentThemeAssets
@@ -12,24 +13,17 @@ import {
 const REPO_ROOT = process.cwd();
 
 /**
- * @summary Returns the framework and workspace theme source roots in override order. Framework
- * checkouts have one root; app workspaces layer their own sources over the installed Neo package.
+ * @summary Returns the theme source roots the full theme builder reads, in override order
+ * ({@link themeCssRoots}), and refuses to start without one of them.
  * @param {String} repoRoot Repository root.
- * @returns {String[]}
+ * @returns {String[]} Absolute directories.
  */
 function getThemeSourceRoots(repoRoot) {
-    const
-        packageJson = fs.readJsonSync(path.join(repoRoot, 'package.json')),
-        neoRoot     = packageJson.name.includes('neo.mjs')
-            ? repoRoot
-            : path.join(repoRoot, 'node_modules/neo.mjs'),
-        roots       = neoRoot === repoRoot ? [repoRoot] : [neoRoot, repoRoot];
+    const roots = themeCssRoots(repoRoot);
 
     roots.forEach(root => {
-        const sourceRoot = path.join(root, 'resources/css');
-
-        if (!fs.existsSync(sourceRoot)) {
-            throw new Error(`[watch-themes] missing theme source root: ${sourceRoot}`)
+        if (!fs.existsSync(root)) {
+            throw new Error(`[watch-themes] missing theme source root: ${root}`)
         }
     });
 
@@ -37,8 +31,9 @@ function getThemeSourceRoots(repoRoot) {
 }
 
 /**
- * @summary Builds the exact effective source census for development output. Later workspace
- * roots replace framework entries with the same output path, matching the full theme builder.
+ * @summary Builds the exact effective source census for development output. A later root (a declared
+ * package over the Engine, the workspace over both) replaces an earlier entry with the same output
+ * path, matching the full theme builder.
  * @param {Object} [options]
  * @param {String} [options.repoRoot] Repository root.
  * @returns {Array<{className: String, filename: String, outputPath: String, root: String,
@@ -83,9 +78,7 @@ export function getThemeSourceCensus({repoRoot = REPO_ROOT} = {}) {
             })
     }
 
-    getThemeSourceRoots(repoRoot).forEach(sourceRoot => {
-        const cssRoot = path.join(sourceRoot, 'resources/css');
-
+    getThemeSourceRoots(repoRoot).forEach(cssRoot => {
         fs.readdirSync(cssRoot, {withFileTypes: true})
             .filter(entry => (
                 entry.isDirectory() &&
@@ -453,7 +446,9 @@ export async function handleThemeWatchEvent(eventType, filename, {
     }
 
     try {
-        const result = await reconcile({forceFiles: exists ? [normalized] : [], logger, repoRoot});
+        // Forced even when deleted: a removed workspace sheet can uncover a package's or the Engine's
+        // sheet at the same path, whose source is older than the output the workspace sheet left
+        const result = await reconcile({forceFiles: [normalized], logger, repoRoot});
         const action = exists ? 'built' : 'removed';
 
         logger.log(

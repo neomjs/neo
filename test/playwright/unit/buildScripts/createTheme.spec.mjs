@@ -171,8 +171,11 @@ test.describe('buildScripts/create/theme.mjs consumer workspace scaffolding', ()
         expect(manifest.dependencies).toBeUndefined();
         for (const name of parsers) expect(manifest.devDependencies[name]).toBeTruthy();
 
-        fs.mkdirSync(path.dirname(installedPath), {recursive: true});
-        fs.copyFileSync(createPath, installedPath);
+        // The generator and the modules it imports, as the installed Engine ships them
+        for (const relative of ['buildScripts/create/theme.mjs', 'buildScripts/util/themeCssRoots.mjs', 'buildScripts/util/declaredPackageRoots.mjs']) {
+            fs.mkdirSync(path.dirname(path.join(engineRoot, relative)), {recursive: true});
+            fs.copyFileSync(path.join(repoRoot, relative), path.join(engineRoot, relative));
+        }
 
         // The scaffolder installs Engine development tools in this nested package. Keep the
         // fixture physical and limited to the parsers' graph so repository resolution cannot help.

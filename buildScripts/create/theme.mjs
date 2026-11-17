@@ -7,40 +7,9 @@ import postcss           from 'postcss';
 import selectorParser    from 'postcss-selector-parser';
 import {fileURLToPath}   from 'node:url';
 import {parseArgs}       from 'node:util';
+import {themeCssRoots}   from '../util/themeCssRoots.mjs';
 
 const themePattern = /^theme-[a-z0-9]+(?:-[a-z0-9]+)*$/;
-
-/**
- * @summary Discovers theme source roots in the same override order as the theme builder.
- * @param {String} cwd Workspace or Engine repository root.
- * @returns {String[]}
- */
-function themeRoots(cwd) {
-    const packageJson = JSON.parse(fs.readFileSync(path.join(cwd, 'package.json'), 'utf8')),
-          framework   = packageJson.name === 'neo.mjs' ? cwd : path.join(cwd, 'node_modules/neo.mjs'),
-          roots       = [path.join(framework, 'resources/css')];
-
-    if (framework !== cwd) {
-        const dependencies = new Set([
-            ...Object.keys(packageJson.dependencies || {}),
-            ...Object.keys(packageJson.devDependencies || {})
-        ]);
-
-        for (const dependency of dependencies) {
-            const dependencyRoot = path.join(cwd, 'node_modules', dependency),
-                  packagePath    = path.join(dependencyRoot, 'package.json');
-
-            if (fs.existsSync(packagePath)) {
-                const css = JSON.parse(fs.readFileSync(packagePath, 'utf8')).neo?.css;
-                if (css) roots.push(path.resolve(dependencyRoot, css));
-            }
-        }
-
-        roots.push(path.join(cwd, 'resources/css'));
-    }
-
-    return [...new Set(roots)];
-}
 
 /**
  * @summary Lists selectable base themes across Engine, component packages and workspace.
@@ -48,7 +17,7 @@ function themeRoots(cwd) {
  * @returns {String[]}
  */
 export function listThemes(cwd) {
-    return [...new Set(themeRoots(cwd).flatMap(root => fs.existsSync(root)
+    return [...new Set(themeCssRoots(cwd).flatMap(root => fs.existsSync(root)
         ? fs.readdirSync(root, {withFileTypes: true})
             .filter(entry => entry.isDirectory() && themePattern.test(entry.name))
             .map(entry => entry.name)
@@ -97,7 +66,7 @@ export function generateTheme({cwd, baseTheme, themeName}) {
         }
     }
 
-    const roots       = themeRoots(cwd),
+    const roots       = themeCssRoots(cwd),
           destination = path.join(cwd, 'resources/css', themeName),
           files       = new Map();
 

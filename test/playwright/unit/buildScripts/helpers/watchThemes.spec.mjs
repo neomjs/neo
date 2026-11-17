@@ -212,6 +212,54 @@ test.describe('buildScripts/helpers/watchThemes (#15585)', () => {
         expect(mapLeaf(root, 'Neo.Retired')).toBeUndefined()
     });
 
+    test('a declared package\'s sheets stay built and mapped under the workspace overlay (#21253)', async () => {
+        const
+            root     = createRoot('theme-workspace'),
+            {logger} = createLogger(),
+            pkg      = path.join(root, 'node_modules/@acme/grid-ext'),
+            plain    = path.join(root, 'node_modules/plain-pkg'),
+            output   = filename => path.join(root, 'dist/development/css', filename),
+            writeAt  = (target, content) => {
+                fs.mkdirSync(path.dirname(target), {recursive: true});
+                fs.writeFileSync(target, content);
+                return target
+            };
+
+        // Both packages are dependencies; only one declares a theme root, and it is not `resources/css`
+        fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({
+            name        : 'theme-workspace',
+            version     : '1.0.0',
+            dependencies: {'@acme/grid-ext': '1.0.0', 'plain-pkg': '1.0.0'}
+        }));
+        writeAt(path.join(pkg,   'package.json'), JSON.stringify({name: '@acme/grid-ext', neo: {css: 'themes'}}));
+        writeAt(path.join(plain, 'package.json'), JSON.stringify({name: 'plain-pkg'}));
+
+        writeSource(path.join(root, 'node_modules/neo.mjs'), 'src/Base.css');
+        const shared = writeAt(path.join(pkg, 'themes/src/apps/ext/Shared.css'), '.ext-shared { color: green; }');
+        writeAt(path.join(pkg, 'themes/src/apps/ext/Row.css'), '.ext-row { color: green; }');
+        writeSource(plain, 'src/apps/plain/Ignored.css');
+        writeSource(root, 'src/apps/ext/Shared.css', '.ext-shared { color: purple; }');
+
+        // A full build already placed the package sheet; startup reconciliation must keep it
+        writeAt(output('src/apps/ext/Row.css'), '/* built */');
+        fs.utimesSync(path.join(pkg, 'themes/src/apps/ext/Row.css'), 1, 1);
+        fs.utimesSync(shared, 1, 1);
+
+        await reconcileFixture({logger, repoRoot: root});
+
+        expect(fs.readFileSync(output('src/apps/ext/Row.css'), 'utf8')).toBe('/* built */');
+        expect(fs.readFileSync(output('src/apps/ext/Shared.css'), 'utf8')).toContain('purple');
+        expect(fs.existsSync(output('src/apps/plain/Ignored.css'))).toBe(false);
+        expect(mapLeaf(root, 'apps.ext.Row')).toEqual(['src']);
+        expect(mapLeaf(root, 'apps.plain.Ignored')).toBeUndefined();
+
+        // Removing the workspace overlay brings the package's own sheet back
+        fs.rmSync(path.join(root, 'resources/css/src/apps/ext/Shared.css'));
+        await handleThemeWatchEvent('rename', 'src/apps/ext/Shared.css', {logger, reconcile: reconcileFixture, repoRoot: root});
+
+        expect(fs.readFileSync(output('src/apps/ext/Shared.css'), 'utf8')).toContain('green')
+    });
+
     test('startup freshness preserves a prior valid one-file rebuild', async () => {
         const
             root     = createRoot(),
