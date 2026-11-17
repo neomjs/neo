@@ -6,6 +6,9 @@ import RowModel          from '../selection/table/RowModel.mjs';
 import VDomUtil          from '../util/VDom.mjs';
 
 /**
+ * @summary Renders table rows and keeps their cells synchronized with store changes.
+ *
+ * Store row batches rebuild the affected rendered rows together, preserving the scroll position.
  * @class Neo.table.Body
  * @extends Neo.component.Base
  */
@@ -156,6 +159,7 @@ class TableBody extends Component {
                 filter      : me.onStoreFilter,
                 load        : me.onStoreLoad,
                 recordChange: me.onStoreRecordChange,
+                rowsChange  : me.onStoreRowsChange,
                 scope       : me
             };
 
@@ -781,14 +785,15 @@ class TableBody extends Component {
     }
 
     /**
-     * Gets triggered after changing the value of a record field.
+     * @summary Repaints an individual record edit, leaving batch repaints to {@link #onStoreRowsChange}.
      * E.g. myRecord.foo = 'bar';
      * @param {Object} opts
      * @param {Object[]} opts.fields Each field object contains the keys: name, oldValue, value
+     * @param {Boolean} [opts.isBatch]
      * @param {Neo.data.Model} opts.model The model instance of the changed record
      * @param {Object} opts.record
      */
-    onStoreRecordChange({fields, record}) {
+    onStoreRecordChange({fields, isBatch, record}) {
         let me                     = this,
             fieldNames             = fields.map(field => field.name),
             needsUpdate            = false,
@@ -796,6 +801,15 @@ class TableBody extends Component {
             rowIndex               = me.store.indexOf(record),
             {selectionModel, vdom} = me,
             cellId, cellNode, cellVdom, column, columnIndex, scope;
+
+        if (isBatch) {
+            const selected = fields.find(field => field.name === me.selectedRecordField);
+
+            if (selected && selectionModel.ntype === 'selection-table-rowmodel') {
+                selectionModel[selected.value ? 'select' : 'deselect'](me.getRowId(record))
+            }
+            return
+        }
 
         if (fieldNames.includes(me.colspanField)) {
             me.vdom.cn[rowIndex] = me.createRow({record, rowIndex});
@@ -825,6 +839,33 @@ class TableBody extends Component {
         }
 
         needsUpdate && me.update()
+    }
+
+    /**
+     * @summary Rebuilds the mounted rows changed by a store batch in one update, without a load or scroll reset.
+     * Rows outside the rendered view are not read through a hydrating accessor.
+     * @param {Object} data
+     * @param {Array} data.keys The keys of the rows changed by {@link Neo.data.Store#updateRows}
+     */
+    onStoreRowsChange({keys}) {
+        const me      = this,
+              {store} = me;
+        let needsUpdate = false;
+
+        keys.forEach(key => {
+            const record   = store.getRow(key),
+                  rowIndex = store.indexOf(record);
+
+            if (rowIndex >= 0 && me.vdom.cn[rowIndex]) {
+                me.vdom.cn[rowIndex] = me.createRow({record, rowIndex});
+                needsUpdate = true
+            }
+        });
+
+        if (needsUpdate) {
+            me.updateDepth = -1;
+            me.update()
+        }
     }
 }
 
