@@ -30,8 +30,8 @@ then selects *zero tests* rather than failing one. Skip the second and the serve
 warns and tells you this exact command. Together they take under ten seconds.
 
 **Your own JavaScript never needs a build** — Neo.mjs runs your edits as native ES modules, so you change a file and
-reload. That does not extend to **SCSS**: styles compile into `dist/development/css`, so re-run `build-themes` after a
-`.scss` change, or keep `npm run watch-themes` going while you work on one.
+reload. That does not extend to **styles**: `build-themes` copies the sheets under `resources/css` into
+`dist/development/css`, so re-run it after a `.css` change, or keep `npm run watch-themes` going while you work on one.
 
 Running the tests:
 

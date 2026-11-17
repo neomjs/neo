@@ -25,16 +25,18 @@
       "id": "grid-cell-editing",
       "viewport": {"width": 1280, "height": 720},
       "theme": "dark",
-      "state": "Random Date cell editor open in the dark grid.",
+      "state": "A quantity of 60 refused in the order sheet's open editor (at most 50), in the dark grid.",
       "ready": [
-        {"selector": ".neo-grid-cell[data-field='randomDate']"},
+        {"selector": ".neo-grid-cell[data-field='quantity']"},
         {"selector": ".neo-configuration-header-toolbar .neo-button", "text": "Theme Dark"}
       ],
       "steps": [
         {"kind": "click", "selector": ".neo-configuration-header-toolbar .neo-button", "text": "Theme Dark"},
-        {"kind": "dblclick", "selector": ".neo-grid-cell[data-field='randomDate']", "nth": 1}
+        {"kind": "dblclick", "selector": ".neo-grid-cell[data-field='quantity']", "nth": 1},
+        {"kind": "fill", "selector": ".neo-grid-editor input", "value": "60"},
+        {"kind": "press", "selector": ".neo-grid-editor input", "key": "Enter"}
       ],
-      "after": [{"selector": ".neo-grid-editor input"}],
+      "after": [{"selector": ".neo-grid-editor .neo-textfield-error", "text": "At most 50"}],
       "region": {"selector": ".neo-example-container", "anchor": "top-left", "width": 640, "height": 360}
     },
     {
@@ -75,18 +77,39 @@
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },
     {
-      "id": "grid-covid",
-      "viewport": {"width": 1280, "height": 720},
+      "id": "grid-countries",
+      "viewport": {"width": 640, "height": 360},
       "theme": "default",
-      "state": "Country statistics sorted using the Country header, with flags and coloured measures visible.",
-      "dependencies": [
-        "https://disease.sh/v3/covid-19/countries",
-        "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/flaticon/country_flags/png/germany.png"
+      "state": "The largest populations first and China's row selected, with flags, formatted figures and population growth tinted green or red.",
+      "dependencies": ["https://hatscripts.github.io/circle-flags/flags/in.svg"],
+      "ready": [{"selector": ".neo-grid-cell[data-field='country']", "text": "India"}],
+      "steps": [{"kind": "click", "selector": ".neo-grid-cell[data-field='population']", "nth": 1}],
+      "after": [
+        {"selector": ".neo-grid-row.neo-selected .neo-grid-cell[data-field='country']", "text": "China", "inRegion": true},
+        {"selector": ".neo-grid-cell.countries-down", "inRegion": true}
       ],
-      "ready": [{"selector": ".neo-grid-cell img"}, {"selector": ".neo-grid-cell[data-field='country']"}],
-      "steps": [{"kind": "click", "selector": ".neo-grid-header-button", "text": "Country"}],
-      "after": [{"selector": "[role='columnheader'][aria-sort]", "text": "Country"}, {"selector": ".neo-grid-cell img"}],
-      "region": {"x": 20, "y": 20, "width": 640, "height": 360}
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "grid-filtering",
+      "viewport": {"width": 640, "height": 360},
+      "theme": "dark",
+      "state": "Lighting picked in Category and amounts of at least 4,000 kept: 405 of 10,000 orders.",
+      "ready": [{"selector": ".grid-filtering-count", "text": "10,000 of 10,000 orders"}, {"selector": ".grid-filtering-toolbar .neo-button", "text": "Dark theme"}],
+      "steps": [
+        {"kind": "click", "selector": ".grid-filtering-toolbar .neo-button", "text": "Dark theme"},
+        {"kind": "click", "selector": ".neo-grid-header-button input[id^='neo-combobox'][id$='__input']"},
+        {"kind": "click", "selector": "[role='option']", "text": "Lighting"},
+        {"kind": "fill", "selector": ".neo-grid-header-button input[type='number']", "value": "4000"},
+        {"kind": "click", "selector": ".grid-filtering-title"},
+        {"kind": "scroll", "selector": ".neo-grid-horizontal-scrollbar", "x": 0}
+      ],
+      "after": [
+        {"selector": ".grid-filtering-toolbar .neo-button", "text": "Light theme"},
+        {"selector": ".grid-filtering-count", "text": "405 of 10,000 orders"},
+        {"selector": ".neo-grid-cell[data-field='category']", "text": "Lighting"}
+      ],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },
     {
       "id": "grid-header-groups",
@@ -109,16 +132,17 @@
       "id": "grid-locked-columns",
       "viewport": {"width":640,"height":360},
       "theme": "default",
-      "state": "The centre scrolled to populated Private contributions while User and Updated stay locked.",
+      "state": "The centre scrolled to the plan's second year while product, region and total stay pinned.",
       "ready": [
-        {"selector":".neo-grid-cell[data-field='login']","text":"octocat"}
+        {"selector":".neo-grid-cell[data-field='product']","text":"Aurora Desk"}
       ],
       "steps": [
-        {"kind":"scroll","selector":".neo-grid-horizontal-scrollbar","x":160,"y":0}
+        {"kind":"scroll","selector":".neo-grid-horizontal-scrollbar","x":1280,"y":0}
       ],
       "after": [
-        {"selector":".neo-grid-cell[data-field='login']","text":"octocat","inRegion":true},
-        {"selector":".neo-grid-cell[data-field='privateContributionsRatio']:text-is('0.1')","inRegion":true}
+        {"selector":".neo-grid-cell[data-field='product']","text":"Aurora Desk","inRegion":true},
+        {"selector":".neo-grid-cell[data-field='m16']","inRegion":true},
+        {"selector":".neo-grid-cell[data-field='total']","inRegion":true}
       ],
       "region": {"x":0,"y":0,"width":640,"height":360}
     },
@@ -176,34 +200,6 @@
       "region": {"x":0,"y":0,"width":640,"height":360}
     },
     {
-      "id": "json-grid-container",
-      "viewport": {"width": 1280, "height": 720},
-      "theme": "default",
-      "state": "Grid instantiated from its fetched local JSON after Load Grid Container.",
-      "ready": [{"selector": ".neo-button", "text": "Load Grid Container"}],
-      "steps": [{"kind": "click", "selector": ".neo-button", "text": "Load Grid Container"}],
-      "after": [{"selector": ".neo-serverside-gridcontainer-content .neo-grid-cell"}],
-      "region": {"selector": ".neo-serverside-gridcontainer-content", "anchor": "top-left", "width": 640, "height": 360}
-    },
-    {
-      "id": "table-cell-editing",
-      "viewport": {"width":1030,"height":360},
-      "theme": "dark",
-      "state": "A Number editor with step-5 spinner controls open in the second row, distinct from the Grid Random Date editor.",
-      "ready": [
-        {"selector":".neo-table-body tr:nth-child(2) .neo-table-cell:nth-child(2)"}
-      ],
-      "steps": [
-        {"kind":"click","selector":".neo-configuration-header-toolbar .neo-button","text":"Theme Dark"},
-        {"kind":"dblclick","selector":".neo-table-body tr:nth-child(2) .neo-table-cell:nth-child(2)"}
-      ],
-      "after": [
-        {"selector":".neo-table-cell .neo-numberfield input[step='5']","inRegion":true},
-        {"selector":".neo-table-editor .neo-spin-buttons","inRegion":true}
-      ],
-      "region": {"x":0,"y":0,"width":640,"height":360}
-    },
-    {
       "id": "table-container",
       "viewport": {"width":1030,"height":360},
       "theme": "dark",
@@ -221,95 +217,6 @@
         {"selector":".neo-menu-list","text":"Menu option 4","inRegion":true}
       ],
       "region": {"x":10,"y":0,"width":640,"height":360}
-    },
-    {
-      "id": "table-covid",
-      "viewport": {"width":640,"height":360},
-      "theme": "default",
-      "state": "Country statistics sorted by Cases descending, distinct from the Grid Country sort; public flags and measures visible.",
-      "dependencies": [
-        "https://disease.sh/v3/covid-19/countries",
-        "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/flaticon/country_flags/png/germany.png"
-      ],
-      "ready": [
-        {"selector":".neo-table-cell img"}
-      ],
-      "steps": [
-        {"kind":"click","selector":".neo-table-header-button","text":"Cases"}
-      ],
-      "after": [
-        {"selector":"th[aria-sort='descending']","text":"Cases","inRegion":true},
-        {"selector":".neo-table-body tr:first-child .neo-country-column","text":"USA","inRegion":true},
-        {"selector":".neo-table-cell img"}
-      ],
-      "region": {"x":0,"y":0,"width":640,"height":360}
-    },
-    {
-      "id": "table-nested-record-fields",
-      "viewport": {"width":640,"height":360},
-      "theme": "dark",
-      "state": "Nested user fields in the table, sorted by Firstname; no edit dialog.",
-      "ready": [
-        {"selector":".neo-table-body .neo-table-cell","text":"Tobias"}
-      ],
-      "steps": [
-        {"kind":"click","selector":".neo-table-header-button","text":"Firstname"}
-      ],
-      "after": [
-        {"selector":"th[aria-sort='ascending']","text":"Firstname","inRegion":true},
-        {"selector":".neo-table-body tr:first-child .neo-table-cell:first-child","text":"Gerard","inRegion":true},
-        {"selector":".neo-table-body tr:first-child .neo-table-cell:nth-child(2)","text":"Horan","inRegion":true}
-      ],
-      "region": {"x":0,"y":0,"width":640,"height":360}
-    },
-    {
-      "id": "table-store",
-      "viewport": {"width": 1280, "height": 720},
-      "theme": "default",
-      "state": "The three Store action buttons above updated table cells.",
-      "ready": [{"selector": "#myTableStoreContainer .neo-table-cell"}],
-      "steps": [{"kind": "click", "selector": ".neo-button", "text": "Update all cells 100x"}],
-      "after": [
-        {"selector": "#myTableStoreContainer .neo-table-body tr:first-child .neo-table-cell:last-child", "text": "Bar", "inRegion": true},
-        {"selector": ".neo-button", "text": "Change Cell Value", "inRegion": true},
-        {"selector": ".neo-button", "text": "Update all cells 100x", "inRegion": true},
-        {"selector": ".neo-button", "text": "Reset Sorting", "inRegion": true}
-      ],
-      "region": {"x": 640, "y": 20, "width": 640, "height": 360}
-    },
-    {
-      "id": "table-performance",
-      "viewport": {"width":1260,"height":360},
-      "theme": "default",
-      "state": "Three tables of 1000 rows, with Rows and Interval controls above the rightmost columns aligned beside their pinned columns.",
-      "ready": [
-        {"selector":".neo-table-body","count":3}
-      ],
-      "steps": [
-        {"kind":"fill","selector":".neo-numberfield:has-text('Rows:') input","nth":0,"value":"1000"},
-        {"kind":"press","selector":".neo-numberfield:has-text('Rows:') input","nth":0,"key":"Tab"},
-        {"kind":"click","selector":".neo-button","text":"Refresh Data","nth":0},
-        {"kind":"fill","selector":".neo-numberfield:has-text('Rows:') input","nth":1,"value":"1000"},
-        {"kind":"press","selector":".neo-numberfield:has-text('Rows:') input","nth":1,"key":"Tab"},
-        {"kind":"click","selector":".neo-button","text":"Refresh Data","nth":1},
-        {"kind":"fill","selector":".neo-numberfield:has-text('Rows:') input","nth":2,"value":"1000"},
-        {"kind":"press","selector":".neo-numberfield:has-text('Rows:') input","nth":2,"key":"Tab"},
-        {"kind":"click","selector":".neo-button","text":"Refresh Data","nth":2},
-        {"kind":"scroll","selector":".neo-table-wrapper","nth":0,"x":762},
-        {"kind":"scroll","selector":".neo-table-wrapper","nth":1,"x":762},
-        {"kind":"scroll","selector":".neo-table-wrapper","nth":2,"x":762}
-      ],
-      "after": [
-        {"selector":".neo-table-body tr","count":3000},
-        {"selector":":nth-match(.neo-table-body, 1) tr","count":1000},
-        {"selector":":nth-match(.neo-table-body, 2) tr","count":1000},
-        {"selector":":nth-match(.neo-table-body, 3) tr","count":1000},
-        {"selector":":nth-match(.neo-numberfield:has-text('Rows:') input, 1)","value":"1000","inRegion":true},
-        {"selector":":nth-match(.neo-numberfield:has-text('Rows:') input, 2)","value":"1000","inRegion":true},
-        {"selector":":nth-match(.neo-numberfield:has-text('Rows:') input, 3)","value":"1000","inRegion":true},
-        {"selector":".neo-table-header-button","text":"Header 8","inRegion":true}
-      ],
-      "region": {"x":610,"y":0,"width":640,"height":360}
     },
     {
       "id": "grid-big-data",

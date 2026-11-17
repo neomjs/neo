@@ -570,6 +570,11 @@ class Button extends BaseButton {
                 value = new Date(value)
             }
 
+            // A ComboBox's value is a record; rows hold its display value
+            if (Neo.isRecord(value)) {
+                value = value[me.filterField.displayField]
+            }
+
             if (!filter) {
                 store.filters = [...store.filters, {
                     operator: 'like',

@@ -189,16 +189,16 @@ test.describe('Portal examples section', () => {
         const headline = page.locator('.portal-examples-overview:visible .portal-examples-overview-headline'),
               counts   = page.locator(`${INDEX} .portal-examples-group-index-count`);
 
-        await expect(headline).toHaveText('45 live examples in 14 groups');
-        expect((await counts.allTextContents()).filter(text => !text.startsWith('(')).reduce((sum, text) => sum + Number(text), 0)).toBe(45);
+        await expect(headline).toHaveText('40 live examples in 14 groups');
+        expect((await counts.allTextContents()).filter(text => !text.startsWith('(')).reduce((sum, text) => sum + Number(text), 0)).toBe(40);
         await expect(page.locator(`${INDEX} .portal-examples-group-index-note`)).toBeVisible();
 
         // Dev mode cannot open liquid-glass, the one card of More components
         await selectBuild(page, 'Dev mode');
-        await expect(headline).toHaveText('44 live examples in 13 groups');
+        await expect(headline).toHaveText('39 live examples in 13 groups');
         await expect(page.locator(INDEX).getByRole('link', {name: /^More components, /})).toHaveCount(0);
         await selectBuild(page, 'Production build');
-        await expect(headline).toHaveText('45 live examples in 14 groups')
+        await expect(headline).toHaveText('40 live examples in 14 groups')
     });
 
     test('the index is a navigation landmark of links: Tab reaches every entry, Enter opens it, no entry claims to be a tab', async ({page, neuralLink}) => {
@@ -362,20 +362,20 @@ test.describe('Portal examples section', () => {
                 await openGroup(page, 'Grid & Table');
                 const overview = page.locator(CARDS);
 
-                await expect(overview.locator('.portal-example-feature')).toHaveCount(21);
+                await expect(overview.locator('.portal-example-feature')).toHaveCount(16);
                 const columns = await overview.evaluate(node => getComputedStyle(node).gridTemplateColumns.split(' ').length);
                 expect(columns).toBe(viewport.width === 1440 ? 3 : viewport.width <= 600 ? 1 : 2);
                 const list = await readList(app, 'grid-table');
                 expect(list.id).toBe(await overview.getAttribute('id'));
                 // the page's Store lists the covered records; the catalog keeps the others for their covers
-                expect(list.properties.store.count).toBe(21);
+                expect(list.properties.store.count).toBe(16);
                 expect(list.properties.store.model.className).toBe('Portal.model.Example');
                 await expect(overview.locator('.neo-title').nth(0)).toHaveText('TreeGrid - Big Data');
-                await expect(overview.locator('.neo-title').nth(1)).toHaveText('Buffered Data Grid with 5M cells');
+                await expect(overview.locator('.neo-title').nth(1)).toHaveText('Data Grid: 100k Rows & 200 Columns');
                 await expect(overview.locator('.neo-title').nth(2)).toHaveText('GitHub Issues Grid');
 
                 const covered = overview.locator('.portal-example-image-card .neo-item-bottom-position');
-                await expect(covered).toHaveCount(21);
+                await expect(covered).toHaveCount(16);
                 await expect(overview.locator('.portal-example-placeholder')).toHaveCount(0);
 
                 const issues = overview.locator('.neo-list-item').filter({hasText: 'GitHub Issues Grid'});
@@ -427,7 +427,7 @@ test.describe('Portal examples section', () => {
 
                 // A stable string identity also survives the lazy-cover path at the end of the list.
                 await overview.locator('.neo-list-item').last().scrollIntoViewIfNeeded();
-                await expect(overview.locator('.neo-list-item').last().getByRole('link', {name: 'Table Refresh Performance'})).toBeVisible()
+                await expect(overview.locator('.neo-list-item').last().getByRole('link', {name: 'Table Configuration'})).toBeVisible()
             })
         }
     }
@@ -457,7 +457,7 @@ test.describe('Portal examples section', () => {
         await page.goto(`${PORTAL}#/examples/devmode`);
         app = await neuralLink.connectToApp('Portal');
         await openGroup(page, 'Grid & Table');
-        await expect(page.locator(`${CARDS} .portal-example-feature`)).toHaveCount(21);
+        await expect(page.locator(`${CARDS} .portal-example-feature`)).toHaveCount(16);
         const gridList = await readList(app, 'grid-table');
         await app.setProperties(gridList.id, {baseUrl: `${baseURL}/`});
         await app.callMethod(gridList.id, 'createItems');

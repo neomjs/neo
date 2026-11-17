@@ -1,5 +1,4 @@
 :where(.neo-theme-dark) {
-    /* A copy of the shared preview-accents block; the other copy: theme-dark/dashboard/dock/interaction/Preview.css. Keep them identical. */
     --agent-dock-preview-accept      : #64b5f6;
     --agent-dock-preview-accept-fill : rgba(100, 181, 246, 0.20);
     --agent-dock-preview-reject      : #e6adad;

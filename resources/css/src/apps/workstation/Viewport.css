@@ -43,8 +43,8 @@
    theme's own (0,2,0) and resolve on load order, and an equal-specificity load-order tie is not a
    contract — CSS is emitted per source file, so no readable source order decides it.
 
-   The grid half is written out twice because a grid also renders outside the viewport: its
-   column-drag proxy (see the proxy block below). Each copy names the other; keep them identical. */
+   The grid rules also reach a grid's column-drag proxy, which renders outside the viewport (see the
+   proxy note below), so each lists the proxy beside the viewport. */
 
 /* Theme classes live on the grid primitives themselves, so inherited variables alone cannot
    out-rank their light-skin defaults — which is why these must travel with the pane and not
@@ -54,17 +54,19 @@
    colours: on the planning desk a bar's colour is its work item's status. */
 
 :root .workstation-viewport[class*="neo-theme-"],
-:root .workstation-viewport [class*="neo-theme-"] {
+:root .workstation-viewport [class*="neo-theme-"],
+body:has(.workstation-viewport) .neo-grid-container.neo-dragproxy,
+body:has(.workstation-viewport) .neo-grid-container.neo-dragproxy [class*="neo-theme-"] {
     /* Workstation is a standalone instrument, so generic grid/tab primitives inherit its own
        palette in both skins instead of leaking their default blue/purple values. */
-    /* A copy of the shared grid-tokens block; the other copy: this file. Keep them identical. */
-    --grid-container-border-color              : var(--workstation-line);
+    --grid-container-border-color             : var(--workstation-line);
     --grid-container-cell-background-color     : var(--workstation-panel);
     --grid-container-cell-background-color-even: var(--workstation-panel-2);
     --grid-container-color                     : var(--workstation-ink-dim);
     --grid-cell-background-color-hover         : color-mix(in srgb, var(--workstation-signal) 10%, var(--workstation-panel));
     --grid-cell-progress-active-color          : var(--workstation-signal);
     --grid-cell-progress-track-color           : var(--workstation-line);
+    --tree-helper-line-color                   : var(--workstation-line);
 
     /* Selection, in every selection model, is a signal wash a step above hover: the selected cell
        strongest, a selected row 22%, the row or column around a selected cell 16% */
@@ -78,6 +80,38 @@
     --grid-cellrowmodel-selected-row-cell-color           : var(--workstation-ink);
     --grid-rowmodel-selected-cell-background-color        : color-mix(in srgb, var(--workstation-signal) 22%, var(--workstation-panel));
     --grid-rowmodel-selected-cell-color                   : var(--workstation-ink);
+}
+
+:root .workstation-viewport[class*="neo-theme-"],
+:root .workstation-viewport [class*="neo-theme-"] {
+    /* The planning board's surfaces, lines and accent join the instrument: a card is a panel on the column's
+       ground, and focus, selection and the landing slot speak the signal colour. Shadows, the WIP signal and
+       sizes stay the theme's. */
+    --neo-board-accent-color              : var(--workstation-signal);
+    --neo-board-avatar-background         : color-mix(in srgb, var(--workstation-signal) 18%, var(--workstation-panel-2));
+    --neo-board-avatar-color              : var(--workstation-ink);
+    --neo-board-background                : var(--workstation-panel);
+    --neo-board-badge-background          : var(--workstation-line);
+    --neo-board-badge-color               : var(--workstation-ink);
+    --neo-board-card-background           : var(--workstation-panel);
+    --neo-board-card-border-color         : var(--workstation-line);
+    --neo-board-card-color                : var(--workstation-ink);
+    --neo-board-card-drag-border-color    : var(--workstation-signal);
+    --neo-board-card-hover-border-color   : color-mix(in srgb, var(--workstation-signal) 38%, var(--workstation-line));
+    --neo-board-card-muted-color          : var(--workstation-ink-dim);
+    --neo-board-card-selected-background  : color-mix(in srgb, var(--workstation-signal) 10%, var(--workstation-panel));
+    --neo-board-card-selected-border-color: var(--workstation-signal);
+    --neo-board-color                     : var(--workstation-ink);
+    --neo-board-column-background         : var(--workstation-panel-2);
+    --neo-board-column-border-color       : var(--workstation-line-soft);
+    --neo-board-column-color              : var(--workstation-ink);
+    --neo-board-column-width              : 300px;
+    --neo-board-editor-background         : var(--workstation-panel);
+    --neo-board-editor-border-color       : var(--workstation-line);
+    --neo-board-focus-color               : var(--workstation-signal);
+    --neo-board-font-family               : var(--workstation-font-sans);
+    --neo-board-slot-background           : color-mix(in srgb, var(--workstation-signal) 10%, transparent);
+    --neo-board-track-color               : var(--workstation-line);
     --neo-gantt-divider-color        : var(--workstation-line);
     --neo-scheduler-divider-color    : var(--workstation-line);
     --neo-timeline-border-color      : var(--workstation-line);
@@ -111,6 +145,22 @@
         var(--workstation-panel-2),
         var(--workstation-panel)
     );
+}
+
+/* The release plan is the plan, not a status: its bars are solid slate in the instrument's ink, its phases a step
+   darker, its milestones the signal colour, so the status colours stay with the board's columns and the schedule's bars.
+   After the bridge above, and one class heavier on the pane's descendants: the plan's own values win there. */
+:root .workstation-viewport .workstation-gantt-pane,
+:root .workstation-viewport .workstation-gantt-pane [class*="neo-theme-"] {
+    --neo-gantt-arrow-color               : var(--workstation-ink-faint);
+    --neo-gantt-milestone-bg              : var(--workstation-panel);
+    --neo-gantt-milestone-border          : var(--workstation-signal);
+    --neo-gantt-summary-bg                : color-mix(in srgb, var(--workstation-ink-dim) 40%, var(--workstation-panel));
+    --neo-gantt-summary-border            : var(--workstation-ink-dim);
+    --neo-timeline-bar-background         : color-mix(in srgb, var(--workstation-ink-dim) 22%, var(--workstation-panel));
+    --neo-timeline-bar-border-color       : color-mix(in srgb, var(--workstation-ink-dim) 60%, var(--workstation-panel));
+    --neo-timeline-bar-color              : var(--workstation-ink);
+    --neo-timeline-bar-progress-background: color-mix(in srgb, var(--workstation-ink-dim) 22%, transparent);
 }
 
 .workstation-viewport.neo-viewport {
@@ -234,81 +284,37 @@
             color: var(--workstation-ink);
         }
     }
-
-    /* A copy of the shared grid-header-button block; the other copy: this file. Keep them identical. */
-    /* A header-group cell is a header cell and reads these tokens too (`grid/header/GroupRow.css`) */
-    .neo-grid-header-button,
-    .neo-grid-header-group-row {
-        --grid-header-button-background-color      : var(--workstation-panel-2);
-        --grid-header-button-background-color-hover: color-mix(in srgb, var(--workstation-signal) 12%, var(--workstation-panel-2));
-        --grid-header-button-background-image      : none;
-        --grid-header-button-color                 : var(--workstation-ink);
-        --grid-header-button-color-hover           : var(--workstation-ink);
-        --grid-header-button-glyph-color           : var(--workstation-ink-dim);
-        --grid-header-button-glyph-color-hover     : var(--workstation-signal);
-        --grid-header-button-justify-content       : flex-end;
-        --grid-header-button-padding               : 0 10px;
-    }
-
-    /* Hidden sort glyphs must not indent unsorted labels (most visibly the narrow `#`
-       column). Keep the glyph on the physical right edge without participating in flex. */
-    .neo-grid-header-button .neo-button-glyph {
-        position: absolute;
-        right   : 10px;
-    }
 }
 
 /* A grid's column-drag proxy is a body-mounted embodiment, like the overflow menu in `Workspace.css`:
-   it carries the live theme class but sits outside `.workstation-viewport`, so nothing above reaches
-   it. It lives in this sheet because a `?popout=` vessel drags grid columns too. (0,3,1) out-ranks
-   the theme's (0,2,0) on the proxy and on every skin-carrying element inside it. */
-body:has(.workstation-viewport) .neo-grid-container.neo-dragproxy {
-    &,
-    [class*="neo-theme-"] {
-        /* A copy of the shared grid-tokens block; the other copy: this file. Keep them identical. */
-    --grid-container-border-color              : var(--workstation-line);
-    --grid-container-cell-background-color     : var(--workstation-panel);
-    --grid-container-cell-background-color-even: var(--workstation-panel-2);
-    --grid-container-color                     : var(--workstation-ink-dim);
-    --grid-cell-background-color-hover         : color-mix(in srgb, var(--workstation-signal) 10%, var(--workstation-panel));
-    --grid-cell-progress-active-color          : var(--workstation-signal);
-    --grid-cell-progress-track-color           : var(--workstation-line);
+   it carries the live theme class but sits outside `.workstation-viewport`, so a rule scoped to the
+   viewport alone never reaches it. It lives in this sheet because a `?popout=` vessel drags grid
+   columns too, so every grid rule here lists it beside the viewport: (0,3,1) out-ranks the theme's
+   (0,2,0) on the proxy and on every skin-carrying element inside it. The lists stay flat; nested
+   under one parent list, each arm would take the weight of the most specific one. */
 
-    /* Selection, in every selection model, is a signal wash a step above hover: the selected cell
-       strongest, a selected row 22%, the row or column around a selected cell 16% */
-    --grid-cellmodel-selected-cell-background-color       : color-mix(in srgb, var(--workstation-signal) 30%, var(--workstation-panel));
-    --grid-cellmodel-selected-cell-color                  : var(--workstation-ink);
-    --grid-cellmodel-selected-column-cell-background-color: color-mix(in srgb, var(--workstation-signal) 16%, var(--workstation-panel));
-    --grid-cellmodel-selected-column-cell-color           : var(--workstation-ink);
-    --grid-cellrowmodel-selected-cell-background-color    : color-mix(in srgb, var(--workstation-signal) 30%, var(--workstation-panel));
-    --grid-cellrowmodel-selected-cell-color               : var(--workstation-ink);
-    --grid-cellrowmodel-selected-row-cell-background-color: color-mix(in srgb, var(--workstation-signal) 16%, var(--workstation-panel));
-    --grid-cellrowmodel-selected-row-cell-color           : var(--workstation-ink);
-    --grid-rowmodel-selected-cell-background-color        : color-mix(in srgb, var(--workstation-signal) 22%, var(--workstation-panel));
-    --grid-rowmodel-selected-cell-color                   : var(--workstation-ink);
-    }
+/* A header-group cell is a header cell and reads these tokens too (`grid/header/GroupRow.css`) */
+.workstation-viewport .neo-grid-header-button,
+.workstation-viewport .neo-grid-header-group-row,
+body:has(.workstation-viewport) .neo-grid-container.neo-dragproxy .neo-grid-header-button,
+body:has(.workstation-viewport) .neo-grid-container.neo-dragproxy .neo-grid-header-group-row {
+    --grid-header-button-background-color      : var(--workstation-panel-2);
+    --grid-header-button-background-color-hover: color-mix(in srgb, var(--workstation-signal) 12%, var(--workstation-panel-2));
+    --grid-header-button-background-image      : none;
+    --grid-header-button-color                 : var(--workstation-ink);
+    --grid-header-button-color-hover           : var(--workstation-ink);
+    --grid-header-button-glyph-color           : var(--workstation-ink-dim);
+    --grid-header-button-glyph-color-hover     : var(--workstation-signal);
+    --grid-header-button-justify-content       : flex-end;
+    --grid-header-button-padding               : 0 10px;
+}
 
-    /* A copy of the shared grid-header-button block; the other copy: this file. Keep them identical. */
-    /* A header-group cell is a header cell and reads these tokens too (`grid/header/GroupRow.css`) */
-    .neo-grid-header-button,
-    .neo-grid-header-group-row {
-        --grid-header-button-background-color      : var(--workstation-panel-2);
-        --grid-header-button-background-color-hover: color-mix(in srgb, var(--workstation-signal) 12%, var(--workstation-panel-2));
-        --grid-header-button-background-image      : none;
-        --grid-header-button-color                 : var(--workstation-ink);
-        --grid-header-button-color-hover           : var(--workstation-ink);
-        --grid-header-button-glyph-color           : var(--workstation-ink-dim);
-        --grid-header-button-glyph-color-hover     : var(--workstation-signal);
-        --grid-header-button-justify-content       : flex-end;
-        --grid-header-button-padding               : 0 10px;
-    }
-
-    /* Hidden sort glyphs must not indent unsorted labels (most visibly the narrow `#`
-       column). Keep the glyph on the physical right edge without participating in flex. */
-    .neo-grid-header-button .neo-button-glyph {
-        position: absolute;
-        right   : 10px;
-    }
+/* Hidden sort glyphs must not indent unsorted labels (most visibly the narrow `#`
+   column). Keep the glyph on the physical right edge without participating in flex. */
+.workstation-viewport .neo-grid-header-button .neo-button-glyph,
+body:has(.workstation-viewport) .neo-grid-container.neo-dragproxy .neo-grid-header-button .neo-button-glyph {
+    position: absolute;
+    right   : 10px;
 }
 
 /* Already scoped to the viewport, but it lived in `Workspace.css` — gate 2 satisfied, gate 1 not.
@@ -374,6 +380,44 @@ body:has(.workstation-viewport) .neo-grid-container.neo-dragproxy {
     border-style: dashed;
     box-shadow  : none;
     color       : var(--workstation-ink-dim);
+}
+
+/* `SchedulerPane`: a bar's progress fills in its own status colour, so amber, violet and emerald stay themselves under
+   it and match their board columns. */
+.workstation-scheduler-pane .neo-timeline-bar {
+    --neo-timeline-bar-progress-background: color-mix(in srgb, var(--neo-timeline-bar-border-color) 28%, transparent);
+
+    &.neo-scheduler-bar-amber   {--neo-timeline-bar-progress-background: color-mix(in srgb, var(--neo-scheduler-bar-amber-border) 28%, transparent);}
+    &.neo-scheduler-bar-emerald {--neo-timeline-bar-progress-background: color-mix(in srgb, var(--neo-scheduler-bar-emerald-border) 28%, transparent);}
+    &.neo-scheduler-bar-violet  {--neo-timeline-bar-progress-background: color-mix(in srgb, var(--neo-scheduler-bar-violet-border) 28%, transparent);}
+}
+
+/* `BoardPane`: the cards sit on their column's ground (a column body is a container, which the theme paints in the
+   page's neutral ground), and a card's footer carries its work item's days, in the time headers' face with even-width
+   figures, and its person. */
+.workstation-board-pane {
+    .neo-board-column-body {
+        background-color: transparent;
+    }
+
+    /* A card's progress fills in its column's colour, as its bar's does in the schedule */
+    .neo-board-card .neo-board-card-progress-bar {
+        background: var(--neo-board-column-accent, var(--neo-board-accent-color));
+    }
+
+    .workstation-card-plan {
+        align-items    : center;
+        display        : flex;
+        gap            : 8px;
+        justify-content: space-between;
+        min-height     : 22px;
+
+        .workstation-card-days {
+            color               : var(--workstation-ink-dim);
+            font-size           : 0.86em;
+            font-variant-numeric: tabular-nums;
+        }
+    }
 }
 
 /* One rendered frame on its own layer re-rasters a pane a transfer just landed in a vessel
