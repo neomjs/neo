@@ -37,6 +37,8 @@ async function openGroup(page, name) {
     }
 
     await page.locator(INDEX).getByRole('link', {name: new RegExp(`^${name}, `)}).click();
+    // the card switch hides the old page and shows the new one: read the heading once one page shows
+    await expect(page.locator(PAGE)).toHaveCount(1);
     await expect(page.locator(`${PAGE} .portal-examples-group-heading h1`)).toHaveText(name)
 }
 
@@ -48,7 +50,8 @@ async function openGroup(page, name) {
  */
 async function selectBuild(page, label) {
     await page.getByRole('button', {name: /^Running /}).locator('visible=true').click();
-    await page.locator('.neo-menu-list:visible .neo-list-item').filter({hasText: label}).click()
+    await page.locator('.neo-menu-list:visible .neo-list-item').filter({hasText: label}).click();
+    await expect(page.locator('.neo-menu-list:visible')).toHaveCount(0)
 }
 
 /**
@@ -58,7 +61,10 @@ async function selectBuild(page, label) {
  * @returns {Promise<Object[]>} Measured cards for the retained evidence.
  */
 async function expectCardLayout(list, width) {
-    await list.page().mouse.move(0, 0); // a hovered card opens its action line
+    // a hovered or a focused card opens its action line: measure the resting one, once its line has closed
+    await list.page().mouse.move(0, 0);
+    await list.page().evaluate(() => document.activeElement?.blur());
+    await expect.poll(() => list.locator('.portal-example-more').evaluateAll(nodes => nodes.every(node => node.getBoundingClientRect().height < 1))).toBe(true);
 
     const cards = await list.locator('.neo-list-item').evaluateAll(nodes => nodes.filter(node => node.offsetWidth).map(node => {
         const card    = node.getBoundingClientRect(),
@@ -92,8 +98,9 @@ async function expectCardLayout(list, width) {
 
     expect(cards.length).toBeGreaterThan(0);
     expect(cards.every(card => card.coverFills && Math.abs(card.ratio - 16 / 9) < 0.02), 'the cover fills a 16:9 card').toBe(true);
-    expect(cards.every(card => card.docked && card.fits && card.textFits && card.closed && card.opaque && card.noInlineSize),
-        'title and proof line fit a full-width, bottom-docked scrim; the action stays closed; no text is dimmed by opacity; no card is sized by hand').toBe(true);
+    // the cards that miss a check, by name, so a red run says which check failed where
+    expect(cards.filter(card => !(card.docked && card.fits && card.textFits && card.closed && card.opaque && card.noInlineSize)),
+        'title and proof line fit a full-width, bottom-docked scrim; the action stays closed; no text is dimmed by opacity; no card is sized by hand').toEqual([]);
     expect(cards.every(card => card.clearCover >= (width <= 600 ? 0.3 : 0.45)),
         'the resting caption leaves the upper part of the cover clear: 45 % of the card, 30 % at phone widths').toBe(true);
 
@@ -250,6 +257,7 @@ test.describe('Portal examples section', () => {
         await button.click();
         await sheet.getByRole('link', {name: /^Calendar, /}).click();
         await expect(page).toHaveURL(/#\/examples\/calendar$/);
+        await expect(page.locator(PAGE)).toHaveCount(1);
         await expect(page.locator(`${PAGE} .portal-examples-group-heading h1`)).toHaveText('Calendar');
         await expect(page.locator(`${PAGE} .portal-examples-group-button`)).toHaveAttribute('aria-expanded', 'false')
     });
@@ -276,8 +284,9 @@ test.describe('Portal examples section', () => {
         await page.goBack();
         await expect(page.locator(INDEX)).toBeVisible();
         await page.goBack();
+        await expect(page.locator(PAGE)).toHaveCount(1);
         await expect(page.locator(`${PAGE} .portal-examples-group-heading h1`)).toHaveText('Grid & Table');
-        expect(await page.locator(PAGE).evaluate(node => node.scrollTop)).toBe(600);
+        await expect.poll(() => page.locator(PAGE).evaluate(node => node.scrollTop)).toBe(600);
 
         // a group without a card in this build, and an unknown one, open the overview
         await page.goto(`${PORTAL}#/examples/gantt`);
@@ -290,8 +299,10 @@ test.describe('Portal examples section', () => {
         await page.goto(`${PORTAL}#/examples`);
         const app = await neuralLink.connectToApp('Portal');
 
-        const sources = await app.queryComponent({className: 'Portal.view.examples.List'}, ['store']);
-        expect(sources).toHaveLength(GROUPS.length);
+        // every published group has its page once the catalog has loaded, and every page borrows the one catalog
+        await expect(page.locator(INDEX)).toBeVisible();
+        let sources;
+        await expect.poll(async () => (sources = await app.queryComponent({className: 'Portal.view.examples.List'}, ['store'])).length).toBe(GROUPS.length);
         expect(new Set(sources.map(item => item.properties.store.sourceId)).size).toBe(1);
 
         for (const [label, mode, prefix] of [
