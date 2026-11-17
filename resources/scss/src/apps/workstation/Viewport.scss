@@ -53,6 +53,7 @@
     --grid-cell-background-color-hover         : color-mix(in srgb, var(--workstation-signal) 10%, var(--workstation-panel));
     --grid-cell-progress-active-color          : var(--workstation-signal);
     --grid-cell-progress-track-color           : var(--workstation-line);
+    --tree-helper-line-color                   : var(--workstation-line);
 
     // Selection, in every selection model, is a signal wash a step above hover: the selected cell
     // strongest, a selected row 22%, the row or column around a selected cell 16%
@@ -116,7 +117,7 @@
     --neo-board-avatar-color              : var(--workstation-ink);
     --neo-board-background                : var(--workstation-panel);
     --neo-board-badge-background          : var(--workstation-line);
-    --neo-board-badge-color               : var(--workstation-ink-dim);
+    --neo-board-badge-color               : var(--workstation-ink);
     --neo-board-card-background           : var(--workstation-panel);
     --neo-board-card-border-color         : var(--workstation-line);
     --neo-board-card-color                : var(--workstation-ink);
@@ -138,18 +139,18 @@
     --neo-board-track-color               : var(--workstation-line);
 }
 
-// The release plan is the plan, not a status: its bars, milestones and links take the instrument's ink and signal, so
-// the status colours stay with the board's columns and the schedule's bars.
+// The release plan is the plan, not a status: its bars are solid slate in the instrument's ink, its phases a step
+// darker, its milestones the signal colour, so the status colours stay with the board's columns and the schedule's bars.
 @mixin plan-tokens {
     --neo-gantt-arrow-color               : var(--workstation-ink-faint);
     --neo-gantt-milestone-bg              : var(--workstation-panel);
     --neo-gantt-milestone-border          : var(--workstation-signal);
-    --neo-gantt-summary-bg                : color-mix(in srgb, var(--workstation-ink-dim) 22%, var(--workstation-panel-2));
+    --neo-gantt-summary-bg                : color-mix(in srgb, var(--workstation-ink-dim) 40%, var(--workstation-panel));
     --neo-gantt-summary-border            : var(--workstation-ink-dim);
-    --neo-timeline-bar-background         : var(--workstation-panel-2);
-    --neo-timeline-bar-border-color       : var(--workstation-ink-faint);
+    --neo-timeline-bar-background         : color-mix(in srgb, var(--workstation-ink-dim) 22%, var(--workstation-panel));
+    --neo-timeline-bar-border-color       : color-mix(in srgb, var(--workstation-ink-dim) 60%, var(--workstation-panel));
     --neo-timeline-bar-color              : var(--workstation-ink);
-    --neo-timeline-bar-progress-background: color-mix(in srgb, var(--workstation-ink-dim) 18%, transparent);
+    --neo-timeline-bar-progress-background: color-mix(in srgb, var(--workstation-ink-dim) 22%, transparent);
 }
 
 :root .workstation-viewport[class*="neo-theme-"],
@@ -406,8 +407,8 @@ body:has(.workstation-viewport) .neo-grid-container.neo-dragproxy {
 }
 
 // `BoardPane`: the cards sit on their column's ground (a column body is a container, which the theme paints in the
-// page's neutral ground), and a card's footer carries its work item's days, in the calendar's mono numerals, and its
-// person.
+// page's neutral ground), and a card's footer carries its work item's days, in the time headers' face with even-width
+// figures, and its person.
 .workstation-board-pane {
     .neo-board-column-body {
         background-color: transparent;
@@ -426,9 +427,9 @@ body:has(.workstation-viewport) .neo-grid-container.neo-dragproxy {
         min-height     : 22px;
 
         .workstation-card-days {
-            color      : var(--workstation-ink-dim);
-            font-family: var(--workstation-font-mono);
-            font-size  : 0.82em;
+            color               : var(--workstation-ink-dim);
+            font-size           : 0.86em;
+            font-variant-numeric: tabular-nums;
         }
     }
 }
