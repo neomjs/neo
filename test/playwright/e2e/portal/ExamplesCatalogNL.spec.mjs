@@ -93,7 +93,7 @@ async function readDesktopPage(page) {
             columns    : getComputedStyle(list).gridTemplateColumns.split(' ').length,
             crumb      : getComputedStyle(node.querySelector('.portal-examples-group-crumb')).display !== 'none',
             index      : Boolean(index?.offsetHeight),
-            indexBottom: index ? index.getBoundingClientRect().top + index.scrollHeight : null,
+            indexBottom: index ? index.getBoundingClientRect().bottom : null,
             narrowest  : Math.min(...[...list.querySelectorAll('.neo-list-item')].map(card => card.getBoundingClientRect().width)),
             overflowX  : node.scrollWidth > node.clientWidth + 1
         }
@@ -308,7 +308,7 @@ test.describe('Portal examples section', () => {
     });
 
     for (const viewport of [{width: 1440, height: 900}, {width: 1280, height: 720}]) {
-        test(`${viewport.width}×${viewport.height}, list: the index stands beside the cards and ends above the fold, no card under 410 px`, async ({page, neuralLink}, testInfo) => {
+        test(`${viewport.width}×${viewport.height}, list: the index stands beside the cards inside the viewport and scrolls on its own, no card under 410 px`, async ({page, neuralLink}, testInfo) => {
             await page.setViewportSize(viewport);
             await page.goto(`${PORTAL}#/examples/grid`);
             await neuralLink.connectToApp('Portal');
@@ -326,48 +326,17 @@ test.describe('Portal examples section', () => {
             expect(layout.narrowest).toBeGreaterThanOrEqual(410);
             await page.screenshot({path: testInfo.outputPath(`list-${viewport.width}x${viewport.height}.png`)});
 
+            // more groups than a laptop's height holds: the index scrolls on its own to its last group
+            await index.evaluate(node => {node.scrollTop = node.scrollHeight});
+            await expect(index.locator('a').last()).toBeInViewport({ratio: 1});
+            await index.evaluate(node => {node.scrollTop = 0});
+
             // one action reaches a sibling
             await index.getByRole('link', {name: /^Calendar, /}).click();
             await expectOpenPage(page, 'Calendar');
             await expect(page.locator(`${PAGE} nav.portal-examples-group-index-list [aria-current="page"]`)).toContainText('Calendar')
         })
     }
-
-    test('1440×900, switcher: the crumb\'s pill names the groups and opens them, and a link to the next group ends the cards', async ({page, neuralLink}, testInfo) => {
-        await page.setViewportSize({width: 1440, height: 900});
-        await page.goto(`${PORTAL}#/examples/calendar`);
-        const app = await neuralLink.connectToApp('Portal');
-        await expectOpenPage(page, 'Calendar');
-
-        const [section] = await app.queryComponent({className: 'Portal.view.examples.MainContainer'}, ['id']);
-        await app.setProperties(section.id, {groupControl: 'switcher'});
-
-        const pill  = page.locator(`${PAGE} .portal-examples-group-button`),
-              sheet = page.locator(`${PAGE} .portal-examples-group-index-sheet`);
-
-        await expect(pill).toContainText('16 groups');
-
-        // without the index the cards take the width: three columns, none under 410 px
-        const layout = await readDesktopPage(page);
-
-        expect(layout).toMatchObject({cardsBelow: true, columns: 3, crumb: true, index: false, overflowX: false});
-        expect(layout.narrowest).toBeGreaterThanOrEqual(410);
-        await page.screenshot({path: testInfo.outputPath('switcher-1440x900.png')});
-
-        await pill.click();
-        await expect(pill).toHaveAttribute('aria-expanded', 'true');
-        await expect(sheet.locator('[aria-current="page"]')).toContainText('Calendar');
-        await page.screenshot({path: testInfo.outputPath('switcher-open-1440x900.png')});
-        await page.keyboard.press('Escape');
-        await expect(sheet).toHaveCount(0);
-        await expect(pill).toBeFocused();
-
-        const next = page.locator(`${PAGE} nav.portal-examples-group-index-next a`);
-
-        await expect(next).toHaveAccessibleName(/^Next group: Scheduler, /);
-        await next.click();
-        await expectOpenPage(page, 'Scheduler')
-    });
 
     test('what the boards cannot show: direct entry, history, the build kept across groups, the scroll of each group', async ({page, neuralLink}) => {
         await page.goto(`${PORTAL}#/examples/forms`);

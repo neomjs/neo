@@ -89,14 +89,6 @@ class MainContainer extends Container {
             {family: 'apps',         band: 'Applications',      title: 'Apps',                      route: '/examples/apps',         iconCls: 'fa fa-rocket',              sentence: 'Complete applications: a web desktop, a live-price grid, an email client, this website', tile: 'webdesktop'}
         ],
         /**
-         * How a group page reaches the other groups on the desktop: `list`, the banded index upright beside the cards,
-         * or `switcher`, the crumb's group button with the group count and a link to the next group under the cards
-         * (`Portal.view.examples.GroupPage`). Below 640 px both open the crumb's sheet.
-         * @member {String} groupControl_='list'
-         * @reactive
-         */
-        groupControl_: 'list',
-        /**
          * Inactive cards stay in the DOM, hidden: a browser keeps the scroll position of a hidden element, and loses it
          * with a removed one, so each group page and the overview keep their own.
          * @member {Object} layout={ntype:'card',activeIndex:0,removeInactiveCards:false}
@@ -135,27 +127,6 @@ class MainContainer extends Container {
     }
 
     /**
-     * @summary Gives every group page the new desktop control.
-     * @param {String} value
-     * @param {String} oldValue
-     * @protected
-     */
-    afterSetGroupControl(value, oldValue) {
-        // During construction no page exists yet: createGroupPage() reads the value it starts with
-        this.isConstructed && this.getGroupPages().forEach(page => {page.control = value})
-    }
-
-    /**
-     * @param {String} value
-     * @param {String} oldValue
-     * @returns {String}
-     * @protected
-     */
-    beforeSetGroupControl(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'groupControl', GroupPage.controls)
-    }
-
-    /**
      * @summary The build control the overview and every group page show: one button whose menu selects the build,
      * labelled with the build that runs.
      * @returns {Object}
@@ -191,7 +162,6 @@ class MainContainer extends Container {
         return {
             module      : GroupPage,
             buildControl: me.createBuildControl(),
-            control     : me.groupControl,
             family      : group.family,
             group,
             reference   : 'examples-' + group.route.slice('/examples/'.length) + '-page',

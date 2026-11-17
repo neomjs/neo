@@ -202,47 +202,15 @@ test.describe('Portal examples overview and group pages', () => {
         expect(page.sheetOpen).toBe(false)
     });
 
-    test('the desktop control is the upright index beside the cards, and the switcher replaces it on every page', () => {
+    test('the desktop control is the upright index beside the cards, with the open group marked', () => {
         const view  = createView(),
               page  = view.getGroupPage('grid-table'),
               index = page.down({reference: 'group-index'});
 
-        expect(view.groupControl).toBe('list');
-        expect(page.cls).toContain('portal-examples-group-page-list');
         expect(index.presentation).toBe('list');
         expect(index.hidden).toBe(false);
-        expect(page.down({reference: 'group-next'}).hidden).toBe(true);
         expect(index.vdom.cn.find(node => node.tag === 'section').cn[1].cn[0].cn[0]['aria-current']).toBe('page');
-        expect(page.getGroupButton().badgeText).toBeFalsy();
-
-        view.groupControl = 'switcher';
-        view.getGroupPages().forEach(item => {
-            expect(item.cls).toContain('portal-examples-group-page-switcher');
-            expect(item.cls).not.toContain('portal-examples-group-page-list');
-            expect(item.down({reference: 'group-index'}).hidden).toBe(true);
-            expect(item.down({reference: 'group-next'}).hidden).toBe(false)
-        });
-
-        // the switcher's pill names how many groups the selected build publishes
-        expect(page.getGroupButton().badgeText).toBe('16 groups');
-        view.getController().onSelectBuild({id: 'devmode'});
-        expect(page.getGroupButton().badgeText).toBe('15 groups')
-    });
-
-    test('the next link leads to the group after the open one, and from the last group back to the overview', () => {
-        const view = createView(),
-              next = family => view.getGroupPage(family).down({reference: 'group-next'}).vdom.cn[0];
-
-        expect(next('grid-table').href).toBe('#/examples/forms');
-        expect(next('grid-table')['aria-label']).toBe('Next group: Forms & Fields, 3 examples');
-        expect(next('platform').href).toBe('#/examples/apps');
-        expect(next('apps').href).toBe('#/examples');
-        expect(next('apps')['aria-label']).toBe('All groups');
-
-        // Dev mode cannot open the one card of More components: the link skips the group
-        expect(next('charts').href).toBe('#/examples/components');
-        view.getController().onSelectBuild({id: 'devmode'});
-        expect(next('charts').href).toBe('#/examples/multi-window')
+        expect(page.getGroupButton().badgeText).toBeFalsy()
     });
 
     test('resolves group routes and all legacy modes', async () => {
