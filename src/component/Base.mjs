@@ -1418,13 +1418,10 @@ class Component extends Abstract {
         } else {
             me._tooltip = value;
 
-            // The shared instance delegates from the app's main view, and from the root of each mounted target
-            // outside it. The unit harness runs without a main view, so the singleton is skipped there and the
-            // config stays readable on the owner — the same deliberate no-op `updateVdom()` takes in unit-test mode.
-            if (!Neo.config.unitTestMode) {
-                Neo.tooltip.Base.createSingleton(me.app);
-                me.mounted && Neo.tooltip.Base.delegateFromRootOf(me)
-            }
+            // A target in a window reaches that window's shared tooltip now, before a pointer can reach the target, and
+            // again on every mount, which may find it under another root. The unit harness runs without windows, so
+            // the config stays readable on the owner — the same deliberate no-op `updateVdom()` takes in unit-test mode.
+            !Neo.config.unitTestMode && me.windowId && Neo.tooltip.Base.delegateFromRootOf(me);
 
             me.addCls('neo-uses-shared-tooltip');
             me.update()

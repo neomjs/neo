@@ -230,7 +230,10 @@ class Tooltip extends Container {
             Neo.currentWorker.on('disconnect', tooltip.onWindowDisconnect, tooltip)
         }
 
-        app.mainView?.windowId === windowId && tooltip.addDelegationRoot(app.mainView);
+        // A main view still under construction is its config, which may carry the windowId already
+        let {mainView} = app;
+
+        mainView instanceof Neo.component.Base && mainView.windowId === windowId && tooltip.addDelegationRoot(mainView);
 
         return tooltip
     }
@@ -241,8 +244,9 @@ class Tooltip extends Container {
      * @param {Neo.component.Base} target A mounted component that uses the shared tooltip
      */
     static delegateFromRootOf(target) {
-        this.createSingleton(target.app, target.windowId)
-            .addDelegationRoot(Neo.manager.Component.getParents(target).at(-1) || target)
+        let {app} = target;
+
+        app && this.createSingleton(app, target.windowId).addDelegationRoot(Neo.manager.Component.getParents(target).at(-1) || target)
     }
 
     /**

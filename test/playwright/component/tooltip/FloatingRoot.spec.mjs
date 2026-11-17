@@ -75,19 +75,27 @@ test.describe('Neo.tooltip.Base: the shared tooltip reaches dialogs under docume
             });
 
             test('its button keeps the tooltip through hide, show, destroy and a new dialog', async ({page}) => {
-                await drive(page, 'hide', owned);
-                await expect(page.locator(dialog)).toHaveCount(0);
+                await test.step('hidden and shown again', async () => {
+                    await drive(page, 'hide', owned);
+                    await expect(page.locator(dialog)).toHaveCount(0);
 
-                await drive(page, 'show', owned);
-                await page.waitForSelector(target, {state: 'visible'});
-                await expectTooltip(page, target, `${kind} tooltip`);
+                    await drive(page, 'show', owned);
+                    await page.waitForSelector(target, {state: 'visible'});
+                    await expectTooltip(page, target, `${kind} tooltip`)
+                });
 
-                await drive(page, 'destroy', owned);
-                await expect(page.locator(dialog)).toHaveCount(0);
+                await test.step('destroyed and opened anew', async () => {
+                    // The pointer leaves first, as it does to reach a close button
+                    await page.mouse.move(0, 0);
+                    await expect(page.locator(TOOLTIP)).toHaveCount(0);
 
-                await drive(page, 'open', owned);
-                await page.waitForSelector(target, {state: 'visible'});
-                await expectTooltip(page, target, `${kind} tooltip`)
+                    await drive(page, 'destroy', owned);
+                    await expect(page.locator(dialog)).toHaveCount(0);
+
+                    await drive(page, 'open', owned);
+                    await page.waitForSelector(target, {state: 'visible'});
+                    await expectTooltip(page, target, `${kind} tooltip`)
+                })
             })
         })
     }
