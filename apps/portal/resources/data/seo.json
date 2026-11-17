@@ -1053,7 +1053,7 @@
     },
     "/examples/grid": {
         "title": "JavaScript Data Grid Examples — 100k Rows in a Web Worker | Neo.mjs",
-        "description": "Explore 16 live JavaScript data grid examples: A tree hierarchy at scale: up to 100,000 rows, 200 columns and 20 levels.",
+        "description": "Explore 16 live JavaScript data grid examples: An organization of 20,000 people and units as a tree grid, up to 100,000 rows, 200 columns and 20 levels.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-17"
     },
@@ -1749,7 +1749,7 @@
     },
     "/examples/grid/treeBigData/index.html": {
         "title": "TreeGrid - Big Data — Web Worker Data Grid Demo | Neo.mjs",
-        "description": "A tree hierarchy at scale: up to 100,000 rows, 200 columns and 20 levels. Open the ☰ panel, raise rows and depth, then expand all; filter by name and toggle...",
+        "description": "An organization of 20,000 people and units as a tree grid, up to 100,000 rows, 200 columns and 20 levels. Open a squad to its people, give kudos from a...",
         "schemaType": "WebPage",
         "lastmod": "2026-11-17"
     },
