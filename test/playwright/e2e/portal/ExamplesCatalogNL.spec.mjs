@@ -26,6 +26,29 @@ async function readList(app, family) {
 }
 
 /**
+ * @summary Waits until the named group's page is the only page that shows. The card switch updates the page it hides
+ * and the page it shows one by one, so for a moment either both show or still the old one.
+ * @param {Object} page The test page.
+ * @param {String} name Group title.
+ * @returns {Promise<void>}
+ */
+async function expectOpenPage(page, name) {
+    await expect(page.locator(PAGE).filter({has: page.getByRole('heading', {level: 1, name, exact: true})})).toBeVisible();
+    await expect(page.locator(PAGE)).toHaveCount(1)
+}
+
+/**
+ * @summary Returns to the overview through the header's Examples link, and waits until no group page shows.
+ * @param {Object} page The test page.
+ * @returns {Promise<void>}
+ */
+async function openOverview(page) {
+    await page.locator('.portal-header-toolbar').getByRole('link', {name: 'Examples', exact: true}).click();
+    await expect(page.locator(INDEX)).toBeVisible();
+    await expect(page.locator(PAGE)).toHaveCount(0)
+}
+
+/**
  * @summary Opens a group from the overview's index, the way a reader does: the header's Examples link, then the group.
  * @param {Object} page The test page.
  * @param {String} name Group title.
@@ -33,13 +56,11 @@ async function readList(app, family) {
  */
 async function openGroup(page, name) {
     if (!await page.locator(INDEX).isVisible()) {
-        await page.locator('.portal-header-toolbar').getByRole('link', {name: 'Examples', exact: true}).click()
+        await openOverview(page)
     }
 
     await page.locator(INDEX).getByRole('link', {name: new RegExp(`^${name}, `)}).click();
-    // the card switch hides the old page and shows the new one: read the heading once one page shows
-    await expect(page.locator(PAGE)).toHaveCount(1);
-    await expect(page.locator(`${PAGE} .portal-examples-group-heading h1`)).toHaveText(name)
+    await expectOpenPage(page, name)
 }
 
 /**
@@ -257,8 +278,7 @@ test.describe('Portal examples section', () => {
         await button.click();
         await sheet.getByRole('link', {name: /^Calendar, /}).click();
         await expect(page).toHaveURL(/#\/examples\/calendar$/);
-        await expect(page.locator(PAGE)).toHaveCount(1);
-        await expect(page.locator(`${PAGE} .portal-examples-group-heading h1`)).toHaveText('Calendar');
+        await expectOpenPage(page, 'Calendar');
         await expect(page.locator(`${PAGE} .portal-examples-group-button`)).toHaveAttribute('aria-expanded', 'false')
     });
 
@@ -284,8 +304,7 @@ test.describe('Portal examples section', () => {
         await page.goBack();
         await expect(page.locator(INDEX)).toBeVisible();
         await page.goBack();
-        await expect(page.locator(PAGE)).toHaveCount(1);
-        await expect(page.locator(`${PAGE} .portal-examples-group-heading h1`)).toHaveText('Grid & Table');
+        await expectOpenPage(page, 'Grid & Table');
         await expect.poll(() => page.locator(PAGE).evaluate(node => node.scrollTop)).toBe(600);
 
         // a group without a card in this build, and an unknown one, open the overview
@@ -325,7 +344,7 @@ test.describe('Portal examples section', () => {
             await expect(page.locator(`${CARDS} .portal-example-feature`)).toHaveCount(mode === 'dist_esm' ? 5 : 6);
             await expect(page.locator(CARDS).getByRole('link', {name: 'Colors Dashboard', exact: true}))
                 .toHaveAttribute('href', `https://neomjs.com/${prefix}apps/colors/index.html`);
-            await page.locator('.portal-header-toolbar').getByRole('link', {name: 'Examples', exact: true}).click()
+            await openOverview(page)
         }
 
         // A record without a cover stays in the catalog and gets no card: Calendar shows its one covered example.
@@ -435,6 +454,8 @@ test.describe('Portal examples section', () => {
     test('a card opens the actual Workstation and Grid UI', async ({page, neuralLink, context, baseURL}) => {
         await page.goto(`${PORTAL}#/examples/multi-window`);
         let app = await neuralLink.connectToApp('Portal');
+        // the group pages exist once the catalog has loaded
+        await expectOpenPage(page, 'Multi-Window');
 
         // Rebase only the deployment origin to this test server. The real catalog's path and click stay intact.
         const list = await readList(app, 'multi-window');
