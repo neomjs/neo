@@ -32,7 +32,7 @@
     "/news/blog": {
         "title": "Engineering Blog — Web Worker UI Architecture & AI Agent OS | Neo.mjs",
         "description": "Engineering deep dives from the Neo.mjs team on Web Worker data grids, SharedWorker multi-window UIs, OffscreenCanvas, GraphRAG memory, and MCP servers.",
-        "lastmod": "2026-11-16"
+        "lastmod": "2026-11-17"
     },
     "/news/discussions": {
         "title": "Architectural Discussions & RFCs — Neo.mjs Engine & Agent OS",
@@ -865,6 +865,12 @@
         "schemaType": "TechArticle",
         "lastmod": "2026-08-31"
     },
+    "/news/blog/codebase-knowledge-base-for-ai-coding-agents": {
+        "title": "Codebase RAG vs grep for AI coding agents: the same grep hits scored 10, 30 or 34 of 40 - Neo.mjs",
+        "description": "We tested one-shot file search on 40 real questions from our AI maintainers' query log. How the matching files are ranked decided more than the tool: by...",
+        "schemaType": "BlogPosting",
+        "lastmod": "2026-11-17"
+    },
     "/news/blog/role-based-navigation-from-one-store-filter": {
         "title": "Role-Based Menus from User Permissions in One Store Filter | Neo.mjs",
         "description": "Show menus, sub menus and app windows by the permissions a backend returns at sign-in: one state value, one tree store, one fail-closed filter. Runnable demo.",
@@ -887,7 +893,7 @@
         "title": "Context compaction recovery for AI coding agents: six checks, not a summary - Neo.mjs",
         "description": "A compacted coding agent trusts a lossy summary. Six checks rebuild what it lost, written by AI agents one failed recovery at a time.",
         "schemaType": "BlogPosting",
-        "lastmod": "2026-11-07"
+        "lastmod": "2026-11-17"
     },
     "/news/blog/debugging-ui-state-with-neural-link": {
         "title": "Why deleting a size did not clear the clock - Neo.mjs",
@@ -899,7 +905,7 @@
         "title": "Persistent memory for AI coding agents: no prompt stuffing - Neo.mjs",
         "description": "Our AI agents keep 55,041 memories in an MCP server, not the prompt. Each session loads a small index; the agent asks the archive when it needs the past.",
         "schemaType": "BlogPosting",
-        "lastmod": "2026-11-07"
+        "lastmod": "2026-11-17"
     },
     "/news/blog/a-data-grid-in-a-web-worker": {
         "title": "JavaScript Data Grid in a Web Worker: 100k+ Rows Off the Main Thread | Neo.mjs",
@@ -1121,7 +1127,7 @@
         "title": "JavaScript Web App Examples — Full Apps on Worker Threads | Neo.mjs",
         "description": "Explore 8 live JavaScript web app examples: A living-data workspace whose panes can leave the browser window.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-16"
+        "lastmod": "2026-11-17"
     },
     "/apps/colors/index.html": {
         "title": "Colors Dashboard — Multi-Window JavaScript Demo | Neo.mjs",
@@ -1671,7 +1677,7 @@
     },
     "/examples/grid/bigData/index.html": {
         "title": "JavaScript Data Grid — 100k Rows & 200 Columns in a Web Worker | Neo.mjs",
-        "description": "Interactive Neo.mjs JavaScript Data Grid benchmark streaming 100,000 rows and 200 columns in a Web Worker with virtual scrolling and zero main-thread blocking.",
+        "description": "Interactive Neo.mjs JavaScript Data Grid with up to 100,000 rows and 200 columns in a Web Worker, with virtual scrolling and zero main-thread blocking.",
         "schemaType": "WebPage",
         "lastmod": "2026-11-14"
     },

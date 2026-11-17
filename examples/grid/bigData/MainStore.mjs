@@ -6,6 +6,19 @@ import Store from '../../../src/data/Store.mjs';
  * @extends Neo.data.Store
  */
 class MainStore extends Store {
+    /**
+     * The column amounts the Settings panel offers. The largest is the width the page title names.
+     * @member {Number[]} amountColumnsOptions
+     * @static
+     */
+    static amountColumnsOptions = [10, 25, 50, 75, 100, 200]
+    /**
+     * The row amounts the Settings panel offers. The largest is the height the page title names.
+     * @member {Number[]} amountRowsOptions
+     * @static
+     */
+    static amountRowsOptions = [1000, 5000, 10000, 20000, 50000, 100000]
+
     static config = {
         /**
          * @member {String} className='Neo.examples.grid.bigData.MainStore'

@@ -85,4 +85,28 @@ test.describe('Desktop: Neural Link Baseline Validation (Grid BigData)', () => {
         await app.setProperties(grid.id, {columnMenu: true});
         await expect(input).toBeChecked()
     });
+
+    test('the footer names the size in the first frame and follows a new size and a filter', async ({page, neuralLink}) => {
+        await page.goto('/examples/grid/bigData/index.html');
+
+        const app    = await neuralLink.connectToApp('Neo.examples.grid.bigData'),
+              footer = page.locator('.neo-examples-bigdata-footer');
+
+        // Readable without opening the Settings panel, and naming the size the page title promises
+        await expect(footer).toContainText('20,000 rows × 50 columns = 1,000,000 cells', {timeout: 30000});
+        await expect(footer).toContainText('Up to 100,000 × 200 in ☰ Settings');
+
+        const [grid]  = await app.queryComponent({className: 'Neo.examples.grid.bigData.GridContainer'}, ['id', 'store.id']),
+              storeId = grid.properties['store.id'];
+
+        await app.setProperties(grid.id, {amountColumns: 10});
+        await app.setProperties(storeId, {amountRows: 1000});
+        await expect(footer).toContainText('1,000 rows × 10 columns = 10,000 cells');
+
+        await page.locator('.controls-container-button').click();
+        await page.locator('.neo-examples-bigdata-controls-container .neo-textfield', {hasText: 'Firstname'}).locator('input').fill('Max');
+
+        // A filter keeps some rows of all rows: the line names both and the cells the kept rows hold
+        await expect(footer).toContainText(/^\d{1,3} of 1,000 rows × 10 columns = [\d,]+ cells/)
+    });
 });
