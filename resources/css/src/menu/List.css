@@ -14,7 +14,7 @@
    and re-aligns on size change, so an entrance that grew or shrank the menu would re-enter alignment
    mid-flight and measure its own animation.
 
-   Durations and easings come from `_motion.scss`, the sanctioned vocabulary — a literal here would be
+   Durations and easings come from the motion vocabulary in `src/Global.css` — a literal here would be
    a contract violation, and the token is what carries the reduced-motion collapse to 0ms. */
 .neo-menu-list.neo-animate-spawn {
     /* Distance is small on purpose: this reads as "arriving", not "flying in". */

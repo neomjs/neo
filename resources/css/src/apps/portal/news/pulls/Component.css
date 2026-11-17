@@ -1,6 +1,6 @@
-/* Pull in the shared news timeline layout (`.neo-ticket-timeline` / `.neo-timeline-item` / avatar /
-   content rules, scoped to all three news component classes). Neo lazy-loads theme CSS per concrete
-   component, so without this `@use` the pulls view never loads the timeline layout and the timeline
+/* The shared news timeline layout (`.neo-ticket-timeline` / `.neo-timeline-item` / avatar / content
+   rules, scoped to all three news component classes), copied in: Neo lazy-loads theme CSS per concrete
+   component, so without this copy the pulls view never loads the timeline layout and the timeline
    renders unstyled (centered, avatars as full-width images). Mirrors `discussions/Component.css`. */
 /* A copy of the shared rules of src/apps/portal/news/tickets/Component.css; the other copies: src/apps/portal/news/discussions/Component.css, src/apps/portal/news/tickets/Component.css. Keep them identical. */
 .portal-news-tickets-component,

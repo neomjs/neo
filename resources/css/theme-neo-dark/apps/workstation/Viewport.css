@@ -21,7 +21,7 @@
 
     /* Projections into the DockPreview component-domain aliases (the settled app-neutral
        boundary): Workstation renders the reused preview/indicator family through ITS OWN
-       palette — without these, the shared SCSS silently runs on fallbacks. */
+       palette — without these, the shared sheets silently run on fallbacks. */
     --agent-dock-preview-accept        : var(--workstation-signal);
     --agent-dock-preview-accept-fill   : rgba(94, 234, 212, 0.20);
     --agent-dock-preview-reject        : #f4718b;

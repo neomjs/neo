@@ -20,7 +20,7 @@ const PORT = resolveFreePortSync(process.env.NEO_E2E_PORT);
  * - one fixed viewport per project (the density-evidence desktop breakpoint) — baselines are
  *   per-viewport artifacts, never responsive guesses;
  * - the globalSetup FAILS the run outright when the built theme CSS is older than the newest
- *   SCSS source: a baseline captured over stale artifacts is a poisoned golden (the dist CSS
+ *   theme source: a baseline captured over stale artifacts is a poisoned golden (the dist CSS
  *   is a gitignored BUILD artifact — merged styling is invisible until themes rebuild);
  * - baselines live beside their specs (`__screenshots__`) and refresh ONLY through
  *   `--update-snapshots` under THIS config — a refreshed golden is a reviewed design decision

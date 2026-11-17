@@ -7,7 +7,7 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../
 
 /**
  * The rebuild-before-baseline invariant, enforced mechanically: the dist theme CSS is a
- * gitignored BUILD artifact — merged SCSS is invisible to every rendered surface until the
+ * gitignored BUILD artifact — a merged theme source is invisible to every rendered surface until the
  * theme build runs, so a golden captured over stale artifacts is a poisoned baseline that
  * silently locks in the WRONG pixels. A stale tree fails the whole visual run loudly;
  * capturing anyway is never an option.

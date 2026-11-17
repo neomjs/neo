@@ -13,25 +13,29 @@
        The vocabulary ships in both theme Globals; the fallbacks mirror its values for
        hosts rendered outside a themed root. */
     --dock-transition-duration: var(--motion-panel, 280ms);
-    --dock-transition-easing: var(--ease-out-soft, cubic-bezier(0.22, 1, 0.36, 1));
+    --dock-transition-easing  : var(--ease-out-soft, cubic-bezier(0.22, 1, 0.36, 1));
+
     /* The quick tier of the same contract: micro-feedback (indicator glide, preview fill,
        affordance hover) that must read faster than panel movement. Same governance: call sites
        read the token, the motion-standards vocabulary owns the value through the indirection. */
     --dock-transition-duration-fast: var(--motion-fast, 120ms);
+
     /* The auto-hide reveal's own alias of the panel tier: a reveal IS panel movement, so it
        defaults to the same vocabulary word — but it is the one dock motion a consumer tunes
        apart from snaps and FLIP (a drawer that reads slower than a splitter settle), so it
        gets its own name. Same governance: no literal at the call site, reduced motion
        collapses it with its siblings below. */
     --dock-transition-duration-reveal: var(--motion-panel, 280ms);
+
     /* ── Maximize presentation ────────────────────────────────────────────────────────────
        A maximized pane fills the DOCK HOST inset by a gap, and floats on a shadow. Both are
        paint-contract values a consumer tunes, never worker literals: the workspace writes the
        measured host rect as `calc()` against the gap token, so the token resolves in CSS. A
        `0px` gap and `none` are the byte-identical opt-outs. The shadow is neutral on purpose,
        like the drop chips' — the engine cannot know a host's palette. */
-    --dock-maximize-gap: 8px;
+    --dock-maximize-gap   : 8px;
     --dock-maximize-shadow: 0 16px 40px rgb(0 0 0 / 35%);
+
     /* ── Splitter affordance floor ────────────────────────────────────────────────────────
        The engine's duty here is DISCOVERABILITY; aesthetics are the consumer's. A host that
        sets nothing must still get a findable drag target — an invisible splitter is the
@@ -46,37 +50,41 @@
        `none` and an app re-adds them by value. Putting them in the floor would push one
        app's identity onto every other consumer, which is this promotion's own defect
        pointed the other way. */
-    --dock-splitter-background: color-mix(in srgb, currentColor 9%, transparent);
-    --dock-splitter-background-hover: color-mix(in srgb, currentColor 16%, transparent);
+    --dock-splitter-background       : color-mix(in srgb, currentColor 9%, transparent);
+    --dock-splitter-background-hover : color-mix(in srgb, currentColor 16%, transparent);
     --dock-splitter-background-active: color-mix(in srgb, currentColor 26%, transparent);
-    --dock-splitter-radius: 999px;
+    --dock-splitter-radius           : 999px;
+
     /* The grab handle. `size` is the long axis, `thickness` the short one; the axis classes
        map them so one pair of tokens serves both orientations. A consumer opts OUT of the
        handle with `--dock-splitter-handle-size: 0` — an explicit design statement that greps,
        rather than an absence that reads as an oversight. */
-    --dock-splitter-handle-size: 36px;
-    --dock-splitter-handle-thickness: 2px;
-    --dock-splitter-handle-color: color-mix(in srgb, currentColor 45%, transparent);
+    --dock-splitter-handle-size      : 36px;
+    --dock-splitter-handle-thickness : 2px;
+    --dock-splitter-handle-color     : color-mix(in srgb, currentColor 45%, transparent);
     --dock-splitter-handle-color-hover: currentColor;
     /* Dragging must never read as LESS engaged than hovering, so the floor inherits the hover
        value rather than re-deriving one. An app that sets only the hover colour still gets a
        coherent active state; one with its own accent overrides this slot alone. */
     --dock-splitter-handle-color-active: var(--dock-splitter-handle-color-hover);
+
     /* Identity slots, empty by default. An app fills them; the engine never does. */
-    --dock-splitter-ring: none;
-    --dock-splitter-ring-hover: none;
-    --dock-splitter-ring-active: none;
+    --dock-splitter-ring             : none;
+    --dock-splitter-ring-hover       : none;
+    --dock-splitter-ring-active      : none;
     --dock-splitter-handle-glow-hover: none;
+
     /* Rail-tab paint. Neutral by design: a consumer skins the affordance by overriding these,
        never by re-declaring the rule — the discipline the Body-side dock guide states for every
        engine surface. `inherit` rather than a palette value is what keeps the default legible in
        a host whose ink the engine cannot know; `transparent` is the resting state because a rail
        tab is navigation, not an action, and must not arrive wearing the generic button's slab. */
-    --dock-rail-tab-background: transparent;
+    --dock-rail-tab-background      : transparent;
     --dock-rail-tab-background-hover: transparent;
-    --dock-rail-tab-color: inherit;
-    --dock-rail-tab-color-hover: inherit;
-    --dock-rail-tab-font-family: inherit;
+    --dock-rail-tab-color           : inherit;
+    --dock-rail-tab-color-hover     : inherit;
+    --dock-rail-tab-font-family     : inherit;
+
     /* The REVEALED tab's state. A rail whose tab looks identical whether or not it is the one
        showing forces the reader to look at the overlay to answer "which of these is open" — the
        question the rail itself should answer. Resting and hover ship `transparent`/`inherit`
@@ -87,7 +95,8 @@
        `currentColor`-relative for the same reason as the splitter tokens: the engine cannot know a
        host's palette, and a literal would read wrong on half of them. */
     --dock-rail-tab-background-active: color-mix(in srgb, currentColor 14%, transparent);
-    --dock-rail-tab-color-active: currentColor;
+    --dock-rail-tab-color-active    : currentColor;
+
     /* ── Edge-rail measure ────────────────────────────────────────────────────────────────
        The strip's cross-axis extent, and the ONE source for it. This value was a `14px`
        literal in six places — the four `-left`/`-right`/`-top`/`-bottom` rail rules and the
@@ -103,7 +112,8 @@
        not resize it, which is the reported defect (#17211 finding 2: an 18px label in a 14px
        strip, rendering as cramped rotated text). What the strip should measure is a per-consumer
        decision, which is exactly why it is a value and not a constant. */
-    --dock-edge-rail-size: 14px;
+    --dock-edge-rail-size           : 14px;
+
     /* ── Edge-rail paint ──────────────────────────────────────────────────────────────────
        Identity slots, empty by default — the same class of token as `--dock-splitter-ring`
        above, and for the same reason: an app fills them, the engine never does. The strip is
@@ -116,17 +126,19 @@
        only reproduce it by copying CSS out of another app. Every shipped consumer renders
        byte-identically after this — the workstation because it now sets these values, everyone
        else because bare was already what they resolved. */
-    --dock-edge-rail-background: transparent;
-    --dock-edge-rail-border: 0;
-    --dock-edge-rail-radius: 0;
-    --dock-edge-rail-shadow: none;
+    --dock-edge-rail-background     : transparent;
+    --dock-edge-rail-border         : 0;
+    --dock-edge-rail-radius         : 0;
+    --dock-edge-rail-shadow         : none;
+
     /* Clipping is coupled to the RADIUS, not to the labels: a rounded strip needs its children
        clipped to the corners, and a square one does not. That coupling is why this is a value
        rather than a structural declaration — a consumer that rounds the rail sets `hidden` in
        the same block where it sets the radius, and one that does not is left exactly as it renders
        today. Defaulting to `hidden` would have been a silent rendering change for every square
        rail, which is a redesign wearing a promotion's clothes. */
-    --dock-edge-rail-overflow: visible;
+    --dock-edge-rail-overflow       : visible;
+
     /* A reveal is an overlay, so opacity and elevation are functional rather than decorative:
        covered pane chrome must not bleed through, and the overlap boundary must remain visible.
        Consumers can supply identity values without re-declaring the structure.
@@ -148,28 +160,30 @@
 
        This is a FLOOR: both values are plain token defaults, so a consumer that sets either one
        wins on the cascade exactly as before. Identity remains theirs; discoverability is ours. */
-    --dock-reveal-background: var(--neo-background-color, #fff);
-    --dock-reveal-border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
-    --dock-reveal-min-block-size: 10rem;
-    --dock-reveal-min-inline-size: 12rem;
-    --dock-reveal-radius: 0;
-    --dock-reveal-shadow: 0 0 0 1px color-mix(in srgb, currentColor 8%, transparent),
-                                                                            0 12px 32px rgb(0 0 0 / 28%);
+    --dock-reveal-background          : var(--neo-background-color, #fff);
+    --dock-reveal-border              : 1px solid color-mix(in srgb, currentColor 22%, transparent);
+    --dock-reveal-min-block-size      : 10rem;
+    --dock-reveal-min-inline-size     : 12rem;
+    --dock-reveal-radius              : 0;
+    --dock-reveal-shadow              : 0 0 0 1px color-mix(in srgb, currentColor 8%, transparent),
+                                        0 12px 32px rgb(0 0 0 / 28%);
 }
 
 @media (prefers-reduced-motion: reduce) {
     .neo-dashboard {
         /* Token-layer collapse: every dock motion goes instant HERE — never per call site. */
-        --dock-transition-duration: 0ms;
-        --dock-transition-duration-fast: 0ms;
+        --dock-transition-duration       : 0ms;
+        --dock-transition-duration-fast  : 0ms;
         --dock-transition-duration-reveal: 0ms;
     }
 }
+
 /* ─────────────────────────────────────────────────────────────────────────────────────
    The choreography classes — the non-FLIP motion tier. Every duration/easing below reads
    the tokens ONLY (a literal is a contract violation); reduced-motion collapses all of it
    through the token, by construction.
    ───────────────────────────────────────────────────────────────────────────────────── */
+
 /* Auto-hide reveal slide: the pane enters FROM its owning edge — the per-edge cls the rail
    already stamps (`neo-dashboard-dock-reveal-overlay-<edge>`) picks the direction.
 
@@ -209,11 +223,8 @@
     animation-name: neo-dock-reveal-from-bottom;
 }
 
-@keyframes neo-dock-reveal-fade {
-    from {
-        opacity: 0;
-    }
-}
+@keyframes neo-dock-reveal-fade        { from { opacity: 0 } }
+
 /* The per-edge entry travel, emitted once per SWAP GENERATION. The retarget rules below need a
    second `animation-name` per direction — a CSS animation restarts only when its name changes —
    but the two generations have to stay geometrically IDENTICAL. Maintained by hand they could
@@ -223,46 +234,55 @@
    that asserts each generation runs an animation cannot see it. Both names therefore come from
    this single declaration; `DockRailRevealRetarget.spec.mjs` asserts the two generations' keyframes
    are equal, so a future edit cannot reach one twin without the other (#18129). */
+
 @keyframes neo-dock-reveal-from-left {
     from {
         transform: translateX(-100cqw);
     }
 }
+
 @keyframes neo-dock-reveal-from-right {
     from {
         transform: translateX(100cqw);
     }
 }
+
 @keyframes neo-dock-reveal-from-top {
     from {
         transform: translateY(-100cqh);
     }
 }
+
 @keyframes neo-dock-reveal-from-bottom {
     from {
         transform: translateY(100cqh);
     }
 }
+
 @keyframes neo-dock-reveal-from-left-b {
     from {
         transform: translateX(-100cqw);
     }
 }
+
 @keyframes neo-dock-reveal-from-right-b {
     from {
         transform: translateX(100cqw);
     }
 }
+
 @keyframes neo-dock-reveal-from-top-b {
     from {
         transform: translateY(-100cqh);
     }
 }
+
 @keyframes neo-dock-reveal-from-bottom-b {
     from {
         transform: translateY(100cqh);
     }
 }
+
 /* A retarget — the reveal follows a click on another item of the same rail while it is open — is an
    entry for the incoming content with no exit for the root: the panel stays where it is, the new
    header and pane emerge from under the strip over the old ones. A CSS animation restarts only
@@ -273,36 +293,30 @@
    leaving rules below outrank both generations, so a dismissal mid-swap still leaves. */
 .neo-dashboard-dock-reveal-overlay-swap-1 {
     animation-name: neo-dock-reveal-hold-b;
-}
-.neo-dashboard-dock-reveal-overlay-swap-1 > .neo-dashboard-dock-reveal-header,
-.neo-dashboard-dock-reveal-overlay-swap-1 > .neo-dashboard-dock-reveal-pane-slot {
-    animation-name: neo-dock-reveal-from-left-b;
-}
-.neo-dashboard-dock-reveal-overlay-swap-1.neo-dashboard-dock-reveal-overlay-right > .neo-dashboard-dock-reveal-header, .neo-dashboard-dock-reveal-overlay-swap-1.neo-dashboard-dock-reveal-overlay-right > .neo-dashboard-dock-reveal-pane-slot {
-    animation-name: neo-dock-reveal-from-right-b;
-}
-.neo-dashboard-dock-reveal-overlay-swap-1.neo-dashboard-dock-reveal-overlay-top > .neo-dashboard-dock-reveal-header, .neo-dashboard-dock-reveal-overlay-swap-1.neo-dashboard-dock-reveal-overlay-top > .neo-dashboard-dock-reveal-pane-slot {
-    animation-name: neo-dock-reveal-from-top-b;
-}
-.neo-dashboard-dock-reveal-overlay-swap-1.neo-dashboard-dock-reveal-overlay-bottom > .neo-dashboard-dock-reveal-header, .neo-dashboard-dock-reveal-overlay-swap-1.neo-dashboard-dock-reveal-overlay-bottom > .neo-dashboard-dock-reveal-pane-slot {
-    animation-name: neo-dock-reveal-from-bottom-b;
+
+    > .neo-dashboard-dock-reveal-header,
+    > .neo-dashboard-dock-reveal-pane-slot { animation-name: neo-dock-reveal-from-left-b }
+
+    &.neo-dashboard-dock-reveal-overlay-right  > .neo-dashboard-dock-reveal-header,
+    &.neo-dashboard-dock-reveal-overlay-right  > .neo-dashboard-dock-reveal-pane-slot { animation-name: neo-dock-reveal-from-right-b }
+    &.neo-dashboard-dock-reveal-overlay-top    > .neo-dashboard-dock-reveal-header,
+    &.neo-dashboard-dock-reveal-overlay-top    > .neo-dashboard-dock-reveal-pane-slot { animation-name: neo-dock-reveal-from-top-b }
+    &.neo-dashboard-dock-reveal-overlay-bottom > .neo-dashboard-dock-reveal-header,
+    &.neo-dashboard-dock-reveal-overlay-bottom > .neo-dashboard-dock-reveal-pane-slot { animation-name: neo-dock-reveal-from-bottom-b }
 }
 
 .neo-dashboard-dock-reveal-overlay-swap-2 {
     animation-name: neo-dock-reveal-hold-a;
-}
-.neo-dashboard-dock-reveal-overlay-swap-2 > .neo-dashboard-dock-reveal-header,
-.neo-dashboard-dock-reveal-overlay-swap-2 > .neo-dashboard-dock-reveal-pane-slot {
-    animation-name: neo-dock-reveal-from-left;
-}
-.neo-dashboard-dock-reveal-overlay-swap-2.neo-dashboard-dock-reveal-overlay-right > .neo-dashboard-dock-reveal-header, .neo-dashboard-dock-reveal-overlay-swap-2.neo-dashboard-dock-reveal-overlay-right > .neo-dashboard-dock-reveal-pane-slot {
-    animation-name: neo-dock-reveal-from-right;
-}
-.neo-dashboard-dock-reveal-overlay-swap-2.neo-dashboard-dock-reveal-overlay-top > .neo-dashboard-dock-reveal-header, .neo-dashboard-dock-reveal-overlay-swap-2.neo-dashboard-dock-reveal-overlay-top > .neo-dashboard-dock-reveal-pane-slot {
-    animation-name: neo-dock-reveal-from-top;
-}
-.neo-dashboard-dock-reveal-overlay-swap-2.neo-dashboard-dock-reveal-overlay-bottom > .neo-dashboard-dock-reveal-header, .neo-dashboard-dock-reveal-overlay-swap-2.neo-dashboard-dock-reveal-overlay-bottom > .neo-dashboard-dock-reveal-pane-slot {
-    animation-name: neo-dock-reveal-from-bottom;
+
+    > .neo-dashboard-dock-reveal-header,
+    > .neo-dashboard-dock-reveal-pane-slot { animation-name: neo-dock-reveal-from-left }
+
+    &.neo-dashboard-dock-reveal-overlay-right  > .neo-dashboard-dock-reveal-header,
+    &.neo-dashboard-dock-reveal-overlay-right  > .neo-dashboard-dock-reveal-pane-slot { animation-name: neo-dock-reveal-from-right }
+    &.neo-dashboard-dock-reveal-overlay-top    > .neo-dashboard-dock-reveal-header,
+    &.neo-dashboard-dock-reveal-overlay-top    > .neo-dashboard-dock-reveal-pane-slot { animation-name: neo-dock-reveal-from-top }
+    &.neo-dashboard-dock-reveal-overlay-bottom > .neo-dashboard-dock-reveal-header,
+    &.neo-dashboard-dock-reveal-overlay-bottom > .neo-dashboard-dock-reveal-pane-slot { animation-name: neo-dock-reveal-from-bottom }
 }
 
 /* One held frame per generation. The root must fire its OWN `animationend` to settle the motion
@@ -321,6 +335,7 @@
         opacity: 1;
     }
 }
+
 /* The exit, the entry's mirror: the overlay is dismissed but not yet hidden — the same two
    elements travel back, the root fading out where it stands, the content sliding back under its
    strip. `forwards` holds the end state until the hidden class lands one vdom round trip after
@@ -330,80 +345,63 @@
    this through the duration token like the entry; a `0ms` animation still fires its end event. */
 .neo-dashboard-dock-reveal-overlay.neo-dashboard-dock-reveal-overlay-leaving {
     animation-fill-mode: forwards;
-    animation-name: neo-dock-reveal-fade-out;
-    pointer-events: none;
-}
-.neo-dashboard-dock-reveal-overlay.neo-dashboard-dock-reveal-overlay-leaving > .neo-dashboard-dock-reveal-header,
-.neo-dashboard-dock-reveal-overlay.neo-dashboard-dock-reveal-overlay-leaving > .neo-dashboard-dock-reveal-pane-slot {
-    animation-fill-mode: forwards;
-    animation-name: neo-dock-reveal-to-left;
-}
-.neo-dashboard-dock-reveal-overlay.neo-dashboard-dock-reveal-overlay-leaving.neo-dashboard-dock-reveal-overlay-right > .neo-dashboard-dock-reveal-header, .neo-dashboard-dock-reveal-overlay.neo-dashboard-dock-reveal-overlay-leaving.neo-dashboard-dock-reveal-overlay-right > .neo-dashboard-dock-reveal-pane-slot {
-    animation-name: neo-dock-reveal-to-right;
-}
-.neo-dashboard-dock-reveal-overlay.neo-dashboard-dock-reveal-overlay-leaving.neo-dashboard-dock-reveal-overlay-top > .neo-dashboard-dock-reveal-header, .neo-dashboard-dock-reveal-overlay.neo-dashboard-dock-reveal-overlay-leaving.neo-dashboard-dock-reveal-overlay-top > .neo-dashboard-dock-reveal-pane-slot {
-    animation-name: neo-dock-reveal-to-top;
-}
-.neo-dashboard-dock-reveal-overlay.neo-dashboard-dock-reveal-overlay-leaving.neo-dashboard-dock-reveal-overlay-bottom > .neo-dashboard-dock-reveal-header, .neo-dashboard-dock-reveal-overlay.neo-dashboard-dock-reveal-overlay-leaving.neo-dashboard-dock-reveal-overlay-bottom > .neo-dashboard-dock-reveal-pane-slot {
-    animation-name: neo-dock-reveal-to-bottom;
+    animation-name     : neo-dock-reveal-fade-out;
+    pointer-events     : none;
+
+    > .neo-dashboard-dock-reveal-header,
+    > .neo-dashboard-dock-reveal-pane-slot {
+        animation-fill-mode: forwards;
+        animation-name     : neo-dock-reveal-to-left;
+    }
+
+    &.neo-dashboard-dock-reveal-overlay-right  > .neo-dashboard-dock-reveal-header,
+    &.neo-dashboard-dock-reveal-overlay-right  > .neo-dashboard-dock-reveal-pane-slot { animation-name: neo-dock-reveal-to-right }
+    &.neo-dashboard-dock-reveal-overlay-top    > .neo-dashboard-dock-reveal-header,
+    &.neo-dashboard-dock-reveal-overlay-top    > .neo-dashboard-dock-reveal-pane-slot { animation-name: neo-dock-reveal-to-top }
+    &.neo-dashboard-dock-reveal-overlay-bottom > .neo-dashboard-dock-reveal-header,
+    &.neo-dashboard-dock-reveal-overlay-bottom > .neo-dashboard-dock-reveal-pane-slot { animation-name: neo-dock-reveal-to-bottom }
 }
 
-@keyframes neo-dock-reveal-fade-out {
-    to {
-        opacity: 0;
-    }
-}
-@keyframes neo-dock-reveal-to-left {
-    to {
-        transform: translateX(-100cqw);
-    }
-}
-@keyframes neo-dock-reveal-to-right {
-    to {
-        transform: translateX(100cqw);
-    }
-}
-@keyframes neo-dock-reveal-to-top {
-    to {
-        transform: translateY(-100cqh);
-    }
-}
-@keyframes neo-dock-reveal-to-bottom {
-    to {
-        transform: translateY(100cqh);
-    }
-}
+@keyframes neo-dock-reveal-fade-out  { to { opacity: 0 } }
+@keyframes neo-dock-reveal-to-left   { to { transform: translateX(-100cqw) } }
+@keyframes neo-dock-reveal-to-right  { to { transform: translateX(100cqw) } }
+@keyframes neo-dock-reveal-to-top    { to { transform: translateY(-100cqh) } }
+@keyframes neo-dock-reveal-to-bottom { to { transform: translateY(100cqh) } }
+
 /* Operation-correlated tab insertion. The adapter stamps this class on ONE recreated header only
    when its item + target tabs node match the committed addTab descriptor carried by that projection.
    No broad tab selector: boot, restore, reorder and unrelated coarse refreshes remain motion-free. */
 .neo-dashboard-dock-tab-enter {
-    animation: neo-dock-tab-enter var(--dock-transition-duration) var(--dock-transition-easing);
+    animation       : neo-dock-tab-enter var(--dock-transition-duration) var(--dock-transition-easing);
     transform-origin: center left;
 }
 
 @keyframes neo-dock-tab-enter {
     from {
-        opacity: 0.35;
+        opacity  : 0.35;
         transform: scaleX(0.82);
     }
 }
+
 /* Runtime-only handle projected into the active header of a transferable stack root. The real
    tab button remains the drag owner; this child only distinguishes whole-stack intent from an
    ordinary item drag. No application palette dependency — it inherits the tab's own foreground. */
 .neo-dock-stack-handle {
-    cursor: grab;
-    display: inline-flex;
+    cursor             : grab;
+    display            : inline-flex;
     margin-inline-start: 0.4em;
-    opacity: 0.65;
-    padding-inline: 0.15em;
-    touch-action: none;
-    user-select: none;
-}
-.neo-dock-stack-handle:hover {
-    opacity: 1;
-}
-.neo-dock-stack-handle:active {
-    cursor: grabbing;
+    opacity            : 0.65;
+    padding-inline     : 0.15em;
+    touch-action       : none;
+    user-select        : none;
+
+    &:hover {
+        opacity: 1;
+    }
+
+    &:active {
+        cursor: grabbing;
+    }
 }
 
 /* Arrival settle: a brief outline pulse on the pane that just landed from another window
@@ -415,91 +413,102 @@
 
 @keyframes neo-dock-arrival-settle {
     from {
-        outline: 2px solid var(--dock-arrival-outline, rgba(88, 166, 255, 0.55));
+        outline       : 2px solid var(--dock-arrival-outline, rgba(88, 166, 255, 0.55));
         outline-offset: -2px;
     }
     to {
-        outline: 2px solid transparent;
+        outline       : 2px solid transparent;
         outline-offset: -2px;
     }
 }
+
 .neo-dashboard-dock-splitter {
-    /* Structure, then the affordance floor. Declarations stay ABOVE the nested rules: Sass
-       emits trailing declarations as a second same-selector block, which is valid, invisible
-       in behaviour and confusing to read in the built output. */
-    flex-shrink: 0;
-    position: relative;
-    touch-action: none;
-    z-index: 2;
+    /* Structure, then the affordance floor. Declarations stay ABOVE the nested rules: a browser
+       without nested-declaration blocks hoists a trailing declaration above them, so the written
+       order would not be the applied one. */
+    flex-shrink     : 0;
+    position        : relative;
+    touch-action    : none;
+    z-index         : 2;
+
     /* Every value reads a token, so a consumer skins by overriding and never by re-declaring —
        and a consumer that overrides nothing still gets something it can see and aim at. */
     background-color: var(--dock-splitter-background);
-    border-radius: var(--dock-splitter-radius);
-    box-shadow: var(--dock-splitter-ring);
-    transition: background-color var(--dock-transition-duration-fast) var(--dock-transition-easing), box-shadow var(--dock-transition-duration-fast) var(--dock-transition-easing);
+    border-radius   : var(--dock-splitter-radius);
+    box-shadow      : var(--dock-splitter-ring);
+    transition      : background-color var(--dock-transition-duration-fast) var(--dock-transition-easing),
+                      box-shadow var(--dock-transition-duration-fast) var(--dock-transition-easing);
+
     /* The visible handle stays `size`-thin while its hit target expands past the rail:
        a near-handle miss used to fall through into a text-selection sweep across the
        adjacent cards. The pseudo-element is the hit surface only — pointer events on a
        ::before resolve to the originating element, so the drag contract is unchanged. */
-}
-.neo-dashboard-dock-splitter::before {
-    content: "";
-    inset: 0;
-    position: absolute;
-}
-.neo-dashboard-dock-splitter.neo-dashboard-dock-splitter-horizontal::before {
-    margin: 0 -4px;
-}
-.neo-dashboard-dock-splitter.neo-dashboard-dock-splitter-vertical::before {
-    margin: -4px 0;
-}
-.neo-dashboard-dock-splitter {
+    &::before {
+        content : '';
+        inset   : 0;
+        position: absolute;
+    }
+
+    &.neo-dashboard-dock-splitter-horizontal::before {
+        margin: 0 -4px;
+    }
+
+    &.neo-dashboard-dock-splitter-vertical::before {
+        margin: -4px 0;
+    }
+
+
     /* The grab handle: a centred bar on the long axis. Sized entirely from tokens so
        `--dock-splitter-handle-size: 0` collapses it without the consumer touching this rule. */
-}
-.neo-dashboard-dock-splitter::after {
-    background: var(--dock-splitter-handle-color);
-    border-radius: var(--dock-splitter-radius);
-    content: "";
-    left: 50%;
-    position: absolute;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    transition: background var(--dock-transition-duration-fast) var(--dock-transition-easing), box-shadow var(--dock-transition-duration-fast) var(--dock-transition-easing);
-}
-.neo-dashboard-dock-splitter.neo-dashboard-dock-splitter-horizontal::after {
-    height: var(--dock-splitter-handle-size);
-    width: var(--dock-splitter-handle-thickness);
-}
-.neo-dashboard-dock-splitter.neo-dashboard-dock-splitter-vertical::after {
-    height: var(--dock-splitter-handle-thickness);
-    width: var(--dock-splitter-handle-size);
-}
-.neo-dashboard-dock-splitter:hover {
-    background-color: var(--dock-splitter-background-hover);
-    box-shadow: var(--dock-splitter-ring-hover);
-}
-.neo-dashboard-dock-splitter:hover::after {
-    background: var(--dock-splitter-handle-color-hover);
-    box-shadow: var(--dock-splitter-handle-glow-hover);
-}
-.neo-dashboard-dock-splitter {
+    &::after {
+        background   : var(--dock-splitter-handle-color);
+        border-radius: var(--dock-splitter-radius);
+        content      : '';
+        left         : 50%;
+        position     : absolute;
+        top          : 50%;
+        transform    : translate(-50%, -50%);
+        transition   : background var(--dock-transition-duration-fast) var(--dock-transition-easing),
+                       box-shadow var(--dock-transition-duration-fast) var(--dock-transition-easing);
+    }
+
+    &.neo-dashboard-dock-splitter-horizontal::after {
+        height: var(--dock-splitter-handle-size);
+        width : var(--dock-splitter-handle-thickness);
+    }
+
+    &.neo-dashboard-dock-splitter-vertical::after {
+        height: var(--dock-splitter-handle-thickness);
+        width : var(--dock-splitter-handle-size);
+    }
+
+    &:hover {
+        background-color: var(--dock-splitter-background-hover);
+        box-shadow      : var(--dock-splitter-ring-hover);
+
+        &::after {
+            background: var(--dock-splitter-handle-color-hover);
+            box-shadow: var(--dock-splitter-handle-glow-hover);
+        }
+    }
+
     /* No `!important` here, and that is deliberate. The workstation layer carried
        `opacity: 1 !important` on this state, which means a competing rule was being fought
        rather than resolved. The engine owns this selector at its own specificity, so the
        conflict does not exist at this layer — carrying the escape hatch across would have
        laundered a specificity defect into the engine under a no-visual-change banner. */
-}
-.neo-dashboard-dock-splitter:active {
-    background-color: var(--dock-splitter-background-active);
-    box-shadow: var(--dock-splitter-ring-active);
-    /* The handle takes the active slot HERE, in the engine. Without this rule the token has no
-       consumer, and an app that wants a distinct drag colour has nowhere to put it except a
-       direct `&:active::after { background: … }` in its own stylesheet — which is exactly the
-       app-layer paint this promotion exists to end. */
-}
-.neo-dashboard-dock-splitter:active::after {
-    background: var(--dock-splitter-handle-color-active);
+    &:active {
+        background-color: var(--dock-splitter-background-active);
+        box-shadow      : var(--dock-splitter-ring-active);
+
+        /* The handle takes the active slot HERE, in the engine. Without this rule the token has no
+           consumer, and an app that wants a distinct drag colour has nowhere to put it except a
+           direct `&:active::after { background: … }` in its own stylesheet — which is exactly the
+           app-layer paint this promotion exists to end. */
+        &::after {
+            background: var(--dock-splitter-handle-color-active);
+        }
+    }
 }
 
 /* Opt-in only: `size` containment requires a host with definite inline and block extents.
@@ -513,11 +522,14 @@
 /* Scoped to 0,3,0 on purpose: the generic sort affordance (`.neo-container .neo-draggable`,
    0,2,0 in SortZone.css) otherwise wins the cascade and paints the resize handles with a
    `pointer` cursor — load-order ties are not a contract. */
-.neo-dashboard .neo-dashboard-dock-splitter.neo-dashboard-dock-splitter-horizontal {
-    cursor: ew-resize;
-}
-.neo-dashboard .neo-dashboard-dock-splitter.neo-dashboard-dock-splitter-vertical {
-    cursor: ns-resize;
+.neo-dashboard .neo-dashboard-dock-splitter {
+    &.neo-dashboard-dock-splitter-horizontal {
+        cursor: ew-resize;
+    }
+
+    &.neo-dashboard-dock-splitter-vertical {
+        cursor: ns-resize;
+    }
 }
 
 /* Flow direction comes from the rail's layout (vbox/vertical, hbox/horizontal edges); the
@@ -571,42 +583,43 @@
    thing one level up — dock anatomy outranks the generic button skin for a component the dock
    owns. `dockRailTabLayering.spec.mjs` compiles this file and fails if the margin is ever lost. */
 :root .neo-dashboard .neo-button.neo-dashboard-dock-rail-tab {
-    background: var(--dock-rail-tab-background);
-    border: 0;
-    box-shadow: none;
-    color: var(--dock-rail-tab-color);
+    background : var(--dock-rail-tab-background);
+    border     : 0;
+    box-shadow : none;
+    color      : var(--dock-rail-tab-color);
     font-family: var(--dock-rail-tab-font-family);
-    height: auto;
-    margin: 0;
-    min-width: 0;
-    padding: 4px 1px;
-    transition: background var(--dock-transition-duration-fast) var(--dock-transition-easing), color var(--dock-transition-duration-fast) var(--dock-transition-easing);
-}
-:root .neo-dashboard .neo-button.neo-dashboard-dock-rail-tab:hover {
-    background: var(--dock-rail-tab-background-hover);
-    color: var(--dock-rail-tab-color-hover);
-}
-:root .neo-dashboard .neo-button.neo-dashboard-dock-rail-tab {
+    height     : auto;
+    margin     : 0;
+    min-width  : 0;
+    padding    : 4px 1px;
+    transition : background var(--dock-transition-duration-fast) var(--dock-transition-easing),
+                 color var(--dock-transition-duration-fast) var(--dock-transition-easing);
+
+    &:hover {
+        background: var(--dock-rail-tab-background-hover);
+        color     : var(--dock-rail-tab-color-hover);
+    }
+
     /* AFTER `:hover` on purpose, and the ordering is the contract: the tab that is currently
        showing must never read as LESS engaged than one the pointer is merely passing over. Same
        rule the splitter's active state keeps, one component across. */
-}
-:root .neo-dashboard .neo-button.neo-dashboard-dock-rail-tab.pressed {
-    background: var(--dock-rail-tab-background-active);
-    color: var(--dock-rail-tab-color-active);
-}
-:root .neo-dashboard .neo-button.neo-dashboard-dock-rail-tab {
+    &.pressed {
+        background: var(--dock-rail-tab-background-active);
+        color     : var(--dock-rail-tab-color-active);
+    }
+
     /* The generic button skin re-colors these descendants through its own token layer, which
        resolves anti-theme against a consumer palette — black on a dark rail, white on a light one,
        inverted contrast in both. Inheriting pins them to the rail-tab ink above. */
-}
-:root .neo-dashboard .neo-button.neo-dashboard-dock-rail-tab .neo-button-glyph,
-:root .neo-dashboard .neo-button.neo-dashboard-dock-rail-tab .neo-button-text {
-    color: inherit;
-}
-:root .neo-dashboard .neo-button.neo-dashboard-dock-rail-tab .neo-button-text {
-    font-size: 11px;
-    line-height: 1;
+    .neo-button-glyph,
+    .neo-button-text {
+        color: inherit;
+    }
+
+    .neo-button-text {
+        font-size  : 11px;
+        line-height: 1;
+    }
 }
 
 .neo-dashboard-dock-edge-band {
@@ -614,21 +627,25 @@
        `.neo-dashboard` zones, so declaring these tokens on every dashboard would shadow
        application values inherited from the actual query host. */
 }
+
 .neo-dashboard-dock-edge-band-left {
     inline-size: var(--dock-edge-band-left-inline-size, var(--dock-edge-band-inline-size, 17.5rem));
     max-inline-size: var(--dock-edge-band-left-max-inline-size, var(--dock-edge-band-max-inline-size, 50%));
     min-inline-size: var(--dock-edge-band-left-min-inline-size, var(--dock-edge-band-min-inline-size, 8rem));
 }
+
 .neo-dashboard-dock-edge-band-right {
     inline-size: var(--dock-edge-band-right-inline-size, var(--dock-edge-band-inline-size, 17.5rem));
     max-inline-size: var(--dock-edge-band-right-max-inline-size, var(--dock-edge-band-max-inline-size, 50%));
     min-inline-size: var(--dock-edge-band-right-min-inline-size, var(--dock-edge-band-min-inline-size, 8rem));
 }
+
 .neo-dashboard-dock-edge-band-top {
     block-size: var(--dock-edge-band-top-block-size, var(--dock-edge-band-block-size, 12.5rem));
     max-block-size: var(--dock-edge-band-top-max-block-size, var(--dock-edge-band-max-block-size, 50%));
     min-block-size: var(--dock-edge-band-top-min-block-size, var(--dock-edge-band-min-block-size, 6rem));
 }
+
 .neo-dashboard-dock-edge-band-bottom {
     block-size: var(--dock-edge-band-bottom-block-size, var(--dock-edge-band-block-size, 12.5rem));
     max-block-size: var(--dock-edge-band-bottom-max-block-size, var(--dock-edge-band-max-block-size, 50%));
@@ -682,9 +699,11 @@
     /* The overlay is also a flex container. Keep the semantic visibility state above the generic
        `.neo-flex-container {display:flex}` rule without depending on stylesheet load order. */
 }
+
 .neo-dashboard-dock-reveal-overlay.neo-dashboard-dock-reveal-overlay-hidden {
     display: none;
 }
+
 .neo-dashboard-dock-reveal-overlay {
     /* The reserved edge is the RAIL's extent, read from the rail's own token rather than
        restated — the overlay must start exactly where the strip ends, and a second literal
@@ -695,21 +714,27 @@
        `position: relative` above establishes. Two readers agreeing on a length still disagree
        if they start counting from different boxes. */
 }
+
 .neo-dashboard-dock-reveal-overlay-left, .neo-dashboard-dock-reveal-overlay-right {
     min-inline-size: min(var(--dock-reveal-min-inline-size), 100% - var(--dock-edge-rail-size));
 }
+
 .neo-dashboard-dock-reveal-overlay-top, .neo-dashboard-dock-reveal-overlay-bottom {
     min-block-size: min(var(--dock-reveal-min-block-size), 100% - var(--dock-edge-rail-size));
 }
+
 .neo-dashboard-dock-reveal-overlay-left {
     inset: 0 auto 0 var(--dock-edge-rail-size);
 }
+
 .neo-dashboard-dock-reveal-overlay-right {
     inset: 0 var(--dock-edge-rail-size) 0 auto;
 }
+
 .neo-dashboard-dock-reveal-overlay-top {
     inset: var(--dock-edge-rail-size) 0 auto 0;
 }
+
 .neo-dashboard-dock-reveal-overlay-bottom {
     inset: auto 0 var(--dock-edge-rail-size) 0;
 }
@@ -766,9 +791,9 @@ body:not(.neo-native-drag-active) .neo-dashboard:has(.neo-dashboard-dock-reveal-
        fixed pane, and a transparent header band would ghost the covered nodes' chrome through. */
     background: var(--dock-maximize-background, var(--neo-background-color, #fff));
     box-shadow: var(--dock-maximize-shadow);
-    margin: 0;
-    position: fixed;
-    z-index: var(--dock-maximize-z-index, 40);
+    margin    : 0;
+    position  : fixed;
+    z-index   : var(--dock-maximize-z-index, 40);
 }
 
 /* An edge-band node keeps its band measure while maximized — `max-inline-size: 50%` and its
@@ -776,9 +801,9 @@ body:not(.neo-native-drag-active) .neo-dashboard:has(.neo-dashboard-dock-reveal-
    half the host while a center node filled it. The maximized node is not a band for the
    duration: the caps lift on the node itself, at a weight above the per-edge band rules. */
 .neo-dashboard-dock-tabs.neo-dock-maximized {
-    max-block-size: none;
+    max-block-size : none;
     max-inline-size: none;
-    min-block-size: 0;
+    min-block-size : 0;
     min-inline-size: 0;
 }
 
@@ -788,7 +813,7 @@ body:not(.neo-native-drag-active) .neo-dashboard:has(.neo-dashboard-dock-reveal-
    when the motion settles. */
 .neo-dock-maximize-restoring {
     position: relative;
-    z-index: var(--dock-maximize-z-index, 40);
+    z-index : var(--dock-maximize-z-index, 40);
 }
 
 /* One visual family for cross indicators and edge chips: token-fed surfaces, motion-contract
@@ -838,21 +863,26 @@ body:not(.neo-native-drag-active) .neo-dashboard:has(.neo-dashboard-dock-reveal-
 .neo-dashboard-dock-drop-indicator {
     /* center = tab-merge: a filled dot, not a direction */
 }
+
 .neo-dashboard-dock-drop-indicator-center::before {
     border: 2px solid var(--agent-dock-preview-accept, #4493f8);
     border-radius: 3px;
     height: 10px;
     width: 10px;
 }
+
 .neo-dashboard-dock-drop-indicator-top::before {
     transform: rotate(-135deg) translate(-1px, -1px);
 }
+
 .neo-dashboard-dock-drop-indicator-right::before {
     transform: rotate(-45deg) translate(-1px, 1px);
 }
+
 .neo-dashboard-dock-drop-indicator-bottom::before {
     transform: rotate(45deg) translate(-1px, -1px);
 }
+
 .neo-dashboard-dock-drop-indicator-left::before {
     transform: rotate(135deg) translate(-1px, 1px);
 }
@@ -860,12 +890,15 @@ body:not(.neo-native-drag-active) .neo-dashboard:has(.neo-dashboard-dock-reveal-
 .neo-dashboard-dock-drop-chip-top::before {
     transform: rotate(-135deg) translate(-1px, -1px);
 }
+
 .neo-dashboard-dock-drop-chip-right::before {
     transform: rotate(-45deg) translate(-1px, 1px);
 }
+
 .neo-dashboard-dock-drop-chip-bottom::before {
     transform: rotate(45deg) translate(-1px, -1px);
 }
+
 .neo-dashboard-dock-drop-chip-left::before {
     transform: rotate(135deg) translate(-1px, 1px);
 }
@@ -882,7 +915,7 @@ body:not(.neo-native-drag-active) .neo-dashboard:has(.neo-dashboard-dock-reveal-
    nothing to override it. The light skin's deep pigment keeps the identity legible on paper.
    ───────────────────────────────────────────────────────────────────────────────────── */
 .neo-preview-lang-signal {
-    /* App-neutral by the settled domain-alias boundary: shared dashboard SCSS consumes the
+    /* App-neutral by the settled domain-alias boundary: shared dashboard CSS consumes the
        DockPreview component-domain aliases ONLY — each app (agentos, workstation) projects its
        own palette into them in its theme files. Direct palette tokens here would silently
        fallback-mask on any app that doesn't load that palette. */
@@ -922,33 +955,34 @@ body:not(.neo-native-drag-active) .neo-dashboard:has(.neo-dashboard-dock-reveal-
    inherits this exact treatment. */
 body > .neo-dock-dragproxy.neo-tab-header-toolbar {
     --tab-button-glyph-color: var(--agent-dock-proxy-text);
-    --tab-button-text-color: var(--agent-dock-proxy-text);
-    background: var(--agent-dock-proxy-ground);
-    border: 1px solid var(--agent-dock-proxy-border);
+    --tab-button-text-color : var(--agent-dock-proxy-text);
+
+    background   : var(--agent-dock-proxy-ground);
+    border       : 1px solid var(--agent-dock-proxy-border);
     border-radius: 6px;
-    box-shadow: 0 10px 28px color-mix(in srgb, var(--agent-dock-proxy-shadow) 58%, transparent);
-    box-sizing: border-box;
-    color: var(--agent-dock-proxy-text);
-    overflow: hidden;
+    box-shadow   : 0 10px 28px color-mix(in srgb, var(--agent-dock-proxy-shadow) 58%, transparent);
+    box-sizing   : border-box;
+    color        : var(--agent-dock-proxy-text);
+    overflow     : hidden;
+
     /* Nested, not a sibling rule: the ring replaces the ground's shadow above, and a two-class
        selector loses to this one's `body >`. */
-}
-body > .neo-dock-dragproxy.neo-tab-header-toolbar.neo-preview-lang-signal {
-    box-shadow: 0 0 0 1px var(--agent-dock-preview-signal), 0 4px 14px color-mix(in srgb, var(--agent-dock-preview-signal) 35%, transparent), 0 10px 28px color-mix(in srgb, var(--agent-dock-proxy-shadow) 58%, transparent);
+    &.neo-preview-lang-signal {
+        box-shadow: 0 0 0 1px var(--agent-dock-preview-signal),
+                    0 4px 14px color-mix(in srgb, var(--agent-dock-preview-signal) 35%, transparent),
+                    0 10px 28px color-mix(in srgb, var(--agent-dock-proxy-shadow) 58%, transparent);
+    }
 }
 
 @keyframes neo-preview-signal-lock {
-    0% {
-        opacity: 0.55;
-    }
-    100% {
-        opacity: 1;
-    }
+    0%   { opacity: 0.55; }
+    100% { opacity: 1; }
 }
+
 /* Committed pane lock is model truth; this class is its projection-only visual carrier. Outline is
    inset from layout via a negative offset, so locking never changes geometry in any theme. */
 .neo-dashboard .neo-dock-pane-locked {
-    outline: 1px solid color-mix(in srgb, currentColor 34%, transparent);
+    outline       : 1px solid color-mix(in srgb, currentColor 34%, transparent);
     outline-offset: -1px;
 }
 

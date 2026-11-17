@@ -153,7 +153,7 @@ class Button extends BaseButton {
 
     /**
      * @summary Marks the header root and describes it as filtered. With a menu, the menu keeps its trigger shown;
-     * without one, the header shows its own mark (Button.scss).
+     * without one, the header shows its own mark (Button.css).
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected

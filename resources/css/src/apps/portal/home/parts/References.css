@@ -20,13 +20,11 @@
         left: 0;
         width: 90px;
         z-index: 11;
-        background: {
-          color: var(--toolbar-background-color);
-          image: url('../../../../../../../../resources/images/apps/portal/neo-references.png');
-          position: center;
-          repeat: no-repeat;
-          size: 70% auto;
-        }
+        background-color: var(--toolbar-background-color);
+        background-image: url('../../../../../../../../resources/images/apps/portal/neo-references.png');
+        background-position: center;
+        background-repeat: no-repeat;
+        background-size: 70% auto;
       }
 
       .neo-carousel-item {

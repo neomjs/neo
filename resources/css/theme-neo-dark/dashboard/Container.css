@@ -2,8 +2,9 @@
    resources/css/src/dashboard/Container.css reads — indicator/chip surfaces, the
    body-mounted drag proxy, the cross-window arrival pulse, AND the accept/signal accent
    family, which that structure sheet also paints with (drop indicators, chips, the
-   Signal-glow variant). The accents come from the shared `_preview-accents` partial so this
-   sheet resolves standalone: a host may load this file without ever loading DockPreview.css,
+   Signal-glow variant). The accents are this theme's preview-accents block, copied here and
+   into dock/interaction/Preview.css, so this sheet resolves standalone: a host may load this
+   file without ever loading DockPreview.css,
    which is exactly what `additionalThemeFiles: ['Neo.dashboard.Container']` does.
 
    `:where()` is deliberate and load-bearing: it contributes ZERO specificity, so these

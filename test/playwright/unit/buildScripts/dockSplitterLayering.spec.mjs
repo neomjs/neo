@@ -17,14 +17,14 @@ import {join}                      from 'node:path';
  * the third, not the second: they were born reading an app's accent token, so shipping them as the
  * engine default would push one consumer's identity onto every other.
  *
- * Asserted on SCSS source so the guard holds without a build step.
+ * Asserted on the theme sources so the guard holds without a build step.
  *
  * @see https://github.com/neomjs/neo/issues/17241
  */
 test.describe('dock splitter — the engine ships the affordance, apps set identity', () => {
     const
-        APP_SCSS_ROOT = 'resources/scss/src/apps',
-        ENGINE_RULE   = 'resources/scss/src/dashboard/Container.scss';
+        APP_CSS_ROOT = 'resources/css/src/apps',
+        ENGINE_RULE  = 'resources/css/src/dashboard/Container.css';
 
     /**
      * The only non-custom properties an application may declare on a splitter surface, each with
@@ -42,19 +42,17 @@ test.describe('dock splitter — the engine ships the affordance, apps set ident
         display: 'takes the splitter out of flow when its drag axis no longer applies'
     };
 
-    const scssFiles = (dir, out = []) => {
+    const cssFiles = (dir, out = []) => {
         for (const entry of readdirSync(dir, {withFileTypes: true})) {
             const path = join(dir, entry.name);
 
-            entry.isDirectory() ? scssFiles(path, out) : entry.name.endsWith('.scss') && out.push(path)
+            entry.isDirectory() ? cssFiles(path, out) : entry.name.endsWith('.css') && out.push(path)
         }
 
         return out
     };
 
-    const withoutComments = source => source
-        .replace(/\/\*[\s\S]*?\*\//g, '')
-        .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+    const withoutComments = source => source.replace(/\/\*[\s\S]*?\*\//g, '');
 
     /**
      * The `{ selector, body }` pairs at one nesting level, brace-matched rather than regex-matched.
@@ -168,9 +166,9 @@ test.describe('dock splitter — the engine ships the affordance, apps set ident
     test('no application stylesheet paints a splitter — it may only set tokens', () => {
         const offenders = [];
 
-        for (const file of scssFiles(APP_SCSS_ROOT)) {
+        for (const file of cssFiles(APP_CSS_ROOT)) {
             for (const offender of offendersIn(readFileSync(file, 'utf8'))) {
-                offenders.push(`${file.replace(`${APP_SCSS_ROOT}/`, '')} → ${offender}`)
+                offenders.push(`${file.replace(`${APP_CSS_ROOT}/`, '')} → ${offender}`)
             }
         }
 
@@ -261,10 +259,7 @@ test.describe('dock splitter — the engine ships the affordance, apps set ident
         // The engine owns this selector at its own specificity, so the conflict does not exist at
         // this layer; carrying the escape hatch across would launder a specificity defect into the
         // engine under a no-visual-change banner.
-        const engine = readFileSync(ENGINE_RULE, 'utf8')
-            .split('\n')
-            .filter(line => !line.trim().startsWith('//'))
-            .join('\n');
+        const engine = withoutComments(readFileSync(ENGINE_RULE, 'utf8'));
 
         expect(engine, 'the engine default must never need !important').not.toContain('!important')
     });

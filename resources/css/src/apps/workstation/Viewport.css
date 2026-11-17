@@ -43,8 +43,8 @@
    theme's own (0,2,0) and resolve on load order, and an equal-specificity load-order tie is not a
    contract — CSS is emitted per source file, so no readable source order decides it.
 
-   The grid half lives in two mixins because a grid also renders outside the viewport: its
-   column-drag proxy (see the proxy block below). Both scopes include them, so they cannot drift. */
+   The grid half is written out twice because a grid also renders outside the viewport: its
+   column-drag proxy (see the proxy block below). Each copy names the other; keep them identical. */
 
 /* Theme classes live on the grid primitives themselves, so inherited variables alone cannot
    out-rank their light-skin defaults — which is why these must travel with the pane and not

@@ -944,7 +944,7 @@ test.describe('Tests scope classifier — the e2e engine tier predicate', () => 
         // They are the reason the boundary is now stated as rules over the job's launch chain: each
         // one is consumed by the run, and none of them is a spec, an engine file or a nav target —
         // the three shapes a location list notices.
-        {file: 'resources/scss/src/dashboard/Container.scss',        why: 'compiles to the theme the dock paint and geometry arms measure'},
+        {file: 'resources/css/src/dashboard/Container.css',          why: 'builds into the theme the dock paint and geometry arms measure'},
         {file: 'test/playwright/externalBrainSelection.mjs',         why: 'imported by playwright.config.e2e.mjs — it decides the ignored population'},
         {file: 'test/playwright/resolveFreePort.mjs',                why: 'imported by playwright.config.e2e.mjs — it picks the server port'},
         {file: 'test/playwright/util/RmaHelpers.mjs',                why: 'imported by the shared fixtures every spec builds on'},

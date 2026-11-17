@@ -149,11 +149,11 @@ if (programOpts.info) {
     childProcess.status && process.exit(childProcess.status);
 
 
-    //create scss stubs only if it is a NEO component or a view component
+    //create css stubs only if it is a NEO component or a view component
     const resultView = ns.filter(f => f === 'view');
     if (rootLowerCase === 'neo' || resultView.length > 0) {
         let childProcess = spawnSync('node', [
-            './buildScripts/create/scss.mjs',
+            './buildScripts/create/css.mjs',
             '-c',
             className,
             '-b',

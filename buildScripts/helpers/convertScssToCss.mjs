@@ -3,6 +3,7 @@ import fs              from 'node:fs';
 import os              from 'node:os';
 import path            from 'node:path';
 import {createRequire} from 'node:module';
+import flattenCss      from '../../test/playwright/util/flattenCss.mjs';
 
 /**
  * @summary One-shot converter of the 14.0 clean cut: turns a repository's
@@ -22,13 +23,16 @@ import {createRequire} from 'node:module';
  * - `//` comments become block comments; adjacent line comments become one block.
  * - Mixins are inlined with their arguments bound; a `@use`d module that emits CSS is inlined once;
  *   `sass:*` modules and member-only partials are dropped.
- * - Every value, selector and query holding Sass script takes what Sass computes for it.
+ * - Every value, selector and query holding Sass script takes what Sass computes for it; nested properties
+ *   (`background: { color: … }`) expand to their longhands.
  * - D2, D3: a top-level node holding a nested rule under a parent list of mixed specificity, or a
  *   declaration after a nested node, takes Sass's flattened output in place.
- * - D4: a file with control flow or an `&-suffix` selector takes Sass's compiled output, comments kept.
+ * - D4: a top-level node holding control flow or an `&-suffix` selector takes Sass's output in place, compiled
+ *   with the file's own members in scope; a file using `@extend` takes Sass's output whole. Comments are kept.
  *
- * Equality is the normalized text through autoprefixer, comments removed. The exit code is 1 when a file
- * differs or fails.
+ * Equality is the normalized text through autoprefixer, comments removed, in two readings of each converted
+ * file: Sass's, and a plain nesting reading with no Sass leniency (`flattenCss`, the browser's reading where no
+ * parent list mixes specificities, which D2 guarantees). The exit code is 1 when a file differs or fails.
  */
 const
     [repo = process.cwd(), ref = 'HEAD'] = process.argv.slice(2),
@@ -39,8 +43,10 @@ const
     autoprefixer = req('autoprefixer'),
     git          = (...args) => execFileSync('git', args, {cwd: repo, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024}),
     SCRIPT       = /\$[\w-]|#\{|\b(?:color|math|string|list|map|meta)\.[a-z-]+\(/,
-    LOGIC        = /^\s*\$[\w-]+\s*:|@use\b|@(?:include|mixin|function|each|if|for|while|extend|forward)\b|#\{|\b(?:color|math)\.[a-z-]+\(|&[-_]\w/m,
-    FALLBACK     = /@(?:each|if|for|while|function|extend)\b|&[-_]\w/;
+    // Sass that a browser cannot read, including what equality under Sass cannot see: placeholders and Sass imports
+    LOGIC        = /^\s*\$[\w-]+\s*:|@use\b|@(?:include|mixin|function|each|if|for|while|extend|forward|at-root|content|debug|warn|error|return)\b|@import\s+["'](?![^"']*\.css["'])|^\s*%[\w-]|#\{|\b(?:color|math)\.[a-z-]+\(|&[-_]\w/m,
+    CONTROL      = /@(?:each|if|for|while)\b|&[-_]\w/,
+    FALLBACK     = /@extend\b/;
 
 /**
  * @summary The comparable form of compiled CSS: comments, the charset and whitespace removed, empty rules dropped.
@@ -197,6 +203,36 @@ function evaluate(file, vars, node) {
 
         node.params = css.slice(css.indexOf('@') + node.name.length + 1, css.indexOf('{')).trim()
     }
+}
+
+/**
+ * @summary Expands Sass's nested properties (`background: { color: red; }` → `background-color: red;`), which
+ * a browser reads as a rule it cannot match and drops. A rule is one when its selector is a property name and a
+ * colon followed by nothing or a space-separated value, and it holds declarations only; `a:visited` is not.
+ * @param {Object} ast
+ * @returns {Number} The count of expanded blocks.
+ */
+function expandNestedProperties(ast) {
+    let expanded = 0;
+
+    ast.walkRules(rule => {
+        const match = rule.selector.match(/^([a-z-]+):(\s+[\s\S]*)?$/);
+
+        if (!match || rule.parent.type === 'root' || !rule.nodes.every(node => node.type === 'decl' || node.type === 'comment')) return;
+
+        const before = `\n${(rule.raws.before ?? '').match(/[ \t]*$/)[0]}`,
+              nodes  = rule.nodes.map(node => node.clone(node.type === 'decl' ? {prop: `${match[1]}-${node.prop}`} : {}));
+
+        match[2]?.trim() && nodes.unshift(postcss.decl({prop: match[1], value: match[2].trim()}));
+        nodes.forEach((node, index) => node.raws.before = index === 0 ? rule.raws.before : before);
+
+        if (rule.parent.last === rule) rule.parent.raws.semicolon = true;
+
+        rule.replaceWith(nodes);
+        expanded++
+    });
+
+    return expanded
 }
 
 /**
@@ -429,6 +465,49 @@ function describeCopies(css, entry) {
 }
 
 /**
+ * @summary D4: replaces each top-level node holding Sass control flow or an `&-suffix` selector, in place, with
+ * Sass's output of that node. The file's members (`@use` of modules that emit no CSS, variables, functions,
+ * mixins) are compiled with it, so the node reads them as in the file; the rest of the file keeps its nesting.
+ * @param {String} file Absolute path, for module resolution.
+ * @param {Object} ast A postcss-scss root, its comments already block comments, so Sass keeps them.
+ * @returns {Number} The count of flattened top-level nodes.
+ */
+function flattenControlFlow(file, ast) {
+    const
+        isMember = node => node.type === 'decl' && node.prop.startsWith('$') ||
+            node.type === 'atrule' && (['forward', 'function', 'mixin'].includes(node.name) ||
+                node.name === 'use' && !emitsCssUse(file, node)),
+        prelude  = ast.nodes.filter(isMember).map(node => node.type === 'decl' ? `${node};` : node.toString()).join('\n');
+
+    let flattened = 0;
+
+    ast.each(top => {
+        if (top.type === 'comment' || isMember(top) || !CONTROL.test(top.toString())) return;
+
+        const nodes = postcss.parse(reindent(sass.compileString(`${prelude}\n${top.toString()}`, {style: 'expanded', url: new URL('file://' + file)}).css)).nodes;
+
+        nodes.forEach((node, index) => node.raws.before = index === 0 ? top.raws.before : '\n\n');
+        top.replaceWith(nodes);
+        flattened++
+    });
+
+    return flattened
+}
+
+/**
+ * @summary Whether a `@use` rule loads a module that emits CSS of its own.
+ * @param {String} file Absolute path of the file holding the rule.
+ * @param {Object} rule The `@use` node.
+ * @returns {Boolean}
+ */
+function emitsCssUse(file, rule) {
+    const url    = rule.params.match(/['"]([^'"]+)['"]/)?.[1],
+          target = url && !url.startsWith('sass:') && resolveModule(file, url);
+
+    return Boolean(target && emitsCss(target))
+}
+
+/**
  * @summary Converts one file, inlining the modules it emits and the mixins it includes.
  * @param {String} file Absolute path.
  * @param {String} entry The output path receiving the conversion, relative to `resources/css`.
@@ -439,6 +518,9 @@ function convert(file, entry, emitted = new Set()) {
     const ast            = postcssScss.parse(fs.readFileSync(file, 'utf8')),
           {vars, mixins} = moduleMembers(file),
           key            = target => path.relative(scssRoot, target).replace(/\.scss$/, '');
+
+    convertComments(ast);
+    report.controlFlow += flattenControlFlow(file, ast);
 
     ast.walkAtRules('use', node => {
         const url = node.params.match(/['"]([^'"]+)['"]/)?.[1];
@@ -474,6 +556,7 @@ function convert(file, entry, emitted = new Set()) {
     }
 
     ast.walkAtRules('mixin', node => node.remove());
+    expandNestedProperties(ast);
     ast.walk(node => { if (node.type === 'decl' && node.prop.startsWith('$')) node.remove() });
     ast.walk(node => evaluate(file, vars, node));
     convertComments(ast);
@@ -502,7 +585,7 @@ const
     ).filter(file => file.endsWith('.scss')).sort(),
     copies   = new Map(),
     outputs  = new Map(),
-    report   = {adopted: [], converted: 0, declAfterNested: [], diffs: [], errors: [], fallback: [], files: 0, flattened: [], isRisk: new Set()};
+    report   = {adopted: [], controlFlow: 0, converted: 0, declAfterNested: [], diffs: [], dynamic: [], errors: [], fallback: [], files: 0, flattened: [], isRisk: new Set()};
 
 for (const file of files) {
     fs.mkdirSync(path.join(root, path.dirname(file)), {recursive: true});
@@ -528,9 +611,12 @@ for (const file of files) {
             report.fallback.push(file);
             out = reindent(sass.compileString(ast.toString(), {style: 'expanded', url: new URL('file://' + abs)}).css)
         } else {
-            const ast = convert(abs, entry), flattened = flattenNestingSensitive(abs, ast);
+            const before    = report.controlFlow,
+                  ast       = convert(abs, entry),
+                  flattened = flattenNestingSensitive(abs, ast);
 
             report.converted++;
+            if (report.controlFlow > before) report.dynamic.push(`${file} (${report.controlFlow - before})`);
             if (flattened) report.flattened.push(`${file} (${flattened})`);
             adoptSassReadings(ast).forEach(line => report.adopted.push(`${file}: ${line}`));
             out = ast.toString()
@@ -545,9 +631,10 @@ for (const file of files) {
             if (isSpecificitySensitive(rule)) report.isRisk.add(file)
         });
 
-        const actual = normalize(await prefix(sass.compileString(out, {style: 'expanded', url: new URL('file://' + abs)}).css));
+        const actual  = normalize(await prefix(sass.compileString(out, {style: 'expanded', url: new URL('file://' + abs)}).css)),
+              browser = normalize(await prefix(sass.compileString(flattenCss(out), {style: 'expanded'}).css));
 
-        if (actual !== expected) report.diffs.push(file);
+        if (actual !== expected || browser !== expected) report.diffs.push(file);
 
         outputs.set(entry, out)
     } catch (error) {
@@ -568,6 +655,8 @@ if (process.env.OUT) {
 
 console.log(`${repo} @ ${worktree ? 'working tree' : git('rev-parse', '--short', ref).trim()}: ${report.files} files, ${report.converted} converted, ${report.fallback.length} compiled (D4)`);
 report.fallback.forEach(file => console.log(`  compiled: ${file}`));
+console.log(`D4 flattened in place: ${report.dynamic.length} files`);
+report.dynamic.forEach(file => console.log(`  control flow: ${file}`));
 console.log(`D2/D3 flattened: ${report.flattened.length} files`);
 report.flattened.forEach(file => console.log(`  flattened: ${file}`));
 console.log(`equal: ${report.files - report.diffs.length - report.errors.length}, different: ${report.diffs.length}, errors: ${report.errors.length}`);

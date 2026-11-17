@@ -30,10 +30,10 @@ import HeaderToolbar      from '../../../../../../../apps/portal/view/HeaderTool
 import HeroContent        from '../../../../../../../apps/portal/view/home/parts/hero/Content.mjs';
 import MainContainer      from '../../../../../../../apps/portal/view/home/MainContainer.mjs';
 
-const brainDocUrl        = 'https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/MemoryCore.md',
-      currentDir         = path.dirname(fileURLToPath(import.meta.url)),
-      featureSectionScss = path.resolve(currentDir, '../../../../../../../resources/scss/src/apps/portal/home/FeatureSection.scss'),
-      heroScssPath       = path.resolve(currentDir, '../../../../../../../resources/scss/src/apps/portal/home/parts/hero/Content.scss');
+const brainDocUrl       = 'https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/MemoryCore.md',
+      currentDir        = path.dirname(fileURLToPath(import.meta.url)),
+      featureSectionCss = path.resolve(currentDir, '../../../../../../../resources/css/src/apps/portal/home/FeatureSection.css'),
+      heroCssPath       = path.resolve(currentDir, '../../../../../../../resources/css/src/apps/portal/home/parts/hero/Content.css');
 
 /**
  * Recursively collects vnodes matching `nodeName` across a rendered vnode tree.
@@ -85,8 +85,8 @@ test.describe('Portal.view.home.ContentBox', () => {
 
     test('hero GitHub secondary button parameterizes button CSS variables instead of overriding hover background-color', () => {
         const githubItem  = HeroContent.config.items[3].items.find(item => item.cls?.includes('neo-github')),
-              scssSource  = fs.readFileSync(heroScssPath, 'utf8'),
-              githubBlock = scssSource.match(/\.neo-github\s*\{([^}]*)\}/)?.[1] ?? '';
+              cssSource   = fs.readFileSync(heroCssPath, 'utf8'),
+              githubBlock = cssSource.match(/\.neo-github\s*\{([^}]*)\}/)?.[1] ?? '';
 
         expect(githubItem.ui).toBe('secondary');
         expect(githubBlock).toContain('--button-secondary-background-color: var(--sem-color-bg-neutral-highlighted)');
@@ -128,11 +128,11 @@ test.describe('Portal.view.home.ContentBox', () => {
                 expect(subNode?.className).toContain('neo-h2');
             }
 
-            const featureScssSource = fs.readFileSync(featureSectionScss, 'utf8');
-            expect(featureScssSource).not.toContain('h1.neo-h1');
-            expect(featureScssSource).not.toContain('h2.neo-h2');
-            expect(featureScssSource).toContain('.neo-h1 {');
-            expect(featureScssSource).toContain('.neo-h2 {');
+            const featureCssSource = fs.readFileSync(featureSectionCss, 'utf8');
+            expect(featureCssSource).not.toContain('h1.neo-h1');
+            expect(featureCssSource).not.toContain('h2.neo-h2');
+            expect(featureCssSource).toContain('.neo-h1 {');
+            expect(featureCssSource).toContain('.neo-h2 {');
 
             expect(Colors.config.learnMoreRoute).toBe('#/learn/benefits/body/MultiWindow');
             expect(Colors.config.learnMoreRoute).not.toContain('itnext.io');
