@@ -64,7 +64,7 @@ test.describe('Grid header filters example', () => {
     });
 
     test('the date filter keeps the orders of one day', async ({page}) => {
-        await header(page, 'Order date').locator('input').fill('2026-03-01');
+        await header(page, 'Date').locator('input').fill('2026-03-01');
         await expect(page.locator(COUNT)).toHaveText('27 of 10,000 orders')
     });
 

@@ -48,10 +48,10 @@ class MainContainer extends Viewport {
             flex  : 'none',
             layout: {ntype: 'hbox', align: 'center', wrap: 'wrap'},
             items : [{
-                module  : Component,
-                flex    : 1,
-                minWidth: 0,
-                vdom    : {cn: [
+                module: Component,
+                // Shares the row on a desktop, takes a row of its own on a phone
+                flex: '1 1 320px',
+                vdom: {cn: [
                     {cls: ['grid-filtering-title'], text: 'Filter 10,000 orders'},
                     {cls: ['grid-filtering-instruction'], text: 'Type, pick or compare in the row under the headers. Every filter narrows the count.'}
                 ]}
@@ -64,6 +64,7 @@ class MainContainer extends Viewport {
                 handler: 'up.onResetClick',
                 iconCls: 'fa-solid fa-filter-circle-xmark',
                 text   : 'Reset filters',
+                tooltip: 'Clear every filter',
                 ui     : 'ghost'
             }, {
                 module   : Button,
@@ -81,15 +82,19 @@ class MainContainer extends Viewport {
             showHeaderFilters: true,
             store            : MainStore,
 
+            // Each header holds its caption and its filter field side by side, so every column flexes from a
+            // width that fits both
             columns: [{
                 dataField: 'customer',
-                text     : 'Customer',
-                width    : 180
+                flex     : 1,
+                minWidth : 260,
+                text     : 'Customer'
             }, {
                 dataField   : 'category',
                 filterConfig: {operator: '==='},
+                flex        : 1,
+                minWidth    : 260,
                 text        : 'Category',
-                width       : 160,
 
                 editorConfig: {
                     module  : ComboBox,
@@ -100,9 +105,10 @@ class MainContainer extends Viewport {
                 cellAlign   : 'right',
                 dataField   : 'amount',
                 filterConfig: {operator: '>='},
+                flex        : 1,
+                minWidth    : 230,
                 renderer    : ({value}) => currency(value),
                 text        : 'Amount',
-                width       : 170,
 
                 // The field shows the operator the filter applies, and the field's default maxValue of 100 would
                 // clamp a typed 4000 on blur
@@ -115,9 +121,10 @@ class MainContainer extends Viewport {
             }, {
                 dataField   : 'date',
                 filterConfig: {operator: '==='},
+                flex        : 1,
+                minWidth    : 290,
                 renderer    : ({value}) => value ? day(value) : '',
-                text        : 'Order date',
-                width       : 200,
+                text        : 'Date',
 
                 editorConfig: {
                     module     : DateContainer,
@@ -126,9 +133,10 @@ class MainContainer extends Viewport {
             }, {
                 dataField   : 'paid',
                 filterConfig: {operator: '==='},
+                flex        : 1,
+                minWidth    : 220,
                 renderer    : ({value}) => value ? 'Paid' : 'Open',
                 text        : 'Status',
-                width       : 160,
 
                 editorConfig: {module: BooleanContainer}
             }]

@@ -81,10 +81,41 @@ body:has(.neo-examples-grid-filtering) .neo-dragproxy [class*="neo-theme-"] {
         box-shadow      : 0 -1px 0 var(--grid-filtering-border);
     }
 
+    // Every header holds a filter field, which needs more than the default 29px
+    .neo-grid-header-button {
+        height: 42px;
+    }
+
+    // The operator toggles inside the headers take the palette instead of the theme's primary blue
+    .neo-grid-header-button .neo-button {
+        --button-background-color      : var(--grid-filtering-surface);
+        --button-background-color-hover: var(--grid-filtering-hover);
+        --button-background-image      : none;
+        --button-border                : 1px solid var(--grid-filtering-border);
+        --button-border-hover          : 1px solid var(--grid-filtering-accent);
+        --button-border-radius         : 6px;
+        --button-text-color            : var(--grid-filtering-accent);
+        --button-text-color-hover      : var(--grid-filtering-accent);
+    }
+
     @media (max-width: 700px) {
         .grid-filtering-toolbar {
             gap    : 12px;
             padding: 18px 16px;
+
+            // Icon buttons keep the count and both controls on one row; the text stays their accessible name
+            .neo-button-text {
+                clip       : rect(0 0 0 0);
+                height     : 1px;
+                overflow   : hidden;
+                position   : absolute;
+                white-space: nowrap;
+                width      : 1px;
+            }
+
+            .neo-button-glyph {
+                margin: 0;
+            }
         }
 
         .grid-filtering-title {
