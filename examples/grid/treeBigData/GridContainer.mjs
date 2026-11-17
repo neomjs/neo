@@ -1,8 +1,17 @@
 import BaseGridContainer from '../../../src/grid/Container.mjs';
 import Button            from '../../../src/button/Base.mjs';
+import FooterToolbar     from './FooterToolbar.mjs';
 import MainStore         from './MainStore.mjs';
 
+const
+    format     = new Intl.NumberFormat('en-US').format,
+    hours      = ({value}) => format(value),
+    monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+    lastMonth  = 2025 * 12 + 11; // Dec 2025, counted in months
+
 /**
+ * @summary The organization as a tree grid: unit and person names in the tree column, role and location, a cell
+ * holding a button, a live value, a utilization bar, then the hours booked per month. Its footer states the size.
  * @class Neo.examples.grid.treeBigData.GridContainer
  * @extends Neo.grid.Container
  */
@@ -36,6 +45,12 @@ class GridContainer extends BaseGridContainer {
             width               : 100
         },
         /**
+         * The size readout below the rows
+         * @member {Object} footerToolbar={module:FooterToolbar}
+         * @reactive
+         */
+        footerToolbar: {module: FooterToolbar},
+        /**
          * @member {Object[]} store=MainStore
          * @reactive
          */
@@ -43,7 +58,8 @@ class GridContainer extends BaseGridContainer {
     }
 
     /**
-     * Triggered after the amountColumns config got changed
+     * @summary Builds the columns for a new width: seven fixed ones, then months in order up to Dec 2025.
+     * The data field of a month stays `number<index>` at every width, so only its header moves.
      * @param {Number} value
      * @param {Number} oldValue
      * @protected
@@ -52,21 +68,24 @@ class GridContainer extends BaseGridContainer {
         let i       = 7,
             columns = [
                 {type: 'index', dataField: 'id', text: '#', width: 60},
-                {type: 'tree', dataField: 'name', text: 'Tree', width: 250},
-                {cellAlign: 'left', dataField: 'firstname', defaultSortDirection: 'ASC', text: 'Firstname', width: 150},
-                {cellAlign: 'left', dataField: 'lastname',  defaultSortDirection: 'ASC', text: 'Lastname',  useValueBanding: true, width: 150},
-                {cellAlign: 'left', dataField: 'countAction', text: 'Increase Counter', width: 150,  component: ({record}) => ({
+                {type: 'tree', dataField: 'name', text: 'Organization', width: 280},
+                {cellAlign: 'left', dataField: 'role',     defaultSortDirection: 'ASC', text: 'Role',     width: 190},
+                {cellAlign: 'left', dataField: 'location', defaultSortDirection: 'ASC', text: 'Location', useValueBanding: true, width: 140},
+                {cellAlign: 'left', dataField: 'countAction', text: 'Button in a cell', width: 150, component: ({record}) => ({
                     module: Button,
                     handler() {record.counter++},
-                    text  : record.firstname + ' ++',
-                    width : 130
+                    text : 'Kudos +1',
+                    width: 130
                 })},
-                {type: 'animatedChange', dataField: 'counter', text: 'Counter'},
-                {type: 'progress',       dataField: 'progress', text: 'Progress', width: 150}
-            ];
+                {type: 'animatedChange', dataField: 'counter',  text: 'Kudos',       width: 100},
+                {type: 'progress',       dataField: 'progress', text: 'Utilization', width: 150}
+            ],
+            month;
 
+        // Hours booked per month: a person's own, a unit's the sum of its people
         for (; i <= value; i++) {
-            columns.push({dataField: 'number' + i, text: 'Number ' + i})
+            month = lastMonth - (value - i);
+            columns.push({dataField: 'number' + i, renderer: hours, text: `${monthNames[month % 12]} ${Math.floor(month / 12)}`})
         }
 
         this.store.amountColumns = value;
