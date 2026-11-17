@@ -1,6 +1,7 @@
 import Container from '../container/Base.mjs';
 import Label     from '../component/Label.mjs';
 
+// The shared tooltip of each browser window, by windowId
 let singletons = {};
 
 /**
@@ -82,6 +83,33 @@ class Tooltip extends Container {
     }
 
     /**
+     * The components this tooltip listens on, held weakly so a destroyed one is released with its component
+     * @member {WeakSet<Neo.component.Base>} #delegationRoots
+     */
+    #delegationRoots = new WeakSet()
+
+    /**
+     * @summary Listens for the delegated mouseenter and mouseleave on a component, once per instance. A target must lie
+     * inside such a component: an event reaches a listener only along the target's parent chain, and
+     * `Neo.manager.DomEvent.verifyMouseEnterLeave()` looks for the target in the listening component's vdom.
+     * @param {Neo.component.Base} component
+     */
+    addDelegationRoot(component) {
+        let me = this;
+
+        if (component && !me.#delegationRoots.has(component)) {
+            me.#delegationRoots.add(component);
+
+            component.addDomListeners({
+                mouseenter: me.onDelegateMouseEnter,
+                mouseleave: me.onDelegateMouseLeave,
+                delegate  : me.delegate,
+                scope     : me
+            })
+        }
+    }
+
+    /**
      * Arms one of the named delays, replacing a pending timer of the same name.
      * @param {String} id valid values: dismiss, hide, show
      * @param {Function} callback
@@ -103,16 +131,7 @@ class Tooltip extends Container {
             // todo: remove the component domListeners
         }
 
-        if (value) {
-            let me = this;
-
-            Neo.getComponent(value).addDomListeners({
-                mouseenter: me.onDelegateMouseEnter,
-                mouseleave: me.onDelegateMouseLeave,
-                delegate  : me.delegate,
-                scope     : me
-            })
-        }
+        value && this.addDelegationRoot(Neo.getComponent(value))
     }
 
     /**
@@ -182,28 +201,63 @@ class Tooltip extends Container {
     }
 
     /**
+     * @summary The shared tooltip of a browser window: one element per document serves every app the window hosts,
+     * and it renders where its targets are. Each app anchors its main view in its own window, which carries the
+     * `data-neo-tooltip` targets that no component announces; a component target announces its root through
+     * {@link #delegateFromRootOf}. The tooltip leaves with its window.
      * @param {Neo.controller.Application} app
+     * @param {Number|String} [windowId=app.mainView.windowId]
      * @returns {Neo.tooltip.Base}
      */
-    static createSingleton(app) {
-        if (!singletons[app.name]) {
-            singletons[app.name] = Neo.create('Neo.tooltip.Base', {
-                appName    : app.name,
-                componentId: app.mainView.id,
-                delegate   : this.delegateFilter,
-                isShared   : true,
-                resetCfg   : {},
-                windowId   : app.mainView.windowId,
-                listeners  : {
+    static createSingleton(app, windowId=app.mainView.windowId) {
+        let tooltip = singletons[windowId];
+
+        if (!tooltip || tooltip.isDestroyed) {
+            tooltip = singletons[windowId] = Neo.create('Neo.tooltip.Base', {
+                appName  : app.name,
+                delegate : this.delegateFilter,
+                isShared : true,
+                resetCfg : {},
+                windowId,
+                listeners: {
                     // Reconfigure on over a target
                     targetOver(event) {
                         Tooltip.applySingletonTargetConfig(this, event)
                     }
                 }
             });
+
+            Neo.currentWorker.on('disconnect', tooltip.onWindowDisconnect, tooltip)
         }
 
-        return singletons[app.name]
+        app.mainView?.windowId === windowId && tooltip.addDelegationRoot(app.mainView);
+
+        return tooltip
+    }
+
+    /**
+     * @summary Lets the shared tooltip of a target's window reach the target wherever it lies, such as in a dialog
+     * under `document.body`: the tooltip listens on the target's root, the top of its `parentId` chain.
+     * @param {Neo.component.Base} target A mounted component that uses the shared tooltip
+     */
+    static delegateFromRootOf(target) {
+        this.createSingleton(target.app, target.windowId)
+            .addDelegationRoot(Neo.manager.Component.getParents(target).at(-1) || target)
+    }
+
+    /**
+     * A shared tooltip stops following window departures and leaves the registry
+     * @param {...*} args
+     */
+    destroy(...args) {
+        let me = this;
+
+        if (me.isShared) {
+            Neo.currentWorker.un('disconnect', me.onWindowDisconnect, me);
+            singletons[me.windowId] === me && delete singletons[me.windowId]
+        }
+
+        super.destroy(...args)
     }
 
     /**
@@ -371,6 +425,18 @@ class Tooltip extends Container {
 
         // only use path[0] based events to ignore mouseenter & leave for child nodes
         me.id === targetId && me.hideDelayed(null)
+    }
+
+    /**
+     * A shared tooltip leaves with its window. The window's apps are reaped without it, since it lies in no app's
+     * component tree, and a SharedWorker retires the window's last port before it fires `disconnect`.
+     * @param {Object} data
+     * @param {Number|String} data.windowId
+     */
+    onWindowDisconnect({windowId}) {
+        if (windowId === this.windowId && !Neo.currentWorker.ports?.some(port => port.windowId === windowId)) {
+            this.destroy()
+        }
     }
 
     /**
