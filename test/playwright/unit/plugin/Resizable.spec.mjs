@@ -33,7 +33,8 @@ async function dragStart(path) {
                   boundaryContainerId: 'workspace-1',
                   getDomRect         : async id => {measured.push(id); return {bottom: 740, height: 740, left: 0, top: 0, width: 1280}},
                   wrapperStyle       : {}
-              }
+              },
+              styleConfig          : 'wrapperStyle'
           };
 
     Resizable.prototype.onDragStart.call(plugin, {path});

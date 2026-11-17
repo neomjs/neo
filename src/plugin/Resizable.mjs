@@ -162,6 +162,13 @@ class Resizable extends Plugin {
          */
         nodeTopRight: null,
         /**
+         * The style config that takes the resize, on the owner and on its drag proxy. On a single-root component
+         * `style` wins over `wrapperStyle`, so an owner that keeps its geometry in `style`, as `Neo.dialog.Base`
+         * does with its moves, needs `'style'`, or every key there masks the resize.
+         * @member {'style'|'wrapperStyle'} styleConfig='wrapperStyle'
+         */
+        styleConfig: 'wrapperStyle',
+        /**
          * vdom node which matches the delegationCls to add resize handles
          * @member {Object} targetNode=null
          * @protected
@@ -277,9 +284,9 @@ class Resizable extends Plugin {
      * @param {Object} data
      */
     onDragEnd(data) {
-        let me      = this,
-            {owner} = me,
-            style   = owner.wrapperStyle; // todo: delegation target
+        let me                   = this,
+            {owner, styleConfig} = me,
+            style                = owner[styleConfig]; // todo: delegation target
 
         Object.assign(me, {
             boundaryContainerRect: null,
@@ -290,10 +297,10 @@ class Resizable extends Plugin {
         Object.assign(style, {
             opacity  : 1,
             transform: 'none',
-            ...me.dragZone.dragProxy.wrapperStyle
+            ...me.dragZone.dragProxy[styleConfig]
         });
 
-        owner.wrapperStyle = style;
+        owner[styleConfig] = style;
 
         me.removeBodyCursorCls();
 
@@ -317,7 +324,7 @@ class Resizable extends Plugin {
         if (!node) {
             me.onDragEnd({})
         } else if (me.dragZone.dragProxy) {
-            style = me.dragZone.dragProxy.wrapperStyle;
+            style = me.dragZone.dragProxy[me.styleConfig];
 
             if (node.includes('bottom')) {
                 size = Math.max(minHeight, data.clientY - rect.top);
@@ -379,7 +386,7 @@ class Resizable extends Plugin {
                 style.width = `${size}px`
             }
 
-            me.dragZone.dragProxy.wrapperStyle = style
+            me.dragZone.dragProxy[me.styleConfig] = style
         }
     }
 
@@ -387,18 +394,18 @@ class Resizable extends Plugin {
      * @param {Object} data
      */
     onDragStart(data) {
-        let me                         = this,
-            containerId                = me.boundaryContainerId,
-            i                          = 0,
-            len                        = data.path.length,
-            {appName, owner, windowId} = me,
-            style                      = owner.wrapperStyle, // todo: delegation target
+        let me                                      = this,
+            containerId                             = me.boundaryContainerId,
+            i                                       = 0,
+            len                                     = data.path.length,
+            {appName, owner, styleConfig, windowId} = me,
+            style                                   = owner[styleConfig], // todo: delegation target
             target, vdom, vdomStyle;
 
         me.isDragging = true;
 
         style.opacity = 0.3;
-        owner.wrapperStyle = style;
+        owner[styleConfig] = style;
 
         for (; i < len; i++) {
             target = data.path[i];
