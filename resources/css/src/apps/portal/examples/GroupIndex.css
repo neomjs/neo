@@ -1,0 +1,121 @@
+.portal-examples-group-index {
+    color: var(--portal-examples-text);
+
+    h3 {
+        color         : var(--portal-examples-text-muted);
+        font-size     : 12px;
+        font-weight   : 600;
+        letter-spacing: 0.08em;
+        margin        : 0 0 6px;
+        padding       : 0 8px;
+        text-transform: uppercase;
+    }
+
+    ul {
+        list-style: none;
+        margin    : 0;
+        padding   : 0;
+    }
+
+    li {
+        break-inside: avoid;
+    }
+
+    a {
+        align-items          : center;
+        border-radius        : 8px;
+        color                : inherit;
+        column-gap           : 10px;
+        display              : grid;
+        font-size            : 15px;
+        grid-template-columns: 20px 1fr auto;
+        line-height          : 1.3;
+        padding              : 5px 8px;
+        text-decoration      : none;
+        transition           : background-color var(--motion-fast) var(--ease-out-soft);
+
+        &:hover {
+            background-color: var(--portal-examples-entry-hover);
+        }
+
+        &:focus-visible {
+            outline       : 2px solid var(--portal-examples-accent);
+            outline-offset: -2px;
+        }
+
+        &[aria-current="page"] {
+            background-color: var(--portal-examples-entry-current);
+            box-shadow      : inset 3px 0 0 var(--portal-examples-accent);
+            font-weight     : 600;
+        }
+    }
+
+    .portal-examples-group-index-icon {
+        color     : var(--portal-examples-accent);
+        text-align: center;
+    }
+
+    .portal-examples-group-index-count {
+        color               : var(--portal-examples-text-muted);
+        font-size           : 13px;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .portal-examples-group-index-all {
+        color        : var(--portal-examples-accent);
+        font-weight  : 600;
+        margin-bottom: 10px;
+    }
+
+    .portal-examples-group-index-note {
+        color    : var(--portal-examples-text-muted);
+        font-size: 13px;
+        margin   : 10px 0 0;
+        padding  : 0 8px;
+    }
+}
+
+/* The overview sets the bands side by side; the first band holds the most groups and gets two columns. */
+.portal-examples-group-index-overview {
+    display              : grid;
+    gap                  : 16px 32px;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+
+    .portal-examples-group-index-band-complex-widgets ul {
+        column-gap: 32px;
+        columns   : 2;
+    }
+
+    .portal-examples-group-index-note {
+        grid-column: 1 / -1;
+    }
+
+    @media (max-width: 1100px) {
+        grid-template-columns: 1fr 1fr;
+
+        .portal-examples-group-index-band-complex-widgets {
+            grid-column: 1 / -1;
+        }
+    }
+
+    @media (max-width: 640px) {
+        gap                  : 14px;
+        grid-template-columns: 1fr;
+
+        ul {
+            column-gap: 12px;
+            columns   : 2;
+        }
+
+        a {
+            font-size: 14px;
+        }
+    }
+}
+
+.portal-examples-group-index-list,
+.portal-examples-group-index-sheet {
+    display       : flex;
+    flex-direction: column;
+    gap           : 14px;
+}

@@ -248,39 +248,3 @@
         }
     }
 }
-
-/* Featured is the showcase: the same card in two wide columns. */
-.portal-examples-featured.portal-examples-list.neo-list {
-    gap                  : 22px;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 520px), 1fr));
-    margin               : 0 auto;
-    max-width            : 1280px;
-
-    .neo-title {
-        font-size: 24px;
-    }
-
-    .portal-example-feature {
-        font-size: 16px;
-    }
-
-    .portal-example-look-for {
-        font-size: 14px;
-    }
-
-    @media (max-width: 600px) {
-        gap: 12px;
-
-        .neo-title {
-            font-size: 18px;
-        }
-
-        .portal-example-feature {
-            font-size: 14px;
-        }
-
-        .portal-example-look-for {
-            font-size: 13px;
-        }
-    }
-}
