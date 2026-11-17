@@ -80,7 +80,7 @@ class Model extends Base {
      * Triggered after the windowId config got changed.
      *
      * A selection model is not a component, but it hooks into the theme engine like one (the pattern of
-     * {@link Neo.grid.column.Base#afterSetWindowId}): a model class that ships SCSS theme files gets them
+     * {@link Neo.grid.column.Base#afterSetWindowId}): a model class that ships theme files gets them
      * inserted into the window of its view. The engine's own models ship none.
      *
      * A model renders no node of its own and its stylesheet is global once loaded, so every rule in such a

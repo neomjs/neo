@@ -43,9 +43,9 @@ test.describe('buildScripts/util/developmentThemeAssets (#15449)', () => {
         writeFile(root, 'dist/development/css/theme-neo-dark/Global.css', mtimeMs)
     }
 
-    function seedScss(root, mtimeMs=1000) {
-        writeFile(root, 'resources/scss/src/Global.scss', mtimeMs);
-        writeFile(root, 'resources/scss/theme-neo-dark/Global.scss', mtimeMs)
+    function seedSources(root, mtimeMs=1000) {
+        writeFile(root, 'resources/css/src/Global.css', mtimeMs);
+        writeFile(root, 'resources/css/theme-neo-dark/Global.css', mtimeMs)
     }
 
     test.afterAll(() => {
@@ -56,7 +56,7 @@ test.describe('buildScripts/util/developmentThemeAssets (#15449)', () => {
         const root   = createRoot();
         let   builds = 0;
 
-        seedScss(root, 1000);
+        seedSources(root, 1000);
         materialize(root, 2000);
 
         const result = await ensureDevelopmentThemeAssets({
@@ -74,7 +74,7 @@ test.describe('buildScripts/util/developmentThemeAssets (#15449)', () => {
         const root   = createRoot();
         let   builds = 0;
 
-        seedScss(root, 1000);
+        seedSources(root, 1000);
         materialize(root, 2000);
         writeFile(root, 'resources/theme-map.json', 3000, JSON.stringify({
             Neo: {Global: ['src']} // fresh, parseable, non-empty — but theme-neo-dark is not reachable
@@ -104,8 +104,8 @@ test.describe('buildScripts/util/developmentThemeAssets (#15449)', () => {
         const root   = createRoot();
         let   builds = 0;
 
-        seedScss(root, 1000);
-        writeFile(root, 'resources/scss/src/button/Base.scss', 1000);
+        seedSources(root, 1000);
+        writeFile(root, 'resources/css/src/button/Base.css', 1000);
         materialize(root, 2000);
         writeFile(root, 'dist/development/css/src/button/Base.css', 2000);
 
@@ -131,10 +131,10 @@ test.describe('buildScripts/util/developmentThemeAssets (#15449)', () => {
         expect(builds).toBe(1)
     });
 
-    test('the SCSS source tree, not additive retired theme-map entries, owns the CSS census', () => {
+    test('the theme source tree, not additive retired theme-map entries, owns the CSS census', () => {
         const root = createRoot();
 
-        seedScss(root, 1000);
+        seedSources(root, 1000);
         materialize(root, 2000);
         writeFile(root, 'resources/theme-map.json', 2000, JSON.stringify({
             'Neo.apps.agentos.RetiredPanel': ['src', 'theme-neo-dark'],
@@ -159,7 +159,7 @@ test.describe('buildScripts/util/developmentThemeAssets (#15449)', () => {
             const root   = createRoot();
             let   builds = 0;
 
-            seedScss(root, 1000);
+            seedSources(root, 1000);
             materialize(root, 2000);
             fs.rmSync(path.join(root, missingPath));
 
@@ -186,7 +186,7 @@ test.describe('buildScripts/util/developmentThemeAssets (#15449)', () => {
             const root   = createRoot();
             let   builds = 0;
 
-            seedScss(root, 2000);
+            seedSources(root, 2000);
             materialize(root, 3000);
             fs.utimesSync(path.join(root, stalePath), 1, 1);
 
@@ -208,7 +208,7 @@ test.describe('buildScripts/util/developmentThemeAssets (#15449)', () => {
     test('a failed builder aborts before browser startup and names the canonical recovery command', async () => {
         const root = createRoot();
 
-        seedScss(root);
+        seedSources(root);
 
         await expect(ensureDevelopmentThemeAssets({
             repoRoot: root,
@@ -221,7 +221,7 @@ test.describe('buildScripts/util/developmentThemeAssets (#15449)', () => {
         const root   = createRoot();
         let   builds = 0;
 
-        seedScss(root);
+        seedSources(root);
 
         await expect(ensureDevelopmentThemeAssets({
             repoRoot: root,
@@ -237,7 +237,7 @@ test.describe('buildScripts/util/developmentThemeAssets (#15449)', () => {
               foreign    = createRoot(),
               linkedPath = path.join(root, 'dist/development/css/src/Global.css');
 
-        seedScss(root, 1000);
+        seedSources(root, 1000);
         materialize(root, 2000);
         writeFile(foreign, 'Global.css', 3000);
         fs.rmSync(linkedPath);
@@ -382,13 +382,13 @@ test.describe('webpack development-theme freshness hooks (#15666)', () => {
               };
 
         try {
-            // A fresh scaffold: its resources/scss holds no buildable theme source
-            fs.mkdirSync(path.join(workspace, 'resources', 'scss'), {recursive: true});
+            // A fresh scaffold: its resources/css holds no buildable theme source
+            fs.mkdirSync(path.join(workspace, 'resources', 'css'), {recursive: true});
             expect(warningsAt(workspace), 'a workspace root builds no theme').toEqual([]);
 
             // The same root once it owns a theme source with nothing built from it
-            fs.mkdirSync(path.join(workspace, 'resources', 'scss', 'src'), {recursive: true});
-            fs.writeFileSync(path.join(workspace, 'resources', 'scss', 'src', 'Global.scss'), '');
+            fs.mkdirSync(path.join(workspace, 'resources', 'css', 'src'), {recursive: true});
+            fs.writeFileSync(path.join(workspace, 'resources', 'css', 'src', 'Global.css'), '');
             expect(warningsAt(workspace), 'a root with a theme source and no build warns').toHaveLength(1)
         } finally {
             fs.rmSync(workspace, {force: true, recursive: true})

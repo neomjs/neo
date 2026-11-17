@@ -1312,7 +1312,7 @@ class Main extends core.Base {
     /**
      * @summary Reads the light/dark hint the active theme declares, or `undefined` when none does.
      *
-     * Every theme states its own scheme as `--neo-color-scheme` in its `Global.scss`, because the
+     * Every theme states its own scheme as `--neo-color-scheme` in its `Global.css`, because the
      * name cannot be trusted to carry it: `theme-cyberpunk` is dark and is named neither. The token
      * is declared on the element holding the `neo-theme-*` class rather than on the document root,
      * so the read has to find that element; custom properties inherit downward only.

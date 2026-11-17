@@ -4,8 +4,8 @@ import {decodePng}    from '../utils/pngPixels.mjs';
 const PORTAL   = '/apps/portal/index.html',
       FAMILY   = '.portal-examples-family-overview',
       FAMILIES = [
-          'Featured', 'Grid & Table', 'Forms & Fields', 'Calendar', 'Tab Container', 'Dashboard & Docking', 'Drag & Drop',
-          'Lists & Galleries', 'Dialogs & Overlays', 'Charts, Canvas & Maps', 'More components', 'Multi-Window',
+          'Featured', 'Grid & Table', 'Forms & Fields', 'Calendar', 'Scheduler', 'Gantt', 'Tab Container',
+          'Dashboard & Docking', 'Drag & Drop', 'Lists & Galleries', 'Dialogs & Overlays', 'Charts, Canvas & Maps', 'More components', 'Multi-Window',
           'State & Data', 'Workers & Platform', 'Apps'
       ];
 
@@ -396,7 +396,7 @@ test.describe('Portal example catalog', () => {
         const grid = await gridPopup;
         await expect(grid).toHaveURL(/\/examples\/grid\/treeBigData\/index.html$/);
         await expect(grid.locator('.neo-grid-container')).toBeVisible();
-        await expect(grid.getByText('Firstname', {exact: true}).first()).toBeVisible();
+        await expect(grid.getByText('Organization', {exact: true}).first()).toBeVisible();
         await grid.close()
     })
 });

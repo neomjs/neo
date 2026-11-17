@@ -87,8 +87,8 @@
         "hiddenIn": [],
         "family": "grid-table",
         "component": "Grid",
-        "feature": "A tree hierarchy at scale: up to 100,000 rows, 200 columns and 20 levels",
-        "lookFor": "Open the ☰ panel, raise rows and depth, then expand all; filter by name and toggle helper lines or value bands."
+        "feature": "An organization of 20,000 people and units as a tree grid, up to 100,000 rows, 200 columns and 20 levels",
+        "lookFor": "Open a squad to its people, give kudos from a cell, then raise rows and depth in ☰ and expand all; filter by first name."
     },
     {
         "id": "shared-covid",
@@ -622,22 +622,22 @@
         "lookFor": "Toggle content-sized rows, edit a summary, filter, or jump through 10,000 records; scroll to the wrapped Details column."
     },
     {
-        "id": "grid-covid",
-        "image": "devmode/grid-covid-14.jpg",
-        "name": "COVID-19 Country Grid",
-        "sourceUrl": "examples/grid/covid",
+        "id": "grid-countries",
+        "image": "devmode/grid-countries-14.jpg",
+        "name": "Country Statistics Grid",
+        "sourceUrl": "examples/grid/countries",
         "urls": {
-            "devmode": "examples/grid/covid/index.html",
-            "dist_dev": "dist/development/examples/grid/covid/index.html",
-            "dist_esm": "dist/esm/examples/grid/covid/index.html",
-            "dist_prod": "dist/production/examples/grid/covid/index.html"
+            "devmode": "examples/grid/countries/index.html",
+            "dist_dev": "dist/development/examples/grid/countries/index.html",
+            "dist_esm": "dist/esm/examples/grid/countries/index.html",
+            "dist_prod": "dist/production/examples/grid/countries/index.html"
         },
         "hiddenIn": [],
         "family": "grid-table",
         "component": "Grid",
-        "feature": "API-loaded country statistics",
-        "lookFor": "Sort formatted numeric columns and compare country flags and colored measures.",
-        "scope": "Loads statistics from an external API; availability and data freshness depend on that service."
+        "feature": "217 economies from a World Bank dataset shipped with the example, with flags, formatted figures and growth tinted by value",
+        "lookFor": "Sort by any figure: growth turns green or red, rank and country stay in place, and the arrow keys move the selection.",
+        "scope": "Shows the World Bank's latest indicators (CC BY 4.0) as retrieved on 17 Nov 2026; the flags load from an outside image host."
     },
     {
         "id": "grid-filtering",
@@ -1140,7 +1140,7 @@
     },
     {
         "id": "gantt-basic",
-        "image": null,
+        "image": "devmode/gantt-basic-14.jpg",
         "name": "Community Garden Plan",
         "sourceUrl": "examples/gantt/basic",
         "urls": {
@@ -1157,7 +1157,7 @@
     },
     {
         "id": "scheduler-basic",
-        "image": null,
+        "image": "devmode/scheduler-basic-14.jpg",
         "name": "Studio Bookings",
         "sourceUrl": "examples/scheduler/basic",
         "urls": {

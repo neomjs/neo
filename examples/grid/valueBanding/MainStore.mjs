@@ -22,7 +22,7 @@ class MainStore extends Store {
     }
 
     /**
-     * @summary Creates 100 colleagues without randomness, preserving the first frame and catalog capture.
+     * @summary Creates the fixed 100-row directory; country counts must fit the 10-by-10 name table.
      * @param {Object} config Store configuration.
      */
     construct(config) {

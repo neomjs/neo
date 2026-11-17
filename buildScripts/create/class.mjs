@@ -47,7 +47,7 @@ program
     .option('-M, --createModel <value>',         'Create a matching data.Model when generating a data.Store? Pick "yes" or "no"',             sanitizeInput)
     .option('-p, --createStateProvider <value>', 'Create a matching state.Provider when generating a view? Pick "yes" or "no"',               sanitizeInput)
     .option('-m, --createStore <value>',         'Create a matching data.Store when generating a data.Model? Pick "yes" or "no"',             sanitizeInput)
-    .option('-r, --scss <value>',                'The scss class',                                                                            sanitizeInput)
+    .option('-r, --scss <value>',                'The css class',                                                                          sanitizeInput)
     .allowUnknownOption()
     .on('--help', () => {
         console.log('\nIn case you have any issues, please create a ticket here:');

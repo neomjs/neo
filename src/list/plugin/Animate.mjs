@@ -1047,7 +1047,7 @@ class Animate extends Base {
      * The per-owner dynamic rules: the containing-block guarantee on the root and the item
      * transition — pure, so specs can witness the exact inserted payload. The reduced-motion
      * override is intentionally NOT here: it lives as ONE static rule in the list stylesheet
-     * (`resources/scss/src/list/Base.scss`), because `@media` rules cannot be deleted by
+     * (`resources/css/src/list/Base.css`), because `@media` rules cannot be deleted by
      * selectorText and a per-owner copy would leak on every destroy.
      * @returns {String[]}
      */

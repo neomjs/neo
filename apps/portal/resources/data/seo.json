@@ -22,7 +22,7 @@
     "/learn": {
         "title": "Developer Guides — Web Worker UI Engine, SharedWorker & AI Agent OS | Neo.mjs",
         "description": "Learn how to build off-main-thread JavaScript apps and AI Agent OS workflows with Neo.mjs: Web Worker UIs, multi-window SharedWorkers, data grids & MCP tools.",
-        "lastmod": "2026-11-16"
+        "lastmod": "2026-11-17"
     },
     "/news": {
         "title": "News, Blog & Release Notes — Multi-Threaded JavaScript Engine | Neo.mjs",
@@ -1053,7 +1053,7 @@
     },
     "/examples/grid": {
         "title": "JavaScript Data Grid Examples — 100k Rows in a Web Worker | Neo.mjs",
-        "description": "Explore 16 live JavaScript data grid examples: A tree hierarchy at scale: up to 100,000 rows, 200 columns and 20 levels.",
+        "description": "Explore 16 live JavaScript data grid examples: An organization of 20,000 people and units as a tree grid, up to 100,000 rows, 200 columns and 20 levels.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-17"
     },
@@ -1066,6 +1066,18 @@
     "/examples/calendar": {
         "title": "MIT JavaScript Calendar — Day, Week, Month & Year Views | Neo.mjs",
         "description": "Explore 1 live JavaScript calendar example: A full calendar with day, week, month and year views, a month navigator and color-coded calendars.",
+        "schemaType": "CollectionPage",
+        "lastmod": "2026-11-17"
+    },
+    "/examples/scheduler": {
+        "title": "MIT JavaScript Resource Scheduler — Editable Timeline | Neo.mjs",
+        "description": "Explore 1 live JavaScript resource scheduler example: Resource bookings on an editable timeline.",
+        "schemaType": "CollectionPage",
+        "lastmod": "2026-11-17"
+    },
+    "/examples/gantt": {
+        "title": "MIT JavaScript Gantt Chart — Linked, Editable Tasks | Neo.mjs",
+        "description": "Explore 1 live JavaScript Gantt chart example: A project plan with linked, editable tasks.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-17"
     },
@@ -1211,7 +1223,7 @@
         "title": "Workstation — Multi-Window JavaScript Demo | Neo.mjs",
         "description": "A living-data workspace whose panes can leave the browser window. Pop out the 100k Matrix tab, use it in its own window, then close that window to bring it...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-16"
+        "lastmod": "2026-11-17"
     },
     "/examples/board/basic/index.html": {
         "title": "Sprint board · Neo Board — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1313,7 +1325,7 @@
         "title": "GraphScene — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "Live runnable GraphScene example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-05"
+        "lastmod": "2026-11-17"
     },
     "/examples/component/helix/index.html": {
         "title": "Helix — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1685,13 +1697,13 @@
         "title": "JavaScript Data Grid — 100k Rows & 200 Columns in a Web Worker | Neo.mjs",
         "description": "Interactive Neo.mjs JavaScript Data Grid with up to 100,000 rows and 200 columns in a Web Worker, with virtual scrolling and zero main-thread blocking.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-14"
+        "lastmod": "2026-11-17"
     },
     "/examples/grid/cellEditing/index.html": {
         "title": "Grid CellEditing — Web Worker Data Grid Demo | Neo.mjs",
         "description": "An order sheet with typed editors, a refused quantity and a calculated line total. Double-click or press Enter to edit, Tab to move on. A quantity over 50...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-09"
+        "lastmod": "2026-11-17"
     },
     "/examples/grid/container/index.html": {
         "title": "GridContainer — Web Worker Data Grid Demo | Neo.mjs",
@@ -1703,13 +1715,13 @@
         "title": "GridContainer - Content-Sized Rows — Data Grid Demo | Neo.mjs",
         "description": "Wrapped content with locked columns. Toggle content-sized rows, edit a summary, filter, or jump through 10,000 records; scroll to the wrapped Details column.",
         "schemaType": "WebPage",
-        "lastmod": "2026-10-13"
+        "lastmod": "2026-11-17"
     },
-    "/examples/grid/covid/index.html": {
-        "title": "CovidGrid — Web Worker Data Grid Demo | Neo.mjs",
-        "description": "API-loaded country statistics. Sort formatted numeric columns and compare country flags and colored measures.",
+    "/examples/grid/countries/index.html": {
+        "title": "JavaScript Data Grid with Country Statistics | Neo.mjs",
+        "description": "A Neo.mjs JavaScript Data Grid over 217 economies from the World Bank's latest indicators: flags, formatted figures, growth tinted by value, sortable...",
         "schemaType": "WebPage",
-        "lastmod": "2025-07-11"
+        "lastmod": "2026-11-17"
     },
     "/examples/grid/filtering/index.html": {
         "title": "JavaScript Data Grid with Column Filters | Neo.mjs",
@@ -1749,9 +1761,9 @@
     },
     "/examples/grid/treeBigData/index.html": {
         "title": "TreeGrid - Big Data — Web Worker Data Grid Demo | Neo.mjs",
-        "description": "A tree hierarchy at scale: up to 100,000 rows, 200 columns and 20 levels. Open the ☰ panel, raise rows and depth, then expand all; filter by name and toggle...",
+        "description": "An organization of 20,000 people and units as a tree grid, up to 100,000 rows, 200 columns and 20 levels. Open a squad to its people, give kudos from a...",
         "schemaType": "WebPage",
-        "lastmod": "2026-09-13"
+        "lastmod": "2026-11-17"
     },
     "/examples/grid/valueBanding/index.html": {
         "title": "Grid Value Banding — Web Worker Data Grid Demo | Neo.mjs",

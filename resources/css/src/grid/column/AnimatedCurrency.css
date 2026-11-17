@@ -1,0 +1,36 @@
+@keyframes grid-animated-cell-negative {
+    50%  {background-color: darkred;}
+}
+
+@keyframes grid-animated-cell-positive {
+    50%  {background-color: darkgreen}
+}
+
+/* The same keyframes under second names: a change inside a live mark switches to them, which restarts the animation */
+@keyframes grid-animated-cell-negative-alt {
+    50%  {background-color: darkred;}
+}
+
+@keyframes grid-animated-cell-positive-alt {
+    50%  {background-color: darkgreen}
+}
+
+.neo-grid-container .neo-grid-row .neo-grid-cell.neo-animated-negative, .neo-grid-container .neo-grid-row.neo-even .neo-grid-cell.neo-animated-negative {
+    animation-name: grid-animated-cell-negative;
+    animation-duration: 0.4s;
+    animation-timing-function: ease-in-out;
+}
+
+.neo-grid-container .neo-grid-row .neo-grid-cell.neo-animated-negative.neo-animated-alt, .neo-grid-container .neo-grid-row.neo-even .neo-grid-cell.neo-animated-negative.neo-animated-alt {
+    animation-name: grid-animated-cell-negative-alt;
+}
+
+.neo-grid-container .neo-grid-row .neo-grid-cell.neo-animated-positive, .neo-grid-container .neo-grid-row.neo-even .neo-grid-cell.neo-animated-positive {
+    animation-name: grid-animated-cell-positive;
+    animation-duration: 0.4s;
+    animation-timing-function: ease-in-out;
+}
+
+.neo-grid-container .neo-grid-row .neo-grid-cell.neo-animated-positive.neo-animated-alt, .neo-grid-container .neo-grid-row.neo-even .neo-grid-cell.neo-animated-positive.neo-animated-alt {
+    animation-name: grid-animated-cell-positive-alt;
+}

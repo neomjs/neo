@@ -4,7 +4,7 @@ const PORTAL = '/apps/portal/index.html',
       LIST   = '.portal-examples-list.neo-list';
 
 /**
- * @summary Pins the examples list's transition to the motion vocabulary (`resources/scss/_motion.scss`):
+ * @summary Pins the examples list's transition to the motion vocabulary (`resources/css/src/Global.css`):
  * it resolves through `--motion-panel` and `--ease-out-soft`, and collapses to `0s` under reduced motion.
  * The spec reads one element's computed style, so it covers that list, not every Portal transition.
  */

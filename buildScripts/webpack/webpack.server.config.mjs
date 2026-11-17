@@ -83,7 +83,7 @@ export function createDevelopmentThemeFreshnessHooks({
             if (!ready && lastReady !== false && buildsThemes()) {
                 warn(
                     '[dev-server] WARNING: development theme assets are missing, stale, invalid, ' +
-                    'or borrowed. Served CSS may trail current SCSS sources.\n' +
+                    'or borrowed. Served CSS may trail the current theme sources.\n' +
                     `Recovery: ${DEVELOPMENT_THEME_BUILD_COMMAND}`
                 )
             }

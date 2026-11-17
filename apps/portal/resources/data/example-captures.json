@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "families": ["grid-table"],
+  "families": ["grid-table", "gantt", "scheduler"],
   "suffix": "14",
   "recipes": [
     {
@@ -77,18 +77,18 @@
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },
     {
-      "id": "grid-covid",
-      "viewport": {"width": 1280, "height": 720},
+      "id": "grid-countries",
+      "viewport": {"width": 640, "height": 360},
       "theme": "default",
-      "state": "Country statistics sorted using the Country header, with flags and coloured measures visible.",
-      "dependencies": [
-        "https://disease.sh/v3/covid-19/countries",
-        "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/flaticon/country_flags/png/germany.png"
+      "state": "The largest populations first and China's row selected, with flags, formatted figures and population growth tinted green or red.",
+      "dependencies": ["https://hatscripts.github.io/circle-flags/flags/in.svg"],
+      "ready": [{"selector": ".neo-grid-cell[data-field='country']", "text": "India"}],
+      "steps": [{"kind": "click", "selector": ".neo-grid-cell[data-field='population']", "nth": 1}],
+      "after": [
+        {"selector": ".neo-grid-row.neo-selected .neo-grid-cell[data-field='country']", "text": "China", "inRegion": true},
+        {"selector": ".neo-grid-cell.countries-down", "inRegion": true}
       ],
-      "ready": [{"selector": ".neo-grid-cell img"}, {"selector": ".neo-grid-cell[data-field='country']"}],
-      "steps": [{"kind": "click", "selector": ".neo-grid-header-button", "text": "Country"}],
-      "after": [{"selector": "[role='columnheader'][aria-sort]", "text": "Country"}, {"selector": ".neo-grid-cell img"}],
-      "region": {"x": 20, "y": 20, "width": 640, "height": 360}
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },
     {
       "id": "grid-filtering",
@@ -235,74 +235,36 @@
         "height": 360
       },
       "theme": "dark",
-      "state": "The first visible folder opens three levels with one selected row; the native 20000-row control shows the scale.",
+      "state": "The first frame's open path, Engineering to Team Atlas, with Squad Alpha opened to its pods and people; the footer states the 20,000 rows.",
       "ready": [
         {
-          "selector": ".neo-grid-row[aria-level='1'] .neo-tree-toggle.is-collapsed"
+          "selector": ".neo-grid-row[aria-level='3'] .neo-tree-toggle.is-expanded"
         }
       ],
       "steps": [
         {
           "kind": "click",
-          "selector": ".neo-grid-header-button",
-          "text": "Tree"
+          "selector": ".neo-grid-row[aria-level='4']:has-text('Squad Alpha') .neo-tree-toggle"
         },
         {
           "kind": "wait",
-          "selector": "[role='columnheader'][aria-sort='descending']:has-text('Tree')"
-        },
-        {
-          "kind": "click",
-          "selector": ".neo-examples-treebigdata-controls-container .controls-container-button"
-        },
-        {
-          "kind": "click",
-          "selector": ".neo-grid-row[aria-level='1'] .neo-tree-toggle.is-collapsed",
-          "nth": 0
-        },
-        {
-          "kind": "wait",
-          "selector": ".neo-grid-row[aria-level='2'] .neo-tree-toggle.is-collapsed"
-        },
-        {
-          "kind": "click",
-          "selector": ".neo-grid-row[aria-level='2'] .neo-tree-toggle.is-collapsed",
-          "nth": 0
-        },
-        {
-          "kind": "wait",
-          "selector": ".neo-grid-row[aria-level='3'] .neo-grid-cell[data-field='name']"
-        },
-        {
-          "kind": "click",
-          "selector": ".neo-grid-row[aria-level='3'] .neo-grid-cell[data-field='name']",
-          "nth": 0
+          "selector": ".neo-grid-row[aria-level='5'] .neo-grid-cell[data-field='name']"
         }
       ],
       "after": [
         {
-          "selector": "[role='columnheader'][aria-sort='descending']",
-          "text": "Tree"
-        },
-        {
-          "selector": ".neo-examples-treebigdata-controls-container.neo-expanded",
+          "selector": ".neo-grid-row[aria-level='4'][aria-expanded='true'] .neo-grid-cell[data-field='name']",
+          "text": "Squad Alpha",
           "inRegion": true
         },
         {
-          "selector": ".neo-combobox:has-text('Amount Rows') input[role='combobox']",
-          "value": "20000",
+          "selector": ".neo-grid-row[aria-level='5'] .neo-grid-cell[data-field='name']",
+          "text": "John Thompson",
           "inRegion": true
         },
         {
-          "selector": ".neo-grid-row[data-row-id='0'][aria-level='1'][aria-expanded='true'] .neo-grid-cell[data-field='name']",
-          "inRegion": true
-        },
-        {
-          "selector": ".neo-grid-row[data-row-id='1'][aria-level='2'][aria-expanded='true'] .neo-grid-cell[data-field='name']",
-          "inRegion": true
-        },
-        {
-          "selector": ".neo-grid-row[data-row-id='2'][aria-level='3'].neo-selected .neo-grid-cell[data-field='name']",
+          "selector": ".neo-examples-treebigdata-footer",
+          "text": "20,000 rows",
           "inRegion": true
         }
       ],
@@ -339,6 +301,26 @@
       "steps": [{"kind": "fill", "selector": "#myTableFilterContainer .neo-table-header-toolbar .neo-textfield input", "nth": 0, "value": "ia"}],
       "after": [{"selector": "#myTableFilterContainer .neo-table-body tr", "count": 2}, {"selector": "#myTableFilterContainer .neo-table-cell", "text": "Tobias"}, {"selector": "#myTableFilterContainer .neo-table-cell", "text": "Bastian"}],
       "region": {"x": 20, "y": 20, "width": 640, "height": 360}
+    },
+    {
+      "id": "gantt-basic",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "The garden plan's timeline in the Week view: the summary bar over four tasks in a staircase, with Survey the site linked to Design the beds and Design the beds to Gather materials.",
+      "ready": [{"selector": ".neo-timeline-bar", "text": "Build the beds"}, {"selector": ".neo-gantt-dependency-arrow", "count": 2}],
+      "steps": [],
+      "after": [{"selector": ".neo-gantt-bar-summary", "text": "Community garden"}, {"selector": ".neo-timeline-bar", "text": "Survey the site", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Design the beds", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Gather materials", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Build the beds"}],
+      "region": {"selector": ".neo-timeline-header", "anchor": "top-left", "width": 640, "height": 360}
+    },
+    {
+      "id": "scheduler-basic",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "Monday's bookings across the studios in the Day view, with two overlapping recording sessions packed into lanes of one row.",
+      "ready": [{"selector": ".neo-timeline-bar", "text": "Quartet recording"}],
+      "steps": [],
+      "after": [{"selector": ".neo-timeline-bar", "text": "Quartet recording", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Piano", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Orchestral mix", "inRegion": true}],
+      "region": {"selector": ".neo-scheduler", "anchor": "top-left", "width": 640, "height": 360}
     }
   ]
 }

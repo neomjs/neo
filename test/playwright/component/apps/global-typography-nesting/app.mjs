@@ -6,7 +6,7 @@ import Viewport  from '../../../../../src/container/Viewport.mjs';
  * @summary Renders one `h1`, one `mark` and one inline `code` so a spec can read their COMPUTED
  * styles — the only instrument that can see this contract.
  *
- * The emitted CSS cannot answer the question the spec asks. `resources/scss/src/Global.scss`
+ * The emitted CSS cannot answer the question the spec asks. `resources/css/src/Global.css`
  * declares `var(--token, revert)` for each of these properties, and whether that fallback fires
  * depends on whether the token is present in the element's scope — which is a cascade fact, not a
  * text fact. A stylesheet diff shows the same bytes in both arms.

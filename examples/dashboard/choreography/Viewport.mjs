@@ -4,7 +4,7 @@ import DemoAWorkspace from './DemoAWorkspace.mjs';
 /**
  * @summary Viewport of the dock-choreography example.
  *
- * It exists for the DOM shape, not for logic. `DemoAWorkspace.scss` establishes the flex context,
+ * It exists for the DOM shape, not for logic. `DemoAWorkspace.css` establishes the flex context,
  * sizing and stage geometry on `.agentos-dockdemo-viewport`; mounting the workspace as the app's
  * mainView directly leaves that class on no element, so the stage collapses and the tour's own
  * controls stop being clickable. The wrapper is what the stylesheet addresses.
