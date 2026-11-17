@@ -252,6 +252,34 @@ test.describe('the planning panes', () => {
         expect(board.getCardPosition(record).status, 'and keeps its column').toBe('done')
     });
 
+    test('a schedule-editor save names every day its bar takes: an end at noon closes its own day, an end at midnight the day before', () => {
+        const people    = Neo.create(People),
+              workItems = Neo.create(WorkItems, {baseDate: BASE});
+
+        stores = [people, workItems];
+        board  = Neo.create(BoardPane, {appName, people, store: workItems});
+        pane   = Neo.create(SchedulerPane, {...planningAxis(BASE), appName, eventStore: workItems, store: people, viewportWidth: 1600});
+
+        const record = workItems.get('wi-9'),
+              save   = (startDate, endDate) => {
+                  const editor = pane.openEventEditor('wi-9');
+
+                  editor.setFieldValue('startDate', startDate);
+                  editor.setFieldValue('endDate',   endDate);
+                  editor.save()
+              };
+
+        save('2026-11-18T00:00', '2026-11-20T12:00');
+        expect(record.endDate.toISOString(), 'the editor keeps an end inside a day, despite the daily snap').toBe('2026-11-20T12:00:00.000Z');
+        expect(footer(board.getCard(record)).days).toBe('18–20 Nov');
+
+        save('2026-11-18T00:00', '2026-11-20T00:00');
+        expect(footer(board.getCard(record)).days, 'an end at midnight closes the day before').toBe('18–19 Nov');
+
+        save('2026-11-18T00:00', '2026-11-19T00:00');
+        expect(footer(board.getCard(record)).days, 'one day').toBe('18 Nov')
+    });
+
     test('a card\'s editor offers the work item\'s own fields, its person among the team; a person chosen there moves the bar', () => {
         const people    = Neo.create(People),
               workItems = Neo.create(WorkItems, {baseDate: BASE});

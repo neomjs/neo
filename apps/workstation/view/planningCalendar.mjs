@@ -51,15 +51,18 @@ export function dayLabel(date, month=true) {
 
 /**
  * @summary A work item's days: `17–20 Nov`, `28 Nov – 3 Dec` across a month, `17 Nov` for one day. The end
- * date is exclusive, as on the schedule's bars, so the label names the last day the work item takes.
+ * date is exclusive, as on the schedule's bars, so the last day named is the UTC day the work item's last moment
+ * falls on: an end at midnight closes the day before, an end at noon its own day.
  * @param {Date} startDate
  * @param {Date} endDate
  * @returns {String}
  */
 export function daysLabel(startDate, endDate) {
-    const last = new Date(Math.max(startDate.getTime(), endDate.getTime() - msPerDay));
+    const firstDay = Math.floor(startDate.getTime() / msPerDay),
+          lastDay  = Math.max(firstDay, Math.floor((endDate.getTime() - 1) / msPerDay)),
+          last     = new Date(lastDay * msPerDay);
 
-    if (last.getTime() === startDate.getTime()) return dayLabel(last);
+    if (lastDay === firstDay) return dayLabel(startDate);
 
     return startDate.getUTCMonth() === last.getUTCMonth()
         ? `${dayLabel(startDate, false)}–${dayLabel(last)}`
