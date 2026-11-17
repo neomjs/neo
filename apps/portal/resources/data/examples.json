@@ -657,6 +657,23 @@
         "lookFor": "Pick a category and compare an amount: the count says how many of 10,000 orders stay, and Reset clears every field."
     },
     {
+        "id": "grid-export",
+        "image": "devmode/grid-export-14.jpg",
+        "name": "Grid CSV Export",
+        "sourceUrl": "examples/grid/export",
+        "urls": {
+            "devmode": "examples/grid/export/index.html",
+            "dist_dev": "dist/development/examples/grid/export/index.html",
+            "dist_esm": "dist/esm/examples/grid/export/index.html",
+            "dist_prod": "dist/production/examples/grid/export/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "component": "Grid",
+        "feature": "CSV export of the filtered and sorted rows with toCsv() and exportCsv()",
+        "lookFor": "Filter and sort 300 invoices, show the CSV beside the grid, switch to semicolons, then download it."
+    },
+    {
         "id": "grid-header-groups",
         "image": "devmode/grid-header-groups-14.jpg",
         "name": "Grouped Grid Headers",
@@ -738,8 +755,8 @@
         "hiddenIn": [],
         "family": "grid-table",
         "component": "Grid",
-        "feature": "Bands for repeated values",
-        "lookFor": "Toggle Department value bands and compare them with striped rows; Country banding stays on."
+        "feature": "Country and department value banding",
+        "lookFor": "Compare unequal country bands in a fictional staff directory. Enable Department banding for a second level, or switch on alternating row stripes."
     },
     {
         "id": "table-container",

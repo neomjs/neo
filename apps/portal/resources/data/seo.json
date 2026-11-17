@@ -1053,7 +1053,7 @@
     },
     "/examples/grid": {
         "title": "JavaScript Data Grid Examples — 100k Rows in a Web Worker | Neo.mjs",
-        "description": "Explore 16 live JavaScript data grid examples: An organization of 20,000 people and units as a tree grid, up to 100,000 rows, 200 columns and 20 levels.",
+        "description": "Explore 17 live JavaScript data grid examples: An organization of 20,000 people and units as a tree grid, up to 100,000 rows, 200 columns and 20 levels.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-17"
     },
@@ -1726,6 +1726,12 @@
     "/examples/grid/filtering/index.html": {
         "title": "JavaScript Data Grid with Column Filters | Neo.mjs",
         "description": "A Neo.mjs JavaScript Data Grid filters 10,000 orders from its column headers: text, a category, an amount, a date and a status, with a live count.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-17"
+    },
+    "/examples/grid/export/index.html": {
+        "title": "JavaScript Data Grid CSV Export | Neo.mjs",
+        "description": "A Neo.mjs JavaScript Data Grid that exports what it shows as CSV: filter and sort 300 invoices, preview the CSV beside the grid, then download it.",
         "schemaType": "WebPage",
         "lastmod": "2026-11-17"
     },
