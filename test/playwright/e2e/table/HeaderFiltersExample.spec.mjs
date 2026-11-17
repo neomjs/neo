@@ -36,12 +36,14 @@ test.describe('examples/tableFiltering', () => {
         await expect(rows).toHaveCount(80);
 
         await openOrders.fill('8');
+        await expect(rows).not.toHaveCount(80);
         await expect(rows).toHaveCount(37);
         expect(await rows.evaluateAll(nodes => nodes.every(row => Number(row.querySelectorAll('.neo-table-cell')[2].textContent) > 8))).toBe(true);
         await openOrders.fill('');
         await expect(rows).toHaveCount(80);
 
         await lastOrder.fill('2025-08-15');
+        await expect(rows).not.toHaveCount(80);
         await expect(rows).toHaveCount(38);
         expect(await rows.evaluateAll(nodes => nodes.every(row => row.querySelectorAll('.neo-table-cell')[3].textContent.trim() >= '2025-08-15'))).toBe(true);
         await lastOrder.fill('');
