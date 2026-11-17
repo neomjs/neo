@@ -162,12 +162,27 @@ class Resizable extends Plugin {
          */
         nodeTopRight: null,
         /**
+         * The style config that takes the resize, on the owner and on its drag proxy. On a single-root component
+         * `style` wins over `wrapperStyle`, so an owner that keeps its geometry in `style`, as `Neo.dialog.Base`
+         * does with its moves, needs `'style'`, or every key there masks the resize.
+         * @member {'style'|'wrapperStyle'} styleConfig='wrapperStyle'
+         */
+        styleConfig: 'wrapperStyle',
+        /**
          * vdom node which matches the delegationCls to add resize handles
          * @member {Object} targetNode=null
          * @protected
          */
         targetNode: null
     }
+
+    /**
+     * The owner's opacity before a resize dimmed it, undefined if its style held none. Both ends of the gesture, a
+     * cancel included, restore it.
+     * @member {Number|String|undefined} ownerOpacity
+     * @protected
+     */
+    ownerOpacity = undefined
 
     /**
      * @param {Object} config
@@ -274,12 +289,12 @@ class Resizable extends Plugin {
     }
 
     /**
-     * @param {Object} data
+     * Closes a resize gesture: resets its state and gives the owner back the opacity it had before the gesture
+     * @param {Object} style The owner's style config, holding the geometry the owner keeps
+     * @protected
      */
-    onDragEnd(data) {
-        let me      = this,
-            {owner} = me,
-            style   = owner.wrapperStyle; // todo: delegation target
+    closeGesture(style) {
+        let me = this;
 
         Object.assign(me, {
             boundaryContainerRect: null,
@@ -287,15 +302,43 @@ class Resizable extends Plugin {
             isDragging           : false
         });
 
+        if (me.ownerOpacity === undefined) {
+            delete style.opacity
+        } else {
+            style.opacity = me.ownerOpacity
+        }
+
+        me.owner[me.styleConfig] = style;
+
+        me.removeBodyCursorCls()
+    }
+
+    /**
+     * Escape cancelled the resize: the drag zone already removed its proxy and swallows the later `drag:end`, so the
+     * owner keeps its committed geometry
+     */
+    onDragCancel() {
+        let me = this;
+
+        me.closeGesture(me.owner[me.styleConfig]);
+        me.removeAllNodes()
+    }
+
+    /**
+     * Commits the drag proxy's geometry to the owner
+     * @param {Object} data
+     */
+    onDragEnd(data) {
+        let me                   = this,
+            {owner, styleConfig} = me,
+            style                = owner[styleConfig]; // todo: delegation target
+
         Object.assign(style, {
-            opacity  : 1,
             transform: 'none',
-            ...me.dragZone.dragProxy.wrapperStyle
+            ...me.dragZone.dragProxy[styleConfig]
         });
 
-        owner.wrapperStyle = style;
-
-        me.removeBodyCursorCls();
+        me.closeGesture(style);
 
         me.dragZone.dragEnd();
         me.removeAllNodes();
@@ -317,7 +360,7 @@ class Resizable extends Plugin {
         if (!node) {
             me.onDragEnd({})
         } else if (me.dragZone.dragProxy) {
-            style = me.dragZone.dragProxy.wrapperStyle;
+            style = me.dragZone.dragProxy[me.styleConfig];
 
             if (node.includes('bottom')) {
                 size = Math.max(minHeight, data.clientY - rect.top);
@@ -379,7 +422,7 @@ class Resizable extends Plugin {
                 style.width = `${size}px`
             }
 
-            me.dragZone.dragProxy.wrapperStyle = style
+            me.dragZone.dragProxy[me.styleConfig] = style
         }
     }
 
@@ -387,18 +430,19 @@ class Resizable extends Plugin {
      * @param {Object} data
      */
     onDragStart(data) {
-        let me                         = this,
-            containerId                = me.boundaryContainerId,
-            i                          = 0,
-            len                        = data.path.length,
-            {appName, owner, windowId} = me,
-            style                      = owner.wrapperStyle, // todo: delegation target
+        let me                                      = this,
+            containerId                             = me.boundaryContainerId,
+            i                                       = 0,
+            len                                     = data.path.length,
+            {appName, owner, styleConfig, windowId} = me,
+            style                                   = owner[styleConfig], // todo: delegation target
             target, vdom, vdomStyle;
 
-        me.isDragging = true;
+        me.isDragging   = true;
+        me.ownerOpacity = style.opacity;
 
         style.opacity = 0.3;
-        owner.wrapperStyle = style;
+        owner[styleConfig] = style;
 
         for (; i < len; i++) {
             target = data.path[i];
@@ -447,7 +491,9 @@ class Resizable extends Plugin {
                 owner,
                 windowId,
                 ...me.dragZoneConfig
-            })
+            });
+
+            me.dragZone.on('dragCancel', me.onDragCancel, me)
         } else {
             me.dragZone.boundaryContainerId = owner.boundaryContainerId
         }
