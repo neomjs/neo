@@ -277,6 +277,9 @@ class List extends BaseList {
             needsUpdate = false,
             node;
 
+        // A card's intersection can arrive after a build switch dropped its record: nothing to preload
+        if (!record) return;
+
         for (; i < len; i++) {
             record = store.getAt(i);
             node = VDomUtil.getByFlag(me.vdom, `image-${store.getKey(record)}`);

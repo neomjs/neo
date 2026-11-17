@@ -119,3 +119,41 @@
     flex-direction: column;
     gap           : 14px;
 }
+
+/* Upright beside the cards, the whole index ends above the fold of a 720 px viewport */
+.portal-examples-group-index-list {
+    gap: 10px;
+
+    a {
+        padding-block: 4px;
+    }
+}
+
+/* The link that ends a group page's cards */
+.portal-examples-group-index-next {
+    padding: 8px 16px 32px;
+
+    a {
+        border               : 1px solid var(--portal-examples-border);
+        border-radius        : 12px;
+        grid-template-columns: auto 20px 1fr auto;
+        max-width            : 480px;
+        padding              : 12px 16px;
+    }
+
+    .portal-examples-group-index-next-label {
+        color         : var(--portal-examples-text-muted);
+        font-size     : 12px;
+        font-weight   : 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+
+    .portal-examples-group-index-title {
+        font-weight: 600;
+    }
+
+    .portal-examples-group-index-arrow {
+        color: var(--portal-examples-accent);
+    }
+}

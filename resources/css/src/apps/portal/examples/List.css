@@ -7,7 +7,8 @@
     display              : grid;
     gap                  : 20px;
     grid-auto-rows       : max-content;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+    /* No card below 410 px: a 640 px cover frame keeps its text at 0.64 of its size */
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 410px), 1fr));
     padding              : 16px 16px 0;
     transition           : padding var(--portal-transition-duration) var(--ease-out-soft);
 

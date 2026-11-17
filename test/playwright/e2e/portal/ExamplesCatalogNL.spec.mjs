@@ -76,6 +76,31 @@ async function selectBuild(page, label) {
 }
 
 /**
+ * @summary Reads the open group page's desktop control: the crumb, the upright index and the cards beside them.
+ * @param {Object} page The test page.
+ * @returns {Promise<Object>}
+ */
+async function readDesktopPage(page) {
+    return page.locator(PAGE).evaluate(node => {
+        const index = node.querySelector('.portal-examples-group-index-list'),
+              list  = node.querySelector('.portal-examples-list'),
+              // the heading's and the build control's own boxes: a clipping header row can collapse below them
+              heading = Math.max(...['.portal-examples-group-heading', '.portal-examples-build-control']
+                  .map(selector => node.querySelector(selector).getBoundingClientRect().bottom));
+
+        return {
+            cardsBelow : list.getBoundingClientRect().top >= heading - 1,
+            columns    : getComputedStyle(list).gridTemplateColumns.split(' ').length,
+            crumb      : getComputedStyle(node.querySelector('.portal-examples-group-crumb')).display !== 'none',
+            index      : Boolean(index?.offsetHeight),
+            indexBottom: index ? index.getBoundingClientRect().top + index.scrollHeight : null,
+            narrowest  : Math.min(...[...list.querySelectorAll('.neo-list-item')].map(card => card.getBoundingClientRect().width)),
+            overflowX  : node.scrollWidth > node.clientWidth + 1
+        }
+    })
+}
+
+/**
  * @summary Checks the resting card: a 16:9 cover that fills it, with title and proof line on a docked scrim.
  * @param {Object} list The mounted list locator.
  * @param {Number} width Viewport width.
@@ -282,6 +307,68 @@ test.describe('Portal examples section', () => {
         await expect(page.locator(`${PAGE} .portal-examples-group-button`)).toHaveAttribute('aria-expanded', 'false')
     });
 
+    for (const viewport of [{width: 1440, height: 900}, {width: 1280, height: 720}]) {
+        test(`${viewport.width}×${viewport.height}, list: the index stands beside the cards and ends above the fold, no card under 410 px`, async ({page, neuralLink}, testInfo) => {
+            await page.setViewportSize(viewport);
+            await page.goto(`${PORTAL}#/examples/grid`);
+            await neuralLink.connectToApp('Portal');
+            await expectOpenPage(page, 'Grid & Table');
+
+            const index = page.locator(`${PAGE} nav.portal-examples-group-index-list`);
+
+            await expect(index.locator('[aria-current="page"]')).toContainText('Grid & Table');
+            await expect(index.locator('a .portal-examples-group-index-title')).toHaveText(GROUPS);
+
+            const layout = await readDesktopPage(page);
+
+            expect(layout).toMatchObject({cardsBelow: true, columns: 2, crumb: false, index: true, overflowX: false});
+            expect(layout.indexBottom).toBeLessThanOrEqual(viewport.height);
+            expect(layout.narrowest).toBeGreaterThanOrEqual(410);
+            await page.screenshot({path: testInfo.outputPath(`list-${viewport.width}x${viewport.height}.png`)});
+
+            // one action reaches a sibling
+            await index.getByRole('link', {name: /^Calendar, /}).click();
+            await expectOpenPage(page, 'Calendar');
+            await expect(page.locator(`${PAGE} nav.portal-examples-group-index-list [aria-current="page"]`)).toContainText('Calendar')
+        })
+    }
+
+    test('1440×900, switcher: the crumb\'s pill names the groups and opens them, and a link to the next group ends the cards', async ({page, neuralLink}, testInfo) => {
+        await page.setViewportSize({width: 1440, height: 900});
+        await page.goto(`${PORTAL}#/examples/calendar`);
+        const app = await neuralLink.connectToApp('Portal');
+        await expectOpenPage(page, 'Calendar');
+
+        const [section] = await app.queryComponent({className: 'Portal.view.examples.MainContainer'}, ['id']);
+        await app.setProperties(section.id, {groupControl: 'switcher'});
+
+        const pill  = page.locator(`${PAGE} .portal-examples-group-button`),
+              sheet = page.locator(`${PAGE} .portal-examples-group-index-sheet`);
+
+        await expect(pill).toContainText('14 groups');
+
+        // without the index the cards take the width: three columns, none under 410 px
+        const layout = await readDesktopPage(page);
+
+        expect(layout).toMatchObject({cardsBelow: true, columns: 3, crumb: true, index: false, overflowX: false});
+        expect(layout.narrowest).toBeGreaterThanOrEqual(410);
+        await page.screenshot({path: testInfo.outputPath('switcher-1440x900.png')});
+
+        await pill.click();
+        await expect(pill).toHaveAttribute('aria-expanded', 'true');
+        await expect(sheet.locator('[aria-current="page"]')).toContainText('Calendar');
+        await page.screenshot({path: testInfo.outputPath('switcher-open-1440x900.png')});
+        await page.keyboard.press('Escape');
+        await expect(sheet).toHaveCount(0);
+        await expect(pill).toBeFocused();
+
+        const next = page.locator(`${PAGE} nav.portal-examples-group-index-next a`);
+
+        await expect(next).toHaveAccessibleName(/^Next group: Tab Container, /);
+        await next.click();
+        await expectOpenPage(page, 'Tab Container')
+    });
+
     test('what the boards cannot show: direct entry, history, the build kept across groups, the scroll of each group', async ({page, neuralLink}) => {
         await page.goto(`${PORTAL}#/examples/forms`);
         const app = await neuralLink.connectToApp('Portal');
@@ -382,8 +469,9 @@ test.describe('Portal examples section', () => {
                 const overview = page.locator(CARDS);
 
                 await expect(overview.locator('.portal-example-feature')).toHaveCount(16);
+                // beside the upright index a card keeps 410 px: two columns at 1440, one at 844 and on a phone
                 const columns = await overview.evaluate(node => getComputedStyle(node).gridTemplateColumns.split(' ').length);
-                expect(columns).toBe(viewport.width === 1440 ? 3 : viewport.width <= 600 ? 1 : 2);
+                expect(columns).toBe(viewport.width === 1440 ? 2 : 1);
                 const list = await readList(app, 'grid-table');
                 expect(list.id).toBe(await overview.getAttribute('id'));
                 // the page's Store lists the covered records; the catalog keeps the others for their covers

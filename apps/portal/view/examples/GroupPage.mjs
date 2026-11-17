@@ -3,17 +3,31 @@ import Container    from '../../../../src/container/Base.mjs';
 import ExampleGroup from '../../model/ExampleGroup.mjs';
 import GroupIndex   from './GroupIndex.mjs';
 import List         from './List.mjs';
+import NeoArray     from '../../../../src/util/Array.mjs';
 
 /**
- * @summary The page of one example group: its heading, the build control and its cards.
+ * @summary The page of one example group: its heading, the build control and its cards, and the way to every other
+ * group.
  *
- * Below 640 px a crumb stays on top of the page, and its group button opens the whole banded index as a sheet
- * (`Portal.view.examples.GroupIndex`, presentation `sheet`): one tap opens it, a second navigates. The sheet takes focus
- * when it opens, closes on Escape, on its button and on a followed link, and returns focus to its button.
+ * On the desktop that way is the `control` the section sets. `list` puts the banded index upright beside the cards
+ * (`Portal.view.examples.GroupIndex`, presentation `list`). `switcher` keeps the crumb on top of the page: its group
+ * button names how many groups the index holds, and a link to the next group ends the cards (presentation `next`).
+ *
+ * Below 640 px both keep the crumb, and its group button opens the whole banded index as a sheet (presentation
+ * `sheet`): one tap opens it, a second navigates. The sheet takes focus when it opens, closes on Escape, on its button
+ * and on a followed link, and returns focus to its button.
  * @class Portal.view.examples.GroupPage
  * @extends Neo.container.Base
  */
 class GroupPage extends Container {
+    /**
+     * Valid values for control
+     * @member {String[]} controls=['list','switcher']
+     * @protected
+     * @static
+     */
+    static controls = ['list', 'switcher']
+
     static config = {
         /**
          * @member {String} className='Portal.view.examples.GroupPage'
@@ -31,6 +45,13 @@ class GroupPage extends Container {
          */
         cls: ['portal-examples-group-page'],
         /**
+         * How the desktop reaches the other groups, `list` or `switcher`: the section's `groupControl`, see the class
+         * description.
+         * @member {String} control_='list'
+         * @reactive
+         */
+        control_: 'list',
+        /**
          * The id of the group this page shows.
          * @member {String|null} family=null
          */
@@ -42,21 +63,46 @@ class GroupPage extends Container {
          */
         group_: null,
         /**
-         * @member {Object} layout={ntype:'vbox',align:'stretch'}
+         * The page places its items on a CSS grid: the crumb across the top, the upright index beside the heading, the
+         * cards and the next link. The cards stay a direct child of the page, which scrolls (see `List#useWrapperNode`).
+         * @member {Object} layout={ntype:'grid'}
          * @reactive
          */
-        layout: {ntype: 'vbox', align: 'stretch'},
+        layout: {ntype: 'grid'},
         /**
          * The cards' store config, from `Portal.view.examples.MainContainer#createGroupPage()`.
          * @member {Object|null} listStore=null
          */
         listStore: null,
         /**
-         * True while the phone's sheet shows the banded index.
+         * True while the crumb's sheet shows the banded index.
          * @member {Boolean} sheetOpen_=false
          * @reactive
          */
         sheetOpen_: false
+    }
+
+    /**
+     * @summary Swaps the page's control class, shows the index or the next link for the new control, and names the
+     * group count on the crumb's button while the switcher shows it.
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetControl(value, oldValue) {
+        let me  = this,
+            cls = me.cls;
+
+        NeoArray.remove(cls, 'portal-examples-group-page-' + oldValue);
+        NeoArray.add(cls, 'portal-examples-group-page-' + value);
+        me.cls = cls;
+
+        // During construction createItems() reads the value it starts with
+        if (oldValue !== undefined) {
+            me.down({reference: 'group-index'}).hidden = value !== 'list';
+            me.down({reference: 'group-next'}).hidden  = value !== 'switcher';
+            me.updateHeading()
+        }
     }
 
     /**
@@ -86,17 +132,27 @@ class GroupPage extends Container {
     }
 
     /**
-     * @summary The crumb with its sheet, the heading beside the build control, and the cards.
+     * @param {String} value
+     * @param {String} oldValue
+     * @returns {String}
+     * @protected
+     */
+    beforeSetControl(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'control')
+    }
+
+    /**
+     * @summary The crumb with its sheet, the upright index, the heading with the build control, the cards and the next
+     * link.
      * @protected
      */
     createItems() {
-        const me      = this,
-              {group} = me;
+        const me                       = this,
+              {control, family, group} = me;
 
         me.items = [{
             module: Container,
             cls   : ['portal-examples-group-crumb'],
-            flex  : 'none',
             layout: {ntype: 'hbox', align: 'center'},
             items : [{
                 module: Button,
@@ -118,7 +174,7 @@ class GroupPage extends Container {
                 ui       : 'secondary'
             }, {
                 module      : GroupIndex,
-                activeFamily: me.family,
+                activeFamily: family,
                 hidden      : true,
                 id          : me.id + '__sheet',
                 presentation: 'sheet',
@@ -130,9 +186,14 @@ class GroupPage extends Container {
                 }
             }]
         }, {
+            module      : GroupIndex,
+            activeFamily: family,
+            hidden      : control !== 'list',
+            presentation: 'list',
+            reference   : 'group-index'
+        }, {
             module: Container,
             cls   : ['portal-examples-group-header'],
-            flex  : 'none',
             layout: {ntype: 'hbox', align: 'start', wrap: 'wrap'},
             items : [{
                 ntype    : 'component',
@@ -147,10 +208,16 @@ class GroupPage extends Container {
         }, {
             module        : List,
             bind          : {catalogMode: data => data.catalogMode},
-            flex          : 'none',
             reference     : 'group-list',
             store         : me.listStore,
-            useWrapperNode: false // the page scrolls, not the list
+            useWrapperNode: false, // the page scrolls, not the list
+            wrapperCls    : ['portal-examples-group-cards']
+        }, {
+            module      : GroupIndex,
+            activeFamily: family,
+            hidden      : control !== 'switcher',
+            presentation: 'next',
+            reference   : 'group-next'
         }];
 
         super.createItems();
@@ -219,16 +286,22 @@ class GroupPage extends Container {
     }
 
     /**
-     * @summary Writes the group's title, count and sentence into the crumb and the heading.
+     * @summary Writes the group's title, count and sentence into the crumb and the heading. While the switcher shows,
+     * the crumb's button also names how many groups the selected build publishes.
      */
     updateHeading() {
         const me            = this,
               {group}       = me,
               button        = me.getGroupButton(),
               heading       = me.down({reference: 'group-heading'}),
-              [title, line] = heading.vdom.cn;
+              [title, line] = heading.vdom.cn,
+              groups        = me.control === 'switcher' ? me.getStateProvider().getStore('groups').getCount() : 0;
 
-        button.set({iconCls: group.iconCls, text: group.title});
+        button.set({
+            badgeText: groups ? `${groups} groups` : null,
+            iconCls  : group.iconCls,
+            text     : group.title
+        });
 
         title.text = group.title;
         line.text  = [ExampleGroup.countLabel(group), group.sentence].filter(Boolean).join(' · ');

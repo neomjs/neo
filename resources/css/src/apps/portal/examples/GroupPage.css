@@ -1,12 +1,37 @@
+/* The crumb runs across the top; the upright index spans the rows of the heading, the cards and the next link. */
 .portal-examples-group-page {
-    overflow-y: auto;
+    align-content        : start;
+    grid-template-columns: auto minmax(0, 1fr);
+    /* The page overflows, so auto rows would get no free space and shrink the header, which clips, to its padding */
+    grid-template-rows   : repeat(4, max-content);
+    overflow-y           : auto;
 
-    /* The crumb shows below 640 px: the phone's way to every other group. */
+    > .portal-examples-group-header,
+    > .portal-examples-group-cards,
+    > .portal-examples-group-index-next {
+        grid-column: 2;
+    }
+
+    > .portal-examples-group-header {
+        grid-row: 2;
+    }
+
+    > .portal-examples-group-cards {
+        grid-row: 3;
+    }
+
+    > .portal-examples-group-index-next {
+        grid-row: 4;
+    }
+
+    /* The crumb shows below 640 px, the phone's way to every other group, and with the switcher at every width. */
     .portal-examples-group-crumb {
         background-color: var(--portal-examples-bg);
         border-bottom   : 1px solid var(--portal-examples-border);
         display         : none;
         gap             : 4px;
+        grid-column     : 1 / -1;
+        grid-row        : 1;
         overflow        : visible;
         padding         : 8px 12px;
         position        : sticky;
@@ -25,6 +50,16 @@
         .neo-button-text {
             overflow     : hidden;
             text-overflow: ellipsis;
+        }
+
+        /* The switcher's group count reads inline, after the group */
+        .neo-button-badge {
+            background-color: transparent;
+            color           : var(--portal-examples-text-muted);
+            font-size       : 13px;
+            margin-left     : 8px;
+            padding         : 0;
+            position        : static;
         }
 
         /* The caret says the button opens a list */
@@ -47,6 +82,20 @@
         position        : absolute;
         right           : 0;
         top             : 100%;
+    }
+
+    /* The upright index stays in view while the cards scroll: the viewport less the portal's 58 px header */
+    .portal-examples-group-index-list {
+        align-self  : start;
+        border-right: 1px solid var(--portal-examples-border);
+        grid-column : 1;
+        grid-row    : 2 / span 3;
+        max-height  : calc(100dvh - 58px);
+        overflow-y  : auto;
+        padding     : 16px 8px 16px 12px;
+        position    : sticky;
+        top         : 0;
+        width       : 264px;
     }
 
     .portal-examples-group-header {
@@ -82,12 +131,38 @@
             display: flex;
         }
 
+        .portal-examples-group-index-list {
+            display: none;
+        }
+
         .portal-examples-group-header {
             padding: 14px 16px 4px;
         }
 
         .portal-examples-group-heading h1 {
             font-size: 26px;
+        }
+    }
+}
+
+.portal-examples-group-page-switcher {
+    .portal-examples-group-crumb {
+        display: flex;
+    }
+
+    /* A pill, unlike the build control's rounded box */
+    .portal-examples-group-button.neo-button {
+        border-color : var(--portal-examples-accent);
+        border-radius: 999px;
+    }
+
+    @media (min-width: 641px) {
+        .portal-examples-group-index-sheet {
+            border       : 1px solid var(--portal-examples-border);
+            border-radius: 12px;
+            left         : 12px;
+            right        : auto;
+            width        : 320px;
         }
     }
 }

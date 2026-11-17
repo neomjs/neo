@@ -8,9 +8,10 @@ import Store           from '../../../../src/data/Store.mjs';
  * @summary The banded index of the example groups: every group of the bound store, in its band, as a link to its page
  * with its count.
  *
- * One component in three presentations (`presentation`): `overview` sets the bands side by side under the overview's
- * headline, `list` stands upright beside a group page's cards, and `sheet` opens under a phone's crumb. All three render
- * the groups store (`Portal.store.ExampleGroups`), so a group that publishes in the selected build appears in each.
+ * One component in four presentations (`presentation`): `overview` sets the bands side by side under the overview's
+ * headline, `list` stands upright beside a group page's cards, `sheet` opens under a group page's crumb, and `next` ends
+ * the cards with the one link to the group after the open one. All four render the groups store
+ * (`Portal.store.ExampleGroups`), so a group that publishes in the selected build appears in each.
  *
  * A component, not a list: the entries are links in the tab order, with no roving focus and no selection, and the open
  * group's link carries `aria-current="page"`.
@@ -20,11 +21,11 @@ import Store           from '../../../../src/data/Store.mjs';
 class GroupIndex extends Component {
     /**
      * Valid values for presentation
-     * @member {String[]} presentations=['list','overview','sheet']
+     * @member {String[]} presentations=['list','next','overview','sheet']
      * @protected
      * @static
      */
-    static presentations = ['list', 'overview', 'sheet']
+    static presentations = ['list', 'next', 'overview', 'sheet']
 
     static config = {
         /**
@@ -52,7 +53,7 @@ class GroupIndex extends Component {
          */
         bind: {store: 'stores.groups'},
         /**
-         * `overview`, `list` or `sheet`, see the class description.
+         * `overview`, `list`, `sheet` or `next`, see the class description.
          * @member {String} presentation_='overview'
          * @reactive
          */
@@ -135,12 +136,19 @@ class GroupIndex extends Component {
 
     /**
      * @summary Renders the store's groups by band. A band without a published group has no section, and the line
-     * under the bands explains a count in parentheses while one shows.
+     * under the bands explains a count in parentheses while one shows. The `next` presentation renders one link.
      */
     createEntries() {
         let me        = this,
             bands     = new Map(),
             borrowing = false;
+
+        if (me.presentation === 'next') {
+            me.vdom['aria-label'] = 'Next group';
+            me.vdom.cn            = [me.createNextEntry()];
+            me.update();
+            return
+        }
 
         me.store.forEach(group => {
             bands.has(group.band) || bands.set(group.band, []);
@@ -186,6 +194,29 @@ class GroupIndex extends Component {
                 {tag: 'span', cls: ['portal-examples-group-index-count'], text: ExampleGroup.countText(group)}
             ]
         }]}
+    }
+
+    /**
+     * @summary The link that ends a group page's cards: to the group after the open one in the bound store, and after
+     * the last group back to the overview.
+     * @returns {Object}
+     */
+    createNextEntry() {
+        let {activeFamily, store} = this,
+            index                 = store.indexOf(activeFamily),
+            group                 = index > -1 ? store.getAt(index + 1) : null;
+
+        return {
+            tag         : 'a',
+            'aria-label': group ? `Next group: ${group.title}, ${ExampleGroup.countLabel(group)}` : 'All groups',
+            href        : group ? '#' + group.route : '#/examples',
+            cn          : [
+                {tag: 'span', cls: ['portal-examples-group-index-next-label'], text: group ? 'Next group' : 'All groups'},
+                {tag: 'i',    cls: [...(group?.iconCls || 'fa fa-table-cells-large').split(' '), 'portal-examples-group-index-icon'], 'aria-hidden': true},
+                {tag: 'span', cls: ['portal-examples-group-index-title'], text: group ? group.title : 'Back to the overview'},
+                {tag: 'i',    cls: ['fa', 'fa-arrow-right', 'portal-examples-group-index-arrow'], 'aria-hidden': true}
+            ]
+        }
     }
 
     /**
