@@ -16,8 +16,20 @@ export function getBuildId() {
 }
 
 /**
- * @summary Publishes a build run's id in a dist folder. Call it only after the run succeeded: `buildThreads.mjs` on its
- * own stamps after its threads, and `all.mjs` runs it with `--no-stamp` and stamps after its last step.
+ * @summary Whether this build step leaves publishing the id to the build that runs it. `buildScripts/build/all.mjs` runs
+ * its steps with `--no-stamp` and stamps every dist folder it built after its last step, so a step that fails after
+ * another one succeeded publishes nothing.
+ * @param {String[]} [argv=process.argv]
+ * @returns {Boolean}
+ */
+export function stampDeferred(argv=process.argv) {
+    return argv.includes('--no-stamp')
+}
+
+/**
+ * @summary Publishes a build run's id in a dist folder. Call it only after the run succeeded: a build step run on its own
+ * stamps once it succeeded, and `all.mjs` runs its steps with `--no-stamp` ({@link stampDeferred}) and stamps after its
+ * last step.
  *
  * Each app's `neo-config.json` gets it as `buildId`: the page registers the service worker under it, and names its
  * own workers after it. The service worker scripts get it behind their `neo-build-id:` stamp, which

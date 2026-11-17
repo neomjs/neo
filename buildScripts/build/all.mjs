@@ -7,6 +7,7 @@ import inquirer        from 'inquirer';
 import os              from 'os';
 import path            from 'path';
 import * as BuildId    from '../util/buildId.mjs';
+import {esmOutputRoot} from '../util/esmDistTransforms.mjs';
 import {sanitizeInput} from '../util/sanitizer.mjs';
 
 
@@ -173,7 +174,7 @@ if (programOpts.info) {
             }
 
             if (env === 'all' || env === 'esm') {
-                childProcess = spawnSync(nodeCmd, [`${neoPath}/buildScripts/build/esmodules.mjs`], cpOpts);
+                childProcess = spawnSync(nodeCmd, [`${neoPath}/buildScripts/build/esmodules.mjs`, '--no-stamp'], cpOpts);
                 childProcess.status && process.exit(childProcess.status);
             }
         }
@@ -203,10 +204,13 @@ if (programOpts.info) {
         childProcess = spawnSync(nodeCmd, [`${neoPath}/buildScripts/docs/seo/copy.mjs`, '-e', env], cpOpts);
         childProcess.status && process.exit(childProcess.status);
 
-        // Only a run whose every step succeeded publishes its id: the threads were built with `--no-stamp`
-        if (threads === 'yes' && env !== 'esm') {
-            (env === 'all' || env === 'dev')  && BuildId.stampBuildId({buildId: BuildId.getBuildId(), distPath: path.resolve(cwd, 'dist/development')});
-            (env === 'all' || env === 'prod') && BuildId.stampBuildId({buildId: BuildId.getBuildId(), distPath: path.resolve(cwd, 'dist/production')})
+        // Only a run whose every step succeeded publishes its id: its build steps ran with `--no-stamp`
+        if (threads === 'yes') {
+            const stamp = dist => BuildId.stampBuildId({buildId: BuildId.getBuildId(), distPath: path.resolve(cwd, dist)});
+
+            (env === 'all' || env === 'dev')  && stamp('dist/development');
+            (env === 'all' || env === 'prod') && stamp('dist/production');
+            (env === 'all' || env === 'esm')  && stamp(esmOutputRoot)
         }
 
         const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);

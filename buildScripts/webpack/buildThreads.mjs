@@ -115,14 +115,14 @@ if (programOpts.info) {
         if (env === 'all' || env === 'dev') {
             console.log(chalk.blue(`${programName} starting dist/development`));
             parseThreads(`${webpackPath}/development/webpack.config`);
-            programOpts.stamp && BuildId.stampBuildId({buildId: BuildId.getBuildId(), distPath: path.resolve(cwd, 'dist/development')})
+            BuildId.stampDeferred() || BuildId.stampBuildId({buildId: BuildId.getBuildId(), distPath: path.resolve(cwd, 'dist/development')})
         }
 
         // dist/production
         if (env === 'all' || env === 'prod') {
             console.log(chalk.blue(`${programName} starting dist/production`));
             parseThreads(`${webpackPath}/production/webpack.config`);
-            programOpts.stamp && BuildId.stampBuildId({buildId: BuildId.getBuildId(), distPath: path.resolve(cwd, 'dist/production')})
+            BuildId.stampDeferred() || BuildId.stampBuildId({buildId: BuildId.getBuildId(), distPath: path.resolve(cwd, 'dist/production')})
         }
 
         const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);

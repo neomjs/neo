@@ -1,10 +1,10 @@
-import {spawnSync}                from 'node:child_process';
-import fs                         from 'node:fs';
-import os                         from 'node:os';
-import path                       from 'node:path';
-import {fileURLToPath}            from 'node:url';
-import {test, expect}             from '@playwright/test';
-import {getBuildId, stampBuildId} from '../../../../buildScripts/util/buildId.mjs';
+import {spawnSync}                               from 'node:child_process';
+import fs                                        from 'node:fs';
+import os                                        from 'node:os';
+import path                                      from 'node:path';
+import {fileURLToPath}                           from 'node:url';
+import {test, expect}                            from '@playwright/test';
+import {getBuildId, stampBuildId, stampDeferred} from '../../../../buildScripts/util/buildId.mjs';
 
 /**
  * @summary Pins the build identity: one id per run, inherited by the steps it spawns, and published in a dist folder
@@ -77,6 +77,11 @@ test.describe('buildScripts/util/buildId', () => {
     test('an id a URL or a later stamp could not carry whole is refused', () => {
         expect(() => stampBuildId({buildId: 'a b', distPath: os.tmpdir()})).toThrow(/may only hold/);
         expect(() => stampBuildId({buildId: 'a/b', distPath: os.tmpdir()})).toThrow(/may only hold/)
+    });
+
+    test('a step run with --no-stamp leaves the stamp to the build that runs it', () => {
+        expect(stampDeferred(['node', 'esmodules.mjs', '--no-stamp'])).toBe(true);
+        expect(stampDeferred(['node', 'esmodules.mjs'])).toBe(false)
     })
 });
 
@@ -87,7 +92,7 @@ test.describe('buildScripts/util/buildId', () => {
 test.describe('buildScripts: a build publishes its id only once it succeeded', () => {
     const
         buildAllArgs = ['-e', 'all', '-n', '-l', 'no', '-t', 'no', '-p', 'no', '-w', 'yes'],
-        distPaths    = ['dist/development', 'dist/production'],
+        distPaths    = ['dist/development', 'dist/production', 'dist/esm'],
         preload      = fileURLToPath(new URL('./fixtures/registerChildProcessStub.mjs', import.meta.url)),
         repoRoot     = fileURLToPath(new URL('../../../../', import.meta.url));
 
@@ -119,29 +124,39 @@ test.describe('buildScripts: a build publishes its id only once it succeeded', (
         write('package.json', JSON.stringify({name: 'neo.mjs', version: '0.0.0'}));
         write('node_modules/webpack/package.json', JSON.stringify({name: 'webpack', version: '0.0.0', bin: {webpack: 'bin/webpack.js'}}));
 
-        distPaths.forEach(dist => {
-            write(`${dist}/apps/demo/neo-config.json`, JSON.stringify({buildId: 'previous'}));
-            write(`${dist}/serviceworker.js`, 'class e{static buildStamp="neo-build-id:previous"}')
-        })
+        distPaths.forEach(dist => write(`${dist}/apps/demo/neo-config.json`, JSON.stringify({buildId: 'previous'})));
+        write('dist/development/serviceworker.js',   'class e{static buildStamp="neo-build-id:previous"}');
+        write('dist/production/serviceworker.js',    'class e{static buildStamp="neo-build-id:previous"}');
+        write('dist/esm/src/worker/ServiceBase.mjs', 'class ServiceBase{static buildStamp="neo-build-id:previous"}')
     });
 
     test.afterEach(() => {
         fs.rmSync(workspace, {force: true, recursive: true})
     });
 
-    test('build-all builds the threads with --no-stamp and publishes its id after its last step', () => {
+    test('build-all runs its build steps with --no-stamp and publishes its id after its last step', () => {
         const {status, steps} = run('buildScripts/build/all.mjs', buildAllArgs);
 
         expect(status).toBe(0);
         expect(steps).toMatch(/buildThreads\.mjs -e all -n --no-stamp/);
-        expect(published()).toEqual(['run1', 'run1']);
-        expect(fs.readFileSync(path.join(workspace, 'dist/production/serviceworker.js'), 'utf8')).toContain('neo-build-id:run1')
+        expect(steps).toMatch(/esmodules\.mjs --no-stamp/);
+        expect(published()).toEqual(['run1', 'run1', 'run1']);
+        expect(fs.readFileSync(path.join(workspace, 'dist/production/serviceworker.js'), 'utf8')).toContain('neo-build-id:run1');
+        expect(fs.readFileSync(path.join(workspace, 'dist/esm/src/worker/ServiceBase.mjs'), 'utf8')).toContain('neo-build-id:run1')
+    });
+
+    test('an ESM-only build-all publishes only dist/esm', () => {
+        const {status, steps} = run('buildScripts/build/all.mjs', ['-e', 'esm', ...buildAllArgs.slice(2)]);
+
+        expect(status).toBe(0);
+        expect(steps).not.toMatch(/buildThreads\.mjs/);
+        expect(published()).toEqual(['previous', 'previous', 'run1'])
     });
 
     for (const step of ['esmodules.mjs', 'seo/copy.mjs']) {
         test(`a build-all whose ${step} step fails publishes nothing`, () => {
             expect(run('buildScripts/build/all.mjs', buildAllArgs, step).status).toBe(7);
-            expect(published()).toEqual(['previous', 'previous'])
+            expect(published()).toEqual(['previous', 'previous', 'previous'])
         })
     }
 
@@ -150,12 +165,12 @@ test.describe('buildScripts: a build publishes its id only once it succeeded', (
               args   = ['-e', 'all', '-n', '-t', 'canvas'];
 
         expect(run(script, [...args, '--no-stamp']).status).toBe(0);
-        expect(published(), 'run by build-all, it leaves the stamp to the run').toEqual(['previous', 'previous']);
+        expect(published(), 'run by build-all, it leaves the stamp to the run').toEqual(['previous', 'previous', 'previous']);
 
         expect(run(script, args, 'worker=canvas').status).toBe(7);
-        expect(published(), 'a failed thread publishes nothing').toEqual(['previous', 'previous']);
+        expect(published(), 'a failed thread publishes nothing').toEqual(['previous', 'previous', 'previous']);
 
         expect(run(script, args).status).toBe(0);
-        expect(published(), 'a partial build on its own publishes its id').toEqual(['run1', 'run1'])
+        expect(published(), 'a partial build on its own publishes its id').toEqual(['run1', 'run1', 'previous'])
     })
 });

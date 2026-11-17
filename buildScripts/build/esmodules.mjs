@@ -202,8 +202,8 @@ emitFiles().then(() => {
         process.exit(1)
     }
 
-    // Only a successful build publishes its id
-    BuildId.stampBuildId({buildId: BuildId.getBuildId(), distPath: path.resolve(root, esmOutputRoot)});
+    // Only a successful build publishes its id. Under `build-all` (`--no-stamp`) the whole run publishes it at its end
+    BuildId.stampDeferred() || BuildId.stampBuildId({buildId: BuildId.getBuildId(), distPath: path.resolve(root, esmOutputRoot)});
 
     const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
     console.log(`\nTotal time for dist/esm: ${processTime}s`);
