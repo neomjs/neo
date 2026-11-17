@@ -131,7 +131,8 @@ class MainContainer extends ConfigurationViewport {
             }, {
                 dataField: 'item',
                 text     : 'Item',
-                width    : 170
+                // Order, Item and Quantity fit a phone's 390px together
+                width    : 150
             }, {
                 cellAlign: 'right',
                 dataField: 'quantity',
