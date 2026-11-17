@@ -85,10 +85,11 @@ class MainContainer extends Viewport {
             // Each header holds its caption and its filter field side by side, so every column flexes from a
             // width that fits both
             columns: [{
-                dataField: 'customer',
-                flex     : 1,
-                minWidth : 260,
-                text     : 'Customer'
+                dataField   : 'customer',
+                editorConfig: {width: 130},
+                flex        : 1,
+                minWidth    : 260,
+                text        : 'Customer'
             }, {
                 dataField   : 'category',
                 filterConfig: {operator: '==='},
@@ -99,14 +100,15 @@ class MainContainer extends Viewport {
                 editorConfig: {
                     module  : ComboBox,
                     editable: false,
-                    store   : categories
+                    store   : categories,
+                    width   : 130
                 }
             }, {
                 cellAlign   : 'right',
                 dataField   : 'amount',
                 filterConfig: {operator: '>='},
                 flex        : 1,
-                minWidth    : 230,
+                minWidth    : 240,
                 renderer    : ({value}) => currency(value),
                 text        : 'Amount',
 
@@ -134,7 +136,7 @@ class MainContainer extends Viewport {
                 dataField   : 'paid',
                 filterConfig: {operator: '==='},
                 flex        : 1,
-                minWidth    : 220,
+                minWidth    : 230,
                 renderer    : ({value}) => value ? 'Paid' : 'Open',
                 text        : 'Status',
 
