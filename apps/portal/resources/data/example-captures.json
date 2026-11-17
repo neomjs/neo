@@ -114,11 +114,11 @@
         {"selector":".neo-grid-cell[data-field='product']","text":"Aurora Desk"}
       ],
       "steps": [
-        {"kind":"scroll","selector":".neo-grid-horizontal-scrollbar","x":960,"y":0}
+        {"kind":"scroll","selector":".neo-grid-horizontal-scrollbar","x":1280,"y":0}
       ],
       "after": [
         {"selector":".neo-grid-cell[data-field='product']","text":"Aurora Desk","inRegion":true},
-        {"selector":".neo-grid-cell[data-field='m12']","inRegion":true},
+        {"selector":".neo-grid-cell[data-field='m16']","inRegion":true},
         {"selector":".neo-grid-cell[data-field='total']","inRegion":true}
       ],
       "region": {"x":0,"y":0,"width":640,"height":360}
