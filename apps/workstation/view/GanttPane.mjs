@@ -6,7 +6,7 @@ import {lockedWidth}  from './planningCalendar.mjs';
  *
  * The workspace hands this pane the provider's `planTasks` and `planLinks` stores. A task moved here is one
  * edit of the chart's single writer, which moves its linked successors with it. Its time axis and labels
- * come from the planning calendar, which the team's schedule above it shares.
+ * come from the planning calendar, which the team's schedule below it shares.
  *
  * @class Workstation.view.GanttPane
  * @extends Neo.gantt.Container

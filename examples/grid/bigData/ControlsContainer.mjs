@@ -2,6 +2,7 @@ import * as selection from '../../../src/selection/grid/_export.mjs';
 import CheckBox       from '../../../src/form/field/CheckBox.mjs';
 import ComboBox       from '../../../src/form/field/ComboBox.mjs';
 import Container      from '../../../src/container/Base.mjs';
+import MainStore      from './MainStore.mjs';
 import Radio          from '../../../src/form/field/Radio.mjs';
 import TabContainer   from '../../../src/tab/Container.mjs';
 
@@ -70,14 +71,14 @@ class ControlsContainer extends Container {
                     labelText : 'Amount Rows',
                     labelWidth: 120,
                     listeners : {change: 'up.onAmountRowsChange'},
-                    store     : ['1000', '5000', '10000', '20000', '50000', '100000'],
+                    store     : MainStore.amountRowsOptions.map(String),
                     value     : '20000',
                     width     : 200
                 }, {
                     labelText : 'Amount Columns',
                     labelWidth: 145,
                     listeners : {change: 'up.onAmountColumnsChange'},
-                    store     : ['10', '25', '50', '75', '100', '200'],
+                    store     : MainStore.amountColumnsOptions.map(String),
                     value     : '50',
                     width     : 200
                 }, {
@@ -143,10 +144,6 @@ class ControlsContainer extends Container {
                     listeners : {change: 'up.onFilterFieldChange'},
                     name      : 'lastname',
                     width     : 200
-                }, {
-                    ntype    : 'label',
-                    reference: 'count-rows-label',
-                    style    : {marginTop: '1em'}
                 }]
             }, {
                 module: Container,
@@ -290,13 +287,7 @@ class ControlsContainer extends Container {
         // The checkbox mirrors the grid, never a default of its own
         me.getItem('column-menu').checked = grid.columnMenu;
 
-        grid.on('columnMenuChange', me.onGridColumnMenuChange, me);
-
-        grid.store.on({
-            filter: me.updateRowsLabel,
-            load  : me.updateRowsLabel,
-            scope : me
-        })
+        grid.on('columnMenuChange', me.onGridColumnMenuChange, me)
     }
 
     /**
@@ -329,17 +320,6 @@ class ControlsContainer extends Container {
      */
     onSelectionModelChange(data) {
         this.grid.view.selectionModel = data.component.selectionModel
-    }
-
-    /**
-     *
-     */
-    updateRowsLabel() {
-        let {store} = this.grid;
-
-        if (!store.isLoading) {
-            this.getItem('count-rows-label').text = 'Filtered rows: ' + store.getCount()
-        }
     }
 }
 

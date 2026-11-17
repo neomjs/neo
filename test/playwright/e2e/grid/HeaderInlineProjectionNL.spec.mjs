@@ -156,6 +156,13 @@ async function expectText(page, app, fieldId, value) {
     await expect(page.locator(`#${fieldId} input`)).toHaveValue(value ?? '')
 }
 
+/** @summary Verifies the boolean field's value, which of its three radios is checked, and the painted radio. */
+async function expectRadio(page, app, fieldId, value, index) {
+    await expect.poll(() => app.getComponent(fieldId, ['value', 'items.0.checked', 'items.1.checked', 'items.2.checked']))
+        .toMatchObject({value, 'items.0.checked': index === 0, 'items.1.checked': index === 1, 'items.2.checked': index === 2});
+    await expect(page.locator(`#${fieldId} input[type="radio"]`).nth(index)).toBeChecked()
+}
+
 /** @summary Verifies both public numeric configs, both child configs and their painted affordances. */
 async function expectNumber(page, app, fieldId, value, operator, text=operator) {
     await expect.poll(() => app.getComponent(fieldId, ['value', 'operator', 'items.0.value', 'items.0.text', 'items.1.value']))
@@ -261,5 +268,41 @@ for (const [kind, definition] of Object.entries(examples)) {
             body: Buffer.from(JSON.stringify({workerId: state.workerId, storeId, retired, current: header,
                 filters: await filtersOf(app, storeId)})), contentType: 'application/json'
         })
+    });
+
+    test(`${kind}: boolean inline projection checks the source value's radio and returns to all on a clear`, async ({page, neuralLink}) => {
+        const state = await openExample(page, neuralLink, definition), {app, containerId} = state;
+        expect(await app.callMethod(state.workerId, 'loadModule', [{path: '../filter/BooleanContainer.mjs'}])).toMatchObject({success: true});
+        // The case reads the field and the source, not the rows: a raw Boolean cell is a separate body defect
+        await app.setProperties(containerId, {store: {...sourceConfig([inline('active', true, '===')]),
+            model: {fields: [{name: 'id', type: 'Int'}, {name: 'active'}]}, data: [{id: 1}, {id: 2}]}});
+        const storeId = (await app.getComponent(containerId, ['store.id']))['store.id'];
+        await app.setProperties(containerId, {columns: [{dataField: 'active', text: 'Active', width: 260, showHeaderFilter: true,
+            resizable: false, editorConfig: {className: 'Neo.filter.BooleanContainer'}}]});
+        const header = await findHeader(state, 'active');
+        await expectRadio(page, app, header.fieldId, true, 0);
+        await app.setProperties(storeId, {filters: [inline('active', false, '===')]});
+        await expectRadio(page, app, header.fieldId, false, 1);
+        await app.setProperties(storeId, {filters: []});
+        await expectRadio(page, app, header.fieldId, null, 2);
+        await expectNoEcho(app, header.headerId)
+    });
+
+    test(`${kind}: a ComboBox inline filter writes the picked option's display value`, async ({page, neuralLink}) => {
+        const state = await openExample(page, neuralLink, definition), {app, containerId} = state;
+        expect(await app.callMethod(state.workerId, 'loadModule', [{path: '../form/field/ComboBox.mjs'}])).toMatchObject({success: true});
+        await app.setProperties(containerId, {store: sourceConfig()});
+        const storeId = (await app.getComponent(containerId, ['store.id']))['store.id'];
+        await app.setProperties(containerId, {columns: [{dataField: 'firstname', text: 'Name', width: 260, showHeaderFilter: true,
+            resizable   : false, filterConfig: {operator: '==='},
+            editorConfig: {className: 'Neo.form.field.ComboBox', editable: false, store: ['Alice', 'Bob', 'Carol']}}]});
+        const header = await findHeader(state, 'firstname'), input = page.locator(`#${header.fieldId}__input`);
+        await input.click();
+        await page.getByRole('option', {name: 'Bob', exact: true}).click();
+        await expect.poll(async () => (await filtersOf(app, storeId)).find(filter => filter.ownerRole === 'header-inline'))
+            .toMatchObject({property: 'firstname', operator: '===', value: 'Bob'});
+        await expect.poll(() => app.callMethod(storeId, 'getCount')).toBe(1);
+        // The source's echo finds the record again by its display value
+        await expect(input).toHaveValue('Bob')
     });
 }
