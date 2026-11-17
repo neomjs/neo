@@ -109,11 +109,9 @@ test.describe('examples/tableFiltering', () => {
         await expect(rows).toHaveCount(2);
         await testInfo.attach('table-filtering-phone-two-filters', {body: await page.screenshot(), contentType: 'image/png'});
         await customer.fill('');
-        await country.focus();
-        await page.keyboard.press('ControlOrMeta+a');
-        await page.keyboard.press('Backspace');
-        await country.blur();
-        await page.locator('body').click({position: {x: 1, y: 1}});
+        await expect(rows).toHaveCount(10);
+        await countryBox.locator('.neo-trigger-clear').scrollIntoViewIfNeeded();
+        await countryBox.locator('.neo-trigger-clear').click();
         await expect(country).toHaveValue('');
         await expect(rows).toHaveCount(80);
 
