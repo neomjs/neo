@@ -603,6 +603,12 @@
         "schemaType": "TechArticle",
         "lastmod": "2026-11-16"
     },
+    "/learn/guides/datahandling/Board": {
+        "title": "Building Kanban Boards | Neo.mjs",
+        "description": "Learn how to build a kanban board with Neo.board.Container: columns projected from one store, swimlanes, card moves through moveCard, card items, and long columns.",
+        "schemaType": "TechArticle",
+        "lastmod": "2026-11-17"
+    },
     "/learn/guides/datahandling/Tables": {
         "title": "Tables (Stores) — Neo.mjs Developer Guide",
         "description": "A task board starts with three rows. Then someone asks for an “open tasks” view, a priority order, an editor, and a count that stays correct when a task is...",
