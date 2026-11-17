@@ -1,9 +1,12 @@
-/* Neo.timeline.Column: center-region timeline track cells and positioned event/task bars. */
+/* Neo.timeline.Column: center-region timeline track cells and positioned event/task bars.
+   The column sizes its own cell: in a plain grid nothing else gives the track a height to resolve against */
 .neo-timeline-cell {
     box-sizing: border-box;
+    height    : 100%;
     overflow  : hidden;
     padding   : 0 !important;
     position  : relative;
+    width     : 100%;
 }
 
 .neo-timeline-track {

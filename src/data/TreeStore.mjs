@@ -1240,7 +1240,8 @@ class TreeStore extends Store {
                         }
                     } else {
                         let parentNode = me.#allRecordsMap.get(parentId);
-                        if (parentNode.collapsed === false && me.indexOf(parentNode) > -1) {
+                        // Visible means projected; a store that is still processing its configs has no projection yet
+                        if (parentNode.collapsed === false && me.map?.has(parentId)) {
                             me.collectVisibleDescendants(data, visibleToAdd);
 
                             if (!Neo.isNumber(insertIndex)) {

@@ -149,7 +149,7 @@ class ControlsContainer extends Container {
                 }, {
                     module    : CheckBox,
                     checked   : true,
-                    labelText : 'Value Banding (Lastname)',
+                    labelText : 'Value Banding (Location)',
                     labelWidth: 170,
                     listeners : {change: 'up.onUseValueBandingChange'},
                     name      : 'useValueBanding',
@@ -410,7 +410,7 @@ class ControlsContainer extends Container {
      */
     onUseValueBandingChange(opts) {
         let grid   = this.grid,
-            column = grid.columns.get('lastname');
+            column = grid.columns.get('location');
 
         column.useValueBanding = opts.value
     }
