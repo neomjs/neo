@@ -22,7 +22,7 @@
     "/learn": {
         "title": "Developer Guides — Web Worker UI Engine, SharedWorker & AI Agent OS | Neo.mjs",
         "description": "Learn how to build off-main-thread JavaScript apps and AI Agent OS workflows with Neo.mjs: Web Worker UIs, multi-window SharedWorkers, data grids & MCP tools.",
-        "lastmod": "2026-11-16"
+        "lastmod": "2026-11-17"
     },
     "/news": {
         "title": "News, Blog & Release Notes — Multi-Threaded JavaScript Engine | Neo.mjs",
@@ -605,7 +605,7 @@
     },
     "/learn/guides/datahandling/Board": {
         "title": "Building Kanban Boards | Neo.mjs",
-        "description": "Learn how to build a kanban board with Neo.board.Container: columns projected from one store, swimlanes, card moves through moveCard, card items, and long columns.",
+        "description": "Learn how to build a kanban board with Neo.board.Container: columns projected from one store, swimlanes, card moves through moveCard, card items, and long...",
         "schemaType": "TechArticle",
         "lastmod": "2026-11-17"
     },
@@ -1069,6 +1069,18 @@
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-17"
     },
+    "/examples/scheduler": {
+        "title": "MIT JavaScript Resource Scheduler — Editable Timeline | Neo.mjs",
+        "description": "Explore 1 live JavaScript resource scheduler example: Resource bookings on an editable timeline.",
+        "schemaType": "CollectionPage",
+        "lastmod": "2026-11-17"
+    },
+    "/examples/gantt": {
+        "title": "MIT JavaScript Gantt Chart — Linked, Editable Tasks | Neo.mjs",
+        "description": "Explore 1 live JavaScript Gantt chart example: A project plan with linked, editable tasks.",
+        "schemaType": "CollectionPage",
+        "lastmod": "2026-11-17"
+    },
     "/examples/tabs": {
         "title": "JavaScript Tab Container — Tab Bars on Any Side | Neo.mjs",
         "description": "Explore 1 live JavaScript tab container example: Tab buttons whose text, icon, color and badge change live.",
@@ -1211,7 +1223,7 @@
         "title": "Workstation — Multi-Window JavaScript Demo | Neo.mjs",
         "description": "A living-data workspace whose panes can leave the browser window. Pop out the 100k Matrix tab, use it in its own window, then close that window to bring it...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-16"
+        "lastmod": "2026-11-17"
     },
     "/examples/board/basic/index.html": {
         "title": "Sprint board · Neo Board — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1689,9 +1701,9 @@
     },
     "/examples/grid/cellEditing/index.html": {
         "title": "Grid CellEditing — Web Worker Data Grid Demo | Neo.mjs",
-        "description": "Typed cell editors. Edit text, a stepped number, date or country; compare the protected GitHub ID and switch selection modes.",
+        "description": "An order sheet with typed editors, a refused quantity and a calculated line total. Double-click or press Enter to edit, Tab to move on. A quantity over 50...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-09"
+        "lastmod": "2026-11-17"
     },
     "/examples/grid/container/index.html": {
         "title": "GridContainer — Web Worker Data Grid Demo | Neo.mjs",
