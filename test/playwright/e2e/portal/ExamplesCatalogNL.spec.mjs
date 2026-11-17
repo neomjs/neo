@@ -236,12 +236,12 @@ test.describe('Portal examples section', () => {
               counts   = page.locator(`${INDEX} .portal-examples-group-index-count`);
 
         await expect(headline).toHaveText('43 live examples in 16 groups');
-        expect((await counts.allTextContents()).filter(text => !text.startsWith('(')).reduce((sum, text) => sum + Number(text), 0)).toBe(42);
+        expect((await counts.allTextContents()).filter(text => !text.startsWith('(')).reduce((sum, text) => sum + Number(text), 0)).toBe(43);
         await expect(page.locator(`${INDEX} .portal-examples-group-index-note`)).toBeVisible();
 
         // Dev mode cannot open liquid-glass, the one card of More components
         await selectBuild(page, 'Dev mode');
-        await expect(headline).toHaveText('41 live examples in 15 groups');
+        await expect(headline).toHaveText('42 live examples in 15 groups');
         await expect(page.locator(INDEX).getByRole('link', {name: /^More components, /})).toHaveCount(0);
         await selectBuild(page, 'Production build');
         await expect(headline).toHaveText('43 live examples in 16 groups')
