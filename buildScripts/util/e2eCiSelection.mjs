@@ -42,6 +42,7 @@ import isEntryModule                                               from './isEnt
  * @member {String[]} RUN_PATHS
  */
 export const RUN_PATHS = [
+    'test/playwright/e2e/board',
     'test/playwright/e2e/colors',
     'test/playwright/e2e/core',
     'test/playwright/e2e/dashboard',
