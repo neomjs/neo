@@ -107,10 +107,42 @@
     --neo-timeline-tick-border-color : var(--workstation-line-soft);
 }
 
+// The planning board's surfaces, lines and accent join the instrument: a card is a panel on the column's
+// ground, and focus, selection and the landing slot speak the signal colour. Shadows, the WIP signal and
+// sizes stay the theme's.
+@mixin board-tokens {
+    --neo-board-accent-color              : var(--workstation-signal);
+    --neo-board-avatar-background         : color-mix(in srgb, var(--workstation-signal) 18%, var(--workstation-panel-2));
+    --neo-board-avatar-color              : var(--workstation-ink);
+    --neo-board-background                : var(--workstation-panel);
+    --neo-board-badge-background          : var(--workstation-line-soft);
+    --neo-board-badge-color               : var(--workstation-ink-dim);
+    --neo-board-card-background           : var(--workstation-panel);
+    --neo-board-card-border-color         : var(--workstation-line);
+    --neo-board-card-color                : var(--workstation-ink);
+    --neo-board-card-drag-border-color    : var(--workstation-signal);
+    --neo-board-card-hover-border-color   : color-mix(in srgb, var(--workstation-signal) 38%, var(--workstation-line));
+    --neo-board-card-muted-color          : var(--workstation-ink-dim);
+    --neo-board-card-selected-background  : color-mix(in srgb, var(--workstation-signal) 10%, var(--workstation-panel));
+    --neo-board-card-selected-border-color: var(--workstation-signal);
+    --neo-board-color                     : var(--workstation-ink);
+    --neo-board-column-background         : var(--workstation-panel-2);
+    --neo-board-column-border-color       : var(--workstation-line-soft);
+    --neo-board-column-color              : var(--workstation-ink);
+    --neo-board-column-width              : 300px;
+    --neo-board-editor-background         : var(--workstation-panel);
+    --neo-board-editor-border-color       : var(--workstation-line);
+    --neo-board-focus-color               : var(--workstation-signal);
+    --neo-board-font-family               : var(--workstation-font-sans);
+    --neo-board-slot-background           : color-mix(in srgb, var(--workstation-signal) 10%, transparent);
+    --neo-board-track-color               : var(--workstation-line);
+}
+
 :root .workstation-viewport[class*="neo-theme-"],
 :root .workstation-viewport [class*="neo-theme-"] {
     // Workstation is a standalone instrument, so generic grid/tab primitives inherit its own
     // palette in both skins instead of leaking their default blue/purple values.
+    @include board-tokens;
     @include grid-tokens;
     @include timeline-tokens;
     --tab-button-background-color              : transparent;
@@ -341,6 +373,21 @@ body:has(.workstation-viewport) .neo-grid-container.neo-dragproxy {
     border-style: dashed;
     box-shadow  : none;
     color       : var(--workstation-ink-dim);
+}
+
+// `BoardPane`: a card's footer carries its work item's days, in the calendar's mono numerals, and its person.
+.workstation-board-pane .workstation-card-plan {
+    align-items    : center;
+    display        : flex;
+    gap            : 8px;
+    justify-content: space-between;
+    min-height     : 22px;
+
+    .workstation-card-days {
+        color      : var(--workstation-ink-dim);
+        font-family: var(--workstation-font-mono);
+        font-size  : 0.82em;
+    }
 }
 
 // One rendered frame on its own layer re-rasters a pane a transfer just landed in a vessel
