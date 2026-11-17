@@ -344,7 +344,7 @@ const catalog            = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examp
       ],
       newExampleIds = [
           'grid-animated-row-sorting', 'grid-cell-editing', 'grid-container', 'grid-content-sized-rows',
-          'grid-covid', 'grid-filtering', 'grid-header-groups', 'grid-locked-columns', 'grid-nested-record-fields',
+          'grid-countries', 'grid-filtering', 'grid-header-groups', 'grid-locked-columns', 'grid-nested-record-fields',
           'grid-tree', 'grid-value-banding', 'table-container'
       ],
       formExampleIds = [
@@ -730,7 +730,7 @@ test.describe('Portal examples canonical catalog', () => {
             expect(byCls(content, 'portal-example-placeholder'), record.id).toBeUndefined()
         });
 
-        ['grid-covid', 'grid-issues'].forEach(id => {
+        ['grid-countries', 'grid-issues'].forEach(id => {
             const record  = store.get(id),
                   content = list.createItemContent(record, 0)[0],
                   scope   = byCls(content, 'portal-example-scope');
@@ -741,7 +741,7 @@ test.describe('Portal examples canonical catalog', () => {
         });
 
         expect(store.get('grid-issues').scope).toContain('issue snapshot');
-        expect(store.get('grid-covid').scope).toContain('external API');
+        expect(store.get('grid-countries').scope).toContain('CC BY 4.0');
         expect(list.getBackgroundImageStyle(store.get('grid-tree')).backgroundImage).toContain('grid-tree-14.jpg');
         const uncovered = store.items.find(record => !record.image);
         expect(uncovered).toBeDefined();
