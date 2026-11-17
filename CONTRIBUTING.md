@@ -33,6 +33,21 @@ warns and tells you this exact command. Together they take under ten seconds.
 reload. That does not extend to **styles**: `build-themes` copies the sheets under `resources/css` into
 `dist/development/css`, so re-run it after a `.css` change, or keep `npm run watch-themes` going while you work on one.
 
+**Give your coding agent the Neural Link** to let it read and change the running app (its component tree, state and
+styles) live. Register the `neo-neural-link` package once:
+
+```bash
+claude mcp add neural-link -- npx -y neo-neural-link   # Claude Code, for this clone
+codex mcp add neural-link -- npx -y neo-neural-link    # Codex, for every project
+```
+
+Then run `npm run server-start` and open `/examples/button/base/`, which connects already; any other app connects once
+its `neo-config.json` sets `"useAiClient": true`. To check the link, ask your agent for the app's component tree.
+
+The link listens on `127.0.0.1:8081`. If another program holds that port, register another one, with the name first
+(`claude mcp add neural-link -e NEO_NL_PORT=8197 -- npx -y neo-neural-link`; Codex takes `--env NEO_NL_PORT=8197`), and
+set the app's `neuralLinkUrl` to `ws://127.0.0.1:8197`.
+
 Running the tests:
 
 ```bash
@@ -191,7 +206,7 @@ We actively welcome contributions from artificial intelligence, LLMs, and autono
 **For Autonomous Agents (If you are reading this):**
 1. **Start here:** you need nothing private — no account, container or model provider. Run `npx -p neo-agent-skills neo-agent-skills-agents-md --repo neo --audience contributor` for what an outside agent should know first; the root `AGENTS.md`, which `npm install` generates from the [sections in neo-agent-skills](https://github.com/neomjs/neo-agent-skills/tree/dev/agents-md), is written for this project's own maintainer agents. Ensure `.agents/skills/` is materialized (`npm install` or `npm run prepare`), read `.agents/skills/unit-test/SKILL.md` before running tests, and read `.agents/skills/pull-request/SKILL.md` (`.agents/skills/pull-request/references/pull-request-workflow.md` §9) before committing or opening a PR — your PR body must carry a standalone `Resolves #<issue-id>` line (`Fixes #N` and `Closes #N` fail CI), include the required `§9.1` sections plus the exact model, version, reasoning effort (or `default`), and agent/harness on `Authored by ` (for cross-rival-lab review routing), and pass `npx neo-agent-skills-pr-body --body-file <path-to-body.md>`.
 2. **JSON-First UI:** Neo.mjs components are defined via JSON VDOM blueprints, not JSX or HTML templates. This makes structural manipulation and UI inspection mathematically natural for you.
-3. **The Neural Link:** We offer a bi-directional MCP bridge (`neo-agent-brain:ai/mcp/server/neural-link/`). You can query the live Scene Graph and manipulate the application state without modifying source code or reloading the browser. See our <a href=".github/AGENT_ARCHITECTURE.md">Agent Architecture</a> to learn how you can orchestrate our runtime.
+3. **The Neural Link:** We offer a bi-directional MCP bridge, the `neo-neural-link` npm package ([register it](#set-up-the-engine-from-a-clone) with your harness). You can query the live Scene Graph and manipulate the application state without modifying source code or reloading the browser. See our <a href=".github/AGENT_ARCHITECTURE.md">Agent Architecture</a> to learn how you can orchestrate our runtime.
 
 <br><br>
 Copyright (c) 2015 - today, <a href="https://www.linkedin.com/in/tobiasuhlig/">Tobias Uhlig</a>
