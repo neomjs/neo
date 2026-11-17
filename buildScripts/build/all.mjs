@@ -6,7 +6,7 @@ import fs              from 'fs-extra';
 import inquirer        from 'inquirer';
 import os              from 'os';
 import path            from 'path';
-import {getBuildId}    from '../util/buildId.mjs';
+import * as BuildId    from '../util/buildId.mjs';
 import {sanitizeInput} from '../util/sanitizer.mjs';
 
 
@@ -129,7 +129,7 @@ if (programOpts.info) {
         insideNeo               && cpArgs.push('-f');
 
         // One id for the whole run: every build step below inherits it through process.env
-        console.log(chalk.green(`Build id: ${getBuildId()}`));
+        console.log(chalk.green(`Build id: ${BuildId.getBuildId()}`));
 
         if (npminstall === 'yes') {
             childProcess = spawnSync(npmCmd, ['i'], cpOpts);
@@ -163,7 +163,7 @@ if (programOpts.info) {
 
         if (threads === 'yes') {
             if (env !== 'esm') {
-                childProcess = spawnSync(nodeCmd, [`${webpackPath}/buildThreads.mjs`].concat(cpArgs), cpOpts);
+                childProcess = spawnSync(nodeCmd, [`${webpackPath}/buildThreads.mjs`].concat(cpArgs, '--no-stamp'), cpOpts);
                 childProcess.status && process.exit(childProcess.status);
 
                 if (env === 'all' || env === 'prod') {
@@ -202,6 +202,12 @@ if (programOpts.info) {
         // Call the new script to copy SEO files
         childProcess = spawnSync(nodeCmd, [`${neoPath}/buildScripts/docs/seo/copy.mjs`, '-e', env], cpOpts);
         childProcess.status && process.exit(childProcess.status);
+
+        // Only a run whose every step succeeded publishes its id: the threads were built with `--no-stamp`
+        if (threads === 'yes' && env !== 'esm') {
+            (env === 'all' || env === 'dev')  && BuildId.stampBuildId({buildId: BuildId.getBuildId(), distPath: path.resolve(cwd, 'dist/development')});
+            (env === 'all' || env === 'prod') && BuildId.stampBuildId({buildId: BuildId.getBuildId(), distPath: path.resolve(cwd, 'dist/production')})
+        }
 
         const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
         console.log(`\nTotal time for ${programName}: ${processTime}s`);

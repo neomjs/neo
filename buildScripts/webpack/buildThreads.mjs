@@ -30,6 +30,7 @@ program
     .option('-f, --framework')
     .option('-n, --noquestions')
     .option('-t, --threads <value>', '"all", "app", "canvas", "data", "main", "service", "task", "vdom"', sanitizeInput)
+    .option('--no-stamp',            'leave publishing the build id to the build that runs this one')
     .allowUnknownOption()
     .on('--help', () => {
         console.log('\nIn case you have any issues, please create a ticket here:');
@@ -110,18 +111,18 @@ if (programOpts.info) {
         }
 
         // dist/development. A failed thread exits before the stamp, so only a successful build publishes its id,
-        // including a build of a single thread
+        // including a build of a single thread. Under `build-all` (`--no-stamp`) the whole run publishes it at its end
         if (env === 'all' || env === 'dev') {
             console.log(chalk.blue(`${programName} starting dist/development`));
             parseThreads(`${webpackPath}/development/webpack.config`);
-            BuildId.stampBuildId({buildId: BuildId.getBuildId(), distPath: path.resolve(cwd, 'dist/development')})
+            programOpts.stamp && BuildId.stampBuildId({buildId: BuildId.getBuildId(), distPath: path.resolve(cwd, 'dist/development')})
         }
 
         // dist/production
         if (env === 'all' || env === 'prod') {
             console.log(chalk.blue(`${programName} starting dist/production`));
             parseThreads(`${webpackPath}/production/webpack.config`);
-            BuildId.stampBuildId({buildId: BuildId.getBuildId(), distPath: path.resolve(cwd, 'dist/production')})
+            programOpts.stamp && BuildId.stampBuildId({buildId: BuildId.getBuildId(), distPath: path.resolve(cwd, 'dist/production')})
         }
 
         const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);

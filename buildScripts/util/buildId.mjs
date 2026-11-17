@@ -16,7 +16,8 @@ export function getBuildId() {
 }
 
 /**
- * @summary Publishes a build run's id in a dist folder. Call it only after the run succeeded.
+ * @summary Publishes a build run's id in a dist folder. Call it only after the run succeeded: `buildThreads.mjs` on its
+ * own stamps after its threads, and `all.mjs` runs it with `--no-stamp` and stamps after its last step.
  *
  * Each app's `neo-config.json` gets it as `buildId`: the page registers the service worker under it, and names its
  * own workers after it. The service worker scripts get it behind their `neo-build-id:` stamp, which
