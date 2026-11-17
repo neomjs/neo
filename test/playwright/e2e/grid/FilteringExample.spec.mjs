@@ -56,6 +56,23 @@ test.describe('Grid header filters example', () => {
         await expect(page.locator(COUNT)).toHaveText('2,016 of 10,000 orders')
     });
 
+    test('the amount and date filters fit their headers, each operator toggle as tall as its field', async ({page}) => {
+        for (const text of ['Amount', 'Date']) {
+            const button    = header(page, text),
+                  container = button.locator('.neo-filter-numbercontainer'),
+                  box       = await button.boundingBox(),
+                  row       = await container.boundingBox(),
+                  toggle    = await container.locator(':scope > .neo-button').boundingBox(),
+                  field     = await container.locator(':scope > .neo-textfield').boundingBox();
+
+            // The neo themes give a standalone button 48px; the toggle takes its field's row instead
+            expect(toggle.height, `${text} toggle height`).toBeCloseTo(field.height, 0);
+            expect(toggle.y, `${text} toggle top`).toBeCloseTo(field.y, 0);
+            expect(row.y, `${text} filter top`).toBeGreaterThanOrEqual(box.y);
+            expect(row.y + row.height, `${text} filter bottom`).toBeLessThanOrEqual(box.y + box.height)
+        }
+    });
+
     test('the category filter keeps one category', async ({page}) => {
         // The first input is the ComboBox's disabled typeahead hint
         await header(page, 'Category').locator('input[id$="__input"]').click();
