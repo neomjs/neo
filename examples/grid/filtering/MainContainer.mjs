@@ -1,12 +1,13 @@
-import BooleanContainer        from '../../../src/filter/BooleanContainer.mjs';
-import Button                  from '../../../src/button/Base.mjs';
-import Component               from '../../../src/component/Base.mjs';
-import Container               from '../../../src/container/Base.mjs';
-import DateContainer           from '../../../src/filter/DateContainer.mjs';
-import GridContainer           from '../../../src/grid/Container.mjs';
-import MainStore, {orderCount} from './MainStore.mjs';
-import NumberContainer         from '../../../src/filter/NumberContainer.mjs';
-import Viewport                from '../../../src/container/Viewport.mjs';
+import BooleanContainer                    from '../../../src/filter/BooleanContainer.mjs';
+import Button                              from '../../../src/button/Base.mjs';
+import ComboBox                            from '../../../src/form/field/ComboBox.mjs';
+import Component                           from '../../../src/component/Base.mjs';
+import Container                           from '../../../src/container/Base.mjs';
+import DateContainer                       from '../../../src/filter/DateContainer.mjs';
+import GridContainer                       from '../../../src/grid/Container.mjs';
+import MainStore, {categories, orderCount} from './MainStore.mjs';
+import NumberContainer                     from '../../../src/filter/NumberContainer.mjs';
+import Viewport                            from '../../../src/container/Viewport.mjs';
 
 const
     count    = new Intl.NumberFormat('en-US').format,
@@ -85,9 +86,16 @@ class MainContainer extends Viewport {
                 text     : 'Customer',
                 width    : 180
             }, {
-                dataField: 'category',
-                text     : 'Category',
-                width    : 160
+                dataField   : 'category',
+                filterConfig: {operator: '==='},
+                text        : 'Category',
+                width       : 160,
+
+                editorConfig: {
+                    module  : ComboBox,
+                    editable: false,
+                    store   : categories
+                }
             }, {
                 cellAlign   : 'right',
                 dataField   : 'amount',

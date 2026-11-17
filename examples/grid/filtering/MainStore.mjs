@@ -2,10 +2,10 @@ import Model from './MainModel.mjs';
 import Store from '../../../src/data/Store.mjs';
 
 /**
- * The categories an order belongs to
+ * The categories an order belongs to, also the choices of the category filter
  * @type {String[]}
  */
-const categories = ['Furniture', 'Kitchen', 'Lighting', 'Outdoor', 'Textiles'];
+export const categories = ['Furniture', 'Kitchen', 'Lighting', 'Outdoor', 'Textiles'];
 
 /**
  * The number of orders: the whole the count line names

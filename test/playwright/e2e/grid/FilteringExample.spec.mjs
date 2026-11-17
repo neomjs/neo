@@ -57,7 +57,9 @@ test.describe('Grid header filters example', () => {
     });
 
     test('the category filter keeps one category', async ({page}) => {
-        await header(page, 'Category').locator('input').fill('light');
+        // The first input is the ComboBox's disabled typeahead hint
+        await header(page, 'Category').locator('input[id$="__input"]').click();
+        await page.getByRole('option', {name: 'Lighting', exact: true}).click();
         await expect(page.locator(COUNT)).toHaveText('2,000 of 10,000 orders')
     });
 
@@ -80,24 +82,25 @@ test.describe('Grid header filters example', () => {
 
     test('filters combine, and reset clears every field and restores the count', async ({page}) => {
         const amount   = header(page, 'Amount').locator('input'),
+              category = header(page, 'Category').locator('input[id$="__input"]'),
               customer = header(page, 'Customer').locator('input'),
               status   = header(page, 'Status');
 
+        await category.click();
+        await page.getByRole('option', {name: 'Lighting', exact: true}).click();
+        await expect(page.locator(COUNT)).toHaveText('2,000 of 10,000 orders');
+
         await customer.fill('Atlas');
-        await expect.poll(() => kept(page)).toBeLessThan(10000);
-        const customerOnly = await kept(page);
-
+        await expect(page.locator(COUNT)).toHaveText('62 of 10,000 orders');
         await amount.fill('4000');
-        await expect.poll(() => kept(page)).toBeLessThan(customerOnly);
-        const customerAndAmount = await kept(page);
-
+        await expect(page.locator(COUNT)).toHaveText('11 of 10,000 orders');
         // Every customer has open orders, so keeping the paid ones narrows again
         await status.locator('.neo-checkbox-label').nth(0).click();
-        await expect.poll(() => kept(page)).toBeLessThan(customerAndAmount);
-        expect(await kept(page)).toBeGreaterThan(0);
+        await expect(page.locator(COUNT)).toHaveText('7 of 10,000 orders');
 
         await page.getByRole('button', {name: 'Reset filters'}).click();
         await expect(page.locator(COUNT)).toHaveText(ALL);
+        await expect(category).toHaveValue('');
         await expect(customer).toHaveValue('');
         await expect(amount).toHaveValue('');
         await expect(status.locator('input[type="radio"]').nth(2)).toBeChecked()
