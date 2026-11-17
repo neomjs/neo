@@ -22,6 +22,7 @@ Neo.main.DomAccess.trapFocus     ??= () => {};
 import {test, expect}  from '@playwright/test';
 import Neo             from '../../../../src/Neo.mjs';
 import * as core       from '../../../../src/core/_export.mjs';
+import CheckBox        from '../../../../src/form/field/CheckBox.mjs';
 import InstanceManager from '../../../../src/manager/Instance.mjs';
 import Model           from '../../../../src/data/Model.mjs';
 import Store           from '../../../../src/data/Store.mjs';
@@ -415,5 +416,116 @@ test.describe('Neo.board.Card inline title editing & Neo.board.CardEditor', () =
         const editorId = editor.id;
         board.destroy();
         expect(InstanceManager.get(editorId)).toBeFalsy()
+    })
+});
+
+/**
+ * @summary A model of its own, as an app brings one: a work item with dates, a person and a Boolean, and none of
+ * `CardModel`'s assignees, tags, color or due date.
+ * @class Test.Unit.Board.CardEditor.WorkItemModel
+ * @extends Neo.data.Model
+ */
+class WorkItemModel extends Model {
+    static config = {
+        className  : 'Test.Unit.Board.CardEditor.WorkItemModel',
+        keyProperty: 'id',
+        fields     : [
+            {name: 'id'},
+            {name: 'title',       type: 'String'},
+            {name: 'description', type: 'String'},
+            {name: 'status',      type: 'String'},
+            {name: 'order',       type: 'Float'},
+            {name: 'progress',    type: 'Int', defaultValue: 0},
+            {name: 'startDate',   type: 'Date'},
+            {name: 'allDay',      type: 'Boolean', defaultValue: false},
+            {name: 'resourceId'},
+            {name: 'label',       calculate: data => `${data.title} (${data.resourceId})`}
+        ]
+    }
+}
+
+Neo.setupClass(WorkItemModel);
+
+const workItems = () => [
+    {id: 'w1', title: 'Build the booking screens', status: 'backlog', order: 1000, progress: 45, startDate: new Date(Date.UTC(2026, 10, 15)), resourceId: 'priya'},
+    {id: 'w2', title: 'Write the test plan',       status: 'done',    order: 1000, progress: 100, allDay: true, resourceId: 'lena'}
+];
+
+test.describe('Neo.board.CardEditor follows the model it edits', () => {
+    let board, store;
+
+    test.afterEach(() => {
+        board?.destroy();
+        store?.destroy();
+        board = store = null
+    });
+
+    test('a model of its own gets the standard fields it declares, then its others under readable labels', () => {
+        store = createStore(workItems(), WorkItemModel);
+        board = createBoard({store});
+
+        const editor = board.openCardEditor('w1');
+
+        expect([...editor.fieldMap.keys()], 'no assignees, tags, color or due date; no key, order or calculated field')
+            .toEqual(['title', 'description', 'status', 'progress', 'startDate', 'allDay', 'resourceId']);
+        expect(['startDate', 'allDay', 'resourceId'].map(name => editor.getField(name).labelText)).toEqual(['Start date', 'All day', 'Resource id']);
+        expect(editor.getField('allDay')).toBeInstanceOf(CheckBox)
+    });
+
+    test('a Boolean field is a check box, and its save writes one Boolean', () => {
+        store = createStore(workItems(), WorkItemModel);
+        board = createBoard({store});
+
+        const events = recordChanges(store),
+              editor = board.openCardEditor('w1');
+
+        expect(editor.getFieldValue('allDay')).toBe(false);
+
+        // What a click on the box does
+        editor.getField('allDay').checked = true;
+        editor.save();
+
+        expect(events).toEqual([{id: 'w1', changes: {allDay: true}, names: ['allDay']}]);
+        expect(board.openCardEditor('w2').getField('allDay').checked, 'a checked record opens checked').toBe(true)
+    });
+
+    test('a date the user leaves alone writes nothing', () => {
+        store = createStore(workItems(), WorkItemModel);
+        board = createBoard({store});
+
+        const editor = board.openCardEditor('w1');
+
+        editor.setFieldValue('progress', 60);
+
+        expect(editor.save(), 'only the edited field, not the untouched start date').toEqual({progress: 60});
+        expect(store.get('w1').startDate.toISOString()).toBe('2026-11-15T00:00:00.000Z')
+    });
+
+    test('`fields` names the form in order: a name picks a standard or model field, an object is a config; a save writes the changed ones', () => {
+        store = createStore(workItems(), WorkItemModel);
+        board = createBoard({store, cardEditorConfig: {
+            fields: ['title', 'status', {module: TextField, labelText: 'Person', name: 'resourceId'}, 'progress', 'startDate']
+        }});
+
+        const events = recordChanges(store),
+              editor = board.openCardEditor('w1');
+
+        expect([...editor.fieldMap.keys()]).toEqual(['title', 'status', 'resourceId', 'progress', 'startDate']);
+        expect([editor.getField('resourceId').labelText, editor.getField('startDate').labelText]).toEqual(['Person', 'Start date']);
+
+        editor.setFieldValue('resourceId', 'tom');
+        editor.setFieldValue('progress', 60);
+
+        expect(editor.save(), 'the save writes the two edited fields').toEqual({progress: 60, resourceId: 'tom'});
+        expect(events.map(event => event.names), 'in one record change, which the calculated label follows')
+            .toEqual([['label', 'progress', 'resourceId']])
+    });
+
+    test('a CardModel store keeps every standard field, in the order it always had', () => {
+        store = createStore();
+        board = createBoard({store});
+
+        expect([...board.openCardEditor('c1').fieldMap.keys()])
+            .toEqual(['title', 'description', 'status', 'lane', 'assignees', 'tags', 'progress', 'color', 'dueDate'])
     })
 });
