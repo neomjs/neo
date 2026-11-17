@@ -34,3 +34,21 @@ test('list Reset restores the rendered width and its inspector spinbutton', asyn
     await expect(list).toHaveCSS('width', '100px');
     await expect(input).toHaveValue('100');
 });
+
+test('grid Reset with nothing changed keeps the grid body rendered', async ({page}) => {
+    await page.goto('/examples/grid/valueBanding/index.html');
+    const rows = page.locator('.neo-grid-body .neo-grid-row');
+
+    // Rows that are laid out and inside the viewport, as the user sees them
+    const countVisibleRows = () => rows.evaluateAll(els => els.filter(el => {
+        const rect = el.getBoundingClientRect();
+        return rect.height > 0 && rect.bottom > 0 && rect.top < window.innerHeight
+    }).length);
+
+    await expect.poll(countVisibleRows).toBeGreaterThan(0);
+    const before = await countVisibleRows();
+    await page.getByRole('button', {name: 'Reset', exact: true}).click();
+    await page.waitForTimeout(500);
+    await expect.poll(countVisibleRows).toBe(before);
+    await expect(rows).toHaveCount(before);
+});

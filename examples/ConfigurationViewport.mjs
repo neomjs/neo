@@ -2,7 +2,6 @@ import Button       from '../src/button/Base.mjs';
 import Container    from '../src/container/Base.mjs';
 import Panel        from '../src/container/Panel.mjs';
 import Viewport     from '../src/container/Viewport.mjs';
-import {bindAppend} from '../src/util/Function.mjs';
 
 // Default themes
 const themes = [
@@ -217,10 +216,30 @@ class ConfigurationViewport extends Viewport {
     }
 
     /**
-     * @param {Object} data
+     * Derives the name shown in the stage header. An explicit `componentName` wins. Otherwise the last
+     * className segment is used, unless it is generic (e.g. `Base`, `Container`), in which case the
+     * closest namespace segment names the component (`Neo.button.Base` => `Button`).
+     * @param {String} [className]
+     * @returns {String}
      */
-    logInstance(data) {
-        console.log(this.exampleComponent);
+    getComponentName(className=this.exampleComponent?.className || '') {
+        let me       = this,
+            generic  = ['Abstract', 'Base', 'Component', 'Container'],
+            segments = className.split('.').filter(Boolean);
+
+        if (me.componentName) {
+            return me.componentName
+        }
+
+        let name = segments[segments.length - 1];
+
+        if (generic.includes(name) && segments.length > 2) {
+            // Skip the leading `Neo` namespace
+            name = segments[segments.length - 2];
+            name = name.charAt(0).toUpperCase() + name.slice(1)
+        }
+
+        return name || 'Component'
     }
 
     /**
@@ -269,18 +288,15 @@ class ConfigurationViewport extends Viewport {
     }
 
     /**
-     * Snapshots the initial state of the example component configs and inspector controls
+     * Snapshots the initial state of the inspector controls and of the example component configs they control.
+     * Only configs bound to a control (`item.name`) are restored by `onReset()`. The creation config
+     * (stores, columns, items, handlers) is never written back, since this would re-create them.
      */
     snapshotInitialState() {
         let me = this;
 
         me.initialConfigValues  = {};
         me.initialControlStates = [];
-
-        // Snapshot original configs passed during component creation
-        if (me.exampleComponent?.originalConfig) {
-            Object.assign(me.initialConfigValues, Neo.clone(me.exampleComponent.originalConfig, true, true));
-        }
 
         const inspector = me.items?.[1];
 
@@ -319,7 +335,7 @@ class ConfigurationViewport extends Viewport {
     }
 
     /**
-     * Restores all configs of the example component and controls to their initial values
+     * Restores the inspector controls and the example component configs they control to their initial values
      */
     onReset() {
         let me = this;
@@ -408,7 +424,7 @@ class ConfigurationViewport extends Viewport {
             stageCls.push('neo-stage-compact');
         }
 
-        const compName  = me.componentName || me.exampleComponent?.className?.split('.').pop() || 'Component';
+        const compName  = me.getComponentName();
         const compClass = me.exampleComponent?.className || '';
         const compDesc  = me.description || me.exampleComponent?.description || '';
 
@@ -530,11 +546,6 @@ class ConfigurationViewport extends Viewport {
         futureIndex = (themeIndex + 1) % countThemes;
 
         button.text = availableThemes[futureIndex].label;
-
-        const otherBtn = me.down({id: me.id + '__switchThemeButton'});
-        if (otherBtn && otherBtn !== button) {
-            otherBtn.text = button.text;
-        }
 
         if (target === 'cmp') {
             me.exampleComponent.theme = newTheme;

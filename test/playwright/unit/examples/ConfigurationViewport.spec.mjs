@@ -68,6 +68,7 @@ test.afterAll(() => {
 import ButtonMainContainer     from '../../../../examples/button/base/MainContainer.mjs';
 import FieldMainContainer      from '../../../../examples/form/field/text/MainContainer.mjs';
 import ListMainContainer       from '../../../../examples/list/base/MainContainer.mjs';
+import GridMainContainer       from '../../../../examples/grid/valueBanding/MainContainer.mjs';
 import FunctionalMainContainer from '../../../../examples/functional/hostComponent/MainContainer.mjs';
 
 test.describe('ConfigurationViewport Workbench (Stage, Inspector, Reset, Theme)', () => {
@@ -92,7 +93,7 @@ test.describe('ConfigurationViewport Workbench (Stage, Inspector, Reset, Theme)'
         // Stage Header
         const stageTitle = stage.down({reference: 'stage-title'});
         expect(stageTitle).toBeDefined();
-        expect(stageTitle.text).toBe('Base');
+        expect(stageTitle.text).toBe('Button');
 
         // Inspector
         const inspector = viewport.items[1];
@@ -108,6 +109,51 @@ test.describe('ConfigurationViewport Workbench (Stage, Inspector, Reset, Theme)'
         expect(themeBtn).toBeDefined();
 
         viewport.destroy();
+    });
+
+    test('stage title names the component a visitor recognises', async () => {
+        const viewport = Neo.create(ButtonMainContainer, {autoMount: false});
+
+        try {
+            expect(viewport.getComponentName('Neo.button.Base')).toBe('Button');
+            expect(viewport.getComponentName('Neo.list.Base')).toBe('List');
+            expect(viewport.getComponentName('Neo.grid.Container')).toBe('Grid');
+            expect(viewport.getComponentName('Neo.form.field.Text')).toBe('Text');
+            expect(viewport.getComponentName('Neo.Foo')).toBe('Foo');
+
+            viewport.componentName = 'Custom';
+            expect(viewport.getComponentName('Neo.button.Base')).toBe('Custom');
+        } finally {
+            viewport.destroy();
+        }
+    });
+
+    test('reset snapshots only inspector-controlled configs, never the creation config', async () => {
+        const viewport = Neo.create(GridMainContainer, {autoMount: false});
+
+        try {
+            const initialHeight = viewport.exampleComponent.height,
+                  store         = viewport.exampleComponent.store,
+                  columns       = viewport.exampleComponent.columns;
+
+            viewport.onConfigChange('height', {value: 300});
+            expect(viewport.exampleComponent.height).toBe(300);
+
+            viewport.onReset();
+
+            expect(viewport.exampleComponent.height).toBe(initialHeight);
+            expect(viewport.exampleComponent.store).toBe(store);
+            expect(viewport.exampleComponent.columns).toBe(columns);
+
+            const keys = Object.keys(viewport.initialConfigValues);
+
+            expect(keys).toEqual(['height']);
+            ['store', 'columns', 'body', 'module', 'columnDefaults', 'wrapperStyle'].forEach(key => {
+                expect(keys).not.toContain(key)
+            });
+        } finally {
+            viewport.destroy();
+        }
     });
 
     test('applies exampleContainerConfig only to the example container without mutating its style', async () => {
