@@ -81,8 +81,13 @@ test.describe('ConfigurationViewport Workbench (Stage, Inspector, Reset, Theme)'
         // Stage
         const stage = viewport.items[0];
         expect(stage.cls).toContain('neo-workbench-stage');
-        expect(stage.cls).toContain('neo-example-container');
-        expect(stage.items).toContain(viewport.exampleComponent);
+        expect(stage.cls).not.toContain('neo-example-container');
+        expect(stage.items).toHaveLength(2);
+
+        const exampleContainer = stage.items[1];
+        expect(exampleContainer.cls).toContain('neo-example-container');
+        expect(exampleContainer.items).toEqual([viewport.exampleComponent]);
+        expect(viewport.exampleComponent.parentId).toBe(exampleContainer.id);
 
         // Stage Header
         const stageTitle = stage.down({reference: 'stage-title'});
@@ -103,6 +108,32 @@ test.describe('ConfigurationViewport Workbench (Stage, Inspector, Reset, Theme)'
         expect(themeBtn).toBeDefined();
 
         viewport.destroy();
+    });
+
+    test('applies exampleContainerConfig only to the example container without mutating its style', async () => {
+        const style = {padding: '12px', overflow: 'hidden'},
+              viewport = Neo.create(ButtonMainContainer, {
+                  autoMount: false,
+                  exampleContainerConfig: {
+                      layout   : 'fit',
+                      reference: 'custom-example-container',
+                      style
+                  }
+              });
+
+        try {
+            const stage = viewport.items[0],
+                  exampleContainer = stage.items[1];
+
+            expect(stage.reference).not.toBe('custom-example-container');
+            expect(exampleContainer.reference).toBe('custom-example-container');
+            expect(exampleContainer.layout.ntype).toBe('layout-fit');
+            expect(exampleContainer.style).toMatchObject(style);
+            expect(exampleContainer.items).toEqual([viewport.exampleComponent]);
+            expect(viewport.exampleContainerConfig.style).toEqual(style);
+        } finally {
+            viewport.destroy();
+        }
     });
 
     test('initial theme connects to Portal default (neo-theme-neo-dark)', async () => {
