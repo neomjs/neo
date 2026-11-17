@@ -3,7 +3,6 @@ import ClassSystemUtil from '../util/ClassSystem.mjs';
 import CssUtil         from '../util/Css.mjs';
 import NeoArray        from '../util/Array.mjs';
 import Store           from '../data/Store.mjs';
-import StoreUtil       from '../util/Store.mjs';
 import TableBody       from './Body.mjs';
 import * as header     from './header/_export.mjs';
 
@@ -356,9 +355,7 @@ class Container extends BaseContainer {
      * @param {Object[]} records
      */
     bulkUpdateRecords(records) {
-        const {store} = this;
-
-        store.updateRows(StoreUtil.toRowChanges(store, records))
+        this.store.updateRecords(records)
     }
 
     /**

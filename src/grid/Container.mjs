@@ -4,7 +4,6 @@ import Collection          from '../collection/Base.mjs';
 import GridBody            from './Body.mjs';
 import ScrollManager       from './ScrollManager.mjs';
 import Store               from '../data/Store.mjs';
-import StoreUtil           from '../util/Store.mjs';
 import FooterToolbar       from './footer/Toolbar.mjs';
 import SearchToolbar       from './SearchToolbar.mjs';
 import HorizontalScrollbar from './HorizontalScrollbar.mjs';
@@ -978,9 +977,7 @@ class GridContainer extends BaseContainer {
      * @param {Object[]} records
      */
     bulkUpdateRecords(records) {
-        const {store} = this;
-
-        store.updateRows(StoreUtil.toRowChanges(store, records))
+        this.store.updateRecords(records)
     }
 
     /**
