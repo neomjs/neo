@@ -227,29 +227,41 @@ test.describe('buildScripts/create/theme.mjs consumer workspace scaffolding', ()
         });
     }
 
-    test('lists installed, declaring-package and workspace themes once, without admitting unrelated packages', () => {
-        for (const theme of shippedThemes) {
-            fs.cpSync(path.join(repoRoot, 'resources/css', theme), path.join(engineRoot, 'resources/css', theme), {recursive: true});
-        }
+    // A consumer whose name merely contains `neo.mjs` is still a consumer: only the exact name marks the Engine
+    for (const consumer of ['theme-consumer-fixture', 'neo.mjs-demo']) {
+        test(`lists installed, declaring-package and workspace themes once for ${consumer}, without admitting unrelated packages`, () => {
+            for (const theme of shippedThemes) {
+                fs.cpSync(path.join(repoRoot, 'resources/css', theme), path.join(engineRoot, 'resources/css', theme), {recursive: true});
+            }
 
-        write(path.join(root, 'package.json'), JSON.stringify({
-            name        : 'theme-consumer-fixture',
-            version     : '1.0.0',
-            dependencies: {'neo.mjs': '1.0.0', '@fixture/skin': '1.0.0', 'plain-skin': '1.0.0'}
-        }));
+            write(path.join(root, 'package.json'), JSON.stringify({
+                name        : consumer,
+                version     : '1.0.0',
+                dependencies: {'neo.mjs': '1.0.0', '@fixture/skin': '1.0.0', 'plain-skin': '1.0.0'}
+            }));
+            write(path.join(root, 'node_modules/@fixture/skin/package.json'), JSON.stringify({name: '@fixture/skin', neo: {css: 'skin'}}));
+            write(path.join(root, 'node_modules/@fixture/skin/skin/theme-package/Global.css'), ':root { --fixture: package; }');
+            write(path.join(cssRoot, 'theme-workspace/Global.css'), ':root { --fixture: workspace; }');
+            write(path.join(cssRoot, 'theme-neo-dark/Global.css'), ':root { --fixture: duplicate; }');
+            write(path.join(cssRoot, 'theme-fake'), 'not a folder');
+
+            for (const name of ['plain-skin', 'unlisted-skin']) {
+                const pkg = path.join(root, 'node_modules', name);
+                write(path.join(pkg, 'package.json'), JSON.stringify({name, ...(name === 'unlisted-skin' ? {neo: {css: 'skin'}} : {})}));
+                write(path.join(pkg, 'skin/theme-ignored/Global.css'), ':root { --fixture: ignored; }');
+            }
+
+            expect(listThemes(root)).toEqual([...new Set([...shippedThemes, 'theme-package', 'theme-workspace'])].sort());
+        });
+    }
+
+    test('inside the Engine, named exactly neo.mjs, only its own themes are listed', () => {
+        write(path.join(root, 'package.json'), JSON.stringify({name: 'neo.mjs', version: '1.0.0', dependencies: {'@fixture/skin': '1.0.0'}}));
         write(path.join(root, 'node_modules/@fixture/skin/package.json'), JSON.stringify({name: '@fixture/skin', neo: {css: 'skin'}}));
         write(path.join(root, 'node_modules/@fixture/skin/skin/theme-package/Global.css'), ':root { --fixture: package; }');
-        write(path.join(cssRoot, 'theme-workspace/Global.css'), ':root { --fixture: workspace; }');
-        write(path.join(cssRoot, 'theme-neo-dark/Global.css'), ':root { --fixture: duplicate; }');
-        write(path.join(cssRoot, 'theme-fake'), 'not a folder');
+        write(path.join(cssRoot, 'theme-engine/Global.css'), ':root { --fixture: engine; }');
 
-        for (const name of ['plain-skin', 'unlisted-skin']) {
-            const pkg = path.join(root, 'node_modules', name);
-            write(path.join(pkg, 'package.json'), JSON.stringify({name, ...(name === 'unlisted-skin' ? {neo: {css: 'skin'}} : {})}));
-            write(path.join(pkg, 'skin/theme-ignored/Global.css'), ':root { --fixture: ignored; }');
-        }
-
-        expect(listThemes(root)).toEqual([...new Set([...shippedThemes, 'theme-package', 'theme-workspace'])].sort());
+        expect(listThemes(root)).toEqual(['theme-engine']);
     });
 
     test('noninteractive CLI requires both flags and refuses incomplete input without writes or a prompt', () => {

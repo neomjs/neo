@@ -1,4 +1,3 @@
-import fs                     from 'node:fs';
 import path                   from 'node:path';
 import {declaredPackageRoots} from './declaredPackageRoots.mjs';
 
@@ -9,12 +8,17 @@ import {declaredPackageRoots} from './declaredPackageRoots.mjs';
  * of them sees is the sheet the others see. A later root replaces an earlier root's sheet at the same
  * path. Packages come in name order, and a declared root that is missing or leaves its package throws
  * (see {@link declaredPackageRoots}). The Engine and workspace roots need not exist yet.
+ *
+ * Whether `repoRoot` is the Engine checkout is the caller's call, because the build scripts recognise it
+ * differently: `create-theme` by the exact package name `neo.mjs`, the theme builder and watcher by a
+ * package name that contains it.
  * @param {String} repoRoot Workspace or Engine repository root.
+ * @param {Object} options
+ * @param {Boolean} options.insideNeo `repoRoot` is the Engine checkout.
  * @returns {String[]} Absolute directories.
  */
-export function themeCssRoots(repoRoot) {
-    const insideNeo = JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8')).name.includes('neo.mjs'),
-          framework = path.join(repoRoot, insideNeo ? '' : 'node_modules/neo.mjs', 'resources/css');
+export function themeCssRoots(repoRoot, {insideNeo}) {
+    const framework = path.join(repoRoot, insideNeo ? '' : 'node_modules/neo.mjs', 'resources/css');
 
     if (insideNeo) {
         return [framework]

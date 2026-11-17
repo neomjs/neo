@@ -12,12 +12,24 @@ import {themeCssRoots}   from '../util/themeCssRoots.mjs';
 const themePattern = /^theme-[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 /**
+ * @summary The theme source roots the generator reads ({@link themeCssRoots}). It recognises the Engine
+ * checkout by the exact package name `neo.mjs`, so a workspace named like `neo.mjs-demo` stays a consumer.
+ * @param {String} cwd Workspace or Engine repository root.
+ * @returns {String[]}
+ */
+function themeRoots(cwd) {
+    const {name} = JSON.parse(fs.readFileSync(path.join(cwd, 'package.json'), 'utf8'));
+
+    return themeCssRoots(cwd, {insideNeo: name === 'neo.mjs'})
+}
+
+/**
  * @summary Lists selectable base themes across Engine, component packages and workspace.
  * @param {String} cwd Workspace or Engine repository root.
  * @returns {String[]}
  */
 export function listThemes(cwd) {
-    return [...new Set(themeCssRoots(cwd).flatMap(root => fs.existsSync(root)
+    return [...new Set(themeRoots(cwd).flatMap(root => fs.existsSync(root)
         ? fs.readdirSync(root, {withFileTypes: true})
             .filter(entry => entry.isDirectory() && themePattern.test(entry.name))
             .map(entry => entry.name)
@@ -66,7 +78,7 @@ export function generateTheme({cwd, baseTheme, themeName}) {
         }
     }
 
-    const roots       = themeCssRoots(cwd),
+    const roots       = themeRoots(cwd),
           destination = path.join(cwd, 'resources/css', themeName),
           files       = new Map();
 

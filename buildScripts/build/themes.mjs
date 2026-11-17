@@ -21,7 +21,7 @@ const
     program          = new Command(),
     cssPath          = 'resources/css/',
     frameworkCssPath = path.resolve(neoPath, cssPath),
-    cssRoots         = themeCssRoots(cwd),
+    cssRoots         = themeCssRoots(cwd, {insideNeo}),
     cssFolders       = cssRoots.flatMap(root => fs.existsSync(root) ? fs.readdirSync(root) : []),
     themeMapFile     = 'resources/theme-map.json',
     themeFolders     = [...new Set(cssFolders.filter(folder => folder.includes('theme')))],

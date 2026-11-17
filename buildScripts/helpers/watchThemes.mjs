@@ -14,12 +14,13 @@ const REPO_ROOT = process.cwd();
 
 /**
  * @summary Returns the theme source roots the full theme builder reads, in override order
- * ({@link themeCssRoots}), and refuses to start without one of them.
+ * ({@link themeCssRoots}), and refuses to start without one of them. Like the builder, it takes a
+ * package name containing `neo.mjs` for the Engine checkout.
  * @param {String} repoRoot Repository root.
  * @returns {String[]} Absolute directories.
  */
 function getThemeSourceRoots(repoRoot) {
-    const roots = themeCssRoots(repoRoot);
+    const roots = themeCssRoots(repoRoot, {insideNeo: fs.readJsonSync(path.join(repoRoot, 'package.json')).name.includes('neo.mjs')});
 
     roots.forEach(root => {
         if (!fs.existsSync(root)) {
