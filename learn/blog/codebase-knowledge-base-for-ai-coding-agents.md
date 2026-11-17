@@ -138,16 +138,21 @@ What is a state provider in Neo?	learn/guides/datahandling/StateProviders.md
 
 ```bash
 rgscore() {
-  local hit=0 n=0 q f
+  local hit=0 n=0 q f root="${2:-.}"
+  root="${root%/}"
   while IFS=$'\t' read -r q f; do
     n=$((n + 1))
-    rgrank "$q" "${2:-.}" 5 | grep -qE -- "$f" && hit=$((hit + 1))
+    rgrank "$q" "$root" 5 | WANT="$f" ROOT="$root/" awk '
+      BEGIN { split(ENVIRON["WANT"], a, "|"); for (i in a) ok[a[i]] }
+      { sub(/^ *([0-9.]+ +)+/, ""); if (index($0, ENVIRON["ROOT"]) == 1) $0 = substr($0, length(ENVIRON["ROOT"]) + 1) }
+      $0 in ok { found = 1 }
+      END { exit !found }' && hit=$((hit + 1))
   done < "$1"
   echo "$hit of $n questions: the answering file is in the first five"
 }
 ```
 
-`rgscore questions.tsv` prints how many of them `rgrank` answers. Put `python3 bm25rank.py` in place of `rgrank` to score BM25, or the command of whatever your agent searches with today. Where two files answer a question, write `a|b`. Keep the question file and your result files outside the directory you search, or they rank themselves. Ours did. If you run an index, add the column that changed our reading: was the answering file in the index at all?
+`rgscore questions.tsv` prints how many of them `rgrank` answers. Put `python3 bm25rank.py` in place of `rgrank` to score BM25, or whatever your agent searches with today, as long as it prints one path per line (score columns in front are skipped). A path counts only when it matches exactly, written relative to the directory you search. Where two files answer a question, write `a|b`. Keep the question file and your result files outside the directory you search, or they rank themselves. Ours did. If you run an index, add the column that changed our reading: was the answering file in the index at all?
 
 **2. Tell your agent.** No search measures whether the file it finds is right. In June a guide of ours [still called an API key required](https://github.com/neomjs/neo/blob/412deca1f189add762d88dc722e679f5e63d7636/learn/agentos/KnowledgeBase.md?plain=1#L239) eight weeks after [the code had stopped needing it](https://github.com/neomjs/neo/commit/1350521ef2ebaa764ffa2cd02bdb1098eb80fb57), and every search here would have served that line. The maintainer who [rewrote the guide from the source](https://github.com/neomjs/neo/pull/14346) put it this way: "If the corpus lies, the agent can repeat the lie with citations." So our agents work under two rules, and they fit the instruction file yours already reads (`AGENTS.md`, `CLAUDE.md`):
 
