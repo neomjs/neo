@@ -1,13 +1,12 @@
-import BooleanContainer                    from '../../../src/filter/BooleanContainer.mjs';
-import Button                              from '../../../src/button/Base.mjs';
-import ComboBox                            from '../../../src/form/field/ComboBox.mjs';
-import Component                           from '../../../src/component/Base.mjs';
-import Container                           from '../../../src/container/Base.mjs';
-import DateContainer                       from '../../../src/filter/DateContainer.mjs';
-import GridContainer                       from '../../../src/grid/Container.mjs';
-import MainStore, {categories, orderCount} from './MainStore.mjs';
-import NumberContainer                     from '../../../src/filter/NumberContainer.mjs';
-import Viewport                            from '../../../src/container/Viewport.mjs';
+import BooleanContainer        from '../../../src/filter/BooleanContainer.mjs';
+import Button                  from '../../../src/button/Base.mjs';
+import Component               from '../../../src/component/Base.mjs';
+import Container               from '../../../src/container/Base.mjs';
+import DateContainer           from '../../../src/filter/DateContainer.mjs';
+import GridContainer           from '../../../src/grid/Container.mjs';
+import MainStore, {orderCount} from './MainStore.mjs';
+import NumberContainer         from '../../../src/filter/NumberContainer.mjs';
+import Viewport                from '../../../src/container/Viewport.mjs';
 
 const
     count    = new Intl.NumberFormat('en-US').format,
@@ -86,17 +85,9 @@ class MainContainer extends Viewport {
                 text     : 'Customer',
                 width    : 180
             }, {
-                dataField   : 'category',
-                filterConfig: {operator: '==='},
-                text        : 'Category',
-                width       : 160,
-
-                editorConfig: {
-                    module      : ComboBox,
-                    displayField: 'id',
-                    editable    : false,
-                    store       : categories
-                }
+                dataField: 'category',
+                text     : 'Category',
+                width    : 160
             }, {
                 cellAlign   : 'right',
                 dataField   : 'amount',
@@ -105,7 +96,14 @@ class MainContainer extends Viewport {
                 text        : 'Amount',
                 width       : 170,
 
-                editorConfig: {module: NumberContainer}
+                // The field shows the operator the filter applies, and the field's default maxValue of 100 would
+                // clamp a typed 4000 on blur
+                editorConfig: {
+                    module      : NumberContainer,
+                    buttonConfig: {operators: ['>=', '<=', '===']},
+                    fieldConfig : {maxValue: 5000},
+                    operator    : '>='
+                }
             }, {
                 dataField   : 'date',
                 filterConfig: {operator: '==='},

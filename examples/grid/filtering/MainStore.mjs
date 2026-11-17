@@ -2,10 +2,10 @@ import Model from './MainModel.mjs';
 import Store from '../../../src/data/Store.mjs';
 
 /**
- * The categories an order belongs to, also the choices of the category filter
+ * The categories an order belongs to
  * @type {String[]}
  */
-export const categories = ['Furniture', 'Kitchen', 'Lighting', 'Outdoor', 'Textiles'];
+const categories = ['Furniture', 'Kitchen', 'Lighting', 'Outdoor', 'Textiles'];
 
 /**
  * The number of orders: the whole the count line names
@@ -41,7 +41,8 @@ class MainStore extends Store {
             category: categories[(index * 3 + Math.floor(index / 5)) % categories.length],
             amount  : 50 + (index * 137) % 4950,
             date    : new Date(Date.UTC(2026, 0, 1 + (index * 13) % 365)).toISOString().slice(0, 10),
-            paid    : index % 4 !== 0
+            // A quarter of the orders are open, spread over every customer (customers repeat every 32 rows)
+            paid    : (index + Math.floor(index / 32)) % 4 !== 0
         })),
         /**
          * @member {String} keyProperty='id'
