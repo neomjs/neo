@@ -111,16 +111,17 @@
       "id": "grid-locked-columns",
       "viewport": {"width":640,"height":360},
       "theme": "default",
-      "state": "The centre scrolled to populated Private contributions while User and Updated stay locked.",
+      "state": "The centre scrolled to the plan's second year while product, region and total stay pinned.",
       "ready": [
-        {"selector":".neo-grid-cell[data-field='login']","text":"octocat"}
+        {"selector":".neo-grid-cell[data-field='product']","text":"Aurora Desk"}
       ],
       "steps": [
-        {"kind":"scroll","selector":".neo-grid-horizontal-scrollbar","x":160,"y":0}
+        {"kind":"scroll","selector":".neo-grid-horizontal-scrollbar","x":1280,"y":0}
       ],
       "after": [
-        {"selector":".neo-grid-cell[data-field='login']","text":"octocat","inRegion":true},
-        {"selector":".neo-grid-cell[data-field='privateContributionsRatio']:text-is('0.1')","inRegion":true}
+        {"selector":".neo-grid-cell[data-field='product']","text":"Aurora Desk","inRegion":true},
+        {"selector":".neo-grid-cell[data-field='m16']","inRegion":true},
+        {"selector":".neo-grid-cell[data-field='total']","inRegion":true}
       ],
       "region": {"x":0,"y":0,"width":640,"height":360}
     },

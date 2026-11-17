@@ -1723,6 +1723,12 @@
         "schemaType": "WebPage",
         "lastmod": "2025-08-12"
     },
+    "/examples/grid/pinnedColumns/index.html": {
+        "title": "JavaScript Data Grid with Pinned Columns | Neo.mjs",
+        "description": "A Neo.mjs JavaScript Data Grid with columns pinned at both edges: product and region stay at the start, the total at the end, while 36 months scroll between.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-17"
+    },
     "/examples/grid/tree/index.html": {
         "title": "Tree Grid Example — Web Worker Data Grid Demo | Neo.mjs",
         "description": "Hierarchical rows. Expand and collapse the sample file hierarchy in the Name column.",
