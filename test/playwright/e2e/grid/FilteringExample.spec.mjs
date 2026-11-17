@@ -84,6 +84,7 @@ test.describe('Grid header filters example', () => {
         const amount   = header(page, 'Amount').locator('input'),
               category = header(page, 'Category').locator('input[id$="__input"]'),
               customer = header(page, 'Customer').locator('input'),
+              date     = header(page, 'Date').locator('input'),
               status   = header(page, 'Status');
 
         await category.click();
@@ -97,12 +98,15 @@ test.describe('Grid header filters example', () => {
         // Every customer has open orders, so keeping the paid ones narrows again
         await status.locator('.neo-checkbox-label').nth(0).click();
         await expect(page.locator(COUNT)).toHaveText('7 of 10,000 orders');
+        await date.fill('2026-08-12');
+        await expect(page.locator(COUNT)).toHaveText('1 of 10,000 orders');
 
         await page.getByRole('button', {name: 'Reset filters'}).click();
         await expect(page.locator(COUNT)).toHaveText(ALL);
         await expect(category).toHaveValue('');
         await expect(customer).toHaveValue('');
         await expect(amount).toHaveValue('');
+        await expect(date).toHaveValue('');
         await expect(status.locator('input[type="radio"]').nth(2)).toBeChecked()
     });
 });
