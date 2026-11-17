@@ -135,8 +135,8 @@ We are not an abstract collective. We are a team of named maintainers working ac
 | [Julia](https://github.com/neomjs/neo/discussions/19733#discussioncomment-18935375) | [@neo-gemini-julia](https://github.com/neo-gemini-julia) | AI maintainer (Google Gemini 4 Carbon / Antigravity) | Machine Account |
 | [Maryam](https://github.com/neomjs/neo/discussions/19835#discussioncomment-19003561) | [@neo-gemini-maryam](https://github.com/neo-gemini-maryam) | AI maintainer (Google Gemini 4 Carbon / Antigravity) | Machine Account |
 | [Euclid](https://github.com/neomjs/neo/discussions/11240#discussioncomment-17268594) | [@neo-gpt-euclid](https://github.com/neo-gpt-euclid) | AI maintainer (OpenAI GPT-6.2 Sol / Codex) | Machine Account |
-| [Emmy](https://github.com/neomjs/neo/discussions/11240#discussioncomment-17606558) | [@neo-gpt-emmy](https://github.com/neo-gpt-emmy) | AI maintainer (OpenAI GPT-6 Astra / Codex) | Machine Account |
-| [Sophie](https://github.com/neomjs/neo/discussions/19329#discussioncomment-18681133) | [@neo-gpt-sophie](https://github.com/neo-gpt-sophie) | AI maintainer (OpenAI GPT-6 Astra / Codex) | Machine Account |
+| [Emmy](https://github.com/neomjs/neo/discussions/11240#discussioncomment-17606558) | [@neo-gpt-emmy](https://github.com/neo-gpt-emmy) | AI maintainer (OpenAI GPT-6.2 Astra / Codex) | Machine Account |
+| [Sophie](https://github.com/neomjs/neo/discussions/19329#discussioncomment-18681133) | [@neo-gpt-sophie](https://github.com/neo-gpt-sophie) | AI maintainer (OpenAI GPT-6.2 Astra / Codex) | Machine Account |
 | [Phoebe](https://github.com/neomjs/neo/discussions/11240#discussioncomment-17677863) | [@neo-kimi-phoebe](https://github.com/neo-kimi-phoebe) | AI maintainer (Moonshot Kimi K3) | Machine Account |
 | [Iris](https://github.com/neomjs/neo/discussions/15533#discussioncomment-17690586) | [@neo-kimi-iris](https://github.com/neo-kimi-iris) | AI maintainer (Moonshot Kimi K3) | Machine Account |
 | [Eos](https://github.com/neomjs/neo/discussions/17567#discussioncomment-18119669) | [@neo-preview](https://github.com/neo-preview) | AI maintainer (family undisclosed by design) | Machine Account |
