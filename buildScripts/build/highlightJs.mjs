@@ -1,5 +1,6 @@
 import esbuild         from 'esbuild';
 import fs              from 'fs/promises';
+import {createRequire} from 'module';
 import path            from 'path';
 import {fileURLToPath} from 'url';
 import {Command}       from 'commander';
@@ -22,8 +23,24 @@ const program = new Command();
 export const LANGUAGES = ['bash', 'css', 'javascript', 'json', 'markdown', 'plaintext', 'ruby', 'scss', 'xml', 'yaml'];
 
 /**
+ * @summary The comment both bundles open with: the installed package's version and its `LICENSE` file verbatim.
+ * Its BSD 3-Clause terms require the copyright notice, the conditions and the disclaimer to travel with every
+ * redistributed copy, and a bundle is one. The package resolves like the bundle's imports, from this folder upwards.
+ * @returns {Promise<String>}
+ */
+export async function licenseBanner() {
+    const
+        manifest  = createRequire(import.meta.url).resolve('highlight.js/package.json'),
+        {version} = JSON.parse(await fs.readFile(manifest, 'utf8')),
+        license   = await fs.readFile(path.join(path.dirname(manifest), 'LICENSE'), 'utf8');
+
+    return `/*!\n  Highlight.js v${version}\n\n${license.trim()}\n */`
+}
+
+/**
  * @summary Bundles the installed highlight.js core with {@link LANGUAGES} registered, as an ES module whose
- * default export is `hljs`: `highlight.custom.js` and its minified twin `highlight.custom.min.js`.
+ * default export is `hljs`: `highlight.custom.js` and its minified twin `highlight.custom.min.js`, each opening
+ * with {@link licenseBanner}.
  *
  * Like the other browser bundles (`parse5.mjs`, `marked.mjs`), it reads the lockfile-pinned package, so the build
  * needs no network, no git and no second install. The entry resolves from this file's folder upwards, which
@@ -32,6 +49,8 @@ export const LANGUAGES = ['bash', 'css', 'javascript', 'json', 'markdown', 'plai
  * @returns {Promise<void>}
  */
 export async function buildBundle(targetDir) {
+    const banner = {js: await licenseBanner()};
+
     const stdin = {
         contents: [
             "import hljs from 'highlight.js/lib/core';",
@@ -44,8 +63,8 @@ export async function buildBundle(targetDir) {
     };
 
     await Promise.all([
-        esbuild.build({stdin, bundle: true, format: 'esm', outfile: path.join(targetDir, 'highlight.custom.js')}),
-        esbuild.build({stdin, bundle: true, format: 'esm', minify: true, outfile: path.join(targetDir, 'highlight.custom.min.js')})
+        esbuild.build({stdin, banner, bundle: true, format: 'esm', outfile: path.join(targetDir, 'highlight.custom.js')}),
+        esbuild.build({stdin, banner, bundle: true, format: 'esm', minify: true, outfile: path.join(targetDir, 'highlight.custom.min.js')})
     ])
 }
 

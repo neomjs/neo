@@ -1,6 +1,7 @@
 import {test, expect}                                                from '@playwright/test';
 import {execFileSync}                                                from 'node:child_process';
 import {mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync} from 'node:fs';
+import {createRequire}                                               from 'node:module';
 import os                                                            from 'node:os';
 import path                                                          from 'node:path';
 import {fileURLToPath, pathToFileURL}                                from 'node:url';
@@ -19,12 +20,17 @@ const SAMPLES = {
 };
 
 test.describe('highlightJs — the bundle comes from the installed package', () => {
-    let LANGUAGES, root;
+    let LANGUAGES, license, root, version;
 
     test.beforeAll(async () => {
         let buildBundle;
 
         ({buildBundle, LANGUAGES} = await import('../../../../buildScripts/build/highlightJs.mjs'));
+
+        const manifest = createRequire(import.meta.url).resolve('highlight.js/package.json');
+
+        ({version} = JSON.parse(readFileSync(manifest, 'utf8')));
+        license = readFileSync(path.join(path.dirname(manifest), 'LICENSE'), 'utf8').trim();
 
         root = mkdtempSync(path.join(os.tmpdir(), 'neo-highlight-bundle-'));
         await buildBundle(root)
@@ -60,11 +66,21 @@ test.describe('highlightJs — the bundle comes from the installed package', () 
                     expect(results[language], `${language} produces highlight markup`).toContain('<span class="hljs-')
                 }
             }
+        });
+
+        test(`${file} opens with the installed package's license, verbatim`, () => {
+            // BSD 3-Clause: the copyright notice, the conditions and the disclaimer travel with every redistributed
+            // copy, and minifying must not strip them.
+            const content = readFileSync(path.join(root, file), 'utf8');
+
+            expect(content.startsWith('/*!')).toBe(true);
+            expect(content).toContain(`Highlight.js v${version}`);
+            expect(content).toContain(license)
         })
     }
 });
 
-test('the build starts no process: no git clone, no second install', () => {
+test('the script runs no git clone and no second install: it imports no child_process', () => {
     expect(readFileSync('buildScripts/build/highlightJs.mjs', 'utf8')).not.toMatch(/child_process/)
 });
 
