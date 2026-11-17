@@ -16,15 +16,52 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
 import Component      from '../../../../src/component/Base.mjs';
+import DomEvent       from '../../../../src/manager/DomEvent.mjs';
 import Tooltip        from '../../../../src/tooltip/Base.mjs';
 
 /**
  * @summary Where a tooltip listens, and which shared tooltip serves a window: each component instance once, a target's
  * root at the top of its `parentId` chain, one shared tooltip per browser window that anchors each app's main view
- * there, and a shared tooltip that leaves with its window. The browser behavior is pinned by
+ * there, a root that answers only to the tooltip of its current window, listeners that leave with either side, and a
+ * shared tooltip that leaves with its window and its pending delays. The browser behavior is pinned by
  * `test/playwright/component/tooltip/FloatingRoot.spec.mjs`.
  */
 const listenersOf = component => (component.domListeners || []).filter(listener => listener.mouseenter);
+
+/**
+ * The mouseenter and mouseleave listeners `Neo.manager.DomEvent` dispatches to a tooltip from a component
+ * @param {Neo.component.Base} component
+ * @param {Neo.tooltip.Base} tooltip
+ * @returns {Number[]}
+ */
+const dispatchedTo = (component, tooltip) => ['mouseenter', 'mouseleave'].map(
+    eventName => (DomEvent.items[component.id]?.[eventName] || []).filter(listener => listener.scope === tooltip).length
+);
+
+/**
+ * Records the worker's `disconnect` subscriptions, and fires them for a departing window with the ports still open
+ * @returns {{disconnect: Function, listeners: Function, restore: Function}}
+ */
+const stubWorker = () => {
+    let worker    = Neo.currentWorker,
+        {on, un}  = worker,
+        listeners = [];
+
+    worker.on = (name, fn, scope) => listeners.push({fn, name, scope});
+    worker.un = (name, fn, scope) => {listeners = listeners.filter(item => item.fn !== fn || item.scope !== scope)};
+
+    return {
+        disconnect(windowId, ports) {
+            worker.ports = ports;
+            listeners.forEach(({fn, name, scope}) => name === 'disconnect' && fn.call(scope, {windowId}))
+        },
+        listeners: () => listeners,
+        restore() {
+            Object.assign(worker, {on, un});
+            delete worker.ports
+        }
+    }
+};
 
 test.describe('Neo.tooltip.Base delegation roots', () => {
     let created = [];
@@ -80,16 +117,11 @@ test.describe('Neo.tooltip.Base delegation roots', () => {
     });
 
     test('createSingleton() keeps one tooltip per window, anchors each app\'s main view in its own window, and lets the tooltip leave with its window', () => {
-        let worker    = Neo.currentWorker,
-            {on, un}  = worker,
-            listeners = [],
-            mainA     = create({module: Component, appName, id: 'delegation-main-a', windowId: 11}),
-            mainB     = create({module: Component, appName, id: 'delegation-main-b', windowId: 11}),
-            appA      = {mainView: mainA, name: appName},
-            appB      = {mainView: mainB, name: 'TooltipDelegationRootTestB'};
-
-        worker.on = (name, fn, scope) => listeners.push({fn, name, scope});
-        worker.un = (name, fn, scope) => {listeners = listeners.filter(item => item.fn !== fn || item.scope !== scope)};
+        let worker = stubWorker(),
+            mainA  = create({module: Component, appName, id: 'delegation-main-a', windowId: 11}),
+            mainB  = create({module: Component, appName, id: 'delegation-main-b', windowId: 11}),
+            appA   = {mainView: mainA, name: appName},
+            appB   = {mainView: mainB, name: 'TooltipDelegationRootTestB'};
 
         try {
             let first  = Tooltip.createSingleton(appA),
@@ -105,23 +137,95 @@ test.describe('Neo.tooltip.Base delegation roots', () => {
             expect(listenersOf(mainB), 'each app anchors its main view').toHaveLength(1);
 
             // A window with a live port keeps its tooltip; the last port gone, the tooltip leaves
-            worker.ports = [{windowId: 11}];
-            listeners.forEach(({fn, name, scope}) => name === 'disconnect' && fn.call(scope, {windowId: 11}));
+            worker.disconnect(11, [{windowId: 11}]);
             expect(first.isDestroyed).toBeFalsy();
 
-            worker.ports = [];
-            listeners.forEach(({fn, name, scope}) => name === 'disconnect' && fn.call(scope, {windowId: 11}));
+            worker.disconnect(11, []);
             expect(first.isDestroyed).toBe(true);
             expect(other.isDestroyed, 'another window keeps its tooltip').toBeFalsy();
-            expect(listeners.filter(({scope}) => scope === first), 'the departed tooltip stops listening').toHaveLength(0);
+            expect(worker.listeners().filter(({scope}) => scope === first), 'the departed tooltip stops listening').toHaveLength(0);
 
             let next = Tooltip.createSingleton(appA);
 
             created.push(next);
             expect(next).not.toBe(first)
         } finally {
-            Object.assign(worker, {on, un});
-            delete worker.ports
+            worker.restore()
+        }
+    });
+
+    test('a root that moves to another window answers only to the tooltip of that window', () => {
+        let worker = stubWorker(),
+            app    = {mainView: null, name: appName},
+            root   = create({module: Component, appName, id: 'delegation-moving-root', windowId: 21});
+
+        try {
+            let left    = Tooltip.createSingleton(app, 21),
+                reached = Tooltip.createSingleton(app, 22);
+
+            created.push(left, reached);
+
+            left.addDelegationRoot(root);
+            expect(dispatchedTo(root, left)).toEqual([1, 1]);
+
+            root.windowId = 22;
+            reached.addDelegationRoot(root);
+
+            expect(dispatchedTo(root, left), 'the window it left').toEqual([0, 0]);
+            expect(dispatchedTo(root, reached), 'the window it reached').toEqual([1, 1])
+        } finally {
+            worker.restore()
+        }
+    });
+
+    test('a root destroyed first leaves no listener of the tooltip behind', () => {
+        let tooltip = create({module: Tooltip, appName}),
+            root    = create({module: Component, appName, id: 'delegation-doomed-root'});
+
+        tooltip.addDelegationRoot(root);
+        expect(dispatchedTo(root, tooltip)).toEqual([1, 1]);
+
+        root.destroy();
+        expect(dispatchedTo(root, tooltip)).toEqual([0, 0])
+    });
+
+    test('a tooltip destroyed first leaves no listener behind on the root it kept', () => {
+        let tooltip = create({module: Tooltip, appName}),
+            root    = create({module: Component, appName, id: 'delegation-kept-root'});
+
+        tooltip.addDelegationRoot(root);
+        expect(dispatchedTo(root, tooltip)).toEqual([1, 1]);
+
+        tooltip.destroy();
+        expect(dispatchedTo(root, tooltip)).toEqual([0, 0]);
+        expect(root.domListeners.filter(listener => listener.scope === tooltip)).toHaveLength(0)
+    });
+
+    test('a tooltip that leaves with its window runs no pending show, while another window\'s tooltip still shows', async () => {
+        let worker = stubWorker(),
+            app    = {mainView: null, name: appName},
+            shown  = [];
+
+        try {
+            let departing = Tooltip.createSingleton(app, 31),
+                staying   = Tooltip.createSingleton(app, 32);
+
+            created.push(departing, staying);
+
+            [departing, staying].forEach(tooltip => {
+                tooltip.showDelay = 20;
+                tooltip.show      = () => shown.push(tooltip.windowId);
+                tooltip.showDelayed({})
+            });
+
+            worker.disconnect(31, [{windowId: 32}]);
+            expect(departing.isDestroyed).toBe(true);
+
+            await new Promise(resolve => setTimeout(resolve, 60));
+
+            expect(shown).toEqual([32])
+        } finally {
+            worker.restore()
         }
     })
 });

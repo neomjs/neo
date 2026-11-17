@@ -83,30 +83,41 @@ class Tooltip extends Container {
     }
 
     /**
-     * The components this tooltip listens on, held weakly so a destroyed one is released with its component
-     * @member {WeakSet<Neo.component.Base>} #delegationRoots
+     * The listeners this tooltip holds on each component it delegates from, by component id. A destroyed component
+     * takes its listeners along; its entry goes at the next registration.
+     * @member {Map<String, {listeners: Object[], root: Neo.component.Base}>} #delegations
      */
-    #delegationRoots = new WeakSet()
+    #delegations = new Map()
 
     /**
      * @summary Listens for the delegated mouseenter and mouseleave on a component, once per instance. A target must lie
      * inside such a component: an event reaches a listener only along the target's parent chain, and
      * `Neo.manager.DomEvent.verifyMouseEnterLeave()` looks for the target in the listening component's vdom.
+     * A component answers to one shared tooltip, the one of its window: a shared tooltip that takes a component
+     * releases it from the others, so a component that moved to another window stops reaching the tooltip it left.
      * @param {Neo.component.Base} component
      */
     addDelegationRoot(component) {
-        let me = this;
+        let me          = this,
+            delegations = me.#delegations,
+            listeners;
 
-        if (component && !me.#delegationRoots.has(component)) {
-            me.#delegationRoots.add(component);
-
-            component.addDomListeners({
-                mouseenter: me.onDelegateMouseEnter,
-                mouseleave: me.onDelegateMouseLeave,
-                delegate  : me.delegate,
-                scope     : me
-            })
+        if (!component || delegations.get(component.id)?.root === component) {
+            return
         }
+
+        delegations.forEach((entry, id) => entry.root.isDestroyed && delegations.delete(id));
+
+        me.isShared && Object.values(singletons).forEach(tooltip => tooltip !== me && tooltip.removeDelegationRoot(component));
+
+        // One listener per event: `Neo.manager.DomEvent` removes a listener under a single event name
+        listeners = [
+            {mouseenter: me.onDelegateMouseEnter, delegate: me.delegate, scope: me},
+            {mouseleave: me.onDelegateMouseLeave, delegate: me.delegate, scope: me}
+        ];
+
+        delegations.set(component.id, {listeners, root: component});
+        component.addDomListeners(listeners)
     }
 
     /**
@@ -250,11 +261,16 @@ class Tooltip extends Container {
     }
 
     /**
-     * A shared tooltip stops following window departures and leaves the registry
+     * A tooltip cancels its pending delays and stops listening on its components. A shared one also stops following
+     * window departures and leaves the registry.
      * @param {...*} args
      */
     destroy(...args) {
         let me = this;
+
+        me.clearTimeout(['dismiss', 'hide', 'show']);
+
+        me.#delegations.forEach(({root}) => me.removeDelegationRoot(root));
 
         if (me.isShared) {
             Neo.currentWorker.un('disconnect', me.onWindowDisconnect, me);
@@ -440,6 +456,21 @@ class Tooltip extends Container {
     onWindowDisconnect({windowId}) {
         if (windowId === this.windowId && !Neo.currentWorker.ports?.some(port => port.windowId === windowId)) {
             this.destroy()
+        }
+    }
+
+    /**
+     * Stops listening on a component this tooltip delegates from
+     * @param {Neo.component.Base} component
+     */
+    removeDelegationRoot(component) {
+        let me    = this,
+            entry = me.#delegations.get(component.id);
+
+        if (entry?.root === component) {
+            me.#delegations.delete(component.id);
+
+            component.isDestroyed || component.removeDomListeners(entry.listeners)
         }
     }
 
