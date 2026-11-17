@@ -54,28 +54,24 @@ test.describe('TreeGrid Big Data E2E', () => {
     });
 
     test('Expand / Collapse node via clicks', async ({ page }) => {
-        // Find the first folder node (isLeaf: false)
-        const firstFolderRow = page.locator('.neo-grid-row:has(.neo-tree-toggle)').first();
-        const toggleIcon     = firstFolderRow.locator('.neo-tree-toggle');
-        await expect(toggleIcon).toBeVisible();
+        // The first frame opens three levels, so expand the first COLLAPSED unit. A click on an open one
+        // collapses it, and the class it still shows before the worker's delta lands passes the expand check
+        const folderId    = await page.locator('.neo-grid-row:has(.neo-tree-toggle.is-collapsed)').first().getAttribute('data-record-id');
+        const folderRow   = page.locator(`.neo-grid-row[data-record-id="${folderId}"]`);
+        const toggleIcon  = folderRow.locator('.neo-tree-toggle');
+        const rowBelow    = folderRow.locator('+ .neo-grid-row');
+        const level       = Number(await folderRow.getAttribute('aria-level'));
+        const siblingText = await rowBelow.textContent();
 
-        // Get the text of the row immediately below it (its sibling initially)
-        const nextRowBeforeExpand = firstFolderRow.locator('+ .neo-grid-row');
-        const siblingText         = await nextRowBeforeExpand.textContent();
-
-        // Click the toggle icon to EXPAND
         await toggleIcon.click();
         await expect(toggleIcon).toHaveClass(/is-expanded/);
+        // The row below is now its child
+        await expect(rowBelow).toHaveAttribute('aria-level', String(level + 1));
 
-        // Wait for the row immediately below it to CHANGE (it should now be its child, not its sibling)
-        await expect(firstFolderRow.locator('+ .neo-grid-row')).not.toHaveText(siblingText);
-
-        // Click the toggle icon to COLLAPSE
         await toggleIcon.click();
         await expect(toggleIcon).toHaveClass(/is-collapsed/);
-
-        // Wait for the row immediately below it to revert back to the sibling
-        await expect(firstFolderRow.locator('+ .neo-grid-row')).toHaveText(siblingText);
+        // and its sibling again
+        await expect(rowBelow).toHaveText(siblingText);
     });
 
     /**
