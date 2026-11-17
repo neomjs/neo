@@ -158,7 +158,7 @@ The scale can be controlled with `pxPerMinute`: a higher value gives each minute
 
 The axis also controls tick generation. `tickUnit` accepts `minute`, `hour`, `day`, `week`, or `month`; `tickStep` determines how many units separate ticks. In the example, `hour` with a step of `2` produces two-hour ticks.
 
-Snapping controls editing precision, not the display frequency of the header ticks. `snapMinutes` sets the interval to which pointer-derived dates are snapped, relative to the time axis start. It defaults to 15 minutes; the example uses 30. When an event is moved or resized, the drag zone converts the pointer position into a date and snaps it before calculating the updated interval.
+Snapping controls editing precision, not the display frequency of the header ticks. `snapMinutes` sets the interval to which pointer-derived dates are snapped, relative to the time axis start. It defaults to 15 minutes; configure a different value when your application needs a coarser or finer editing interval. When an event is moved or resized, the drag zone converts the pointer position into a date and snaps it before calculating the updated interval.
 
 Set `timeZone` deliberately when your application has a defined calendar zone. The example uses `UTC` and ISO timestamps ending in `Z`, so its event instants and axis calendar use the same reference. When no time zone is provided, the axis uses the viewer's local calendar.
 
@@ -176,7 +176,7 @@ When an event has a positive `percentDone` value, the column renders a progress 
 
 Bar resizing is enabled by default through `resizableBars`. The column renders start and end handles, and the timeline drag zone handles moving and resizing intervals. On drop, the drag zone commits the pending dates through `owner.commitTimelineEdit()` when the owner provides it. Otherwise, it updates the event record with `record.set()` (or assigns the updated properties to a plain object) and asks the store to sort. A cancelled drag clears the pending drop, leaving the original record unchanged.
 
-The toolbar action in the runnable example demonstrates the same data principle without a pointer gesture: it finds an event and calls `event.set()` with new `startDate` and `endDate` values. The store and the grid continue to work with the updated record rather than a separate, manually maintained drawing.
+The [full basic Timeline example](https://github.com/neomjs/neo/blob/dev/examples/timeline/basic/Viewport.mjs) demonstrates the same data principle without a pointer gesture: its toolbar handler finds an event and calls `event.set()` with new `startDate` and `endDate` values. The store and grid continue to work with the updated record rather than a separate, manually maintained drawing.
 
 ## 6. Where to go next
 
