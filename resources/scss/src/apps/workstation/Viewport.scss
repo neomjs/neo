@@ -115,7 +115,7 @@
     --neo-board-avatar-background         : color-mix(in srgb, var(--workstation-signal) 18%, var(--workstation-panel-2));
     --neo-board-avatar-color              : var(--workstation-ink);
     --neo-board-background                : var(--workstation-panel);
-    --neo-board-badge-background          : var(--workstation-line-soft);
+    --neo-board-badge-background          : var(--workstation-line);
     --neo-board-badge-color               : var(--workstation-ink-dim);
     --neo-board-card-background           : var(--workstation-panel);
     --neo-board-card-border-color         : var(--workstation-line);
@@ -136,6 +136,20 @@
     --neo-board-font-family               : var(--workstation-font-sans);
     --neo-board-slot-background           : color-mix(in srgb, var(--workstation-signal) 10%, transparent);
     --neo-board-track-color               : var(--workstation-line);
+}
+
+// The release plan is the plan, not a status: its bars, milestones and links take the instrument's ink and signal, so
+// the status colours stay with the board's columns and the schedule's bars.
+@mixin plan-tokens {
+    --neo-gantt-arrow-color               : var(--workstation-ink-faint);
+    --neo-gantt-milestone-bg              : var(--workstation-panel);
+    --neo-gantt-milestone-border          : var(--workstation-signal);
+    --neo-gantt-summary-bg                : color-mix(in srgb, var(--workstation-ink-dim) 22%, var(--workstation-panel-2));
+    --neo-gantt-summary-border            : var(--workstation-ink-dim);
+    --neo-timeline-bar-background         : var(--workstation-panel-2);
+    --neo-timeline-bar-border-color       : var(--workstation-ink-faint);
+    --neo-timeline-bar-color              : var(--workstation-ink);
+    --neo-timeline-bar-progress-background: color-mix(in srgb, var(--workstation-ink-dim) 18%, transparent);
 }
 
 :root .workstation-viewport[class*="neo-theme-"],
@@ -170,6 +184,12 @@
         var(--workstation-panel-2),
         var(--workstation-panel)
     );
+}
+
+// After the bridge above, and one class heavier on the pane's descendants: the plan's own values win there.
+:root .workstation-viewport .workstation-gantt-pane,
+:root .workstation-viewport .workstation-gantt-pane [class*="neo-theme-"] {
+    @include plan-tokens;
 }
 
 .workstation-viewport.neo-viewport {
@@ -375,18 +395,41 @@ body:has(.workstation-viewport) .neo-grid-container.neo-dragproxy {
     color       : var(--workstation-ink-dim);
 }
 
-// `BoardPane`: a card's footer carries its work item's days, in the calendar's mono numerals, and its person.
-.workstation-board-pane .workstation-card-plan {
-    align-items    : center;
-    display        : flex;
-    gap            : 8px;
-    justify-content: space-between;
-    min-height     : 22px;
+// `SchedulerPane`: a bar's progress fills in its own status colour, so amber, violet and emerald stay themselves under
+// it and match their board columns.
+.workstation-scheduler-pane .neo-timeline-bar {
+    --neo-timeline-bar-progress-background: color-mix(in srgb, var(--neo-timeline-bar-border-color) 28%, transparent);
 
-    .workstation-card-days {
-        color      : var(--workstation-ink-dim);
-        font-family: var(--workstation-font-mono);
-        font-size  : 0.82em;
+    &.neo-scheduler-bar-amber   {--neo-timeline-bar-progress-background: color-mix(in srgb, var(--neo-scheduler-bar-amber-border) 28%, transparent);}
+    &.neo-scheduler-bar-emerald {--neo-timeline-bar-progress-background: color-mix(in srgb, var(--neo-scheduler-bar-emerald-border) 28%, transparent);}
+    &.neo-scheduler-bar-violet  {--neo-timeline-bar-progress-background: color-mix(in srgb, var(--neo-scheduler-bar-violet-border) 28%, transparent);}
+}
+
+// `BoardPane`: the cards sit on their column's ground (a column body is a container, which the theme paints in the
+// page's neutral ground), and a card's footer carries its work item's days, in the calendar's mono numerals, and its
+// person.
+.workstation-board-pane {
+    .neo-board-column-body {
+        background-color: transparent;
+    }
+
+    // A card's progress fills in its column's colour, as its bar's does in the schedule
+    .neo-board-card .neo-board-card-progress-bar {
+        background: var(--neo-board-column-accent, var(--neo-board-accent-color));
+    }
+
+    .workstation-card-plan {
+        align-items    : center;
+        display        : flex;
+        gap            : 8px;
+        justify-content: space-between;
+        min-height     : 22px;
+
+        .workstation-card-days {
+            color      : var(--workstation-ink-dim);
+            font-family: var(--workstation-font-mono);
+            font-size  : 0.82em;
+        }
     }
 }
 
