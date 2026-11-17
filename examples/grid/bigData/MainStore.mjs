@@ -1,5 +1,6 @@
-import Model from './MainModel.mjs';
-import Store from '../../../src/data/Store.mjs';
+import Model                from './MainModel.mjs';
+import Store                from '../../../src/data/Store.mjs';
+import {createSeededRandom} from '../../../src/util/Random.mjs';
 
 /**
  * @class Neo.examples.grid.bigData.MainStore
@@ -144,6 +145,8 @@ class MainStore extends Store {
     }
 
     /**
+     * @summary Draws the rows from a seeded generator, so a size opens on the same rows on every load: the first frame
+     * a visitor sees is the one the catalog cover shows.
      * @param {Number} amountRows
      * @param {Number} amountColumns
      * @returns {Object[]}
@@ -155,6 +158,7 @@ class MainStore extends Store {
             start            = performance.now(),
             amountFirstnames = me.firstnames.length,
             amountLastnames  = me.lastnames.length,
+            random           = createSeededRandom(),
             records          = [],
             row              = 0,
             column, record;
@@ -163,14 +167,14 @@ class MainStore extends Store {
             column = 7;
             record = {
                 id       : row + 1,
-                counter  : Math.round(Math.random() * 100),
-                firstname: me.firstnames[Math.floor(Math.random() * amountFirstnames)],
-                lastname : me.lastnames[ Math.floor(Math.random() * amountLastnames)],
-                progress : Math.round(Math.random() * 100)
+                counter  : Math.round(random() * 100),
+                firstname: me.firstnames[Math.floor(random() * amountFirstnames)],
+                lastname : me.lastnames[ Math.floor(random() * amountLastnames)],
+                progress : Math.round(random() * 100)
             };
 
             for (; column <= amountColumns; column++) {
-                record['number' + column] = Math.round(Math.random() * 10000)
+                record['number' + column] = Math.round(random() * 10000)
             }
 
             records.push(record)

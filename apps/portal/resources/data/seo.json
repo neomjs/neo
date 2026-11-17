@@ -17,7 +17,7 @@
     "/examples": {
         "title": "Live JavaScript Examples — Web Worker Grids & Multi-Window UI | Neo.mjs",
         "description": "Interactive Neo.mjs examples running off the main thread: 100k-row virtual-scrolling data grids, SharedWorker multi-window apps, calendars & OffscreenCanvas.",
-        "lastmod": "2026-11-16"
+        "lastmod": "2026-11-17"
     },
     "/learn": {
         "title": "Developer Guides — Web Worker UI Engine, SharedWorker & AI Agent OS | Neo.mjs",
@@ -1049,79 +1049,79 @@
         "title": "JavaScript Data Grid Examples — 100k Rows in a Web Worker | Neo.mjs",
         "description": "Explore 21 live JavaScript data grid examples: A tree hierarchy at scale: up to 100,000 rows, 200 columns and 20 levels.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-16"
+        "lastmod": "2026-11-17"
     },
     "/examples/forms": {
         "title": "JavaScript Form Examples — Fields, Pickers & Validation | Neo.mjs",
         "description": "Explore 3 live JavaScript form examples: The standalone date selector component; A date field with picker and live configuration.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-16"
+        "lastmod": "2026-11-17"
     },
     "/examples/calendar": {
         "title": "MIT JavaScript Calendar — Day, Week, Month & Year Views | Neo.mjs",
         "description": "Explore 1 live JavaScript calendar example: A full calendar with day, week, month and year views, a month navigator and color-coded calendars.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-16"
+        "lastmod": "2026-11-17"
     },
     "/examples/tabs": {
         "title": "JavaScript Tab Container — Tab Bars on Any Side | Neo.mjs",
         "description": "Explore 1 live JavaScript tab container example: Tab buttons whose text, icon, color and badge change live.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-16"
+        "lastmod": "2026-11-17"
     },
     "/examples/dashboard": {
         "title": "JavaScript Dashboard & Docking — Panes That Pop Out | Neo.mjs",
         "description": "Explore 1 live JavaScript dashboard example: A scripted layout tour splits, groups and auto-hides live panes.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-16"
+        "lastmod": "2026-11-17"
     },
     "/examples/drag-drop": {
         "title": "JavaScript Drag & Drop Examples — Across Windows | Neo.mjs",
         "description": "Explore 2 live JavaScript drag and drop examples: A draggable dialog can move into a second browser window.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-16"
+        "lastmod": "2026-11-17"
     },
     "/examples/lists": {
         "title": "JavaScript Lists & Galleries — 3D Helix & Gallery Views | Neo.mjs",
         "description": "Explore 4 live JavaScript list and gallery examples: Image items on a 3D helix that you reshape live.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-16"
+        "lastmod": "2026-11-17"
     },
     "/examples/dialogs": {
         "title": "JavaScript Dialogs & Overlays — Live Examples | Neo.mjs",
         "description": "Explore 1 live JavaScript dialog example: Dialogs that drag by their header and open further dialogs.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-16"
+        "lastmod": "2026-11-17"
     },
     "/examples/charts": {
         "title": "JavaScript Charts, Canvas & Maps — OffscreenCanvas Demos | Neo.mjs",
         "description": "Explore 1 live JavaScript chart and canvas example: A chart of up to a million points, drawn in a canvas worker.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-16"
+        "lastmod": "2026-11-17"
     },
     "/examples/components": {
         "title": "JavaScript UI Component Examples — Off the Main Thread | Neo.mjs",
         "description": "Explore 1 live JavaScript UI component example: A liquid glass panel that bends the photo beneath it as it drifts.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-16"
+        "lastmod": "2026-11-17"
     },
     "/examples/multi-window": {
         "title": "Multi-Window JavaScript App Examples — SharedWorker State | Neo.mjs",
         "description": "Explore 6 live multi-window JavaScript app examples: A living-data workspace whose panes can leave the browser window.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-16"
+        "lastmod": "2026-11-17"
     },
     "/examples/state": {
         "title": "JavaScript State Management Examples — Reactive Stores | Neo.mjs",
         "description": "Explore 1 live JavaScript state management example: Nested state providers bind button texts through the formatters shown beside them.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-16"
+        "lastmod": "2026-11-17"
     },
     "/examples/platform": {
         "title": "JavaScript Web Worker Examples — Workers & Platform | Neo.mjs",
         "description": "Explore 2 live JavaScript web worker examples: A chart of up to a million points, drawn in a canvas worker.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-16"
+        "lastmod": "2026-11-17"
     },
     "/examples/apps": {
         "title": "JavaScript Web App Examples — Full Apps on Worker Threads | Neo.mjs",
@@ -1307,7 +1307,7 @@
         "title": "GraphScene — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "Live runnable GraphScene example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-05"
+        "lastmod": "2026-11-17"
     },
     "/examples/component/helix/index.html": {
         "title": "Helix — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1679,7 +1679,7 @@
         "title": "JavaScript Data Grid — 100k Rows & 200 Columns in a Web Worker | Neo.mjs",
         "description": "Interactive Neo.mjs JavaScript Data Grid with up to 100,000 rows and 200 columns in a Web Worker, with virtual scrolling and zero main-thread blocking.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-14"
+        "lastmod": "2026-11-17"
     },
     "/examples/grid/cellEditing/index.html": {
         "title": "Grid CellEditing — Web Worker Data Grid Demo | Neo.mjs",
@@ -1697,7 +1697,7 @@
         "title": "GridContainer - Content-Sized Rows — Data Grid Demo | Neo.mjs",
         "description": "Wrapped content with locked columns. Toggle content-sized rows, edit a summary, filter, or jump through 10,000 records; scroll to the wrapped Details column.",
         "schemaType": "WebPage",
-        "lastmod": "2026-10-13"
+        "lastmod": "2026-11-17"
     },
     "/examples/grid/covid/index.html": {
         "title": "CovidGrid — Web Worker Data Grid Demo | Neo.mjs",

@@ -1,5 +1,6 @@
-import Model from './MainModel.mjs';
-import Store from '../../../src/data/Store.mjs';
+import Model                from './MainModel.mjs';
+import Store                from '../../../src/data/Store.mjs';
+import {createSeededRandom} from '../../../src/util/Random.mjs';
 
 const
     COUNTRIES = ['Brazil', 'Canada', 'Germany', 'India', 'Japan', 'Kenya', 'Mexico', 'Norway', 'Spain', 'Vietnam'],
@@ -85,7 +86,7 @@ class MainStore extends Store {
      * @returns {Object[]}
      */
     generateData(amountRows) {
-        let random = MainStore.random(19666),
+        let random = createSeededRandom(19666),
             pick   = list => list[Math.floor(random() * list.length)],
             text   = (lines, perLine) => {
                 let count = Math.max(1, lines * perLine - Math.floor(random() * perLine));
@@ -109,22 +110,6 @@ class MainStore extends Store {
         }
 
         return records
-    }
-
-    /**
-     * A seeded generator (mulberry32) for content that is the same on every load
-     * @param {Number} seed
-     * @returns {Function} Returns a number in `[0, 1)` per call
-     */
-    static random(seed) {
-        return () => {
-            seed = seed + 0x6D2B79F5 | 0;
-
-            let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
-
-            t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
-            return ((t ^ t >>> 14) >>> 0) / 4294967296
-        }
     }
 }
 

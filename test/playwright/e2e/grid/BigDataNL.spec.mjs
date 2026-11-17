@@ -109,4 +109,21 @@ test.describe('Desktop: Neural Link Baseline Validation (Grid BigData)', () => {
         // A filter keeps some rows of all rows: the line names both and the cells the kept rows hold
         await expect(footer).toContainText(/^\d{1,3} of 1,000 rows × 10 columns = [\d,]+ cells/)
     });
+
+    test('the first frame shows the same rows on every load', async ({page}) => {
+        // the catalog cover is shot from the first frame, so a visitor's first frame has to be that one
+        const firstRows = async () => {
+            await page.goto('/examples/grid/bigData/index.html');
+
+            const rows = page.locator('.neo-grid-body .neo-grid-row');
+            await expect(rows.first()).toContainText(/\S/, {timeout: 30000});
+
+            return rows.evaluateAll(nodes => nodes.slice(0, 3).map(node => node.innerText))
+        };
+
+        const first = await firstRows();
+
+        expect(first.join('')).toMatch(/\d/);
+        expect(await firstRows()).toEqual(first)
+    });
 });
