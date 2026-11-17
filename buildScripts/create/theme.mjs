@@ -7,39 +7,20 @@ import postcss           from 'postcss';
 import selectorParser    from 'postcss-selector-parser';
 import {fileURLToPath}   from 'node:url';
 import {parseArgs}       from 'node:util';
+import {themeCssRoots}   from '../util/themeCssRoots.mjs';
 
 const themePattern = /^theme-[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 /**
- * @summary Discovers theme source roots in the same override order as the theme builder.
+ * @summary The theme source roots the generator reads ({@link themeCssRoots}). It recognises the Engine
+ * checkout by the exact package name `neo.mjs`, so a workspace named like `neo.mjs-demo` stays a consumer.
  * @param {String} cwd Workspace or Engine repository root.
  * @returns {String[]}
  */
 function themeRoots(cwd) {
-    const packageJson = JSON.parse(fs.readFileSync(path.join(cwd, 'package.json'), 'utf8')),
-          framework   = packageJson.name === 'neo.mjs' ? cwd : path.join(cwd, 'node_modules/neo.mjs'),
-          roots       = [path.join(framework, 'resources/css')];
+    const {name} = JSON.parse(fs.readFileSync(path.join(cwd, 'package.json'), 'utf8'));
 
-    if (framework !== cwd) {
-        const dependencies = new Set([
-            ...Object.keys(packageJson.dependencies || {}),
-            ...Object.keys(packageJson.devDependencies || {})
-        ]);
-
-        for (const dependency of dependencies) {
-            const dependencyRoot = path.join(cwd, 'node_modules', dependency),
-                  packagePath    = path.join(dependencyRoot, 'package.json');
-
-            if (fs.existsSync(packagePath)) {
-                const css = JSON.parse(fs.readFileSync(packagePath, 'utf8')).neo?.css;
-                if (css) roots.push(path.resolve(dependencyRoot, css));
-            }
-        }
-
-        roots.push(path.join(cwd, 'resources/css'));
-    }
-
-    return [...new Set(roots)];
+    return themeCssRoots(cwd, {insideNeo: name === 'neo.mjs'})
 }
 
 /**
