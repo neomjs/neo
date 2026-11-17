@@ -170,6 +170,9 @@ test.describe('buildScripts: a build publishes its id only once it succeeded', (
         expect(run(script, args, 'worker=canvas').status).toBe(7);
         expect(published(), 'a failed thread publishes nothing').toEqual(['previous', 'previous', 'previous']);
 
+        expect(run(script, args, 'production/webpack.config').status).toBe(7);
+        expect(published(), 'a production thread that fails after development built publishes neither').toEqual(['previous', 'previous', 'previous']);
+
         expect(run(script, args).status).toBe(0);
         expect(published(), 'a partial build on its own publishes its id').toEqual(['run1', 'run1', 'previous'])
     })

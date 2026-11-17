@@ -110,20 +110,23 @@ if (programOpts.info) {
             }
         }
 
-        // dist/development. A failed thread exits before the stamp, so only a successful build publishes its id,
-        // including a build of a single thread. Under `build-all` (`--no-stamp`) the whole run publishes it at its end
+        const builtDists = [];
+
         if (env === 'all' || env === 'dev') {
             console.log(chalk.blue(`${programName} starting dist/development`));
             parseThreads(`${webpackPath}/development/webpack.config`);
-            BuildId.stampDeferred() || BuildId.stampBuildId({buildId: BuildId.getBuildId(), distPath: path.resolve(cwd, 'dist/development')})
+            builtDists.push('dist/development')
         }
 
-        // dist/production
         if (env === 'all' || env === 'prod') {
             console.log(chalk.blue(`${programName} starting dist/production`));
             parseThreads(`${webpackPath}/production/webpack.config`);
-            BuildId.stampDeferred() || BuildId.stampBuildId({buildId: BuildId.getBuildId(), distPath: path.resolve(cwd, 'dist/production')})
+            builtDists.push('dist/production')
         }
+
+        // A failed thread exits before this line, so the id is published only once every selected environment built,
+        // including a build of a single thread. Under `build-all` (`--no-stamp`) the whole run publishes it at its end
+        BuildId.stampDeferred() || builtDists.forEach(dist => BuildId.stampBuildId({buildId: BuildId.getBuildId(), distPath: path.resolve(cwd, dist)}));
 
         const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
         console.log(`\nTotal time for ${programName}: ${processTime}s`);
