@@ -865,6 +865,12 @@
         "schemaType": "TechArticle",
         "lastmod": "2026-08-31"
     },
+    "/news/blog/codebase-knowledge-base-for-ai-coding-agents": {
+        "title": "Codebase RAG vs grep for AI coding agents: the same grep hits scored 10, 30 or 34 of 40 - Neo.mjs",
+        "description": "We tested one-shot file search on 40 real questions from our AI maintainers' query log. How the matching files are ranked decided more than the tool: by...",
+        "schemaType": "BlogPosting",
+        "lastmod": "2026-11-17"
+    },
     "/news/blog/role-based-navigation-from-one-store-filter": {
         "title": "Role-Based Menus from User Permissions in One Store Filter | Neo.mjs",
         "description": "Show menus, sub menus and app windows by the permissions a backend returns at sign-in: one state value, one tree store, one fail-closed filter. Runnable demo.",
@@ -1041,7 +1047,7 @@
     },
     "/examples/grid": {
         "title": "JavaScript Data Grid Examples — 100k Rows in a Web Worker | Neo.mjs",
-        "description": "Explore 21 live JavaScript data grid examples: A tree hierarchy at scale: up to 100,000 rows, 200 columns and 20 levels.",
+        "description": "Explore 15 live JavaScript data grid examples: A tree hierarchy at scale: up to 100,000 rows, 200 columns and 20 levels.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-16"
     },
@@ -1202,7 +1208,7 @@
         "lastmod": "2026-11-16"
     },
     "/examples/board/basic/index.html": {
-        "title": "Sprint board · Neo Board — JavaScript UI Demo | Neo.mjs",
+        "title": "Sprint board · Neo Board — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A kanban board and a table over one store of cards. Drag a card to another column, and the table beside the board shows its new status.",
         "schemaType": "WebPage",
         "lastmod": "2026-11-17"
@@ -1843,12 +1849,6 @@
         "schemaType": "WebPage",
         "lastmod": "2026-11-15"
     },
-    "/examples/serverside/gridContainer/index.html": {
-        "title": "Load Grid Container — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Grid configuration loaded on demand. Click Load Grid Container to create the grid from a fetched configuration document.",
-        "schemaType": "WebPage",
-        "lastmod": "2025-05-30"
-    },
     "/examples/serverside/toolbarItems/index.html": {
         "title": "Load Toolbar Items — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "Live runnable Load Toolbar Items example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
@@ -1927,39 +1927,15 @@
         "schemaType": "WebPage",
         "lastmod": "2026-08-20"
     },
-    "/examples/table/cellEditing/index.html": {
-        "title": "Table CellEditing — Web Worker Data Grid Demo | Neo.mjs",
-        "description": "Typed editors in a table. Edit text, number, date and country cells; test the non-editable GitHub ID and disable editing.",
-        "schemaType": "WebPage",
-        "lastmod": "2026-11-09"
-    },
     "/examples/table/container/index.html": {
         "title": "TableContainer — Web Worker Data Grid Demo | Neo.mjs",
         "description": "Selection modes and embedded controls. Switch selection models, toggle fit width or column dragging, and open a cell menu.",
         "schemaType": "WebPage",
         "lastmod": "2026-09-18"
     },
-    "/examples/table/covid/index.html": {
-        "title": "CovidTable — Web Worker Data Grid Demo | Neo.mjs",
-        "description": "API-loaded country statistics. Compare formatted statistics, country flags and colored values in the Table implementation.",
-        "schemaType": "WebPage",
-        "lastmod": "2026-07-18"
-    },
-    "/examples/table/nestedRecordFields/index.html": {
-        "title": "Table: Nested Record Fields — Web Worker Data Grid Demo | Neo.mjs",
-        "description": "Nested record editing. Use a row's Edit button to change nested names and country, then observe modified-cell highlighting.",
-        "schemaType": "WebPage",
-        "lastmod": "2026-09-16"
-    },
     "/examples/tableFiltering/index.html": {
         "title": "Table Filtering — Web Worker Data Grid Demo | Neo.mjs",
         "description": "Live runnable Table Filtering example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
-        "schemaType": "WebPage",
-        "lastmod": "2025-11-19"
-    },
-    "/examples/tableStore/index.html": {
-        "title": "Table & Store — Web Worker Data Grid Demo | Neo.mjs",
-        "description": "Reactive Store updates. Change one cell or update every cell repeatedly; sort and drag headers, reset sorting, and switch selection modes.",
         "schemaType": "WebPage",
         "lastmod": "2025-11-19"
     },

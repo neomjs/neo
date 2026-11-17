@@ -725,41 +725,6 @@
         "lookFor": "Toggle Department value bands and compare them with striped rows; Country banding stays on."
     },
     {
-        "id": "json-grid-container",
-        "image": "devmode/json-grid-container-14.jpg",
-        "name": "JSON-Defined Grid",
-        "sourceUrl": "examples/serverside/gridContainer",
-        "urls": {
-            "devmode": "examples/serverside/gridContainer/index.html",
-            "dist_dev": "dist/development/examples/serverside/gridContainer/index.html",
-            "dist_esm": "dist/esm/examples/serverside/gridContainer/index.html",
-            "dist_prod": "dist/production/examples/serverside/gridContainer/index.html"
-        },
-        "hiddenIn": [],
-        "family": "grid-table",
-        "component": "Grid",
-        "feature": "Grid configuration loaded on demand",
-        "lookFor": "Click Load Grid Container to create the grid from a fetched configuration document.",
-        "scope": "Loads a static JSON configuration with inline records; this example does not use a server-side row model."
-    },
-    {
-        "id": "table-cell-editing",
-        "image": "devmode/table-cell-editing-14.jpg",
-        "name": "Table Cell Editing",
-        "sourceUrl": "examples/table/cellEditing",
-        "urls": {
-            "devmode": "examples/table/cellEditing/index.html",
-            "dist_dev": "dist/development/examples/table/cellEditing/index.html",
-            "dist_esm": "dist/esm/examples/table/cellEditing/index.html",
-            "dist_prod": "dist/production/examples/table/cellEditing/index.html"
-        },
-        "hiddenIn": [],
-        "family": "grid-table",
-        "component": "Table",
-        "feature": "Typed editors in a table",
-        "lookFor": "Edit text, number, date and country cells; test the non-editable GitHub ID and disable editing."
-    },
-    {
         "id": "table-container",
         "image": "devmode/table-container-14.jpg",
         "name": "Table Configuration",
@@ -775,75 +740,6 @@
         "component": "Table",
         "feature": "Selection modes and embedded controls",
         "lookFor": "Switch selection models, toggle fit width or column dragging, and open a cell menu."
-    },
-    {
-        "id": "table-covid",
-        "image": "devmode/table-covid-14.jpg",
-        "name": "COVID-19 Country Table",
-        "sourceUrl": "examples/table/covid",
-        "urls": {
-            "devmode": "examples/table/covid/index.html",
-            "dist_dev": "dist/development/examples/table/covid/index.html",
-            "dist_esm": "dist/esm/examples/table/covid/index.html",
-            "dist_prod": "dist/production/examples/table/covid/index.html"
-        },
-        "hiddenIn": [],
-        "family": "grid-table",
-        "component": "Table",
-        "feature": "API-loaded country statistics",
-        "lookFor": "Compare formatted statistics, country flags and colored values in the Table implementation.",
-        "scope": "Loads statistics from an external API; availability and data freshness depend on that service."
-    },
-    {
-        "id": "table-nested-record-fields",
-        "image": "devmode/table-nested-record-fields-14.jpg",
-        "name": "Nested Table Records",
-        "sourceUrl": "examples/table/nestedRecordFields",
-        "urls": {
-            "devmode": "examples/table/nestedRecordFields/index.html",
-            "dist_dev": "dist/development/examples/table/nestedRecordFields/index.html",
-            "dist_esm": "dist/esm/examples/table/nestedRecordFields/index.html",
-            "dist_prod": "dist/production/examples/table/nestedRecordFields/index.html"
-        },
-        "hiddenIn": [],
-        "family": "grid-table",
-        "component": "Table",
-        "feature": "Nested record editing",
-        "lookFor": "Use a row's Edit button to change nested names and country, then observe modified-cell highlighting."
-    },
-    {
-        "id": "table-store",
-        "image": "devmode/table-store-14.jpg",
-        "name": "Table and Store Updates",
-        "sourceUrl": "examples/tableStore",
-        "urls": {
-            "devmode": "examples/tableStore/index.html",
-            "dist_dev": "dist/development/examples/tableStore/index.html",
-            "dist_esm": "dist/esm/examples/tableStore/index.html",
-            "dist_prod": "dist/production/examples/tableStore/index.html"
-        },
-        "hiddenIn": [],
-        "family": "grid-table",
-        "component": "Table",
-        "feature": "Reactive Store updates",
-        "lookFor": "Change one cell or update every cell repeatedly; sort and drag headers, reset sorting, and switch selection modes."
-    },
-    {
-        "id": "table-performance",
-        "image": "devmode/table-performance-14.jpg",
-        "name": "Table Refresh Performance",
-        "sourceUrl": "examples/tablePerformance",
-        "urls": {
-            "devmode": "examples/tablePerformance/index.html",
-            "dist_dev": "dist/development/examples/tablePerformance/index.html",
-            "dist_esm": "dist/esm/examples/tablePerformance/index.html",
-            "dist_prod": "dist/production/examples/tablePerformance/index.html"
-        },
-        "hiddenIn": [],
-        "family": "grid-table",
-        "component": "Table",
-        "feature": "Repeated table-data replacement",
-        "lookFor": "Set row counts and refresh intervals across three tables; compare docked-column arrangements and scrollbar styles."
     },
     {
         "id": "checkbox-field",
