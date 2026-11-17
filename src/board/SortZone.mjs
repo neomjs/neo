@@ -315,7 +315,7 @@ class BoardSortZone extends SortZone {
             cls     = Array.isArray(clone.cls) ? [...clone.cls] : clone.cls ? [clone.cls] : ['neo-board-card'],
             style   = {...clone.style};
 
-        NeoArray.remove(cls, 'neo-board-card-ghost');
+        NeoArray.remove(cls, ['neo-board-card-ghost', 'neo-board-card-slot']);
         delete style.height;
         delete style.left;
         delete style.margin;
@@ -601,7 +601,9 @@ class BoardSortZone extends SortZone {
 
         await me.dragStart(data);
 
-        card.wrapperStyle = {...card.wrapperStyle, visibility: 'hidden'}
+        // The hidden card keeps its box in the flow and travels with the pointer: `.neo-board-card-slot` draws it
+        // as the landing slot
+        card.set({cls: [...card.cls, 'neo-board-card-slot'], wrapperStyle: {...card.wrapperStyle, visibility: 'hidden'}})
     }
 
     /**
@@ -718,7 +720,10 @@ class BoardSortZone extends SortZone {
         }
 
         me.restoreColumn();
-        card.isDestroyed || (card.wrapperStyle = {...card.wrapperStyle, visibility: null});
+        card.isDestroyed || card.set({
+            cls         : card.cls.filter(item => item !== 'neo-board-card-slot'),
+            wrapperStyle: {...card.wrapperStyle, visibility: null}
+        });
         me.clearGhostCards();
 
         // A silent tree sync left the vdom without the moved node, and the next re-projection could not move it

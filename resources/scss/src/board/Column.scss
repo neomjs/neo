@@ -10,8 +10,9 @@
     min-width    : var(--neo-board-column-width);
     width        : var(--neo-board-column-width);
 
+    // Over its limit, the header's edge and badge speak; a full outline would read as a drop target
     &.neo-board-column-wip-exceeded {
-        border-color: var(--neo-board-wip-color);
+        border-top-color: var(--neo-board-wip-color);
     }
 
     &.neo-board-column-collapsed {

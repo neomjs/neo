@@ -39,6 +39,11 @@
 
         background : var(--neo-board-column-background);
         border-left: 1px solid var(--neo-board-column-border-color);
+
+        // One line per record: a long title clips at its cell instead of doubling the row
+        .neo-grid-cell {
+            white-space: nowrap;
+        }
     }
 
     .board-example-list-title {

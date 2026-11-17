@@ -1008,6 +1008,33 @@ test.describe('Neo.board.SortZone', () => {
         expect(keys(board.getColumn('in-progress'))).toEqual(['c3', 'c4', 'c5'])
     });
 
+    test('the dragged card is the landing slot until its gesture ends, by Escape or by a drop, and no proxy clone carries the slot', async () => {
+        store = createStore();
+
+        const
+            zone = await startZone(),
+            slot = id => board.getCard(id).cls.includes('neo-board-card-slot');
+
+        await drag(zone, 'c1', 100, 70);
+        expect(slot('c1')).toBe(true);
+        expect(board.getCard('c1').wrapperStyle.visibility).toBe('hidden');
+        expect(zone.cloneCardVdom(board.getCard('c1').record).cls).not.toContain('neo-board-card-slot');
+
+        await zone.onDragMove({clientX: 400, clientY: 160});
+        expect(slot('c1')).toBe(true);
+
+        await zone.onDragCancel({});
+        expect(slot('c1')).toBe(false);
+        expect(board.getCard('c1').wrapperStyle.visibility).toBeFalsy();
+
+        await drag(zone, 'c1', 100, 70);
+        await zone.onDragMove({clientX: 400, clientY: 160});
+        await zone.onDragEnd({clientX: 400, clientY: 160});
+        expect(slot('c1')).toBe(false);
+        expect(board.getCard('c1').wrapperStyle.visibility).toBeFalsy();
+        expect(['c2', 'c3', 'c4', 'c5', 'c6'].some(slot)).toBe(false)
+    });
+
     test('selected records offscreen in a 2,000-record sliced column render title-only stack clones and move with the selection', async () => {
         const data = Array.from({length: 2000}, (_, i) => ({
             id    : `r${i}`,

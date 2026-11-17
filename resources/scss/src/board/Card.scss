@@ -30,6 +30,18 @@
         transition: opacity 150ms ease;
     }
 
+    // The landing slot: the dragged card's hidden box; a pseudo-element still shows through a hidden parent
+    &.neo-board-card-slot::after {
+        background   : var(--neo-board-slot-background);
+        border       : 2px dashed var(--neo-board-accent-color);
+        border-radius: var(--neo-board-radius);
+        box-sizing   : border-box;
+        content      : '';
+        inset        : -1px -1px -1px -3px;
+        position     : absolute;
+        visibility   : visible;
+    }
+
     &:focus,
     &:focus-visible {
         outline       : 2px solid var(--neo-board-focus-color);
@@ -127,6 +139,14 @@
         justify-content: center;
         width          : 22px;
     }
+}
+
+// The card in flight is lifted, with an edge of its own where a shadow alone does not show
+.neo-dragproxy > .neo-board-card,
+.neo-board-stack .neo-board-stack-lead {
+    border-color     : var(--neo-board-card-drag-border-color);
+    border-left-color: var(--neo-board-card-accent, var(--neo-board-card-drag-border-color));
+    box-shadow       : var(--neo-board-editor-shadow);
 }
 
 .neo-board-stack {
