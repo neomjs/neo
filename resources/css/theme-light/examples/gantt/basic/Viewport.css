@@ -1,0 +1,11 @@
+:where(.neo-theme-light) {
+    --project-header-bg    : var(--neo-background-color);
+    --project-border       : var(--grid-container-border-color, #ddd);
+    --project-title        : #163a5f;
+    --project-muted        : #4d4d4d;
+    --project-control      : var(--button-background-color, #ffffff);
+    --project-hover        : #eef4fa;
+    --project-selected     : var(--button-text-color, #1c60a0);
+    --project-selected-text: var(--button-background-color, #ffffff);
+    --project-focus        : var(--button-text-color, #1c60a0);
+}

@@ -1,0 +1,26 @@
+.email-compose-view {
+    display       : flex;
+    flex-direction: column;
+    gap           : 12px;
+    height        : 100%;
+    padding       : 16px;
+    width         : 100%;
+
+    .email-draft-body {
+        flex      : 1;
+        min-height: 100px;
+
+        .neo-label-wrapper {
+            display       : flex;
+            flex-direction: column;
+        }
+
+        .neo-input-wrapper { min-height: 0; }
+        textarea { height: 100%; }
+    }
+
+    .email-demo-note {
+        font-size: 12px;
+        margin   : 0;
+    }
+}

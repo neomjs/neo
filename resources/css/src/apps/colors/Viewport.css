@@ -1,0 +1,17 @@
+.colors-viewport {
+    padding: 2em;
+
+    .neo-dashboard {
+        > * {
+            margin-top: 20px;
+        }
+    }
+
+    @media (max-width: 600px) {
+        padding: .1em;
+
+        > * {
+            margin-top: .2em;
+        }
+    }
+}

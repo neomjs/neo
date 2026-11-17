@@ -1,0 +1,38 @@
+.portal-home-maincontainer {
+    overflow-x      : hidden !important;
+    scroll-behavior : smooth;
+    scroll-snap-type: y mandatory;
+
+    @media (max-width: 840px) {
+        scroll-behavior : unset;
+        scroll-snap-type: unset;
+    }
+
+    /* Style and position the progress bar */
+    .portal-home-progress {
+        background      : var(--sem-color-surface-primary-background);
+        height          : 4px;
+        position        : fixed;
+        /* Note: Using 0.001 instead of 0 for the X scale is a critical hack for Firefox (as of v150 Nightly).
+           If set to exactly 0, a bug in Firefox's layout engine causes the mouse wheel to completely lock up
+           on the very first scroll-snap-aligned section (the Hero container) when `scrollTop` is 0.
+           A scale of 0.001 ensures the layout box is mathematically non-zero, allowing the scroll-snap
+           engine and the scroll-driven animation below to calculate intersections correctly. */
+        scale           : 0.001 1;
+        top             : 0;
+        transform-origin: left;
+        width           : 100%;
+        z-index         : 1000;
+
+
+        /* Attach the animation using an anonymous Scroll Progress Timeline */
+        animation         : grow-progress linear;
+        animation-timeline: --page-scroll;
+    }
+
+    @keyframes grow-progress {
+        to {
+            scale: 1 1;
+        }
+    }
+}

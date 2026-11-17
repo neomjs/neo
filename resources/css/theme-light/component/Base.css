@@ -1,0 +1,6 @@
+:root .neo-theme-light {
+    --aligned-bottom-box-shadow: 0px 2px 10px rgba(0, 0, 0, 0.3);
+    --aligned-left-box-shadow  : -2px 0px 10px rgba(0, 0, 0, 0.3);
+    --aligned-right-box-shadow : 2px 0px 10px rgba(0, 0, 0, 0.3);
+    --aligned-top-box-shadow   : 0px -2px 10px rgba(0, 0, 0, 0.3);
+}

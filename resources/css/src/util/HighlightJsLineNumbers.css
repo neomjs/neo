@@ -1,0 +1,33 @@
+.hljs {
+    .hljs-ln {
+        border-collapse: collapse;
+
+        td {
+            padding: 0;
+        }
+
+        td.hljs-ln-numbers {
+            background-color     : var(--hljs-line-numbers-background-color);
+            border-right         : var(--hljs-line-numbers-border-right);
+            color                : var(--hljs-line-numbers-color);
+            padding-right        : 5px;
+            text-align           : right;
+            user-select          : none;
+            vertical-align       : top;
+            -webkit-touch-callout: none;
+        }
+
+        td.hljs-ln-code {
+            padding-left : 20px !important;
+            padding-right: 20px !important;
+        }
+    }
+
+    .hljs-ln-n:before {
+        content: attr(data-line-number)
+    }
+
+    .neo-highlighted-line {
+        background-color: var(--hljs-line-numbers-highlighted-line);
+    }
+}

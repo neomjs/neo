@@ -1,0 +1,3 @@
+:where(.neo-theme-neo-dark) {
+    --portal-home-base-bg: var(--purple-900);
+}

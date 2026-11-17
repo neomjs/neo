@@ -1,0 +1,21 @@
+:root .neo-theme-dark {
+    --highlight-background-color: #2b2b2b;
+    --highlight-color: #a9b7c6;
+    --highlight-comment-color: #808080;
+    --highlight-keyword-color: #cc7832;
+    --highlight-number-color: #6897bb;
+    --highlight-string-color: #6a8759;
+    --highlight-doctag-color: #629755;
+    --highlight-title-color: #ffc66d;
+    --highlight-type-color: #a9b7c6;
+    --highlight-tag-color: #e8bf6a;
+    --highlight-regexp-color: #6897bb;
+    --highlight-symbol-color: #ffc66d;
+    --highlight-builtin-color: #ffc66d;
+    --highlight-meta-color: #bbb529;
+    --highlight-deletion-background: #404040;
+    --highlight-addition-background: #404040;
+    --highlight-code-color: #ffc66d;
+    --highlight-params-color: #b9b9b9;
+    --highlight-subst-color: #ffc66d;
+}

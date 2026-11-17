@@ -1,0 +1,7 @@
+:root .neo-theme-light {
+    --selectfield-background  : #fff;
+    --selectfield-border-color: #bbb;
+    --selectfield-color       : #333;
+    --selectfield-error-color : #c62828;
+    --selectfield-focus-color : #1c60a0;
+}

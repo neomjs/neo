@@ -1,0 +1,32 @@
+.neo-value-picker {
+    .neo-list-item {
+        align-items: center;
+        box-sizing : border-box;
+        display    : flex;
+        gap        : .5em;
+    }
+
+    .neo-value-picker-label {
+        flex         : 1;
+        min-width    : 0;
+        overflow     : hidden;
+        text-overflow: ellipsis;
+    }
+
+    .neo-value-picker-count {
+        font-variant-numeric: tabular-nums;
+        opacity             : .65;
+        text-align          : end;
+    }
+
+    .neo-value-picker-refine {
+        align-content: center;
+        box-sizing   : border-box;
+        font-size    : .875em;
+        opacity      : .65;
+        overflow     : hidden;
+        padding      : var(--list-item-padding);
+        text-overflow: ellipsis;
+        white-space  : nowrap;
+    }
+}

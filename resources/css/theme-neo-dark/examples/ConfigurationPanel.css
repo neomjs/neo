@@ -1,0 +1,3 @@
+:where(.neo-theme-neo-dark) {
+    --examples-tab-component-background-color: #fff;
+}

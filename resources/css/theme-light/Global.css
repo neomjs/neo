@@ -1,0 +1,70 @@
+:root .neo-theme-light {
+    --neo-background-color: #fafafa;
+    --neo-color: #000;
+    /* The platform-level light/dark hint for THIS theme, declared rather than derived from the
+          theme's name: `theme-cyberpunk` is dark and named neither. Read by `Main.windowOpen` to
+          stage a popup's blank document in the right scheme instead of flashing the UA default. */
+    --neo-color-scheme: light;
+    --neo-disabled-opacity: 0.5;
+    --neo-font-family: "Helvetica Neue", "Helvetica", "Arial", "Lucida Grande", sans-serif;
+    --neo-font-smoothing: antialiased;
+    /* The product motion vocabulary (see resources/css/_motion.scss — one authority, all themes) */
+    /* A copy of the shared motion-vocabulary block; the other copies: theme-cyberpunk/Global.css, theme-dark/Global.css, theme-neo-dark/Global.css, theme-neo-light/Global.css. Keep them identical. */
+    --motion-fast: 120ms; /* hover/press micro-feedback */
+    --motion-base: 200ms; /* state transitions: chips, badges, fills */
+    --motion-panel: 280ms; /* panel/pane movement, dock snaps */
+    --motion-stage: 400ms; /* window-level choreography: promote, adopt */
+    --motion-stagger: 24ms; /* list/grid entrance stagger per item (cap 8) */
+    --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1); /* everything entering or settling */
+    --ease-in-soft: cubic-bezier(0.55, 0, 0.55, 0.2); /* exits */
+    /* Vocabulary-level reduced-motion collapse: every duration goes instant HERE, so
+          consumer tiers inherit the accessibility contract without per-surface overrides.
+          A surface keeping a legibility crossfade under reduced motion is a recorded
+          exception at its own call site — never a change to this collapse. */
+}
+
+@media (prefers-reduced-motion: reduce) {
+    :root .neo-theme-light {
+        --motion-fast: 0ms;
+        --motion-base: 0ms;
+        --motion-panel: 0ms;
+        --motion-stage: 0ms;
+        --motion-stagger: 0ms;
+    }
+}
+
+:root .neo-theme-light {
+    /* Global element typography — this family DECLINES it (#18232), and `initial` is how a family
+          says so. It is NOT the same as omitting the token: the structural rules in
+          resources/css/src/Global.css reach their `revert` fallback only when a token is ABSENT, and
+          inside a neo-themed ancestor these tokens are present by INHERITANCE. Declaring the decline is
+          what keeps a nested classic scope — the portal's Helix and Colors previews are exactly this —
+          rendering as the user-agent rather than as neo.
+
+          This replaces the hand-written `p { …: inherit }` reset. That block stated the same intent for
+          one element; these declarations state it for every element the structure layer now covers. */
+    --core-fontfamily-sans: initial;
+    --core-fontsize-body: initial;
+    --core-fontsize-h1: initial;
+    --core-fontsize-h2: initial;
+    --core-fontsize-h3: initial;
+    --core-fontweight-regular: initial;
+    --core-fontweight-semibold: initial;
+    --core-lineheight-headline: initial;
+    --core-lineheight-paragraph: initial;
+    --sem-color-fg-neutral-contrast: initial;
+    --global-code-background-color: initial;
+    --global-code-border: initial;
+    --global-code-font-family: initial;
+    --global-code-border-radius: initial;
+    --global-code-font-size: initial;
+    --global-code-padding: initial;
+    --global-heading-code-color: initial;
+    --global-heading-code-margin: initial;
+    --global-heading-code-padding: initial;
+    --global-heading-letter-spacing: initial;
+    --global-mark-background-color: initial;
+    --global-mark-color: initial;
+    --global-mark-padding: initial;
+    --global-paragraph-color: initial;
+}

@@ -1,0 +1,12 @@
+:where(.neo-theme-neo-light) {
+    --header-groups-accent    : #176b72;
+    --header-groups-alternate : #f8fafc;
+    --header-groups-background: #f1f5f8;
+    --header-groups-border    : #dce5eb;
+    --header-groups-header    : #eaf1f5;
+    --header-groups-hover     : #dcefed;
+    --header-groups-muted     : #647786;
+    --header-groups-surface   : #fff;
+    --header-groups-text      : #455c6b;
+    --header-groups-title     : #182e3b;
+}

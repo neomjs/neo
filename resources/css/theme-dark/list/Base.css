@@ -1,0 +1,15 @@
+:root .neo-theme-dark { /* .neo-list-container */
+    --list-scrollbar-color-scheme         : dark;
+    --list-container-background-color     : #33343d;
+    --list-container-border               : 1px solid #282829;
+    --list-container-list-color           : #bbb;
+    --list-item-background-color          : #33343d;
+    --list-item-background-color-hover    : rgb(29.1071428571%, 29.6778711485%, 34.8144257703%);
+    --list-item-background-color-selected : #5a7082;
+    --list-item-color-selected            : #2b2b2b;
+    --list-item-focus-outline             : 1px solid #f6d199;
+    --list-item-focus-outline-offset      : -1px;
+    --list-item-glyph-color               : inherit;
+    --list-item-highlight-search-color    : #fff;
+    --list-item-padding                   : 5px;
+}

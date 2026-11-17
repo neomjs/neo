@@ -1,0 +1,4 @@
+:root .neo-theme-cyberpunk {
+    --toolbar-background-color: var(--cyber-bg-alt);
+    --toolbar-padding         : 5px;
+}

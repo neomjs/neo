@@ -1,0 +1,6 @@
+:where(.neo-theme-neo-dark) {
+    --portal-footer-background-color: var(--sem-color-bg-neutral-default);
+    --portal-footer-text-color: var(--sem-color-text-neutral-default);
+    --portal-footer-button-hover-background-color: var(--sem-color-bg-hover);
+    --portal-footer-highlight-color: var(--portal-headline-primary);
+}

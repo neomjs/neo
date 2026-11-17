@@ -1,0 +1,16 @@
+.neo-country-list.neo-list {
+    overflow-x: hidden;
+
+    .neo-country-flag {
+        display       : inline-block;
+        height        : 20px;
+        margin-right  : 10px;
+        vertical-align: middle;
+        width         : 20px;
+    }
+
+    .neo-country-text {
+        text-transform: capitalize;
+        vertical-align: middle;
+    }
+}

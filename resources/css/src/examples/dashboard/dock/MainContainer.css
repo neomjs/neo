@@ -1,0 +1,7 @@
+.neo-example-dock-pane {
+    align-items    : center;
+    color          : #888;
+    display        : flex;
+    font-size      : 20px;
+    justify-content: center;
+}

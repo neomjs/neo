@@ -1,0 +1,23 @@
+.neo-country-flag {
+    align-items: center;
+    contain    : strict;
+    display    : flex;
+    height     : 100%;
+    overflow   : hidden;
+    width      : 100%;
+
+    .neo-country-flag {
+        flex        : none;
+        height      : 20px;
+        margin-right: 8px;
+        width       : 20px;
+    }
+
+    .neo-location-text {
+        flex         : 1;
+        min-width    : 0;
+        overflow     : hidden;
+        text-overflow: ellipsis;
+        white-space  : nowrap;
+    }
+}

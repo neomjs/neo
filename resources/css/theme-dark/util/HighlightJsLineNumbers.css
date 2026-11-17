@@ -1,0 +1,6 @@
+:root .neo-theme-dark {
+    --hljs-line-numbers-background-color: #303335;
+    --hljs-line-numbers-border-right    : 1px solid #555;
+    --hljs-line-numbers-color           : #606366;
+    --hljs-line-numbers-highlighted-line: #3c3f41 !important;
+}

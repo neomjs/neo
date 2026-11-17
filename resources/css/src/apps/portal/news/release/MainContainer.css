@@ -1,0 +1,14 @@
+.portal-release-maincontainer {
+    background-color: transparent;
+
+    .sidenav-container {
+        min-width: 250px;
+        width    : 250px;
+    }
+
+    @media (max-width: 640px) {
+        .sidenav-container {
+            left: -250px;
+        }
+    }
+}

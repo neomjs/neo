@@ -1,0 +1,11 @@
+:where(.neo-theme-cyberpunk) {
+    --studio-header-bg    : var(--cyber-bg);
+    --studio-border       : var(--cyber-border);
+    --studio-title        : var(--cyber-cyan);
+    --studio-muted        : var(--cyber-text);
+    --studio-control-bg   : var(--cyber-bg-alt);
+    --studio-hover-bg     : color-mix(in srgb, var(--cyber-cyan) 14%, transparent);
+    --studio-selected-bg  : var(--cyber-cyan);
+    --studio-selected-text: var(--cyber-bg);
+    --studio-focus        : var(--cyber-gold);
+}

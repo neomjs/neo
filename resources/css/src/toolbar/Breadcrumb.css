@@ -1,0 +1,17 @@
+.neo-breadcrumb-toolbar {
+    .neo-button {
+        &:not(:last-child) {
+            margin-right: 30px;
+
+            &::after {
+                color       : var(--button-text-color);
+                content     : "\f105";
+                display     : block;
+                font-family : var(--fa-style-family-classic);
+                font-weight : 600;
+                position    : absolute;
+                right       : -20px;
+            }
+        }
+    }
+}

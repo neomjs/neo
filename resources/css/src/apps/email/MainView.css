@@ -1,0 +1,20 @@
+.email-main-view {
+    display  : flex;
+    flex     : 2;
+    height   : 100%;
+    min-width: 440px;
+
+    .email-navigation {
+        flex   : 0 0 150px;
+        padding: 16px;
+
+        .neo-button { width: 100%; }
+        h2 { font-size: 16px; }
+        p { font-size: 12px; }
+    }
+
+    .email-inbox {
+        flex     : 1;
+        min-width: 0;
+    }
+}
