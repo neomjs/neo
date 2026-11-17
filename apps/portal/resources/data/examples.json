@@ -119,7 +119,7 @@
             "Mobile"
         ],
         "image": "devmode/grid-big-data-14.jpg",
-        "name": "Buffered Data Grid with 5M cells",
+        "name": "Data Grid: 100k Rows & 200 Columns",
         "sourceUrl": "examples/grid/bigData",
         "urls": {
             "devmode": "examples/grid/bigData/index.html",
@@ -130,8 +130,8 @@
         "hiddenIn": [],
         "family": "grid-table",
         "component": "Grid",
-        "feature": "Buffered rendering in both directions, configurable up to 100,000 rows × 200 columns",
-        "lookFor": "Open the ☰ panel, raise rows and columns, then scroll both ways; filter by name and press a counter button inside a cell."
+        "feature": "Opens at 20,000 × 50 and scales to 100,000 × 200, row-buffered, data in a Web Worker",
+        "lookFor": "Read the size below the rows, raise rows and columns in ☰ Settings, then scroll both ways and press a button in a cell."
     },
     {
         "id": "grid-issues",

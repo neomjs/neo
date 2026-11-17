@@ -279,7 +279,7 @@ test.describe('Portal example catalog', () => {
                 expect(list.properties.store.count).toBe(21);
                 expect(list.properties.store.model.className).toBe('Portal.model.Example');
                 await expect(overview.locator('.neo-title').nth(0)).toHaveText('TreeGrid - Big Data');
-                await expect(overview.locator('.neo-title').nth(1)).toHaveText('Buffered Data Grid with 5M cells');
+                await expect(overview.locator('.neo-title').nth(1)).toHaveText('Data Grid: 100k Rows & 200 Columns');
                 await expect(overview.locator('.neo-title').nth(2)).toHaveText('GitHub Issues Grid');
 
                 const covered = overview.locator('.portal-example-image-card .neo-item-bottom-position');
