@@ -1,6 +1,18 @@
 [{
     "author"      : "Tobias Uhlig",
     "authorImage" : "author_TobiasUhlig.jpeg",
+    "date"        : "Nov 17, 2026",
+    "id"          : 79,
+    "image"       : "codebase-knowledge-base-for-ai-coding-agents/rag-vs-grep-40-questions.png",
+    "name"        : "Codebase RAG vs grep for AI coding agents: the same grep hits scored 10, 30 or 34 of 40",
+    "provider"    : "Medium",
+    "publisher"   : "ITNEXT",
+    "selectedInto": [],
+    "type"        : "Blog Post",
+    "url"         : "https://itnext.io/codebase-rag-vs-grep-for-ai-coding-agents-the-same-grep-hits-scored-10-30-or-34-of-40-5f8738c2e766?source=friends_link&sk=4408ec224808d47f50a1ca456536e8a3"
+}, {
+    "author"      : "Tobias Uhlig",
+    "authorImage" : "author_TobiasUhlig.jpeg",
     "date"        : "Nov 10, 2026",
     "id"          : 78,
     "image"       : "json-ld-xss-json-stringify-in-a-script-tag/one-element-three-nodes.png",
