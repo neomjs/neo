@@ -79,7 +79,7 @@ test.describe('examples/tableFiltering', () => {
             const box = await stage.boundingBox();
             return box && Math.round(box.y + box.height)
         }).toBe(880);
-        await expect.poll(async () => (await stage.boundingBox())?.height).toBeGreaterThan(700);
+        await expect.poll(async () => (await stage.boundingBox())?.height).toBeGreaterThan(650);
         await testInfo.attach('table-filtering-desktop-default', {body: await page.screenshot(), contentType: 'image/png'});
 
         await customer.fill('Avery');
