@@ -30,17 +30,17 @@
     pointer-events: none;
     position: absolute;
     /* Motion rides the one dock transition contract. Reduced-motion collapses the duration
-          at that authority, never at this call site. */
+       at that authority, never at this call site. */
     transition: opacity var(--dock-transition-duration) var(--dock-transition-easing), background-color var(--dock-transition-duration) var(--dock-transition-easing), border-color var(--dock-transition-duration) var(--dock-transition-easing);
 }
 .neo-dock-preview {
     /* The hold is the gesture (native titlebar drops): while a still popup rests on a claimed zone,
-          the region fills from the bottom over the dwell the coordinator publishes with every hover
-          frame, so the paint and the commit read ONE clock. `--dock-native-dwell-elapsed` is the time
-          already spent when this node was (re)built, applied as a negative delay: a node the renderer
-          replaces mid-hold resumes at the right height instead of starting over. Leaving the zone
-          removes the node, which ends the fill. The fill is a shape, not only a colour, so the cue
-          survives colour-vision deficits; reduced motion shows the armed state as a static tint. */
+       the region fills from the bottom over the dwell the coordinator publishes with every hover
+       frame, so the paint and the commit read ONE clock. `--dock-native-dwell-elapsed` is the time
+       already spent when this node was (re)built, applied as a negative delay: a node the renderer
+       replaces mid-hold resumes at the right height instead of starting over. Leaving the zone
+       removes the node, which ends the fill. The fill is a shape, not only a colour, so the cue
+       survives colour-vision deficits; reduced motion shows the armed state as a static tint. */
 }
 .neo-dock-preview .neo-dock-preview-dwelling {
     overflow: hidden;
@@ -58,9 +58,9 @@
 }
 .neo-dock-preview {
     /* Zone highlights — edge/split RESULT REGIONS and whole-node tab targets — read as a
-          translucent filled region: the half (or whole) of the target the drop would occupy.
-          `neo-dock-preview-region` is the mode class the renderer adds for directional
-          placements when result-region previews are on (the default). */
+       translucent filled region: the half (or whole) of the target the drop would occupy.
+       `neo-dock-preview-region` is the mode class the renderer adds for directional
+       placements when result-region previews are on (the default). */
 }
 .neo-dock-preview .neo-dock-preview-edge.neo-dock-preview-accepted,
 .neo-dock-preview .neo-dock-preview-region.neo-dock-preview-accepted,
@@ -77,12 +77,12 @@
 }
 .neo-dock-preview {
     /* The region's border stays UNIFORM on purpose: the filled region already shows the
-          outcome, and its inner edge IS the future splitter position by construction — a thicker
-          cut edge restated that and read as a rendering glitch. The renderer still stamps
-          `neo-dock-preview-cut-<side>` as the semantic marker; themes may restyle it. */
+       outcome, and its inner edge IS the future splitter position by construction — a thicker
+       cut edge restated that and read as a rendering glitch. The renderer still stamps
+       `neo-dock-preview-cut-<side>` as the semantic marker; themes may restyle it. */
     /* Insertion guides — split lines (the `resultRegionPreviews: false` presentation) and tab
-          before/after markers — read as a solid bar. The `:not(...)` guard keeps region-mode split
-          affordances in the filled family above. */
+       before/after markers — read as a solid bar. The `:not(...)` guard keeps region-mode split
+       affordances in the filled family above. */
 }
 .neo-dock-preview .neo-dock-preview-split:not(.neo-dock-preview-region),
 .neo-dock-preview .neo-dock-preview-tab-before,
@@ -124,7 +124,7 @@
 
 .neo-preview-lang-signal .neo-dock-preview {
     /* Same boundary as the indicator variant: component-domain aliases only — the apps
-          project their palettes; this file never reaches for an app palette directly. */
+       project their palettes; this file never reaches for an app palette directly. */
 }
 
 .neo-preview-lang-signal .neo-dock-preview .neo-dock-preview-edge.neo-dock-preview-accepted,

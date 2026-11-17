@@ -14,7 +14,8 @@ import {createRequire} from 'node:module';
  *
  *     [TOOLS=<neo checkout>] [OUT=<dir>] node buildScripts/helpers/convertScssToCss.mjs [repo] [ref]
  *
- * `repo` defaults to the working directory, `ref` to `HEAD`. `TOOLS` is a checkout whose `node_modules`
+ * `repo` defaults to the working directory, `ref` to `HEAD`; `ref` `.` reads `repo`'s working tree instead of
+ * a commit. `TOOLS` is a checkout whose `node_modules`
  * hold sass, postcss, postcss-scss and autoprefixer (default: `repo`). `OUT`, when set, receives the
  * converted tree as `<OUT>/resources/css/**.css`.
  *
@@ -68,12 +69,30 @@ async function prefix(css) {
 }
 
 /**
- * @summary Doubles Sass's two-space indentation to the four spaces of the theme sources.
+ * @summary Doubles Sass's two-space indentation to the four spaces of the theme sources. Sass shifts the
+ * continuation lines of a multi-line comment by its own re-nesting, so they are aligned again under the
+ * comment's first line (`*`-led lines one column in, prose three).
  * @param {String} css Sass output.
  * @returns {String}
  */
 function reindent(css) {
-    return css.replace(/^@charset "UTF-8";\n/, '').replace(/^ +/gm, spaces => spaces + spaces)
+    let base = null;
+
+    return css.replace(/^@charset "UTF-8";\n/, '').replace(/^ +/gm, spaces => spaces + spaces).split('\n').map(line => {
+        if (base !== null) {
+            const text = line.trimStart(), aligned = text && ' '.repeat(base + (text.startsWith('*') ? 1 : 3)) + text;
+
+            if (text.includes('*/')) base = null;
+
+            return aligned
+        }
+
+        const open = line.indexOf('/*');
+
+        if (open !== -1 && !line.includes('*/', open + 2)) base = line.length - line.trimStart().length;
+
+        return line
+    }).join('\n')
 }
 
 /**
@@ -476,14 +495,18 @@ function convert(file, entry, emitted = new Set()) {
 const
     root     = fs.mkdtempSync(path.join(os.tmpdir(), 'scss-to-css-')),
     scssRoot = path.join(root, 'resources/scss'),
-    files    = git('ls-tree', '-r', '--name-only', ref, 'resources/scss').split('\n').filter(file => file.endsWith('.scss')),
+    worktree = ref === '.',
+    files    = (worktree
+        ? fs.readdirSync(path.join(repo, 'resources/scss'), {recursive: true}).map(file => path.join('resources/scss', file))
+        : git('ls-tree', '-r', '--name-only', ref, 'resources/scss').split('\n')
+    ).filter(file => file.endsWith('.scss')).sort(),
     copies   = new Map(),
     outputs  = new Map(),
     report   = {adopted: [], converted: 0, declAfterNested: [], diffs: [], errors: [], fallback: [], files: 0, flattened: [], isRisk: new Set()};
 
 for (const file of files) {
     fs.mkdirSync(path.join(root, path.dirname(file)), {recursive: true});
-    fs.writeFileSync(path.join(root, file), git('show', `${ref}:${file}`))
+    fs.writeFileSync(path.join(root, file), worktree ? fs.readFileSync(path.join(repo, file)) : git('show', `${ref}:${file}`))
 }
 
 for (const file of files) {
@@ -543,7 +566,7 @@ if (process.env.OUT) {
     })
 }
 
-console.log(`${repo} @ ${git('rev-parse', '--short', ref).trim()}: ${report.files} files, ${report.converted} converted, ${report.fallback.length} compiled (D4)`);
+console.log(`${repo} @ ${worktree ? 'working tree' : git('rev-parse', '--short', ref).trim()}: ${report.files} files, ${report.converted} converted, ${report.fallback.length} compiled (D4)`);
 report.fallback.forEach(file => console.log(`  compiled: ${file}`));
 console.log(`D2/D3 flattened: ${report.flattened.length} files`);
 report.flattened.forEach(file => console.log(`  flattened: ${file}`));

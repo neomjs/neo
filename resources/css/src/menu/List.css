@@ -20,23 +20,23 @@
     /* Distance is small on purpose: this reads as "arriving", not "flying in". */
     --menu-spawn-distance: 8px;
     /* Between mount and the first alignment the menu is already in the DOM at an unresolved
-          position — `component.Base` fires `alignTo()` without awaiting it. Hold it invisible until a
-          zone lands, or the entrance would be preceded by a fully opaque menu jumping into place.
-          The selector matches only while NO `neo-aligned-*` class is present, so it stops applying the
-          moment alignment resolves and never hides a menu that is merely re-aligning. */
+       position — `component.Base` fires `alignTo()` without awaiting it. Hold it invisible until a
+       zone lands, or the entrance would be preceded by a fully opaque menu jumping into place.
+       The selector matches only while NO `neo-aligned-*` class is present, so it stops applying the
+       moment alignment resolves and never hides a menu that is merely re-aligning. */
 }
 .neo-menu-list.neo-animate-spawn:not([class*=neo-aligned-]) {
     opacity: 0;
 }
 .neo-menu-list.neo-animate-spawn {
     /* The entrance is keyed on the resolved zone alone. `DomAccess.align()` swaps this class only on
-          a REAL zone change, so an ordinary resync -- scroll, resize, the document-mutation resync that
-          opening a submenu triggers -- leaves it untouched and the running animation is never destroyed.
-          A genuine flip does change it, which restarts the entrance mirrored: the menu really did arrive
-          on the other side.
+       a REAL zone change, so an ordinary resync -- scroll, resize, the document-mutation resync that
+       opening a submenu triggers -- leaves it untouched and the running animation is never destroyed.
+       A genuine flip does change it, which restarts the entrance mirrored: the menu really did arrive
+       on the other side.
 
-          Keying on a separate transient marker was tried and is wrong: any class the aligner removes and
-          re-adds around a layout read DESTROYS the animation rather than resuming it. */
+       Keying on a separate transient marker was tried and is wrong: any class the aligner removes and
+       re-adds around a layout read DESTROYS the animation rather than resuming it. */
 }
 .neo-menu-list.neo-animate-spawn.neo-aligned-bottom {
     animation-name: neo-menu-spawn-from-top;

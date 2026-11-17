@@ -1,5 +1,6 @@
 /* the import order matters */
-/* A copy of the shared rules of theme-neo-dark/design-tokens/Core.css; the other copy: theme-neo-dark/design-tokens/Core.css. Keep them identical. */
+
+
 :where(.neo-theme-neo-dark) {
     --black                        : #000000;
     --borderradius-0               : 0px;
@@ -78,7 +79,8 @@
     --white                        : #FFFFFF;
     --white-off                    : #DDDDEE;
 }
-/* A copy of the shared rules of theme-neo-dark/design-tokens/Semantic.css; the other copy: theme-neo-dark/design-tokens/Semantic.css. Keep them identical. */
+
+
 :where(.neo-theme-neo-dark) {
     --sem-borderradius-large                                                 : var(--borderradius-8);
     --sem-borderradius-medium                                                : var(--borderradius-4);
@@ -171,7 +173,8 @@
     --sem-typo-label-small-fontSize                                          : var(--core-fontsize-small);
     --sem-typo-label-small-fontWeight                                        : var(--core-fontweight-regular);
 }
-/* A copy of the shared rules of theme-neo-dark/design-tokens/Component.css; the other copy: theme-neo-dark/design-tokens/Component.css. Keep them identical. */
+
+
 :where(.neo-theme-neo-dark) {
     --cmp-breadcrumb-arrow                      : var(--sem-color-fg-neutral-default);
     --cmp-breadcrumb-currentpage                : var(--sem-color-fg-primary-base);
@@ -248,55 +251,30 @@
 
 :where(.neo-theme-neo-dark) {
     --neo-background-color: var(--sem-color-bg-neutral-default);
-    --neo-color: var(--sem-color-text-neutral-default);
+    --neo-color           : var(--sem-color-text-neutral-default);
     /* The platform-level light/dark hint for THIS theme, declared rather than derived from the
-          theme's name: `theme-cyberpunk` is dark and named neither. Read by `Main.windowOpen` to
-          stage a popup's blank document in the right scheme instead of flashing the UA default. */
-    --neo-color-scheme: dark;
+       theme's name: `theme-cyberpunk` is dark and named neither. Read by `Main.windowOpen` to
+       stage a popup's blank document in the right scheme instead of flashing the UA default. */
+    --neo-color-scheme    : dark;
     --neo-disabled-opacity: 0.5;
-    --neo-font-family: 'Source Sans 3', sans-serif;
-    --neo-font-smoothing: antialiased;
-    /* The product motion vocabulary (see resources/css/_motion.scss — one authority, all themes) */
-    /* A copy of the shared motion-vocabulary block; the other copies: theme-cyberpunk/Global.css, theme-dark/Global.css, theme-light/Global.css, theme-neo-light/Global.css. Keep them identical. */
-    --motion-fast: 120ms; /* hover/press micro-feedback */
-    --motion-base: 200ms; /* state transitions: chips, badges, fills */
-    --motion-panel: 280ms; /* panel/pane movement, dock snaps */
-    --motion-stage: 400ms; /* window-level choreography: promote, adopt */
-    --motion-stagger: 24ms; /* list/grid entrance stagger per item (cap 8) */
-    --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1); /* everything entering or settling */
-    --ease-in-soft: cubic-bezier(0.55, 0, 0.55, 0.2); /* exits */
-    /* Vocabulary-level reduced-motion collapse: every duration goes instant HERE, so
-          consumer tiers inherit the accessibility contract without per-surface overrides.
-          A surface keeping a legibility crossfade under reduced motion is a recorded
-          exception at its own call site — never a change to this collapse. */
-}
+    --neo-font-family     : 'Source Sans 3', sans-serif;
+    --neo-font-smoothing  : antialiased;
 
-@media (prefers-reduced-motion: reduce) {
-    :where(.neo-theme-neo-dark) {
-        --motion-fast: 0ms;
-        --motion-base: 0ms;
-        --motion-panel: 0ms;
-        --motion-stage: 0ms;
-        --motion-stagger: 0ms;
-    }
-}
-
-:where(.neo-theme-neo-dark) {
     /* Global element typography — the VALUES for the structural rules in resources/css/src/Global.css
-          (#18232). One token per property, deliberately: a shared token would compute to `unset` on the
-          property whose type it does not match. The contract lives at the top of that file. */
+       (#18232). One token per property, deliberately: a shared token would compute to `unset` on the
+       property whose type it does not match. The contract lives at the top of that file. */
     --global-heading-letter-spacing: -0.02em;
-    --global-paragraph-color: var(--white-off);
-    --global-code-background-color: var(--sem-color-surface-primary-background);
-    --global-code-border: 1px solid var(--sem-color-border-subtle);
-    --global-code-font-family: var(--core-fontfamily-mono);
-    --global-code-border-radius: 4px;
-    --global-code-font-size: 14px;
-    --global-code-padding: 2px 0.3em;
-    --global-heading-code-color: var(--white-off);
-    --global-heading-code-margin: 0 0.15em;
-    --global-heading-code-padding: 0 0.3em;
-    --global-mark-background-color: var(--green-900);
-    --global-mark-color: var(--white);
-    --global-mark-padding: 0.1em 0.2em;
+    --global-paragraph-color       : var(--white-off);
+    --global-code-background-color : var(--sem-color-surface-primary-background);
+    --global-code-border           : 1px solid var(--sem-color-border-subtle);
+    --global-code-font-family      : var(--core-fontfamily-mono);
+    --global-code-border-radius    : 4px;
+    --global-code-font-size        : 14px;
+    --global-code-padding          : 2px 0.3em;
+    --global-heading-code-color    : var(--white-off);
+    --global-heading-code-margin   : 0 0.15em;
+    --global-heading-code-padding  : 0 0.3em;
+    --global-mark-background-color : var(--green-900);
+    --global-mark-color            : var(--white);
+    --global-mark-padding          : 0.1em 0.2em;
 }
