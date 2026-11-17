@@ -640,6 +640,23 @@
         "scope": "Loads statistics from an external API; availability and data freshness depend on that service."
     },
     {
+        "id": "grid-filtering",
+        "image": "devmode/grid-filtering-14.jpg",
+        "name": "Grid Header Filters",
+        "sourceUrl": "examples/grid/filtering",
+        "urls": {
+            "devmode": "examples/grid/filtering/index.html",
+            "dist_dev": "dist/development/examples/grid/filtering/index.html",
+            "dist_esm": "dist/esm/examples/grid/filtering/index.html",
+            "dist_prod": "dist/production/examples/grid/filtering/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "component": "Grid",
+        "feature": "Five typed filters in the column headers: text, ComboBox, amount, date and status",
+        "lookFor": "Pick a category and compare an amount: the count says how many of 10,000 orders stay, and Reset clears every field."
+    },
+    {
         "id": "grid-header-groups",
         "image": "devmode/grid-header-groups-14.jpg",
         "name": "Grouped Grid Headers",

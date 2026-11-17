@@ -53,7 +53,7 @@ class MainContainer extends Viewport {
                 flex: '1 1 320px',
                 vdom: {cn: [
                     {cls: ['grid-filtering-title'], text: 'Filter 10,000 orders'},
-                    {cls: ['grid-filtering-instruction'], text: 'Type, pick or compare in the row under the headers. Every filter narrows the count.'}
+                    {cls: ['grid-filtering-instruction'], text: 'Type, pick or compare in the column headers. Every filter narrows the count.'}
                 ]}
             }, {
                 module   : Component,

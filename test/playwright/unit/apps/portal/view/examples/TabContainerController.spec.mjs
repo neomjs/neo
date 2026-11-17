@@ -344,7 +344,7 @@ const catalog            = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examp
       ],
       newExampleIds = [
           'grid-animated-row-sorting', 'grid-cell-editing', 'grid-container', 'grid-content-sized-rows',
-          'grid-covid', 'grid-header-groups', 'grid-locked-columns', 'grid-nested-record-fields',
+          'grid-covid', 'grid-filtering', 'grid-header-groups', 'grid-locked-columns', 'grid-nested-record-fields',
           'grid-tree', 'grid-value-banding', 'json-grid-container', 'table-cell-editing',
           'table-container', 'table-covid', 'table-nested-record-fields', 'table-store', 'table-performance'
       ],
@@ -566,7 +566,7 @@ test.describe('Portal examples canonical catalog', () => {
         });
 
         expect(ids).toEqual(coveredGridTableIds);
-        expect(counts).toEqual({Grid: 14, Table: 7});
+        expect(counts).toEqual({Grid: 15, Table: 7});
         expect(store.items.map(record => record.id)).toEqual(coveredGridTableIds);
         expect(store.getSource()).toBe(catalogStore)
     });
