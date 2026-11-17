@@ -4,7 +4,7 @@ import {test, expect} from '../../fixtures.mjs';
  * @summary Whitebox E2E witness that Workstation's palette bridge out-ranks the theme it sits under.
  *
  * Workstation maps generic `--grid-*` / `--tab-*` primitives onto its own `--workstation-*` palette
- * (`resources/scss/src/apps/workstation/Viewport.scss`). The engine stamps a skin class onto that
+ * (`resources/css/src/apps/workstation/Viewport.css`). The engine stamps a skin class onto that
  * same viewport element — and, after a runtime skin switch, onto `.workstation-workspace` too — so
  * the theme's `:root .neo-theme-*` token block competes with the bridge on the very elements the
  * bridge declares on. Uncorrected, the bridge loses that contest for 21 of its 23 contested tokens
@@ -24,7 +24,7 @@ import {test, expect} from '../../fixtures.mjs';
  *
  * Reading on the consumer rather than the viewport is the whole point: a viewport-only probe passed
  * while the tab header resolved theme values, because a nearer skin-carrying ancestor shadowed the
- * bridge. The census is exhaustive against the SCSS block on purpose — the PR claims "every bridged
+ * bridge. The census is exhaustive against the stylesheet block on purpose — the PR claims "every bridged
  * token", and a claim wider than its instrument is the defect class this whole spec exists for.
  *
  * `expect` is a function of the live palette rather than a literal, so a palette retune stays green

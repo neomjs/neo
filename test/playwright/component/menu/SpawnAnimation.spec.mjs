@@ -215,7 +215,7 @@ test.describe('Neo.menu.List spawn animation', () => {
 
         // The entrance is polled on its OWN state, not inferred from the alignment above.
         //
-        // `List.scss` keys the animation on TWO classes at once — `.neo-animate-spawn` and a
+        // `List.css` keys the animation on TWO classes at once — `.neo-animate-spawn` and a
         // specific `.neo-aligned-*` — so alignment landing is necessary and not sufficient. Reading
         // `animationName` once, after a poll that gated on the other settlement, meant the read
         // could land in the window between them and see `none`. That is what made this arm fail

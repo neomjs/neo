@@ -147,7 +147,7 @@ test.describe('Neo.dashboard.dock.interaction.Rail — a reveal and the frame bo
 /**
  * The shield that routes an outside click to the dismissal also removes an outside frame as a
  * NATIVE drop target: one hit test governs pointer, dragover and drop, which is the side effect the
- * drag shield's comment in `Global.scss` calls load-bearing. A row native-dragged from the main
+ * drag shield's comment in `Global.css` calls load-bearing. A row native-dragged from the main
  * document into an outside editor frame while a reveal is open therefore races the dismissal: the
  * press fires the rail's outside listener, but the overlay hides one vdom round trip later, and
  * `dragstart` / `dragover` do not wait for that.
