@@ -112,18 +112,24 @@ class MainContainer extends Viewport {
                     valueLabel: 'Semicolon'
                 }]
             }, {
-                module   : Button,
-                handler  : 'up.onShowCsvClick',
-                iconCls  : 'fa-solid fa-eye',
-                reference: 'showCsvButton',
-                text     : 'Show CSV',
-                ui       : 'secondary'
-            }, {
-                module   : Button,
-                handler  : 'up.onExportCsvClick',
-                iconCls  : 'fa-solid fa-download',
-                reference: 'exportCsvButton',
-                text     : 'Export CSV'
+                // One box, so a narrow screen wraps both actions together
+                module: Container,
+                cls   : ['export-actions'],
+                layout: {ntype: 'hbox', align: 'center'},
+                items : [{
+                    module   : Button,
+                    handler  : 'up.onShowCsvClick',
+                    iconCls  : 'fa-solid fa-eye',
+                    reference: 'showCsvButton',
+                    text     : 'Show CSV',
+                    ui       : 'secondary'
+                }, {
+                    module   : Button,
+                    handler  : 'up.onExportCsvClick',
+                    iconCls  : 'fa-solid fa-download',
+                    reference: 'exportCsvButton',
+                    text     : 'Export CSV'
+                }]
             }]
         }, {
             module: Container,
@@ -137,17 +143,19 @@ class MainContainer extends Viewport {
                 reference: 'grid',
                 store    : MainStore,
 
+                // Every column flexes from its minimum, so a wide grid shares the space instead of one wide Status
                 columns: [
-                    {dataField: 'invoice',  text: 'Invoice',  width: 110},
-                    {dataField: 'customer', text: 'Customer', width: 190},
-                    {dataField: 'date',     text: 'Date',     width: 130, renderer: ({value}) => dateText(new Date(value))},
+                    {dataField: 'invoice',  flex: 1, minWidth: 110, text: 'Invoice'},
+                    {dataField: 'customer', flex: 1, minWidth: 190, text: 'Customer'},
+                    {dataField: 'date',     flex: 1, minWidth: 130, text: 'Date', renderer: ({value}) => dateText(new Date(value))},
                     {
                         cellAlign     : 'right',
                         dataField     : 'amount',
                         exportRenderer: ({value}) => value.toFixed(2),
+                        flex          : 1,
+                        minWidth      : 120,
                         renderer      : ({value}) => currency(value),
-                        text          : 'Amount',
-                        width         : 120
+                        text          : 'Amount'
                     },
                     {dataField: 'status', flex: 1, minWidth: 100, text: 'Status'}
                 ]
@@ -174,15 +182,35 @@ class MainContainer extends Viewport {
         }]
     }
 
+    /**
+     * The grid's Store, which this page subscribes to. Kept so destroy() can release the subscriptions:
+     * the Store can outlive the page and its grid.
+     * @member {Neo.data.Store|null} #store=null
+     */
+    #store = null;
+
     /** @summary Reflects the effective boot theme, and keeps an open pane in step with the store. */
     onConstructed() {
         super.onConstructed();
 
         let me = this;
 
-        // A header sort fires `load`, the filter field fires `filter`
-        me.getReference('grid').store.on({filter: me.updateCsvPane, load: me.updateCsvPane, scope: me});
+        me.#store = me.getReference('grid').store;
+        me.#store.on(me.storeListeners());
         me.syncThemeButton()
+    }
+
+    /**
+     * @summary Releases the page's Store subscriptions before the grid goes, then destroys the page.
+     * @param {...*} args
+     */
+    destroy(...args) {
+        let me = this;
+
+        me.#store?.un(me.storeListeners());
+        me.#store = null;
+
+        super.destroy(...args)
     }
 
     /**
@@ -253,6 +281,15 @@ class MainContainer extends Viewport {
 
         this.theme = this.getTheme() === 'neo-theme-neo-dark' ? 'neo-theme-neo-light' : 'neo-theme-neo-dark';
         this.syncThemeButton()
+    }
+
+    /**
+     * @summary The page's Store listeners, the same object for `on()` and `un()`. A header sort fires `load`,
+     * the filter field fires `filter`.
+     * @returns {Object}
+     */
+    storeListeners() {
+        return {filter: this.updateCsvPane, load: this.updateCsvPane, scope: this}
     }
 
     /** @summary Labels the button with the theme its next click will select. */
