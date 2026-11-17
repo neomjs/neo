@@ -37,6 +37,7 @@ test.describe('Neo.grid.Row: aria-expanded in a tree grid', () => {
                   applyRendererOutput: Row.prototype.applyRendererOutput,
                   createVdom         : Row.prototype.createVdom,
                   getCellId          : Row.prototype.getCellId,
+                  getRowHeight       : Row.prototype.getRowHeight,
                   getRowTransform    : Row.prototype.getRowTransform,
                   id                 : 'body__row-0',
                   record,
