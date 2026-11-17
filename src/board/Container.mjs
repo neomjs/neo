@@ -194,6 +194,9 @@ class Board extends Container {
      */
     isProjectable = false
 
+    /** Stores constructed from this board's config: it retires them, never a store it was handed. */
+    #ownedStores = new WeakSet()
+
     /**
      * @summary Forwards `appName` to {@link #columnSortZone}
      * @param {String|null} value
@@ -359,7 +362,8 @@ class Board extends Container {
     }
 
     /**
-     * @summary Binds the store's load, filter and recordChange events; a replacement store re-projects.
+     * @summary Binds the store's load, filter and recordChange events; a replacement store re-projects, then the
+     * previous store retires when this board created it.
      * @param {Neo.data.Store|null} value
      * @param {Neo.data.Store|null} oldValue
      * @protected
@@ -388,6 +392,8 @@ class Board extends Container {
             value.on(listeners);
             me.project()
         }
+
+        if (oldValue && oldValue !== value && me.#ownedStores.has(oldValue)) oldValue.destroy()
     }
 
     /**
@@ -415,14 +421,19 @@ class Board extends Container {
     }
 
     /**
-     * @summary A store config becomes a store instance
+     * @summary A store config becomes a store instance, which this board then owns
      * @param {Neo.data.Store|Object|null} value
      * @param {Neo.data.Store|null} oldValue
      * @returns {Neo.data.Store|null}
      * @protected
      */
     beforeSetStore(value, oldValue) {
-        return value ? ClassSystemUtil.beforeSetInstance(value, Store) : null
+        if (!value) {
+            return null
+        }
+        const store = ClassSystemUtil.beforeSetInstance(value, Store);
+        if (store !== value) this.#ownedStores.add(store);
+        return store
     }
 
     /**
@@ -500,13 +511,15 @@ class Board extends Container {
     }
 
     /**
-     * @summary Unbinds the store, destroys the selection model, column sort zone, and card editor, and forgets the cards before the container tears down
+     * @summary Unbinds the store, destroys the selection model, column sort zone, and card editor, and forgets the
+     * cards before the container tears down; a store this board created retires after it
      * @param {...*} args
      */
     destroy(...args) {
-        let me = this;
+        let me      = this,
+            {store} = me;
 
-        me.store?.un({filter: me.onStoreLoad, load: me.onStoreLoad, recordChange: me.onStoreRecordChange, scope: me});
+        store?.un({filter: me.onStoreLoad, load: me.onStoreLoad, recordChange: me.onStoreRecordChange, scope: me});
         me.selectionModel?.destroy();
         me.selectionModel = null;
         me.columnSortZone?.destroy();
@@ -517,7 +530,8 @@ class Board extends Container {
         me.cardMap.clear();
         me.retainedCards.clear();
 
-        super.destroy(...args)
+        super.destroy(...args);
+        if (store && me.#ownedStores.has(store)) store.destroy()
     }
 
     /**
@@ -743,7 +757,7 @@ class Board extends Container {
 
         seen = new Map();
 
-        store?.items.forEach(record => {
+        me.#adopt(store).forEach(record => {
             const status = record[statusField];
 
             if (status != null && !seen.has(status)) {
@@ -784,9 +798,8 @@ class Board extends Container {
      * @private
      */
     #recordsForColumn(population, status, lane) {
-        const me = this, {laneField, orderField, statusField} = me;
-        if (!population) return [];
-        const records = population.items.filter(record =>
+        const me      = this, {laneField, orderField, statusField} = me;
+        const records = me.#adopt(population).filter(record =>
             record[statusField] === status && (!laneField || (record[laneField] ?? null) === (lane ?? null))
         );
 
@@ -794,6 +807,18 @@ class Board extends Container {
             (Board.toNumber(a[orderField]) - Board.toNumber(b[orderField])) ||
             String(me.getKey(a)).localeCompare(String(me.getKey(b)))
         )
+    }
+
+    /**
+     * @summary The rows of a population as their canonical Records. A lazy ("Turbo Mode") row hydrates through the
+     * store, which heals its own maps, so cards, views and writers all hold the instance `store.get()` returns.
+     * @param {Neo.collection.Base|null} population The store or its unfiltered `allItems`
+     * @returns {Object[]}
+     * @private
+     */
+    #adopt(population) {
+        const {store} = this;
+        return population ? population.items.map((row, index) => store.hydrateRecord(row, population === store ? index : undefined)) : []
     }
 
     /**
@@ -846,7 +871,7 @@ class Board extends Container {
             }
         });
 
-        store?.items.forEach(record => {
+        me.#adopt(store).forEach(record => {
             const value = record[laneField] ?? null;
 
             if (value === null) {
@@ -904,14 +929,14 @@ class Board extends Container {
     }
 
     /**
-     * @summary Returns the current canonical Record, including one hidden by a Store filter.
+     * @summary Returns the current canonical Record, including one hidden by a Store filter or not yet hydrated.
      * @param {String|Number} key
      * @returns {Object|null}
      * @protected
      */
     getSourceRecord(key) {
         const store = this.store;
-        return (store?.allItems || store)?.get(key) ?? null
+        return store?.hydrateRecord((store.allItems || store).get(key)) ?? null
     }
 
     /**
@@ -1187,17 +1212,15 @@ class Board extends Container {
             // Derived columns or lanes: a status or lane seen for the first time gets its column/row in first-seen order
             if (isVisible && !target && status != null) {
                 if (laneField) {
-                    let laneRow = me.getLane(lane);
-
-                    if (!laneRow) {
-                        laneRow = me.insert(me.items.length, me.createLaneConfig({
+                    const
+                        added      = me.getLane(lane) ? null : me.insert(me.items.length, me.createLaneConfig({
                             title: lane ?? me.emptyLaneTitle,
                             value: lane
-                        }));
-                        me.projectLaneColumns(laneRow, me.getColumnConfigs())
-                    } else if (!columns) {
-                        me.items.forEach(item => item instanceof LaneRow && me.projectLaneColumns(item, me.getColumnConfigs()))
-                    }
+                        })),
+                        colConfigs = me.getColumnConfigs();
+
+                    // A new lane gets every column; a derived status reaches every lane, the new one included
+                    me.items.forEach(item => item instanceof LaneRow && (!columns || item === added) && me.projectLaneColumns(item, colConfigs));
 
                     target = me.getColumn(status, lane)
                 } else if (!columns) {
@@ -1572,11 +1595,19 @@ class Board extends Container {
      * @description The underscore is never kept, so every underscore in a slug opens an escape and the mapping
      * is injective: `in-progress` stays, `in progress` → `in_20_progress`, `a/b` → `a_2f_b`, `a_b` → `a_5f_b`.
      * A lossy slug would let `in progress` and `in-progress` share one component id.
+     *
+     * Types stay apart as well. A number and a string slug as their text, except a string that reads as a number:
+     * it and every other type lead with `_<type>_`, which no escape can produce, so the key `1` → `1` and the key
+     * `'1'` → `_string_1`.
      * @param {*} value
      * @returns {String}
      */
     static slug(value) {
-        return String(value).replace(/[^A-Za-z0-9-]/g, char => `_${char.charCodeAt(0).toString(16)}_`)
+        const
+            type = typeof value,
+            text = String(value).replace(/[^A-Za-z0-9-]/g, char => `_${char.charCodeAt(0).toString(16)}_`);
+
+        return type === 'number' || (type === 'string' && String(Number(value)) !== value) ? text : `_${type}_${text}`
     }
 
     /**

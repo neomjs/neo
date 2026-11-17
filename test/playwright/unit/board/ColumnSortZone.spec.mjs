@@ -195,6 +195,40 @@ test.describe('Neo.board.ColumnSortZone & Column#locked', () => {
         expect(zone.dragComponent ?? null).toBeNull()
     });
 
+    test('columnsResortable alone admits a column drag: cards off still reorders past a locked column and cancels, cards on with columns off stays still', async () => {
+        store = createStore();
+
+        const
+            zone  = await startBoard({
+                columns       : [{status: 'backlog'}, {status: 'in-progress', locked: true}, {status: 'review'}, {status: 'done'}],
+                dragResortable: false
+            }),
+            moves = [];
+
+        board.on('columnMove', data => moves.push(data));
+
+        await zone.onDragStart({clientX: 10, clientY: 20, path: headerPath('backlog')});
+        expect(zone.dragComponent).toBe(board.getColumn('backlog'));
+        await zone.onDragMove({clientX: 400, clientY: 20});
+        await zone.onDragEnd({});
+
+        expect(statuses(board)).toEqual(['review', 'in-progress', 'backlog', 'done']);
+        expect(moves).toHaveLength(1);
+        board.items.forEach(column => expect(column.wrapperStyle?.position ?? null).toBeNull());
+
+        await zone.onDragStart({clientX: 10, clientY: 20, path: headerPath('review')});
+        await zone.onDragMove({clientX: 400, clientY: 20});
+        await zone.onDragCancel({});
+
+        expect(statuses(board)).toEqual(['review', 'in-progress', 'backlog', 'done']);
+        expect(moves).toHaveLength(1);
+
+        board.set({columnsResortable: false, dragResortable: true});
+
+        await zone.onDragStart({clientX: 10, clientY: 20, path: headerPath('review')});
+        expect(zone.dragComponent ?? null).toBeNull()
+    });
+
     test('reorders unlocked columns on drop, sets dragElement to the header vdom, preserves column and card instances, and fires one columnMove event', async () => {
         store = createStore();
 

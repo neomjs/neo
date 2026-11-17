@@ -250,5 +250,27 @@ test.describe('Neo.board.LaneRow & Board swimlanes', () => {
         expect(keys(board.getColumn('done', 'Beacon'))).toEqual(['c1']);
         expect(board.getLane('Atlas').count).toBe(1);
         expect(board.getLane('Beacon').count).toBe(3)
+    });
+
+    test('one set that brings a new status and a new lane gives every lane the new column', () => {
+        store = createStore([
+            {id: 'a', title: 'A', status: 'todo', lane: 'one', order: 1000},
+            {id: 'b', title: 'B', status: 'todo', lane: 'one', order: 2000}
+        ]);
+        board = createBoard({store, columns: null});
+
+        const changes = [];
+        store.on('recordChange', data => changes.push(data));
+
+        store.get('a').set({status: 'doing', lane: 'two'});
+
+        expect(changes).toHaveLength(1);
+        expect(laneValues(board)).toEqual(['one', 'two']);
+        board.items.forEach(lane => expect(lane.columns.map(column => column.status)).toEqual(['doing', 'todo']));
+        expect(keys(board.getColumn('doing', 'two'))).toEqual(['a']);
+        expect(keys(board.getColumn('todo', 'one'))).toEqual(['b']);
+
+        expect(board.moveCard({key: 'b', status: 'doing', lane: 'one'})).toBe(store.get('b'));
+        expect(keys(board.getColumn('doing', 'one'))).toEqual(['b'])
     })
 });

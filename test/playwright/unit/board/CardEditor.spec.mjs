@@ -248,6 +248,54 @@ test.describe('Neo.board.Card inline title editing & Neo.board.CardEditor', () =
         expect(board.getColumn('in-progress').body.items.map(item => item.record.id)).toEqual(['c3', 'c1'])
     });
 
+    test('Save against a Record a reload or a Store replacement retired writes nothing; the current Record takes its place', () => {
+        store = createStore();
+        board = createBoard({store});
+
+        const
+            editor  = board.getCard('c1').openEditor(),
+            retired = store.get('c1'),
+            other   = createStore([{id: 'x1', title: 'Other', status: 'backlog', order: 1000}]);
+
+        // 1. A same-key reload: the edit was made against the retired Record
+        editor.setFieldValue('title', 'Stale title');
+        store.setData(cards());
+
+        const
+            current = store.get('c1'),
+            events  = recordChanges(store);
+
+        expect(current).not.toBe(retired);
+        expect(editor.save()).toBeNull();
+        expect(retired.title).toBe('Atlas feed');
+        expect(current.title).toBe('Atlas feed');
+        expect(events).toEqual([]);
+        expect(editor.record).toBe(current);
+        expect(editor.getFieldValue('title')).toBe('Atlas feed');
+        expect(editor.hidden).toBe(false);
+
+        // 2. The control: a Save against the current Record writes once
+        editor.setFieldValue('title', 'Fresh title');
+
+        expect(editor.save()).toEqual({title: 'Fresh title'});
+        expect(events).toEqual([{id: 'c1', changes: {title: 'Fresh title'}, names: ['title']}]);
+        expect(editor.hidden).toBe(true);
+
+        // 3. A replacement Store without the key: nothing to write to, the editor closes
+        board.getCard('c1').openEditor();
+        editor.setFieldValue('title', 'Orphaned title');
+        board.store = other;
+
+        expect(editor.save()).toBeNull();
+        expect(current.title).toBe('Fresh title');
+        expect(other.get('x1').title).toBe('Other');
+        expect(editor.hidden).toBe(true);
+
+        board.destroy();
+        board = null;
+        other.destroy()
+    });
+
     test('Save with lane changed routes through moveCard when laneField is set', () => {
         store = createStore([
             {id: 'l1', title: 'Alpha task', status: 'backlog', lane: 'urgent',   order: 1000},

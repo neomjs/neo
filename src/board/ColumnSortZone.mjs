@@ -81,7 +81,7 @@ class ColumnSortZone extends SortZone {
     afterSetWindowId(value, oldValue) {
         super.afterSetWindowId(value, oldValue);
 
-        value && this.adjustItemCls(Boolean(this.owner?.columnsResortable))
+        value && this.adjustItemCls(this.isResortable())
     }
 
     /**
@@ -94,7 +94,7 @@ class ColumnSortZone extends SortZone {
     armColumn(column, draggable=true) {
         let me       = this,
             {header} = column || {},
-            enabled  = Boolean(draggable && me.owner?.columnsResortable && !me.owner?.laneField && column?.body && !column?.locked),
+            enabled  = Boolean(draggable && me.isResortable() && !me.owner?.laneField && column?.body && !column?.locked),
             cls;
 
         if (!header || !column?.body) {
@@ -175,9 +175,15 @@ class ColumnSortZone extends SortZone {
      * @returns {Boolean}
      */
     isDraggableItem(item) {
-        let {owner} = this;
+        return Boolean(this.isResortable() && !this.owner.laneField && item?.header && item.body && !item.locked && super.isDraggableItem(item))
+    }
 
-        return Boolean(owner?.columnsResortable && !owner.laneField && item?.header && item.body && !item.locked && super.isDraggableItem(item))
+    /**
+     * @summary Columns drag on the board's `columnsResortable`, independent of `dragResortable`, which drags its cards.
+     * @returns {Boolean}
+     */
+    isResortable() {
+        return Boolean(this.owner?.columnsResortable)
     }
 
     /**
@@ -208,7 +214,7 @@ class ColumnSortZone extends SortZone {
      * @param {Object} data
      */
     async onDragMove(data) {
-        if (!this.dragComponent || !this.owner?.columnsResortable) {
+        if (!this.dragComponent || !this.isResortable()) {
             return
         }
 
@@ -223,7 +229,7 @@ class ColumnSortZone extends SortZone {
         super.onItemInsert(data);
 
         const items = Array.isArray(data.item) ? data.item : [data.item];
-        items.forEach(item => this.armColumn(item, Boolean(this.owner?.columnsResortable)))
+        items.forEach(item => this.armColumn(item, this.isResortable()))
     }
 }
 

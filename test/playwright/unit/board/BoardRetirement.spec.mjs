@@ -237,5 +237,53 @@ test.describe('Neo.board.Container card retirement', () => {
         expect(card.parent).toBe(column.body);
         expect(ComponentManager.get(card.id)).toBe(card);
         expectSafeTree()
+    });
+
+    test('a row a lazy Store adds after construction gets a card on its canonical Record, as an eager row does', async () => {
+        for (const autoInitRecords of [true, false]) {
+            store = createStore(records(1), {autoInitRecords});
+            await renderBoard();
+
+            store.add({id: 'todo-1', title: 'todo card 1', status: 'todo', order: 2000}, autoInitRecords);
+
+            const column = board.getColumn('todo');
+
+            expect(store.count).toBe(2);
+            expect(column.count).toBe(2);
+            expect(column.body.items.map(card => card.record.id)).toEqual(['todo-0', 'todo-1']);
+            column.body.items.forEach(card => expect(card.record).toBe(store.get(card.record.id)));
+            expectSafeTree();
+
+            board.destroy();
+            board = null
+        }
+    });
+
+    test('a Store the board creates retires on replacement and with the board, while a borrowed Store survives both', () => {
+        const storeConfig = data => ({keyProperty: 'id', model: CardModel, data});
+
+        store = createStore();
+        board = Neo.create(Board, {appName, columns: [{status: 'todo'}], store: storeConfig(records(2))});
+
+        const created = board.store;
+
+        board.store = store;
+
+        expect(created.isDestroyed).toBe(true);
+        expect(Neo.get(created.id)).toBeFalsy();
+
+        board.store = storeConfig(records(1));
+
+        const successor = board.store;
+
+        expect(store.isDestroyed).toBeFalsy();
+
+        board.destroy();
+        board = null;
+
+        expect(successor.isDestroyed).toBe(true);
+        expect(Neo.get(successor.id)).toBeFalsy();
+        expect(store.isDestroyed).toBeFalsy();
+        expect(Neo.get(store.id)).toBe(store)
     })
 });

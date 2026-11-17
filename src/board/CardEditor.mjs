@@ -637,16 +637,34 @@ class CardEditor extends Dialog {
      * @summary Diffs the form values against {@link #record} and commits in one write:
      * routes status or lane changes through `board.moveCard({record, status, lane, index: -1, fields: changed})`,
      * otherwise calls `record.set(changed)` once, and writes nothing when nothing changed.
+     * @description A reload or a replacement store can retire {@link #record} while the editor is open. Save then
+     * writes nothing: the editor rebinds to the board's current Record of the same key and stays open with its values,
+     * or hides when the key is gone, and the board announces either outcome.
      * @returns {Object|null} The committed changes, or null when nothing was written
      */
     save() {
         let me              = this,
             {board, record} = me,
-            changes         = me.getChanges(),
-            keys            = Object.keys(changes),
-            statusField     = board?.statusField || 'status',
-            laneField       = board?.laneField || null,
-            lane, laneChanged, status, statusChanged;
+            current         = board && record ? (board.store && board.getSourceRecord(board.getKey(record))) || null : record,
+            changes, keys, lane, laneChanged, laneField, status, statusChanged, statusField;
+
+        if (current !== record) {
+            board.announce(current ? 'The card changed before it was saved, so nothing was saved' : 'The card is gone, so nothing was saved');
+
+            if (current) {
+                me.card   = board.getCard(current);
+                me.record = current
+            } else {
+                me.hide()
+            }
+
+            return null
+        }
+
+        changes     = me.getChanges();
+        keys        = Object.keys(changes);
+        statusField = board?.statusField || 'status';
+        laneField   = board?.laneField || null;
 
         if (!record || !keys.length) {
             if (board && record) {

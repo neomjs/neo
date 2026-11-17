@@ -256,6 +256,27 @@ test.describe('Neo.board.Container', () => {
         expect(Board.slug('Ünicode')).toBe('_dc_nicode')
     });
 
+    test('a number key and a string key that read the same keep distinct card ids', () => {
+        store = createStore([
+            {id: 1,   title: 'Number key', status: 'backlog', order: 1000},
+            {id: '1', title: 'String key', status: 'backlog', order: 2000}
+        ]);
+        board = createBoard({store});
+
+        const
+            numberCard = board.getCard(1),
+            stringCard = board.getCard('1');
+
+        expect(numberCard.record.title).toBe('Number key');
+        expect(stringCard.record.title).toBe('String key');
+        expect(numberCard.id).toBe(`${board.id}__card__1`);
+        expect(stringCard.id).not.toBe(numberCard.id);
+        [numberCard, stringCard].forEach(card => expect(Neo.getComponent(card.id)).toBe(card));
+
+        // Every type keeps its own slug, so no two values share one
+        expect(new Set([1, '1', NaN, 'NaN', true, 'true', 1n].map(value => Board.slug(value))).size).toBe(7)
+    });
+
     test('a batch that moves a card and changes a rendered field delivers both', () => {
         store = createStore();
         board = createBoard({store});
