@@ -18,6 +18,10 @@
         padding       : 14px 16px;
     }
 
+    .neo-timeline-event-editor-datetime {
+        gap: 8px;
+    }
+
     .neo-timeline-event-editor-footer {
         border-top     : 1px solid var(--neo-timeline-editor-border-color, #2b3545);
         display        : flex;

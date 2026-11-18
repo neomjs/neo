@@ -200,7 +200,8 @@ test.describe('the planning panes', () => {
     });
 
     /** The bars the schedule renders in one person's row. */
-    const rowBars = (scheduler, index) => scheduler.body.items[index]?.vdom?.cn?.[0]?.cn?.[0]?.cn?.[0]?.cn || [];
+    const rowBars = (scheduler, index) => (scheduler.body.items[index]?.vdom?.cn?.[0]?.cn?.[0]?.cn?.[0]?.cn || [])
+        .filter(node => node.cls?.includes('neo-timeline-bar'));
 
     /** A card's footer: the days it names and the person its avatar names. */
     const footer = card => {

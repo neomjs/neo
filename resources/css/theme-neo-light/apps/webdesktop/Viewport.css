@@ -1,14 +1,7 @@
 /* Stays at theme-root weight (0,2,0) deliberately: an application projection outranks the
    engine's :where() value sheets by weight, never by load order (#18102). */
 :root .neo-theme-neo-light {
-    --webdesktop-wallpaper:
-        radial-gradient(1100px 760px at 12% 18%, rgba(56, 189, 248, .40), transparent 60%),
-        radial-gradient(900px 680px at 88% 12%, rgba(167, 139, 250, .42), transparent 58%),
-        radial-gradient(1000px 860px at 72% 96%, rgba(45, 212, 191, .34), transparent 62%),
-        linear-gradient(160deg, #eaf2ff 0%, #f1ecff 50%, #e7fbf6 100%);
-
     --webdesktop-accent      : #2563eb;
-    --webdesktop-focus-ring  : 0 0 0 2px rgba(37, 99, 235, .8);
     --webdesktop-glass       : rgba(255, 255, 255, .55);
     --webdesktop-glass-active: rgba(15, 23, 42, .09);
     --webdesktop-glass-border: rgba(15, 23, 42, .08);
@@ -17,17 +10,7 @@
     --webdesktop-ink         : #0f172a;
     --webdesktop-ink-dim     : rgba(15, 23, 42, .66);
     --webdesktop-ink-faint   : rgba(15, 23, 42, .42);
-    --webdesktop-label-shadow: none;
     --webdesktop-shadow      : 0 30px 80px -24px rgba(30, 41, 59, .35);
     --webdesktop-switch-off  : rgba(100, 116, 139, .35);
     --webdesktop-switch-on   : #16a34a;
-
-    /* The engine's menu, drawn on the desktop's glass */
-    --menu-list-background-color           : rgba(255, 255, 255, .88);
-    --menu-list-border-color               : rgba(15, 23, 42, .08);
-    --menu-list-item-background-color-hover: rgba(15, 23, 42, .05);
-    --menu-list-item-color                 : #0f172a;
-    --menu-list-item-icon-color            : #2563eb;
-    --menu-list-item-icon-gap              : .7em;
-    --menu-list-item-padding               : 8px 12px;
 }

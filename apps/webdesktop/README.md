@@ -22,7 +22,7 @@ Permissions are state, navigation is data, and visibility is one filter.
 | State  | `view/ViewportStateProvider.mjs`              | Holds the signed-in `account` and its `permissions`, and writes `permissions` into the apps store's filter. |
 | Data   | `store/Apps.mjs`                              | One `Neo.data.TreeStore` with every app and group. Each app names the permission it needs; groups name none. |
 | Filter | `store/Apps.mjs`                              | `{property: 'permission', operator: 'included', value: <granted keys>, includeEmptyValues: false}` |
-| Views  | `Neo.desktop.Launcher`, the start button's menu | Bound to the apps store. They render what it keeps and never read a permission. |
+| Views  | `Neo.desktop.Launcher`, the start menu        | Bound to the apps store. They render what it keeps and never read a permission. |
 
 Signing in is one write (`view/ViewportController.mjs`):
 
@@ -44,24 +44,26 @@ Two details make it correct:
 Hiding UI is not authorization. The backend must check every permission on its own endpoints; this filter only
 decides what the UI offers.
 
-## Windows
+## The desktop
 
-Double-click an icon, or press Enter on it, and the app opens in a window that grows out of the icon. The window is
-a `Neo.dialog.Base`, opened by the engine's `Neo.desktop.WindowManager`: one window per app, loaded on first use
-through a lazy `import()` and kept afterwards (`view/ViewportController.mjs`):
+The signed-in screen is the engine's `Neo.desktop.Container`: the launcher, the taskbar with its start menu and the
+open apps, and the app windows. The demo hands it the apps store and adds its own parts by key (`view/Viewport.mjs`):
 
 ```javascript
-me.windowManager = Neo.create(WindowManager, {
-    appStore    : apps,
-    taskStore   : me.getStore('tasks'),
-    windowClass : () => import('./AppWindow.mjs'),
-    windowConfig: record => me.getWindowConfig(record)
-})
+{
+    module       : Desktop,
+    bind         : {appStore: 'stores.apps', hidden: data => !data.account},
+    items        : {workspace: {items: {permissions: {module: PermissionPanel, weight: 30}}}},
+    taskbarConfig: {module: Taskbar},
+    windowClass  : () => import('./AppWindow.mjs')
+}
 ```
 
-A floating dialog sits outside the component tree, so the window config names the desktop's state provider as its
-window's parent: the window binds `app` from its own provider and `account` from the parent. The manager keeps the
-`tasks` store the taskbar lists, orders the windows of this desktop, and closes the window of an app the permission
+Double-click an icon, or press Enter on it, and the app opens in a window that grows out of the icon: one window per
+app, loaded on first use through the lazy `import()` and kept afterwards. The window (`view/AppWindow.mjs`) is the
+engine's `Neo.desktop.AppWindow` with the app's card as its content. The desktop names itself the window's parent, so
+the card binds the app as `data.record` from the window's own provider and `account` from the demo's. The desktop's
+window manager keeps the open apps in the taskbar, orders the windows, and closes the window of an app the permission
 filter drops, minimized or not. A sign-out calls its `reset()`.
 
 ## Arranging icons
@@ -88,6 +90,5 @@ has no double-click, so a single tap opens an app there.
 | `store/Apps.mjs`, `model/App.mjs` | The navigation tree's catalog and its permission filter, over the engine's `Neo.desktop.store.Apps` and `Neo.desktop.model.App`. |
 | `store/Permissions.mjs`, `view/PermissionList.mjs` | The panel that simulates the backend changing permissions. |
 | `view/SignIn.mjs`, `view/AccountList.mjs` | The lock screen. |
-| `view/Desktop.mjs`, `view/Taskbar.mjs` | The signed-in desktop, around the engine's `Neo.desktop.Launcher`. |
-| `view/AppWindow.mjs`, `view/AppView.mjs` | An app's window and its content. |
-| `view/TaskList.mjs` | The open windows in the taskbar, from the engine's `Neo.desktop.store.Tasks`. |
+| `view/Viewport.mjs`, `view/Taskbar.mjs` | The sign-in screen and the engine's `Neo.desktop.Container`, with the demo's panel, note and taskbar items. |
+| `view/AppWindow.mjs`, `view/AppView.mjs` | An app's window, the engine's `Neo.desktop.AppWindow`, and its content. |

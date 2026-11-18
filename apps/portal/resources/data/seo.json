@@ -1267,12 +1267,6 @@
         "schemaType": "WebPage",
         "lastmod": "2025-04-07"
     },
-    "/examples/calendar/weekview/index.html": {
-        "title": "Calendar WeekView — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "A dedicated week view lays timed sample events across seven day columns with an hourly axis. Follow a sample event down its day column and compare its start...",
-        "schemaType": "WebPage",
-        "lastmod": "2026-06-01"
-    },
     "/examples/charts/index.html": {
         "title": "amCharts — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "An amCharts pie chart wrapper renders a labelled dataset and interactive legend. Hover the pie segments and legend entries to compare each country's share.",

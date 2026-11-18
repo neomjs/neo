@@ -1,15 +1,13 @@
 import AccountChip from './AccountChip.mjs';
-import TaskList    from './TaskList.mjs';
-import Toolbar     from '../../../src/toolbar/Base.mjs';
+import Taskbar     from '../../../src/desktop/Taskbar.mjs';
 
 /**
- * @summary The desktop's bottom bar: the start menu, the permission panel toggle, the theme and the account.
- *
- * The start button's menu is wired by `WebDesktop.view.ViewportController`, which hands it the apps store.
+ * @summary The engine's taskbar with this demo's own items at its right end: the permission panel toggle, the theme,
+ * the account and the sign-out. The start button stays disabled while the account holds no permission.
  * @class WebDesktop.view.Taskbar
- * @extends Neo.toolbar.Base
+ * @extends Neo.desktop.Taskbar
  */
-class Taskbar extends Toolbar {
+class WebDesktopTaskbar extends Taskbar {
     static config = {
         /**
          * @member {String} className='WebDesktop.view.Taskbar'
@@ -17,40 +15,39 @@ class Taskbar extends Toolbar {
          */
         className: 'WebDesktop.view.Taskbar',
         /**
-         * @member {String[]} cls=['webdesktop-taskbar']
+         * Merged into the engine's items by key
+         * @member {Object} items
          */
-        cls: ['webdesktop-taskbar'],
-        /**
-         * @member {Object[]} items
-         */
-        items: [{
-            bind     : {disabled: data => data.permissions.length === 0},
-            cls      : ['webdesktop-start-button'],
-            iconCls  : 'fas fa-grip',
-            reference: 'start-button',
-            text     : 'Apps'
-        }, {
-            module   : TaskList,
-            flex     : 'none',
-            listeners: {itemClick: 'onTaskItemClick'}
-        }, '->', {
-            bind   : {pressed: data => data.permissionsPanel},
-            handler: 'onPermissionsButtonClick',
-            iconCls: 'fas fa-user-shield',
-            text   : 'Permissions'
-        }, {
-            handler: 'onThemeButtonClick',
-            iconCls: 'fas fa-sun',
-            vdom   : {'aria-label': 'Switch theme'}
-        }, {
-            module: AccountChip,
-            bind  : {account: data => data.account}
-        }, {
-            handler: 'onSignOutButtonClick',
-            iconCls: 'fas fa-right-from-bracket',
-            text   : 'Sign out'
-        }]
+        items: {
+            'start-button': {
+                bind: {disabled: data => data.permissions.length === 0}
+            },
+            permissions: {
+                bind   : {pressed: data => data.permissionsPanel},
+                handler: 'onPermissionsButtonClick',
+                iconCls: 'fas fa-user-shield',
+                text   : 'Permissions',
+                weight : 40
+            },
+            theme: {
+                handler: 'onThemeButtonClick',
+                iconCls: 'fas fa-sun',
+                vdom   : {'aria-label': 'Switch theme'},
+                weight : 50
+            },
+            account: {
+                module: AccountChip,
+                bind  : {account: data => data.account},
+                weight: 60
+            },
+            'sign-out': {
+                handler: 'onSignOutButtonClick',
+                iconCls: 'fas fa-right-from-bracket',
+                text   : 'Sign out',
+                weight : 70
+            }
+        }
     }
 }
 
-export default Neo.setupClass(Taskbar);
+export default Neo.setupClass(WebDesktopTaskbar);

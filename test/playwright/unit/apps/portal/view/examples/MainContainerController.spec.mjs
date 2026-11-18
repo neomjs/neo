@@ -103,7 +103,7 @@ test.describe('Portal examples overview and group pages', () => {
         // Board and Functional still lack covers; Timeline was retired and its example moved to Grid & Table + Scheduler; Trees now publishes via alsoIn
         expect(groupStore.items.map(group => group.route)).toEqual(publishedRoutes);
         expect(view.getGroupPages().map(page => page.family)).toEqual(groupStore.items.map(group => group.family));
-        expect(view.getCatalogStore().getCount()).toBe(99);
+        expect(view.getCatalogStore().getCount()).toBe(98);
 
         // every example counts once, in its home group: the counts add up to the records that publish
         expect(groupStore.items.reduce((sum, group) => sum + group.count, 0)).toBe(published.length);
@@ -135,7 +135,7 @@ test.describe('Portal examples overview and group pages', () => {
 
         // every card of every page has a cover; the catalog keeps the records that wait for one
         view.getGroupPages().forEach(page => page.getList().store.forEach(record => expect(record.image, record.id).toBeTruthy()));
-        expect(view.getCatalogStore().items.filter(record => !record.image)).toHaveLength(54);
+        expect(view.getCatalogStore().items.filter(record => !record.image)).toHaveLength(53);
         expect(view.getCatalogStore().items.filter(record => record.image && !Example.publishes(record, 'dist_prod')).map(record => record.id))
             .toEqual(['realworld', 'realworld-v2']);
         expect(view.getGroupPage('grid-table').getList().store.getSource()).toBe(view.getCatalogStore());
@@ -394,7 +394,7 @@ test.describe('Portal examples overview and group pages', () => {
         expect(view.getGroupStore().get('drag-drop').count).toBe(0);
         expect(view.getGroupStore().get('tree').count).toBe(0);
         expect(view.getCatalogStore().items.filter(record => record.id === 'dialog-drag-drop')).toHaveLength(1);
-        expect(view.getCatalogStore().getCount()).toBe(99)
+        expect(view.getCatalogStore().getCount()).toBe(98)
     });
 
     for (const mode of ['dist_prod', 'dist_esm', 'dist_dev', 'devmode']) {
@@ -456,7 +456,7 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           'grid-issues', 'scheduler-basic', 'gantt-basic', 'board-basic', 'calendar', 'webdesktop', 'grid-countries'
       ],
       establishedTailIds = [
-          'helix', 'devindex', 'calendar-weekview', 'multi-window-covid-gallery', 'offscreen-canvas', 'shared-offscreen-canvas',
+          'helix', 'devindex', 'multi-window-covid-gallery', 'offscreen-canvas', 'shared-offscreen-canvas',
           'multi-window-drag-drop', 'tab-container', 'state-provider', 'dialog-drag-drop',
           'colors-dashboard', 'covid-dashboard', 'covid-helix', 'covid-gallery', 'gallery'
       ],
@@ -562,12 +562,12 @@ test.describe('Portal examples canonical catalog', () => {
         })
     }
 
-    test('loads 99 logical examples with unique stable string identities', () => {
+    test('loads 98 logical examples with unique stable string identities', () => {
         const {store} = createList(),
               ids     = [];
 
-        expect(catalog).toHaveLength(99);
-        expect(store.getCount()).toBe(99);
+        expect(catalog).toHaveLength(98);
+        expect(store.getCount()).toBe(98);
 
         store.forEach(record => {
             expect(typeof record.id, record.name).toBe('string');
@@ -575,46 +575,26 @@ test.describe('Portal examples canonical catalog', () => {
             ids.push(record.id)
         });
 
-        expect(new Set(ids).size).toBe(99);
+        expect(new Set(ids).size).toBe(98);
         expect(list.catalogMode).toBe('dist_prod')
     });
 
-    test('catalogs the basic and dedicated week-view Calendar examples in order', () => {
-        const basicIndex = catalog.findIndex(record => record.id === 'calendar'),
-              weekIndex  = catalog.findIndex(record => record.id === 'calendar-weekview'),
-              basic      = catalog[basicIndex],
-              weekview   = catalog[weekIndex],
-              urls       = {
+    test('catalogs one Calendar example, the full calendar', () => {
+        const [basic, ...others] = catalog.filter(record => record.family === 'calendar'),
+              urls               = {
                   devmode  : 'examples/calendar',
                   dist_dev : 'dist/development/examples/calendar',
                   dist_esm : 'dist/esm/examples/calendar',
                   dist_prod: 'dist/production/examples/calendar'
               };
 
-        expect(basicIndex).toBeGreaterThanOrEqual(0);
-        expect(weekIndex).toBeGreaterThan(basicIndex);
-        expect([basic?.id, weekview?.id]).toEqual(['calendar', 'calendar-weekview']);
+        expect(others).toEqual([]);
         expect(basic).toMatchObject({
+            id       : 'calendar',
             family   : 'calendar',
             component: 'Calendar',
             feature  : expect.any(String),
             lookFor  : expect.any(String)
-        });
-        expect(weekview).toMatchObject({
-            id       : 'calendar-weekview',
-            name     : 'Calendar Week View',
-            family   : 'calendar',
-            component: 'Calendar',
-            feature  : expect.any(String),
-            lookFor  : expect.any(String),
-            image    : null,
-            sourceUrl: 'examples/calendar/weekview',
-            urls     : {
-                devmode  : `${urls.devmode}/weekview/index.html`,
-                dist_dev : `${urls.dist_dev}/weekview/index.html`,
-                dist_esm : `${urls.dist_esm}/weekview/index.html`,
-                dist_prod: `${urls.dist_prod}/weekview/index.html`
-            }
         });
         expect(basic.urls).toEqual({
             devmode  : `${urls.devmode}/basic/index.html`,
@@ -797,7 +777,7 @@ test.describe('Portal examples canonical catalog', () => {
         // the list hides what its store would filter out: a record without a cover publishes no card in any mode
         const uncovered = completeIds.filter(id => !store.get(id).image);
 
-        expect(uncovered).toHaveLength(54);
+        expect(uncovered).toHaveLength(53);
 
         cases.forEach(([mode, bigDataUrl, workstationUrl, choreographyUrl]) => {
             list.catalogMode = mode;

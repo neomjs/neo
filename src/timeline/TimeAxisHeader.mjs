@@ -2,6 +2,8 @@ import ClassSystemUtil from '../util/ClassSystem.mjs';
 import Component       from '../component/Base.mjs';
 import TimeAxis        from './TimeAxis.mjs';
 
+const formats = new Map();
+
 /**
  * @summary Two-tier timeline header (`Neo.timeline.TimeAxisHeader`) projecting only viewport-visible major and minor ticks.
  * @description Sits inside `Neo.grid.header.Toolbar` as the header item for the `center` timeline track column
@@ -22,6 +24,36 @@ import TimeAxis        from './TimeAxis.mjs';
  * @see Neo.timeline.Column
  */
 class TimeAxisHeader extends Component {
+    /**
+     * @summary Formats wall-clock fields carried by a Date's UTC getters, or the range up to an inclusive end.
+     * @param {String} locale
+     * @param {Object} options `Intl.DateTimeFormat` options; the zone is UTC because the date already holds wall time
+     * @param {Date} wall
+     * @param {Date} [wallEnd]
+     * @returns {String}
+     */
+    static formatWall(locale, options, wall, wallEnd) {
+        const key    = `${locale}|${JSON.stringify(options)}`;
+        let   format = formats.get(key);
+
+        if (!format) {
+            format = new Intl.DateTimeFormat(locale, {...options, timeZone: 'UTC'});
+            formats.set(key, format)
+        }
+
+        return wallEnd ? format.formatRange(wall, wallEnd) : format.format(wall)
+    }
+
+    /**
+     * @summary Returns the last wall-clock moment of a tick, whose `endDate` is exclusive.
+     * @param {Neo.timeline.TimeAxis|Function} axis
+     * @param {Object} tick
+     * @returns {Date}
+     */
+    static lastWallMoment(axis, tick) {
+        return new Date(+axis.wallTime(tick.endDate) - 1)
+    }
+
     static config = {
         /**
          * @member {String} className='Neo.timeline.TimeAxisHeader'
@@ -73,6 +105,12 @@ class TimeAxisHeader extends Component {
          * @reactive
          */
         isSorted_: null,
+        /**
+         * Locale of the default tick labels; `majorFormatter` and `minorFormatter` replace them.
+         * @member {String} locale_=Neo.config.locale
+         * @reactive
+         */
+        locale_: Neo.config.locale,
         /**
          * Multi-body lock region (`null` for the scrollable center timeline region).
          * @member {String|null} locked_=null
@@ -264,6 +302,18 @@ class TimeAxisHeader extends Component {
     }
 
     /**
+     * @summary Re-projects ticks when `locale` changes.
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetLocale(value, oldValue) {
+        if (oldValue !== undefined && this.isConstructed) {
+            this.project()
+        }
+    }
+
+    /**
      * @summary Re-projects ticks when `majorFormatter` changes.
      * @param {Function|null} value
      * @param {Function|null} oldValue
@@ -376,7 +426,7 @@ class TimeAxisHeader extends Component {
         if (value) {
             me.width = value.totalSize;
 
-            for (const prop of ['start', 'end', 'pxPerMinute', 'size', 'tickUnit', 'tickStep', 'nonWorkingDays', 'nonWorkingDates', 'timeZone']) {
+            for (const prop of ['start', 'end', 'pxPerMinute', 'size', 'tickUnit', 'tickStep', 'nonWorkingDays', 'nonWorkingDates', 'timeZone', 'now']) {
                 me.#axisCleanups.push(
                     me.observeConfig(value, prop, () => me.onTimeAxisChange())
                 )
@@ -476,44 +526,63 @@ class TimeAxisHeader extends Component {
     }
 
     /**
-     * @summary Formats a major tick label using `majorFormatter` or calendar-aware unit defaults.
+     * @summary Formats a major tick label using `majorFormatter`, or a `locale` label in the axis' zone:
+     * "Mon, Nov 9, 14:00" for an hour, "Mon, Nov 9" for a day, "Nov 9 – 15" for a week,
+     * "November 2026" for a month and "2026" for a calendar year (en-US shown).
      * @param {{date: Date, endDate: Date, offset: Number, size: Number, unit: String, index: Number}} tick
      * @returns {String}
      */
     formatMajorTick(tick) {
-        if (typeof this.majorFormatter === 'function') {
-            return String(this.majorFormatter(tick, this.timeAxis))
+        const me = this;
+
+        if (typeof me.majorFormatter === 'function') {
+            return String(me.majorFormatter(tick, me.timeAxis))
         }
 
-        const d   = (this.timeAxis || TimeAxis).wallTime(tick.date);
-        const key = d.toISOString().slice(0, 10);
+        const
+            {formatWall, lastWallMoment} = me.constructor,
+            axis                         = me.timeAxis || TimeAxis,
+            {locale}                     = me,
+            wall                         = axis.wallTime(tick.date);
 
         switch (tick.unit) {
             case 'minute':
             case 'hour':
-                return `${key} ${String(d.getUTCHours()).padStart(2, '0')}:00`;
-            case 'day':
+                return formatWall(locale, {weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'}, wall);
             case 'week':
-                return key;
-            case 'month':
-                return key.slice(0, 7);
+                return formatWall(locale, {month: 'short', day: 'numeric'}, wall, lastWallMoment(axis, tick));
+            case 'month': {
+                const
+                    end    = lastWallMoment(axis, tick),
+                    months = (end.getUTCFullYear() - wall.getUTCFullYear()) * 12 + end.getUTCMonth() - wall.getUTCMonth();
+
+                if (months === 0) {
+                    return formatWall(locale, {month: 'long', year: 'numeric'}, wall)
+                }
+
+                return months === 11 && wall.getUTCMonth() === 0
+                    ? formatWall(locale, {year: 'numeric'}, wall)
+                    : formatWall(locale, {month: 'short', year: 'numeric'}, wall, end)
+            }
             default:
-                return key
+                return formatWall(locale, {weekday: 'short', month: 'short', day: 'numeric'}, wall)
         }
     }
 
     /**
-     * @summary Formats a minor tick label using `minorFormatter` or calendar-aware unit defaults.
+     * @summary Formats a minor tick label using `minorFormatter`, or a short label in the axis' zone:
+     * "14:00" for a minute or an hour, "09" for a day, "Nov 9" for a week and "Nov" for a month (en-US shown).
      * @param {{date: Date, endDate: Date, offset: Number, size: Number, unit: String, index: Number}} tick
      * @returns {String}
      */
     formatMinorTick(tick) {
-        if (typeof this.minorFormatter === 'function') {
-            return String(this.minorFormatter(tick, this.timeAxis))
+        const me = this;
+
+        if (typeof me.minorFormatter === 'function') {
+            return String(me.minorFormatter(tick, me.timeAxis))
         }
 
-        const d   = (this.timeAxis || TimeAxis).wallTime(tick.date);
-        const key = d.toISOString().slice(0, 10);
+        const d = (me.timeAxis || TimeAxis).wallTime(tick.date);
 
         switch (tick.unit) {
             case 'minute':
@@ -521,12 +590,10 @@ class TimeAxisHeader extends Component {
                 return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
             case 'day':
                 return String(d.getUTCDate()).padStart(2, '0');
-            case 'week':
-                return key;
             case 'month':
-                return key.slice(0, 7);
+                return me.constructor.formatWall(me.locale, {month: 'short'}, d);
             default:
-                return key
+                return me.constructor.formatWall(me.locale, {month: 'short', day: 'numeric'}, d)
         }
     }
 
@@ -664,9 +731,17 @@ class TimeAxisHeader extends Component {
             width: `${totalSize}px`
         };
 
+        const
+            nowOffset = timeAxis.getNowOffset(),
+            showNow   = nowOffset !== null && nowOffset >= minPx && nowOffset <= maxPx,
+            tickCls   = (tick, row) => showNow && nowOffset >= tick.offset && nowOffset < tick.offset + tick.size
+                ? ['neo-timeline-tick', row, 'neo-timeline-tick-current']
+                : ['neo-timeline-tick', row];
+
+        // The label is its own node so it can stay sticky while its tick is partly scrolled out
         majorRow.cn = majorTicks.map(tick => ({
             id  : `${me.id}__major-tick-${tick.index}`,
-            cls : ['neo-timeline-tick', 'neo-timeline-tick-major'],
+            cls : tickCls(tick, 'neo-timeline-tick-major'),
             role: 'none',
             data: {
                 date : tick.date.toISOString(),
@@ -677,13 +752,13 @@ class TimeAxisHeader extends Component {
                 left : `${tick.offset}px`,
                 width: `${tick.size}px`
             },
-            text : me.formatMajorTick(tick)
+            cn: [{tag: 'span', cls: ['neo-timeline-tick-label'], text: me.formatMajorTick(tick)}]
         }));
 
         minorRow.cn = [
             ...minorTicks.map(tick => ({
                 id  : `${me.id}__minor-tick-${tick.index}`,
-                cls : ['neo-timeline-tick', 'neo-timeline-tick-minor'],
+                cls : tickCls(tick, 'neo-timeline-tick-minor'),
                 role: 'none',
                 data: {
                     date : tick.date.toISOString(),
@@ -696,7 +771,13 @@ class TimeAxisHeader extends Component {
                 },
                 text : me.formatMinorTick(tick)
             })),
-            ...nonWorkingNodes
+            ...nonWorkingNodes,
+            ...showNow ? [{
+                id           : `${me.id}__now`,
+                cls          : ['neo-timeline-now'],
+                'aria-hidden': 'true',
+                style        : {left: `${nowOffset}px`}
+            }] : []
         ];
 
         me.update();

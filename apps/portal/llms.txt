@@ -57,7 +57,6 @@ To access bundled versions, prefix paths with `/dist/production/`, `/dist/develo
 - [Neo EffectButton](https://neomjs.com/examples/button/effect/index.html)
 - [Neo SplitButton](https://neomjs.com/examples/button/split/index.html)
 - [neo.mjs Calendar Basic](https://neomjs.com/examples/calendar/basic/index.html)
-- [neo.mjs Calendar WeekView](https://neomjs.com/examples/calendar/weekview/index.html)
 - [Neo amCharts](https://neomjs.com/examples/charts/index.html)
 - [Neo OffscreenCanvas](https://neomjs.com/examples/component/canvas/index.html)
 - [Neo Carousel](https://neomjs.com/examples/component/carousel/index.html)

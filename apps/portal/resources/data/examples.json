@@ -294,24 +294,6 @@
         "scope": "Loads a published GitHub contributor dataset rather than querying GitHub live."
     },
     {
-        "id": "calendar-weekview",
-        "name": "Calendar Week View",
-        "family": "calendar",
-        "component": "Calendar",
-        "feature": "A dedicated week view lays timed sample events across seven day columns with an hourly axis.",
-        "lookFor": "Follow a sample event down its day column and compare its start time with the hour labels.",
-        "featured": false,
-        "image": null,
-        "sourceUrl": "examples/calendar/weekview",
-        "urls": {
-            "devmode": "examples/calendar/weekview/index.html",
-            "dist_dev": "dist/development/examples/calendar/weekview/index.html",
-            "dist_esm": "dist/esm/examples/calendar/weekview/index.html",
-            "dist_prod": "dist/production/examples/calendar/weekview/index.html"
-        },
-        "hiddenIn": []
-    },
-    {
         "id": "multi-window-covid-gallery",
         "family": "multi-window",
         "component": "Gallery",
