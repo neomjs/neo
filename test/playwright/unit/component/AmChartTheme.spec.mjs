@@ -151,5 +151,31 @@ test.describe('a mounted chart asks the addon for its theme', () => {
         // The create runs 50 ms after its request; waiting past that makes an unwanted one visible.
         await new Promise(resolve => setTimeout(resolve, 120));
         expect(calls).toEqual([{fn: 'create', theme: 'dark'}])
+    });
+
+    test('a theme change inside the 50 ms window sends one create, in the newer theme', async () => {
+        instance = Neo.create(AmChart, {appName, chartConfig, theme: 'neo-theme-dark'});
+
+        instance.mounted = true;
+        instance.theme   = 'neo-theme-neo-light';
+
+        await expect.poll(() => calls.filter(call => call.fn === 'create').length).toBe(1);
+        // The cancelled create would have gone out 50 ms after its request; waiting past that makes it visible.
+        await new Promise(resolve => setTimeout(resolve, 120));
+        expect(calls).toEqual([
+            {fn: 'destroy', id: instance.id},
+            {fn: 'create',  theme: null}
+        ])
+    });
+
+    test('an unmount inside the 50 ms window sends no create', async () => {
+        instance = Neo.create(AmChart, {appName, chartConfig, theme: 'neo-theme-dark'});
+
+        instance.mounted = true;
+        instance.mounted = false;
+
+        // The cancelled create would have gone out 50 ms after its request; waiting past that makes it visible.
+        await new Promise(resolve => setTimeout(resolve, 120));
+        expect(calls).toEqual([{fn: 'destroy', id: instance.id}])
     })
 });

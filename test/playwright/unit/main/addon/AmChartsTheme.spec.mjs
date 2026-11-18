@@ -58,7 +58,11 @@ function am4coreStub() {
         registry,
         created: [],
         createFromConfig(config, id, type) {
-            const chart = {id, type, themesAtCreate: [...registry.themes]};
+            if (config.fail) {
+                throw new Error('createFromConfig failed')
+            }
+
+            const chart = {id, type, disposed: false, themesAtCreate: [...registry.themes], dispose() {this.disposed = true}};
 
             this.created.push(chart);
             return chart
@@ -127,6 +131,28 @@ test.describe('Neo.main.addon.AmCharts#create', () => {
         expect(light.themesAtCreate).toEqual([]);
         expect(light.themes).toEqual([]);
         expect(dark.themes, 'the dark chart keeps its own theme').toEqual([darkTheme])
+    });
+
+    test('a chart created again under its id replaces the one before it, which is disposed', () => {
+        addon.create({config: {}, id: 'chart-again', package: 'am4charts', theme: 'dark', type: 'PieChart'});
+        addon.create({config: {}, id: 'chart-again', package: 'am4charts',               type: 'PieChart'});
+
+        const [first, second] = stub.created;
+
+        expect(first.disposed, 'the first chart does not keep running').toBe(true);
+        expect(second.disposed).toBe(false);
+        expect(addon.hasChart('chart-again')).toBe(true);
+        expect(addon.charts['chart-again']).toBe(second)
+    });
+
+    test('a create that throws leaves no theme registered for the next chart', () => {
+        expect(() => addon.create({config: {fail: true}, id: 'chart-throws', package: 'am4charts', theme: 'dark', type: 'PieChart'}))
+            .toThrow('createFromConfig failed');
+        expect(stub.registry.themes).toEqual([]);
+
+        addon.create({config: {}, id: 'chart-after', package: 'am4charts', type: 'PieChart'});
+
+        expect(stub.created[0].themesAtCreate, 'the next chart is light').toEqual([])
     })
 });
 

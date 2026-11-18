@@ -153,14 +153,20 @@ class AmCharts extends Base {
         let me     = this,
             themes = data.theme === 'dark' ? [am4themes_dark] : [];
 
+        // a chart created again under the same id replaces the one before it, never leaves it running
+        me.destroy({id: data.id});
+
         am4core.unuseAllThemes();
         themes.forEach(theme => am4core.useTheme(theme));
 
-        // todo: check if globalThis[data.package] exists, if not load it and call create afterwards
-        me.charts[data.id] = am4core.createFromConfig(data.config, data.id, globalThis[data.package][data.type || 'XYChart']);
-        me.charts[data.id].themes = themes;
-
-        am4core.unuseAllThemes();
+        // the themes are global while createFromConfig runs: a throwing create must not leave them registered
+        try {
+            // todo: check if globalThis[data.package] exists, if not load it and call create afterwards
+            me.charts[data.id] = am4core.createFromConfig(data.config, data.id, globalThis[data.package][data.type || 'XYChart']);
+            me.charts[data.id].themes = themes
+        } finally {
+            am4core.unuseAllThemes()
+        }
 
         if (data.combineSeriesTooltip) {
             me.combineSeriesTooltip(me.charts[data.id])

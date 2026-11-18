@@ -87,6 +87,12 @@ class AmChart extends Component {
      * @private
      */
     #createdTheme
+    /**
+     * Cancels the create that {@link #createChart} has scheduled and not yet sent, or `null`.
+     * @member {AbortController|null} #pendingCreate=null
+     * @private
+     */
+    #pendingCreate = null
 
     /**
      * Triggered after the chartData config got changed
@@ -120,6 +126,8 @@ class AmChart extends Component {
             {appName, id, windowId} = me;
 
         if (value === false && oldValue !== undefined) {
+            // a create still waiting for its slot would draw into a chart that is gone
+            me.#pendingCreate?.abort();
             Neo.main.addon.AmCharts.destroy({appName, id, windowId})
         }
 
@@ -167,11 +175,15 @@ class AmChart extends Component {
 
     /**
      * @summary Asks the main thread to create the chart in the amCharts theme {@link #resolveTheme} answers.
+     *
+     * The create goes out 50 ms later. A newer create cancels one still waiting, and so do an unmount and
+     * `destroy()`, so only the latest request reaches the main thread and none arrives after the chart is gone.
      * @protected
      */
     createChart() {
         let me                      = this,
             {appName, id, windowId} = me,
+            pending                 = new AbortController(),
             theme                   = me.resolveTheme(),
             opts                    = {
                 appName,
@@ -191,9 +203,13 @@ class AmChart extends Component {
 
         me.#createdTheme = theme;
 
-        me.timeout(50).then(() => {
+        me.#pendingCreate?.abort();
+        me.#pendingCreate = pending;
+
+        me.timeout(50, {signal: pending.signal}).then(() => {
+            me.#pendingCreate = null;
             Neo.main.addon.AmCharts.create(opts).then(me.onChartMounted)
-        })
+        }, () => {}) // cancelled by a newer create, an unmount or destroy()
     }
 
     destroy(...args) {
