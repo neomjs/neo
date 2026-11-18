@@ -1,5 +1,6 @@
 import Accounts      from '../store/Accounts.mjs';
 import Apps          from '../store/Apps.mjs';
+import Files         from '../store/Files.mjs';
 import Permissions   from '../store/Permissions.mjs';
 import StateProvider from '../../../src/state/Provider.mjs';
 
@@ -40,12 +41,16 @@ class ViewportStateProvider extends StateProvider {
             permissionsPanel: false
         },
         /**
+         * `documents` and `recycleBin` live here, not in their apps' views: deleting and restoring move a file between
+         * two windows that each load on their first open
          * @member {Object} stores
          */
         stores: {
             accounts   : Accounts,
             apps       : Apps,
-            permissions: Permissions
+            documents  : {module: Files, responseRoot: 'documents', filters: [{property: 'folder', value: null}]},
+            permissions: Permissions,
+            recycleBin : {module: Files, responseRoot: 'recycleBin'}
         }
     }
 
