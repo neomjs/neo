@@ -183,12 +183,15 @@ class MainContainer extends ConfigurationViewport {
     createExampleComponent() {
         return Neo.create({
             module   : FunctionalButton,
-            badgeText: 'Badge',
+            badgeText: '0',
             flex     : 'none',
-            handler  : data => console.log('button click =>', data.component.id),
+            handler  : data => {
+                const badge = data.component.getBadgeText();
+                const count = badge === '0' ? 1 : parseInt(badge) + 1;
+                data.component.setBadgeText(count.toString());
+            },
             height   : 50,
             iconCls  : 'fa fa-home',
-            style    : {marginBottom: '1500px', marginTop: '500px'},
             text     : 'Hello World',
             ui       : 'primary',
             width    : 150
