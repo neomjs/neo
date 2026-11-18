@@ -273,17 +273,17 @@ test.describe('Portal examples section', () => {
               counts   = page.locator(`${SIDEBAR} .portal-examples-group-index-count`);
 
         await expect(page.locator(SIDEBAR)).toBeVisible();
-        await expect(headline).toHaveText('45 live examples in 17 groups');
-        expect((await counts.allTextContents()).filter(text => !text.startsWith('(')).reduce((sum, text) => sum + Number(text), 0)).toBe(45);
+        await expect(headline).toHaveText('47 live examples in 17 groups');
+        expect((await counts.allTextContents()).filter(text => !text.startsWith('(')).reduce((sum, text) => sum + Number(text), 0)).toBe(47);
         await expect(page.locator(`${SIDEBAR} .portal-examples-group-index-note`)).toBeVisible();
         await expect(page.locator(`${FEATURED} .neo-list-item`).first().locator('.portal-example-group-badge')).toHaveText('Multi-Window');
 
         // Dev mode cannot open liquid-glass, the one card of More components
         await selectBuild(page, 'Dev mode');
-        await expect(headline).toHaveText('44 live examples in 16 groups');
+        await expect(headline).toHaveText('46 live examples in 16 groups');
         await expect(page.locator(SIDEBAR).getByRole('link', {name: /^More components, /})).toHaveCount(0);
         await selectBuild(page, 'Production build');
-        await expect(headline).toHaveText('45 live examples in 17 groups')
+        await expect(headline).toHaveText('47 live examples in 17 groups')
     });
 
     test('the index is a navigation landmark of links: Tab reaches every entry, Enter opens it, no entry claims to be a tab', async ({page, neuralLink}) => {
@@ -458,8 +458,9 @@ test.describe('Portal examples section', () => {
             await expect(page.locator(CARDS).getByRole('link', {name: 'TreeGrid - Big Data', exact: true}))
                 .toHaveAttribute('href', `https://neomjs.com/${prefix}examples/grid/treeBigData/index.html`);
             await openGroup(page, 'Multi-Window');
-            // the six covered records; the external OffscreenCanvas demo has no ESM destination
-            await expect(page.locator(`${CARDS} .portal-example-feature`)).toHaveCount(mode === 'dist_esm' ? 5 : 6);
+            // the six covered records and the cross-window dock its alsoIn lends; the external OffscreenCanvas demo has
+            // no ESM destination
+            await expect(page.locator(`${CARDS} .portal-example-feature`)).toHaveCount(mode === 'dist_esm' ? 6 : 7);
             await expect(page.locator(CARDS).getByRole('link', {name: 'Colors Dashboard', exact: true}))
                 .toHaveAttribute('href', `https://neomjs.com/${prefix}apps/colors/index.html`);
             await openOverview(page)

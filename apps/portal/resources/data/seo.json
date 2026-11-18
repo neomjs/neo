@@ -1107,7 +1107,7 @@
     },
     "/examples/dashboard": {
         "title": "JavaScript Dashboard & Docking — Panes That Pop Out | Neo.mjs",
-        "description": "Explore 1 live JavaScript dashboard example: A scripted layout tour splits, groups and auto-hides live panes.",
+        "description": "Explore 3 live JavaScript dashboard examples: A scripted layout tour splits, groups and auto-hides live panes.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-18"
     },
@@ -1137,7 +1137,7 @@
     },
     "/examples/multi-window": {
         "title": "Multi-Window JavaScript App Examples — SharedWorker State | Neo.mjs",
-        "description": "Explore 6 live multi-window JavaScript app examples: A living-data workspace whose panes can leave the browser window.",
+        "description": "Explore 7 live multi-window JavaScript app examples: A living-data workspace whose panes can leave the browser window.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-18"
     },
