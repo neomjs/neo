@@ -52,11 +52,12 @@ test.describe('Neo.desktop.Launcher', () => {
     let focused, launcher, store;
 
     /**
+     * A group is a column, so an icon's place in it is its `top`
      * @param {String} id
-     * @param {Number} [left=0]
+     * @param {Number} [top=0]
      * @returns {Object} The path node of an icon, as the main thread reports it
      */
-    const icon = (id, left=0) => ({cls: ['neo-list-item'], id: launcher.getItemId(store.get(id)), rect: {height: 100, left, top: 0, width: 100}});
+    const icon = (id, top=0) => ({cls: ['neo-list-item'], id: launcher.getItemId(store.get(id)), rect: {height: 100, left: 0, top, width: 100}});
 
     /**
      * @returns {String[]} The rendered launcher, by record id
@@ -101,11 +102,18 @@ test.describe('Neo.desktop.Launcher', () => {
         expect(mail.cn[1].text).toBe('Mail')
     });
 
-    test('a drop writes the apps\' order, and the launcher renders the store\'s sort', async () => {
+    test('the vertical halves of a target place a drop, which writes the apps\' order the launcher renders', async () => {
         const zone = launcher.dragZone;
 
         await zone.onDragStart({clientX: 50, clientY: 50, path: [icon('mail'), {cls: [], id: launcher.id}], targetPath: []});
-        zone.onDragMove({clientX: 290, clientY: 50, targetPath: [icon('notes', 200), {cls: [], id: launcher.id}]});
+
+        // The upper half of the target, at its right edge: before it
+        zone.onDragMove({clientX: 90, clientY: 210, targetPath: [icon('notes', 200), {cls: [], id: launcher.id}]});
+
+        expect(rendered()).toEqual(['work', 'chat', 'mail', 'notes']);
+
+        // Its lower half, at its left edge: after it
+        zone.onDragMove({clientX: 10, clientY: 290, targetPath: [icon('notes', 200), {cls: [], id: launcher.id}]});
 
         // The preview lives in the vdom only
         expect(rendered()).toEqual(['work', 'chat', 'notes', 'mail']);
@@ -132,6 +140,19 @@ test.describe('Neo.desktop.Launcher', () => {
         await launcher.moveFocusedApp({metaKey: true, path, shiftKey: true}, -1);
 
         expect(rendered()).toEqual(['work', 'mail', 'chat', 'notes'])
+    });
+
+    test('in a column, Ctrl+Shift+Down and Up move the focused app as Right and Left do', async () => {
+        const path = [icon('mail'), {cls: [], id: launcher.id}];
+
+        launcher.keys.onKeyDown({ctrlKey: true, key: 'ArrowDown', path, shiftKey: true});
+        await expect.poll(rendered).toEqual(['work', 'chat', 'mail', 'notes']);
+
+        launcher.keys.onKeyDown({key: 'ArrowUp', metaKey: true, path, shiftKey: true});
+        await expect.poll(rendered).toEqual(['work', 'mail', 'chat', 'notes']);
+
+        launcher.keys.onKeyDown({ctrlKey: true, key: 'ArrowRight', path, shiftKey: true});
+        await expect.poll(rendered).toEqual(['work', 'chat', 'mail', 'notes'])
     });
 
     test('the click\'s pointer decides: a finger or pen tap opens an app, a mouse click selects, on one touch device', () => {

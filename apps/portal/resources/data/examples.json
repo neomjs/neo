@@ -179,24 +179,6 @@
         "lookFor": "Switch between Day, Week, Month and Year views, then toggle a calendar in the left panel to filter its events."
     },
     {
-        "id": "calendar-weekview",
-        "name": "Calendar Week View",
-        "family": "calendar",
-        "component": "Calendar",
-        "feature": "A dedicated week view lays timed sample events across seven day columns with an hourly axis.",
-        "lookFor": "Follow a sample event down its day column and compare its start time with the hour labels.",
-        "featured": false,
-        "image": null,
-        "sourceUrl": "examples/calendar/weekview",
-        "urls": {
-            "devmode": "examples/calendar/weekview/index.html",
-            "dist_dev": "dist/development/examples/calendar/weekview/index.html",
-            "dist_esm": "dist/esm/examples/calendar/weekview/index.html",
-            "dist_prod": "dist/production/examples/calendar/weekview/index.html"
-        },
-        "hiddenIn": []
-    },
-    {
         "id": "helix",
         "family": "lists",
         "feature": "Image items on a 3D helix that you reshape live",
@@ -451,24 +433,6 @@
             "dist_dev": "dist/development/examples/component/gallery/index.html",
             "dist_esm": "dist/esm/examples/component/gallery/index.html",
             "dist_prod": "dist/production/examples/component/gallery/index.html"
-        },
-        "hiddenIn": []
-    },
-    {
-        "id": "canvas",
-        "family": "charts",
-        "component": "Canvas",
-        "feature": "A canvas component that can hand its canvas to a worker as an OffscreenCanvas",
-        "lookFor": "Change width or height in the configuration panel to resize the canvas. The example registers the canvas and draws nothing on it yet.",
-        "scope": "The offscreen mode requires browser support for OffscreenCanvas.",
-        "image": null,
-        "name": "Canvas",
-        "sourceUrl": "examples/component/canvas",
-        "urls": {
-            "devmode": "examples/component/canvas/index.html",
-            "dist_dev": "dist/development/examples/component/canvas/index.html",
-            "dist_esm": "dist/esm/examples/component/canvas/index.html",
-            "dist_prod": "dist/production/examples/component/canvas/index.html"
         },
         "hiddenIn": []
     },
@@ -803,24 +767,6 @@
         "hiddenIn": []
     },
     {
-        "id": "cesium-js",
-        "family": "charts",
-        "component": "CesiumJS",
-        "feature": "A CesiumJS globe is wrapped as a Neo component with a camera controlled from a toolbar.",
-        "lookFor": "Drag and zoom the globe, then press Fly to San Fran and follow the camera movement.",
-        "scope": "Loads CesiumJS, terrain and imagery services over the network.",
-        "image": null,
-        "name": "CesiumJS",
-        "sourceUrl": "examples/component/wrapper/cesiumJS",
-        "urls": {
-            "devmode": "examples/component/wrapper/cesiumJS/index.html",
-            "dist_dev": "dist/development/examples/component/wrapper/cesiumJS/index.html",
-            "dist_esm": "dist/esm/examples/component/wrapper/cesiumJS/index.html",
-            "dist_prod": "dist/production/examples/component/wrapper/cesiumJS/index.html"
-        },
-        "hiddenIn": []
-    },
-    {
         "id": "monaco-editor",
         "family": "components",
         "component": "Monaco Editor",
@@ -844,7 +790,7 @@
         "feature": "An OpenLayers map shows a static set of 51 earthquake records and exposes camera, zoom and marker controls",
         "lookFor": "Fly between San Francisco and Iceland, change the zoom, then hide and restore one marker.",
         "scope": "Loads OpenLayers assets from jsDelivr and OpenStreetMap map tiles over the network.",
-        "image": null,
+        "image": "devmode/open-street-maps-14.jpg",
         "name": "OpenStreetMaps / OpenLayers",
         "sourceUrl": "examples/component/wrapper/openStreetMaps",
         "urls": {

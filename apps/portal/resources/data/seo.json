@@ -188,7 +188,7 @@
         "title": "Workspaces and Applications — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "The purpose of this tutorial is to let you see the structure of a Neo.mjs workspace, and the structure of an application.",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-16"
+        "lastmod": "2026-11-18"
     },
     "/learn/gettingstarted/DescribingTheUI": {
         "title": "Describing a View — Multi-Threaded JavaScript Application Engine | Neo.mjs",
@@ -1119,7 +1119,7 @@
     },
     "/examples/charts": {
         "title": "JavaScript Charts, Canvas & Maps — OffscreenCanvas Demos | Neo.mjs",
-        "description": "Explore 1 live JavaScript chart and canvas example: A chart of up to a million points, drawn in a canvas worker.",
+        "description": "Explore 2 live JavaScript chart and canvas examples: A chart of up to a million points, drawn in a canvas worker.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-18"
     },
@@ -1265,13 +1265,7 @@
         "title": "Calendar Basic — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A full calendar with day, week, month and year views, a month navigator and color-coded calendars. Switch between Day, Week, Month and Year views, then...",
         "schemaType": "WebPage",
-        "lastmod": "2025-04-07"
-    },
-    "/examples/calendar/weekview/index.html": {
-        "title": "Calendar WeekView — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "A dedicated week view lays timed sample events across seven day columns with an hourly axis. Follow a sample event down its day column and compare its start...",
-        "schemaType": "WebPage",
-        "lastmod": "2026-06-01"
+        "lastmod": "2026-11-18"
     },
     "/examples/charts/index.html": {
         "title": "amCharts — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1443,7 +1437,7 @@
     },
     "/examples/component/wrapper/cesiumJS/index.html": {
         "title": "CesiumJS Component — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "A CesiumJS globe is wrapped as a Neo component with a camera controlled from a toolbar. Drag and zoom the globe, then press Fly to San Fran and follow the...",
+        "description": "Live runnable CesiumJS Component example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
         "schemaType": "WebPage",
         "lastmod": "2024-08-17"
     },
@@ -1463,7 +1457,7 @@
         "title": "OpenStreetMaps/OpenLayers Component — JavaScript UI Demo | Neo.mjs",
         "description": "An OpenLayers map shows a static set of 51 earthquake records and exposes camera, zoom and marker controls. Fly between San Francisco and Iceland, change...",
         "schemaType": "WebPage",
-        "lastmod": "2026-10-20"
+        "lastmod": "2026-11-18"
     },
     "/examples/container/accordion/index.html": {
         "title": "Accordion — Web Worker JavaScript UI Demo | Neo.mjs",
