@@ -5,6 +5,7 @@ import path           from 'node:path';
 import {
     computeImportWaterfallDepth,
     formatMeasurementMarkdown,
+    matchesStepInDom,
     patchImportAppManifest,
     runSingleLoadInContext,
     summarizeFiveRuns
@@ -112,12 +113,38 @@ test.describe('buildScripts/util/measure-esm-vs-bundled', () => {
         });
 
         expect(md).toContain('FAILED at worker boot — `ReferenceError: Neo is not defined (chunk.mjs:1)`');
+        expect(md).toContain('| Build | Proto | Link | Cache | Frame ms (spread) | Res entries (med) | KB (med) | Worker waterfall ms | Interaction ms | Lazy ext ms | `nextHopProtocol` | Class/Singleton check |');
         expect(md).toContain('| dist/esbuild-probe | h2 | 0 ms (clean) | cold | ERROR | - | - | - | - | - | ReferenceError: Neo is not defined (chunk.mjs:1) | failed |')
     });
 
-    test('runSingleLoadInContext closes aborted pages and retries with a fresh page in the shared context', async () => {
-        const clicks       = [], waits = [];
-        let   newPageCalls = 0, closedPages = 0;
+    test('matchesStepInDom enforces selector, optional text substring, and layout visibility', () => {
+        const createDoc = items => ({
+            defaultView: {
+                getComputedStyle: el => el.style
+            },
+            querySelectorAll: selector => items[selector] || []
+        });
+
+        const hiddenEl = {
+            textContent   : 'Connect',
+            style         : {display: 'none', visibility: 'visible'},
+            getClientRects: () => []
+        };
+        const visibleEl = {
+            textContent   : 'Connect',
+            style         : {display: 'block', visibility: 'visible'},
+            getClientRects: () => [{width: 80, height: 24}]
+        };
+
+        expect(matchesStepInDom(createDoc({'.hero': [hiddenEl]}), {selector: '.hero', visible: true})).toBe(false);
+        expect(matchesStepInDom(createDoc({'.hero': [visibleEl]}), {selector: '.hero', text: 'Missing', visible: true})).toBe(false);
+        expect(matchesStepInDom(createDoc({'.hero': [visibleEl]}), {selector: '.hero', text: 'Connect', visible: true})).toBe(true);
+        expect(matchesStepInDom(createDoc({body: [hiddenEl]}), {selector: 'body', text: 'Connect', visible: false})).toBe(true)
+    });
+
+    test('runSingleLoadInContext closes aborted pages and retries with a fresh page on in-page RAF stamps', async () => {
+        const clicks       = [], waitArgs = [], pollModes = [];
+        let   newPageCalls = 0, closedPages = 0, evalCount = 0;
 
         const context = {
             async newPage() {
@@ -129,11 +156,20 @@ test.describe('buildScripts/util/measure-esm-vs-bundled', () => {
                             throw new Error('page.goto: net::ERR_ABORTED')
                         }
                     },
-                    async waitForSelector(selector) {
-                        waits.push(selector)
+                    async waitForFunction(fn, arg, opts) {
+                        waitArgs.push(arg.target);
+                        pollModes.push(opts?.polling);
+
+                        return {
+                            async jsonValue() {
+                                return {ms: 42.5}
+                            },
+                            async dispose() {}
+                        }
                     },
                     async evaluate() {
-                        return []
+                        evalCount++;
+                        return evalCount === 2 || evalCount === 3 ? 100 : []
                     },
                     async click(selector) {
                         clicks.push(selector)
@@ -162,13 +198,17 @@ test.describe('buildScripts/util/measure-esm-vs-bundled', () => {
         expect(newPageCalls).toBe(2);
         expect(closedPages).toBe(2);
         expect(clicks).toEqual(['text=Tab 2', 'text=Tab 3']);
-        expect(waits).toEqual([
-            'text=Welcome to your new Neo.mjs App.',
-            'text=Have fun creating something awesome!',
-            '.starter-lazy-panel'
+        expect(pollModes).toEqual(['raf', 'raf', 'raf']);
+        expect(waitArgs.map(step => step.selector)).toEqual(['body', 'body', '.starter-lazy-panel']);
+        expect(waitArgs.map(step => step.text)).toEqual([
+            'Welcome to your new Neo.mjs App.',
+            'Have fun creating something awesome!',
+            'Lazy module loaded'
         ]);
+        expect(result.frameMs).toBe(42.5);
+        expect(result.interactionMs).toBe(42.5);
+        expect(result.lazyExtensionMs).toBe(42.5);
         expect(result.requests).toBe(0);
-        expect(result.runtimeCheck).toBe('uninspected');
-        expect(result.frameMs).toBeGreaterThanOrEqual(0)
+        expect(result.runtimeCheck).toBe('uninspected')
     });
 });

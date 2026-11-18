@@ -4,11 +4,12 @@
  * @summary Reproducible HTTP/2 and HTTP/3 measurement harness comparing `dist/esm`, `dist/production`,
  * and an `esbuild --splitting` probe for Portal and a generated starter app under Linux `netem` link shaping.
  *
- * Builds Portal and a freshly scaffolded starter app from the same commit, serves them via Caddy over
- * HTTP/2 (TCP) and HTTP/3 (QUIC/UDP) inside an isolated Linux network namespace shaped with `tc netem` (`0 ms`,
- * `50 ms`, `150 ms`, and `50 ms + 1% loss`), measures 5 cold and 5 warm Playwright Chromium loads plus
- * post-frame interaction and lazy extension timing, and verifies the exact `nextHopProtocol` (`h2` or `h3`) and
- * App Worker module import waterfall depth.
+ * Designed for ephemeral Linux CI runners: raises `net.core.rmem_max`/`wmem_max` for QUIC bursts, creates
+ * a temporary `ip netns` + `veth` namespace shaped with `tc netem` (`0 ms`, `50 ms`, `150 ms`, `50 ms + 1% loss`),
+ * temporarily stages `dist/esbuild-probe` inside the workspace (cleaned in `finally`), serves Portal and a
+ * scaffolded starter app via Caddy over HTTP/2 and HTTP/3, stamps initial frame, post-frame interaction, and
+ * lazy-extension readiness on the in-page `requestAnimationFrame` `performance.now()` clock, and verifies
+ * `nextHopProtocol` (`h2` or `h3`) plus App Worker static import waterfall depth.
  */
 import {chromium}                       from '@playwright/test';
 import * as acorn                       from 'acorn';
@@ -270,13 +271,11 @@ export async function buildEsbuildSplittingProbe({workspaceRoot, insideNeo, entr
         });
         rawSrcResult = {ok: true, summary: 'Raw esbuild built without manifest plugin'}
     } catch (err) {
-        const
-            firstLines   = err.message.split('\n').slice(0, 5).join(' | '),
-            computedLine = fs.readFileSync(rawWorker, 'utf8').split('\n').findIndex(line => line.includes('../../${')) + 1;
+        const computedLine = fs.readFileSync(rawWorker, 'utf8').split('\n').findIndex(line => line.includes('../../${')) + 1;
 
         rawSrcResult = {
             ok    : false,
-            reason: `Raw \`src/worker/App.mjs\` line ${computedLine} (\`import(\\\`../../\${path}.mjs\\\`)\`) has no esbuild admission plugin and triggers an unbounded glob across non-browser/workspace scripts: ${firstLines}`
+            reason: `Raw \`src/worker/App.mjs\` line ${computedLine} (\`import(\\\`../../\${path}.mjs\\\`)\`) has no admission plugin, so esbuild globs across non-browser workspace files outside the module graph`
         }
     }
 
@@ -382,7 +381,7 @@ export function formatMeasurementMarkdown(report) {
             '',
             `## ${app.title}`,
             '',
-            '| Build | Proto | Link | Cache | Frame ms (spread) | Req (med) | KB (med) | Worker waterfall ms | Interaction ms | Lazy ext ms | `nextHopProtocol` | Class/Singleton check |',
+            '| Build | Proto | Link | Cache | Frame ms (spread) | Res entries (med) | KB (med) | Worker waterfall ms | Interaction ms | Lazy ext ms | `nextHopProtocol` | Class/Singleton check |',
             '|---|---|---|---|---:|---:|---:|---:|---:|---:|---|---|'
         );
 
@@ -443,19 +442,17 @@ function createSelfSignedCert(certDir) {
         keyPath  = path.join(certDir, 'key.pem'),
         extCfg   = path.join(certDir, 'openssl.cnf');
 
-    fs.writeFileSync(extCfg, [
-        '[req]',
-        'distinguished_name = dn',
-        'x509_extensions = v3_req',
-        'prompt = no',
-        '[dn]',
-        `CN = ${HOST_DOMAIN}`,
-        '[v3_req]',
-        'basicConstraints = critical,CA:FALSE',
-        'keyUsage = critical,digitalSignature',
-        'extendedKeyUsage = serverAuth',
-        `subjectAltName = DNS:${HOST_DOMAIN},IP:${SRV_IP}`
-    ].join('\n'));
+    fs.writeFileSync(extCfg, `[req]
+distinguished_name = dn
+x509_extensions = v3_req
+prompt = no
+[dn]
+CN = ${HOST_DOMAIN}
+[v3_req]
+basicConstraints = critical,CA:FALSE
+keyUsage = critical,digitalSignature
+extendedKeyUsage = serverAuth
+subjectAltName = DNS:${HOST_DOMAIN},IP:${SRV_IP}`);
 
     runOrThrow('openssl', [
         'req', '-x509', '-newkey', 'ec', '-pkeyopt', 'ec_paramgen_curve:prime256v1',
@@ -505,26 +502,14 @@ function applyNetemArm(arm) {
 async function startCaddyInNetns({certPath, keyPath, neoRoot, starterRoot, protocol, workDir}) {
     const
         caddyfile = path.join(workDir, `Caddyfile.${protocol}`),
-        protoList = protocol === 'h3' ? 'h3 h2 h1' : 'h2 h1';
+        protoList = protocol === 'h3' ? 'h3 h2 h1' : 'h2 h1',
+        siteBlock = (port, root) =>
+            `https://${HOST_DOMAIN}:${port} {\n    tls ${certPath} ${keyPath}\n    root * ${root}\n    file_server\n}`;
 
     fs.writeFileSync(caddyfile, [
-        '{',
-        '    admin off',
-        '    auto_https disable_redirects',
-        '    servers {',
-        `        protocols ${protoList}`,
-        '    }',
-        '}',
-        `https://${HOST_DOMAIN}:${PORTAL_PORT} {`,
-        `    tls ${certPath} ${keyPath}`,
-        `    root * ${neoRoot}`,
-        '    file_server',
-        '}',
-        `https://${HOST_DOMAIN}:${STARTER_PORT} {`,
-        `    tls ${certPath} ${keyPath}`,
-        `    root * ${starterRoot}`,
-        '    file_server',
-        '}'
+        `{\n    admin off\n    auto_https disable_redirects\n    servers {\n        protocols ${protoList}\n    }\n}`,
+        siteBlock(PORTAL_PORT, neoRoot),
+        siteBlock(STARTER_PORT, starterRoot)
     ].join('\n'));
 
     const child = spawn('sudo', ['ip', 'netns', 'exec', NETNS_NAME, 'caddy', 'run', '--config', caddyfile, '--adapter', 'caddyfile'], {
@@ -821,7 +806,7 @@ async function probeEsbuildRuntimeBoot({spkiBase64, origin, url, kind}) {
         }).catch(() => {})
     });
 
-    pageCdp.on('Target.receivedMessageFromTarget', ev => {
+    const onTargetMessage = ev => {
         try {
             const msg = JSON.parse(ev.message);
 
@@ -831,7 +816,9 @@ async function probeEsbuildRuntimeBoot({spkiBase64, origin, url, kind}) {
         } catch {
             // Ignore malformed target events
         }
-    });
+    };
+
+    pageCdp.on('Target.receivedMessageFromTarget', onTargetMessage);
 
     await pageCdp.send('Target.setAutoAttach', {autoAttach: true, waitForDebuggerOnStart: true, flatten: false});
 
@@ -854,28 +841,20 @@ async function probeEsbuildRuntimeBoot({spkiBase64, origin, url, kind}) {
         }
     });
 
-    browserCdp.on('Target.receivedMessageFromTarget', ev => {
-        try {
-            const msg = JSON.parse(ev.message);
-
-            if (msg.method === 'Runtime.exceptionThrown') {
-                failFast(formatExceptionDetails(msg.params?.exceptionDetails))
-            }
-        } catch {
-            // Ignore malformed target events
-        }
-    });
+    browserCdp.on('Target.receivedMessageFromTarget', onTargetMessage);
 
     await browserCdp.send('Target.setDiscoverTargets', {discover: true});
 
     const loadAndWait = async () => {
         await page.goto(url, {waitUntil: 'domcontentloaded', timeout: 8000});
-
-        if (kind === 'portal') {
-            await page.waitForSelector('.portal-home-hero-container', {state: 'visible', timeout: 8000})
-        } else {
-            await page.waitForSelector('text=Welcome to your new Neo.mjs App.', {timeout: 8000})
-        }
+        await waitForDomStamp(
+            page,
+            kind === 'portal'
+                ? {selector: '.portal-home-hero-container', visible: true}
+                : {selector: 'body', text: 'Welcome to your new Neo.mjs App.', visible: false},
+            0,
+            8000
+        )
     };
 
     try {
@@ -903,7 +882,70 @@ async function probeEsbuildRuntimeBoot({spkiBase64, origin, url, kind}) {
 }
 
 /**
- * @summary Loads one build inside a fresh isolated Page of a shared browser context and collects interaction and CDP metrics.
+ * @summary Evaluates whether a DOM document satisfies a readiness descriptor using standard CSS selectors and layout rects.
+ * @param {Document} doc DOM document or compatible test mock.
+ * @param {{selector: String, text?: String, visible?: Boolean}} step Readiness descriptor.
+ * @returns {Boolean} True when at least one matched element satisfies optional text and visibility constraints.
+ */
+export function matchesStepInDom(doc, step) {
+    const view = doc.defaultView || (typeof window !== 'undefined' ? window : null);
+
+    for (const el of doc.querySelectorAll(step.selector)) {
+        if (step.text && !(el.textContent || '').includes(step.text)) {
+            continue
+        }
+
+        if (step.visible) {
+            const style = view?.getComputedStyle?.(el);
+
+            if (style && (style.display === 'none' || style.visibility === 'hidden')) {
+                continue
+            }
+
+            if (typeof el.getClientRects === 'function' && el.getClientRects().length === 0) {
+                continue
+            }
+        }
+
+        return true
+    }
+
+    return false
+}
+
+/**
+ * @summary Waits on the page's requestAnimationFrame cadence until a step matches and stamps `performance.now()`.
+ * @param {Object} page Playwright Page.
+ * @param {{selector: String, text?: String, visible?: Boolean}} step Readiness descriptor.
+ * @param {Number} [baselineMs=0] Page `performance.now()` baseline (`0` measures from navigation start).
+ * @param {Number} [timeout=90000] Timeout in milliseconds.
+ * @returns {Promise<Number>} Elapsed milliseconds on the in-page clock.
+ */
+async function waitForDomStamp(page, step, baselineMs = 0, timeout = 90000) {
+    const handle = await page.waitForFunction(({target, base}) => {
+        for (const el of document.querySelectorAll(target.selector)) {
+            if (target.text && !(el.textContent || '').includes(target.text)) continue;
+
+            if (target.visible) {
+                const style = getComputedStyle(el);
+                if (style.display === 'none' || style.visibility === 'hidden' || el.getClientRects().length === 0) continue
+            }
+
+            return {ms: Math.max(0, performance.now() - base)}
+        }
+
+        return null
+    }, {target: step, base: baselineMs}, {polling: 'raf', timeout});
+
+    try {
+        return (await handle.jsonValue()).ms
+    } finally {
+        await handle.dispose?.().catch(() => {})
+    }
+}
+
+/**
+ * @summary Loads one build inside a fresh isolated Page of a shared browser context and collects in-page RAF stamps and CDP metrics.
  * @param {Object} options Execution parameters.
  * @param {Object} options.context Playwright BrowserContext holding HTTP/TLS/QUIC caches.
  * @param {Object} options.browserCdp Browser-level CDP session.
@@ -916,21 +958,19 @@ async function probeEsbuildRuntimeBoot({spkiBase64, origin, url, kind}) {
 export async function runSingleLoadInContext({context, browserCdp, origin, url, kind, maxAttempts = 2}) {
     const steps = kind === 'portal'
         ? {
-            readySel: '.portal-home-hero-container',
-            waitOpts: {state: 'visible', timeout: 90000},
+            ready   : {selector: '.portal-home-hero-container', visible: true},
             interAct: page => page.locator('.portal-header-toolbar').getByRole('link', {name: 'Learn', exact: true}).click(),
-            interSel: '.neo-app-content-container, .neo-tree-list',
+            inter   : {selector: '.neo-app-content-container, .neo-tree-list', visible: true},
             lazyAct : page => page.locator('.portal-header-toolbar').getByRole('link', {name: 'Connect', exact: true}).click(),
-            lazySel : '.portal-services-component h1:has-text("Connect")',
+            lazy    : {selector: '.portal-services-component h1', text: 'Connect', visible: true},
             lazyCls : 'Portal.view.services.Container'
         }
         : {
-            readySel: 'text=Welcome to your new Neo.mjs App.',
-            waitOpts: {timeout: 90000},
+            ready   : {selector: 'body', text: 'Welcome to your new Neo.mjs App.', visible: false},
             interAct: page => page.click('text=Tab 2'),
-            interSel: 'text=Have fun creating something awesome!',
+            inter   : {selector: 'body', text: 'Have fun creating something awesome!', visible: false},
             lazyAct : page => page.click('text=Tab 3'),
-            lazySel : '.starter-lazy-panel',
+            lazy    : {selector: '.starter-lazy-panel', text: 'Lazy module loaded', visible: true},
             lazyCls : 'MyApp.view.LazyPanel'
         };
 
@@ -938,24 +978,19 @@ export async function runSingleLoadInContext({context, browserCdp, origin, url, 
         const page = await context.newPage();
 
         try {
-            const t0 = performance.now();
-
             await page.goto(url, {waitUntil: 'domcontentloaded', timeout: 90000});
-            await page.waitForSelector(steps.readySel, steps.waitOpts);
 
-            const frameMs = performance.now() - t0;
+            const frameMs = await waitForDomStamp(page, steps.ready, 0);
 
             await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
 
-            const ti = performance.now();
+            const ti = await page.evaluate(() => performance.now());
             await steps.interAct(page);
-            await page.waitForSelector(steps.interSel, steps.waitOpts);
-            const interactionMs = performance.now() - ti;
+            const interactionMs = await waitForDomStamp(page, steps.inter, ti);
 
-            const tl = performance.now();
+            const tl = await page.evaluate(() => performance.now());
             await steps.lazyAct(page);
-            await page.waitForSelector(steps.lazySel, {timeout: 90000});
-            const lazyExtensionMs = performance.now() - tl;
+            const lazyExtensionMs = await waitForDomStamp(page, steps.lazy, tl);
 
             const cdp = await collectCdpMetrics(page, origin, browserCdp, steps.lazyCls);
 
@@ -1021,7 +1056,7 @@ async function buildSingleCommitApps(starterParent) {
 
     const starterRoot = path.join(starterParent, 'starter');
 
-    runOrThrow('npm', ['install', '--no-save', '--ignore-scripts', tgzPath, 'highlight.js@^11.12.0'], {cwd: starterRoot});
+    runOrThrow('npm', ['install', '--no-save', '--ignore-scripts', tgzPath, 'highlight.js@11.12.0'], {cwd: starterRoot});
     runOrThrow('npm', ['run', 'bundle-parse5'], {cwd: starterRoot});
     runOrThrow('npm', ['run', 'bundle-marked'], {cwd: starterRoot});
 
@@ -1071,6 +1106,60 @@ async function buildSingleCommitApps(starterParent) {
 }
 
 /**
+ * @summary Executes one cold or warm measurement cell and returns an error row instead of aborting on cell failure.
+ * @param {Object} options Cell execution inputs.
+ * @returns {Promise<Object>} Summarized cell payload or tabular error row.
+ */
+async function measureSeriesCell({protocol, arm, app, build, cache, runs, spkiBase64, onBrowserVersion}) {
+    const
+        items            = [],
+        withBenchContext = async fn => {
+        const browser = await chromium.launch({headless: true, args: chromiumArgsFor(protocol, spkiBase64)});
+        let context, cdp;
+
+        onBrowserVersion(browser.version());
+        try {
+            context = await browser.newContext({ignoreHTTPSErrors: true, viewport: {width: 1440, height: 1000}});
+            cdp     = await browser.newBrowserCDPSession();
+            await fn(context, cdp)
+        } finally {
+            await cdp?.detach().catch(() => {});
+            await context?.close().catch(() => {});
+            await browser.close()
+        }
+    };
+
+    try {
+        if (cache === 'warm') {
+            await withBenchContext(async (context, browserCdp) => {
+                await runSingleLoadInContext({context, browserCdp, origin: app.origin, url: build.url, kind: app.key});
+
+                for (let r = 0; r < runs; r++) {
+                    items.push(await runSingleLoadInContext({context, browserCdp, origin: app.origin, url: build.url, kind: app.key}))
+                }
+            })
+        } else {
+            for (let r = 0; r < runs; r++) {
+                await withBenchContext(async (context, browserCdp) => {
+                    items.push(await runSingleLoadInContext({context, browserCdp, origin: app.origin, url: build.url, kind: app.key}))
+                })
+            }
+        }
+
+        return {
+            build       : build.name,
+            protocol,
+            link        : arm.label,
+            cache,
+            summary     : summarizeFiveRuns(items, protocol, cache === 'cold'),
+            runtimeCheck: items[0]?.runtimeCheck
+        }
+    } catch (err) {
+        return {build: build.name, protocol, link: arm.label, cache, error: (err.message || String(err)).split('\n')[0].replace(/\|/g, '/')}
+    }
+}
+
+/**
  * @summary CLI entrypoint parsing arguments, managing the Linux `ip netns` harness, and writing reports.
  * @returns {Promise<void>}
  */
@@ -1086,9 +1175,10 @@ async function main() {
         mdPath        = flagValue('--output-markdown') || 'measurement-report.md',
         jsonPath      = flagValue('--output-json')     || 'measurement-raw.json',
         skipBuild     = argv.includes('--skip-build'),
+        starterArg    = flagValue('--starter-root'),
         tmpWork       = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-measure-')),
         starterParent = path.join(tmpWork, 'starter-parent'),
-        starterRoot   = path.join(starterParent, 'starter');
+        starterRoot   = starterArg ? path.resolve(starterArg) : path.join(starterParent, 'starter');
 
     let buildArtifacts = {
         starterRoot,
@@ -1099,7 +1189,18 @@ async function main() {
         esbuildProbes: {}
     };
 
-    if (!skipBuild) {
+    if (skipBuild) {
+        const starterEntry = path.join(starterRoot, 'dist/esm/apps/myapp/app.mjs');
+
+        if (!starterArg || !fs.existsSync(starterEntry)) {
+            throw new Error(`--skip-build requires --starter-root pointing to a built starter app (${starterEntry} missing)`)
+        }
+
+        buildArtifacts.waterfalls.push({
+            label: 'Starter App (`apps/myapp/app.mjs`)',
+            ...computeImportWaterfallDepth(starterEntry, path.join(starterRoot, 'dist/esm'))
+        })
+    } else {
         buildArtifacts = await buildSingleCommitApps(starterParent)
     }
 
@@ -1126,27 +1227,23 @@ async function main() {
         runOrThrow('sudo', ['ip', 'netns', 'exec', NETNS_NAME, 'ip', 'link', 'set', SRV_VETH, 'up']);
 
         const
-            apps = [
-                {
-                    key     : 'portal',
-                    title   : 'Portal (`apps/portal`)',
-                    origin  : `https://${HOST_DOMAIN}:${PORTAL_PORT}`,
-                    probeUrl: `https://${HOST_DOMAIN}:${PORTAL_PORT}/dist/esbuild-probe/apps/portal/index.html`,
+            makeApp    = (key, title, port, appDir) => {
+                const origin = `https://${HOST_DOMAIN}:${port}`;
+
+                return {
+                    key,
+                    title,
+                    origin,
+                    probeUrl: `${origin}/dist/esbuild-probe/${appDir}/index.html`,
                     builds  : [
-                        {name: 'dist/esm',        url: `https://${HOST_DOMAIN}:${PORTAL_PORT}/dist/esm/apps/portal/index.html`},
-                        {name: 'dist/production', url: `https://${HOST_DOMAIN}:${PORTAL_PORT}/dist/production/apps/portal/index.html`}
-                    ]
-                },
-                {
-                    key     : 'starter',
-                    title   : 'Starter App (`MyApp`)',
-                    origin  : `https://${HOST_DOMAIN}:${STARTER_PORT}`,
-                    probeUrl: `https://${HOST_DOMAIN}:${STARTER_PORT}/dist/esbuild-probe/apps/myapp/index.html`,
-                    builds  : [
-                        {name: 'dist/esm',        url: `https://${HOST_DOMAIN}:${STARTER_PORT}/dist/esm/apps/myapp/index.html`},
-                        {name: 'dist/production', url: `https://${HOST_DOMAIN}:${STARTER_PORT}/dist/production/apps/myapp/index.html`}
+                        {name: 'dist/esm',        url: `${origin}/dist/esm/${appDir}/index.html`},
+                        {name: 'dist/production', url: `${origin}/dist/production/${appDir}/index.html`}
                     ]
                 }
+            },
+            apps       = [
+                makeApp('portal',  'Portal (`apps/portal`)', PORTAL_PORT,  'apps/portal'),
+                makeApp('starter', 'Starter App (`MyApp`)',  STARTER_PORT, 'apps/myapp')
             ],
             cellsByApp = {portal: [], starter: []};
 
@@ -1198,61 +1295,20 @@ async function main() {
 
                     for (const app of apps) {
                         for (const build of app.builds) {
-                            const coldRuns = [];
-
-                            for (let r = 0; r < runs; r++) {
-                                const browser = await chromium.launch({headless: true, args: chromiumArgsFor(protocol, certs.spkiBase64)});
-                                let context, cdp;
-
-                                browserVersion = browser.version();
-                                try {
-                                    context = await browser.newContext({ignoreHTTPSErrors: true, viewport: {width: 1440, height: 1000}});
-                                    cdp     = await browser.newBrowserCDPSession();
-                                    coldRuns.push(await runSingleLoadInContext({context, browserCdp: cdp, origin: app.origin, url: build.url, kind: app.key}))
-                                } finally {
-                                    await cdp?.detach().catch(() => {});
-                                    await context?.close().catch(() => {});
-                                    await browser.close()
-                                }
+                            for (const cache of ['cold', 'warm']) {
+                                cellsByApp[app.key].push(await measureSeriesCell({
+                                    protocol,
+                                    arm,
+                                    app,
+                                    build,
+                                    cache,
+                                    runs,
+                                    spkiBase64      : certs.spkiBase64,
+                                    onBrowserVersion: v => {
+                                        browserVersion = v
+                                    }
+                                }))
                             }
-
-                            cellsByApp[app.key].push({
-                                build       : build.name,
-                                protocol,
-                                link        : arm.label,
-                                cache       : 'cold',
-                                summary     : summarizeFiveRuns(coldRuns, protocol, true),
-                                runtimeCheck: coldRuns[0]?.runtimeCheck
-                            });
-
-                            const
-                                warmRuns    = [],
-                                warmBrowser = await chromium.launch({headless: true, args: chromiumArgsFor(protocol, certs.spkiBase64)});
-                            let warmContext, warmCdp;
-
-                            try {
-                                warmContext = await warmBrowser.newContext({ignoreHTTPSErrors: true, viewport: {width: 1440, height: 1000}});
-                                warmCdp     = await warmBrowser.newBrowserCDPSession();
-
-                                await runSingleLoadInContext({context: warmContext, browserCdp: warmCdp, origin: app.origin, url: build.url, kind: app.key});
-
-                                for (let r = 0; r < runs; r++) {
-                                    warmRuns.push(await runSingleLoadInContext({context: warmContext, browserCdp: warmCdp, origin: app.origin, url: build.url, kind: app.key}))
-                                }
-                            } finally {
-                                await warmCdp?.detach().catch(() => {});
-                                await warmContext?.close().catch(() => {});
-                                await warmBrowser.close()
-                            }
-
-                            cellsByApp[app.key].push({
-                                build       : build.name,
-                                protocol,
-                                link        : arm.label,
-                                cache       : 'warm',
-                                summary     : summarizeFiveRuns(warmRuns, protocol, false),
-                                runtimeCheck: warmRuns[0]?.runtimeCheck
-                            })
                         }
                     }
                 }
@@ -1281,6 +1337,7 @@ async function main() {
         console.log('[4/4] Report written to', mdPath)
     } finally {
         spawnSync('sudo', ['ip', 'netns', 'del', NETNS_NAME], {stdio: 'ignore'});
+        fs.rmSync(path.join(ROOT, 'dist/esbuild-probe'), {recursive: true, force: true});
         fs.rmSync(tmpWork, {recursive: true, force: true})
     }
 }
