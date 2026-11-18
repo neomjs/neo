@@ -5,15 +5,15 @@ import GroupIndex   from './GroupIndex.mjs';
 import List         from './List.mjs';
 
 /**
- * @summary The page of one example group: its heading, the build control and its cards, and the way to every other
- * group.
+ * @summary A page of the examples section: its heading, the build control and its cards, and the way to every group.
+ * The section has one per published group, and one for all examples (`family: null`) at `/examples`.
  *
  * On the desktop that way is the banded index upright beside the cards (`Portal.view.examples.GroupIndex`,
  * presentation `list`), which scrolls on its own while the cards scroll.
  *
  * Below 640 px the page shows a crumb instead, and its group button opens the whole banded index as a sheet
  * (presentation `sheet`): one tap opens it, a second navigates. The sheet takes focus when it opens, closes on Escape,
- * on its button and on a followed link, and returns focus to its button.
+ * on its button and on a followed link, and returns focus to its button. A group's crumb also leads to `/examples`.
  * @class Portal.view.examples.GroupPage
  * @extends Neo.container.Base
  */
@@ -35,13 +35,15 @@ class GroupPage extends Container {
          */
         cls: ['portal-examples-group-page'],
         /**
-         * The id of the group this page shows.
+         * The id of the group this page shows; null on the page of all examples.
          * @member {String|null} family=null
          */
         family: null,
         /**
-         * The group's record as the selected build publishes it. The controller writes it on every publication.
-         * @member {Portal.model.ExampleGroup|null} group_=null
+         * What the heading shows: the group's record as the selected build publishes it, or for all examples
+         * `Portal.view.examples.MainContainer#allExamples` with their count. The controller writes it on every
+         * publication.
+         * @member {Portal.model.ExampleGroup|Object|null} group_=null
          * @reactive
          */
         group_: null,
@@ -67,8 +69,8 @@ class GroupPage extends Container {
 
     /**
      * @summary Shows the group's new title, icon, count and sentence.
-     * @param {Portal.model.ExampleGroup|null} value
-     * @param {Portal.model.ExampleGroup|null} oldValue
+     * @param {Portal.model.ExampleGroup|Object|null} value
+     * @param {Portal.model.ExampleGroup|Object|null} oldValue
      * @protected
      */
     afterSetGroup(value, oldValue) {
@@ -103,7 +105,7 @@ class GroupPage extends Container {
             module: Container,
             cls   : ['portal-examples-group-crumb'],
             layout: {ntype: 'hbox', align: 'center'},
-            items : [{
+            items : [...(family ? [{
                 module: Button,
                 cls   : ['portal-examples-group-crumb-home'],
                 route : '/examples',
@@ -113,7 +115,7 @@ class GroupPage extends Container {
                 ntype: 'component',
                 cls  : ['portal-examples-group-crumb-separator'],
                 vdom : {tag: 'span', 'aria-hidden': true, cn: [{tag: 'span', text: '›'}]}
-            }, {
+            }] : []), {
                 module   : Button,
                 cls      : ['portal-examples-group-button'],
                 handler  : me.onGroupButtonClick.bind(me),

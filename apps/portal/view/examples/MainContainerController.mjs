@@ -2,8 +2,8 @@ import Component from '../../../../src/controller/Component.mjs';
 import Example   from '../../model/Example.mjs';
 
 /**
- * @summary Routes the overview and the group pages, publishes the groups of the selected build, and shares one build
- * selection. The route is the one writer of the open group: no view writes the hash.
+ * @summary Routes the page of all examples and the group pages, publishes the groups of the selected build, and shares
+ * one build selection. The route is the one writer of the open group: no view writes the hash.
  * @class Portal.view.examples.MainContainerController
  * @extends Neo.controller.Component
  */
@@ -29,8 +29,8 @@ class MainContainerController extends Component {
      */
     catalogLoadPromise = null
     /**
-     * The group the route names, or null for the overview. A group that does not publish in the selected build shows
-     * the overview, and its page while it publishes again.
+     * The group the route names, or null for all examples. A group that does not publish in the selected build shows
+     * the page of all examples, and its own page while it publishes again.
      * @member {String|null} openFamily=null
      */
     openFamily = null
@@ -52,7 +52,7 @@ class MainContainerController extends Component {
 
     /**
      * @summary Resolves a group route to its page, and old build routes, unknown groups and groups without a card in
-     * the selected build to the overview.
+     * the selected build to the page of all examples.
      * @param {Object} [params={}]
      */
     async onExamplesRoute(params={}) {
@@ -76,7 +76,7 @@ class MainContainerController extends Component {
     }
 
     /**
-     * @summary Updates every page and the overview through the section's shared build state.
+     * @summary Updates every page through the section's shared build state.
      * @param {Object} record Selected native menu record.
      */
     onSelectBuild(record) {
@@ -87,32 +87,33 @@ class MainContainerController extends Component {
 
     /**
      * @summary Counts what each group publishes in the selected build, writes the groups that publish to the groups
-     * store, and gives each of them a page.
+     * store, and gives each of them a page beside the page of all examples.
      *
-     * A group counts its home records, so every example counts once and the counts add up to the overview's headline.
-     * The records other groups lend it through `alsoIn` show on its page and count as `crossCount`. A group with
-     * neither gets no entry and no page. Runs on each catalog load and build selection.
+     * A group counts its home records, so every example counts once and the counts add up to the count of all
+     * examples. The records other groups lend it through `alsoIn` show on its page and count as `crossCount`. A group
+     * with neither gets no entry and no page. Runs on each catalog load and build selection.
      */
     publishGroups() {
         const view                             = this.component,
               {catalogMode, familyDefinitions} = view,
               published                        = view.getCatalogStore().items.filter(record => Example.publishes(record, catalogMode)),
+              all                              = {...view.allExamples, count: published.length, crossCount: 0},
+              allPage                          = view.getAllPage(),
               groupStore                       = view.getGroupStore(),
               groups                           = [];
 
         familyDefinitions.forEach(definition => {
-            const {family, tile} = definition,
-                  home           = published.filter(record => record.family === family),
-                  cross          = published.filter(record => record.alsoIn?.includes(family));
+            const {family}   = definition,
+                  count      = published.filter(record => record.family === family).length,
+                  crossCount = published.filter(record => record.alsoIn?.includes(family)).length;
 
-            if (home.length + cross.length > 0) {
-                const cover = [...home, ...cross].find(record => record.id === tile) || home[0] || cross[0];
-
-                groups.push({...definition, count: home.length, crossCount: cross.length, image: cover.image})
-            }
+            count + crossCount > 0 && groups.push({...definition, count, crossCount})
         });
 
         groupStore.data = groups;
+
+        // The first card: where a route without a published group lands
+        allPage ? allPage.group = all : view.add(view.createGroupPage(all));
 
         view.getGroupPages().forEach(page => {
             const group = groupStore.get(page.family);
@@ -128,15 +129,15 @@ class MainContainerController extends Component {
     }
 
     /**
-     * @summary Shows the page of the open group, or the overview when no group is open or it does not publish.
-     * Pages come and go with the build, so the card is found by its group each time, never kept as an index.
+     * @summary Shows the page of the open group, or the page of all examples when no group is open or it does not
+     * publish. Pages come and go with the build, so the card is found by its group each time, never kept as an index.
      */
     showOpenGroup() {
         const view = this.component,
               page = this.openFamily && view.getGroupPage(this.openFamily);
 
         // A sheet left open on a page the reader navigated away from is closed when they return
-        view.getGroupPages().forEach(item => {item.sheetOpen = false});
+        view.items.forEach(item => {item.sheetOpen = false});
         view.layout.activeIndex = page ? view.indexOf(page) : 0
     }
 }

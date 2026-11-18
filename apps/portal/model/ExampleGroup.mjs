@@ -3,12 +3,11 @@ import Model from '../../../src/data/Model.mjs';
 /**
  * @summary One example group of the Portal's examples section, as the selected build publishes it.
  *
- * `family`, `band`, `title`, `route`, `iconCls`, `sentence` and `tile` come from
- * `Portal.view.examples.MainContainer#familyDefinitions`. `count`, `crossCount` and `image` follow the catalog and the
- * selected build (`Portal.view.examples.MainContainerController#publishGroups()`). `count` holds the group's home records
- * that publish a card, so every example counts once and the counts add up to the overview's headline. `crossCount` holds
- * the cards other groups lend it through `alsoIn`: shown on its page, not counted. `image` is the cover that stands for
- * the group: its `tile` record's, else its first card's.
+ * `family`, `band`, `title`, `route`, `iconCls` and `sentence` come from
+ * `Portal.view.examples.MainContainer#familyDefinitions`. `count` and `crossCount` follow the catalog and the selected
+ * build (`Portal.view.examples.MainContainerController#publishGroups()`). `count` holds the group's home records that
+ * publish a card, so every example counts once and the counts add up to the count of all examples. `crossCount` holds
+ * the cards other groups lend it through `alsoIn`: shown on its page, not counted.
  * @class Portal.model.ExampleGroup
  * @extends Neo.data.Model
  */
@@ -41,16 +40,10 @@ class ExampleGroup extends Model {
             name: 'iconCls',
             type: 'String'
         }, {
-            name: 'image',
-            type: 'String'
-        }, {
             name: 'route',
             type: 'String'
         }, {
             name: 'sentence',
-            type: 'String'
-        }, {
-            name: 'tile',
             type: 'String'
         }, {
             name: 'title',
@@ -64,7 +57,7 @@ class ExampleGroup extends Model {
     }
 
     /**
-     * @summary A group's count in words, as its card and its page say it.
+     * @summary A group's count in words, as its page and its index entry say it.
      * @param {Object} record A group record or its raw row
      * @returns {String} e.g. '21 examples', '4 examples, 4 from other groups' or '2 from other groups'
      */

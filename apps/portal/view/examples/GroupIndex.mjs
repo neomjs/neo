@@ -8,24 +8,23 @@ import Store           from '../../../../src/data/Store.mjs';
  * @summary The banded index of the example groups: every group of the bound store, in its band, as a link to its page
  * with its count.
  *
- * One component in three presentations (`presentation`): `overview` sets the bands side by side under the overview's
- * headline, `list` stands upright beside a group page's cards, and `sheet` opens under a group page's crumb. All three
- * render the groups store (`Portal.store.ExampleGroups`), so a group that publishes in the selected build appears in
- * each.
+ * One component in two presentations (`presentation`): `list` stands upright beside a page's cards, and `sheet` opens
+ * under a page's crumb. Both render the groups store (`Portal.store.ExampleGroups`), so a group that publishes in the
+ * selected build appears in each. "All examples" stands above the bands and leads to `/examples`.
  *
- * A component, not a list: the entries are links in the tab order, with no roving focus and no selection, and the open
- * group's link carries `aria-current="page"`.
+ * A component, not a list: the entries are links in the tab order, with no roving focus and no selection, and the link
+ * of the open page carries `aria-current="page"`.
  * @class Portal.view.examples.GroupIndex
  * @extends Neo.component.Base
  */
 class GroupIndex extends Component {
     /**
      * Valid values for presentation
-     * @member {String[]} presentations=['list','overview','sheet']
+     * @member {String[]} presentations=['list','sheet']
      * @protected
      * @static
      */
-    static presentations = ['list', 'overview', 'sheet']
+    static presentations = ['list', 'sheet']
 
     static config = {
         /**
@@ -39,7 +38,8 @@ class GroupIndex extends Component {
          */
         ntype: 'portal-examples-group-index',
         /**
-         * The group whose page shows this index, marked `aria-current="page"`; null on the overview.
+         * The group whose page shows this index, marked `aria-current="page"`; null on the page of all examples,
+         * which marks "All examples".
          * @member {String|null} activeFamily_=null
          * @reactive
          */
@@ -53,11 +53,11 @@ class GroupIndex extends Component {
          */
         bind: {store: 'stores.groups'},
         /**
-         * `overview`, `list` or `sheet`, see the class description.
-         * @member {String} presentation_='overview'
+         * `list` or `sheet`, see the class description.
+         * @member {String} presentation_='list'
          * @reactive
          */
-        presentation_: 'overview',
+        presentation_: 'list',
         /**
          * @member {Portal.store.ExampleGroups|null} store_=null
          * @reactive
@@ -150,13 +150,13 @@ class GroupIndex extends Component {
         });
 
         me.vdom.cn = [
-            {tag: 'a', cls: ['portal-examples-group-index-all'], href: '#/examples', removeDom: me.presentation === 'overview', cn: [
+            {tag: 'a', 'aria-current': me.activeFamily === null ? 'page' : null, cls: ['portal-examples-group-index-all'], href: '#/examples', cn: [
                 {tag: 'i', cls: ['fa', 'fa-table-cells-large'], 'aria-hidden': true},
                 {tag: 'span', text: 'All examples'}
             ]},
             ...[...bands].map(([band, groups]) => ({
                 tag: 'section',
-                cls: ['portal-examples-group-index-band', 'portal-examples-group-index-band-' + band.toLowerCase().replaceAll(' ', '-')],
+                cls: ['portal-examples-group-index-band'],
                 cn : [
                     {tag: 'h3', text: band},
                     {tag: 'ul', cn: groups.map(group => me.createEntry(group))}

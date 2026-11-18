@@ -28,11 +28,11 @@ const
 let exampleView;
 
 /**
- * @summary The card the section shows: the overview, or a group page.
+ * @summary The card the section shows: the page of all examples, or a group page.
  * @param {Portal.view.examples.MainContainer} view
- * @returns {String} 'overview', or the open page's group
+ * @returns {String} 'all', or the open page's group
  */
-const openCard = view => view.items[view.layout.activeIndex].family || 'overview';
+const openCard = view => view.items[view.layout.activeIndex].family || 'all';
 
 /**
  * @summary The ids a group page lists.
@@ -67,7 +67,7 @@ test.afterEach(() => {
     exampleView = null
 });
 
-test.describe('Portal examples overview and group pages', () => {
+test.describe('Portal examples pages', () => {
     test('an initial shared ESM selection renders ESM destinations on the group pages', () => {
         const view = createView(catalog, 'dist_esm');
 
@@ -110,12 +110,6 @@ test.describe('Portal examples overview and group pages', () => {
             'multi-window': [6, 0], state: [1, 0], platform: [1, 1], apps: [4, 4]
         });
 
-        // the tile record's cover stands for its group, else the group's first card's
-        expect(groupStore.get('grid-table').image).toBe('devmode/grid-tree-big-data-14.jpg');
-        expect(groupStore.get('forms').image).toBe('devmode/dateSelector.png');
-        expect(groupStore.get('charts').image).toBe('devmode/offscreenCanvas.png');
-        expect(groupStore.get('apps').image).toBe('devmode/webdesktop-14-0.jpg');
-
         expect(pageIds(view, 'grid-table')).toEqual(coveredGridTableIds);
         expect(pageIds(view, 'forms')).toEqual(['date-selector', 'date-field', 'combobox-field']);
         expect(pageIds(view, 'multi-window')).toEqual(coveredMultiWindowIds);
@@ -138,41 +132,51 @@ test.describe('Portal examples overview and group pages', () => {
         expect(view.getGroupPage('grid-table').getList().store.model).toBe(view.getCatalogStore().model)
     });
 
-    test('the overview counts the published examples into its headline and shows each band with its groups', () => {
-        const view     = createView(),
-              overview = view.down({reference: 'examples-overview'}),
-              intro    = overview.down({reference: 'overview-intro'}),
-              heading  = band => overview.down({reference: 'overview-band-' + band}).items[0].vdom.cn[1].text;
+    test('the page of all examples is the first card and lists every published record once, in catalog order, under its count', () => {
+        const view = createView(),
+              page = view.getAllPage(),
+              ids  = () => page.getList().store.items.map(record => record.id),
+              line = () => page.down({reference: 'group-heading'}).vdom.cn[1].text;
 
-        expect(intro.vdom.cn[1].text).toBe('43 live examples in 16 groups');
-        expect(overview.down({reference: 'overview-index-heading'}).vdom.cn[0].text).toBe('All 16 groups');
-        expect(overview.down({reference: 'overview-start-cards'}).store.items.map(group => group.family)).toEqual(['grid-table', 'forms', 'multi-window']);
-        expect(['complex-widgets', 'component-shelves', 'platform-proofs', 'applications'].map(heading)).toEqual(['8 groups', '4 groups', '3 groups', '1 group']);
+        expect(view.items[0]).toBe(page);
+        expect(page.reference).toBe('examples-all-page');
+        expect(ids()).toEqual(catalog.filter(record => Example.publishes(record, 'dist_prod')).map(record => record.id));
+        expect(new Set(ids()).size).toBe(43);
+        expect(page.getList().store.getSource()).toBe(view.getCatalogStore());
+        expect(page.down({reference: 'group-heading'}).vdom.cn[0].text).toBe('All examples');
+        expect(line()).toBe('43 examples · ' + view.allExamples.sentence);
 
-        // the action opens its record in the selected build
-        expect(overview.down({reference: 'overview-action-grid-big-data'}).url).toBe('https://neomjs.com/dist/production/examples/grid/bigData/index.html');
+        // "Examples ›" would lead to the page itself: its crumb holds the button and the sheet, a group's four items
+        expect(page.getGroupButton().text).toBe('All examples');
+        expect(page.items[0].items).toHaveLength(2);
+        expect(view.getGroupPage('grid-table').items[0].items).toHaveLength(4);
+
+        // the cards and the count follow the build: ESM cannot open shared-offscreen-canvas
         view.getController().onSelectBuild({id: 'dist_esm'});
-        expect(overview.down({reference: 'overview-action-grid-big-data'}).url).toBe('https://neomjs.com/dist/esm/examples/grid/bigData/index.html')
+        expect(ids()).not.toContain('shared-offscreen-canvas');
+        expect(line()).toBe('42 examples · ' + view.allExamples.sentence)
     });
 
-    test('the banded index links every published group by band with its count, and marks the open one', () => {
+    test('the banded index links every published group by band with its count, and marks the open page', () => {
         const view  = createView(),
-              index = view.down({ntype: 'portal-examples-group-index'}),
+              index = view.getAllPage().down({reference: 'group-index'}),
               sheet = view.getGroupPage('drag-drop').getSheet(),
               links = component => component.vdom.cn.filter(node => node.tag === 'section').flatMap(band => band.cn[1].cn.map(item => item.cn[0]));
 
-        expect(index.presentation).toBe('overview');
+        expect(index.constructor.presentations).toEqual(['list', 'sheet']);
+        expect(index.presentation).toBe('list');
         expect(index.vdom.cn.filter(node => node.tag === 'section').map(band => band.cn[0].text))
             .toEqual(['Complex widgets', 'Component shelves', 'Platform proofs', 'Applications']);
         expect(links(index).map(link => link.href)).toEqual(publishedRoutes.map(route => '#' + route));
         expect(links(index).map(link => link.cn[2].text)).toEqual(['17', '3', '1', '1', '1', '1', '1', '(2)', '4', '1', '(1)', '1', '6', '1', '1', '4']);
+        // no group is open on the page of all examples: "All examples" is the current entry
         expect(links(index).every(link => link['aria-current'] === null)).toBe(true);
-        // the overview needs no way back to itself; the note explains a count in parentheses while one shows
-        expect(index.vdom.cn[0].removeDom).toBe(true);
+        expect(index.vdom.cn[0]).toMatchObject({'aria-current': 'page', href: '#/examples'});
+        // the note explains a count in parentheses while one shows
         expect(index.vdom.cn.at(-1).removeDom).toBe(false);
 
         expect(sheet.presentation).toBe('sheet');
-        expect(sheet.vdom.cn[0].removeDom).toBe(false);
+        expect(sheet.vdom.cn[0]).toMatchObject({'aria-current': null, href: '#/examples'});
         expect(links(sheet).filter(link => link['aria-current'] === 'page').map(link => link.href)).toEqual(['#/examples/drag-drop']);
         expect(ExampleGroup.countLabel({count: 0, crossCount: 2})).toBe('2 from other groups');
         expect(ExampleGroup.countLabel({count: 1, crossCount: 0})).toBe('1 example');
@@ -218,11 +222,11 @@ test.describe('Portal examples overview and group pages', () => {
               controller = view.getController();
 
         await controller.onExamplesRoute();
-        expect(openCard(view)).toBe('overview');
+        expect(openCard(view)).toBe('all');
 
         for (const mode of view.buildModes) {
             await controller.onExamplesRoute({itemId: mode.id});
-            expect(openCard(view)).toBe('overview');
+            expect(openCard(view)).toBe('all');
             expect(view.catalogMode).toBe(mode.id);
             expect(view.getGroupPage('grid-table').getList().catalogMode).toBe(mode.id)
         }
@@ -236,15 +240,15 @@ test.describe('Portal examples overview and group pages', () => {
             expect(openCard(view), itemId).toBe(family)
         }
 
-        // a defined group without a cover has no page yet, and an unknown one none at all: both show the overview
+        // a defined group without a cover has no page yet, and an unknown one none at all: both show all examples
         await controller.onExamplesRoute({itemId: 'board'});
-        expect(openCard(view)).toBe('overview');
+        expect(openCard(view)).toBe('all');
         await controller.onExamplesRoute({itemId: 'gantt'});
         expect(openCard(view)).toBe('gantt');
         await controller.onExamplesRoute({itemId: 'drag-drop'});
         expect(openCard(view)).toBe('drag-drop');
         await controller.onExamplesRoute({itemId: 'unknown'});
-        expect(openCard(view)).toBe('overview')
+        expect(openCard(view)).toBe('all')
     });
 
     test('concurrent initial routes share one load and only the latest route settles', async () => {
@@ -268,7 +272,7 @@ test.describe('Portal examples overview and group pages', () => {
         complete();
         await Promise.all([first, latest]);
 
-        expect(openCard(view)).toBe('overview');
+        expect(openCard(view)).toBe('all');
         expect(view.catalogMode).toBe('dist_esm');
         expect(view.getGroupPage('grid-table').getList().catalogMode).toBe('dist_esm')
     });
@@ -339,7 +343,7 @@ test.describe('Portal examples overview and group pages', () => {
         const view = createView([]), store = view.getCatalogStore();
 
         expect(view.getGroupStore().getCount()).toBe(0);
-        expect(view.getGroupPages()).toHaveLength(0);
+        expect(view.items).toHaveLength(0);
         store.add(structuredClone(catalog));
         store.fire('load');
         expect(view.getGroupStore().items.map(group => group.route)).toEqual(publishedRoutes);
@@ -376,7 +380,7 @@ test.describe('Portal examples overview and group pages', () => {
         })
     }
 
-    test('a build selection republishes the groups, and an open group that loses its cards shows the overview until it publishes again', async () => {
+    test('a build selection republishes the groups, and an open group that loses its cards shows all examples until it publishes again', async () => {
         const view       = createView(),
               controller = view.getController();
 
@@ -386,9 +390,9 @@ test.describe('Portal examples overview and group pages', () => {
         controller.onSelectBuild({id: 'devmode'});
         expect(view.getGroupStore().items.map(group => group.route)).not.toContain('/examples/components');
         expect(view.getGroupPage('components')).toBeNull();
-        expect(openCard(view)).toBe('overview');
-        // the overview's headline follows the build: Dev mode cannot open liquid-glass
-        expect(view.down({reference: 'overview-intro'}).vdom.cn[1].text).toBe('42 live examples in 15 groups');
+        expect(openCard(view)).toBe('all');
+        // the count of all examples follows the build: Dev mode cannot open liquid-glass
+        expect(view.getAllPage().down({reference: 'group-heading'}).vdom.cn[1].text).toBe('42 examples · ' + view.allExamples.sentence);
 
         // the route still names the group: its page returns with its cards
         controller.onSelectBuild({id: 'dist_prod'});
@@ -617,15 +621,6 @@ test.describe('Portal examples canonical catalog', () => {
             'layout-form'            : ['forms'],
             'dock-cross-window'      : ['multi-window'],
             'dock-tear-out'          : ['multi-window', 'drag-drop']
-        })
-    });
-
-    test('a tile names a record of its own group', () => {
-        ExamplesMainContainer.config.familyDefinitions.filter(definition => definition.tile).forEach(({family, tile}) => {
-            const record = catalog.find(item => item.id === tile);
-
-            // a tile whose record is not in the catalog yet waits for it, and the group falls back to its first card
-            record && expect(Example.belongsTo(record, family), tile).toBe(true)
         })
     });
 
