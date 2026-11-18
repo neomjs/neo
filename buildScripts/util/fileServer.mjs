@@ -346,16 +346,24 @@ export async function main({argv = process.argv, env = process.env, root = proce
     return server
 }
 
-if (isEntryModule(import.meta.url)) {
-    main().then(server => {
-        for (const signal of ['SIGINT', 'SIGTERM']) {
-            process.once(signal, () => {
-                server.closeAllConnections();
-                server.close(() => process.exit(0))
-            })
-        }
-    }).catch(error => {
+/**
+ * @summary The command-line entry: {@link main}, ending the process with one line when the server cannot start.
+ *
+ * A workspace's own server script passes the app it opens as `open`, so the path stays data no shell parses,
+ * and a later `--open <path>` or `--no-open` on the command line still wins.
+ * @param {Object} [options]
+ * @param {String[]} [options.argv]
+ * @param {String} [options.open] The path to open unless the command line says otherwise.
+ * @param {Function} [options.opener] {@link openBrowser} or a stand-in.
+ * @returns {Promise<http.Server>}
+ */
+export function run({argv = process.argv, open, opener} = {}) {
+    const [node, script, ...flags] = argv;
+
+    return main({argv: open ? [node, script, '--open', open, ...flags] : argv, opener}).catch(error => {
         console.error(`[file-server] ${error.code === 'EADDRINUSE' ? `port ${error.port} is taken` : error.message}`);
         process.exit(1)
     })
 }
+
+if (isEntryModule(import.meta.url)) run();

@@ -14,7 +14,8 @@ import {
     listen,
     main,
     openBrowser,
-    parseOptions
+    parseOptions,
+    run
 } from '../../../../../buildScripts/util/fileServer.mjs';
 
 const SCRIPT = fileURLToPath(new URL('../../../../../buildScripts/util/fileServer.mjs', import.meta.url));
@@ -253,6 +254,17 @@ test.describe('buildScripts/util/fileServer (#21215)', () => {
 
             served.close();
             expect(opened).toEqual([`http://localhost:${port}/${expected}`])
+        }
+    });
+
+    test('a workspace script\'s open path is a default the command line overrides', async () => {
+        for (const [flags, expected] of [[[], 'app/'], [['--no-open'], null], [['--open', 'other/'], 'other/']]) {
+            const port   = await freePort(),
+                  opened = [],
+                  served = await run({argv: ['node', SCRIPT, '--port', String(port), ...flags], open: 'app/', opener: url => opened.push(url)});
+
+            served.close();
+            expect(opened).toEqual(expected === null ? [] : [`http://localhost:${port}/${expected}`])
         }
     });
 
