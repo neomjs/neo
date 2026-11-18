@@ -8,4 +8,12 @@
     height          : var(--tooltip-height);
     padding         : var(--tooltip-padding);
     position        : absolute;
+
+    /* A hoverable tooltip's hit area spans the 10px gap to its target (the `align.targetMargin` it is shown with),
+       so a pointer on its way from the target enters the tooltip instead of leaving for the page */
+    &.neo-tooltip-hoverable::before {
+        content : '';
+        inset   : -10px;
+        position: absolute;
+    }
 }

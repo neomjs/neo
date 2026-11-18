@@ -17,10 +17,13 @@ import * as core      from '../../../../src/core/_export.mjs';
 import                     '../../../../src/manager/Instance.mjs';
 import Tooltip        from '../../../../src/tooltip/Base.mjs';
 
+let hostWindows = 0;
+
 /**
  * @summary The tooltip's delay timers through the class's own methods, on a prototype host whose own data
  * properties shadow the reactive configs: a mount records a show, an unmount a hide. Real timers at short
- * delays, so a pending timer fires exactly as it would under a pointer.
+ * delays, so a pending timer fires exactly as it would under a pointer. Each host has a window of its own, so
+ * no host inherits the warm switch another one's hide leaves behind.
  * @returns {{host: Object, shows: Number[]}}
  */
 function makeHost() {
@@ -41,7 +44,9 @@ function makeHost() {
         mountFlight       : null,
         showDelay         : 20,
         showDelayTaskId   : null,
-        unmount           : () => { host.mounted = false }
+        stayOnHover       : true,
+        unmount           : () => { host.mounted = false },
+        windowId          : ++hostWindows
     }).forEach(([key, value]) => Object.defineProperty(host, key, {configurable: true, enumerable: true, value, writable: true}));
 
     return {host, shows}

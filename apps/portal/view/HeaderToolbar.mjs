@@ -60,24 +60,21 @@ class HeaderToolbar extends BaseHeaderToolbar {
                 reference: 'theme-switch-button',
                 tooltip: {
                     text     : 'Switch Theme',
-                    showDelay: 0,
-                    hideDelay: 0
+                    showDelay: 0
                 }
             }, {
                 iconCls: 'fa-brands fa-github',
                 url    : 'https://github.com/neomjs/neo',
                 tooltip: {
                     text     : 'GitHub',
-                    showDelay: 0,
-                    hideDelay: 0
+                    showDelay: 0
                 }
             }, {
                 iconCls: 'fa-brands fa-discord',
                 url    : 'https://discord.gg/6p8paPq',
                 tooltip: {
                     text     : 'Join Discord',
-                    showDelay: 0,
-                    hideDelay: 0
+                    showDelay: 0
                 }
             }]
         }]
