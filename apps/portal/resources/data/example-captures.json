@@ -362,6 +362,16 @@
       "region": {"selector": ".neo-scheduler", "anchor": "top-left", "width": 640, "height": 360}
     },
     {
+      "id": "scheduler-big-data",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "300 people and 15,600 bookings opened on Week 1 in 3-week view, with locked resource names beside viewport-clipped colored timeline bars.",
+      "ready": [{"selector": ".year-plan-counts", "text": "300 people · 15,600 bookings"}, {"selector": ".neo-timeline-bar"}],
+      "steps": [],
+      "after": [{"selector": ".year-plan-counts", "text": "300 people · 15,600 bookings"}, {"selector": ".neo-timeline-bar", "inRegion": true}],
+      "region": {"selector": ".neo-scheduler", "anchor": "top-left", "width": 640, "height": 360}
+    },
+    {
       "id": "open-street-maps",
       "viewport": {"width": 1280, "height": 720},
       "theme": "dark",
