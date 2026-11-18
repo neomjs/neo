@@ -567,7 +567,8 @@ class Dialog extends Panel {
             dock     : 'top',
             flex     : 'none',
             id       : me.getHeaderToolbarId(),
-            listeners: {headerAction: me.executeHeaderAction, scope: me},
+            // A rebuilt action list builds maximize unpressed: the sync states it again
+            listeners: {actionsChange: me.syncMaximizeAction, headerAction: me.executeHeaderAction, scope: me},
             title    : me.title,
             windowId,
             ...headerConfig,
@@ -626,9 +627,9 @@ class Dialog extends Panel {
 
     /**
      * The window controls the dialog dresses from its own configs. Maximize is a `Neo.toolbar.ActionButton`
-     * toggle: `maximized` presses it ({@link #syncMaximizeAction}), and its glyph and accessible name then say what a
-     * click does next. Minimize is listed in no default `actions`: it belongs on a dialog a window manager can
-     * restore.
+     * toggle: `maximized` presses it ({@link #syncMaximizeAction}), also when the header builds it anew, and its glyph
+     * and accessible name then say what a click does next. Minimize is listed in no default `actions`: it belongs on a
+     * dialog a window manager can restore.
      * @returns {Object} Action name → config factory
      * @protected
      */

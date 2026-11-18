@@ -115,6 +115,22 @@ test.describe('dialog.Base window controls', () => {
         expect(presentation(dialog.headerToolbar.getAction('maximize'))).toEqual(restoreGlyph)
     });
 
+    test('a maximized dialog whose header actions are rebuilt still offers the restore', () => {
+        const dialog  = create(),
+              toolbar = dialog.headerToolbar;
+
+        dialog.maximized = true;
+        toolbar.actions  = ['close', 'maximize'];
+
+        const action = toolbar.getAction('maximize');
+
+        expect(action.pressed, 'pressed').toBe(true);
+        expect(presentation(action), 'rebuilt').toEqual(restoreGlyph);
+
+        dialog.maximized = false;
+        expect(presentation(action), 'restored').toEqual(maximizeGlyph)
+    });
+
     test('the restore glyph is not the minimize glyph', () => {
         const dialog   = create({headerConfig: {actions: ['minimize', 'maximize', 'close']}}),
               toolbar  = dialog.headerToolbar,
