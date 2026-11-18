@@ -1,5 +1,6 @@
 import VDomUtil  from '../../util/VDom.mjs';
 import ComboBox  from './ComboBox.mjs';
+import NeoArray  from '../../util/Array.mjs';
 import Text      from './Text.mjs';
 import ValueList from './chip/ValueList.mjs';
 
@@ -218,13 +219,14 @@ class Chip extends ComboBox {
     }
 
     /**
-     * @summary Synchronizes picker membership and the selected-value projection after every value change.
+     * @summary Synchronizes picker membership, the selected-value projection and `neo-has-content` after every value change.
      * @param {Object[]} value
      * @param {Object[]} oldValue
      * @protected
      */
     afterSetValue(value, oldValue) {
-        let me = this;
+        let me = this,
+            cls;
 
         // ComboBox's scalar hook selects into a visible picker before returning. On a multi-select
         // model that operation ADDS the new array to the old selection and emits an intermediate
@@ -234,7 +236,12 @@ class Chip extends ComboBox {
         me.programmaticValueChange = false;
 
         me.syncPickerSelection(value);
-        me.syncValueList(value)
+        me.syncValueList(value);
+
+        // The value lives in the chips while the input stays empty: afterSetInputValue() never sees it
+        cls = me.cls;
+        NeoArray.toggle(cls, 'neo-has-content', me.hasContent());
+        me.cls = cls
     }
 
     /**
