@@ -188,7 +188,7 @@
         "title": "Workspaces and Applications — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "The purpose of this tutorial is to let you see the structure of a Neo.mjs workspace, and the structure of an application.",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-16"
+        "lastmod": "2026-11-18"
     },
     "/learn/gettingstarted/DescribingTheUI": {
         "title": "Describing a View — Multi-Threaded JavaScript Application Engine | Neo.mjs",
@@ -1265,7 +1265,7 @@
         "title": "Calendar Basic — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A full calendar with day, week, month and year views, a month navigator and color-coded calendars. Switch between Day, Week, Month and Year views, then...",
         "schemaType": "WebPage",
-        "lastmod": "2025-04-07"
+        "lastmod": "2026-11-18"
     },
     "/examples/charts/index.html": {
         "title": "amCharts — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1530,6 +1530,12 @@
         "description": "The date SelectorContainer variant, standalone. Pick a date and jump months with the radios; compare it with the component variant.",
         "schemaType": "WebPage",
         "lastmod": "2026-11-16"
+    },
+    "/examples/desktop/basic/index.html": {
+        "title": "Web desktop · Neo Desktop — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Web desktop · Neo Desktop example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-18"
     },
     "/examples/dialog/index.html": {
         "title": "Dialog — Web Worker JavaScript UI Demo | Neo.mjs",
