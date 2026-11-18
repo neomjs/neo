@@ -111,12 +111,97 @@ test.describe('buildScripts/util/fileServer (#21215)', () => {
         expect(beyond.headers.get('content-range')).toBe('bytes */10')
     });
 
-    test('revalidates: a matching ETag answers 304', async () => {
-        const first  = await fetch(`${base}/range.txt`),
-              second = await fetch(`${base}/range.txt`, {headers: {'If-None-Match': first.headers.get('etag')}});
+    test('revalidates: If-None-Match by weak comparison or *, else If-Modified-Since', async () => {
+        const first    = await fetch(`${base}/range.txt`),
+              etag     = first.headers.get('etag'),
+              modified = first.headers.get('last-modified'),
+              earlier  = new Date(Date.parse(modified) - 60000).toUTCString(),
+              status   = async headers => (await fetch(`${base}/range.txt`, {headers})).status;
 
         expect(first.headers.get('cache-control')).toBe('no-cache');
-        expect(second.status).toBe(304)
+        expect(await status({'If-None-Match': etag})).toBe(304);
+        expect(await status({'If-None-Match': `"other", ${etag.slice(2)}`})).toBe(304);
+        expect(await status({'If-None-Match': '*'})).toBe(304);
+        expect(await status({'If-Modified-Since': modified})).toBe(304);
+        expect(await status({'If-Modified-Since': earlier})).toBe(200);
+        expect(await status({'If-Modified-Since': 'not a date'})).toBe(200);
+        // If-None-Match decides alone: a date that would answer 304 does not count beside a tag that does not match
+        expect(await status({'If-None-Match': '"other"', 'If-Modified-Since': modified})).toBe(200)
+    });
+
+    test('a range resumes only the file the client holds: a stale If-Range answers the whole current file', async () => {
+        const file   = path.join(root, 'resume.txt'),
+              resume = headers => fetch(`${base}/resume.txt`, {headers: {Range: 'bytes=2-', ...headers}});
+
+        fs.writeFileSync(file, 'abcdefghij');
+
+        const held = await fetch(`${base}/resume.txt`),
+              etag = held.headers.get('etag'),
+              date = held.headers.get('last-modified');
+
+        for (const ifRange of [etag, date]) {
+            const response = await resume({'If-Range': ifRange});
+
+            expect(response.status, ifRange).toBe(206);
+            expect(await response.text()).toBe('cdefghij')
+        }
+
+        fs.writeFileSync(file, 'ABCDEFGHIJKL');
+        fs.utimesSync(file, new Date(), new Date(Date.parse(date) + 60000));
+
+        for (const ifRange of [etag, date]) {
+            const response = await resume({'If-Range': ifRange});
+
+            expect(response.status, ifRange).toBe(200);
+            expect(await response.text()).toBe('ABCDEFGHIJKL')
+        }
+
+        expect((await resume()).status).toBe(206)
+    });
+
+    test('a client that leaves mid-transfer closes the file the server was reading', async () => {
+        const {createReadStream} = fs,
+              opened             = [],
+              size               = 32 * 1024 * 1024;
+
+        fs.writeFileSync(path.join(root, 'large.bin'), Buffer.alloc(size));
+        fs.createReadStream = (...args) => {
+            const stream = createReadStream(...args);
+            opened.push(stream);
+            return stream
+        };
+
+        try {
+            await new Promise((resolve, reject) => {
+                const request = http.get(`${base}/large.bin`, response => {
+                    response.once('data', () => {
+                        request.destroy();
+                        resolve()
+                    })
+                });
+
+                request.on('error', error => error.code !== 'ECONNRESET' && reject(error))
+            });
+
+            const [stream] = opened;
+
+            expect(stream.bytesRead, 'the client left before the file was read').toBeLessThan(size);
+
+            await new Promise((resolve, reject) => {
+                if (stream.closed) return resolve();
+
+                const timer = setTimeout(() => reject(new Error('the file stream is still open')), 2000);
+
+                stream.once('close', () => {
+                    clearTimeout(timer);
+                    resolve()
+                })
+            });
+
+            expect(stream.destroyed).toBe(true)
+        } finally {
+            fs.createReadStream = createReadStream
+        }
     });
 
     test('a directory answers with its index.html, or else a listing; without its slash it redirects', async () => {

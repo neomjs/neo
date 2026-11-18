@@ -3,6 +3,7 @@ import fs                                from 'node:fs';
 import http                              from 'node:http';
 import net                               from 'node:net';
 import path                              from 'node:path';
+import {pipeline}                        from 'node:stream';
 import {Command}                         from 'commander';
 import {getEngineReleaseNotesRoot}       from './contentRoot.mjs';
 import {createDevelopmentThemeFreshness} from './developmentThemeFreshness.mjs';
@@ -99,16 +100,34 @@ function send(response, statusCode, body, contentType = 'text/plain; charset=utf
 }
 
 /**
+ * @summary Whether an `If-None-Match` value names a tag. The comparison is weak (RFC 9110 §8.8.3.2):
+ * `W/` counts on neither side, and `*` names any file that exists.
+ * @param {String} header
+ * @param {String} etag
+ * @returns {Boolean}
+ */
+const matchesTag = (header, etag) => header.trim() === '*'
+    || (header.match(/(?:W\/)?"[^"]*"/g) ?? []).some(tag => tag.replace(/^W\//, '') === etag.replace(/^W\//, ''));
+
+/**
  * @summary Streams a file, answering conditional and single-range requests. Every response
  * revalidates (`no-cache`), so an edited file is never served stale.
+ *
+ * `If-None-Match` decides a revalidation alone, and `If-Modified-Since` counts only without it
+ * (RFC 9110 §13.2.2). A range is served only of the file the client holds: an `If-Range` with another
+ * tag or date answers the whole current file, so a resumed download never joins two revisions.
+ * A client that leaves mid-transfer closes the file with its response.
  * @param {http.IncomingMessage} request
  * @param {http.ServerResponse} response
  * @param {String} file Absolute path.
  * @param {fs.Stats} stat
  */
 function sendFile(request, response, file, stat) {
-    const etag  = `W/"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`,
-          range = /^bytes=(\d*)-(\d*)$/.exec(request.headers.range?.trim() ?? '');
+    const {'if-modified-since': since, 'if-none-match': tags, 'if-range': ifRange} = request.headers;
+
+    const etag     = `W/"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`,
+          modified = Math.floor(stat.mtimeMs / 1000) * 1000, // the precision of Last-Modified, and of a date sent back
+          range    = /^bytes=(\d*)-(\d*)$/.exec(request.headers.range?.trim() ?? '');
 
     let start = 0,
         end   = stat.size - 1;
@@ -119,13 +138,15 @@ function sendFile(request, response, file, stat) {
     response.setHeader('ETag', etag);
     response.setHeader('Last-Modified', stat.mtime.toUTCString());
 
-    if (request.headers['if-none-match']?.split(',').some(tag => tag.trim() === etag)) {
+    if (tags ? matchesTag(tags, etag) : modified <= Date.parse(since)) {
         response.statusCode = 304;
         return response.end()
     }
 
+    const heldFile = !ifRange || (ifRange.includes('"') ? ifRange.trim() === etag : Date.parse(ifRange) === modified);
+
     // A malformed or multi-part range is ignored: the whole file is a valid answer (RFC 9110 §14.2)
-    if (range && (range[1] || range[2])) {
+    if (heldFile && range && (range[1] || range[2])) {
         if (range[1]) {
             start = Number(range[1]);
             end   = range[2] ? Math.min(Number(range[2]), end) : end
@@ -146,7 +167,8 @@ function sendFile(request, response, file, stat) {
 
     if (request.method === 'HEAD' || stat.size === 0) return response.end();
 
-    fs.createReadStream(file, {start, end}).on('error', () => response.destroy()).pipe(response)
+    // An error or a departed client destroys both streams; nothing is left to answer.
+    pipeline(fs.createReadStream(file, {start, end}), response, () => {})
 }
 
 /**

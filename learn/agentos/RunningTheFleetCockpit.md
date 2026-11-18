@@ -6,8 +6,8 @@
 
 The Fleet Manager cockpit is the operator's mission-control surface: the live agent roster, the
 activity stream, per-agent drill-in, and the lifecycle controls (start / stop / restart, the
-one-click morning start). A LIVE session needs two processes — the webpack dev server that serves
-the app, and the fleet HTTP transport the cockpit's controls and live feeds ride on.
+one-click morning start). A LIVE session needs two processes — the dev server that serves the app
+(`npm run server-start`), and the fleet HTTP transport the cockpit's controls and live feeds ride on.
 
 ## The one command
 
@@ -166,7 +166,7 @@ The launcher resolves the plane binding itself, naming every source it used:
    for an explicit destination). All three empty refuses with the remediation; a
    pinned-but-unreadable file refuses rather than falling through to a different credential. The
    resolved value is held in launcher memory and injected into the fleet child's environment only —
-   never the webpack child, never a log line.
+   never the dev server's, never a log line.
 3. **Plane probe** — before anything spawns, an unauthenticated call to the plane's MCP ingress
    must answer with its auth guard's `401` (that refusal IS the plane's identity signature).
    Nothing serving there fails fast with the plane-start command
@@ -228,7 +228,7 @@ while a healthy server serves the tree on another.
 
 **Claude-Code seats** get this from the tracked `.claude/launch.json` — `autoPort: true` and no port
 flag in `runtimeArgs`, so the harness allocates a free port and publishes it through `PORT`. Do not
-add `--port` there; pinning webpack leaves the harness's allocation unread, which is the same
+add `--port` there; a pinned port leaves the harness's allocation unread, which is the same
 divergence with the sides swapped.
 
 **Every other harness** (OpenCode, Kimi CLI, Codex, Gemini) has no `launch.json` contract, so pass
@@ -245,6 +245,6 @@ Never bind a measurement to "the port that answered." On a shared host several s
 serving a different checkout, and the one on the default port is as likely to be a stale clone as
 yours. A styling defect was once "reproduced" against another seat's tree for exactly this reason.
 
-Record the **checkout path and SHA** the server is serving. Webpack prints the path it serves at
-startup (`Content not from webpack is served from '<dir>'`), and `curl -s localhost:<port>/package.json`
+Record the **checkout path and SHA** the server is serving. The dev server prints the path it serves
+at startup (`[file-server] serving <dir> at http://localhost:<port>/`), and `curl -s localhost:<port>/package.json`
 is the cheap live check when a report has to name what was measured.
