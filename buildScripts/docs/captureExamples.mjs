@@ -415,6 +415,8 @@ async function captureTile(browser, tile, manifest, baseUrl, output) {
         await expect(target).toBeVisible();
         // The switch repaints the whole workbench, stage surface included
         row.theme = await applyTileTheme(await page.evaluate(() => globalThis.Neo?.config?.themes), themeOf, next);
+        // A tile shows the component alone: the stage's other items (a field's states) keep their place, unpainted
+        await page.locator('.neo-example-container > :not(:first-child)').evaluateAll(nodes => nodes.forEach(node => node.style.visibility = 'hidden'));
         row.region = await tileRegion(page, target);
         await paintReady(page, row.region);
         for (const quality of QUALITIES) {
