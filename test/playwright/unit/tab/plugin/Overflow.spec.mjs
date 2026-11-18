@@ -230,7 +230,8 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         const errors  = [],
               idle    = [],
               orig    = console.error,
-              measure = [];
+              measure = [],
+              syncs   = [];
 
         console.error = (...args) => { errors.push(args) };
 
@@ -238,7 +239,7 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
 
         try {
             plugin = createPlugin(async ids => { measure.push(ids); return {} }, name => { idle.push(name) });
-            plugin.syncControl = () => {}; // no live overflow menu: its store would outlive this test
+            plugin.syncControl = () => { syncs.push(true) }; // no live overflow menu: its store would outlive this test
             await plugin.whenProjectionIdle();
             await plugin.project(true);
             await plugin.project(false);
@@ -248,11 +249,11 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         }
 
         expect(errors, 'a measure without layout is not a defect').toEqual([]);
-        expect(measure.length, 'both measures ran').toBeGreaterThan(0);
+        expect(measure.every(ids => ids[0] === 'b1'), 'every pass leaves at the natural-width measure').toBe(true);
         expect(plugin.measuring, 'the finally still releases the latch').toBe(false);
         expect(idle.at(-1), 'the pass settles: the idle event still fires').toBe('overflowProjectionIdle');
         expect(plugin.owner.items.map(button => button.hidden), 'no tab button is withheld').toEqual([undefined, undefined]);
-        expect(plugin.control, 'no overflow control is created').toBe(null);
+        expect(syncs, 'no split is applied (applySplit always ends in syncControl)').toEqual([]);
         plugin.destroy()
     });
 
