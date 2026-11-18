@@ -1,10 +1,7 @@
 :where(.neo-theme-neo-dark) {
     /* .neo-button – Styles that will be inherited by ALL button styles */
-    --button-height                             : var(--cmp-button-height);
     --button-margin                             : var(--cmp-button-gap);
-    --button-padding                            : 0 var(--cmp-button-spacinghorizontal);
     --button-text-font-family                   : var(--core-fontfamily-sans);
-    --button-text-font-size                     : var(--core-fontsize-label);
     --button-text-font-weight                   : var(--core-fontweight-semibold);
     --button-text-line-height                   : inherit;
     --button-text-transform                     : none;
@@ -149,8 +146,17 @@
     --button-tertiary-ripple-background-color   : inherit;
 
     /* Moved out of a selector block: the rule is structural, only these values are the theme's. */
-    --button-min-width                          : var(--cmp-button-height);
     --button-tertiary-text-decoration           : underline;
     --button-tertiary-text-decoration-color     : var(--sem-color-text-primary-default);
     --button-tertiary-text-underline-offset     : 3px;
+}
+
+/* A button is an app control: compact. The design system's 48px size (--cmp-button-height) is for a call to action
+   alone on a wide page, which a consumer opts into, as the Portal does. A toolbar returns its buttons to compact under
+   such an ancestor; zero specificity leaves a container's own size, such as the taskbar's, in charge. */
+:where(.neo-theme-neo-dark), :where(.neo-theme-neo-dark .neo-toolbar) {
+    --button-height        : var(--height-32);
+    --button-min-width     : var(--height-32);
+    --button-padding       : 0 var(--sem-spacing-small);
+    --button-text-font-size: 0.875rem;
 }
