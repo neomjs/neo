@@ -38,7 +38,13 @@ class ViewportStateProvider extends StateProvider {
              * True shows the panel that simulates the backend changing permissions
              * @member {Boolean} data.permissionsPanel=false
              */
-            permissionsPanel: false
+            permissionsPanel: false,
+            /**
+             * The viewport's theme. The controller writes it with the viewport (`setTheme()`), and the taskbar's theme
+             * button and the Settings app read it.
+             * @member {String|null} data.theme=null
+             */
+            theme: null
         },
         /**
          * `documents` and `recycleBin` live here, not in their apps' views: deleting and restoring move a file between

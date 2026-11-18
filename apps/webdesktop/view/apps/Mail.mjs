@@ -1,8 +1,8 @@
-import Container     from '../../../../src/container/Base.mjs';
-import GridContainer from '../../../../src/grid/Container.mjs';
-import MailMessage   from './MailMessage.mjs';
-import RowModel      from '../../../../src/selection/grid/RowModel.mjs';
-import Store         from '../../../../src/data/Store.mjs';
+import Container   from '../../../../src/container/Base.mjs';
+import GlassGrid   from './GlassGrid.mjs';
+import MailMessage from './MailMessage.mjs';
+import RowModel    from '../../../../src/selection/grid/RowModel.mjs';
+import Store       from '../../../../src/data/Store.mjs';
 
 const receivedFormat = new Intl.DateTimeFormat('en-GB', {day: 'numeric', month: 'short', timeZone: 'UTC'});
 
@@ -31,7 +31,7 @@ class Mail extends Container {
          * @member {Object[]} items
          */
         items: [{
-            module    : GridContainer,
+            module    : GlassGrid,
             cls       : ['webdesktop-mail-inbox'],
             flex      : 1,
             reference : 'inbox',

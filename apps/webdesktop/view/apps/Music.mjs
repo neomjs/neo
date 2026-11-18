@@ -1,10 +1,10 @@
-import Button        from '../../../../src/button/Base.mjs';
-import Container     from '../../../../src/container/Base.mjs';
-import GridContainer from '../../../../src/grid/Container.mjs';
-import Label         from '../../../../src/component/Label.mjs';
-import RowModel      from '../../../../src/selection/grid/RowModel.mjs';
-import Store         from '../../../../src/data/Store.mjs';
-import Toolbar       from '../../../../src/toolbar/Base.mjs';
+import Button    from '../../../../src/button/Base.mjs';
+import Container from '../../../../src/container/Base.mjs';
+import GlassGrid from './GlassGrid.mjs';
+import Label     from '../../../../src/component/Label.mjs';
+import RowModel  from '../../../../src/selection/grid/RowModel.mjs';
+import Store     from '../../../../src/data/Store.mjs';
+import Toolbar   from '../../../../src/toolbar/Base.mjs';
 
 const formatTime = seconds => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 
@@ -33,7 +33,7 @@ class Music extends Container {
          * @member {Object[]} items
          */
         items: [{
-            module    : GridContainer,
+            module    : GlassGrid,
             cls       : ['webdesktop-music-library'],
             flex      : 1,
             reference : 'library',

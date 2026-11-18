@@ -102,7 +102,7 @@ test.describe('WebDesktop.view.ViewportStateProvider', () => {
 
         instances.push(launcher);
 
-        provider.setData('permissions', ['view-photos', 'view-videos']);
+        provider.setData('permissions', ['view-photos', 'view-music']);
 
         const items = launcher.vdom.cn;
 

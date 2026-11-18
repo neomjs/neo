@@ -1,9 +1,9 @@
-import Button        from '../../../../src/button/Base.mjs';
-import Container     from '../../../../src/container/Base.mjs';
-import GridContainer from '../../../../src/grid/Container.mjs';
-import Label         from '../../../../src/component/Label.mjs';
-import RowModel      from '../../../../src/selection/grid/RowModel.mjs';
-import Toolbar       from '../../../../src/toolbar/Base.mjs';
+import Button    from '../../../../src/button/Base.mjs';
+import Container from '../../../../src/container/Base.mjs';
+import GlassGrid from './GlassGrid.mjs';
+import Label     from '../../../../src/component/Label.mjs';
+import RowModel  from '../../../../src/selection/grid/RowModel.mjs';
+import Toolbar   from '../../../../src/toolbar/Base.mjs';
 
 /**
  * @summary The Recycle Bin app: the deleted files, and Restore, which moves the selected one back into the
@@ -18,6 +18,11 @@ class RecycleBin extends Container {
          * @protected
          */
         className: 'WebDesktop.view.apps.RecycleBin',
+        /**
+         * Its toolbar is styled with Documents' rules, which load with this window even if Documents never opened
+         * @member {String[]} additionalThemeFiles=['WebDesktop.view.apps.Documents']
+         */
+        additionalThemeFiles: ['WebDesktop.view.apps.Documents'],
         /**
          * @member {String[]} cls=['webdesktop-recycle-bin']
          */
@@ -46,7 +51,7 @@ class RecycleBin extends Container {
                 text     : 'Restore'
             }]
         }, {
-            module    : GridContainer,
+            module    : GlassGrid,
             bind      : {store: 'stores.recycleBin'},
             cls       : ['webdesktop-files-grid'],
             flex      : 1,

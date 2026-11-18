@@ -1,11 +1,11 @@
-import Button        from '../../../../src/button/Base.mjs';
-import Container     from '../../../../src/container/Base.mjs';
-import GridContainer from '../../../../src/grid/Container.mjs';
-import Label         from '../../../../src/component/Label.mjs';
-import RowModel      from '../../../../src/selection/grid/RowModel.mjs';
-import Store         from '../../../../src/data/Store.mjs';
-import Toolbar       from '../../../../src/toolbar/Base.mjs';
-import TreeList      from '../../../../src/tree/List.mjs';
+import Button    from '../../../../src/button/Base.mjs';
+import Container from '../../../../src/container/Base.mjs';
+import GlassGrid from './GlassGrid.mjs';
+import Label     from '../../../../src/component/Label.mjs';
+import RowModel  from '../../../../src/selection/grid/RowModel.mjs';
+import Store     from '../../../../src/data/Store.mjs';
+import Toolbar   from '../../../../src/toolbar/Base.mjs';
+import TreeList  from '../../../../src/tree/List.mjs';
 
 /**
  * @summary The Documents app: a folder tree beside the shared files. A folder narrows the grid through the
@@ -80,7 +80,7 @@ class Documents extends Container {
                     text     : 'Delete'
                 }]
             }, {
-                module    : GridContainer,
+                module    : GlassGrid,
                 bind      : {store: 'stores.documents'},
                 cls       : ['webdesktop-files-grid'],
                 flex      : 1,

@@ -1,12 +1,12 @@
-import GridContainer from '../../../../src/grid/Container.mjs';
-import Store         from '../../../../src/data/Store.mjs';
+import GlassGrid from './GlassGrid.mjs';
+import Store     from '../../../../src/data/Store.mjs';
 
 /**
  * @summary The Reports app: this week's usage per team, with the shares as progress columns.
  * @class WebDesktop.view.apps.Reports
- * @extends Neo.grid.Container
+ * @extends WebDesktop.view.apps.GlassGrid
  */
-class Reports extends GridContainer {
+class Reports extends GlassGrid {
     static config = {
         /**
          * @member {String} className='WebDesktop.view.apps.Reports'
