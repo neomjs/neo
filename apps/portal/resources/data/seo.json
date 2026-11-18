@@ -1119,7 +1119,7 @@
     },
     "/examples/charts": {
         "title": "JavaScript Charts, Canvas & Maps — OffscreenCanvas Demos | Neo.mjs",
-        "description": "Explore 1 live JavaScript chart and canvas example: A chart of up to a million points, drawn in a canvas worker.",
+        "description": "Explore 2 live JavaScript chart and canvas examples: A chart of up to a million points, drawn in a canvas worker.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-18"
     },
@@ -1431,7 +1431,7 @@
     },
     "/examples/component/wrapper/cesiumJS/index.html": {
         "title": "CesiumJS Component — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "A CesiumJS globe is wrapped as a Neo component with a camera controlled from a toolbar. Drag and zoom the globe, then press Fly to San Fran and follow the...",
+        "description": "Live runnable CesiumJS Component example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
         "schemaType": "WebPage",
         "lastmod": "2024-08-17"
     },
