@@ -17,12 +17,12 @@ class Toolbar extends Base {
          * keeps the others.
          * @example
          * // A close glyph of its own, with the dialog's maximize kept
-         * headerConfig: {actionMap: {close: () => ({action: 'close', iconCls: 'fas fa-xmark'})}}
+         * headerConfig: {actionMap: {close: () => ({action: 'close', iconCls: 'far fa-circle-xmark'})}}
          * @member {Object} actionMap
          */
         actionMap: {
-            close   : () => ({action: 'close',    iconCls: 'far fa-window-close'}),
-            maximize: () => ({action: 'maximize', iconCls: 'far fa-window-maximize'})
+            close   : () => ({action: 'close',    iconCls: 'fas fa-xmark'}),
+            maximize: () => ({action: 'maximize', iconCls: 'far fa-square'})
         },
         /**
          * You can define the action order and directly add custom actions. Leaving a name out leaves its control out.

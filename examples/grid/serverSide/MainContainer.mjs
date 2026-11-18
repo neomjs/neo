@@ -37,11 +37,13 @@ class MainContainer extends Viewport {
                     {tag: 'p', text: 'Page, sort a column or choose a country. Each action asks the simulated server for just one page.'}
                 ]}
             }, {
-                module   : Button,
-                reference: 'themeButton',
-                handler  : 'up.onThemeButtonClick',
-                text     : 'Dark theme',
-                ui       : 'ghost'
+                module         : Button,
+                reference      : 'themeButton',
+                handler        : 'up.onThemeButtonClick',
+                iconCls        : 'fa-solid fa-moon',
+                text           : 'Dark theme',
+                ui             : 'secondary',
+                useRippleEffect: false
             }]
         }, {
             module: Container,
@@ -81,10 +83,10 @@ class MainContainer extends Viewport {
             flex     : 1,
             bind     : {store: 'stores.orders'},
             columns  : [
-                {dataField: 'id', text: 'Order', width: 110},
-                {dataField: 'customer', text: 'Customer', flex: 1, minWidth: 200},
-                {dataField: 'country', text: 'Country', width: 120},
-                {dataField: 'amount', text: 'Amount', width: 160, cellAlign: 'right', renderer: ({value}) => money.format(value)}
+                {dataField: 'id', text: 'Order', width: 72},
+                {dataField: 'customer', text: 'Customer', flex: 2, minWidth: 112},
+                {dataField: 'country', text: 'Country', flex: 1, minWidth: 84},
+                {dataField: 'amount', text: 'Amount', flex: 1, minWidth: 96, cellAlign: 'right', renderer: ({value}) => money.format(value)}
             ]
         }, {
             module   : PagingToolbar,
@@ -94,11 +96,19 @@ class MainContainer extends Viewport {
             bind     : {store: 'stores.orders'},
             pageSize : 50,
             items    : {
-                'nav-button-first': {text: 'First', tooltip: 'First page'},
-                'nav-button-prev' : {text: 'Previous', tooltip: 'Previous page'},
-                'nav-button-next' : {text: 'Next', tooltip: 'Next page'},
-                'nav-button-last' : {text: 'Last', tooltip: 'Last page'},
-                rowsPerPage       : {value: 50}
+                'nav-button-first': {text: 'First', tooltip: 'First page', cls: ['server-side-page-button'],
+                    useRippleEffect: false, vdom: {'aria-label': 'First'}},
+                'nav-button-prev' : {text: 'Previous', tooltip: 'Previous page', cls: ['server-side-page-button'],
+                    useRippleEffect: false, vdom: {'aria-label': 'Previous'}},
+                'nav-button-next' : {text: 'Next', tooltip: 'Next page', cls: ['server-side-page-button'],
+                    useRippleEffect: false, vdom: {'aria-label': 'Next'}},
+                'nav-button-last' : {text: 'Last', tooltip: 'Last page', cls: ['server-side-page-button'],
+                    useRippleEffect: false, vdom: {'aria-label': 'Last'}},
+                'pages-text': {cls: ['server-side-page-position']},
+                label       : {cls: ['server-side-page-size-label']},
+                spacer      : {cls: ['server-side-page-spacer']},
+                'total-text': {cls: ['server-side-page-total']},
+                rowsPerPage : {value: 50}
             }
         }]
     }
@@ -176,7 +186,9 @@ class MainContainer extends Viewport {
      * @param {Boolean} busy
      */
     setBusy(busy) {
-        this.getReference('grid').isLoading = busy;
+        const grid = this.getReference('grid');
+        this[busy ? 'addCls' : 'removeCls']('server-side-busy');
+        grid.isLoading = busy ? `Fetching page ${grid.store.currentPage} from the simulated server…` : false;
         this.getReference('grid').headerToolbar.disabled = busy;
         this.getReference('country').disabled = busy;
         this.getReference('paging').disabled = busy
@@ -190,7 +202,11 @@ class MainContainer extends Viewport {
 
     /** @summary Reflects the effective boot theme and the next available theme action. */
     syncThemeButton() {
-        this.getReference('themeButton').text = this.getTheme() === 'neo-theme-neo-dark' ? 'Light theme' : 'Dark theme'
+        const dark = this.getTheme() === 'neo-theme-neo-dark';
+        this.getReference('themeButton').set({
+            iconCls: dark ? 'fa-solid fa-sun' : 'fa-solid fa-moon',
+            text   : dark ? 'Light theme' : 'Dark theme'
+        })
     }
 }
 

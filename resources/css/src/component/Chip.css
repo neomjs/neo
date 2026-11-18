@@ -1,12 +1,13 @@
 .neo-chip {
-    align-items    : var(--chip-align-items);
-    border         : var(--chip-border);
-    border-radius  : var(--chip-border-radius);
+    align-items     : var(--chip-align-items);
+    background-color: var(--chip-background-color);
+    border          : var(--chip-border);
+    border-radius   : var(--chip-border-radius);
     /* display will get handled on component level => either flex or inline-flex */
-    flex-direction : row;
-    height         : var(--chip-height);
-    justify-content: var(--chip-justify-content);
-    transition     : border-color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    flex-direction  : row;
+    height          : var(--chip-height);
+    justify-content : var(--chip-justify-content);
+    transition      : border-color 150ms cubic-bezier(0.4, 0, 0.2, 1);
 
     &:focus {
         border-color: var(--chip-border-color-focus);
@@ -46,5 +47,14 @@
         font-size     : var(--chip-text-font-size);
         pointer-events: none;
         text-align    : var(--chip-text-align);
+
+        /* Without a glyph or a close button beside it, the text keeps their distance from the border */
+        &:first-child {
+            margin-inline-start: calc(15px / 2);
+        }
+
+        &:last-child {
+            margin-inline-end: calc(15px / 2);
+        }
     }
 }

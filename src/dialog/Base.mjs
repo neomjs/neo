@@ -110,10 +110,11 @@ class Dialog extends Panel {
             Escape: 'onKeyDownEscape'
         },
         /**
-         * The maximize action's glyph while the dialog is not maximized
-         * @member {String} maximizeCls='far fa-window-maximize'
+         * The maximize action's glyph while the dialog is not maximized. The window glyphs are one set: a line, a
+         * square, two offset squares and a cross.
+         * @member {String} maximizeCls='far fa-square'
          */
-        maximizeCls: 'far fa-window-maximize',
+        maximizeCls: 'far fa-square',
         /**
          * @member {Boolean} maximized_=false
          * @reactive
@@ -122,9 +123,9 @@ class Dialog extends Panel {
         /**
          * The minimize action's glyph. The dialog has no minimize of its own: the action fires `headerAction`, and
          * a window manager that can restore the dialog handles it (`Neo.desktop.WindowManager`).
-         * @member {String} minimizeCls='far fa-window-minimize'
+         * @member {String} minimizeCls='fas fa-minus'
          */
-        minimizeCls: 'far fa-window-minimize',
+        minimizeCls: 'fas fa-minus',
         /**
          * @member {Boolean} modal_=false
          * @reactive
@@ -141,9 +142,9 @@ class Dialog extends Panel {
         resizablePluginConfig: null,
         /**
          * The maximize action's glyph while the dialog is maximized: a click restores it
-         * @member {String} restoreCls='far fa-window-restore'
+         * @member {String} restoreCls='far fa-clone'
          */
-        restoreCls: 'far fa-window-restore',
+        restoreCls: 'far fa-clone',
         /**
          * @member {String|null} title_=null
          * @reactive

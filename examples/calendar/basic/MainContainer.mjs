@@ -6,17 +6,20 @@ import Viewport                  from '../../../src/container/Viewport.mjs';
 import {calendars, createEvents} from './teamWeek.mjs';
 
 /**
- * @summary The calendar on a team's week around today, with a line that says how to move and resize an event.
+ * @summary The calendar on a team's week around today, with a line that says how to move and resize an event. At a
+ * phone's width the controller swaps in the day view and folds the side panel away.
  * @class Neo.examples.calendar.basic.MainContainer
  * @extends Neo.container.Viewport
  */
 class MainContainer extends Viewport {
     static config = {
-        className : 'Neo.examples.calendar.basic.MainContainer',
-        autoMount : true,
-        cls       : ['neo-examples-calendar-maincontainer', 'neo-viewport'],
-        controller: MainContainerController,
-        layout    : {ntype: 'vbox', align: 'stretch'},
+        className  : 'Neo.examples.calendar.basic.MainContainer',
+        autoMount  : true,
+        cls        : ['neo-examples-calendar-maincontainer', 'neo-viewport'],
+        controller : MainContainerController,
+        layout     : {ntype: 'vbox', align: 'stretch'},
+        listeners  : {resize: 'onResize'},
+        monitorSize: true,
 
         items: [{
             module : Toolbar,

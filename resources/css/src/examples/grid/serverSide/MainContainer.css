@@ -56,6 +56,30 @@
         font-variant-numeric: tabular-nums;
     }
 
+    .neo-grid-header-button {
+        padding: 0 4px;
+    }
+
+    .neo-load-mask-body {
+        color: var(--server-side-text);
+        font-size: 14px;
+        padding: 16px;
+    }
+
+    .neo-loading-message {
+        max-width: 240px;
+        white-space: normal;
+    }
+
+    &.server-side-busy {
+        .neo-grid-header-toolbar,
+        .server-side-controls,
+        .server-side-paging {
+            --neo-disabled-opacity: 1;
+            --textfield-opacity-disabled: 1;
+        }
+    }
+
     .server-side-paging {
         background-color: transparent;
         flex-wrap: wrap;
@@ -83,15 +107,42 @@
             gap: 6px;
         }
 
+        .neo-grid-header-button {
+            --grid-header-button-font-size: 12px;
+            gap: 0;
+            padding: 6px 4px;
+
+            .neo-button-glyph {
+                margin: 0 0 0 4px;
+            }
+        }
+
         .server-side-paging {
-            .neo-button {
+            flex-wrap: nowrap;
+            gap: 4px;
+
+            .server-side-page-button {
                 font-size: 12px;
-                min-width: 0;
-                padding: 6px 8px;
+                height: 36px;
+                margin: 0 !important;
+                min-width: 32px;
+                padding: 6px;
+
+                .neo-button-text {
+                    display: none;
+                }
             }
 
-            .neo-label {
-                margin-left: 8px !important;
+            .server-side-page-position {
+                font-size: 12px;
+                margin: 0 2px !important;
+                white-space: nowrap;
+            }
+
+            .server-side-page-size-label,
+            .server-side-page-spacer,
+            .server-side-page-total {
+                display: none;
             }
         }
     }

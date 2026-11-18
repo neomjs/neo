@@ -273,4 +273,30 @@ test.describe('Neo.form.field.Text', () => {
         expect(counterBox.y).toBeGreaterThanOrEqual(inputBox.y + inputBox.height - 1);
         expect(counterBox.y - inputBox.y - inputBox.height).toBeLessThan(10);
     });
+
+    for (const labelPosition of ['left', 'right', 'top', 'inline']) {
+        test(`a ${labelPosition}-labelled field shows an in-flow error under its input, at the input's width`, async ({page}) => {
+            componentId = await createTextField(page, {labelPosition, width: 360});
+            const field = page.locator(`#${componentId}`), input = field.locator('input'),
+                  error = field.locator('.neo-textfield-error'),
+                  plain = await input.boundingBox();
+            await page.evaluate(id => Neo.worker.App.setConfigs({id, error: 'Min length violation: 2 / 3'}), componentId);
+            await expect(error).toBeVisible();
+            const inputBox = await input.boundingBox(), errorBox = await error.boundingBox();
+            expect(Math.abs(inputBox.width - plain.width)).toBeLessThan(1);
+            expect(errorBox.y).toBeGreaterThanOrEqual(inputBox.y + inputBox.height - 1);
+            expect(Math.abs(errorBox.x - inputBox.x)).toBeLessThan(2);
+        });
+    }
+
+    test('an absolute error leaves the field on one row', async ({page}) => {
+        componentId = await createTextField(page, {errorPositionAbsolute: true, labelPosition: 'left', width: 360});
+        const field = page.locator(`#${componentId}`), input = field.locator('input'),
+              plain = await field.boundingBox(), plainInput = await input.boundingBox();
+        await page.evaluate(id => Neo.worker.App.setConfigs({id, error: 'Min length violation: 2 / 3'}), componentId);
+        await expect(field.locator('.neo-textfield-error.neo-absolute')).toBeAttached();
+        expect(await field.evaluate(node => getComputedStyle(node).display)).toBe('flex');
+        expect(Math.abs((await field.boundingBox()).height - plain.height)).toBeLessThan(1);
+        expect(Math.abs((await input.boundingBox()).width - plainInput.width)).toBeLessThan(1);
+    });
 });

@@ -441,7 +441,11 @@ class Chip extends ComboBox {
     }
 
     /**
-     * @summary Inserts the chip-list component reference immediately before the real input.
+     * @summary Groups the chip-list component reference and the real input in one flow node, where the input sat.
+     *
+     * The flow node wraps as chips are added, while the triggers keep their places at the input wrapper's start
+     * and end, so a trigger never wraps like a chip. `afterSetTriggers()` rebuilds the wrapper around the bare
+     * input, so this runs again after every trigger change.
      * @protected
      */
     insertValueListVdom() {
@@ -449,14 +453,18 @@ class Chip extends ComboBox {
             wrapper = VDomUtil.find(me.vdom, {id: me.getInputWrapperId()})?.vdom,
             reference, inputIndex;
 
-        if (!wrapper || wrapper.cn.some(item => item.id === me.valueList.id)) {
+        if (!wrapper || VDomUtil.find(wrapper, {id: me.valueList.id})) {
             return
         }
 
         reference  = me.valueList.createVdomReference();
         inputIndex = wrapper.cn.findIndex(item => item.flag === 'neo-real-input' || VDomUtil.find(item, {flag: 'neo-real-input'}));
 
-        wrapper.cn.splice(inputIndex < 0 ? 0 : inputIndex, 0, reference)
+        if (inputIndex < 0) {
+            wrapper.cn.unshift(reference)
+        } else {
+            wrapper.cn[inputIndex] = {cls: ['neo-chipfield-flow'], cn: [reference, wrapper.cn[inputIndex]], id: `${me.id}__flow`}
+        }
     }
 
     /**
