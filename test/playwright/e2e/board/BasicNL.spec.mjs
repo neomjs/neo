@@ -114,6 +114,44 @@ test.describe('Board, basic example: one store, two views', () => {
         })
     }
 
+    for (const theme of ['neo-theme-neo-light', 'neo-theme-neo-dark']) {
+        test(`at 1440 × 900 all five columns are in view on first paint, the table below them (${theme})`, async ({page, neuralLink}, testInfo) => {
+            await page.setViewportSize({height: 900, width: 1440});
+
+            const {boardId} = await open(page, neuralLink, theme);
+
+            for (const status of STATUSES) {
+                const id                    = `${boardId}__col__${status}`,
+                      {height, width, x, y} = await page.locator(`[id="${id}"]`).boundingBox(),
+                      // Whatever the pointer would hit at the column's two edges, below its header
+                      edges                 = await page.evaluate(({id, points}) => points.map(([px, py]) =>
+                          !!document.elementFromPoint(px, py)?.closest(`[id="${id}"]`)), {id, points: [[x + 2, y + 24], [x + width - 2, y + 24]]});
+
+                expect(x, `${status}: starts in view`).toBeGreaterThanOrEqual(0);
+                expect(x + width, `${status}: ends in view`).toBeLessThanOrEqual(1440);
+                expect(edges, `${status}: nothing covers either edge`).toEqual([true, true]);
+                expect(height, `${status}: a column, not a strip`).toBeGreaterThan(300)
+            }
+
+            await testInfo.attach(`board-basic-1440-${theme}`, {body: await page.screenshot(), contentType: 'image/png'})
+        })
+    }
+
+    test('at 390 × 844 the first screen shows the board, its first column whole, and the table below it', async ({page, neuralLink}, testInfo) => {
+        await page.setViewportSize({height: 844, width: 390});
+
+        const {boardId, gridId} = await open(page, neuralLink),
+              first             = await page.locator(`[id="${boardId}__col__backlog"]`).boundingBox(),
+              table             = await page.locator(`[id="${gridId}"]`).boundingBox();
+
+        expect(first.x, 'the first column starts in view').toBeGreaterThanOrEqual(0);
+        expect(first.x + first.width, 'and ends in view').toBeLessThanOrEqual(390);
+        expect(first.y, 'at the top of the first screen').toBeLessThan(844 / 2);
+        expect(table.y, 'the table starts below the board').toBeGreaterThanOrEqual(first.y + first.height - 1);
+
+        await testInfo.attach('board-basic-390', {body: await page.screenshot(), contentType: 'image/png'})
+    });
+
     test('record.set({status, order}) moves the same card instance to the head of another column', async ({page, neuralLink}) => {
         const {boardId, domOrder, push, records} = await open(page, neuralLink),
               [moved]                            = await records('backlog'),

@@ -63,6 +63,34 @@ async function waitForScrollSettled(page, homeId) {
 }
 
 /**
+ * Waits until Portal Home's dynamically injected theme/part stylesheets and web fonts have settled
+ * so smooth scrollIntoView targets post-swap Hero geometry rather than fallback font line-wrapping.
+ * @param {import('@playwright/test').Page} page
+ */
+async function waitForHomeStylesAndFonts(page) {
+    await expect.poll(async () => {
+        return page.evaluate(() => {
+            const heroCopy  = document.querySelector('.portal-home-hero-content .neo-h3');
+            const heroTitle = document.querySelector('.portal-home-hero-content .neo-h1');
+            const doors     = document.querySelector('.portal-home-parts-audiencedoors');
+
+            if (!heroCopy || !heroTitle || !doors) {
+                return false
+            }
+
+            if (!getComputedStyle(heroCopy).fontFamily.includes('Source Sans 3')) {
+                return false
+            }
+
+            const links = [...document.querySelectorAll('link[rel="stylesheet"]')];
+            return links.length > 0 && links.every(link => Boolean(link.sheet))
+        })
+    }, {timeout: 10000}).toBe(true);
+
+    await page.evaluate(() => document.fonts.ready)
+}
+
+/**
  * Smoothly scrolls the Home container to a referenced part and waits until scroll motion settles.
  * @param {import('@playwright/test').Page} page
  * @param {Object} app
@@ -71,6 +99,7 @@ async function waitForScrollSettled(page, homeId) {
  * @param {String} targetId
  */
 async function scrollHomeToReference(page, app, homeId, reference, targetId) {
+    await waitForHomeStylesAndFonts(page);
     await app.callMethod(homeId, 'scrollToPart', [reference]);
     await waitForStageTop(page, homeId, targetId)
 }
