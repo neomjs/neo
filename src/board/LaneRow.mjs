@@ -168,7 +168,11 @@ class LaneRow extends Container {
     }
 
     /**
-     * @summary Creates the lane header's three nodes once: the title, the count badge, and the collapse toggle.
+     * @summary Creates the lane header's nodes once: the title, then the count badge and the collapse toggle inside
+     * `.neo-board-lane-tools`.
+     * @description On a board narrower than its columns an open lane is wider than the visible board. The title and
+     * the tools stick to the board's visible edges (`LaneRow.css`), and the tools move as one, so neither inset has to
+     * know the other node's width.
      */
     createHeaderNodes() {
         const {header, id} = this;
@@ -180,16 +184,21 @@ class LaneRow extends Container {
                 cls : ['neo-board-lane-title'],
                 text: ''
             }, {
-                tag : 'span',
-                id  : `${id}__count`,
-                cls : ['neo-board-lane-count'],
-                text: ''
-            }, {
-                tag : 'button',
-                id  : `${id}__collapse`,
-                type: 'button',
-                cls : ['neo-board-lane-collapse'],
-                text: ''
+                tag: 'span',
+                id : `${id}__tools`,
+                cls: ['neo-board-lane-tools'],
+                cn : [{
+                    tag : 'span',
+                    id  : `${id}__count`,
+                    cls : ['neo-board-lane-count'],
+                    text: ''
+                }, {
+                    tag : 'button',
+                    id  : `${id}__collapse`,
+                    type: 'button',
+                    cls : ['neo-board-lane-collapse'],
+                    text: ''
+                }]
             }]
         }
     }
@@ -245,7 +254,7 @@ class LaneRow extends Container {
 
         me.createHeaderNodes();
 
-        [title, badge, toggle] = header.vdom.cn;
+        [title, {cn: [badge, toggle]}] = header.vdom.cn;
 
         title.text = me.title ?? (me.value != null ? String(me.value) : (me.board?.emptyLaneTitle ?? 'Unassigned'));
         badge.text = String(count);

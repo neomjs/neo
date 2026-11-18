@@ -21,6 +21,9 @@
     }
 }
 
+/* An open lane is as wide as its columns, so on a narrower board the title and the tools stick to the board's visible
+   edges. Sticky insets count from the board's content edge: 13px is the lane's 1px border plus this header's 12px
+   padding, so where the columns fit nothing moves. */
 .neo-board-lane-header {
     align-items  : center;
     background   : var(--neo-board-lane-header-background);
@@ -35,11 +38,22 @@
     user-select  : none;
 
     .neo-board-lane-title {
-        flex         : 1;
-        min-width    : 0;
-        overflow     : hidden;
-        text-overflow: ellipsis;
-        white-space  : nowrap;
+        flex              : 0 1 auto;
+        inset-inline-start: 13px;
+        min-width         : 0;
+        overflow          : hidden;
+        position          : sticky;
+        text-overflow     : ellipsis;
+        white-space       : nowrap;
+    }
+
+    .neo-board-lane-tools {
+        align-items        : center;
+        display            : flex;
+        gap                : 8px;
+        inset-inline-end   : 13px;
+        margin-inline-start: auto;
+        position           : sticky;
     }
 
     .neo-board-lane-count {
