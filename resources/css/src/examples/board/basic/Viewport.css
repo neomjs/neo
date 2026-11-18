@@ -1,6 +1,9 @@
-/* The sprint board example's chrome: a toolbar over the board and the card table beside it. It reads the board's
-   own tokens, so each theme that styles the board styles the example too. */
+/* The sprint board example's chrome: a toolbar over the board and the card table below it. It reads the board's
+   own tokens, so each theme that styles the board styles the example too. Its columns are narrower than the theme's,
+   so all five fit a 1440px screen. */
 .board-example {
+    --neo-board-column-width: 264px;
+
     background: var(--neo-board-background);
 
     .board-example-toolbar.neo-toolbar {
@@ -37,8 +40,8 @@
         --grid-header-button-glyph-color           : var(--neo-board-badge-color);
         --grid-header-button-glyph-color-hover     : var(--neo-board-card-color);
 
-        background : var(--neo-board-column-background);
-        border-left: 1px solid var(--neo-board-column-border-color);
+        background: var(--neo-board-column-background);
+        border-top: 1px solid var(--neo-board-column-border-color);
 
         /* One line per record: a long title clips at its cell instead of doubling the row */
         .neo-grid-cell {
