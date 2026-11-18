@@ -227,7 +227,7 @@ class WindowManager extends Base {
     async #createWindow(record, ticket) {
         let me                    = this,
             {id}                  = record,
-            [WindowClass, config] = await Promise.all([me.#loadWindowClass(), me.windowConfig?.(record)]);
+            [WindowClass, config] = await Promise.all([me.#loadWindowClass(), me.#loadWindowConfig(record)]);
 
         if (!me.#admits(id, ticket)) {
             return null
@@ -329,6 +329,15 @@ class WindowManager extends Base {
     }
 
     /**
+     * A config callback that throws rejects like one whose promise rejects, so the class load beside it stays observed
+     * @param {Object} record The app
+     * @returns {Promise<Object|undefined>} The config {@link #windowConfig} gives
+     */
+    async #loadWindowConfig(record) {
+        return this.windowConfig?.(record)
+    }
+
+    /**
      * Minimizes an app's window: its task stays, marked minimized, and the window hides
      * @param {String} appId
      */
@@ -422,8 +431,13 @@ class WindowManager extends Base {
                 request = windows.get(id);
 
             if (!request) {
-                request = me.#createWindow(record, ticket);
-                windows.set(id, request)
+                let settle;
+
+                // Listed before the loaders run, since they are the consumer's code: one that opens the app joins this
+                // open, and one that closes it ends this open, so the next open loads afresh
+                request = new Promise((resolve, reject) => {settle = {resolve, reject}});
+                windows.set(id, request);
+                me.#createWindow(record, ticket).then(settle.resolve, settle.reject)
             }
 
             // The window lives on in #created, and a failed or ended load leaves nothing to join
