@@ -439,7 +439,7 @@ class DemoBCrossWindowGesture extends Base {
             let identity = me.readCrossWindowVesselIdentity(itemId);
 
             if (identity.windowId && identity.windowId !== previousVessel?.windowId && sourceZone.isWindowDragging) {
-                vessel = {...identity, mountCount: pane?.mountCount ?? null};
+                vessel = {...identity, frame: await me.readWindowFrame(identity.windowId), mountCount: pane?.mountCount ?? null};
                 break
             }
 
@@ -628,6 +628,16 @@ class DemoBCrossWindowGesture extends Base {
             }]});
 
             let readiness = await me.waitForCrossWindowDragReadiness(me.crossWindowGestureContext);
+
+            me.lastGestureArming = readiness.ready ? await me.readArmingGeometry(sourceZone, buttonRect, {x: 28, y: 0}, (x, y) =>
+                me.interactionService.simulateEvent({events: [{
+                    delay   : 16,
+                    targetId: sourceButton.id,
+                    type    : 'mousemove',
+                    windowId: sourceButton.windowId,
+                    options : options(sourceX + x, sourceY + y, sourceScreenX + x, sourceScreenY + y, 1)
+                }]})
+            ) : null;
 
             if (!readiness.ready) {
                 let cancellation = await me.cancelCrossWindowGesture(me.crossWindowGestureContext);
