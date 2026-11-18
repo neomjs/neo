@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "families": ["grid-table", "gantt", "scheduler", "lists", "layouts"],
+  "families": ["grid-table", "gantt", "scheduler", "lists", "layouts", "dashboard"],
   "suffix": "14",
   "recipes": [
     {
@@ -396,6 +396,46 @@
       "steps": [],
       "after": [{"selector": "form.neo-form-container .neo-textfield-label", "text": "This is a wide Label inside Form", "inRegion": true}, {"selector": ".neo-fieldset .neo-textfield-label", "text": "Fieldset with layout-form", "inRegion": true}],
       "region": {"selector": "form.neo-form-container", "anchor": "center", "width": 640, "height": 360}
+    },
+    {
+      "id": "dock-choreography",
+      "viewport": {"width": 640, "height": 360},
+      "theme": "default",
+      "state": "The whole workspace as it opens, before the tour: the Tour button and its caption above the Editor pane, whose clock keeps ticking, docked beside the Preview pane.",
+      "ready": [{"selector": ".agentos-dockdemo-clock-label", "text": "Editor"}],
+      "steps": [],
+      "after": [{"selector": "button", "text": "Tour", "inRegion": true}, {"selector": ".agentos-dockdemo-clock-label", "text": "Editor", "inRegion": true}],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "dock-layouts",
+      "viewport": {"width": 640, "height": 360},
+      "theme": "default",
+      "state": "The whole workspace in its Operator perspective: the perspective bar above a tab group of seven panes, Terminal over Logs, and the Inspector, divided by splitters.",
+      "ready": [{"selector": ".neo-example-dock-pane", "text": "Logs"}],
+      "steps": [],
+      "after": [{"selector": "button", "text": "Operator", "inRegion": true}, {"selector": ".neo-example-dock-pane", "text": "Strategy", "inRegion": true}, {"selector": ".neo-example-dock-pane", "text": "Logs", "inRegion": true}, {"selector": ".neo-example-dock-pane", "text": "Inspector", "inRegion": true}],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "dock-cross-window",
+      "viewport": {"width": 640, "height": 360},
+      "theme": "default",
+      "state": "The whole workspace before the tour, five seconds after it opens: the Workbench pane counts the seconds it has run unbroken in one render-target mount, beside the Inspector, Timeline and Console tabs.",
+      "ready": [{"selector": ".agentos-dockdemo-counter-value", "text": "unbroken"}],
+      "steps": [{"kind": "wait", "selector": ".agentos-dockdemo-counter-value", "text": "5s unbroken"}],
+      "after": [{"selector": ".agentos-dockdemo-counter-value", "text": "unbroken", "inRegion": true}, {"selector": "button", "text": "Tour", "inRegion": true}],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "dock-tear-out",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "A draft typed into the Notes pane, the pane its pop-out action moves into a window of its own, framed with the Metrics and Alerts tabs of its group and the edge of the Queue pane.",
+      "ready": [{"selector": ".neo-textfield input"}],
+      "steps": [{"kind": "fill", "selector": ".neo-textfield input", "value": "Check the 14:05 alert spike before the handover"}],
+      "after": [{"selector": ".neo-textfield input", "value": "Check the 14:05 alert spike before the handover", "inRegion": true}],
+      "region": {"x": 640, "y": 0, "width": 640, "height": 360}
     }
   ]
 }

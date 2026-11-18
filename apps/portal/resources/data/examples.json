@@ -1236,7 +1236,7 @@
         "feature": "Named perspectives rearrange the same dock panes",
         "lookFor": "Switch from Operator to Review and watch the split proportions and active pane change.",
         "scope": "This layout example runs in one window; saved snapshots stay in this browser.",
-        "image": null,
+        "image": "devmode/dock-layouts-14.jpg",
         "sharedWorkers": false,
         "sourceUrl": "examples/dashboard/dock",
         "urls": {
@@ -1255,7 +1255,7 @@
         "feature": "A live workbench travels between windows without restarting its counter",
         "lookFor": "Press Tour and follow Workbench into the popup and home again as its counter keeps running.",
         "scope": "Allow popups for the cross-window part of the tour.",
-        "image": null,
+        "image": "devmode/dock-cross-window-14.jpg",
         "sharedWorkers": true,
         "sourceUrl": "examples/dashboard/crossWindow",
         "urls": {
@@ -1274,7 +1274,7 @@
         "feature": "A Notes pane keeps its draft when it moves to a separate window",
         "lookFor": "Type a draft in Notes, use its pop-out action, then close the popup and find the draft back in Notes.",
         "scope": "Allow popups. The pane returns when its window closes.",
-        "image": null,
+        "image": "devmode/dock-tear-out-14.jpg",
         "sharedWorkers": true,
         "sourceUrl": "examples/dashboard/tearOut",
         "urls": {
