@@ -97,18 +97,17 @@ function createHarness(config = {}) {
 }
 
 /**
- * A window class loader the test releases or fails
+ * A window class loader the test releases or fails, by load, the latest by default
  * @returns {{loader: Function, release: Function, fail: Function, calls: Function}}
  */
 function heldLoader() {
-    let calls = 0,
-        settle;
+    let settles = [];
 
     return {
-        calls  : () => calls,
-        fail   : () => settle.reject(new Error('load failed')),
-        loader : () => {calls++; return new Promise((resolve, reject) => {settle = {resolve, reject}})},
-        release: () => settle.resolve({default: FakeWindow})
+        calls  : () => settles.length,
+        fail   : (index = settles.length - 1) => settles[index].reject(new Error('load failed')),
+        loader : () => new Promise((resolve, reject) => {settles.push({resolve, reject})}),
+        release: (index = settles.length - 1) => settles[index].resolve({default: FakeWindow})
     }
 }
 
@@ -251,10 +250,10 @@ test.describe('Neo.desktop.WindowManager', () => {
 
         harness = createHarness();
 
-        const {apps, manager} = harness,
-              mail            = await manager.openApp(apps.get('mail')),
-              filterListeners = () => (apps.toJSON().listeners.filter || []).length,
-              listening       = filterListeners();
+        const {apps, manager, taskIds, tasks} = harness,
+              mail                            = await manager.openApp(apps.get('mail')),
+              filterListeners                 = () => (apps.toJSON().listeners.filter || []).length,
+              listening                       = filterListeners();
 
         manager.windowClass = held.loader;
 
@@ -265,7 +264,12 @@ test.describe('Neo.desktop.WindowManager', () => {
 
         expect(await opening).toBeNull();
         expect(mail.isDestroyed).toBe(true);
-        expect(filterListeners(), 'the apps store reaches a destroyed manager no more').toBe(listening - 1)
+        expect(filterListeners(), 'the apps store reaches a destroyed manager no more').toBe(listening - 1);
+
+        // The tasks named windows that are gone; the store the consumer passed lives on, usable
+        expect(taskIds()).toEqual([]);
+        tasks.add({id: 'later', text: 'later'});
+        expect(taskIds()).toEqual(['later'])
     });
 
     test('a window brought to the front is above the others of its manager, and two managers keep separate stacks', async () => {
@@ -297,5 +301,152 @@ test.describe('Neo.desktop.WindowManager', () => {
         } finally {
             other.destroy()
         }
+    })
+});
+
+// An open publishes its window and task only while it is still current, during its load and after it
+test.describe('Neo.desktop.WindowManager: what an open may publish', () => {
+    let harness;
+
+    test.afterEach(() => {
+        harness.destroy()
+    });
+
+    test('a filter that drops the app, or a close, during the load creates no window and no task', async () => {
+        const held = heldLoader();
+
+        harness = createHarness({windowClass: held.loader});
+
+        const {apps, manager, taskIds} = harness,
+              mail                     = manager.openApp(apps.get('mail'));
+
+        apps.getFilter('permission').value = ['view-photos', 'view-help'];
+        held.release();
+
+        expect(await mail).toBeNull();
+        expect(manager.getWindow('mail')).toBeNull();
+
+        const photos = manager.openApp(apps.get('photos'));
+
+        manager.close('photos');
+        held.release();
+
+        expect(await photos).toBeNull();
+        expect(manager.getWindow('photos')).toBeNull();
+        expect(taskIds()).toEqual([])
+    });
+
+    test('an app store that does not keep an app closes its window and ends its load', async () => {
+        const held        = heldLoader(),
+              restrictive = Neo.create(TreeStore, {
+                  data   : ['mail', 'photos', 'help'].map(id => ({id, permission: `view-${id}`, text: id})),
+                  filters: [{includeEmptyValues: false, operator: 'included', property: 'permission', value: []}],
+                  model  : AppModel
+              });
+
+        // Filtered after its construction, where TreeStore#isKept() reads the filter
+        restrictive.getFilter('permission').value = ['view-help'];
+
+        harness = createHarness();
+
+        const {apps, manager, taskIds} = harness;
+
+        try {
+            const mail = await manager.openApp(apps.get('mail'));
+
+            manager.windowClass = held.loader;
+
+            const photos = manager.openApp(apps.get('photos'));
+
+            manager.appStore = restrictive;
+
+            expect(taskIds()).toEqual([]);
+            expect(mail.hidden).toBe(true);
+
+            held.release();
+
+            expect(await photos).toBeNull();
+            expect(taskIds()).toEqual([])
+        } finally {
+            manager.destroy();
+            restrictive.destroy()
+        }
+    });
+
+    test('an open after a reset loads afresh, and the load the reset cancelled creates nothing', async () => {
+        const held = heldLoader();
+
+        harness = createHarness({windowClass: held.loader});
+
+        const {apps, manager, taskIds} = harness,
+              first                    = manager.openApp(apps.get('mail'));
+
+        manager.reset();
+
+        const second = manager.openApp(apps.get('mail'));
+
+        expect(held.calls(), 'no wait on the cancelled load').toBe(2);
+
+        held.release(1);
+
+        const mail = await second;
+
+        expect(mail).toBeTruthy();
+        expect(taskIds()).toEqual(['mail']);
+
+        held.release(0);
+
+        expect(await first).toBeNull();
+        expect(manager.getWindow('mail'), 'one window').toBe(mail)
+    });
+
+    test('an open of a kept window ends with a reset right after it, and reads nothing after a destroy', async () => {
+        harness = createHarness();
+
+        const {apps, manager, taskIds} = harness,
+              mail                     = await manager.openApp(apps.get('mail'));
+
+        manager.close('mail');
+
+        const reopening = manager.openApp(apps.get('mail'));
+
+        manager.reset();
+        await reopening;
+
+        expect(taskIds()).toEqual([]);
+        expect(mail.hidden).toBe(true);
+
+        const afterDestroy = manager.openApp(apps.get('mail'));
+
+        manager.destroy();
+
+        // A continuation that read the released task store would reject here
+        await afterDestroy
+    });
+
+    test('an open that ends after its window exists publishes no task and shows nothing', async () => {
+        let manager;
+
+        // The close lands between the window's creation and the open's publication
+        harness = createHarness({windowConfig: record => {manager.close(record.id); return {record}}});
+        manager = harness.manager;
+
+        const {apps, taskIds} = harness;
+
+        expect(await manager.openApp(apps.get('mail'))).toBeNull();
+        expect(taskIds()).toEqual([]);
+        expect(manager.getWindow('mail').hidden, 'kept, never shown').toBe(true)
+    });
+
+    test('a restore shows only an app that has a task', async () => {
+        harness = createHarness();
+
+        const {apps, manager} = harness,
+              mail            = await manager.openApp(apps.get('mail'));
+
+        manager.close('mail');
+        manager.restore('mail');
+
+        expect(mail.hidden).toBe(true)
     })
 });

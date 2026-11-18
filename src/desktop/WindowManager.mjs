@@ -9,11 +9,19 @@ import Base from '../core/Base.mjs';
  * a browser window (`Neo.manager.Window`): an app window lives in whichever browser window {@link #windowConfig} names.
  *
  * Any `Neo.dialog.Base` works as {@link #windowClass}. The manager uses its `show()`, `hide()` and `hidden`, its
- * `hide` and `headerAction` events, and its `style.zIndex`. A dialog has one fixed z-index and no order among dialogs,
- * so each manager keeps a stack of the windows it created and sets their z-index from {@link #baseZIndex} up: two
- * desktops on one App worker keep separate orders. A `mousedown` on a window brings it to the front.
+ * `hide` and `headerAction` events, and its `style.zIndex`. It creates each window hidden and shows it when the open
+ * publishes. It keeps its windows, so it creates them with `closeAction: 'hide'`: the close button, Escape and an
+ * animated hide all hide the dialog, where a stock dialog would destroy itself.
  *
- * The windows float outside every component tree, so the manager destroys the ones it created.
+ * A dialog has one fixed z-index and no order among dialogs, so each manager keeps a stack of the windows it created and
+ * sets their z-index from {@link #baseZIndex} up: two desktops on one App worker keep separate orders. A `mousedown` on
+ * a window brings it to the front.
+ *
+ * An open publishes its window and task only while it is current. A reset, a destroy, a close of its app, or an app
+ * store that no longer keeps the app ends it, during its load or after.
+ *
+ * The windows float outside every component tree, so the manager destroys the ones it created, and its tasks go with
+ * them.
  * @class Neo.desktop.WindowManager
  * @extends Neo.core.Base
  */
@@ -57,12 +65,17 @@ class WindowManager extends Base {
     }
 
     /**
+     * Counts each app's closes: an open that began before one publishes nothing
+     * @member {Map<String, Number>} #closes
+     */
+    #closes = new Map()
+    /**
      * The windows that exist, by app id
      * @member {Map<String, Neo.dialog.Base>} #created
      */
     #created = new Map()
     /**
-     * Counts resets, a destroy included: a load that ends after one creates no window
+     * Counts resets, a destroy included: an open that began before one publishes nothing
      * @member {Number} #resets=0
      */
     #resets = 0
@@ -72,13 +85,25 @@ class WindowManager extends Base {
      */
     #stack = []
     /**
-     * One request per app id, the promise of its window: a second open during a load reuses the first
+     * The load in flight per app id, the promise of its window: a second open during a load joins the first
      * @member {Map<String, Promise<Neo.dialog.Base|null>>} #windows
      */
     #windows = new Map()
 
     /**
-     * Triggered after the appStore config got changed
+     * Whether an open that took its ticket may still publish
+     * @param {String} appId
+     * @param {String} ticket
+     * @returns {Boolean}
+     */
+    #admits(appId, ticket) {
+        let {appStore} = this;
+
+        return ticket === this.#ticket(appId) && (!appStore || appStore.isKept(appId))
+    }
+
+    /**
+     * Triggered after the appStore config got changed. A new store closes the windows of the apps it does not keep.
      * @param {Neo.data.TreeStore|null} value
      * @param {Neo.data.TreeStore|null} oldValue
      * @protected
@@ -88,7 +113,10 @@ class WindowManager extends Base {
 
         // on() and un() consume keys like `scope` from the passed object, so each call gets its own
         oldValue && !oldValue.isDestroyed && oldValue.un({filter: me.onAppStoreFilter, scope: me});
-        value?.on({filter: me.onAppStoreFilter, scope: me})
+        value?.on({filter: me.onAppStoreFilter, scope: me});
+
+        // The construction sets the tasks store after this config
+        oldValue !== undefined && value && me.onAppStoreFilter()
     }
 
     /**
@@ -107,7 +135,7 @@ class WindowManager extends Base {
     }
 
     /**
-     * Closes an app's window: its task goes, minimized or not, and a visible window hides
+     * Closes an app's window: its task goes, minimized or not, a visible window hides, and an open still loading ends
      * @param {String} appId
      */
     close(appId) {
@@ -115,29 +143,36 @@ class WindowManager extends Base {
             task   = me.taskStore.get(appId),
             window = me.#created.get(appId);
 
+        me.#closes.set(appId, (me.#closes.get(appId) || 0) + 1);
+        me.#windows.delete(appId);
+
         task && me.taskStore.remove(task);
         window && !window.hidden && window.hide()
     }
 
     /**
-     * Creates an app's window. A reset or a destroy during the load cancels it.
+     * Creates an app's window, unless its open ended during the load
      * @param {Object} record The app
-     * @returns {Promise<Neo.dialog.Base|null>} null when a reset ended the open
+     * @param {String} ticket The open's ticket
+     * @returns {Promise<Neo.dialog.Base|null>} null when the open ended
      */
-    async #createWindow(record) {
+    async #createWindow(record, ticket) {
         let me          = this,
-            resets      = me.#resets,
+            {id}        = record,
             WindowClass = await me.#loadWindowClass();
 
-        if (resets !== me.#resets) {
+        if (!me.#admits(id, ticket)) {
             return null
         }
 
-        let {id}   = record,
-            config = me.windowConfig?.(record) || {},
+        // Created hidden, a window shows once its open publishes, and it closes by hiding, since the manager keeps it
+        let config = me.windowConfig?.(record) || {},
             window = Neo.create(WindowClass, {
                 ...config,
-                style: {...config.style, zIndex: me.baseZIndex + me.#stack.length + 1}
+                autoShow   : false,
+                closeAction: 'hide',
+                hidden     : true,
+                style      : {...config.style, zIndex: me.baseZIndex + me.#stack.length + 1}
             });
 
         window.on({
@@ -154,14 +189,17 @@ class WindowManager extends Base {
     }
 
     /**
-     * Destroys the windows it created; a load still running creates none
+     * Destroys the windows it created and removes their tasks; a load still running creates none
      * @param {...*} args
      */
     destroy(...args) {
-        let me = this;
+        let me          = this,
+            {taskStore} = me;
 
         me.#resets++;
         me.appStore = null;
+
+        taskStore && !taskStore.isDestroyed && taskStore.clear();
 
         me.#created.forEach(window => {window.isDestroyed || window.destroy(true)});
         me.#created.clear();
@@ -252,30 +290,35 @@ class WindowManager extends Base {
     }
 
     /**
-     * Opens an app's window, or brings it back if it exists, and lists the app as a task
+     * Opens an app's window, or brings it back if it exists, and lists the app as a task. A window that exists opens at
+     * once; a new one waits for its load, which a second open joins.
      * @param {Object} record The app: its id, and `text`, `iconCls` and `color` for its task
-     * @returns {Promise<Neo.dialog.Base|null>} null when the load failed silently or a reset cancelled it
+     * @returns {Promise<Neo.dialog.Base|null>} null when the load failed silently or the open ended
      */
     async openApp(record) {
-        let me      = this,
-            {id}    = record,
-            windows = me.#windows,
-            request = windows.get(id),
-            window;
-
-        if (!request) {
-            request = me.#createWindow(record);
-            windows.set(id, request)
-        }
-
-        // A failed load, or one a reset cancelled, caches nothing: the next open loads again
-        try {
-            window = await request
-        } finally {
-            !window && windows.get(id) === request && windows.delete(id)
-        }
+        let me     = this,
+            {id}   = record,
+            ticket = me.#ticket(id),
+            window = me.#created.get(id);
 
         if (!window) {
+            let windows = me.#windows,
+                request = windows.get(id);
+
+            if (!request) {
+                request = me.#createWindow(record, ticket);
+                windows.set(id, request)
+            }
+
+            // The window lives on in #created, and a failed or ended load leaves nothing to join
+            try {
+                window = await request
+            } finally {
+                windows.get(id) === request && windows.delete(id)
+            }
+        }
+
+        if (!window || !me.#admits(id, ticket)) {
             return null
         }
 
@@ -296,12 +339,13 @@ class WindowManager extends Base {
 
     /**
      * Ends every open at once, as a sign-out does: loads in flight create no window, the tasks clear, and every window
-     * hides without animation. The windows are kept for the next open.
+     * hides without animation. The windows are kept for the next open, and an open after the reset loads afresh.
      */
     reset() {
         let me = this;
 
         me.#resets++;
+        me.#windows.clear();
         me.taskStore.clear();
         me.#created.forEach(window => {window.hidden || window.hide(false)})
     }
@@ -322,24 +366,29 @@ class WindowManager extends Base {
     }
 
     /**
-     * Shows a minimized app's window again, or brings a visible one to the front
+     * Shows a minimized app's window again, or brings a visible one to the front. Only an open app restores: a closed
+     * one has no task.
      * @param {String} appId
      */
     restore(appId) {
         let me     = this,
+            task   = me.taskStore.get(appId),
             window = me.#created.get(appId);
 
-        if (window) {
-            if (window.hidden) {
-                let task = me.taskStore.get(appId);
-
-                task && (task.minimized = false);
-                me.bringToFront(appId);
-                window.show()
-            } else {
-                me.bringToFront(appId)
-            }
+        if (task && window) {
+            task.minimized = false;
+            me.bringToFront(appId);
+            window.hidden && window.show()
         }
+    }
+
+    /**
+     * An open's ticket. A reset, a destroy or a close of the app makes it stale.
+     * @param {String} appId
+     * @returns {String}
+     */
+    #ticket(appId) {
+        return `${this.#resets}/${this.#closes.get(appId) || 0}`
     }
 }
 
