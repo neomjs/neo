@@ -122,7 +122,7 @@ test.describe('examples/desktop/basic', () => {
 
         const glyphs = await Promise.all([restore, minimize].map(button => button.locator('.neo-button-glyph').getAttribute('class')));
 
-        expect(glyphs[0], 'restore glyph').toContain('fa-window-restore');
+        expect(glyphs[0], 'restore glyph').toContain('fa-clone');
         expect(glyphs[0], 'not the minimize glyph').not.toBe(glyphs[1]);
 
         await restore.click();

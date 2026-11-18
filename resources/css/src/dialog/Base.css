@@ -92,9 +92,16 @@
                 }
             }
 
+            /* The glyph draws at text size inside a fixed box: the neo themes unset the button's own size, so the
+               box keeps every control a 24px target (WCAG 2.2 SC 2.5.8) */
             .neo-button-glyph {
-                color    : var(--dialog-icon-color);
-                font-size: 1.8em;
+                align-items    : center;
+                color          : var(--dialog-icon-color);
+                display        : inline-flex;
+                font-size      : 1em;
+                height         : 24px;
+                justify-content: center;
+                width          : 28px;
             }
 
             .neo-panel-header-text {
