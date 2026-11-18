@@ -99,8 +99,12 @@ test.describe('web desktop apps', () => {
             const window = windowOf(page, app);
 
             await expect(window.locator(view)).toBeVisible();
-            await expect.poll(async () => Math.round((await window.boundingBox()).width)).toBe(width);
-            await expectInsideWorkspace(page, window);
+
+            // A window mounts at its full width off-screen, then grows out of its icon: only its settled box has both
+            await expect(async () => {
+                expect(Math.round((await window.boundingBox()).width)).toBe(width);
+                await expectInsideWorkspace(page, window)
+            }).toPass();
 
             await window.getByRole('button', {name: 'close'}).click();
             await expect(window).toHaveCount(0)
