@@ -520,7 +520,7 @@ async function startCaddyInNetns({certPath, keyPath, neoRoot, starterRoot, proto
         '}'
     ].join('\n'));
 
-    const child = spawn('sudo', ['ip', 'netns', 'exec', NETNS_NAME, 'caddy', 'run', '--config', caddyfile], {
+    const child = spawn('sudo', ['ip', 'netns', 'exec', NETNS_NAME, 'caddy', 'run', '--config', caddyfile, '--adapter', 'caddyfile'], {
         stdio: ['ignore', 'pipe', 'pipe']
     });
 
@@ -545,12 +545,25 @@ async function startCaddyInNetns({certPath, keyPath, neoRoot, starterRoot, proto
     }
 
     return {
-        stop: () => {
+        stop: async () => {
+            if (child.exitCode !== null) {
+                return
+            }
+
+            const exited = new Promise(resolve => child.once('exit', resolve));
+
             try {
                 runOrThrow('sudo', ['ip', 'netns', 'exec', NETNS_NAME, 'pkill', '-TERM', 'caddy'])
             } catch {
                 child.kill('SIGTERM')
             }
+
+            const killTimer = setTimeout(() => {
+                spawnSync('sudo', ['ip', 'netns', 'exec', NETNS_NAME, 'pkill', '-KILL', 'caddy'], {stdio: 'ignore'})
+            }, 2000);
+
+            await exited;
+            clearTimeout(killTimer)
         }
     }
 }
@@ -738,7 +751,7 @@ async function measureSinglePageRun({browser, protocol, origin, url, kind}) {
         if (kind === 'portal') {
             const ti = performance.now();
             await page.locator('.portal-header-toolbar').getByRole('link', {name: 'Learn', exact: true}).click();
-            await page.waitForSelector('.portal-learn-maincontainer, .neo-tree-list', {timeout: 60000});
+            await page.waitForSelector('.neo-app-content-container, .neo-tree-list', {state: 'visible', timeout: 60000});
             interactionMs = performance.now() - ti;
 
             const tl = performance.now();
@@ -1017,7 +1030,7 @@ async function main() {
                     }
                 }
             } finally {
-                caddy.stop()
+                await caddy.stop()
             }
         }
 
