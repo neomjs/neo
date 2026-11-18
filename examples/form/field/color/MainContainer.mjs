@@ -1,21 +1,38 @@
-import CheckBox              from '../../../../src/form/field/CheckBox.mjs';
-import ColorField            from '../../../../src/form/field/Color.mjs';
-import ConfigurationViewport from '../../../ConfigurationViewport.mjs';
-import MainStore             from './MainStore.mjs';
-import NumberField           from '../../../../src/form/field/Number.mjs';
-import Radio                 from '../../../../src/form/field/Radio.mjs';
-import TextField             from '../../../../src/form/field/Text.mjs';
+import CheckBox       from '../../../../src/form/field/CheckBox.mjs';
+import ColorField     from '../../../../src/form/field/Color.mjs';
+import MainStore      from './MainStore.mjs';
+import NumberField    from '../../../../src/form/field/Number.mjs';
+import Radio          from '../../../../src/form/field/Radio.mjs';
+import StatesViewport from '../StatesViewport.mjs';
+import TextField      from '../../../../src/form/field/Text.mjs';
 
 /**
  * @class Neo.examples.form.field.color.MainContainer
- * @extends Neo.examples.ConfigurationViewport
+ * @extends Neo.examples.form.field.StatesViewport
  */
-class MainContainer extends ConfigurationViewport {
+class MainContainer extends StatesViewport {
     static config = {
-        className           : 'Neo.examples.form.field.color.MainContainer',
-        autoMount           : true,
-        configItemLabelWidth: 160,
-        layout              : {ntype: 'hbox', align: 'stretch'}
+        className    : 'Neo.examples.form.field.color.MainContainer',
+        autoMount    : true,
+        componentName: 'Color field',
+        layout       : {ntype: 'hbox', align: 'stretch'},
+
+        field: {
+            module         : ColorField,
+            labelPosition  : 'inline',
+            labelText      : 'Accent color',
+            placeholderText: 'Pick a color',
+            store          : MainStore,
+            triggerAction  : 'all',
+            width          : 240
+        },
+        states: {
+            filled  : {value: 3},
+            empty   : {},
+            invalid : {required: true},
+            disabled: {},
+            readOnly: {}
+        }
     }
 
     createConfigurationComponents() {
@@ -120,18 +137,6 @@ class MainContainer extends ConfigurationViewport {
             style    : {marginTop: '10px'},
             value    : me.exampleComponent.width
         }]
-    }
-
-    createExampleComponent() {
-        return Neo.create({
-            module       : ColorField,
-            labelPosition: 'inline',
-            labelText    : 'Colors',
-            labelWidth   : 55,
-            store        : MainStore,
-            triggerAction: 'all',
-            width        : 200
-        })
     }
 }
 
