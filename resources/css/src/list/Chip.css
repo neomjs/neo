@@ -1,10 +1,14 @@
 .neo-chip-list {
+    /* A chip at rest shows its outline on the list's surface, as it does on its own */
+    --list-item-background-color: transparent;
+
     border  : 1px solid #ddd;
     overflow: auto;
 
     .neo-list-item {
-        padding : 0;
-        outline : 0 none !important; /* TODO. Fix order so important can be removed */
+        border-radius: var(--chip-border-radius); /* the item shares the chip's box: hover and active fill the pill */
+        padding      : 0;
+        outline      : 0 none !important; /* TODO. Fix order so important can be removed */
 
         &[aria-selected="true"] {
             background-color: inherit !important; /* TODO. Fix order so important can be removed */
