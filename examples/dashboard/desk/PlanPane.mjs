@@ -57,10 +57,11 @@ class PlanPane extends Component {
     renderPlan() {
         let {reloadCount} = this;
 
+        // The counter shows once there is something to count: before a reload it would only be a note about a control
         this.html = [
             '<h3>Today\'s plan</h3>',
             '<ol>', ...plan.map(([goal, owners]) => `<li>${goal}<span>${owners}</span></li>`), '</ol>',
-            `<p class="neo-example-desk-plan-reloads">${reloadCount ? `Reloaded ${reloadCount}×` : 'Reload this pane from its header: it counts instead of being recreated.'}</p>`
+            reloadCount ? `<p class="neo-example-desk-plan-reloads">Reloaded ${reloadCount}×</p>` : ''
         ].join('')
     }
 }
