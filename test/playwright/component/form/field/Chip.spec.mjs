@@ -340,7 +340,7 @@ test.describe('Neo.form.field.Chip', () => {
 
         await expect(field.locator('.neo-chip')).toHaveCount(2);
 
-        // Room for the chips, a gap and the input's 80 px minimum, but not for the triggers as well
+        // Room for the chips, a gap and the input's 80 px basis, but not for the triggers as well
         const {listWidth, wrapper} = await layout(),
               fullRow              = listWidth + 4 + 80 + 10;
 
@@ -351,6 +351,43 @@ test.describe('Neo.form.field.Chip', () => {
 
         expect(narrow.trigger.left).toBeGreaterThanOrEqual(narrow.flowEnd);
         expect(narrow.wrapperEnd - narrow.trigger.right).toBeLessThan(1)
+    });
+
+    test('narrower than the input\'s 80 px, the input shrinks and stays clear of the triggers', async ({page}) => {
+        await loadStylesheets(page, [
+            '/dist/development/css/theme-neo-light/Global.css',
+            '/dist/development/css/theme-neo-light/component/Chip.css',
+            '/dist/development/css/theme-neo-light/form/field/Text.css'
+        ]);
+
+        const
+            field = page.locator(`#${componentId}`),
+            boxes = () => field.evaluate(element => {
+                const
+                    input    = element.querySelector('.neo-textfield-input').getBoundingClientRect(),
+                    triggers = [...element.querySelectorAll('.neo-chipfield-flow ~ .neo-field-trigger')]
+                        .map(node => node.getBoundingClientRect()).filter(rect => rect.width > 0);
+
+                return {
+                    fieldWidth: element.getBoundingClientRect().width,
+                    inputWidth: input.width,
+                    overlap   : input.right - Math.min(...triggers.map(rect => rect.left)),
+                    triggers  : triggers.length
+                }
+            });
+
+        // 100 px is inside the example's width inspector (50 to 300 px), with no chip and with one
+        for (const value of [[], ['alpha']]) {
+            await page.evaluate(({id, value}) => Neo.worker.App.setConfigs({id, theme: 'neo-theme-neo-light', value, width: 100}), {id: componentId, value});
+            await expect(field.locator('.neo-chip')).toHaveCount(value.length);
+            await expect.poll(async () => (await boxes()).fieldWidth).toBe(100);
+
+            const {inputWidth, overlap, triggers} = await boxes();
+
+            expect(triggers).toBeGreaterThan(0);
+            expect(overlap, `chips: ${value.length}`).toBeLessThanOrEqual(0);
+            expect(inputWidth, `chips: ${value.length}`).toBeGreaterThan(0)
+        }
     });
 
     test('a trigger change rebuilds the input wrapper and keeps the chips and the input in one flow', async ({page}) => {
