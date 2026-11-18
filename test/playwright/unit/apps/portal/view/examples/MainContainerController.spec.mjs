@@ -142,6 +142,24 @@ test.describe('Portal examples overview and group pages', () => {
         expect(view.getGroupPage('grid-table').getList().store.model).toBe(view.getCatalogStore().model)
     });
 
+    test('a component record is a tile: it counts as a live example, and its page\'s tileCount follows the build', () => {
+        const records = structuredClone(catalog),
+              forms   = records.filter(record => record.family === 'forms' && Example.publishes(record, 'dist_prod')),
+              tile    = forms[0];
+
+        Object.assign(tile, {kind: 'component', hiddenIn: ['dist_esm']});
+
+        const view = createView(records), group = () => view.getGroupStore().get('forms');
+
+        expect(view.getCatalogStore().get(forms[1].id).kind).toBe('demonstration');
+        expect(view.getCatalogStore().get(tile.id).kind).toBe('component');
+        expect([group().count, group().tileCount]).toEqual([forms.length, 1]);
+
+        // the same rule publishes a tile and a card: a build that cannot open the tile drops it from both counts
+        view.getController().onSelectBuild({id: 'dist_esm'});
+        expect([group().count, group().tileCount]).toEqual([forms.length - 1, 0])
+    });
+
     test('the overview counts the published examples into its headline and renders the featured Start here list', () => {
         const view     = createView(),
               overview = view.getOverview(),
