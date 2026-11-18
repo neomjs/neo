@@ -1026,6 +1026,7 @@ async function buildSingleCommitApps(starterParent) {
         'class LazyPanel extends Component {',
         '    static config = {',
         "        className: 'MyApp.view.LazyPanel',",
+        "        baseCls  : ['starter-lazy-panel'],",
         "        cls      : ['starter-lazy-panel'],",
         "        text     : 'Lazy module loaded'",
         '    }',
@@ -1037,7 +1038,7 @@ async function buildSingleCommitApps(starterParent) {
     const viewportFile = path.join(starterRoot, 'apps/myapp/view/Viewport.mjs');
     const viewportCode = fs.readFileSync(viewportFile, 'utf8').replace(
         /text:\s*'Have fun creating something awesome!'\s*\}\]/,
-        "text: 'Have fun creating something awesome!'\n            }, {\n                header: {iconCls: 'fa fa-bolt', text: 'Tab 3'},\n                module: () => import('./LazyPanel.mjs')\n            }]"
+        "text: 'Have fun creating something awesome!'\n            }, {\n                cls   : ['neo-examples-tab-component', 'starter-lazy-panel'],\n                header: {iconCls: 'fa fa-bolt', text: 'Tab 3'},\n                module: () => import('./LazyPanel.mjs')\n            }]"
     );
     if (!viewportCode.includes('LazyPanel.mjs')) {
         throw new Error(`Could not inject Tab 3 LazyPanel into ${viewportFile}`)
