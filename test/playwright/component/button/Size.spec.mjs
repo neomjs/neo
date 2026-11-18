@@ -3,7 +3,8 @@ import {test, expect} from '@playwright/test';
 /**
  * @summary `Neo.button.Base#size` sets a button's height, padding and text in every theme, over the size of its
  * context, and `null` keeps the context's: medium in the neo themes, inside a toolbar too. A button with only an
- * icon is as tall as one with text, at every size.
+ * icon is as tall as one with text, at every size. On a phone a size keeps its metrics in a toolbar, while a button
+ * without one takes the phone's padding and text.
  */
 
 const THEMES = ['neo-theme-light', 'neo-theme-dark', 'neo-theme-cyberpunk', 'neo-theme-neo-light', 'neo-theme-neo-dark'];
@@ -87,9 +88,11 @@ async function createButtons(page) {
             id        : 'size-toolbar',
             importPath: '../toolbar/Base.mjs',
             items     : [
-                {id: 'size-toolbar-null',  ntype: 'button', text: 'In a toolbar'},
-                {id: 'size-toolbar-icon',  ntype: 'button', iconCls: 'fa fa-cog'},
-                {id: 'size-toolbar-large', ntype: 'button', size: 'large', text: 'Large in a toolbar'}
+                {id: 'size-toolbar-null',   ntype: 'button', text: 'In a toolbar'},
+                {id: 'size-toolbar-icon',   ntype: 'button', iconCls: 'fa fa-cog'},
+                {id: 'size-toolbar-small',  ntype: 'button', size: 'small',  text: 'Small'},
+                {id: 'size-toolbar-medium', ntype: 'button', size: 'medium', text: 'Medium'},
+                {id: 'size-toolbar-large',  ntype: 'button', size: 'large',  text: 'Large in a toolbar'}
             ],
             ntype     : 'toolbar',
             parentId  : 'component-test-viewport',
@@ -192,6 +195,27 @@ test.describe('Neo.button.Base — size', () => {
             expect(inToolbar.height, 'a toolbar button without a size matches the default').toBe(heights.null);
             expect(await readHeight(page, 'size-toolbar-icon'), 'an icon button in a toolbar is as tall as a text one').toBe(inToolbar.height);
             expect(large.height, 'a size wins over the toolbar').toBe(heights.large)
+        });
+
+        test(`${theme}: on a phone a size keeps its metrics in a toolbar, and a button without one takes the phone's`, async ({page}) => {
+            await applyTheme(page, theme);
+
+            const desktop = {};
+
+            for (const size of ['small', 'medium', 'large']) {
+                desktop[size] = await readButton(page, `size-toolbar-${size}`)
+            }
+
+            await page.setViewportSize({width: 390, height: 844});
+
+            for (const size of ['small', 'medium', 'large']) {
+                expect(await readButton(page, `size-toolbar-${size}`), `${size} on a phone`).toEqual(desktop[size])
+            }
+
+            const contextual = await readButton(page, 'size-toolbar-null');
+
+            expect(contextual.paddingLeft, 'a button without a size takes the phone padding').toBe('5px');
+            expect(contextual.fontSize, 'and the phone text').toBe('13px')
         })
     }
 });
