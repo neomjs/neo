@@ -1,19 +1,19 @@
-import {timelineFields} from '../../../src/timeline/model/Event.mjs';
-import Button           from '../../../src/button/Base.mjs';
-import Component        from '../../../src/component/Base.mjs';
-import Label            from '../../../src/component/Label.mjs';
-import Scheduler        from '../../../src/scheduler/Container.mjs';
-import Toolbar          from '../../../src/toolbar/Base.mjs';
-import Viewport         from '../../../src/container/Viewport.mjs';
+import Button     from '../../../src/button/Base.mjs';
+import Component  from '../../../src/component/Base.mjs';
+import EventModel from '../../../src/timeline/model/Event.mjs';
+import Label      from '../../../src/component/Label.mjs';
+import Scheduler  from '../../../src/scheduler/Container.mjs';
+import Toolbar    from '../../../src/toolbar/Base.mjs';
+import Viewport   from '../../../src/container/Viewport.mjs';
 
 const
-    RESOURCE_COUNT = 300,
-    WEEKS_IN_YEAR  = 52,
-    MS_PER_DAY     = 86_400_000,
-    AXIS_START     = '2026-01-05',
-    AXIS_END       = '2027-01-05',
-    AXIS_START_MS  = Date.parse(`${AXIS_START}T00:00:00Z`),
-    YEAR_ZOOM      = {
+    RESOURCE_COUNT  = 300,
+    WEEKS_IN_YEAR   = 52,
+    MS_PER_DAY      = 86_400_000,
+    AXIS_START      = '2026-01-05',
+    AXIS_END        = '2027-01-05',
+    AXIS_START_MS   = Date.parse(`${AXIS_START}T00:00:00Z`),
+    THREE_WEEK_ZOOM = {
         majorTickStep: 1,
         majorTickUnit: 'week',
         pxPerMinute  : 0.045,
@@ -162,7 +162,7 @@ class BigDataViewport extends Viewport {
                     reference: 'plan-counts',
                     text     : `${RESOURCE_COUNT.toLocaleString('en-US')} people · ${bookings.length.toLocaleString('en-US')} bookings`
                 },
-                {module: Label, cls: ['year-plan-hint'], text: 'Scroll down through 300 people, then sideways through the year.'},
+                {module: Label, cls: ['year-plan-hint'], text: `Scroll down through ${RESOURCE_COUNT.toLocaleString('en-US')} people, then sideways through the year.`},
                 {module: Component, cls: ['year-plan-spacer'], flex: 1},
                 {
                     module: Component,
@@ -176,17 +176,17 @@ class BigDataViewport extends Viewport {
                         ]
                     }
                 },
-                {module: Button, cls: ['year-plan-zoom', 'year-plan-zoom-first'], reference: 'zoom-day',  text: 'Day',  pressed: false, handler: 'up.onDay'},
-                {module: Button, cls: ['year-plan-zoom'],                         reference: 'zoom-week', text: 'Week', pressed: false, handler: 'up.onWeek'},
-                {module: Button, cls: ['year-plan-zoom', 'year-plan-zoom-last'],  reference: 'zoom-year', text: 'Year', pressed: true,  handler: 'up.onYear'}
+                {module: Button, cls: ['year-plan-zoom', 'year-plan-zoom-first'], reference: 'zoom-day',  text: 'Day',     pressed: false, handler: 'up.onDay'},
+                {module: Button, cls: ['year-plan-zoom'],                         reference: 'zoom-week', text: 'Week',    pressed: false, handler: 'up.onWeek'},
+                {module: Button, cls: ['year-plan-zoom', 'year-plan-zoom-last'],  reference: 'zoom-3w',   text: '3 Weeks', pressed: true,  handler: 'up.onThreeWeeks'}
             ]
         }, {
             module        : Scheduler,
             reference     : 'scheduler',
             flex          : 1,
             rowHeight     : 44,
-            majorTickUnit : YEAR_ZOOM.majorTickUnit,
-            majorTickStep : YEAR_ZOOM.majorTickStep,
+            majorTickUnit : THREE_WEEK_ZOOM.majorTickUnit,
+            majorTickStep : THREE_WEEK_ZOOM.majorTickStep,
             majorFormatter: tick => tick.unit === 'week'
                 ? `Week · ${weekDateFormatter.format(tick.date)}`
                 : shortDateFormatter.format(tick.date),
@@ -208,19 +208,15 @@ class BigDataViewport extends Viewport {
             },
             eventStore: {
                 model: {
+                    module: EventModel,
                     fields: [
-                        ...timelineFields,
-                        {name: 'cls', defaultValue: null, nullable: true},
-                        {name: 'percentDone', type: 'Number', defaultValue: 0},
                         {name: 'kind', type: 'String', defaultValue: 'delivery'}
                     ]
                 },
                 data: bookings
             },
             barRenderer: (barDescriptor, {vdom}) => {
-                const
-                    kind = barDescriptor.bar?.kind ?? barDescriptor.bar?.get?.('kind'),
-                    cls  = BAR_CLS_BY_KIND[kind];
+                const cls = BAR_CLS_BY_KIND[barDescriptor.bar.kind];
 
                 if (cls) {
                     vdom.cls.push(cls)
@@ -232,10 +228,10 @@ class BigDataViewport extends Viewport {
                 start      : AXIS_START,
                 end        : AXIS_END,
                 timeZone   : 'UTC',
-                tickUnit   : YEAR_ZOOM.tickUnit,
-                tickStep   : YEAR_ZOOM.tickStep,
-                pxPerMinute: YEAR_ZOOM.pxPerMinute,
-                snapMinutes: YEAR_ZOOM.snapMinutes
+                tickUnit   : THREE_WEEK_ZOOM.tickUnit,
+                tickStep   : THREE_WEEK_ZOOM.tickStep,
+                pxPerMinute: THREE_WEEK_ZOOM.pxPerMinute,
+                snapMinutes: THREE_WEEK_ZOOM.snapMinutes
             }
         }]
     }
@@ -250,9 +246,9 @@ class BigDataViewport extends Viewport {
         this.applyZoom('week', 'zoom-week')
     }
 
-    /** @summary Restores the full-year overview scale across 52 weeks. */
-    onYear() {
-        this.applyZoom(YEAR_ZOOM, 'zoom-year')
+    /** @summary Switches to the 3-week overview scale (~18 days per 1440px viewport across the 52-week axis). */
+    onThreeWeeks() {
+        this.applyZoom(THREE_WEEK_ZOOM, 'zoom-3w')
     }
 
     /**
@@ -264,7 +260,7 @@ class BigDataViewport extends Viewport {
     applyZoom(preset, activeReference) {
         this.getReference('scheduler').zoomTo(preset);
 
-        for (const ref of ['zoom-day', 'zoom-week', 'zoom-year']) {
+        for (const ref of ['zoom-day', 'zoom-week', 'zoom-3w']) {
             this.getReference(ref).pressed = ref === activeReference
         }
     }

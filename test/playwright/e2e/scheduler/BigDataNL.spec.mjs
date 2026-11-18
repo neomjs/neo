@@ -33,6 +33,7 @@ test('renders 300 resources and 15,600 seeded bookings with bounded DOM bars acr
     await page.goto(EXAMPLE_URL);
 
     await expect(page.locator('.year-plan-counts')).toHaveText('300 people · 15,600 bookings');
+    await expect(page.locator('.year-plan-zoom-last')).toHaveText('3 Weeks');
     const firstBar = page.locator('.neo-scheduler .neo-timeline-bar').first();
     await expect(firstBar).toBeVisible();
 
@@ -73,6 +74,8 @@ test('renders 300 resources and 15,600 seeded bookings with bounded DOM bars acr
         }
     });
     await expect.poll(async () => (await page.locator('.neo-timeline-header-major').innerText())).toContain('Apr');
+    await expect(page.locator('.neo-scheduler .neo-timeline-bar[aria-label*="2026-04-"]').first()).toBeVisible();
+    await expect(page.locator('.neo-scheduler .neo-timeline-bar[aria-label*="2026-01-"]')).toHaveCount(0);
 
     const afterHorizontalBars = await page.locator('.neo-scheduler .neo-timeline-bar').count();
     expect(afterHorizontalBars).toBeGreaterThan(0);
