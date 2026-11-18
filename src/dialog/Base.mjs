@@ -110,6 +110,7 @@ class Dialog extends Panel {
             Escape: 'onKeyDownEscape'
         },
         /**
+         * The maximize action's glyph while the dialog is not maximized
          * @member {String} maximizeCls='far fa-window-maximize'
          */
         maximizeCls: 'far fa-window-maximize',
@@ -119,6 +120,8 @@ class Dialog extends Panel {
          */
         maximized_: false,
         /**
+         * The minimize action's glyph. The dialog has no minimize of its own: the action fires `headerAction`, and
+         * a window manager that can restore the dialog handles it (`Neo.desktop.WindowManager`).
          * @member {String} minimizeCls='far fa-window-minimize'
          */
         minimizeCls: 'far fa-window-minimize',
@@ -136,6 +139,11 @@ class Dialog extends Panel {
          * @member {Object} resizablePluginConfig=null
          */
         resizablePluginConfig: null,
+        /**
+         * The maximize action's glyph while the dialog is maximized: a click restores it
+         * @member {String} restoreCls='far fa-window-restore'
+         */
+        restoreCls: 'far fa-window-restore',
         /**
          * @member {String|null} title_=null
          * @reactive
@@ -254,6 +262,8 @@ class Dialog extends Panel {
         !firstCall && NeoArray.add(cls, 'animated-hiding-showing');
         NeoArray.toggle(cls, 'neo-maximized', value);
         me.update();
+
+        me.syncMaximizeAction();
 
         if (!firstCall) {
             await(me.timeout(250));
@@ -538,11 +548,13 @@ class Dialog extends Panel {
     }
 
     /**
-     *
+     * Creates the header toolbar. Its vocabulary gets the window controls the dialog dresses from its own configs
+     * ({@link #getWindowActionMap}); an entry of `headerConfig.actionMap` with the same name replaces one.
      */
     createHeader() {
         let me                  = this,
             {appName, windowId} = me,
+            headerConfig        = me.headerConfig || {},
             cls                 = ['neo-header-toolbar', 'neo-toolbar'],
             headers             = me.headers || [];
 
@@ -558,8 +570,12 @@ class Dialog extends Panel {
             listeners: {headerAction: me.executeHeaderAction, scope: me},
             title    : me.title,
             windowId,
-            ...me.headerConfig
+            ...headerConfig,
+            actionMap: {...me.getWindowActionMap(), ...headerConfig.actionMap}
         });
+
+        // A dialog created maximized offers the restore at once
+        me.maximized && me.syncMaximizeAction();
 
         headers.unshift(me.headerToolbar);
 
@@ -609,6 +625,30 @@ class Dialog extends Panel {
     }
 
     /**
+     * The window controls the dialog dresses from its own configs. Maximize is a `Neo.toolbar.ActionButton`
+     * toggle: `maximized` presses it ({@link #syncMaximizeAction}), and its glyph and accessible name then say what a
+     * click does next. Minimize is listed in no default `actions`: it belongs on a dialog a window manager can
+     * restore.
+     * @returns {Object} Action name → config factory
+     * @protected
+     */
+    getWindowActionMap() {
+        let me = this;
+
+        return {
+            maximize: () => ({
+                action            : 'maximize',
+                actionLabel       : 'maximize',
+                iconCls           : me.maximizeCls,
+                ntype             : 'toolbar-action-button',
+                pressedActionLabel: 'restore',
+                pressedIconCls    : me.restoreCls
+            }),
+            minimize: () => ({action: 'minimize', iconCls: me.minimizeCls})
+        }
+    }
+
+    /**
      * Hides the dialog and writes `hidden`. A landed dialog can animate out. Otherwise component.Base#hide
      * removes it, and leaves a dialog still in its mount flight to the flight.
      * @param {Boolean} animate=!!this.animateTargetId
@@ -646,14 +686,11 @@ class Dialog extends Panel {
     }
 
     /**
+     * The maximize action's handler: maximizes the dialog, or restores a maximized one
      * @param {Object} [data]
      */
     maximize(data) {
-        let me = this;
-
-        data.component.iconCls = me.maximized ? me.maximizeCls : me.minimizeCls;
-
-        me.maximized = !me.maximized
+        this.maximized = !this.maximized
     }
 
     /**
@@ -812,6 +849,15 @@ class Dialog extends Panel {
         }
 
         me.syncModalMask()
+    }
+
+    /**
+     * States `maximized` as the maximize action's `pressed`, for a click and a programmatic change alike. A header
+     * without that action has nothing to sync.
+     * @protected
+     */
+    syncMaximizeAction() {
+        this.headerToolbar?.getAction?.('maximize')?.set({pressed: this.maximized})
     }
 
     /**

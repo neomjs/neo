@@ -127,5 +127,34 @@ test.describe('Neo.desktop.WindowManager with a stock Neo.dialog.Base', () => {
 
         expect(mail.hidden).toBe(false);
         expect(tasks.get('mail').minimized).toBe(false)
+    });
+
+    test('a window the manager creates offers minimize first, since the manager can restore it', async () => {
+        const mail    = await open('mail'),
+              toolbar = mail.headerToolbar;
+
+        expect(toolbar.getActionItems().map(item => item.action)).toEqual(['minimize', 'maximize', 'close']);
+        expect(toolbar.getAction('minimize').iconCls).toBe(mail.minimizeCls)
+    });
+
+    test('a window whose vocabulary drops minimize gets none, and one that lists it keeps its own', async () => {
+        const windowConfig = manager.windowConfig;
+
+        manager.windowConfig = record => ({...windowConfig(record), headerConfig: {actionMap: {minimize: null}}});
+
+        expect((await open('mail')).headerToolbar.getAction('minimize')).toBeNull();
+
+        manager.destroy();
+        manager = Neo.create(WindowManager, {
+            appStore    : apps,
+            taskStore   : tasks,
+            windowClass : Dialog,
+            windowConfig: record => ({...windowConfig(record), headerConfig: {actions: ['close', 'minimize']}})
+        });
+
+        const toolbar = (await open('mail')).headerToolbar;
+
+        expect(toolbar.getActionItems().map(item => item.action)).toEqual(['close', 'minimize']);
+        expect(toolbar.getActionContributionItems()).toEqual([])
     })
 });

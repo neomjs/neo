@@ -11,7 +11,8 @@ import Base from '../core/Base.mjs';
  * Any `Neo.dialog.Base` works as {@link #windowClass}. The manager uses its `show()`, `hide()` and `hidden`, its
  * `hide` and `headerAction` events, and its `style.zIndex`. It creates each window hidden and shows it when the open
  * publishes. It keeps its windows, so it creates them with `closeAction: 'hide'`: the close button, Escape and an
- * animated hide all hide the dialog, where a stock dialog would destroy itself.
+ * animated hide all hide the dialog, where a stock dialog would destroy itself. It can restore what it minimizes, so
+ * it gives each window the minimize action of its header's vocabulary (`Neo.dialog.Base#getWindowActionMap`).
  *
  * A dialog has one fixed z-index and no order among dialogs, so each manager keeps a stack of the windows it created and
  * sets their z-index from {@link #baseZIndex} up: two desktops on one App worker keep separate orders. A `mousedown` on
@@ -187,6 +188,8 @@ class WindowManager extends Base {
 
         window.addDomListeners({mousedown: () => me.bringToFront(id)});
 
+        me.#offerMinimize(window);
+
         me.#created.set(id, window);
         me.#stack.push(window);
 
@@ -273,6 +276,18 @@ class WindowManager extends Base {
             task.minimized = true;
             window.hide()
         }
+    }
+
+    /**
+     * Gives a window the minimize action, a contribution ahead of its header's own actions. A header that lists
+     * minimize itself keeps its own, and one whose vocabulary drops it (`actionMap: {minimize: null}`) gets none.
+     * @param {Neo.dialog.Base} window
+     */
+    #offerMinimize(window) {
+        let toolbar = window.headerToolbar,
+            factory = toolbar?.actionMap?.minimize;
+
+        factory && !toolbar.getAction('minimize') && toolbar.addActionContribution(factory())
     }
 
     /**
