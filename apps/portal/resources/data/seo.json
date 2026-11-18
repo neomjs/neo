@@ -1559,49 +1559,85 @@
         "title": "CheckBoxField — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A checkbox wired to a live configuration panel: disabled, readOnly, required, error, label position and width. Flip disabled or readOnly in the panel, set...",
         "schemaType": "WebPage",
-        "lastmod": "2025-11-19"
+        "lastmod": "2026-11-18"
     },
     "/examples/form/field/chip/index.html": {
         "title": "ChipField — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A chip field selecting multiple store entries as removable chips. Remove a state chip with its icon, pick more states from the list, and watch the value...",
         "schemaType": "WebPage",
-        "lastmod": "2026-08-25"
+        "lastmod": "2026-11-18"
     },
     "/examples/form/field/color/index.html": {
         "title": "ColorField — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A color picker field listing entries from a store. Pick a color from the dropdown, then clear the field with its trigger.",
         "schemaType": "WebPage",
-        "lastmod": "2025-11-19"
+        "lastmod": "2026-11-18"
     },
     "/examples/form/field/combobox/index.html": {
         "title": "ComboBox — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A combo box over a store with a live configuration panel. Type to filter the list, choose an entry, then toggle readOnly or required from the panel.",
         "schemaType": "WebPage",
-        "lastmod": "2025-11-19"
+        "lastmod": "2026-11-18"
+    },
+    "/examples/form/field/country/index.html": {
+        "title": "CountryField — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable CountryField example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-18"
+    },
+    "/examples/form/field/currency/index.html": {
+        "title": "CurrencyField — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable CurrencyField example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-18"
     },
     "/examples/form/field/date/index.html": {
         "title": "DateField — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A date field with picker and live configuration. Pick a date, type an invalid one to see the error state, and move the label between left and top.",
         "schemaType": "WebPage",
-        "lastmod": "2025-11-19"
+        "lastmod": "2026-11-18"
+    },
+    "/examples/form/field/display/index.html": {
+        "title": "DisplayField — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable DisplayField example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-18"
     },
     "/examples/form/field/email/index.html": {
         "title": "EmailField — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "An email field validating its address. Replace the address with one missing an @ to see the failure state, then restore a valid one.",
         "schemaType": "WebPage",
-        "lastmod": "2025-11-19"
+        "lastmod": "2026-11-18"
     },
     "/examples/form/field/fileupload/index.html": {
         "title": "FileUploadField — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A file upload field wired to upload, status, download and delete endpoints. Choose a file and watch it stage on the field; the upload itself needs the local...",
         "schemaType": "WebPage",
-        "lastmod": "2024-08-17"
+        "lastmod": "2026-11-18"
+    },
+    "/examples/form/field/iban/index.html": {
+        "title": "IBANField — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable IBANField example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-18"
     },
     "/examples/form/field/number/index.html": {
         "title": "NumberField — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A number field which clears back to its original value. Change the number, then use the clear trigger — the original 20 returns.",
         "schemaType": "WebPage",
-        "lastmod": "2025-11-19"
+        "lastmod": "2026-11-18"
+    },
+    "/examples/form/field/password/index.html": {
+        "title": "PasswordField — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable PasswordField example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-18"
+    },
+    "/examples/form/field/phone/index.html": {
+        "title": "PhoneField — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable PhoneField example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-18"
     },
     "/examples/form/field/picker/index.html": {
         "title": "PickerField — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1613,49 +1649,67 @@
         "title": "RadioField — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A single radio field with a live configuration panel. Select the radio and adjust its label text or position from the panel.",
         "schemaType": "WebPage",
-        "lastmod": "2025-11-19"
+        "lastmod": "2026-11-18"
+    },
+    "/examples/form/field/range/index.html": {
+        "title": "RangeField — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable RangeField example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-18"
+    },
+    "/examples/form/field/search/index.html": {
+        "title": "SearchField — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable SearchField example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-18"
     },
     "/examples/form/field/select/index.html": {
         "title": "SelectField — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A select field over a fruit store. Pick a fruit from the list, then change the selection again.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-06"
+        "lastmod": "2026-11-18"
     },
     "/examples/form/field/switch/index.html": {
         "title": "SwitchField — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A switch field with a live configuration panel. Flip the switch and adjust its label from the panel.",
         "schemaType": "WebPage",
-        "lastmod": "2025-11-19"
+        "lastmod": "2026-11-18"
     },
     "/examples/form/field/text/index.html": {
         "title": "TextField — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A text field with the full live configuration panel. Type, clear via the trigger, and toggle required to see the empty-value failure.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-05"
+        "lastmod": "2026-11-18"
     },
     "/examples/form/field/textarea/index.html": {
         "title": "TextAreaField — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A text area with a live character count and a 200-character limit. Type and watch the character count track the 200-character limit.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-05"
+        "lastmod": "2026-11-18"
     },
     "/examples/form/field/time/index.html": {
         "title": "TimeField — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A time field with picker and inline label. Pick a different time and clear the field with the trigger.",
         "schemaType": "WebPage",
-        "lastmod": "2025-11-19"
+        "lastmod": "2026-11-18"
     },
     "/examples/form/field/trigger/copyToClipboard/index.html": {
         "title": "Copy to Clipboard Triggers — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A text field with a copy-to-clipboard trigger that appears on hover. Hover the field, copy its value with the clipboard trigger, and paste it anywhere.",
         "schemaType": "WebPage",
-        "lastmod": "2025-11-19"
+        "lastmod": "2026-11-18"
     },
     "/examples/form/field/url/index.html": {
         "title": "UrlField — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A URL field with placeholder and clear trigger. Type an address over the placeholder and clear it with the trigger.",
         "schemaType": "WebPage",
-        "lastmod": "2025-11-19"
+        "lastmod": "2026-11-18"
+    },
+    "/examples/form/field/zipcode/index.html": {
+        "title": "ZipCodeField — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable ZipCodeField example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-18"
     },
     "/examples/form/fieldset/index.html": {
         "title": "Fieldset — Web Worker JavaScript UI Demo | Neo.mjs",

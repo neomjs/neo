@@ -31,44 +31,29 @@ class GridContainer extends BaseGridContainer {
          * @member {Object[]} columns
          */
         columns: [{
-            dataField: 'id',
-            text     : '#',
-            type     : 'index',
-            width    : 48
-        }, {
             dataField: 'symbol',
             text     : 'Symbol',
-            width    : 96
-        }, {
-            dataField: 'name',
-            flex     : 2,
-            minWidth : 200,
-            text     : 'Company'
-        }, {
-            dataField: 'sector',
-            flex     : 1.3,
-            minWidth : 160,
-            text     : 'Sector'
+            width    : 88
         }, {
             cellAlign   : 'right',
-            compareField: 'change',
+            compareField: 'tickDelta',
             dataField   : 'value',
             locale      : 'en-US',
             text        : 'Price',
             type        : 'animatedCurrency',
-            width       : 130
+            width       : 86
         }, {
             cellAlign: 'right',
             dataField: 'change',
             locale   : 'en-US',
             text     : 'Change',
             type     : 'animatedCurrency',
-            width    : 120
+            width    : 94
         }, {
             cellAlign: 'right',
             dataField: 'changePercent',
             text     : 'Change %',
-            width    : 110,
+            width    : 104,
             /**
              * @summary Formats signed percent deltas with tabular semantic styling.
              * @param {Object} data
@@ -88,10 +73,20 @@ class GridContainer extends BaseGridContainer {
                 }
             }
         }, {
+            dataField: 'name',
+            flex     : 2,
+            minWidth : 200,
+            text     : 'Company'
+        }, {
+            dataField: 'sector',
+            flex     : 1.3,
+            minWidth : 160,
+            text     : 'Sector'
+        }, {
             cellAlign: 'right',
             dataField: 'volume',
             text     : 'Volume',
-            width    : 120,
+            width    : 110,
             /**
              * @summary Renders share volume in millions with one decimal place.
              * @param {Object} data
@@ -99,6 +94,12 @@ class GridContainer extends BaseGridContainer {
              * @returns {String}
              */
             renderer : ({value}) => value ? `${(value / 1e6).toFixed(1)}M` : ''
+        }, {
+            cellAlign: 'right',
+            dataField: 'id',
+            text     : '#',
+            type     : 'index',
+            width    : 48
         }]
     }
 }

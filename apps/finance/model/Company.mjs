@@ -27,11 +27,19 @@ class Company extends Model {
             name: 'name',
             type: 'String'
         }, {
+            name        : 'priorClose',
+            defaultValue: 0,
+            type        : 'Float'
+        }, {
             name: 'sector',
             type: 'String'
         }, {
             name: 'symbol',
             type: 'String'
+        }, {
+            name        : 'tickDelta',
+            defaultValue: 0,
+            type        : 'Float'
         }, {
             name        : 'value',
             defaultValue: 0,

@@ -131,7 +131,7 @@ class ViewportController extends Controller {
      * @summary Derives a deterministic opening quote tuple for a ticker symbol and list index.
      * @param {String} symbol
      * @param {Number} index
-     * @returns {{symbol: String, value: Number, change: Number, changePercent: Number, volume: Number}}
+     * @returns {{change: Number, changePercent: Number, priorClose: Number, symbol: String, tickDelta: Number, value: Number, volume: Number}}
      */
     seedQuote(symbol, index) {
         let hash = 17 + index * 31;
@@ -141,16 +141,19 @@ class ViewportController extends Controller {
         }
 
         const value         = Number((45 + (hash % 83500) / 100).toFixed(2)),
-              change        = Number((((hash % 137) - 65) / 10).toFixed(2)),
-              prior         = Math.max(1, value - change),
-              changePercent = Number(((change / prior) * 100).toFixed(2)),
+              rawChange     = Number((((hash % 137) - 65) / 10).toFixed(2)),
+              priorClose    = Number(Math.max(1, value - rawChange).toFixed(2)),
+              change        = Number((value - priorClose).toFixed(2)),
+              changePercent = Number(((change / priorClose) * 100).toFixed(2)),
+              tickDelta     = change,
               volume        = 2_400_000 + (hash % 656) * 100_000;
 
-        return {change, changePercent, symbol, value, volume}
+        return {change, changePercent, priorClose, symbol, tickDelta, value, volume}
     }
 
     /**
-     * @summary Applies one bounded price/volume tick against the currently visible (possibly filtered) store slice.
+     * @summary Applies one bounded price/volume tick against the currently visible (possibly filtered) store slice,
+     * keeping day `change` and `changePercent` consistently anchored to `priorClose` while recording the actual tick move in `tickDelta`.
      */
     updateRecord() {
         const me    = this,
@@ -167,14 +170,16 @@ class ViewportController extends Controller {
             return
         }
 
-        const delta         = Number((Math.random() * 8 - 4).toFixed(2)),
-              nextValue     = Math.max(5, Number((record.value + delta).toFixed(2))),
-              change        = Number((nextValue - (record.value - (record.change || 0))).toFixed(2)),
-              prior         = Math.max(1, nextValue - delta),
-              changePercent = Number(((delta / prior) * 100).toFixed(2)),
-              volume        = (record.volume || 0) + Math.round(Math.abs(delta) * 12500);
+        const prevValue     = record.value,
+              rawDelta      = Number((Math.random() * 8 - 4).toFixed(2)),
+              nextValue     = Math.max(5, Number((prevValue + rawDelta).toFixed(2))),
+              tickDelta     = Number((nextValue - prevValue).toFixed(2)),
+              priorClose    = record.priorClose > 0 ? record.priorClose : Number(Math.max(1, prevValue - (record.change || 0)).toFixed(2)),
+              change        = Number((nextValue - priorClose).toFixed(2)),
+              changePercent = Number(((change / priorClose) * 100).toFixed(2)),
+              volume        = (record.volume || 0) + Math.round(Math.abs(tickDelta) * 12500);
 
-        record.set({change: delta, changePercent, value: nextValue, volume})
+        record.set({change, changePercent, priorClose, tickDelta, value: nextValue, volume})
     }
 }
 

@@ -13,6 +13,7 @@ import {fileURLToPath}    from 'node:url';
 import Neo                from '../../../../../src/Neo.mjs';
 import * as core          from '../../../../../src/core/_export.mjs';
 import CompaniesStore     from '../../../../../apps/finance/store/Companies.mjs';
+import GridContainer      from '../../../../../apps/finance/view/GridContainer.mjs';
 import ViewportController from '../../../../../apps/finance/view/ViewportController.mjs';
 
 const
@@ -108,5 +109,56 @@ test.describe('Finance.view.ViewportController', () => {
         controller.onSearchChange({value: ''});
         controller.onCompaniesStoreFilter();
         expect(state.visibleCount).toBe(fixtures.length)
+    });
+
+    test('keeps change and changePercent anchored to priorClose across clamped ticks while Price flash follows tickDelta', () => {
+        harness = createHarness();
+
+        const {controller, store} = harness;
+        store.forEach((record, index) => record.setSilent(controller.seedQuote(record.symbol, index)));
+
+        // Every seeded quote derives change & changePercent consistently from value - priorClose
+        store.forEach(record => {
+            expect(record.change, record.symbol).toBe(Number((record.value - record.priorClose).toFixed(2)));
+            expect(record.changePercent, record.symbol).toBe(Number(((record.change / record.priorClose) * 100).toFixed(2)))
+        });
+
+        // Pin to one record so updateRecord() hits it deterministically
+        controller.onSearchChange({value: 'NVDA'});
+        const target = store.getAt(0);
+        target.setSilent({priorClose: 10, tickDelta: 0, value: 6.2, change: -3.8, changePercent: -38, volume: 1000});
+
+        const origRandom = Math.random;
+        Math.random = () => 0; // rawDelta = -4 -> clamps to floor 5 (actual move = -1.2)
+        try {
+            controller.updateRecord()
+        } finally {
+            Math.random = origRandom
+        }
+
+        expect(target.value).toBe(5);
+        expect(target.priorClose).toBe(10);
+        expect(target.tickDelta).toBe(-1.2);
+        expect(target.change).toBe(-5);
+        expect(target.changePercent).toBe(-50);
+        expect(target.volume).toBe(1000 + Math.round(1.2 * 12500));
+
+        // Positive day change with a negative tick: day change stays +9 while Price flash follows tickDelta (-1)
+        target.setSilent({priorClose: 10, tickDelta: 0, value: 20, change: 10, changePercent: 100});
+        Math.random = () => 0.375; // 0.375 * 8 - 4 = -1
+        try {
+            controller.updateRecord()
+        } finally {
+            Math.random = origRandom
+        }
+
+        expect(target.value).toBe(19);
+        expect(target.change).toBe(9);
+        expect(target.changePercent).toBe(90);
+        expect(target.tickDelta).toBe(-1);
+
+        const priceCol = GridContainer.config.columns.find(col => col.dataField === 'value');
+        expect(priceCol.compareField).toBe('tickDelta');
+        expect(target[priceCol.compareField]).toBe(-1)
     })
 });
