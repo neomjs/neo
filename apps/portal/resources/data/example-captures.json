@@ -359,33 +359,33 @@
       "id": "gallery",
       "viewport": {"width": 1280, "height": 720},
       "theme": "default",
-      "state": "The gallery as it opens: three rows of faces receding in perspective, with the selected face drawn large in front of the wall.",
+      "state": "Translate Z lowered one page in Gallery Controls (PageDown): three rows of faces fill the wall above their reflection, with the selected face drawn large in front of it, once the camera has come to rest.",
       "ready": [{"selector": ".neo-gallery-item img"}],
-      "steps": [],
-      "after": [{"selector": ".neo-gallery-item img"}],
-      "region": {"x": 320, "y": 120, "width": 640, "height": 360}
+      "steps": [{"kind": "press", "selector": ".neo-rangefield:has-text(\"Translate Z\") input", "key": "PageDown"}],
+      "after": [{"selector": ".neo-gallery-item.neo-selected img", "inRegion": true}],
+      "region": {"selector": ".neo-gallery-item.neo-selected", "anchor": "center", "width": 640, "height": 360}
     },
     {
       "id": "covid-helix",
       "viewport": {"width": 1280, "height": 720},
       "theme": "default",
-      "state": "Sorted by Deaths, with Translate Z raised one page (PageUp, -1500 to -600): the countries with the most deaths lead the front turn of the helix as cards with flag, name and figures.",
-      "dependencies": ["https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/flaticon/country_flags/png/"],
+      "state": "The helix as it opens, in alphabetical order: the front turn holds country cards with flag, cases, deaths and recoveries facing the camera, and the turns behind it curve away in depth.",
+      "dependencies": ["https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/data/cvid_static_countries.json", "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/flaticon/country_flags/png/"],
       "ready": [{"selector": ".neo-helix-item", "text": "Afghanistan"}],
-      "steps": [{"kind": "press", "selector": ".neo-rangefield:has-text(\"Translate Z\") input", "key": "PageUp"}, {"kind": "click", "selector": "button", "text": "Deaths"}],
-      "after": [{"selector": ".neo-helix-item img"}],
-      "region": {"x": 150, "y": 120, "width": 640, "height": 360}
+      "steps": [],
+      "after": [{"selector": ".neo-helix-item", "text": "Colombia", "inRegion": true}, {"selector": ".neo-helix-item", "text": "Comoros", "inRegion": true}],
+      "region": {"x": 60, "y": 200, "width": 640, "height": 360}
     },
     {
       "id": "covid-gallery",
       "viewport": {"width": 1280, "height": 720},
       "theme": "default",
-      "state": "Sorted by Deaths: the countries with the most deaths lead the gallery wall as cards with flag, name and figures, receding in perspective.",
-      "dependencies": ["https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/flaticon/country_flags/png/"],
+      "state": "Translate Z lowered two pages in Gallery Controls (PageDown twice): three rows of country cards in alphabetical order, each with its flag, cases, deaths and recoveries, with the selected card, Germany, drawn large in front of the wall once the camera has come to rest.",
+      "dependencies": ["https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/data/cvid_static_countries.json", "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/flaticon/country_flags/png/"],
       "ready": [{"selector": ".neo-gallery-item", "text": "Afghanistan"}],
-      "steps": [{"kind": "click", "selector": "button", "text": "Deaths"}],
-      "after": [{"selector": ".neo-gallery-item img"}],
-      "region": {"x": 320, "y": 120, "width": 640, "height": 360}
+      "steps": [{"kind": "press", "selector": ".neo-rangefield:has-text(\"Translate Z\") input", "key": "PageDown"}, {"kind": "press", "selector": ".neo-rangefield:has-text(\"Translate Z\") input", "key": "PageDown"}],
+      "after": [{"selector": ".neo-gallery-item.neo-selected", "text": "Germany", "inRegion": true}],
+      "region": {"selector": ".neo-gallery-item.neo-selected", "anchor": "center", "offsetY": -100, "width": 640, "height": 360}
     }
   ]
 }

@@ -198,7 +198,7 @@
         "feature": "Image items on a 3D helix that you reshape live",
         "lookFor": "Scroll over the helix, then change Radius and Perspective in Helix Controls.",
         "featured": true,
-        "image": "devmode/helix.png",
+        "image": "devmode/helix-14.jpg",
         "name": "component.Helix",
         "sourceUrl": "examples/component/helix",
         "urls": {
@@ -393,7 +393,7 @@
         "lookFor": "Under Sort By, choose Deaths and watch the countries reorder along the helix.",
         "scope": "Uses a static COVID data snapshot hosted on Pages.",
         "featured": true,
-        "image": "devmode/coronaHelix.png",
+        "image": "devmode/covid-helix-14.jpg",
         "name": "COVID-19 Helix",
         "sourceUrl": "examples/component/coronaHelix",
         "urls": {
@@ -411,7 +411,7 @@
         "lookFor": "Under Sort By, choose Deaths, then raise Amount Rows in Gallery Controls.",
         "scope": "Uses a static COVID data snapshot hosted on Pages.",
         "featured": true,
-        "image": "devmode/coronaGallery.png",
+        "image": "devmode/covid-gallery-14.jpg",
         "name": "COVID-19 Gallery",
         "sourceUrl": "examples/component/coronaGallery",
         "urls": {
@@ -428,7 +428,7 @@
         "feature": "Image items in a 3D gallery that you reshape live",
         "lookFor": "Raise Amount Rows in Gallery Controls until the wall fills the window, then press Order by Row.",
         "featured": true,
-        "image": "devmode/gallery.png",
+        "image": "devmode/gallery-14.jpg",
         "name": "component.Gallery",
         "sourceUrl": "examples/component/gallery",
         "urls": {
