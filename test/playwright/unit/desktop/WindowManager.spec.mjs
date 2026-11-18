@@ -624,5 +624,30 @@ test.describe('Neo.desktop.WindowManager: a task store it shares', () => {
 
         expect(mail.hidden).toBe(true);
         expect(tasks.get('mail')).toBe(owners)
+    });
+
+    test('a task a store listener puts in place of the manager\'s during its add stays the listener\'s, through a destroy', async () => {
+        harness = createHarness();
+
+        const {apps, manager, tasks} = harness;
+
+        let replacement = null,
+            replacing   = false;
+
+        tasks.on('mutate', ({addedItems}) => {
+            if (!replacing && addedItems?.some(task => task.id === 'mail')) {
+                replacing = true;
+                tasks.remove(tasks.get('mail'));
+                [replacement] = tasks.add({id: 'mail', text: 'the listener\'s mail'})
+            }
+        });
+
+        await manager.openApp(apps.get('mail'));
+
+        expect(tasks.get('mail'), 'the listener replaced the task').toBe(replacement);
+
+        manager.destroy();
+
+        expect(tasks.get('mail')).toBe(replacement)
     })
 });

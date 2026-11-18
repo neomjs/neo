@@ -357,8 +357,10 @@ class WindowManager extends Base {
         if (task) {
             task.minimized = false
         } else if (!taskStore.get(id)) {
-            taskStore.add({color: record.color, iconCls: record.iconCls, id, text: record.text});
-            me.#tasks.set(id, taskStore.get(id))
+            // The record is the manager's before the store announces it: a listener may put another in its place
+            task = taskStore.createRecord({color: record.color, iconCls: record.iconCls, id, text: record.text});
+            me.#tasks.set(id, task);
+            taskStore.add(task)
         }
         // Otherwise another owner's task holds the app's key: the window opens without a task of this manager
 
