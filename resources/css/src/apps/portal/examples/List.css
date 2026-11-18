@@ -5,12 +5,30 @@
 
     align-content        : start;
     display              : grid;
-    gap                  : 20px;
+    gap                  : 13.5px 24px;
     grid-auto-rows       : max-content;
-    /* No card below 410 px: a 640 px cover frame keeps its text at 0.64 of its size */
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 410px), 1fr));
+    /* 340 px minimum fits two columns inside compact viewports and three once the stage crosses 1100 px. */
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
     padding              : 16px 16px 0;
     transition           : padding var(--portal-transition-duration) var(--ease-out-soft);
+
+    @container (min-width: 1100px) {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+
+        &.portal-examples-list-lead > .neo-list-item:first-child {
+            grid-column: span 2;
+            grid-row   : span 2;
+
+            .neo-title {
+                font-size: 21px;
+            }
+
+            .portal-example-feature {
+                -webkit-line-clamp: 2;
+                font-size         : 14.5px;
+            }
+        }
+    }
 
     .neo-list-item {
         border-radius: 16px;
@@ -57,7 +75,7 @@
 
     .neo-item-bottom-position {
         /* The scrim is solid behind every line of text and fades only inside the top padding: a white cover stays legible. */
-        background     : linear-gradient(to top, var(--portal-examples-list-scrim) 0%, var(--portal-examples-list-scrim) calc(100% - 28px), transparent 100%);
+        background     : linear-gradient(to top, var(--portal-examples-list-scrim) 0%, var(--portal-examples-list-scrim) calc(100% - 22px), transparent 100%);
         bottom         : 0;
         box-sizing     : border-box;
         color          : var(--portal-examples-list-text);
@@ -68,22 +86,41 @@
         max-height     : 100%;
         overflow       : hidden;
         overflow-wrap  : anywhere;
-        padding        : 30px 18px 13px;
+        padding        : 24px 14px 10px;
         position       : absolute;
         right          : 0;
         z-index        : 2;
     }
 
+    .portal-example-title-row {
+        align-items    : baseline;
+        display        : flex;
+        flex           : none;
+        gap            : 10px;
+        justify-content: space-between;
+        min-width      : 0;
+    }
+
     .neo-title {
         color          : inherit;
         display        : flex;
-        flex           : none;
-        font-size      : 18px;
+        flex           : 0 1 auto;
+        font-size      : 16px;
         font-weight    : 600;
         line-height    : 1.25;
+        min-width      : 0;
         text-decoration: none;
         transition     : color var(--motion-fast) var(--ease-out-soft);
-        width          : fit-content;
+    }
+
+    .portal-example-open-cue {
+        color      : var(--portal-examples-list-text-muted);
+        flex       : none;
+        font-size  : 12px;
+        font-weight: 500;
+        line-height: 1.2;
+        transition : color var(--motion-fast) var(--ease-out-soft);
+        white-space: nowrap;
     }
 
     .portal-example-feature,
@@ -98,8 +135,8 @@
         -webkit-line-clamp: 2;
         flex              : none;
         font-size         : 14px;
-        line-height       : 1.4;
-        margin-top        : 4px;
+        line-height       : 1.38;
+        margin-top        : 3px;
     }
 
     /* The action line, the limits and the links wait behind hover, focus and selection. */
@@ -118,9 +155,17 @@
     .neo-list-item:hover,
     .neo-list-item:focus-within,
     .neo-list-item.neo-selected {
+        .portal-example-feature {
+            -webkit-line-clamp: 2;
+        }
+
         .portal-example-more {
             grid-template-rows: 1fr;
         }
+    }
+
+    .neo-list-item:hover .portal-example-open-cue {
+        color: var(--portal-examples-list-link-hover);
     }
 
     .portal-example-look-for {
@@ -139,8 +184,20 @@
         margin            : 6px 0 0;
     }
 
-    /* A narrow card has room for less: the clamp keeps the links inside it. */
-    @container (max-width: 430px) {
+    .neo-top-20 {
+        align-items: center;
+        display    : flex;
+        margin-top : 10px;
+    }
+
+    /* Compact 1×1 cards keep resting feature copy to one line so clear cover stays above 45 %. */
+    @container (max-width: 520px) {
+        .portal-example-feature {
+            -webkit-line-clamp: 1;
+            font-size         : 13.5px;
+            line-height       : 1.35;
+        }
+
         .portal-example-look-for {
             -webkit-line-clamp: 2;
         }
@@ -148,12 +205,10 @@
         .portal-example-scope {
             -webkit-line-clamp: 1;
         }
-    }
 
-    .neo-top-20 {
-        align-items: center;
-        display    : flex;
-        margin-top : 10px;
+        .neo-top-20 {
+            margin-top: 7px;
+        }
     }
 
     .neo-github-image {
@@ -183,20 +238,34 @@
         line-height: 1.4;
     }
 
+    .portal-example-group-badge {
+        color         : var(--portal-examples-list-text-muted);
+        flex          : none;
+        font-size     : 11px;
+        font-weight   : 600;
+        letter-spacing: 0.06em;
+        line-height   : 1.2;
+        margin-bottom : 2px;
+        text-transform: uppercase;
+    }
+
     .neo-multi-window {
-        align-items    : center;
-        background     : var(--portal-examples-list-scrim);
-        border-radius  : 50%;
-        box-shadow     : 0 5px 10px rgba(0, 0, 0, 0.3);
-        color          : var(--portal-examples-list-text);
-        display        : flex;
-        height         : 2em;
-        justify-content: center;
-        position       : absolute;
-        right          : 1em;
-        top            : 1em;
-        width          : 2em;
-        z-index        : 3;
+        align-items  : center;
+        background   : var(--portal-examples-list-scrim);
+        border       : 1px solid var(--portal-examples-list-edge);
+        border-radius: 999px;
+        box-shadow   : 0 5px 10px rgba(0, 0, 0, 0.3);
+        color        : var(--portal-examples-list-text);
+        display      : inline-flex;
+        font-size    : 11.5px;
+        font-weight  : 600;
+        gap          : 6px;
+        line-height  : 1.2;
+        padding      : 4px 10px;
+        position     : absolute;
+        right        : 12px;
+        top          : 12px;
+        z-index      : 3;
     }
 
     @media (max-width: 600px) {
