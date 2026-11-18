@@ -1,5 +1,6 @@
 :root .neo-theme-dark { /* .neo-chip */
     --chip-align-items             : center;
+    --chip-background-color        : #33343d;
     --chip-border                  : 1px solid #424242;
     --chip-border-color-focus      : #5d83a7;
     --chip-border-radius           : 15px;
