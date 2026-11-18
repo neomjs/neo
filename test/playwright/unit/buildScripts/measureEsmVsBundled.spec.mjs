@@ -69,6 +69,11 @@ test.describe('buildScripts/util/measure-esm-vs-bundled', () => {
         const patched   = patchImportAppManifest(workerSrc, ['apps/portal/app.mjs']);
 
         expect(patched).toContain('import("../../apps/portal/app.mjs")');
-        expect(patched).not.toContain('../../${path}.mjs')
+        expect(patched).not.toContain('../../${path}.mjs');
+
+        const minifiedPatched = patchImportAppManifest('export default{importApp(e){return import(`../../${e}.mjs`)}}', ['apps/portal/app.mjs']);
+
+        expect(minifiedPatched).toContain('import("../../apps/portal/app.mjs")');
+        expect(minifiedPatched).not.toContain('../../${e}.mjs')
     });
 });

@@ -38,15 +38,20 @@ jobs:
           node-version: '24'
           cache: 'npm'
 
-      - name: Install Caddy, iproute2 and OpenSSL
+      - name: Install Caddy static binary and verify iproute2/OpenSSL
         run: |
-          sudo apt-get update
-          sudo apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl gnupg iproute2 openssl
-          curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-          curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
-          sudo apt-get update
-          sudo apt-get install -y caddy
+          if ! command -v tc >/dev/null 2>&1; then
+            sudo DEBIAN_FRONTEND=noninteractive apt-get update
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends iproute2
+          fi
+          curl -fsSL -o /tmp/caddy.tar.gz https://github.com/caddyserver/caddy/releases/download/v2.8.4/caddy_2.8.4_linux_amd64.tar.gz
+          echo "b8bec15d14fb033562af9f207850027bcbaa1f891edc9efe00d38bf39e1bf9944f8b6b8eba041ddd4c171cd70c905174c704d705be2f23bc678fe1eaf37a2485  /tmp/caddy.tar.gz" | sha512sum -c -
+          sudo tar -xzf /tmp/caddy.tar.gz -C /usr/local/bin caddy
+          rm -f /tmp/caddy.tar.gz
           caddy version
+          ip -V
+          tc -V
+          openssl version
 
       - name: Install npm dependencies
         run: npm ci --ignore-scripts
@@ -55,7 +60,9 @@ jobs:
         run: npx playwright install chromium
 
       - name: Run HTTP/2 and HTTP/3 measurement harness
-        run: node buildScripts/util/measure-esm-vs-bundled.mjs --runs "${{ inputs.runs || '5' }}" --output-markdown measurement-report.md --output-json measurement-raw.json
+        env:
+          RUNS: ${{ inputs.runs || '5' }}
+        run: node buildScripts/util/measure-esm-vs-bundled.mjs --runs "$RUNS" --output-markdown measurement-report.md --output-json measurement-raw.json
 
       - name: Publish measurement summary
         if: always() && hashFiles('measurement-report.md') != ''

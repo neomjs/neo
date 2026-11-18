@@ -5,12 +5,13 @@
  * and an `esbuild --splitting` probe for Portal and a generated starter app under Linux `netem` link shaping.
  *
  * Builds Portal and a freshly scaffolded starter app from the same commit, serves them via Caddy over
- * HTTP/2 (TCP) and HTTP/3 (QUIC/UDP) inside an isolated Linux network namespace shaped with `tc netem`
- * namespace shaped with `tc netem` (`0 ms`, `50 ms`, `150 ms`, and `50 ms + 1% loss`), measures 5 cold and 5
- * warm Playwright Chromium loads plus post-frame interaction and lazy extension timing, and verifies the
- * exact `nextHopProtocol` (`h2` or `h3`) and App Worker module import waterfall depth.
+ * HTTP/2 (TCP) and HTTP/3 (QUIC/UDP) inside an isolated Linux network namespace shaped with `tc netem` (`0 ms`,
+ * `50 ms`, `150 ms`, and `50 ms + 1% loss`), measures 5 cold and 5 warm Playwright Chromium loads plus
+ * post-frame interaction and lazy extension timing, and verifies the exact `nextHopProtocol` (`h2` or `h3`) and
+ * App Worker module import waterfall depth.
  */
 import {chromium}                       from '@playwright/test';
+import * as acorn                       from 'acorn';
 import * as esbuild                     from 'esbuild';
 import {execFileSync, spawn, spawnSync} from 'node:child_process';
 import fs                               from 'node:fs';
@@ -193,22 +194,49 @@ export function summarizeFiveRuns(runs, expectedProtocol, requireNetworkProtocol
  * @returns {String} Patched source module text.
  */
 export function patchImportAppManifest(source, entries) {
-    const
-        pattern = /return\s+import\((?:\/\*[\s\S]*?\*\/|\s)*`\.\.\/\.\.\/\$\{([a-zA-Z_$][\w$]*)\}\.mjs`\s*\)/,
-        match   = source.match(pattern);
+    let targetImport = null;
 
-    if (!match) {
+    const visit = node => {
+        if (!node || typeof node !== 'object' || targetImport) {
+            return
+        }
+
+        if (Array.isArray(node)) {
+            node.forEach(visit);
+            return
+        }
+
+        if (
+            node.type === 'ImportExpression' &&
+            node.source?.type === 'TemplateLiteral' &&
+            node.source.expressions.length === 1 &&
+            node.source.quasis[0]?.value?.cooked === '../../' &&
+            node.source.quasis[1]?.value?.cooked === '.mjs'
+        ) {
+            targetImport = node;
+            return
+        }
+
+        Object.keys(node).forEach(key => key !== 'parent' && visit(node[key]))
+    };
+
+    visit(acorn.parse(source, {ecmaVersion: 'latest', sourceType: 'module'}));
+
+    if (!targetImport) {
         throw new Error('Could not locate computed `import(\\`../../${path}.mjs\\`)` inside App worker for esbuild probe')
     }
 
     const
-        argName  = match[1],
+        expr     = targetImport.source.expressions[0],
+        argText  = source.slice(expr.start, expr.end),
         branches = entries.map(entry => {
             const key = entry.replace(/\.mjs$/, '');
-            return `${argName}===${JSON.stringify(key)}?import(${JSON.stringify('../../' + entry)})`
-        });
+            return `v===${JSON.stringify(key)}?import(${JSON.stringify('../../' + entry)})`
+        }),
+        bodyExpr    = [...branches, 'Promise.reject(new Error("Unadmitted app: "+v))'].join(':'),
+        replacement = `((v=>${bodyExpr})(${argText}))`;
 
-    return source.replace(pattern, `return(${branches.join(':')}:Promise.reject(new Error("Unadmitted app: "+${argName})))`)
+    return source.slice(0, targetImport.start) + replacement + source.slice(targetImport.end)
 }
 
 /**
@@ -671,7 +699,7 @@ async function collectCdpMetrics(page, origin, attachedSessions, browserCdp, laz
  */
 async function measureSinglePageRun({browser, protocol, origin, url, kind}) {
     const
-        context          = await browser.newContext({ignoreHTTPSErrors: true}),
+        context          = await browser.newContext({ignoreHTTPSErrors: true, viewport: {width: 1440, height: 1000}}),
         page             = await context.newPage(),
         pageCdp          = await context.newCDPSession(page),
         browserCdp       = await browser.newBrowserCDPSession(),
@@ -709,13 +737,13 @@ async function measureSinglePageRun({browser, protocol, origin, url, kind}) {
 
         if (kind === 'portal') {
             const ti = performance.now();
-            await page.click('text=Learn');
+            await page.locator('.portal-header-toolbar').getByRole('link', {name: 'Learn', exact: true}).click();
             await page.waitForSelector('.portal-learn-maincontainer, .neo-tree-list', {timeout: 60000});
             interactionMs = performance.now() - ti;
 
             const tl = performance.now();
-            await page.click('text=Connect');
-            await page.waitForSelector('h1:has-text("Connect")', {timeout: 60000});
+            await page.locator('.portal-header-toolbar').getByRole('link', {name: 'Connect', exact: true}).click();
+            await page.waitForSelector('.portal-services-component h1:has-text("Connect")', {timeout: 60000});
             lazyExtensionMs = performance.now() - tl
         } else {
             const ti = performance.now();
@@ -771,8 +799,15 @@ async function buildSingleCommitApps(starterParent) {
     console.log('[2/4] Packing engine and scaffolding Starter App (neo-app@13.4.1)...');
     fs.mkdirSync(starterParent, {recursive: true});
 
-    const packJson = JSON.parse(runOrThrow('npm', ['pack', '--json', '--pack-destination', starterParent], {cwd: ROOT}));
-    const tgzPath  = path.join(starterParent, packJson[0].filename);
+    const packDir = path.join(starterParent, 'pack');
+    fs.mkdirSync(packDir, {recursive: true});
+    runOrThrow('npm', ['pack', '--pack-destination', packDir], {cwd: ROOT});
+
+    const tgzFile = fs.readdirSync(packDir).find(file => file.endsWith('.tgz'));
+    if (!tgzFile) {
+        throw new Error(`npm pack produced no .tgz archive in ${packDir}`)
+    }
+    const tgzPath = path.join(packDir, tgzFile);
 
     runOrThrow('npx', [
         '--yes', 'neo-app@13.4.1',
@@ -782,7 +817,7 @@ async function buildSingleCommitApps(starterParent) {
 
     const starterRoot = path.join(starterParent, 'starter');
 
-    runOrThrow('npm', ['install', '--no-save', '--ignore-scripts', tgzPath], {cwd: starterRoot});
+    runOrThrow('npm', ['install', '--no-save', '--ignore-scripts', tgzPath, 'highlight.js@^11.12.0'], {cwd: starterRoot});
     runOrThrow('npm', ['run', 'bundle-parse5'], {cwd: starterRoot});
     runOrThrow('npm', ['run', 'bundle-marked'], {cwd: starterRoot});
 
