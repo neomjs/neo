@@ -209,7 +209,7 @@ const executeReviewAdmissionPublisher = async(script, runtime, envOverrides = {}
         MERGEABILITY_CONCURRENCY      : '4',
         MERGEABILITY_POLL_ATTEMPTS    : '4',
         MERGEABILITY_POLL_DELAY_MS    : '0',
-        MERGEABILITY_POLL_MAX_DELAY_MS: '15000',
+        MERGEABILITY_POLL_MAX_DELAY_MS: '30000',
         MERGEABILITY_MAX_RESTARTS     : '3',
         GITHUB_SERVER_URL             : 'https://github.com',
         GITHUB_RUN_ID                 : '32700000000',
@@ -270,9 +270,9 @@ test.describe('review-admission mergeability controller (#17692, #20061, #20344)
         expect(step.env).toEqual({
             OVERFLOW_WRITE_DELAY_MS       : '1000',
             MERGEABILITY_CONCURRENCY      : '4',
-            MERGEABILITY_POLL_ATTEMPTS    : '25',
-            MERGEABILITY_POLL_DELAY_MS    : '1000',
-            MERGEABILITY_POLL_MAX_DELAY_MS: '15000',
+            MERGEABILITY_POLL_ATTEMPTS    : '7',
+            MERGEABILITY_POLL_DELAY_MS    : '2000',
+            MERGEABILITY_POLL_MAX_DELAY_MS: '30000',
             MERGEABILITY_MAX_RESTARTS     : '3'
         });
     });
@@ -588,5 +588,66 @@ test.describe('review-admission mergeability controller (#17692, #20061, #20344)
 
         expect(thrashError.statusCalls.map(call => call.state)).toEqual(['error']);
         expect(thrashError.failures).toEqual(['PR #42 head/base moved through 2 bounded coordinates.']);
+    });
+
+    test('pre-warms every open PR once before polling and bounds a 32-PR worst-case sweep under the 1,000 REST/hr budget', async () => {
+        const step    = publishStep(),
+              script  = step.with.script,
+              prewarm = createReviewAdmissionRuntime({
+                  eventName: 'push',
+                  targets  : [1, 2, 3, 4, 5].map(number => ({number, head: {sha: `head-${number}`}})),
+                  readsByPr: {
+                      1: [mergeabilityPull(null, {number: 1, head: 'head-1'})],
+                      2: [mergeabilityPull(null, {number: 2, head: 'head-2'})],
+                      3: [mergeabilityPull(true, {number: 3, head: 'head-3'})],
+                      4: [mergeabilityPull(true, {number: 4, head: 'head-4'})],
+                      5: [mergeabilityPull(true, {number: 5, head: 'head-5'})]
+                  }
+              }),
+              sweep32     = createReviewAdmissionRuntime({
+                  eventName: 'push',
+                  targets  : Array.from({length: 32}, (_, index) => ({
+                      number: index + 1,
+                      head  : {sha: `sweep-head-${index + 1}`}
+                  })),
+                  readsByPr: Object.fromEntries(
+                      Array.from({length: 32}, (_, index) => [
+                          index + 1,
+                          [mergeabilityPull(null, {number: index + 1, head: `sweep-head-${index + 1}`})]
+                      ])
+                  )
+              }),
+              singleDelay = createReviewAdmissionRuntime({
+                  eventName    : 'pull_request_target',
+                  eventPrNumber: 42,
+                  readsByPr    : {42: [mergeabilityPull(null)]}
+              });
+
+        await executeReviewAdmissionPublisher(script, prewarm, {
+            MERGEABILITY_CONCURRENCY  : '2',
+            MERGEABILITY_POLL_ATTEMPTS: '3',
+            MERGEABILITY_POLL_DELAY_MS: '1000'
+        });
+        await executeReviewAdmissionPublisher(script, sweep32, step.env);
+        await executeReviewAdmissionPublisher(script, singleDelay, step.env);
+
+        expect(prewarm.pullReads.slice(0, 5).map(read => read.pull_number).sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5]);
+        expect(prewarm.statusCalls.map(call => [call.sha, call.state]).sort((a, b) => a[0].localeCompare(b[0]))).toEqual([
+            ['head-1', 'pending'],
+            ['head-2', 'pending'],
+            ['head-3', 'success'],
+            ['head-4', 'success'],
+            ['head-5', 'success']
+        ]);
+
+        const totalRestCalls = sweep32.listCalls.length + sweep32.pullReads.length + sweep32.statusReads.length + sweep32.statusCalls.length;
+
+        expect(sweep32.statusCalls).toHaveLength(32);
+        expect(sweep32.statusCalls.every(call => call.state === 'pending')).toBe(true);
+        expect(sweep32.pullReads).toHaveLength(320);
+        expect(totalRestCalls).toBe(385);
+        expect(totalRestCalls).toBeLessThanOrEqual(400);
+
+        expect(singleDelay.delays).toEqual([2000, 4000, 8000, 16000, 30000, 30000]);
     });
 });
