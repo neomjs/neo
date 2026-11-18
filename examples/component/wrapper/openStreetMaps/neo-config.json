@@ -4,5 +4,6 @@
     "environment"     : "development",
     "mainPath"        : "./Main.mjs",
     "mainThreadAddons": ["OpenStreetMaps", "Stylesheet"],
-    "openLayersVersion": "10.6.0"
+    "openLayersVersion": "10.6.0",
+    "themes"          : ["neo-theme-dark", "neo-theme-light"]
 }

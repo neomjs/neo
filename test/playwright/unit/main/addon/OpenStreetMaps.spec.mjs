@@ -387,6 +387,25 @@ test.describe('main.addon.OpenStreetMaps markers and messages', () => {
         addon.setCenter({id: mapId, value: {lat: 10, lng: 20}});
 
         expect(map.getView().getCenter()).toEqual([20, 10])
+    });
+
+    test('the map element says when every tile of the view is drawn, and when a new load starts', async () => {
+        const element = {dataset: {}};
+
+        DomAccess.getElement = id => id === mapId ? element : null;
+
+        const map = await createMap();
+
+        expect(element.dataset.rendered).toBeUndefined();
+
+        map.listeners.loadstart();
+        expect(element.dataset.rendered).toBe('false');
+
+        map.listeners.rendercomplete();
+        expect(element.dataset.rendered).toBe('true');
+
+        map.listeners.loadstart();
+        expect(element.dataset.rendered).toBe('false')
     })
 });
 

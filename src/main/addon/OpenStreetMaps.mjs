@@ -159,6 +159,10 @@ class OpenStreetMaps extends Base {
             map.on('moveend',     ()    => me.onMapZoomChange(map, mapId));
             map.on('pointermove', event => me.onPointerMove(map, event));
 
+            // `data-rendered` tells a capture or a test whether every tile of the current view is drawn
+            map.on('loadstart',      () => {mapElement.dataset.rendered = 'false'});
+            map.on('rendercomplete', () => {mapElement.dataset.rendered = 'true'});
+
             Object.values(me.markers[mapId] || {}).forEach(({data}) => me.renderMarker(data));
 
             return {success: true, mapId}
