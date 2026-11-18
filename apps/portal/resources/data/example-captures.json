@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "families": ["grid-table", "gantt", "scheduler"],
+  "families": ["grid-table", "gantt", "scheduler", "charts"],
   "suffix": "14",
   "tiles": [
     "examples/form/field/checkbox", "examples/form/field/chip", "examples/form/field/color", "examples/form/field/combobox",
@@ -367,6 +367,17 @@
       "steps": [],
       "after": [{"selector": ".year-plan-counts", "text": "300 people · 15,600 bookings"}, {"selector": ".neo-timeline-bar", "inRegion": true}],
       "region": {"selector": ".neo-scheduler", "anchor": "top-left", "width": 640, "height": 360}
+    },
+    {
+      "id": "open-street-maps",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "Iceland with the example's 51 earthquake markers from its local file, at zoom 6.",
+      "dependencies": ["https://tile.openstreetmap.org/", "https://cdn.jsdelivr.net/npm/ol@10.6.0/"],
+      "ready": [{"selector": ".neo-button", "text": "Fly to Iceland"}, {"selector": "[data-rendered='true'] .ol-viewport"}],
+      "steps": [],
+      "after": [{"selector": ".ol-attribution", "text": "OpenStreetMap"}, {"selector": "input", "value": "6"}],
+      "region": {"x": 320, "y": 110, "width": 640, "height": 360}
     }
   ]
 }

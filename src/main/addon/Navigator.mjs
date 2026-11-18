@@ -10,6 +10,9 @@ const enterActivatedTags = {
     BUTTON: 1
 };
 
+// The keys a `workerChords` subscriber leaves to the App Worker while Ctrl or Cmd is down
+const chordKeys = new Set(['ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'End', 'Home']);
+
 /**
  * Addon for Navigator
  * @class Neo.main.addon.Navigator
@@ -188,7 +191,7 @@ class Navigator extends Base {
      * @param {Object} data
      */
     navigateKeyDownHandler(keyEvent, data) {
-        if (data.workerKeys?.includes(keyEvent.key)) {
+        if (data.workerKeys?.includes(keyEvent.key) || data.workerChords && (keyEvent.ctrlKey || keyEvent.metaKey) && chordKeys.has(keyEvent.key)) {
             keyEvent.preventDefault();
             return
         }
@@ -497,6 +500,8 @@ class Navigator extends Base {
      * TabPanels will use this on their tab toolbar.
      * @param {String[]} [data.workerKeys] Keys owned by logical App-Worker navigation. Cancels their
      * browser default without a mounted-DOM action; the event still reaches the worker.
+     * @param {Boolean} [data.workerChords=false] True when the App Worker owns the arrow, Home and End keys pressed
+     * with Ctrl or Cmd, as a launcher's reorder does: the same treatment as `workerKeys`, while plain keys navigate.
      * @param {Boolean} [data.scrollIntoView=true] False when the worker owns logical scrolling.
      */
     subscribe(data) {
