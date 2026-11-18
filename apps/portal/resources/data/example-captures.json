@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "families": ["grid-table", "gantt", "scheduler"],
+  "families": ["grid-table", "gantt", "scheduler", "dashboard"],
   "suffix": "14",
   "tiles": [
     "examples/form/field/checkbox", "examples/form/field/chip", "examples/form/field/color", "examples/form/field/combobox",
@@ -357,6 +357,36 @@
       "steps": [],
       "after": [{"selector": ".neo-timeline-bar", "text": "Quartet recording", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Piano", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Orchestral mix", "inRegion": true}],
       "region": {"selector": ".neo-scheduler", "anchor": "top-left", "width": 640, "height": 360}
+    },
+    {
+      "id": "dock-layouts",
+      "viewport": {"width": 640, "height": 360},
+      "theme": "default",
+      "state": "The operations desk's first frame: the perspectives bar over Strategy with today's plan, the Terminal and Logs feeds, and Cedar the builder in the Inspector.",
+      "ready": [{"selector": ".neo-example-desk-plan", "text": "Today's plan"}, {"selector": ".neo-example-desk-inspector-role", "text": "Builder"}],
+      "steps": [],
+      "after": [{"selector": ".neo-dashboard-dock-perspective-toolbar", "text": "Perspectives", "inRegion": true}, {"selector": ".neo-example-desk-plan", "text": "Today's plan", "inRegion": true}, {"selector": ".neo-tab-header-button", "text": "Terminal", "inRegion": true}, {"selector": ".neo-tab-header-button", "text": "Logs", "inRegion": true}, {"selector": ".neo-example-desk-inspector-role", "text": "Builder", "inRegion": true}],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "dock-cross-window",
+      "viewport": {"width": 640, "height": 360},
+      "theme": "default",
+      "state": "The cross-window dock's first layout three seconds in: the Tour bar over the Workbench pane with its counter running, and the Inspector, Timeline and Console tabs beside it.",
+      "ready": [{"selector": ".agentos-dockdemo-counter-label", "text": "Workbench"}],
+      "steps": [{"kind": "wait", "selector": ".agentos-dockdemo-counter-value", "text": "3s unbroken"}],
+      "after": [{"selector": ".agentos-dockdemo-tour-play", "text": "Tour", "inRegion": true}, {"selector": ".agentos-dockdemo-counter-value", "text": "3s unbroken", "inRegion": true}, {"selector": ".agentos-dockdemo-counter-note", "text": "same worker instance", "inRegion": true}, {"selector": ".neo-tab-header-button", "text": "Inspector", "inRegion": true}],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "dock-choreography",
+      "viewport": {"width": 640, "height": 360},
+      "theme": "default",
+      "state": "The choreography's first frame, as its 13.2 cover showed it: the Tour bar over the Editor pane with its live clock, and the Preview pane beside it.",
+      "ready": [{"selector": ".agentos-dockdemo-clock-note", "text": "live through every transition"}],
+      "steps": [],
+      "after": [{"selector": ".agentos-dockdemo-tour-play", "text": "Tour", "inRegion": true}, {"selector": ".agentos-dockdemo-clock-note", "text": "live through every transition", "inRegion": true}, {"selector": ".neo-tab-header-button", "text": "Editor", "inRegion": true}, {"selector": ".neo-tab-header-button", "text": "Preview", "inRegion": true}],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     }
   ]
 }
