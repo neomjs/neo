@@ -528,7 +528,8 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
         const survivorSize = await readWindowSize(survivingTearOut);
 
         expectFrameAtPaneSize({height: survivorSize.outerHeight, width: survivorSize.outerWidth}, arming.paneRect, 'the fresh vessel, as the browser shows it,');
-        await expectContentFillsWindow(survivingTearOut, vesselContent, 'the fresh vessel');        expect(after.tearOutAcquisitionAttempts).toBe(2);
+        await expectContentFillsWindow(survivingTearOut, vesselContent, 'the fresh vessel');
+        expect(after.tearOutAcquisitionAttempts).toBe(2);
         expect(after.popupDocument).toEqual(before.popupDocument);
         expect(after.dockModel.items.workbench).toEqual(before.dockModel.items.workbench);
         expect(Object.values(after.dockModel.nodes).some(node => node.items?.includes('workbench'))).toBe(false);
