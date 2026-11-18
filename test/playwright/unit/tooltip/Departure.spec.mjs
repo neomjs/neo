@@ -272,6 +272,54 @@ test.describe('Neo.tooltip.Base — one visible tooltip per window, and a warm s
         expect(secondShows[0] - entered, 'a mounted tooltip that never painted does not warm the window').toBeGreaterThanOrEqual(70)
     });
 
+    test('an alignment of a show its departure retired paints nothing, also once the same tooltip shows again', async () => {
+        const {host}     = makeHost({windowId: 'retired-alignment-window'}),
+              {setStyle} = Neo.main.DomAccess,
+              alignments = [];
+        let owner = Object.getPrototypeOf(Tooltip.prototype),
+            releaseRemoval;
+
+        while (!Object.hasOwn(owner, 'alignTo')) {
+            owner = Object.getPrototypeOf(owner)
+        }
+
+        const {alignTo} = owner;
+
+        // The tooltip's own alignTo() runs, and Main answers each alignment when the test says so. A mount asks for
+        // its alignment without waiting on it, as `Component#afterSetMounted` does
+        delete host.alignTo;
+        owner.alignTo       = () => new Promise(resolve => alignments.push(resolve));
+        host.initVnode      = async () => {host.mounted = true; await null; host.alignTo()};
+        Neo.main.DomAccess.setStyle = Neo.emptyFn;
+
+        try {
+            await showOn(host, 'target-1');
+            expect(alignments, 'control: the mount asked Main to align it').toHaveLength(1);
+
+            host.unmount = () => {host.mounted = false; return new Promise(resolve => {releaseRemoval = resolve})};
+            host.onDelegateMouseLeave({currentTarget: 'target-1', relatedTarget: {id: 'page'}});
+            expect(typeof releaseRemoval, 'control: the departure before the paint started the removal').toBe('function');
+
+            host.onDelegateMouseEnter({currentTarget: 'target-1'});
+            host.activeTarget = {id: 'target-1'};
+            await expect.poll(() => host._hidden, 'control: the same tooltip shows again while its removal is held').toBe(false);
+
+            alignments[0]();
+            await wait(10);
+            expect(host.painted, 'the retired show\'s alignment paints nothing').toBeFalsy();
+
+            releaseRemoval();
+            await expect.poll(() => alignments.length, 'control: the new mount asks for its own alignment').toBe(2);
+            expect(host.painted, 'not before its own alignment lands').toBeFalsy();
+
+            alignments[1]();
+            await expect.poll(() => host.painted, 'its own alignment paints it').toBe(true)
+        } finally {
+            owner.alignTo               = alignTo;
+            Neo.main.DomAccess.setStyle = setStyle
+        }
+    });
+
     test('the next tooltip of a window enters the DOM only once the previous one has left it', async () => {
         const {host: first}                      = makeHost({windowId: 'serial-window'}),
               {host: second, shows: secondShows} = makeHost({windowId: 'serial-window'});

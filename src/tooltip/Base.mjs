@@ -126,6 +126,12 @@ class Tooltip extends Container {
      * @protected
      */
     painted = false
+    /**
+     * A fresh object per {@link #retire}: an alignment Main answers after the latest one served a show that is over
+     * @member {Object|null} retirement=null
+     * @protected
+     */
+    retirement = null
 
     /**
      * @summary Listens for the delegated mouseenter and mouseleave on a component, once per instance. A target must lie
@@ -232,18 +238,19 @@ class Tooltip extends Container {
 
     /**
      * Aligns a tooltip that is still meant to show, which paints it. One hidden while its insert was on its way lands
-     * in the DOM unaligned, which keeps it out of sight (`Base.css`) until its landing removes it.
+     * in the DOM unaligned, which keeps it out of sight (`Base.css`) until its landing removes it. An alignment that
+     * Main answers after a retirement painted nothing, also when the tooltip shows again meanwhile.
      * @param {Object} [spec={}]
      * @returns {Promise<void>}
      */
     async alignTo(spec={}) {
-        let me = this;
+        let me           = this,
+            {retirement} = me;
 
         if (!me._hidden) {
             await super.alignTo(spec);
 
-            // Hidden while Main aligned it, the tooltip is on its way out, and its alignment showed nothing
-            me._hidden || (me.painted = true)
+            me.retirement === retirement && !me._hidden && (me.painted = true)
         }
     }
 
@@ -433,8 +440,9 @@ class Tooltip extends Container {
         // on the alignment's own channel hides the unpainted tooltip first
         me.mounted && !me.painted && Neo.main.DomAccess.setStyle({id: me.id, style: {visibility: 'hidden'}, windowId});
 
-        me._hidden = true;
-        me.painted = false;
+        me._hidden    = true;
+        me.painted    = false;
+        me.retirement = {};
 
         let out = me.mounted ? me.unmount() : me.mountFlight;
 
