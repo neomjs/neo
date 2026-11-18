@@ -1,3 +1,4 @@
+import fs                          from 'node:fs';
 import {expect, test}              from '../../fixtures.mjs';
 import * as RmaHelpers             from '../../util/RmaHelpers.mjs';
 import {countPixelsUnlikeDominant} from '../utils/pngPixels.mjs';
@@ -20,6 +21,10 @@ const
     APP_OWN   = '/examples/button/base/index.html',
     GROUP_KEY = 'neo-canvas-group',
     MIN_DRAWN = 20,
+    // The engine fails a canvas group whose worker never answers after `CanvasGroups#startBound`, read from its source
+    // rather than restated. A worker's `error` event usually reports a failed load much sooner, but a loaded runner can
+    // deliver it late, and a wait shorter than the bound then fails a correct engine.
+    START_BOUND = Number(fs.readFileSync(new URL('../../../../src/worker/CanvasGroups.mjs', import.meta.url), 'utf8').match(/startBound\s*:\s*(\d+)/)[1]),
     VALUES    = [[1, 6, 2, 8, 3, 9, 4], [9, 2, 8, 1, 7, 3, 6], [5, 1, 9, 1, 9, 1, 5]];
 
 /**
@@ -220,10 +225,20 @@ test.describe('canvas groups: every root paints through its own group\'s canvas 
 
         await bootRoot(rootB, APP_LAZY);
 
-        const b = await createWitness(rootB, 'witness-failed');
+        const b       = await createWitness(rootB, 'witness-failed'),
+              started = Date.now(),
+              report  = () => [...bErrors, ...workerErrors.lines].find(line => /canvas worker unavailable/.test(line));
 
-        await expect.poll(() => [...bErrors, ...workerErrors.lines].some(line => /canvas worker unavailable/.test(line)),
-            {message: 'the failed group\'s canvas component reports its worker as unavailable', timeout: 20000}).toBe(true);
+        await expect.poll(() => Boolean(report()), {
+            message: `the failed group's canvas component reports its worker as unavailable within the engine's ${START_BOUND} ms start bound`,
+            timeout: START_BOUND + 10000
+        }).toBe(true);
+
+        // Which path reported, the worker's `error` event (`load`) or the start bound (`silent`), and when
+        test.info().annotations.push({
+            type       : 'canvas-start-failure',
+            description: `${report().match(/did not start \((\w+)\)/)?.[1] || 'cause not in the line'} after ${Date.now() - started} ms`
+        });
 
         expect(await RmaHelpers.getComponentConfig(rootB, b.id, 'offscreenRegistered'), 'no worker adopted the failed group\'s canvas').toBe(false);
 
