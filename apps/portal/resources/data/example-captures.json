@@ -419,13 +419,13 @@
     },
     {
       "id": "dock-cross-window",
-      "viewport": {"width": 640, "height": 360},
+      "viewport": {"width": 640, "height": 456},
       "theme": "default",
-      "state": "The whole workspace before the tour, five seconds after it opens: the Workbench pane counts the seconds it has run unbroken in one render-target mount, beside the Inspector, Timeline and Console tabs.",
+      "state": "The dock five seconds after the workspace opens, framed below the tour bar, whose caption a narrow window cuts: the Workbench pane counts the seconds it has run unbroken in one render-target mount, beside the Inspector, Timeline and Console tabs.",
       "ready": [{"selector": ".agentos-dockdemo-counter-value", "text": "unbroken"}],
       "steps": [{"kind": "wait", "selector": ".agentos-dockdemo-counter-value", "text": "5s unbroken"}],
-      "after": [{"selector": ".agentos-dockdemo-counter-value", "text": "unbroken", "inRegion": true}, {"selector": "button", "text": "Tour", "inRegion": true}],
-      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+      "after": [{"selector": ".agentos-dockdemo-counter-value", "text": "unbroken", "inRegion": true}, {"selector": "button", "text": "Console", "inRegion": true}],
+      "region": {"x": 0, "y": 96, "width": 640, "height": 360}
     },
     {
       "id": "dock-tear-out",
