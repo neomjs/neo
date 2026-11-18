@@ -92,6 +92,7 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'portal/DocsMixinsNL.spec.mjs',
     'portal/ExamplesCatalogNL.spec.mjs',
     'portal/HomeAudienceDoorsNL.spec.mjs',
+    'portal/HomeComponentPreviews.spec.mjs',
     'portal/VideosNL.spec.mjs',
     'realworld/EmailMultiWindowNL.spec.mjs',
     'rendering/ButtonBaseNL.spec.mjs',
