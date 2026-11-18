@@ -57,9 +57,9 @@ class FeatureSection extends Container {
         links_: null,
         /**
          * The text in front of the links
-         * @member {String} linksLabel='More in the engine:'
+         * @member {String} linksLabel='More components:'
          */
-        linksLabel: 'More in the engine:',
+        linksLabel: 'More components:',
         /**
          * @member {String|null} livePreviewCode_=null
          * @reactive
@@ -168,11 +168,13 @@ class FeatureSection extends Container {
     afterSetContentItems(value, oldValue) {
         let {sideBySide} = this;
 
-        // A side-by-side preview is its active view from the start: activate() runs it
+        // A side-by-side preview is its active view from the start: activate() runs it.
+        // Its code column is half the page: the smaller type shows a snippet of 45 lines whole.
         value ??= [{
             module          : LivePreview,
             cls             : ['page-live-preview'],
             disableRunSource: sideBySide,
+            editorConfig    : sideBySide ? {fontSize: 12, options: {folding: false, lineHeight: 14, lineNumbersMinChars: 3}} : null,
             reference       : 'live-preview',
             sideBySide,
             value           : this.livePreviewCode

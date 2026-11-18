@@ -121,13 +121,13 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
         const hero      = await queryOne(app, {className: 'Portal.view.home.parts.hero.Content'});
         const doors     = await queryOne(app, {reference: 'home-audience-doors'});
         const bodyEntry = await queryOne(app, {reference: 'home-body-entry'});
-        const scheduler = await queryOne(app, {className: 'Portal.view.home.parts.Scheduler'});
+        const planning  = await queryOne(app, {className: 'Portal.view.home.parts.Planning'});
         const agentOs   = await queryOne(app, {reference: 'home-agent-os'});
 
         expect(header?.id).toBeTruthy();
         expect(home?.id).toBeTruthy();
         expect(hero?.id).toBeTruthy();
-        expect(scheduler?.id).toBeTruthy();
+        expect(planning?.id).toBeTruthy();
         expect(doors?.className).toBe('Portal.view.home.parts.AudienceDoors');
         expect(bodyEntry?.className).toBe('Portal.view.home.parts.Grid');
         expect(agentOs?.className).toBe('Portal.view.home.parts.AiToolchain');
@@ -217,7 +217,7 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
 
         // Embedded Viewport previews inside LivePreview must keep their theme scoped instead of hijacking document.body.
         // The home's own snippets mount no themed Viewport, so this witness hands one to a preview in tab mode.
-        const previewId = await page.locator(`#${scheduler.id} .neo-code-live-preview`).getAttribute('id');
+        const previewId = await page.locator(`#${planning.id} .neo-code-live-preview`).getAttribute('id');
         expect(previewId).toBeTruthy();
         await app.setProperties(previewId, {activeView: 'source', sideBySide: false});
         await app.setProperties(previewId, {value: [
@@ -232,7 +232,7 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
             "MainView = Neo.setupClass(MainView);"
         ].join('\n')});
         await app.setProperties(previewId, {activeView: 'preview'});
-        await expect(page.locator(`#${scheduler.id} .neo-viewport.neo-theme-dark`)).toBeAttached({timeout: 15000});
+        await expect(page.locator(`#${planning.id} .neo-viewport.neo-theme-dark`)).toBeAttached({timeout: 15000});
         await expect(page.locator('body')).toHaveClass(/neo-theme-neo-dark/);
         await expect(page.locator('body')).not.toHaveClass(/(^|\s)neo-theme-dark(\s|$)/);
         expect(await page.locator(`#${header.id}`).evaluate(el => el.getBoundingClientRect().height)).toBe(initialHeaderHeight);

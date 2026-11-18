@@ -15,7 +15,7 @@ import {test, expect} from '@playwright/test';
  * The shape is reachable, not hypothetical, and the precise reach is worth stating. `theme_` is a
  * first-class per-component config (`src/component/Base.mjs`), so any consumer can open a scope
  * anywhere. In this repository the classic-inside-neo case shipped as `livePreviewCode` on the home
- * until its two demo pages became a grid and a scheduler; a live preview whose source sets `theme`
+ * until its two demo pages built their views from engine classes; a live preview whose source sets `theme`
  * on its root mounts one, outside the default page render (`HomeAudienceDoorsNL.spec.mjs` hands the
  * home such a source).
  *

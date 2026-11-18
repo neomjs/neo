@@ -1,7 +1,8 @@
 import FeatureSection from '../FeatureSection.mjs';
 
 /**
- * @summary The home's first component proof: a data grid on 50,000 records beside the code that builds it.
+ * @summary The home's grid proof: 300 records under a live feed, beside the code that builds the grid and the
+ * feed. Prices tick, changes turn green or red, and each row draws its own trend.
  * @class Portal.view.home.parts.Grid
  * @extends Portal.view.home.FeatureSection
  */
@@ -46,29 +47,44 @@ class Grid extends FeatureSection {
         livePreviewCode: [
             "import GridContainer from '../grid/Container.mjs';",
             "",
-            "const data = Array.from({length: 50000}, (_, i) => ({",
-            "    id     : i + 1,",
-            "    account: `Account ${i + 1}`,",
-            "    region : ['EMEA', 'Americas', 'APAC'][i % 3],",
-            "    sales  : 100000 + Math.round(Math.random() * 900000),",
-            "    quota  : Math.round(Math.random() * 100)",
-            "}));",
+            "const pick  = (list, i) => list[i % list.length];",
+            "const head  = ['Nova', 'Lumi', 'Astra', 'Verta', 'Kine', 'Orbi', 'Soli', 'Tera'],",
+            "      tail  = ['tek', 'cor', 'dyne', 'gen', 'lux', 'nix', 'wave'],",
+            "      trade = ['Energy', 'Robotics', 'Logistics', 'Biotech', 'Aerospace'];",
+            "// A random walk: every step moves the price by up to 2.5 %",
+            "const walk  = (price, steps) =>",
+            "    Array.from({length: steps}, () => price *= 1 + (Math.random() - .5) / 20);",
             "",
-            "const columns = [",
-            "    {type: 'index', dataField: 'id', text: '#', width: 60},",
-            "    {dataField: 'account', text: 'Account', width: 180},",
-            "    {dataField: 'region', text: 'Region', width: 120},",
-            "    {type: 'currency', dataField: 'sales', text: 'Sales', width: 140},",
-            "    {type: 'progress', dataField: 'quota', text: 'Quota', width: 190}",
-            "];",
+            "const data = Array.from({length: 300}, (_, id) => {",
+            "    const trend = walk(20 + Math.random() * 480, 24), price = trend.at(-1), [open] = trend;",
+            "    return {id, name: `${pick(head, id)}${pick(tail, id)} ${pick(trade, id)}`,",
+            "            price, trend, open, change: price - open, demand: Math.random() * 100}",
+            "});",
+            "// One tick of the feed: a new price, the trend moved on, the change since the open",
+            "const tick = record => {",
+            "    const [price] = walk(record.price, 1), trend = [...record.trend.slice(1), price];",
+            "    record.set({price, trend, change: price - record.open})",
+            "};",
+            "const money = {type: 'animatedCurrency', compareField: 'change', width: 110};",
             "",
             "class MainView extends GridContainer {",
             "    static config = {",
             "        className: 'Portal.view.HomeGrid',",
-            "        columns,",
-            "        store    : {",
-            "            data,",
-            "            model: {fields: columns.map(c => ({name: c.dataField}))}",
+            "        columns  : [",
+            "            {dataField: 'name', text: 'Company', width: 190, locked: 'start'},",
+            "            {...money, dataField: 'price', text: 'Price'},",
+            "            {...money, dataField: 'change', text: 'Change'},",
+            "            {type: 'sparkline', dataField: 'trend', text: 'Trend', width: 150},",
+            "            {type: 'progress', dataField: 'demand', text: 'Demand', width: 126}",
+            "        ],",
+            "        store: {data, model: {fields: Object.keys(data[0]).map(name => ({name}))}}",
+            "    }",
+            "    async onConstructed() {",
+            "        super.onConstructed();",
+            "        const {store} = this;",
+            "        for (;;) {",
+            "            await this.timeout(100);",
+            "            for (let n = 0; n < 20; n++) tick(store.getAt(Math.random() * store.count | 0))",
             "        }",
             "    }",
             "}",
@@ -78,19 +94,19 @@ class Grid extends FeatureSection {
          * @member {String} paragraph
          */
         paragraph: [
-            'The code next to it is the whole grid: 50,000 records, currency and progress cells, a sort on every ',
-            'header. It runs in a worker, so scrolling never waits for the page. Change the code and the grid ',
-            'follows, or move it into its own window.'
+            'A feed changes twenty of 300 records every tenth of a second, and the grid follows: prices tick, ',
+            'changes turn green or red, each row draws its trend. It runs in a worker, so scrolling never waits ',
+            'for the feed. Change the code and the grid follows, or move it into its own window.'
         ].join(''),
         /**
          * @member {Boolean} sideBySide=true
          */
         sideBySide: true,
         /**
-         * @member {String} subHeadline='50,000 Rows · 29 Lines'
+         * @member {String} subHeadline='Live Data · 44 Lines'
          * @reactive
          */
-        subHeadline: '50,000 Rows · 29 Lines',
+        subHeadline: 'Live Data · 44 Lines',
         /**
          * @member {String} textContainerPosition='top'
          * @reactive

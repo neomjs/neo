@@ -200,6 +200,19 @@ test.describe('Neo.code.LivePreview — side by side', () => {
         expect(preview.cls).not.toContain('neo-side-by-side')
     });
 
+    test('editorConfig reaches the source editor at creation and at run time', () => {
+        preview = Neo.create(LivePreview, {disableRunSource: true, editorConfig: {fontSize: 12}});
+
+        const editor = preview.getItem('editor');
+
+        expect(editor.fontSize).toBe(12);
+
+        preview.editorConfig = {fontSize: 13, options: {lineHeight: 15}};
+
+        expect(editor.fontSize).toBe(13);
+        expect(editor.options).toEqual({lineHeight: 15})
+    });
+
     test('side by side an edit runs once typing pauses; in tabs it runs at once', async () => {
         let runs = 0;
 

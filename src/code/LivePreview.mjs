@@ -75,6 +75,13 @@ class LivePreview extends Container {
          */
         disableRunSource: false,
         /**
+         * Configs for the source editor, a {@link Neo.component.wrapper.MonacoEditor}: `{fontSize: 12}` fits a
+         * longer snippet into a narrow column.
+         * @member {Object|null} editorConfig_=null
+         * @reactive
+         */
+        editorConfig_: null,
+        /**
          * @member {Boolean} enableFullscreen=true
          */
         enableFullscreen: true,
@@ -186,6 +193,16 @@ class LivePreview extends Container {
      */
     afterSetActiveView(value, oldValue) {
         this.tabContainer.activeIndex = value === 'source' ? 0 : 1
+    }
+
+    /**
+     * @summary Hands the configs to the source editor: to its config object before the items exist, to the editor after.
+     * @param {Object|null} value
+     * @param {Object|null} oldValue
+     * @protected
+     */
+    afterSetEditorConfig(value, oldValue) {
+        value && Object.assign(this.getItem('editor'), value)
     }
 
     /**

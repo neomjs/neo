@@ -26,10 +26,10 @@ import DomApiVnodeCreator from '../../../../../../../src/vdom/util/DomApiVnodeCr
 import VdomHelper         from '../../../../../../../src/vdom/Helper.mjs';
 import ContentBox         from '../../../../../../../apps/portal/view/home/ContentBox.mjs';
 import Grid               from '../../../../../../../apps/portal/view/home/parts/Grid.mjs';
-import Scheduler          from '../../../../../../../apps/portal/view/home/parts/Scheduler.mjs';
 import HeaderToolbar      from '../../../../../../../apps/portal/view/HeaderToolbar.mjs';
 import HeroContent        from '../../../../../../../apps/portal/view/home/parts/hero/Content.mjs';
 import MainContainer      from '../../../../../../../apps/portal/view/home/MainContainer.mjs';
+import Planning           from '../../../../../../../apps/portal/view/home/parts/Planning.mjs';
 
 const brainDocUrl       = 'https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/MemoryCore.md',
       currentDir        = path.dirname(fileURLToPath(import.meta.url)),
@@ -114,12 +114,12 @@ test.describe('Portal.view.home.ContentBox', () => {
             const h2Texts = h2Nodes.map(node => node.textContent);
             expect(h2Texts).toEqual(expect.arrayContaining([
                 'Data Grid',
-                'Scheduler',
+                'Gantt & Task Board',
                 'How?',
                 'The Agent OS Brain'
             ]));
 
-            for (const headline of ['Data Grid', 'Scheduler', 'How?', 'The Agent OS Brain']) {
+            for (const headline of ['Data Grid', 'Gantt & Task Board', 'How?', 'The Agent OS Brain']) {
                 const headingNode = h2Nodes.find(node => node.textContent === headline);
                 expect(headingNode?.className).toContain('neo-h1');
             }
@@ -129,15 +129,24 @@ test.describe('Portal.view.home.ContentBox', () => {
                 expect(subNode?.className).toContain('neo-h2');
             }
 
-            // The grid page's sub-headline counts its own snippet, and both snippets build from engine classes alone
-            expect(Grid.config.subHeadline).toBe(`50,000 Rows · ${Grid.config.livePreviewCode.split('\n').length} Lines`);
-            expect(Grid.config.livePreviewCode).toContain('length: 50000');
+            // The grid page's sub-headline counts its own snippet, whose feed writes records
+            expect(Grid.config.subHeadline).toBe(`Live Data · ${Grid.config.livePreviewCode.split('\n').length} Lines`);
+            expect(Grid.config.livePreviewCode).toContain('record.set(');
 
-            for (const part of [Grid, Scheduler]) {
-                const imports = part.config.livePreviewCode.split('\n').filter(line => line.startsWith('import '));
+            // The planning page binds one store to both of its views
+            expect(Planning.config.livePreviewCode.match(/bind: \{store: 'stores\.plan'\}/g)).toHaveLength(2);
+
+            // Both snippets build from engine classes alone, and fit the code column of a 1440×900 window whole:
+            // 48 lines of 91 characters in the type the page gives its editor
+            for (const part of [Grid, Planning]) {
+                const lines   = part.config.livePreviewCode.split('\n'),
+                      imports = lines.filter(line => line.startsWith('import '));
 
                 expect(imports.length).toBeGreaterThan(0);
-                imports.forEach(line => expect(line).toMatch(/ from '\.\.\/[a-z]+\/[A-Za-z]+\.mjs';$/))
+                imports.forEach(line => expect(line).toMatch(/ from '\.\.\/[a-z]+\/[A-Za-z]+\.mjs';$/));
+
+                expect(lines.length).toBeLessThanOrEqual(48);
+                expect(Math.max(...lines.map(line => line.length))).toBeLessThanOrEqual(91)
             }
 
             const featureCssSource = fs.readFileSync(featureSectionCss, 'utf8');
@@ -159,6 +168,7 @@ test.describe('Portal.view.home.ContentBox', () => {
                   links       = gridSection.getItem('links').items.filter(item => item.route);
 
             expect(livePreview.sideBySide).toBe(true);
+            expect(livePreview.getItem('editor').fontSize).toBe(12);
             expect(livePreview.cls).toContain('neo-side-by-side');
             expect(livePreview.activeView).toBe('preview');
             expect(livePreview.getPreviewContainer().items).toHaveLength(0);
