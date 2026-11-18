@@ -1406,12 +1406,7 @@ class GraphScene extends Base {
 
         me.drawLabels();
         me.frames++;
-
-        if (me.flightPlan) {
-            me.requestFrame()
-        } else {
-            me.drawnWaiters.splice(0).forEach(resolve => resolve(true))
-        }
+        me.flightPlan ? me.requestFrame() : me.drawnWaiters.splice(0).forEach(resolve => resolve(true))
     }
 
     /**
@@ -1513,11 +1508,7 @@ class GraphScene extends Base {
     whenDrawn() {
         const me = this;
 
-        if (me.frames > 0 && !me.animationId && !me.flightPlan) {
-            return Promise.resolve(true)
-        }
-
-        return new Promise(resolve => me.drawnWaiters.push(resolve))
+        return me.frames > 0 && !me.animationId && !me.flightPlan ? Promise.resolve(true) : new Promise(resolve => me.drawnWaiters.push(resolve))
     }
 
     /**
