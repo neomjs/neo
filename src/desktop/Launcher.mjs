@@ -5,10 +5,13 @@ import SortZone from '../draggable/list/SortZone.mjs';
  * @summary A web desktop's app icons, grouped: a view on the visible projection of a `Neo.desktop.store.Apps`.
  *
  * It renders whatever its store keeps, so the store's filter decides which apps show, never this view. Groups render
- * as headers (`useHeaders`), apps as icon tiles. A double-click, Enter, or a tap on a touch device fires `openApp`.
+ * as headers (`useHeaders`), apps as icon tiles. As on a desktop, the icons run in columns from the top left: each
+ * group is a column under its caption, and a phone keeps rows. A double-click, Enter, or a tap on a touch device fires
+ * `openApp`.
  *
- * Icons reorder within their group. A drag (`Neo.draggable.list.SortZone`) and Ctrl+Shift+Left or Right (Cmd+Shift on
- * macOS) both write the apps' `order`, and the launcher renders the store's sort.
+ * Icons reorder within their group. A drag (`Neo.draggable.list.SortZone`) and Ctrl+Shift with an arrow key (Cmd+Shift
+ * on macOS: Up or Left moves back, Down or Right forward) both write the apps' `order`, and the launcher renders the
+ * store's sort.
  *
  * {@link #arrangementKey} keeps an arrangement per key, e.g. per account, in `localStorage` through the
  * `Neo.main.addon.LocalStorage` main thread addon. A subclass keeps it elsewhere by overriding {@link #readArrangement}
@@ -46,21 +49,22 @@ class Launcher extends List {
          */
         draggable: true,
         /**
-         * The icons sit in rows, so the halves of an icon decide before or after
+         * A group is a column, so SortZone's default vertical halves of an icon decide before or after
          * @member {Object} dragZoneConfig
          */
         dragZoneConfig: {
             module         : SortZone,
-            dragProxyConfig: {cls: ['neo-list', 'neo-desktop-launcher-proxy']},
-            sortDirection  : 'horizontal'
+            dragProxyConfig: {cls: ['neo-list', 'neo-desktop-launcher-proxy']}
         },
         /**
          * @member {Object} keys
          */
         keys: {
+            Down : 'onKeyDownNext',
             Enter: 'onKeyDownEnter',
-            Left : 'onKeyDownLeft',
-            Right: 'onKeyDownRight'
+            Left : 'onKeyDownPrevious',
+            Right: 'onKeyDownNext',
+            Up   : 'onKeyDownPrevious'
         },
         /**
          * @member {Boolean} useHeaders=true
@@ -251,17 +255,21 @@ class Launcher extends List {
     }
 
     /**
+     * Down or Right: with Ctrl+Shift (Cmd+Shift on macOS), moves the focused app one place forward
      * @param {Object} data
+     * @returns {Promise<void>}
      */
-    onKeyDownLeft(data) {
-        this.moveFocusedApp(data, -1)
+    onKeyDownNext(data) {
+        return this.moveFocusedApp(data, 1)
     }
 
     /**
+     * Up or Left: with Ctrl+Shift (Cmd+Shift on macOS), moves the focused app one place back
      * @param {Object} data
+     * @returns {Promise<void>}
      */
-    onKeyDownRight(data) {
-        this.moveFocusedApp(data, 1)
+    onKeyDownPrevious(data) {
+        return this.moveFocusedApp(data, -1)
     }
 
     /**
