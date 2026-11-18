@@ -1,4 +1,10 @@
 :root .neo-theme-cyberpunk {
     --toolbar-background-color: var(--cyber-bg-alt);
     --toolbar-padding         : 5px;
+
+    /* A toolbar's buttons: the theme's default button size, whatever an ancestor raises a button to */
+    --toolbar-button-font-size: 13px;
+    --toolbar-button-height   : initial;
+    --toolbar-button-min-width: auto;
+    --toolbar-button-padding  : 5px 12px 5px 12px;
 }

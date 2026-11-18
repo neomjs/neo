@@ -1,4 +1,10 @@
 :root .neo-theme-dark { /* .neo-toolbar */
     --toolbar-background-color: #323232;
     --toolbar-padding         : 5px;
+
+    /* A toolbar's buttons: the theme's default button size, whatever an ancestor raises a button to */
+    --toolbar-button-font-size: 11px;
+    --toolbar-button-height   : initial;
+    --toolbar-button-min-width: auto;
+    --toolbar-button-padding  : 5px 12px 5px 12px;
 }

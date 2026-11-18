@@ -152,9 +152,9 @@
 }
 
 /* A button is an app control: compact. The design system's 48px size (--cmp-button-height) is for a call to action
-   alone on a wide page, which a consumer opts into, as the Portal does. A toolbar returns its buttons to compact under
-   such an ancestor; zero specificity leaves a container's own size, such as the taskbar's, in charge. */
-:where(.neo-theme-neo-light), :where(.neo-theme-neo-light .neo-toolbar) {
+   alone on a wide page, which a consumer opts into, as the Portal does. A toolbar keeps this size under such an
+   ancestor through `--toolbar-button-*` (toolbar/Base.css). */
+:where(.neo-theme-neo-light) {
     --button-height        : var(--height-32);
     --button-min-width     : var(--height-32);
     --button-padding       : 0 var(--sem-spacing-small);
