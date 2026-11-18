@@ -28,7 +28,7 @@
     {
         "id": "webdesktop",
         "family": "apps",
-        "component": "State Provider",
+        "component": "Desktop",
         "feature": "A desktop whose icons, menus and windows follow the signed-in account's permissions through one store filter",
         "lookFor": "Sign in as two accounts and compare the apps they get. Double-click an icon to open its window, then open Permissions and switch that app off: its icon, its menu entry and its window go.",
         "scope": "The accounts and their permissions are demonstration data; hiding UI is not authorization.",
@@ -391,7 +391,7 @@
         "name": "Covid Dashboard",
         "sourceUrl": "apps/covid",
         "urls": {
-            "devmode": "apps/covid/index.html",
+            "devmode": "apps/covid/index.html#mainview=table",
             "dist_dev": "dist/development/apps/covid/index.html#mainview=table",
             "dist_esm": "dist/esm/apps/covid/index.html#mainview=table",
             "dist_prod": "dist/production/apps/covid/index.html#mainview=table"
@@ -1782,41 +1782,43 @@
         }
     },
     {
-        "id": "realworld",
+        "id": "finance",
         "family": "apps",
-        "image": "devmode/realworldApp.png",
-        "name": "RealWorld App",
-        "sourceUrl": "apps/realworld",
+        "component": "Grid",
+        "name": "Live Finance Desk",
+        "environments": ["Desktop", "Mobile"],
+        "image": "devmode/finance-14.jpg",
+        "feature": "Streaming equity quotes with animated currency diffs and instant filtering",
+        "lookFor": "Filter by sector or ticker while live price and percent changes keep ticking, then press Stop to freeze the tape.",
+        "scope": "Quotes and volumes are deterministic local simulation data.",
+        "sourceUrl": "apps/finance",
         "urls": {
-            "devmode": "apps/realworld/index.html",
-            "dist_dev": "dist/development/apps/realworld/index.html",
-            "dist_esm": "dist/esm/apps/realworld/index.html",
-            "dist_prod": "dist/production/apps/realworld/index.html"
+            "devmode": "apps/finance/index.html",
+            "dist_dev": "dist/development/apps/finance/index.html",
+            "dist_esm": "dist/esm/apps/finance/index.html",
+            "dist_prod": "dist/production/apps/finance/index.html"
         },
-        "hiddenIn": [
-            "devmode",
-            "dist_dev",
-            "dist_esm",
-            "dist_prod"
-        ]
+        "hiddenIn": []
     },
     {
-        "id": "realworld-v2",
+        "id": "email",
         "family": "apps",
-        "image": "devmode/realworldApp2.png",
-        "name": "RealWorld App v2</br>(in progress)",
-        "sourceUrl": "apps/realworld2",
+        "alsoIn": ["multi-window", "functional"],
+        "component": "Dashboard",
+        "name": "Multi-Window Email Client",
+        "sharedWorkers": true,
+        "environments": ["Desktop", "Mobile"],
+        "image": "devmode/email-14.jpg",
+        "feature": "Buffered inbox and functional message reader that detaches into its own window",
+        "lookFor": "Select another conversation in the inbox, then press Open in window to move the live reader or a Compose draft into a native popup.",
+        "scope": "Allow popups for multi-window transfer; messages are local fixture data.",
+        "sourceUrl": "apps/email",
         "urls": {
-            "devmode": "apps/realworld2/index.html#/gallery",
-            "dist_dev": "dist/development/apps/realworld2/index.html#/gallery",
-            "dist_esm": "dist/esm/apps/realworld2/index.html#/gallery",
-            "dist_prod": "dist/production/apps/realworld2/index.html#/gallery"
+            "devmode": "apps/email/index.html",
+            "dist_dev": "dist/development/apps/email/index.html",
+            "dist_esm": "dist/esm/apps/email/index.html",
+            "dist_prod": "dist/production/apps/email/index.html"
         },
-        "hiddenIn": [
-            "devmode",
-            "dist_dev",
-            "dist_esm",
-            "dist_prod"
-        ]
+        "hiddenIn": []
     }
 ]

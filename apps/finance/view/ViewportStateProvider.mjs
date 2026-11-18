@@ -2,6 +2,7 @@ import CompanyStore  from '../store/Companies.mjs';
 import StateProvider from '../../../src/state/Provider.mjs';
 
 /**
+ * @summary Shared reactive state and Companies store owner for the Finance market desk viewport.
  * @class Finance.view.ViewportStateProvider
  * @extends Neo.state.Provider
  */
@@ -15,7 +16,17 @@ class ViewportStateProvider extends StateProvider {
         /**
          * @member {Object} data
          */
-        data: {},
+        data: {
+            feedRunning : true,
+            totalCount  : 0,
+            visibleCount: 0
+        },
+        /**
+         * @member {Object} formulas
+         */
+        formulas: {
+            statusText: data => `${data.visibleCount} of ${data.totalCount} equities · ${data.feedRunning ? 'Live feed' : 'Paused'}`
+        },
         /**
          * @member {Object} stores
          */
@@ -23,7 +34,10 @@ class ViewportStateProvider extends StateProvider {
             companies: {
                 module   : CompanyStore,
                 autoLoad : true,
-                listeners: {load: 'onCompaniesStoreLoad'}
+                listeners: {
+                    filter: 'onCompaniesStoreFilter',
+                    load  : 'onCompaniesStoreLoad'
+                }
             }
         }
     }
