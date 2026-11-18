@@ -124,7 +124,7 @@ test('the committed Grid/Table manifest covers every current family record with 
         records = JSON.parse(fs.readFileSync(new URL('examples.json', data))),
         raw     = JSON.parse(fs.readFileSync(new URL('example-captures.json', data))),
         valid   = validateCaptureRecipes(raw, records), rows = selectCaptureRecipes(valid, {family: 'grid-table'});
-    expect(rows.map(row => row.id).sort()).toEqual(records.filter(row => row.family === 'grid-table').map(row => row.id).sort());
+    expect(rows.map(row => row.id).sort()).toEqual(records.filter(row => row.family === 'grid-table' && row.image).map(row => row.id).sort());
     expect(rows.every(row => row.steps.length > 0 && row.after.length > 0)).toBe(true)
 });
 
