@@ -1,6 +1,6 @@
 import Apps          from '../../../src/desktop/store/Apps.mjs';
-import AppWindow     from './AppWindow.mjs';
-import Desktop       from '../../../src/desktop/Container.mjs';
+import Component     from '../../../src/component/Base.mjs';
+import Desktop      from '../../../src/desktop/Container.mjs';
 import StateProvider from '../../../src/state/Provider.mjs';
 import Viewport      from '../../../src/container/Viewport.mjs';
 
@@ -10,6 +10,7 @@ import Viewport      from '../../../src/container/Viewport.mjs';
  * @description The launcher, the start menu and the window manager share the one apps store the view root's state
  * provider holds. Double-click an icon to open its app; minimize it and click its task to restore it; open a second
  * app and click the first one's window to bring it to the front. The launcher keeps the icons' order across reloads.
+ * Each app opens its own view at its own size (`appWindowConfigs`), loaded on the app's first open.
  * @class Neo.examples.desktop.basic.Viewport
  * @extends Neo.container.Viewport
  */
@@ -49,10 +50,34 @@ class DesktopViewport extends Viewport {
          * @member {Object[]} items
          */
         items: [{
-            module        : Desktop,
-            bind          : {appStore: 'stores.apps'},
-            launcherConfig: {arrangementKey: 'neo-examples-desktop-basic'},
-            windowClass   : AppWindow
+            module          : Desktop,
+            appWindowConfigs: {
+                calculator: {height: 460, width: 320, view: () => import('./Calculator.mjs')},
+                music     : {height: 480, width: 720, view: () => import('./Music.mjs')},
+                notes     : {height: 400, width: 460, view: () => import('./Notes.mjs')}
+            },
+            bind            : {appStore: 'stores.apps'},
+            launcherConfig  : {arrangementKey: 'neo-examples-desktop-basic'},
+            // The screen says what it is: the product's name on the wallpaper, and a card beside the launcher
+            items: {workspace: {items: {
+                brand: {
+                    module: Component,
+                    cls   : ['desktop-basic-brand'],
+                    text  : 'Neo Desktop',
+                    weight: 5
+                },
+                about: {
+                    module: Component,
+                    cls   : ['desktop-basic-about'],
+                    flex  : 'none',
+                    weight: 20,
+                    vdom  : {cn: [
+                        {tag: 'h2', text: 'Neo Desktop'},
+                        {tag: 'p',  text: 'A web desktop built from Neo.mjs. Its launcher, windows and taskbar are the engine\'s src/desktop, and all of it runs in a web worker, off the main thread.'},
+                        {tag: 'a',  href: 'https://github.com/neomjs/neo/tree/dev/src/desktop', target: '_blank', text: 'src/desktop on GitHub'}
+                    ]}
+                }
+            }}}
         }]
     }
 }

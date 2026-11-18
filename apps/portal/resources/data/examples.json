@@ -1624,6 +1624,23 @@
         "lookFor": "Open pages from the side navigation and step through their fields."
     },
     {
+        "id": "scheduler-big-data",
+        "image": "devmode/scheduler-big-data-14.jpg",
+        "name": "A year for 300 people",
+        "sourceUrl": "examples/scheduler/bigData",
+        "urls": {
+            "devmode": "examples/scheduler/bigData/index.html",
+            "dist_dev": "dist/development/examples/scheduler/bigData/index.html",
+            "dist_esm": "dist/esm/examples/scheduler/bigData/index.html",
+            "dist_prod": "dist/production/examples/scheduler/bigData/index.html"
+        },
+        "hiddenIn": [],
+        "family": "scheduler",
+        "component": "Scheduler",
+        "feature": "300 people and 15,600 seeded bookings across a 52-week timeline",
+        "lookFor": "Scroll down through 300 people, then sideways through the year: buffered rows and viewport-clipped bars keep the DOM compact."
+    },
+    {
         "id": "timeline-basic",
         "image": null,
         "name": "Resource Timeline",

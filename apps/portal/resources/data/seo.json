@@ -1095,7 +1095,7 @@
     },
     "/examples/scheduler": {
         "title": "MIT JavaScript Resource Scheduler — Editable Timeline | Neo.mjs",
-        "description": "Explore 1 live JavaScript resource scheduler example: Resource bookings on an editable timeline.",
+        "description": "Explore 2 live JavaScript resource scheduler examples: Resource bookings on an editable timeline.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-18"
     },
@@ -1579,11 +1579,26 @@
         "schemaType": "WebPage",
         "lastmod": "2025-11-19"
     },
+    "/examples/form/field/country/index.html": {
+        "title": "CountryField — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable CountryField example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage"
+    },
+    "/examples/form/field/currency/index.html": {
+        "title": "CurrencyField — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable CurrencyField example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage"
+    },
     "/examples/form/field/date/index.html": {
         "title": "DateField — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A date field with picker and live configuration. Pick a date, type an invalid one to see the error state, and move the label between left and top.",
         "schemaType": "WebPage",
         "lastmod": "2025-11-19"
+    },
+    "/examples/form/field/display/index.html": {
+        "title": "DisplayField — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable DisplayField example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage"
     },
     "/examples/form/field/email/index.html": {
         "title": "EmailField — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1597,11 +1612,26 @@
         "schemaType": "WebPage",
         "lastmod": "2024-08-17"
     },
+    "/examples/form/field/iban/index.html": {
+        "title": "IBANField — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable IBANField example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage"
+    },
     "/examples/form/field/number/index.html": {
         "title": "NumberField — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A number field which clears back to its original value. Change the number, then use the clear trigger — the original 20 returns.",
         "schemaType": "WebPage",
         "lastmod": "2025-11-19"
+    },
+    "/examples/form/field/password/index.html": {
+        "title": "PasswordField — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable PasswordField example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage"
+    },
+    "/examples/form/field/phone/index.html": {
+        "title": "PhoneField — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable PhoneField example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage"
     },
     "/examples/form/field/picker/index.html": {
         "title": "PickerField — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1614,6 +1644,16 @@
         "description": "A single radio field with a live configuration panel. Select the radio and adjust its label text or position from the panel.",
         "schemaType": "WebPage",
         "lastmod": "2025-11-19"
+    },
+    "/examples/form/field/range/index.html": {
+        "title": "RangeField — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable RangeField example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage"
+    },
+    "/examples/form/field/search/index.html": {
+        "title": "SearchField — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable SearchField example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage"
     },
     "/examples/form/field/select/index.html": {
         "title": "SelectField — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1656,6 +1696,11 @@
         "description": "A URL field with placeholder and clear trigger. Type an address over the placeholder and clear it with the trigger.",
         "schemaType": "WebPage",
         "lastmod": "2025-11-19"
+    },
+    "/examples/form/field/zipcode/index.html": {
+        "title": "ZipCodeField — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable ZipCodeField example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "schemaType": "WebPage"
     },
     "/examples/form/fieldset/index.html": {
         "title": "Fieldset — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1902,6 +1947,12 @@
         "description": "Resource bookings on an editable timeline. Move a booking to another studio or time. Reload after it saves to see the same booking in its new slot.",
         "schemaType": "WebPage",
         "lastmod": "2026-11-15"
+    },
+    "/examples/scheduler/bigData/index.html": {
+        "title": "A year for 300 people · Neo Scheduler — JavaScript UI Demo | Neo.mjs",
+        "description": "300 people and 15,600 seeded bookings across a 52-week timeline. Scroll down through 300 people, then sideways through the year: buffered rows and...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-18"
     },
     "/examples/serverside/toolbarItems/index.html": {
         "title": "Load Toolbar Items — Web Worker JavaScript UI Demo | Neo.mjs",

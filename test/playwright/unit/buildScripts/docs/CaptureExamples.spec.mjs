@@ -152,7 +152,8 @@ test('the committed tile list names workbench entries that exist', () => {
     expect(valid.tiles.length).toBeGreaterThan(0);
     for (const tile of valid.tiles) {
         const source = fs.readFileSync(new URL(`../../../../../${tile.path}/MainContainer.mjs`, import.meta.url), 'utf8');
-        expect(source, tile.path).toContain('ConfigurationViewport')
+        // A field entry extends the workbench through its states template
+        expect(source, tile.path).toMatch(/ConfigurationViewport|StatesViewport/)
     }
 });
 

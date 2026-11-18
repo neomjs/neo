@@ -70,6 +70,24 @@ class FakeWindow extends Base {
 FakeWindow = Neo.setupClass(FakeWindow);
 
 /**
+ * A window whose own construction closes its app: the close lands after the window exists and before the open
+ * publishes
+ */
+class ClosingWindow extends FakeWindow {
+    static config = {
+        className: 'Test.Unit.Desktop.WindowManager.ClosingWindow',
+        manager  : null
+    }
+
+    onConstructed() {
+        super.onConstructed();
+        this.manager.close(this.record.id)
+    }
+}
+
+ClosingWindow = Neo.setupClass(ClosingWindow);
+
+/**
  * @param {Object} [config={}] WindowManager configs
  * @returns {Object}
  */
@@ -428,7 +446,7 @@ test.describe('Neo.desktop.WindowManager: what an open may publish', () => {
         let manager;
 
         // The close lands between the window's creation and the open's publication
-        harness = createHarness({windowConfig: record => {manager.close(record.id); return {record}}});
+        harness = createHarness({windowClass: ClosingWindow, windowConfig: record => ({manager, record})});
         manager = harness.manager;
 
         const {apps, taskIds} = harness;
@@ -690,4 +708,87 @@ test.describe('Neo.desktop.WindowManager: a task store it shares', () => {
             end === 'reset' && expect(manager.getWindow('mail').hidden, 'never shown').toBe(true)
         })
     }
+});
+
+test.describe('Neo.desktop.WindowManager: a window config that calls back into the manager', () => {
+    let harness;
+
+    test.afterEach(() => {
+        harness.destroy()
+    });
+
+    test('an open the config callback starts for its own app joins the first: one window, one task', async () => {
+        let manager, inner;
+
+        harness = createHarness({windowConfig: record => {
+            inner ??= manager.openApp(record);
+            return {record}
+        }});
+        manager = harness.manager;
+
+        const {apps, taskIds} = harness,
+              outer           = await manager.openApp(apps.get('mail'));
+
+        expect(outer).toBeTruthy();
+        expect(await inner).toBe(outer);
+        expect(taskIds()).toEqual(['mail'])
+    });
+
+    test('a config callback that closes its app ends that open, and an open right after it loads afresh', async () => {
+        let manager, calls = 0;
+
+        harness = createHarness({windowConfig: record => {
+            ++calls === 1 && manager.close(record.id);
+            return Promise.resolve({record})
+        }});
+        manager = harness.manager;
+
+        const {apps, taskIds} = harness,
+              first           = manager.openApp(apps.get('mail')),
+              second          = manager.openApp(apps.get('mail'));
+
+        expect(await first).toBeNull();
+        expect(await second).toBe(manager.getWindow('mail'));
+        expect(calls).toBe(2);
+        expect(taskIds()).toEqual(['mail'])
+    });
+
+    test('a config callback that throws rejects the open, the class load beside it stays observed, and the next open loads again', async () => {
+        const held      = heldLoader(),
+              unhandled = [],
+              collect   = reason => unhandled.push(reason);
+
+        let fail = true;
+
+        process.on('unhandledRejection', collect);
+
+        try {
+            harness = createHarness({windowClass: held.loader, windowConfig: record => {
+                if (fail) throw new Error('config failed');
+                return {record}
+            }});
+
+            const {apps, manager, taskIds} = harness,
+                  failing                  = manager.openApp(apps.get('mail'));
+
+            held.fail();
+            await expect(failing).rejects.toThrow('config failed');
+
+            // An unobserved rejection surfaces once the microtasks drained
+            await new Promise(resolve => setTimeout(resolve, 0));
+            expect(unhandled).toEqual([]);
+
+            fail = false;
+
+            const opening = manager.openApp(apps.get('mail'));
+
+            held.release();
+
+            expect(await opening).toBeTruthy();
+            expect(held.calls()).toBe(2);
+            expect(taskIds()).toEqual(['mail'])
+        } finally {
+            process.off('unhandledRejection', collect)
+        }
+    })
 });

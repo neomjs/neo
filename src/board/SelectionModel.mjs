@@ -604,6 +604,7 @@ class SelectionModel extends BaseModel {
 
     /**
      * @summary Activates the focused card (`Enter`), firing `cardActivate` on the board and opening `CardEditor`.
+     * Enter on a button inside the board belongs to that button: a lane's or a column's collapse toggle, a card's menu.
      * @param {Object} [data]
      * @returns {Neo.board.CardEditor|null}
      */
@@ -616,7 +617,8 @@ class SelectionModel extends BaseModel {
             return null
         }
 
-        if (data?.path?.some?.(node => node?.cls?.includes?.('neo-board-column-collapse') || node?.cls?.includes?.('neo-board-card-menu-button'))) {
+        // A DOM event path names each node's tag as `tagName`, lower case
+        if (data?.path?.some?.(node => node?.tagName === 'button')) {
             return null
         }
 

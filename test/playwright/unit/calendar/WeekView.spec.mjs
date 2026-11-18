@@ -26,13 +26,17 @@ import WeekComponent      from '../../../../src/calendar/view/week/Component.mjs
 import WeekDragDrop       from '../../../../src/calendar/view/week/plugin/DragDrop.mjs';
 
 test.describe('Neo.calendar.view.week.Component - Issue #19930 & #1069', () => {
-    let originalScrollBy,
+    let originalGetRect,
+        originalScrollBy,
+        originalScrollTo,
         originalSetConfigs,
         scrollByCalls;
 
     test.beforeEach(() => {
         scrollByCalls      = [];
+        originalGetRect    = Neo.main.DomAccess.getBoundingClientRect;
         originalScrollBy   = Neo.main.DomAccess.scrollBy;
+        originalScrollTo   = Neo.main.DomAccess.scrollTo;
         originalSetConfigs = Neo.main.addon.DragDrop.setConfigs;
 
         Neo.main.DomAccess.scrollBy = async (data) => {
@@ -41,8 +45,10 @@ test.describe('Neo.calendar.view.week.Component - Issue #19930 & #1069', () => {
     });
 
     test.afterEach(() => {
-        Neo.main.DomAccess.scrollBy        = originalScrollBy;
-        Neo.main.addon.DragDrop.setConfigs = originalSetConfigs;
+        Neo.main.DomAccess.getBoundingClientRect = originalGetRect;
+        Neo.main.DomAccess.scrollBy              = originalScrollBy;
+        Neo.main.DomAccess.scrollTo              = originalScrollTo;
+        Neo.main.addon.DragDrop.setConfigs       = originalSetConfigs;
     });
 
     test('Constructs cleanly when currentDate is null and updates header when set', async () => {
@@ -126,6 +132,12 @@ test.describe('Neo.calendar.view.week.Component - Issue #19930 & #1069', () => {
     });
 
     test('onScroll pages buffered columns at right and left edges, preserves deterministic column/header IDs, and ignores vertical scroll on the scroll container (#1069)', async () => {
+        const scrollToCalls = [];
+
+        // The geometry the scroll events below describe: 750 px wide, a 50 px time axis, 21 columns of 100 px
+        Neo.main.DomAccess.getBoundingClientRect = async () => ({width: 2100, height: 1000, x: 0, y: 0});
+        Neo.main.DomAccess.scrollTo              = async data => {scrollToCalls.push(data)};
+
         const component = Neo.create({
             className      : 'Neo.calendar.view.week.Component',
             appName,
@@ -158,27 +170,10 @@ test.describe('Neo.calendar.view.week.Component - Issue #19930 & #1069', () => {
             return lastPromiseUpdate;
         };
 
-        // 1. Vertical-only scroll events on .neo-c-w-scrollcontainer (including at scrollLeft = 0) are ignored
-        scrollByCalls.length = 0;
+        // 1. The mount scrolls to the middle third, and neither that scroll's own event nor a vertical-only scroll
+        // event at the same scrollLeft pages
+        expect(scrollToCalls.map(call => call.value)).toEqual([700]);
 
-        component.onScroll({
-            clientWidth: 750,
-            scrollLeft : 0,
-            scrollTop  : 150,
-            target     : {cls: ['neo-c-w-scrollcontainer'], id: scrollContainer.id}
-        });
-
-        component.onScroll({
-            clientWidth: 750,
-            scrollLeft : 0,
-            scrollTop  : 320,
-            target     : {cls: ['neo-c-w-scrollcontainer'], id: scrollContainer.id}
-        });
-
-        expect(getColumnFlags()).toEqual(initialFlags);
-        expect(scrollByCalls).toEqual([]);
-
-        // 2. Center baseline scroll on .neo-c-w-scrollcontainer, followed by vertical scroll at scrollLeft = 700
         component.onScroll({
             clientWidth: 750,
             scrollLeft : 700,
@@ -196,7 +191,7 @@ test.describe('Neo.calendar.view.week.Component - Issue #19930 & #1069', () => {
         expect(getColumnFlags()).toEqual(initialFlags);
         expect(scrollByCalls).toEqual([]);
 
-        // 3. Drag-scroll to right edge (scrollLeft = 1400, width = 700 -> Math.round(1400/700*7) = 14 > 13)
+        // 2. Drag-scroll to right edge (scrollLeft = 1400, width = 700 -> Math.round(1400/700*7) = 14 > 13)
         scrollByCalls.length = 0;
 
         component.onScroll({
@@ -225,7 +220,7 @@ test.describe('Neo.calendar.view.week.Component - Issue #19930 & #1069', () => {
             windowId : component.windowId
         }]);
 
-        // 4. Drag-scroll to left edge (scrollLeft = 0, width = 700 -> Math.round(0/700*7) = 0 < 1)
+        // 3. Drag-scroll to left edge (scrollLeft = 0, width = 700 -> Math.round(0/700*7) = 0 < 1)
         scrollByCalls.length = 0;
 
         component.onScroll({

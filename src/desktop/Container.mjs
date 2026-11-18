@@ -41,6 +41,17 @@ class Container extends BaseContainer {
          */
         appStore_: null,
         /**
+         * Each app window's own config, by app id, over the one every app window gets: its size, for example, and
+         * `view`, the app's content as a class or a loader. A loader runs on the app's first open, and the view fills
+         * the window. An app without an entry opens the window class as it is.
+         * @example
+         * appWindowConfigs: {
+         *     mail: {height: 600, width: 880, view: () => import('./apps/Mail.mjs')}
+         * }
+         * @member {Object|null} appWindowConfigs=null
+         */
+        appWindowConfigs: null,
+        /**
          * @member {String[]} baseCls=['neo-desktop','neo-container']
          * @protected
          */
@@ -196,26 +207,40 @@ class Container extends BaseContainer {
     }
 
     /**
-     * The config of an app's window
+     * The config of an app's window: the desktop's own, then the app's {@link #appWindowConfigs} entry, whose `view`
+     * becomes the window's content once a loader resolves it
      * @param {Neo.desktop.model.App} record
-     * @returns {Object}
+     * @returns {Promise<Object>}
      * @protected
      */
-    getWindowConfig(record) {
-        let me          = this,
-            launcher    = me.getItem('launcher'),
-            workspaceId = me.getItem('workspace').id,
-            icon        = launcher.store.get(record.id);
+    async getWindowConfig(record) {
+        let me                   = this,
+            launcher             = me.getItem('launcher'),
+            workspaceId          = me.getItem('workspace').id,
+            icon                 = launcher.store.get(record.id),
+            {view, ...appConfig} = me.appWindowConfigs?.[record.id] || {},
+            config               = {
+                animateTargetId      : icon ? launcher.getItemId(icon) : null,
+                appName              : me.appName,
+                boundaryContainerId  : workspaceId,
+                parentComponent      : me,
+                record,
+                resizablePluginConfig: {boundaryContainerId: workspaceId},
+                windowId             : me.windowId,
+                ...appConfig
+            };
 
-        return {
-            animateTargetId      : icon ? launcher.getItemId(icon) : null,
-            appName              : me.appName,
-            boundaryContainerId  : workspaceId,
-            parentComponent      : me,
-            record,
-            resizablePluginConfig: {boundaryContainerId: workspaceId},
-            windowId             : me.windowId
+        if (Neo.isFunction(view) && !view.isClass) {
+            let module = await view();
+
+            view = module.default || module
         }
+
+        if (view) {
+            config.items = [{module: view, flex: 1}]
+        }
+
+        return config
     }
 
     /**

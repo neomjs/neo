@@ -235,8 +235,8 @@ test.describe('ConfigurationViewport Workbench (Stage, Inspector, Reset, Theme)'
 
         const labelField = viewport.down({labelText: 'labelText'});
         expect(labelField).toBeDefined();
-        expect(viewport.exampleComponent.labelText).toBe('Label');
-        expect(labelField.value).toBe('Label');
+        expect(viewport.exampleComponent.labelText).toBe('Project name');
+        expect(labelField.value).toBe('Project name');
 
         // User edits labelText to "Changed field label"
         labelField.value = 'Changed field label';
@@ -248,8 +248,8 @@ test.describe('ConfigurationViewport Workbench (Stage, Inspector, Reset, Theme)'
         viewport.onReset();
 
         // Both example component and inspector input are restored
-        expect(viewport.exampleComponent.labelText).toBe('Label');
-        expect(labelField.value).toBe('Label');
+        expect(viewport.exampleComponent.labelText).toBe('Project name');
+        expect(labelField.value).toBe('Project name');
 
         viewport.destroy();
     });
