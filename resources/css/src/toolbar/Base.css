@@ -4,6 +4,16 @@
     padding: var(--toolbar-padding);
 }
 
+/* A toolbar's buttons take their theme's toolbar size, whatever an ancestor raises a button to, such as the Portal's
+   calls to action. Each theme declares `--toolbar-button-*` on its own scope, so in a nested scope the nearest theme
+   wins, and zero specificity leaves a toolbar's own size, such as the taskbar's, in charge. */
+:where(.neo-toolbar) {
+    --button-height        : var(--toolbar-button-height);
+    --button-min-width     : var(--toolbar-button-min-width);
+    --button-padding       : var(--toolbar-button-padding);
+    --button-text-font-size: var(--toolbar-button-font-size);
+}
+
 .neo-toolbar .neo-button {
     margin: 0;
 }

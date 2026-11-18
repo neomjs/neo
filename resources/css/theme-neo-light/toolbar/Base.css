@@ -1,4 +1,10 @@
 :where(.neo-theme-neo-light) { /* .neo-toolbar */
     --toolbar-background-color: #fff;
     --toolbar-padding         : 5px;
+
+    /* A toolbar's buttons: the theme's compact size, whatever an ancestor raises a button to */
+    --toolbar-button-font-size: 0.875rem;
+    --toolbar-button-height   : var(--height-32);
+    --toolbar-button-min-width: var(--height-32);
+    --toolbar-button-padding  : 0 var(--sem-spacing-small);
 }
