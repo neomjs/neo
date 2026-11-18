@@ -31,7 +31,7 @@
     --neo-board-card-muted-color       : var(--panel-header-text-color, #666);
     --neo-board-card-shadow            : 0 1px 2px rgba(0, 0, 0, 0.1);
     --neo-board-card-drag-border-color : var(--button-text-color, #1c60a0);
-    --neo-board-slot-background        : rgba(28, 96, 160, 0.08);
+    --neo-board-slot-background        : color-mix(in srgb, var(--neo-board-accent-color) 8%, transparent);
     --neo-board-track-color            : var(--grid-container-border-color, #ddd);
     --neo-board-avatar-background      : var(--button-badge-background-color, #1c60a0);
     --neo-board-avatar-color           : var(--button-badge-color, #fff);

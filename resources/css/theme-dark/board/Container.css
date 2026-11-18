@@ -31,7 +31,7 @@
     --neo-board-card-muted-color       : #999;
     --neo-board-card-shadow            : 0 1px 3px rgba(0, 0, 0, 0.45);
     --neo-board-card-drag-border-color : var(--grid-rowmodel-selected-cell-background-color, #64b5f6);
-    --neo-board-slot-background        : rgba(100, 181, 246, 0.1);
+    --neo-board-slot-background        : color-mix(in srgb, var(--neo-board-accent-color) 10%, transparent);
     --neo-board-track-color            : var(--grid-container-border-color, #2b2b2b);
     --neo-board-avatar-background      : var(--button-badge-background-color, #64b5f6);
     --neo-board-avatar-color           : var(--button-badge-color, #282828);
@@ -42,7 +42,7 @@
     --neo-board-editor-shadow          : var(--dialog-box-shadow, 0 5px 10px rgba(0, 0, 0, 0.4));
 
     --neo-board-lane-background        : var(--grid-container-cell-background-color, #3c3f41);
-    --neo-board-lane-header-background : #434749;
+    --neo-board-lane-header-background : var(--button-background-gradient-start, #434749);
     --neo-board-lane-border-color      : var(--textfield-border-color, #424242);
     --neo-board-lane-color             : #e0e0e0;
     --neo-board-lane-column-max-height : 280px;
