@@ -1,7 +1,8 @@
 .neo-rangefield {
+    /* The input's box holds the thumb: with appearance none it would only be as tall as the track */
     .neo-rangefield-input {
-        margin-top: 12px;
-        flex:1;
+        flex      : 1;
+        min-height: 15px;
     }
 
     input[type=range] {
@@ -18,7 +19,6 @@
         border-radius: 2px;
         cursor       : pointer;
         height       : 4px;
-        margin-top   : -8px;
         width        : 100%;
     }
 
@@ -27,7 +27,6 @@
         border-radius: 2px;
         cursor       : pointer;
         height       : 4px;
-        margin-top   : -8px;
         width        : 100%;
     }
 
@@ -37,7 +36,6 @@
         border-radius: 50%;
         cursor       : ew-resize;
         height       : 15px;
-        margin-top   : -5px;
         width        : 15px;
         will-change  : box-shadow;
 
@@ -52,7 +50,7 @@
         border-radius: 50%;
         cursor       : ew-resize;
         height       : 15px;
-        margin-top   : -5px;
+        margin-top   : calc((4px - 15px) / 2); /* WebKit starts the thumb at the track's top edge: centre it */
         width        : 15px;
         will-change  : box-shadow;
 

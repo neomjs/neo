@@ -499,7 +499,7 @@ export function extractExampleFamilyDefinitions(source='') {
  */
 export const EXAMPLE_FAMILY_SEO = {
     apps          : {subject: 'JavaScript web app',              title: 'JavaScript Web App Examples — Full Apps on Worker Threads | Neo.mjs'},
-    board         : {subject: 'JavaScript kanban board',         title: 'JavaScript Kanban Board — Columns, Swimlanes & Cards | Neo.mjs'},
+    board         : {subject: 'JavaScript task and kanban board', title: 'JavaScript Task & Kanban Board — Swimlanes & Cards | Neo.mjs'},
     buttons       : {subject: 'JavaScript button and menu',      title: 'JavaScript Buttons, Menus & Toolbars — Live Examples | Neo.mjs'},
     calendar      : {subject: 'JavaScript calendar',             title: 'MIT JavaScript Calendar — Day, Week, Month & Year Views | Neo.mjs'},
     charts        : {subject: 'JavaScript chart and canvas',     title: 'JavaScript Charts, Canvas & Maps — OffscreenCanvas Demos | Neo.mjs'},
@@ -517,9 +517,8 @@ export const EXAMPLE_FAMILY_SEO = {
     platform      : {subject: 'JavaScript web worker',           title: 'JavaScript Web Worker Examples — Workers & Platform | Neo.mjs'},
     scheduler     : {subject: 'JavaScript resource scheduler',   title: 'MIT JavaScript Resource Scheduler — Editable Timeline | Neo.mjs'},
     state         : {subject: 'JavaScript state management',     title: 'JavaScript State Management Examples — Reactive Stores | Neo.mjs'},
-    tabs          : {subject: 'JavaScript tab container',        title: 'JavaScript Tab Container — Tab Bars on Any Side | Neo.mjs'},
-    timeline      : {subject: 'JavaScript timeline',             title: 'JavaScript Timeline Examples — Events on a Time Axis | Neo.mjs'},
-    tree          : {subject: 'JavaScript tree',                 title: 'JavaScript Tree Examples — Tree List & Accordion | Neo.mjs'}
+    tabs          : {subject: 'JavaScript tabs',                 title: 'JavaScript Tabs — Reorderable Tab Bars & Overflow | Neo.mjs'},
+    tree          : {subject: 'JavaScript tree and tree grid',   title: 'JavaScript Trees — Tree Grids, Lists & Accordions | Neo.mjs'}
 };
 
 /**

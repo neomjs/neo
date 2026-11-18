@@ -1,5 +1,6 @@
 import BaseList from '../../../../src/list/Base.mjs';
 import Example  from '../../model/Example.mjs';
+import NeoArray from '../../../../src/util/Array.mjs';
 import VDomUtil from '../../../../src/util/VDom.mjs';
 
 /**
@@ -36,15 +37,32 @@ class List extends BaseList {
          */
         catalogMode_: 'dist_prod',
         /**
+         * Optional map from `family` to group title shown as a pill when {@link showGroup} is `true`.
+         * @member {Object|null} groupTitles=null
+         */
+        groupTitles: null,
+        /**
          * @summary Bounds delayed observe calls when card DOM is not ready at registration.
          * @member {Number} intersectionObserverReconnects=10
          */
         intersectionObserverReconnects: 10,
         /**
+         * Give the first card 2×2 prominence inside wide three-column grids.
+         * @member {Boolean} leadCard_=false
+         * @reactive
+         */
+        leadCard_: false,
+        /**
          * Specify how many example item images to preload when intersecting
          * @member {Number} preloadImages=5
          */
         preloadImages: 5,
+        /**
+         * Show each card's home group title badge (`groupTitles[record.family]`) in the upper-left corner.
+         * @member {Boolean} showGroup_=false
+         * @reactive
+         */
+        showGroup_: false,
         /**
          * @member {String} sourceBaseUrl='https://github.com/neomjs/neo/tree/dev/'
          */
@@ -106,6 +124,29 @@ class List extends BaseList {
     }
 
     /**
+     * @summary Toggles the 2×2 lead-card class on the list wrapper.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetLeadCard(value, oldValue) {
+        let cls = this.cls;
+
+        value ? NeoArray.add(cls, 'portal-examples-list-lead') : NeoArray.remove(cls, 'portal-examples-list-lead');
+        this.cls = cls
+    }
+
+    /**
+     * @summary Re-renders items when the group-pill visibility changes after construction.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetShowGroup(value, oldValue) {
+        oldValue !== undefined && this.store?.isConstructed && this.createItems()
+    }
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -131,7 +172,7 @@ class List extends BaseList {
     }
 
     /**
-     * @summary Renders the cover as the card, with the title and the proof line on it.
+     * @summary Renders the cover as the card, with the title, resting open-live cue, optional group pill and proof line.
      *
      * The cover fills the 16:9 card. Title and `feature` stay visible on a scrim at its foot. The action
      * (`lookFor`), the limits (`scope`) and the source link sit in `.portal-example-more`, which the styles open
@@ -142,17 +183,23 @@ class List extends BaseList {
      */
     createItemContent(record, index) {
         let me         = this,
-            imageStyle = index < 4 ? me.getBackgroundImageStyle(record) : null;
+            groupTitle = me.showGroup && me.groupTitles?.[record.family],
+            imageStyle = index < 6 ? me.getBackgroundImageStyle(record) : null;
 
         return [
             {cls: ['content', 'neo-relative', ...(record.image && record.feature ? ['portal-example-image-card'] : [])],
                 data: {recordId: record.id}, removeDom: me.isHiddenItem(record), cn: [
-                {cls: ['neo-multi-window'], data: {neoTooltip: 'Multi Window Demo'}, removeDom: !record.sharedWorkers, cn: [
-                    {cls: ['far', 'fa-window-restore']}
+                {cls: ['neo-multi-window'], 'aria-label': 'Multi-window live example', data: {neoTooltip: 'Multi-window live example'}, removeDom: !record.sharedWorkers, cn: [
+                    {tag: 'i',    cls: ['far', 'fa-window-restore'], 'aria-hidden': true},
+                    {tag: 'span', cls: ['neo-multi-window-label'], text: 'Multi-window'}
                 ]},
                 {cls: ['neo-full-size', 'preview-image'], flag: `image-${record.id}`, style: imageStyle},
                 {cls: ['neo-absolute', 'neo-item-bottom-position'], cn: [
-                    {...me.createLink(record)},
+                    {tag: 'span', cls: ['portal-example-group-badge'], removeDom: !groupTitle, text: groupTitle},
+                    {cls: ['portal-example-title-row'], cn: [
+                        {...me.createLink(record)},
+                        {...me.createOpenCue(record)}
+                    ]},
                     {cls: ['portal-example-feature'], removeDom: !record.feature, text: record.feature},
                     {cls: ['portal-example-more'], cn: [
                         {cls: ['portal-example-more-inner'], cn: [
@@ -191,6 +238,29 @@ class List extends BaseList {
         // E.g. opening the multi-window covid app & the portal app inside the same app worker is problematic.
         if (!record.sharedWorkers || this.environment !== Neo.config.environment || externalLink) {
             vdom.target = '_blank'
+        }
+
+        return vdom
+    }
+
+    /**
+     * @summary Builds the visible launch-cue anchor sharing the title link's target and href.
+     * @param {Object} record
+     * @returns {Object} vdom
+     */
+    createOpenCue(record) {
+        let {href, target} = this.createLink(record),
+            vdom           = {
+                tag          : 'a',
+                cls          : ['portal-example-open-cue'],
+                href,
+                'aria-hidden': true,
+                tabIndex     : -1,
+                text         : 'Open live ↗'
+            };
+
+        if (target) {
+            vdom.target = target
         }
 
         return vdom

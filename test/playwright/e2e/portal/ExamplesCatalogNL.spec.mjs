@@ -1,14 +1,20 @@
 import {expect, test} from '../../fixtures.mjs';
 import {decodePng}    from '../utils/pngPixels.mjs';
 
-const PORTAL = '/apps/portal/index.html',
-      INDEX  = '.portal-examples-overview:visible nav.portal-examples-group-index-overview',
-      PAGE   = '.portal-examples-group-page:visible',
-      CARDS  = `${PAGE} .portal-examples-list`,
-      GROUPS = [
-          'Grid & Table', 'Forms & Fields', 'Calendar', 'Scheduler', 'Gantt', 'Tab Container', 'Dashboard & Docking',
-          'Drag & Drop', 'Lists & Galleries', 'Dialogs & Overlays', 'Charts, Canvas & Maps', 'More components', 'Multi-Window',
-          'State & Data', 'Workers & Platform', 'Apps'
+const PORTAL    = '/apps/portal/index.html',
+      SIDEBAR   = '.portal-examples-sidebar:visible nav.portal-examples-group-index-list',
+      MOBILE_IX = '.portal-examples-overview:visible nav.portal-examples-group-index-overview',
+      CRUMB     = '.portal-examples-main-container > .portal-examples-group-crumb:visible',
+      SHEET     = '.portal-examples-main-container .portal-examples-group-index-sheet',
+      PAGE      = '.portal-examples-group-page:visible',
+      CARDS     = `${PAGE} .portal-examples-list`,
+      FEATURED  = '.portal-examples-overview:visible .portal-examples-overview-cards',
+      GROUPS    = [
+          'Apps', 'Grid & Table', 'Trees', 'Lists & Galleries', 'Charts, Canvas & Maps',
+          'Calendar', 'Scheduler', 'Gantt',
+          'Dashboard & Docking', 'Tabs', 'Dialogs & Overlays',
+          'Forms & Fields', 'More components',
+          'Multi-Window', 'Workers & Platform', 'State & Data', 'Drag & Drop'
       ];
 
 /**
@@ -44,22 +50,31 @@ async function expectOpenPage(page, name) {
  */
 async function openOverview(page) {
     await page.locator('.portal-header-toolbar').getByRole('link', {name: 'Examples', exact: true}).click();
-    await expect(page.locator(INDEX)).toBeVisible();
+    await expect(page.locator(FEATURED)).toBeVisible();
     await expect(page.locator(PAGE)).toHaveCount(0)
 }
 
 /**
- * @summary Opens a group from the overview's index, the way a reader does: the header's Examples link, then the group.
+ * @summary Opens a group using the visible desktop left-rail index or the phone overview index.
  * @param {Object} page The test page.
  * @param {String} name Group title.
  * @returns {Promise<void>}
  */
 async function openGroup(page, name) {
-    if (!await page.locator(INDEX).isVisible()) {
-        await openOverview(page)
+    const isPhone = (page.viewportSize()?.width ?? 1280) <= 640;
+
+    if (!isPhone) {
+        await expect(page.locator(SIDEBAR)).toBeVisible();
+        await page.locator(SIDEBAR).getByRole('link', {name: new RegExp(`^${name}, `)}).click()
+    } else {
+        if (!await page.locator(MOBILE_IX).isVisible()) {
+            await openOverview(page)
+        }
+
+        await expect(page.locator(MOBILE_IX)).toBeVisible();
+        await page.locator(MOBILE_IX).getByRole('link', {name: new RegExp(`^${name}, `)}).click()
     }
 
-    await page.locator(INDEX).getByRole('link', {name: new RegExp(`^${name}, `)}).click();
     await expectOpenPage(page, name)
 }
 
@@ -76,32 +91,34 @@ async function selectBuild(page, label) {
 }
 
 /**
- * @summary Reads the open group page's desktop control: the crumb, the upright index and the cards beside them.
+ * @summary Reads the open group page's desktop control: the hoisted crumb, hoisted sidebar index and stage cards.
  * @param {Object} page The test page.
  * @returns {Promise<Object>}
  */
 async function readDesktopPage(page) {
-    return page.locator(PAGE).evaluate(node => {
-        const index = node.querySelector('.portal-examples-group-index-list'),
-              list  = node.querySelector('.portal-examples-list'),
+    return page.locator('.portal-examples-main-container').evaluate(shell => {
+        const index  = shell.querySelector('.portal-examples-sidebar .portal-examples-group-index-list'),
+              crumb  = shell.querySelector('.portal-examples-group-crumb'),
+              pageEl = [...shell.querySelectorAll('.portal-examples-group-page')].find(node => node.offsetHeight > 0),
+              list   = pageEl.querySelector('.portal-examples-list'),
               // the heading's and the build control's own boxes: a clipping header row can collapse below them
               heading = Math.max(...['.portal-examples-group-heading', '.portal-examples-build-control']
-                  .map(selector => node.querySelector(selector).getBoundingClientRect().bottom));
+                  .map(selector => pageEl.querySelector(selector).getBoundingClientRect().bottom));
 
         return {
             cardsBelow : list.getBoundingClientRect().top >= heading - 1,
             columns    : getComputedStyle(list).gridTemplateColumns.split(' ').length,
-            crumb      : getComputedStyle(node.querySelector('.portal-examples-group-crumb')).display !== 'none',
+            crumb      : getComputedStyle(crumb).display !== 'none',
             index      : Boolean(index?.offsetHeight),
             indexBottom: index ? index.getBoundingClientRect().bottom : null,
             narrowest  : Math.min(...[...list.querySelectorAll('.neo-list-item')].map(card => card.getBoundingClientRect().width)),
-            overflowX  : node.scrollWidth > node.clientWidth + 1
+            overflowX  : pageEl.scrollWidth > pageEl.clientWidth + 1
         }
     })
 }
 
 /**
- * @summary Checks the resting card: a 16:9 cover that fills it, with title and proof line on a docked scrim.
+ * @summary Checks the resting card: a 16:9 cover that fills it, with title, open cue and proof line on a docked scrim.
  * @param {Object} list The mounted list locator.
  * @param {Number} width Viewport width.
  * @returns {Promise<Object[]>} Measured cards for the retained evidence.
@@ -112,13 +129,23 @@ async function expectCardLayout(list, width) {
     await list.page().evaluate(() => document.activeElement?.blur());
     await expect.poll(() => list.locator('.portal-example-more').evaluateAll(nodes => nodes.every(node => node.getBoundingClientRect().height < 1))).toBe(true);
 
+    const gridInfo = await list.evaluate(node => ({
+        columns : getComputedStyle(node).gridTemplateColumns.split(' ').length,
+        leadCard: node.classList.contains('portal-examples-list-lead')
+    }));
+
     const cards = await list.locator('.neo-list-item').evaluateAll(nodes => nodes.filter(node => node.offsetWidth).map(node => {
         const card    = node.getBoundingClientRect(),
               caption = node.querySelector('.neo-item-bottom-position'),
               copy    = caption.getBoundingClientRect(),
               image   = node.querySelector('.preview-image').getBoundingClientRect(),
               more    = node.querySelector('.portal-example-more'),
-              shown   = [node.querySelector('.neo-title'), node.querySelector('.portal-example-feature')].filter(Boolean),
+              shown   = [
+                  node.querySelector('.portal-example-group-badge'),
+                  node.querySelector('.neo-title'),
+                  node.querySelector('.portal-example-open-cue'),
+                  node.querySelector('.portal-example-feature')
+              ].filter(el => el && el.offsetWidth > 0),
               texts   = [...caption.querySelectorAll('*')];
 
         return {
@@ -146,18 +173,24 @@ async function expectCardLayout(list, width) {
     expect(cards.every(card => card.coverFills && Math.abs(card.ratio - 16 / 9) < 0.02), 'the cover fills a 16:9 card').toBe(true);
     // the cards that miss a check, by name, so a red run says which check failed where
     expect(cards.filter(card => !(card.docked && card.fits && card.textFits && card.closed && card.opaque && card.noInlineSize)),
-        'title and proof line fit a full-width, bottom-docked scrim; the action stays closed; no text is dimmed by opacity; no card is sized by hand').toEqual([]);
+        'title, cue and proof line fit a full-width, bottom-docked scrim; the action stays closed; no text is dimmed by opacity; no card is sized by hand').toEqual([]);
     expect(cards.every(card => card.clearCover >= (width <= 600 ? 0.3 : 0.45)),
         'the resting caption leaves the upper part of the cover clear: 45 % of the card, 30 % at phone widths').toBe(true);
 
+    if (gridInfo.leadCard && gridInfo.columns === 3 && cards.length >= 3) {
+        expect(Math.abs(cards[0].top - cards[1].top)).toBeLessThan(1);
+        expect(Math.abs(cards[0].bottom - cards[2].bottom)).toBeLessThan(1);
+        expect(cards[0].height).toBeGreaterThan(cards[1].height * 1.9)
+    }
+
     const rows = new Map();
     cards.forEach(card => {
-        const top = Math.round(card.top);
-        rows.has(top) || rows.set(top, []);
-        rows.get(top).push(card.bottom)
+        const bottom = Math.round(card.bottom);
+        rows.has(bottom) || rows.set(bottom, []);
+        rows.get(bottom).push(card.bottom)
     });
     expect([...rows.values()].every(bottoms => Math.max(...bottoms) - Math.min(...bottoms) < 1),
-        'cards sharing a row have aligned bottoms').toBe(true);
+        'cards sharing a row bottom have aligned bottoms').toBe(true);
     return cards
 }
 
@@ -176,7 +209,7 @@ async function expectCaptionContrast(caption, testInfo, name) {
           decoded    = decodePng(screenshot),
           titleTop   = await caption.evaluate(node => parseFloat(getComputedStyle(node).paddingTop)),
           // a mixed color computes to `color(srgb r g b)` with channels from 0 to 1
-          colors     = await caption.locator('a, .neo-title span, .portal-example-feature, p, .neo-inner-details').evaluateAll(nodes =>
+          colors     = await caption.locator('.portal-example-group-badge, a, .neo-title span, .portal-example-open-cue, .portal-example-feature, p, .neo-inner-details').evaluateAll(nodes =>
               nodes.map(node => {
                   const color = getComputedStyle(node).color, values = color.match(/[\d.]+/g).map(Number);
                   return color.startsWith('color(') ? [...values.slice(0, 3).map(value => value * 255), ...values.slice(3)] : values
@@ -205,23 +238,27 @@ async function expectCaptionContrast(caption, testInfo, name) {
  */
 test.describe('Portal examples section', () => {
     for (const viewport of [{width: 1440, height: 900}, {width: 1366, height: 768}, {width: 1280, height: 720}, {width: 390, height: 844}, {width: 390, height: 664}]) {
-        test(`${viewport.width}×${viewport.height}: the overview names every published group within one screen of scrolling, without a menu`, async ({page, neuralLink}, testInfo) => {
+        test(`${viewport.width}×${viewport.height}: the overview names every published group in reach, without a menu`, async ({page, neuralLink}, testInfo) => {
             await page.setViewportSize(viewport);
             await page.goto(`${PORTAL}#/examples`);
             await neuralLink.connectToApp('Portal');
 
-            const links = page.locator(INDEX).getByRole('link');
+            const isPhone  = viewport.width <= 640,
+                  navSel   = isPhone ? MOBILE_IX : SIDEBAR,
+                  links    = page.locator(`${navSel} ul a`),
+                  featured = page.locator(FEATURED);
+
+            await expect(featured.locator('.neo-list-item')).toHaveCount(11);
             await expect.poll(() => links.locator('.portal-examples-group-index-title').allTextContents()).toEqual(GROUPS);
 
-            const reach = await page.locator('.portal-examples-overview:visible').evaluate(overview => {
-                const top = overview.getBoundingClientRect().top;
+            if (isPhone) {
+                const indexBox = await page.locator(MOBILE_IX).evaluate(node => ({height: node.getBoundingClientRect().height}));
+                expect(indexBox.height).toBeLessThanOrEqual(viewport.height * 1.35)
+            } else {
+                const sidebarBox = await page.locator(SIDEBAR).evaluate(node => node.getBoundingClientRect());
+                expect(sidebarBox.bottom).toBeLessThanOrEqual(viewport.height + 1)
+            }
 
-                return [...overview.querySelectorAll('nav.portal-examples-group-index-overview a')]
-                    .map(link => link.getBoundingClientRect().bottom - top + overview.scrollTop)
-            });
-
-            // Today's rail showed three groups at 1280×720 and hid the rest behind its overflow control
-            expect(Math.max(...reach), 'the last group sits within the first two screens').toBeLessThanOrEqual(2 * viewport.height);
             await expect(page.locator('.neo-tab-overflow-control:visible')).toHaveCount(0);
             await expect(page.getByRole('tab')).toHaveCount(0);
             await page.screenshot({path: testInfo.outputPath(`overview-${viewport.width}x${viewport.height}.png`)})
@@ -233,18 +270,20 @@ test.describe('Portal examples section', () => {
         await neuralLink.connectToApp('Portal');
 
         const headline = page.locator('.portal-examples-overview:visible .portal-examples-overview-headline'),
-              counts   = page.locator(`${INDEX} .portal-examples-group-index-count`);
+              counts   = page.locator(`${SIDEBAR} .portal-examples-group-index-count`);
 
-        await expect(headline).toHaveText('48 live examples in 16 groups');
+        await expect(page.locator(SIDEBAR)).toBeVisible();
+        await expect(headline).toHaveText('48 live examples in 17 groups');
         expect((await counts.allTextContents()).filter(text => !text.startsWith('(')).reduce((sum, text) => sum + Number(text), 0)).toBe(48);
-        await expect(page.locator(`${INDEX} .portal-examples-group-index-note`)).toBeVisible();
+        await expect(page.locator(`${SIDEBAR} .portal-examples-group-index-note`)).toBeVisible();
+        await expect(page.locator(`${FEATURED} .neo-list-item`).first().locator('.portal-example-group-badge')).toHaveText('Multi-Window');
 
         // Dev mode cannot open liquid-glass, the one card of More components
         await selectBuild(page, 'Dev mode');
-        await expect(headline).toHaveText('47 live examples in 15 groups');
-        await expect(page.locator(INDEX).getByRole('link', {name: /^More components, /})).toHaveCount(0);
+        await expect(headline).toHaveText('47 live examples in 16 groups');
+        await expect(page.locator(SIDEBAR).getByRole('link', {name: /^More components, /})).toHaveCount(0);
         await selectBuild(page, 'Production build');
-        await expect(headline).toHaveText('48 live examples in 16 groups')
+        await expect(headline).toHaveText('48 live examples in 17 groups')
     });
 
     test('the index is a navigation landmark of links: Tab reaches every entry, Enter opens it, no entry claims to be a tab', async ({page, neuralLink}) => {
@@ -254,28 +293,38 @@ test.describe('Portal examples section', () => {
         const nav   = page.getByRole('navigation', {name: 'Example groups'}).locator('visible=true'),
               links = nav.getByRole('link');
 
-        await expect(links).toHaveCount(GROUPS.length);
+        await expect(links).toHaveCount(GROUPS.length + 1);
+        await expect(nav.locator('[aria-current="page"]')).toHaveText('All examples');
         await expect(nav.locator('[role="tab"], [aria-selected]')).toHaveCount(0);
 
         await links.first().focus();
-        for (let index = 1; index < GROUPS.length; index++) {
+        for (let index = 1; index <= GROUPS.length; index++) {
             await page.keyboard.press('Tab');
             await expect(links.nth(index)).toBeFocused()
         }
 
-        await links.nth(GROUPS.indexOf('Calendar')).focus();
+        await links.nth(GROUPS.indexOf('Calendar') + 1).focus();
         await page.keyboard.press('Enter');
         await expect(page).toHaveURL(/#\/examples\/calendar$/);
         await expect(page.locator(`${PAGE} .portal-examples-group-heading h1`)).toHaveText('Calendar')
     });
 
-    test('390×844: the crumb\'s group button opens the full list as a sheet, one tap opens it and a second navigates', async ({page, neuralLink}, testInfo) => {
+    test('390×844: the crumb\'s group button opens the full list as a sheet on entry and group routes', async ({page, neuralLink}, testInfo) => {
         await page.setViewportSize({width: 390, height: 844});
-        await page.goto(`${PORTAL}#/examples/grid`);
+        await page.goto(`${PORTAL}#/examples`);
         await neuralLink.connectToApp('Portal');
 
-        const button = page.locator(`${PAGE} .portal-examples-group-button`),
-              sheet  = page.locator(`${PAGE} .portal-examples-group-index-sheet`);
+        const button = page.locator(`${CRUMB} .portal-examples-group-button`),
+              sheet  = page.locator(SHEET);
+
+        await expect(button).toBeVisible();
+        await expect(button).toHaveText('All 17 groups');
+        await button.click();
+        await expect(sheet).toBeVisible();
+        await expect(sheet.locator('[aria-current="page"]')).toHaveText('All examples');
+        await sheet.getByRole('link', {name: /^Grid & Table, /}).click();
+        await expectOpenPage(page, 'Grid & Table');
+        await expect(button).toHaveText('Grid & Table');
 
         await expect(button).toHaveAttribute('aria-expanded', 'false');
         await expect(sheet).toHaveCount(0);
@@ -286,13 +335,13 @@ test.describe('Portal examples section', () => {
         await expect(sheet).toHaveAttribute('id', await button.getAttribute('aria-controls'));
         await expect.poll(() => sheet.evaluate(node => node.contains(document.activeElement))).toBe(true);
         await expect(sheet.locator('[aria-current="page"]')).toContainText('Grid & Table');
-        await expect(sheet.locator('a .portal-examples-group-index-title')).toHaveText(GROUPS);
+        await expect(sheet.locator('ul a .portal-examples-group-index-title')).toHaveText(GROUPS);
         // the sheet opens below the crumb, which stays in view
-        const [crumb, top] = await Promise.all([
-            page.locator(`${PAGE} .portal-examples-group-crumb`).evaluate(node => node.getBoundingClientRect().bottom),
+        const [crumbBottom, top] = await Promise.all([
+            page.locator(CRUMB).evaluate(node => node.getBoundingClientRect().bottom),
             sheet.evaluate(node => node.getBoundingClientRect().top)
         ]);
-        expect(top).toBeGreaterThanOrEqual(crumb - 1);
+        expect(top).toBeGreaterThanOrEqual(crumbBottom - 1);
         await page.screenshot({path: testInfo.outputPath('sheet-open-390x844.png')});
 
         await page.keyboard.press('Escape');
@@ -304,26 +353,33 @@ test.describe('Portal examples section', () => {
         await sheet.getByRole('link', {name: /^Calendar, /}).click();
         await expect(page).toHaveURL(/#\/examples\/calendar$/);
         await expectOpenPage(page, 'Calendar');
-        await expect(page.locator(`${PAGE} .portal-examples-group-button`)).toHaveAttribute('aria-expanded', 'false')
+        await expect(page.locator(`${CRUMB} .portal-examples-group-button`)).toHaveAttribute('aria-expanded', 'false');
+        await expect(page.locator(`${CRUMB} .portal-examples-group-button`)).toHaveText('Calendar')
     });
 
     for (const viewport of [{width: 1440, height: 900}, {width: 1280, height: 720}]) {
-        test(`${viewport.width}×${viewport.height}, list: the index stands beside the cards inside the viewport and scrolls on its own, no card under 410 px`, async ({page, neuralLink}, testInfo) => {
+        test(`${viewport.width}×${viewport.height}, list: the hoisted index stands beside the cards inside the viewport, 3 cols at 1440 with 2×2 lead`, async ({page, neuralLink}, testInfo) => {
             await page.setViewportSize(viewport);
             await page.goto(`${PORTAL}#/examples/grid`);
             await neuralLink.connectToApp('Portal');
             await expectOpenPage(page, 'Grid & Table');
 
-            const index = page.locator(`${PAGE} nav.portal-examples-group-index-list`);
+            const index = page.locator(SIDEBAR);
 
             await expect(index.locator('[aria-current="page"]')).toContainText('Grid & Table');
-            await expect(index.locator('a .portal-examples-group-index-title')).toHaveText(GROUPS);
+            await expect(index.locator('ul a .portal-examples-group-index-title')).toHaveText(GROUPS);
 
             const layout = await readDesktopPage(page);
 
-            expect(layout).toMatchObject({cardsBelow: true, columns: 2, crumb: false, index: true, overflowX: false});
+            expect(layout).toMatchObject({
+                cardsBelow: true,
+                columns   : viewport.width === 1440 ? 3 : 2,
+                crumb     : false,
+                index     : true,
+                overflowX : false
+            });
             expect(layout.indexBottom).toBeLessThanOrEqual(viewport.height);
-            expect(layout.narrowest).toBeGreaterThanOrEqual(410);
+            expect(layout.narrowest).toBeGreaterThanOrEqual(340);
             await page.screenshot({path: testInfo.outputPath(`list-${viewport.width}x${viewport.height}.png`)});
 
             // more groups than a laptop's height holds: the index scrolls on its own to its last group
@@ -334,7 +390,7 @@ test.describe('Portal examples section', () => {
             // one action reaches a sibling
             await index.getByRole('link', {name: /^Calendar, /}).click();
             await expectOpenPage(page, 'Calendar');
-            await expect(page.locator(`${PAGE} nav.portal-examples-group-index-list [aria-current="page"]`)).toContainText('Calendar')
+            await expect(index.locator('[aria-current="page"]')).toContainText('Calendar')
         })
     }
 
@@ -350,6 +406,7 @@ test.describe('Portal examples section', () => {
         await page.locator(PAGE).evaluate(node => {node.scrollTop = 600});
         await expect.poll(() => page.locator(PAGE).evaluate(node => node.scrollTop)).toBe(600);
 
+        await openOverview(page);
         await openGroup(page, 'Multi-Window');
         // the build selected on another page holds here
         await expect(page.getByRole('button', {name: /^Running /}).locator('visible=true')).toHaveText(/Running the ESM build/);
@@ -358,26 +415,31 @@ test.describe('Portal examples section', () => {
 
         // history returns through the overview to the scrolled page
         await page.goBack();
-        await expect(page.locator(INDEX)).toBeVisible();
+        await expect(page).toHaveURL(/#\/examples$/);
+        await expect(page.locator(FEATURED)).toBeVisible();
+        await expect(page.locator(PAGE)).toHaveCount(0);
         await page.goBack();
+        await expect(page).toHaveURL(/#\/examples\/grid$/);
         await expectOpenPage(page, 'Grid & Table');
         await expect.poll(() => page.locator(PAGE).evaluate(node => node.scrollTop)).toBe(600);
 
         // a group without a card in this build, and an unknown one, open the overview
         await page.goto(`${PORTAL}#/examples/board`);
-        await expect(page.locator(INDEX)).toBeVisible();
+        await expect(page.locator(FEATURED)).toBeVisible();
+        await expect(page.locator(PAGE)).toHaveCount(0);
         await page.goto(`${PORTAL}#/examples/unknown`);
-        await expect(page.locator(INDEX)).toBeVisible()
+        await expect(page.locator(FEATURED)).toBeVisible();
+        await expect(page.locator(PAGE)).toHaveCount(0)
     });
 
     test('the build control and the pages share one catalog, and the four build routes resolve as before', async ({page, neuralLink}) => {
         await page.goto(`${PORTAL}#/examples`);
         const app = await neuralLink.connectToApp('Portal');
 
-        // every published group has its page once the catalog has loaded, and every page borrows the one catalog
-        await expect(page.locator(INDEX)).toBeVisible();
+        // the Start here list plus every published group's list borrow the one catalog
+        await expect(page.locator(FEATURED)).toBeVisible();
         let sources;
-        await expect.poll(async () => (sources = await app.queryComponent({className: 'Portal.view.examples.List'}, ['store'])).length).toBe(GROUPS.length);
+        await expect.poll(async () => (sources = await app.queryComponent({className: 'Portal.view.examples.List'}, ['store'])).length).toBe(GROUPS.length + 1);
         expect(new Set(sources.map(item => item.properties.store.sourceId)).size).toBe(1);
 
         for (const [label, mode, prefix] of [
@@ -411,7 +473,7 @@ test.describe('Portal examples section', () => {
 
         for (const [mode, prefix] of [['dist_prod', 'dist/production/'], ['dist_esm', 'dist/esm/'], ['dist_dev', 'dist/development/'], ['devmode', '']]) {
             await page.goto(`${PORTAL}#/examples/${mode}`);
-            await expect(page.locator(INDEX)).toBeVisible();
+            await expect(page.locator(FEATURED)).toBeVisible();
             await expect(page.locator('.portal-examples-overview:visible').getByRole('link', {name: 'or the Workstation →'}))
                 .toHaveAttribute('href', `https://neomjs.com/${prefix}apps/workstation/index.html`)
         }
@@ -419,36 +481,37 @@ test.describe('Portal examples section', () => {
 
     for (const theme of ['neo-theme-neo-dark', 'neo-theme-neo-light']) {
         for (const viewport of [{width: 1440, height: 900}, {width: 375, height: 812}, {width: 390, height: 844}, {width: 844, height: 390}]) {
-            test(`${theme} ${viewport.width}px: group cards and Grid and Table features are visible and fit their cards`, async ({page, neuralLink}, testInfo) => {
+            test(`${theme} ${viewport.width}px: Start here cards and Grid and Table features are visible and fit their cards`, async ({page, neuralLink}, testInfo) => {
                 await page.setViewportSize(viewport);
                 await page.addInitScript(theme => localStorage.setItem('portalTheme', theme), theme);
                 await page.goto(`${PORTAL}#/examples`);
                 const app = await neuralLink.connectToApp('Portal');
                 await expect(page.locator(`.neo-viewport.${theme}`)).toBeVisible();
 
-                // the cards of the first band: every group card is one link to its page. The caption is measured in the
-                // web font it renders in, not in the fallback that stands in while the font loads.
-                const band = page.locator('.portal-examples-overview:visible .portal-examples-overview-band').first().locator('.portal-examples-group-list');
-                await expect(band.locator('.neo-list-item')).toHaveCount(8);
+                const featured = page.locator(FEATURED);
+                await expect(featured.locator('.neo-list-item')).toHaveCount(11);
                 await page.evaluate(() => document.fonts.ready);
-                await expectCardLayout(band, viewport.width);
-                await expect(band.locator('.neo-list-item').first().locator('a.content')).toHaveAttribute('href', '#/examples/grid');
-                await expectCaptionContrast(band.locator('.neo-item-bottom-position').first(), testInfo, 'group-caption-contrast');
+                await expectCardLayout(featured, viewport.width);
+                await expect(featured.locator('.neo-title').nth(0)).toHaveText('Workstation');
+                await expect(featured.locator('.portal-example-group-badge').nth(0)).toHaveText('Multi-Window');
+                await expect(featured.locator('.neo-title').nth(1)).toHaveText('Data Grid: 100k Rows & 200 Columns');
+                await expect(featured.locator('.portal-example-group-badge').nth(1)).toHaveText('Grid & Table');
+                await expect(featured.locator('.neo-multi-window[aria-label="Multi-window live example"]').first().locator('.neo-multi-window-label')).toHaveText('Multi-window');
+                await expectCaptionContrast(featured.locator('.neo-item-bottom-position').first(), testInfo, 'start-here-caption-contrast');
 
                 await openGroup(page, 'Grid & Table');
                 const overview = page.locator(CARDS);
 
                 await expect(overview.locator('.portal-example-feature')).toHaveCount(18);
-                // beside the upright index a card keeps 410 px: two columns at 1440, one at 844 and on a phone
                 const columns = await overview.evaluate(node => getComputedStyle(node).gridTemplateColumns.split(' ').length);
-                expect(columns).toBe(viewport.width === 1440 ? 2 : 1);
+                expect(columns).toBe(viewport.width === 1440 ? 3 : 1);
                 const list = await readList(app, 'grid-table');
                 expect(list.id).toBe(await overview.getAttribute('id'));
                 // the page's Store lists the covered records; the catalog keeps the others for their covers
                 expect(list.properties.store.count).toBe(18);
                 expect(list.properties.store.model.className).toBe('Portal.model.Example');
-                await expect(overview.locator('.neo-title').nth(0)).toHaveText('TreeGrid - Big Data');
-                await expect(overview.locator('.neo-title').nth(1)).toHaveText('Data Grid: 100k Rows & 200 Columns');
+                await expect(overview.locator('.neo-title').nth(0)).toHaveText('Data Grid: 100k Rows & 200 Columns');
+                await expect(overview.locator('.neo-title').nth(1)).toHaveText('TreeGrid - Big Data');
                 await expect(overview.locator('.neo-title').nth(2)).toHaveText('GitHub Issues Grid');
 
                 const covered = overview.locator('.portal-example-image-card .neo-item-bottom-position');
@@ -463,7 +526,7 @@ test.describe('Portal examples section', () => {
                 const geometry = await expectCardLayout(overview, viewport.width);
                 await expectCaptionContrast(covered.nth(2), testInfo, 'issues-caption-contrast');
                 // Table Filtering has a white cover: the scrim alone has to carry the text there.
-                await expectCaptionContrast(covered.nth(3), testInfo, 'light-cover-caption-contrast');
+                await expectCaptionContrast(covered.nth(4), testInfo, 'light-cover-caption-contrast');
                 await testInfo.attach('card-geometry', {body: JSON.stringify(geometry), contentType: 'application/json'});
                 expect(await page.locator(PAGE).evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
                 await page.screenshot({path: testInfo.outputPath(`grid-page-${viewport.width}.png`)});
@@ -547,5 +610,108 @@ test.describe('Portal examples section', () => {
         await expect(grid.locator('.neo-grid-container')).toBeVisible();
         await expect(grid.getByText('Organization', {exact: true}).first()).toBeVisible();
         await grid.close()
+    });
+
+    test('the Open live cue activates the exact launch link across pointer, touch, keyboard and build modes', async ({page, neuralLink, context, browser, baseURL}) => {
+        await page.goto(`${PORTAL}#/examples/multi-window`);
+        let app = await neuralLink.connectToApp('Portal');
+        await expectOpenPage(page, 'Multi-Window');
+
+        const prodList = await readList(app, 'multi-window');
+        await app.setProperties(prodList.id, {baseUrl: `${baseURL}/`});
+        await app.callMethod(prodList.id, 'createItems');
+
+        const workstationCard = page.locator(`${CARDS} .neo-list-item`, {hasText: 'Workstation'}),
+              workstationCue  = workstationCard.locator('.portal-example-open-cue');
+
+        await expect(workstationCue).toHaveAttribute('href', `${baseURL}/dist/production/apps/workstation/index.html`);
+        await expect(workstationCue).toHaveAttribute('target', '_blank');
+        await expect(workstationCue).toHaveAttribute('aria-hidden', 'true');
+        await expect(workstationCue).toHaveAttribute('tabindex', '-1');
+        await expect(page.locator(CARDS).getByRole('link', {name: 'Workstation', exact: true})).toHaveCount(1);
+
+        const titleLink = workstationCard.locator('.neo-title'),
+              source    = workstationCard.locator('.neo-github-image');
+
+        await titleLink.focus();
+        await expect(titleLink).toBeFocused();
+        await page.keyboard.press('Tab');
+        await expect(source).toBeFocused();
+        await expect(workstationCue).not.toBeFocused();
+
+        // In devmode, clicking Workstation's cue reuses the same window (sharedWorkers), while Enter on the title does the same
+        await page.goto(`${PORTAL}#/examples/devmode`);
+        app = await neuralLink.connectToApp('Portal');
+        await openGroup(page, 'Multi-Window');
+        const devList = await readList(app, 'multi-window');
+        await app.setProperties(devList.id, {baseUrl: `${baseURL}/`});
+        await app.callMethod(devList.id, 'createItems');
+
+        const devWorkstation = page.locator(`${CARDS} .neo-list-item`, {hasText: 'Workstation'}),
+              devCue         = devWorkstation.locator('.portal-example-open-cue');
+
+        await expect(devCue).toHaveAttribute('href', `${baseURL}/apps/workstation/index.html`);
+        await expect(devCue).not.toHaveAttribute('target', /_blank/);
+        await devCue.click();
+        await expect(page).toHaveURL(/\/apps\/workstation\/index\.html$/);
+        await expect(page.locator('.workstation-viewport')).toBeVisible();
+
+        await page.goto(`${PORTAL}#/examples/devmode`);
+        app = await neuralLink.connectToApp('Portal');
+        await openGroup(page, 'Multi-Window');
+        const enterList = await readList(app, 'multi-window');
+        await app.setProperties(enterList.id, {baseUrl: `${baseURL}/`});
+        await app.callMethod(enterList.id, 'createItems');
+
+        const enterTitle = page.locator(`${CARDS} .neo-list-item`, {hasText: 'Workstation'}).locator('.neo-title');
+        await expect(enterTitle).toHaveAttribute('href', `${baseURL}/apps/workstation/index.html`);
+        await enterTitle.focus();
+        await expect(enterTitle).toBeFocused();
+        await page.keyboard.press('Enter');
+        await expect(page).toHaveURL(/\/apps\/workstation\/index\.html$/);
+        await expect(page.locator('.workstation-viewport')).toBeVisible();
+
+        // Single-window example keeps target="_blank" when clicking the cue in devmode
+        await page.goto(`${PORTAL}#/examples/devmode`);
+        app = await neuralLink.connectToApp('Portal');
+        await openGroup(page, 'Grid & Table');
+        const gridList = await readList(app, 'grid-table');
+        await app.setProperties(gridList.id, {baseUrl: `${baseURL}/`});
+        await app.callMethod(gridList.id, 'createItems');
+
+        const treeCue = page.locator(`${CARDS} .neo-list-item`, {hasText: 'TreeGrid - Big Data'}).locator('.portal-example-open-cue');
+        await expect(treeCue).toHaveAttribute('href', `${baseURL}/examples/grid/treeBigData/index.html`);
+        await expect(treeCue).toHaveAttribute('target', '_blank');
+        const gridPopup = context.waitForEvent('page');
+        await treeCue.click();
+        const grid = await gridPopup;
+        await expect(grid).toHaveURL(/\/examples\/grid\/treeBigData\/index\.html$/);
+        await expect(grid.locator('.neo-grid-container')).toBeVisible();
+        await grid.close();
+
+        // Real touch tap on mobile viewport preserves both popup (_blank) and same-window (sharedWorkers) launch targets
+        const touchContext = await browser.newContext({baseURL, hasTouch: true, viewport: {width: 390, height: 844}});
+        await touchContext.route('https://neomjs.com/**', route => route.fulfill({
+            status     : 200,
+            contentType: 'text/html',
+            body       : '<title>Launched</title>'
+        }));
+        const touchPage = await touchContext.newPage();
+        await touchPage.goto(`${PORTAL}#/examples/devmode`);
+        await expect(touchPage.locator(FEATURED)).toBeVisible();
+
+        const gridCard = touchPage.locator(`${FEATURED} .neo-list-item`, {hasText: 'Data Grid: 100k Rows & 200 Columns'});
+        await gridCard.scrollIntoViewIfNeeded();
+        const touchPopup = touchContext.waitForEvent('page');
+        await gridCard.locator('.portal-example-open-cue').tap();
+        const touchedGrid = await touchPopup;
+        await expect(touchedGrid).toHaveURL(/\/examples\/grid\/bigData\/index\.html$/);
+        await touchedGrid.close();
+
+        const wsCard = touchPage.locator(`${FEATURED} .neo-list-item`, {hasText: 'Workstation'});
+        await wsCard.scrollIntoViewIfNeeded();
+        await wsCard.locator('.portal-example-open-cue').tap();
+        await expect(touchPage).toHaveURL(/\/apps\/workstation\/index\.html$/);
+        await touchContext.close()
     })
 });

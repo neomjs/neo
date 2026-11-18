@@ -661,7 +661,6 @@
  "Portal.view.content.Component": "Neo.app.content.Component",
  "Portal.view.content.TimelineCanvas": "Neo.app.SharedCanvas",
  "Portal.view.examples.GroupIndex": "Neo.component.Base",
- "Portal.view.examples.GroupList": "Portal.view.examples.List",
  "Portal.view.examples.GroupPage": "Neo.container.Base",
  "Portal.view.examples.List": "Neo.list.Base",
  "Portal.view.examples.MainContainer": "Neo.container.Base",
