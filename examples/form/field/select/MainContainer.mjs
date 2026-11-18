@@ -1,19 +1,33 @@
-import CheckBox              from '../../../../src/form/field/CheckBox.mjs';
-import ConfigurationViewport from '../../../ConfigurationViewport.mjs';
-import FruitSelect           from './FruitSelect.mjs';
-import TextField             from '../../../../src/form/field/Text.mjs';
+import CheckBox       from '../../../../src/form/field/CheckBox.mjs';
+import FruitSelect    from './FruitSelect.mjs';
+import StatesViewport from '../StatesViewport.mjs';
+import TextField      from '../../../../src/form/field/Text.mjs';
 
 /**
  * @summary A native Select with rich options and live presentation/validation controls.
  * @class Neo.examples.form.field.select.MainContainer
- * @extends Neo.examples.ConfigurationViewport
+ * @extends Neo.examples.form.field.StatesViewport
  */
-class MainContainer extends ConfigurationViewport {
+class MainContainer extends StatesViewport {
     static config = {
-        className           : 'Neo.examples.form.field.select.MainContainer',
-        autoMount           : true,
-        configItemLabelWidth: 160,
-        layout              : {ntype: 'hbox', align: 'stretch'}
+        className    : 'Neo.examples.form.field.select.MainContainer',
+        autoMount    : true,
+        componentName: 'Select',
+        layout       : {ntype: 'hbox', align: 'stretch'},
+
+        field: {
+            module   : FruitSelect,
+            labelText: 'Fruit',
+            name     : 'fruit',
+            width    : 300
+        },
+        // A native select has no read-only state
+        states: {
+            filled  : {value: '0'},
+            empty   : {},
+            invalid : {required: true},
+            disabled: {}
+        }
     }
 
     /**
@@ -35,14 +49,6 @@ class MainContainer extends ConfigurationViewport {
             module   : TextField, labelText: 'labelText', value: 'Fruit',
             listeners: {change: me.onConfigChange.bind(me, 'labelText')}
         }]
-    }
-
-    /**
-     * @summary Creates the example field; native changes retain typed scalar values.
-     * @returns {Neo.examples.form.field.select.FruitSelect}
-     */
-    createExampleComponent() {
-        return Neo.create(FruitSelect, {labelText: 'Fruit', name: 'fruit', width: 300})
     }
 }
 
