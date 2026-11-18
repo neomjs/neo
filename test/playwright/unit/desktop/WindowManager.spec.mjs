@@ -571,5 +571,58 @@ test.describe('Neo.desktop.WindowManager: a task store it shares', () => {
         expect(await reopened).toBeNull();
         expect(taskIds()).toEqual([]);
         expect(mail.isDestroyed).toBe(true)
+    });
+
+    test('a catalog swap of one manager leaves the tasks of another manager on the same store', async () => {
+        harness = createHarness();
+
+        const {apps, manager, tasks, taskIds} = harness,
+              otherApps = Neo.create(TreeStore, {data: [{id: 'other', permission: 'view-other', text: 'other'}], model: AppModel}),
+              mailOnly  = Neo.create(TreeStore, {data: [{id: 'mail',  permission: 'view-mail',  text: 'mail'}],  model: AppModel}),
+              other     = Neo.create(WindowManager, {appStore: otherApps, taskStore: tasks, windowClass: FakeWindow, windowConfig: record => ({record})});
+
+        try {
+            await manager.openApp(apps.get('mail'));
+            await other.openApp(otherApps.get('other'));
+
+            manager.appStore = mailOnly;
+
+            expect(taskIds()).toEqual(['mail', 'other'])
+        } finally {
+            other.destroy();
+            otherApps.destroy();
+            mailOnly.destroy()
+        }
+    });
+
+    test('a destroy leaves a task the store owner put under a key the manager released', async () => {
+        harness = createHarness();
+
+        const {apps, manager, tasks} = harness;
+
+        await manager.openApp(apps.get('mail'));
+        manager.close('mail');
+
+        const [owners] = tasks.add({id: 'mail', text: 'the owner\'s mail'});
+
+        manager.destroy();
+
+        expect(tasks.get('mail')).toBe(owners)
+    });
+
+    test('an app whose key holds another owner\'s task opens its window and leaves that task alone, through a close', async () => {
+        harness = createHarness();
+
+        const {apps, manager, tasks} = harness,
+              [owners]               = tasks.add({id: 'mail', text: 'the owner\'s mail'}),
+              mail                   = await manager.openApp(apps.get('mail'));
+
+        expect(mail.hidden).toBe(false);
+        expect(tasks.get('mail')).toBe(owners);
+
+        manager.close('mail');
+
+        expect(mail.hidden).toBe(true);
+        expect(tasks.get('mail')).toBe(owners)
     })
 });

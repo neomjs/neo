@@ -85,6 +85,12 @@ class WindowManager extends Base {
      */
     #stack = []
     /**
+     * The task records this manager added, by app id. A task store can be shared: the manager touches only these
+     * records, never another owner's task under the same key.
+     * @member {Map<String, Neo.desktop.model.Task>} #tasks
+     */
+    #tasks = new Map()
+    /**
      * The load in flight per app id, the promise of its window: a second open during a load joins the first
      * @member {Map<String, Promise<Neo.dialog.Base|null>>} #windows
      */
@@ -141,12 +147,11 @@ class WindowManager extends Base {
      */
     close(appId) {
         let me     = this,
-            task   = me.taskStore.get(appId),
             window = me.#created.get(appId);
 
         me.#end(appId);
+        me.#removeTasks([appId]);
 
-        task && me.taskStore.remove(task);
         window && !window.hidden && window.hide()
     }
 
@@ -261,7 +266,7 @@ class WindowManager extends Base {
      */
     minimize(appId) {
         let me     = this,
-            task   = me.taskStore.get(appId),
+            task   = me.#taskOf(appId),
             window = me.#created.get(appId);
 
         if (task && window && !window.hidden) {
@@ -271,27 +276,25 @@ class WindowManager extends Base {
     }
 
     /**
-     * Closes the windows of every app the app store no longer keeps, minimized ones included, and ends their loads in
-     * flight. The windows hide without animation: the app's launcher icon may be gone already.
+     * Closes the windows this manager created for every app the app store no longer keeps, minimized ones included,
+     * removes their tasks, and ends their loads in flight. The windows hide without animation: the app's launcher icon
+     * may be gone already. Another owner's tasks on a shared task store stay.
      * @protected
      */
     onAppStoreFilter() {
-        let me          = this,
-            {taskStore} = me,
-            revoked     = taskStore.items.filter(task => !me.#keeps(task.id));
+        let me      = this,
+            revoked = [...me.#created.keys()].filter(appId => !me.#keeps(appId));
 
-        // A load in flight has no task to revoke yet. Ended now, it stays ended when a later filter keeps the app again.
+        // A load in flight has no window yet. Ended now, it stays ended when a later filter keeps the app again.
         [...me.#windows.keys()].forEach(appId => {me.#keeps(appId) || me.#end(appId)});
 
-        if (revoked.length) {
-            taskStore.remove(revoked);
+        me.#removeTasks(revoked);
 
-            revoked.forEach(task => {
-                let window = me.#created.get(task.id);
+        revoked.forEach(appId => {
+            let window = me.#created.get(appId);
 
-                window && !window.hidden && window.hide(false)
-            })
-        }
+            window.hidden || window.hide(false)
+        })
     }
 
     /**
@@ -309,10 +312,10 @@ class WindowManager extends Base {
      * @param {String} appId
      */
     #onWindowHide(appId) {
-        let {taskStore} = this,
-            task        = taskStore?.get(appId);
+        let me   = this,
+            task = me.#taskOf(appId);
 
-        task && !task.minimized && taskStore.remove(task)
+        task && !task.minimized && me.#removeTasks([appId])
     }
 
     /**
@@ -349,13 +352,15 @@ class WindowManager extends Base {
         }
 
         let {taskStore} = me,
-            task        = taskStore.get(id);
+            task        = me.#taskOf(id);
 
         if (task) {
             task.minimized = false
-        } else {
-            taskStore.add({color: record.color, iconCls: record.iconCls, id, text: record.text})
+        } else if (!taskStore.get(id)) {
+            taskStore.add({color: record.color, iconCls: record.iconCls, id, text: record.text});
+            me.#tasks.set(id, taskStore.get(id))
         }
+        // Otherwise another owner's task holds the app's key: the window opens without a task of this manager
 
         me.bringToFront(id);
         window.hidden && window.show();
@@ -364,13 +369,18 @@ class WindowManager extends Base {
     }
 
     /**
-     * Removes the tasks of this manager's apps. A task store can be shared, and a task its owner added stays.
+     * Removes the tasks this manager added for some apps, all of them by default. A record another owner put under the
+     * same key stays. The manager lets go of each record before the store removes it, so an open a store listener
+     * starts meanwhile adds a task of its own.
+     * @param {String[]} [appIds] All the apps this manager listed by default
      */
-    #removeTasks() {
-        let {taskStore} = this,
-            tasks       = [...this.#created.keys()].map(appId => taskStore.get(appId)).filter(Boolean);
+    #removeTasks(appIds=[...this.#tasks.keys()]) {
+        let me    = this,
+            tasks = appIds.map(appId => me.#taskOf(appId)).filter(Boolean);
 
-        tasks.length && taskStore.remove(tasks)
+        appIds.forEach(appId => {me.#tasks.delete(appId)});
+
+        tasks.length && me.taskStore.remove(tasks)
     }
 
     /**
@@ -408,7 +418,7 @@ class WindowManager extends Base {
      */
     restore(appId) {
         let me     = this,
-            task   = me.taskStore.get(appId),
+            task   = me.#taskOf(appId),
             window = me.#created.get(appId);
 
         if (task && window) {
@@ -425,6 +435,17 @@ class WindowManager extends Base {
      */
     #ticket(appId) {
         return `${this.#resets}/${this.#closes.get(appId) || 0}`
+    }
+
+    /**
+     * The task this manager added for an app, while the task store still holds that very record
+     * @param {String} appId
+     * @returns {Neo.desktop.model.Task|null}
+     */
+    #taskOf(appId) {
+        let task = this.#tasks.get(appId);
+
+        return task && this.taskStore?.get(appId) === task ? task : null
     }
 }
 
