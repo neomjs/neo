@@ -323,5 +323,54 @@ test.describe('Neo.desktop.Launcher arrangements', () => {
         await flush();
 
         expect(store.getChildren('work').map(record => record.id)).toEqual(['mail', 'chat', 'notes'])
+    });
+
+    // A list config is applied before the launcher's own, so the store arrives before the key at construction
+    test('a key given with the store at construction holds the first render until its arrangement is in place', async () => {
+        holdReads();
+
+        // The launcher owns its store, so the next one gets a store of its own
+        launcher.destroy();
+        store    = Neo.create(CatalogApps);
+        launcher = Neo.create(Launcher, {appName, arrangementKey: 'one', store});
+
+        expect(launcher.vdom.cn, 'no catalog order shows first').toEqual([]);
+
+        replies[0]();
+        await flush();
+
+        expect(rendered()).toEqual(['Work', 'Notes', 'Mail', 'Chat'])
+    });
+
+    test('a store attached to a launcher with a key renders in that key\'s arrangement, never in catalog order first', async () => {
+        launcher.arrangementKey = 'one';
+        await flush();
+
+        holdReads();
+
+        // The launcher owns its store: the previous one goes with the swap
+        launcher.store = store = Neo.create(CatalogApps);
+
+        expect(rendered(), 'the held render still shows the previous store').toEqual(['Work', 'Notes', 'Mail', 'Chat']);
+
+        replies[0]();
+        await flush();
+
+        expect(store.getChildren('work').map(record => record.id)).toEqual(['notes', 'mail', 'chat']);
+        expect(rendered()).toEqual(['Work', 'Notes', 'Mail', 'Chat'])
+    });
+
+    test('clearing the store during a held restore throws nothing', async () => {
+        holdReads();
+
+        launcher.arrangementKey = 'one';
+        store.filters           = [{operator: 'included', property: 'id', value: ['chat']}];
+
+        expect(() => {launcher.store = null}).not.toThrow();
+
+        replies.forEach(reply => reply());
+        await flush();
+
+        expect(launcher.isDestroyed).toBeFalsy()
     })
 });

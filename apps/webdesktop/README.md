@@ -22,7 +22,7 @@ Permissions are state, navigation is data, and visibility is one filter.
 | State  | `view/ViewportStateProvider.mjs`              | Holds the signed-in `account` and its `permissions`, and writes `permissions` into the apps store's filter. |
 | Data   | `store/Apps.mjs`                              | One `Neo.data.TreeStore` with every app and group. Each app names the permission it needs; groups name none. |
 | Filter | `store/Apps.mjs`                              | `{property: 'permission', operator: 'included', value: <granted keys>, includeEmptyValues: false}` |
-| Views  | `view/Launcher.mjs`, the start button's menu  | Bound to the apps store. They render what it keeps and never read a permission. |
+| Views  | `Neo.desktop.Launcher`, the start button's menu | Bound to the apps store. They render what it keeps and never read a permission. |
 
 Signing in is one write (`view/ViewportController.mjs`):
 

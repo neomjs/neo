@@ -109,22 +109,25 @@ class Launcher extends List {
     }
 
     /**
-     * Triggered after the store config got changed. A new store takes the arrangement of the current key.
+     * Triggered after the store config got changed. A new store takes the arrangement of the current key, and its
+     * restore starts before the list renders it, so its first render is held too.
      * @param {Neo.desktop.store.Apps|null} value
      * @param {Neo.desktop.store.Apps|null} oldValue
      * @protected
      */
     afterSetStore(value, oldValue) {
-        let me = this;
+        let me      = this,
+            restore = me.#restore;
 
         // on() and un() consume keys like `scope` from the passed object, so each call gets its own
         oldValue && !oldValue.isDestroyed && oldValue.un({rowsChange: me.onStoreRowsChange, scope: me});
         value?.on({rowsChange: me.onStoreRowsChange, scope: me});
 
-        super.afterSetStore(value, oldValue);
+        // The list's configs apply before the launcher's: reading a key the construction still holds starts its
+        // restore, and a key already in place starts one here
+        me.arrangementKey && me.#restore === restore && me.restoreArrangement();
 
-        // The construction runs afterSetArrangementKey() after this hook
-        oldValue !== undefined && me.restoreArrangement()
+        super.afterSetStore(value, oldValue)
     }
 
     /**
@@ -312,7 +315,8 @@ class Launcher extends List {
     async restoreArrangement() {
         let me                      = this,
             {arrangementKey, store} = me,
-            restore                 = me.#restore = arrangementKey && store ? {} : null,
+            // Only an apps store arranges: a list given no store creates a plain one
+            restore                 = me.#restore = arrangementKey && store?.arrange ? {} : null,
             arrangement;
 
         if (restore) {
