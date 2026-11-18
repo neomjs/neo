@@ -123,8 +123,9 @@ class Container extends SchedulerContainer {
 
     /**
      * @summary Binds record changes and keeps the overlay aligned.
-     * @description A store batch (`updateRows()`) re-projects the overlay once, on its `rowsChange`:
-     * each of its records publishes `recordChange` with `isBatch` first, and those wait for it.
+     * @description A store batch (`updateRows()`) re-projects the overlay once, on its `rowsChange`. Its records'
+     * `recordChange` events and the filter or sort it reapplies arrive first, while `store.isUpdatingRows` is true,
+     * and leave the overlay to that final event.
      */
     afterSetStore(value, oldValue) {
         super.afterSetStore(value, oldValue);
@@ -133,12 +134,12 @@ class Container extends SchedulerContainer {
         this.#storeCleanups = [];
         if (value) {
             const changed = data => {
-                if (this._movingTask) return;
+                if (this._movingTask || value.isUpdatingRows) return;
                 this.#analysis?.invalidateSchedule(data);
                 if (!(this.schedule?.isPublishing && this.#serviceCleanup)) this.syncDependencyLayer()
             };
             const recordChange = data => {
-                if (this._movingTask || data?.isBatch) return;
+                if (this._movingTask || value.isUpdatingRows) return;
                 const fields = data?.fields;
                 if (!Array.isArray(fields) || !fields.length || fields.some(field => {
                     const name = typeof field === 'string' ? field : field?.name;
@@ -164,8 +165,8 @@ class Container extends SchedulerContainer {
         this.#dependencyCleanups.forEach(fn => fn());
         this.#dependencyCleanups = [];
         if (value) {
-            const changed = data => {
-                if (this._movingTask || data?.isBatch) return;
+            const changed = () => {
+                if (this._movingTask || value.isUpdatingRows) return;
                 this.#analysis?.invalidateSchedule();
                 if (!(this.schedule?.isPublishing && this.#serviceCleanup)) this.syncDependencyLayer()
             };

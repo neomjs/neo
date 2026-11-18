@@ -544,4 +544,69 @@ test.describe('Neo.gantt.Container', () => {
         dependencyStore.destroy();
         taskStore.destroy()
     });
+
+    test('a batch that reapplies an opted-in filter re-projects once; an explicit filter and a single edit still project', () => {
+        const
+            taskStore = Neo.create(TaskStore, {
+                data: [
+                    {id: 'A', parentId: null, isLeaf: true, title: 'A', startDate: '2026-11-09T00:00:00Z', endDate: '2026-11-09T02:00:00Z', percentDone: 0},
+                    {id: 'B', parentId: null, isLeaf: true, title: 'B', startDate: '2026-11-09T02:00:00Z', endDate: '2026-11-09T04:00:00Z', percentDone: 0},
+                    {id: 'C', parentId: null, isLeaf: true, title: 'C', startDate: '2026-11-09T04:00:00Z', endDate: '2026-11-09T06:00:00Z', percentDone: 0}
+                ],
+                filters: [{property: 'percentDone', operator: '<', value: 100, reapplyOnRecordChange: true}]
+            }),
+            dependencyStore = Neo.create(DependencyStore, {
+                data: [
+                    {id: 'ab', fromId: 'A', toId: 'B', type: 'FS', lag: 0, lagUnit: 'hour'},
+                    {id: 'bc', fromId: 'B', toId: 'C', type: 'FS', lag: 0, lagUnit: 'hour'}
+                ]
+            });
+
+        gantt = Neo.create(GanttContainer, {
+            appName,
+            dependencyStore,
+            store        : taskStore,
+            timeAxis     : {start: '2026-11-09T00:00:00Z', end: '2026-11-10T00:00:00Z', tickUnit: 'hour', tickStep: 1, pxPerMinute: 1, snapMinutes: 15},
+            viewportWidth: 2000
+        });
+        gantt.syncDependencyLayer();
+
+        const
+            layer   = gantt.dependencyLayer,
+            project = layer.project.bind(layer),
+            routes  = () => layer.arrows.map(arrow => arrow.data.dependencyId);
+        let projects = 0;
+
+        layer.project = (...args) => { projects++; return project(...args) };
+
+        // The batch finishes B, so the refilter hides it with both of its links, and moves C: one projection, after the filter
+        taskStore.updateRows([
+            {key: 'B', values: {percentDone: 100}},
+            {key: 'C', values: {startDate: new Date('2026-11-09T05:00:00Z'), endDate: new Date('2026-11-09T07:00:00Z')}}
+        ]);
+        expect(projects).toBe(1);
+        expect(taskStore.items.map(task => task.id)).toEqual(['A', 'C']);
+        expect(routes()).toEqual([]);
+
+        // A link batch under an active FS filter hides both links: one projection
+        taskStore.filters = [];
+        dependencyStore.filters = [{property: 'type', value: 'FS', reapplyOnRecordChange: true}];
+        expect(routes()).toEqual(['ab', 'bc']);
+        projects = 0;
+        dependencyStore.updateRows([{key: 'ab', values: {type: 'SS'}}, {key: 'bc', values: {type: 'SS'}}]);
+        expect(projects).toBe(1);
+        expect(routes()).toEqual([]);
+
+        // An explicit filter and a single edit are not batches: each still projects
+        projects = 0;
+        dependencyStore.filters = [];
+        expect(projects).toBe(1);
+        expect(routes()).toEqual(['ab', 'bc']);
+        projects = 0;
+        taskStore.get('C').set({startDate: new Date('2026-11-09T06:00:00Z'), endDate: new Date('2026-11-09T08:00:00Z')});
+        expect(projects).toBe(1);
+
+        dependencyStore.destroy();
+        taskStore.destroy()
+    });
 });
