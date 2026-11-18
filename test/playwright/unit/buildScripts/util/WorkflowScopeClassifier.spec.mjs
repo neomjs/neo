@@ -949,7 +949,7 @@ test.describe('Tests scope classifier — the e2e engine tier predicate', () => 
         {file: 'test/playwright/resolveFreePort.mjs',                why: 'imported by playwright.config.e2e.mjs — it picks the server port'},
         {file: 'test/playwright/util/RmaHelpers.mjs',                why: 'imported by the shared fixtures every spec builds on'},
         {file: 'test/playwright/e2e/globalSetup.mjs',                why: 'the first half of the tier\'s own webServer.command'},
-        {file: 'buildScripts/webpack/webpack.server.config.mjs',     why: 'the server `server-start` launches for the tier to drive'},
+        {file: 'buildScripts/util/fileServer.mjs',                   why: 'the server `server-start` launches for the tier to drive'},
         {file: 'buildScripts/util/developmentThemeAssets.mjs',       why: 'builds the theme assets the run serves'},
         // Runtime reach, which no import scan sees: the Portal Videos store fetches videos.json on
         // #/news/videos (VideosNL.spec.mjs), and a Docs spec's browser setup executes the docs generator
@@ -1158,7 +1158,7 @@ test.describe('Tests scope classifier — the e2e engine tier predicate', () => 
         // Absent at base, present at head: the tier's own webServer command line changing.
         const invoked = createRuntime({
             files  : ['package.json'],
-            headPkg: { dependencies: { leftpad: '1.0.0' }, scripts: { 'build:all': 'a', 'server-start': 'webpack serve --port 9000' } }
+            headPkg: { dependencies: { leftpad: '1.0.0' }, scripts: { 'build:all': 'a', 'server-start': 'node ./buildScripts/util/fileServer.mjs --port 9000' } }
         });
 
         await executeScript(scopeScript(), invoked);
