@@ -124,11 +124,11 @@ for (const viewport of [{width: 1440, height: 900}, {width: 390, height: 844}]) 
             await page.mouse.move(0, 0);
             await expect.poll(async () => (await readGrid(app)).loading).toBe(true);
             await expect(page.locator('.neo-loading-message')).toContainText('Fetching page 2');
-            await expect(page.locator('.server-side-controls .neo-combobox')).toHaveClass(/neo-disabled/);
-            const opacity = await page.locator('.server-side-busy .neo-disabled').evaluateAll(elements =>
-                elements.map(element => getComputedStyle(element).opacity));
-            expect(opacity.length).toBeGreaterThan(0);
-            expect(opacity.every(value => value === '1')).toBe(true);
+            await expect(page.locator('.server-side-controls .neo-combobox')).not.toHaveClass(/neo-disabled/);
+            await expect(page.locator('.neo-grid-header-toolbar')).not.toHaveClass(/neo-disabled/);
+            await expect(page.locator('.server-side-controls')).toHaveCSS('pointer-events', 'none');
+            await expect(page.locator('.neo-grid-header-toolbar')).toHaveCSS('pointer-events', 'none');
+            await expect(page.locator('.server-side-paging')).toHaveClass(/neo-disabled/);
             await expect(page.locator('.server-side-page-button .neo-button-ripple-wrapper')).toHaveCount(0);
             await testInfo.attach('pending-request', {body: await page.screenshot(), contentType: 'image/png'});
             await expect(page.locator('.server-side-request')).toContainText('50 of 100,000 rows');

@@ -73,10 +73,8 @@
 
     &.server-side-busy {
         .neo-grid-header-toolbar,
-        .server-side-controls,
-        .server-side-paging {
-            --neo-disabled-opacity: 1;
-            --textfield-opacity-disabled: 1;
+        .server-side-controls {
+            pointer-events: none;
         }
     }
 

@@ -189,8 +189,6 @@ class MainContainer extends Viewport {
         const grid = this.getReference('grid');
         this[busy ? 'addCls' : 'removeCls']('server-side-busy');
         grid.isLoading = busy ? `Fetching page ${grid.store.currentPage} from the simulated server…` : false;
-        this.getReference('grid').headerToolbar.disabled = busy;
-        this.getReference('country').disabled = busy;
         this.getReference('paging').disabled = busy
     }
 
