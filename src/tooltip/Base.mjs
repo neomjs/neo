@@ -221,6 +221,88 @@ class Tooltip extends Container {
     }
 
     /**
+     * Aligns the tooltip to its target, then spans its hit area across the gap between them
+     * @param {Object} [spec={}]
+     * @returns {Promise<void>}
+     */
+    async alignTo(spec={}) {
+        await super.alignTo(spec);
+        await this.#bridge()
+    }
+
+    /**
+     * Spans a hoverable tooltip's hit area across the gap to its target, as {@link .bridgeBetween} measures it once
+     * both boxes are placed, and clears it for a tooltip that does not stay on hover
+     */
+    async #bridge() {
+        let me     = this,
+            target = me.align?.target,
+            bridge = null;
+
+        if (me.stayOnHover && me.mounted && Neo.isString(target)) {
+            let [targetRect, ownRect] = await me.getDomRect([target, me.id]);
+
+            bridge = targetRect && ownRect ? Tooltip.bridgeBetween(targetRect, ownRect) : null
+        }
+
+        // An update of a tooltip that left the DOM meanwhile would remove its node a second time
+        if (me.isDestroyed || !me.mounted) {
+            return
+        }
+
+        let {style} = me,
+            changed = false;
+
+        ['height', 'left', 'top', 'width'].forEach(key => {
+            let name  = `--tooltip-bridge-${key}`,
+                value = bridge ? `${bridge[key]}px` : undefined;
+
+            if (style[name] !== value) {
+                changed = true;
+                value === undefined ? delete style[name] : (style[name] = value)
+            }
+        });
+
+        changed && (me.style = style)
+    }
+
+    /**
+     * @summary The hit area that spans the gap between a target and its tooltip, relative to the tooltip's box: on the
+     * side that faces the target, as deep as the gap, and across both boxes along that side. A pointer on its way from
+     * the target to the tooltip crosses it; one parked beside the tooltip anywhere else does not.
+     * @param {{height: Number, width: Number, x: Number, y: Number}} target
+     * @param {{height: Number, width: Number, x: Number, y: Number}} tooltip
+     * @returns {{height: Number, left: Number, top: Number, width: Number}|null} Null when the boxes touch or overlap
+     */
+    static bridgeBetween(target, tooltip) {
+        let targetBottom  = target.y  + target.height,
+            targetRight   = target.x  + target.width,
+            tooltipBottom = tooltip.y + tooltip.height,
+            tooltipRight  = tooltip.x + tooltip.width,
+            // Across both boxes, for a gap above or below the tooltip, and beside it
+            across        = {left: Math.min(target.x, tooltip.x) - tooltip.x, width: Math.max(targetRight, tooltipRight) - Math.min(target.x, tooltip.x)},
+            along         = {top : Math.min(target.y, tooltip.y) - tooltip.y, height: Math.max(targetBottom, tooltipBottom) - Math.min(target.y, tooltip.y)};
+
+        if (tooltip.y > targetBottom) {
+            return {...across, height: tooltip.y - targetBottom, top: targetBottom - tooltip.y}
+        }
+
+        if (tooltipBottom < target.y) {
+            return {...across, height: target.y - tooltipBottom, top: tooltip.height}
+        }
+
+        if (tooltip.x > targetRight) {
+            return {...along, left: targetRight - tooltip.x, width: tooltip.x - targetRight}
+        }
+
+        if (tooltipRight < target.x) {
+            return {...along, left: tooltip.width, width: target.x - tooltipRight}
+        }
+
+        return null
+    }
+
+    /**
      * Clears one or multiple setTimeout call(s)
      * @param {String[]|String} timers valid values: dismiss, hide, show
      */
@@ -379,30 +461,40 @@ class Tooltip extends Container {
     }
 
     /**
-     * @summary Hides a mounted tooltip or records the hidden intent for its pending mount flight. A tooltip that was
-     * shown warms its window for {@link #warmWindow}.
+     * @summary Hides a mounted tooltip or records the hidden intent for its pending mount flight. Only a tooltip that
+     * was painted warms its window for {@link #warmWindow}.
      */
     hide() {
+        this.retire()
+    }
+
+    /**
+     * {@link #hide}, for the next tooltip of the window to wait on. `hide()` itself returns nothing, so a remote caller
+     * never waits on a held insert.
+     * @returns {Promise|null} Settles once the tooltip's node is out of the DOM, also when its mount flight lands first
+     * @protected
+     */
+    retire() {
         let me = this;
 
         me.clearTimeout(['dismiss', 'hide', 'show']);
 
-        if (me._hidden === false) {
-            hiddenAt[me.windowId] = Date.now();
-            visible[me.windowId] === me && delete visible[me.windowId]
-        }
+        me.mounted && (hiddenAt[me.windowId] = Date.now());
+        visible[me.windowId] === me && delete visible[me.windowId];
 
         me._hidden = true;
-        me.mounted && me.unmount()
+
+        return me.mounted ? me.unmount() : me.mountFlight
     }
 
     /**
-     * Hides the tooltip after its hideDelay, or else after its retargetWindow
+     * Hides the tooltip after its hideDelay, or else after its retargetWindow. A tooltip not painted yet hides at once,
+     * so a departure before the first paint cancels the show.
      * @param {Object|null} data
      */
     hideDelayed(data) {
         let me    = this,
-            delay = me.hideDelay || me.retargetWindow;
+            delay = me.mounted ? me.hideDelay || me.retargetWindow : 0;
 
         if (delay) {
             me.addTimeout('hide', me.hide.bind(me), delay)
@@ -468,7 +560,8 @@ class Tooltip extends Container {
     }
 
     /**
-     * mouseenter event listener for the tooltip element
+     * mouseenter event listener for the tooltip element: it keeps a tooltip that stays on hover. A shared tooltip keeps
+     * this listener after a target turns stayOnHover off, and then lets the departure run.
      * @param {Object} data
      */
     onMouseEnter(data) {
@@ -476,23 +569,26 @@ class Tooltip extends Container {
             targetId = data.path[0].id;
 
         // only use path[0] based events to ignore mouseenter & leave for child nodes
-        me.id === targetId && me.clearTimeout(['dismiss', 'hide'])
+        me.id === targetId && me.stayOnHover && me.clearTimeout(['dismiss', 'hide'])
     }
 
     /**
      * mouseleave event listener for the tooltip element. Back onto its target the tooltip stays, since the target's
-     * enter shows it again; anywhere else it goes.
+     * enter shows it again, and so does a move within the tooltip: Chromium reports a crossing from the hit area that
+     * spans the gap into the tooltip's own box as a leave whose `relatedTarget` is the tooltip itself. Anywhere else
+     * it goes.
      * @param {Object} data
      */
     onMouseLeave(data) {
-        let me       = this,
-            target   = me.align?.target,
-            targetId = data.path[0].id;
+        let me                = this,
+            {relatedTarget}   = data,
+            target            = me.align?.target,
+            targetId          = data.path[0].id,
+            stays             = Tooltip.nodeIsIn(relatedTarget, me) || relatedTarget?.id === target ||
+                                Tooltip.nodeIsIn(relatedTarget, Neo.getComponent(target));
 
         // only use path[0] based events to ignore mouseenter & leave for child nodes
-        if (me.id === targetId && data.relatedTarget?.id !== target && !Tooltip.nodeIsIn(data.relatedTarget, Neo.getComponent(target))) {
-            me.hideDelayed(null)
-        }
+        me.id === targetId && !stays && me.hideDelayed(null)
     }
 
     /**
@@ -536,14 +632,15 @@ class Tooltip extends Container {
 
     /**
      * @summary Shows the tooltip in one mount flight, which lands on the latest visibility intent. The tooltip its
-     * window showed before hides.
+     * window showed before hides, and this one enters the DOM only once that one has left it, so a window never paints
+     * two.
      * @param {Object} data
      */
     show(data) {
         let me    = this,
-            shown = visible[me.windowId];
+            shown = visible[me.windowId],
+            gone  = shown && shown !== me && !shown.isDestroyed ? shown.retire() : null;
 
-        shown && shown !== me && !shown.isDestroyed && shown.hide();
         visible[me.windowId] = me;
 
         me.showDelayTaskId = null;
@@ -555,21 +652,23 @@ class Tooltip extends Container {
         }
 
         if (!me.mounted && !me.mountFlight) {
-            me.startMountFlight(me.initVnode(true))
+            me.startMountFlight(gone
+                ? Promise.resolve(gone).catch(Neo.emptyFn).then(() => me._hidden || me.isDestroyed ? null : me.initVnode(true))
+                : me.initVnode(true))
         }
 
         me._hidden = false
     }
 
     /**
-     * Shows the tooltip using the given showDelay, or at once while another tooltip of its window shows or hid less
-     * than {@link #warmWindow} ago
+     * Shows the tooltip using the given showDelay, or at once while another tooltip of its window is painted or one hid
+     * less than {@link #warmWindow} ago
      * @param {Object} data
      */
     showDelayed(data) {
         let me    = this,
             shown = visible[me.windowId],
-            warm  = shown && shown !== me || Date.now() - (hiddenAt[me.windowId] ?? -Infinity) < me.warmWindow;
+            warm  = shown && shown !== me && shown.mounted || Date.now() - (hiddenAt[me.windowId] ?? -Infinity) < me.warmWindow;
 
         if (me.showDelay && !warm) {
             me.addTimeout('show', me.show.bind(me), me.showDelay)

@@ -3,8 +3,9 @@ import Container from '../../../../../src/container/Base.mjs';
 import Viewport  from '../../../../../src/container/Viewport.mjs';
 
 /**
- * @summary Component-test fixture for tooltip departures: a row of neighbouring buttons on the shared tooltip and a
- * row whose buttons own their tooltips, with empty space around both rows.
+ * @summary Component-test fixture for tooltip departures: a row of neighbouring buttons on the shared tooltip, ending
+ * in one whose own tooltip aligns with a 12px offset, and a row whose buttons own their tooltips, with empty space
+ * around both.
  */
 export const onStart = () => Neo.app({
     mainView: {
@@ -18,7 +19,8 @@ export const onStart = () => Neo.app({
             items : [
                 {module: Button, id: 'tooltip-departure-shared-1', text: 'Edit',   tooltip: 'Edit item'},
                 {module: Button, id: 'tooltip-departure-shared-2', text: 'Copy',   tooltip: 'Copy item'},
-                {module: Button, id: 'tooltip-departure-shared-3', text: 'Delete', tooltip: 'Delete item'}
+                {module: Button, id: 'tooltip-departure-shared-3', text: 'Delete', tooltip: 'Delete item'},
+                {module: Button, id: 'tooltip-departure-offset',   text: 'Offset', tooltip: {align: {offset: [0, 12]}, ownInstance: true, text: 'Offset item'}}
             ]
         }, {
             module: Container,

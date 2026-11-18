@@ -8,19 +8,22 @@ import {expect, test} from '../../fixtures.mjs';
  * replaced: a 400ms hide and a 200ms show.
  */
 const TOOLTIP = '.neo-tooltip',
+      OFFSET  = '#tooltip-departure-offset',
       OWN_1   = '#tooltip-departure-own-1',
       OWN_2   = '#tooltip-departure-own-2',
       SHARED  = '#tooltip-departure-shared-1';
 
 /**
- * Hovers a target and waits for its tooltip
+ * Hovers a target and waits for its tooltip, and for the hit area the tooltip measures across the gap once aligned
  * @param {import('@playwright/test').Page} page
  * @param {String} selector
  * @param {String} text
  */
 async function hoverUntilShown(page, selector, text) {
     await page.locator(selector).hover();
-    await expect(page.locator(TOOLTIP)).toHaveText(text)
+    await expect(page.locator(TOOLTIP)).toHaveText(text);
+    await expect.poll(() => page.locator(TOOLTIP).evaluate(node => node.style.getPropertyValue('--tooltip-bridge-height')),
+        'the bridge across the gap is measured').not.toBe('')
 }
 
 /**
@@ -60,6 +63,36 @@ test.describe('Neo.tooltip.Base: where the pointer goes decides when a tooltip h
 
         await page.mouse.move(5, 5);
         await expect(page.locator(TOOLTIP)).toHaveCount(0, {timeout: 300})
+    });
+
+    test('a pointer parked just past the tooltip, on the side away from its target, dismisses it', async ({page}) => {
+        await hoverUntilShown(page, SHARED, 'Edit item');
+
+        const target = await page.locator(SHARED).boundingBox(),
+              tip    = await page.locator(TOOLTIP).boundingBox(),
+              to     = await centerOf(page.locator(TOOLTIP));
+
+        expect(tip.y, 'control: the tooltip sits below its target').toBeGreaterThan(target.y + target.height);
+
+        await page.mouse.move(to.x, to.y, {steps: 20});
+        await expect(page.locator(TOOLTIP), 'control: reached across the gap').toHaveCount(1);
+
+        await page.mouse.move(to.x, tip.y + tip.height + 5, {steps: 4});
+        await expect(page.locator(TOOLTIP), '5px past its far edge is outside it').toHaveCount(0, {timeout: 300})
+    });
+
+    test('an aligned offset widens the gap, and the hit area still spans it', async ({page}) => {
+        await hoverUntilShown(page, OFFSET, 'Offset item');
+
+        const target = await page.locator(OFFSET).boundingBox(),
+              tip    = await page.locator(TOOLTIP).boundingBox(),
+              to     = await centerOf(page.locator(TOOLTIP));
+
+        expect(tip.y - (target.y + target.height), 'control: the 12px offset widens the 10px gap').toBeGreaterThan(18);
+
+        await page.mouse.move(to.x, to.y, {steps: 30});
+        await page.waitForTimeout(600);
+        await expect(page.locator(TOOLTIP), 'still up after crossing the wider gap').toHaveCount(1)
     });
 
     test('moving to a neighbouring target with its own tooltip never shows two tooltips', async ({page}) => {

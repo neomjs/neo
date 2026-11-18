@@ -9,11 +9,15 @@
     padding         : var(--tooltip-padding);
     position        : absolute;
 
-    /* A hoverable tooltip's hit area spans the 10px gap to its target (the `align.targetMargin` it is shown with),
-       so a pointer on its way from the target enters the tooltip instead of leaving for the page */
+    /* A hoverable tooltip's hit area reaches across the gap to its target, on the side that faces it and no wider than
+       the two boxes: the tooltip measures the gap once it is aligned (`Neo.tooltip.Base.bridgeBetween()`), so a pointer
+       on its way from the target enters the tooltip, while one parked anywhere else is outside it */
     &.neo-tooltip-hoverable::before {
         content : '';
-        inset   : -10px;
+        height  : var(--tooltip-bridge-height, 0);
+        left    : var(--tooltip-bridge-left, 0);
         position: absolute;
+        top     : var(--tooltip-bridge-top, 0);
+        width   : var(--tooltip-bridge-width, 0);
     }
 }
