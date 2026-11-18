@@ -75,7 +75,7 @@ test.describe('examples/desktop/basic', () => {
               task  = page.locator(TASK).filter({hasText: 'Notes'});
 
         await expect(notes).toBeVisible();
-        await expect(notes).toContainText('Write things down');
+        await expect(notes.locator('textarea')).toHaveValue(/^Saturday/);
         await expect(page.locator(TASK)).toHaveCount(1);
 
         const normal = await settled(page, notes);
@@ -101,6 +101,45 @@ test.describe('examples/desktop/basic', () => {
         await expect(notes).toHaveCount(0);
         await expect(page.locator(TASK)).toHaveCount(1);
         await expect(page.locator(TASK)).toHaveText(/Music/)
+    });
+
+    test('each app opens its own view at its own size: a typed note stays, a sum computes and the tracks show', async ({page}) => {
+        await page.locator(ICON).filter({hasText: 'Notes'}).dblclick();
+
+        const notes = windowOf(page, 'Notes'),
+              note  = notes.locator('textarea');
+
+        await expect(note).toHaveValue(/^Saturday/);
+        expect(await settled(page, notes), 'the notes size').toMatchObject({height: 400, width: 460});
+
+        await note.focus();
+        await page.keyboard.press('ControlOrMeta+End');
+        await page.keyboard.type('\n- buy stamps');
+        await notes.getByRole('button', {name: 'close'}).click();
+        await expect(notes).toHaveCount(0);
+
+        // The desktop keeps a closed window, so the note comes back with it
+        await page.locator(ICON).filter({hasText: 'Notes'}).dblclick();
+        await expect(note).toHaveValue(/- buy stamps$/);
+
+        await page.locator(ICON).filter({hasText: 'Calculator'}).dblclick();
+
+        const calculator = windowOf(page, 'Calculator');
+
+        for (const key of ['1', '2', '+', '3', '0', '=']) {
+            await calculator.getByRole('button', {name: key, exact: true}).click()
+        }
+
+        await expect(calculator.locator('.desktop-basic-calculator-display')).toHaveText('42');
+        expect(await settled(page, calculator), 'the calculator size').toMatchObject({height: 460, width: 320});
+
+        await page.locator(ICON).filter({hasText: 'Music'}).dblclick();
+
+        const music = windowOf(page, 'Music');
+
+        await expect(music).toContainText('Morning Over Harbour Street');
+        await expect(music).toContainText('3:34');
+        expect(await settled(page, music), 'the music size').toMatchObject({height: 480, width: 720})
     });
 
     test('maximize toggles to restore with its own glyph and name, and a restore returns the normal place', async ({page}) => {
