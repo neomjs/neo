@@ -2,7 +2,8 @@ import {test, expect} from '@playwright/test';
 
 /**
  * @summary `Neo.button.Base#size` sets a button's height, padding and text in every theme, over the size of its
- * context, and `null` keeps the context's: medium in the neo themes, inside a toolbar too.
+ * context, and `null` keeps the context's: medium in the neo themes, inside a toolbar too. A button with only an
+ * icon is as tall as one with text, at every size.
  */
 
 const THEMES = ['neo-theme-light', 'neo-theme-dark', 'neo-theme-cyberpunk', 'neo-theme-neo-light', 'neo-theme-neo-dark'];
@@ -54,7 +55,8 @@ async function loadThemeStylesheets(page) {
 }
 
 /**
- * One standalone button per size, and a toolbar holding a button without a size and a large one
+ * Two standalone buttons per size, one with text and one with only an icon, and a toolbar holding a text and an
+ * icon button without a size and a large one
  * @param {Object} page
  */
 async function createButtons(page) {
@@ -62,27 +64,33 @@ async function createButtons(page) {
         const ids = [];
 
         for (const [index, size] of sizes.entries()) {
-            const result = await Neo.worker.App.createNeoInstance({
-                id        : `size-${size}`,
-                importPath: '../button/Base.mjs',
-                ntype     : 'button',
-                parentId  : 'component-test-viewport',
-                size,
-                style     : {left: `${index * 160}px`, position: 'absolute', top: '0px'},
-                text      : `Size ${size}`
-            });
+            for (const [suffix, content] of [['', {text: `Size ${size}`}], ['-icon', {iconCls: 'fa fa-cog'}]]) {
+                const result = await Neo.worker.App.createNeoInstance({
+                    id        : `size-${size}${suffix}`,
+                    importPath: '../button/Base.mjs',
+                    ntype     : 'button',
+                    parentId  : 'component-test-viewport',
+                    size,
+                    style     : {left: `${index * 160}px`, position: 'absolute', top: suffix ? '60px' : '0px'},
+                    ...content
+                });
 
-            if (!result.success) {
-                throw new Error(`Button creation failed: ${result.error.message}`)
+                if (!result.success) {
+                    throw new Error(`Button creation failed: ${result.error.message}`)
+                }
+
+                ids.push(result.id)
             }
-
-            ids.push(result.id)
         }
 
         const toolbar = await Neo.worker.App.createNeoInstance({
             id        : 'size-toolbar',
             importPath: '../toolbar/Base.mjs',
-            items     : [{id: 'size-toolbar-null', ntype: 'button', text: 'In a toolbar'}, {id: 'size-toolbar-large', ntype: 'button', size: 'large', text: 'Large in a toolbar'}],
+            items     : [
+                {id: 'size-toolbar-null',  ntype: 'button', text: 'In a toolbar'},
+                {id: 'size-toolbar-icon',  ntype: 'button', iconCls: 'fa fa-cog'},
+                {id: 'size-toolbar-large', ntype: 'button', size: 'large', text: 'Large in a toolbar'}
+            ],
             ntype     : 'toolbar',
             parentId  : 'component-test-viewport',
             style     : {left: '0px', position: 'absolute', top: '120px'}
@@ -97,7 +105,7 @@ async function createButtons(page) {
         return ids
     }, SIZES);
 
-    await Promise.all(['size-null', 'size-large', 'size-toolbar-large'].map(id => page.waitForSelector(`#${id}`, {state: 'attached'})))
+    await Promise.all(['size-null', 'size-large-icon', 'size-toolbar-large'].map(id => page.waitForSelector(`#${id}`, {state: 'attached'})))
 }
 
 /**
@@ -130,6 +138,13 @@ const readButton = (page, id) => page.evaluate(buttonId => {
     }
 }, id);
 
+/**
+ * @param {Object} page
+ * @param {String} id
+ * @returns {Promise<Number>}
+ */
+const readHeight = (page, id) => page.evaluate(buttonId => document.getElementById(buttonId).getBoundingClientRect().height, id);
+
 test.describe('Neo.button.Base — size', () => {
     test.beforeEach(async ({page}) => {
         await page.goto('/test/playwright/component/apps/empty-viewport/index.html');
@@ -149,7 +164,7 @@ test.describe('Neo.button.Base — size', () => {
     });
 
     for (const theme of THEMES) {
-        test(`${theme}: each size sets height, padding and text, and wins over a toolbar`, async ({page}) => {
+        test(`${theme}: each size sets height, padding and text, for an icon button too, and wins over a toolbar`, async ({page}) => {
             await applyTheme(page, theme);
 
             const isNeo    = theme.includes('-neo-'),
@@ -164,7 +179,8 @@ test.describe('Neo.button.Base — size', () => {
 
                 height && expect(`${read.height}px`, `${size} height`).toBe(height);
                 expect(read.paddingLeft, `${size} padding`).toBe(padding);
-                expect(read.fontSize, `${size} text`).toBe(theme === 'neo-theme-cyberpunk' ? CYBERPUNK_FONT[size] : font)
+                expect(read.fontSize, `${size} text`).toBe(theme === 'neo-theme-cyberpunk' ? CYBERPUNK_FONT[size] : font);
+                expect(await readHeight(page, `size-${size}-icon`), `${size}: an icon button is as tall as a text one`).toBe(read.height)
             }
 
             expect(heights.small, 'small is lower than medium').toBeLessThan(heights.medium);
@@ -174,6 +190,7 @@ test.describe('Neo.button.Base — size', () => {
                   large     = await readButton(page, 'size-toolbar-large');
 
             expect(inToolbar.height, 'a toolbar button without a size matches the default').toBe(heights.null);
+            expect(await readHeight(page, 'size-toolbar-icon'), 'an icon button in a toolbar is as tall as a text one').toBe(inToolbar.height);
             expect(large.height, 'a size wins over the toolbar').toBe(heights.large)
         })
     }

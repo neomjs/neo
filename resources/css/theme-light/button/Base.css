@@ -35,7 +35,8 @@
     --button-text-font-family                   : var(--neo-font-family);
     --button-text-font-size                     : 11px;
     --button-text-font-weight                   : 600;
-    --button-text-line-height                   : 11px;
+    /* The glyph's 12px, so a button with text and one with only an icon are equally tall */
+    --button-text-line-height                   : 12px;
     --button-text-transform                     : uppercase;
     --button-use-gradients                      : false;
 
