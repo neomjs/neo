@@ -242,18 +242,19 @@ test.describe('Neo.form.field.Text', () => {
         await expect(input).not.toHaveAttribute('aria-describedby');
     });
 
-    for (const example of ['text', 'textarea']) {
+    for (const [example, count] of [['text', '13 / 40'], ['textarea', '88 / 200']]) {
         test(`${example} example exposes its live counter control`, async ({page}, testInfo) => {
             await page.goto(`/examples/form/field/${example}/index.html`);
-            const field       = page.locator('.neo-example-container .neo-textfield'),
+            // The live field, which the inspector drives, is the stage's first item; its states render below it
+            const field       = page.locator('.neo-example-container > .neo-textfield'),
                   counter     = field.locator('.neo-textfield-character-count'),
                   toggleInput = page.getByRole('checkbox', {name: 'showCharacterCount', exact: true}),
                   toggle      = page.locator('label').filter({has: toggleInput});
-            await expect(counter).toHaveText('11 / 200');
+            await expect(counter).toHaveText(count);
             await toggle.click();
             await expect(counter).toHaveCount(0);
             await toggle.click();
-            await expect(counter).toHaveText('11 / 200');
+            await expect(counter).toHaveText(count);
             await captureField(page, field, testInfo.outputPath(`${example}-counter-example.png`));
         });
     }
