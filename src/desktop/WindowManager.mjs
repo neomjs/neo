@@ -59,8 +59,9 @@ class WindowManager extends Base {
          */
         windowClass: null,
         /**
-         * The config of an app's window, `record => Object`: where it animates from, its browser window, its state
-         * provider. The manager adds the z-index and listens to the window itself.
+         * The config of an app's window, `record => Object`, or a Promise of one, so an app can load its content on
+         * its first open: where it animates from, its browser window, its state provider. The manager awaits it with
+         * the window class, adds the z-index and listens to the window itself.
          * @member {Function|null} windowConfig=null
          */
         windowConfig: null
@@ -224,23 +225,24 @@ class WindowManager extends Base {
      * @returns {Promise<Neo.dialog.Base|null>} null when the open ended
      */
     async #createWindow(record, ticket) {
-        let me          = this,
-            {id}        = record,
-            WindowClass = await me.#loadWindowClass();
+        let me                    = this,
+            {id}                  = record,
+            [WindowClass, config] = await Promise.all([me.#loadWindowClass(), me.windowConfig?.(record)]);
 
         if (!me.#admits(id, ticket)) {
             return null
         }
 
+        config ||= {};
+
         // Created hidden, a window shows once its open publishes, and it closes by hiding, since the manager keeps it
-        let config = me.windowConfig?.(record) || {},
-            window = Neo.create(WindowClass, {
-                ...config,
-                autoShow   : false,
-                closeAction: 'hide',
-                hidden     : true,
-                style      : {...config.style, zIndex: me.baseZIndex + me.#stack.length + 1}
-            });
+        let window = Neo.create(WindowClass, {
+            ...config,
+            autoShow   : false,
+            closeAction: 'hide',
+            hidden     : true,
+            style      : {...config.style, zIndex: me.baseZIndex + me.#stack.length + 1}
+        });
 
         window.on({
             headerAction: data => me.#onWindowHeaderAction(id, data),

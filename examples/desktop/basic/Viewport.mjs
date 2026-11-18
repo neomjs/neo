@@ -1,5 +1,4 @@
 import Apps          from '../../../src/desktop/store/Apps.mjs';
-import AppWindow     from './AppWindow.mjs';
 import Desktop       from '../../../src/desktop/Container.mjs';
 import StateProvider from '../../../src/state/Provider.mjs';
 import Viewport      from '../../../src/container/Viewport.mjs';
@@ -10,6 +9,7 @@ import Viewport      from '../../../src/container/Viewport.mjs';
  * @description The launcher, the start menu and the window manager share the one apps store the view root's state
  * provider holds. Double-click an icon to open its app; minimize it and click its task to restore it; open a second
  * app and click the first one's window to bring it to the front. The launcher keeps the icons' order across reloads.
+ * Each app opens its own view at its own size (`appWindowConfigs`), loaded on the app's first open.
  * @class Neo.examples.desktop.basic.Viewport
  * @extends Neo.container.Viewport
  */
@@ -49,10 +49,14 @@ class DesktopViewport extends Viewport {
          * @member {Object[]} items
          */
         items: [{
-            module        : Desktop,
+            module          : Desktop,
+            appWindowConfigs: {
+                calculator: {height: 460, width: 320, view: () => import('./Calculator.mjs')},
+                music     : {height: 480, width: 720, view: () => import('./Music.mjs')},
+                notes     : {height: 400, width: 460, view: () => import('./Notes.mjs')}
+            },
             bind          : {appStore: 'stores.apps'},
-            launcherConfig: {arrangementKey: 'neo-examples-desktop-basic'},
-            windowClass   : AppWindow
+            launcherConfig: {arrangementKey: 'neo-examples-desktop-basic'}
         }]
     }
 }

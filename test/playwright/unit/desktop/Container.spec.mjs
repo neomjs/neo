@@ -68,6 +68,18 @@ class TestWindow extends AppWindow {
 
 TestWindow = Neo.setupClass(TestWindow);
 
+/**
+ * An app's own view, which an `appWindowConfigs` entry puts into its window
+ */
+class MailView extends Component {
+    static config = {
+        className: 'Test.Unit.Desktop.Container.MailView',
+        text     : 'Inbox'
+    }
+}
+
+MailView = Neo.setupClass(MailView);
+
 const catalog = [
     {id: 'work',  text: 'Work',  iconCls: 'fas fa-briefcase', isLeaf: false, collapsed: false},
     {id: 'mail',  text: 'Mail',  iconCls: 'fas fa-envelope', parentId: 'work', color: '#3b82f6'},
@@ -191,6 +203,74 @@ test.describe('Neo.desktop.Container', () => {
         const mail = await open('mail');
 
         await expect.poll(() => mail.getReference('content').text).toBe('Mail for Ada')
+    });
+
+    test('an appWindowConfigs entry gives its app a size and a view; an app without one opens the window class as it is', async () => {
+        create({appWindowConfigs: {mail: {height: 520, width: 760, view: MailView}}});
+
+        const mail  = await open('mail'),
+              notes = await open('notes');
+
+        expect([mail.width, mail.height], 'its size').toEqual([760, 520]);
+        expect(mail.down({className: 'Test.Unit.Desktop.Container.MailView'}), 'its view').toBeTruthy();
+        expect(mail.down({reference: 'content'}), 'the window class item it replaces').toBeFalsy();
+
+        expect([notes.width, notes.height], 'the window class size').toEqual([520, 380]);
+        expect(notes.down({reference: 'content'}), 'the window class item').toBeTruthy()
+    });
+
+    test('a loader view runs on its app\'s first open, and a second open during the load joins it', async () => {
+        let calls = 0,
+            release;
+
+        const loaded = new Promise(resolve => {release = resolve});
+
+        create({appWindowConfigs: {mail: {view: () => {calls++; return loaded}}}});
+
+        expect(calls, 'nothing loads with the desktop').toBe(0);
+
+        const first  = desktop.openApp(apps.get('mail')),
+              second = desktop.openApp(apps.get('mail'));
+
+        expect(calls, 'one load for both opens').toBe(1);
+
+        release({default: MailView});
+
+        const [a, b] = await Promise.all([first, second]);
+
+        expect(a, 'one window').toBe(b);
+        expect(a.down({className: 'Test.Unit.Desktop.Container.MailView'}), 'the loaded view').toBeTruthy();
+        expect(calls, 'still one load').toBe(1)
+    });
+
+    test('an open that ends during the view\'s load creates no window, and a failed load lets the next open retry', async () => {
+        let attempts = 0,
+            release;
+
+        create({appWindowConfigs: {mail: {view: () => {
+            attempts++;
+
+            if (attempts === 1) {
+                return new Promise(resolve => {release = resolve})
+            }
+
+            return attempts === 2 ? Promise.reject(new Error('the chunk failed to load')) : Promise.resolve({default: MailView})
+        }}}});
+
+        const ended = desktop.openApp(apps.get('mail'));
+
+        desktop.windowManager.close('mail');
+        release({default: MailView});
+
+        expect(await ended, 'the ended open').toBeNull();
+        expect(desktop.windowManager.getWindow('mail'), 'no window').toBeNull();
+
+        await expect(desktop.openApp(apps.get('mail')), 'the failed load').rejects.toThrow('the chunk failed to load');
+
+        const mail = await desktop.openApp(apps.get('mail'));
+
+        expect(mail.down({className: 'Test.Unit.Desktop.Container.MailView'}), 'the retry').toBeTruthy();
+        expect(attempts).toBe(3)
     });
 
     test('a task click restores a minimized window', async () => {

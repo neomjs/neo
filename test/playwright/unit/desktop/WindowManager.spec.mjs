@@ -70,6 +70,24 @@ class FakeWindow extends Base {
 FakeWindow = Neo.setupClass(FakeWindow);
 
 /**
+ * A window whose own construction closes its app: the close lands after the window exists and before the open
+ * publishes
+ */
+class ClosingWindow extends FakeWindow {
+    static config = {
+        className: 'Test.Unit.Desktop.WindowManager.ClosingWindow',
+        manager  : null
+    }
+
+    onConstructed() {
+        super.onConstructed();
+        this.manager.close(this.record.id)
+    }
+}
+
+ClosingWindow = Neo.setupClass(ClosingWindow);
+
+/**
  * @param {Object} [config={}] WindowManager configs
  * @returns {Object}
  */
@@ -428,7 +446,7 @@ test.describe('Neo.desktop.WindowManager: what an open may publish', () => {
         let manager;
 
         // The close lands between the window's creation and the open's publication
-        harness = createHarness({windowConfig: record => {manager.close(record.id); return {record}}});
+        harness = createHarness({windowClass: ClosingWindow, windowConfig: record => ({manager, record})});
         manager = harness.manager;
 
         const {apps, taskIds} = harness;
