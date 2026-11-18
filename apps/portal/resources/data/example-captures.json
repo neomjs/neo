@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "families": ["grid-table", "gantt", "scheduler", "charts", "dashboard"],
+  "families": ["grid-table", "gantt", "scheduler", "board", "charts", "dashboard"],
   "suffix": "14",
   "tiles": [
     "examples/form/field/checkbox", "examples/form/field/chip", "examples/form/field/color", "examples/form/field/combobox",
@@ -370,6 +370,16 @@
       "steps": [],
       "after": [{"selector": ".year-plan-counts", "text": "300 people · 15,600 bookings"}, {"selector": ".neo-timeline-bar", "inRegion": true}],
       "region": {"selector": ".neo-scheduler", "anchor": "top-left", "width": 640, "height": 360}
+    },
+    {
+      "id": "board-swimlanes",
+      "viewport": {"width": 640, "height": 360},
+      "theme": "dark",
+      "state": "The product quarter under its hint line, with Design folded beside the already folded Web, both rows down to their headers and counts, above the open Mobile row whose columns show their first cards.",
+      "ready": [{"selector": ".neo-board-lane-title", "text": "Unassigned"}, {"selector": ".neo-board-lane-collapsed .neo-board-lane-title", "text": "Web"}],
+      "steps": [{"kind": "click", "selector": ".neo-board-lane-collapse", "nth": 0}, {"kind": "scroll", "selector": ".neo-board", "x": 0}, {"kind": "click", "selector": ".board-swimlanes-example-title"}],
+      "after": [{"selector": ".neo-theme-neo-dark .neo-board"}, {"selector": ".neo-board-lane-collapsed", "count": 2}, {"selector": ".neo-board-lane-collapsed .neo-board-lane-title", "text": "Design", "inRegion": true}, {"selector": ".neo-board-lane-collapsed .neo-board-lane-count", "text": "10", "inRegion": true}, {"selector": ".neo-board-card-title", "text": "A widget for today's tasks", "inRegion": true}, {"selector": ".neo-board-card-title", "text": "Deep links into a project", "inRegion": true}],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },
     {
       "id": "dock-layouts",

@@ -1624,6 +1624,23 @@
         "lookFor": "Open pages from the side navigation and step through their fields."
     },
     {
+        "id": "board-swimlanes",
+        "image": null,
+        "name": "A board by team, in rows that collapse",
+        "sourceUrl": "examples/board/swimlanes",
+        "urls": {
+            "devmode": "examples/board/swimlanes/index.html",
+            "dist_dev": "dist/development/examples/board/swimlanes/index.html",
+            "dist_esm": "dist/esm/examples/board/swimlanes/index.html",
+            "dist_prod": "dist/production/examples/board/swimlanes/index.html"
+        },
+        "hiddenIn": [],
+        "family": "board",
+        "component": "Board",
+        "feature": "One row per team over the same five columns, each with its card count",
+        "lookFor": "Collapse a team, then drag a card into another team's row: the card joins that team and both counts change."
+    },
+    {
         "id": "scheduler-big-data",
         "image": "devmode/scheduler-big-data-14.jpg",
         "name": "A year for 300 people",

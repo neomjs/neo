@@ -97,6 +97,22 @@ test.describe('Board, swimlanes example: one row per team', () => {
         await expect(lane('Mobile').locator('.neo-board-lane-count')).toHaveText('10')
     });
 
+    test('opens in the dark theme on a system that prefers dark, unless ?theme= names another', async ({page}) => {
+        const url   = '/examples/board/swimlanes/index.html',
+              theme = () => page.locator('.board-swimlanes-example').evaluate(node => [...node.classList].find(cls => cls.startsWith('neo-theme-')));
+
+        await page.emulateMedia({colorScheme: 'light'});
+        await page.goto(url);
+        await expect.poll(theme, 'a light system gets the first configured theme').toBe('neo-theme-neo-light');
+
+        await page.emulateMedia({colorScheme: 'dark'});
+        await page.goto(url);
+        await expect.poll(theme, 'a dark system gets the dark theme').toBe('neo-theme-neo-dark');
+
+        await page.goto(`${url}?theme=neo-theme-light`);
+        await expect.poll(theme, '?theme= wins over the system').toBe('neo-theme-light')
+    });
+
     for (const theme of THEMES) {
         test(`at 1440 × 900 and at 390 × 844 the rows render without a console error (${theme})`, async ({page, neuralLink}) => {
             const errors = [];

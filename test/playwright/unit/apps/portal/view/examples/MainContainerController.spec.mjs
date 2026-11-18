@@ -135,7 +135,7 @@ test.describe('Portal examples overview and group pages', () => {
 
         // every card of every page has a cover; the catalog keeps the records that wait for one
         view.getGroupPages().forEach(page => page.getList().store.forEach(record => expect(record.image, record.id).toBeTruthy()));
-        expect(view.getCatalogStore().items.filter(record => !record.image)).toHaveLength(48);
+        expect(view.getCatalogStore().items.filter(record => !record.image)).toHaveLength(49);
         expect(view.getCatalogStore().items.filter(record => record.image && !Example.publishes(record, 'dist_prod')).map(record => record.id))
             .toEqual(['realworld', 'realworld-v2']);
         expect(view.getGroupPage('grid-table').getList().store.getSource()).toBe(view.getCatalogStore());
@@ -756,7 +756,7 @@ test.describe('Portal examples canonical catalog', () => {
         const {store}     = createList(),
               completeIds = [
                   ...startHereIds, ...establishedTailIds, ...componentExampleIds, ...establishedMiddleIds,
-                  ...newExampleIds, ...formExampleIds, 'scheduler-big-data', 'timeline-basic',
+                  ...newExampleIds, ...formExampleIds, 'board-swimlanes', 'scheduler-big-data', 'timeline-basic',
                   ...multiWindowExampleIds, 'realworld', 'realworld-v2'
               ],
               excluded = {
@@ -777,7 +777,7 @@ test.describe('Portal examples canonical catalog', () => {
         // the list hides what its store would filter out: a record without a cover publishes no card in any mode
         const uncovered = completeIds.filter(id => !store.get(id).image);
 
-        expect(uncovered).toHaveLength(48);
+        expect(uncovered).toHaveLength(49);
 
         cases.forEach(([mode, bigDataUrl, workstationUrl, choreographyUrl]) => {
             list.catalogMode = mode;
