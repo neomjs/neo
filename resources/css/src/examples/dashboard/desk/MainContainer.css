@@ -76,6 +76,12 @@
     }
 }
 
+/* A feed row wraps instead of clipping what identifies it: a phone's zones are narrower than one row */
+.neo-example-desk-feed.neo-list .neo-list-item {
+    overflow-wrap: anywhere;
+    white-space  : normal;
+}
+
 .neo-example-desk-terminal {
     font-family: var(--dashboard-example-font-mono);
     font-size  : 12px;
