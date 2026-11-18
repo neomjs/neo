@@ -19,6 +19,8 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 import '../../../../../../src/manager/Instance.mjs';
+import DomApiVnodeCreator from '../../../../../../src/vdom/util/DomApiVnodeCreator.mjs';
+import VdomHelper         from '../../../../../../src/vdom/Helper.mjs';
 import MainContainer  from '../../../../../../examples/form/validation/MainContainer.mjs';
 
 /**
