@@ -94,7 +94,8 @@ test.describe('WebDesktop.view.ViewportStateProvider', () => {
 
         instances.push(naive);
 
-        expect(naive.getCount()).toBe(16)
+        // Every node of the catalog: 5 groups and 10 apps
+        expect(naive.getCount()).toBe(15)
     });
 
     test('the launcher renders the kept projection: groups as headers, apps as items', () => {
