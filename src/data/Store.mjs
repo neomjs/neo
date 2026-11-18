@@ -94,10 +94,10 @@ class Store extends Collection {
      */
     #batchRecords = null;
     /**
-     * @member {Boolean} #updatingRows=false True from an {@link #updateRows} batch's first write until its `rowsChange`.
+     * @member {Number} #rowBatchDepth=0 The {@link #updateRows} batches running, a nested one included.
      * @private
      */
-    #updatingRows = false;
+    #rowBatchDepth = 0;
     /**
      * Record notifications deferred while an opted-in key transaction commits its maps.
      * @member {Map} #keyChanges=new Map()
@@ -1879,11 +1879,12 @@ class Store extends Collection {
     /**
      * @summary True while an {@link #updateRows} batch writes its rows and reapplies the filters and sorters it opted
      * into, until it fires `rowsChange`. A `recordChange`, `filter`, `sort` or `mutate` listener that redraws once per
-     * change can leave a batch's events to that single `rowsChange`.
+     * change can leave a batch's events to that single `rowsChange`. A batch a listener starts inside another one ends
+     * while this stays true: only the outermost batch's `rowsChange` fires with it false.
      * @member {Boolean} isUpdatingRows
      */
     get isUpdatingRows() {
-        return this.#updatingRows
+        return this.#rowBatchDepth > 0
     }
 
     /**
@@ -1944,7 +1945,7 @@ class Store extends Collection {
             let fields;
 
             rows = [...rows.values()];
-            me.#updatingRows = true;
+            me.#rowBatchDepth++;
 
             try {
                 errors = me.writeRows(rows);
@@ -1959,7 +1960,7 @@ class Store extends Collection {
                     rows.some(({item}) => me.shouldReapplySorters({fields: changed, model, record: item}))
                 )
             } finally {
-                me.#updatingRows = false
+                me.#rowBatchDepth--
             }
 
             me.fire('rowsChange', {fields, keys: rows.map(row => row.key)})

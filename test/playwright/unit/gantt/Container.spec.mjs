@@ -606,6 +606,22 @@ test.describe('Neo.gantt.Container', () => {
         taskStore.get('C').set({startDate: new Date('2026-11-09T06:00:00Z'), endDate: new Date('2026-11-09T08:00:00Z')});
         expect(projects).toBe(1);
 
+        // A listener that starts a second batch inside a filtered one: the outer batch's rowsChange projects once for both
+        taskStore.filters = [{property: 'percentDone', operator: '<', value: 100, reapplyOnRecordChange: true}];
+        let   nested  = 0;
+        const reenter = ({record}) => {
+            if (record.id === 'A' && nested++ === 0) {
+                taskStore.updateRows([{key: 'C', values: {startDate: new Date('2026-11-09T07:00:00Z'), endDate: new Date('2026-11-09T09:00:00Z')}}])
+            }
+        };
+        taskStore.on('recordChange', reenter);
+        projects = 0;
+        taskStore.updateRows([{key: 'A', values: {percentDone: 50}}]);
+        taskStore.un('recordChange', reenter);
+        expect(nested).toBe(1);
+        expect(projects).toBe(1);
+        expect(taskStore.isUpdatingRows).toBe(false);
+
         dependencyStore.destroy();
         taskStore.destroy()
     });
