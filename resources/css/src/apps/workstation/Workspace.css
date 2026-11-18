@@ -169,6 +169,9 @@
 }
 
 .workstation-tourbar {
+    /* The tour bar's own control height, on purpose: one line with the arrangement switch's 34px pill */
+    --button-height: 34px;
+
     background: linear-gradient(90deg,
         color-mix(in srgb, var(--workstation-signal) 13%, var(--workstation-panel)),
         var(--workstation-panel) 55%);
