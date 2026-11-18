@@ -99,7 +99,7 @@ test.describe('Portal examples overview and group pages', () => {
         // Tree, Board and others are defined and have records; none has a cover yet, so none appears
         expect(groupStore.items.map(group => group.route)).toEqual(publishedRoutes);
         expect(view.getGroupPages().map(page => page.family)).toEqual(groupStore.items.map(group => group.family));
-        expect(view.getCatalogStore().getCount()).toBe(99);
+        expect(view.getCatalogStore().getCount()).toBe(98);
 
         // every example counts once, in its home group: the counts add up to the records that publish
         expect(groupStore.items.reduce((sum, group) => sum + group.count, 0)).toBe(published.length);
@@ -131,7 +131,7 @@ test.describe('Portal examples overview and group pages', () => {
 
         // every card of every page has a cover; the catalog keeps the records that wait for one
         view.getGroupPages().forEach(page => page.getList().store.forEach(record => expect(record.image, record.id).toBeTruthy()));
-        expect(view.getCatalogStore().items.filter(record => !record.image)).toHaveLength(54);
+        expect(view.getCatalogStore().items.filter(record => !record.image)).toHaveLength(53);
         expect(view.getCatalogStore().items.filter(record => record.image && !Example.publishes(record, 'dist_prod')).map(record => record.id))
             .toEqual(['realworld', 'realworld-v2']);
         expect(view.getGroupPage('grid-table').getList().store.getSource()).toBe(view.getCatalogStore());
@@ -362,7 +362,7 @@ test.describe('Portal examples overview and group pages', () => {
         expect(view.getGroupStore().get('dialogs').count).toBe(1);
         expect(view.getGroupStore().get('drag-drop').count).toBe(0);
         expect(view.getCatalogStore().items.filter(record => record.id === 'dialog-drag-drop')).toHaveLength(1);
-        expect(view.getCatalogStore().getCount()).toBe(99)
+        expect(view.getCatalogStore().getCount()).toBe(98)
     });
 
     for (const mode of ['dist_prod', 'dist_esm', 'dist_dev', 'devmode']) {
@@ -524,12 +524,12 @@ test.describe('Portal examples canonical catalog', () => {
         })
     }
 
-    test('loads 99 logical examples with unique stable string identities', () => {
+    test('loads 98 logical examples with unique stable string identities', () => {
         const {store} = createList(),
               ids     = [];
 
-        expect(catalog).toHaveLength(99);
-        expect(store.getCount()).toBe(99);
+        expect(catalog).toHaveLength(98);
+        expect(store.getCount()).toBe(98);
 
         store.forEach(record => {
             expect(typeof record.id, record.name).toBe('string');
@@ -537,42 +537,26 @@ test.describe('Portal examples canonical catalog', () => {
             ids.push(record.id)
         });
 
-        expect(new Set(ids).size).toBe(99);
+        expect(new Set(ids).size).toBe(98);
         expect(list.catalogMode).toBe('dist_prod')
     });
 
-    test('catalogs the basic and dedicated week-view Calendar examples in order', () => {
-        const index             = catalog.findIndex(record => record.id === 'calendar'),
-              [basic, weekview] = catalog.slice(index, index + 2),
-              urls              = {
+    test('catalogs one Calendar example, the full calendar', () => {
+        const [basic, ...others] = catalog.filter(record => record.family === 'calendar'),
+              urls               = {
                   devmode  : 'examples/calendar',
                   dist_dev : 'dist/development/examples/calendar',
                   dist_esm : 'dist/esm/examples/calendar',
                   dist_prod: 'dist/production/examples/calendar'
               };
 
-        expect([basic?.id, weekview?.id]).toEqual(['calendar', 'calendar-weekview']);
+        expect(others).toEqual([]);
         expect(basic).toMatchObject({
+            id       : 'calendar',
             family   : 'calendar',
             component: 'Calendar',
             feature  : expect.any(String),
             lookFor  : expect.any(String)
-        });
-        expect(weekview).toMatchObject({
-            id       : 'calendar-weekview',
-            name     : 'Calendar Week View',
-            family   : 'calendar',
-            component: 'Calendar',
-            feature  : expect.any(String),
-            lookFor  : expect.any(String),
-            image    : null,
-            sourceUrl: 'examples/calendar/weekview',
-            urls     : {
-                devmode  : `${urls.devmode}/weekview/index.html`,
-                dist_dev : `${urls.dist_dev}/weekview/index.html`,
-                dist_esm : `${urls.dist_esm}/weekview/index.html`,
-                dist_prod: `${urls.dist_prod}/weekview/index.html`
-            }
         });
         expect(basic.urls).toEqual({
             devmode  : `${urls.devmode}/basic/index.html`,
@@ -732,14 +716,10 @@ test.describe('Portal examples canonical catalog', () => {
               // The production catalog established this sequence before canonicalization. ESM alone
               // placed OffscreenCanvas before Covid Gallery; the shared sequence follows production.
               establishedIds = establishedExampleIds.slice(0, -1),
-              calendarIndex = establishedIds.indexOf('calendar'),
-              orderedEstablishedIds = [
-                  ...establishedIds.slice(0, calendarIndex + 1), 'calendar-weekview', ...establishedIds.slice(calendarIndex + 1)
-              ],
-              galleryIndex = orderedEstablishedIds.indexOf('gallery'),
-              completeIds  = [
-                  ...orderedEstablishedIds.slice(0, galleryIndex + 1), ...componentExampleIds,
-                  ...orderedEstablishedIds.slice(galleryIndex + 1), ...newExampleIds, ...formExampleIds,
+              galleryIndex   = establishedIds.indexOf('gallery'),
+              completeIds    = [
+                  ...establishedIds.slice(0, galleryIndex + 1), ...componentExampleIds,
+                  ...establishedIds.slice(galleryIndex + 1), ...newExampleIds, ...formExampleIds,
                   'board-basic', 'gantt-basic', 'scheduler-basic', 'timeline-basic', 'dock-choreography',
                   ...multiWindowExampleIds, 'realworld', 'realworld-v2'
               ],
@@ -761,7 +741,7 @@ test.describe('Portal examples canonical catalog', () => {
         // the list hides what its store would filter out: a record without a cover publishes no card in any mode
         const uncovered = completeIds.filter(id => !store.get(id).image);
 
-        expect(uncovered).toHaveLength(54);
+        expect(uncovered).toHaveLength(53);
 
         cases.forEach(([mode, workstationUrl, choreographyUrl]) => {
             list.catalogMode = mode;
