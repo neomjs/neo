@@ -155,9 +155,21 @@ test.describe('Portal examples overview and group pages', () => {
         expect(view.getCatalogStore().get(tile.id).kind).toBe('component');
         expect([group().count, group().tileCount]).toEqual([forms.length, 1]);
 
-        // the same rule publishes a tile and a card: a build that cannot open the tile drops it from both counts
+        // the tile shows in the page's tile list under the group's tile heading, the cards under "Demonstrations"
+        const page    = view.getGroupPage('forms'),
+              ids     = list => list.store.items.map(record => record.id),
+              heading = reference => page.down({reference});
+
+        expect(ids(page.getTileList())).toEqual([tile.id]);
+        expect(ids(page.getList())).toEqual(forms.slice(1).map(record => record.id));
+        expect([heading('cards-heading').hidden, heading('tiles-heading').hidden, heading('tiles-heading').text]).toEqual([false, false, 'Field types']);
+
+        // the same rule publishes a tile and a card: a build that cannot open the tile drops it from both counts,
+        // and a page that shows one kind heads neither
         view.getController().onSelectBuild({id: 'dist_esm'});
-        expect([group().count, group().tileCount]).toEqual([forms.length - 1, 0])
+        expect([group().count, group().tileCount]).toEqual([forms.length - 1, 0]);
+        expect(ids(page.getTileList())).toEqual([]);
+        expect([heading('cards-heading').hidden, heading('tiles-heading').hidden]).toEqual([true, true])
     });
 
     test('the overview counts the published examples into its headline and renders the featured Start here list', () => {
