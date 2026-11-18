@@ -36,12 +36,13 @@ test('a covered record without a recipe fails inside the migrated family, while 
     expect(() => validateCaptureRecipes(manifest(), records)).toThrow(/image|recipe/i)
 });
 
-test('an external demo keeps its cover without a recipe, and a recipe for one is refused', () => {
+test('an external demo keeps its cover without a recipe, and may take one that names its own origin', () => {
     const records = catalog(), raw = manifest();
     records.push({id: 'grid-demo', family: 'grid-table', image: 'grid-demo.png', urls: {devmode: 'https://example.org/demo/index.html'}});
     expect(validateCaptureRecipes(raw, records).recipes).toHaveLength(1);
     raw.recipes.push({...structuredClone(raw.recipes[0]), id: 'grid-demo'});
-    expect(() => validateCaptureRecipes(raw, records)).toThrow(/external demo/i)
+    // capture() refuses any origin but --base-url's, so this recipe runs only against https://example.org/
+    expect(validateCaptureRecipes(raw, records).recipes.at(-1)).toMatchObject({id: 'grid-demo', url: 'https://example.org/demo/index.html'})
 });
 
 test('a further family joins the coverage guard explicitly', () => {

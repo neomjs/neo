@@ -72,8 +72,8 @@ function step(value, field) {
 /**
  * @summary Validates raw recipes and returns detached recipes with catalog-derived family, URL and name.
  * Coverage is scoped to declared families; legacy covers in other families do not block this producer.
- * An external demo (an absolute devmode URL) lies outside the base origin the producer captures from, so
- * it keeps its cover and takes no recipe.
+ * An external demo (an absolute devmode URL) may keep its cover without a recipe. A recipe for one captures
+ * only in a run whose `--base-url` is the demo's own origin, because `capture()` refuses any other origin.
  * @param {Object} manifest Raw version1 recipe manifest.
  * @param {Object[]} catalog Canonical examples.json records.
  * @returns {Object} Validated manifest; recipes carry derived `family`, `url` and `name`.
@@ -99,7 +99,6 @@ export function validateCaptureRecipes(manifest, catalog) {
         insist(record, `${field}.id`, 'unknown catalog id');
         insist(manifest.families.includes(record.family), `${field}.id`, 'record is outside declared families');
         text(record.urls?.devmode, `catalog.${recipe.id}.urls.devmode`);
-        insist(!external(record), `${field}.id`, 'an external demo cannot be captured from the base origin');
         keys(recipe.viewport, ['width', 'height'], `${field}.viewport`);
         for (const axis of ['width', 'height']) insist(Number.isInteger(recipe.viewport[axis]) && recipe.viewport[axis] > 0, `${field}.viewport.${axis}`, 'expected a positive integer');
         insist(['dark', 'default'].includes(recipe.theme), `${field}.theme`, 'expected dark or default');
