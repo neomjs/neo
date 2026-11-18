@@ -6,7 +6,7 @@ import {expect, test} from '../../fixtures.mjs';
  * measurement. In every example, each row ends up as tall as its tallest wrapped text, and the bodies agree.
  *
  * The oracle is the browser's layout: a row needs its tallest `.neo-grid-cell-text` plus the cell's padding and
- * borders, and never less than `rowHeight` (as in `WrapTextMeasure`). A viewport of 1400px mounts every column, so
+ * borders, and never less than `rowHeight` (as in `WrapTextMeasure`). A viewport of 1440px mounts every column, so
  * the oracle sees every text. Only the first test narrows the viewport, to keep the tallest column unmounted.
  *
  * Positions are exact: the example's extent stays far below 2^23 px, past which Chrome rounds scroll offsets to 2px.
@@ -19,9 +19,9 @@ const COUNT = 10000,
       // The grid's default rowHeight: the floor of every row, and the fixed-height control's height
       ROW   = 32,
       // Less than the rows a body renders above its first visible row (`bufferRowRange` 3, rows of 62px or
-      // more at 1400px): a wheel step up lands on rows that are mounted
+      // more at 1440px): a wheel step up lands on rows that are mounted
       STEP  = 100,
-      WIDE  = {width: 1400, height: 900};
+      WIDE  = {width: 1440, height: 900};
 
 /**
  * Page-side reads, installed before the app boots. Each takes the grid's selector.
@@ -117,6 +117,118 @@ function defineGridReads(floor) {
     window.stopTracking = () => {
         cancelAnimationFrame(tracking.frame);
         return tracking.tops
+    };
+
+    window.armJumpMeasurement = (grid, target) => {
+        if (window.jumpMeasurement?.cleanup) {
+            window.jumpMeasurement.cleanup();
+        }
+
+        const input = document.querySelector('.neo-numberfield input');
+        const data  = {
+            paintedTime    : null,
+            startTime      : null,
+            verifiedRowId  : null,
+            verifiedVisible: false,
+            visibleTime    : null
+        };
+
+        let   active      = true;
+        const pendingRafs = new Set();
+
+        const scheduleRaf = callback => {
+            if (!active) {
+                return null;
+            }
+            const id = requestAnimationFrame(timestamp => {
+                pendingRafs.delete(id);
+                if (active) {
+                    callback(timestamp);
+                }
+            });
+            pendingRafs.add(id);
+            return id;
+        };
+
+        // Poll each animation frame until the target row is fully within the viewport.
+        const checkVisible = () => {
+            if (!active) {
+                return;
+            }
+            const state = window.gridState(grid),
+                  row   = state.rows.find(r => r.id === target);
+
+            if (row && row.screen >= 0 && row.screen + row.height <= state.clientHeight) {
+                // Record the first frame at which the target is fully visible
+                if (data.visibleTime === null) {
+                    data.visibleTime = performance.now();
+                }
+
+                // Double-rAF as a paint-opportunity proxy, not compositor-presentation proof.
+                // Nested callbacks are scheduled through scheduleRaf so cleanup cancels every pending frame
+                // and prevents inactive callbacks from continuing measurement work.
+                scheduleRaf(() => {
+                    scheduleRaf(() => {
+                        if (!active) {
+                            return;
+                        }
+                        const currentState = window.gridState(grid),
+                              currentRow   = currentState.rows.find(r => r.id === target);
+
+                        if (currentRow && currentRow.screen >= 0 && currentRow.screen + currentRow.height <= currentState.clientHeight) {
+                            data.verifiedRowId   = currentRow.id;
+                            data.verifiedVisible = true;
+                            data.paintedTime     = performance.now();
+                        } else {
+                            // Row shifted (layout still settling); resume polling
+                            scheduleRaf(checkVisible);
+                        }
+                    });
+                });
+                return;
+            }
+            scheduleRaf(checkVisible);
+        };
+
+        const onInput = event => {
+            if (!active) {
+                return;
+            }
+            // Start timing on the capture-phase input event that carries the exact target value.
+            // This excludes Playwright CDP fill() latency: timing begins at the browser input event,
+            // not at the Playwright call site.
+            if (data.startTime === null && String(event.target?.value) === String(target)) {
+                data.startTime = performance.now();
+                input?.removeEventListener('input', onInput, true);
+                scheduleRaf(checkVisible);
+            }
+        };
+
+        if (input) {
+            input.addEventListener('input', onInput, true);
+        }
+
+        const cleanup = () => {
+            active = false;
+            if (input) {
+                input.removeEventListener('input', onInput, true);
+            }
+            pendingRafs.forEach(id => cancelAnimationFrame(id));
+            pendingRafs.clear();
+        };
+
+        window.jumpMeasurement = {
+            cleanup,
+            data
+        };
+    };
+
+    window.getJumpMeasurement = () => window.jumpMeasurement?.data;
+
+    window.cleanupJumpMeasurement = () => {
+        if (window.jumpMeasurement?.cleanup) {
+            window.jumpMeasurement.cleanup();
+        }
     };
 
     /**
@@ -529,7 +641,7 @@ test.describe('Content-sized rows example', () => {
         })
     });
 
-    test.describe('at 1400px, where every column is mounted', () => {
+    test.describe('at 1440px, where every column is mounted', () => {
         test.use({viewport: WIDE});
 
         test('2. a column width change re-measures the rows', async ({page}) => {
@@ -588,10 +700,16 @@ test.describe('Content-sized rows example', () => {
                 cell     = page.locator(`${GRID} .neo-grid-cell[data-field="summary"][data-record-id="${recordId}"]:not(.neo-grid-row-measure *)`);
 
             await cell.dblclick();
-            await page.locator(`${GRID} .neo-grid-editor input`).fill(Array.from({length: 40}, (_, i) => `word${i}`).join(' '));
+            await page.locator(`${GRID} .neo-grid-editor input`).fill(
+                'Comprehensive diagnostics and root cause investigation revealed severe worker thread message serialization overhead under high-frequency transaction volumes. ' +
+                'Profiling memory allocations confirmed that rapid JSON payload encoding across the web worker boundary causes substantial latency spikes and garbage collection pauses. ' +
+                'To resolve this issue, the data streaming pipeline was refactored to utilize shared array buffers with atomic synchronization flags. ' +
+                'Benchmarking across simulated multi-threaded workloads demonstrates a seventy percent reduction in transfer latency and consistent sixty frames per second rendering. ' +
+                'All regression test suites executed cleanly across desktop and mobile browsers with zero reported regressions or layout anomalies.'
+            );
             await page.keyboard.press('Enter');
 
-            await expect(cell).toContainText('word39');
+            await expect(cell).toContainText('seventy percent reduction in transfer latency');
 
             state = await settle(page);
             await expectRowsFitTheirText(page);
@@ -627,7 +745,7 @@ test.describe('Content-sized rows example', () => {
             let {extent} = await settle(page),
                 state;
 
-            await page.locator('.neo-textfield', {hasText: 'Filter summary'}).locator('input').fill('anchor');
+            await page.locator('.neo-textfield', {hasText: 'Filter summary'}).locator('input').fill('pipeline');
 
             await expect.poll(async () => (await gridState(page)).extent, {message: 'the filter shrank the extent'})
                 .toBeLessThan(extent * 0.8);
@@ -641,7 +759,7 @@ test.describe('Content-sized rows example', () => {
                 .map(cell => cell.textContent), GRID);
 
             expect(summaries.length).toBeGreaterThan(5);
-            summaries.forEach(summary => expect(summary).toContain('anchor'));
+            summaries.forEach(summary => expect(summary.toLowerCase()).toContain('pipeline'));
             expect(state.rows.length).toBeGreaterThan(5)
         });
 
@@ -849,8 +967,318 @@ test.describe('Content-sized rows example', () => {
                     expect(numbers.visible, 'rows entered the view').toBeGreaterThan(10)
                 }
             }
+        });
+
+        test('the dataset contains 10,000 deterministic records and reloading produces identical rows', async ({page}) => {
+            // Verify count in the App Worker where the store lives
+            const worker = await appWorker(page),
+                  viewId = await page.evaluate(grid => document.querySelector(`${grid} .neo-grid-view`).id, GRID),
+                  count  = await worker.evaluate(viewId => Neo.getComponent(viewId).store.getCount(), viewId);
+
+            expect(count, 'dataset contains 10,000 records').toBe(COUNT);
+
+            // Sample 8 indices spread across the full dataset + build a fingerprint hash covering all
+            // generated text fields: id, title, summary, details, notes, country, owner, status, score.
+            const SAMPLE_INDICES = [0, 49, 499, 2499, 4999, 7499, 8999, 9999];
+
+            const buildSnapshot = async (w, vid) => w.evaluate(({viewId, indices}) => {
+                const store = Neo.getComponent(viewId).store,
+                      count = store.getCount();
+
+                // Specific scenario-matching patterns designed to distinguish related scenarios
+                // within the same topic area without relying on broad generic keywords.
+                const SCENARIO_MAP = {
+                    // Topic 1: Virtual Scroll
+                    'Virtual scroll offset drift on high DPI displays':
+                        /(drift|fling-scroll|blank bands|momentum deceleration|Chromium 128|delta rounding errors accumulate)/i,
+                    'Smooth wheel scrolling jitter during row recycling':
+                        /(touch wheel|row buffer|compositor clock|translation matrix|fractional pixel|recycling listeners|discrepancies under high DPI)/i,
+
+                    // Topic 2: Worker Threads
+                    'Worker message serialization overhead in large stores':
+                        /(queuing latency|structural cloning|queue depth|five hundred updates|transferable array buffers)/i,
+                    'Worker thread postMessage queue congestion under burst updates':
+                        /(cross-thread|burst (?:record )?insertions|reconciliation lags?|compact array transfers|exceeding four milliseconds|delta packets|discrete tick intervals)/i,
+
+                    // Topic 3: Memory Management
+                    'Detached DOM node retention in recycled table rows':
+                        /(repeated store data reloads|detached (?:cell )?vnodes?|clear and add cycles|thirty megabytes|disconnecting node references)/i,
+                    'Excessive garbage collection pause during continuous scrolling':
+                        /(frame stutters|subscriber registries|unbinding listener delegates|unmounting large table viewports|circular references|retained component instances|WeakRef)/i,
+
+                    // Topic 4: Rendering Engine
+                    'Subtree layout thrashing during column resize operations':
+                        /(redundant layout|getLayoutRect|sluggish when table rows|reflow passes|recalculate-style|synchronous DOM reads)/i,
+                    'Content-sized row measurement invalidation timing issue':
+                        /(content-sized row modes|measurement pool|deferring measurement|repaint flashes|outside the scheduled requestAnimationFrame|math rounding parity)/i,
+
+                    // Topic 5: State Store
+                    'Store filter index corruption on concurrent edits':
+                        /(store filter indexes|mismatched rows|stale item index|filter cache reflects|filtered item collection drops|clear-filter operations|transactional mutation locks)/i,
+                    'Sort comparator instability with localized unicode strings':
+                        /(localized unicode|concurrent edits arrive during an active sort|atomic transaction markers|asynchronous sorting|collection splice|Intl\.Collator)/i,
+
+                    // Topic 6: Accessibility
+                    'Keyboard focus ring clipping on horizontal scroll boundaries':
+                        /(focus indicators? clip|split bodies|tab orders loop|ArrowRight across locked|outline-offset)/i,
+                    'Screen reader navigation breakdown in locked grid columns':
+                        /(omit column headers|dynamic aria rowindex|aria-rowcount|axe accessibility|aria-rowindex dynamically|high contrast)/i,
+
+                    // Topic 7: Data Pipeline
+                    'Streaming record ingest pipeline backpressure deadlock':
+                        /(streaming ingest pipeline stalls|network latency spikes|deadlock between the buffer queue|backpressure triggering socket|stream consumer deadlocks|reactive backpressure)/i,
+                    'Incremental data loader starvation under heavy client load':
+                        /(incremental record loaders starve|telemetry feeds experience packet queue|dynamic flow control thresholds|decompression workers|sliding window buffer|packet reassembly errors|chunk boundary validation)/i,
+
+                    // Topic 8: Component System
+                    'Dynamic CSS class token collision between nested themes':
+                        /(nested theme switching|incorrect typography tokens|failed to purge scoped class tokens|theme token selectors bleed|modal dialog is mounted|typography and color tokens clashing|stale stylesheet links)/i,
+                    'Lifecycle hook execution sequence discrepancy on remount':
+                        /(lifecycle hooks execute in reverse order|destructors on unmounted child views|refactoring class scoping rules|prototype pollution|caching compiled class selectors by component id|construct hooks executing|top-down initialization order)/i
+                };
+
+                const COUNTRIES      = ['Brazil', 'Canada', 'Germany', 'India', 'Japan', 'Kenya', 'Mexico', 'Norway', 'Spain', 'Vietnam'],
+                      OWNERS         = ['Ada', 'Clio', 'Emmy', 'Euclid', 'Fable', 'Grace', 'Sophie', 'Vega'],
+                      STATUSES       = ['Draft', 'Review', 'Approved', 'Shipped', 'Archived'],
+                      sentenceEnd    = /[.!?]$/,
+                      invalidRecords = [];
+
+                let hash = 0;
+
+                // Worker-side full dataset traversal validating all 10,000 records
+                for (let i = 0; i < count; i++) {
+                    const r = store.getAt(i);
+                    if (!r) {
+                        invalidRecords.push({index: i, reason: 'missing record'});
+                        continue;
+                    }
+
+                    // Full-dataset fingerprint — every field that generateData produces
+                    const str = `${r.id}|${r.title}|${r.summary}|${r.details}|${r.notes}|${r.country}|${r.owner}|${r.status}|${r.score}`;
+                    for (let j = 0; j < str.length; j++) {
+                        hash = (Math.imul(31, hash) + str.charCodeAt(j)) | 0;
+                    }
+
+                    // 1. Scalar field validation
+                    if (r.id !== i + 1 || !COUNTRIES.includes(r.country) || !OWNERS.includes(r.owner) ||
+                        !STATUSES.includes(r.status) || typeof r.score !== 'number' || r.score < 0 || r.score >= 100) {
+                        invalidRecords.push({id: r.id, index: i, reason: 'invalid scalar values'});
+                    }
+
+                    // 2. Non-empty readable text fields without placeholder fragments
+                    for (const field of ['title', 'summary', 'details', 'notes']) {
+                        const val = r[field];
+                        if (!val || typeof val !== 'string' || val.length <= 10 || !/^[A-Z]/.test(val) ||
+                            val.toLowerCase().includes('lorem ipsum') || /word\d+/i.test(val) ||
+                            (field !== 'title' && !sentenceEnd.test(val.trim()))) {
+                            invalidRecords.push({field, index: i, reason: 'text validation failure'});
+                        }
+                    }
+
+                    // 3. Recognized scenario title and scenario-specific coherence
+                    const pattern = SCENARIO_MAP[r.title];
+                    if (!pattern) {
+                        invalidRecords.push({index: i, reason: 'unrecognized scenario title', title: r.title});
+                    } else {
+                        if (!pattern.test(r.summary)) {
+                            invalidRecords.push({index: i, reason: 'summary does not match scenario', title: r.title});
+                        }
+                        if (!pattern.test(r.details)) {
+                            invalidRecords.push({index: i, reason: 'details does not match scenario', title: r.title});
+                        }
+                    }
+
+                    // Cap error array to prevent large transfer payload over CDP on systemic failure
+                    if (invalidRecords.length >= 20) {
+                        break;
+                    }
+                }
+
+                // Sampled records for detailed field comparison (all generated fields)
+                const sampled = indices.map(i => {
+                    const r = store.getAt(i);
+                    return r
+                        ? {
+                            country: r.country,
+                            details: r.details,
+                            id     : r.id,
+                            notes  : r.notes,
+                            owner  : r.owner,
+                            score  : r.score,
+                            status : r.status,
+                            summary: r.summary,
+                            title  : r.title
+                        }
+                        : null
+                });
+
+                return {count, hash, invalidRecords, sampled}
+            }, {indices: SAMPLE_INDICES, viewId: vid});
+
+            const before = await buildSnapshot(worker, viewId);
+
+            // Assert that all 10,000 records pass scenario coherence and field validation
+            expect(before.invalidRecords, 'all 10,000 records pass scenario coherence and field validation').toEqual([]);
+            expect(before.count, 'full dataset count is 10,000').toBe(COUNT);
+
+            // Detailed assertions on sampled records
+            before.sampled.forEach((r, i) => {
+                const idx = SAMPLE_INDICES[i];
+                expect(r, `record at index ${idx} is present`).not.toBeNull();
+                expect(r.id, `record ${idx} id is positive`).toBeGreaterThan(0);
+            });
+
+            await page.reload();
+            await page.waitForSelector(`${GRID} .neo-grid-row[data-record-id]`, {state: 'visible', timeout: 30000});
+            await settle(page);
+
+            // Re-acquire worker reference after reload
+            const workerAfter = await appWorker(page),
+                  viewIdAfter = await page.evaluate(grid => document.querySelector(`${grid} .neo-grid-view`).id, GRID),
+                  after       = await buildSnapshot(workerAfter, viewIdAfter);
+
+            expect(after.count, 'record count matches after reload').toBe(COUNT);
+            expect(after.hash, 'full-dataset fingerprint (all fields) matches after reload').toBe(before.hash);
+            expect(after.invalidRecords, 'all 10,000 records remain valid after reload').toEqual([]);
+            expect(after.sampled, 'sampled records across full dataset match after reload').toEqual(before.sampled)
+        });
+
+        test('every wrapped text cell contains readable human sentences and paragraphs', async ({page}) => {
+            const cells = await page.evaluate(grid => {
+                const results = [];
+                document.querySelectorAll(`${grid} .neo-grid-body`).forEach(body => {
+                    body.querySelectorAll('.neo-grid-row').forEach(row => {
+                        if (row.style.display !== 'none' && row.dataset.recordId && !row.closest('.neo-grid-row-measure')) {
+                            row.querySelectorAll('.neo-grid-cell-text').forEach(cellText => {
+                                const field = cellText.parentElement?.dataset.field;
+                                if (['title', 'summary', 'details', 'notes'].includes(field)) {
+                                    results.push({field, text: cellText.textContent.trim()})
+                                }
+                            })
+                        }
+                    })
+                });
+                return results
+            }, GRID);
+
+            // Sentence-ending punctuation pattern
+            const sentenceEnd = /[.!?]$/;
+
+            expect(cells.length).toBeGreaterThan(15);
+            cells.forEach(({field, text}) => {
+                expect(text.length, `${field} text is non-empty`).toBeGreaterThan(10);
+                expect(text, `${field} starts with a capital letter`).toMatch(/^[A-Z]/);
+                expect(text.toLowerCase()).not.toContain('lorem ipsum');
+                expect(text).not.toMatch(/word\d+/);
+
+                // Multi-sentence fields must end with sentence-terminating punctuation
+                if (['summary', 'details', 'notes'].includes(field)) {
+                    expect(text, `${field} ends with sentence punctuation`).toMatch(sentenceEnd)
+                }
+            })
+        });
+
+        test('initial viewport demonstrates at least three distinct row heights at both desktop and mobile widths', async ({page}) => {
+            let desktopState   = await settle(page),
+                desktopHeights = new Set(desktopState.rows.slice(0, 10).map(r => r.height));
+
+            expect(desktopHeights.size, 'at least 3 distinct row heights on desktop').toBeGreaterThanOrEqual(3);
+
+            // Switch to mobile viewport
+            await page.setViewportSize({width: 390, height: 844});
+            await settle(page);
+
+            let mobileState   = await settle(page),
+                mobileHeights = new Set(mobileState.rows.slice(0, 10).map(r => r.height));
+
+            expect(mobileHeights.size, 'at least 3 distinct row heights on mobile').toBeGreaterThanOrEqual(3)
+        });
+
+        test('jumping to row 9,000 renders, paints, and stays in view with performance measurement', async ({page}) => {
+            const target = 9000;
+
+            // Browser-side measurement boundaries:
+            // • Start: the capture-phase 'input' event fires in the browser carrying the exact value "9000".
+            //   This excludes Playwright CDP fill() automation latency entirely.
+            // • End: second requestAnimationFrame after row 9,000 is fully in-view and re-verified in the
+            //   second frame. This is a paint-opportunity proxy, not proof of compositor presentation.
+            await page.evaluate(({grid, target}) => window.armJumpMeasurement(grid, target), {grid: GRID, target});
+
+            let measurement;
+
+            try {
+                await jumpToRow(page, target);
+
+                await expect.poll(async () => {
+                    const data = await page.evaluate(() => window.getJumpMeasurement());
+                    return Number.isFinite(data?.paintedTime) && data?.verifiedVisible === true
+                }, {message: `row ${target} rendered, painted, and re-verified visible`, timeout: 15000}).toBe(true);
+
+                measurement = await page.evaluate(() => window.getJumpMeasurement());
+            } finally {
+                // Always release the browser-side input listener and animation frame, even on failure/timeout
+                await page.evaluate(() => window.cleanupJumpMeasurement()).catch(() => {/* ignore if page is gone */})
+            }
+
+            // Verify startTime, visibleTime, and paintedTime are finite and chronologically ordered
+            expect(Number.isFinite(measurement.startTime), 'startTime is finite').toBe(true);
+            expect(Number.isFinite(measurement.visibleTime), 'visibleTime is finite').toBe(true);
+            expect(Number.isFinite(measurement.paintedTime), 'paintedTime is finite').toBe(true);
+            expect(measurement.startTime, 'startTime <= visibleTime').toBeLessThanOrEqual(measurement.visibleTime);
+            expect(measurement.visibleTime, 'visibleTime <= paintedTime').toBeLessThanOrEqual(measurement.paintedTime);
+
+            const jumpDurationMs = measurement.paintedTime - measurement.startTime;
+
+            let state = await settle(page);
+            expect(fullyVisible(state, target), `row ${target} is fully visible`).toBe(true);
+            expect(measurement.verifiedRowId, 'verified row id matches target').toBe(target);
+            await expectRowsFitTheirText(page);
+
+            test.info().annotations.push({
+                type       : 'jump-to-row-9000-paint-opportunity-ms',
+                description: `${jumpDurationMs.toFixed(2)}ms (capture-phase input event → double-rAF paint proxy)`
+            });
+            console.log(
+                `Measured jump to row 9,000 paint-opportunity time: ${jumpDurationMs.toFixed(2)}ms` +
+                ` (visible: ${(measurement.visibleTime - measurement.startTime).toFixed(2)}ms,` +
+                ` start boundary: browser capture-phase input event carrying value "${target}")`
+            )
         })
     })
+});
+
+test.describe('Theme selection via URL query parameter', () => {
+    test.use({viewport: WIDE});
+
+    for (const [theme, expectedBg] of [
+        ['neo-theme-dark',  'rgb(50, 50, 50)'],
+        ['neo-theme-light', 'rgb(250, 250, 250)']
+    ]) {
+        test(`loads and applies ${theme} with correct body background`, async ({page}) => {
+            await page.goto(`/examples/grid/contentSizedRows/index.html?theme=${theme}`);
+            await page.waitForSelector(`${GRID} .neo-grid-row[data-record-id]`, {state: 'visible', timeout: 30000});
+
+            const bodyClass = await page.evaluate(() => document.body.className);
+            expect(bodyClass, `body carries ${theme}`).toContain(theme);
+
+            const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+            expect(bg, `computed background for ${theme}`).toBe(expectedBg);
+        });
+    }
+
+    test('dark and light themes produce distinct computed background colors', async ({page}) => {
+        await page.goto('/examples/grid/contentSizedRows/index.html?theme=neo-theme-dark');
+        await page.waitForSelector(`${GRID} .neo-grid-row[data-record-id]`, {state: 'visible', timeout: 30000});
+        const darkBg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+
+        await page.goto('/examples/grid/contentSizedRows/index.html?theme=neo-theme-light');
+        await page.waitForSelector(`${GRID} .neo-grid-row[data-record-id]`, {state: 'visible', timeout: 30000});
+        const lightBg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+
+        expect(darkBg, 'dark and light body backgrounds differ').not.toBe(lightBg);
+        expect(darkBg).toBe('rgb(50, 50, 50)');
+        expect(lightBg).toBe('rgb(250, 250, 250)');
+    });
 });
 
 test.describe('Two content-sized views of one store', () => {
