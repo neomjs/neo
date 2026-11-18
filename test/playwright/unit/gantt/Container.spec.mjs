@@ -488,4 +488,60 @@ test.describe('Neo.gantt.Container', () => {
         dependencyStore.destroy();
         taskStore.destroy()
     });
+
+    test('a store batch re-projects the links once', () => {
+        const
+            taskStore = Neo.create(TaskStore, {
+                data: [
+                    {id: 'A', parentId: null, isLeaf: true, title: 'A', startDate: '2026-11-09T00:00:00Z', endDate: '2026-11-09T02:00:00Z'},
+                    {id: 'B', parentId: null, isLeaf: true, title: 'B', startDate: '2026-11-09T02:00:00Z', endDate: '2026-11-09T04:00:00Z'},
+                    {id: 'C', parentId: null, isLeaf: true, title: 'C', startDate: '2026-11-09T04:00:00Z', endDate: '2026-11-09T06:00:00Z'}
+                ]
+            }),
+            dependencyStore = Neo.create(DependencyStore, {
+                data: [
+                    {id: 'ab', fromId: 'A', toId: 'B', type: 'FS', lag: 0, lagUnit: 'hour'},
+                    {id: 'bc', fromId: 'B', toId: 'C', type: 'FS', lag: 0, lagUnit: 'hour'}
+                ]
+            });
+
+        gantt = Neo.create(GanttContainer, {
+            appName,
+            dependencyStore,
+            store        : taskStore,
+            timeAxis     : {start: '2026-11-09T00:00:00Z', end: '2026-11-10T00:00:00Z', tickUnit: 'hour', tickStep: 1, pxPerMinute: 1, snapMinutes: 15},
+            viewportWidth: 2000
+        });
+        gantt.syncDependencyLayer();
+
+        const
+            layer   = gantt.dependencyLayer,
+            project = layer.project.bind(layer),
+            // The last x of a route is where its arrow ends, in px at 1 px per minute.
+            end     = id => Number(layer.arrows.find(arrow => arrow.data.dependencyId === id)?.d.split(' ').at(-2));
+        let projects = 0;
+
+        layer.project = (...args) => { projects++; return project(...args) };
+
+        expect(end('ab')).toBe(120);
+        expect(end('bc')).toBe(240);
+
+        taskStore.updateRows([
+            {key: 'B', values: {startDate: new Date('2026-11-09T03:00:00Z'), endDate: new Date('2026-11-09T05:00:00Z')}},
+            {key: 'C', values: {startDate: new Date('2026-11-09T05:00:00Z'), endDate: new Date('2026-11-09T07:00:00Z')}}
+        ]);
+
+        expect(projects).toBe(1);
+        expect(end('ab')).toBe(180);
+        expect(end('bc')).toBe(300);
+
+        projects = 0;
+        dependencyStore.updateRows([{key: 'ab', values: {type: 'SS'}}, {key: 'bc', values: {type: 'SS'}}]);
+
+        expect(projects).toBe(1);
+        expect(layer.arrows.map(arrow => arrow.data.type)).toEqual(['SS', 'SS']);
+
+        dependencyStore.destroy();
+        taskStore.destroy()
+    });
 });

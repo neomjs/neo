@@ -121,7 +121,11 @@ class Container extends SchedulerContainer {
         return store
     }
 
-    /** @summary Binds record changes and keeps the overlay aligned. */
+    /**
+     * @summary Binds record changes and keeps the overlay aligned.
+     * @description A store batch (`updateRows()`) re-projects the overlay once, on its `rowsChange`:
+     * each of its records publishes `recordChange` with `isBatch` first, and those wait for it.
+     */
     afterSetStore(value, oldValue) {
         super.afterSetStore(value, oldValue);
         this.#analysis?.invalidateSchedule();
@@ -134,7 +138,7 @@ class Container extends SchedulerContainer {
                 if (!(this.schedule?.isPublishing && this.#serviceCleanup)) this.syncDependencyLayer()
             };
             const recordChange = data => {
-                if (this._movingTask) return;
+                if (this._movingTask || data?.isBatch) return;
                 const fields = data?.fields;
                 if (!Array.isArray(fields) || !fields.length || fields.some(field => {
                     const name = typeof field === 'string' ? field : field?.name;
@@ -142,7 +146,7 @@ class Container extends SchedulerContainer {
                 })) this.#analysis?.invalidateSchedule();
                 if (!(this.schedule?.isPublishing && this.#serviceCleanup)) this.syncDependencyLayer()
             };
-            const listeners = {mutate: changed, recordChange, filter: changed};
+            const listeners = {mutate: changed, recordChange, rowsChange: recordChange, filter: changed};
             value.on(listeners);
             this.#storeCleanups.push(() => value.un(listeners))
         }
@@ -151,18 +155,21 @@ class Container extends SchedulerContainer {
         if (oldValue && oldValue !== value && this.#ownedTasks.has(oldValue)) oldValue.destroy()
     }
 
-    /** @summary Rebinds dependency changes and releases a store owned by this chart. */
+    /**
+     * @summary Rebinds dependency changes and releases a store owned by this chart.
+     * @description Like the task store, a batch of link edits re-projects the overlay once, on its `rowsChange`.
+     */
     afterSetDependencyStore(value, oldValue) {
         this.#analysis?.invalidateSchedule();
         this.#dependencyCleanups.forEach(fn => fn());
         this.#dependencyCleanups = [];
         if (value) {
-            const changed = () => {
-                if (this._movingTask) return;
+            const changed = data => {
+                if (this._movingTask || data?.isBatch) return;
                 this.#analysis?.invalidateSchedule();
                 if (!(this.schedule?.isPublishing && this.#serviceCleanup)) this.syncDependencyLayer()
             };
-            const listeners = {mutate: changed, recordChange: changed, filter: changed};
+            const listeners = {mutate: changed, recordChange: changed, rowsChange: changed, filter: changed};
             value.on(listeners);
             this.#dependencyCleanups.push(() => value.un(listeners))
         }
