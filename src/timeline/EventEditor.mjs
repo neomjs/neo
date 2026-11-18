@@ -483,15 +483,16 @@ class EventEditor extends Dialog {
     /**
      * @summary Joins one bound's date and time fields into `'YYYY-MM-DDTHH:mm'` in the owner's timeline clock.
      * @param {String} name `'startDate'`, `'endDate'`, or the owner's configured field name
-     * @returns {String} `''` while the date is empty
+     * @returns {String} `''` while the date or the time is empty; an unreadable time is empty, never midnight
      */
     getDateTimeValue(name) {
         const
             me    = this,
             field = me.resolveDateField(name),
-            date  = field && me.getField(field)?.value;
+            date  = field && me.getField(field)?.value,
+            time  = field && me.getField(`${field}__time`)?.value;
 
-        return date ? `${date}T${me.getField(`${field}__time`)?.value || '00:00'}` : ''
+        return date && time ? `${date}T${time}` : ''
     }
 
     /**
@@ -738,7 +739,6 @@ class EventEditor extends Dialog {
             {owner, record} = me,
             startDateField  = me.getStartDateField(),
             endDateField    = me.getEndDateField(),
-            startInput      = me.getField(startDateField),
             endInput        = me.getField(endDateField);
 
         if (!record) {
@@ -750,17 +750,7 @@ class EventEditor extends Dialog {
             startDate = me.parseDateValue(me.getDateTimeValue(startDateField)),
             endDate   = me.parseDateValue(me.getDateTimeValue(endDateField));
 
-        if (!startDate || Number.isNaN(startDate.getTime())) {
-            if (startInput) {
-                startInput.error = 'Invalid start date'
-            }
-            return false
-        }
-
-        if (!endDate || Number.isNaN(endDate.getTime())) {
-            if (endInput) {
-                endInput.error = 'Invalid end date'
-            }
+        if (!me.validateBound(startDateField, startDate, 'start') || !me.validateBound(endDateField, endDate, 'end')) {
             return false
         }
 
@@ -910,6 +900,34 @@ class EventEditor extends Dialog {
         me.initialValues.startDate   = me.initialValues[startDateField];
         me.initialValues.endDate     = me.initialValues[endDateField];
         me.initialValues.percentDone = me.initialValues[percentDoneField]
+    }
+
+    /**
+     * @summary Whether one bound reads as a date. When it does not, the field the person has to fix carries the
+     * error: the time field once its date is set, the date field otherwise.
+     * @param {String} field The bound's date field name
+     * @param {Date|null} value The bound as {@link #parseDateValue} read it
+     * @param {String} label `'start'` or `'end'`
+     * @returns {Boolean}
+     * @protected
+     */
+    validateBound(field, value, label) {
+        if (value && !Number.isNaN(value.getTime())) {
+            return true
+        }
+
+        const
+            me        = this,
+            dateInput = me.getField(field),
+            timeInput = me.getField(`${field}__time`);
+
+        if (dateInput?.value && timeInput) {
+            timeInput.error = `Invalid ${label} time`
+        } else if (dateInput) {
+            dateInput.error = `Invalid ${label} date`
+        }
+
+        return false
     }
 }
 

@@ -154,6 +154,40 @@ test('one record edit is committed after validation, while cancel and invalid da
     }
 });
 
+test('a bound whose time is unreadable or cleared refuses to save and marks its time field, never midnight', () => {
+    const
+        axis  = Neo.create(TimeAxis, {timeZone: 'UTC'}),
+        store = Neo.create(Events, {data: [{
+            id: 'launch', title: 'Launch', startDate: '2026-11-10T12:00Z', endDate: '2026-11-10T16:00Z'
+        }]}),
+        record = store.get('launch'),
+        editor = Neo.create(EventEditor, {appName, owner: {timeAxis: axis}});
+
+    try {
+        editor.openForRecord(record);
+        editor.getField('startDate__time').value = 'not a time';
+        expect(editor.save()).toBe(false);
+        expect(editor.getField('startDate__time').error).toBe('Invalid start time');
+        expect(editor.getField('startDate').error).toBeFalsy();
+
+        editor.getField('startDate__time').value = '12:00';
+        editor.getField('endDate__time').value   = '';
+        expect(editor.save()).toBe(false);
+        expect(editor.getField('endDate__time').error).toBe('Invalid end time');
+
+        // Without a date, the date field is the one to fix
+        editor.getField('endDate__time').value = '16:00';
+        editor.getField('endDate').value       = null;
+        expect(editor.save()).toBe(false);
+        expect(editor.getField('endDate').error).toBe('Invalid end date');
+        expect([record.startDate.toISOString(), record.endDate.toISOString()]).toEqual(['2026-11-10T12:00:00.000Z', '2026-11-10T16:00:00.000Z'])
+    } finally {
+        editor.destroy();
+        store.destroy();
+        axis.destroy()
+    }
+});
+
 test('an owner can refuse an edit and accept the same draft on retry', () => {
     const
         store = Neo.create(Events, {data: [{
