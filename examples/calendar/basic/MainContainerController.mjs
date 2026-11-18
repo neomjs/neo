@@ -14,6 +14,27 @@ class MainContainerController extends ComponentController {
     }
 
     /**
+     * True while the viewport is at most a phone's width
+     * @member {Boolean|null} phone=null
+     * @protected
+     */
+    phone = null
+
+    /**
+     * @summary At a phone's width the day view leads and the side panel folds away; wider, the week and the panel return.
+     * @param {Object} data The viewport's resize event
+     */
+    onResize(data) {
+        let me    = this,
+            phone = data.borderBoxSize.inlineSize <= 640;
+
+        if (data.id === me.component.id && phone !== me.phone) {
+            me.phone = phone;
+            me.getReference('calendar').set({activeView: phone ? 'day' : 'week', sideBarExpanded: !phone})
+        }
+    }
+
+    /**
      * @param {Object} data
      */
     onSwitchThemeButtonClick(data) {

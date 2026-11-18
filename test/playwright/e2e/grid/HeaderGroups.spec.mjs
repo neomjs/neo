@@ -823,13 +823,16 @@ test.describe('examples/grid/headerGroups', () => {
 
             await expect.poll(() => page.evaluate(() => window.groupDragSettled)).toBe(true);
             await expect.poll(() => groupOrder(page)).toEqual(escape ? ['Q1', 'Q2', 'Q3', 'Q4', 'Year'] : ['Q1', 'Q3', 'Q2', 'Q4', 'Year']);
+            // The order can read right while the drop still re-renders the group cells, and the next drag measures them
+            await expectRelaidOut(page);
 
             // The next drag starts from the gesture's true result: a proxy, a dragging toolbar or a late move left
             // now is the first gesture's
             await dragGroup(page, 'Q4', (await groupBox(page, 'Q2')).x + 10);
 
             await expect.poll(() => groupOrder(page)).toEqual(escape ? ['Q1', 'Q4', 'Q2', 'Q3', 'Year'] : ['Q1', 'Q3', 'Q4', 'Q2', 'Year']);
-            expect(await page.evaluate(() =>
+            // The drop's own proxy can still be fading out; a stale one would never go
+            await expect.poll(() => page.evaluate(() =>
                 document.querySelectorAll('.neo-dragproxy, .neo-grid-header-toolbar.neo-is-dragging').length)).toBe(0);
             await expectRelaidOut(page)
         })
@@ -862,7 +865,7 @@ test.describe('examples/grid/headerGroups', () => {
         await dragGroup(page, 'Q4', (await groupBox(page, 'Q2')).x + 10);
 
         await expect.poll(() => groupOrder(page)).toEqual(['Q1', 'Q4', 'Q2', 'Q3', 'Year']);
-        expect(await page.evaluate(() =>
+        await expect.poll(() => page.evaluate(() =>
             document.querySelectorAll('.neo-dragproxy, .neo-grid-header-toolbar.neo-is-dragging').length)).toBe(0);
         await expectRelaidOut(page)
     });

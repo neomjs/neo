@@ -11,8 +11,11 @@ import {isDescriptor} from '../core/ConfigSymbols.mjs';
  * tree, so it offers exactly the apps the launcher shows. The task list renders {@link #taskStore}.
  *
  * Its items are a map, so a consumer adds its own by key and places them by `weight`: the start button weighs 10,
- * the task list 20 and the spacer 30, so an item heavier than 30 sits at the right end. A consumer configures a
- * shipped item under its key, e.g. `items: {'start-button': {text: 'Start'}}`.
+ * the task list 20, the spacer 30 and the clock 100, so an item heavier than 30 sits at the right end, before the
+ * clock. A consumer configures a shipped item under its key, e.g. `items: {'start-button': {text: 'Start'}}`, and
+ * hides one with `hidden: true`.
+ *
+ * The clock shows the time and the date in the app's locale (`Neo.config.locale`) and moves on every full minute.
  *
  * A click on a task calls `onTaskItemClick()` up the component chain, which `Neo.desktop.Container` implements.
  * @class Neo.desktop.Taskbar
@@ -61,6 +64,16 @@ class Taskbar extends Toolbar {
                     module: Component,
                     flex  : 1,
                     weight: 30
+                },
+                clock: {
+                    module: Component,
+                    cls   : ['neo-desktop-taskbar-clock'],
+                    flex  : 'none',
+                    vdom  : {cn: [
+                        {cls: ['neo-desktop-taskbar-time']},
+                        {cls: ['neo-desktop-taskbar-date']}
+                    ]},
+                    weight: 100
                 }
             }
         },
@@ -103,6 +116,54 @@ class Taskbar extends Toolbar {
     createItems() {
         super.createItems();
         this.syncStartMenu()
+    }
+
+    /**
+     * Starts the clock once the items exist
+     */
+    onConstructed() {
+        super.onConstructed();
+        this.runClock()
+    }
+
+    /**
+     * Keeps the clock on the minute: it shows the time at once, and each wait ends on the next full minute. The
+     * taskbar's destruction ends the wait, and with it the loop; removing the clock item ends it at the next minute.
+     * @protected
+     */
+    async runClock() {
+        let me = this;
+
+        try {
+            while (me.getItem('clock')) {
+                let now = new Date();
+
+                me.syncClock(now);
+                await me.timeout(60000 - now.getSeconds() * 1000 - now.getMilliseconds())
+            }
+        } catch (error) {
+            if (error !== Neo.isDestroyed) {
+                throw error
+            }
+        }
+    }
+
+    /**
+     * Shows a moment on the clock: the time, and the date beneath it, in the app's locale
+     * @param {Date} date
+     */
+    syncClock(date) {
+        let clock    = this.getItem('clock'),
+            {locale} = Neo.config;
+
+        if (clock) {
+            let [time, day] = clock.vdom.cn;
+
+            time.text = new Intl.DateTimeFormat(locale, {hour: '2-digit', minute: '2-digit'}).format(date);
+            day.text  = new Intl.DateTimeFormat(locale, {day: 'numeric', month: 'short', weekday: 'short'}).format(date);
+
+            clock.update()
+        }
     }
 
     /**

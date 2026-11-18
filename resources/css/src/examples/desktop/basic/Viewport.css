@@ -1,0 +1,56 @@
+/* The product's name, large and faint on the wallpaper, under the windows */
+.desktop-basic-brand {
+    bottom        : 20px;
+    color         : var(--desktop-app-window-color);
+    font-size     : 64px;
+    font-weight   : 700;
+    letter-spacing: -.02em;
+    opacity       : .08;
+    pointer-events: none;
+    position      : absolute;
+    right         : 32px;
+    user-select   : none;
+}
+
+/* What the screen is, on the workspace's right, in the windows' glass */
+.desktop-basic-about {
+    align-self      : flex-start;
+    backdrop-filter : blur(30px) saturate(160%);
+    background-color: var(--desktop-app-window-background-color);
+    border          : 1px solid var(--desktop-app-window-border-color);
+    border-radius   : 16px;
+    color           : var(--desktop-app-window-color);
+    margin          : 24px;
+    padding         : 20px 22px;
+    width           : 300px;
+
+    h2 {
+        font-size: 18px;
+        margin   : 0 0 8px;
+    }
+
+    p {
+        font-size  : 14px;
+        line-height: 1.55;
+        margin     : 0 0 12px;
+        opacity    : .85;
+    }
+
+    a {
+        color          : var(--desktop-taskbar-accent-color);
+        font-size      : 13px;
+        font-weight    : 600;
+        text-decoration: none;
+    }
+}
+
+/* A phone keeps the launcher's room: the card folds away and the name shrinks */
+@media (max-width: 600px) {
+    .desktop-basic-about {
+        display: none;
+    }
+
+    .desktop-basic-brand {
+        font-size: 36px;
+    }
+}
