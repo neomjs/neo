@@ -3,7 +3,7 @@
     --button-height                             : var(--cmp-button-height);
     --button-margin                             : var(--cmp-button-gap);
     --button-padding                            : 0 var(--cmp-button-spacinghorizontal);
-    --button-text-font-family                   : var(--core-fontfamily-sans), sans-serif;
+    --button-text-font-family                   : var(--core-fontfamily-sans);
     --button-text-font-size                     : var(--core-fontsize-label);
     --button-text-font-weight                   : var(--core-fontweight-semibold);
     --button-text-line-height                   : inherit;
