@@ -18,10 +18,19 @@
 
     .neo-input-wrapper {
         align-items: center;
-        flex-wrap  : wrap;
         gap        : 4px;
         overflow   : visible;
         padding    : 2px 4px;
+
+        /* The chips and the input wrap here; the triggers stay at the wrapper's start and end */
+        .neo-chipfield-flow {
+            align-items: center;
+            display    : flex;
+            flex       : 1 1 auto;
+            flex-wrap  : wrap;
+            gap        : 4px;
+            min-width  : 0;
+        }
 
         .neo-chip-field-values {
             background: none;

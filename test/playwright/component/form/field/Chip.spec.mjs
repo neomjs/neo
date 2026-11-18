@@ -286,11 +286,13 @@ test.describe('Neo.form.field.Chip', () => {
             tokens[theme] = await field.evaluate(element => {
                 const
                     fieldStyle = getComputedStyle(element),
+                    flow       = element.querySelector('.neo-chipfield-flow'),
                     valueList  = element.querySelector('.neo-chip-field-values'),
                     wrapper    = element.querySelector('.neo-input-wrapper');
 
                 return {
                     chipTextColor: fieldStyle.getPropertyValue('--chip-text-color').trim(),
+                    flowWrap     : getComputedStyle(flow).flexWrap,
                     listDisplay  : getComputedStyle(valueList).display,
                     textHeight   : fieldStyle.getPropertyValue('--textfield-input-height').trim(),
                     textPadding  : fieldStyle.getPropertyValue('--textfield-input-padding').trim(),
@@ -301,10 +303,53 @@ test.describe('Neo.form.field.Chip', () => {
             expect(tokens[theme].listDisplay).toBe('flex');
             expect(tokens[theme].textHeight).not.toBe('');
             expect(tokens[theme].textPadding).not.toBe('');
-            expect(tokens[theme].wrapperWrap).toBe('wrap')
+            expect(tokens[theme].flowWrap).toBe('wrap');
+            expect(tokens[theme].wrapperWrap).toBe('nowrap')
         }
 
         expect(tokens['neo-theme-neo-light'].chipTextColor)
             .not.toBe(tokens['neo-theme-neo-dark'].chipTextColor)
+    });
+
+    test('once the chips and the input fill the row, the triggers stay at its end rather than wrap', async ({page}) => {
+        await loadStylesheets(page, [
+            '/dist/development/css/theme-neo-light/Global.css',
+            '/dist/development/css/theme-neo-light/component/Chip.css',
+            '/dist/development/css/theme-neo-light/form/field/Text.css'
+        ]);
+
+        await page.evaluate(id => Neo.worker.App.setConfigs({id, theme: 'neo-theme-neo-light', value: ['alpha', 'beta']}), componentId);
+
+        const
+            field  = page.locator(`#${componentId}`),
+            layout = () => field.evaluate(element => {
+                const
+                    rect     = node => node.getBoundingClientRect(),
+                    wrapper  = element.querySelector('.neo-input-wrapper'),
+                    triggers = [...wrapper.querySelectorAll('.neo-field-trigger')],
+                    flowEnd  = Math.max(...[...element.querySelectorAll('.neo-chip, .neo-textfield-input')].map(node => rect(node).right));
+
+                return {
+                    flowEnd,
+                    listWidth : rect(element.querySelector('.neo-chip-field-values')).width,
+                    trigger   : rect(triggers.at(-1)).toJSON(),
+                    wrapper   : rect(wrapper).toJSON(),
+                    wrapperEnd: rect(wrapper).right - parseFloat(getComputedStyle(wrapper).paddingInlineEnd) - parseFloat(getComputedStyle(wrapper).borderInlineEndWidth)
+                }
+            });
+
+        await expect(field.locator('.neo-chip')).toHaveCount(2);
+
+        // Room for the chips, a gap and the input's 80 px minimum, but not for the triggers as well
+        const {listWidth, wrapper} = await layout(),
+              fullRow              = listWidth + 4 + 80 + 10;
+
+        await page.evaluate(({id, width}) => Neo.worker.App.setConfigs({id, width}), {id: componentId, width: Math.ceil(420 - wrapper.width + fullRow + 8 + 2)});
+        await expect.poll(async () => (await layout()).wrapper.width).toBeLessThan(wrapper.width);
+
+        const narrow = await layout();
+
+        expect(narrow.trigger.left).toBeGreaterThanOrEqual(narrow.flowEnd);
+        expect(narrow.wrapperEnd - narrow.trigger.right).toBeLessThan(1)
     })
 });
