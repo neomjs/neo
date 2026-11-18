@@ -103,10 +103,11 @@ test.describe('ChipListComponent', () => {
     });
 });
 
-test.describe('ChipListComponent on a dark theme', () => {
-    // A chip shares its list item's box. The light themes paint that item white on white; a dark theme shows it.
-    for (const theme of ['neo-theme-dark', 'neo-theme-neo-dark']) {
-        test(`${theme}: a chip sits on no item surface, and hover fills the pill`, async ({page}) => {
+test.describe('ChipListComponent theme surfaces', () => {
+    // A chip shares its list item's box, so the item paints the chip's fill and its states reach the chip.
+    // The list carries its own theme class, as in a workbench: a classic theme's token rule then out-ranks one set on the list.
+    for (const theme of ['neo-theme-dark', 'neo-theme-light', 'neo-theme-neo-dark', 'neo-theme-neo-light']) {
+        test(`${theme}: a chip fills its pill, its text clears the border, and the list takes the theme's frame`, async ({page}) => {
             const directory = theme.replace('neo-theme-', 'theme-'),
                   sheets    = ['list/Base.css', 'component/Chip.css'].map(file => `/dist/development/css/${directory}/${file}`);
 
@@ -135,38 +136,63 @@ test.describe('ChipListComponent on a dark theme', () => {
                 await Neo.worker.App.setConfigs({cls: [...cls.filter(item => !item.startsWith('neo-theme-')), theme], id: 'component-test-viewport'})
             }, theme);
 
-            const result = await page.evaluate(() => Neo.worker.App.createNeoInstance({
+            const result = await page.evaluate(theme => Neo.worker.App.createNeoInstance({
                 displayField: 'name',
                 importPath  : '../list/Chip.mjs',
                 ntype       : 'chip-list',
                 parentId    : 'component-test-viewport',
+                theme,
                 width       : 300,
                 store       : {
                     data : [{id: 1, name: 'Bastian'}, {id: 2, name: 'Gerard'}],
                     model: {fields: [{name: 'id', type: 'Number'}, {name: 'name', type: 'String'}]}
                 }
-            }));
+            }), theme);
 
             expect(result.success, result.error?.message).toBe(true);
 
             const item = page.locator(`#${result.id} .neo-list-item`).first(),
                   chip = item.locator('.neo-chip'),
-                  read = () => item.evaluate(node => ({
-                      background: getComputedStyle(node).backgroundColor,
-                      chipRadius: getComputedStyle(node.querySelector('.neo-chip')).borderTopLeftRadius,
-                      radius    : getComputedStyle(node).borderTopLeftRadius
-                  }));
+                  read = () => item.evaluate((node, theme) => {
+                      const chip  = node.querySelector('.neo-chip'),
+                            list  = node.closest('.neo-chip-list'),
+                            probe = node.appendChild(document.createElement('div')),
+                            frame = style => style.borderTopStyle === 'none' ? 'none' : `${style.borderTopWidth} ${style.borderTopStyle} ${style.borderTopColor}`;
+
+                      // Resolves the theme's tokens where the item reads them
+                      probe.style.cssText = 'background-color: var(--chip-background-color); border-top: var(--list-container-border)';
+
+                      const values = {
+                          background    : getComputedStyle(node).backgroundColor,
+                          chipBackground: getComputedStyle(chip).backgroundColor,
+                          chipFill      : getComputedStyle(probe).backgroundColor,
+                          chipRadius    : getComputedStyle(chip).borderTopLeftRadius,
+                          frame         : frame(getComputedStyle(list)),
+                          listTheme     : list.classList.contains(theme),
+                          radius        : getComputedStyle(node).borderTopLeftRadius,
+                          textInset     : chip.querySelector('.neo-chip-text').getBoundingClientRect().left - chip.getBoundingClientRect().left,
+                          themeFrame    : frame(getComputedStyle(probe))
+                      };
+
+                      probe.remove();
+                      return values
+                  }, theme);
 
             await expect(chip).toBeVisible();
 
             const rest = await read();
 
+            expect(rest.listTheme).toBe(true);
+            expect(rest.chipFill).not.toBe('rgba(0, 0, 0, 0)');
+            expect(rest.background).toBe(rest.chipFill);
+            expect(rest.chipBackground).toBe('rgba(0, 0, 0, 0)');
             expect(rest.chipRadius).not.toBe('0px');
-            expect(rest.background).toBe('rgba(0, 0, 0, 0)');
             expect(rest.radius).toBe(rest.chipRadius);
+            expect(rest.textInset).toBeGreaterThanOrEqual(7);
+            expect(rest.frame).toBe(rest.themeFrame);
 
             await item.hover();
-            await expect.poll(async () => (await read()).background).not.toBe('rgba(0, 0, 0, 0)');
+            await expect.poll(async () => (await read()).background).not.toBe(rest.background);
 
             await item.click();
             await expect.poll(() => chip.evaluate(node => getComputedStyle(node).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');

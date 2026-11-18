@@ -1,5 +1,6 @@
 :where(.neo-theme-neo-light) { /* .neo-chip */
     --chip-align-items             : center;
+    --chip-background-color        : var(--gray-100);
     --chip-border                  : 1px solid #ddd;
     --chip-border-color-focus      : #1c60a0;
     --chip-border-radius           : 15px;
