@@ -73,6 +73,12 @@ class Sparkline extends Canvas {
     }
 
     /**
+     * `true` once the renderer answered a size sync for the current registration; see {@link #syncDrawn}.
+     * @member {Boolean} #sized=false
+     */
+    #sized = false
+
+    /**
      * Updates the pulse configuration in the worker when `usePulse` changes.
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -130,15 +136,17 @@ class Sparkline extends Canvas {
      * @param {Number[]|null} value
      * @param {Number[]|null} oldValue
      */
-    afterSetValues(value, oldValue) {
+    async afterSetValues(value, oldValue) {
         let me = this;
 
         if (me.offscreenRegistered && value) {
-            me.renderer?.updateData({
+            await me.renderer?.updateData({
                 canvasId: me.id,
                 values  : value,
                 windowId: me.windowId
-            })
+            });
+
+            me.syncDrawn()
         }
     }
 
@@ -184,9 +192,10 @@ class Sparkline extends Canvas {
      * @param {Boolean} oldValue
      */
     async afterSetOffscreenRegistered(value, oldValue) {
+        let me = this;
+
         if (value) {
-            let me       = this,
-                {values} = me;
+            let {values} = me;
 
             await me.renderer?.register({
                 canvasId        : me.id,
@@ -198,7 +207,7 @@ class Sparkline extends Canvas {
             });
 
             if (values) {
-                me.renderer?.updateData({
+                await me.renderer?.updateData({
                     canvasId: me.id,
                     values,
                     windowId: me.windowId
@@ -207,15 +216,22 @@ class Sparkline extends Canvas {
 
             // Initial size sync
             let rect = await me.getDomRect(me.id);
+
             if (rect) {
-                me.renderer?.updateSize({
+                await me.renderer?.updateSize({
                     canvasId        : me.id,
                     devicePixelRatio: Neo.config.devicePixelRatio,
                     height          : rect.height,
                     width           : rect.width,
                     windowId        : me.windowId
-                })
+                });
+
+                me.#sized = me.offscreenRegistered;
+                me.syncDrawn()
             }
+        } else {
+            me.#sized = false;
+            me.drawn  = false
         }
     }
 
@@ -297,16 +313,35 @@ class Sparkline extends Canvas {
      * proxy exists as soon as ANY window's group registered it, even while this window's group boots or failed.
      * @param {Object} data
      */
-    onResize(data) {
-        if (this.offscreenRegistered) {
-            this.renderer?.updateSize({
-                canvasId        : this.id,
+    async onResize(data) {
+        let me = this;
+
+        if (me.offscreenRegistered) {
+            await me.renderer?.updateSize({
+                canvasId        : me.id,
                 devicePixelRatio: Neo.config.devicePixelRatio,
                 height          : data.contentRect.height,
                 width           : data.contentRect.width,
-                windowId        : this.windowId
-            })
+                windowId        : me.windowId
+            });
+
+            me.#sized = me.offscreenRegistered;
+            me.syncDrawn()
         }
+    }
+
+    /**
+     * @summary Sets `drawn` once the renderer holds this sparkline's values at a measured size.
+     *
+     * `Neo.canvas.Sparkline` draws a first load, a snapped update and a size change before its remote call
+     * answers, so an answered `updateData` plus an answered `updateSize` stand for drawn pixels. A transition
+     * started later keeps the flag: its frames show the content on the way to the new values.
+     * @protected
+     */
+    syncDrawn() {
+        let me = this;
+
+        me.drawn = me.offscreenRegistered && me.#sized && !!me.values
     }
 }
 

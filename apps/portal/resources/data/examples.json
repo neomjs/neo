@@ -603,24 +603,6 @@
         "hiddenIn": []
     },
     {
-        "id": "graph-scene",
-        "family": "charts",
-        "component": "GraphScene",
-        "feature": "A worker-rendered WebGL graph supports orbiting, zooming, large node sets and level-of-detail passes.",
-        "lookFor": "Choose 100k clustered, drag to orbit, and press Read stats to compare nodes, edges and renderer state.",
-        "scope": "Requires WebGL. The largest scene is generated locally in the browser.",
-        "image": null,
-        "name": "GraphScene",
-        "sourceUrl": "examples/component/graphScene",
-        "urls": {
-            "devmode": "examples/component/graphScene/index.html",
-            "dist_dev": "dist/development/examples/component/graphScene/index.html",
-            "dist_esm": "dist/esm/examples/component/graphScene/index.html",
-            "dist_prod": "dist/production/examples/component/graphScene/index.html"
-        },
-        "hiddenIn": []
-    },
-    {
         "id": "magic-move-text",
         "family": "components",
         "component": "MagicMoveText",
@@ -900,6 +882,24 @@
         "hiddenIn": []
     },
     {
+        "id": "graph-scene",
+        "family": "charts",
+        "component": "GraphScene",
+        "feature": "A worker-rendered WebGL graph supports orbiting, zooming, large node sets and level-of-detail passes.",
+        "lookFor": "Choose 100k clustered, drag to orbit, and press Read stats to compare nodes, edges and renderer state.",
+        "scope": "Requires WebGL. The largest scene is generated locally in the browser.",
+        "image": "devmode/graph-scene-14.jpg",
+        "name": "GraphScene",
+        "sourceUrl": "examples/component/graphScene",
+        "urls": {
+            "devmode": "examples/component/graphScene/index.html",
+            "dist_dev": "dist/development/examples/component/graphScene/index.html",
+            "dist_esm": "dist/esm/examples/component/graphScene/index.html",
+            "dist_prod": "dist/production/examples/component/graphScene/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
         "id": "am-charts",
         "family": "charts",
         "component": "AmChart",
@@ -914,6 +914,42 @@
             "dist_dev": "dist/development/examples/charts/index.html",
             "dist_esm": "dist/esm/examples/charts/index.html",
             "dist_prod": "dist/production/examples/charts/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "sparklines",
+        "family": "charts",
+        "component": "Sparkline",
+        "feature": "Six metric cards draw their last thirty readings as sparklines in the canvas worker, and a simulated feed extends them once a second.",
+        "lookFor": "Watch the lines move, then turn the pulse and the smooth updates off, stop the feed and press Restart.",
+        "scope": "The readings are simulated in the browser from fixed seeds.",
+        "image": "devmode/sparklines-14.jpg",
+        "name": "Sparklines",
+        "sourceUrl": "examples/component/sparkline",
+        "urls": {
+            "devmode": "examples/component/sparkline/index.html",
+            "dist_dev": "dist/development/examples/component/sparkline/index.html",
+            "dist_esm": "dist/esm/examples/component/sparkline/index.html",
+            "dist_prod": "dist/production/examples/component/sparkline/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "mermaid",
+        "family": "charts",
+        "component": "Mermaid",
+        "feature": "Mermaid draws a flowchart, sequence, class or Gantt diagram from text, and draws it again on every edit and theme change.",
+        "lookFor": "Edit the source on the left, load each preset, and turn the dark theme on.",
+        "scope": "Mermaid ships with the engine and loads on first use.",
+        "image": "devmode/mermaid-14.jpg",
+        "name": "Mermaid Diagrams",
+        "sourceUrl": "examples/component/wrapper/mermaid",
+        "urls": {
+            "devmode": "examples/component/wrapper/mermaid/index.html",
+            "dist_dev": "dist/development/examples/component/wrapper/mermaid/index.html",
+            "dist_esm": "dist/esm/examples/component/wrapper/mermaid/index.html",
+            "dist_prod": "dist/production/examples/component/wrapper/mermaid/index.html"
         },
         "hiddenIn": []
     },
