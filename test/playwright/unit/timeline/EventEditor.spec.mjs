@@ -90,7 +90,7 @@ test('the resource select resolves typed keys and distinguishes absent from an e
 test('header labels and editor input use the same custom axis clock', () => {
     const
         axis    = Neo.create(TimeAxis, {timeZone: null}),
-        header  = Neo.create(TimeAxisHeader, {appName, timeAxis: axis}),
+        header  = Neo.create(TimeAxisHeader, {appName, timeAxis: axis, locale: 'en-US'}),
         editor  = Neo.create(EventEditor, {appName, owner: {timeAxis: axis}}),
         instant = new Date('2026-11-09T02:00Z'),
         wall    = new Date('2031-04-05T16:17Z'),
@@ -100,7 +100,7 @@ test('header labels and editor input use the same custom axis clock', () => {
     axis.wallTime = value => +value === +instant ? wall : value;
     axis.fromWallTime = value => +value === +wall ? instant : value;
     try {
-        expect(header.formatMajorTick(tick)).toBe('2031-04-05 16:00');
+        expect(header.formatMajorTick(tick)).toBe('Sat, Apr 5, 16:17');
         expect(header.formatMinorTick(tick)).toBe('16:17');
         const displayed = editor.formatLocalDateTime(instant);
         expect(displayed).toBe('2031-04-05T16:17');

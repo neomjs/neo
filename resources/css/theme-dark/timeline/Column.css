@@ -11,4 +11,5 @@
     --neo-timeline-focus-color            : var(--grid-rowmodel-selected-cell-background-color, #64b5f6);
     --neo-timeline-non-working-bg         : rgba(0, 0, 0, 0.16);
     --neo-timeline-non-working-border     : rgba(0, 0, 0, 0.28);
+    --neo-timeline-now-color              : #ef5350;
 }
