@@ -228,7 +228,8 @@ class Component extends BaseComponent {
 
     /**
      * Last-seen horizontal scroll offset of `.neo-c-w-scrollcontainer`, used by `onScroll`
-     * to ignore vertical-only scroll events (`deltaX === 0`).
+     * to ignore vertical-only scroll events (`deltaX === 0`). A programmatic scroll sets it to its target first, so
+     * `onScroll` sees no delta and pages nothing.
      * @member {Number} lastScrollLeft=0
      * @protected
      */
@@ -248,6 +249,13 @@ class Component extends BaseComponent {
      * @protected
      */
     listensToResize = false
+
+    /**
+     * The latest `centerColumns()` request. Each one measures the columns asynchronously, so only the latest scrolls:
+     * an older one measured a width the view may no longer have.
+     * @member {Number} #centerRequest=0
+     */
+    #centerRequest = 0
 
     /**
      * @param {Object} config
@@ -509,21 +517,28 @@ class Component extends BaseComponent {
 
     /**
      * @summary Scrolls the middle third of the buffered columns into view: the active week, or the active day in the
-     * day view.
+     * day view. Only the latest request scrolls, and its scroll never pages the buffered columns.
      * @returns {Promise<void>}
      */
     async centerColumns() {
         let me                = this,
+            request           = ++me.#centerRequest,
             rect              = await me.getDomRect(me.getColumnContainer().id),
-            scrollContainerId = me.getScrollContainer().id;
+            scrollContainerId = me.getScrollContainer().id,
+            value;
 
-        scrollContainerId && await Neo.main.DomAccess.scrollTo({
-            appName  : me.appName,
-            direction: 'left',
-            id       : scrollContainerId,
-            value    : rect.width * me.columnsBuffer / me.columnsVisible / 3,
-            windowId : me.windowId
-        })
+        if (request === me.#centerRequest && scrollContainerId) {
+            value             = Math.round(rect.width * me.columnsBuffer / me.columnsVisible / 3);
+            me.lastScrollLeft = value;
+
+            await Neo.main.DomAccess.scrollTo({
+                appName  : me.appName,
+                direction: 'left',
+                id       : scrollContainerId,
+                value,
+                windowId : me.windowId
+            })
+        }
     }
 
     /**

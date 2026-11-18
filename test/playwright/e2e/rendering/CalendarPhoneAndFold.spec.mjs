@@ -3,7 +3,7 @@ import {test, expect} from '../../fixtures.mjs';
 /**
  * @summary The calendar on a phone and with its side panel folded, on the fixed-data fixture (active on Sun 21 July
  * 2024): a folded start mounts cleanly, the week header stays in step with narrow columns, and the week and day views
- * stay on the active week and day when the side panel folds or expands.
+ * stay on the active week and day when the side panel folds or expands, or when a resize's measurement arrives late.
  */
 const FIXTURE = '/test/playwright/component/apps/calendar-basic/index.html',
       // The day view extends the week view and keeps its class
@@ -34,6 +34,78 @@ const routeCalendarConfig = (page, calendarConfig) => page.route('**/calendar-ba
     const response = await route.fetch();
     await route.fulfill({response, json: {...await response.json(), calendarConfig}})
 });
+
+/** @summary Opens the fixture at 1280 px in the day view, on the active Sunday. */
+const openDayView = async page => {
+    await page.setViewportSize({width: 1280, height: 720});
+    await page.goto(FIXTURE);
+    await expect(page.locator(`${WEEK_VIEW} .neo-event`).first()).toBeVisible();
+
+    await page.evaluate(() => Neo.worker.App.setConfigs({
+        id        : document.querySelector('.neo-calendar-maincontainer').id,
+        activeView: 'day'
+    }));
+
+    await expect.poll(() => readVisibleHeader(page, DAY_VIEW)).toEqual(['Sun 21'])
+};
+
+/**
+ * @summary In the main thread, answers the day view's next column measurement only on `releaseMeasurement()`, and
+ * holds the view's resize reports that arrive meanwhile until `releaseResize()`: a test picks which lands first.
+ */
+const holdNextMeasurement = page => page.evaluate(selector => {
+    const root    = [...document.querySelectorAll(selector)].find(el => el.offsetParent !== null),
+          columns = root.querySelector('.neo-c-w-column-container'),
+          access  = Neo.main.DomAccess,
+          manager = Neo.worker.Manager,
+          measure = access.getBoundingClientRect,
+          send    = manager.sendMessage,
+          hold    = window.calendarHold = {resizeReports: []};
+
+    access.getBoundingClientRect = function(data) {
+        const rect = measure.call(this, data);
+
+        if (data.id !== columns.id || hold.measured) return rect;
+
+        hold.measured = true;
+        return new Promise(resolve => {hold.releaseMeasurement = () => resolve(rect)})
+    };
+
+    manager.sendMessage = function(dest, data, ...args) {
+        if (hold.measured && !hold.resizeReleased && data?.eventName === 'resize' && data.data?.id === root.id) {
+            hold.resizeReports.push(() => send.call(this, dest, data, ...args));
+            return
+        }
+
+        return send.call(this, dest, data, ...args)
+    };
+
+    hold.releaseResize = () => {
+        hold.resizeReleased = true;
+        hold.resizeReports.forEach(report => report())
+    }
+}, DAY_VIEW);
+
+/** @summary Waits until the app worker has handled every message sent so far, and the frames after it. */
+const settle = page => page.evaluate(async () => {
+    const id    = document.querySelector('.neo-calendar-maincontainer').id,
+          frame = () => new Promise(resolve => requestAnimationFrame(resolve));
+
+    for (let i = 0; i < 3; i++) {
+        await Neo.worker.App.getConfigs({id, keys: 'activeView'});
+        await frame();
+        await frame()
+    }
+});
+
+/** @summary Narrows to a phone width, measured but held, then widens again with the wide resize report held. */
+const narrowThenWiden = async page => {
+    await holdNextMeasurement(page);
+    await page.setViewportSize({width: 390, height: 720});
+    await page.waitForFunction(() => window.calendarHold.measured);
+    await page.setViewportSize({width: 1280, height: 720});
+    await page.waitForFunction(() => window.calendarHold.resizeReports.length > 0)
+};
 
 test.describe('Neo.calendar on a phone and with a folded side panel', () => {
     test('a calendar created with its side panel folded mounts without an error and without the panel', async ({page}) => {
@@ -99,5 +171,29 @@ test.describe('Neo.calendar on a phone and with a folded side panel', () => {
         expect(sideBarExpanded).toBe(true);
         await expect(page.locator('.neo-calendar-sidebar')).toBeVisible();
         await expect.poll(() => readVisibleHeader(page, WEEK_VIEW)).toEqual(WEEK)
+    });
+
+    test('a narrow measurement that lands after the view widened again keeps the active day', async ({page}) => {
+        await openDayView(page);
+        await narrowThenWiden(page);
+
+        await page.evaluate(() => window.calendarHold.releaseMeasurement());
+        await settle(page); // the obsolete scroll and its scroll event have reached the view
+        await page.evaluate(() => window.calendarHold.releaseResize());
+        await settle(page);
+
+        await expect.poll(() => readVisibleHeader(page, DAY_VIEW)).toEqual(['Sun 21'])
+    });
+
+    test('a narrow measurement that lands after the wide one keeps the active day', async ({page}) => {
+        await openDayView(page);
+        await narrowThenWiden(page);
+
+        await page.evaluate(() => window.calendarHold.releaseResize());
+        await settle(page); // the wide width has re-centered the view
+        await page.evaluate(() => window.calendarHold.releaseMeasurement());
+        await settle(page);
+
+        await expect.poll(() => readVisibleHeader(page, DAY_VIEW)).toEqual(['Sun 21'])
     })
 });
