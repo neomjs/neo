@@ -115,6 +115,33 @@ test('moving the first task a day moves every successor, and its zone and phase 
     for (const id of ['p1-z01', 'p1', 'p8']) expectSpan(after, id)
 });
 
+test('a phase or zone moved by itself settles back on its children\'s span', async ({page, neuralLink}) => {
+    await page.setViewportSize({width: 1440, height: 900});
+    await page.goto(EXAMPLE_URL);
+    await expect(page.locator('.programme-counts')).toHaveText(COUNTS);
+
+    const
+        app     = await neuralLink.connectToApp('GanttBigData'),
+        [gantt] = await app.findInstances({className: 'Neo.gantt.Container'}, ['id']),
+        before  = await app.callMethod(gantt.id, 'collectAllTasks');
+
+    for (const id of ['p1', 'p1-z01']) {
+        const bar = page.locator(`.neo-timeline-bar[data-event-id="${id}"]`), label = await bar.getAttribute('aria-label');
+
+        await bar.focus();
+        await expect(bar).toBeFocused();
+        await page.keyboard.press('ArrowRight');
+
+        // The chart moves the bar a day; the example writes it back, so it ends where its children span
+        await expect.poll(async () => {
+            const tasks = await app.callMethod(gantt.id, 'collectAllTasks'), task = tasks.find(row => row.id === id);
+            return [task.startDate, task.endDate]
+        }).toEqual([before.find(row => row.id === id).startDate, before.find(row => row.id === id).endDate]);
+        await expect(bar).toHaveAttribute('aria-label', label);
+        expectSpan(await app.callMethod(gantt.id, 'collectAllTasks'), id)
+    }
+});
+
 for (const theme of THEMES) {
     test(`renders at 1440 × 900 and 390 × 844 without a console error (${theme})`, async ({page}) => {
         const errors = trackErrors(page);

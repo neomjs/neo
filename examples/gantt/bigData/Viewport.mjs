@@ -208,9 +208,14 @@ class BigDataViewport extends Viewport {
      */
     onTaskChange({changesById}) {
         const
-            store = this.getReference('gantt').store,
-            spans = new Map();
-        let parents = new Set(Object.keys(changesById).map(id => store.get(id)?.parentId).filter(Boolean));
+            store   = this.getReference('gantt').store,
+            spans   = new Map(),
+            changed = Object.keys(changesById).map(id => store.get(id)).filter(Boolean);
+        // An edited summary is visited too: a phase or zone moved by itself returns to its children's span
+        let parents = new Set([
+            ...changed.filter(task => !task.isLeaf).map(task => task.id),
+            ...changed.map(task => task.parentId).filter(Boolean)
+        ]);
 
         while (parents.size) {
             const next = new Set();
