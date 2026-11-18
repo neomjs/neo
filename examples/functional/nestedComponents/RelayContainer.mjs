@@ -21,7 +21,7 @@ class RelayContainer extends Container {
         value_: 0,
         items : [{
             module : CounterComponent,
-            heading: '3 · Functional child through the classic container'
+            heading: '2.1 · Functional child through the classic container'
         }]
     }
 
