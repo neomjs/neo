@@ -180,6 +180,13 @@ class MainContainer extends Container {
     }
 
     /**
+     * The latest side panel transition. A fold or an expand finishes only while it is still the latest: a fold's
+     * delayed removal must not undo an expand that started before it ran.
+     * @member {Number} #sideBarTransition=0
+     */
+    #sideBarTransition = 0
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -289,9 +296,11 @@ class MainContainer extends Container {
      */
     afterSetSideBarExpanded(value, oldValue) {
         if (oldValue !== undefined) {
-            let me      = this,
-                sideBar = me.items[1].items[0],
-                style   = sideBar.style || {};
+            let me         = this,
+                sideBar    = me.items[1].items[0],
+                style      = sideBar.style || {},
+                transition = ++me.#sideBarTransition,
+                isLatest   = () => transition === me.#sideBarTransition;
 
             if (value) {
                 me.updateDepth = -1;
@@ -300,11 +309,15 @@ class MainContainer extends Container {
                 delete sideBar.vdom.removeDom;
 
                 me.promiseUpdate().then(() => {
+                    if (!isLatest()) return;
+
                     sideBar.mounted = true;
 
                     me.timeout(50).then(() => {
-                        style.marginLeft = '0px';
-                        sideBar.style = style
+                        if (isLatest()) {
+                            style.marginLeft = '0px';
+                            sideBar.style = style
+                        }
                     })
                 })
             } else {
@@ -314,6 +327,8 @@ class MainContainer extends Container {
 
                 sideBar.promiseUpdate().then(() => {
                     me.timeout(400).then(() => {
+                        if (!isLatest()) return;
+
                         sideBar.vdom.removeDom = true;
                         sideBar.update();
 

@@ -77,5 +77,27 @@ test.describe('Neo.calendar on a phone and with a folded side panel', () => {
         await toggle.click();
         await expect(page.locator('.neo-calendar-sidebar')).toHaveCount(1);
         await expect.poll(() => readVisibleHeader(page, DAY_VIEW), {message: 'the day after expanding'}).toEqual(['Sun 21'])
+    });
+
+    test('crossing back to a wide view before the fold finishes keeps the week and the side panel', async ({page}) => {
+        await page.setViewportSize({width: 1280, height: 720});
+        await page.goto(FIXTURE);
+        await expect(page.locator(`${WEEK_VIEW} .neo-event`).first()).toBeVisible();
+
+        // The example controller's two calls when a phone width turns wide again, the second before the fold's
+        // delayed removal (400 ms in afterSetSideBarExpanded) has run
+        const sideBarExpanded = await page.evaluate(async () => {
+            const id = document.querySelector('.neo-calendar-maincontainer').id;
+
+            await Neo.worker.App.setConfigs({id, activeView: 'day', sideBarExpanded: false});
+            await Neo.worker.App.setConfigs({id, activeView: 'week', sideBarExpanded: true});
+            await new Promise(resolve => setTimeout(resolve, 600)); // the stale fold's 400 ms removal has had its chance to run
+
+            return Neo.worker.App.getConfigs({id, keys: 'sideBarExpanded'})
+        });
+
+        expect(sideBarExpanded).toBe(true);
+        await expect(page.locator('.neo-calendar-sidebar')).toBeVisible();
+        await expect.poll(() => readVisibleHeader(page, WEEK_VIEW)).toEqual(WEEK)
     })
 });
