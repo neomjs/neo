@@ -1,20 +1,35 @@
-import CheckBox              from '../../../../src/form/field/CheckBox.mjs';
-import ConfigurationViewport from '../../../ConfigurationViewport.mjs';
-import NumberField           from '../../../../src/form/field/Number.mjs';
-import Radio                 from '../../../../src/form/field/Radio.mjs';
-import SwitchField           from '../../../../src/form/field/Switch.mjs';
-import TextField             from '../../../../src/form/field/Text.mjs';
+import CheckBox       from '../../../../src/form/field/CheckBox.mjs';
+import NumberField    from '../../../../src/form/field/Number.mjs';
+import Radio          from '../../../../src/form/field/Radio.mjs';
+import StatesViewport from '../StatesViewport.mjs';
+import SwitchField    from '../../../../src/form/field/Switch.mjs';
+import TextField      from '../../../../src/form/field/Text.mjs';
 
 /**
  * @class Neo.examples.form.field.switch.MainContainer
- * @extends Neo.examples.ConfigurationViewport
+ * @extends Neo.examples.form.field.StatesViewport
  */
-class MainContainer extends ConfigurationViewport {
+class MainContainer extends StatesViewport {
     static config = {
-        className           : 'Neo.examples.form.field.switch.MainContainer',
-        autoMount           : true,
-        configItemLabelWidth: 160,
-        layout              : {ntype: 'hbox', align: 'stretch'}
+        className    : 'Neo.examples.form.field.switch.MainContainer',
+        autoMount    : true,
+        componentName: 'Toggle switch',
+        layout       : {ntype: 'hbox', align: 'stretch'},
+
+        field: {
+            module    : SwitchField,
+            labelText : 'Notifications',
+            labelWidth: 100,
+            name      : 'notifications',
+            width     : 200
+        },
+        // A switch has no read-only state
+        states: {
+            filled  : {checked: true},
+            empty   : {},
+            invalid : {required: true},
+            disabled: {}
+        }
     }
 
     createConfigurationComponents() {
@@ -104,15 +119,6 @@ class MainContainer extends ConfigurationViewport {
             style  : {marginTop: '10px', width: '50%'},
             text   : 'reset()'
         }]
-    }
-
-    createExampleComponent() {
-        return Neo.create(SwitchField, {
-            labelText : 'Label',
-            labelWidth: 70,
-            name      : 'mySwitch',
-            width     : 200
-        })
     }
 }
 

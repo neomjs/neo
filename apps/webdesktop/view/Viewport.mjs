@@ -68,6 +68,25 @@ class Viewport extends BaseViewport {
                             bind  : {hidden: data => !data.permissionsPanel},
                             flex  : 'none',
                             weight: 30
+                        },
+                        // The screen says what it is: the name on the wallpaper, and a card the permission panel replaces
+                        brand: {
+                            module: Component,
+                            cls   : ['webdesktop-brand'],
+                            text  : 'Neo.mjs Web Desktop',
+                            weight: 5
+                        },
+                        about: {
+                            module: Component,
+                            bind  : {hidden: data => data.permissionsPanel},
+                            cls   : ['webdesktop-about'],
+                            flex  : 'none',
+                            weight: 25,
+                            vdom  : {cn: [
+                                {tag: 'h2', text: 'Neo.mjs Web Desktop'},
+                                {tag: 'p',  text: 'Sign in as another account, and the launcher, the start menu and the open windows follow its permissions. The shell is the engine\'s src/desktop, running in a web worker.'},
+                                {tag: 'a',  href: 'https://github.com/neomjs/neo/tree/dev/src/desktop', target: '_blank', text: 'src/desktop on GitHub'}
+                            ]}
                         }
                     }
                 }

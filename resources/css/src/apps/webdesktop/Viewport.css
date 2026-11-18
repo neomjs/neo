@@ -11,6 +11,61 @@
         font-family: inherit;
     }
 
+    /* The product's name, large and faint on the wallpaper, under the windows */
+    .webdesktop-brand {
+        bottom        : 20px;
+        color         : var(--webdesktop-ink);
+        font-size     : 56px;
+        font-weight   : 700;
+        letter-spacing: -.02em;
+        opacity       : .08;
+        pointer-events: none;
+        position      : absolute;
+        right         : 32px;
+        user-select   : none;
+    }
+
+    /* What the screen is, on the workspace's right, until the permission panel takes the place */
+    .webdesktop-about {
+        align-self      : flex-start;
+        backdrop-filter : blur(30px) saturate(160%);
+        background-color: var(--webdesktop-glass);
+        border          : 1px solid var(--webdesktop-glass-border);
+        border-radius   : 16px;
+        margin          : 24px;
+        padding         : 20px 22px;
+        width           : 300px;
+
+        h2 {
+            font-size: 18px;
+            margin   : 0 0 8px;
+        }
+
+        p {
+            font-size  : 14px;
+            line-height: 1.55;
+            margin     : 0 0 12px;
+            opacity    : .85;
+        }
+
+        a {
+            color          : var(--webdesktop-accent);
+            font-size      : 13px;
+            font-weight    : 600;
+            text-decoration: none;
+        }
+    }
+
+    @media (max-width: 600px) {
+        .webdesktop-about {
+            display: none;
+        }
+
+        .webdesktop-brand {
+            font-size: 32px;
+        }
+    }
+
     /* Shown over the empty launcher when the account holds no permission at all */
     .webdesktop-empty {
         align-items    : center;

@@ -1,20 +1,38 @@
 import CheckBox               from '../../../../../src/form/field/CheckBox.mjs';
-import ConfigurationViewport  from '../../../../ConfigurationViewport.mjs';
 import CopyToClipboardTrigger from '../../../../../src/form/field/trigger/CopyToClipboard.mjs';
 import NumberField            from '../../../../../src/form/field/Number.mjs';
 import Radio                  from '../../../../../src/form/field/Radio.mjs';
+import StatesViewport         from '../../StatesViewport.mjs';
 import TextField              from '../../../../../src/form/field/Text.mjs';
 
 /**
  * @class Neo.examples.form.field.trigger.copyToClipboard.MainContainer
- * @extends Neo.examples.ConfigurationViewport
+ * @extends Neo.examples.form.field.StatesViewport
  */
-class MainContainer extends ConfigurationViewport {
+class MainContainer extends StatesViewport {
     static config = {
-        className           : 'Neo.examples.form.field.trigger.copyToClipboard.MainContainer',
-        autoMount           : true,
-        configItemLabelWidth: 160,
-        layout              : {ntype: 'hbox', align: 'stretch'}
+        className    : 'Neo.examples.form.field.trigger.copyToClipboard.MainContainer',
+        autoMount    : true,
+        componentName: 'Copy to clipboard trigger',
+        layout       : {ntype: 'hbox', align: 'stretch'},
+
+        field: {
+            module         : TextField,
+            clearable      : true,
+            labelText      : 'Invite link',
+            placeholderText: 'No link yet',
+            labelWidth     : 90,
+            showOnHover    : false,
+            triggers       : [CopyToClipboardTrigger],
+            width          : 340
+        },
+        // The trigger copies what the field holds: there is nothing to validate
+        states: {
+            filled  : {value: 'https://neomjs.com/invite/7KQ2'},
+            empty   : {},
+            disabled: {},
+            readOnly: {}
+        }
     }
 
     createConfigurationComponents() {
@@ -102,18 +120,6 @@ class MainContainer extends ConfigurationViewport {
             style    : {marginTop: '10px'},
             value    : me.exampleComponent.width
         }]
-    }
-
-    createExampleComponent() {
-        return Neo.create(TextField, {
-            clearable  : true,
-            showOnHover: true,
-            labelText  : 'Label',
-            labelWidth : 70,
-            triggers   : [CopyToClipboardTrigger],
-            value      : 'Hello World',
-            width      : 200
-        })
     }
 }
 

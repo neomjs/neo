@@ -12,8 +12,9 @@ async function openExample(page, neuralLink, useDomApiRenderer=true) {
     await page.goto('/examples/form/field/select/index.html');
     const app = await neuralLink.connectToApp('Neo.examples.form.field.select');
     let fields;
+    // The live field is named 'fruit'; the field's states below it carry names of their own
     await expect.poll(async () => {
-        fields = await app.queryComponent({ntype: 'selectfield'}, ['id', 'store.id']);
+        fields = await app.queryComponent({ntype: 'selectfield', name: 'fruit'}, ['id', 'store.id']);
         return fields.length
     }).toBe(1);
     const id = fields[0].id, input = page.locator(`#${id} select`);
@@ -39,11 +40,12 @@ for (const useDomApiRenderer of [true, false]) {
         await input.click();
         await expect(input.locator('option strong').first()).toBeVisible();
         await page.screenshot({path: test.info().outputPath('rich-options.png')});
-        await page.keyboard.press('ArrowDown');
+        // The live field starts filled with Strawberry ('0'): one step up is Lemon, the number 0
+        await page.keyboard.press('ArrowUp');
         await page.keyboard.press('Enter');
         await expect.poll(async () => (await app.getComponent(id, ['value'])).value).toBe(0);
-        expect(await page.evaluate(() => window.selectKeyDefaults.filter(event => event.key === 'ArrowDown')))
-            .toEqual([{key: 'ArrowDown', prevented: false}]);
+        expect(await page.evaluate(() => window.selectKeyDefaults.filter(event => event.key === 'ArrowUp')))
+            .toEqual([{key: 'ArrowUp', prevented: false}]);
 
         await input.selectOption('string:0');
         await expect.poll(async () => (await app.getComponent(id, ['value'])).value).toBe('0');
@@ -70,7 +72,7 @@ for (const useDomApiRenderer of [true, false]) {
 
 test('classic presentation, required placeholder and disabled native input keep the same field contract', async ({page, neuralLink}) => {
     const {app, id, input} = await openExample(page, neuralLink);
-    await app.setProperties(id, {customizable: false, required: true});
+    await app.setProperties(id, {customizable: false, required: true, value: null});
     await expect.poll(() => input.evaluate(node => getComputedStyle(node).appearance)).not.toBe('base-select');
     await expect(input).toHaveValue('');
     expect(await input.evaluate(node => node.checkValidity())).toBe(false);

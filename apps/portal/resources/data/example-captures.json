@@ -4,9 +4,12 @@
   "suffix": "14",
   "tiles": [
     "examples/form/field/checkbox", "examples/form/field/chip", "examples/form/field/color", "examples/form/field/combobox",
-    "examples/form/field/date", "examples/form/field/email", "examples/form/field/fileupload", "examples/form/field/number",
-    "examples/form/field/radio", "examples/form/field/select", "examples/form/field/switch", "examples/form/field/text",
+    "examples/form/field/country", "examples/form/field/currency", "examples/form/field/date", "examples/form/field/display",
+    "examples/form/field/email", "examples/form/field/fileupload", "examples/form/field/iban", "examples/form/field/number",
+    "examples/form/field/password", "examples/form/field/phone", "examples/form/field/radio", "examples/form/field/range",
+    "examples/form/field/search", "examples/form/field/select", "examples/form/field/switch", "examples/form/field/text",
     "examples/form/field/textarea", "examples/form/field/time", "examples/form/field/trigger/copyToClipboard", "examples/form/field/url",
+    "examples/form/field/zipcode",
     "examples/form/fieldset", "examples/component/dateSelector", "examples/layout/form",
     "examples/button/base", "examples/menu/list",
     "examples/list/base", "examples/list/chip", "examples/list/color",
@@ -449,6 +452,16 @@
         {"selector": ".email-detail-view h1", "text": "Project conversation 2", "inRegion": true}
       ],
       "region": {"x": 320, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "scheduler-big-data",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "300 people and 15,600 bookings opened on Week 1 in 3-week view, with locked resource names beside viewport-clipped colored timeline bars.",
+      "ready": [{"selector": ".year-plan-counts", "text": "300 people · 15,600 bookings"}, {"selector": ".neo-timeline-bar"}],
+      "steps": [],
+      "after": [{"selector": ".year-plan-counts", "text": "300 people · 15,600 bookings"}, {"selector": ".neo-timeline-bar", "inRegion": true}],
+      "region": {"selector": ".neo-scheduler", "anchor": "top-left", "width": 640, "height": 360}
     },
     {
       "id": "open-street-maps",

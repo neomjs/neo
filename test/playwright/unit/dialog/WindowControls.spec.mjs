@@ -78,8 +78,8 @@ test.describe('dialog.Base window controls', () => {
      */
     const presentation = action => ({iconCls: action.iconCls, name: action.vdom['aria-label']});
 
-    const maximizeGlyph = {iconCls: 'far fa-window-maximize', name: 'maximize'},
-          restoreGlyph  = {iconCls: 'far fa-window-restore',  name: 'restore'};
+    const maximizeGlyph = {iconCls: 'far fa-square', name: 'maximize'},
+          restoreGlyph  = {iconCls: 'far fa-clone',  name: 'restore'};
 
     test('a click on maximize toggles the glyph and the accessible name with the state', () => {
         const dialog = create(),
@@ -138,7 +138,7 @@ test.describe('dialog.Base window controls', () => {
 
         dialog.maximized = true;
 
-        expect(minimize.iconCls, 'minimize').toBe('far fa-window-minimize');
+        expect(minimize.iconCls, 'minimize').toBe('fas fa-minus');
         expect(toolbar.getAction('maximize').iconCls, 'restore').not.toBe(minimize.iconCls)
     });
 
@@ -146,12 +146,12 @@ test.describe('dialog.Base window controls', () => {
         const dialog = create({
                   headerConfig: {actions: ['minimize', 'maximize']},
                   maximizeCls : 'fas fa-expand',
-                  minimizeCls : 'fas fa-minus',
+                  minimizeCls : 'far fa-window-minimize',
                   restoreCls  : 'fas fa-compress'
               }),
               action = dialog.headerToolbar.getAction('maximize');
 
-        expect(dialog.headerToolbar.getAction('minimize').iconCls).toBe('fas fa-minus');
+        expect(dialog.headerToolbar.getAction('minimize').iconCls).toBe('far fa-window-minimize');
         expect(action.iconCls).toBe('fas fa-expand');
 
         dialog.maximized = true;
@@ -159,10 +159,10 @@ test.describe('dialog.Base window controls', () => {
     });
 
     test('an actionMap entry replaces its own control and keeps the others', () => {
-        const dialog  = create({headerConfig: {actionMap: {close: () => ({action: 'close', iconCls: 'fas fa-xmark'})}}}),
+        const dialog  = create({headerConfig: {actionMap: {close: () => ({action: 'close', iconCls: 'far fa-circle-xmark'})}}}),
               toolbar = dialog.headerToolbar;
 
-        expect(toolbar.getAction('close').iconCls, 'close').toBe('fas fa-xmark');
+        expect(toolbar.getAction('close').iconCls, 'close').toBe('far fa-circle-xmark');
         expect(presentation(toolbar.getAction('maximize')), 'maximize').toEqual(maximizeGlyph)
     });
 
