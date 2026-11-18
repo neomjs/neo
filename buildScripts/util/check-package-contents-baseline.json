@@ -12,10 +12,6 @@
         "why": "src/component/Circle.mjs holds the folder base and the three names in an array (`itemFile = ['flip.png', 'pencil.png', 'trash.png']`) and joins them at runtime, as its `itemCls` counterpart shows."
     },
     {
-        "prefix": "test/playwright/visual/__screenshots__/",
-        "why": "Playwright derives this path from `snapshotPathTemplate: '{testDir}/__screenshots__/{testFileName}/{arg}{ext}'` in test/playwright/playwright.config.visual.mjs, so the specs name only the `{arg}` part and a theme suffix is interpolated (e.g. `contiguous-seam-${theme}.png`). These are the visual baselines the tests read."
-    },
-    {
         "path": "examples/component/process/realWorldExample/RangeHeader.jpg",
         "why": "Referenced from the sibling main container as `src: './RangeHeader.jpg'` — relative to its own folder, so the reference carries no parent directory for the folder-and-name match to compare."
     },

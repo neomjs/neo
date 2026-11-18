@@ -36,8 +36,8 @@ const ROOT       = path.resolve(__dirname, '../..');
  * ## What it does NOT do
  *
  * It does not audit `.npmignore` line by line, and it is not an allowlist of everything that may
- * ship. It names the directories that must never ship, so that a future pattern which quietly stops
- * matching fails here instead of in the registry.
+ * ship. It names the directories and the file classes that must never ship, so that a future pattern
+ * which quietly stops matching fails here instead of in the registry.
  */
 
 /**
@@ -63,20 +63,41 @@ export const FORBIDDEN_PREFIXES = [
 ];
 
 /**
- * @summary Pure predicate: which packed paths violate the forbidden-prefix rules?
+ * @summary File classes that must not appear in the tarball, whatever folder holds them.
+ *
+ * A class, because the specs lie beside the configs and fixtures that workspaces import, and because the
+ * copy of `.gitignore` re-includes every `.mjs` file of a shipped app: a spec placed there passes the
+ * ignore rule and is found here.
+ * @type {Array<{suffix: String, why: String}>}
+ */
+export const FORBIDDEN_SUFFIXES = [
+    {
+        suffix: '.spec.mjs',
+        why   : 'The engine\'s own specs. Workspaces import the Playwright configs, setup.mjs, fixtures.mjs and their helpers from the test tree; nothing outside this repository runs the engine\'s suite.'
+    }
+];
+
+/**
+ * @summary Pure predicate: which packed paths violate a forbidden prefix or suffix rule?
  *
  * Split out from the `npm pack` invocation so the rule logic is unit-testable without spawning a
  * pack, and so a red-proof can plant a violating path directly instead of manufacturing one on disk.
  *
  * @param {String[]} packedPaths Tarball-relative paths, as reported by `npm pack --json`.
- * @param {Array<Object>} [rules=FORBIDDEN_PREFIXES] The prefix rules to enforce.
- * @returns {Array<{path: String, prefix: String, why: String}>} One entry per violating path.
+ * @param {Array<Object>} [rules] The rules to enforce: the prefix and the suffix rules by default.
+ * @returns {Array<{path: String, prefix: String, suffix: String, why: String}>} One entry per violating
+ *          path, carrying the `prefix` or the `suffix` of the rule it broke.
  */
-export function findForbiddenEntries(packedPaths, rules = FORBIDDEN_PREFIXES) {
+export function findForbiddenEntries(packedPaths, rules = [...FORBIDDEN_PREFIXES, ...FORBIDDEN_SUFFIXES]) {
     const findings = [];
 
     for (const packedPath of packedPaths) {
         for (const rule of rules) {
+            if (rule.suffix) {
+                packedPath.endsWith(rule.suffix) && findings.push({path: packedPath, suffix: rule.suffix, why: rule.why});
+                continue
+            }
+
             if (!packedPath.startsWith(rule.prefix)) {
                 continue
             }
@@ -132,9 +153,9 @@ const IMAGE_PATTERN = new RegExp(`[\\w.\\-/@:%]+?\\.(?:${IMAGE_ALTERNATIVES})\\b
  * The baseline is a list of what the guard cannot derive, not a list of what may ship. Every entry is
  * either a `path` (one file) or a `prefix` (a folder whose contents are named by a pattern), and every
  * entry states why — the failure message is the whole product, so a baseline without reasons would
- * turn a rule into a shrug. The `test/playwright/visual` folder is the model: Playwright builds
- * `{testDir}/__screenshots__/{testFileName}/{arg}{ext}` from `snapshotPathTemplate`, so neither the
- * folder nor the full name of a baseline image ever appears in a file.
+ * turn a rule into a shrug. The `resources/images/circle` folder is the model: `src/component/Circle.mjs`
+ * holds the folder and the three file names apart and joins them at runtime, so no file names one of
+ * those images by folder and file name.
  *
  * The list is a ratchet and is read in both directions: an entry that no longer covers an unnamed
  * image fails the check, so a row cannot outlive the fact it records.
@@ -284,15 +305,17 @@ if (isEntryModule(import.meta.url)) {
     if (found.length) {
         console.error(`\x1b[31mcheck-package-contents: ${found.length} forbidden entr(ies) in the npm tarball:\x1b[0m`);
 
-        const byPrefix = new Map();
+        const byRule = new Map();
 
         for (const finding of found) {
-            byPrefix.set(finding.prefix, byPrefix.get(finding.prefix) || {why: finding.why, paths: []});
-            byPrefix.get(finding.prefix).paths.push(finding.path)
+            const rule = finding.prefix || `*${finding.suffix}`;
+
+            byRule.set(rule, byRule.get(rule) || {why: finding.why, paths: []});
+            byRule.get(rule).paths.push(finding.path)
         }
 
-        for (const [prefix, group] of byPrefix) {
-            console.error(`\n  ${prefix} — ${group.paths.length} file(s)`);
+        for (const [rule, group] of byRule) {
+            console.error(`\n  ${rule} — ${group.paths.length} file(s)`);
             console.error(`    ${group.why}`);
             group.paths.slice(0, 10).forEach(entry => console.error(`      ${entry}`));
 
