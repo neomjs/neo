@@ -142,6 +142,39 @@ test.describe('Neo.tooltip.Base: where the pointer goes decides when a tooltip h
         await expect(page.locator(TOOLTIP), 'still up after crossing the wider gap').toHaveCount(1)
     });
 
+    test('on a bordered tooltip, every row of the gap is its hit area, and a pause on the row next to the target keeps it up', async ({page}) => {
+        // A border as the shipped neo-theme-light and neo-theme-dark draw one, wider so an offset by it is plain
+        await page.addStyleTag({content: '.neo-tooltip {border: 4px solid currentColor !important}'});
+        await hoverUntilShown(page, SHARED, 'Edit item');
+
+        const target = await page.locator(SHARED).boundingBox(),
+              tip    = await page.locator(TOOLTIP).boundingBox(),
+              x      = target.x + target.width / 2,
+              top    = Math.ceil(target.y + target.height),
+              misses = await page.evaluate(({bottom, top, x}) => {
+                  let rows = [];
+
+                  for (let y = top; y < bottom; y++) {
+                      document.elementFromPoint(x, y + 0.5)?.closest('.neo-tooltip') || rows.push(y)
+                  }
+
+                  return rows
+              }, {bottom: Math.floor(tip.y), top, x});
+
+        expect(Math.floor(tip.y) - top, 'control: a gap of several rows').toBeGreaterThan(5);
+        expect(misses, 'rows of the gap that hit the page instead').toEqual([]);
+
+        // Longer than the 40ms retarget window, on the row a pointer from the target enters first
+        await page.mouse.move(x, top - 4);
+        await page.mouse.move(x, top + 0.5, {steps: 2});
+        await page.waitForTimeout(150);
+        await expect(page.locator(TOOLTIP), 'still up on the gap\'s first row').toHaveCount(1);
+
+        await page.mouse.move(x, tip.y + tip.height / 2, {steps: 4});
+        await page.waitForTimeout(150);
+        await expect(page.locator(TOOLTIP), 'and inside the tooltip').toHaveCount(1)
+    });
+
     test('a shared tooltip a target turns off stay-on-hover dismisses when the pointer moves onto it', async ({page}) => {
         // The hoverable target first, which adds the tooltip's own enter and leave listeners
         await hoverUntilShown(page, SHARED, 'Edit item');

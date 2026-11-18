@@ -231,6 +231,33 @@ test.describe('Neo.main.DomAccess alignment targets', () => {
         }
     });
 
+    test('the gap is written against the subject\'s padding box, so a bordered subject\'s bridge reaches its target', async () => {
+        const gap = () => Object.fromEntries(['height', 'left', 'top', 'width'].map(key => [key, subject.style[`--neo-align-gap-${key}`]]));
+
+        // The containing block of an absolutely positioned bridge starts inside the border
+        subject.computedStyle = {'border-left-width': '1px', 'border-top-width': '3px'};
+
+        try {
+            await alignSubject({constrainTo: 'body', exposeGap: true, target: 'target', targetMargin: 10});
+
+            expect(classSet.has('neo-aligned-bottom'), 'control: below its target').toBe(true);
+            expect(gap(), 'the border-box offsets, less the left and top border').toEqual({height: '10px', left: '-1px', top: '-13px', width: '100px'})
+        } finally {
+            subject.computedStyle = null
+        }
+    });
+
+    test('an alignment whose subject left the DOM before it landed aligns nothing and throws nothing', async () => {
+        elements.delete('subject');
+
+        try {
+            await expect(alignSubject({exposeGap: true, target: 'target'})).resolves.toBeUndefined();
+            expect(DomAccess._aligns?.has('subject') ?? false, 'nothing registered for a resync').toBe(false)
+        } finally {
+            elements.set('subject', subject)
+        }
+    });
+
     test('keeps point-target subjects inside every viewport edge', async () => {
         const cases = [{
             point   : {x: 250, y: 200, width: 0, height: 0},

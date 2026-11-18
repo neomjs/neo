@@ -21,8 +21,9 @@ let hosts = 0;
 
 /**
  * @summary A tooltip as a prototype host whose own data properties shadow the reactive configs, as in
- * `DelayTimers.spec.mjs`: a mount records a show, an unmount a hide. `hideDelay` and `retargetWindow` stay the class
- * defaults, and each host lives in a window of its own unless it names one.
+ * `DelayTimers.spec.mjs`: a mount records a show, an unmount a hide. Main aligns a mounted tooltip right after, as
+ * `Component#afterSetMounted` asks it to, which paints it. `hideDelay` and `retargetWindow` stay the class defaults,
+ * and each host lives in a window of its own unless it names one.
  * @param {Object} [config={}] Own properties to add or override
  * @returns {{host: Object, shows: Number[]}}
  */
@@ -35,13 +36,14 @@ function makeHost(config = {}) {
         _hidden           : true,
         activeTarget      : null,
         align             : {},
-        alignTo           : () => {},
+        // Main's alignment, which paints a tooltip still meant to show (`Tooltip#alignTo`)
+        alignTo           : async () => { host._hidden || (host.painted = true) },
         dismissDelay      : null,
         dismissDelayTaskId: null,
         fire              : () => {},
         hideDelayTaskId   : null,
         id,
-        initVnode         : async () => { host.mounted = true; shows.push(Date.now()) },
+        initVnode         : async () => { host.mounted = true; shows.push(Date.now()); await null; await host.alignTo() },
         isDestroyed       : false,
         mounted           : false,
         mountFlight       : null,
@@ -239,6 +241,35 @@ test.describe('Neo.tooltip.Base — one visible tooltip per window, and a warm s
 
         await showOn(second, 'target-2');
         expect(secondShows[0] - entered, 'a show that never painted does not warm the window').toBeGreaterThanOrEqual(70)
+    });
+
+    test('a tooltip whose insert landed while Main holds its alignment is not painted: a departure hides it at once and leaves the window cold', async () => {
+        const {host: first}                      = makeHost({windowId: 'unpainted-window'}),
+              {host: second, shows: secondShows} = makeHost({windowId: 'unpainted-window', showDelay: 80});
+
+        const {setStyle} = Neo.main.DomAccess,
+              styled     = [];
+
+        // The insert lands, and the alignment that would paint it does not
+        first.initVnode = async () => {first.mounted = true};
+        await showOn(first, 'target-1');
+        expect(first.painted, 'control: mounted, not painted').toBeFalsy();
+
+        Neo.main.DomAccess.setStyle = data => {styled.push(data)};
+
+        try {
+            first.onDelegateMouseLeave({currentTarget: 'target-1', relatedTarget: {id: 'page'}})
+        } finally {
+            Neo.main.DomAccess.setStyle = setStyle
+        }
+
+        expect(first.mounted, 'no retarget window for a tooltip nobody saw').toBe(false);
+        expect(styled, 'hidden on the alignment\'s channel, so a late alignment paints nothing').toEqual([{id: first.id, style: {visibility: 'hidden'}, windowId: 'unpainted-window'}]);
+
+        let entered = Date.now();
+
+        await showOn(second, 'target-2');
+        expect(secondShows[0] - entered, 'a mounted tooltip that never painted does not warm the window').toBeGreaterThanOrEqual(70)
     });
 
     test('the next tooltip of a window enters the DOM only once the previous one has left it', async () => {

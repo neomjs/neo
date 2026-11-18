@@ -21,9 +21,10 @@ let hostWindows = 0;
 
 /**
  * @summary The tooltip's delay timers through the class's own methods, on a prototype host whose own data
- * properties shadow the reactive configs: a mount records a show, an unmount a hide. Real timers at short
- * delays, so a pending timer fires exactly as it would under a pointer. Each host has a window of its own, so
- * no host inherits the warm switch another one's hide leaves behind.
+ * properties shadow the reactive configs: a mount records a show, and Main's alignment right after it paints the
+ * tooltip; an unmount records a hide. Real timers at short delays, so a pending timer fires exactly as it would
+ * under a pointer. Each host has a window of its own, so no host inherits the warm switch another one's hide
+ * leaves behind.
  * @returns {{host: Object, shows: Number[]}}
  */
 function makeHost() {
@@ -33,12 +34,14 @@ function makeHost() {
         _hidden           : true,
         activeTarget      : null,
         align             : {},
+        // Main's alignment, which paints a tooltip still meant to show (`Tooltip#alignTo`)
+        alignTo           : async () => { host._hidden || (host.painted = true) },
         dismissDelay      : null,
         dismissDelayTaskId: null,
         fire              : () => {},
         hideDelay         : 40,
         hideDelayTaskId   : null,
-        initVnode         : async () => { host.mounted = true; shows.push(Date.now()) },
+        initVnode         : async () => { host.mounted = true; shows.push(Date.now()); await null; await host.alignTo() },
         isDestroyed       : false,
         mounted           : false,
         mountFlight       : null,

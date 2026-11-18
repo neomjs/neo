@@ -251,6 +251,12 @@ class DomAccess extends Base {
      * @returns {Promise<void>}
      */
     async align(data) {
+        // A subject that left the DOM before the call landed, like a tooltip hidden before its first paint, has
+        // nothing to align
+        if (!this.getElement(data.id)) {
+            return
+        }
+
         const
             me             = this,
             {constrainTo}  = data,
@@ -1804,18 +1810,24 @@ class DomAccess extends Base {
 
     /**
      * @summary Writes the gap between an aligned subject and its target ({@link Neo.util.Rectangle.gapBetween}) as
-     * the custom properties `--neo-align-gap-{height|left|top|width}` on the subject, in px relative to its box, or
-     * removes them once the boxes touch. Every alignment writes them, a resync of a resize or scroll included, so a
-     * subject that bridges the gap in CSS, like a hoverable tooltip's hit area, follows each realign Main makes alone.
+     * the custom properties `--neo-align-gap-{height|left|top|width}` on the subject, or removes them once the boxes
+     * touch. The offsets are in px relative to the subject's padding box, the containing block of what bridges the
+     * gap in CSS, like a hoverable tooltip's hit area: measured from the border box, a border would leave its width of
+     * the gap uncovered. Every alignment writes them, a resync of a resize or scroll included, so the bridge follows
+     * each realign Main makes alone.
      * @param {HTMLElement} subject
-     * @param {{height: Number, left: Number, top: Number, width: Number}|null} gap
+     * @param {{height: Number, left: Number, top: Number, width: Number}|null} gap In px, relative to the border box
      * @protected
      */
     writeGap(subject, gap) {
+        let style  = gap && subject.ownerDocument.defaultView.getComputedStyle(subject),
+            border = side => parseFloat(style.getPropertyValue(`border-${side}-width`)) || 0,
+            values = gap && {...gap, left: gap.left - border('left'), top: gap.top - border('top')};
+
         ['height', 'left', 'top', 'width'].forEach(key => {
             let name = `--neo-align-gap-${key}`;
 
-            gap ? subject.style.setProperty(name, `${gap[key]}px`) : subject.style.removeProperty(name)
+            values ? subject.style.setProperty(name, `${values[key]}px`) : subject.style.removeProperty(name)
         })
     }
 }

@@ -46,6 +46,72 @@ async function holdAtMain(page, tooltipId, action) {
 }
 
 /**
+ * @summary Holds Main's alignment of one tooltip, the call that paints it, and counts the animation frames in which a
+ * tooltip is visible. Its insert and every other message keep flowing.
+ * @param {import('@playwright/test').Page} page
+ * @param {String} tooltipId
+ * @returns {Promise<void>}
+ */
+async function holdAlignAtMain(page, tooltipId) {
+    await page.evaluate(id => {
+        const access   = Neo.main.DomAccess,
+              original = access.align,
+              witness  = window.tooltipAlignWitness = {holding: true, pending: [], sampling: true, visibleFrames: 0},
+              sample   = () => {
+                  if (witness.sampling) {
+                      [...document.querySelectorAll('.neo-tooltip')].some(node => getComputedStyle(node).visibility === 'visible') && witness.visibleFrames++;
+                      requestAnimationFrame(sample)
+                  }
+              };
+
+        access.align = data => witness.holding && data.id === id
+            ? new Promise(resolve => witness.pending.push(() => resolve(original.call(access, data))))
+            : original.call(access, data);
+
+        requestAnimationFrame(sample);
+
+        witness.release = () => {
+            witness.holding = false;
+            witness.pending.splice(0).forEach(run => run())
+        };
+        witness.restore = () => {
+            witness.release();
+            witness.sampling = false;
+            access.align     = original
+        }
+    }, tooltipId)
+}
+
+/**
+ * Hovers a target and resolves with the ms from the pointer's arrival to its tooltip's first alignment, measured in the page
+ * @param {import('@playwright/test').Page} page
+ * @param {String} selector
+ * @returns {Promise<Number>}
+ */
+async function msUntilAligned(page, selector) {
+    const {height, width, x, y} = await page.locator(selector).boundingBox();
+
+    await page.evaluate(() => {
+        window.alignedAt = null;
+        window.enteredAt = performance.now();
+
+        const watch = new MutationObserver(() => {
+            if (document.querySelector('.neo-tooltip[class*=neo-aligned-]')) {
+                window.alignedAt = performance.now();
+                watch.disconnect()
+            }
+        });
+
+        watch.observe(document.body, {attributeFilter: ['class'], attributes: true, childList: true, subtree: true})
+    });
+
+    await page.mouse.move(x + width / 2, y + height / 2);
+    await expect.poll(() => page.evaluate(() => window.alignedAt), 'its tooltip is aligned').not.toBe(null);
+
+    return page.evaluate(() => window.alignedAt - window.enteredAt)
+}
+
+/**
  * @param {import('@playwright/test').Page} page
  * @returns {Promise<{mostNodes: Number, pending: Number}>}
  */
@@ -68,7 +134,10 @@ test.describe('Neo.tooltip.Base: a window holds one tooltip node, also while Mai
     });
 
     test.afterEach(async ({page}) => {
-        await page.evaluate(() => window.tooltipSequenceWitness?.restore())
+        await page.evaluate(() => {
+            window.tooltipSequenceWitness?.restore();
+            window.tooltipAlignWitness?.restore()
+        })
     });
 
     /**
@@ -113,5 +182,41 @@ test.describe('Neo.tooltip.Base: a window holds one tooltip node, also while Mai
 
         await expect(page.locator('.neo-tooltip')).toHaveText('Own tooltip two');
         expect((await readWitness(page)).mostNodes, 'one tooltip node at a time').toBe(1)
+    });
+
+    test('a tooltip whose alignment Main holds was never painted: leaving its target removes it at once and leaves the window cold', async ({page}) => {
+        await holdAlignAtMain(page, await ownTooltipOf('tooltip-departure-own-1'));
+
+        await page.locator(OWN_1).hover();
+        await expect.poll(() => page.evaluate(() => window.tooltipAlignWitness.pending.length), 'control: its alignment waits at Main').toBe(1);
+        await expect(page.locator('.neo-tooltip'), 'control: its insert landed, out of sight').toHaveCount(1);
+
+        await page.mouse.move(5, 5);
+        await expect(page.locator('.neo-tooltip'), 'no retarget window for a tooltip nobody saw').toHaveCount(0, {timeout: 300});
+
+        // The late alignment finds no subject, and paints nothing
+        await page.evaluate(() => window.tooltipAlignWitness.release());
+
+        expect(await msUntilAligned(page, OWN_2), 'the next target waits its 200ms show delay').toBeGreaterThan(180);
+        expect(await page.evaluate(() => window.tooltipAlignWitness.visibleFrames), 'control: tooltip two painted').toBeGreaterThan(0);
+
+        // Control: a tooltip that was painted warms the window
+        await page.mouse.move(5, 5);
+        await expect(page.locator('.neo-tooltip')).toHaveCount(0, {timeout: 300});
+        expect(await msUntilAligned(page, OWN_1), 'right after a painted tooltip hid, no show delay').toBeLessThan(150)
+    });
+
+    test('an alignment Main releases right after the departure paints no frame of the departed tooltip', async ({page}) => {
+        await holdAlignAtMain(page, await ownTooltipOf('tooltip-departure-own-1'));
+
+        await page.locator(OWN_1).hover();
+        await expect.poll(() => page.evaluate(() => window.tooltipAlignWitness.pending.length), 'control: its alignment waits at Main').toBe(1);
+
+        await page.mouse.move(5, 5);
+        await page.evaluate(() => window.tooltipAlignWitness.release());
+        await page.waitForTimeout(500);
+
+        expect(await page.evaluate(() => window.tooltipAlignWitness.visibleFrames), 'frames with the departed tooltip visible').toBe(0);
+        await expect(page.locator('.neo-tooltip')).toHaveCount(0)
     })
 });

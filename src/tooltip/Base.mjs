@@ -119,6 +119,13 @@ class Tooltip extends Container {
      * @member {Map<String, {listeners: Object[], root: Neo.component.Base}>} #delegations
      */
     #delegations = new Map()
+    /**
+     * True once Main aligned the shown tooltip, which lifts its paint gate (`Base.css`), until it retires. Mounted is
+     * not painted: an insert lands hidden, and only an alignment shows it.
+     * @member {Boolean} painted=false
+     * @protected
+     */
+    painted = false
 
     /**
      * @summary Listens for the delegated mouseenter and mouseleave on a component, once per instance. A target must lie
@@ -224,13 +231,20 @@ class Tooltip extends Container {
     }
 
     /**
-     * Aligns a tooltip that is still meant to show. One hidden while its insert was on its way lands in the DOM
-     * unaligned, which keeps it out of sight (`Base.css`) until its landing removes it.
+     * Aligns a tooltip that is still meant to show, which paints it. One hidden while its insert was on its way lands
+     * in the DOM unaligned, which keeps it out of sight (`Base.css`) until its landing removes it.
      * @param {Object} [spec={}]
      * @returns {Promise<void>}
      */
     async alignTo(spec={}) {
-        this._hidden || await super.alignTo(spec)
+        let me = this;
+
+        if (!me._hidden) {
+            await super.alignTo(spec);
+
+            // Hidden while Main aligned it, the tooltip is on its way out, and its alignment showed nothing
+            me._hidden || (me.painted = true)
+        }
     }
 
     /**
@@ -412,10 +426,15 @@ class Tooltip extends Container {
 
         me.clearTimeout(['dismiss', 'hide', 'show']);
 
-        me.mounted && (hiddenAt[windowId] = Date.now());
+        me.painted && (hiddenAt[windowId] = Date.now());
         visible[windowId] === me && delete visible[windowId];
 
+        // An alignment still on its way may land before the removal below and lift the paint gate (`Base.css`): a call
+        // on the alignment's own channel hides the unpainted tooltip first
+        me.mounted && !me.painted && Neo.main.DomAccess.setStyle({id: me.id, style: {visibility: 'hidden'}, windowId});
+
         me._hidden = true;
+        me.painted = false;
 
         let out = me.mounted ? me.unmount() : me.mountFlight;
 
@@ -436,7 +455,7 @@ class Tooltip extends Container {
      */
     hideDelayed(data) {
         let me    = this,
-            delay = me.mounted ? me.hideDelay ?? me.retargetWindow : 0;
+            delay = me.painted ? me.hideDelay ?? me.retargetWindow : 0;
 
         if (delay) {
             me.addTimeout('hide', me.hide.bind(me), delay)
@@ -615,7 +634,7 @@ class Tooltip extends Container {
     showDelayed(data) {
         let me    = this,
             shown = visible[me.windowId],
-            warm  = shown && shown !== me && shown.mounted || Date.now() - (hiddenAt[me.windowId] ?? -Infinity) < me.warmWindow;
+            warm  = shown && shown !== me && shown.painted || Date.now() - (hiddenAt[me.windowId] ?? -Infinity) < me.warmWindow;
 
         if (me.showDelay && !warm) {
             me.addTimeout('show', me.show.bind(me), me.showDelay)
