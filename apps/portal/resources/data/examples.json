@@ -1625,7 +1625,7 @@
     },
     {
         "id": "board-swimlanes",
-        "image": null,
+        "image": "devmode/board-swimlanes-14.jpg",
         "name": "A board by team, in rows that collapse",
         "sourceUrl": "examples/board/swimlanes",
         "urls": {
