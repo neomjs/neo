@@ -217,8 +217,8 @@ keeps honoring the variable for advanced setups).
 
 ### Dev-server ports when several seats share one machine
 
-The dev server reads `PORT` and binds it. Left unset, webpack-dev-server keeps its own default and
-auto-bump, so a plain `npm run server-start` is unchanged.
+The dev server reads `PORT` and binds it, and fails if that port is taken. Left unset, it starts at
+8080 and moves up past a taken port, so a plain `npm run server-start` is unchanged.
 
 That matters because a seat's port cannot be a committed value — several agents run on one host, and
 whoever starts second gets a different number. Anything that launches the dev server has to *choose*
