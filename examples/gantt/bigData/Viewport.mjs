@@ -12,10 +12,10 @@ const
     PROJECT_START    = '2026-09-07',
     PROJECT_START_MS = Date.parse(`${PROJECT_START}T00:00:00Z`),
     // Progress is drawn as of this date, so the first phase shows finished, running and open tasks.
-    STATUS_DATE_MS  = Date.parse('2026-10-05T00:00:00Z'),
-    ZONES_PER_PHASE = 12,
-    CREWS           = 4,
-    PHASES          = [
+    STATUS_DATE_MS   = Date.parse('2026-10-05T00:00:00Z'),
+    ZONES_PER_PHASE  = 12,
+    CREWS            = 4,
+    PHASES           = [
         {title: 'Site preparation',  steps: ['Survey', 'Clear', 'Grade', 'Drain', 'Compact']},
         {title: 'Foundations',       steps: ['Excavate', 'Blind', 'Fix rebar', 'Pour footings', 'Backfill']},
         {title: 'Structure',         steps: ['Columns', 'Formwork', 'Fix rebar', 'Pour slab', 'Strike formwork']},
