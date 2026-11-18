@@ -91,15 +91,16 @@ class WindowManager extends Base {
     #windows = new Map()
 
     /**
-     * Whether an open that took its ticket may still publish
+     * Whether an open that took its ticket may still publish. A manager being destroyed publishes nothing, so an open
+     * a store listener starts during the destroy ends at once.
      * @param {String} appId
      * @param {String} ticket
      * @returns {Boolean}
      */
     #admits(appId, ticket) {
-        let {appStore} = this;
+        let me = this;
 
-        return ticket === this.#ticket(appId) && (!appStore || appStore.isKept(appId))
+        return !me.isDestroying && ticket === me.#ticket(appId) && me.#keeps(appId)
     }
 
     /**
@@ -143,8 +144,7 @@ class WindowManager extends Base {
             task   = me.taskStore.get(appId),
             window = me.#created.get(appId);
 
-        me.#closes.set(appId, (me.#closes.get(appId) || 0) + 1);
-        me.#windows.delete(appId);
+        me.#end(appId);
 
         task && me.taskStore.remove(task);
         window && !window.hidden && window.hide()
@@ -189,7 +189,7 @@ class WindowManager extends Base {
     }
 
     /**
-     * Destroys the windows it created and removes their tasks; a load still running creates none
+     * Destroys the windows it created and removes their tasks, and only theirs; a load still running creates none
      * @param {...*} args
      */
     destroy(...args) {
@@ -199,7 +199,7 @@ class WindowManager extends Base {
         me.#resets++;
         me.appStore = null;
 
-        taskStore && !taskStore.isDestroyed && taskStore.clear();
+        taskStore && !taskStore.isDestroyed && me.#removeTasks();
 
         me.#created.forEach(window => {window.isDestroyed || window.destroy(true)});
         me.#created.clear();
@@ -210,11 +210,34 @@ class WindowManager extends Base {
     }
 
     /**
+     * Ends an app's open: a load in flight creates nothing, and an open that began before publishes nothing
+     * @param {String} appId
+     */
+    #end(appId) {
+        let me = this;
+
+        me.#closes.set(appId, (me.#closes.get(appId) || 0) + 1);
+        me.#windows.delete(appId)
+    }
+
+    /**
      * @param {String} appId
      * @returns {Neo.dialog.Base|null} The app's window, once it exists
      */
     getWindow(appId) {
         return this.#created.get(appId) || null
+    }
+
+    /**
+     * Whether the app store keeps an app: it holds the app, and its filter keeps it. `TreeStore#isKept()` alone also
+     * answers true for a key the store lacks. Without an app store every app is kept.
+     * @param {String} appId
+     * @returns {Boolean}
+     */
+    #keeps(appId) {
+        let {appStore} = this;
+
+        return !appStore || Boolean(appStore.get(appId)) && appStore.isKept(appId)
     }
 
     /**
@@ -248,14 +271,17 @@ class WindowManager extends Base {
     }
 
     /**
-     * Closes the windows of every app the filter no longer keeps, minimized ones included. They hide without animation:
-     * the app's launcher icon may be gone already.
+     * Closes the windows of every app the app store no longer keeps, minimized ones included, and ends their loads in
+     * flight. The windows hide without animation: the app's launcher icon may be gone already.
      * @protected
      */
     onAppStoreFilter() {
-        let me                    = this,
-            {appStore, taskStore} = me,
-            revoked               = taskStore.items.filter(task => !appStore.isKept(task.id));
+        let me          = this,
+            {taskStore} = me,
+            revoked     = taskStore.items.filter(task => !me.#keeps(task.id));
+
+        // A load in flight has no task to revoke yet. Ended now, it stays ended when a later filter keeps the app again.
+        [...me.#windows.keys()].forEach(appId => {me.#keeps(appId) || me.#end(appId)});
 
         if (revoked.length) {
             taskStore.remove(revoked);
@@ -338,15 +364,25 @@ class WindowManager extends Base {
     }
 
     /**
-     * Ends every open at once, as a sign-out does: loads in flight create no window, the tasks clear, and every window
-     * hides without animation. The windows are kept for the next open, and an open after the reset loads afresh.
+     * Removes the tasks of this manager's apps. A task store can be shared, and a task its owner added stays.
+     */
+    #removeTasks() {
+        let {taskStore} = this,
+            tasks       = [...this.#created.keys()].map(appId => taskStore.get(appId)).filter(Boolean);
+
+        tasks.length && taskStore.remove(tasks)
+    }
+
+    /**
+     * Ends every open at once, as a sign-out does: loads in flight create no window, the manager's tasks go, and every
+     * window hides without animation. The windows are kept for the next open, and an open after the reset loads afresh.
      */
     reset() {
         let me = this;
 
         me.#resets++;
         me.#windows.clear();
-        me.taskStore.clear();
+        me.#removeTasks();
         me.#created.forEach(window => {window.hidden || window.hide(false)})
     }
 

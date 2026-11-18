@@ -448,5 +448,128 @@ test.describe('Neo.desktop.WindowManager: what an open may publish', () => {
         manager.restore('mail');
 
         expect(mail.hidden).toBe(true)
+    });
+
+    // An open still loading has no task, so a filter pass over the tasks alone never sees it
+    test('a filter that drops an app during its load ends the open, though it keeps the app again before the load settles', async () => {
+        const held = heldLoader();
+
+        harness = createHarness({windowClass: held.loader});
+
+        const {apps, manager, taskIds} = harness,
+              filter                   = apps.getFilter('permission'),
+              mail                     = manager.openApp(apps.get('mail'));
+
+        filter.value = ['view-photos', 'view-help'];
+        filter.value = ['view-mail', 'view-photos', 'view-help'];
+        held.release();
+
+        expect(await mail).toBeNull();
+        expect(manager.getWindow('mail')).toBeNull();
+        expect(taskIds()).toEqual([])
+    });
+
+    test('a swap to an app store that drops an app during its load, and back, ends the open', async () => {
+        const held        = heldLoader(),
+              restrictive = Neo.create(TreeStore, {
+                  data   : ['mail', 'photos', 'help'].map(id => ({id, permission: `view-${id}`, text: id})),
+                  filters: [{includeEmptyValues: false, operator: 'included', property: 'permission', value: []}],
+                  model  : AppModel
+              });
+
+        // Filtered after its construction, where TreeStore#isKept() reads the filter
+        restrictive.getFilter('permission').value = ['view-help'];
+
+        harness = createHarness({windowClass: held.loader});
+
+        const {apps, manager, taskIds} = harness;
+
+        try {
+            const mail = manager.openApp(apps.get('mail'));
+
+            manager.appStore = restrictive;
+            manager.appStore = apps;
+            held.release();
+
+            expect(await mail).toBeNull();
+            expect(taskIds()).toEqual([])
+        } finally {
+            manager.destroy();
+            restrictive.destroy()
+        }
+    });
+
+    test('an app store that lacks an app, filtered or not, closes its window and ends its load', async () => {
+        const held = heldLoader(),
+              help = Neo.create(TreeStore, {data: [{id: 'help', permission: 'view-help', text: 'help'}], model: AppModel});
+
+        harness = createHarness();
+
+        const {apps, manager, taskIds} = harness;
+
+        try {
+            const mail = await manager.openApp(apps.get('mail'));
+
+            manager.windowClass = held.loader;
+
+            const photos = manager.openApp(apps.get('photos'));
+
+            manager.appStore = help;
+
+            expect(taskIds(), 'the window of an app the store lacks closes').toEqual([]);
+            expect(mail.hidden).toBe(true);
+
+            held.release();
+
+            expect(await photos, 'the load of an app the store lacks publishes nothing').toBeNull();
+            expect(taskIds()).toEqual([])
+        } finally {
+            manager.destroy();
+            help.destroy()
+        }
+    })
+});
+
+test.describe('Neo.desktop.WindowManager: a task store it shares', () => {
+    let harness;
+
+    test.afterEach(() => {
+        harness.destroy()
+    });
+
+    test('a reset and a destroy remove only the manager\'s tasks: a task its owner added stays', async () => {
+        harness = createHarness();
+
+        const {apps, manager, tasks, taskIds} = harness;
+
+        tasks.add({id: 'owned-elsewhere', text: 'owned elsewhere'});
+
+        await manager.openApp(apps.get('mail'));
+        manager.reset();
+
+        expect(taskIds(), 'after the reset').toEqual(['owned-elsewhere']);
+
+        await manager.openApp(apps.get('photos'));
+        manager.destroy();
+
+        expect(taskIds(), 'after the destroy').toEqual(['owned-elsewhere'])
+    });
+
+    test('an open a store listener starts while the manager is destroyed publishes nothing', async () => {
+        harness = createHarness();
+
+        const {apps, manager, tasks, taskIds} = harness,
+              mail                            = await manager.openApp(apps.get('mail'));
+
+        let reopened = null;
+
+        tasks.on('mutate', () => {reopened ??= manager.openApp(apps.get('mail'))});
+
+        manager.destroy();
+
+        expect(reopened, 'the listener ran during the destroy').not.toBeNull();
+        expect(await reopened).toBeNull();
+        expect(taskIds()).toEqual([]);
+        expect(mail.isDestroyed).toBe(true)
     })
 });
