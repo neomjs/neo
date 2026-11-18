@@ -68,6 +68,12 @@ class HeaderToolbar extends Toolbar {
             width        : 90
         }, {
             ntype: 'component',
+            bind : {text: data => data.dataSource === 'backend'
+                ? 'Data: live from the WebSocket backend'
+                : 'Data: generated in the app, the backend is not reachable'},
+            cls  : ['colors-data-source']
+        }, {
+            ntype: 'component',
             cls  : ['header-spacer'],
             flex : 1
         }, {

@@ -29,6 +29,11 @@ class ViewportStateProvider extends StateProvider {
              */
             amountRows: 10,
             /**
+             * 'backend' while `Colors.backend.ColorService` answers, 'local' once the app generates the data.
+             * @member {String} data.dataSource='backend'
+             */
+            dataSource: 'backend',
+            /**
              * @member {Boolean} data.isUpdating=false
              */
             isUpdating: false,
