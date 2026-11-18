@@ -43,6 +43,7 @@ class Documents extends Container {
                 model : {
                     fields: [
                         {name: 'collapsed', type: 'Boolean', defaultValue: false},
+                        {name: 'iconCls',   type: 'String',  defaultValue: 'far fa-folder'},
                         {name: 'id',        type: 'String'},
                         {name: 'isLeaf',    type: 'Boolean', defaultValue: true},
                         {name: 'name',      type: 'String'},
@@ -50,7 +51,7 @@ class Documents extends Container {
                     ]
                 },
                 data: [
-                    {id: 'all',      name: 'All documents'},
+                    {id: 'all',      name: 'All documents', iconCls: 'fas fa-layer-group'},
                     {id: 'folders',  name: 'Folders', isLeaf: false},
                     {id: 'Projects', name: 'Projects', parentId: 'folders'},
                     {id: 'Design',   name: 'Design',   parentId: 'folders'},

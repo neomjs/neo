@@ -1,3 +1,4 @@
+import Container     from '../../../../src/container/Base.mjs';
 import MainContainer from '../../../../src/calendar/view/MainContainer.mjs';
 
 /**
@@ -43,12 +44,13 @@ function createEvents(today=new Date()) {
 }
 
 /**
- * @summary The Calendar app: the engine's calendar on the team's week, with the side bar folded so the week fills
- * the window.
+ * @summary The Calendar app: the engine's calendar on the team's week. The calendar joins the window once the window
+ * shows at its size: the week view measures its scroll position when it mounts, and a window grows out of its launcher
+ * icon first, so a calendar mounted with the window would measure the growing window and open on another week.
  * @class WebDesktop.view.apps.Calendar
- * @extends Neo.calendar.view.MainContainer
+ * @extends Neo.container.Base
  */
-class Calendar extends MainContainer {
+class Calendar extends Container {
     static config = {
         /**
          * @member {String} className='WebDesktop.view.apps.Calendar'
@@ -56,21 +58,35 @@ class Calendar extends MainContainer {
          */
         className: 'WebDesktop.view.apps.Calendar',
         /**
-         * @member {Object} calendarStoreConfig
+         * @member {Object} layout='fit'
          */
-        calendarStoreConfig: {data: calendars},
-        /**
-         * @member {Object} eventStoreConfig
-         */
-        eventStoreConfig: {data: createEvents()},
-        /**
-         * @member {Boolean} sideBarExpanded=false
-         */
-        sideBarExpanded: false,
-        /**
-         * @member {Boolean} useSettingsContainer=false
-         */
-        useSettingsContainer: false
+        layout: 'fit'
+    }
+
+    /**
+     * Waits for the window's first show. The window manager creates a window hidden and shows it afterwards, so the
+     * listener is in place before the show.
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        let me = this;
+
+        me.up('dialog').on({show: me.onWindowShow, once: true, scope: me})
+    }
+
+    /**
+     * Adds the calendar, now that the window has its size, on the working hours so the week's meetings are in view
+     */
+    onWindowShow() {
+        let calendar = this.add({
+            module              : MainContainer,
+            calendarStoreConfig : {data: calendars},
+            eventStoreConfig    : {data: createEvents()},
+            useSettingsContainer: false
+        });
+
+        calendar.stateProvider.setData({endTime: '19:00', startTime: '08:00'})
     }
 }
 

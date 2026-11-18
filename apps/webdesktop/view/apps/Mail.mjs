@@ -33,13 +33,13 @@ class Mail extends Container {
         items: [{
             module    : GlassGrid,
             cls       : ['webdesktop-mail-inbox'],
-            flex      : 1,
+            flex      : 1.4,
             reference : 'inbox',
             viewConfig: {selectionModel: {module: RowModel}},
             columns   : [
                 {dataField: 'from',     text: 'From',     width: 140},
                 {dataField: 'subject',  text: 'Subject',  flex : 1},
-                {dataField: 'received', text: 'Received', width: 92, renderer: ({value}) => receivedFormat.format(value)}
+                {dataField: 'received', text: 'Received', width: 104, renderer: ({value}) => receivedFormat.format(value)}
             ],
             /**
              * The inbox, invented for the demo, newest first
@@ -67,7 +67,7 @@ class Mail extends Container {
                         body: 'Hello,\n\nI tried to sign in this afternoon and the desktop shows no apps at all. Did something change with my permissions?\n\nBest, Taylor'},
                     {id: 5, from: 'Sam Rivera',   received: '2026-11-17T14:05:00Z', subject: 'Portraits for the team page',
                         body: 'The portraits for the team page are in the Photos app now. The arrow keys move through them.\n\nSam'},
-                    {id: 6, from: 'Calendar',     received: '2026-11-17T09:00:00Z', subject: 'Reminder: design review on Wednesday',
+                    {id: 6, from: 'Calendar',     received: '2026-11-17T09:00:00Z', subject: 'Design review on Wednesday',
                         body: 'Design review, Wednesday 10:00 to 11:00.\n\nAgenda: the desktop demo, the window glyphs and the taskbar clock.'},
                     {id: 7, from: 'Mia Okafor',   received: '2026-11-16T19:22:00Z', subject: 'Playlist for the release party',
                         body: 'I started a playlist for Monday evening. It is in Music; add whatever you like, but no more than two songs each!\n\nMia'},
@@ -81,7 +81,7 @@ class Mail extends Container {
             }
         }, {
             module   : MailMessage,
-            flex     : 1.2,
+            flex     : 1,
             reference: 'reader'
         }]
     }
@@ -97,7 +97,20 @@ class Mail extends Container {
             {store} = inbox;
 
         inbox.view.selectionModel.on({selectionChange: me.onSelectionChange, scope: me});
-        store.on({load: () => inbox.view.selectionModel.select(store.getAt(0)), once: true, scope: me})
+        store.on({load: me.onInboxLoad, once: true, scope: me})
+    }
+
+    /**
+     * Selects the newest message and shows it. A grid selects by record id; `selectRow()` fires no
+     * `selectionChange`, so the reading pane takes the record here.
+     */
+    onInboxLoad() {
+        let me     = this,
+            {view} = me.getReference('inbox'),
+            record = view.store.getAt(0);
+
+        view.selectionModel.selectRow(view.getRecordId(record));
+        me.getReference('reader').message = record
     }
 
     /**

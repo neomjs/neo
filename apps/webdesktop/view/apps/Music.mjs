@@ -117,7 +117,20 @@ class Music extends Container {
             {store} = library;
 
         library.view.selectionModel.on({selectionChange: me.onSelectionChange, scope: me});
-        store.on({load: () => library.view.selectionModel.select(store.getAt(0)), once: true, scope: me})
+        store.on({load: me.onLibraryLoad, once: true, scope: me})
+    }
+
+    /**
+     * Selects the first track and shows it. A grid selects by record id; `selectRow()` fires no `selectionChange`, so
+     * the bar takes the track here.
+     */
+    onLibraryLoad() {
+        let me     = this,
+            {view} = me.getReference('library'),
+            track  = view.store.getAt(0);
+
+        view.selectionModel.selectRow(view.getRecordId(track));
+        me.showTrack(track)
     }
 
     /**
@@ -138,13 +151,18 @@ class Music extends Container {
      * @param {Neo.data.Record[]} data.records
      */
     onSelectionChange({records}) {
-        let me      = this,
-            [track] = records;
+        records[0] && this.showTrack(records[0])
+    }
 
-        if (track) {
-            me.getReference('track').text    = `${track.title} · ${track.artist}`;
-            me.getReference('duration').text = formatTime(track.duration)
-        }
+    /**
+     * Shows a track in the now-playing bar
+     * @param {Neo.data.Record} track
+     */
+    showTrack(track) {
+        let me = this;
+
+        me.getReference('track').text    = `${track.title} · ${track.artist}`;
+        me.getReference('duration').text = formatTime(track.duration)
     }
 }
 

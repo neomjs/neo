@@ -16,7 +16,7 @@ Every app opens in its own window. The apps you see are the ones your account ma
 | Mail | Read the inbox. Select a message to show it in the reading pane. |
 | Messages | Chat with the team. Press Enter to send. |
 | Calendar | The team's week. Drag a meeting to move it. |
-| Photos | The team's portraits. The arrow keys move through them. |
+| Photos | The team's portraits, with their names. |
 | Music | The library. Select a track to show it in the now-playing bar. |
 | Documents | Shared files by folder. Delete moves a file to the Recycle Bin. |
 | Recycle Bin | Deleted files. Restore puts a file back in Documents. |
