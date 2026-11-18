@@ -1,7 +1,7 @@
 import {test, expect} from '../../fixtures.mjs';
 
 /**
- * @summary Pins the week view to the active week across view switches in `examples/calendar/basic`.
+ * @summary Pins the week view to the active week across view switches, on the fixed-data calendar fixture.
  *
  * The week view renders three weeks and scrolls its container to the middle one when it mounts
  * (`afterSetMounted`). The view is mounted again every time its card is shown, and the container
@@ -9,7 +9,7 @@ import {test, expect} from '../../fixtures.mjs';
  * week further, which `onScroll` -> `onWheel` took for edge paging: the header then read the week
  * after the active date while the navigator still marked the active day.
  *
- * The example's data sits in July 2024 with the active date Sunday 21 July, so the visible header
+ * The fixture's data sits in July 2024 with the active date Sunday 21 July, so the visible header
  * must read 21–27 July at load and after Month → Week, Year → Week and Day → Week.
  */
 // The day view extends the week view and keeps its class, so it is excluded here.
@@ -51,7 +51,7 @@ test.describe('Neo.calendar week view keeps the active week across view switches
 
     test('the week of the active date is shown at load and after Month, Year and Day round trips', async ({page}) => {
         await page.setViewportSize({width: 1440, height: 900});
-        await page.goto('/examples/calendar/basic/index.html');
+        await page.goto('/test/playwright/component/apps/calendar-basic/index.html');
 
         await expect(page.locator(`${WEEK_VIEW} .neo-event`).first()).toBeVisible();
         await expectActiveWeek(page, 'at load');
