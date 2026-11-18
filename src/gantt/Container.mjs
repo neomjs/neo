@@ -133,19 +133,22 @@ class Container extends SchedulerContainer {
         this.#storeCleanups.forEach(fn => fn());
         this.#storeCleanups = [];
         if (value) {
-            const changed = data => {
-                if (this._movingTask || value.isUpdatingRows) return;
-                this.#analysis?.invalidateSchedule(data);
+            // A batch's events only note that the schedule went stale; its final rowsChange invalidates and projects once
+            let   stale  = false;
+            const settle = (invalidate, data) => {
+                if (this._movingTask) return;
+                stale ||= invalidate;
+                if (value.isUpdatingRows) return;
+                if (stale) { stale = false; this.#analysis?.invalidateSchedule(data) }
                 if (!(this.schedule?.isPublishing && this.#serviceCleanup)) this.syncDependencyLayer()
             };
+            const changed      = data => settle(true, data);
             const recordChange = data => {
-                if (this._movingTask || value.isUpdatingRows) return;
                 const fields = data?.fields;
-                if (!Array.isArray(fields) || !fields.length || fields.some(field => {
+                settle(!Array.isArray(fields) || !fields.length || fields.some(field => {
                     const name = typeof field === 'string' ? field : field?.name;
                     return !name || [this.startDateField, this.endDateField, 'milestone', 'parentId', 'isLeaf', 'id', value.keyProperty].includes(name)
-                })) this.#analysis?.invalidateSchedule();
-                if (!(this.schedule?.isPublishing && this.#serviceCleanup)) this.syncDependencyLayer()
+                }))
             };
             const listeners = {mutate: changed, recordChange, rowsChange: recordChange, filter: changed};
             value.on(listeners);

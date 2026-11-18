@@ -614,12 +614,17 @@ test.describe('Neo.gantt.Container', () => {
                 taskStore.updateRows([{key: 'C', values: {startDate: new Date('2026-11-09T07:00:00Z'), endDate: new Date('2026-11-09T09:00:00Z')}}])
             }
         };
+        // A registered schedule analysis hears of the nested date edit once, before the single projection
+        const order = [];
+        gantt.registerScheduleAnalysis({invalidateSchedule: () => order.push('invalidate'), getHighlights: () => ({})});
+        layer.project = (...args) => { projects++; order.push('project'); return project(...args) };
         taskStore.on('recordChange', reenter);
         projects = 0;
         taskStore.updateRows([{key: 'A', values: {percentDone: 50}}]);
         taskStore.un('recordChange', reenter);
         expect(nested).toBe(1);
         expect(projects).toBe(1);
+        expect(order).toEqual(['invalidate', 'project']);
         expect(taskStore.isUpdatingRows).toBe(false);
 
         dependencyStore.destroy();
