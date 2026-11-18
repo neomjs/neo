@@ -88,6 +88,7 @@ test.beforeEach(async ({page}) => {
 
     await page.waitForSelector('.neo-dashboard-dock-splitter', {state: 'attached'});
     await page.waitForSelector(`#${IFRAME_ID}`,                {state: 'attached'})
+    await page.waitForSelector(`#${IFRAME_ID}-passthrough`,    {state: 'attached'})
 });
 
 test.afterEach(async ({page}) => {
