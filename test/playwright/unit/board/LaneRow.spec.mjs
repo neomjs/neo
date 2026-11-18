@@ -60,7 +60,7 @@ test.describe('Neo.board.LaneRow & Board swimlanes', () => {
         board = createBoard({store});
 
         expect(board.cls).toContain('neo-board-lanes');
-        expect(board.layout.ntype).toBe('layout-vbox');
+        expect(board.layout.ntype).toBe('layout-grid');
         expect(board.items.every(item => item instanceof LaneRow)).toBe(true);
         expect(laneValues(board)).toEqual(['Atlas', 'Beacon', null]);
 

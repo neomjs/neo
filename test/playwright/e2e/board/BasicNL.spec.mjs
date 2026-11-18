@@ -179,7 +179,13 @@ test.describe('Board, basic example: one store, two views', () => {
         await app.callMethod(storeId, 'setData', [STATUSES.flatMap(status => lanes.map((lane, i) => ({
             id: `${status}-${lane}`, status, lane, order: i * 1000, title: `${lane} ${status}`, description: 'Short task', tags: [], assignees: []
         })))]);
-        await app.setProperties(boardId, {laneField: 'lane', lanes: lanes.map(value => ({value}))});
+        // Alpha stays whole and sets the scroll range; Beta stays open but narrows to one column; Gamma folds
+        await app.setProperties(boardId, {laneField: 'lane', lanes: lanes.map(value => ({value, collapsed: value === 'Gamma'}))});
+        await expect(page.locator(`[id="${boardId}__col__done__Beta"]`)).toHaveCount(1);
+
+        for (const status of STATUSES.slice(1)) {
+            await app.setProperties(`${boardId}__col__${status}__Beta`, {collapsed: true})
+        }
 
         await expect.poll(headers, '1920 wide, the columns fit').toEqual(expected);
 
