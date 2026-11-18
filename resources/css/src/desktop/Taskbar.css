@@ -36,6 +36,29 @@
 
         box-shadow: 0 8px 20px -8px var(--desktop-taskbar-accent-color);
     }
+
+    /* The time over the date, right-aligned at the bar's end */
+    .neo-desktop-taskbar-clock {
+        color               : var(--desktop-taskbar-color);
+        display             : flex;
+        flex-direction      : column;
+        font-variant-numeric: tabular-nums;
+        line-height         : 1.2;
+        padding             : 0 6px;
+        text-align          : right;
+        user-select         : none;
+        white-space         : nowrap;
+    }
+
+    .neo-desktop-taskbar-time {
+        font-size  : 14px;
+        font-weight: 600;
+    }
+
+    .neo-desktop-taskbar-date {
+        font-size: 12px;
+        opacity  : .72;
+    }
 }
 
 /* The start menu cascade, drawn on the desktop's glass. The root carries its class; a submenu renders under the app's
@@ -84,6 +107,11 @@
             max-width      : 40vw;
             overflow-x     : auto;
             scrollbar-width: none;
+        }
+
+        /* The time stays; the date gives its room to the tasks */
+        .neo-desktop-taskbar-date {
+            display: none;
         }
     }
 }

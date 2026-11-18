@@ -299,6 +299,32 @@ test.describe('Neo.desktop.Container', () => {
         expect(mail.isDestroyed).toBe(true)
     });
 
+    test('the taskbar clock shows the time over the date, and its wait ends on the next full minute', async () => {
+        create();
+
+        const taskbar = desktop.getItem('taskbar'),
+              clock   = taskbar.getItem('clock'),
+              moment  = new Date(2026, 10, 18, 9, 5, 42, 500);
+
+        taskbar.syncClock(moment);
+
+        const [time, day] = clock.vdom.cn.map(node => node.text);
+
+        expect(time, 'the minutes').toContain('05');
+        expect(day, 'the day of the month').toContain('18');
+
+        // A loop of its own: the stubbed wait records its delay, then ends the loop as a destroy would
+        let delay;
+
+        taskbar.timeout = ms => {delay = ms; return Promise.reject(Neo.isDestroyed)};
+
+        const started = Date.now();
+
+        await taskbar.runClock();
+
+        expect((started + delay) % 60000, 'the wait ends on a full minute').toBeLessThan(50)
+    });
+
     test('a consumer adds its own items to the workspace and the taskbar by key', () => {
         create({
             items        : {workspace: {items: {panel: {module: Component, cls: ['panel'], weight: 20}}}},
@@ -309,6 +335,6 @@ test.describe('Neo.desktop.Container', () => {
               taskbar   = desktop.getItem('taskbar');
 
         expect(workspace.items.map(item => item.reference)).toEqual(['launcher', 'panel']);
-        expect(taskbar.items.map(item => item.reference)).toEqual(['start-button', 'tasks', 'spacer', 'account'])
+        expect(taskbar.items.map(item => item.reference), 'a consumer item sits before the clock').toEqual(['start-button', 'tasks', 'spacer', 'account', 'clock'])
     })
 });

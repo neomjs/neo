@@ -1,5 +1,6 @@
 import Apps          from '../../../src/desktop/store/Apps.mjs';
-import Desktop       from '../../../src/desktop/Container.mjs';
+import Component     from '../../../src/component/Base.mjs';
+import Desktop      from '../../../src/desktop/Container.mjs';
 import StateProvider from '../../../src/state/Provider.mjs';
 import Viewport      from '../../../src/container/Viewport.mjs';
 
@@ -55,8 +56,28 @@ class DesktopViewport extends Viewport {
                 music     : {height: 480, width: 720, view: () => import('./Music.mjs')},
                 notes     : {height: 400, width: 460, view: () => import('./Notes.mjs')}
             },
-            bind          : {appStore: 'stores.apps'},
-            launcherConfig: {arrangementKey: 'neo-examples-desktop-basic'}
+            bind            : {appStore: 'stores.apps'},
+            launcherConfig  : {arrangementKey: 'neo-examples-desktop-basic'},
+            // The screen says what it is: the product's name on the wallpaper, and a card beside the launcher
+            items: {workspace: {items: {
+                brand: {
+                    module: Component,
+                    cls   : ['desktop-basic-brand'],
+                    text  : 'Neo Desktop',
+                    weight: 5
+                },
+                about: {
+                    module: Component,
+                    cls   : ['desktop-basic-about'],
+                    flex  : 'none',
+                    weight: 20,
+                    vdom  : {cn: [
+                        {tag: 'h2', text: 'Neo Desktop'},
+                        {tag: 'p',  text: 'A web desktop built from Neo.mjs. Its launcher, windows and taskbar are the engine\'s src/desktop, and all of it runs in a web worker, off the main thread.'},
+                        {tag: 'a',  href: 'https://github.com/neomjs/neo/tree/dev/src/desktop', target: '_blank', text: 'src/desktop on GitHub'}
+                    ]}
+                }
+            }}}
         }]
     }
 }
