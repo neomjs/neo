@@ -131,6 +131,11 @@ test('one record edit is committed after validation, while cancel and invalid da
 
         editor.openForRecord(record);
         expect(editor.getFieldValue('startDate')).toBe('2026-11-10T12:00');
+        // A person edits a bound in a date field and a time field, never a timestamp
+        expect([editor.getField('startDate'), editor.getField('startDate__time')].map(field => field.ntype)).toEqual(['datefield', 'timefield']);
+        expect([editor.getField('startDate').value, editor.getField('startDate__time').value]).toEqual(['2026-11-10', '12:00']);
+        editor.getField('endDate__time').value = '17:30';
+        expect(editor.getChanges()).toEqual({endDate: new Date('2026-11-10T17:30:00Z')});
         editor.setFieldValue('endDate', '2026-11-10T09:00');
         expect(editor.save()).toBe(false);
         expect(editor.hidden).toBe(false);
