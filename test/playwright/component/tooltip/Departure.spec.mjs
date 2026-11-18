@@ -11,6 +11,7 @@ const TOOLTIP = '.neo-tooltip',
       OFFSET  = '#tooltip-departure-offset',
       OWN_1   = '#tooltip-departure-own-1',
       OWN_2   = '#tooltip-departure-own-2',
+      PLAIN   = '#tooltip-departure-plain',
       SHARED  = '#tooltip-departure-shared-1';
 
 /**
@@ -93,6 +94,18 @@ test.describe('Neo.tooltip.Base: where the pointer goes decides when a tooltip h
         await page.mouse.move(to.x, to.y, {steps: 30});
         await page.waitForTimeout(600);
         await expect(page.locator(TOOLTIP), 'still up after crossing the wider gap').toHaveCount(1)
+    });
+
+    test('a shared tooltip a target turns off stay-on-hover dismisses when the pointer moves onto it', async ({page}) => {
+        // The hoverable target first, which adds the tooltip's own enter and leave listeners
+        await hoverUntilShown(page, SHARED, 'Edit item');
+        await page.locator(PLAIN).hover();
+        await expect(page.locator(TOOLTIP)).toHaveText('Plain item');
+
+        const to = await centerOf(page.locator(TOOLTIP));
+
+        await page.mouse.move(to.x, to.y, {steps: 8});
+        await expect(page.locator(TOOLTIP), 'onto a tooltip that does not stay on hover').toHaveCount(0, {timeout: 300})
     });
 
     test('moving to a neighbouring target with its own tooltip never shows two tooltips', async ({page}) => {

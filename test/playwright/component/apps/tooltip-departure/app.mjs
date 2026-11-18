@@ -20,6 +20,7 @@ export const onStart = () => Neo.app({
                 {module: Button, id: 'tooltip-departure-shared-1', text: 'Edit',   tooltip: 'Edit item'},
                 {module: Button, id: 'tooltip-departure-shared-2', text: 'Copy',   tooltip: 'Copy item'},
                 {module: Button, id: 'tooltip-departure-shared-3', text: 'Delete', tooltip: 'Delete item'},
+                {module: Button, id: 'tooltip-departure-plain',    text: 'Plain',  tooltip: {hideDelay: 0, stayOnHover: false, text: 'Plain item'}},
                 {module: Button, id: 'tooltip-departure-offset',   text: 'Offset', tooltip: {align: {offset: [0, 12]}, ownInstance: true, text: 'Offset item'}}
             ]
         }, {
