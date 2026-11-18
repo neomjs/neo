@@ -3,8 +3,8 @@ import Component from '../component/Base.mjs';
 import Container from '../container/Base.mjs';
 
 /**
- * @summary One swimlane row of a board: a header with the lane title, total card count and collapse toggle, over an
- * hbox of one {@link Neo.board.Column} per status with `laneValue` bound to {@link #value}.
+ * @summary One swimlane row of a board: a header with the collapse toggle, the lane title and its total card count, over
+ * an hbox of one {@link Neo.board.Column} per status with `laneValue` bound to {@link #value}.
  * @description A lane row owns no records. `Neo.board.Container` projects one `LaneRow` per distinct value of
  * `board.laneField` (or each entry in `board.lanes`, plus an `Unassigned` row with `value: null` when records lack a
  * lane value). Collapsing the row (`collapsed: true`) hides {@link #columnContainer} while keeping {@link #header} and
@@ -168,35 +168,35 @@ class LaneRow extends Container {
     }
 
     /**
-     * @summary Creates the lane header's nodes once: the title, then the count badge and the collapse toggle inside
-     * `.neo-board-lane-tools`.
-     * @description On a board narrower than its columns an open lane is wider than the visible board. The title and
-     * the tools stick to the board's visible edges (`LaneRow.css`), and the tools move as one, so neither inset has to
-     * know the other node's width.
+     * @summary Creates the lane header's nodes once: the collapse toggle, the title and the count badge, in one
+     * `.neo-board-lane-label`.
+     * @description An open lane is as wide as its columns, so on a narrower board its header is wider than the board.
+     * The label sticks to the board's visible start (`LaneRow.css`), which keeps the toggle beside the title it folds
+     * at every scroll position, in open and folded lanes alike.
      */
     createHeaderNodes() {
         const {header, id} = this;
 
         if (header && !header.vdom.cn?.length) {
             header.vdom.cn = [{
-                tag : 'span',
-                id  : `${id}__title`,
-                cls : ['neo-board-lane-title'],
-                text: ''
-            }, {
                 tag: 'span',
-                id : `${id}__tools`,
-                cls: ['neo-board-lane-tools'],
+                id : `${id}__label`,
+                cls: ['neo-board-lane-label'],
                 cn : [{
-                    tag : 'span',
-                    id  : `${id}__count`,
-                    cls : ['neo-board-lane-count'],
-                    text: ''
-                }, {
                     tag : 'button',
                     id  : `${id}__collapse`,
                     type: 'button',
                     cls : ['neo-board-lane-collapse'],
+                    text: ''
+                }, {
+                    tag : 'span',
+                    id  : `${id}__title`,
+                    cls : ['neo-board-lane-title'],
+                    text: ''
+                }, {
+                    tag : 'span',
+                    id  : `${id}__count`,
+                    cls : ['neo-board-lane-count'],
                     text: ''
                 }]
             }]
@@ -254,7 +254,7 @@ class LaneRow extends Container {
 
         me.createHeaderNodes();
 
-        [title, {cn: [badge, toggle]}] = header.vdom.cn;
+        [{cn: [toggle, title, badge]}] = header.vdom.cn;
 
         title.text = me.title ?? (me.value != null ? String(me.value) : (me.board?.emptyLaneTitle ?? 'Unassigned'));
         badge.text = String(count);
