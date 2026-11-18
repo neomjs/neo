@@ -1635,7 +1635,7 @@
         "environments": [
             "Desktop"
         ],
-        "image": "devmode/dock-choreography-13-2.jpg",
+        "image": "devmode/dock-choreography-14.jpg",
         "name": "Dock Choreography Demo",
         "sharedWorkers": true,
         "sourceUrl": "examples/dashboard/choreography",
@@ -1655,7 +1655,7 @@
         "feature": "Ten docked panes are views of one data set: a selection and an edit cross them",
         "lookFor": "Pick an agent in Swarm, switch its state in the Inspector, then drag a tab into another zone or switch to Review: the selection and the counts follow.",
         "scope": "This layout example runs in one window; saved snapshots stay in this browser.",
-        "image": null,
+        "image": "devmode/dock-layouts-14.jpg",
         "sharedWorkers": false,
         "sourceUrl": "examples/dashboard/desk",
         "urls": {
@@ -1676,7 +1676,7 @@
         "feature": "A live workbench travels between windows without restarting its counter",
         "lookFor": "Press Tour and follow Workbench into the popup and home again as its counter keeps running.",
         "scope": "Allow popups for the cross-window part of the tour.",
-        "image": null,
+        "image": "devmode/dock-cross-window-14.jpg",
         "sharedWorkers": true,
         "sourceUrl": "examples/dashboard/crossWindow",
         "urls": {
