@@ -142,10 +142,11 @@ export default { testDir: './unit', projects: [{name: 'unit-engine'}], timeout: 
         });
         expect(result.status, result.stderr).toBe(0);
         const rows = JSON.parse(readFileSync(path.join(root, 'test/playwright/test-results/red-on-base/comparison.json'), 'utf8'));
+        // The runner leaves package.json and package-lock.json at the head, so the base pass loads with the head lock
+        // against the head install, and the worktree lock is the head's, not the parent's.
         expect(rows.find(row => row.titlePath.at(-1) === 'requires source fix')).toMatchObject({classification: 'fails-without-change', isNew: true});
-        // The base pass restored the parent's lockfile, and the runner leaves the worktree as the base comparison left it.
-        expect(readFileSync(path.join(root, 'package-lock.json'), 'utf8')).toContain(bumpedKey.replace('node_modules/', ''));
-        expect(readFileSync(path.join(root, 'package-lock.json'), 'utf8')).not.toContain('-redbase');
+        expect(existsSync(path.join(root, 'test/playwright/test-results/red-on-base/base.json'))).toBe(true);
+        expect(readFileSync(path.join(root, 'package-lock.json'), 'utf8')).toContain('-redbase');
     } finally {
         clean()
     }
