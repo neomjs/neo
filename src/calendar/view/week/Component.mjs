@@ -235,6 +235,21 @@ class Component extends BaseComponent {
     lastScrollLeft = 0
 
     /**
+     * Last-seen width of this view, used by `onDomResize` to re-center only when the width changes.
+     * `null` until the resize listener reports the first width.
+     * @member {Number|null} lastWidth=null
+     * @protected
+     */
+    lastWidth = null
+
+    /**
+     * True once the first mount added the resize listener, which a card layout's remounts must not add again.
+     * @member {Boolean} listensToResize=false
+     * @protected
+     */
+    listensToResize = false
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -474,8 +489,7 @@ class Component extends BaseComponent {
     async afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
-        let me = this,
-            scrollContainerId, rect;
+        let me = this;
 
         if (value) {
             if (me.needsEventUpdate) {
@@ -483,19 +497,33 @@ class Component extends BaseComponent {
                 me.needsEventUpdate = false
             }
 
-            await me.timeout(100);
+            if (!me.listensToResize) {
+                me.listensToResize = true;
+                me.addDomListeners([{resize: me.onDomResize, scope: me}])
+            }
 
-            rect              = await me.getDomRect(me.getColumnContainer().id);
+            await me.timeout(100);
+            await me.centerColumns()
+        }
+    }
+
+    /**
+     * @summary Scrolls the middle third of the buffered columns into view: the active week, or the active day in the
+     * day view.
+     * @returns {Promise<void>}
+     */
+    async centerColumns() {
+        let me                = this,
+            rect              = await me.getDomRect(me.getColumnContainer().id),
             scrollContainerId = me.getScrollContainer().id;
 
-            scrollContainerId && Neo.main.DomAccess.scrollTo({
-                appName  : me.appName,
-                direction: 'left',
-                id       : scrollContainerId,
-                value    : rect.width * me.columnsBuffer / me.columnsVisible / 3,
-                windowId : me.windowId
-            })
-        }
+        scrollContainerId && await Neo.main.DomAccess.scrollTo({
+            appName  : me.appName,
+            direction: 'left',
+            id       : scrollContainerId,
+            value    : rect.width * me.columnsBuffer / me.columnsVisible / 3,
+            windowId : me.windowId
+        })
     }
 
     /**
@@ -756,6 +784,22 @@ class Component extends BaseComponent {
 
         oldPath?.[0]?.cls.includes('neo-event') && Neo.applyDeltas(this.windowId, {id: oldPath[0].id, cls: {remove: ['neo-focus']}});
         path   ?.[0]?.cls.includes('neo-event') && Neo.applyDeltas(this.windowId, {id: path[0]   .id, cls: {add:    ['neo-focus']}})
+    }
+
+    /**
+     * @summary The columns follow this view's width, its scroll position does not: a folded side panel or a rotated phone
+     * would leave the view between two weeks or days. A width change re-centers the middle third.
+     * @param {Object} data The resize event of this view's root
+     */
+    onDomResize(data) {
+        let me    = this,
+            width = Math.round(data.borderBoxSize.inlineSize);
+
+        if (data.id === me.id && width !== me.lastWidth) {
+            // The first report arrives as the observer attaches; the mount scroll centers that one
+            me.lastWidth !== null && me.mounted && me.centerColumns();
+            me.lastWidth = width
+        }
     }
 
     /**

@@ -156,6 +156,9 @@
         flex-direction  : column;
         height          : 4.7em; /* we need a fixed height for the bg margin top */
         justify-content : center;
+        /* Narrower than its date, the item clips it rather than outgrowing its column and scrolling out of step */
+        min-width       : 0;
+        overflow        : hidden;
         padding-bottom  : 0.3125em;
         padding-top     : 0.625em;
 

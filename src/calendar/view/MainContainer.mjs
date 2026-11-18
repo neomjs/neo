@@ -184,11 +184,26 @@ class MainContainer extends Container {
      */
     construct(config) {
         super.construct(config);
+        this.createItemsContent()
+    }
+
+    /**
+     * @summary A calendar created folded starts where a fold ends: its side panel out of the DOM, shifted left by its
+     * width, so expanding it animates in like after a fold.
+     */
+    onConstructed() {
+        super.onConstructed();
 
         let me = this;
 
-        me.createItemsContent();
-        !me.sideBarExpanded && me.afterSetSideBarExpanded(false, true)
+        if (!me.sideBarExpanded) {
+            let sideBar = me.items[1].items[0],
+                style   = {...sideBar.style, marginLeft: `-${me.sideBarWidth}px`};
+
+            sideBar._style          = style; // silent update
+            sideBar._vdom.style     = style; // silent update
+            sideBar._vdom.removeDom = true
+        }
     }
 
     /**
