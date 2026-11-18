@@ -27,9 +27,11 @@ class App extends TreeModel {
             name: 'description',
             type: 'String'
         }, {
-            // A start menu (`Neo.menu.List`) calls the method of this name for a chosen app
-            name: 'handler',
-            type: 'String'
+            // A start menu (`Neo.menu.List`) calls the method of this name for a chosen app. An app's reaches up the
+            // component chain to the `Neo.desktop.Container` that owns the menu; a group opens its submenu instead.
+            name     : 'handler',
+            type     : 'String',
+            calculate: data => data.isLeaf === false ? null : 'up.onStartMenuAppChoose'
         }, {
             name: 'iconCls',
             type: 'String'

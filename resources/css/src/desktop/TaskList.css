@@ -1,9 +1,9 @@
-.webdesktop-task-list {
-    --list-container-list-color        : var(--webdesktop-ink);
-    --list-item-background-color      : transparent;
-    --list-item-background-color-active: var(--webdesktop-glass-active);
-    --list-item-background-color-hover : var(--webdesktop-glass-hover);
-    --list-item-focus-outline          : 2px solid var(--webdesktop-accent);
+.neo-desktop-task-list {
+    --list-container-list-color        : var(--desktop-task-list-color);
+    --list-item-background-color       : transparent;
+    --list-item-background-color-active: var(--desktop-task-list-item-background-color-active);
+    --list-item-background-color-hover : var(--desktop-task-list-item-background-color-hover);
+    --list-item-focus-outline          : 2px solid var(--desktop-task-list-accent-color);
     --list-item-focus-outline-offset   : -2px;
     --list-item-padding                : 0 12px 0 8px;
 
@@ -24,7 +24,7 @@
         /* The open indicator: an 18px bar under a running app, scaled to a 6px dot under a minimized one. It animates
            the transform only, on the product motion tokens, which reduced motion sets to 0ms. */
         &::after {
-            background-color: var(--webdesktop-accent);
+            background-color: var(--desktop-task-list-accent-color);
             border-radius   : 2px;
             bottom          : 3px;
             content         : '';
@@ -36,7 +36,7 @@
             width           : 18px;
         }
 
-        &.webdesktop-task-minimized {
+        &.neo-desktop-task-minimized {
             opacity: .65;
 
             &::after {
@@ -45,9 +45,9 @@
         }
     }
 
-    .webdesktop-task-icon {
+    .neo-desktop-task-icon {
         align-items     : center;
-        background-color: var(--webdesktop-app-color);
+        background-color: var(--desktop-app-color);
         border-radius   : 8px;
         color           : #fff;
         display         : flex;
@@ -57,7 +57,7 @@
         width           : 26px;
     }
 
-    .webdesktop-task-text {
+    .neo-desktop-task-text {
         font-size  : 13px;
         font-weight: 600;
     }

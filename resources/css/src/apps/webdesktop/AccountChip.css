@@ -19,3 +19,19 @@
         margin-top: 0;
     }
 }
+
+/* A phone: the chip in the taskbar shows the avatar only, its text visually hidden, as the taskbar's buttons do */
+@media (max-width: 600px) {
+    .neo-desktop-taskbar .webdesktop-account-chip {
+        padding: 0 4px;
+
+        .webdesktop-account-text {
+            clip       : rect(0 0 0 0);
+            height     : 1px;
+            overflow   : hidden;
+            position   : absolute;
+            white-space: nowrap;
+            width      : 1px;
+        }
+    }
+}

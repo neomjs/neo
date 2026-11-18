@@ -1,14 +1,39 @@
 .webdesktop-viewport {
-    /* Containers stay see-through, so the wallpaper shows behind every layout level */
+    /* Containers stay see-through, so the sign-in screen shows the desktop's wallpaper (`Neo.desktop.Container`) */
     --container-background-color: transparent;
 
-    background : var(--webdesktop-wallpaper);
+    background : var(--desktop-wallpaper);
     color      : var(--webdesktop-ink);
     font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     overflow   : hidden;
 
     h1, h2, p {
         font-family: inherit;
+    }
+
+    /* Shown over the empty launcher when the account holds no permission at all */
+    .webdesktop-empty {
+        align-items    : center;
+        color          : var(--webdesktop-ink-dim);
+        display        : flex;
+        flex-direction : column;
+        gap            : 12px;
+        inset          : 0;
+        justify-content: center;
+        pointer-events : none;
+        position       : absolute;
+        text-align     : center;
+
+        i {
+            font-size: 34px;
+            opacity  : .7;
+        }
+
+        p {
+            font-size: 15px;
+            margin   : 0;
+            max-width: 320px;
+        }
     }
 
     /* An account's initials on a disc of its color: the sign-in list and the taskbar share it */
