@@ -6,6 +6,7 @@ import Viewport from '../../../../../src/container/Viewport.mjs';
  *
  * The calendar e2e specs assert that week's header and drag that data's events, so they need a calendar that never
  * moves with the clock. `examples/calendar/basic` opens on today; this fixture keeps the data it opened on before.
+ * A spec can add calendar configs, such as `sideBarExpanded: false`, as `calendarConfig` in this app's neo-config.
  */
 export const onStart = () => Neo.app({
     mainView: {
@@ -27,7 +28,9 @@ export const onStart = () => Neo.app({
 
             modelData: {
                 currentDate: new Date('2024-07-21')
-            }
+            },
+
+            ...Neo.config.calendarConfig
         }]
     },
     name: 'CalendarBasicTestApp'
