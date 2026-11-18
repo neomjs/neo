@@ -105,6 +105,7 @@ function createOl() {
         }
         get(key)          {return this.properties[key]}
         getView()         {return this.options.view}
+        getTargetElement() {return 'target' in this ? this.target : this.options.target}
         getViewport()     {return this.viewport}
         on(type, fn)      {this.listeners[type] = fn}
         set(key, value)   {this.properties[key] = value}
@@ -171,7 +172,7 @@ test.describe('main.addon.OpenStreetMaps markers and messages', () => {
         originalMouseData  = DomEvents.getMouseEventData;
         originalSend       = DomEvents.sendMessageToApp;
 
-        DomAccess.getElement        = id => id === mapId ? {} : null;
+        DomAccess.getElement        = id => id === mapId ? {dataset: {}} : null;
         // Serializing a native event is DomEvents' own concern; the stand-in event has nothing to serialize
         DomEvents.getMouseEventData = () => ({});
         DomEvents.sendMessageToApp  = message => messages.push(message)
@@ -387,6 +388,29 @@ test.describe('main.addon.OpenStreetMaps markers and messages', () => {
         addon.setCenter({id: mapId, value: {lat: 10, lng: 20}});
 
         expect(map.getView().getCenter()).toEqual([20, 10])
+    });
+
+    test('the map element says when every tile of the view is drawn, and forgets it when its map is removed', async () => {
+        const element = {dataset: {}};
+
+        DomAccess.getElement = id => id === mapId ? element : null;
+
+        const map = await createMap();
+
+        // A new map has drawn nothing yet
+        expect(element.dataset.rendered).toBe('false');
+
+        map.listeners.rendercomplete();
+        expect(element.dataset.rendered).toBe('true');
+
+        map.listeners.loadstart();
+        expect(element.dataset.rendered).toBe('false');
+
+        map.listeners.rendercomplete();
+        addon.removeMap({mapId});
+
+        // A remounted wrapper's next map must not inherit the old map's "drawn"
+        expect(element.dataset.rendered).toBeUndefined()
     })
 });
 
