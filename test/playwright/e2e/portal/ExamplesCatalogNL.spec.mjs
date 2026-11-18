@@ -609,5 +609,108 @@ test.describe('Portal examples section', () => {
         await expect(grid.locator('.neo-grid-container')).toBeVisible();
         await expect(grid.getByText('Organization', {exact: true}).first()).toBeVisible();
         await grid.close()
+    });
+
+    test('the Open live cue activates the exact launch link across pointer, touch, keyboard and build modes', async ({page, neuralLink, context, browser, baseURL}) => {
+        await page.goto(`${PORTAL}#/examples/multi-window`);
+        let app = await neuralLink.connectToApp('Portal');
+        await expectOpenPage(page, 'Multi-Window');
+
+        const prodList = await readList(app, 'multi-window');
+        await app.setProperties(prodList.id, {baseUrl: `${baseURL}/`});
+        await app.callMethod(prodList.id, 'createItems');
+
+        const workstationCard = page.locator(`${CARDS} .neo-list-item`, {hasText: 'Workstation'}),
+              workstationCue  = workstationCard.locator('.portal-example-open-cue');
+
+        await expect(workstationCue).toHaveAttribute('href', `${baseURL}/dist/production/apps/workstation/index.html`);
+        await expect(workstationCue).toHaveAttribute('target', '_blank');
+        await expect(workstationCue).toHaveAttribute('aria-hidden', 'true');
+        await expect(workstationCue).toHaveAttribute('tabindex', '-1');
+        await expect(page.locator(CARDS).getByRole('link', {name: 'Workstation', exact: true})).toHaveCount(1);
+
+        const titleLink = workstationCard.locator('.neo-title'),
+              source    = workstationCard.locator('.neo-github-image');
+
+        await titleLink.focus();
+        await expect(titleLink).toBeFocused();
+        await page.keyboard.press('Tab');
+        await expect(source).toBeFocused();
+        await expect(workstationCue).not.toBeFocused();
+
+        // In devmode, clicking Workstation's cue reuses the same window (sharedWorkers), while Enter on the title does the same
+        await page.goto(`${PORTAL}#/examples/devmode`);
+        app = await neuralLink.connectToApp('Portal');
+        await openGroup(page, 'Multi-Window');
+        const devList = await readList(app, 'multi-window');
+        await app.setProperties(devList.id, {baseUrl: `${baseURL}/`});
+        await app.callMethod(devList.id, 'createItems');
+
+        const devWorkstation = page.locator(`${CARDS} .neo-list-item`, {hasText: 'Workstation'}),
+              devCue         = devWorkstation.locator('.portal-example-open-cue');
+
+        await expect(devCue).toHaveAttribute('href', `${baseURL}/apps/workstation/index.html`);
+        await expect(devCue).not.toHaveAttribute('target', /_blank/);
+        await devCue.click();
+        await expect(page).toHaveURL(/\/apps\/workstation\/index\.html$/);
+        await expect(page.locator('.workstation-viewport')).toBeVisible();
+
+        await page.goto(`${PORTAL}#/examples/devmode`);
+        app = await neuralLink.connectToApp('Portal');
+        await openGroup(page, 'Multi-Window');
+        const enterList = await readList(app, 'multi-window');
+        await app.setProperties(enterList.id, {baseUrl: `${baseURL}/`});
+        await app.callMethod(enterList.id, 'createItems');
+
+        const enterTitle = page.locator(`${CARDS} .neo-list-item`, {hasText: 'Workstation'}).locator('.neo-title');
+        await expect(enterTitle).toHaveAttribute('href', `${baseURL}/apps/workstation/index.html`);
+        await enterTitle.focus();
+        await expect(enterTitle).toBeFocused();
+        await page.keyboard.press('Enter');
+        await expect(page).toHaveURL(/\/apps\/workstation\/index\.html$/);
+        await expect(page.locator('.workstation-viewport')).toBeVisible();
+
+        // Single-window example keeps target="_blank" when clicking the cue in devmode
+        await page.goto(`${PORTAL}#/examples/devmode`);
+        app = await neuralLink.connectToApp('Portal');
+        await openGroup(page, 'Grid & Table');
+        const gridList = await readList(app, 'grid-table');
+        await app.setProperties(gridList.id, {baseUrl: `${baseURL}/`});
+        await app.callMethod(gridList.id, 'createItems');
+
+        const treeCue = page.locator(`${CARDS} .neo-list-item`, {hasText: 'TreeGrid - Big Data'}).locator('.portal-example-open-cue');
+        await expect(treeCue).toHaveAttribute('href', `${baseURL}/examples/grid/treeBigData/index.html`);
+        await expect(treeCue).toHaveAttribute('target', '_blank');
+        const gridPopup = context.waitForEvent('page');
+        await treeCue.click();
+        const grid = await gridPopup;
+        await expect(grid).toHaveURL(/\/examples\/grid\/treeBigData\/index\.html$/);
+        await expect(grid.locator('.neo-grid-container')).toBeVisible();
+        await grid.close();
+
+        // Real touch tap on mobile viewport preserves both popup (_blank) and same-window (sharedWorkers) launch targets
+        const touchContext = await browser.newContext({baseURL, hasTouch: true, viewport: {width: 390, height: 844}});
+        await touchContext.route('https://neomjs.com/**', route => route.fulfill({
+            status     : 200,
+            contentType: 'text/html',
+            body       : '<title>Launched</title>'
+        }));
+        const touchPage = await touchContext.newPage();
+        await touchPage.goto(`${PORTAL}#/examples/devmode`);
+        await expect(touchPage.locator(FEATURED)).toBeVisible();
+
+        const gridCard = touchPage.locator(`${FEATURED} .neo-list-item`, {hasText: 'Data Grid: 100k Rows & 200 Columns'});
+        await gridCard.scrollIntoViewIfNeeded();
+        const touchPopup = touchContext.waitForEvent('page');
+        await gridCard.locator('.portal-example-open-cue').tap();
+        const touchedGrid = await touchPopup;
+        await expect(touchedGrid).toHaveURL(/\/examples\/grid\/bigData\/index\.html$/);
+        await touchedGrid.close();
+
+        const wsCard = touchPage.locator(`${FEATURED} .neo-list-item`, {hasText: 'Workstation'});
+        await wsCard.scrollIntoViewIfNeeded();
+        await wsCard.locator('.portal-example-open-cue').tap();
+        await expect(touchPage).toHaveURL(/\/apps\/workstation\/index\.html$/);
+        await touchContext.close()
     })
 });

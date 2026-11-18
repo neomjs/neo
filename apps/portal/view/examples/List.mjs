@@ -198,7 +198,7 @@ class List extends BaseList {
                     {tag: 'span', cls: ['portal-example-group-badge'], removeDom: !groupTitle, text: groupTitle},
                     {cls: ['portal-example-title-row'], cn: [
                         {...me.createLink(record)},
-                        {tag: 'span', cls: ['portal-example-open-cue'], 'aria-hidden': true, text: 'Open live ↗'}
+                        {...me.createOpenCue(record)}
                     ]},
                     {cls: ['portal-example-feature'], removeDom: !record.feature, text: record.feature},
                     {cls: ['portal-example-more'], cn: [
@@ -238,6 +238,29 @@ class List extends BaseList {
         // E.g. opening the multi-window covid app & the portal app inside the same app worker is problematic.
         if (!record.sharedWorkers || this.environment !== Neo.config.environment || externalLink) {
             vdom.target = '_blank'
+        }
+
+        return vdom
+    }
+
+    /**
+     * @summary Builds the visible launch-cue anchor sharing the title link's target and href.
+     * @param {Object} record
+     * @returns {Object} vdom
+     */
+    createOpenCue(record) {
+        let {href, target} = this.createLink(record),
+            vdom           = {
+                tag          : 'a',
+                cls          : ['portal-example-open-cue'],
+                href,
+                'aria-hidden': true,
+                tabIndex     : -1,
+                text         : 'Open live ↗'
+            };
+
+        if (target) {
+            vdom.target = target
         }
 
         return vdom

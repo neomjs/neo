@@ -43,10 +43,12 @@
         white-space  : normal;
         width        : 100%;
 
-        &:hover {
-            outline       : 1px solid var(--portal-examples-list-link-hover);
-            outline-offset: -1px;
-            transform     : translateY(-2px);
+        @media (min-width: 601px) and (hover: hover) {
+            &:hover {
+                outline       : 1px solid var(--portal-examples-list-link-hover);
+                outline-offset: -1px;
+                transform     : translateY(-2px);
+            }
         }
 
         &:focus-visible {
@@ -114,13 +116,15 @@
     }
 
     .portal-example-open-cue {
-        color      : var(--portal-examples-list-text-muted);
-        flex       : none;
-        font-size  : 12px;
-        font-weight: 500;
-        line-height: 1.2;
-        transition : color var(--motion-fast) var(--ease-out-soft);
-        white-space: nowrap;
+        color          : var(--portal-examples-list-text-muted);
+        cursor         : pointer;
+        flex           : none;
+        font-size      : 12px;
+        font-weight    : 500;
+        line-height    : 1.2;
+        text-decoration: none;
+        transition     : color var(--motion-fast) var(--ease-out-soft);
+        white-space    : nowrap;
     }
 
     .portal-example-feature,
@@ -152,20 +156,27 @@
         overflow  : hidden;
     }
 
-    .neo-list-item:hover,
     .neo-list-item:focus-within,
     .neo-list-item.neo-selected {
-        .portal-example-feature {
-            -webkit-line-clamp: 2;
-        }
-
         .portal-example-more {
             grid-template-rows: 1fr;
         }
     }
 
-    .neo-list-item:hover .portal-example-open-cue {
-        color: var(--portal-examples-list-link-hover);
+    @media (min-width: 601px) and (hover: hover) {
+        .neo-list-item:hover {
+            .portal-example-more {
+                grid-template-rows: 1fr;
+            }
+
+            .portal-example-open-cue {
+                color: var(--portal-examples-list-link-hover);
+            }
+        }
+
+        .portal-example-open-cue:hover {
+            color: var(--portal-examples-list-link-hover);
+        }
     }
 
     .portal-example-look-for {

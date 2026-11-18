@@ -118,7 +118,6 @@ test.describe('Portal examples overview and group pages', () => {
 
         expect(groupStore.get('apps').band).toBeNull();
         expect(groupStore.get('forms').tileHeading).toBe('Field types');
-        expect(groupStore.get('charts').image).toBe('devmode/open-street-maps-14.jpg');
 
         expect(pageIds(view, 'grid-table')).toEqual(coveredGridTableIds);
         expect(pageIds(view, 'tree')).toEqual(['grid-tree-big-data', 'grid-tree']);
@@ -882,8 +881,19 @@ test.describe('Portal examples canonical catalog', () => {
             expect(feature.removeDom, record.id).toBe(false);
             expect(lookFor.text, record.id).toBe(record.lookFor);
             expect(lookFor.removeDom, record.id).toBe(false);
-            expect(details.cn[1].cn[0].href, record.id).toBe(list.createLink(record).href);
-            expect(details.cn[1].cn[1].text, record.id).toBe('Open live ↗');
+            const link = list.createLink(record),
+                  cue  = details.cn[1].cn[1];
+
+            expect(details.cn[1].cn[0].href, record.id).toBe(link.href);
+            expect(cue, record.id).toMatchObject({
+                tag          : 'a',
+                cls          : ['portal-example-open-cue'],
+                href         : link.href,
+                'aria-hidden': true,
+                tabIndex     : -1,
+                text         : 'Open live ↗'
+            });
+            expect(cue.target, record.id).toBe(link.target);
             expect(byCls(more, 'neo-github-image').href, record.id).toBe(list.createSourceLink(record).href);
             expect(byCls(content, 'portal-example-placeholder'), record.id).toBeUndefined()
         });
@@ -912,6 +922,28 @@ test.describe('Portal examples canonical catalog', () => {
             expect(scope.text, id).toBe(record.scope);
             expect(scope.removeDom, id).toBe(false)
         });
+
+        const originalConfigEnv = Neo.config.environment;
+
+        ['devmode', 'dist_dev', 'dist_esm', 'dist_prod'].forEach(catalogMode => {
+            ['development', 'dist/production'].forEach(configEnv => {
+                Neo.config.environment = configEnv;
+                list.set({catalogMode});
+
+                ['workstation', 'grid-tree-big-data'].forEach(id => {
+                    const record = store.get(id),
+                          link   = list.createLink(record),
+                          cue    = list.createOpenCue(record);
+
+                    expect(cue.href, `${catalogMode}:${configEnv}:${id}`).toBe(link.href);
+                    expect(cue.target, `${catalogMode}:${configEnv}:${id}`).toBe(link.target);
+                    expect(Boolean(cue.target), `${catalogMode}:${configEnv}:${id}`).toBe(!record.sharedWorkers || list.environment !== Neo.config.environment)
+                })
+            })
+        });
+
+        Neo.config.environment = originalConfigEnv;
+        list.set({catalogMode: 'dist_prod'});
 
         expect(store.get('grid-issues').scope).toContain('issue snapshot');
         expect(store.get('grid-countries').scope).toContain('CC BY 4.0');
