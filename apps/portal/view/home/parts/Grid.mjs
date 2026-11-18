@@ -2,7 +2,8 @@ import FeatureSection from '../FeatureSection.mjs';
 
 /**
  * @summary The home's grid proof: 300 records under a live feed, beside the code that builds the grid and the
- * feed. Prices tick, changes turn green or red, and each row draws its own trend.
+ * feed. Prices tick, a change is green or red by its sign, each row draws its own trend, and the footer shows
+ * the rate the feed measured.
  * @class Portal.view.home.parts.Grid
  * @extends Portal.view.home.FeatureSection
  */
@@ -29,6 +30,11 @@ class Grid extends FeatureSection {
          */
         learnMoreRoute: '#/learn/guides/datahandling/Grids',
         /**
+         * @member {String} learnMoreText='The grid guide'
+         * @reactive
+         */
+        learnMoreText: 'The grid guide',
+        /**
          * @member {Object[]} links
          * @reactive
          */
@@ -46,7 +52,6 @@ class Grid extends FeatureSection {
          */
         livePreviewCode: [
             "import GridContainer from '../grid/Container.mjs';",
-            "",
             "const pick  = (list, i) => list[i % list.length];",
             "const head  = ['Nova', 'Lumi', 'Astra', 'Verta', 'Kine', 'Orbi', 'Soli', 'Tera'],",
             "      tail  = ['tek', 'cor', 'dyne', 'gen', 'lux', 'nix', 'wave'],",
@@ -54,8 +59,7 @@ class Grid extends FeatureSection {
             "// A random walk: every step moves the price by up to 2.5 %",
             "const walk  = (price, steps) =>",
             "    Array.from({length: steps}, () => price *= 1 + (Math.random() - .5) / 20);",
-            "",
-            "const data = Array.from({length: 300}, (_, id) => {",
+            "const data  = Array.from({length: 300}, (_, id) => {",
             "    const trend = walk(20 + Math.random() * 480, 24), price = trend.at(-1), [open] = trend;",
             "    return {id, name: `${pick(head, id)}${pick(tail, id)} ${pick(trade, id)}`,",
             "            price, trend, open, change: price - open, demand: Math.random() * 100}",
@@ -65,7 +69,10 @@ class Grid extends FeatureSection {
             "    const [price] = walk(record.price, 1), trend = [...record.trend.slice(1), price];",
             "    record.set({price, trend, change: price - record.open})",
             "};",
-            "const money = {type: 'animatedCurrency', compareField: 'change', width: 110};",
+            "const money  = {type: 'animatedCurrency', compareField: 'change', width: 110};",
+            "// A gain is green and a loss is red, also while nothing moves",
+            "const signed = {type: 'currency', width: 110, renderer: ({column: {formatter}, value}) =>",
+            "    ({text: formatter.format(value), style: {color: value < 0 ? '#e54' : '#294'}})};",
             "",
             "class MainView extends GridContainer {",
             "    static config = {",
@@ -73,17 +80,20 @@ class Grid extends FeatureSection {
             "        columns  : [",
             "            {dataField: 'name', text: 'Company', width: 190, locked: 'start'},",
             "            {...money, dataField: 'price', text: 'Price'},",
-            "            {...money, dataField: 'change', text: 'Change'},",
+            "            {...signed, dataField: 'change', text: 'Change'},",
             "            {type: 'sparkline', dataField: 'trend', text: 'Trend', width: 150},",
             "            {type: 'progress', dataField: 'demand', text: 'Demand', width: 126}",
             "        ],",
+            "        footerToolbar: {items: [{ntype: 'label', text: `${data.length} rows`}]},",
             "        store: {data, model: {fields: Object.keys(data[0]).map(name => ({name}))}}",
             "    }",
             "    async onConstructed() {",
             "        super.onConstructed();",
-            "        const {store} = this;",
-            "        for (;;) {",
+            "        const {store} = this, [rate] = this.footerToolbar.items, since = Date.now();",
+            "        for (let done = 0; ; done += 20) {",
             "            await this.timeout(100);",
+            "            const perSecond = done * 1000 / (Date.now() - since) | 0; // the feed's count",
+            "            rate.text = `${store.count} rows · ${perSecond} updates/s`;",
             "            for (let n = 0; n < 20; n++) tick(store.getAt(Math.random() * store.count | 0))",
             "        }",
             "    }",
@@ -94,19 +104,19 @@ class Grid extends FeatureSection {
          * @member {String} paragraph
          */
         paragraph: [
-            'A feed changes twenty of 300 records every tenth of a second, and the grid follows: prices tick, ',
+            'A feed changes twenty of 300 records ten times a second, and the grid follows: prices tick, ',
             'changes turn green or red, each row draws its trend. It runs in a worker, so scrolling never waits ',
-            'for the feed. Change the code and the grid follows, or move it into its own window.'
+            'for the feed. Change the code, or move the grid into its own window.'
         ].join(''),
         /**
          * @member {Boolean} sideBySide=true
          */
         sideBySide: true,
         /**
-         * @member {String} subHeadline='Live Data · 44 Lines'
+         * @member {String} subHeadline='Live Data · 48 Lines'
          * @reactive
          */
-        subHeadline: 'Live Data · 44 Lines',
+        subHeadline: 'Live Data · 48 Lines',
         /**
          * @member {String} textContainerPosition='top'
          * @reactive

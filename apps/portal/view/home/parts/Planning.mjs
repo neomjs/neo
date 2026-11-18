@@ -1,9 +1,9 @@
 import FeatureSection from '../FeatureSection.mjs';
 
 /**
- * @summary The home's planning proof, new in Engine 14: one release plan as a Gantt chart over a task board,
- * both on one store, beside the code that builds them. A card moved to another column recolours its bar, and a
- * moved bar takes its successors along.
+ * @summary The home's planning proof, new in version 14: one release plan as a Gantt chart over a task board,
+ * both on one store, beside the code that builds them. The selected card's bar is highlighted, a card moved to
+ * another column recolours its bar, and a moved bar takes its successors along.
  * @class Portal.view.home.parts.Planning
  * @extends Portal.view.home.FeatureSection
  */
@@ -30,6 +30,11 @@ class Planning extends FeatureSection {
          */
         learnMoreRoute: '#/learn/guides/datahandling/Gantt',
         /**
+         * @member {String} learnMoreText='The Gantt guide'
+         * @reactive
+         */
+        learnMoreText: 'The Gantt guide',
+        /**
          * @member {Object[]} links
          * @reactive
          */
@@ -51,7 +56,6 @@ class Planning extends FeatureSection {
             "import Gantt     from '../gantt/Container.mjs';",
             "import TaskModel from '../gantt/TaskModel.mjs';",
             "import TaskStore from '../gantt/TaskStore.mjs';",
-            "",
             "const colors = {'To do': '#9ab', Doing: '#48f', Review: '#fa0', Done: '#2c6'};",
             "const day    = n => `2026-11-${String(n).padStart(2, '0')}`;",
             "let phase; // rows: [title, from, to, status, % done, who] · no status: a phase",
@@ -67,29 +71,30 @@ class Planning extends FeatureSection {
             "    ['Launch',        17, 21],",
             "    ['Load test',     17, 19, 'To do',    0, 'Cy Tran'],",
             "    ['Go live',       19, 21, 'To do',    0, 'Ana Ruiz']",
-            "].map(([title, from, to, status, progress, assignees], i) => ({",
-            "    id: `${i}`, title, status, progress, assignees, startDate: day(from), endDate: day(to),",
-            "    isLeaf: !!status, collapsed: false, parentId: status ? phase : (phase = `${i}`, null)",
-            "}));",
+            "].map(([title, from, to, status, progress, assignees], i) => ({id: `${i}`, title, status,",
+            "    progress, assignees, startDate: day(from), endDate: day(to), isLeaf: !!status,",
+            "    collapsed: false, parentId: status ? phase : (phase = `${i}`, null)}));",
             "const links = [[1, 2], [2, 3], [3, 5], [3, 6], [5, 7], [6, 7], [7, 9], [9, 10]]",
             "    .map(([fromId, toId], id) => ({id, fromId, toId}));",
             "const fields = ['status', 'progress', 'order', 'assignees'].map(name => ({name}));",
+            "const plan   = {module: TaskStore, data: tasks, model: {module: TaskModel, fields}};",
             "",
             "class MainView extends Container {",
             "    static config = {",
-            "        className    : 'Portal.view.HomePlanning',",
-            "        layout       : {ntype: 'vbox', align: 'stretch'},",
-            "        stateProvider: {stores: {plan: {module: TaskStore, data: tasks,",
-            "                                        model: {module: TaskModel, fields}}}},",
-            "        items: [{",
+            "        className: 'Portal.view.HomePlanning', stateProvider: {stores: {plan}},",
+            "        layout: {ntype: 'vbox', align: 'stretch'}, items: [{",
             "            module: Gantt, bind: {store: 'stores.plan'}, dependencyStore: {data: links},",
             "            height: 366, rowHeight: 26, percentDoneField: 'progress',",
-            "            barRenderer: ({bar}, {vdom}) => {vdom.style.background = colors[bar.status]},",
+            "            barRenderer: ({bar}, {vdom}) => { // its status colour; the tree names the task",
+            "                vdom.style.background = colors[bar.status]; return ''},",
             "            taskColumns: [{type: 'tree', dataField: 'title', text: 'Task', width: 160}],",
-            "            timeAxis   : {start: day(2), end: day(22), tickUnit: 'day', pxPerMinute: .018}",
+            "            timeAxis   : {start: day(2), end: day(22), tickUnit: 'day', pxPerMinute: .018},",
+            "            timelineColumnConfig: {highlightedRecordIds: ['3']} // the selected card's bar",
             "        }, {",
-            "            module : Board, bind: {store: 'stores.plan'}, flex: 1,",
-            "            columns: Object.entries(colors).map(([status, color]) => ({status, color}))",
+            "            module: Board, bind: {store: 'stores.plan'}, flex: 1,",
+            "            columns: Object.entries(colors).map(([status, color]) => ({status, color})),",
+            "            selectionModel: {items: ['3']}, listeners: {selectionChange({selection}) {",
+            "                this.parent.items[0].timelineColumn.highlightedRecordIds = selection}}",
             "        }]",
             "    }",
             "}",
@@ -99,19 +104,19 @@ class Planning extends FeatureSection {
          * @member {String} paragraph
          */
         paragraph: [
-            'One store holds the plan; the Gantt chart and the board both show it. Drag a card to Done and its bar ',
-            'turns green; move a bar and its successors follow. The code next to it is all of it; change it and ',
-            'both views follow.'
+            'New in version 14, MIT-licensed. One store holds the plan, and the Gantt chart and the board both ',
+            'show it: drag a card to Done and its bar turns green, move a bar and its successors follow. Change ',
+            'the code and both follow.'
         ].join(''),
         /**
          * @member {Boolean} sideBySide=true
          */
         sideBySide: true,
         /**
-         * @member {String} subHeadline='New in Engine 14'
+         * @member {String} subHeadline='One Store · 48 Lines'
          * @reactive
          */
-        subHeadline: 'New in Engine 14',
+        subHeadline: 'One Store · 48 Lines',
         /**
          * @member {String} textContainerPosition='top'
          * @reactive

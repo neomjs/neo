@@ -60,8 +60,8 @@ class MainContainer extends Container {
             {ntype: 'component', cls: ['portal-home-progress']},
             HeroContainer,
             {module: AudienceDoors, reference: 'home-audience-doors'},
-            {module: Grid,          reference: 'home-body-entry'},
-            Planning,
+            {module: Planning,      reference: 'home-body-entry'},
+            Grid,
             How,
             Features,
             {module: AiToolchain,   reference: 'home-agent-os'}

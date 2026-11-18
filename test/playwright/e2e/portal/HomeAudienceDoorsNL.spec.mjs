@@ -129,7 +129,7 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
         expect(hero?.id).toBeTruthy();
         expect(planning?.id).toBeTruthy();
         expect(doors?.className).toBe('Portal.view.home.parts.AudienceDoors');
-        expect(bodyEntry?.className).toBe('Portal.view.home.parts.Grid');
+        expect(bodyEntry?.className).toBe('Portal.view.home.parts.Planning');
         expect(agentOs?.className).toBe('Portal.view.home.parts.AiToolchain');
 
         const doorBuild     = await queryOne(app, {reference: 'door-build'});
@@ -189,7 +189,7 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
         await expect(agentsCtaEl).toHaveAttribute('href', `#${agentOs.id}`);
         expect(await buildCtaEl.getAttribute('target')).toBeNull();
         expect(await agentsCtaEl.getAttribute('target')).toBeNull();
-        await expect(page.locator(`#${bodyEntry.id}`)).toHaveClass(/portal-home-parts-grid/);
+        await expect(page.locator(`#${bodyEntry.id}`)).toHaveClass(/portal-home-parts-planning/);
         await expect(page.locator(`#${agentOs.id}`)).toHaveClass(/portal-home-parts-aitoolchain/);
 
         const initialHeaderHeight = await page.locator(`#${header.id}`).evaluate(el => el.getBoundingClientRect().height);

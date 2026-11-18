@@ -50,6 +50,12 @@ class FeatureSection extends Container {
          */
         learnMoreRoute_: null,
         /**
+         * The text of the button that opens `learnMoreRoute`
+         * @member {String} learnMoreText_='Learn more'
+         * @reactive
+         */
+        learnMoreText_: 'Learn more',
+        /**
          * Routes shown as a row of links under the paragraph, each `{route, text}`
          * @member {Object[]|null} links_=null
          * @reactive
@@ -122,7 +128,6 @@ class FeatureSection extends Container {
             }, {
                 module   : Button,
                 reference: 'learn-more-button',
-                text     : 'Learn more',
                 ui       : 'secondary'
             }]
         }, {
@@ -169,12 +174,19 @@ class FeatureSection extends Container {
         let {sideBySide} = this;
 
         // A side-by-side preview is its active view from the start: activate() runs it.
-        // Its code column is half the page: the smaller type shows a snippet of 45 lines whole.
+        // Its code column is half the page: the smaller type shows a snippet of 48 lines whole. Without a
+        // horizontal scrollbar the code has nothing left to scroll, so a wheel over it moves the page on;
+        // `scrollbar` replaces the editor's own default, which is why that default is repeated.
         value ??= [{
             module          : LivePreview,
             cls             : ['page-live-preview'],
             disableRunSource: sideBySide,
-            editorConfig    : sideBySide ? {fontSize: 12, options: {folding: false, lineHeight: 14, lineNumbersMinChars: 3}} : null,
+            editorConfig    : sideBySide ? {fontSize: 12, options: {
+                folding            : false,
+                lineHeight         : 14,
+                lineNumbersMinChars: 3,
+                scrollbar          : {alwaysConsumeMouseWheel: false, horizontal: 'hidden'}
+            }} : null,
             reference       : 'live-preview',
             sideBySide,
             value           : this.livePreviewCode
@@ -211,6 +223,16 @@ class FeatureSection extends Container {
     afterSetLearnMoreRoute(value, oldValue) {
         let targetConfig = value.startsWith('http') ? 'url' : 'route';
         this.getItem('learn-more-button')[targetConfig] = value
+    }
+
+    /**
+     * Triggered after the learnMoreText config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetLearnMoreText(value, oldValue) {
+        this.getItem('learn-more-button').text = value
     }
 
     /**

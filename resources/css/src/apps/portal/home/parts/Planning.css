@@ -6,15 +6,4 @@
         --neo-board-gap         : 8px;
         --neo-board-padding     : 8px;
     }
-
-    /* A bar of two days is too narrow for its title: the tree column names the task */
-    .neo-timeline-bar {
-        container-type: inline-size;
-    }
-
-    @container (max-width: 50px) {
-        .neo-timeline-bar-label {
-            display: none;
-        }
-    }
 }

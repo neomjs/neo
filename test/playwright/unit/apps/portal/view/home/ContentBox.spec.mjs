@@ -124,17 +124,26 @@ test.describe('Portal.view.home.ContentBox', () => {
                 expect(headingNode?.className).toContain('neo-h1');
             }
 
-            for (const subHeadline of [Grid.config.subHeadline, 'New in Engine 14', 'How does Neo.mjs do it?']) {
+            for (const subHeadline of [Grid.config.subHeadline, Planning.config.subHeadline, 'How does Neo.mjs do it?']) {
                 const subNode = h3Nodes.find(node => node.textContent === subHeadline);
                 expect(subNode?.className).toContain('neo-h2');
             }
 
-            // The grid page's sub-headline counts its own snippet, whose feed writes records
+            // Each sub-headline counts its own snippet; the grid's feed writes records and measures its own rate
             expect(Grid.config.subHeadline).toBe(`Live Data · ${Grid.config.livePreviewCode.split('\n').length} Lines`);
+            expect(Planning.config.subHeadline).toBe(`One Store · ${Planning.config.livePreviewCode.split('\n').length} Lines`);
             expect(Grid.config.livePreviewCode).toContain('record.set(');
+            expect(Grid.config.livePreviewCode).toContain('done * 1000 / (Date.now() - since)');
 
-            // The planning page binds one store to both of its views
+            // The planning page binds one store to both of its views, and comes first
             expect(Planning.config.livePreviewCode.match(/bind: \{store: 'stores\.plan'\}/g)).toHaveLength(2);
+            expect(home.getItem('home-body-entry').className).toBe('Portal.view.home.parts.Planning');
+
+            // The card selected at rest and the bar highlighted at rest are one task
+            const [, highlightedBar] = Planning.config.livePreviewCode.match(/highlightedRecordIds: \['(\d+)'\]/),
+                  [, selectedCard]   = Planning.config.livePreviewCode.match(/selectionModel: \{items: \['(\d+)'\]\}/);
+
+            expect(highlightedBar).toBe(selectedCard);
 
             // Both snippets build from engine classes alone, and fit the code column of a 1440×900 window whole:
             // 48 lines of 91 characters in the type the page gives its editor
@@ -162,6 +171,13 @@ test.describe('Portal.view.home.ContentBox', () => {
             const learnMoreButton = gridSection.getItem('learn-more-button');
             expect(learnMoreButton.route).toBe('#/learn/guides/datahandling/Grids');
             expect(learnMoreButton.vdom.href).toBe('#/learn/guides/datahandling/Grids');
+
+            // A component page's button names its guide; a page without its own text keeps the default
+            const buttonText = part => home.items.find(item => item.className === `Portal.view.home.parts.${part}`).getItem('learn-more-button').text;
+
+            expect(buttonText('Grid')).toBe('The grid guide');
+            expect(buttonText('Planning')).toBe('The Gantt guide');
+            expect(buttonText('How')).toBe('Learn more');
 
             // A component page shows its code beside the result, and names the other families as routes
             const livePreview = gridSection.getReference('live-preview'),

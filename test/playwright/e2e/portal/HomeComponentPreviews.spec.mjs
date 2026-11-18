@@ -69,11 +69,30 @@ function readBars(section) {
 }
 
 /**
- * @summary The home's two component pages: a grid under a live feed, and one plan as a Gantt chart and a task
- * board on one store, each built by the code shown beside it.
- * Covers what a unit test cannot see: both halves on screen inside one snap page, the feed reaching the cells,
- * the preview following an edit, a card move recolouring its bar and a bar move taking its successors along, the
- * links to the other families, the wheel passing the code on its way down the page, and the phone layout.
+ * @summary Asserts that a page's sub-headline counts the lines its editor shows.
+ * @param {import('@playwright/test').Locator} section
+ */
+async function expectLineCount(section) {
+    const subHeadline = await section.getByRole('heading', {level: 3}).textContent();
+
+    await expect(section.locator('.view-line')).toHaveCount(Number(subHeadline.match(/(\d+) Lines/)[1]))
+}
+
+/**
+ * @param {import('@playwright/test').Locator} section
+ * @returns {Promise<String[]>} The routes of the page's links to the other families
+ */
+function readLinks(section) {
+    return section.locator('.portal-content-links a').evaluateAll(nodes => nodes.map(node => node.getAttribute('href')))
+}
+
+/**
+ * @summary The home's two component pages: one plan as a Gantt chart and a task board on one store, and a grid
+ * under a live feed, each built by the code shown beside it.
+ * Covers what a unit test cannot see: both halves on screen inside one snap page, the selected card's bar
+ * highlighted and following a click, a card move recolouring its bar and a bar move taking its successors along,
+ * the feed reaching the cells, a change coloured by its sign, the rate the feed measured, the preview following an
+ * edit, the links to the other families, the wheel passing the code on its way down the page, and the phone layout.
  */
 test.describe('Portal home: the live grid and the plan beside their code', () => {
     test.setTimeout(120000);
@@ -81,71 +100,49 @@ test.describe('Portal home: the live grid and the plan beside their code', () =>
     test('desktop: code and result share one snap page, the views follow their data, and the families are linked', async ({page, neuralLink}) => {
         const errors = [];
 
-        page.on('console',   message => {message.type() === 'error' && errors.push(message.text())});
+        // A view that changes its height after the first render warns here: a cell registers on a node that is gone
+        page.on('console',   message => {(message.type() === 'error' || message.text().includes('target node not found')) && errors.push(message.text())});
         page.on('pageerror', error => errors.push(error.message));
 
         await page.setViewportSize({width: 1440, height: 900});
         await page.goto(HOME_URL);
 
-        const app    = await neuralLink.connectToApp('Portal'),
-              grid   = await openPage(page, '.portal-home-parts-grid', '.neo-grid-row'),
-              layout = await readLayout(grid);
+        // The plan comes first: eleven bars, eight cards in four columns
+        const app      = await neuralLink.connectToApp('Portal'),
+              planning = await openPage(page, '.portal-home-parts-planning', '.neo-timeline-bar'),
+              layout   = await readLayout(planning);
 
         expectWholeSnippetBesideResult(layout);
 
-        await expect(grid.getByRole('heading', {level: 2})).toHaveText('Data Grid');
-        await expect(grid.locator('.neo-grid-row').first()).toContainText('Novatek Energy');
-
-        // The sub-headline counts the lines the editor shows
-        const lines = await grid.getByRole('heading', {level: 3}).textContent();
-
-        await expect(grid.locator('.view-line')).toHaveCount(Number(lines.match(/(\d+) Lines/)[1]));
-
-        // The feed reaches the cells: the prices on screen change by themselves
-        const prices = () => grid.locator('.neo-grid-row').evaluateAll(rows => rows.map(row => row.innerText).join('|'));
-        const before = await prices();
-
-        await expect.poll(prices, {timeout: 10000}).not.toBe(before);
-
-        // The other families are one click away
-        const links = await grid.locator('.portal-content-links a').evaluateAll(nodes => nodes.map(node => node.getAttribute('href')));
-
-        expect(links).toEqual([
-            '#/examples/grid-table', '#/examples/forms', '#/examples/scheduler', '#/examples/gantt',
-            '#/examples/board', '#/examples/calendar', '#/examples/dashboard'
-        ]);
-
-        // Changing the code changes the grid, and the feed keeps running on the smaller store
-        const editorId = await grid.locator('.neo-monaco-editor').getAttribute('id');
-
-        await expect.poll(() => page.evaluate(id => Boolean(Neo.main.addon.MonacoEditor.map[id]?.getModel()), editorId)).toBe(true);
-        await page.evaluate(id => {
-            const editor = Neo.main.addon.MonacoEditor.map[id];
-
-            editor.setValue(editor.getValue().replace('length: 300', 'length: 3').replace("text: 'Price'", "text: 'Quote'"))
-        }, editorId);
-
-        await expect(grid.locator('.neo-grid-header-button', {hasText: 'Quote'})).toBeVisible({timeout: 15000});
-        await expect(grid.getByText('Astradyne Logistics')).toBeVisible();
-        await expect(grid.getByText('Vertagen Biotech')).toHaveCount(0);
-
-        // The wheel over the code moves the page on: the snippet has nothing left to scroll
-        const home      = page.locator('.portal-home-maincontainer'),
-              scrollTop = await home.evaluate(node => node.scrollTop);
-
-        await page.mouse.move(layout.editor.left + 200, layout.editor.top + 200);
-        await page.mouse.wheel(0, 900);
-        await expect.poll(() => home.evaluate(node => node.scrollTop), {timeout: 10000}).toBeGreaterThan(scrollTop + 300);
-
-        // The plan follows, built the same way: eleven bars, eight cards in four columns
-        const planning = await openPage(page, '.portal-home-parts-planning', '.neo-timeline-bar');
-
-        expectWholeSnippetBesideResult(await readLayout(planning));
-
-        await expect(planning.getByRole('heading', {level: 3})).toHaveText('New in Engine 14');
+        await expect(planning.getByRole('heading', {level: 2})).toHaveText('Gantt & Task Board');
+        await expectLineCount(planning);
+        await expect(planning.getByRole('link', {name: 'The Gantt guide'})).toBeVisible();
         await expect(planning.locator('.neo-timeline-bar')).toHaveCount(11);
         await expect(planning.locator('.neo-board-column')).toHaveCount(4);
         await expect(planning.locator('.neo-board-card')).toHaveCount(8);
+
+        // No bar carries a label: the tree names the tasks, so no connector crosses a word
+        expect(await planning.locator('.neo-timeline-bar-label').allTextContents()).toEqual(Array(11).fill(''));
+
+        // At rest one task is one record in both views: the selected card, and its bar highlighted
+        const highlighted = () => planning.locator('.neo-timeline-bar-highlighted').evaluateAll(bars => bars.map(bar => bar.dataset.eventId)),
+              selected    = planning.locator('.neo-board-card.neo-selected');
+
+        await expect(selected).toHaveCount(1);
+        await expect(selected).toContainText('Prototype');
+        expect(await highlighted()).toEqual(['3']);
+
+        // A click on another card moves the highlight to that card's bar
+        await planning.locator('.neo-board-card', {hasText: 'Data layer'}).click({position: {x: 20, y: 12}});
+
+        await expect(selected).toContainText('Data layer');
+        await expect.poll(highlighted).toEqual(['5']);
+
+        // The planning page links its own families first
+        expect(await readLinks(planning)).toEqual([
+            '#/examples/gantt', '#/examples/board', '#/examples/grid-table', '#/examples/forms',
+            '#/examples/scheduler', '#/examples/calendar', '#/examples/dashboard'
+        ]);
 
         // One store under both views
         const [board] = [].concat(await app.queryComponent({className: 'Neo.board.Container'}, ['id'])),
@@ -176,12 +173,70 @@ test.describe('Portal home: the live grid and the plan beside their code', () =>
         expect(moved[6].left).toBe(atRest[6].left);
         await expect(planning.locator('.neo-board-card')).toHaveCount(8);
 
-        // The keyboard moves the page on as well, once the page itself was clicked
-        const atPlanning = await home.evaluate(node => node.scrollTop);
+        // The wheel over the code moves the page on: the snippet has nothing left to scroll
+        const home      = page.locator('.portal-home-maincontainer'),
+              scrollTop = await home.evaluate(node => node.scrollTop);
 
-        await planning.locator('.portal-content-text > p').click();
+        await page.mouse.move(layout.editor.left + 200, layout.editor.top + 200);
+        await page.mouse.wheel(0, 900);
+        await expect.poll(() => home.evaluate(node => node.scrollTop), {timeout: 10000}).toBeGreaterThan(scrollTop + 300);
+
+        // The grid follows, built the same way
+        const grid   = await openPage(page, '.portal-home-parts-grid', '.neo-grid-row'),
+              footer = grid.locator('.neo-grid-footer-toolbar');
+
+        expectWholeSnippetBesideResult(await readLayout(grid));
+
+        await expect(grid.getByRole('heading', {level: 2})).toHaveText('Data Grid');
+        await expectLineCount(grid);
+        await expect(grid.getByRole('link', {name: 'The grid guide'})).toBeVisible();
+        await expect(grid.locator('.neo-grid-row').first()).toContainText('Novatek Energy');
+
+        // The feed reaches the cells: the prices on screen change by themselves
+        const prices = () => grid.locator('.neo-grid-row').evaluateAll(rows => rows.map(row => row.innerText).join('|'));
+        const before = await prices();
+
+        await expect.poll(prices, {timeout: 10000}).not.toBe(before);
+
+        // A change is coloured by its sign in every row on screen, also in one the feed has not touched
+        const changes = await grid.locator('.neo-grid-cell[data-field="change"]').evaluateAll(cells => cells.map(cell => [
+            cell.innerText.trim().startsWith('-'), getComputedStyle(cell).color
+        ]));
+
+        expect(changes.length).toBeGreaterThan(10);
+        changes.forEach(([loss, color]) => expect(color).toBe(loss ? 'rgb(238, 85, 68)' : 'rgb(34, 153, 68)'));
+
+        // The footer shows the rows and the rate the feed measured
+        await expect(footer).toHaveText(/300 rows · \d+ updates\/s/);
+        await expect.poll(async () => Number((await footer.innerText()).match(/· (\d+) updates/)?.[1]), {timeout: 10000}).toBeGreaterThan(0);
+
+        // The other families are one click away
+        expect(await readLinks(grid)).toEqual([
+            '#/examples/grid-table', '#/examples/forms', '#/examples/scheduler', '#/examples/gantt',
+            '#/examples/board', '#/examples/calendar', '#/examples/dashboard'
+        ]);
+
+        // Changing the code changes the grid, and the feed keeps running on the smaller store
+        const editorId = await grid.locator('.neo-monaco-editor').getAttribute('id');
+
+        await expect.poll(() => page.evaluate(id => Boolean(Neo.main.addon.MonacoEditor.map[id]?.getModel()), editorId)).toBe(true);
+        await page.evaluate(id => {
+            const editor = Neo.main.addon.MonacoEditor.map[id];
+
+            editor.setValue(editor.getValue().replace('length: 300', 'length: 3').replace("text: 'Price'", "text: 'Quote'"))
+        }, editorId);
+
+        await expect(grid.locator('.neo-grid-header-button', {hasText: 'Quote'})).toBeVisible({timeout: 15000});
+        await expect(grid.getByText('Astradyne Logistics')).toBeVisible();
+        await expect(grid.getByText('Vertagen Biotech')).toHaveCount(0);
+        await expect(footer).toHaveText(/3 rows · \d+ updates\/s/);
+
+        // The keyboard moves the page on as well, once the page itself was clicked
+        const atGrid = await home.evaluate(node => node.scrollTop);
+
+        await grid.locator('.portal-content-text > p').click();
         await page.keyboard.press('PageDown');
-        await expect.poll(() => home.evaluate(node => node.scrollTop), {timeout: 10000}).toBeGreaterThan(atPlanning + 300);
+        await expect.poll(() => home.evaluate(node => node.scrollTop), {timeout: 10000}).toBeGreaterThan(atGrid + 300);
 
         // Neither page asks for a file of the former demos
         const requested = await page.evaluate(() => performance.getEntriesByType('resource').map(entry => entry.name));
