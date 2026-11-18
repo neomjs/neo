@@ -31,6 +31,7 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'core/RefreshDomCorpseRepro.spec.mjs',
     'core/SourceMoveWorkspaceNL.spec.mjs',
     'core/SplitterLiveResizeNL.spec.mjs',
+    'core/WorkbenchCodeViewNL.spec.mjs',
     'dashboard/DemoADragMenuNL.spec.mjs',
     'dashboard/DemoATourNL.spec.mjs',
     'dashboard/DemoBCrossWindowDragNL.spec.mjs',
