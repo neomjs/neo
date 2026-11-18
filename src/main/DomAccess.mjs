@@ -247,6 +247,7 @@ class DomAccess extends Base {
      * @param {String} data.id
      * @param {String|HTMLElement|{x:Number,y:Number,width:Number,height:Number}} [data.target]
      * @param {String|HTMLElement} [data.constrainTo]
+     * @param {Boolean} [data.exposeGap] Writes the gap to the target on the subject, see {@link #writeGap}
      * @returns {Promise<void>}
      */
     async align(data) {
@@ -323,6 +324,8 @@ class DomAccess extends Base {
             previousPosition && subject.classList.remove(`neo-aligned-${previousPosition}`);
             subject.classList.add(positionCls)
         }
+
+        data.exposeGap && me.writeGap(subject, Rectangle.gapBetween(align.target, result));
 
         // Register an alignment to be kept in sync
         me.addAligned(data)
@@ -1269,6 +1272,7 @@ class DomAccess extends Base {
         constrainToElement && _alignResizeObserver.unobserve(constrainToElement);
 
         subject.classList.remove(`neo-aligned-${align.result?.position}`);
+        align.exposeGap && me.writeGap(subject, null);
 
         me._aligns.delete(align.id)
     }
@@ -1795,6 +1799,23 @@ class DomAccess extends Base {
             behavior: data.behavior || 'smooth',
             left    : data.left     || 0,
             top     : data.top      || 0
+        })
+    }
+
+    /**
+     * @summary Writes the gap between an aligned subject and its target ({@link Neo.util.Rectangle.gapBetween}) as
+     * the custom properties `--neo-align-gap-{height|left|top|width}` on the subject, in px relative to its box, or
+     * removes them once the boxes touch. Every alignment writes them, a resync of a resize or scroll included, so a
+     * subject that bridges the gap in CSS, like a hoverable tooltip's hit area, follows each realign Main makes alone.
+     * @param {HTMLElement} subject
+     * @param {{height: Number, left: Number, top: Number, width: Number}|null} gap
+     * @protected
+     */
+    writeGap(subject, gap) {
+        ['height', 'left', 'top', 'width'].forEach(key => {
+            let name = `--neo-align-gap-${key}`;
+
+            gap ? subject.style.setProperty(name, `${gap[key]}px`) : subject.style.removeProperty(name)
         })
     }
 }

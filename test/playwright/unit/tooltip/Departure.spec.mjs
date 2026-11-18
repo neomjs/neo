@@ -142,6 +142,21 @@ test.describe('Neo.tooltip.Base — where the pointer goes decides when a toolti
 
         await expect.poll(() => host.mounted).toBe(false)
     });
+
+    test('an explicit hideDelay of 0 hides at once, with no retarget window', async () => {
+        const {host: unset} = makeHost(),
+              {host}        = makeHost({hideDelay: 0, stayOnHover: false});
+
+        await showOn(unset, 'target-1');
+        unset.onDelegateMouseLeave({currentTarget: 'target-1', relatedTarget: {id: 'page'}});
+        expect(unset.hideDelayTaskId, 'control: an unset hideDelay waits the retarget window').not.toBe(null);
+
+        await showOn(host, 'target-2');
+        host.onDelegateMouseLeave({currentTarget: 'target-2', relatedTarget: {id: host.id}});
+
+        expect(host.hideDelayTaskId, 'no timer').toBe(null);
+        expect(host.mounted, 'hidden within the departure').toBe(false)
+    });
 });
 
 test.describe('Neo.tooltip.Base — one visible tooltip per window, and a warm switch', () => {
@@ -266,6 +281,46 @@ test.describe('Neo.tooltip.Base — one visible tooltip per window, and a warm s
         await expect.poll(() => log).toEqual(['first in', 'first out', 'second in'])
     });
 
+    test('a tooltip its target left while its insert is held keeps the next one out of the DOM until it left', async () => {
+        const {host: first}  = makeHost({windowId: 'departed-flight-window'}),
+              {host: second} = makeHost({windowId: 'departed-flight-window', showDelay: 0});
+        let release;
+
+        first.initVnode = () => new Promise(resolve => {release = () => {first.mounted = true; resolve()}});
+        first.onDelegateMouseEnter({currentTarget: 'target-1'});
+        first.activeTarget = {id: 'target-1'};
+        await expect.poll(() => typeof release, 'control: the show started its insert').toBe('function');
+
+        // The departure retires the first one before the second target is entered
+        first.onDelegateMouseLeave({currentTarget: 'target-1', relatedTarget: {id: 'page'}});
+        second.onDelegateMouseEnter({currentTarget: 'target-2'});
+        await wait(40);
+        expect(second.mounted, 'not while the first one\'s insert is on its way').toBe(false);
+
+        release();
+        await expect.poll(() => second.mounted).toBe(true);
+        expect(first.mounted, 'the first one landed hidden and left').toBe(false)
+    });
+
+    test('a tooltip its target left while its removal is held keeps the next one out of the DOM until it left', async () => {
+        const {host: first}  = makeHost({windowId: 'departed-removal-window'}),
+              {host: second} = makeHost({windowId: 'departed-removal-window', showDelay: 0});
+        let releaseRemoval;
+
+        await showOn(first, 'target-1');
+        first.unmount = () => {first.mounted = false; return new Promise(resolve => {releaseRemoval = resolve})};
+
+        first.onDelegateMouseLeave({currentTarget: 'target-1', relatedTarget: {id: 'page'}});
+        await expect.poll(() => typeof releaseRemoval, 'control: the departure started the removal').toBe('function');
+
+        second.onDelegateMouseEnter({currentTarget: 'target-2'});
+        await wait(40);
+        expect(second.mounted, 'not while the first one is still in the DOM').toBe(false);
+
+        releaseRemoval();
+        await expect.poll(() => second.mounted).toBe(true)
+    });
+
     test('a shared tooltip a target turns off stay-on-hover lets a move onto it dismiss it', async () => {
         const {host} = makeHost({stayOnHover: false});
 
@@ -275,30 +330,5 @@ test.describe('Neo.tooltip.Base — one visible tooltip per window, and a warm s
         host.onMouseEnter({path: [{id: host.id}]});
 
         await expect.poll(() => host.mounted, {timeout: 150}).toBe(false)
-    })
-});
-
-test.describe('Neo.tooltip.Base.bridgeBetween — the hit area across the gap to the target', () => {
-    const target = {height: 30, width: 80, x: 100, y: 100};
-
-    test('below or above the target, it spans the gap across both boxes', () => {
-        expect(Tooltip.bridgeBetween(target, {height: 24, width: 120, x: 90, y: 140}), 'below, the default 10px gap')
-            .toEqual({height: 10, left: 0, top: -10, width: 120});
-        expect(Tooltip.bridgeBetween(target, {height: 24, width: 60, x: 130, y: 152}), 'below, offset by 12px and narrower')
-            .toEqual({height: 22, left: -30, top: -22, width: 90});
-        expect(Tooltip.bridgeBetween(target, {height: 24, width: 120, x: 90, y: 66}), 'above')
-            .toEqual({height: 10, left: 0, top: 24, width: 120})
-    });
-
-    test('beside the target, it spans the gap along both boxes', () => {
-        expect(Tooltip.bridgeBetween(target, {height: 24, width: 60, x: 190, y: 103}), 'to the right')
-            .toEqual({height: 30, left: -10, top: -3, width: 10});
-        expect(Tooltip.bridgeBetween(target, {height: 24, width: 60, x: 30, y: 103}), 'to the left')
-            .toEqual({height: 30, left: 60, top: -3, width: 10})
-    });
-
-    test('touching or overlapping boxes need no bridge', () => {
-        expect(Tooltip.bridgeBetween(target, {height: 24, width: 120, x: 90, y: 130})).toBe(null);
-        expect(Tooltip.bridgeBetween(target, {height: 24, width: 120, x: 90, y: 110})).toBe(null)
     })
 });

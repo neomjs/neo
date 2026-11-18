@@ -15,7 +15,7 @@ const TOOLTIP = '.neo-tooltip',
       SHARED  = '#tooltip-departure-shared-1';
 
 /**
- * Hovers a target and waits for its tooltip, and for the hit area the tooltip measures across the gap once aligned
+ * Hovers a target and waits for its tooltip, and for the gap Main writes on it once aligned, which its hit area spans
  * @param {import('@playwright/test').Page} page
  * @param {String} selector
  * @param {String} text
@@ -23,8 +23,8 @@ const TOOLTIP = '.neo-tooltip',
 async function hoverUntilShown(page, selector, text) {
     await page.locator(selector).hover();
     await expect(page.locator(TOOLTIP)).toHaveText(text);
-    await expect.poll(() => page.locator(TOOLTIP).evaluate(node => node.style.getPropertyValue('--tooltip-bridge-height')),
-        'the bridge across the gap is measured').not.toBe('')
+    await expect.poll(() => page.locator(TOOLTIP).evaluate(node => node.style.getPropertyValue('--neo-align-gap-height')),
+        'the gap to the target is written').not.toBe('')
 }
 
 /**
@@ -79,6 +79,52 @@ test.describe('Neo.tooltip.Base: where the pointer goes decides when a tooltip h
         await expect(page.locator(TOOLTIP), 'control: reached across the gap').toHaveCount(1);
 
         await page.mouse.move(to.x, tip.y + tip.height + 5, {steps: 4});
+        await expect(page.locator(TOOLTIP), '5px past its far edge is outside it').toHaveCount(0, {timeout: 300})
+    });
+
+    test('a constraint that shrinks under a shown tooltip flips it above its target, and the hit area moves into the new gap', async ({page}) => {
+        // A box the tooltip aligns within, which Main observes. Shrinking it realigns the mounted tooltip in Main
+        // alone, as a window resize does, while the target stays under the pointer: a resize re-centers this page.
+        await page.evaluate(() => document.body.appendChild(Object.assign(document.createElement('div'), {id: 'tooltip-departure-frame'})));
+        await page.locator('#tooltip-departure-frame').evaluate(frame => Object.assign(frame.style, {
+            height: '100vh', left: 0, pointerEvents: 'none', position: 'fixed', top: 0, visibility: 'hidden', width: '100vw'
+        }));
+        await page.workers().find(worker => worker.url().includes('/worker/App.mjs')).evaluate(() => {
+            const tooltip = Neo.getComponent('tooltip-departure-own-1')._tooltip;
+
+            tooltip.align = {...tooltip.align, constrainTo: 'tooltip-departure-frame'}
+        });
+
+        await hoverUntilShown(page, OWN_1, 'Own tooltip one');
+        await expect(page.locator(TOOLTIP), 'control: aligned below its target first').toHaveClass(/neo-aligned-bottom/);
+
+        const below = await page.locator(OWN_1).boundingBox(),
+              first = await page.locator(TOOLTIP).boundingBox(),
+              left  = Math.floor(Math.min(below.x, first.x) - 2);
+
+        // No room beside the target or below it, so the only side left is above
+        await page.locator('#tooltip-departure-frame').evaluate((frame, {height, left, width}) => Object.assign(frame.style, {
+            height: `${height}px`, left: `${left}px`, width: `${width}px`
+        }), {
+            height: Math.ceil(below.y + below.height + 20),
+            left,
+            width : Math.ceil(Math.max(below.x + below.width, first.x + first.width) + 2 - left)
+        });
+        await expect(page.locator(TOOLTIP), 'control: the realign flipped it above its target').toHaveClass(/neo-aligned-top/);
+
+        const target = await page.locator(OWN_1).boundingBox(),
+              tip    = await page.locator(TOOLTIP).boundingBox(),
+              x      = target.x + target.width / 2;
+
+        // Parked in the new gap for longer than the retarget window, the pointer is on the hit area
+        await page.mouse.move(x, target.y + target.height / 2);
+        await page.mouse.move(x, (tip.y + tip.height + target.y) / 2, {steps: 6});
+        await page.waitForTimeout(200);
+        await expect(page.locator(TOOLTIP), 'still up in the new gap').toHaveCount(1);
+
+        // Across the tooltip to 5px past its new far edge, where the hit area lay before the flip
+        await page.mouse.move(x, tip.y + tip.height / 2, {steps: 4});
+        await page.mouse.move(x, tip.y - 5, {steps: 4});
         await expect(page.locator(TOOLTIP), '5px past its far edge is outside it').toHaveCount(0, {timeout: 300})
     });
 
