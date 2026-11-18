@@ -451,6 +451,9 @@ function createSelfSignedCert(certDir) {
         '[dn]',
         `CN = ${HOST_DOMAIN}`,
         '[v3_req]',
+        'basicConstraints = critical,CA:FALSE',
+        'keyUsage = critical,digitalSignature',
+        'extendedKeyUsage = serverAuth',
         `subjectAltName = DNS:${HOST_DOMAIN},IP:${SRV_IP}`
     ].join('\n'));
 
@@ -478,7 +481,7 @@ function applyNetemArm(arm) {
         return
     }
 
-    const args = ['delay', `${arm.oneWayDelayMs}ms`];
+    const args = ['delay', `${arm.oneWayDelayMs}ms`, 'limit', '10000'];
 
     if (arm.oneWayLossPct > 0) {
         args.push('loss', `${arm.oneWayLossPct}%`)
@@ -900,79 +903,82 @@ async function probeEsbuildRuntimeBoot({spkiBase64, origin, url, kind}) {
 }
 
 /**
- * @summary Executes one load, one UI interaction, and one lazy extension load on either Portal or Starter app.
+ * @summary Loads one build inside a fresh isolated Page of a shared browser context and collects interaction and CDP metrics.
  * @param {Object} options Execution parameters.
- * @returns {Promise<Object>} Single-run measurement record and reload/cleanup helpers.
+ * @param {Object} options.context Playwright BrowserContext holding HTTP/TLS/QUIC caches.
+ * @param {Object} options.browserCdp Browser-level CDP session.
+ * @param {String} options.origin Origin URL prefix for worker discovery and filtering.
+ * @param {String} options.url Target HTML URL to measure.
+ * @param {String} options.kind `'portal'` or `'starter'`.
+ * @param {Number} [options.maxAttempts=2] Maximum navigation attempts on transient network or abort errors.
+ * @returns {Promise<Object>} Single-run frame, interaction, lazy-load, and CDP resource metrics.
  */
-async function measureSinglePageRun({browser, protocol, origin, url, kind}) {
-    const
-        context    = await browser.newContext({ignoreHTTPSErrors: true, viewport: {width: 1440, height: 1000}}),
-        page       = await context.newPage(),
-        browserCdp = await browser.newBrowserCDPSession();
-
-    const loadOnce = async () => {
-        const t0 = performance.now();
-
-        await page.goto(url, {waitUntil: 'domcontentloaded', timeout: 60000});
-
-        if (kind === 'portal') {
-            await page.waitForSelector('.portal-home-hero-container', {state: 'visible', timeout: 60000})
-        } else {
-            await page.waitForSelector('text=Welcome to your new Neo.mjs App.', {timeout: 60000})
+export async function runSingleLoadInContext({context, browserCdp, origin, url, kind, maxAttempts = 2}) {
+    const steps = kind === 'portal'
+        ? {
+            readySel: '.portal-home-hero-container',
+            waitOpts: {state: 'visible', timeout: 90000},
+            interAct: page => page.locator('.portal-header-toolbar').getByRole('link', {name: 'Learn', exact: true}).click(),
+            interSel: '.neo-app-content-container, .neo-tree-list',
+            lazyAct : page => page.locator('.portal-header-toolbar').getByRole('link', {name: 'Connect', exact: true}).click(),
+            lazySel : '.portal-services-component h1:has-text("Connect")',
+            lazyCls : 'Portal.view.services.Container'
         }
+        : {
+            readySel: 'text=Welcome to your new Neo.mjs App.',
+            waitOpts: {timeout: 90000},
+            interAct: page => page.click('text=Tab 2'),
+            interSel: 'text=Have fun creating something awesome!',
+            lazyAct : page => page.click('text=Tab 3'),
+            lazySel : '.starter-lazy-panel',
+            lazyCls : 'MyApp.view.LazyPanel'
+        };
 
-        const frameMs = performance.now() - t0;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        const page = await context.newPage();
 
-        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+        try {
+            const t0 = performance.now();
 
-        let interactionMs   = 0,
-            lazyExtensionMs = 0;
+            await page.goto(url, {waitUntil: 'domcontentloaded', timeout: 90000});
+            await page.waitForSelector(steps.readySel, steps.waitOpts);
 
-        if (kind === 'portal') {
+            const frameMs = performance.now() - t0;
+
+            await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+
             const ti = performance.now();
-            await page.locator('.portal-header-toolbar').getByRole('link', {name: 'Learn', exact: true}).click();
-            await page.waitForSelector('.neo-app-content-container, .neo-tree-list', {state: 'visible', timeout: 60000});
-            interactionMs = performance.now() - ti;
+            await steps.interAct(page);
+            await page.waitForSelector(steps.interSel, steps.waitOpts);
+            const interactionMs = performance.now() - ti;
 
             const tl = performance.now();
-            await page.locator('.portal-header-toolbar').getByRole('link', {name: 'Connect', exact: true}).click();
-            await page.waitForSelector('.portal-services-component h1:has-text("Connect")', {timeout: 60000});
-            lazyExtensionMs = performance.now() - tl
-        } else {
-            const ti = performance.now();
-            await page.click('text=Tab 2');
-            await page.waitForSelector('text=Have fun creating something awesome!', {timeout: 60000});
-            interactionMs = performance.now() - ti;
+            await steps.lazyAct(page);
+            await page.waitForSelector(steps.lazySel, {timeout: 90000});
+            const lazyExtensionMs = performance.now() - tl;
 
-            const tl = performance.now();
-            await page.click('text=Tab 3');
-            await page.waitForSelector('.starter-lazy-panel', {timeout: 60000});
-            lazyExtensionMs = performance.now() - tl
+            const cdp = await collectCdpMetrics(page, origin, browserCdp, steps.lazyCls);
+
+            return {frameMs, interactionMs, lazyExtensionMs, ...cdp}
+        } catch (err) {
+            if (attempt === maxAttempts) {
+                throw err
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 250))
+        } finally {
+            await page.close().catch(() => {});
+
+            for (let i = 0; i < 10; i++) {
+                const {targetInfos = []} = await browserCdp.send('Target.getTargets').catch(() => ({}));
+
+                if (!targetInfos.some(t => t.type === 'worker' && (t.url || '').startsWith(origin))) {
+                    break
+                }
+
+                await new Promise(resolve => setTimeout(resolve, 50))
+            }
         }
-
-        const lazyClassName = kind === 'portal' ? 'Portal.view.services.Container' : 'MyApp.view.LazyPanel';
-        const cdp           = await collectCdpMetrics(page, origin, browserCdp, lazyClassName);
-
-        return {
-            frameMs,
-            interactionMs,
-            lazyExtensionMs,
-            ...cdp
-        }
-    };
-
-    const close = async () => {
-        await browserCdp.detach().catch(() => {});
-        await context.close()
-    };
-
-    try {
-        const result = await loadOnce();
-        void protocol;
-        return {page, context, loadOnce, close, firstRun: result}
-    } catch (err) {
-        await close().catch(() => {});
-        throw err
     }
 }
 
@@ -1144,7 +1150,12 @@ async function main() {
             ],
             cellsByApp = {portal: [], starter: []};
 
+        // Raise kernel UDP receive/send buffers so QUIC / HTTP/3 bursts under emulated latency/loss do not stall
+        spawnSync('sudo', ['sysctl', '-w', 'net.core.rmem_max=7500000', 'net.core.wmem_max=7500000'], {stdio: 'ignore'});
+
         for (const protocol of ['h2', 'h3']) {
+            applyNetemArm(LINK_ARMS[0]);
+
             const caddy = await startCaddyInNetns({
                 certPath   : certs.certPath,
                 keyPath    : certs.keyPath,
@@ -1156,8 +1167,6 @@ async function main() {
 
             try {
                 if (protocol === 'h2') {
-                    applyNetemArm(LINK_ARMS[0]);
-
                     for (const app of apps) {
                         if (buildArtifacts.esbuildProbes[app.key]?.ok) {
                             const boot = await probeEsbuildRuntimeBoot({
@@ -1193,12 +1202,16 @@ async function main() {
 
                             for (let r = 0; r < runs; r++) {
                                 const browser = await chromium.launch({headless: true, args: chromiumArgsFor(protocol, certs.spkiBase64)});
+                                let context, cdp;
+
                                 browserVersion = browser.version();
                                 try {
-                                    const res = await measureSinglePageRun({browser, protocol, origin: app.origin, url: build.url, kind: app.key});
-                                    await res.close();
-                                    coldRuns.push(res.firstRun)
+                                    context = await browser.newContext({ignoreHTTPSErrors: true, viewport: {width: 1440, height: 1000}});
+                                    cdp     = await browser.newBrowserCDPSession();
+                                    coldRuns.push(await runSingleLoadInContext({context, browserCdp: cdp, origin: app.origin, url: build.url, kind: app.key}))
                                 } finally {
+                                    await cdp?.detach().catch(() => {});
+                                    await context?.close().catch(() => {});
                                     await browser.close()
                                 }
                             }
@@ -1215,16 +1228,20 @@ async function main() {
                             const
                                 warmRuns    = [],
                                 warmBrowser = await chromium.launch({headless: true, args: chromiumArgsFor(protocol, certs.spkiBase64)});
+                            let warmContext, warmCdp;
 
                             try {
-                                const primed = await measureSinglePageRun({browser: warmBrowser, protocol, origin: app.origin, url: build.url, kind: app.key});
+                                warmContext = await warmBrowser.newContext({ignoreHTTPSErrors: true, viewport: {width: 1440, height: 1000}});
+                                warmCdp     = await warmBrowser.newBrowserCDPSession();
+
+                                await runSingleLoadInContext({context: warmContext, browserCdp: warmCdp, origin: app.origin, url: build.url, kind: app.key});
 
                                 for (let r = 0; r < runs; r++) {
-                                    warmRuns.push(await primed.loadOnce())
+                                    warmRuns.push(await runSingleLoadInContext({context: warmContext, browserCdp: warmCdp, origin: app.origin, url: build.url, kind: app.key}))
                                 }
-
-                                await primed.close()
                             } finally {
+                                await warmCdp?.detach().catch(() => {});
+                                await warmContext?.close().catch(() => {});
                                 await warmBrowser.close()
                             }
 

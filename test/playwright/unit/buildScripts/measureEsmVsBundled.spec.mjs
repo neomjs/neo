@@ -6,6 +6,7 @@ import {
     computeImportWaterfallDepth,
     formatMeasurementMarkdown,
     patchImportAppManifest,
+    runSingleLoadInContext,
     summarizeFiveRuns
 } from '../../../../buildScripts/util/measure-esm-vs-bundled.mjs';
 
@@ -112,5 +113,62 @@ test.describe('buildScripts/util/measure-esm-vs-bundled', () => {
 
         expect(md).toContain('FAILED at worker boot — `ReferenceError: Neo is not defined (chunk.mjs:1)`');
         expect(md).toContain('| dist/esbuild-probe | h2 | 0 ms (clean) | cold | ERROR | - | - | - | - | - | ReferenceError: Neo is not defined (chunk.mjs:1) | failed |')
+    });
+
+    test('runSingleLoadInContext closes aborted pages and retries with a fresh page in the shared context', async () => {
+        const clicks       = [], waits = [];
+        let   newPageCalls = 0, closedPages = 0;
+
+        const context = {
+            async newPage() {
+                const attempt = ++newPageCalls;
+
+                return {
+                    async goto() {
+                        if (attempt === 1) {
+                            throw new Error('page.goto: net::ERR_ABORTED')
+                        }
+                    },
+                    async waitForSelector(selector) {
+                        waits.push(selector)
+                    },
+                    async evaluate() {
+                        return []
+                    },
+                    async click(selector) {
+                        clicks.push(selector)
+                    },
+                    async close() {
+                        closedPages++
+                    }
+                }
+            }
+        };
+
+        const browserCdp = {
+            async send() {
+                return {targetInfos: []}
+            }
+        };
+
+        const result = await runSingleLoadInContext({
+            context,
+            browserCdp,
+            origin: 'https://neo-bench.internal:8444',
+            url   : 'https://neo-bench.internal:8444/dist/esm/apps/myapp/index.html',
+            kind  : 'starter'
+        });
+
+        expect(newPageCalls).toBe(2);
+        expect(closedPages).toBe(2);
+        expect(clicks).toEqual(['text=Tab 2', 'text=Tab 3']);
+        expect(waits).toEqual([
+            'text=Welcome to your new Neo.mjs App.',
+            'text=Have fun creating something awesome!',
+            '.starter-lazy-panel'
+        ]);
+        expect(result.requests).toBe(0);
+        expect(result.runtimeCheck).toBe('uninspected');
+        expect(result.frameMs).toBeGreaterThanOrEqual(0)
     });
 });
