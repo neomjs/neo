@@ -1,5 +1,5 @@
 import Container       from '../../../src/container/Base.mjs';
-import Launcher        from './Launcher.mjs';
+import Launcher        from '../../../src/desktop/Launcher.mjs';
 import PermissionPanel from './PermissionPanel.mjs';
 import Taskbar         from './Taskbar.mjs';
 
@@ -41,10 +41,13 @@ class Desktop extends Container {
                 layout: {ntype: 'vbox', align: 'stretch'},
 
                 items: [{
-                    module   : Launcher,
-                    flex     : 1,
-                    listeners: {openApp: 'onLauncherOpenApp'},
-                    reference: 'launcher'
+                    module          : Launcher,
+                    // The root state provider owns the store
+                    autoDestroyStore: false,
+                    bind            : {store: 'stores.apps'},
+                    flex            : 1,
+                    listeners       : {openApp: 'onLauncherOpenApp'},
+                    reference       : 'launcher'
                 }, {
                     ntype: 'component',
                     bind : {hidden: data => data.permissions.length > 0},

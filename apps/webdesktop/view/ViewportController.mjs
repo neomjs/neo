@@ -21,19 +21,6 @@ class ViewportController extends Controller {
     }
 
     /**
-     * The latest sign-in while its saved arrangement is being read. A later click replaces it, so the last click signs
-     * in, whichever read answers first.
-     * @member {Object|null} pendingSignIn=null
-     * @protected
-     */
-    pendingSignIn = null
-    /**
-     * True while a sign-in restores a saved arrangement: that write is no new order, so nothing is saved
-     * @member {Boolean} restoringArrangement=false
-     * @protected
-     */
-    restoringArrangement = false
-    /**
      * Opens the app windows and keeps them in step with the tasks store
      * @member {Neo.desktop.WindowManager|null} windowManager=null
      */
@@ -45,10 +32,7 @@ class ViewportController extends Controller {
      * @param {...*} args
      */
     destroy(...args) {
-        let me = this;
-
-        me.windowManager?.destroy();
-        me.getStore('apps')?.un({rowsChange: me.onAppsRowsChange, scope: me});
+        this.windowManager?.destroy();
 
         super.destroy(...args)
     }
@@ -85,44 +69,20 @@ class ViewportController extends Controller {
     }
 
     /**
-     * Signs an account in with its saved icon arrangement, or the catalog order if it has none. The arrangement is in
-     * place before the grants render the desktop. Of two quick clicks the later one signs in.
+     * Signs an account in with its saved icon arrangement, or the catalog order if it has none. The launcher gets the
+     * account's key before the grants: it holds its render until that arrangement is in place, so the grants never show
+     * in another account's order. Of two quick clicks the later one wins.
      * @param {Object}                   data
      * @param {WebDesktop.model.Account} data.record
      */
-    async onAccountItemClick({record}) {
-        let me          = this,
-            signIn      = me.pendingSignIn = {record},
-            arrangement = await me.readArrangement(record);
+    onAccountItemClick({record}) {
+        let me = this;
 
-        if (me.pendingSignIn === signIn) {
-            me.pendingSignIn        = null;
-            me.restoringArrangement = true;
+        me.getReference('launcher').arrangementKey = me.getArrangementKey(record);
 
-            try {
-                me.getStore('apps').arrange(arrangement)
-            } finally {
-                me.restoringArrangement = false
-            }
-
-            me.setState({
-                account    : record,
-                permissions: [...record.permissions]
-            })
-        }
-    }
-
-    /**
-     * Saves the signed-in account's arrangement whenever the apps store writes a new order: a drop, a keyboard move.
-     */
-    onAppsRowsChange() {
-        let me      = this,
-            account = me.getState('account');
-
-        account && !me.restoringArrangement && Neo.main.addon.LocalStorage.updateLocalStorageItem({
-            key     : me.getArrangementKey(account),
-            value   : JSON.stringify(me.getStore('apps').getArrangement()),
-            windowId: me.component.windowId
+        me.setState({
+            account    : record,
+            permissions: [...record.permissions]
         })
     }
 
@@ -141,8 +101,6 @@ class ViewportController extends Controller {
             cls  : ['webdesktop-start-menu'],
             store: apps
         };
-
-        apps.on({rowsChange: me.onAppsRowsChange, scope: me});
 
         me.windowManager = Neo.create(WindowManager, {
             appStore    : apps,
@@ -180,23 +138,25 @@ class ViewportController extends Controller {
     }
 
     /**
-     * Signs out at once. A sign-in whose arrangement is still being read does not outlive it, and the window manager's
-     * reset ends every window load and hides every window. The windows leave the DOM before the account changes: a
-     * window still mounted would re-render its content for the empty account, and that update would land after the
+     * Signs out at once. The window manager's reset ends every window load and hides every window, and an arrangement
+     * still being read does not outlive the sign-out: the launcher drops its key after the grants, so a held render
+     * shows the empty desktop, never the leaving account's apps. The windows leave the DOM before the account changes:
+     * a window still mounted would re-render its content for the empty account, and that update would land after the
      * window's removal.
      * @param {Object} data
      */
     onSignOutButtonClick(data) {
         let me = this;
 
-        me.pendingSignIn = null;
         me.windowManager.reset();
 
         me.setState({
             account         : null,
             permissions     : [],
             permissionsPanel: false
-        })
+        });
+
+        me.getReference('launcher').arrangementKey = null
     }
 
     /**
@@ -244,28 +204,6 @@ class ViewportController extends Controller {
      */
     openApp(record) {
         return this.windowManager.openApp(record)
-    }
-
-    /**
-     * Reads an account's saved arrangement. It is a preference: a failed read or an unreadable value gives the catalog
-     * order and never blocks the sign-in.
-     * @param {WebDesktop.model.Account} account
-     * @returns {Promise<Object>} Group key → app keys, or `{}`
-     */
-    async readArrangement(account) {
-        let me = this;
-
-        try {
-            let {value} = await Neo.main.addon.LocalStorage.readLocalStorageItem({
-                    key     : me.getArrangementKey(account),
-                    windowId: me.component.windowId
-                }),
-                arrangement = value && JSON.parse(value);
-
-            return Neo.isObject(arrangement) ? arrangement : {}
-        } catch {
-            return {}
-        }
     }
 }
 

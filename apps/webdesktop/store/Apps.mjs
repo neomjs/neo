@@ -1,5 +1,5 @@
-import App       from '../model/App.mjs';
-import TreeStore from '../../../src/data/TreeStore.mjs';
+import App  from '../model/App.mjs';
+import Apps from '../../../src/desktop/store/Apps.mjs';
 
 /**
  * Every app the desktop knows, grouped. Groups carry no permission (see `WebDesktop.model.App`).
@@ -25,50 +25,25 @@ export const catalog = [
 ];
 
 /**
- * @summary Each node's place among its siblings: the arrangement's order first, then the catalog's.
- * @param {Object} [arrangement={}] Parent key → child keys, in an account's order. A child it does not name follows
- * the named ones in catalog order, so an app added to the catalog later still shows up; a value that is no array
- * names none.
- * @returns {Map<String, Number>} Node key → order
- */
-export function orderOf(arrangement={}) {
-    let children = new Map(),
-        order    = new Map();
-
-    catalog.forEach(({id, parentId='root'}) => {
-        children.has(parentId) ? children.get(parentId).push(id) : children.set(parentId, [id])
-    });
-
-    children.forEach((ids, parentId) => {
-        let saved = arrangement[parentId],
-            named = Array.isArray(saved) ? [...new Set(saved)].filter(id => ids.includes(id)) : [];
-
-        [...named, ...ids.filter(id => !named.includes(id))].forEach((id, index) => order.set(id, index))
-    });
-
-    return order
-}
-
-/**
- * @summary The desktop's navigation tree: one store for the launcher and for every level of the start menu.
+ * @summary The desktop's navigation tree: the engine's apps store over this catalog, with the app's only visibility rule.
  *
- * Its single filter is the app's only visibility rule. The root state provider writes the signed-in account's
- * permission keys into the filter's `value`; every view bound to this store follows. `includeEmptyValues: false`
- * keeps an empty grant closed: with the default, an empty value turns a filter off, which would show every app to an
- * account without permissions.
- *
- * Its sorter on `order` is the arrangement: a drag in the launcher or {@link #arrange} writes `order`, and every view
- * follows the sort. The filter never touches `order`, so a permission change keeps the remaining apps in place.
+ * The root state provider writes the signed-in account's permission keys into the filter's `value`; every view bound to
+ * this store follows. `includeEmptyValues: false` keeps an empty grant closed: with the default, an empty value turns a
+ * filter off, which would show every app to an account without permissions.
  * @class WebDesktop.store.Apps
- * @extends Neo.data.TreeStore
+ * @extends Neo.desktop.store.Apps
  */
-class Apps extends TreeStore {
+class WebDesktopApps extends Apps {
     static config = {
         /**
          * @member {String} className='WebDesktop.store.Apps'
          * @protected
          */
         className: 'WebDesktop.store.Apps',
+        /**
+         * @member {Object[]} data=catalog
+         */
+        data: catalog,
         /**
          * @member {Object[]} filters
          */
@@ -81,57 +56,8 @@ class Apps extends TreeStore {
         /**
          * @member {Neo.data.Model} model=App
          */
-        model: App,
-        /**
-         * @member {Object[]} sorters
-         */
-        sorters: [{
-            property             : 'order',
-            reapplyOnRecordChange: true
-        }]
-    }
-
-    /**
-     * Each instance gets its own copy of the catalog: a TreeStore keeps the raw rows and writes hierarchy state onto
-     * them.
-     * @param {Object} config
-     */
-    construct(config={}) {
-        let order = orderOf();
-
-        super.construct({data: catalog.map(app => ({...app, order: order.get(app.id)})), ...config})
-    }
-
-    /**
-     * Applies an arrangement as one batch. The apps it does not name take their catalog place.
-     * @param {Object} [arrangement={}] Parent key → child keys, as {@link #getArrangement} returns them
-     */
-    arrange(arrangement={}) {
-        let me      = this,
-            changes = [];
-
-        orderOf(arrangement).forEach((order, key) => {
-            me.get(key).order !== order && changes.push({key, values: {order}})
-        });
-
-        changes.length && me.updateRows(changes)
-    }
-
-    /**
-     * @returns {Object} Group key → app keys, in the store's order, hidden apps included
-     */
-    getArrangement() {
-        let me     = this,
-            result = {};
-
-        catalog.forEach(({id, isLeaf}) => {
-            if (isLeaf === false) {
-                result[id] = me.getChildren(id).map(record => record.id)
-            }
-        });
-
-        return result
+        model: App
     }
 }
 
-export default Neo.setupClass(Apps);
+export default Neo.setupClass(WebDesktopApps);
