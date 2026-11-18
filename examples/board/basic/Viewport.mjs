@@ -19,6 +19,8 @@ const columns = [
  * @description The view root's state provider holds the one card store, and both views bind it. A card moved on the
  * board is one `record.set({status, order})`; the table's row for that record shows the new status with no wiring
  * between the views. `in-progress` opens over its WIP limit and `review` under it, so both column states show at once.
+ * The board takes the top and the table sits below it, so a desktop shows all five columns and a phone the board
+ * first.
  * @class Neo.examples.board.basic.Viewport
  * @extends Neo.container.Viewport
  */
@@ -59,7 +61,7 @@ class BoardViewport extends Viewport {
             ntype : 'container',
             cls   : ['board-example-body'],
             flex  : 1,
-            layout: {ntype: 'hbox', align: 'stretch'},
+            layout: {ntype: 'vbox', align: 'stretch'},
             items : [{
                 module   : BoardContainer,
                 bind     : {store: 'stores.cards'},
@@ -69,8 +71,8 @@ class BoardViewport extends Viewport {
             }, {
                 ntype : 'container',
                 cls   : ['board-example-list'],
+                height: 260,
                 layout: {ntype: 'vbox', align: 'stretch'},
-                width : 420,
                 items : [{
                     module: Label,
                     cls   : ['board-example-list-title'],
@@ -83,8 +85,10 @@ class BoardViewport extends Viewport {
                     reference: 'grid',
                     columns  : [{
                         dataField: 'title',
-                        text     : 'Card',
-                        width    : 180
+                        // Below the board, the table spans the screen: the title takes what the other columns leave
+                        flex     : 1,
+                        minWidth : 180,
+                        text     : 'Card'
                     }, {
                         dataField: 'status',
                         renderer : ({value}) => columns.find(column => column.status === value)?.title ?? value,
