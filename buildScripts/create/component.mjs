@@ -192,10 +192,8 @@ if (programOpts.info) {
         let componentPath = `/examples/${temp.join('/')}`;
         componentPath     = componentPath.toLowerCase();
 
-        let startServer = spawnSync('webpack', [
-            'serve',
-            '-c',
-            './buildScripts/webpack/webpack.server.config.mjs',
+        let startServer = spawnSync(process.execPath, [
+            path.join(__dirname, 'util/fileServer.mjs'),
             '--open',
             componentPath
         ], {env: process.env, cwd: process.cwd(), stdio: 'inherit'});

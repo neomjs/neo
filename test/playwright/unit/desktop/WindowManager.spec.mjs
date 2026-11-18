@@ -595,6 +595,24 @@ test.describe('Neo.desktop.WindowManager: a task store it shares', () => {
         }
     });
 
+    test('a replacing app store binds the window of an app it keeps to its own record', async () => {
+        harness = createHarness();
+
+        const {apps, manager} = harness,
+              renamed         = Neo.create(TreeStore, {data: [{id: 'mail', permission: 'view-mail', text: 'Mail, renamed'}], model: AppModel});
+
+        try {
+            const mail = await manager.openApp(apps.get('mail'));
+
+            manager.appStore = renamed;
+
+            expect(manager.getWindow('mail')).toBe(mail);
+            expect(mail.record, 'no record of the old store').toBe(renamed.get('mail'))
+        } finally {
+            renamed.destroy()
+        }
+    });
+
     test('a destroy leaves a task the store owner put under a key the manager released', async () => {
         harness = createHarness();
 

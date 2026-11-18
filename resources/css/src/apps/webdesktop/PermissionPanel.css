@@ -1,4 +1,5 @@
-/* The panel belongs to the taskbar, so it stays above every app window (`AppWindow.mjs` stacks them below 100) */
+/* The panel belongs to the taskbar, so it stays above every app window (`Neo.desktop.WindowManager` stacks them below
+   100) */
 .webdesktop-permission-panel {
     backdrop-filter : blur(28px) saturate(160%);
     background-color: var(--webdesktop-glass-strong);
@@ -22,6 +23,18 @@
             line-height: 1.5;
             margin     : 0;
         }
+    }
+}
+
+/* The open panel stays above the windows, so a maximized window keeps to its left and its header actions stay in
+   reach, and the note over an empty launcher centers beside it. The panel is in the DOM only while it is open. */
+@media (min-width: 601px) {
+    body:has(.webdesktop-permission-panel) .neo-dialog.neo-desktop-app-window.neo-maximized {
+        width: calc(100% - 320px) !important;
+    }
+
+    .neo-desktop-workspace:has(> .webdesktop-permission-panel) > .webdesktop-empty {
+        right: 320px;
     }
 }
 

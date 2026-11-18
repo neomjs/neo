@@ -21,10 +21,17 @@ class Toolbar extends Container {
     static config = {
         /**
          * Named action config factories. Subclasses can provide reusable action vocabularies while
-         * instance-level action objects remain fully customisable.
-         * @member {Object|null} actionMap=null
+         * instance-level action objects remain fully customisable. A subclass's or an instance's map
+         * merges into the inherited one entry by entry: it replaces the factories it names, keeps the
+         * others, and `null` removes one.
+         * @member {Object|null} actionMap_={[isDescriptor]: true, merge: 'shallow', value: null}
+         * @reactive
          */
-        actionMap: null,
+        actionMap_: {
+            [isDescriptor]: true,
+            merge         : 'shallow',
+            value         : null
+        },
         /**
          * Defaults applied to every materialised action before its own config. A caller-provided
          * handler deliberately wins over the toolbar's generic intent emitter.

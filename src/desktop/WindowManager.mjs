@@ -11,7 +11,8 @@ import Base from '../core/Base.mjs';
  * Any `Neo.dialog.Base` works as {@link #windowClass}. The manager uses its `show()`, `hide()` and `hidden`, its
  * `hide` and `headerAction` events, and its `style.zIndex`. It creates each window hidden and shows it when the open
  * publishes. It keeps its windows, so it creates them with `closeAction: 'hide'`: the close button, Escape and an
- * animated hide all hide the dialog, where a stock dialog would destroy itself.
+ * animated hide all hide the dialog, where a stock dialog would destroy itself. It can restore what it minimizes, so
+ * it gives each window the minimize action of its header's vocabulary (`Neo.dialog.Base#getWindowActionMap`).
  *
  * A dialog has one fixed z-index and no order among dialogs, so each manager keeps a stack of the windows it created and
  * sets their z-index from {@link #baseZIndex} up: two desktops on one App worker keep separate orders. A `mousedown` on
@@ -47,9 +48,10 @@ class WindowManager extends Base {
         baseZIndex: 10,
         /**
          * The open apps, one task each, minimized or not, e.g. a `Neo.desktop.store.Tasks`
-         * @member {Neo.data.Store|null} taskStore=null
+         * @member {Neo.data.Store|null} taskStore_=null
+         * @reactive
          */
-        taskStore: null,
+        taskStore_: null,
         /**
          * The class of the windows: a `Neo.dialog.Base` subclass, or an async loader such as
          * `() => import('./AppWindow.mjs')`. A loader runs on each app's first open until a load succeeds.
@@ -74,6 +76,11 @@ class WindowManager extends Base {
      * @member {Map<String, Neo.dialog.Base>} #created
      */
     #created = new Map()
+    /**
+     * The minimize actions this manager contributed, by app id
+     * @member {Map<String, Neo.component.Base>} #minimizes
+     */
+    #minimizes = new Map()
     /**
      * Counts resets, a destroy included: an open that began before one publishes nothing
      * @member {Number} #resets=0
@@ -110,7 +117,8 @@ class WindowManager extends Base {
     }
 
     /**
-     * Triggered after the appStore config got changed. A new store closes the windows of the apps it does not keep.
+     * Triggered after the appStore config got changed. A new store closes the windows of the apps it does not keep,
+     * and one replacing another binds the windows and tasks of the apps it keeps to its own records.
      * @param {Neo.data.TreeStore|null} value
      * @param {Neo.data.TreeStore|null} oldValue
      * @protected
@@ -123,7 +131,61 @@ class WindowManager extends Base {
         value?.on({filter: me.onAppStoreFilter, scope: me});
 
         // The construction sets the tasks store after this config
-        oldValue !== undefined && value && me.onAppStoreFilter()
+        oldValue !== undefined && value && me.onAppStoreFilter();
+
+        oldValue && value && me.#rebind()
+    }
+
+    /**
+     * Triggered after the taskStore config got changed. A store replacing another takes over this manager's tasks: each
+     * leaves the old store, if it still exists, and comes back in the new one, minimized if its window is hidden. A key
+     * another owner's task holds in the new store leaves its window without a task of this manager. Nothing could
+     * restore that window from a minimize, so it shows again, as one opened beside another owner's task does.
+     * @param {Neo.data.Store|null} value
+     * @param {Neo.data.Store|null} oldValue
+     * @protected
+     */
+    afterSetTaskStore(value, oldValue) {
+        let me     = this,
+            appIds = [...me.#tasks.keys()];
+
+        if (!oldValue || !value) {
+            return
+        }
+
+        // The old store may be gone, its records with it, so a task is rebuilt from its app and its window
+        oldValue.isDestroyed || me.#removeTasks(appIds, oldValue);
+        me.#tasks.clear();
+
+        appIds.forEach(appId => {
+            let window = me.#created.get(appId),
+                app    = me.appStore?.get(appId),
+                task;
+
+            if (!window) {
+                return
+            }
+
+            if (!value.get(appId)) {
+                task = value.createRecord({
+                    color    : app?.color,
+                    iconCls  : app?.iconCls,
+                    id       : appId,
+                    minimized: window.hidden,
+                    text     : app?.text
+                });
+
+                me.#tasks.set(appId, task);
+                value.add(task)
+            }
+
+            me.#syncMinimize(appId, window);
+
+            if (!me.#taskOf(appId) && window.hidden) {
+                me.bringToFront(appId);
+                window.show()
+            }
+        })
     }
 
     /**
@@ -187,6 +249,9 @@ class WindowManager extends Base {
 
         window.addDomListeners({mousedown: () => me.bringToFront(id)});
 
+        // Offered before the first render, which then holds it; an open without a task of this manager takes it back
+        me.#offerMinimize(id, window);
+
         me.#created.set(id, window);
         me.#stack.push(window);
 
@@ -208,6 +273,7 @@ class WindowManager extends Base {
 
         me.#created.forEach(window => {window.isDestroyed || window.destroy(true)});
         me.#created.clear();
+        me.#minimizes.clear();
         me.#stack.length = 0;
         me.#windows.clear();
 
@@ -272,6 +338,25 @@ class WindowManager extends Base {
         if (task && window && !window.hidden) {
             task.minimized = true;
             window.hide()
+        }
+    }
+
+    /**
+     * Gives an app's window the minimize action, a contribution ahead of its header's own actions, unless this manager
+     * offered it already. A header that lists minimize itself keeps its own, and one whose vocabulary drops it
+     * (`actionMap: {minimize: null}`) gets none.
+     * @param {String} appId
+     * @param {Neo.dialog.Base} window
+     */
+    #offerMinimize(appId, window) {
+        let me      = this,
+            toolbar = window.headerToolbar,
+            factory = toolbar?.actionMap?.minimize,
+            action;
+
+        if (!me.#minimizes.has(appId) && factory && !toolbar.getAction('minimize')) {
+            action = toolbar.addActionContribution(factory());
+            action && me.#minimizes.set(appId, action)
         }
     }
 
@@ -369,6 +454,7 @@ class WindowManager extends Base {
             return null
         }
 
+        me.#syncMinimize(id, window);
         me.bringToFront(id);
         window.hidden && window.show();
 
@@ -376,18 +462,38 @@ class WindowManager extends Base {
     }
 
     /**
+     * Binds the windows and tasks of the apps the app store keeps to its records, as a replacing store needs: a window
+     * with a `record` config, as `Neo.desktop.AppWindow` has, takes the new record, and this manager's task takes its
+     * text, icon and colour. A window class without one keeps what its `windowConfig` gave it.
+     */
+    #rebind() {
+        let me = this;
+
+        me.#created.forEach((window, appId) => {
+            let record = me.appStore.get(appId),
+                task   = me.#taskOf(appId);
+
+            if (record && me.#keeps(appId)) {
+                'record' in window && (window.record = record);
+                task?.set({color: record.color, iconCls: record.iconCls, text: record.text})
+            }
+        })
+    }
+
+    /**
      * Removes the tasks this manager added for some apps, all of them by default. A record another owner put under the
      * same key stays. The manager lets go of each record before the store removes it, so an open a store listener
      * starts meanwhile adds a task of its own.
      * @param {String[]} [appIds] All the apps this manager listed by default
+     * @param {Neo.data.Store} [taskStore=this.taskStore] The store that holds the tasks
      */
-    #removeTasks(appIds=[...this.#tasks.keys()]) {
+    #removeTasks(appIds=[...this.#tasks.keys()], taskStore=this.taskStore) {
         let me    = this,
-            tasks = appIds.map(appId => me.#taskOf(appId)).filter(Boolean);
+            tasks = appIds.map(appId => me.#taskOf(appId, taskStore)).filter(Boolean);
 
         appIds.forEach(appId => {me.#tasks.delete(appId)});
 
-        tasks.length && me.taskStore.remove(tasks)
+        tasks.length && taskStore.remove(tasks)
     }
 
     /**
@@ -436,6 +542,24 @@ class WindowManager extends Base {
     }
 
     /**
+     * Keeps the minimize action on an app's window while this manager holds the app's task, and takes its offer back
+     * when it does not: a window that opened beside another owner's task has nothing to minimize into.
+     * @param {String} appId
+     * @param {Neo.dialog.Base} window
+     */
+    #syncMinimize(appId, window) {
+        let me      = this,
+            offered = me.#minimizes.get(appId);
+
+        if (me.#taskOf(appId)) {
+            me.#offerMinimize(appId, window)
+        } else if (offered) {
+            window.headerToolbar.removeActionContribution(offered);
+            me.#minimizes.delete(appId)
+        }
+    }
+
+    /**
      * An open's ticket. A reset, a destroy or a close of the app makes it stale.
      * @param {String} appId
      * @returns {String}
@@ -447,12 +571,13 @@ class WindowManager extends Base {
     /**
      * The task this manager added for an app, while the task store still holds that very record
      * @param {String} appId
+     * @param {Neo.data.Store} [taskStore=this.taskStore] The store that holds the tasks
      * @returns {Neo.desktop.model.Task|null}
      */
-    #taskOf(appId) {
+    #taskOf(appId, taskStore=this.taskStore) {
         let task = this.#tasks.get(appId);
 
-        return task && this.taskStore?.get(appId) === task ? task : null
+        return task && taskStore?.get(appId) === task ? task : null
     }
 }
 

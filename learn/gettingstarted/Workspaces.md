@@ -13,7 +13,7 @@ As you can see, a Neo.mjs workspace is a conventional npm package.
 
 A workspace generated with `npx neo-app` already includes the installation steps required by the Neo.mjs engine. If you maintain a package in its own repository and depend on `neo.mjs` without using `create-app`, you must provide the same setup yourself.
 
-The published Neo.mjs engine package contains its source files and build scripts, but not its generated `/dist` output or runtime dependencies. Its `package.json` declares the tools used by the engine as `devDependencies`. These are not automatically installed when another npm package installs the engine as a dependency.
+The published Neo.mjs engine package contains its source files and build scripts, but not its generated `/dist` output or runtime dependencies. Of the engine's test tree it carries the Playwright configs, `setup.mjs`, `fixtures.mjs` and their helpers, which a workspace's own specs import, and none of the engine's spec files. Its `package.json` declares the tools used by the engine as `devDependencies`. These are not automatically installed when another npm package installs the engine as a dependency.
 
 ### Installing the engine
 

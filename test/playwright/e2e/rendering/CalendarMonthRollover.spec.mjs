@@ -4,7 +4,8 @@ test.describe('Neo.calendar.view.month.Component downward wheel rollover compens
     test.setTimeout(90000);
 
     test('consecutive physical downward rollovers retain anchor across tall weeks', async ({page, neuralLink}, info) => {
-        await page.setViewportSize({width: 1280, height: 720});
+        // Six 96 px month rows, which July 2024's events outgrow: the tall weeks this spec needs
+        await page.setViewportSize({width: 1280, height: 673});
         await neuralLink.routeConfig(page, config => ({...config, useAiClient: true}));
 
         await page.goto('/test/playwright/component/apps/calendar-basic/index.html');
