@@ -235,16 +235,16 @@ test.describe('Portal examples section', () => {
         const headline = page.locator('.portal-examples-overview:visible .portal-examples-overview-headline'),
               counts   = page.locator(`${INDEX} .portal-examples-group-index-count`);
 
-        await expect(headline).toHaveText('43 live examples in 16 groups');
-        expect((await counts.allTextContents()).filter(text => !text.startsWith('(')).reduce((sum, text) => sum + Number(text), 0)).toBe(43);
+        await expect(headline).toHaveText('44 live examples in 16 groups');
+        expect((await counts.allTextContents()).filter(text => !text.startsWith('(')).reduce((sum, text) => sum + Number(text), 0)).toBe(44);
         await expect(page.locator(`${INDEX} .portal-examples-group-index-note`)).toBeVisible();
 
         // Dev mode cannot open liquid-glass, the one card of More components
         await selectBuild(page, 'Dev mode');
-        await expect(headline).toHaveText('42 live examples in 15 groups');
+        await expect(headline).toHaveText('43 live examples in 15 groups');
         await expect(page.locator(INDEX).getByRole('link', {name: /^More components, /})).toHaveCount(0);
         await selectBuild(page, 'Production build');
-        await expect(headline).toHaveText('43 live examples in 16 groups')
+        await expect(headline).toHaveText('44 live examples in 16 groups')
     });
 
     test('the index is a navigation landmark of links: Tab reaches every entry, Enter opens it, no entry claims to be a tab', async ({page, neuralLink}) => {
