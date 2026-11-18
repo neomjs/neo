@@ -434,7 +434,7 @@
       "state": "A draft typed into the Notes pane, the pane its pop-out action moves into a window of its own, framed with the Metrics and Alerts tabs of its group and the edge of the Queue pane.",
       "ready": [{"selector": ".neo-textfield input"}],
       "steps": [{"kind": "fill", "selector": ".neo-textfield input", "value": "Check the 14:05 alert spike before the handover"}],
-      "after": [{"selector": ".neo-textfield input", "value": "Check the 14:05 alert spike before the handover", "inRegion": true}],
+      "after": [{"selector": ".neo-textfield input", "value": "Check the 14:05 alert spike before the handover", "inRegion": true}, {"selector": "button[aria-label=\"pop out\"]", "inRegion": true}, {"selector": "button[aria-label=\"maximize\"]", "inRegion": true}],
       "region": {"x": 640, "y": 0, "width": 640, "height": 360}
     }
   ]
