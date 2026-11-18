@@ -1,0 +1,166 @@
+import {expect, test} from '../../fixtures.mjs';
+
+const DESKTOP = '/apps/webdesktop/index.html',
+      ICON    = '.neo-desktop-launcher .neo-list-item:not(.neo-list-header)',
+      WINDOW  = '.neo-dialog.neo-desktop-app-window',
+      TASKBAR = '.neo-desktop-taskbar';
+
+/**
+ * Each app, the root of the view its window shows, and the window's width at 1440 × 900
+ * (`WebDesktop.view.Viewport#appWindowConfigs`)
+ * @type {Array[]}
+ */
+const apps = [
+    ['Mail',        '.webdesktop-mail',              880],
+    ['Messages',    '.webdesktop-messages',          720],
+    ['Calendar',    '.neo-calendar-maincontainer',   920],
+    ['Photos',      '.webdesktop-photos',            760],
+    ['Music',       '.webdesktop-music',             720],
+    ['Documents',   '.webdesktop-documents',         800],
+    ['Recycle Bin', '.webdesktop-recycle-bin',       680],
+    ['Settings',    '.webdesktop-settings',          480],
+    ['Reports',     '.webdesktop-reports',           760],
+    ['Help',        '.webdesktop-help',              640]
+];
+
+/**
+ * @summary Every app of the web desktop opens a working view in a window of its own size, its module and stylesheet
+ * loading on its first open, and no app logs an error.
+ */
+
+/**
+ * A console error carries its source's URL, which names the resource of a failed load. The browser's own
+ * `/favicon.ico` request is not the app's: the demo's page declares no icon.
+ * @param {Object} page
+ * @returns {String[]} The page errors and console errors, filled as they happen
+ */
+function trackErrors(page) {
+    const errors = [];
+
+    page.on('pageerror', error => errors.push(error.message));
+
+    page.on('console', msg => {
+        let url = msg.location()?.url || '';
+
+        msg.type() === 'error' && !url.endsWith('/favicon.ico') && errors.push(`${msg.text()} ${url}`.trim())
+    });
+
+    return errors
+}
+
+/**
+ * @param {Object} page
+ */
+async function signIn(page) {
+    await page.goto(DESKTOP);
+    await page.getByText('Alex Morgan', {exact: true}).click();
+    await expect(page.locator(ICON).first()).toBeVisible()
+}
+
+/**
+ * @param {Object} page
+ * @param {String} app
+ * @returns {Object} The visible window of the app
+ */
+const windowOf = (page, app) => page.locator(WINDOW).filter({hasText: app}).filter({visible: true});
+
+/**
+ * @param {Object} page
+ * @param {Object} window
+ */
+async function expectInsideWorkspace(page, window) {
+    const box      = await window.boundingBox(),
+          taskbar  = await page.locator(TASKBAR).boundingBox(),
+          viewport = page.viewportSize();
+
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+    expect(box.y + box.height).toBeLessThanOrEqual(taskbar.y + 1)
+}
+
+test.describe('web desktop apps', () => {
+    test.use({viewport: {width: 1440, height: 900}});
+
+    test('every app opens its own view at its own size, its stylesheet arriving with its first open', async ({page}) => {
+        const errors   = trackErrors(page),
+              requests = [];
+
+        page.on('request', request => requests.push(request.url()));
+
+        await signIn(page);
+
+        // No app's view has loaded before its first open
+        expect(requests.filter(url => url.includes('/apps/webdesktop/apps/'))).toEqual([]);
+
+        for (const [app, view, width] of apps) {
+            await page.locator(ICON).filter({hasText: app}).dblclick();
+
+            const window = windowOf(page, app);
+
+            await expect(window.locator(view)).toBeVisible();
+            await expect.poll(async () => Math.round((await window.boundingBox()).width)).toBe(width);
+            await expectInsideWorkspace(page, window);
+
+            await window.getByRole('button', {name: 'close'}).click();
+            await expect(window).toHaveCount(0)
+        }
+
+        expect(requests.some(url => url.endsWith('/apps/webdesktop/apps/Mail.css'))).toBe(true);
+        expect(errors).toEqual([])
+    });
+
+    test('the calendar opens on the week of today with its meetings in view', async ({page}) => {
+        const errors = trackErrors(page);
+
+        await signIn(page);
+        await page.locator(ICON).filter({hasText: 'Calendar'}).dblclick();
+
+        const window = windowOf(page, 'Calendar');
+
+        // A meeting of this week sits inside the visible hours, which a calendar measured mid-animation misses
+        await expect(window.locator('.neo-calendar-maincontainer')).toBeVisible();
+        await expect(window.getByText('Design review').first()).toBeInViewport();
+        expect(errors).toEqual([])
+    });
+
+    test('Restore in the Recycle Bin puts the file back in Documents', async ({page}) => {
+        await signIn(page);
+
+        await page.locator(ICON).filter({hasText: 'Recycle Bin'}).dblclick();
+
+        const bin = windowOf(page, 'Recycle Bin');
+
+        await bin.getByText('Old logo.png').click();
+        await bin.getByRole('button', {name: 'Restore'}).click();
+        await expect(bin.getByText('Old logo.png')).toHaveCount(0);
+
+        await bin.getByRole('button', {name: 'close'}).click();
+        await page.locator(ICON).filter({hasText: 'Documents'}).dblclick();
+        await expect(windowOf(page, 'Documents').getByText('Old logo.png')).toBeVisible()
+    })
+});
+
+test.describe('web desktop apps on a phone', () => {
+    test.use({hasTouch: true, isMobile: true, viewport: {width: 390, height: 844}});
+
+    test('an app window stays inside the area above the taskbar', async ({page}) => {
+        const errors = trackErrors(page);
+
+        await signIn(page);
+
+        for (const app of ['Mail', 'Calendar']) {
+            await page.locator(ICON).filter({hasText: app}).tap();
+
+            const window = windowOf(page, app);
+
+            await expect(window).toBeVisible();
+            await expectInsideWorkspace(page, window);
+
+            await window.getByRole('button', {name: 'close'}).tap();
+            await expect(window).toHaveCount(0)
+        }
+
+        expect(errors).toEqual([])
+    })
+});
