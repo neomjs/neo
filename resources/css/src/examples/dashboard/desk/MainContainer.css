@@ -1,0 +1,245 @@
+/* The operations desk. It reads the example-owned palette the other dock examples share
+   (`Neo.examples.dashboard.Palette`), so they read as one family in the dark and the light neo theme. The four
+   agent states and the three alert severities keep one hue each across both themes. */
+.neo-dock-workspace.neo-example-desk {
+    --desk-blocked  : #e5484d;
+    --desk-idle     : #8b97a8;
+    --desk-reviewing: #3e9bff;
+    --desk-warning  : #f5a524;
+    --desk-working  : #30a46c;
+
+    background : var(--dashboard-example-ground);
+    color      : var(--dashboard-example-ink);
+    font-family: var(--dashboard-example-font-sans);
+    /* A flex child sized by its viewport: without this, tall pane content grows the workspace past the screen */
+    min-height : 0;
+    min-width  : 0;
+}
+
+.neo-example-desk-hint {
+    color        : var(--dashboard-example-ink-dim);
+    font-size    : 12px;
+    overflow     : hidden;
+    text-align   : right;
+    text-overflow: ellipsis;
+    white-space  : nowrap;
+}
+
+/* On a phone the dock keeps its zones, so the toolbar wraps instead of overlapping, and the hint gives way */
+@media (max-width: 600px) {
+    .neo-example-desk .neo-dashboard-dock-perspective-toolbar.neo-flex-wrap-nowrap {
+        flex-wrap: wrap;
+        row-gap  : 6px;
+    }
+
+    .neo-example-desk-hint {
+        display: none;
+    }
+}
+
+.neo-example-desk-pane {
+    background: var(--dashboard-example-panel);
+    color     : var(--dashboard-example-ink);
+    font-size : 13px;
+    overflow  : auto;
+
+    time {
+        color               : var(--dashboard-example-ink-dim);
+        font-variant-numeric: tabular-nums;
+    }
+}
+
+.neo-example-desk-state {
+    font-size     : 12px;
+    text-transform: capitalize;
+
+    &::before {
+        border-radius: 50%;
+        content      : '';
+        display      : inline-block;
+        height       : 7px;
+        margin-right : 6px;
+        width        : 7px;
+    }
+}
+
+.neo-example-desk-state-blocked::before   {background: var(--desk-blocked)}
+.neo-example-desk-state-idle::before      {background: var(--desk-idle)}
+.neo-example-desk-state-reviewing::before {background: var(--desk-reviewing)}
+.neo-example-desk-state-working::before   {background: var(--desk-working)}
+
+.neo-example-desk-feed {
+    .neo-list-item {
+        border-bottom: 1px solid var(--dashboard-example-line-soft);
+        line-height  : 18px;
+        padding      : 6px 12px;
+    }
+}
+
+/* A feed row wraps instead of clipping what identifies it: a phone's zones are narrower than one row */
+.neo-example-desk-feed.neo-list .neo-list-item {
+    overflow-wrap: anywhere;
+    white-space  : normal;
+}
+
+.neo-example-desk-terminal {
+    font-family: var(--dashboard-example-font-mono);
+    font-size  : 12px;
+
+    .neo-list-item {
+        border-bottom: none;
+        padding      : 2px 12px;
+    }
+
+    .neo-example-desk-prompt {
+        color: var(--dashboard-example-signal);
+    }
+}
+
+.neo-example-desk-severity {
+    border-radius : 4px;
+    color         : #fff;
+    font-size     : 11px;
+    font-weight   : 600;
+    margin-right  : 6px;
+    padding       : 1px 6px;
+    text-transform: uppercase;
+}
+
+.neo-example-desk-severity-critical {background: var(--desk-blocked)}
+.neo-example-desk-severity-info     {background: var(--desk-reviewing)}
+.neo-example-desk-severity-warning  {background: var(--desk-warning); color: #1c1c1c}
+
+.neo-example-desk-result-closed {color: var(--desk-idle)}
+.neo-example-desk-result-failed {color: var(--desk-blocked)}
+.neo-example-desk-result-merged {color: var(--desk-working)}
+
+.neo-example-desk-metrics {
+    align-content        : start;
+    display              : grid;
+    gap                  : 12px;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    padding              : 16px;
+
+    .neo-example-desk-metric {
+        background   : var(--dashboard-example-panel-2);
+        border       : 1px solid var(--dashboard-example-line);
+        border-left  : 4px solid var(--dashboard-example-line);
+        border-radius: 8px;
+        padding      : 12px 14px;
+    }
+
+    .neo-example-desk-metric-blocked   {border-left-color: var(--desk-blocked)}
+    .neo-example-desk-metric-idle      {border-left-color: var(--desk-idle)}
+    .neo-example-desk-metric-reviewing {border-left-color: var(--desk-reviewing)}
+    .neo-example-desk-metric-working   {border-left-color: var(--desk-working)}
+
+    .neo-example-desk-metric-value {
+        font-size           : 28px;
+        font-variant-numeric: tabular-nums;
+        font-weight         : 700;
+    }
+
+    .neo-example-desk-metric-label {
+        color: var(--dashboard-example-ink-dim);
+    }
+}
+
+.neo-example-desk-inspector {
+    container-type: inline-size;
+    gap           : 14px;
+    padding       : 16px;
+
+    .neo-example-desk-inspector-name {
+        font-size  : 22px;
+        font-weight: 700;
+    }
+
+    .neo-example-desk-inspector-role {
+        color: var(--dashboard-example-ink-dim);
+    }
+
+    .neo-example-desk-inspector-states {
+        display              : grid;
+        gap                  : 6px;
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .neo-button.neo-example-desk-state-button {
+        background-color: transparent;
+        background-image: none;
+        border          : 1px solid var(--dashboard-example-line);
+        justify-content : center;
+
+        .neo-button-text {
+            color: var(--dashboard-example-ink);
+        }
+
+        &.pressed {
+            border-color: transparent;
+
+            .neo-button-text {
+                color      : #fff;
+                font-weight: 600;
+            }
+        }
+    }
+
+    .neo-example-desk-state-button-blocked.pressed   {background-color: var(--desk-blocked)}
+    .neo-example-desk-state-button-idle.pressed      {background-color: var(--desk-idle)}
+    .neo-example-desk-state-button-reviewing.pressed {background-color: var(--desk-reviewing)}
+    .neo-example-desk-state-button-working.pressed   {background-color: var(--desk-working)}
+
+    .neo-example-desk-inspector-row {
+        border-bottom  : 1px solid var(--dashboard-example-line-soft);
+        display        : flex;
+        gap            : 12px;
+        justify-content: space-between;
+        padding        : 8px 0;
+
+        span {
+            color: var(--dashboard-example-ink-dim);
+        }
+
+        b {
+            text-align: right;
+        }
+    }
+
+    /* A narrow side zone, as on a phone: one state button per row, so no label is cut. After the two-column rule,
+       which has the same specificity. */
+    @container (max-width: 260px) {
+        .neo-example-desk-inspector-states {
+            grid-template-columns: 1fr;
+        }
+    }
+}
+
+.neo-example-desk-plan {
+    padding: 16px 20px;
+
+    h3 {
+        font-size: 16px;
+        margin   : 0 0 12px;
+    }
+
+    ol {
+        margin      : 0;
+        padding-left: 20px;
+    }
+
+    li {
+        line-height  : 20px;
+        margin-bottom: 10px;
+
+        span {
+            color  : var(--dashboard-example-ink-dim);
+            display: block;
+        }
+    }
+
+    .neo-example-desk-plan-reloads {
+        color    : var(--dashboard-example-ink-dim);
+        font-size: 12px;
+    }
+}
