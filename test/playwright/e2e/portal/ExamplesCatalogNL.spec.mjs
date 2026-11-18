@@ -6,7 +6,7 @@ const PORTAL = '/apps/portal/index.html',
       PAGE   = '.portal-examples-group-page:visible',
       CARDS  = `${PAGE} .portal-examples-list`,
       GROUPS = [
-          'Grid & Table', 'Forms & Fields', 'Calendar', 'Scheduler', 'Gantt', 'Tab Container', 'Dashboard & Docking',
+          'Grid & Table', 'Forms & Fields', 'Calendar', 'Scheduler', 'Gantt', 'Kanban Board', 'Timeline', 'Tab Container', 'Dashboard & Docking',
           'Drag & Drop', 'Lists & Galleries', 'Dialogs & Overlays', 'Charts, Canvas & Maps', 'More components', 'Multi-Window',
           'State & Data', 'Workers & Platform', 'Apps'
       ];
@@ -235,16 +235,16 @@ test.describe('Portal examples section', () => {
         const headline = page.locator('.portal-examples-overview:visible .portal-examples-overview-headline'),
               counts   = page.locator(`${INDEX} .portal-examples-group-index-count`);
 
-        await expect(headline).toHaveText('43 live examples in 16 groups');
-        expect((await counts.allTextContents()).filter(text => !text.startsWith('(')).reduce((sum, text) => sum + Number(text), 0)).toBe(43);
+        await expect(headline).toHaveText('45 live examples in 18 groups');
+        expect((await counts.allTextContents()).filter(text => !text.startsWith('(')).reduce((sum, text) => sum + Number(text), 0)).toBe(45);
         await expect(page.locator(`${INDEX} .portal-examples-group-index-note`)).toBeVisible();
 
         // Dev mode cannot open liquid-glass, the one card of More components
         await selectBuild(page, 'Dev mode');
-        await expect(headline).toHaveText('42 live examples in 15 groups');
+        await expect(headline).toHaveText('44 live examples in 17 groups');
         await expect(page.locator(INDEX).getByRole('link', {name: /^More components, /})).toHaveCount(0);
         await selectBuild(page, 'Production build');
-        await expect(headline).toHaveText('43 live examples in 16 groups')
+        await expect(headline).toHaveText('45 live examples in 18 groups')
     });
 
     test('the index is a navigation landmark of links: Tab reaches every entry, Enter opens it, no entry claims to be a tab', async ({page, neuralLink}) => {
@@ -364,7 +364,7 @@ test.describe('Portal examples section', () => {
         await expect.poll(() => page.locator(PAGE).evaluate(node => node.scrollTop)).toBe(600);
 
         // a group without a card in this build, and an unknown one, open the overview
-        await page.goto(`${PORTAL}#/examples/board`);
+        await page.goto(`${PORTAL}#/examples/layouts`);
         await expect(page.locator(INDEX)).toBeVisible();
         await page.goto(`${PORTAL}#/examples/unknown`);
         await expect(page.locator(INDEX)).toBeVisible()
@@ -428,7 +428,7 @@ test.describe('Portal examples section', () => {
                 // the cards of the first band: every group card is one link to its page. The caption is measured in the
                 // web font it renders in, not in the fallback that stands in while the font loads.
                 const band = page.locator('.portal-examples-overview:visible .portal-examples-overview-band').first().locator('.portal-examples-group-list');
-                await expect(band.locator('.neo-list-item')).toHaveCount(8);
+                await expect(band.locator('.neo-list-item')).toHaveCount(10);
                 await page.evaluate(() => document.fonts.ready);
                 await expectCardLayout(band, viewport.width);
                 await expect(band.locator('.neo-list-item').first().locator('a.content')).toHaveAttribute('href', '#/examples/grid');

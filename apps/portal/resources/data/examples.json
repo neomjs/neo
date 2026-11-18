@@ -1140,7 +1140,7 @@
     },
     {
         "id": "board-basic",
-        "image": null,
+        "image": "devmode/board-basic-14.jpg",
         "name": "Sprint Board",
         "sourceUrl": "examples/board/basic",
         "urls": {
@@ -1191,7 +1191,7 @@
     },
     {
         "id": "timeline-basic",
-        "image": null,
+        "image": "devmode/timeline-basic-14.jpg",
         "name": "Resource Timeline",
         "sourceUrl": "examples/timeline/basic",
         "urls": {

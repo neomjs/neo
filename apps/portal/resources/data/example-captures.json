@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "families": ["grid-table", "gantt", "scheduler"],
+  "families": ["grid-table", "gantt", "scheduler", "board", "timeline"],
   "suffix": "14",
   "recipes": [
     {
@@ -344,6 +344,26 @@
       "steps": [],
       "after": [{"selector": ".neo-timeline-bar", "text": "Quartet recording", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Piano", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Orchestral mix", "inRegion": true}],
       "region": {"selector": ".neo-scheduler", "anchor": "top-left", "width": 640, "height": 360}
+    },
+    {
+      "id": "board-basic",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "The In progress column over its WIP limit (6/5) beside the All cards table, scrolled so that the column's first two cards, Design the search box and Build the search box, head the table with the same status.",
+      "ready": [{"selector": ".neo-board-column-header", "text": "In progress"}, {"selector": ".neo-grid-cell", "text": "Design the login form"}],
+      "steps": [{"kind": "scroll", "selector": ".neo-grid-view", "y": 256}],
+      "after": [{"selector": ".neo-board-column-wip-exceeded .neo-board-column-header", "text": "6/5", "inRegion": true}, {"selector": ".neo-board-card-title", "text": "Design the search box", "inRegion": true}, {"selector": ".neo-board-card-title", "text": "Build the search box", "inRegion": true}, {"selector": ".neo-grid-cell", "text": "Design the search box", "inRegion": true}, {"selector": ".neo-grid-cell", "text": "Build the search box", "inRegion": true}],
+      "region": {"selector": ".neo-board", "anchor": "top-left", "offsetX": 592, "width": 640, "height": 360}
+    },
+    {
+      "id": "timeline-basic",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "The working day from 08:00 to 18:00 under the hour axis: twelve interval bars across the seven team rows, each at the height of its row.",
+      "ready": [{"selector": ".neo-timeline-bar", "count": 12}],
+      "steps": [],
+      "after": [{"selector": ".neo-timeline-bar", "text": "Sprint Planning", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "VDOM Optimization", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Release Notes", "inRegion": true}],
+      "region": {"selector": ".neo-timeline-header", "anchor": "top-left", "offsetX": 445, "offsetY": 21, "width": 640, "height": 360}
     }
   ]
 }
