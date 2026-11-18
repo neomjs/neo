@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "families": ["grid-table", "gantt", "scheduler", "lists"],
+  "families": ["grid-table", "gantt", "scheduler", "lists", "layouts"],
   "suffix": "14",
   "recipes": [
     {
@@ -386,6 +386,16 @@
       "steps": [{"kind": "press", "selector": ".neo-rangefield:has-text(\"Translate Z\") input", "key": "PageDown"}, {"kind": "press", "selector": ".neo-rangefield:has-text(\"Translate Z\") input", "key": "PageDown"}],
       "after": [{"selector": ".neo-gallery-item.neo-selected", "text": "Germany", "inRegion": true}],
       "region": {"selector": ".neo-gallery-item.neo-selected", "anchor": "center", "offsetY": -100, "width": 640, "height": 360}
+    },
+    {
+      "id": "layout-form",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "The form as it opens, framed without the Inspector: a wide and a short label share one field column, and the fieldset below lays out its own two fields with layout-form.",
+      "ready": [{"selector": "form.neo-form-container"}],
+      "steps": [],
+      "after": [{"selector": "form.neo-form-container .neo-textfield-label", "text": "This is a wide Label inside Form", "inRegion": true}, {"selector": ".neo-fieldset .neo-textfield-label", "text": "Fieldset with layout-form", "inRegion": true}],
+      "region": {"selector": "form.neo-form-container", "anchor": "center", "width": 640, "height": 360}
     }
   ]
 }
