@@ -41,8 +41,9 @@ jobs:
         env:
           OVERFLOW_WRITE_DELAY_MS: '1000'
           MERGEABILITY_CONCURRENCY: '4'
-          MERGEABILITY_POLL_ATTEMPTS: '4'
-          MERGEABILITY_POLL_DELAY_MS: '250'
+          MERGEABILITY_POLL_ATTEMPTS: '25'
+          MERGEABILITY_POLL_DELAY_MS: '1000'
+          MERGEABILITY_POLL_MAX_DELAY_MS: '15000'
           MERGEABILITY_MAX_RESTARTS: '3'
         with:
           retries: 3
@@ -50,6 +51,7 @@ jobs:
             const contextKey  = 'review-admission/mergeability';
             const maxPolls    = Number(process.env.MERGEABILITY_POLL_ATTEMPTS);
             const delayMs     = Number(process.env.MERGEABILITY_POLL_DELAY_MS);
+            const maxDelayMs  = Number(process.env.MERGEABILITY_POLL_MAX_DELAY_MS) || 15000;
             const maxRestarts = Number(process.env.MERGEABILITY_MAX_RESTARTS);
             const concurrency = Math.max(1, Number(process.env.MERGEABILITY_CONCURRENCY) || 4);
             const sleep       = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -225,7 +227,7 @@ jobs:
 
                   for (let poll = 0; poll < maxPolls; poll++) {
                     if (poll > 0) {
-                      await sleep(delayMs * (2 ** (poll - 1)));
+                      await sleep(Math.min(delayMs * (2 ** (poll - 1)), maxDelayMs));
                     }
 
                     const observed           = await readPull();
@@ -301,7 +303,11 @@ jobs:
                     continue;
                   }
 
-                  await publish('error', coordinate, 'Mergeability unresolved against current dev base');
+                  if (typeof finalPull.mergeable === 'boolean' && restart < maxRestarts) {
+                    continue;
+                  }
+
+                  await publish('pending', coordinate, 'Mergeability still computing against current dev base; retry controller');
 
                   const postNullWrite           = await readPull();
                   const postNullWriteCoordinate = coordinateOf(postNullWrite);
@@ -311,7 +317,12 @@ jobs:
                     continue;
                   }
 
-                  core.setFailed(`PR #${prNumber} mergeability stayed null after ${maxPolls} bounded polls.`);
+                  const exhaustedMessage = `PR #${prNumber} mergeability stayed null after ${maxPolls} bounded polls.`;
+                  if (context.eventName === 'pull_request_target') {
+                    core.warning(exhaustedMessage);
+                  } else {
+                    core.setFailed(exhaustedMessage);
+                  }
                   return;
                 }
 

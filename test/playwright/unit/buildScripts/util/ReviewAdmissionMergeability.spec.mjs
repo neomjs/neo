@@ -84,6 +84,7 @@ const createReviewAdmissionRuntime = ({
     const failures      = [],
           errors        = [],
           infos         = [],
+          warnings      = [],
           delays        = [],
           statusCalls   = [],
           statusReads   = [],
@@ -108,7 +109,8 @@ const createReviewAdmissionRuntime = ({
         core: {
             error    : message => errors.push(message),
             info     : message => infos.push(message),
-            setFailed: message => failures.push(message)
+            setFailed: message => failures.push(message),
+            warning  : message => warnings.push(message)
         },
         github: {
             paginate: async(method, args) => {
@@ -174,6 +176,7 @@ const createReviewAdmissionRuntime = ({
         },
         errors,
         infos,
+        warnings,
         delays,
         failures,
         listCalls,
@@ -202,13 +205,14 @@ const createReviewAdmissionRuntime = ({
  */
 const executeReviewAdmissionPublisher = async(script, runtime, envOverrides = {}) => {
     const keys = {
-        OVERFLOW_WRITE_DELAY_MS   : '1000',
-        MERGEABILITY_CONCURRENCY  : '4',
-        MERGEABILITY_POLL_ATTEMPTS: '4',
-        MERGEABILITY_POLL_DELAY_MS: '0',
-        MERGEABILITY_MAX_RESTARTS : '3',
-        GITHUB_SERVER_URL         : 'https://github.com',
-        GITHUB_RUN_ID             : '32700000000',
+        OVERFLOW_WRITE_DELAY_MS       : '1000',
+        MERGEABILITY_CONCURRENCY      : '4',
+        MERGEABILITY_POLL_ATTEMPTS    : '4',
+        MERGEABILITY_POLL_DELAY_MS    : '0',
+        MERGEABILITY_POLL_MAX_DELAY_MS: '15000',
+        MERGEABILITY_MAX_RESTARTS     : '3',
+        GITHUB_SERVER_URL             : 'https://github.com',
+        GITHUB_RUN_ID                 : '32700000000',
         ...envOverrides
     };
     const previous = Object.fromEntries(Object.keys(keys).map(key => [key, process.env[key]]));
@@ -264,11 +268,12 @@ test.describe('review-admission mergeability controller (#17692, #20061, #20344)
         expect(step.uses).toBe('actions/github-script@v9');
         expect(step.with.retries).toBe(3);
         expect(step.env).toEqual({
-            OVERFLOW_WRITE_DELAY_MS   : '1000',
-            MERGEABILITY_CONCURRENCY  : '4',
-            MERGEABILITY_POLL_ATTEMPTS: '4',
-            MERGEABILITY_POLL_DELAY_MS: '250',
-            MERGEABILITY_MAX_RESTARTS : '3'
+            OVERFLOW_WRITE_DELAY_MS       : '1000',
+            MERGEABILITY_CONCURRENCY      : '4',
+            MERGEABILITY_POLL_ATTEMPTS    : '25',
+            MERGEABILITY_POLL_DELAY_MS    : '1000',
+            MERGEABILITY_POLL_MAX_DELAY_MS: '15000',
+            MERGEABILITY_MAX_RESTARTS     : '3'
         });
     });
 
@@ -447,7 +452,7 @@ test.describe('review-admission mergeability controller (#17692, #20061, #20344)
         await executeReviewAdmissionPublisher(script, batch);
         await executeReviewAdmissionPublisher(script, unchanged);
 
-        expect(nullExhaust.statusCalls.map(call => call.state)).toEqual(['error']);
+        expect(nullExhaust.statusCalls.map(call => call.state)).toEqual(['pending']);
         expect(nullExhaust.failures.join(' ')).toContain('stayed null after 4 bounded polls');
 
         expect(restarted.statusCalls.map(call => [call.sha, call.state])).toEqual([
@@ -516,5 +521,72 @@ test.describe('review-admission mergeability controller (#17692, #20061, #20344)
             'failure'
         ]);
         expect(runtime.statusByHead.get('pr-head')).toBe('failure');
+    });
+
+    test('caps exponential null-poll backoff, keeps exhausted heads pending without red pull_request_target checks, and recovers late booleans', async () => {
+        const script  = publishStep().with.script,
+              backoff = createReviewAdmissionRuntime({
+                  eventName    : 'pull_request_target',
+                  eventPrNumber: 42,
+                  readsByPr    : {42: [mergeabilityPull(null)]}
+              }),
+              boardDowngrade = createReviewAdmissionRuntime({
+                  eventName      : 'push',
+                  publishedStates: {'pr-head': 'success'},
+                  reads          : [mergeabilityPull(null)]
+              }),
+              lateBoolean    = createReviewAdmissionRuntime({
+                  eventName    : 'pull_request_target',
+                  eventPrNumber: 42,
+                  readsByPr    : {
+                      42: [
+                          mergeabilityPull(null),
+                          mergeabilityPull(null),
+                          mergeabilityPull(null),
+                          mergeabilityPull(true)
+                      ]
+                  }
+              }),
+              thrashError    = createReviewAdmissionRuntime({
+                  eventName: 'push',
+                  reads    : [
+                      mergeabilityPull(null, {base: 'dev-1'}),
+                      mergeabilityPull(null, {base: 'dev-2'}),
+                      mergeabilityPull(null, {base: 'dev-3'}),
+                      mergeabilityPull(null, {base: 'dev-4'}),
+                      mergeabilityPull(null, {base: 'dev-5'})
+                  ]
+              });
+
+        await executeReviewAdmissionPublisher(script, backoff, {
+            MERGEABILITY_POLL_ATTEMPTS    : '6',
+            MERGEABILITY_POLL_DELAY_MS    : '1000',
+            MERGEABILITY_POLL_MAX_DELAY_MS: '5000'
+        });
+        await executeReviewAdmissionPublisher(script, boardDowngrade);
+        await executeReviewAdmissionPublisher(script, lateBoolean, {
+            MERGEABILITY_POLL_ATTEMPTS: '2'
+        });
+        await executeReviewAdmissionPublisher(script, thrashError, {
+            MERGEABILITY_POLL_ATTEMPTS: '2',
+            MERGEABILITY_MAX_RESTARTS : '1'
+        });
+
+        expect(backoff.delays).toEqual([1000, 2000, 4000, 5000, 5000]);
+        expect(backoff.statusCalls.map(call => call.state)).toEqual(['pending']);
+        expect(backoff.warnings).toEqual(['PR #42 mergeability stayed null after 6 bounded polls.']);
+        expect(backoff.failures).toEqual([]);
+
+        expect(boardDowngrade.statusCalls.map(call => call.state)).toEqual(['pending']);
+        expect(boardDowngrade.statusByHead.get('pr-head')).toBe('pending');
+        expect(boardDowngrade.warnings).toEqual([]);
+        expect(boardDowngrade.failures).toEqual(['PR #42 mergeability stayed null after 4 bounded polls.']);
+
+        expect(lateBoolean.statusCalls.map(call => call.state)).toEqual(['success']);
+        expect(lateBoolean.warnings).toEqual([]);
+        expect(lateBoolean.failures).toEqual([]);
+
+        expect(thrashError.statusCalls.map(call => call.state)).toEqual(['error']);
+        expect(thrashError.failures).toEqual(['PR #42 head/base moved through 2 bounded coordinates.']);
     });
 });
