@@ -3,17 +3,22 @@ import Container   from '../../../../src/container/Base.mjs';
 import LivePreview from '../../../../src/code/LivePreview.mjs';
 
 /**
+ * @summary One snap page of the home: a headline block beside, or above, a live preview or custom content.
+ *
+ * A page that proves a component puts its text on top and shows the live preview side by side, so a visitor
+ * sees the code and what it builds at once. The preview runs when the page becomes the active one, not when
+ * the home is created.
  * @class Portal.view.home.FeatureSection
  * @extends Neo.container.Base
  */
 class FeatureSection extends Container {
     /**
      * Valid values for textContainerPosition
-     * @member {String[]} textContainerPositions=['start','end']
+     * @member {String[]} textContainerPositions=['start','end','top']
      * @protected
      * @static
      */
-    static textContainerPositions = ['start', 'end']
+    static textContainerPositions = ['start', 'end', 'top']
 
     static config = {
         /**
@@ -45,6 +50,17 @@ class FeatureSection extends Container {
          */
         learnMoreRoute_: null,
         /**
+         * Routes shown as a row of links under the paragraph, each `{route, text}`
+         * @member {Object[]|null} links_=null
+         * @reactive
+         */
+        links_: null,
+        /**
+         * The text in front of the links
+         * @member {String} linksLabel='More in the engine:'
+         */
+        linksLabel: 'More in the engine:',
+        /**
          * @member {String|null} livePreviewCode_=null
          * @reactive
          */
@@ -55,12 +71,17 @@ class FeatureSection extends Container {
          */
         paragraph_: null,
         /**
+         * True shows the live preview's code beside its result (`Neo.code.LivePreview#sideBySide`)
+         * @member {Boolean} sideBySide=false
+         */
+        sideBySide: false,
+        /**
          * @member {String|null} subHeadline_=null
          * @reactive
          */
         subHeadline_: null,
         /**
-         * Valid values: 'start' or 'end'
+         * Valid values: 'start', 'end' or 'top'
          * @member {String} textContainerPosition_='start'
          * @reactive
          */
@@ -92,6 +113,13 @@ class FeatureSection extends Container {
                 reference: 'paragraph',
                 tag      : 'p'
             }, {
+                module   : Container,
+                cls      : ['portal-content-links'],
+                flex     : 'none',
+                hidden   : true,
+                layout   : 'base',
+                reference: 'links'
+            }, {
                 module   : Button,
                 reference: 'learn-more-button',
                 text     : 'Learn more',
@@ -106,7 +134,8 @@ class FeatureSection extends Container {
     }
 
     /**
-     *
+     * @summary Runs the live preview once this page has been the active one for a second.
+     * A tabbed preview switches to its Preview tab; a side-by-side one already shows both and runs its source.
      */
     async activate() {
         let me       = this,
@@ -116,7 +145,16 @@ class FeatureSection extends Container {
             await me.timeout(1000);
 
             if (parent.activePartsId === me.id && parent.mounted) {
-                me.getReference('live-preview').activeView = 'preview'
+                let livePreview = me.getReference('live-preview');
+
+                if (!me.sideBySide) {
+                    livePreview.activeView = 'preview'
+                }
+                // Scrolling back to the page keeps what is there, as does an edit or a pop-out that ran it earlier
+                else if (livePreview.getPreviewContainer().items.length < 1) {
+                    livePreview.disableRunSource = false;
+                    livePreview.doRunSource()
+                }
             }
         }
     }
@@ -128,14 +166,38 @@ class FeatureSection extends Container {
      * @protected
      */
     afterSetContentItems(value, oldValue) {
+        let {sideBySide} = this;
+
+        // A side-by-side preview is its active view from the start: activate() runs it
         value ??= [{
-            module   : LivePreview,
-            cls      : ['page-live-preview'],
-            reference: 'live-preview',
-            value    : this.livePreviewCode
+            module          : LivePreview,
+            cls             : ['page-live-preview'],
+            disableRunSource: sideBySide,
+            reference       : 'live-preview',
+            sideBySide,
+            value           : this.livePreviewCode
         }];
 
         this.getItem('portal-content-wrapper').items = value
+    }
+
+    /**
+     * Triggered after the links config got changed
+     * @param {Object[]|null} value
+     * @param {Object[]|null} oldValue
+     * @protected
+     */
+    afterSetLinks(value, oldValue) {
+        if (value || oldValue) {
+            // Before the items are created, getItem() returns the item's config object
+            let links = this.getItem('links');
+
+            links.hidden = !value?.length;
+            links.items  = [
+                {ntype: 'component', cls: ['portal-content-links-label'], tag: 'span', text: this.linksLabel},
+                ...(value || []).map(({route, text}) => ({module: Button, route, text, ui: 'ghost'}))
+            ]
+        }
     }
 
     /**
@@ -199,7 +261,8 @@ class FeatureSection extends Container {
      * @protected
      */
     afterSetTextContainerPosition(value, oldValue) {
-        this.toggleCls('portal-position-end', value === 'end')
+        this.toggleCls('portal-position-end', value === 'end');
+        this.toggleCls('portal-position-top', value === 'top')
     }
 
     /**

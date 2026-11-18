@@ -150,3 +150,73 @@ test.describe('Neo.code.LivePreview — Mermaid source', () => {
         expect(LivePreview.config.language).toBe('neomjs')
     })
 });
+
+/**
+ * @summary Covers the side-by-side view's state: which card is active, the class its styles hang on, and when an
+ * edit runs. That both halves are on screen is a matter of styles and is covered in the portal's e2e tier.
+ */
+test.describe('Neo.code.LivePreview — side by side', () => {
+    let preview, nativeEditor;
+
+    test.beforeAll(() => {
+        nativeEditor = Neo.main.addon.MonacoEditor;
+        Neo.main.addon.MonacoEditor = {destroyInstance: Neo.emptyFn}
+    });
+
+    test.afterAll(() => {
+        if (nativeEditor === undefined) {
+            delete Neo.main.addon.MonacoEditor
+        } else {
+            Neo.main.addon.MonacoEditor = nativeEditor
+        }
+    });
+
+    test.afterEach(() => {
+        preview?.destroy();
+        preview = null
+    });
+
+    test('the preview is the active view from the start, and the config can be switched at run time', () => {
+        preview = Neo.create(LivePreview, {disableRunSource: true, sideBySide: true});
+
+        expect(preview.activeView).toBe('preview');
+        expect(preview.tabContainer.activeIndex).toBe(1);
+        expect(preview.cls).toContain('neo-side-by-side');
+
+        preview.sideBySide = false;
+        expect(preview.cls).not.toContain('neo-side-by-side');
+
+        preview.activeView = 'source';
+        preview.sideBySide = true;
+
+        expect(preview.cls).toContain('neo-side-by-side');
+        expect(preview.activeView).toBe('preview')
+    });
+
+    test('a tabbed preview keeps opening on its source', () => {
+        preview = Neo.create(LivePreview, {disableRunSource: true});
+
+        expect(preview.activeView).toBe('source');
+        expect(preview.cls).not.toContain('neo-side-by-side')
+    });
+
+    test('side by side an edit runs once typing pauses; in tabs it runs at once', async () => {
+        let runs = 0;
+
+        preview = Neo.create(LivePreview, {disableRunSource: true, sideBySide: true});
+        preview.doRunSource = () => {runs++};
+
+        preview.onEditorChange({value: 'a'});
+        preview.onEditorChange({value: 'ab'});
+
+        expect(runs).toBe(0);
+        expect(preview.value).toBe('ab');
+
+        await preview.timeout(600);
+        expect(runs).toBe(1);
+
+        preview.sideBySide = false;
+        preview.onEditorChange({value: 'abc'});
+        expect(runs).toBe(2)
+    })
+});

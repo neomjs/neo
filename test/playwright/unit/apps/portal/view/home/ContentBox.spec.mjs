@@ -25,7 +25,8 @@ import InstanceManager    from '../../../../../../../src/manager/Instance.mjs';
 import DomApiVnodeCreator from '../../../../../../../src/vdom/util/DomApiVnodeCreator.mjs';
 import VdomHelper         from '../../../../../../../src/vdom/Helper.mjs';
 import ContentBox         from '../../../../../../../apps/portal/view/home/ContentBox.mjs';
-import Colors             from '../../../../../../../apps/portal/view/home/parts/Colors.mjs';
+import Grid               from '../../../../../../../apps/portal/view/home/parts/Grid.mjs';
+import Scheduler          from '../../../../../../../apps/portal/view/home/parts/Scheduler.mjs';
 import HeaderToolbar      from '../../../../../../../apps/portal/view/HeaderToolbar.mjs';
 import HeroContent        from '../../../../../../../apps/portal/view/home/parts/hero/Content.mjs';
 import MainContainer      from '../../../../../../../apps/portal/view/home/MainContainer.mjs';
@@ -112,20 +113,31 @@ test.describe('Portal.view.home.ContentBox', () => {
 
             const h2Texts = h2Nodes.map(node => node.textContent);
             expect(h2Texts).toEqual(expect.arrayContaining([
-                'Amazing Potential',
-                'Extreme Speed',
+                'Data Grid',
+                'Scheduler',
                 'How?',
                 'The Agent OS Brain'
             ]));
 
-            for (const headline of ['Amazing Potential', 'Extreme Speed', 'How?', 'The Agent OS Brain']) {
+            for (const headline of ['Data Grid', 'Scheduler', 'How?', 'The Agent OS Brain']) {
                 const headingNode = h2Nodes.find(node => node.textContent === headline);
                 expect(headingNode?.className).toContain('neo-h1');
             }
 
-            for (const subHeadline of ['Shared Socket Data', '40,000 Updates /s', 'How does Neo.mjs do it?']) {
+            for (const subHeadline of [Grid.config.subHeadline, 'New in Engine 14', 'How does Neo.mjs do it?']) {
                 const subNode = h3Nodes.find(node => node.textContent === subHeadline);
                 expect(subNode?.className).toContain('neo-h2');
+            }
+
+            // The grid page's sub-headline counts its own snippet, and both snippets build from engine classes alone
+            expect(Grid.config.subHeadline).toBe(`50,000 Rows · ${Grid.config.livePreviewCode.split('\n').length} Lines`);
+            expect(Grid.config.livePreviewCode).toContain('length: 50000');
+
+            for (const part of [Grid, Scheduler]) {
+                const imports = part.config.livePreviewCode.split('\n').filter(line => line.startsWith('import '));
+
+                expect(imports.length).toBeGreaterThan(0);
+                imports.forEach(line => expect(line).toMatch(/ from '\.\.\/[a-z]+\/[A-Za-z]+\.mjs';$/))
             }
 
             const featureCssSource = fs.readFileSync(featureSectionCss, 'utf8');
@@ -134,13 +146,24 @@ test.describe('Portal.view.home.ContentBox', () => {
             expect(featureCssSource).toContain('.neo-h1 {');
             expect(featureCssSource).toContain('.neo-h2 {');
 
-            expect(Colors.config.learnMoreRoute).toBe('#/learn/benefits/body/MultiWindow');
-            expect(Colors.config.learnMoreRoute).not.toContain('itnext.io');
+            expect(Grid.config.learnMoreRoute).toBe('#/learn/guides/datahandling/Grids');
+            expect(Grid.config.learnMoreRoute).not.toContain('itnext.io');
 
-            const colorsSection   = home.items.find(item => item.className === 'Portal.view.home.parts.Colors');
-            const learnMoreButton = colorsSection.getItem('learn-more-button');
-            expect(learnMoreButton.route).toBe('#/learn/benefits/body/MultiWindow');
-            expect(learnMoreButton.vdom.href).toBe('#/learn/benefits/body/MultiWindow');
+            const gridSection     = home.items.find(item => item.className === 'Portal.view.home.parts.Grid');
+            const learnMoreButton = gridSection.getItem('learn-more-button');
+            expect(learnMoreButton.route).toBe('#/learn/guides/datahandling/Grids');
+            expect(learnMoreButton.vdom.href).toBe('#/learn/guides/datahandling/Grids');
+
+            // A component page shows its code beside the result, and names the other families as routes
+            const livePreview = gridSection.getReference('live-preview'),
+                  links       = gridSection.getItem('links').items.filter(item => item.route);
+
+            expect(livePreview.sideBySide).toBe(true);
+            expect(livePreview.cls).toContain('neo-side-by-side');
+            expect(livePreview.activeView).toBe('preview');
+            expect(livePreview.getPreviewContainer().items).toHaveLength(0);
+            expect(links.map(link => link.route)).toEqual(Grid.config.links.map(link => link.route));
+            links.forEach(link => expect(link.route).toMatch(/^#\/examples\/[a-z-]+$/));
         } finally {
             home.destroy();
             if (originalMonacoAddon === undefined) {

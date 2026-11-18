@@ -1,11 +1,11 @@
 import AiToolchain   from './parts/AiToolchain.mjs';
 import AudienceDoors from './parts/AudienceDoors.mjs';
-import Colors        from './parts/Colors.mjs';
 import Container     from '../../../../src/container/Base.mjs';
 import Features      from './parts/Features.mjs';
-import Helix         from './parts/Helix.mjs';
+import Grid          from './parts/Grid.mjs';
 import HeroContainer from './parts/hero/Container.mjs';
 import How           from './parts/How.mjs';
+import Scheduler     from './parts/Scheduler.mjs';
 
 /**
  * @summary Scroll-snapped home view sequencing the Hero, AudienceDoors, Engine showcase, and Agent OS stages.
@@ -60,8 +60,8 @@ class MainContainer extends Container {
             {ntype: 'component', cls: ['portal-home-progress']},
             HeroContainer,
             {module: AudienceDoors, reference: 'home-audience-doors'},
-            {module: Colors,        reference: 'home-body-entry'},
-            Helix,
+            {module: Grid,          reference: 'home-body-entry'},
+            Scheduler,
             How,
             Features,
             {module: AiToolchain,   reference: 'home-agent-os'}

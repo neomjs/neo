@@ -40,6 +40,14 @@ class LivePreview extends Container {
      * @static
      */
     static languages = ['markdown', 'mermaid', 'neomjs']
+    /**
+     * @member {Object} delayable
+     * @protected
+     * @static
+     */
+    static delayable = {
+        runEditedSource: {type: 'buffer', timer: 400}
+    }
 
     static config = {
         /**
@@ -102,6 +110,15 @@ class LivePreview extends Container {
                 reference: 'preview'
             }]
         }],
+        /**
+         * True shows the editor beside the running preview instead of in a tab of its own, while the component is
+         * at least 700px wide; narrower, the two tabs return. The preview is the active view: it runs at once,
+         * follows an edit once typing pauses, and a preview moved into its own window leaves the editor the full
+         * width.
+         * @member {Boolean} sideBySide_=false
+         * @reactive
+         */
+        sideBySide_: false,
         /**
          * The code to display inside the Monaco editor
          * @member {String|null} value_=null
@@ -197,6 +214,25 @@ class LivePreview extends Container {
         }
     }
 
+
+    /**
+     * @summary Marks the component for its side-by-side styles and makes the preview the active view.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetSideBySide(value, oldValue) {
+        let me = this;
+
+        if (value || oldValue !== undefined) {
+            me.toggleCls('neo-side-by-side', value)
+        }
+
+        // The preview is the active card; the styles keep the editor visible beside it
+        if (value) {
+            me.activeView = 'preview'
+        }
+    }
 
     /**
      * @summary Synchronizes programmatic source changes, including clearing, into the editor model.
@@ -518,7 +554,8 @@ class LivePreview extends Container {
 
         me.fire('editorChange', {value});
 
-        me.doRunSource()
+        // Side by side every edit is on screen: the preview waits for a pause in the typing
+        me.sideBySide ? me.runEditedSource() : me.doRunSource()
     }
 
     /**
@@ -539,7 +576,8 @@ class LivePreview extends Container {
                 mainView         = app.mainView,
                 previewContainer = me.getReference('preview'),
                 {tabContainer}   = me,
-                previewView      = previewContainer.removeAt(0, false),
+                // A side-by-side preview can be moved before it ran: it has no view yet and runs in its window
+                previewView      = previewContainer.items.length > 0 ? previewContainer.removeAt(0, false) : null,
                 theme            = me.getTheme?.();
 
             // We overrule the viewport theme on purpose
@@ -548,7 +586,7 @@ class LivePreview extends Container {
             }
 
             me.previewContainer = mainView;
-            mainView.add(previewView);
+            previewView ? mainView.add(previewView) : me.doRunSource();
 
             tabContainer.activeIndex = 0; // switch to the source view
 
@@ -569,10 +607,10 @@ class LivePreview extends Container {
                 mainView         = app.mainView,
                 previewContainer = me.getReference('preview'),
                 {tabContainer}   = me,
-                previewView      = mainView.removeAt(0, false);
+                previewView      = mainView.items.length > 0 ? mainView.removeAt(0, false) : null;
 
             me.previewContainer = null;
-            previewContainer.add(previewView);
+            previewView && previewContainer.add(previewView);
 
             me.disableRunSource = true; // will get reset after the next activeIndex change (async)
             tabContainer.activeIndex = 1;        // switch to the source view
@@ -582,6 +620,14 @@ class LivePreview extends Container {
 
             me.connectedWindowId = null
         }
+    }
+
+    /**
+     * @summary Runs the edited source; buffered through `delayable`, so one run follows a burst of edits.
+     * @protected
+     */
+    runEditedSource() {
+        this.doRunSource()
     }
 
     /**

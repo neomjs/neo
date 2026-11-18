@@ -121,15 +121,15 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
         const hero      = await queryOne(app, {className: 'Portal.view.home.parts.hero.Content'});
         const doors     = await queryOne(app, {reference: 'home-audience-doors'});
         const bodyEntry = await queryOne(app, {reference: 'home-body-entry'});
-        const helix     = await queryOne(app, {className: 'Portal.view.home.parts.Helix'});
+        const scheduler = await queryOne(app, {className: 'Portal.view.home.parts.Scheduler'});
         const agentOs   = await queryOne(app, {reference: 'home-agent-os'});
 
         expect(header?.id).toBeTruthy();
         expect(home?.id).toBeTruthy();
         expect(hero?.id).toBeTruthy();
-        expect(helix?.id).toBeTruthy();
+        expect(scheduler?.id).toBeTruthy();
         expect(doors?.className).toBe('Portal.view.home.parts.AudienceDoors');
-        expect(bodyEntry?.className).toBe('Portal.view.home.parts.Colors');
+        expect(bodyEntry?.className).toBe('Portal.view.home.parts.Grid');
         expect(agentOs?.className).toBe('Portal.view.home.parts.AiToolchain');
 
         const doorBuild     = await queryOne(app, {reference: 'door-build'});
@@ -189,7 +189,7 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
         await expect(agentsCtaEl).toHaveAttribute('href', `#${agentOs.id}`);
         expect(await buildCtaEl.getAttribute('target')).toBeNull();
         expect(await agentsCtaEl.getAttribute('target')).toBeNull();
-        await expect(page.locator(`#${bodyEntry.id}`)).toHaveClass(/portal-home-parts-colors/);
+        await expect(page.locator(`#${bodyEntry.id}`)).toHaveClass(/portal-home-parts-grid/);
         await expect(page.locator(`#${agentOs.id}`)).toHaveClass(/portal-home-parts-aitoolchain/);
 
         const initialHeaderHeight = await page.locator(`#${header.id}`).evaluate(el => el.getBoundingClientRect().height);
@@ -215,11 +215,24 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
         await expect(page.locator(`#${agentOs.id}`).getByRole('heading', {name: 'The Agent OS Brain'})).toBeVisible();
         await expect(page).toHaveURL(/#\/home$/);
 
-        // Embedded Viewport previews inside LivePreview must keep their theme scoped instead of hijacking document.body
-        const helixPreviewId = await page.locator(`#${helix.id} .neo-code-live-preview`).getAttribute('id');
-        expect(helixPreviewId).toBeTruthy();
-        await app.setProperties(helixPreviewId, {activeView: 'preview'});
-        await expect(page.locator(`#${helix.id} .neo-viewport.neo-theme-dark`)).toBeAttached({timeout: 15000});
+        // Embedded Viewport previews inside LivePreview must keep their theme scoped instead of hijacking document.body.
+        // The home's own snippets mount no themed Viewport, so this witness hands one to a preview in tab mode.
+        const previewId = await page.locator(`#${scheduler.id} .neo-code-live-preview`).getAttribute('id');
+        expect(previewId).toBeTruthy();
+        await app.setProperties(previewId, {activeView: 'source', sideBySide: false});
+        await app.setProperties(previewId, {value: [
+            "import Viewport from '../container/Viewport.mjs';",
+            "",
+            "class MainView extends Viewport {",
+            "    static config = {",
+            "        className: 'Portal.view.ThemedPreview',",
+            "        theme    : 'neo-theme-dark'",
+            "    }",
+            "}",
+            "MainView = Neo.setupClass(MainView);"
+        ].join('\n')});
+        await app.setProperties(previewId, {activeView: 'preview'});
+        await expect(page.locator(`#${scheduler.id} .neo-viewport.neo-theme-dark`)).toBeAttached({timeout: 15000});
         await expect(page.locator('body')).toHaveClass(/neo-theme-neo-dark/);
         await expect(page.locator('body')).not.toHaveClass(/(^|\s)neo-theme-dark(\s|$)/);
         expect(await page.locator(`#${header.id}`).evaluate(el => el.getBoundingClientRect().height)).toBe(initialHeaderHeight);
