@@ -453,7 +453,8 @@ class Button extends Component {
      * @protected
      */
     afterSetSize(value, oldValue) {
-        this.removeAddCls(oldValue ? `neo-button-size-${oldValue}` : [], value ? `neo-button-size-${value}` : [])
+        // Outside `ui`'s `neo-button-<ui>` namespace, so neither config can remove the other's class
+        this.removeAddCls(oldValue ? `neo-size-${oldValue}` : [], value ? `neo-size-${value}` : [])
     }
 
     /**

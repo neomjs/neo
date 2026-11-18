@@ -376,17 +376,33 @@ test.describe('Neo.button.Base VDOM (Node.js)', () => {
     test('a size config sets its class, a change swaps it, and null leaves the size to the context', async () => {
         const button = Neo.create(Button, {appName, size: 'large', text: 'Get started', ui: 'secondary'});
 
-        expect(button.cls).toContain('neo-button-size-large');
+        expect(button.cls).toContain('neo-size-large');
         expect(button.cls, 'the size is not a ui').toContain('neo-button-secondary');
 
         button.size = 'small';
-        expect(button.cls).toContain('neo-button-size-small');
-        expect(button.cls).not.toContain('neo-button-size-large');
+        expect(button.cls).toContain('neo-size-small');
+        expect(button.cls).not.toContain('neo-size-large');
 
         button.size = null;
-        expect(button.cls.filter(cls => cls.startsWith('neo-button-size-'))).toEqual([]);
+        expect(button.cls.filter(cls => cls.startsWith('neo-size-'))).toEqual([]);
 
         button.destroy()
+    });
+
+    test('a size and a ui stay independent, even a ui named like a size', async () => {
+        const button  = Neo.create(Button, {appName, size: 'large', text: 'Save', ui: 'size-large'}),
+              plain   = Neo.create(Button, {appName, size: 'large', text: 'Save'}),
+              sizeCls = plain.cls.filter(cls => cls.includes('size'));
+
+        button.ui = null;
+        expect(button.cls, 'clearing the ui keeps the size').toEqual(expect.arrayContaining(sizeCls));
+
+        button.ui   = 'size-large';
+        button.size = 'small';
+        expect(button.cls, 'changing the size keeps the ui').toContain('neo-button-size-large');
+
+        button.destroy();
+        plain.destroy()
     });
 
     test('an unknown size is refused, and the button keeps the size it has', async () => {
@@ -398,7 +414,7 @@ test.describe('Neo.button.Base VDOM (Node.js)', () => {
         console.error = error;
 
         expect(button.size).toBe('medium');
-        expect(button.cls).toContain('neo-button-size-medium');
+        expect(button.cls).toContain('neo-size-medium');
 
         button.destroy()
     });
