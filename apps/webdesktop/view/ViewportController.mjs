@@ -1,10 +1,13 @@
-import Controller from '../../../src/controller/Component.mjs';
+import Controller    from '../../../src/controller/Component.mjs';
+import WindowManager from '../../../src/desktop/WindowManager.mjs';
 
 /**
- * @summary Signs accounts in and out, opens apps in windows, and hands the start menu the apps store.
+ * @summary Signs accounts in and out, opens apps in windows through a `Neo.desktop.WindowManager`, and hands the start
+ * menu the apps store.
  *
  * Signing in copies the account's permission keys into the root state provider; everything the account sees follows
- * from that one write. A window outlives no permission: when the apps store's filter drops an app, its window closes.
+ * from that one write. A window outlives no permission: when the apps store's filter drops an app, the window manager
+ * closes its window.
  * @class WebDesktop.view.ViewportController
  * @extends Neo.controller.Component
  */
@@ -18,24 +21,6 @@ class ViewportController extends Controller {
     }
 
     /**
-     * One window per app id, created on its first open and kept afterwards. Each value is the promise of the window,
-     * so a second open during the lazy import reuses the first.
-     * @member {Object} windows={}
-     */
-    windows = {}
-    /**
-     * The windows that exist, by app id: a sign-out hides them at once, without waiting on an import still running
-     * @member {Object} createdWindows={}
-     * @protected
-     */
-    createdWindows = {}
-    /**
-     * Counts sign-outs. A window import that ends after one creates no window, so an open cannot outlive its account.
-     * @member {Number} signOuts=0
-     * @protected
-     */
-    signOuts = 0
-    /**
      * The latest sign-in while its saved arrangement is being read. A later click replaces it, so the last click signs
      * in, whichever read answers first.
      * @member {Object|null} pendingSignIn=null
@@ -48,47 +33,23 @@ class ViewportController extends Controller {
      * @protected
      */
     restoringArrangement = false
-
     /**
-     * Creates an app's window on first use. It grows out of the app's launcher icon, and its own state provider holds
-     * the app, parented to the desktop's provider. Dragging and resizing both stay inside the workspace, the area above
-     * the taskbar. A sign-out during the import cancels it: a new window shows itself, and its account is gone.
-     * @param {WebDesktop.model.App} record
-     * @returns {Promise<WebDesktop.view.AppWindow|null>} null when a sign-out ended the open
+     * Opens the app windows and keeps them in step with the tasks store
+     * @member {Neo.desktop.WindowManager|null} windowManager=null
      */
-    async createWindow(record) {
-        let me                   = this,
-            signOuts             = me.signOuts,
-            launcher             = me.getReference('launcher'),
-            workspaceId          = me.getReference('workspace').id,
-            {appName, windowId}  = launcher,
-            {default: AppWindow} = await import('./AppWindow.mjs');
-
-        if (signOuts !== me.signOuts) {
-            return null
-        }
-
-        return me.createdWindows[record.id] = Neo.create(AppWindow, {
-            animateTargetId    : launcher.getItemId(launcher.store.get(record.id)),
-            appName,
-            boundaryContainerId: workspaceId,
-            listeners          : {
-                headerAction: data => me.onWindowHeaderAction(record.id, data),
-                hide        : ()   => me.onWindowHide(record.id)
-            },
-            resizablePluginConfig: {boundaryContainerId: workspaceId},
-            stateProvider        : {data: {app: record}, parent: me.getStateProvider()},
-            windowId
-        })
-    }
+    windowManager = null
 
     /**
-     * The windows float on the document body, outside the viewport's items, so the controller that creates them
-     * destroys them.
+     * The window manager destroys the windows it created, and the apps store, which the desktop's provider owns and
+     * destroys after this controller, is left alone
      * @param {...*} args
      */
     destroy(...args) {
-        this.releaseWindows();
+        let me = this;
+
+        me.windowManager?.destroy();
+        me.getStore('apps')?.un({rowsChange: me.onAppsRowsChange, scope: me});
+
         super.destroy(...args)
     }
 
@@ -101,11 +62,26 @@ class ViewportController extends Controller {
     }
 
     /**
-     * Hides every created window at once and without animation: their launcher icons may be gone already. An import
-     * still running is not waited for; a sign-out cancels it in `createWindow()`.
+     * The config of an app's window. It grows out of the app's launcher icon, and its own state provider holds the
+     * app, parented to the desktop's provider. Dragging and resizing both stay inside the workspace, the area above
+     * the taskbar.
+     * @param {WebDesktop.model.App} record
+     * @returns {Object}
      */
-    hideAllWindows() {
-        Object.values(this.createdWindows).forEach(window => {window.hidden || window.hide(false)})
+    getWindowConfig(record) {
+        let me                  = this,
+            launcher            = me.getReference('launcher'),
+            workspaceId         = me.getReference('workspace').id,
+            {appName, windowId} = launcher;
+
+        return {
+            animateTargetId      : launcher.getItemId(launcher.store.get(record.id)),
+            appName,
+            boundaryContainerId  : workspaceId,
+            resizablePluginConfig: {boundaryContainerId: workspaceId},
+            stateProvider        : {data: {app: record}, parent: me.getStateProvider()},
+            windowId
+        }
     }
 
     /**
@@ -137,19 +113,6 @@ class ViewportController extends Controller {
     }
 
     /**
-     * Closes every open app the permission filter no longer keeps, minimized ones included.
-     */
-    onAppsFilter() {
-        let me      = this,
-            apps    = me.getStore('apps'),
-            tasks   = me.getStore('tasks'),
-            revoked = tasks.items.filter(task => !apps.isKept(task.id));
-
-        revoked.length && tasks.remove(revoked);
-        revoked.forEach(task => me.windows[task.id].then(window => {window.hidden || window.hide(false)}))
-    }
-
-    /**
      * Saves the signed-in account's arrangement whenever the apps store writes a new order: a drop, a keyboard move.
      */
     onAppsRowsChange() {
@@ -164,23 +127,28 @@ class ViewportController extends Controller {
     }
 
     /**
-     * The start menu is a `menu.List` cascade over the apps store: every level reads the same filtered tree.
+     * The start menu is a `menu.List` cascade over the apps store: every level reads the same filtered tree. The
+     * windows open through the window manager, which follows the apps store's filter.
      */
     onComponentConstructed() {
         super.onComponentConstructed();
 
-        let me = this;
+        let me   = this,
+            apps = me.getStore('apps');
 
         me.getReference('start-button').menu = {
             align: {edgeAlign: 'b0-t0', targetMargin: 8},
             cls  : ['webdesktop-start-menu'],
-            store: me.getStore('apps')
+            store: apps
         };
 
-        me.getStore('apps').on({
-            filter    : me.onAppsFilter,
-            rowsChange: me.onAppsRowsChange,
-            scope     : me
+        apps.on({rowsChange: me.onAppsRowsChange, scope: me});
+
+        me.windowManager = Neo.create(WindowManager, {
+            appStore    : apps,
+            taskStore   : me.getStore('tasks'),
+            windowClass : () => import('./AppWindow.mjs'),
+            windowConfig: record => me.getWindowConfig(record)
         })
     }
 
@@ -212,18 +180,17 @@ class ViewportController extends Controller {
     }
 
     /**
-     * Signs out at once. A sign-in whose arrangement is still being read does not outlive it, and neither does a window
-     * import. The windows leave the DOM before the account changes: a window still mounted would re-render its content
-     * for the empty account, and that update would land after the window's removal.
+     * Signs out at once. A sign-in whose arrangement is still being read does not outlive it, and the window manager's
+     * reset ends every window load and hides every window. The windows leave the DOM before the account changes: a
+     * window still mounted would re-render its content for the empty account, and that update would land after the
+     * window's removal.
      * @param {Object} data
      */
     onSignOutButtonClick(data) {
         let me = this;
 
         me.pendingSignIn = null;
-        me.signOuts++;
-        me.getStore('tasks').clear();
-        me.hideAllWindows();
+        me.windowManager.reset();
 
         me.setState({
             account         : null,
@@ -242,19 +209,11 @@ class ViewportController extends Controller {
 
     /**
      * A minimized window shows again; a visible one comes to the front.
-     * @param {Object}                data
-     * @param {WebDesktop.model.Task} data.record
+     * @param {Object}                 data
+     * @param {Neo.desktop.model.Task} data.record
      */
-    async onTaskItemClick({record}) {
-        let window = await this.windows[record.id];
-
-        if (window.hidden) {
-            record.minimized = false;
-            window.toFront();
-            window.show()
-        } else {
-            window.toFront()
-        }
+    onTaskItemClick({record}) {
+        this.windowManager.restore(record.id)
     }
 
     /**
@@ -279,62 +238,12 @@ class ViewportController extends Controller {
     }
 
     /**
-     * Minimizing keeps the app's task and hides its window into the launcher icon.
-     * @param {String}                    appId
-     * @param {Object}                    data
-     * @param {String}                    data.action
-     * @param {WebDesktop.view.AppWindow} data.dialog
-     */
-    onWindowHeaderAction(appId, {action, dialog}) {
-        if (action === 'minimize') {
-            this.getStore('tasks').get(appId).minimized = true;
-            dialog.hide()
-        }
-    }
-
-    /**
-     * A window hidden without minimizing was closed (header button or Escape): its task goes.
-     * @param {String} appId
-     */
-    onWindowHide(appId) {
-        let tasks = this.getStore('tasks'),
-            task  = tasks.get(appId);
-
-        task && !task.minimized && tasks.remove(task)
-    }
-
-    /**
      * Opens an app's window, or brings it back if it is open already, and lists it in the taskbar.
      * @param {WebDesktop.model.App} record
+     * @returns {Promise<WebDesktop.view.AppWindow|null>}
      */
-    async openApp(record) {
-        let me      = this,
-            {id}    = record,
-            tasks   = me.getStore('tasks'),
-            request = me.windows[id] ??= me.createWindow(record),
-            window, task;
-
-        // A failed import, or one a sign-out cancelled, leaves no cached window: the next open imports again
-        try {
-            window = await request
-        } finally {
-            !window && me.windows[id] === request && delete me.windows[id]
-        }
-
-        if (!window) {
-            return
-        }
-
-        task = tasks.get(id);
-
-        if (task) {
-            task.minimized = false
-        } else {
-            tasks.add({color: record.color, iconCls: record.iconCls, id, text: record.text})
-        }
-
-        window.toFront();
-        window.hidden && window.show()
+    openApp(record) {
+        return this.windowManager.openApp(record)
     }
 
     /**
@@ -357,27 +266,6 @@ class ViewportController extends Controller {
         } catch {
             return {}
         }
-    }
-
-    /**
-     * Destroys every window, open or still being imported, and stops listening to the apps store, which the desktop's
-     * provider owns and destroys after this controller.
-     * @protected
-     */
-    releaseWindows() {
-        let me = this;
-
-        me.getStore('apps')?.un({
-            filter    : me.onAppsFilter,
-            rowsChange: me.onAppsRowsChange,
-            scope     : me
-        });
-
-        // A cancelled import resolves to null, and a failed one has no window to destroy
-        Object.values(me.windows).forEach(promise => promise.then(window => {window && !window.isDestroyed && window.destroy(true)}, () => {}));
-
-        me.createdWindows = {};
-        me.windows        = {}
     }
 }
 
