@@ -4,6 +4,7 @@ import os             from 'node:os';
 import path           from 'node:path';
 import {
     computeImportWaterfallDepth,
+    formatMeasurementMarkdown,
     patchImportAppManifest,
     summarizeFiveRuns
 } from '../../../../buildScripts/util/measure-esm-vs-bundled.mjs';
@@ -75,5 +76,41 @@ test.describe('buildScripts/util/measure-esm-vs-bundled', () => {
 
         expect(minifiedPatched).toContain('import("../../apps/portal/app.mjs")');
         expect(minifiedPatched).not.toContain('../../${e}.mjs')
+    });
+
+    test('formatMeasurementMarkdown emits worker boot failures and ERROR cells for esbuild probes', () => {
+        const md = formatMeasurementMarkdown({
+            meta: {
+                commit : 'abc1234',
+                machine: 'linux',
+                browser: 'Chromium',
+                server : 'caddy',
+                command: 'node buildScripts/util/measure-esm-vs-bundled.mjs --runs 5',
+                runs   : 5
+            },
+            waterfalls   : [],
+            esbuildProbes: {
+                portal: {
+                    ok          : true,
+                    entryCount  : 9,
+                    chunkCount  : 86,
+                    rawSrc      : {ok: false, reason: 'Raw fails'},
+                    runtimeError: 'ReferenceError: Neo is not defined (chunk.mjs:1)'
+                }
+            },
+            apps: [{
+                title: 'Portal (`apps/portal`)',
+                cells: [{
+                    build   : 'dist/esbuild-probe',
+                    protocol: 'h2',
+                    link    : '0 ms (clean)',
+                    cache   : 'cold',
+                    error   : 'ReferenceError: Neo is not defined (chunk.mjs:1)'
+                }]
+            }]
+        });
+
+        expect(md).toContain('FAILED at worker boot — `ReferenceError: Neo is not defined (chunk.mjs:1)`');
+        expect(md).toContain('| dist/esbuild-probe | h2 | 0 ms (clean) | cold | ERROR | - | - | - | - | - | ReferenceError: Neo is not defined (chunk.mjs:1) | failed |')
     });
 });

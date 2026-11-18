@@ -367,7 +367,11 @@ export function formatMeasurementMarkdown(report) {
         lines.push(`- **${appKey} (raw \`src/worker/App.mjs\`):** ${probe.rawSrc?.ok ? probe.rawSrc.summary : probe.rawSrc?.reason}`);
 
         if (probe.ok) {
-            lines.push(`- **${appKey} (hand-written entry manifest on \`dist/esbuild-probe\`):** built cleanly (${probe.entryCount} entries → ${probe.chunkCount} shared split chunks)`)
+            if (probe.runtimeError) {
+                lines.push(`- **${appKey} (hand-written entry manifest on \`dist/esbuild-probe\`):** built (${probe.entryCount} entries → ${probe.chunkCount} shared split chunks), FAILED at worker boot — \`${probe.runtimeError}\``)
+            } else {
+                lines.push(`- **${appKey} (hand-written entry manifest on \`dist/esbuild-probe\`):** built cleanly (${probe.entryCount} entries → ${probe.chunkCount} shared split chunks)`)
+            }
         } else {
             lines.push(`- **${appKey} (hand-written entry manifest):** FAILED — \`${probe.error}\``)
         }
@@ -595,16 +599,67 @@ function chromiumArgsFor(protocol, spkiBase64) {
 }
 
 /**
+ * @summary Evaluates an expression inside a worker CDP target using non-flattened target messaging.
+ * @param {Object} browserCdp Browser-level CDP session.
+ * @param {String} targetId Target identifier from `Target.getTargets`.
+ * @param {String} expression JavaScript expression returning a serializable value.
+ * @returns {Promise<*>} Evaluated return value, or `null` on detachment or timeout.
+ */
+async function evaluateWorkerTarget(browserCdp, targetId, expression) {
+    let sessionId = null;
+
+    try {
+        ({sessionId} = await browserCdp.send('Target.attachToTarget', {targetId, flatten: false}));
+
+        return await new Promise(resolve => {
+            const finish = value => {
+                clearTimeout(timer);
+                browserCdp.off('Target.receivedMessageFromTarget', onMessage);
+                resolve(value)
+            };
+
+            const onMessage = ev => {
+                if (ev.sessionId !== sessionId) {
+                    return
+                }
+
+                try {
+                    const msg = JSON.parse(ev.message);
+
+                    if (msg.id === 1) {
+                        finish(msg.result?.result?.value ?? null)
+                    }
+                } catch {
+                    finish(null)
+                }
+            };
+
+            const timer = setTimeout(() => finish(null), 3000);
+
+            browserCdp.on('Target.receivedMessageFromTarget', onMessage);
+            browserCdp.send('Target.sendMessageToTarget', {
+                sessionId,
+                message: JSON.stringify({id: 1, method: 'Runtime.evaluate', params: {expression, returnByValue: true}})
+            }).catch(() => finish(null))
+        })
+    } catch {
+        return null
+    } finally {
+        if (sessionId) {
+            await browserCdp.send('Target.detachFromTarget', {sessionId}).catch(() => {})
+        }
+    }
+}
+
+/**
  * @summary Collects same-origin Page and Worker resource timing entries and optional runtime singleton checks via CDP.
- * @param {Object} context Playwright BrowserContext.
  * @param {Object} page Playwright Page.
  * @param {String} origin Origin URL prefix for same-origin filtering.
- * @param {String[]} attachedSessions Active flattened worker CDP session IDs tracked by caller.
  * @param {Object} browserCdp Browser-level CDP session.
  * @param {String|null} lazyClassName Optional lazy class name to verify in App Worker after navigation.
  * @returns {Promise<Object>} Metrics `{requests, transferBytes, protocolCounts, workerWaterfallMs, runtimeCheck}`.
  */
-async function collectCdpMetrics(page, origin, attachedSessions, browserCdp, lazyClassName) {
+async function collectCdpMetrics(page, origin, browserCdp, lazyClassName) {
     const pageEntries = await page.evaluate(orig =>
         performance.getEntriesByType('resource')
             .filter(e => e.name.startsWith(orig))
@@ -640,46 +695,42 @@ async function collectCdpMetrics(page, origin, attachedSessions, browserCdp, laz
         return {href: self.location?.href || '', entries, check};
     })()`;
 
-    for (const target of attachedSessions) {
-        try {
-            const evalRes = await target.client.send('Runtime.evaluate', {
-                sessionId    : target.sessionId,
-                expression   : expr,
-                returnByValue: true
-            });
+    const {targetInfos = []} = await browserCdp.send('Target.getTargets');
 
-            const val = evalRes?.result?.value;
+    for (const targetInfo of targetInfos) {
+        if (!['worker', 'shared_worker', 'service_worker'].includes(targetInfo.type) || !(targetInfo.url || '').startsWith(origin)) {
+            continue
+        }
 
-            if (!val) {
-                continue
+        const val = await evaluateWorkerTarget(browserCdp, targetInfo.targetId, expr);
+
+        if (!val) {
+            continue
+        }
+
+        if (val.check) {
+            runtimeCheck = val.check
+        }
+
+        const sameOrigin = val.entries.filter(e => e.name.startsWith(origin));
+
+        for (const item of sameOrigin) {
+            if (!seenUrls.has(`${targetInfo.targetId}:${item.name}:${item.startTime}`)) {
+                seenUrls.add(`${targetInfo.targetId}:${item.name}:${item.startTime}`);
+                allEntries.push(item)
             }
+        }
 
-            if (val.check) {
-                runtimeCheck = val.check
+        if (val.href.includes('App.mjs') || val.href.includes('appworker')) {
+            const jsEntries = sameOrigin.filter(e => e.name.endsWith('.mjs') || e.name.endsWith('.js'));
+
+            if (jsEntries.length) {
+                const
+                    minStart = Math.min(...jsEntries.map(e => e.startTime)),
+                    maxEnd   = Math.max(...jsEntries.map(e => e.responseEnd));
+
+                workerWindows.push(maxEnd - minStart)
             }
-
-            const sameOrigin = val.entries.filter(e => e.name.startsWith(origin));
-
-            for (const item of sameOrigin) {
-                if (!seenUrls.has(`${target.sessionId}:${item.name}:${item.startTime}`)) {
-                    seenUrls.add(`${target.sessionId}:${item.name}:${item.startTime}`);
-                    allEntries.push(item)
-                }
-            }
-
-            if (val.href.includes('App.mjs') || val.href.includes('appworker')) {
-                const jsEntries = sameOrigin.filter(e => e.name.endsWith('.mjs') || e.name.endsWith('.js'));
-
-                if (jsEntries.length) {
-                    const
-                        minStart = Math.min(...jsEntries.map(e => e.startTime)),
-                        maxEnd   = Math.max(...jsEntries.map(e => e.responseEnd));
-
-                    workerWindows.push(maxEnd - minStart)
-                }
-            }
-        } catch {
-            // Detached/short-lived worker targets are skipped safely
         }
     }
 
@@ -694,8 +745,6 @@ async function collectCdpMetrics(page, origin, attachedSessions, browserCdp, laz
         protocolCounts[key] = (protocolCounts[key] || 0) + 1
     }
 
-    void browserCdp;
-
     return {
         requests         : allEntries.length,
         transferBytes,
@@ -706,29 +755,160 @@ async function collectCdpMetrics(page, origin, attachedSessions, browserCdp, laz
 }
 
 /**
- * @summary Executes one load, one UI interaction, and one lazy extension load on either Portal or Starter app.
- * @param {Object} options Execution parameters.
- * @returns {Promise<Object>} Single-run measurement record.
+ * @summary Formats a CDP `Runtime.exceptionThrown` payload into a single-line diagnostic string.
+ * @param {Object|null} details CDP `exceptionDetails` payload.
+ * @returns {String|null} Compact exception summary and source location.
  */
-async function measureSinglePageRun({browser, protocol, origin, url, kind}) {
-    const
-        context          = await browser.newContext({ignoreHTTPSErrors: true, viewport: {width: 1440, height: 1000}}),
-        page             = await context.newPage(),
-        pageCdp          = await context.newCDPSession(page),
-        browserCdp       = await browser.newBrowserCDPSession(),
-        attachedSessions = [];
+function formatExceptionDetails(details) {
+    if (!details) {
+        return null
+    }
 
-    const registerTarget = (client, ev) => {
-        if (['worker', 'shared_worker', 'service_worker'].includes(ev.targetInfo?.type)) {
-            attachedSessions.push({client, sessionId: ev.sessionId})
+    const
+        summary = (details.exception?.description || details.text || 'Uncaught worker error').split('\n')[0],
+        file    = details.url ? path.basename(details.url) : 'worker';
+
+    return `${summary} (${file}:${(details.lineNumber || 0) + 1})`
+}
+
+/**
+ * @summary Probes `dist/esbuild-probe` once under HTTP/2 clean link with fast fail-fast worker exception capture.
+ * @param {Object} options Boot probe options.
+ * @param {String} options.spkiBase64 Base64 SHA-256 SubjectPublicKeyInfo digest.
+ * @param {String} options.origin Origin URL prefix for worker discovery filtering.
+ * @param {String} options.url Entry HTML URL for the esbuild probe build.
+ * @param {String} options.kind `'portal'` or `'starter'`.
+ * @returns {Promise<{ok: Boolean, runtimeError?: String}>} Boot probe result.
+ */
+async function probeEsbuildRuntimeBoot({spkiBase64, origin, url, kind}) {
+    const
+        browser    = await chromium.launch({headless: true, args: chromiumArgsFor('h2', spkiBase64)}),
+        context    = await browser.newContext({ignoreHTTPSErrors: true, viewport: {width: 1440, height: 1000}}),
+        page       = await context.newPage(),
+        pageCdp    = await context.newCDPSession(page),
+        browserCdp = await browser.newBrowserCDPSession();
+
+    let capturedError = null,
+        resolveEarlyError;
+
+    const earlyError = new Promise(resolve => {
+        resolveEarlyError = resolve
+    });
+
+    const failFast = msg => {
+        if (!capturedError && msg) {
+            capturedError = msg;
+            resolveEarlyError()
         }
     };
 
-    pageCdp.on('Target.attachedToTarget', ev => registerTarget(pageCdp, ev));
-    browserCdp.on('Target.attachedToTarget', ev => registerTarget(browserCdp, ev));
+    page.on('pageerror', err => failFast(err.message));
 
-    await pageCdp.send('Target.setAutoAttach', {autoAttach: true, waitForDebuggerOnStart: false, flatten: true});
-    await browserCdp.send('Target.setAutoAttach', {autoAttach: true, waitForDebuggerOnStart: false, flatten: true});
+    pageCdp.on('Target.attachedToTarget', ev => {
+        if (['worker', 'service_worker'].includes(ev.targetInfo?.type)) {
+            pageCdp.send('Target.sendMessageToTarget', {
+                sessionId: ev.sessionId,
+                message  : JSON.stringify({id: 1, method: 'Runtime.enable'})
+            }).catch(() => {})
+        }
+
+        pageCdp.send('Target.sendMessageToTarget', {
+            sessionId: ev.sessionId,
+            message  : JSON.stringify({id: 2, method: 'Runtime.runIfWaitingForDebugger'})
+        }).catch(() => {})
+    });
+
+    pageCdp.on('Target.receivedMessageFromTarget', ev => {
+        try {
+            const msg = JSON.parse(ev.message);
+
+            if (msg.method === 'Runtime.exceptionThrown') {
+                failFast(formatExceptionDetails(msg.params?.exceptionDetails))
+            }
+        } catch {
+            // Ignore malformed target events
+        }
+    });
+
+    await pageCdp.send('Target.setAutoAttach', {autoAttach: true, waitForDebuggerOnStart: true, flatten: false});
+
+    browserCdp.on('Target.targetCreated', async ({targetInfo}) => {
+        if (['shared_worker', 'service_worker'].includes(targetInfo?.type) && (targetInfo.url || '').startsWith(origin)) {
+            try {
+                const {sessionId} = await browserCdp.send('Target.attachToTarget', {targetId: targetInfo.targetId, flatten: false});
+
+                await browserCdp.send('Target.sendMessageToTarget', {
+                    sessionId,
+                    message: JSON.stringify({id: 1, method: 'Log.enable'})
+                }).catch(() => {});
+                await browserCdp.send('Target.sendMessageToTarget', {
+                    sessionId,
+                    message: JSON.stringify({id: 2, method: 'Runtime.enable'})
+                }).catch(() => {})
+            } catch {
+                // Short-lived worker targets may detach before attach completes
+            }
+        }
+    });
+
+    browserCdp.on('Target.receivedMessageFromTarget', ev => {
+        try {
+            const msg = JSON.parse(ev.message);
+
+            if (msg.method === 'Runtime.exceptionThrown') {
+                failFast(formatExceptionDetails(msg.params?.exceptionDetails))
+            }
+        } catch {
+            // Ignore malformed target events
+        }
+    });
+
+    await browserCdp.send('Target.setDiscoverTargets', {discover: true});
+
+    const loadAndWait = async () => {
+        await page.goto(url, {waitUntil: 'domcontentloaded', timeout: 8000});
+
+        if (kind === 'portal') {
+            await page.waitForSelector('.portal-home-hero-container', {state: 'visible', timeout: 8000})
+        } else {
+            await page.waitForSelector('text=Welcome to your new Neo.mjs App.', {timeout: 8000})
+        }
+    };
+
+    try {
+        const loadPromise = loadAndWait();
+
+        loadPromise.catch(() => {});
+        await Promise.race([
+            loadPromise,
+            earlyError.then(() => {
+                throw new Error(capturedError)
+            })
+        ]);
+
+        return capturedError ? {ok: false, runtimeError: capturedError.split('\n')[0].replace(/\|/g, '/')} : {ok: true}
+    } catch (err) {
+        const msg = (capturedError || err.message || 'Unknown worker boot failure').split('\n')[0].replace(/\|/g, '/');
+
+        return {ok: false, runtimeError: msg}
+    } finally {
+        await browserCdp.detach().catch(() => {});
+        await pageCdp.detach().catch(() => {});
+        await context.close().catch(() => {});
+        await browser.close().catch(() => {})
+    }
+}
+
+/**
+ * @summary Executes one load, one UI interaction, and one lazy extension load on either Portal or Starter app.
+ * @param {Object} options Execution parameters.
+ * @returns {Promise<Object>} Single-run measurement record and reload/cleanup helpers.
+ */
+async function measureSinglePageRun({browser, protocol, origin, url, kind}) {
+    const
+        context    = await browser.newContext({ignoreHTTPSErrors: true, viewport: {width: 1440, height: 1000}}),
+        page       = await context.newPage(),
+        browserCdp = await browser.newBrowserCDPSession();
 
     const loadOnce = async () => {
         const t0 = performance.now();
@@ -771,7 +951,7 @@ async function measureSinglePageRun({browser, protocol, origin, url, kind}) {
         }
 
         const lazyClassName = kind === 'portal' ? 'Portal.view.services.Container' : 'MyApp.view.LazyPanel';
-        const cdp           = await collectCdpMetrics(page, origin, attachedSessions, browserCdp, lazyClassName);
+        const cdp           = await collectCdpMetrics(page, origin, browserCdp, lazyClassName);
 
         return {
             frameMs,
@@ -781,12 +961,17 @@ async function measureSinglePageRun({browser, protocol, origin, url, kind}) {
         }
     };
 
+    const close = async () => {
+        await browserCdp.detach().catch(() => {});
+        await context.close()
+    };
+
     try {
         const result = await loadOnce();
         void protocol;
-        return {page, context, loadOnce, attachedSessions, browserCdp, firstRun: result}
+        return {page, context, loadOnce, close, firstRun: result}
     } catch (err) {
-        await context.close();
+        await close().catch(() => {});
         throw err
     }
 }
@@ -936,27 +1121,23 @@ async function main() {
         const
             apps = [
                 {
-                    key   : 'portal',
-                    title : 'Portal (`apps/portal`)',
-                    origin: `https://${HOST_DOMAIN}:${PORTAL_PORT}`,
-                    builds: [
+                    key     : 'portal',
+                    title   : 'Portal (`apps/portal`)',
+                    origin  : `https://${HOST_DOMAIN}:${PORTAL_PORT}`,
+                    probeUrl: `https://${HOST_DOMAIN}:${PORTAL_PORT}/dist/esbuild-probe/apps/portal/index.html`,
+                    builds  : [
                         {name: 'dist/esm',        url: `https://${HOST_DOMAIN}:${PORTAL_PORT}/dist/esm/apps/portal/index.html`},
-                        {name: 'dist/production', url: `https://${HOST_DOMAIN}:${PORTAL_PORT}/dist/production/apps/portal/index.html`},
-                        ...(buildArtifacts.esbuildProbes.portal?.ok
-                            ? [{name: 'dist/esbuild-probe', url: `https://${HOST_DOMAIN}:${PORTAL_PORT}/dist/esbuild-probe/apps/portal/index.html`}]
-                            : [])
+                        {name: 'dist/production', url: `https://${HOST_DOMAIN}:${PORTAL_PORT}/dist/production/apps/portal/index.html`}
                     ]
                 },
                 {
-                    key   : 'starter',
-                    title : 'Starter App (`MyApp`)',
-                    origin: `https://${HOST_DOMAIN}:${STARTER_PORT}`,
-                    builds: [
+                    key     : 'starter',
+                    title   : 'Starter App (`MyApp`)',
+                    origin  : `https://${HOST_DOMAIN}:${STARTER_PORT}`,
+                    probeUrl: `https://${HOST_DOMAIN}:${STARTER_PORT}/dist/esbuild-probe/apps/myapp/index.html`,
+                    builds  : [
                         {name: 'dist/esm',        url: `https://${HOST_DOMAIN}:${STARTER_PORT}/dist/esm/apps/myapp/index.html`},
-                        {name: 'dist/production', url: `https://${HOST_DOMAIN}:${STARTER_PORT}/dist/production/apps/myapp/index.html`},
-                        ...(buildArtifacts.esbuildProbes.starter?.ok
-                            ? [{name: 'dist/esbuild-probe', url: `https://${HOST_DOMAIN}:${STARTER_PORT}/dist/esbuild-probe/apps/myapp/index.html`}]
-                            : [])
+                        {name: 'dist/production', url: `https://${HOST_DOMAIN}:${STARTER_PORT}/dist/production/apps/myapp/index.html`}
                     ]
                 }
             ],
@@ -973,6 +1154,34 @@ async function main() {
             });
 
             try {
+                if (protocol === 'h2') {
+                    applyNetemArm(LINK_ARMS[0]);
+
+                    for (const app of apps) {
+                        if (buildArtifacts.esbuildProbes[app.key]?.ok) {
+                            const boot = await probeEsbuildRuntimeBoot({
+                                spkiBase64: certs.spkiBase64,
+                                origin    : app.origin,
+                                url       : app.probeUrl,
+                                kind      : app.key
+                            });
+
+                            if (boot.ok) {
+                                app.builds.push({name: 'dist/esbuild-probe', url: app.probeUrl})
+                            } else {
+                                buildArtifacts.esbuildProbes[app.key].runtimeError = boot.runtimeError;
+                                cellsByApp[app.key].push({
+                                    build   : 'dist/esbuild-probe',
+                                    protocol: 'h2',
+                                    link    : LINK_ARMS[0].label,
+                                    cache   : 'cold',
+                                    error   : boot.runtimeError
+                                })
+                            }
+                        }
+                    }
+                }
+
                 for (const arm of LINK_ARMS) {
                     applyNetemArm(arm);
                     console.log(`[3/4] Measuring protocol=${protocol}, link=${arm.id}...`);
@@ -986,7 +1195,7 @@ async function main() {
                                 browserVersion = browser.version();
                                 try {
                                     const res = await measureSinglePageRun({browser, protocol, origin: app.origin, url: build.url, kind: app.key});
-                                    await res.context.close();
+                                    await res.close();
                                     coldRuns.push(res.firstRun)
                                 } finally {
                                     await browser.close()
@@ -1013,7 +1222,7 @@ async function main() {
                                     warmRuns.push(await primed.loadOnce())
                                 }
 
-                                await primed.context.close()
+                                await primed.close()
                             } finally {
                                 await warmBrowser.close()
                             }
