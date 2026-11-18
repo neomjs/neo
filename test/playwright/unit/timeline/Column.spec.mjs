@@ -153,6 +153,22 @@ test.describe('Neo.timeline.Column', () => {
         }
     });
 
+    test('draws the current time once per row beneath the bars, and nothing outside the axis range', () => {
+        const axis = Neo.create(TimeAxis, {start: '2026-11-09T00:00:00Z', end: '2026-11-09T12:00:00Z', pxPerMinute: 1, now: '2026-11-09T02:30:00Z'});
+        const col  = Neo.create(TimelineColumn, {appName, timeAxis: axis, bufferPx: 0, viewportWidth: 180});
+        const now  = () => col.cellRenderer({record: {id: 'r'}, row: {id: 'row'}}).cn[0].cn.filter(node => node.cls.includes('neo-timeline-now'));
+
+        try {
+            expect(now().map(node => node.style.left)).toEqual(['150px']);
+
+            axis.now = '2026-11-09T12:00:00Z';
+            expect(now()).toEqual([]);
+
+            axis.now = '2026-11-09T11:00:00Z';
+            expect(now(), 'an instant outside the projected window draws nothing either').toEqual([])
+        } finally { col.destroy(); axis.destroy() }
+    });
+
     test('renders an inline milestone at the visible window start', () => {
         const axis = Neo.create(TimeAxis, {start: '2026-11-09T00:00:00Z', end: '2026-11-09T12:00:00Z', pxPerMinute: 1});
         const col  = Neo.create(TimelineColumn, {appName, timeAxis: axis, scrollLeft: 180, bufferPx: 0, viewportWidth: 180});

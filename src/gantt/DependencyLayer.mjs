@@ -284,6 +284,9 @@ class DependencyLayer extends Component {
 
     /**
      * @summary Computes an orthogonal SVG path string (`M ... L ...`) connecting `(x1, y1)` to `(x2, y2)` for dependency `type`.
+     * @description A finish-to-start link whose target starts less than two stubs to the right turns at the row
+     * boundary next to its source, where no bar stands, and drops in a stub left of its target: a run through the
+     * rows between them would cross the titles of the bars that start on the same date.
      * @param {Number} x1
      * @param {Number} y1
      * @param {Number} x2
@@ -315,11 +318,12 @@ class DependencyLayer extends Component {
         }
 
         const
-            outX = r1 + ARROW_STUB_PX,
-            inX  = r2 - ARROW_STUB_PX,
-            midY = Math.round(((ry1 + ry2) / 2) * 100) / 100;
+            half  = Math.max(1, this.rowHeight || 48) / 2,
+            outX  = r1 + ARROW_STUB_PX,
+            inX   = r2 - ARROW_STUB_PX,
+            turnY = Math.round((ry2 < ry1 ? ry1 - half : ry1 + half) * 100) / 100;
 
-        return `M ${r1} ${ry1} L ${outX} ${ry1} L ${outX} ${midY} L ${inX} ${midY} L ${inX} ${ry2} L ${r2} ${ry2}`
+        return `M ${r1} ${ry1} L ${outX} ${ry1} L ${outX} ${turnY} L ${inX} ${turnY} L ${inX} ${ry2} L ${r2} ${ry2}`
     }
 
     /**
