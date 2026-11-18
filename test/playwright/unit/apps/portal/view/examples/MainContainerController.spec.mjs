@@ -99,7 +99,7 @@ test.describe('Portal examples overview and group pages', () => {
         // Tree, Board and others are defined and have records; none has a cover yet, so none appears
         expect(groupStore.items.map(group => group.route)).toEqual(publishedRoutes);
         expect(view.getGroupPages().map(page => page.family)).toEqual(groupStore.items.map(group => group.family));
-        expect(view.getCatalogStore().getCount()).toBe(74);
+        expect(view.getCatalogStore().getCount()).toBe(99);
 
         // every example counts once, in its home group: the counts add up to the records that publish
         expect(groupStore.items.reduce((sum, group) => sum + group.count, 0)).toBe(published.length);
@@ -131,7 +131,7 @@ test.describe('Portal examples overview and group pages', () => {
 
         // every card of every page has a cover; the catalog keeps the records that wait for one
         view.getGroupPages().forEach(page => page.getList().store.forEach(record => expect(record.image, record.id).toBeTruthy()));
-        expect(view.getCatalogStore().items.filter(record => !record.image)).toHaveLength(29);
+        expect(view.getCatalogStore().items.filter(record => !record.image)).toHaveLength(54);
         expect(view.getCatalogStore().items.filter(record => record.image && !Example.publishes(record, 'dist_prod')).map(record => record.id))
             .toEqual(['realworld', 'realworld-v2']);
         expect(view.getGroupPage('grid-table').getList().store.getSource()).toBe(view.getCatalogStore());
@@ -362,7 +362,7 @@ test.describe('Portal examples overview and group pages', () => {
         expect(view.getGroupStore().get('dialogs').count).toBe(1);
         expect(view.getGroupStore().get('drag-drop').count).toBe(0);
         expect(view.getCatalogStore().items.filter(record => record.id === 'dialog-drag-drop')).toHaveLength(1);
-        expect(view.getCatalogStore().getCount()).toBe(74)
+        expect(view.getCatalogStore().getCount()).toBe(99)
     });
 
     for (const mode of ['dist_prod', 'dist_esm', 'dist_dev', 'devmode']) {
@@ -430,6 +430,13 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           'grid-animated-row-sorting', 'grid-cell-editing', 'grid-container', 'grid-content-sized-rows',
           'grid-countries', 'grid-filtering', 'grid-export', 'grid-header-groups', 'grid-locked-columns',
           'grid-nested-record-fields', 'grid-tree', 'grid-value-banding', 'table-container'
+      ],
+      componentExampleIds = [
+          'canvas', 'carousel', 'chip', 'circle', 'clock', 'graph-scene', 'magic-move-text',
+          'markdown', 'mwc-button', 'mwc-buttons', 'mwc-text-field', 'mwc-text-fields',
+          'process', 'process-real-world', 'progress', 'splitter', 'status-badge', 'timer',
+          'toast', 'video', 'cesium-js', 'monaco-editor', 'open-street-maps', 'am-charts',
+          'video-move'
       ],
       formExampleIds = [
           'checkbox-field', 'chip-field', 'color-field', 'email-field', 'fileupload-field',
@@ -517,12 +524,12 @@ test.describe('Portal examples canonical catalog', () => {
         })
     }
 
-    test('loads 74 logical examples with unique stable string identities', () => {
+    test('loads 99 logical examples with unique stable string identities', () => {
         const {store} = createList(),
               ids     = [];
 
-        expect(catalog).toHaveLength(74);
-        expect(store.getCount()).toBe(74);
+        expect(catalog).toHaveLength(99);
+        expect(store.getCount()).toBe(99);
 
         store.forEach(record => {
             expect(typeof record.id, record.name).toBe('string');
@@ -530,7 +537,7 @@ test.describe('Portal examples canonical catalog', () => {
             ids.push(record.id)
         });
 
-        expect(new Set(ids).size).toBe(74);
+        expect(new Set(ids).size).toBe(99);
         expect(list.catalogMode).toBe('dist_prod')
     });
 
@@ -573,6 +580,35 @@ test.describe('Portal examples canonical catalog', () => {
             dist_esm : `${urls.dist_esm}/basic/index.html`,
             dist_prod: `${urls.dist_prod}/basic/index.html`
         })
+    });
+
+    test('visual component records keep their captions and build destinations in their home groups', () => {
+        const store = createView().getCatalogStore(),
+              homes = {
+                  'am-charts'       : 'charts',
+                  canvas            : 'charts',
+                  carousel          : 'lists',
+                  'cesium-js'       : 'charts',
+                  'graph-scene'     : 'charts',
+                  'open-street-maps': 'charts',
+                  toast             : 'dialogs',
+                  'video-move'      : 'platform'
+              };
+
+        for (const id of componentExampleIds) {
+            const record = store.get(id),
+                  page   = record.sourceUrl + '/index.html';
+
+            expect(record.family, id).toBe(homes[id] ?? 'components');
+            expect(record.feature?.trim(), id).toBeTruthy();
+            expect(record.lookFor?.trim(), id).toBeTruthy();
+            expect(record.urls, id).toEqual({
+                devmode  : page,
+                dist_dev : 'dist/development/' + page,
+                dist_esm : 'dist/esm/' + page,
+                dist_prod: 'dist/production/' + page
+            })
+        }
     });
 
     test('every record has a home group, and alsoIn names only other defined groups', () => {
@@ -700,7 +736,13 @@ test.describe('Portal examples canonical catalog', () => {
               orderedEstablishedIds = [
                   ...establishedIds.slice(0, calendarIndex + 1), 'calendar-weekview', ...establishedIds.slice(calendarIndex + 1)
               ],
-              completeIds = [...orderedEstablishedIds, ...newExampleIds, ...formExampleIds, 'board-basic', 'gantt-basic', 'scheduler-basic', 'timeline-basic', 'dock-choreography', ...multiWindowExampleIds, 'realworld', 'realworld-v2'],
+              galleryIndex = orderedEstablishedIds.indexOf('gallery'),
+              completeIds  = [
+                  ...orderedEstablishedIds.slice(0, galleryIndex + 1), ...componentExampleIds,
+                  ...orderedEstablishedIds.slice(galleryIndex + 1), ...newExampleIds, ...formExampleIds,
+                  'board-basic', 'gantt-basic', 'scheduler-basic', 'timeline-basic', 'dock-choreography',
+                  ...multiWindowExampleIds, 'realworld', 'realworld-v2'
+              ],
               excluded = {
                   devmode  : ['portal', 'liquid-glass', 'realworld', 'realworld-v2'],
                   dist_dev : ['realworld', 'realworld-v2'],
@@ -719,7 +761,7 @@ test.describe('Portal examples canonical catalog', () => {
         // the list hides what its store would filter out: a record without a cover publishes no card in any mode
         const uncovered = completeIds.filter(id => !store.get(id).image);
 
-        expect(uncovered).toHaveLength(29);
+        expect(uncovered).toHaveLength(54);
 
         cases.forEach(([mode, workstationUrl, choreographyUrl]) => {
             list.catalogMode = mode;
