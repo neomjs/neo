@@ -1,6 +1,7 @@
 {
  "Colors.childapps.widget.view.Viewport": "Neo.container.Viewport",
  "Colors.model.Color": "Neo.data.Model",
+ "Colors.service.ColorService": "Neo.core.Base",
  "Colors.store.Colors": "Neo.data.Store",
  "Colors.view.BarChartComponent": "Neo.component.wrapper.AmChart",
  "Colors.view.GridContainer": "Neo.grid.Container",

@@ -369,7 +369,7 @@
         "component": "Dashboard",
         "feature": "The dashboard's color grid keeps updating in its own window",
         "lookFor": "Press Grid to detach it, press Start and watch the popup update; close it to return the grid.",
-        "scope": "Allow popups. The color data is generated inside the example.",
+        "scope": "Allow popups. The color data streams from a WebSocket backend; when that backend does not answer, the app generates the same data itself.",
         "featured": true,
         "image": "dist_prod/colorsApp.png",
         "name": "Colors Dashboard",
