@@ -12,8 +12,8 @@ import {isDescriptor} from '../core/ConfigSymbols.mjs';
  *
  * Its items are a map, so a consumer adds its own by key and places them by `weight`: the start button weighs 10,
  * the task list 20, the spacer 30 and the clock 100, so an item heavier than 30 sits at the right end, before the
- * clock. A consumer configures a shipped item under its key, e.g. `items: {'start-button': {text: 'Start'}}`, or
- * leaves one out with `null`.
+ * clock. A consumer configures a shipped item under its key, e.g. `items: {'start-button': {text: 'Start'}}`, and
+ * hides one with `hidden: true`.
  *
  * The clock shows the time and the date in the app's locale (`Neo.config.locale`) and moves on every full minute.
  *
@@ -128,7 +128,7 @@ class Taskbar extends Toolbar {
 
     /**
      * Keeps the clock on the minute: it shows the time at once, and each wait ends on the next full minute. The
-     * taskbar's destruction ends the wait, and with it the loop. Without a clock item nothing runs.
+     * taskbar's destruction ends the wait, and with it the loop; removing the clock item ends it at the next minute.
      * @protected
      */
     async runClock() {

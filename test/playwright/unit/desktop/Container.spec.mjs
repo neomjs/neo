@@ -336,5 +336,15 @@ test.describe('Neo.desktop.Container', () => {
 
         expect(workspace.items.map(item => item.reference)).toEqual(['launcher', 'panel']);
         expect(taskbar.items.map(item => item.reference), 'a consumer item sits before the clock').toEqual(['start-button', 'tasks', 'spacer', 'account', 'clock'])
+    });
+
+    test('a consumer hides a shipped taskbar item with hidden: true, and the taskbar keeps working', () => {
+        create({taskbarConfig: {items: {clock: {hidden: true}, 'start-button': {hidden: true}}}});
+
+        const taskbar = desktop.getItem('taskbar');
+
+        expect(taskbar.getItem('clock').hidden).toBe(true);
+        expect(taskbar.getItem('start-button').hidden).toBe(true);
+        expect(taskbar.getItem('start-button').menu, 'the hidden start button keeps its app menu').toBeTruthy()
     })
 });
