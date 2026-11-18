@@ -72,8 +72,12 @@ test('opens 2,000 seeded tasks and 1,972 links on the first phase, each phase sp
     // Every phase open: 2,000 rows, and the DOM still holds the same window of them
     await app.callMethod(gantt.id, 'store.expandAll');
     await expect.poll(() => app.getComponent(gantt.id, ['store']).then(state => state.store.count)).toBe(2000);
-    await page.locator('.neo-gantt .neo-grid-view').evaluate(view => {view.scrollTop = view.scrollHeight});
-    await expect(page.locator('.neo-gantt .neo-grid-row[aria-rowindex="2001"]')).toBeAttached();
+    // The view grows to 2,000 rows after the store does: scroll to its end again on every poll until the last row renders
+    const view = page.locator('.neo-gantt .neo-grid-view'), lastRow = page.locator('.neo-gantt .neo-grid-row[aria-rowindex="2001"]');
+    await expect.poll(async () => {
+        await view.evaluate(node => {node.scrollTop = node.scrollHeight});
+        return lastRow.count()
+    }, {timeout: 15000}).toBe(1);
     expect(await rows(page)).toBeLessThanOrEqual(MAX_ROWS);
 
     // The same plan on every load
