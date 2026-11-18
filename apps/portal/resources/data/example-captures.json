@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "families": ["grid-table", "gantt", "scheduler"],
+  "families": ["grid-table", "gantt", "scheduler", "lists"],
   "suffix": "14",
   "recipes": [
     {
@@ -344,6 +344,48 @@
       "steps": [],
       "after": [{"selector": ".neo-timeline-bar", "text": "Quartet recording", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Piano", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Orchestral mix", "inRegion": true}],
       "region": {"selector": ".neo-scheduler", "anchor": "top-left", "width": 640, "height": 360}
+    },
+    {
+      "id": "helix",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "Translate Z raised one page in Helix Controls (PageUp, -1500 to -600), so the front turn of the helix holds faces large enough to read, with the turns above and below curving away.",
+      "ready": [{"selector": ".neo-helix-item img"}],
+      "steps": [{"kind": "press", "selector": ".neo-rangefield:has-text(\"Translate Z\") input", "key": "PageUp"}],
+      "after": [{"selector": ".neo-helix-item img"}],
+      "region": {"x": 195, "y": 120, "width": 640, "height": 360}
+    },
+    {
+      "id": "gallery",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "The gallery as it opens: three rows of faces receding in perspective, with the selected face drawn large in front of the wall.",
+      "ready": [{"selector": ".neo-gallery-item img"}],
+      "steps": [],
+      "after": [{"selector": ".neo-gallery-item img"}],
+      "region": {"x": 320, "y": 120, "width": 640, "height": 360}
+    },
+    {
+      "id": "covid-helix",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "Sorted by Deaths, with Translate Z raised one page (PageUp, -1500 to -600): the countries with the most deaths lead the front turn of the helix as cards with flag, name and figures.",
+      "dependencies": ["https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/flaticon/country_flags/png/"],
+      "ready": [{"selector": ".neo-helix-item", "text": "Afghanistan"}],
+      "steps": [{"kind": "press", "selector": ".neo-rangefield:has-text(\"Translate Z\") input", "key": "PageUp"}, {"kind": "click", "selector": "button", "text": "Deaths"}],
+      "after": [{"selector": ".neo-helix-item img"}],
+      "region": {"x": 150, "y": 120, "width": 640, "height": 360}
+    },
+    {
+      "id": "covid-gallery",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "Sorted by Deaths: the countries with the most deaths lead the gallery wall as cards with flag, name and figures, receding in perspective.",
+      "dependencies": ["https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/flaticon/country_flags/png/"],
+      "ready": [{"selector": ".neo-gallery-item", "text": "Afghanistan"}],
+      "steps": [{"kind": "click", "selector": "button", "text": "Deaths"}],
+      "after": [{"selector": ".neo-gallery-item img"}],
+      "region": {"x": 320, "y": 120, "width": 640, "height": 360}
     }
   ]
 }
