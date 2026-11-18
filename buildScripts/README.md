@@ -129,6 +129,7 @@ development workflow, which loads native ES modules directly from the file serve
 Internal shared libraries used by the scripts above.
 
 - `copyFile.mjs` / `copyFolder.mjs`: File system operations.
+- `measure-esm-vs-bundled.mjs`: Reproducible HTTP/2 and HTTP/3 `dist/esm`, `dist/production`, and `esbuild --splitting` measurement harness.
 - `minifyFile.mjs` / `minifyHtml.mjs`: Terser/HTMLMinifier wrappers.
 - `Sanitizer.mjs`: Input sanitization for CLI prompts.
 - `fileServer.mjs`: The development server `npm run server-start` runs (see below).
