@@ -114,8 +114,9 @@ const matchesTag = (header, etag) => header.trim() === '*'
  * revalidates (`no-cache`), so an edited file is never served stale.
  *
  * `If-None-Match` decides a revalidation alone, and `If-Modified-Since` counts only without it
- * (RFC 9110 §13.2.2). A range is served only of the file the client holds: an `If-Range` with another
- * tag or date answers the whole current file, so a resumed download never joins two revisions.
+ * (RFC 9110 §13.2.2). A range under `If-Range` answers the whole current file: a size and a time
+ * can repeat across revisions, so both validators are weak, and only a strong one may resume
+ * a download without joining two revisions (§13.1.5).
  * A client that leaves mid-transfer closes the file with its response.
  * @param {http.IncomingMessage} request
  * @param {http.ServerResponse} response
@@ -143,10 +144,8 @@ function sendFile(request, response, file, stat) {
         return response.end()
     }
 
-    const heldFile = !ifRange || (ifRange.includes('"') ? ifRange.trim() === etag : Date.parse(ifRange) === modified);
-
     // A malformed or multi-part range is ignored: the whole file is a valid answer (RFC 9110 §14.2)
-    if (heldFile && range && (range[1] || range[2])) {
+    if (!ifRange && range && (range[1] || range[2])) {
         if (range[1]) {
             start = Number(range[1]);
             end   = range[2] ? Math.min(Number(range[2]), end) : end

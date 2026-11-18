@@ -129,31 +129,24 @@ test.describe('buildScripts/util/fileServer (#21215)', () => {
         expect(await status({'If-None-Match': '"other"', 'If-Modified-Since': modified})).toBe(200)
     });
 
-    test('a range resumes only the file the client holds: a stale If-Range answers the whole current file', async () => {
+    test('a range under If-Range answers the whole current file: no validator of this server is strong', async () => {
         const file   = path.join(root, 'resume.txt'),
-              resume = headers => fetch(`${base}/resume.txt`, {headers: {Range: 'bytes=2-', ...headers}});
+              time   = new Date('2026-01-01T00:00:00Z'),
+              resume = headers => fetch(`${base}/resume.txt`, {headers: {Range: 'bytes=2-', ...headers}}),
+              write  = content => {fs.writeFileSync(file, content); fs.utimesSync(file, time, time)};
 
-        fs.writeFileSync(file, 'abcdefghij');
+        write('abcdefghij');
 
-        const held = await fetch(`${base}/resume.txt`),
-              etag = held.headers.get('etag'),
-              date = held.headers.get('last-modified');
+        const held = await fetch(`${base}/resume.txt`);
 
-        for (const ifRange of [etag, date]) {
-            const response = await resume({'If-Range': ifRange});
+        // A second revision of the same size and time carries the same tag and the same date
+        write('ABCDEFGHIJ');
 
-            expect(response.status, ifRange).toBe(206);
-            expect(await response.text()).toBe('cdefghij')
-        }
-
-        fs.writeFileSync(file, 'ABCDEFGHIJKL');
-        fs.utimesSync(file, new Date(), new Date(Date.parse(date) + 60000));
-
-        for (const ifRange of [etag, date]) {
+        for (const ifRange of [held.headers.get('etag'), held.headers.get('last-modified')]) {
             const response = await resume({'If-Range': ifRange});
 
             expect(response.status, ifRange).toBe(200);
-            expect(await response.text()).toBe('ABCDEFGHIJKL')
+            expect(await response.text()).toBe('ABCDEFGHIJ')
         }
 
         expect((await resume()).status).toBe(206)
