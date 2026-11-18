@@ -1216,7 +1216,7 @@
         "environments": [
             "Desktop"
         ],
-        "image": "devmode/dock-choreography-13-2.jpg",
+        "image": "devmode/dock-choreography-14.jpg",
         "name": "Dock Choreography Demo",
         "sharedWorkers": true,
         "sourceUrl": "examples/dashboard/choreography",
