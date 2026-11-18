@@ -351,5 +351,26 @@ test.describe('Neo.form.field.Chip', () => {
 
         expect(narrow.trigger.left).toBeGreaterThanOrEqual(narrow.flowEnd);
         expect(narrow.wrapperEnd - narrow.trigger.right).toBeLessThan(1)
+    });
+
+    test('a trigger change rebuilds the input wrapper and keeps the chips and the input in one flow', async ({page}) => {
+        const
+            field    = page.locator(`#${componentId}`),
+            grouping = () => field.evaluate(element => ({
+                flowChildren: [...element.querySelector('.neo-chipfield-flow')?.children || []].map(node => node.classList[0]),
+                triggers    : element.querySelectorAll('.neo-input-wrapper > .neo-field-trigger').length
+            }));
+
+        await page.evaluate(id => Neo.worker.App.setConfigs({id, value: ['alpha']}), componentId);
+        await expect(field.locator('.neo-chip')).toHaveCount(1);
+
+        const before = await grouping();
+
+        await page.evaluate(id => Neo.worker.App.setConfigs({id, clearable: false}), componentId);
+        await expect.poll(async () => (await grouping()).triggers).toBe(before.triggers - 1);
+
+        expect(before.flowChildren).toEqual(['neo-chip-field-values', 'neo-textfield-input']);
+        expect((await grouping()).flowChildren).toEqual(before.flowChildren);
+        await expect(field.locator('.neo-chip')).toHaveCount(1)
     })
 });
