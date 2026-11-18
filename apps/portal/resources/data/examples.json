@@ -1153,7 +1153,7 @@
         "family": "board",
         "component": "Board",
         "feature": "A kanban board and a table over one store of cards",
-        "lookFor": "Drag a card to another column, and the table beside the board shows its new status."
+        "lookFor": "Drag a card to another column, and the table below the board shows its new status."
     },
     {
         "id": "gantt-basic",
