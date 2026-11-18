@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "families": ["grid-table", "gantt", "scheduler"],
+  "families": ["grid-table", "gantt", "scheduler", "components"],
   "suffix": "14",
   "recipes": [
     {
@@ -344,6 +344,218 @@
       "steps": [],
       "after": [{"selector": ".neo-timeline-bar", "text": "Quartet recording", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Piano", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Orchestral mix", "inRegion": true}],
       "region": {"selector": ".neo-scheduler", "anchor": "top-left", "width": 640, "height": 360}
+    },
+    {
+      "id": "clock",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "The clock face at its 10:20, resized to 320 px.",
+      "ready": [{"selector": ".neo-example-container .neo-clock"}],
+      "steps": [
+        {"kind": "fill", "selector": ".neo-configuration-panel-body .neo-numberfield input", "nth": 1, "value": "320"},
+        {"kind": "press", "selector": ".neo-configuration-panel-body .neo-numberfield input", "nth": 1, "key": "Enter"}
+      ],
+      "after": [
+        {"selector": ".neo-configuration-panel-body .neo-numberfield input", "value": "320"},
+        {"selector": ".neo-example-container .neo-clock", "inRegion": true}
+      ],
+      "region": {"selector": ".neo-example-container .neo-clock", "anchor": "center", "width": 640, "height": 360}
+    },
+    {
+      "id": "circle",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "The circle expanded, its items spread around the radius.",
+      "ready": [{"selector": ".neo-example-container .neo-circle-component"}],
+      "steps": [
+        {"kind": "click", "selector": ".neo-configuration-panel-body .neo-button", "text": "Expand"}
+      ],
+      "after": [{"selector": ".neo-example-container .neo-circle-component"}],
+      "region": {"selector": ".neo-example-container .neo-circle-component", "anchor": "center", "width": 640, "height": 360}
+    },
+    {
+      "id": "progress",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "The labelled progress bar at 65 %, widened to 480 px and 40 px high.",
+      "ready": [{"selector": ".neo-example-container .neo-progress-wrapper"}],
+      "steps": [
+        {"kind": "fill", "selector": ".neo-configuration-panel-body .neo-numberfield input", "nth": 0, "value": "40"},
+        {"kind": "fill", "selector": ".neo-configuration-panel-body .neo-numberfield input", "nth": 1, "value": "480"},
+        {"kind": "fill", "selector": ".neo-configuration-panel-body .neo-numberfield input", "nth": 2, "value": "65"}
+      ],
+      "after": [
+        {"selector": ".neo-configuration-panel-body .neo-numberfield input", "value": "40"},
+        {"selector": ".neo-example-container .neo-progress-wrapper", "inRegion": true}
+      ],
+      "region": {"selector": ".neo-example-container .neo-progress-wrapper", "anchor": "center", "width": 640, "height": 360}
+    },
+    {
+      "id": "splitter",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "Two panels side by side with the draggable splitter between them, sized to 600 by 340 px.",
+      "ready": [{"selector": ".neo-example-container .neo-splitter"}],
+      "steps": [
+        {"kind": "fill", "selector": ".neo-configuration-panel-body .neo-numberfield input", "nth": 0, "value": "340"}
+      ],
+      "after": [{"selector": ".neo-example-container .neo-splitter", "inRegion": true}],
+      "region": {"selector": ".neo-example-container", "anchor": "center", "width": 640, "height": 360}
+    },
+    {
+      "id": "process",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "The process switched to horizontal: its steps connected left to right with arrows and icons.",
+      "ready": [{"selector": ".neo-example-container .neo-process"}],
+      "steps": [
+        {"kind": "click", "selector": ".neo-configuration-panel-body .neo-checkboxfield .neo-checkbox-icon"}
+      ],
+      "after": [{"selector": ".neo-example-container .neo-process-horizontal"}],
+      "region": {"selector": ".neo-example-container", "anchor": "top-left", "offsetX": 78, "offsetY": 20, "width": 640, "height": 360}
+    },
+    {
+      "id": "process-real-world",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "The trip calculator's first stage: the range banner, the start step and its battery and odometer inputs.",
+      "ready": [{"selector": ".neo-example-container .neo-process"}, {"selector": ".neo-example-container .neo-form-container"}],
+      "steps": [],
+      "after": [{"selector": ".neo-example-container .neo-form-container", "inRegion": true}],
+      "region": {"selector": ".neo-example-container", "anchor": "top-left", "offsetX": 125, "offsetY": 124, "width": 640, "height": 360}
+    },
+    {
+      "id": "magic-move-text",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "The text component holding its first string, with the automatic cycle switched off so the frame is stable.",
+      "ready": [{"selector": ".neo-example-container .neo-magic-move-text"}],
+      "steps": [
+        {"kind": "click", "selector": ".neo-configuration-panel-body .neo-checkboxfield .neo-checkbox-icon"}
+      ],
+      "after": [{"selector": ".neo-example-container .neo-magic-move-text", "inRegion": true}],
+      "region": {"selector": ".neo-example-container .neo-magic-move-text", "anchor": "center", "width": 640, "height": 360}
+    },
+    {
+      "id": "timer",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "The countdown timer at 20 seconds, its ring enlarged to 14rem.",
+      "ready": [{"selector": ".neo-example-container .neo-timer"}],
+      "steps": [
+        {"kind": "fill", "selector": ".neo-configuration-panel-body .neo-textfield input", "nth": 0, "value": "14rem"},
+        {"kind": "press", "selector": ".neo-configuration-panel-body .neo-textfield input", "nth": 0, "key": "Enter"}
+      ],
+      "after": [{"selector": ".neo-example-container .neo-timer", "inRegion": true}],
+      "region": {"selector": ".neo-example-container .neo-timer", "anchor": "center", "offsetY": -30, "width": 640, "height": 360}
+    },
+    {
+      "id": "status-badge",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "A status badge with its state glyph, label and side icon, raised to 48 px.",
+      "ready": [{"selector": ".neo-example-container .neo-status-badge"}],
+      "steps": [
+        {"kind": "fill", "selector": ".neo-configuration-panel-body .neo-numberfield input", "nth": 0, "value": "48"},
+        {"kind": "press", "selector": ".neo-configuration-panel-body .neo-numberfield input", "nth": 0, "key": "Enter"}
+      ],
+      "after": [{"selector": ".neo-example-container .neo-status-badge", "inRegion": true}],
+      "region": {"selector": ".neo-example-container .neo-status-badge", "anchor": "center", "width": 640, "height": 360}
+    },
+    {
+      "id": "chip",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "The chip with its icon, text and close action, raised to 48 px.",
+      "ready": [{"selector": ".neo-example-container .neo-chip"}],
+      "steps": [
+        {"kind": "fill", "selector": ".neo-configuration-panel-body .neo-numberfield input", "nth": 0, "value": "48"},
+        {"kind": "press", "selector": ".neo-configuration-panel-body .neo-numberfield input", "nth": 0, "key": "Enter"}
+      ],
+      "after": [{"selector": ".neo-example-container .neo-chip", "inRegion": true}],
+      "region": {"selector": ".neo-example-container .neo-chip", "anchor": "center", "width": 640, "height": 360}
+    },
+    {
+      "id": "markdown",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "The demo document rendered at once: its headings, list and code block parsed into the component.",
+      "ready": [{"selector": ".neo-button", "text": "Render instantly"}],
+      "steps": [
+        {"kind": "click", "selector": ".neo-button", "text": "Render instantly"}
+      ],
+      "after": [{"selector": ".neo-markdown-vdom h1"}],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "mwc-button",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "The Material button raised, with its icon and label.",
+      "dependencies": ["https://unpkg.com/@material/mwc-button@0.26.1/mwc-button.js?module", "https://fonts.googleapis.com/icon?family=Material+Icons", "https://fonts.googleapis.com/css?family=Roboto:300,400,500"],
+      "ready": [{"selector": ".neo-example-container mwc-button button"}],
+      "steps": [
+        {"kind": "click", "selector": ".neo-configuration-panel-body .neo-checkboxfield label", "text": "raised"}
+      ],
+      "after": [{"selector": ".neo-example-container mwc-button[raised]", "inRegion": true}],
+      "region": {"selector": ".neo-example-container mwc-button", "anchor": "center", "width": 640, "height": 360}
+    },
+    {
+      "id": "mwc-buttons",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "Tab 1 with the standard, outlined, raised, unelevated and dense Material buttons.",
+      "dependencies": ["https://unpkg.com/@material/mwc-button@0.26.1/mwc-button.js?module", "https://fonts.googleapis.com/icon?family=Material+Icons", "https://fonts.googleapis.com/css?family=Roboto:300,400,500"],
+      "ready": [{"selector": "mwc-button button"}, {"selector": ".neo-tab-header-button", "text": "Tab 1"}],
+      "steps": [],
+      "after": [{"selector": "mwc-button", "count": 5}],
+      "region": {"selector": ".neo-tab-container", "anchor": "top-left", "width": 640, "height": 360}
+    },
+    {
+      "id": "mwc-text-field",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "The Material text field outlined, with its label, leading and trailing icons and helper text.",
+      "dependencies": ["https://unpkg.com/@material/mwc-textfield@0.26.1/mwc-textfield.js?module", "https://fonts.googleapis.com/icon?family=Material+Icons", "https://fonts.googleapis.com/css?family=Roboto:300,400,500"],
+      "ready": [{"selector": ".neo-example-container mwc-textfield input"}],
+      "steps": [
+        {"kind": "click", "selector": ".neo-configuration-panel-body .neo-checkboxfield label", "text": "outlined"}
+      ],
+      "after": [{"selector": ".neo-example-container mwc-textfield[outlined]", "inRegion": true}],
+      "region": {"selector": ".neo-example-container mwc-textfield", "anchor": "center", "width": 640, "height": 360}
+    },
+    {
+      "id": "mwc-text-fields",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "The Filled tab: four Material text fields stacked, with icons and helper text.",
+      "dependencies": ["https://unpkg.com/@material/mwc-textfield@0.26.1/mwc-textfield.js?module", "https://fonts.googleapis.com/icon?family=Material+Icons", "https://fonts.googleapis.com/css?family=Roboto:300,400,500"],
+      "ready": [{"selector": "mwc-textfield input"}],
+      "steps": [],
+      "after": [{"selector": "mwc-textfield", "count": 4}],
+      "region": {"selector": ".neo-tab-container", "anchor": "top-left", "width": 640, "height": 360}
+    },
+    {
+      "id": "monaco-editor",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "The sample function in the Monaco editor, switched to the vs-dark theme.",
+      "ready": [{"selector": ".neo-example-container .neo-monaco-editor .view-lines"}],
+      "steps": [
+        {"kind": "click", "selector": ".neo-configuration-panel-body .neo-radiofield label", "text": "vs-dark"}
+      ],
+      "after": [{"selector": ".neo-example-container .neo-monaco-editor .vs-dark"}],
+      "region": {"selector": ".neo-example-container .neo-monaco-editor", "anchor": "top-left", "offsetX": -70, "offsetY": -20, "width": 640, "height": 360}
+    },
+    {
+      "id": "video",
+      "viewport": {"width": 640, "height": 360},
+      "theme": "default",
+      "state": "The video panel ready to play its remote clip, the play control centred in the player.",
+      "ready": [{"selector": ".neo-video .neo-video-ghost"}],
+      "steps": [],
+      "after": [{"selector": ".neo-video", "inRegion": true}],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     }
   ]
 }

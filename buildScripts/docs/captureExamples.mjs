@@ -72,6 +72,8 @@ function step(value, field) {
 /**
  * @summary Validates raw recipes and returns detached recipes with catalog-derived family, URL and name.
  * Coverage is scoped to declared families; legacy covers in other families do not block this producer.
+ * An external demo (an absolute devmode URL) lies outside the base origin the producer captures from, so
+ * it keeps its cover and takes no recipe.
  * @param {Object} manifest Raw version1 recipe manifest.
  * @param {Object[]} catalog Canonical examples.json records.
  * @returns {Object} Validated manifest; recipes carry derived `family`, `url` and `name`.
@@ -84,7 +86,8 @@ export function validateCaptureRecipes(manifest, catalog) {
     insist(new Set(manifest.families).size === manifest.families.length, 'manifest.families', 'duplicate family');
     insist(typeof manifest.suffix === 'string' && /^[a-zA-Z0-9_-]+$/.test(manifest.suffix), 'manifest.suffix', 'expected a filename-safe suffix');
     insist(Array.isArray(manifest.recipes) && Array.isArray(catalog), 'manifest.recipes', 'recipes and catalog must be arrays');
-    const records = new Map(catalog.map(record => [record.id, record]));
+    const records  = new Map(catalog.map(record => [record.id, record])),
+          external = record => /^[a-z][a-z\d+.-]*:/i.test(record.urls?.devmode ?? '');
     insist(records.size === catalog.length, 'catalog', 'duplicate catalog id');
     const ids = new Set(), recipes = manifest.recipes.map((recipe, index) => {
         const field = `recipes[${index}]`;
@@ -96,6 +99,7 @@ export function validateCaptureRecipes(manifest, catalog) {
         insist(record, `${field}.id`, 'unknown catalog id');
         insist(manifest.families.includes(record.family), `${field}.id`, 'record is outside declared families');
         text(record.urls?.devmode, `catalog.${recipe.id}.urls.devmode`);
+        insist(!external(record), `${field}.id`, 'an external demo cannot be captured from the base origin');
         keys(recipe.viewport, ['width', 'height'], `${field}.viewport`);
         for (const axis of ['width', 'height']) insist(Number.isInteger(recipe.viewport[axis]) && recipe.viewport[axis] > 0, `${field}.viewport.${axis}`, 'expected a positive integer');
         insist(['dark', 'default'].includes(recipe.theme), `${field}.theme`, 'expected dark or default');
@@ -124,7 +128,7 @@ export function validateCaptureRecipes(manifest, catalog) {
         } else for (const axis of ['x', 'y']) insist(Number.isFinite(region[axis]) && region[axis] >= 0, `${field}.region.${axis}`, 'expected a nonnegative coordinate');
         return {...structuredClone(recipe), family: record.family, url: record.urls.devmode, name: record.name || record.id}
     });
-    for (const record of catalog) if (manifest.families.includes(record.family) && record.image) insist(ids.has(record.id), `catalog.${record.id}.image`, 'covered record has no recipe in this family');
+    for (const record of catalog) if (manifest.families.includes(record.family) && record.image && !external(record)) insist(ids.has(record.id), `catalog.${record.id}.image`, 'covered record has no recipe in this family');
     return {...structuredClone(manifest), recipes}
 }
 
