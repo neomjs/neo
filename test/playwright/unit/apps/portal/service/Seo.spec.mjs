@@ -15,7 +15,7 @@ const __dirname         = path.dirname(fileURLToPath(import.meta.url));
 const seoJsonPath       = path.resolve(__dirname, '../../../../../../apps/portal/resources/data/seo.json');
 const seoJson           = JSON.parse(fs.readFileSync(seoJsonPath, 'utf-8'));
 const familyDefinitions = extractExampleFamilyDefinitions(fs.readFileSync(
-    path.resolve(__dirname, '../../../../../../apps/portal/view/examples/TabContainer.mjs'), 'utf-8'
+    path.resolve(__dirname, '../../../../../../apps/portal/view/examples/MainContainer.mjs'), 'utf-8'
 )).filter(definition => definition.family);
 const previousDocumentHead = Neo.main?.addon?.DocumentHead;
 previousDocumentHead && delete Neo.main.addon.DocumentHead;

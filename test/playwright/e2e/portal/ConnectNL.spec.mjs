@@ -110,7 +110,7 @@ test.describe('Portal Connect', () => {
             await expect(page).toHaveURL(/#\/examples$/);
             let examples;
             await expect.poll(async () => {
-                const matches = await app.queryComponent({className: 'Portal.view.examples.TabContainer'}, ['id']);
+                const matches = await app.queryComponent({className: 'Portal.view.examples.MainContainer'}, ['id']);
                 examples = Array.isArray(matches) ? matches[0] : matches;
                 return examples?.id
             }).toBeTruthy();

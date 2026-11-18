@@ -141,11 +141,12 @@ function closingBacktick(command, start) {
 
 /**
  * @summary Scans `command` once. Returns the first redirection that writes a file, and the command texts (this one
- * and each command substitution's) with comments and heredoc bodies dropped, for the command-word check.
+ * and each command substitution's) with comments and heredoc bodies dropped, for the command-word checks (this
+ * guard's in-place edits, `gitCommitPushGuardHook`'s git subcommands).
  * @param {String} command
  * @returns {{codes: String[], write: {operator: String, target: String}|null}}
  */
-function scan(command) {
+export function scan(command) {
     let code     = '',
         heredocs = [],
         inner    = [],
@@ -252,7 +253,7 @@ function scan(command) {
  * @param {Number} index
  * @returns {Boolean}
  */
-function atCommandPosition(tokens, index) {
+export function atCommandPosition(tokens, index) {
     if (tokens[index].includes('(')) return true;
 
     let i = index - 1;

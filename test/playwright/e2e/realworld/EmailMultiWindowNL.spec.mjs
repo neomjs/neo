@@ -114,7 +114,7 @@ test('buffered selection drives the same functional reader through two native po
 
 test('buffered scroll readiness waits while the actual inbox layout is withheld', async ({page, neuralLink}) => {
     await page.route('**/apps/email/index.html', async route => {
-        const response = await route.fetch(), html = await response.text();
+        const response = await route.fetch({maxRetries: 2}), html = await response.text();
         await route.fulfill({response, body: html.replace('</head>',
             '<style id="email-layout-gate">.email-inbox {display:none!important}</style></head>')})
     });

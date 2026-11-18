@@ -1,6 +1,18 @@
 import Model from './MainModel.mjs';
 import Store from '../../src/data/Store.mjs';
 
+const firstNames = ['Avery', 'Blake', 'Casey', 'Drew', 'Emery', 'Finley', 'Harper', 'Jordan', 'Morgan', 'Riley'],
+    lastNames    = ['Brooks', 'Carter', 'Diaz', 'Ellis', 'Foster', 'Hayes', 'Morgan', 'Reed'],
+    countries    = ['Canada', 'France', 'Germany', 'India', 'Japan', 'Australia', 'United Kingdom', 'United States'],
+    data         = Array.from({length: 80}, (_, index) => ({
+        id        : index + 1,
+        customer  : `${firstNames[index % firstNames.length]} ${lastNames[Math.floor(index / firstNames.length)]}`,
+        country   : countries[index % countries.length],
+        openOrders: (index * 7) % 17,
+        lastOrder : `2025-08-${String(index % 28 + 1).padStart(2, '0')}`,
+        active    : index % 3 !== 0
+    }));
+
 /**
  * @class Neo.examples.tableFiltering.MainStore
  * @extends Neo.data.Store
@@ -10,19 +22,7 @@ class MainStore extends Store {
         className  : 'Neo.examples.tableFiltering.MainStore',
         keyProperty: 'id',
         model      : Model,
-
-        data: [
-            {id:  1, country: 'Germany',       firstname: 'Tobias',  isOnline: true,  lastname: 'Uhlig',    luckyNumber: 1, specialDate: '2025-08-10'},
-            {id:  2, country: 'United States', firstname: 'Rich',    isOnline: false, lastname: 'Waters',   luckyNumber: 2, specialDate: '2025-08-09'},
-            {id:  3, country: 'Germany',       firstname: 'Nils',    isOnline: true,  lastname: 'Dehl',     luckyNumber: 3, specialDate: '2025-08-09'},
-            {id:  4, country: 'United States', firstname: 'Gerard',  isOnline: true,  lastname: 'Horan',    luckyNumber: 1, specialDate: '2025-08-10'},
-            {id:  5, country: 'Slovakia',      firstname: 'Jozef',   isOnline: false, lastname: 'Sakalos',  luckyNumber: 2, specialDate: '2025-08-08'},
-            {id:  6, country: 'Germany',       firstname: 'Bastian', isOnline: false, lastname: 'Haustein', luckyNumber: 3, specialDate: '2025-08-10'},
-            {id:  7, country: 'United States', firstname: 'Durlabh', isOnline: true,  lastname: 'Jain',     luckyNumber: 1, specialDate: '2025-08-08'},
-            {id:  8, country: 'Canada',        firstname: 'Kevin',   isOnline: true,  lastname: 'Cassidy',  luckyNumber: 2, specialDate: '2025-08-10'},
-            {id:  9, country: 'UK',            firstname: 'Nikola',  isOnline: true,  lastname: 'Markovic', luckyNumber: 3, specialDate: '2025-08-09'},
-            {id: 10, country: 'United States', firstname: 'Hyle',    isOnline: false, lastname: 'Campbell', luckyNumber: 1, specialDate: '2025-08-10'}
-        ]
+        data
     }
 }
 

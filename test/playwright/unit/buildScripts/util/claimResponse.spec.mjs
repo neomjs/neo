@@ -33,6 +33,7 @@ import {
     withdrawalMarker
 } from '../../../../../buildScripts/util/claimResponse.mjs';
 import {decideClaimHint} from '../../../../../buildScripts/util/claimGuidance.mjs';
+import {standing}        from '../../../../../buildScripts/util/contributorStanding.mjs';
 
 const REPO_URL = 'https://github.com/neomjs/neo';
 
@@ -673,6 +674,29 @@ test.describe('buildScripts/util/claimResponse', () => {
             expect(decision.assignedBody).toContain('Thanks for claiming this, @newcomer, and welcome! Assigned to you')
         });
 
+        test('a claimant with a merged pull request is welcomed back in both greetings', () => {
+            const claim = comment('returning-claimant', '2026-11-17T20:00:00Z', "I'd like to take this one.");
+
+            // The workflow derives `welcomeBack` from the merged count it already fetched; an unread count stays false.
+            for (const [count, greeting] of [[0, 'welcome!'], [1, 'welcome back!'], [undefined, 'welcome!']]) {
+                const decision = decideClaim({
+                    comment    : claim,
+                    comments   : [claim],
+                    issue      : gfiIssue({number: 21284}),
+                    repoUrl    : REPO_URL,
+                    welcomeBack: count === undefined ? undefined : standing(count).rung !== null
+                });
+
+                expect(decision.assign).toBe(true);
+                expect(decision.assignedBody).toContain(`Thanks for claiming this, @returning-claimant, and ${greeting} Assigned to you — you can start now.`);
+                expect(decision.body).toContain(`Thanks for claiming this, @returning-claimant, and ${greeting} You're first in line, so you can start now.`)
+            }
+
+            // Only the two greetings change: a refusal reads the same either way.
+            const held = {claimant: 'returning-claimant', holders: [{kind: 'assignee', login: 'someone'}], label: 'good first issue', repoUrl: REPO_URL};
+            expect(renderReply({...held, welcomeBack: true})).toBe(renderReply(held))
+        });
+
         test('workflow github-script assigns claims under their standing limit and falls back safely', async () => {
             const
                 workflowPath  = path.resolve(process.cwd(), '.github/workflows/claim-responder.yml'),
@@ -747,9 +771,27 @@ test.describe('buildScripts/util/claimResponse', () => {
                 expect(ok.listForRepoCalls).toEqual([{assignee: 'first-claimant', owner: 'neomjs', per_page: 100, repo: 'neo', state: 'open'}]);
                 expect(ok.unassignedCalls).toEqual([]);
                 expect(ok.posted).toHaveLength(1);
-                expect(ok.posted[0].body).toContain('Assigned to you — you can start now.');
+                expect(ok.posted[0].body).toContain('and welcome! Assigned to you — you can start now.');
                 expect(ok.warnings).toEqual([]);
                 expect(ok.countQueries).toEqual(['org:neomjs is:public is:pr is:merged author:first-claimant']);
+
+                // 1b. One merged pull request across the organisation -> the same search welcomes the claimant back
+                const back = await runScenario({
+                    addAssigneesImpl: async ({assignees}) => ({data: {assignees: assignees.map(login => ({login}))}}),
+                    count           : {total_count: 1, incomplete_results: false}
+                });
+
+                expect(back.posted[0].body).toContain('Thanks for claiming this, @first-claimant, and welcome back! Assigned to you');
+                expect(back.countQueries).toHaveLength(1);
+
+                // 1c. An unread count keeps the first-time greeting
+                const unread = await runScenario({
+                    addAssigneesImpl: async ({assignees}) => ({data: {assignees: assignees.map(login => ({login}))}}),
+                    count           : new Error('search refused')
+                });
+
+                expect(unread.posted[0].body).toContain('Thanks for claiming this, @first-claimant, and welcome! Assigned to you');
+                expect(unread.warnings).toHaveLength(1);
 
                 // 2. GitHub returns HTTP 201 with empty assignees -> posts fallback body without removing stale assignees
                 const

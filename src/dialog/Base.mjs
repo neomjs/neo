@@ -308,6 +308,9 @@ class Dialog extends Panel {
                     module       : module.default,
                     appName,
                     delegationCls: 'neo-dialog',
+                    // A move writes the dialog's geometry into `style` (onDragEnd), which would mask a resize in
+                    // `wrapperStyle`
+                    styleConfig  : 'style',
                     ...me.resizablePluginConfig
                 });
 
