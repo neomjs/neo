@@ -1,6 +1,8 @@
 # AI Knowledge Base Quick Start Guide
 
 > **Repository boundary:** Agent OS source, commands, configuration, and operational guides now live in [`neomjs/neo-agent-brain`](https://github.com/neomjs/neo-agent-brain). Run every `ai:*` or `ai/**` command below from a Brain checkout; use the Engine checkout only as the target repository.
+>
+> **Only want the Neural Link?** It needs no Brain checkout: register the `neo-neural-link` npm package as the [clone setup](../CONTRIBUTING.md#set-up-the-engine-from-a-clone) shows.
 
 This guide provides a comprehensive walkthrough for setting up and using the local AI Knowledge Base
 for the Neo.mjs repository.
@@ -143,9 +145,9 @@ Configuration source: the current Gemini CLI product contract, not an Antigravit
 
 ### Option C: Claude Desktop / Claude Code
 
-Claude Desktop is Anthropic's desktop agent app (macOS/Windows). Claude Code is Anthropic's shell-capable CLI harness. **Both harnesses share a single MCP configuration file** — configuring one configures the other.
+Claude Desktop is Anthropic's desktop agent app (macOS/Windows). Claude Code is Anthropic's shell-capable CLI harness. **They keep separate MCP configurations:** Claude Desktop reads the file below; Claude Code reads servers registered with `claude mcp add` and a project `.mcp.json` (`claude mcp add-from-claude-desktop` copies Desktop's entries).
 
-Configuration path:
+Claude Desktop's configuration path:
 - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 
@@ -275,11 +277,11 @@ Use Google's current Gemini CLI configuration contract for enterprise or explici
 
 ### Core Configuration (Claude Desktop / Claude Code)
 
-Claude Desktop (the macOS / Windows agent app) and Claude Code (Anthropic's CLI harness) share a single MCP configuration file at:
+Claude Desktop (the macOS / Windows agent app) reads its MCP servers from:
 - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 
-Configuring one harness configures the other — both spawn the same MCP subprocesses from this file.
+Claude Code (Anthropic's CLI harness) does not read that file: it takes servers registered with `claude mcp add` and a project `.mcp.json`, in the same `mcpServers` shape.
 
 **Critical: `NEO_AGENT_IDENTITY` and the checkout that carries it.**
 
