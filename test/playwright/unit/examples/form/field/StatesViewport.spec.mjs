@@ -38,7 +38,8 @@ const entries = {
     NumberEntry, Password, Phone, Radio, Range, Search, Select, Switch, Text, TextArea, Time, Url, ZipCode
 };
 
-// The main-thread addons a viewport calls, stubbed as in ../../ConfigurationViewport.spec.mjs
+// The main-thread addons a viewport calls. Installed per test: other spec files in a shared worker replace
+// `Neo.main.DomAccess` or delete its methods, so a stub set once per file can be gone by its next test.
 const stubs = {
     DomAccess: {applyBodyCls: () => {}, setBodyCls: async () => {}},
     DomEvents: {isSingleton: true, registerDisabledInputChars: () => {}, unregisterDisabledInputChars: () => {}}
@@ -46,16 +47,16 @@ const stubs = {
 
 let originals;
 
-test.beforeAll(() => {
+test.beforeEach(() => {
     Neo.main ??= {};
     originals = Object.fromEntries(Object.keys(stubs).map(addon => [addon, Neo.main[addon]]));
 
     Object.entries(stubs).forEach(([addon, methods]) => {
-        Neo.main[addon] = {...methods, ...Neo.main[addon]}
+        Neo.main[addon] = {...Neo.main[addon], ...methods}
     })
 });
 
-test.afterAll(() => {
+test.afterEach(() => {
     Object.entries(originals).forEach(([addon, original]) => {
         if (original) {
             Neo.main[addon] = original
