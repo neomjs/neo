@@ -1,8 +1,8 @@
-import {test, expect}                                 from '@playwright/test';
-import fs                                             from 'node:fs';
-import {execFileSync}                                 from 'node:child_process';
-import {fileURLToPath}                                from 'node:url';
-import {validateCaptureRecipes, selectCaptureRecipes} from '../../../../../buildScripts/docs/captureExamples.mjs';
+import {test, expect}                                              from '@playwright/test';
+import fs                                                          from 'node:fs';
+import {execFileSync}                                              from 'node:child_process';
+import {fileURLToPath}                                             from 'node:url';
+import {validateCaptureRecipes, selectCaptureRecipes, selectTiles} from '../../../../../buildScripts/docs/captureExamples.mjs';
 
 /** @summary Gives the producer one covered local record and an unrelated legacy cover. */
 function catalog() {
@@ -122,5 +122,34 @@ test('the committed Grid/Table manifest covers every current family record with 
 test('the command exposes help without starting a browser or requiring a running server', () => {
     const file = fileURLToPath(new URL('../../../../../buildScripts/docs/captureExamples.mjs', import.meta.url)),
         output = execFileSync(process.execPath, [file, '--help'], {encoding: 'utf8'});
-    expect(output).toContain('--record'); expect(output).toContain('--preview')
+    expect(output).toContain('--record'); expect(output).toContain('--preview'); expect(output).toContain('--tiles')
+});
+
+test('a tile is named by its examples/ path, which gives its id and devmode URL', () => {
+    const raw = {...manifest(), tiles: ['examples/form/field/date', 'examples/sitemap']},
+        valid = validateCaptureRecipes(raw, catalog());
+    expect(valid.tiles).toEqual([
+        {id: 'form-field-date', path: 'examples/form/field/date', url: 'examples/form/field/date/index.html'},
+        {id: 'sitemap',         path: 'examples/sitemap',         url: 'examples/sitemap/index.html'}
+    ]);
+    expect(selectTiles(valid, 'examples/sitemap').map(tile => tile.id)).toEqual(['sitemap']);
+    expect(validateCaptureRecipes(manifest(), catalog()).tiles).toEqual([])
+});
+
+test('a tile path outside examples/, a duplicate tile or an unknown selection is refused', () => {
+    for (const tiles of [['apps/form'], ['examples/'], ['examples/../apps'], ['examples/sitemap', 'examples/sitemap']]) {
+        expect(() => validateCaptureRecipes({...manifest(), tiles}, catalog())).toThrow(/manifest\.tiles/)
+    }
+    const valid = validateCaptureRecipes({...manifest(), tiles: ['examples/sitemap']}, catalog());
+    expect(() => selectTiles(valid, 'examples/form/field/date')).toThrow(/no matching tiles/)
+});
+
+test('the committed tile list names workbench entries that exist', () => {
+    const data = new URL('../../../../../apps/portal/resources/data/', import.meta.url),
+        valid  = validateCaptureRecipes(JSON.parse(fs.readFileSync(new URL('example-captures.json', data))), JSON.parse(fs.readFileSync(new URL('examples.json', data))));
+    expect(valid.tiles.length).toBeGreaterThan(0);
+    for (const tile of valid.tiles) {
+        const source = fs.readFileSync(new URL(`../../../../../${tile.path}/MainContainer.mjs`, import.meta.url), 'utf8');
+        expect(source, tile.path).toContain('ConfigurationViewport')
+    }
 });
