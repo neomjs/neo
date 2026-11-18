@@ -25,19 +25,20 @@ class Planning extends FeatureSection {
          */
         headline: 'Gantt & Task Board',
         /**
-         * @member {String} learnMoreRoute='#/examples/gantt'
+         * @member {String} learnMoreRoute='#/learn/guides/datahandling/Gantt'
          * @reactive
          */
-        learnMoreRoute: '#/examples/gantt',
+        learnMoreRoute: '#/learn/guides/datahandling/Gantt',
         /**
          * @member {Object[]} links
          * @reactive
          */
         links: [
+            {route: '#/examples/gantt',      text: 'More Gantt charts'},
+            {route: '#/examples/board',      text: 'Task Boards'},
             {route: '#/examples/grid-table', text: 'Grids'},
             {route: '#/examples/forms',      text: 'Forms'},
             {route: '#/examples/scheduler',  text: 'Scheduler'},
-            {route: '#/examples/board',      text: 'Task Board'},
             {route: '#/examples/calendar',   text: 'Calendar'},
             {route: '#/examples/dashboard',  text: 'Docking'}
         ],
