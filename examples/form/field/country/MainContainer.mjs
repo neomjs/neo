@@ -14,11 +14,12 @@ class MainContainer extends StatesViewport {
         layout       : {ntype: 'hbox', align: 'stretch'},
 
         field: {
-            module    : CountryField,
-            labelText : 'Country',
-            labelWidth: 80,
-            showFlags : true,
-            width     : 300
+            module         : CountryField,
+            labelText      : 'Country',
+            placeholderText: 'Pick a country',
+            labelWidth     : 80,
+            showFlags      : true,
+            width          : 300
         },
         states: {
             filled  : {value: 'germany'},

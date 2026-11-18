@@ -17,13 +17,14 @@ class MainContainer extends StatesViewport {
         layout       : {ntype: 'hbox', align: 'stretch'},
 
         field: {
-            module     : TextField,
-            clearable  : true,
-            labelText  : 'Invite link',
-            labelWidth : 90,
-            showOnHover: false,
-            triggers   : [CopyToClipboardTrigger],
-            width      : 340
+            module         : TextField,
+            clearable      : true,
+            labelText      : 'Invite link',
+            placeholderText: 'No link yet',
+            labelWidth     : 90,
+            showOnHover    : false,
+            triggers       : [CopyToClipboardTrigger],
+            width          : 340
         },
         // The trigger copies what the field holds: there is nothing to validate
         states: {

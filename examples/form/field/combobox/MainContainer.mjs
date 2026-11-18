@@ -17,13 +17,14 @@ class MainContainer extends StatesViewport {
         exampleContainerConfig: {style: {position: 'relative'}},
 
         field: {
-            module       : ComboBox,
-            labelPosition: 'inline',
-            labelText    : 'State',
-            pickerConfig : {minHeight: '6em'},
-            store        : MainStore,
-            valueField   : 'abbreviation',
-            width        : 300
+            module         : ComboBox,
+            labelPosition  : 'inline',
+            labelText      : 'State',
+            placeholderText: 'Type or pick a state',
+            pickerConfig   : {minHeight: '6em'},
+            store          : MainStore,
+            valueField     : 'abbreviation',
+            width          : 300
         },
         states: {
             filled  : {value: 'AZ'},

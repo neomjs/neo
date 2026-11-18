@@ -20,6 +20,7 @@ class MainContainer extends StatesViewport {
             clearable         : true,
             labelPosition     : 'inline',
             labelText         : 'Project name',
+            placeholderText   : 'Name your project',
             maxLength         : 40,
             minLength         : 3,
             showCharacterCount: true,

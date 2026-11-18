@@ -137,6 +137,7 @@ test.describe('StatesViewport: a field workbench shows the field in its states',
             expect(fields.map(stateField => stateField.labelText)).toEqual(Array(4).fill('Project name'));
 
             expect(empty.value).toBeNull();
+            expect(empty.placeholderText).toBe('Name your project');
             expect(invalid.value).toBe('Ne');
             expect(invalid.error).toBe('Min length violation: 2 / 3');
 
@@ -150,6 +151,28 @@ test.describe('StatesViewport: a field workbench shows the field in its states',
         } finally {
             viewport.destroy()
         }
+    });
+
+    test('an empty state shows no value and a placeholder, wherever its field has one', () => {
+        const
+            isEmpty = value => value == null || value === '' || (Array.isArray(value) && !value.length),
+            missing = [];
+
+        Object.entries(entries).forEach(([name, Entry]) => {
+            let viewport = Neo.create(Entry, {autoMount: false});
+
+            try {
+                let empty = viewport.states.empty && viewport.down({reference: 'state-empty'});
+
+                if (empty && 'placeholderText' in empty && !(isEmpty(empty.value) && /\S/.test(empty.placeholderText ?? ''))) {
+                    missing.push(name)
+                }
+            } finally {
+                viewport.destroy()
+            }
+        });
+
+        expect(missing, 'empty states with a value or without a placeholder').toEqual([])
     });
 
     test('an inspector change reaches the live field and leaves the states as they are', () => {
@@ -191,7 +214,8 @@ test.describe('StatesViewport: a field workbench shows the field in its states',
             let {captions, fields} = stageOf(viewport);
 
             expect(captions).toEqual(['Uploaded', 'Deleted', 'Malware found', 'Error', 'Disabled']);
-            expect(fields.map(upload => upload.state)).toEqual(['downloadable', 'deleted', 'scan-failed', 'error', 'ready']);
+            // The demo server serves no documents: the uploaded sample must not offer a download
+            expect(fields.map(upload => upload.state)).toEqual(['not-downloadable', 'deleted', 'scan-failed', 'error', 'ready']);
             expect(viewport.exampleComponent.state).toBe('ready')
         } finally {
             viewport.destroy()

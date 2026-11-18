@@ -67,7 +67,8 @@ class MainContainer extends StatesViewport {
                     }
                 }
             },
-            uploaded: {document: {id: 1, fileName: 'invoice-2026-11.pdf', size: 248320,   status: 'DOWNLOADABLE'}},
+            // The demo server serves no documents, so the uploaded sample offers no download link
+            uploaded: {document: {id: 1, fileName: 'invoice-2026-11.pdf', size: 248320,   status: 'UN_DOWNLOADABLE'}},
             deleted : {document: {id: 2, fileName: 'contract-draft.pdf',  size: 10664885, status: 'DELETED'}},
             malware : {document: {id: 3, fileName: 'setup.pdf',           size: 1290240,  status: 'MALWARE_DETECTED'}},
             error   : {document: {id: 4, fileName: 'scan-2026-11-18.png', size: 3145728,  status: 'ERROR'}},

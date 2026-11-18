@@ -21,6 +21,7 @@ class MainContainer extends StatesViewport {
             module              : DateField,
             clearToOriginalValue: true,
             labelText           : 'Start date',
+            placeholderText     : 'Pick a date',
             labelWidth          : 90,
             width               : 290
         },

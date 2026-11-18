@@ -19,6 +19,7 @@ class MainContainer extends StatesViewport {
             module              : NumberField,
             clearToOriginalValue: true,
             labelText           : 'Quantity',
+            placeholderText     : 'How many?',
             labelWidth          : 80,
             maxValue            : 100,
             minValue            : 1,

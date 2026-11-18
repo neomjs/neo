@@ -17,11 +17,12 @@ class MainContainer extends StatesViewport {
         layout       : {ntype: 'hbox', align: 'stretch'},
 
         field: {
-            module    : TimeField,
-            clearable : true,
-            labelText : 'Start time',
-            labelWidth: 90,
-            width     : 230
+            module         : TimeField,
+            clearable      : true,
+            labelText      : 'Start time',
+            placeholderText: 'Pick a time',
+            labelWidth     : 90,
+            width          : 230
         },
         states: {
             filled  : {value: '10:00'},

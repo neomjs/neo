@@ -18,13 +18,14 @@ class MainContainer extends StatesViewport {
         layout       : {ntype: 'hbox', align: 'stretch'},
 
         field: {
-            module       : ChipField,
-            displayField : 'name',
-            labelPosition: 'inline',
-            labelText    : 'US states',
-            store        : {module: MainStore},
-            valueField   : 'abbreviation',
-            width        : 300
+            module         : ChipField,
+            displayField   : 'name',
+            labelPosition  : 'inline',
+            labelText      : 'US states',
+            placeholderText: 'Type a state',
+            store          : {module: MainStore},
+            valueField     : 'abbreviation',
+            width          : 300
         },
         states: {
             filled  : {value: ['CA', 'NY']},

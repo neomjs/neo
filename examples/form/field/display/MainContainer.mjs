@@ -13,10 +13,11 @@ class MainContainer extends StatesViewport {
         layout       : {ntype: 'hbox', align: 'stretch'},
 
         field: {
-            module    : DisplayField,
-            labelText : 'Order number',
-            labelWidth: 110,
-            width     : 300
+            module         : DisplayField,
+            labelText      : 'Order number',
+            placeholderText: 'Not assigned yet',
+            labelWidth     : 110,
+            width          : 300
         },
         // A display field shows a value nobody edits: it is read-only by nature and never invalid
         states: {

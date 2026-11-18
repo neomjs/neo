@@ -18,12 +18,13 @@ class MainContainer extends StatesViewport {
         layout       : {ntype: 'hbox', align: 'stretch'},
 
         field: {
-            module       : ColorField,
-            labelPosition: 'inline',
-            labelText    : 'Accent color',
-            store        : MainStore,
-            triggerAction: 'all',
-            width        : 240
+            module         : ColorField,
+            labelPosition  : 'inline',
+            labelText      : 'Accent color',
+            placeholderText: 'Pick a color',
+            store          : MainStore,
+            triggerAction  : 'all',
+            width          : 240
         },
         states: {
             filled  : {value: 3},
