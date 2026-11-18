@@ -142,6 +142,10 @@ class OpenStreetMaps extends Base {
                 zoom   : data.zoom    ?? 10
             });
 
+            // `data-rendered` tells a capture or a test whether every tile of the current view is drawn: a new map
+            // has drawn nothing, and removeMap() takes the attribute away again
+            mapElement.dataset.rendered = 'false';
+
             map = new ol.Map({
                 controls: me.createControls(data),
                 layers  : [new ol.layer.Tile({source: new ol.source.OSM()}), new ol.layer.Vector({source: vectorSource})],
@@ -159,7 +163,6 @@ class OpenStreetMaps extends Base {
             map.on('moveend',     ()    => me.onMapZoomChange(map, mapId));
             map.on('pointermove', event => me.onPointerMove(map, event));
 
-            // `data-rendered` tells a capture or a test whether every tile of the current view is drawn
             map.on('loadstart',      () => {mapElement.dataset.rendered = 'false'});
             map.on('rendercomplete', () => {mapElement.dataset.rendered = 'true'});
 
@@ -468,6 +471,8 @@ class OpenStreetMaps extends Base {
             map     = me.maps[mapId];
 
         if (map) {
+            // A remounted wrapper's next map must not find the old map's "drawn" on its node
+            delete map.getTargetElement()?.dataset.rendered;
             map.setTarget(undefined);
             map.dispose()
         }
