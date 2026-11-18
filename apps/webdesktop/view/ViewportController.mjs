@@ -35,19 +35,6 @@ class ViewportController extends Controller {
      * @protected
      */
     signOuts = 0
-    /**
-     * The latest sign-in while its saved arrangement is being read. A later click replaces it, so the last click signs
-     * in, whichever read answers first.
-     * @member {Object|null} pendingSignIn=null
-     * @protected
-     */
-    pendingSignIn = null
-    /**
-     * True while a sign-in restores a saved arrangement: that write is no new order, so nothing is saved
-     * @member {Boolean} restoringArrangement=false
-     * @protected
-     */
-    restoringArrangement = false
 
     /**
      * Creates an app's window on first use. It grows out of the app's launcher icon, and its own state provider holds
@@ -109,31 +96,21 @@ class ViewportController extends Controller {
     }
 
     /**
-     * Signs an account in with its saved icon arrangement, or the catalog order if it has none. The arrangement is in
-     * place before the grants render the desktop. Of two quick clicks the later one signs in.
+     * Signs an account in with its saved icon arrangement, or the catalog order if it has none. The launcher gets the
+     * account's key before the grants: it holds its render until that arrangement is in place, so the grants never show
+     * in another account's order. Of two quick clicks the later one wins.
      * @param {Object}                   data
      * @param {WebDesktop.model.Account} data.record
      */
-    async onAccountItemClick({record}) {
-        let me          = this,
-            signIn      = me.pendingSignIn = {record},
-            arrangement = await me.readArrangement(record);
+    onAccountItemClick({record}) {
+        let me = this;
 
-        if (me.pendingSignIn === signIn) {
-            me.pendingSignIn        = null;
-            me.restoringArrangement = true;
+        me.getReference('launcher').arrangementKey = me.getArrangementKey(record);
 
-            try {
-                me.getStore('apps').arrange(arrangement)
-            } finally {
-                me.restoringArrangement = false
-            }
-
-            me.setState({
-                account    : record,
-                permissions: [...record.permissions]
-            })
-        }
+        me.setState({
+            account    : record,
+            permissions: [...record.permissions]
+        })
     }
 
     /**
@@ -147,20 +124,6 @@ class ViewportController extends Controller {
 
         revoked.length && tasks.remove(revoked);
         revoked.forEach(task => me.windows[task.id].then(window => {window.hidden || window.hide(false)}))
-    }
-
-    /**
-     * Saves the signed-in account's arrangement whenever the apps store writes a new order: a drop, a keyboard move.
-     */
-    onAppsRowsChange() {
-        let me      = this,
-            account = me.getState('account');
-
-        account && !me.restoringArrangement && Neo.main.addon.LocalStorage.updateLocalStorageItem({
-            key     : me.getArrangementKey(account),
-            value   : JSON.stringify(me.getStore('apps').getArrangement()),
-            windowId: me.component.windowId
-        })
     }
 
     /**
@@ -178,9 +141,8 @@ class ViewportController extends Controller {
         };
 
         me.getStore('apps').on({
-            filter    : me.onAppsFilter,
-            rowsChange: me.onAppsRowsChange,
-            scope     : me
+            filter: me.onAppsFilter,
+            scope : me
         })
     }
 
@@ -212,15 +174,15 @@ class ViewportController extends Controller {
     }
 
     /**
-     * Signs out at once. A sign-in whose arrangement is still being read does not outlive it, and neither does a window
-     * import. The windows leave the DOM before the account changes: a window still mounted would re-render its content
-     * for the empty account, and that update would land after the window's removal.
+     * Signs out at once. A window import does not outlive it, and neither does an arrangement still being read: the
+     * launcher drops its key after the grants, so a held render shows the empty desktop, never the leaving account's
+     * apps. The windows leave the DOM before the account changes: a window still mounted would re-render its content for
+     * the empty account, and that update would land after the window's removal.
      * @param {Object} data
      */
     onSignOutButtonClick(data) {
         let me = this;
 
-        me.pendingSignIn = null;
         me.signOuts++;
         me.getStore('tasks').clear();
         me.hideAllWindows();
@@ -229,7 +191,9 @@ class ViewportController extends Controller {
             account         : null,
             permissions     : [],
             permissionsPanel: false
-        })
+        });
+
+        me.getReference('launcher').arrangementKey = null
     }
 
     /**
@@ -338,28 +302,6 @@ class ViewportController extends Controller {
     }
 
     /**
-     * Reads an account's saved arrangement. It is a preference: a failed read or an unreadable value gives the catalog
-     * order and never blocks the sign-in.
-     * @param {WebDesktop.model.Account} account
-     * @returns {Promise<Object>} Group key → app keys, or `{}`
-     */
-    async readArrangement(account) {
-        let me = this;
-
-        try {
-            let {value} = await Neo.main.addon.LocalStorage.readLocalStorageItem({
-                    key     : me.getArrangementKey(account),
-                    windowId: me.component.windowId
-                }),
-                arrangement = value && JSON.parse(value);
-
-            return Neo.isObject(arrangement) ? arrangement : {}
-        } catch {
-            return {}
-        }
-    }
-
-    /**
      * Destroys every window, open or still being imported, and stops listening to the apps store, which the desktop's
      * provider owns and destroys after this controller.
      * @protected
@@ -368,9 +310,8 @@ class ViewportController extends Controller {
         let me = this;
 
         me.getStore('apps')?.un({
-            filter    : me.onAppsFilter,
-            rowsChange: me.onAppsRowsChange,
-            scope     : me
+            filter: me.onAppsFilter,
+            scope : me
         });
 
         // A cancelled import resolves to null, and a failed one has no window to destroy

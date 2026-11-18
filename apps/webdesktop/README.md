@@ -66,10 +66,12 @@ window binds `app` from its own provider and `account` from the parent. The task
 ## Arranging icons
 
 Drag an icon before or after another icon of its group, or press Ctrl+Shift+Left or Right (Cmd+Shift on macOS). The
-launcher is draggable through `Neo.draggable.list.SortZone`: during the drag only the view previews the new order,
-and a drop writes the apps' `order` field once (`store.updateRows()`). The apps store sorts by `order`, so the launcher
-and the start menu follow. The filter never touches `order`, so a permission change keeps the remaining icons in place.
-Each account's arrangement is saved to `localStorage` and applied when it signs in.
+launcher is the engine's `Neo.desktop.Launcher`, draggable through `Neo.draggable.list.SortZone`: during the drag only
+the view previews the new order, and a drop writes the apps' `order` field once (`store.updateRows()`). The apps store
+(`Neo.desktop.store.Apps`) sorts by `order`, so the launcher and the start menu follow. The filter never touches
+`order`, so a permission change keeps the remaining icons in place. A sign-in hands the launcher the account's
+`arrangementKey` before the grants: the launcher restores that account's arrangement from `localStorage`, holds its
+render until it is in place, and saves each new order under the key.
 
 ## Phones and touch
 
@@ -82,9 +84,9 @@ has no double-click, so a single tap opens an app there.
 | File | Responsibility |
 |---|---|
 | `resources/data/accounts.json` | The "backend": demo accounts and their permission keys, read through a store `url`. |
-| `store/Apps.mjs`, `model/App.mjs` | The navigation tree and its permission filter. |
+| `store/Apps.mjs`, `model/App.mjs` | The navigation tree's catalog and its permission filter, over the engine's `Neo.desktop.store.Apps` and `Neo.desktop.model.App`. |
 | `store/Permissions.mjs`, `view/PermissionList.mjs` | The panel that simulates the backend changing permissions. |
 | `view/SignIn.mjs`, `view/AccountList.mjs` | The lock screen. |
-| `view/Desktop.mjs`, `view/Launcher.mjs`, `view/Taskbar.mjs` | The signed-in desktop. |
+| `view/Desktop.mjs`, `view/Taskbar.mjs` | The signed-in desktop, around the engine's `Neo.desktop.Launcher`. |
 | `view/AppWindow.mjs`, `view/AppView.mjs` | An app's window and its content. |
 | `store/Tasks.mjs`, `view/TaskList.mjs` | The open windows in the taskbar. |
