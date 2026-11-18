@@ -15,9 +15,10 @@ let
  * @description Where the pointer goes decides when a tooltip hides, not a timer. Leaving the target for the tooltip
  * keeps a hoverable tooltip ({@link #stayOnHover}) up, as WCAG 2.1 SC 1.4.13 asks of content that opens on hover:
  * its hit area spans the gap to its target, so the pointer crosses into it directly. Leaving the target, or the
- * tooltip, for anywhere else hides it at once, unless an explicit {@link #hideDelay} asks for a delay. A browser
- * window shows one tooltip at a time, and for {@link #warmWindow} ms after one hides, the next target shows its
- * tooltip without {@link #showDelay}, so moving along neighbouring targets stays prompt.
+ * tooltip, for anywhere else hides it after {@link #retargetWindow}, unless an explicit {@link #hideDelay} asks for
+ * longer; entering another of its targets in that window retargets the shown tooltip instead. A browser window shows
+ * one tooltip at a time, and while another one shows or for {@link #warmWindow} ms after one hid, the next target shows
+ * its tooltip without {@link #showDelay}, so moving along neighbouring targets stays prompt.
  * @class Neo.tooltip.Base
  * @extends Neo.container.Base
  */
@@ -66,7 +67,8 @@ class Tooltip extends Container {
         floating: true,
         /**
          * The delay in ms before the tooltip hides once the pointer left its target, or the tooltip, for anywhere
-         * else. 0 hides at once; a hoverable tooltip needs no delay to be reached, since its hit area spans the gap.
+         * else. 0 leaves only {@link #retargetWindow}; a hoverable tooltip needs no delay to be reached, since its hit
+         * area spans the gap.
          * @member {Number|null} hideDelay=0
          */
         hideDelay: 0,
@@ -76,6 +78,13 @@ class Tooltip extends Container {
          * @protected
          */
         hideDelayTaskId: null,
+        /**
+         * How long in ms a departure waits for the pointer to enter another target of this tooltip before the tooltip
+         * hides: a leave and the next target's enter arrive as two events, and the enter then retargets the shown
+         * tooltip instead of mounting it again. A {@link #hideDelay} replaces it.
+         * @member {Number} retargetWindow=40
+         */
+        retargetWindow: 40,
         /**
          * The delay in ms before the tooltip gets shown
          * @member {Number|null} showDelay=200
@@ -388,14 +397,15 @@ class Tooltip extends Container {
     }
 
     /**
-     * Hides the tooltip using the given hideDelay
+     * Hides the tooltip after its hideDelay, or else after its retargetWindow
      * @param {Object|null} data
      */
     hideDelayed(data) {
-        let me = this;
+        let me    = this,
+            delay = me.hideDelay || me.retargetWindow;
 
-        if (me.hideDelay) {
-            me.addTimeout('hide', me.hide.bind(me), me.hideDelay)
+        if (delay) {
+            me.addTimeout('hide', me.hide.bind(me), delay)
         } else {
             me.hide(data)
         }
@@ -552,13 +562,14 @@ class Tooltip extends Container {
     }
 
     /**
-     * Shows the tooltip using the given showDelay, or at once while a tooltip of its window hid less than
-     * {@link #warmWindow} ago
+     * Shows the tooltip using the given showDelay, or at once while another tooltip of its window shows or hid less
+     * than {@link #warmWindow} ago
      * @param {Object} data
      */
     showDelayed(data) {
-        let me   = this,
-            warm = Date.now() - (hiddenAt[me.windowId] ?? -Infinity) < me.warmWindow;
+        let me    = this,
+            shown = visible[me.windowId],
+            warm  = shown && shown !== me || Date.now() - (hiddenAt[me.windowId] ?? -Infinity) < me.warmWindow;
 
         if (me.showDelay && !warm) {
             me.addTimeout('show', me.show.bind(me), me.showDelay)

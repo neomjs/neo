@@ -21,8 +21,8 @@ let hosts = 0;
 
 /**
  * @summary A tooltip as a prototype host whose own data properties shadow the reactive configs, as in
- * `DelayTimers.spec.mjs`: a mount records a show, an unmount a hide. `hideDelay` stays the class default, and each
- * host lives in a window of its own unless it names one.
+ * `DelayTimers.spec.mjs`: a mount records a show, an unmount a hide. `hideDelay` and `retargetWindow` stay the class
+ * defaults, and each host lives in a window of its own unless it names one.
  * @param {Object} [config={}] Own properties to add or override
  * @returns {{host: Object, shows: Number[]}}
  */
@@ -35,6 +35,7 @@ function makeHost(config = {}) {
         _hidden           : true,
         activeTarget      : null,
         align             : {},
+        alignTo           : () => {},
         dismissDelay      : null,
         dismissDelayTaskId: null,
         fire              : () => {},
@@ -72,13 +73,28 @@ async function showOn(host, target) {
 }
 
 test.describe('Neo.tooltip.Base — where the pointer goes decides when a tooltip hides', () => {
-    test('a target left for the page hides its tooltip at once', async () => {
+    test('a target left for the page hides its tooltip within the retarget window', async () => {
         const {host} = makeHost();
 
         await showOn(host, 'target-1');
         host.onDelegateMouseLeave({currentTarget: 'target-1', relatedTarget: {id: 'page'}});
 
-        expect(host.mounted, 'no hide delay by default').toBe(false)
+        await expect.poll(() => host.mounted, {message: 'no hide delay by default', timeout: 150}).toBe(false)
+    });
+
+    test('a target left for another of its targets retargets the shown tooltip without mounting it again', async () => {
+        const {host, shows} = makeHost();
+
+        await showOn(host, 'target-1');
+        host.onDelegateMouseLeave({currentTarget: 'target-1', relatedTarget: {id: 'target-2'}});
+        host.onDelegateMouseEnter({currentTarget: 'target-2'});
+        host.activeTarget = {id: 'target-2'};
+
+        await wait(100);
+
+        expect(host.mounted, 'past the retarget window').toBe(true);
+        expect(host.align.target).toBe('target-2');
+        expect(shows, 'one mount').toHaveLength(1)
     });
 
     test('a target left for its hoverable tooltip keeps it, and the tooltip left for the page hides it', async () => {
@@ -86,10 +102,11 @@ test.describe('Neo.tooltip.Base — where the pointer goes decides when a toolti
 
         await showOn(host, 'target-1');
         host.onDelegateMouseLeave({currentTarget: 'target-1', relatedTarget: {id: host.id}});
+        await wait(100);
         expect(host.mounted, 'onto the hit area that spans the gap').toBe(true);
 
         host.onMouseLeave({path: [{id: host.id}], relatedTarget: {id: 'page'}});
-        expect(host.mounted).toBe(false)
+        await expect.poll(() => host.mounted, {timeout: 150}).toBe(false)
     });
 
     test('the tooltip left for its target or a node inside the tooltip stays', async () => {
@@ -97,9 +114,11 @@ test.describe('Neo.tooltip.Base — where the pointer goes decides when a toolti
 
         await showOn(host, 'target-1');
         host.onDelegateMouseLeave({currentTarget: 'target-1', relatedTarget: {id: `${host.id}__label`}});
+        await wait(100);
         expect(host.mounted, 'onto a node inside the tooltip').toBe(true);
 
         host.onMouseLeave({path: [{id: host.id}], relatedTarget: {id: 'target-1'}});
+        await wait(100);
         expect(host.mounted, 'back onto its target, whose enter shows it again').toBe(true)
     });
 
@@ -109,14 +128,16 @@ test.describe('Neo.tooltip.Base — where the pointer goes decides when a toolti
         await showOn(host, 'target-1');
         host.onDelegateMouseLeave({currentTarget: 'target-1', relatedTarget: {id: host.id}});
 
-        expect(host.mounted).toBe(false)
+        await expect.poll(() => host.mounted, {timeout: 150}).toBe(false)
     });
 
-    test('an explicit hideDelay still delays a departure', async () => {
-        const {host} = makeHost({hideDelay: 40});
+    test('an explicit hideDelay still delays a departure, past the retarget window', async () => {
+        const {host} = makeHost({hideDelay: 200});
 
         await showOn(host, 'target-1');
         host.onDelegateMouseLeave({currentTarget: 'target-1', relatedTarget: {id: 'page'}});
+
+        await wait(100);
         expect(host.mounted, 'the hide waits its delay').toBe(true);
 
         await expect.poll(() => host.mounted).toBe(false)
@@ -159,7 +180,8 @@ test.describe('Neo.tooltip.Base — one visible tooltip per window, and a warm s
         await showOn(first, 'target-1');
         first.onDelegateMouseLeave({currentTarget: 'target-1', relatedTarget: {id: 'page'}});
 
-        await wait(100);
+        // the hide lands after the retarget window, then the 60ms warm window runs out
+        await wait(160);
 
         let entered = Date.now();
 
