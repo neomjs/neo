@@ -106,6 +106,7 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'rendering/SparseUpdatesNL.spec.mjs',
     'rendering/StoreLoadingNL.spec.mjs',
     'rendering/TooltipMountFlightNL.spec.mjs',
+    'rendering/TooltipWindowSequenceNL.spec.mjs',
     'rendering/YieldedMoveCoalescingNL.spec.mjs',
     'scheduler/BasicNL.spec.mjs',
     'tab/TabHeaderActionsNL.spec.mjs',

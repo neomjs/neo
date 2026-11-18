@@ -247,9 +247,16 @@ class DomAccess extends Base {
      * @param {String} data.id
      * @param {String|HTMLElement|{x:Number,y:Number,width:Number,height:Number}} [data.target]
      * @param {String|HTMLElement} [data.constrainTo]
+     * @param {Boolean} [data.exposeGap] Writes the gap to the target on the subject, see {@link #writeGap}
      * @returns {Promise<void>}
      */
     async align(data) {
+        // A subject that left the DOM before the call landed, like a tooltip hidden before its first paint, has
+        // nothing to align
+        if (!this.getElement(data.id)) {
+            return
+        }
+
         const
             me             = this,
             {constrainTo}  = data,
@@ -323,6 +330,8 @@ class DomAccess extends Base {
             previousPosition && subject.classList.remove(`neo-aligned-${previousPosition}`);
             subject.classList.add(positionCls)
         }
+
+        data.exposeGap && me.writeGap(subject, Rectangle.gapBetween(align.target, result));
 
         // Register an alignment to be kept in sync
         me.addAligned(data)
@@ -1269,6 +1278,7 @@ class DomAccess extends Base {
         constrainToElement && _alignResizeObserver.unobserve(constrainToElement);
 
         subject.classList.remove(`neo-aligned-${align.result?.position}`);
+        align.exposeGap && me.writeGap(subject, null);
 
         me._aligns.delete(align.id)
     }
@@ -1795,6 +1805,29 @@ class DomAccess extends Base {
             behavior: data.behavior || 'smooth',
             left    : data.left     || 0,
             top     : data.top      || 0
+        })
+    }
+
+    /**
+     * @summary Writes the gap between an aligned subject and its target ({@link Neo.util.Rectangle.gapBetween}) as
+     * the custom properties `--neo-align-gap-{height|left|top|width}` on the subject, or removes them once the boxes
+     * touch. The offsets are in px relative to the subject's padding box, the containing block of what bridges the
+     * gap in CSS, like a hoverable tooltip's hit area: measured from the border box, a border would leave its width of
+     * the gap uncovered. Every alignment writes them, a resync of a resize or scroll included, so the bridge follows
+     * each realign Main makes alone.
+     * @param {HTMLElement} subject
+     * @param {{height: Number, left: Number, top: Number, width: Number}|null} gap In px, relative to the border box
+     * @protected
+     */
+    writeGap(subject, gap) {
+        let style  = gap && subject.ownerDocument.defaultView.getComputedStyle(subject),
+            border = side => parseFloat(style.getPropertyValue(`border-${side}-width`)) || 0,
+            values = gap && {...gap, left: gap.left - border('left'), top: gap.top - border('top')};
+
+        ['height', 'left', 'top', 'width'].forEach(key => {
+            let name = `--neo-align-gap-${key}`;
+
+            values ? subject.style.setProperty(name, `${values[key]}px`) : subject.style.removeProperty(name)
         })
     }
 }
