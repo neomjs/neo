@@ -823,6 +823,8 @@ test.describe('examples/grid/headerGroups', () => {
 
             await expect.poll(() => page.evaluate(() => window.groupDragSettled)).toBe(true);
             await expect.poll(() => groupOrder(page)).toEqual(escape ? ['Q1', 'Q2', 'Q3', 'Q4', 'Year'] : ['Q1', 'Q3', 'Q2', 'Q4', 'Year']);
+            // The order can read right while the drop still re-renders the group cells, and the next drag measures them
+            await expectRelaidOut(page);
 
             // The next drag starts from the gesture's true result: a proxy, a dragging toolbar or a late move left
             // now is the first gesture's
