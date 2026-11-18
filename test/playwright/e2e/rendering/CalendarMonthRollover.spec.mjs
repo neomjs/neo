@@ -7,8 +7,8 @@ test.describe('Neo.calendar.view.month.Component downward wheel rollover compens
         await page.setViewportSize({width: 1280, height: 720});
         await neuralLink.routeConfig(page, config => ({...config, useAiClient: true}));
 
-        await page.goto('/examples/calendar/basic/index.html');
-        const app = await neuralLink.connectToApp('Neo.examples.calendar.basic');
+        await page.goto('/test/playwright/component/apps/calendar-basic/index.html');
+        const app = await neuralLink.connectToApp('CalendarBasicTestApp');
 
         await page.getByRole('button', {name: 'Month', exact: true}).click();
 
