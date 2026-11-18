@@ -831,7 +831,8 @@ test.describe('examples/grid/headerGroups', () => {
             await dragGroup(page, 'Q4', (await groupBox(page, 'Q2')).x + 10);
 
             await expect.poll(() => groupOrder(page)).toEqual(escape ? ['Q1', 'Q4', 'Q2', 'Q3', 'Year'] : ['Q1', 'Q3', 'Q4', 'Q2', 'Year']);
-            expect(await page.evaluate(() =>
+            // The drop's own proxy can still be fading out; a stale one would never go
+            await expect.poll(() => page.evaluate(() =>
                 document.querySelectorAll('.neo-dragproxy, .neo-grid-header-toolbar.neo-is-dragging').length)).toBe(0);
             await expectRelaidOut(page)
         })
@@ -864,7 +865,7 @@ test.describe('examples/grid/headerGroups', () => {
         await dragGroup(page, 'Q4', (await groupBox(page, 'Q2')).x + 10);
 
         await expect.poll(() => groupOrder(page)).toEqual(['Q1', 'Q4', 'Q2', 'Q3', 'Year']);
-        expect(await page.evaluate(() =>
+        await expect.poll(() => page.evaluate(() =>
             document.querySelectorAll('.neo-dragproxy, .neo-grid-header-toolbar.neo-is-dragging').length)).toBe(0);
         await expectRelaidOut(page)
     });
