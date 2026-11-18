@@ -2,14 +2,15 @@ import Button     from '../../../../src/button/Base.mjs';
 import Container  from '../../../../src/container/Base.mjs';
 import Example    from '../../model/Example.mjs';
 import GroupIndex from './GroupIndex.mjs';
-import GroupList  from './GroupList.mjs';
+import List       from './List.mjs';
 
 /**
  * @summary The front door of the examples section at `/examples`: what the section holds and how much, the action that
- * tests its first claim, three groups to start with, the banded index of every group, and every group's card by band.
+ * tests its first claim, the `"Start here"` featured live demonstrations with a 2×2 lead card, and on phones the banded
+ * index beneath the cards.
  *
  * Every number follows the groups store (`Portal.store.ExampleGroups`): the headline counts the home records of the
- * groups that publish in the selected build, so it adds up to the counts the index shows.
+ * groups that publish in the selected build, so it adds up to the counts shown in the left-rail navigation index.
  * @class Portal.view.examples.Overview
  * @extends Neo.container.Base
  */
@@ -21,15 +22,20 @@ class Overview extends Container {
          */
         className: 'Portal.view.examples.Overview',
         /**
-         * The bands in their order, from `Portal.view.examples.MainContainer#familyDefinitions`.
-         * @member {String[]} bands=[]
-         */
-        bands: [],
-        /**
          * The build control's config, from `Portal.view.examples.MainContainer#createBuildControl()`.
          * @member {Object|null} buildControl=null
          */
         buildControl: null,
+        /**
+         * The selected build mode, kept in sync with `Portal.view.examples.MainContainer`.
+         * @member {String} catalogMode='dist_prod'
+         */
+        catalogMode: 'dist_prod',
+        /**
+         * The shared catalog store from `Portal.view.examples.MainContainer#getCatalogStore()`.
+         * @member {Portal.store.Examples|null} catalogStore=null
+         */
+        catalogStore: null,
         /**
          * @member {String[]} cls=['portal-examples-overview']
          * @reactive
@@ -37,10 +43,14 @@ class Overview extends Container {
         cls: ['portal-examples-overview'],
         /**
          * The groups that publish in the selected build, from `Portal.view.examples.MainContainer#getGroupStore()`.
-         * The overview's card lists borrow its records.
          * @member {Portal.store.ExampleGroups|null} groupStore=null
          */
         groupStore: null,
+        /**
+         * Map from group `family` id to display title for `"Start here"` card group pills.
+         * @member {Object|null} groupTitles=null
+         */
+        groupTitles: null,
         /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          * @reactive
@@ -59,23 +69,17 @@ class Overview extends Container {
         actions: [
             {record: 'grid-big-data', text: 'Open the 100,000 × 200 grid', iconCls: 'fa fa-play', ui: 'primary'},
             {record: 'workstation',   text: 'or the Workstation →',                             ui: 'tertiary'}
-        ],
-        /**
-         * The groups whose cards stand above the index.
-         * @member {String[]} startFamilies=['grid-table','forms','multi-window']
-         */
-        startFamilies: ['grid-table', 'forms', 'multi-window']
+        ]
     }
 
     /**
-     * @summary Creates the intro, the three start cards, the index and a card list per band, and follows the groups
-     * store from then on.
+     * @summary Creates the intro, actions, `"Start here"` header with build control, featured demonstration cards,
+     * and the mobile-only banded index below them, keeping `List` a direct child so `Overview` is its scroll root.
      * @protected
      */
     createItems() {
-        const me           = this,
-              {groupStore} = me,
-              groupsOf     = filter => ({module: groupStore.constructor, sourceId: groupStore.id, filters: [filter]});
+        const me                                      = this,
+              {catalogMode, catalogStore, groupStore} = me;
 
         me.items = [{
             module: Container,
@@ -114,46 +118,57 @@ class Overview extends Container {
                 ntype: 'component',
                 cls  : ['portal-examples-overview-heading'],
                 flex : 1,
-                tag  : 'h2',
-                text : 'Start here'
+                vdom : {tag: 'h2', cn: [
+                    {tag: 'span',  text: 'Start here'},
+                    {tag: 'small', text: 'featured live demonstrations'}
+                ]}
             }, {
                 ...me.buildControl,
                 flex: 'none'
             }]
         }, {
-            module   : GroupList,
-            cls      : ['portal-examples-overview-start-cards'],
-            flex     : 'none',
-            reference: 'overview-start-cards',
-            store    : groupsOf({property: 'family', value: me.startFamilies, filterBy: ({item, value}) => !value.includes(item.family)})
+            module        : List,
+            bind          : {catalogMode: data => data.catalogMode},
+            flex          : 'none',
+            groupTitles   : me.groupTitles,
+            leadCard      : true,
+            reference     : 'overview-list',
+            showGroup     : true,
+            useWrapperNode: false, // the overview scrolls, not the list
+            wrapperCls    : ['portal-examples-overview-cards'],
+            store         : {
+                module  : catalogStore.constructor,
+                model   : catalogStore.model,
+                sourceId: catalogStore.id,
+                filters : [
+                    {property: 'featured',    fields: ['featured'],                             value: true,        filterBy: ({item}) => !item.featured},
+                    {property: 'catalogMode', fields: ['hidden', 'hiddenIn', 'image', 'urls'], value: catalogMode, filterBy: ({item, value}) => !Example.publishes(item, value)}
+                ]
+            }
         }, {
-            ntype    : 'component',
-            cls      : ['portal-examples-overview-heading'],
-            flex     : 'none',
-            reference: 'overview-index-heading',
-            vdom     : {tag: 'h2', cn: [{tag: 'span'}, {tag: 'small', text: 'each with its own page'}]}
-        }, {
-            module: GroupIndex,
-            flex  : 'none'
-        }, ...me.bands.map(band => ({
-            module   : Container,
-            cls      : ['portal-examples-overview-band'],
-            flex     : 'none',
-            reference: 'overview-band-' + band.toLowerCase().replaceAll(' ', '-'),
-            items    : [{
-                ntype: 'component',
-                cls  : ['portal-examples-overview-heading'],
-                vdom : {tag: 'h2', cn: [{tag: 'span', text: band}, {tag: 'small'}]}
+            module: Container,
+            cls   : ['portal-examples-overview-mobile-index'],
+            flex  : 'none',
+            layout: {ntype: 'vbox', align: 'stretch'},
+            items : [{
+                ntype    : 'component',
+                cls      : ['portal-examples-overview-heading'],
+                flex     : 'none',
+                reference: 'overview-index-heading',
+                vdom     : {tag: 'h2', cn: [{tag: 'span'}, {tag: 'small', text: 'each with its own page'}]}
             }, {
-                module: GroupList,
-                store : groupsOf({property: 'band', value: band})
+                module      : GroupIndex,
+                flex        : 'none',
+                presentation: 'overview',
+                reference   : 'overview-group-index'
             }]
-        }))];
+        }];
 
         super.createItems();
 
         // The groups arrive with the catalog: the controller publishes them on its first load
-        groupStore.on('load', me.onGroupsLoad, me)
+        groupStore.on('load', me.onGroupsLoad, me);
+        groupStore.getCount() > 0 && me.onGroupsLoad()
     }
 
     /**
@@ -165,8 +180,15 @@ class Overview extends Container {
     }
 
     /**
-     * @summary Counts the published examples and groups into the headline, points the actions at the selected build,
-     * and shows each band with its number of groups, or not at all while it has none.
+     * @returns {Portal.view.examples.List}
+     */
+    getList() {
+        return this.down({reference: 'overview-list'})
+    }
+
+    /**
+     * @summary Counts the published examples and groups into the headline, updates the mobile index heading,
+     * and points the actions at the selected build.
      */
     onGroupsLoad() {
         const me           = this,
@@ -194,16 +216,6 @@ class Overview extends Container {
                 hidden: !item || !Example.publishes(item, catalogMode),
                 url   : item ? Example.href(item, catalogMode) : null
             })
-        });
-
-        me.bands.forEach(band => {
-            const section = me.down({reference: 'overview-band-' + band.toLowerCase().replaceAll(' ', '-')}),
-                  count   = groupStore.items.filter(group => group.band === band).length,
-                  heading = section.items[0];
-
-            heading.vdom.cn[1].text = count === 1 ? '1 group' : `${count} groups`;
-            heading.update();
-            section.hidden = count === 0
         })
     }
 }

@@ -5,16 +5,16 @@ import NeoArray        from '../../../../src/util/Array.mjs';
 import Store           from '../../../../src/data/Store.mjs';
 
 /**
- * @summary The banded index of the example groups: every group of the bound store, in its band, as a link to its page
- * with its count.
+ * @summary The index of the example groups: optional unbanded groups above the bands, and every banded group as a link
+ * to its page with its count.
  *
- * One component in three presentations (`presentation`): `overview` sets the bands side by side under the overview's
- * headline, `list` stands upright beside a group page's cards, and `sheet` opens under a group page's crumb. All three
- * render the groups store (`Portal.store.ExampleGroups`), so a group that publishes in the selected build appears in
- * each.
+ * One component in three presentations (`presentation`): `list` stands upright beside every examples route (both
+ * `/examples` and each group page), `overview` sits below the Start here cards on phones, and `sheet` opens under the
+ * mobile crumb on group pages. All three render the groups store (`Portal.store.ExampleGroups`), so a group that
+ * publishes in the selected build appears in each.
  *
  * A component, not a list: the entries are links in the tab order, with no roving focus and no selection, and the open
- * group's link carries `aria-current="page"`.
+ * destination's link (or `"All examples"` when on `/examples`) carries `aria-current="page"`.
  * @class Portal.view.examples.GroupIndex
  * @extends Neo.component.Base
  */
@@ -135,25 +135,32 @@ class GroupIndex extends Component {
     }
 
     /**
-     * @summary Renders the store's groups by band. A band without a published group has no section, and the line
-     * under the bands explains a count in parentheses while one shows.
+     * @summary Renders optional unbanded groups above the bands, then every banded group in its section. A band without
+     * a published group has no section, and the note under the bands explains a count in parentheses while one shows.
      */
     createEntries() {
         let me        = this,
             bands     = new Map(),
-            borrowing = false;
+            borrowing = false,
+            unbanded  = [];
 
         me.store.forEach(group => {
-            bands.has(group.band) || bands.set(group.band, []);
-            bands.get(group.band).push(group);
+            if (group.band) {
+                bands.has(group.band) || bands.set(group.band, []);
+                bands.get(group.band).push(group)
+            } else {
+                unbanded.push(group)
+            }
+
             borrowing ||= group.count === 0
         });
 
         me.vdom.cn = [
-            {tag: 'a', cls: ['portal-examples-group-index-all'], href: '#/examples', removeDom: me.presentation === 'overview', cn: [
+            {tag: 'a', cls: ['portal-examples-group-index-all'], 'aria-current': me.activeFamily === null && me.presentation !== 'overview' ? 'page' : null, href: '#/examples', removeDom: me.presentation === 'overview', cn: [
                 {tag: 'i', cls: ['fa', 'fa-table-cells-large'], 'aria-hidden': true},
                 {tag: 'span', text: 'All examples'}
             ]},
+            {tag: 'ul', cls: ['portal-examples-group-index-top'], removeDom: unbanded.length === 0, cn: unbanded.map(group => me.createEntry(group))},
             ...[...bands].map(([band, groups]) => ({
                 tag: 'section',
                 cls: ['portal-examples-group-index-band', 'portal-examples-group-index-band-' + band.toLowerCase().replaceAll(' ', '-')],
