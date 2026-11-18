@@ -66,7 +66,11 @@ function run() {
     const parent  = git('rev-parse', 'HEAD^1').trim(),
           changed = git('diff', '--name-only', '--no-renames', '-z', parent, 'HEAD').split('\0').filter(Boolean),
           specs   = changed.filter(file => /^test\/playwright\/unit\/.*\.spec\.mjs$/.test(file) && existsSync(file)),
-          source  = changed.filter(file => !file.startsWith('test/'));
+          source  = changed.filter(file => !file.startsWith('test/')),
+          // The base pass pairs the head install with the head lock, so package.json and package-lock.json stay at the
+          // head and assertInstallMatchesLock accepts the install; every other non-test path is restored as before.
+          kept    = source.filter(file => file === 'package.json' || file === 'package-lock.json'),
+          restore = source.filter(file => !kept.includes(file));
 
     if (!specs.length || !source.length) {
         summarize(`## Red on base\n\nSkipped: ${!specs.length ? 'no added or modified unit specs' : 'no paths outside test/ changed'}.\n`);
@@ -77,7 +81,7 @@ function run() {
           baseHas = file => spawnSync('git', ['cat-file', '-e', `${parent}:${file}`], {cwd: root}).status === 0,
           added   = specs.filter(file => !baseHas(file));
 
-    for (const file of source) {
+    for (const file of restore) {
         if (baseHas(file)) git('restore', `--source=${parent}`, '--worktree', '--', file);
         else rmSync(file, {force: true})
     }
@@ -102,7 +106,8 @@ function run() {
     const rows = compareRedOnBase(head, base, original, added);
     for (const warning of redOnBaseWarnings(rows)) console.log(warning);
     summarize(redOnBaseSummary(rows));
-    summarize(`\nBaseline: ${parent}. Restored ${source.length} non-test paths; kept head tests and installed dependencies.\n` +
+    summarize(`\nBaseline: ${parent}. Restored ${restore.length} non-test paths; kept head tests` +
+        (kept.length ? ` and ${kept.join(' and ')} with the installed dependencies` : '') + '.\n' +
         `Head collection errors: ${head.errors.length}. Base collection errors: ${base.errors.length}. Inspect the retained reports for details.\n`);
     writeFileSync(path.join(artifacts, 'comparison.json'), JSON.stringify(rows, null, 2))
 }

@@ -37,7 +37,7 @@ class TaskList extends List {
     }
 
     /**
-     * @param {WebDesktop.model.Task} record
+     * @param {Neo.desktop.model.Task} record
      * @returns {Object}
      */
     createItemContent(record) {

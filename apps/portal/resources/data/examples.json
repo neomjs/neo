@@ -2,7 +2,9 @@
     {
         "id": "workstation",
         "family": "multi-window",
-        "alsoIn": ["apps"],
+        "alsoIn": [
+            "apps"
+        ],
         "component": "Dock Workspace",
         "feature": "A living-data workspace whose panes can leave the browser window",
         "lookFor": "Pop out the 100k Matrix tab, use it in its own window, then close that window to bring it back.",
@@ -93,7 +95,9 @@
     {
         "id": "shared-covid",
         "family": "multi-window",
-        "alsoIn": ["apps"],
+        "alsoIn": [
+            "apps"
+        ],
         "component": "Shared Views",
         "feature": "A historical country-data chart can move into its own window",
         "lookFor": "Maximise Historical Data, inspect its chart in the popup, then close the popup to return it beside the table.",
@@ -232,7 +236,9 @@
     {
         "id": "offscreen-canvas",
         "family": "platform",
-        "alsoIn": ["charts"],
+        "alsoIn": [
+            "charts"
+        ],
         "feature": "A chart of up to a million points, drawn in a canvas worker",
         "lookFor": "Choose 1,000,000 items, then press Stop Main: the toolbar clock stops while the chart keeps moving.",
         "scope": "External demo. Requires OffscreenCanvas and WebGL support.",
@@ -257,7 +263,9 @@
     {
         "id": "shared-offscreen-canvas",
         "family": "multi-window",
-        "alsoIn": ["platform"],
+        "alsoIn": [
+            "platform"
+        ],
         "component": "OffscreenCanvas",
         "feature": "A rendered canvas moves into a second browser window",
         "lookFor": "Press Move Canvas and find the colored point scene in the popup.",
@@ -277,7 +285,10 @@
     {
         "id": "multi-window-drag-drop",
         "family": "multi-window",
-        "alsoIn": ["apps", "drag-drop"],
+        "alsoIn": [
+            "apps",
+            "drag-drop"
+        ],
         "component": "Dialog",
         "feature": "A draggable dialog can move into a second browser window",
         "lookFor": "Open the docked window, create a dialog and drag its header across into the other window.",
@@ -332,7 +343,9 @@
     {
         "id": "dialog-drag-drop",
         "family": "dialogs",
-        "alsoIn": ["drag-drop"],
+        "alsoIn": [
+            "drag-drop"
+        ],
         "feature": "Dialogs that drag by their header and open further dialogs",
         "lookFor": "Press Create Dialog, drag the dialog by its header, then create a second one from inside it.",
         "featured": true,
@@ -350,7 +363,9 @@
     {
         "id": "colors-dashboard",
         "family": "multi-window",
-        "alsoIn": ["apps"],
+        "alsoIn": [
+            "apps"
+        ],
         "component": "Dashboard",
         "feature": "The dashboard's color grid keeps updating in its own window",
         "lookFor": "Press Grid to detach it, press Start and watch the popup update; close it to return the grid.",
@@ -436,6 +451,443 @@
             "dist_dev": "dist/development/examples/component/gallery/index.html",
             "dist_esm": "dist/esm/examples/component/gallery/index.html",
             "dist_prod": "dist/production/examples/component/gallery/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "canvas",
+        "family": "charts",
+        "component": "Canvas",
+        "feature": "A canvas component that can hand its canvas to a worker as an OffscreenCanvas",
+        "lookFor": "Change width or height in the configuration panel to resize the canvas. The example registers the canvas and draws nothing on it yet.",
+        "scope": "The offscreen mode requires browser support for OffscreenCanvas.",
+        "image": null,
+        "name": "Canvas",
+        "sourceUrl": "examples/component/canvas",
+        "urls": {
+            "devmode": "examples/component/canvas/index.html",
+            "dist_dev": "dist/development/examples/component/canvas/index.html",
+            "dist_esm": "dist/esm/examples/component/canvas/index.html",
+            "dist_prod": "dist/production/examples/component/canvas/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "carousel",
+        "family": "lists",
+        "component": "Carousel",
+        "feature": "An automatically advancing carousel cycles through styled testimonial cards.",
+        "lookFor": "Watch the slides rotate every 5.5 seconds, then resize the carousel with the height and width fields.",
+        "image": null,
+        "name": "component.Carousel",
+        "sourceUrl": "examples/component/carousel",
+        "urls": {
+            "devmode": "examples/component/carousel/index.html",
+            "dist_dev": "dist/development/examples/component/carousel/index.html",
+            "dist_esm": "dist/esm/examples/component/carousel/index.html",
+            "dist_prod": "dist/production/examples/component/carousel/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "chip",
+        "family": "components",
+        "component": "Chip",
+        "feature": "A compact chip combines an icon, editable text and an optional close action.",
+        "lookFor": "Change the text or icon class, and toggle closable to show or hide the close button.",
+        "image": null,
+        "name": "component.Chip",
+        "sourceUrl": "examples/component/chip",
+        "urls": {
+            "devmode": "examples/component/chip/index.html",
+            "dist_dev": "dist/development/examples/component/chip/index.html",
+            "dist_esm": "dist/esm/examples/component/chip/index.html",
+            "dist_prod": "dist/production/examples/component/chip/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "circle",
+        "family": "components",
+        "component": "Circle",
+        "feature": "A three-dimensional circle distributes items around a configurable radius.",
+        "lookFor": "Change the item size, maximum item count and rotation, then press Expand, Collapse or Flip.",
+        "image": null,
+        "name": "component.Circle",
+        "sourceUrl": "examples/component/circle",
+        "urls": {
+            "devmode": "examples/component/circle/index.html",
+            "dist_dev": "dist/development/examples/component/circle/index.html",
+            "dist_esm": "dist/esm/examples/component/circle/index.html",
+            "dist_prod": "dist/production/examples/component/circle/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "clock",
+        "family": "components",
+        "component": "Clock",
+        "feature": "A clock face renders a settable time at an adjustable size",
+        "lookFor": "Change the time to 09:45 and compare the hands, then change size and fontSize to resize the face and its hands.",
+        "image": null,
+        "name": "component.Clock",
+        "sourceUrl": "examples/component/clock",
+        "urls": {
+            "devmode": "examples/component/clock/index.html",
+            "dist_dev": "dist/development/examples/component/clock/index.html",
+            "dist_esm": "dist/esm/examples/component/clock/index.html",
+            "dist_prod": "dist/production/examples/component/clock/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "graph-scene",
+        "family": "charts",
+        "component": "GraphScene",
+        "feature": "A worker-rendered WebGL graph supports orbiting, zooming, large node sets and level-of-detail passes.",
+        "lookFor": "Choose 100k clustered, drag to orbit, and press Read stats to compare nodes, edges and renderer state.",
+        "scope": "Requires WebGL. The largest scene is generated locally in the browser.",
+        "image": null,
+        "name": "GraphScene",
+        "sourceUrl": "examples/component/graphScene",
+        "urls": {
+            "devmode": "examples/component/graphScene/index.html",
+            "dist_dev": "dist/development/examples/component/graphScene/index.html",
+            "dist_esm": "dist/esm/examples/component/graphScene/index.html",
+            "dist_prod": "dist/production/examples/component/graphScene/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "magic-move-text",
+        "family": "components",
+        "component": "MagicMoveText",
+        "feature": "Characters animate between changing strings while remaining inside one text component.",
+        "lookFor": "Wait for automatic cycling or change autoCycle, then adjust the move and fade colors to follow the transition.",
+        "image": null,
+        "name": "MagicMoveText",
+        "sourceUrl": "examples/component/magicmovetext",
+        "urls": {
+            "devmode": "examples/component/magicmovetext/index.html",
+            "dist_dev": "dist/development/examples/component/magicmovetext/index.html",
+            "dist_esm": "dist/esm/examples/component/magicmovetext/index.html",
+            "dist_prod": "dist/production/examples/component/magicmovetext/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "markdown",
+        "family": "components",
+        "component": "Markdown VDOM",
+        "feature": "Markdown is parsed into VDOM subtrees and supports incremental streaming updates.",
+        "lookFor": "Press Stream demo and watch headings, lists, code, a table and a quote render progressively.",
+        "image": null,
+        "name": "Markdown VDOM",
+        "sourceUrl": "examples/component/markdown",
+        "urls": {
+            "devmode": "examples/component/markdown/index.html",
+            "dist_dev": "dist/development/examples/component/markdown/index.html",
+            "dist_esm": "dist/esm/examples/component/markdown/index.html",
+            "dist_prod": "dist/production/examples/component/markdown/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "mwc-button",
+        "family": "components",
+        "component": "MWC Button",
+        "feature": "A Material button exposes dense, outlined, raised, icon and disabled states.",
+        "lookFor": "Toggle outlined and raised, change the label or icon, and compare the button states.",
+        "image": null,
+        "name": "MWC Button",
+        "sourceUrl": "examples/component/mwc/button",
+        "urls": {
+            "devmode": "examples/component/mwc/button/index.html",
+            "dist_dev": "dist/development/examples/component/mwc/button/index.html",
+            "dist_esm": "dist/esm/examples/component/mwc/button/index.html",
+            "dist_prod": "dist/production/examples/component/mwc/button/index.html"
+        },
+        "hiddenIn": [],
+        "scope": "Loads Google's Material Icons and Roboto fonts over the network; dev mode also loads the Material web components from unpkg."
+    },
+    {
+        "id": "mwc-buttons",
+        "family": "components",
+        "component": "MWC Button",
+        "feature": "Two tabs compare standard, outlined, raised, unelevated, dense and icon button variants.",
+        "lookFor": "Switch between Tab 1 and Tab 2 and compare each button style.",
+        "image": null,
+        "name": "MWC Buttons",
+        "sourceUrl": "examples/component/mwc/buttons",
+        "urls": {
+            "devmode": "examples/component/mwc/buttons/index.html",
+            "dist_dev": "dist/development/examples/component/mwc/buttons/index.html",
+            "dist_esm": "dist/esm/examples/component/mwc/buttons/index.html",
+            "dist_prod": "dist/production/examples/component/mwc/buttons/index.html"
+        },
+        "hiddenIn": [],
+        "scope": "Loads Google's Material Icons and Roboto fonts over the network; dev mode also loads the Material web components from unpkg."
+    },
+    {
+        "id": "mwc-text-field",
+        "family": "components",
+        "component": "MWC TextField",
+        "feature": "A Material text field exposes helper text, leading and trailing icons, outlined styling and validation.",
+        "lookFor": "Change the value and press check validity (the result is logged to the browser console), then toggle outlined or disabled in the configuration panel.",
+        "image": null,
+        "name": "MWC TextField",
+        "sourceUrl": "examples/component/mwc/textField",
+        "urls": {
+            "devmode": "examples/component/mwc/textField/index.html",
+            "dist_dev": "dist/development/examples/component/mwc/textField/index.html",
+            "dist_esm": "dist/esm/examples/component/mwc/textField/index.html",
+            "dist_prod": "dist/production/examples/component/mwc/textField/index.html"
+        },
+        "hiddenIn": [],
+        "scope": "Loads Google's Material Icons and Roboto fonts over the network; dev mode also loads the Material web components from unpkg."
+    },
+    {
+        "id": "mwc-text-fields",
+        "family": "components",
+        "component": "MWC TextField",
+        "feature": "Filled and outlined text-field variants, on two tabs, show optional icons and helper text.",
+        "lookFor": "Switch between the Filled and Outlined tabs and compare the field decorations.",
+        "image": null,
+        "name": "MWC TextFields",
+        "sourceUrl": "examples/component/mwc/textFields",
+        "urls": {
+            "devmode": "examples/component/mwc/textFields/index.html",
+            "dist_dev": "dist/development/examples/component/mwc/textFields/index.html",
+            "dist_esm": "dist/esm/examples/component/mwc/textFields/index.html",
+            "dist_prod": "dist/production/examples/component/mwc/textFields/index.html"
+        },
+        "hiddenIn": [],
+        "scope": "Loads Google's Material Icons and Roboto fonts over the network; dev mode also loads the Material web components from unpkg."
+    },
+    {
+        "id": "process",
+        "family": "components",
+        "component": "Process",
+        "feature": "A process component connects ordered steps with configurable orientation, arrows and icons.",
+        "lookFor": "Toggle horizontal and change the arrow or icon color; the stages reflow without losing their order.",
+        "image": null,
+        "name": "component.Process",
+        "sourceUrl": "examples/component/process",
+        "urls": {
+            "devmode": "examples/component/process/index.html",
+            "dist_dev": "dist/development/examples/component/process/index.html",
+            "dist_esm": "dist/esm/examples/component/process/index.html",
+            "dist_prod": "dist/production/examples/component/process/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "process-real-world",
+        "family": "components",
+        "component": "Process",
+        "feature": "An electric-vehicle trip calculator turns staged battery and odometer inputs into remaining range and consumption.",
+        "lookFor": "Set the start and end battery percentages and odometer readings; the result fields update and the save button becomes available.",
+        "scope": "Loads the current Berlin temperature from the Open-Meteo public API; all other values are demonstration data.",
+        "image": null,
+        "name": "Process Real-World Example",
+        "sourceUrl": "examples/component/process/realWorldExample",
+        "urls": {
+            "devmode": "examples/component/process/realWorldExample/index.html",
+            "dist_dev": "dist/development/examples/component/process/realWorldExample/index.html",
+            "dist_esm": "dist/esm/examples/component/process/realWorldExample/index.html",
+            "dist_prod": "dist/production/examples/component/process/realWorldExample/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "progress",
+        "family": "components",
+        "component": "Progress",
+        "feature": "A labelled progress bar exposes a percentage value and configurable dimensions.",
+        "lookFor": "Change the value, label and size in the configuration panel and watch the bar and label update.",
+        "image": null,
+        "name": "component.Progress",
+        "sourceUrl": "examples/component/progress",
+        "urls": {
+            "devmode": "examples/component/progress/index.html",
+            "dist_dev": "dist/development/examples/component/progress/index.html",
+            "dist_esm": "dist/esm/examples/component/progress/index.html",
+            "dist_prod": "dist/production/examples/component/progress/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "splitter",
+        "family": "components",
+        "component": "Splitter",
+        "feature": "A draggable splitter resizes adjacent panels in either orientation.",
+        "lookFor": "Drag the divider, then toggle horizontal and live resize in the configuration panel.",
+        "image": null,
+        "name": "component.Splitter",
+        "sourceUrl": "examples/component/splitter",
+        "urls": {
+            "devmode": "examples/component/splitter/index.html",
+            "dist_dev": "dist/development/examples/component/splitter/index.html",
+            "dist_esm": "dist/esm/examples/component/splitter/index.html",
+            "dist_prod": "dist/production/examples/component/splitter/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "status-badge",
+        "family": "components",
+        "component": "StatusBadge",
+        "feature": "Status badges support alert, error, info, neutral and success states with configurable labels and icons.",
+        "lookFor": "Switch the state radio and toggle the state or side icons; the badge label and decoration update.",
+        "image": null,
+        "name": "component.StatusBadge",
+        "sourceUrl": "examples/component/statusbadge",
+        "urls": {
+            "devmode": "examples/component/statusbadge/index.html",
+            "dist_dev": "dist/development/examples/component/statusbadge/index.html",
+            "dist_esm": "dist/esm/examples/component/statusbadge/index.html",
+            "dist_prod": "dist/production/examples/component/statusbadge/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "timer",
+        "family": "components",
+        "component": "Timer",
+        "feature": "A circular countdown timer accepts a duration and animates a gradient progress ring.",
+        "lookFor": "Enter 10s and press play; the card flips to the countdown and the ring drains as time passes.",
+        "image": null,
+        "name": "component.Timer",
+        "sourceUrl": "examples/component/timer",
+        "urls": {
+            "devmode": "examples/component/timer/index.html",
+            "dist_dev": "dist/development/examples/component/timer/index.html",
+            "dist_esm": "dist/esm/examples/component/timer/index.html",
+            "dist_prod": "dist/production/examples/component/timer/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "toast",
+        "family": "dialogs",
+        "component": "Toast",
+        "feature": "A live form previews toast configuration and launches a temporary notification.",
+        "lookFor": "Enter a message and watch the code preview follow each field, choose a position and a ui, then press create toast.",
+        "image": null,
+        "name": "component.Toast",
+        "sourceUrl": "examples/component/toast",
+        "urls": {
+            "devmode": "examples/component/toast/index.html",
+            "dist_dev": "dist/development/examples/component/toast/index.html",
+            "dist_esm": "dist/esm/examples/component/toast/index.html",
+            "dist_prod": "dist/production/examples/component/toast/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "video",
+        "family": "components",
+        "component": "Video",
+        "feature": "A video component plays a remote MP4 and keeps the player inside a themed panel.",
+        "lookFor": "Play the sample video, then use the sun or moon action to switch the surrounding theme.",
+        "scope": "Loads a sample MP4 from Apple's public media host.",
+        "image": null,
+        "name": "component.Video",
+        "sourceUrl": "examples/component/video",
+        "urls": {
+            "devmode": "examples/component/video/index.html",
+            "dist_dev": "dist/development/examples/component/video/index.html",
+            "dist_esm": "dist/esm/examples/component/video/index.html",
+            "dist_prod": "dist/production/examples/component/video/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "cesium-js",
+        "family": "charts",
+        "component": "CesiumJS",
+        "feature": "A CesiumJS globe is wrapped as a Neo component with a camera controlled from a toolbar.",
+        "lookFor": "Drag and zoom the globe, then press Fly to San Fran and follow the camera movement.",
+        "scope": "Loads CesiumJS, terrain and imagery services over the network.",
+        "image": null,
+        "name": "CesiumJS",
+        "sourceUrl": "examples/component/wrapper/cesiumJS",
+        "urls": {
+            "devmode": "examples/component/wrapper/cesiumJS/index.html",
+            "dist_dev": "dist/development/examples/component/wrapper/cesiumJS/index.html",
+            "dist_esm": "dist/esm/examples/component/wrapper/cesiumJS/index.html",
+            "dist_prod": "dist/production/examples/component/wrapper/cesiumJS/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "monaco-editor",
+        "family": "components",
+        "component": "Monaco Editor",
+        "feature": "A Monaco editor wrapper exposes themes, cursor behavior, read-only state, minimap and sizing options.",
+        "lookFor": "Edit the sample function, then switch the editor theme and the cursor blinking mode, or toggle the minimap.",
+        "image": null,
+        "name": "Monaco Editor",
+        "sourceUrl": "examples/component/wrapper/monacoEditor",
+        "urls": {
+            "devmode": "examples/component/wrapper/monacoEditor/index.html",
+            "dist_dev": "dist/development/examples/component/wrapper/monacoEditor/index.html",
+            "dist_esm": "dist/esm/examples/component/wrapper/monacoEditor/index.html",
+            "dist_prod": "dist/production/examples/component/wrapper/monacoEditor/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "open-street-maps",
+        "family": "charts",
+        "component": "OpenStreetMaps",
+        "feature": "An OpenLayers map shows a static set of 51 earthquake records and exposes camera, zoom and marker controls",
+        "lookFor": "Fly between San Francisco and Iceland, change the zoom, then hide and restore one marker.",
+        "scope": "Loads OpenLayers assets from jsDelivr and OpenStreetMap map tiles over the network.",
+        "image": null,
+        "name": "OpenStreetMaps / OpenLayers",
+        "sourceUrl": "examples/component/wrapper/openStreetMaps",
+        "urls": {
+            "devmode": "examples/component/wrapper/openStreetMaps/index.html",
+            "dist_dev": "dist/development/examples/component/wrapper/openStreetMaps/index.html",
+            "dist_esm": "dist/esm/examples/component/wrapper/openStreetMaps/index.html",
+            "dist_prod": "dist/production/examples/component/wrapper/openStreetMaps/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "am-charts",
+        "family": "charts",
+        "component": "AmChart",
+        "feature": "An amCharts pie chart wrapper renders a labelled dataset and interactive legend.",
+        "lookFor": "Hover the pie segments and legend entries to compare each country's share.",
+        "scope": "Loads amCharts 4 from cdn.amcharts.com; the country values are static demonstration data.",
+        "image": null,
+        "name": "amCharts Pie",
+        "sourceUrl": "examples/charts",
+        "urls": {
+            "devmode": "examples/charts/index.html",
+            "dist_dev": "dist/development/examples/charts/index.html",
+            "dist_esm": "dist/esm/examples/charts/index.html",
+            "dist_prod": "dist/production/examples/charts/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "video-move",
+        "family": "platform",
+        "component": "Video",
+        "feature": "A mounted video component moves between two containers without being recreated.",
+        "lookFor": "Press Move Video and watch the same player switch sides between the two panels.",
+        "scope": "Loads a sample MP4 from Apple's public media host.",
+        "image": null,
+        "name": "Moving a Video",
+        "sourceUrl": "examples/videoMove",
+        "urls": {
+            "devmode": "examples/videoMove/index.html",
+            "dist_dev": "dist/development/examples/videoMove/index.html",
+            "dist_esm": "dist/esm/examples/videoMove/index.html",
+            "dist_prod": "dist/production/examples/videoMove/index.html"
         },
         "hiddenIn": []
     },
@@ -1095,7 +1547,9 @@
         },
         "hiddenIn": [],
         "family": "layouts",
-        "alsoIn": ["forms"],
+        "alsoIn": [
+            "forms"
+        ],
         "component": "Form",
         "feature": "A form composed by the layout-form layout with shared itemDefaults",
         "lookFor": "Note both fields share the clearable textfield defaults while their labels differ in length."
@@ -1133,7 +1587,9 @@
         },
         "hiddenIn": [],
         "family": "forms",
-        "alsoIn": ["apps"],
+        "alsoIn": [
+            "apps"
+        ],
         "component": "Form",
         "feature": "A complete form application: 15 pages behind a side navigation",
         "lookFor": "Open pages from the side navigation and step through their fields."
@@ -1250,7 +1706,9 @@
         "id": "dock-cross-window",
         "name": "Dock Perspectives and Pop-outs",
         "family": "dashboard",
-        "alsoIn": ["multi-window"],
+        "alsoIn": [
+            "multi-window"
+        ],
         "component": "Dock Workspace",
         "feature": "A live workbench travels between windows without restarting its counter",
         "lookFor": "Press Tour and follow Workbench into the popup and home again as its counter keeps running.",
@@ -1269,7 +1727,10 @@
         "id": "dock-tear-out",
         "name": "Dock Pane Pop-out",
         "family": "dashboard",
-        "alsoIn": ["multi-window", "drag-drop"],
+        "alsoIn": [
+            "multi-window",
+            "drag-drop"
+        ],
         "component": "Dock Workspace",
         "feature": "A Notes pane keeps its draft when it moves to a separate window",
         "lookFor": "Type a draft in Notes, use its pop-out action, then close the popup and find the draft back in Notes.",
@@ -1308,8 +1769,8 @@
         "family": "multi-window",
         "component": "State Provider",
         "feature": "Two windows bind their user labels to one shared state provider",
-        "lookFor": "Open the companion page, use Edit user and watch the name change in both windows.",
-        "scope": "Open this page first, then its sibling multiWindow2/index.html in another window using the same origin and build.",
+        "lookFor": "Press Open second window, use Edit user and watch Current user change in both windows.",
+        "scope": "Allow popups.",
         "image": null,
         "sharedWorkers": true,
         "sourceUrl": "examples/stateProvider/multiWindow",
