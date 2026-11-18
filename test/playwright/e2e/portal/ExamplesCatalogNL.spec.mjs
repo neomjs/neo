@@ -276,7 +276,7 @@ test.describe('Portal examples section', () => {
         await expect(headline).toHaveText('43 live examples in 17 groups');
         expect((await counts.allTextContents()).filter(text => !text.startsWith('(')).reduce((sum, text) => sum + Number(text), 0)).toBe(43);
         await expect(page.locator(`${SIDEBAR} .portal-examples-group-index-note`)).toBeVisible();
-        await expect(page.locator(`${FEATURED} .neo-list-item`).first().locator('.portal-example-group-badge')).toHaveText('Grid & Table');
+        await expect(page.locator(`${FEATURED} .neo-list-item`).first().locator('.portal-example-group-badge')).toHaveText('Multi-Window');
 
         // Dev mode cannot open liquid-glass, the one card of More components
         await selectBuild(page, 'Dev mode');
@@ -491,8 +491,10 @@ test.describe('Portal examples section', () => {
                 await expect(featured.locator('.neo-list-item')).toHaveCount(11);
                 await page.evaluate(() => document.fonts.ready);
                 await expectCardLayout(featured, viewport.width);
-                await expect(featured.locator('.neo-title').nth(0)).toHaveText('Data Grid: 100k Rows & 200 Columns');
-                await expect(featured.locator('.portal-example-group-badge').nth(0)).toHaveText('Grid & Table');
+                await expect(featured.locator('.neo-title').nth(0)).toHaveText('Workstation');
+                await expect(featured.locator('.portal-example-group-badge').nth(0)).toHaveText('Multi-Window');
+                await expect(featured.locator('.neo-title').nth(1)).toHaveText('Data Grid: 100k Rows & 200 Columns');
+                await expect(featured.locator('.portal-example-group-badge').nth(1)).toHaveText('Grid & Table');
                 await expect(featured.locator('.neo-multi-window[aria-label="Multi-window live example"]').first().locator('.neo-multi-window-label')).toHaveText('Multi-window');
                 await expectCaptionContrast(featured.locator('.neo-item-bottom-position').first(), testInfo, 'start-here-caption-contrast');
 
@@ -523,7 +525,7 @@ test.describe('Portal examples section', () => {
                 const geometry = await expectCardLayout(overview, viewport.width);
                 await expectCaptionContrast(covered.nth(2), testInfo, 'issues-caption-contrast');
                 // Table Filtering has a white cover: the scrim alone has to carry the text there.
-                await expectCaptionContrast(covered.nth(3), testInfo, 'light-cover-caption-contrast');
+                await expectCaptionContrast(covered.nth(4), testInfo, 'light-cover-caption-contrast');
                 await testInfo.attach('card-geometry', {body: JSON.stringify(geometry), contentType: 'application/json'});
                 expect(await page.locator(PAGE).evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
                 await page.screenshot({path: testInfo.outputPath(`grid-page-${viewport.width}.png`)});

@@ -190,8 +190,22 @@
         margin-top : 10px;
     }
 
-    /* Compact 1×1 cards keep resting feature copy to one line so clear cover stays above 45 %. */
+    /* Compact 1×1 cards keep resting copy tight so clear cover stays above 45 % even with a group badge. */
     @container (max-width: 520px) {
+        .neo-item-bottom-position {
+            padding: 23px 14px 8px;
+        }
+
+        .portal-example-group-badge {
+            font-size    : 10.5px;
+            margin-bottom: 1px;
+        }
+
+        .neo-title {
+            font-size  : 15px;
+            line-height: 1.2;
+        }
+
         .portal-example-feature {
             -webkit-line-clamp: 1;
             font-size         : 13.5px;

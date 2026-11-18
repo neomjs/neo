@@ -153,8 +153,8 @@ test.describe('Portal examples overview and group pages', () => {
         expect(list.leadCard).toBe(true);
         expect(list.showGroup).toBe(true);
         expect(list.store.items.map(record => record.id)).toEqual([
-            'grid-big-data', 'workstation', 'grid-tree-big-data', 'dock-choreography', 'shared-covid',
-            'grid-issues', 'scheduler-basic', 'gantt-basic', 'calendar', 'webdesktop', 'helix'
+            'workstation', 'grid-big-data', 'grid-tree-big-data', 'dock-choreography', 'shared-covid',
+            'grid-issues', 'scheduler-basic', 'gantt-basic', 'calendar', 'webdesktop', 'grid-countries'
         ]);
 
         // the action opens its record in the selected build
@@ -452,11 +452,11 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
       modes   = ['devmode', 'dist_dev', 'dist_esm', 'dist_prod'],
       // the 12 Start here demonstrations placed first in featured catalog order
       startHereIds = [
-          'grid-big-data', 'workstation', 'grid-tree-big-data', 'dock-choreography', 'shared-covid',
-          'grid-issues', 'scheduler-basic', 'gantt-basic', 'board-basic', 'calendar', 'webdesktop', 'helix'
+          'workstation', 'grid-big-data', 'grid-tree-big-data', 'dock-choreography', 'shared-covid',
+          'grid-issues', 'scheduler-basic', 'gantt-basic', 'board-basic', 'calendar', 'webdesktop', 'grid-countries'
       ],
       establishedTailIds = [
-          'devindex', 'calendar-weekview', 'multi-window-covid-gallery', 'offscreen-canvas', 'shared-offscreen-canvas',
+          'helix', 'devindex', 'calendar-weekview', 'multi-window-covid-gallery', 'offscreen-canvas', 'shared-offscreen-canvas',
           'multi-window-drag-drop', 'tab-container', 'state-provider', 'dialog-drag-drop',
           'colors-dashboard', 'covid-dashboard', 'covid-helix', 'covid-gallery', 'gallery'
       ],
@@ -472,7 +472,7 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
       ],
       newExampleIds = [
           'grid-animated-row-sorting', 'grid-cell-editing', 'grid-container', 'grid-content-sized-rows',
-          'grid-countries', 'grid-filtering', 'grid-export', 'grid-header-groups', 'grid-locked-columns',
+          'grid-filtering', 'grid-export', 'grid-header-groups', 'grid-locked-columns',
           'grid-nested-record-fields', 'grid-tree', 'grid-value-banding', 'table-container'
       ],
       formExampleIds = [
@@ -487,7 +487,7 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           'multi-window-helix', 'multi-window-state-provider'
       ],
       // the records of a group that name a cover: the cards its page shows
-      coveredGridTableIds   = ['grid-big-data', 'grid-tree-big-data', 'grid-issues', 'table-filtering', ...newExampleIds],
+      coveredGridTableIds   = ['grid-big-data', 'grid-tree-big-data', 'grid-issues', 'grid-countries', 'table-filtering', ...newExampleIds],
       coveredMultiWindowIds = [
           'workstation', 'shared-covid', 'multi-window-covid-gallery', 'shared-offscreen-canvas',
           'multi-window-drag-drop', 'colors-dashboard'
@@ -806,9 +806,9 @@ test.describe('Portal examples canonical catalog', () => {
             const visible = store.items.filter(record => !list.isHiddenItem(record));
 
             expect(visible.map(record => record.id), mode).toEqual(completeIds.filter(id => !excluded[mode].includes(id) && !uncovered.includes(id)));
-            expect(visible[0].id).toBe('grid-big-data');
-            expect(list.createLink(visible[0]).href).toBe(list.baseUrl + bigDataUrl);
-            expect(list.createLink(store.get('workstation')).href).toBe(list.baseUrl + workstationUrl);
+            expect(visible[0].id).toBe('workstation');
+            expect(list.createLink(visible[0]).href).toBe(list.baseUrl + workstationUrl);
+            expect(list.createLink(store.get('grid-big-data')).href).toBe(list.baseUrl + bigDataUrl);
             expect(list.createLink(store.get('dock-choreography')).href).toBe(list.baseUrl + choreographyUrl)
         })
     });

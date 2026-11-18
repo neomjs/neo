@@ -128,7 +128,7 @@
         "title": "4 Environments — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "Neo.mjs was the very first frontend platform, which enabled full support for a zero builds instant development mode, while sticking to the latest ECMAScript...",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-07"
+        "lastmod": "2026-11-18"
     },
     "/learn/benefits/body/ConfigSystem": {
         "title": "Unified Config System — Multi-Threaded JavaScript Application Engine | Neo.mjs",
@@ -242,7 +242,7 @@
         "title": "Running the Fleet Cockpit — AI Agent OS & Multi-Threaded Application Engine | Neo.mjs",
         "description": "The Fleet Manager cockpit is the operator's mission-control surface: the live agent roster, the activity stream, per-agent drill-in, and the lifecycle...",
         "schemaType": "TechArticle",
-        "lastmod": "2026-10-19"
+        "lastmod": "2026-11-18"
     },
     "/learn/agentos/NeuralLink": {
         "title": "Live Browser DOM & Runtime Inspection MCP Server (Neural Link) | Neo.mjs",
@@ -1163,7 +1163,7 @@
         "title": "Colors Dashboard — Multi-Window JavaScript Demo | Neo.mjs",
         "description": "The dashboard's color grid keeps updating in its own window. Press Grid to detach it, press Start and watch the popup update; close it to return the grid.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-14"
+        "lastmod": "2026-11-18"
     },
     "/apps/covid/index.html": {
         "title": "COVID-19 IN NUMBERS — Multi-Threaded JavaScript App | Neo.mjs",
@@ -1187,7 +1187,7 @@
         "title": "Form — Multi-Threaded JavaScript App | Neo.mjs",
         "description": "A complete form application: 15 pages behind a side navigation. Open pages from the side navigation and step through their fields.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-05"
+        "lastmod": "2026-11-18"
     },
     "/apps/legit/index.html": {
         "title": "Legit — Multi-Threaded JavaScript App | Neo.mjs",
