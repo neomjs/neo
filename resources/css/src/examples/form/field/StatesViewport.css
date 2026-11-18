@@ -1,4 +1,10 @@
 .neo-field-states-viewport {
+    /* A short stage (a phone) scrolls: the live field and its states keep their height */
+    .neo-example-container > :first-child,
+    .neo-field-states {
+        flex-shrink: 0;
+    }
+
     /* The live field and its states centre as one group, not as two items with the stage's space between them */
     .neo-workbench-stage.neo-stage-compact > .neo-example-container {
         > :first-child {

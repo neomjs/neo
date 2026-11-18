@@ -33,18 +33,20 @@ class MainContainer extends StatesViewport {
      * @static
      */
     static scenarios = {
-        'downloadable'    : {uploadUrl: 'file-upload-test',      documentStatusUrl: 'document-status-downloadable'},
-        'not downloadable': {uploadUrl: 'file-upload-test',      documentStatusUrl: 'document-status-not-downloadable'},
-        'upload fails'    : {uploadUrl: 'file-upload-test-fail', documentStatusUrl: 'document-status'},
-        'scan fails'      : {uploadUrl: 'file-upload-test',      documentStatusUrl: 'document-status-fail'},
-        'status fails'    : {uploadUrl: 'file-upload-test',      documentStatusUrl: 'document-status-fails'}
+        'downloadable': {uploadUrl: 'file-upload-test',      documentStatusUrl: 'document-status-downloadable'},
+        'no download' : {uploadUrl: 'file-upload-test',      documentStatusUrl: 'document-status-not-downloadable'},
+        'upload fails': {uploadUrl: 'file-upload-test-fail', documentStatusUrl: 'document-status'},
+        'scan fails'  : {uploadUrl: 'file-upload-test',      documentStatusUrl: 'document-status-fail'},
+        'status fails': {uploadUrl: 'file-upload-test',      documentStatusUrl: 'document-status-fails'}
     }
 
     static config = {
         className    : 'Neo.examples.form.field.fileupload.MainContainer',
         autoMount    : true,
         componentName: 'File upload field',
-        layout       : {ntype: 'hbox', align: 'stretch'},
+        // The server answers need room to stay on one line
+        configItemWidth: 290,
+        layout         : {ntype: 'hbox', align: 'stretch'},
 
         field: {
             module           : FileUploadField,
