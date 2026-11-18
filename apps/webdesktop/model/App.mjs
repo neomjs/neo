@@ -21,10 +21,6 @@ class WebDesktopApp extends App {
          * @member {Object[]} fields
          */
         fields: [{
-            // The start menu calls the handler of a chosen app: it opens through the viewport controller
-            name     : 'handler',
-            calculate: data => data.isLeaf === false ? null : 'onStartMenuAppChoose'
-        }, {
             name: 'permission',
             type: 'String'
         }]

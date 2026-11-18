@@ -1,13 +1,12 @@
-import Controller    from '../../../src/controller/Component.mjs';
-import WindowManager from '../../../src/desktop/WindowManager.mjs';
+import Controller from '../../../src/controller/Component.mjs';
 
 /**
- * @summary Signs accounts in and out, opens apps in windows through a `Neo.desktop.WindowManager`, and hands the start
- * menu the apps store.
+ * @summary Signs accounts in and out, grants and revokes permissions, and switches the theme. The engine's desktop
+ * (`Neo.desktop.Container`) opens the apps in windows and keeps them in step with the apps store.
  *
  * Signing in copies the account's permission keys into the root state provider; everything the account sees follows
- * from that one write. A window outlives no permission: when the apps store's filter drops an app, the window manager
- * closes its window.
+ * from that one write. A window outlives no permission: when the apps store's filter drops an app, the desktop's window
+ * manager closes its window.
  * @class WebDesktop.view.ViewportController
  * @extends Neo.controller.Component
  */
@@ -21,51 +20,11 @@ class ViewportController extends Controller {
     }
 
     /**
-     * Opens the app windows and keeps them in step with the tasks store
-     * @member {Neo.desktop.WindowManager|null} windowManager=null
-     */
-    windowManager = null
-
-    /**
-     * The window manager destroys the windows it created, and the apps store, which the desktop's provider owns and
-     * destroys after this controller, is left alone
-     * @param {...*} args
-     */
-    destroy(...args) {
-        this.windowManager?.destroy();
-
-        super.destroy(...args)
-    }
-
-    /**
      * @param {WebDesktop.model.Account} account
      * @returns {String} The localStorage key of an account's icon arrangement
      */
     getArrangementKey(account) {
         return `neo-webdesktop-arrangement-${account.id}`
-    }
-
-    /**
-     * The config of an app's window. It grows out of the app's launcher icon, and its own state provider holds the
-     * app, parented to the desktop's provider. Dragging and resizing both stay inside the workspace, the area above
-     * the taskbar.
-     * @param {WebDesktop.model.App} record
-     * @returns {Object}
-     */
-    getWindowConfig(record) {
-        let me                  = this,
-            launcher            = me.getReference('launcher'),
-            workspaceId         = me.getReference('workspace').id,
-            {appName, windowId} = launcher;
-
-        return {
-            animateTargetId      : launcher.getItemId(launcher.store.get(record.id)),
-            appName,
-            boundaryContainerId  : workspaceId,
-            resizablePluginConfig: {boundaryContainerId: workspaceId},
-            stateProvider        : {data: {app: record}, parent: me.getStateProvider()},
-            windowId
-        }
     }
 
     /**
@@ -84,38 +43,6 @@ class ViewportController extends Controller {
             account    : record,
             permissions: [...record.permissions]
         })
-    }
-
-    /**
-     * The start menu is a `menu.List` cascade over the apps store: every level reads the same filtered tree. The
-     * windows open through the window manager, which follows the apps store's filter.
-     */
-    onComponentConstructed() {
-        super.onComponentConstructed();
-
-        let me   = this,
-            apps = me.getStore('apps');
-
-        me.getReference('start-button').menu = {
-            align: {edgeAlign: 'b0-t0', targetMargin: 8},
-            cls  : ['webdesktop-start-menu'],
-            store: apps
-        };
-
-        me.windowManager = Neo.create(WindowManager, {
-            appStore    : apps,
-            taskStore   : me.getStore('tasks'),
-            windowClass : () => import('./AppWindow.mjs'),
-            windowConfig: record => me.getWindowConfig(record)
-        })
-    }
-
-    /**
-     * @param {Object}               data
-     * @param {WebDesktop.model.App} data.record
-     */
-    onLauncherOpenApp({record}) {
-        this.openApp(record)
     }
 
     /**
@@ -148,7 +75,7 @@ class ViewportController extends Controller {
     onSignOutButtonClick(data) {
         let me = this;
 
-        me.windowManager.reset();
+        me.getReference('desktop').windowManager.reset();
 
         me.setState({
             account         : null,
@@ -157,23 +84,6 @@ class ViewportController extends Controller {
         });
 
         me.getReference('launcher').arrangementKey = null
-    }
-
-    /**
-     * Called by the start menu for a chosen app (`WebDesktop.model.App#handler`).
-     * @param {WebDesktop.model.App} record
-     */
-    onStartMenuAppChoose(record) {
-        this.openApp(record)
-    }
-
-    /**
-     * A minimized window shows again; a visible one comes to the front.
-     * @param {Object}                 data
-     * @param {Neo.desktop.model.Task} data.record
-     */
-    onTaskItemClick({record}) {
-        this.windowManager.restore(record.id)
     }
 
     /**
@@ -195,15 +105,6 @@ class ViewportController extends Controller {
         }
 
         data.component.iconCls = isLight ? 'fas fa-sun' : 'fas fa-moon'
-    }
-
-    /**
-     * Opens an app's window, or brings it back if it is open already, and lists it in the taskbar.
-     * @param {WebDesktop.model.App} record
-     * @returns {Promise<WebDesktop.view.AppWindow|null>}
-     */
-    openApp(record) {
-        return this.windowManager.openApp(record)
     }
 }
 
