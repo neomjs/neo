@@ -12,6 +12,12 @@ class Toolbar extends Base {
          */
         className: 'Neo.dialog.header.Toolbar',
         /**
+         * A dialog replaces `maximize` with its toggle and adds `minimize`, both dressed from its own configs
+         * (`Neo.dialog.Base#getWindowActionMap`). Its `headerConfig.actionMap` replaces the entries it names and
+         * keeps the others.
+         * @example
+         * // A close glyph of its own, with the dialog's maximize kept
+         * headerConfig: {actionMap: {close: () => ({action: 'close', iconCls: 'fas fa-xmark'})}}
          * @member {Object} actionMap
          */
         actionMap: {
@@ -19,7 +25,7 @@ class Toolbar extends Base {
             maximize: () => ({action: 'maximize', iconCls: 'far fa-window-maximize'})
         },
         /**
-         * You can define the action order and directly add custom actions.
+         * You can define the action order and directly add custom actions. Leaving a name out leaves its control out.
          * @example
          * {
          *     actions: [
@@ -29,7 +35,6 @@ class Toolbar extends Base {
          *     ]
          * }
          *
-         * You can also extend the actionMap if needed.
          * @member {Object[]|String[]|null} actions=['maximize','close']
          */
         actions: ['maximize', 'close'],

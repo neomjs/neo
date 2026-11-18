@@ -124,6 +124,7 @@ class AmChart extends Component {
 
     /**
      * Triggered before the chartConfig config gets changed.
+     * Resolves its `'@config:'` strings, passed as one item: a bare object would read as a keyed items map.
      * @param {Object} value
      * @param {Object} oldValue
      * @returns {Object}
@@ -134,7 +135,7 @@ class AmChart extends Component {
             console.error('wrapper.AmChart defined without a chartConfig', this.id)
         }
 
-        this.parseItemConfigs(value);
+        this.parseItemConfigs([value]);
         return value
     }
 

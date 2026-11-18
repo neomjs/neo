@@ -179,24 +179,6 @@
         "lookFor": "Switch between Day, Week, Month and Year views, then toggle a calendar in the left panel to filter its events."
     },
     {
-        "id": "calendar-weekview",
-        "name": "Calendar Week View",
-        "family": "calendar",
-        "component": "Calendar",
-        "feature": "A dedicated week view lays timed sample events across seven day columns with an hourly axis.",
-        "lookFor": "Follow a sample event down its day column and compare its start time with the hour labels.",
-        "featured": false,
-        "image": null,
-        "sourceUrl": "examples/calendar/weekview",
-        "urls": {
-            "devmode": "examples/calendar/weekview/index.html",
-            "dist_dev": "dist/development/examples/calendar/weekview/index.html",
-            "dist_esm": "dist/esm/examples/calendar/weekview/index.html",
-            "dist_prod": "dist/production/examples/calendar/weekview/index.html"
-        },
-        "hiddenIn": []
-    },
-    {
         "id": "helix",
         "family": "lists",
         "feature": "Image items on a 3D helix that you reshape live",
@@ -369,7 +351,7 @@
         "component": "Dashboard",
         "feature": "The dashboard's color grid keeps updating in its own window",
         "lookFor": "Press Grid to detach it, press Start and watch the popup update; close it to return the grid.",
-        "scope": "Allow popups. The color data is generated inside the example.",
+        "scope": "Allow popups. The color data streams from a WebSocket backend; when that backend does not answer, the app generates the same data itself.",
         "featured": true,
         "image": "dist_prod/colorsApp.png",
         "name": "Colors Dashboard",
@@ -1650,20 +1632,20 @@
     },
     {
         "id": "dock-layouts",
-        "name": "Dock Layouts",
+        "name": "Operations Desk",
         "family": "dashboard",
         "component": "Dock Workspace",
-        "feature": "Named perspectives rearrange the same dock panes",
-        "lookFor": "Switch from Operator to Review and watch the split proportions and active pane change.",
+        "feature": "Ten docked panes are views of one data set: a selection and an edit cross them",
+        "lookFor": "Pick an agent in Swarm, switch its state in the Inspector, then drag a tab into another zone or switch to Review: the selection and the counts follow.",
         "scope": "This layout example runs in one window; saved snapshots stay in this browser.",
         "image": null,
         "sharedWorkers": false,
-        "sourceUrl": "examples/dashboard/dock",
+        "sourceUrl": "examples/dashboard/desk",
         "urls": {
-            "devmode": "examples/dashboard/dock/index.html",
-            "dist_dev": "dist/development/examples/dashboard/dock/index.html",
-            "dist_esm": "dist/esm/examples/dashboard/dock/index.html",
-            "dist_prod": "dist/production/examples/dashboard/dock/index.html"
+            "devmode": "examples/dashboard/desk/index.html",
+            "dist_dev": "dist/development/examples/dashboard/desk/index.html",
+            "dist_esm": "dist/esm/examples/dashboard/desk/index.html",
+            "dist_prod": "dist/production/examples/dashboard/desk/index.html"
         }
     },
     {

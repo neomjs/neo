@@ -24,7 +24,7 @@ In short: it is possible to run the framework without a local web-server, but th
 You can start Chrome using a flag (--allow-file-access-from-files), but this will allow the browser to access any
 file on your hard drive. To avoid this, a local web-server is the way to go.
 
-**Webpack Dev Server**<br>
+**The engine's file server**<br>
 `npm run server-start`
 
 **All Servers**<br>

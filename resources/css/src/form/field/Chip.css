@@ -1,6 +1,21 @@
 .neo-chipfield {
     height: auto;
 
+    /* Chips grow the input row; the inline label's outline spans that row, as with a character count */
+    &.label-inline {
+        display              : grid;
+        grid-template-areas  : "input" "error";
+        grid-template-columns: minmax(0, 1fr);
+
+        > .neo-label-wrapper {
+            grid-area: input;
+            height   : 100%;
+        }
+
+        > .neo-input-wrapper {grid-area: input;}
+        > .neo-textfield-error-wrapper {grid-area: error;}
+    }
+
     .neo-input-wrapper {
         align-items: center;
         flex-wrap  : wrap;

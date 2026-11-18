@@ -11,4 +11,5 @@
     --neo-timeline-focus-color            : #0f9f8f;
     --neo-timeline-non-working-bg         : rgba(15, 23, 42, 0.045);
     --neo-timeline-non-working-border     : rgba(15, 23, 42, 0.08);
+    --neo-timeline-now-color              : #e11d48;
 }

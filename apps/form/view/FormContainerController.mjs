@@ -41,16 +41,18 @@ class FormContainerController extends Component {
     }
 
     /**
+     * @summary Stores the form's submit values in localStorage under `neo-form`.
      * @param {Object} data
      */
     async onSaveButtonClick(data) {
-        let form       = me.getReference('main-form'),
+        let me         = this,
+            form       = me.getReference('main-form'),
             formValues = await form.getSubmitValues();
 
         Neo.main.addon.LocalStorage.updateLocalStorageItem({
             key     : 'neo-form',
             value   : JSON.stringify(formValues),
-            windowId: this.windowId
+            windowId: me.windowId
         })
     }
 }

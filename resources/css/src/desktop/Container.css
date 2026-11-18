@@ -1,0 +1,19 @@
+/* The desktop: a wallpaper under see-through containers, the workspace above the taskbar */
+.neo-desktop {
+    --container-background-color: transparent;
+
+    background: var(--desktop-wallpaper);
+    color     : var(--desktop-color);
+    min-height: 0;
+    overflow  : hidden;
+
+    .neo-desktop-workspace {
+        min-height: 0;
+        /* A consumer's sheet on a phone covers the workspace */
+        position  : relative;
+
+        > .neo-desktop-launcher {
+            min-width: 0;
+        }
+    }
+}

@@ -1255,12 +1255,6 @@
         "schemaType": "WebPage",
         "lastmod": "2025-04-07"
     },
-    "/examples/calendar/weekview/index.html": {
-        "title": "Calendar WeekView — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "A dedicated week view lays timed sample events across seven day columns with an hourly axis. Follow a sample event down its day column and compare its start...",
-        "schemaType": "WebPage",
-        "lastmod": "2026-06-01"
-    },
     "/examples/charts/index.html": {
         "title": "amCharts — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "Live runnable amCharts example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
@@ -1495,9 +1489,15 @@
         "schemaType": "WebPage",
         "lastmod": "2026-11-08"
     },
+    "/examples/dashboard/desk/index.html": {
+        "title": "Dashboard — Operations Desk — JavaScript UI Demo | Neo.mjs",
+        "description": "Ten docked panes are views of one data set: a selection and an edit cross them. Pick an agent in Swarm, switch its state in the Inspector, then drag a tab...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-18"
+    },
     "/examples/dashboard/dock/index.html": {
         "title": "Dashboard — Dock Layout — Multi-Window JavaScript Demo | Neo.mjs",
-        "description": "Named perspectives rearrange the same dock panes. Switch from Operator to Review and watch the split proportions and active pane change.",
+        "description": "Live runnable Dashboard — Dock Layout example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
         "schemaType": "WebPage",
         "lastmod": "2026-11-12"
     },
