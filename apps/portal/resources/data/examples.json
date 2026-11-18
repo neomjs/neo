@@ -1447,6 +1447,23 @@
         "lookFor": "Adjust the inner number values and try the title field in the panel."
     },
     {
+        "id": "form-validation",
+        "image": null,
+        "name": "form.Validation",
+        "sourceUrl": "examples/form/validation",
+        "urls": {
+            "devmode": "examples/form/validation/index.html",
+            "dist_dev": "dist/development/examples/form/validation/index.html",
+            "dist_esm": "dist/esm/examples/form/validation/index.html",
+            "dist_prod": "dist/production/examples/form/validation/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "Form Container",
+        "feature": "How does a form tell the user what is wrong? A sign-up form validates as you type, blocks submit and lists the errors",
+        "lookFor": "Type a bad email, fix it, and sign up."
+    },
+    {
         "id": "field-with-prefix",
         "image": null,
         "name": "plugin.field.Prefix",
@@ -1635,7 +1652,7 @@
         "environments": [
             "Desktop"
         ],
-        "image": "devmode/dock-choreography-14.jpg",
+        "image": "devmode/dock-choreography-13-2.jpg",
         "name": "Dock Choreography Demo",
         "sharedWorkers": true,
         "sourceUrl": "examples/dashboard/choreography",
@@ -1655,7 +1672,7 @@
         "feature": "Ten docked panes are views of one data set: a selection and an edit cross them",
         "lookFor": "Pick an agent in Swarm, switch its state in the Inspector, then drag a tab into another zone or switch to Review: the selection and the counts follow.",
         "scope": "This layout example runs in one window; saved snapshots stay in this browser.",
-        "image": "devmode/dock-layouts-14.jpg",
+        "image": null,
         "sharedWorkers": false,
         "sourceUrl": "examples/dashboard/desk",
         "urls": {
@@ -1676,7 +1693,7 @@
         "feature": "A live workbench travels between windows without restarting its counter",
         "lookFor": "Press Tour and follow Workbench into the popup and home again as its counter keeps running.",
         "scope": "Allow popups for the cross-window part of the tour.",
-        "image": "devmode/dock-cross-window-14.jpg",
+        "image": null,
         "sharedWorkers": true,
         "sourceUrl": "examples/dashboard/crossWindow",
         "urls": {

@@ -1095,7 +1095,7 @@
     },
     "/examples/dashboard": {
         "title": "JavaScript Dashboard & Docking — Panes That Pop Out | Neo.mjs",
-        "description": "Explore 3 live JavaScript dashboard examples: A scripted layout tour splits, groups and auto-hides live panes.",
+        "description": "Explore 1 live JavaScript dashboard example: A scripted layout tour splits, groups and auto-hides live panes.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-18"
     },
@@ -1131,7 +1131,7 @@
     },
     "/examples/multi-window": {
         "title": "Multi-Window JavaScript App Examples — SharedWorker State | Neo.mjs",
-        "description": "Explore 7 live multi-window JavaScript app examples: A living-data workspace whose panes can leave the browser window.",
+        "description": "Explore 6 live multi-window JavaScript app examples: A living-data workspace whose panes can leave the browser window.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-18"
     },
@@ -1656,6 +1656,12 @@
         "description": "A fieldset grouping number fields under a titled frame. Adjust the inner number values and try the title field in the panel.",
         "schemaType": "WebPage",
         "lastmod": "2024-08-17"
+    },
+    "/examples/form/validation/index.html": {
+        "title": "Form Validation — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "How does a form tell the user what is wrong? A sign-up form validates as you type, blocks submit and lists the errors. Type a bad email, fix it, and sign up.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-19"
     },
     "/examples/functional/button/base/index.html": {
         "title": "Functional Button — Web Worker JavaScript UI Demo | Neo.mjs",
