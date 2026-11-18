@@ -8,12 +8,12 @@ body {
 }
 
 /* The Portal's buttons stand alone on wide sections, and its header canvas draws its waves around each nav item: both
-   take the design system's large size. Any other toolbar keeps the neo themes' compact one. */
+   take the large size. Any other toolbar keeps the neo themes' medium one. */
 .neo-viewport, .portal-header-toolbar {
-    --button-height        : var(--cmp-button-height);
-    --button-min-width     : var(--cmp-button-height);
-    --button-padding       : 0 var(--cmp-button-spacinghorizontal);
-    --button-text-font-size: var(--core-fontsize-label);
+    --button-height        : var(--button-size-large-height);
+    --button-min-width     : var(--button-size-large-height);
+    --button-padding       : var(--button-size-large-padding);
+    --button-text-font-size: var(--button-size-large-font-size);
 }
 
 .neo-viewport {

@@ -372,4 +372,34 @@ test.describe('Neo.button.Base VDOM (Node.js)', () => {
 
         splitButton.destroy();
     });
+
+    test('a size config sets its class, a change swaps it, and null leaves the size to the context', async () => {
+        const button = Neo.create(Button, {appName, size: 'large', text: 'Get started', ui: 'secondary'});
+
+        expect(button.cls).toContain('neo-button-size-large');
+        expect(button.cls, 'the size is not a ui').toContain('neo-button-secondary');
+
+        button.size = 'small';
+        expect(button.cls).toContain('neo-button-size-small');
+        expect(button.cls).not.toContain('neo-button-size-large');
+
+        button.size = null;
+        expect(button.cls.filter(cls => cls.startsWith('neo-button-size-'))).toEqual([]);
+
+        button.destroy()
+    });
+
+    test('an unknown size is refused, and the button keeps the size it has', async () => {
+        const button = Neo.create(Button, {appName, size: 'medium', text: 'Save'}),
+              error  = console.error;
+
+        console.error = () => {};
+        button.size   = 'huge';
+        console.error = error;
+
+        expect(button.size).toBe('medium');
+        expect(button.cls).toContain('neo-button-size-medium');
+
+        button.destroy()
+    });
 });
