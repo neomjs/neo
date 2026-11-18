@@ -364,6 +364,11 @@ class WindowManager extends Base {
         }
         // Otherwise another owner's task holds the app's key: the window opens without a task of this manager
 
+        // A store listener may have ended the open during the task's notifications, by a reset, a close or a destroy
+        if (!me.#admits(id, ticket)) {
+            return null
+        }
+
         me.bringToFront(id);
         window.hidden && window.show();
 

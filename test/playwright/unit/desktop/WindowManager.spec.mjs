@@ -649,5 +649,27 @@ test.describe('Neo.desktop.WindowManager: a task store it shares', () => {
         manager.destroy();
 
         expect(tasks.get('mail')).toBe(replacement)
-    })
+    });
+
+    for (const end of ['reset', 'destroy']) {
+        test(`an open a store listener ends with a ${end} during its task's add shows nothing and returns null`, async () => {
+            harness = createHarness();
+
+            const {apps, manager, tasks, taskIds} = harness;
+
+            let ended = false;
+
+            tasks.on('mutate', ({addedItems}) => {
+                if (!ended && addedItems?.some(task => task.id === 'mail')) {
+                    ended = true;
+                    manager[end]()
+                }
+            });
+
+            expect(await manager.openApp(apps.get('mail'))).toBeNull();
+            expect(taskIds()).toEqual([]);
+
+            end === 'reset' && expect(manager.getWindow('mail').hidden, 'never shown').toBe(true)
+        })
+    }
 });
