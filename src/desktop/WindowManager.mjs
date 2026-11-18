@@ -139,7 +139,8 @@ class WindowManager extends Base {
     /**
      * Triggered after the taskStore config got changed. A store replacing another takes over this manager's tasks: each
      * leaves the old store, if it still exists, and comes back in the new one, minimized if its window is hidden. A key
-     * another owner's task holds in the new store leaves its window without a task of this manager.
+     * another owner's task holds in the new store leaves its window without a task of this manager. Nothing could
+     * restore that window from a minimize, so it shows again, as one opened beside another owner's task does.
      * @param {Neo.data.Store|null} value
      * @param {Neo.data.Store|null} oldValue
      * @protected
@@ -161,7 +162,11 @@ class WindowManager extends Base {
                 app    = me.appStore?.get(appId),
                 task;
 
-            if (window && !value.get(appId)) {
+            if (!window) {
+                return
+            }
+
+            if (!value.get(appId)) {
                 task = value.createRecord({
                     color    : app?.color,
                     iconCls  : app?.iconCls,
@@ -174,7 +179,12 @@ class WindowManager extends Base {
                 value.add(task)
             }
 
-            window && me.#syncMinimize(appId, window)
+            me.#syncMinimize(appId, window);
+
+            if (!me.#taskOf(appId) && window.hidden) {
+                me.bringToFront(appId);
+                window.show()
+            }
         })
     }
 

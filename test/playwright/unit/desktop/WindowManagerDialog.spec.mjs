@@ -210,6 +210,31 @@ test.describe('Neo.desktop.WindowManager with a stock Neo.dialog.Base', () => {
         next.destroy()
     });
 
+    test('a replacing task store whose key another owner holds shows a minimized window again, without a minimize', async () => {
+        const mail = await open('mail'),
+              next = Neo.create(Tasks);
+
+        next.add({id: 'mail', text: 'Another owner'});
+        mail.executeHeaderAction({action: 'minimize'});
+        await expect.poll(() => mail.hidden).toBe(true);
+
+        manager.taskStore = next;
+
+        expect(tasks.get('mail'), 'its task left the old store').toBeFalsy();
+        expect(next.get('mail').text, 'another owner\'s task stays').toBe('Another owner');
+        expect(mail.hidden, 'no task could restore it, so it shows').toBe(false);
+        expect(mail.headerToolbar.getAction('minimize'), 'nothing to minimize into').toBeNull();
+
+        // The show animation lands before this test destroys its manager
+        await expect.poll(() => mail.mounted && !mail.mountFlight).toBe(true);
+
+        manager.destroy();
+        expect(next.get('mail'), 'a destroy leaves the other owner\'s task').toBeTruthy();
+
+        manager = Neo.create(WindowManager, {appStore: apps, taskStore: tasks, windowClass: Dialog});
+        next.destroy()
+    });
+
     test('a replacing app store that keeps an app keeps its window, and its task follows the new record', async () => {
         const mail = await open('mail'),
               next = Neo.create(TreeStore, {data: [{id: 'mail', text: 'Mail, renamed'}], model: AppModel});
