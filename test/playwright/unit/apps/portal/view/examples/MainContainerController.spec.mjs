@@ -103,7 +103,7 @@ test.describe('Portal examples overview and group pages', () => {
         // Board and Functional still lack covers; Timeline was retired and its example moved to Grid & Table + Scheduler; Trees now publishes via alsoIn
         expect(groupStore.items.map(group => group.route)).toEqual(publishedRoutes);
         expect(view.getGroupPages().map(page => page.family)).toEqual(groupStore.items.map(group => group.family));
-        expect(view.getCatalogStore().getCount()).toBe(97);
+        expect(view.getCatalogStore().getCount()).toBe(98);
 
         // every example counts once, in its home group: the counts add up to the records that publish
         expect(groupStore.items.reduce((sum, group) => sum + group.count, 0)).toBe(published.length);
@@ -394,7 +394,7 @@ test.describe('Portal examples overview and group pages', () => {
         expect(view.getGroupStore().get('drag-drop').count).toBe(0);
         expect(view.getGroupStore().get('tree').count).toBe(0);
         expect(view.getCatalogStore().items.filter(record => record.id === 'dialog-drag-drop')).toHaveLength(1);
-        expect(view.getCatalogStore().getCount()).toBe(97)
+        expect(view.getCatalogStore().getCount()).toBe(98)
     });
 
     for (const mode of ['dist_prod', 'dist_esm', 'dist_dev', 'devmode']) {
@@ -564,12 +564,12 @@ test.describe('Portal examples canonical catalog', () => {
         })
     }
 
-    test('loads 97 logical examples with unique stable string identities', () => {
+    test('loads 98 logical examples with unique stable string identities', () => {
         const {store} = createList(),
               ids     = [];
 
-        expect(catalog).toHaveLength(97);
-        expect(store.getCount()).toBe(97);
+        expect(catalog).toHaveLength(98);
+        expect(store.getCount()).toBe(98);
 
         store.forEach(record => {
             expect(typeof record.id, record.name).toBe('string');
@@ -577,7 +577,7 @@ test.describe('Portal examples canonical catalog', () => {
             ids.push(record.id)
         });
 
-        expect(new Set(ids).size).toBe(97);
+        expect(new Set(ids).size).toBe(98);
         expect(list.catalogMode).toBe('dist_prod')
     });
 
