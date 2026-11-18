@@ -373,13 +373,13 @@
     },
     {
       "id": "board-swimlanes",
-      "viewport": {"width": 640, "height": 360},
+      "viewport": {"width": 640, "height": 800},
       "theme": "dark",
-      "state": "The product quarter under its hint line, with Design folded beside the already folded Web, both rows down to their headers and counts, above the open Mobile row whose columns show their first cards.",
+      "state": "The example as it opens, framed from the folded Web row: Web down to its header and count above the open Mobile row, whose header keeps its count in view and whose first columns show their cards. An open row is about 350 px tall, so a 640 x 360 viewport shows one row and no fold; the region keeps the viewport's full width.",
       "ready": [{"selector": ".neo-board-lane-title", "text": "Unassigned"}, {"selector": ".neo-board-lane-collapsed .neo-board-lane-title", "text": "Web"}],
-      "steps": [{"kind": "click", "selector": ".neo-board-lane-collapse", "nth": 0}, {"kind": "scroll", "selector": ".neo-board", "x": 0}, {"kind": "click", "selector": ".board-swimlanes-example-title"}],
-      "after": [{"selector": ".neo-theme-neo-dark .neo-board"}, {"selector": ".neo-board-lane-collapsed", "count": 2}, {"selector": ".neo-board-lane-collapsed .neo-board-lane-title", "text": "Design", "inRegion": true}, {"selector": ".neo-board-lane-collapsed .neo-board-lane-count", "text": "10", "inRegion": true}, {"selector": ".neo-board-card-title", "text": "A widget for today's tasks", "inRegion": true}, {"selector": ".neo-board-card-title", "text": "Deep links into a project", "inRegion": true}],
-      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+      "steps": [],
+      "after": [{"selector": ".neo-theme-neo-dark .neo-board"}, {"selector": ".neo-board-lane-collapsed", "count": 1}, {"selector": ".neo-board-lane-collapsed .neo-board-lane-count", "text": "10", "inRegion": true}, {"selector": "[id$='__lane__Mobile'] .neo-board-lane-count", "text": "9", "inRegion": true}, {"selector": ".neo-board-card-title", "text": "A widget for today's tasks", "inRegion": true}, {"selector": ".neo-board-card-title", "text": "Deep links into a project", "inRegion": true}],
+      "region": {"selector": "[id$='__lane__Web']", "anchor": "top-left", "offsetX": -12, "offsetY": -6, "width": 640, "height": 360}
     },
     {
       "id": "dock-layouts",
