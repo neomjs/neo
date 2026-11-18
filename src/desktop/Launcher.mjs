@@ -73,6 +73,14 @@ class Launcher extends List {
     }
 
     /**
+     * Ctrl or Cmd with an arrow key is the reorder of {@link #keys}, so the main thread's navigator leaves it to the
+     * App Worker and moves the focus only on a plain arrow
+     * @member {Object} navigator
+     * @protected
+     */
+    navigator = {workerChords: true}
+
+    /**
      * True while a render waits for a restore
      * @member {Boolean} #held=false
      */
