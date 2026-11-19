@@ -60,7 +60,7 @@ test.describe('Workstation — a dock commit keeps its panes on screen', () => {
         });
 
         await page.evaluate(() => {window.__commitContinuity.touring = true});
-        await page.getByText('Start dense tour').click();
+        await page.getByRole('button', {name: 'Start tour', exact: true}).click();
 
         // Three commits, the last one's cleanup landed: the host holds a single shell again.
         await page.waitForFunction(() => {
