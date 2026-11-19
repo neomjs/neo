@@ -3,6 +3,8 @@ import Button from './Base.mjs';
 /**
  * A wrapper div containing 2 Buttons.
  * We are extending button.Base and are using getVdomRoot() to map the main Button into the first vdom child.
+ * A click on the main button runs its handler. The trigger button opens the menu, if one is configured,
+ * and runs splitButtonHandler.
  * @class Neo.button.Split
  * @extends Neo.button.Base
  */
@@ -59,6 +61,9 @@ class Split extends Button {
     }
 
     /**
+     * Creates the trigger button as a child this split button references in its vdom, so it renders once
+     * and updates in place. Its handler runs in the scope of this split button, and it owns the menu: the
+     * menu aligns to it, a click on it toggles the menu, and a press anywhere else closes it.
      * @param {Object} config
      */
     construct(config) {
@@ -67,21 +72,24 @@ class Split extends Button {
         let me = this;
 
         me.triggerButton = Neo.create({
-            module  : Button,
-            appName : me.appName,
-            cls     : ['neo-trigger-button'],
-            disabled: me.disabled,
-            handler : me.splitButtonHandler,
-            hidden  : me.hideTriggerButton,
-            iconCls : me.triggerButtonIconCls,
-            parentId: me.vdom.id, // wrapper id
-            pressed : me.pressed,
-            ui      : me.ui,
+            module      : Button,
+            appName     : me.appName,
+            cls         : ['neo-trigger-button'],
+            disabled    : me.disabled,
+            handler     : 'splitButtonHandler',
+            handlerScope: me,
+            hidden      : me.hideTriggerButton,
+            iconCls     : me.triggerButtonIconCls,
+            menu        : me.menu,
+            parentId    : me.id,
+            pressed     : me.pressed,
+            ui          : me.ui,
+            windowId    : me.windowId,
             ...me.triggerButtonConfig
         });
 
-        me.vdom.cn.push(me.triggerButton.vdom);
-        me.update();
+        me.vdom.cn.push(me.triggerButton.createVdomReference());
+        me.update()
     }
 
     /**
@@ -129,6 +137,21 @@ class Split extends Button {
 
         if (triggerButton) {
             triggerButton.hidden = value;
+        }
+    }
+
+    /**
+     * Triggered after the menu config got changed. The trigger button owns the menu, so this split button
+     * creates no list of its own.
+     * @param {Object|Object[]|null} value
+     * @param {Object|Object[]|null} oldValue
+     * @protected
+     */
+    afterSetMenu(value, oldValue) {
+        let {triggerButton} = this;
+
+        if (triggerButton) {
+            triggerButton.menu = value
         }
     }
 
@@ -190,7 +213,7 @@ class Split extends Button {
         let {triggerButton} = this;
 
         if (triggerButton) {
-            triggerButton.appName = value;
+            triggerButton.windowId = value
         }
 
         super.afterSetWindowId(value, oldValue)
@@ -220,11 +243,34 @@ class Split extends Button {
     }
 
     /**
-     * Override as needed or pass a controller based handler into triggerButtonConfig
-     * @param {Object} data
+     * Runs the main button's handler, route and ripple. The menu belongs to the trigger button, so this
+     * click leaves it alone.
+     * @param {Object} data The click event data object.
+     */
+    onClick(data) {
+        let me = this;
+
+        me.bindCallback(me.handler, 'handler', me.handlerScope || me);
+        me.handler?.(data);
+
+        me.route           && me.changeRoute();
+        me.useRippleEffect && me.showRipple(data)
+    }
+
+    /**
+     * Runs on a click on the trigger button, in the scope of this split button. Override as needed or pass a
+     * controller based handler into triggerButtonConfig.
+     * @param {Object} data The click event data object.
      */
     splitButtonHandler(data) {
 
+    }
+
+    /**
+     * Toggles the menu, which the trigger button owns.
+     */
+    async toggleMenu() {
+        await this.triggerButton.toggleMenu()
     }
 }
 

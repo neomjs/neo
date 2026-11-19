@@ -1,7 +1,8 @@
 import Split from './Split.mjs';
 
 /**
- * Show a menu when clicking on the SplitButton
+ * A split button that opens its menu from the trigger button. button.Split does this for any split button
+ * with a menu, so this class adds no behavior and keeps the 'menu-button' ntype.
  * @class Neo.button.Menu
  * @extends Neo.button.Split
  */
@@ -17,13 +18,6 @@ class Menu extends Split {
          * @protected
          */
         ntype: 'menu-button'
-    }
-
-    /**
-     * @param {Object} data
-     */
-    splitButtonHandler(data) {
-        // todo: Show the menu
     }
 }
 
