@@ -666,26 +666,24 @@ test.describe('examples/grid/headerGroups', () => {
 
     /**
      * After a group drop: no proxy is left, every group cell spans its leaves, and the body cells follow the headers.
-     * Cells still off their leaves after the poll are read again 10 s later: a stalled re-projection stays off, a slow
-     * runner heals, and the failure says which.
+     * Cells still off their leaves after the poll get 10 s more: a stalled re-projection stays off, a slow runner
+     * heals, and the failure says which.
      * @param {Object} page
      */
     const expectRelaidOut = async page => {
-        const spanned = edges => edges.length === 5 && edges.every(({left, right, leafLeft, leafRight}) =>
-            Math.abs(left - leafLeft) < 2 && Math.abs(right - leafRight) < 2);
+        const spanned   = edges => edges.length === 5 && edges.every(({left, right, leafLeft, leafRight}) =>
+                  Math.abs(left - leafLeft) < 2 && Math.abs(right - leafRight) < 2),
+              relaidOut = timeout => expect.poll(async () => spanned(await groupEdges(page)), {timeout}).toBe(true);
 
         await expect(page.locator('.neo-dragproxy')).toHaveCount(0);
 
         try {
-            await expect.poll(async () => spanned(await groupEdges(page))).toBe(true)
+            await relaidOut()
         } catch (error) {
-            const first = await groupEdges(page);
+            const first  = await groupEdges(page),
+                  healed = await relaidOut(10000).then(() => true, () => false);
 
-            await page.waitForTimeout(10000);
-
-            const later = await groupEdges(page);
-
-            throw new Error(`Group cells off their leaves, ${spanned(later) ? 'healed' : 'still off'} 10 s later: ${JSON.stringify({first, later})}`, {cause: error})
+            throw new Error(`Group cells off their leaves, ${healed ? 'healed' : 'still off'} within 10 s more: ${JSON.stringify({first, later: await groupEdges(page)})}`, {cause: error})
         }
 
         await expect.poll(() => cellsFollowHeaders(page)).toBe(true)
