@@ -120,18 +120,12 @@ test.describe('Portal examples overview and group pages', () => {
         // Timeline was retired and its example moved to Grid & Table + Scheduler; Trees publishes via alsoIn; every other group has a card or a tile
         expect(groupStore.items.map(group => group.route)).toEqual(publishedRoutes);
         expect(view.getGroupPages().map(page => page.family)).toEqual(groupStore.items.map(group => group.family));
-        expect(view.getCatalogStore().getCount()).toBe(118);
+        expect(view.getCatalogStore().getCount()).toBe(recordCount);
 
         // every example counts once, in its home group: the counts add up to the records that publish, tiles included
         expect(groupStore.items.reduce((sum, group) => sum + group.count, 0)).toBe(published.length);
-        expect(published).toHaveLength(99);
-        expect(Object.fromEntries(groupStore.items.map(group => [group.family, [group.count, group.crossCount]]))).toEqual({
-            apps          : [6, 4], 'grid-table': [19, 0], tree: [0, 2], lists: [7, 0], charts: [1, 1],
-            calendar      : [1, 0], scheduler   : [2, 0], gantt: [2, 0], board: [2, 0],
-            dashboard     : [3, 0], tabs        : [1, 0], layouts: [1, 0], dialogs: [3, 0],
-            forms         : [27, 1], buttons    : [2, 0], components: [10, 0],
-            'multi-window': [6, 2], platform    : [2, 1], state: [1, 0], functional: [3, 2], 'drag-drop': [0, 2]
-        });
+        expect(published).toHaveLength(publishedCount);
+        expect(Object.fromEntries(groupStore.items.map(group => [group.family, [group.count, group.crossCount]]))).toEqual(groupCounts);
 
         expect(groupStore.get('apps').band).toBeNull();
         expect(groupStore.get('forms').tileHeading).toBe('Field types');
@@ -150,7 +144,7 @@ test.describe('Portal examples overview and group pages', () => {
         expect(pageIds(view, 'functional')).toEqual(['live-preview', 'email']);
         expect(tileIds(view, 'functional')).toEqual(['functional-define-component', 'functional-host-component', 'functional-nested-template']);
         expect(tileIds(view, 'buttons')).toEqual(['button-base', 'menu-list']);
-        expect(pageIds(view, 'drag-drop')).toEqual(['multi-window-drag-drop', 'dialog-drag-drop']);
+        expect(pageIds(view, 'drag-drop')).toEqual(['multi-window-drag-drop', 'dialog-drag-drop', 'dock-tear-out']);
         expect(pageIds(view, 'apps')).toEqual([
             'workstation', 'shared-covid', 'webdesktop', 'devindex', 'multi-window-drag-drop', 'colors-dashboard',
             'covid-dashboard', 'portal', 'finance', 'email'
@@ -158,7 +152,7 @@ test.describe('Portal examples overview and group pages', () => {
 
         // every card and tile of every page has its image; the catalog keeps the records that wait for one
         view.getGroupPages().forEach(page => page.getLists().forEach(list => list.store.forEach(record => expect(record.image, record.id).toBeTruthy())));
-        expect(view.getCatalogStore().items.filter(record => !record.image)).toHaveLength(19);
+        expect(view.getCatalogStore().items.filter(record => !record.image)).toHaveLength(uncoveredCount);
         expect(view.getCatalogStore().items.filter(record => record.image && !Example.publishes(record, 'dist_prod')).map(record => record.id))
             .toEqual([]);
         expect(view.getGroupPage('grid-table').getList().store.getSource()).toBe(view.getCatalogStore());
@@ -173,11 +167,13 @@ test.describe('Portal examples overview and group pages', () => {
               view    = createView(records),
               group   = () => view.getGroupStore().get('components'),
               page    = view.getGroupPage('components'),
-              heading = reference => page.down({reference});
+              heading = reference => page.down({reference}),
+              // two cards, live-preview and liquid-glass, and the rest tiles
+              count   = groupCounts.components[0];
 
         expect(view.getCatalogStore().get('liquid-glass').kind).toBe('demonstration');
         expect(view.getCatalogStore().get('clock').kind).toBe('component');
-        expect([group().count, group().tileCount]).toEqual([10, 8]);
+        expect([group().count, group().tileCount]).toEqual([count, count - 2]);
 
         // the cards show under "Demonstrations", the tiles by name under the default tile heading
         expect(pageIds(view, 'components')).toEqual(['live-preview', 'liquid-glass']);
@@ -186,12 +182,12 @@ test.describe('Portal examples overview and group pages', () => {
 
         // the same rule publishes a tile and a card: a build that cannot open the tile drops it from both counts
         view.getController().onSelectBuild({id: 'dist_esm'});
-        expect([group().count, group().tileCount]).toEqual([9, 7]);
+        expect([group().count, group().tileCount]).toEqual([count - 1, count - 3]);
         expect(tileIds(view, 'components')).not.toContain('clock');
 
         // a page that shows one kind heads neither
         view.getController().onSelectBuild({id: 'devmode'});
-        expect([group().count, group().tileCount]).toEqual([8, 8]);
+        expect([group().count, group().tileCount]).toEqual([count - 2, count - 2]);
         expect(pageIds(view, 'components')).toEqual([]);
         expect([heading('cards-heading').hidden, heading('tiles-heading').hidden]).toEqual([true, true])
     });
@@ -202,8 +198,8 @@ test.describe('Portal examples overview and group pages', () => {
               intro    = overview.down({reference: 'overview-intro'}),
               list     = overview.getList();
 
-        expect(intro.vdom.cn[1].text).toBe('99 live examples in 21 groups');
-        expect(overview.down({reference: 'overview-index-heading'}).vdom.cn[0].text).toBe('All 21 groups');
+        expect(intro.vdom.cn[1].text).toBe(`${publishedCount} live examples in ${groupCount} groups`);
+        expect(overview.down({reference: 'overview-index-heading'}).vdom.cn[0].text).toBe(`All ${groupCount} groups`);
         expect(list.leadCard).toBe(true);
         expect(list.showGroup).toBe(true);
         expect(list.store.items.map(record => record.id)).toEqual([
@@ -230,7 +226,9 @@ test.describe('Portal examples overview and group pages', () => {
         expect(mobIx.vdom.cn.filter(node => node.tag === 'section').map(band => band.cn[0].text))
             .toEqual(['Data views', 'Planning', 'Layout', 'Components', 'Platform']);
         expect(links(mobIx).map(link => link.href)).toEqual(publishedRoutes.map(route => '#' + route));
-        expect(links(mobIx).map(link => link.cn[2].text)).toEqual(['6', '19', '(2)', '7', '1', '1', '2', '2', '2', '3', '1', '1', '3', '27', '2', '10', '6', '2', '1', '3', '(2)']);
+        // a group with home examples shows their count, one that only borrows shows the borrowed count in parentheses
+        expect(links(mobIx).map(link => link.cn[2].text))
+            .toEqual(Object.values(groupCounts).map(([count, crossCount]) => count ? String(count) : `(${crossCount})`));
         expect(links(mobIx).every(link => link['aria-current'] === null)).toBe(true);
         expect(mobIx.vdom.cn[0].removeDom).toBe(true);
         expect(mobIx.vdom.cn.at(-1).removeDom).toBe(false);
@@ -259,7 +257,7 @@ test.describe('Portal examples overview and group pages', () => {
 
         expect(crumb.hidden).toBe(false);
         expect(home.hidden).toBe(true);
-        expect(button.text).toBe('All 21 groups');
+        expect(button.text).toBe(`All ${groupCount} groups`);
 
         await view.getController().onExamplesRoute({itemId: 'grid'});
         expect(crumb.hidden).toBe(false);
@@ -428,7 +426,7 @@ test.describe('Portal examples overview and group pages', () => {
         store.fire('load');
         expect(view.getGroupStore().items.map(group => group.route)).toEqual(publishedRoutes);
         expect(pageIds(view, 'grid-table')).toEqual(coveredGridTableIds);
-        expect(tileIds(view, 'forms')).toHaveLength(28);
+        expect(tileIds(view, 'forms')).toHaveLength(formTileIds.length);
 
         store.remove(store.items.filter(record => record.family === 'grid-table'));
         store.fire('load');
@@ -446,13 +444,13 @@ test.describe('Portal examples overview and group pages', () => {
         expect(pageIds(view, 'dialogs')).toEqual(['dialog-drag-drop', 'toast', 'popover']);
         expect(pageIds(view, 'drag-drop').filter(id => id === 'dialog-drag-drop')).toHaveLength(1);
         expect(pageIds(view, 'platform')).toEqual(['offscreen-canvas', 'shared-offscreen-canvas']);
-        expect(pageIds(view, 'charts')).toEqual(['offscreen-canvas', 'open-street-maps']);
+        expect(pageIds(view, 'charts')).toEqual(['offscreen-canvas', 'open-street-maps', 'graph-scene', 'sparklines', 'mermaid']);
         expect(pageIds(view, 'tree')).toEqual(['grid-tree-big-data', 'grid-tree']);
         expect(view.getGroupStore().get('dialogs').count).toBe(3);
         expect(view.getGroupStore().get('drag-drop').count).toBe(0);
         expect(view.getGroupStore().get('tree').count).toBe(0);
         expect(view.getCatalogStore().items.filter(record => record.id === 'dialog-drag-drop')).toHaveLength(1);
-        expect(view.getCatalogStore().getCount()).toBe(118)
+        expect(view.getCatalogStore().getCount()).toBe(recordCount)
     });
 
     for (const mode of ['dist_prod', 'dist_esm', 'dist_dev', 'devmode']) {
@@ -475,8 +473,9 @@ test.describe('Portal examples overview and group pages', () => {
         expect(view.getGroupStore().items.map(group => group.route)).not.toContain('/examples/components');
         expect(view.getGroupPage('components')).toBeNull();
         expect(openCard(view)).toBe('overview');
-        // the overview's headline follows the build: Dev mode opens none of the ten More components records
-        expect(view.down({reference: 'overview-intro'}).vdom.cn[1].text).toBe('89 live examples in 20 groups');
+        // the overview's headline follows the build: Dev mode opens none of the More components records
+        expect(view.down({reference: 'overview-intro'}).vdom.cn[1].text)
+            .toBe(`${publishedCount - groupCounts.components[0]} live examples in ${groupCount - 1} groups`);
 
         // the route still names the group: its page returns with its cards
         controller.onSelectBuild({id: 'dist_prod'});
@@ -502,6 +501,128 @@ test.describe('Portal examples overview and group pages', () => {
         expect(openCard(view)).toBe('multi-window');
         expect(stage.layout.activeIndex).toBe(stage.indexOf(view.getGroupPage('multi-window')))
     });
+
+    test('findQuery filters published records across titles, captions, group titles and keywords, updates GroupIndex matchCounts, and restores the open page on clear', async () => {
+        const view          = createView(),
+              controller    = view.getController(),
+              stage         = view.getStage(),
+              searchResults = view.getSearchResults(),
+              matchedIds    = () => searchResults.getGroupsContainer().items.flatMap(group =>
+                  group.items.filter(item => item instanceof ExamplesList).flatMap(list => list.store.items.map(r => r.id))
+              );
+
+        await controller.onExamplesRoute({itemId: 'multi-window'});
+        expect(openCard(view)).toBe('multi-window');
+
+        controller.onFindFieldChange({value: 'drag'});
+        expect(stage.items[stage.layout.activeIndex]).toBe(searchResults);
+        expect(view.getSidebarFindField().value).toBe('drag');
+        expect(view.getMobileFindField().value).toBe('drag');
+
+        const dragIds = matchedIds();
+        expect(dragIds).toEqual(expect.arrayContaining([
+            'board-basic', 'board-swimlanes', 'multi-window-drag-drop', 'dialog-drag-drop', 'dock-tear-out', 'workstation', 'webdesktop'
+        ]));
+
+        const counts = view.getStateProvider().getData('matchCounts');
+        expect(counts).toBeInstanceOf(Map);
+        expect(counts.get('board')).toEqual({home: 2, cross: 0, total: 2});
+        expect(counts.get('drag-drop')).toEqual({home: 0, cross: 3, total: 3});
+        expect(counts.get('calendar')).toEqual({home: 0, cross: 0, total: 0});
+
+        const indexVdom = view.getGroupIndex().vdom,
+              findEntry = (node, id) => node.id === id ? node : (node.cn || []).map(c => findEntry(c, id)).find(Boolean),
+              dragEntry = findEntry(indexVdom, `${view.getGroupIndex().id}__drag-drop`),
+              calEntry  = findEntry(indexVdom, `${view.getGroupIndex().id}__calendar`);
+
+        expect(dragEntry['aria-label']).toBe('Drag & Drop, 3 matching examples from other groups');
+        expect(calEntry['aria-label']).toBe('Calendar, 0 matching examples');
+
+        controller.onFindFieldChange({value: 'date'});
+        const dateIds = matchedIds();
+        expect(dateIds).toEqual(expect.arrayContaining([
+            'calendar', 'scheduler-basic', 'scheduler-big-data', 'gantt-basic', 'gantt-big-data', 'date-field', 'date-selector'
+        ]));
+        const formsGroup = searchResults.getGroupsContainer().items.find(group =>
+            group.items[0].vdom.cn[0].href === '#/examples/forms'
+        );
+        expect(formsGroup.items[1].tiles).toBe(true);
+        expect(formsGroup.items[1].store.items.map(r => r.id)).toEqual(['date-field', 'date-selector']);
+
+        controller.onFindFieldChange({value: 'liquid'});
+        expect(matchedIds()).toEqual(['liquid-glass']);
+        controller.onSelectBuild({id: 'devmode'});
+        expect(matchedIds()).toEqual([]);
+        expect(searchResults.down({reference: 'search-empty'}).hidden).toBe(false);
+        controller.onSelectBuild({id: 'dist_prod'});
+        expect(matchedIds()).toEqual(['liquid-glass']);
+
+        controller.onClearFind();
+        expect(view.findQuery).toBe('');
+        expect(view.getStateProvider().getData('matchCounts')).toBeNull();
+        expect(searchResults.getGroupsContainer().items).toHaveLength(0);
+        expect(openCard(view)).toBe('multi-window');
+        expect(stage.layout.activeIndex).toBe(stage.indexOf(view.getGroupPage('multi-window')))
+    });
+
+    test('Example.tokenizeSearchText and matchesQuery normalize camelCase, comma numbers, alsoIn titles and keywords', () => {
+        expect(Example.tokenizeSearchText('100,000 × 200 TreeGrid')).toEqual(['100000', '200', 'tree', 'grid']);
+
+        const groupTitles = {'board': 'Task Board', 'drag-drop': 'Drag & Drop'},
+              record      = {
+                  name     : 'Sprint Board',
+                  family   : 'board',
+                  alsoIn   : ['drag-drop'],
+                  component: 'Neo.board.Container',
+                  feature  : 'Kanban cards',
+                  lookFor  : 'Move a card',
+                  keywords : ['swimlane']
+              };
+
+        expect(Example.matchesQuery(record, Example.tokenizeSearchText('drag'), groupTitles)).toBe(true);
+        expect(Example.matchesQuery(record, Example.tokenizeSearchText('swim'), groupTitles)).toBe(true);
+        expect(Example.matchesQuery(record, Example.tokenizeSearchText('board container'), groupTitles)).toBe(true);
+        expect(Example.matchesQuery(record, Example.tokenizeSearchText('calendar'), groupTitles)).toBe(false)
+    });
+
+    test('MainContainer registers and releases body-level "/" preventDefault as the view activates and deactivates', () => {
+        const events       = [],
+              originalMain = Neo.main;
+
+        Neo.main = {
+            ...originalMain,
+            DomEvents: {
+                ...originalMain?.DomEvents,
+                registerPreventDefaultKeys  : data => events.push({op: 'register',   id: data.id, keys: data.keys}),
+                unregisterPreventDefaultKeys: data => events.push({op: 'unregister', id: data.id, keys: data.keys})
+            }
+        };
+
+        try {
+            const view = createView();
+
+            view.mounted = true;
+            expect(events).toEqual([{op: 'register', id: 'document.body', keys: ['/']}]);
+            expect(view.isActiveView()).toBe(true);
+
+            view.wrapperCls = [...(view.wrapperCls || []), 'neo-inactive-item'];
+            expect(view.isActiveView()).toBe(false);
+            expect(events).toHaveLength(2);
+            expect(events[1]).toEqual({op: 'unregister', id: 'document.body', keys: ['/']});
+
+            view.wrapperCls = [];
+            expect(view.isActiveView()).toBe(true);
+            expect(events).toHaveLength(3);
+            expect(events[2]).toEqual({op: 'register', id: 'document.body', keys: ['/']});
+
+            view.destroy();
+            exampleView = null;
+            expect(events).toHaveLength(4);
+            expect(events[3]).toEqual({op: 'unregister', id: 'document.body', keys: ['/']})
+        } finally {
+            Neo.main = originalMain
+        }
+    });
 });
 
 const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'), 'utf8')),
@@ -513,15 +634,15 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
       ],
       establishedTailIds = [
           'helix', 'devindex', 'multi-window-covid-gallery', 'offscreen-canvas', 'shared-offscreen-canvas',
-          'multi-window-drag-drop', 'tab-container', 'state-provider', 'dialog-drag-drop',
+          'multi-window-drag-drop', 'tab-container', 'tab-browser', 'state-provider', 'dialog-drag-drop',
           'colors-dashboard', 'covid-dashboard', 'covid-helix', 'covid-gallery', 'gallery'
       ],
       componentExampleIds = [
-          'carousel', 'chip', 'circle', 'clock', 'graph-scene', 'magic-move-text',
+          'carousel', 'chip', 'circle', 'clock', 'magic-move-text',
           'markdown', 'live-preview', 'mwc-button', 'mwc-buttons', 'mwc-text-field', 'mwc-text-fields',
           'process', 'process-real-world', 'progress', 'splitter', 'status-badge', 'timer',
-          'toast', 'popover', 'video', 'monaco-editor', 'open-street-maps', 'am-charts',
-          'video-move'
+          'toast', 'popover', 'video', 'monaco-editor', 'open-street-maps', 'graph-scene', 'am-charts',
+          'sparklines', 'mermaid', 'video-move'
       ],
       establishedMiddleIds = [
           'table-filtering', 'date-selector', 'date-field', 'combobox-field', 'portal', 'liquid-glass'
@@ -544,6 +665,8 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           'button-base', 'menu-list', 'list-base', 'chip-list', 'color-list',
           'functional-define-component', 'functional-host-component', 'functional-nested-template', 'sitemap'
       ],
+      // the Containers & Layouts cards, appended after the tiles
+      layoutExampleIds = ['layouts-side-by-side', 'layout-cube'],
       // the Forms & Fields tiles in the order of their names, the form layout lent by Containers & Layouts among them
       formTileIds = [
           'checkbox-field', 'chip-field', 'color-field', 'combobox-field', 'copy-to-clipboard-trigger',
@@ -562,16 +685,30 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           'workstation', 'shared-covid', 'multi-window-covid-gallery', 'shared-offscreen-canvas',
           'multi-window-drag-drop', 'colors-dashboard'
       ],
-      // the Multi-Window page also shows dock-cross-window and Email, whose alsoIn names it
-      multiWindowPageIds    = [...coveredMultiWindowIds, 'dock-cross-window', 'email'],
-      // all 21 groups: each has a card or tile a production build opens on this catalog, in definition order
+      // the Multi-Window page also shows dock-cross-window, dock-tear-out and Email, whose alsoIn names it
+      multiWindowPageIds    = [...coveredMultiWindowIds, 'dock-cross-window', 'dock-tear-out', 'email'],
+      // every group: each has a card or tile a production build opens on this catalog, in definition order
       publishedRoutes = [
           '/examples/apps', '/examples/grid', '/examples/tree', '/examples/lists', '/examples/charts',
           '/examples/calendar', '/examples/scheduler', '/examples/gantt', '/examples/board',
           '/examples/dashboard', '/examples/tabs', '/examples/layouts', '/examples/dialogs',
           '/examples/forms', '/examples/buttons', '/examples/components',
           '/examples/multi-window', '/examples/platform', '/examples/state', '/examples/functional', '/examples/drag-drop'
-      ];
+      ],
+      // The catalog's only count literals: a new covered example changes its group's row, a new record the record count.
+      // [home count, count from other groups] per group in a production build, in definition order
+      groupCounts = {
+          apps          : [6, 4], 'grid-table': [19, 0], tree: [0, 2], lists: [7, 0], charts: [4, 1],
+          calendar      : [1, 0], scheduler   : [2, 0], gantt: [2, 0], board: [2, 0],
+          dashboard     : [4, 1], tabs        : [2, 0], layouts: [3, 0], dialogs: [3, 0],
+          forms         : [27, 1], buttons    : [2, 0], components: [10, 0],
+          'multi-window': [6, 3], platform    : [2, 1], state: [1, 0], functional: [3, 2], 'drag-drop': [0, 3]
+      },
+      recordCount    = 123,
+      publishedCount = Object.values(groupCounts).reduce((sum, [count]) => sum + count, 0),
+      groupCount     = Object.keys(groupCounts).length,
+      // every record with a cover publishes in a production build, so the rest wait for one
+      uncoveredCount = recordCount - publishedCount;
 
 /**
  * @summary The canonical catalog survives the keyed Store and renders through the production List.
@@ -634,12 +771,12 @@ test.describe('Portal examples canonical catalog', () => {
         })
     }
 
-    test('loads 118 logical examples with unique stable string identities', () => {
+    test('loads every logical example with a unique, stable string identity', () => {
         const {store} = createList(),
               ids     = [];
 
-        expect(catalog).toHaveLength(118);
-        expect(store.getCount()).toBe(118);
+        expect(catalog).toHaveLength(recordCount);
+        expect(store.getCount()).toBe(recordCount);
 
         store.forEach(record => {
             expect(typeof record.id, record.name).toBe('string');
@@ -647,7 +784,7 @@ test.describe('Portal examples canonical catalog', () => {
             ids.push(record.id)
         });
 
-        expect(new Set(ids).size).toBe(118);
+        expect(new Set(ids).size).toBe(recordCount);
         expect(list.catalogMode).toBe('dist_prod')
     });
 
@@ -682,8 +819,10 @@ test.describe('Portal examples canonical catalog', () => {
                   'am-charts'       : 'charts',
                   carousel          : 'lists',
                   'graph-scene'     : 'charts',
+                  mermaid           : 'charts',
                   'open-street-maps': 'charts',
                   popover           : 'dialogs',
+                  sparklines        : 'charts',
                   toast             : 'dialogs',
                   'video-move'      : 'platform'
               };
@@ -745,7 +884,7 @@ test.describe('Portal examples canonical catalog', () => {
             'shared-offscreen-canvas': ['platform'],
             'multi-window-drag-drop' : ['apps', 'drag-drop'],
             'dialog-drag-drop'       : ['drag-drop'],
-            'colors-dashboard'       : ['apps'],
+            'colors-dashboard'       : ['apps', 'dashboard'],
             'grid-tree'              : ['tree'],
             'form-app'               : ['apps'],
             'layout-form'            : ['forms'],
@@ -777,7 +916,7 @@ test.describe('Portal examples canonical catalog', () => {
         expect(() => check([{...example, lookFor: ''}])).toThrow()
     });
 
-    test('the catalog holds the 20 Grid and Table identities and their page shows the 19 covered ones', () => {
+    test('the catalog holds the Grid and Table identities and their page shows the covered ones', () => {
         const view         = createView(),
               catalogStore = view.getCatalogStore(),
               store        = view.getGroupPage('grid-table').getList().store,
@@ -830,7 +969,7 @@ test.describe('Portal examples canonical catalog', () => {
               completeIds = [
                   ...startHereIds, ...establishedTailIds, ...componentExampleIds, ...establishedMiddleIds,
                   ...newExampleIds, ...formExampleIds, 'board-swimlanes', 'scheduler-big-data', 'gantt-big-data', 'timeline-basic',
-                  ...multiWindowExampleIds, 'finance', 'email', ...newTileIds
+                  ...multiWindowExampleIds, 'finance', 'email', ...newTileIds, ...layoutExampleIds
               ],
               excluded = {
                   devmode  : ['portal', 'liquid-glass'],
@@ -850,7 +989,7 @@ test.describe('Portal examples canonical catalog', () => {
         // the list hides what its store would filter out: a record without a cover publishes no card in any mode
         const uncovered = completeIds.filter(id => !store.get(id).image);
 
-        expect(uncovered).toHaveLength(19);
+        expect(uncovered).toHaveLength(uncoveredCount);
 
         cases.forEach(([mode, bigDataUrl, workstationUrl, choreographyUrl]) => {
             list.catalogMode = mode;

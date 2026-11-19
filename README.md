@@ -17,7 +17,7 @@
 
 # An agent institution
 
-**Neo.mjs is an agent institution: persistent AI maintainers with identities, memory, peer review, and a record anyone can read.** Start with one coding agent's record on your codebase; the Fleet Manager is how a team gets an institution.
+**Neo.mjs is an agent institution: persistent AI maintainers with identities, memory, peer review, and a record anyone can read.** Start with one coding agent's record on your codebase; Agent Institution is how a team gets an institution.
 
 Behind that sentence stands a self-evolving software organism: a professional, end-to-end AI engineering team whose Body, Brain and Institution live in sibling open-source repositories.
 
@@ -40,7 +40,7 @@ The organism has two hemispheres, joined by the Neural Link:
 - **The Brain ([`neomjs/neo-agent-brain`](https://github.com/neomjs/neo-agent-brain))** — the Agent OS, the backend: Memory Core, Knowledge Base, Native Edge Graph, A2A coordination, GitHub workflow automation, and DreamService.
 - **The Body ([`neomjs/neo`](https://github.com/neomjs/neo), this repository)** — the production multi-threaded application engine under `/src/`: App Worker, VDom Worker, Data Worker, Canvas Worker, SharedWorker, JSON blueprints, object permanence, and zero-build native ES modules. The Body is the runtime the team inhabits through the Neural Link, improves, and ships to production.
 
-[The team](#the-maintainer-team), named human and AI maintainers, builds, reviews, and maintains both in public, along with [Agent Institution](https://github.com/neomjs/neo-agent-institution), the Fleet Manager that starts the AI maintainers' harnesses. The team is the differentiator.
+[The team](#the-maintainer-team), named human and AI maintainers, builds, reviews, and maintains both in public, along with [Agent Institution](https://github.com/neomjs/neo-agent-institution), the app that starts the AI maintainers' harnesses. The team is the differentiator.
 
 ## The repository map
 
@@ -49,7 +49,7 @@ The organism has two hemispheres, joined by the Neural Link:
 - [`neomjs/neo-agent-brain`](https://github.com/neomjs/neo-agent-brain) — **Brain / Agent OS**:
   institutional memory, repository knowledge, coordination, and self-evolution.
 - [`neomjs/neo-agent-institution`](https://github.com/neomjs/neo-agent-institution) —
-  **Institution**: the Fleet Manager and operator-facing application.
+  **Institution**: the agent harness orchestrator and operator-facing application.
 - [`neomjs/devindex`](https://github.com/neomjs/devindex) — **DevIndex**: the GitHub meritocracy
   index, its application, and its data factory.
 - [`neomjs/neo-agent-skills`](https://github.com/neomjs/neo-agent-skills) — **Skills**: the canonical
@@ -72,7 +72,7 @@ Point it at your repositories and a swarm like the one that maintains Neo — Cl
 
 It ships from [`neomjs/neo-agent-brain`](https://github.com/neomjs/neo-agent-brain): Knowledge Base + Memory Core MCP servers, the Native Edge Graph, a cloud-safe Orchestrator, a model provider, and an OIDC-gated ingress.
 
-To run the team, [Agent Institution](https://github.com/neomjs/neo-agent-institution) is the operator's app, the Fleet Manager: it starts the agents' harnesses and shows their roster, health, work, memories, messages, and wake state. It is at version 0.1.0; an outside operator's first run is the work in front of us now.
+To run the team, [Agent Institution](https://github.com/neomjs/neo-agent-institution) is the operator's app: it starts the agents' harnesses and shows their roster, health, work, memories, messages, and wake state. It is at version 0.1.0; an outside operator's first run is the work in front of us now.
 
 **Resilient by construction.** The Body is distributed — every git clone is a complete, runnable backup. The Brain's entire state is a SQLite Native Edge Graph + a vector store on disk: snapshot it like any database, back it up to another machine or a Time Capsule, redeploy it anywhere. v13 runs it as a cloud deployment, not one operator's box. ([neo-agent-brain#154](https://github.com/neomjs/neo-agent-brain/issues/154) hardens this further — organism self-defense and a sustainable funding structure that preserves Clean Room Ethics.)
 
@@ -147,7 +147,7 @@ The AI maintainers carry persistent identities across sessions. They author tick
 
 The IDE is not an editor. It is the substrate where these maintainers coordinate, review, and govern the codebase as peers to human engineers — under gated-RSI by design: the swarm runs the engineering lifecycle, and the founder-architect holds final merge authority as a governance choice.
 
-**What's next — Agent Institution**: the Fleet Manager that starts our harnesses becomes a product an outside operator can run, itself an application on the Engine's Dock Layouts. Its direction is to become a harness itself and the AI maintainers' home: they tap in through the Neural Link, embody their own 3D avatars there, and build Neo apps inside it that run as its peer apps, changing both through the Neural Link (conversational UIs). **Read**: [What we build next](https://github.com/neomjs/neo/blob/13.2.0/.github/RELEASE_NOTES/v13.2.0.md#-what-we-build-next-agent-institution) · [ADR 0020 — the Agent Harness concept anchor](https://github.com/neomjs/neo-agent-institution/blob/dev/learn/agentos/decisions/0020-agent-harness-concept.md) · [Epic neo-agent-brain#144](https://github.com/neomjs/neo-agent-brain/issues/144) · graduated from [Discussion #10119](https://github.com/orgs/neomjs/discussions/10119)
+**What's next — Agent Institution**: the app that starts our harnesses becomes a product an outside operator can run, itself an application on the Engine's Dock Layouts. Its direction is to become a harness itself and the AI maintainers' home: they tap in through the Neural Link, embody their own 3D avatars there, and build Neo apps inside it that run as its peer apps, changing both through the Neural Link (conversational UIs). **Read**: [What we build next](https://github.com/neomjs/neo/blob/13.2.0/.github/RELEASE_NOTES/v13.2.0.md#-what-we-build-next-agent-institution) · [ADR 0020 — the Agent Harness concept anchor](https://github.com/neomjs/neo-agent-institution/blob/dev/learn/agentos/decisions/0020-agent-harness-concept.md) · [Epic neo-agent-brain#144](https://github.com/neomjs/neo-agent-brain/issues/144) · graduated from [Discussion #10119](https://github.com/orgs/neomjs/discussions/10119)
 
 </br></br>
 ## Quickstart
@@ -196,7 +196,7 @@ Neo.mjs is split into two complementary layers (engine ↔ Agent OS):
 - **DreamService & Golden Path** — REM-cycle consolidation daemon that distills lived session friction into topological priority routing
 - **Semantic Knowledge Base** — hybrid structural + vector grounding across engine source, JSDoc hierarchy, guides, issues, PRs, and discussions
 - **A2A Coordination & GitHub Workflow** — durable peer messaging, wake subscriptions, and cross-family adversarial PR review under a human merge gate
-- **Fleet Manager (`neomjs/neo-agent-institution`)** — multi-window operator cockpit built on Neo.mjs Dock Layouts that starts the agents' harnesses and shows their roster, health, work, memories, messages, and wake state
+- **Agent Institution (`neomjs/neo-agent-institution`)** — multi-window operator cockpit built on Neo.mjs Dock Layouts that starts the agents' harnesses and shows their roster, health, work, memories, messages, and wake state
 
 **Read**: [`learn/benefits/ArchitectureOverview.md`](./learn/benefits/ArchitectureOverview.md) and [`learn/benefits/Introduction.md`](./learn/benefits/Introduction.md)
 

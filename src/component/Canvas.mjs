@@ -17,6 +17,15 @@ class Canvas extends Component {
          */
         ntype: 'canvas',
         /**
+         * `true` while this canvas's pixels show its current content. Only the subclass that draws knows that
+         * moment, so only a subclass sets it. The root reflects it as `data-drawn`, because a cover capture or a
+         * test can otherwise not tell drawn pixels from an empty canvas: a stable layout and a finished animation
+         * prove neither.
+         * @member {Boolean} drawn_=false
+         * @reactive
+         */
+        drawn_: false,
+        /**
          * true applies a main.addon.ResizeObserver and fires a custom resize event
          * which other instances can subscribe to.
          * @member {Boolean} monitorSize_=true
@@ -70,6 +79,21 @@ class Canvas extends Component {
     }
 
     /**
+     * Triggered after the drawn config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetDrawn(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me = this;
+
+            me.vdom['data-drawn'] = value ? 'true' : null;
+            me.update()
+        }
+    }
+
+    /**
      * Triggered after the mounted config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -111,15 +135,20 @@ class Canvas extends Component {
                 await promise;
                 me.offscreenRegistered = true;
             }
-        } else if (offscreen) {
-            if (me.offscreenRegistered) {
-                Neo.worker.Canvas.unregisterCanvas({
-                    nodeId  : id,
-                    windowId: me.windowId
-                })
-            }
+        } else {
+            // an unmounted canvas shows nothing
+            me.drawn = false;
 
-            me.offscreenRegistered = false
+            if (offscreen) {
+                if (me.offscreenRegistered) {
+                    Neo.worker.Canvas.unregisterCanvas({
+                        nodeId  : id,
+                        windowId: me.windowId
+                    })
+                }
+
+                me.offscreenRegistered = false
+            }
         }
     }
 
@@ -134,7 +163,10 @@ class Canvas extends Component {
         super.afterSetWindowId(value, oldValue);
 
         if (oldValue) {
-            this.offscreenRegistered = false
+            let me = this;
+
+            me.drawn               = false;
+            me.offscreenRegistered = false
         }
     }
 

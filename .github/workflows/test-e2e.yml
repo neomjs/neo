@@ -6,10 +6,11 @@ name: E2E (engine tier)
 #   GPU  — specs booting the workstation app inherit animated OffscreenCanvas work no
 #          hosted runner can composite. The dashboard app carries none, which is why
 #          the dock and cross-window specs are the tier that fits.
-#   Time — the ceiling is five minutes of test time per shard, enforced on the step below
+#   Time — the ceiling is six minutes of test time per shard, enforced on the step below
 #          rather than on the job, so a slow suite is distinguishable from a slow `npm ci`.
-#          A shard nearing it gets a sibling, never a higher ceiling: the ceiling is the
-#          wait every pull request pays.
+#          A shard nearing it gets its slow spec fixed first, and a sibling only when the
+#          runner budget has room: the org's CI has 20 runner slots, so a sibling queues
+#          every full run, while a stop at the ceiling costs a re-run and a review cycle.
 #
 # A third constraint bounds the REPORTING, and is the one a reader is most likely to be
 # misled by: `playwright.config.e2e.mjs` uses `testIgnore` for the Brain-dependent
@@ -98,7 +99,7 @@ jobs:
         shards: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '[1]' || needs.changes.outputs.e2e_engine_shards || '[15]') }}
     # Bounds provisioning plus tests. The test-time ceiling is the step below; this
     # exists so a hung install cannot occupy a runner indefinitely.
-    # The gate keeps its twelve minutes: provisioning plus a five-minute test step, so a hung
+    # The gate keeps its twelve minutes: provisioning plus a six-minute test step, so a hung
     # install cannot occupy a runner indefinitely.
     #
     # A dispatch needs its own, and the reason is that a job bound SILENTLY CAPS a step bound. The
@@ -236,18 +237,42 @@ jobs:
         env:
           SELECTED: ${{ needs.changes.outputs.e2e_engine_paths }}
 
+      # The Docs specs read `docs/output`, which is not tracked. Generated in their `beforeAll`, that parse of every class
+      # landed in the run step's ceiling and in the planner's per-file costs (#21501). A shard whose specs call
+      # `ensureDocsOutput()` generates it here instead, and the helper then skips it. The selection repeats the run
+      # step's; should the two drift, a spec generates the index itself, as before.
+      - name: Generate the Docs class index
+        if: ${{ steps.head.outputs.current == 'true' }}
+        timeout-minutes: 3
+        env:
+          PROBE_SPECS: ${{ inputs.specs }}
+          SHARD: ${{ matrix.shard }}/${{ matrix.shards }}
+          TIER_PATHS: ${{ steps.selection.outputs.paths }}
+        run: |
+          if [ -n "${PROBE_SPECS}" ]; then
+            paths="${PROBE_SPECS}"
+          else
+            paths=$(node buildScripts/util/e2eCiSelection.mjs --engine-paths)
+          fi
+
+          # Deliberately unquoted, as in the run step: the selection is a space-separated list of paths
+          if [ -n "${paths}" ] && grep -rqs 'ensureDocsOutput' ${paths}; then
+            node buildScripts/docs/generateDocsJson.mjs
+            echo 'NEO_DOCS_OUTPUT_READY=true' >> "$GITHUB_ENV"
+          fi
+
       # Serial by measurement, not caution: this tier drives real windows, drag
       # thresholds and geometry, which parallel workers on one runner perturb.
       #
       # NEO_TEST_SKIP_CI activates the in-spec quarantine guards, the lever the unit
       # suite already uses; each guard states the condition it stands in for.
-      # The five-minute ceiling is the GATE's budget, per shard, and stays exactly that for
+      # The six-minute ceiling is the GATE's budget, per shard, and stays exactly that for
       # `pull_request` and `push`. A dispatch is a measurement rather than a gate — N repeats of a spec are meant to
       # take N times as long — so it gets its own budget. Sharing the gate's ceiling would silently
       # truncate a probe and report a rate that is an artifact of the timeout.
       - name: Run e2e (engine tier)
         if: ${{ steps.head.outputs.current == 'true' }}
-        timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 30 || 5 }}
+        timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 30 || 6 }}
         env:
           NEO_TEST_SKIP_CI: 'true'
           # Dispatch inputs reach the shell as ENVIRONMENT, never interpolated into this script.

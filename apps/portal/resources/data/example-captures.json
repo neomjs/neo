@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "families": ["grid-table", "gantt", "scheduler", "board", "charts", "dashboard", "apps", "dialogs"],
+  "families": ["grid-table", "gantt", "scheduler", "board", "charts", "dashboard", "apps", "dialogs", "lists", "layouts", "tabs"],
   "suffix": "14",
   "tiles": [
     "examples/form/field/checkbox", {"path": "examples/form/field/chip", "width": 220},
@@ -25,7 +25,8 @@
     {"path": "examples/component/wrapper/monacoEditor", "width": 224, "height": 150},
     "examples/functional/defineComponent", "examples/functional/hostComponent",
     {"path": "examples/functional/nestedTemplateComponent", "width": 240, "height": 150},
-    {"path": "examples/sitemap", "width": 224, "height": 160}
+    {"path": "examples/sitemap", "width": 224, "height": 160},
+    {"path": "examples/tab/container", "width": 264, "height": 176}
   ],
   "recipes": [
     {
@@ -573,6 +574,16 @@
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },
     {
+      "id": "dock-tear-out",
+      "viewport": {"width": 640, "height": 360},
+      "theme": "default",
+      "state": "The support desk with a draft typed in Notes, under the line that says what popping the pane out proves.",
+      "ready": [{"selector": ".neo-example-tearout-queue .neo-list-item", "text": "#4512"}, {"selector": ".neo-tab-header-button", "text": "Notes"}],
+      "steps": [{"kind": "fill", "selector": ".neo-textfield input", "value": "Call #4512 back by noon"}],
+      "after": [{"selector": ".neo-example-tearout-claim", "text": "A pane keeps its live state in its own window", "inRegion": true}, {"selector": ".neo-tab-header-button", "text": "Queue", "inRegion": true}, {"selector": ".neo-tab-header-button", "text": "Notes", "inRegion": true}],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
       "id": "open-street-maps",
       "viewport": {"width": 1280, "height": 720},
       "theme": "dark",
@@ -623,6 +634,121 @@
       "steps": [{"kind": "click", "selector": ".neo-button", "text": "Click Me"}],
       "after": [{"selector": ".neo-popover", "text": "Anchored to the button that opened it", "inRegion": true}, {"selector": ".neo-button", "text": "Click Me", "inRegion": true}],
       "region": {"selector": ".neo-button", "anchor": "center", "offsetY": -60, "width": 640, "height": 360}
+    },
+    {
+      "id": "gallery",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "The wall of portraits, the middle portrait selected and brought forward.",
+      "ready": [{"selector": ".neo-gallery-item.neo-selected"}],
+      "steps": [],
+      "after": [{"selector": ".neo-gallery-item.neo-selected", "inRegion": true}],
+      "region": {"x": 190, "y": 180, "width": 640, "height": 360}
+    },
+    {
+      "id": "helix",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "The middle turns of the helix of portraits as it opens.",
+      "ready": [{"selector": ".neo-helix-item"}],
+      "steps": [],
+      "after": [{"selector": ".neo-helix-item"}],
+      "region": {"x": 200, "y": 180, "width": 640, "height": 360}
+    },
+    {
+      "id": "covid-gallery",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "The economies largest population first, India's card with its flag and six figures in front.",
+      "dependencies": ["https://hatscripts.github.io/circle-flags/"],
+      "ready": [{"selector": ".neo-country-gallery-item", "text": "India"}],
+      "steps": [],
+      "after": [{"selector": ".neo-country-gallery-item", "text": "India", "inRegion": true}],
+      "region": {"x": 380, "y": 340, "width": 640, "height": 360}
+    },
+    {
+      "id": "covid-helix",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "The economies coiling around the helix, Malaysia's turn curving away to the left.",
+      "dependencies": ["https://hatscripts.github.io/circle-flags/"],
+      "ready": [{"selector": ".neo-country-helix-item", "text": "India"}],
+      "steps": [],
+      "after": [{"selector": ".neo-country-helix-item", "text": "Malaysia", "inRegion": true}],
+      "region": {"x": 0, "y": 100, "width": 640, "height": 360}
+    },
+    {
+      "id": "graph-scene",
+      "viewport": {"width": 800, "height": 470},
+      "theme": "default",
+      "state": "The middle of the default 240-node scene with its labels, fitted and drawn, before any orbit.",
+      "ready": [{"selector": "canvas[data-drawn='true']"}],
+      "steps": [],
+      "after": [{"selector": ".graph-scene-stats", "text": "drag orbits"}, {"selector": "canvas[data-drawn='true']"}],
+      "region": {"selector": "canvas", "anchor": "center", "width": 640, "height": 360}
+    },
+    {
+      "id": "sparklines",
+      "viewport": {"width": 960, "height": 540},
+      "theme": "default",
+      "state": "The six metric cards at their opening readings, the feed stopped, the pulse and the smooth updates off.",
+      "ready": [{"selector": ".neo-sparkline-wrapper[data-drawn='true']", "count": 6}],
+      "steps": [
+        {"kind": "click", "selector": ".neo-switchfield", "text": "Live feed"},
+        {"kind": "click", "selector": ".neo-switchfield", "text": "Pulse"},
+        {"kind": "click", "selector": ".neo-switchfield", "text": "Smooth updates"},
+        {"kind": "click", "selector": ".neo-button", "text": "Restart"}
+      ],
+      "after": [
+        {"selector": ".neo-examples-sparkline-value", "text": "1,354 req/s"},
+        {"selector": ".neo-sparkline-wrapper[data-drawn='true']", "count": 6}
+      ],
+      "region": {"selector": ".neo-examples-sparkline-cards", "anchor": "top-left", "width": 640, "height": 360}
+    },
+    {
+      "id": "mermaid",
+      "viewport": {"width": 1120, "height": 443},
+      "theme": "default",
+      "state": "The sequence preset as Mermaid draws it from its source, fitted to the diagram's box.",
+      "ready": [{"selector": ".neo-mermaid[data-processed] svg"}],
+      "steps": [{"kind": "click", "selector": ".neo-button", "text": "Sequence"}],
+      "after": [{"selector": ".neo-mermaid svg", "text": "Confirmation email"}],
+      "region": {"selector": ".neo-mermaid", "anchor": "center", "width": 640, "height": 360}
+    },
+    {
+      "id": "layouts-side-by-side",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "The hbox and vbox frames side by side at rest, align and pack at center: the same six items as a row and as a column.",
+      "ready": [{"selector": ".examples-layouts-frame-title", "text": "cube"}, {"selector": ".examples-layouts-cube .neo-face", "text": "6"}],
+      "steps": [],
+      "after": [{"selector": ".examples-layouts-frame-hbox", "inRegion": true}, {"selector": ".examples-layouts-frame-vbox", "inRegion": true}],
+      "region": {"selector": ".examples-layouts-frame-hbox", "anchor": "top-left", "offsetX": -8, "offsetY": -4, "width": 640, "height": 360}
+    },
+    {
+      "id": "layout-cube",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "The cube on the workbench's dark theme at its opening angle with sides of 200 px, three faces in view, and the face buttons under it.",
+      "ready": [{"selector": ".neo-face", "text": "Front"}, {"selector": ".neo-button", "text": "Bottom"}],
+      "steps": [
+        {"kind": "click", "selector": ".neo-button", "text": "Theme Dark"},
+        {"kind": "fill", "selector": ".neo-rangefield:has-text('sideX') input", "value": "200"},
+        {"kind": "fill", "selector": ".neo-rangefield:has-text('sideY') input", "value": "200"},
+        {"kind": "fill", "selector": ".neo-rangefield:has-text('sideZ') input", "value": "200"}
+      ],
+      "after": [{"selector": ".neo-layout-cube", "inRegion": true}, {"selector": ".neo-button", "text": "Front", "inRegion": true}, {"selector": ".neo-button", "text": "Bottom", "inRegion": true}],
+      "region": {"selector": ".neo-layout-cube", "anchor": "center", "offsetY": 30, "width": 640, "height": 360}
+    },
+    {
+      "id": "tab-browser",
+      "viewport": {"width": 640, "height": 360},
+      "theme": "dark",
+      "state": "The opening strip: the tabs that fit, the overflow control and the + action, over the Inbox page.",
+      "ready": [{"selector": ".neo-tab-header-button", "text": "Inbox"}, {"selector": ".neo-tab-overflow-control"}],
+      "steps": [],
+      "after": [{"selector": ".neo-tab-header-button", "text": "Inbox", "inRegion": true}, {"selector": ".neo-example-browser-claim", "inRegion": true}, {"selector": ".neo-tab-overflow-control", "inRegion": true}],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },
     {
       "id": "live-preview",

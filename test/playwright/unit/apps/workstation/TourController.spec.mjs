@@ -507,6 +507,8 @@ test('normal chrome binds the root provider without a playback controller or run
         expect(workspace.tourRunner).toBeUndefined();
         expect(workspace.startTour).toBeUndefined();
         expect(play.handler).toBe('onStartTour');
+        expect(play.text).toBe('Start tour');
+        expect(controller.getReference('tour-play-film')).toBeNull();
         provider.setData({'tour.caption': 'Bound independently', 'tour.completedCount': 2, 'tour.running': true});
         expect(caption.html).toBe('Bound independently');
         expect([...pips.html.matchAll(/workstation-pip-done/g)]).toHaveLength(2);
