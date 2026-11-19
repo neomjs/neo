@@ -69,12 +69,11 @@
       "id": "grid-container",
       "viewport": {"width": 1280, "height": 720},
       "theme": "dark",
-      "state": "A selected row crosses a selected column in Cell & Column & Row mode.",
-      "ready": [{"selector": ".neo-grid-cell[data-field='firstname']"}],
+      "state": "A selected clinician row crosses a selected weekday column in Cell & Column & Row mode.",
+      "ready": [{"selector": ".neo-grid-cell[data-field='staff']"}],
       "steps": [
         {"kind": "click", "selector": ".neo-configuration-header-toolbar .neo-button", "text": "Theme Dark"},
-        {"kind": "click", "selector": ".neo-radiofield", "text": "Cell & Column & Row"},
-        {"kind": "click", "selector": ".neo-grid-cell[data-field='lastname']", "nth": 1}
+        {"kind": "click", "selector": ".neo-radiofield", "text": "Cell & Column & Row"}
       ],
       "after": [
         {"selector": ".neo-grid-row.neo-selected"},
