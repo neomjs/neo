@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "families": ["grid-table", "gantt", "scheduler", "board", "charts", "dashboard", "apps"],
+  "families": ["grid-table", "gantt", "scheduler", "board", "charts", "dashboard", "apps", "dialogs"],
   "suffix": "14",
   "tiles": [
     "examples/form/field/checkbox", {"path": "examples/form/field/chip", "width": 220},
@@ -560,6 +560,47 @@
       "steps": [],
       "after": [{"selector": ".ol-attribution", "text": "OpenStreetMap"}, {"selector": "input", "value": "6"}],
       "region": {"x": 320, "y": 110, "width": 640, "height": 360}
+    },
+    {
+      "id": "dialog-drag-drop",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "Dialog 1 on the example's dark theme, opened from Create Dialog over its modal mask, with its select field and the button that opens Dialog 2.",
+      "ready": [{"selector": ".neo-button", "text": "Create Dialog"}, {"selector": ".neo-button", "text": "Theme Dark"}],
+      "steps": [
+        {"kind": "click", "selector": ".neo-button", "text": "Theme Dark"},
+        {"kind": "wait", "selector": ".neo-button", "text": "Theme Light"},
+        {"kind": "click", "selector": ".neo-button", "text": "Create Dialog"}
+      ],
+      "after": [{"selector": ".neo-dialog .neo-header-toolbar", "text": "Dialog 1", "inRegion": true}, {"selector": ".neo-dialog .neo-button", "text": "Create Dialog 2", "inRegion": true}],
+      "region": {"selector": ".neo-dialog", "anchor": "center", "width": 640, "height": 360}
+    },
+    {
+      "id": "toast",
+      "viewport": {"width": 960, "height": 540},
+      "theme": "default",
+      "state": "A closable toast with its icon at the top right, created from the form, beside the call the form printed for it.",
+      "ready": [{"selector": ".neo-button", "text": "create toast"}],
+      "steps": [
+        {"kind": "fill", "selector": "input[name='msg']", "value": "Changes are safe"},
+        {"kind": "fill", "selector": "input[name='title']", "value": "Saved"},
+        {"kind": "fill", "selector": "input[name='iconCls']", "value": "fa fa-circle-check"},
+        {"kind": "click", "selector": "[data-ref='closable'] .neo-checkbox-icon"},
+        {"kind": "fill", "selector": "input[name='removeDelay']", "value": "60000"},
+        {"kind": "click", "selector": ".neo-button", "text": "create toast"}
+      ],
+      "after": [{"selector": ".neo-toast", "text": "Changes are safe", "inRegion": true}, {"selector": ".output code", "text": "closable", "inRegion": true}],
+      "region": {"x": 305, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "popover",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "The popover open above its Click Me button, aligned bc-tc as the inspector's checked radio says.",
+      "ready": [{"selector": ".neo-button", "text": "Click Me"}],
+      "steps": [{"kind": "click", "selector": ".neo-button", "text": "Click Me"}],
+      "after": [{"selector": ".neo-popover", "text": "Anchored to the button that opened it", "inRegion": true}, {"selector": ".neo-button", "text": "Click Me", "inRegion": true}],
+      "region": {"selector": ".neo-button", "anchor": "center", "offsetY": -60, "width": 640, "height": 360}
     }
   ]
 }
