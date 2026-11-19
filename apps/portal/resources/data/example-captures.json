@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "families": ["grid-table", "gantt", "scheduler", "board", "charts", "dashboard", "apps", "dialogs", "lists"],
+  "families": ["grid-table", "gantt", "scheduler", "board", "charts", "dashboard", "apps", "dialogs", "lists", "layouts"],
   "suffix": "14",
   "tiles": [
     "examples/form/field/checkbox", {"path": "examples/form/field/chip", "width": 220},
@@ -713,6 +713,31 @@
       "steps": [{"kind": "click", "selector": ".neo-button", "text": "Sequence"}],
       "after": [{"selector": ".neo-mermaid svg", "text": "Confirmation email"}],
       "region": {"selector": ".neo-mermaid", "anchor": "center", "width": 640, "height": 360}
+    },
+    {
+      "id": "layouts-side-by-side",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "The hbox and vbox frames side by side at rest, align and pack at center: the same six items as a row and as a column.",
+      "ready": [{"selector": ".examples-layouts-frame-title", "text": "cube"}, {"selector": ".examples-layouts-cube .neo-face", "text": "6"}],
+      "steps": [],
+      "after": [{"selector": ".examples-layouts-frame-hbox", "inRegion": true}, {"selector": ".examples-layouts-frame-vbox", "inRegion": true}],
+      "region": {"selector": ".examples-layouts-frame-hbox", "anchor": "top-left", "offsetX": -8, "offsetY": -4, "width": 640, "height": 360}
+    },
+    {
+      "id": "layout-cube",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "The cube on the workbench's dark theme at its opening angle with sides of 200 px, three faces in view, and the face buttons under it.",
+      "ready": [{"selector": ".neo-face", "text": "Front"}, {"selector": ".neo-button", "text": "Bottom"}],
+      "steps": [
+        {"kind": "click", "selector": ".neo-button", "text": "Theme Dark"},
+        {"kind": "fill", "selector": ".neo-rangefield:has-text('sideX') input", "value": "200"},
+        {"kind": "fill", "selector": ".neo-rangefield:has-text('sideY') input", "value": "200"},
+        {"kind": "fill", "selector": ".neo-rangefield:has-text('sideZ') input", "value": "200"}
+      ],
+      "after": [{"selector": ".neo-layout-cube", "inRegion": true}, {"selector": ".neo-button", "text": "Front", "inRegion": true}, {"selector": ".neo-button", "text": "Bottom", "inRegion": true}],
+      "region": {"selector": ".neo-layout-cube", "anchor": "center", "offsetY": 30, "width": 640, "height": 360}
     }
   ]
 }
