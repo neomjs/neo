@@ -633,7 +633,7 @@ test.describe('Portal examples canonical catalog', () => {
         })
     }
 
-    test('loads 117 logical examples with unique stable string identities', () => {
+    test('loads 112 logical examples with unique stable string identities', () => {
         const {store} = createList(),
               ids     = [];
 
