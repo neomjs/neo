@@ -64,6 +64,13 @@ class List extends BaseList {
          */
         showGroup_: false,
         /**
+         * Renders each record as a compact tile, its crop over its name, instead of a cover card
+         * (`kind: 'component'` records on a group page).
+         * @member {Boolean} tiles_=false
+         * @reactive
+         */
+        tiles_: false,
+        /**
          * @member {String} sourceBaseUrl='https://github.com/neomjs/neo/tree/dev/'
          */
         sourceBaseUrl: 'https://github.com/neomjs/neo/tree/dev/',
@@ -137,6 +144,19 @@ class List extends BaseList {
     }
 
     /**
+     * @summary Toggles the tile grid class on the list wrapper.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetTiles(value, oldValue) {
+        let cls = this.cls;
+
+        value ? NeoArray.add(cls, 'portal-examples-tiles') : NeoArray.remove(cls, 'portal-examples-tiles');
+        this.cls = cls
+    }
+
+    /**
      * @summary Re-renders items when the group-pill visibility changes after construction.
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -185,6 +205,17 @@ class List extends BaseList {
         let me         = this,
             groupTitle = me.showGroup && me.groupTitles?.[record.family],
             imageStyle = index < 6 ? me.getBackgroundImageStyle(record) : null;
+
+        if (me.tiles) {
+            // A tile is too narrow for the card's "Open live ↗": its caption keeps the arrow alone
+            return [{cls: ['content', 'portal-example-tile'], data: {recordId: record.id}, removeDom: me.isHiddenItem(record), cn: [
+                {cls: ['preview-image'], flag: `image-${record.id}`, style: imageStyle},
+                {cls: ['portal-example-title-row'], cn: [
+                    {...me.createLink(record)},
+                    {...me.createOpenCue(record), text: '↗'}
+                ]}
+            ]}]
+        }
 
         return [
             {cls: ['content', 'neo-relative', ...(record.image && record.feature ? ['portal-example-image-card'] : [])],
