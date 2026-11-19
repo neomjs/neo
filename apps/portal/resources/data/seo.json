@@ -1113,7 +1113,7 @@
     },
     "/examples/board": {
         "title": "JavaScript Task & Kanban Board — Swimlanes & Cards | Neo.mjs",
-        "description": "Explore 1 live JavaScript task and kanban board example: One row per team over the same five columns, each with its card count.",
+        "description": "Explore 2 live JavaScript task and kanban board examples: A kanban board and a table over one store of cards.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-19"
     },
@@ -1259,7 +1259,7 @@
         "title": "Sprint board · Neo Board — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A kanban board and a table over one store of cards. Drag a card to another column, and the table below the board shows its new status.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-19"
     },
     "/examples/board/swimlanes/index.html": {
         "title": "A board by team · Neo Board — JavaScript UI Demo | Neo.mjs",
