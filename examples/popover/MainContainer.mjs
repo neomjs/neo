@@ -60,10 +60,11 @@ class MainContainer extends ConfigurationViewport {
                         ntype  : 'panel',
                         headers: [{
                             dock: 'top',
-                            html: 'HEADER'
+                            html: 'Popover'
                         }],
                         items  : [{
-                            html: 'This is a comment about the button'
+                            html : 'Anchored to the button that opened it.',
+                            style: {maxWidth: '14em', padding: '.75em 1em'}
                         }]
                     }]
                 }]
