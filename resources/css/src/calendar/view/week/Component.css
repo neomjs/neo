@@ -6,6 +6,21 @@
     position      : relative;
 
     &.neo-timeaxis-end {
+        .neo-allday-event > .neo-event-title {
+            left: .4em;
+        }
+
+        .neo-allday-row {
+            flex-direction: row-reverse;
+        }
+
+        .neo-allday-spacer {
+            border-left : 1px solid var(--c-w-border-color);
+            border-right: none;
+            left        : unset;
+            right       : 0;
+        }
+
         .neo-c-w-column{
             border-left : 1px solid var(--c-w-border-color);
             border-right: none;
@@ -190,6 +205,64 @@
             color        : var(--c-w-header-day-color);
             font-size    : .7em;
             margin-bottom: .3em;
+        }
+    }
+
+    .neo-allday-row {
+        background-color: var(--c-w-header-background-color);
+        border-bottom   : 1px solid var(--c-w-border-color);
+        display         : flex;
+        flex            : none;
+        min-width       : calc(300% - 100px);
+        position        : sticky;
+        top             : 4.7em;
+        z-index         : 160;
+    }
+
+    .neo-allday-row + .neo-c-w-column-timeaxis-container {
+        background-color: var(--c-w-background-color);
+        padding-top     : .5em;
+    }
+
+    .neo-allday-spacer {
+        background-color: var(--c-w-header-background-color);
+        border-right    : 1px solid var(--c-w-border-color);
+        box-shadow      : -1px 0 0 var(--c-w-header-background-color);
+        flex            : none;
+        left            : 0;
+        position        : sticky;
+        width           : 50px;
+        z-index         : 160;
+    }
+
+    .neo-allday-lanes {
+        flex    : 1 1 100%;
+        position: relative;
+    }
+
+    .neo-allday-event {
+        align-items  : center;
+        border-radius: 3px;
+        cursor       : pointer;
+        display      : flex;
+        font-size    : .8em;
+        line-height  : 1.2;
+        overflow     : clip;
+        padding      : 0 .4em;
+        position     : absolute;
+        transition   :
+            background-color .15s ease-out,
+            border-color     .15s ease-out,
+            color            .15s ease-out;
+
+        &.neo-focus {
+            color  : #fff;
+            outline: 0;
+        }
+
+        > .neo-event-title {
+            left    : calc(50px + .4em);
+            position: sticky;
         }
     }
 

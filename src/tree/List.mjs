@@ -191,7 +191,7 @@ class Tree extends Base {
             if (!item.isLeaf) {
                 node = me.getVdomChild(me.getItemId(item.id), me.vdom);
 
-                if (me.#setFolderOpen(node, false)) {
+                if (me.#setFolderOpen(node, false, item)) {
                     hasMatch = true
                 }
             }
@@ -222,6 +222,7 @@ class Tree extends Base {
             cls                  = [itemCls],
             contentCls           = [itemCls + '-content'],
             keyProperty          = me.getKeyProperty(),
+            zone                 = me.dragZone || me.sortZone,
             itemVdom;
 
         if (record.iconCls) {
@@ -240,6 +241,11 @@ class Tree extends Base {
             if (!record.collapsed) {
                 cls.push('neo-folder-open')
             }
+        }
+
+        // The zone marks the items that exist when it is created; an item rendered later marks itself
+        if (zone?.isDragEnabled() && zone.isItemDraggable(record)) {
+            cls.push('neo-draggable')
         }
 
         itemVdom = {
@@ -360,7 +366,7 @@ class Tree extends Base {
             if (!item.isLeaf) {
                 node = me.getVdomChild(me.getItemId(item.id), me.vdom);
 
-                if (me.#setFolderOpen(node, true)) {
+                if (me.#setFolderOpen(node, true, item)) {
                     hasMatch = true
                 }
             }
@@ -405,12 +411,12 @@ class Tree extends Base {
 
             while (parentId) {
                 node = me.getVdomChild(me.getItemId(parentId));
+                item = me.store.get(parentId);
 
-                if (node && me.#setFolderOpen(node, true)) {
+                if (node && me.#setFolderOpen(node, true, item)) {
                     hasMatch = true
                 }
 
-                item     = me.store.get(parentId);
                 parentId = item ? item.parentId : null
             }
         }
@@ -454,7 +460,7 @@ class Tree extends Base {
                     childReturnValue = true
                 } else {
                     childReturnValue = me.filter(property, value, item.id, directMatch || parentMatch);
-                    me.#setFolderOpen(node, !hasValue || directMatch || !childReturnValue)
+                    me.#setFolderOpen(node, !hasValue || directMatch || !childReturnValue, item)
                 }
 
                 itemFiltered = hasValue && !(directMatch || parentMatch || !childReturnValue);
@@ -475,12 +481,14 @@ class Tree extends Base {
     }
 
     /**
-     * Updates a folder VDOM node's open state, sticky positioning, and child list visibility.
+     * Updates a folder VDOM node's open state, sticky positioning, and child list visibility, and writes the state
+     * to the folder's record as `collapsed`, so a render from the store keeps it.
      * @param {Object} node
      * @param {Boolean} isOpen
+     * @param {Object|null} record The folder's record
      * @returns {Boolean} true if the folder open state changed
      */
-    #setFolderOpen(node, isOpen) {
+    #setFolderOpen(node, isOpen, record) {
         let me      = this,
             wasOpen = node.cls.includes('neo-folder-open'),
             index, nextSibling, parentNode;
@@ -499,6 +507,12 @@ class Tree extends Base {
 
         if (nextSibling?.tag === 'ul') {
             nextSibling.removeDom = !isOpen
+        }
+
+        if (record?.isRecord) {
+            record.setSilent({collapsed: !isOpen})
+        } else if (record) {
+            record.collapsed = !isOpen
         }
 
         return true
@@ -608,14 +622,7 @@ class Tree extends Base {
 
                 let isOpen = !item.cls.includes('neo-folder-open');
 
-                me.#setFolderOpen(item, isOpen);
-
-                if (record.isRecord) {
-                    record.setSilent({collapsed: !isOpen})
-                } else {
-                    record.collapsed = !isOpen
-                }
-
+                me.#setFolderOpen(item, isOpen, record);
                 me.update()
             } else {
                 me.onLeafItemClick(record);

@@ -302,7 +302,7 @@ test.describe('docs SEO generator example family routes (#20727)', () => {
         const published = await getPublishedExampleFamilies({examplesPath, examplesMainContainerPath, root: tempDir});
 
         // Definition order, with the alsoIn member counted in both groups; neither tree record is one production opens
-        expect(published.map(item => item.route)).toEqual(['/examples/drag-drop', '/examples/dialogs']);
+        expect(published.map(item => item.route)).toEqual(['/examples/dialogs', '/examples/drag-drop']);
         expect(published.map(item => item.records.map(record => record.id))).toEqual([['dialog-drag-drop'], ['dialog-drag-drop']])
     });
 
@@ -313,9 +313,9 @@ test.describe('docs SEO generator example family routes (#20727)', () => {
 
         expect(definitions.length).toBeGreaterThan(1);
         expect(definitions[0]).toEqual({
-            family: 'grid-table',
-            route : '/examples/grid',
-            title : 'Grid & Table'
+            family: 'apps',
+            route : '/examples/apps',
+            title : 'Apps'
         });
 
         const familyRouteIds = definitions.map(item => item.route);

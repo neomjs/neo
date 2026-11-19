@@ -174,7 +174,7 @@ class AudienceDoors extends BaseContainer {
                             }, {
                                 tag : 'p',
                                 cls : ['portal-door-copy'],
-                                text: 'Deploy the open-source Agent OS and Fleet Manager on your own repository and infrastructure — persistent session memory, Hybrid GraphRAG, cross-family peer review, and live Neural Link runtime inspection.'
+                                text: 'Deploy the open-source Agent OS and Agent Institution on your own repository and infrastructure — persistent session memory, Hybrid GraphRAG, cross-family peer review, and live Neural Link runtime inspection.'
                             }, {
                                 tag: 'div',
                                 cls: ['portal-door-command'],

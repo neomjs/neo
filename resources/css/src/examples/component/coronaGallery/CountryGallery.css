@@ -2,16 +2,17 @@
     text-align: right;
 }
 
-.neo-content-critical {
-    color: orange;
-}
-
-.neo-content-deaths {
+.neo-content-down {
     color: red;
 }
 
-.neo-content-recovered {
+.neo-content-up {
     color: green;
+}
+
+/* The page caps its controls beside the gallery; a popup that adopts the panel gives it the whole window */
+.neo-gallery-viewport > .neo-controls-panel {
+    max-width: 50%;
 }
 
 .neo-gallery-maincontainer {

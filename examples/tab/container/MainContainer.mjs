@@ -229,14 +229,17 @@ class MainContainer extends ConfigurationViewport {
             },
 
             items: [{
-                header: {iconCls: 'fa fa-home', text: 'Tab 1', flag: 'tab1',},
-                vdom  : {html: 'Tab 1 Content', tabIndex: 0}
+                header: {iconCls: 'fa fa-home', text: 'Home', flag: 'tab1'},
+                html  : '<b>Home.</b> Drag a tab along the strip: <code>dragResortable</code> moves the header and its card together.',
+                vdom  : {tabIndex: 0}
             }, {
-                header: {iconCls: 'fa fa-play-circle', text: 'Tab 2'},
-                vdom  : {html: 'Tab 2 Content', tabIndex: 0}
+                header: {iconCls: 'fa fa-play-circle', text: 'Media'},
+                html  : '<b>Media.</b> The arrows step through the tabs; in a narrow strip the overflow menu lists the tabs that do not fit.',
+                vdom  : {tabIndex: 0}
             }, {
-                header: {iconCls: 'fa fa-user', text: 'Tab 3', badgeText: 'hello'},
-                vdom  : {html: 'Tab 3 Content', tabIndex: 0}
+                header: {iconCls: 'fa fa-user', text: 'Account', badgeText: '3', flag: 'badge'},
+                html  : '<b>Account.</b> A header can carry a badge (<code>badgeText</code>) for what waits on its card.',
+                vdom  : {tabIndex: 0}
             }],
 
             listeners: {
@@ -263,8 +266,8 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
-     * A helper method to retrieve the header button for the third tab, which is used for demonstrating
-     * badge functionality.
+     * A helper method to retrieve the header button for the badge tab, identified by its `flag` like the first tab,
+     * so a renamed or moved tab is still found.
      * @returns {Neo.tab.header.Button}
      */
     getBadgeTabHeader() {
@@ -272,7 +275,7 @@ class MainContainer extends ConfigurationViewport {
             item;
 
         for (item of tabHeaders) {
-            if (item.text === 'Tab 3') {
+            if (item.flag === 'badge') {
                 return item
             }
         }

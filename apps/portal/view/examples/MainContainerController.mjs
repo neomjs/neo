@@ -96,19 +96,19 @@ class MainContainerController extends Component {
     publishGroups() {
         const view                             = this.component,
               {catalogMode, familyDefinitions} = view,
+              stage                            = view.getStage(),
               published                        = view.getCatalogStore().items.filter(record => Example.publishes(record, catalogMode)),
               groupStore                       = view.getGroupStore(),
               groups                           = [];
 
         familyDefinitions.forEach(definition => {
-            const {family, tile} = definition,
-                  home           = published.filter(record => record.family === family),
-                  cross          = published.filter(record => record.alsoIn?.includes(family));
+            const {family} = definition,
+                  home     = published.filter(record => record.family === family),
+                  cross    = published.filter(record => record.alsoIn?.includes(family)),
+                  tiles    = [...home, ...cross].filter(record => record.kind === 'component');
 
             if (home.length + cross.length > 0) {
-                const cover = [...home, ...cross].find(record => record.id === tile) || home[0] || cross[0];
-
-                groups.push({...definition, count: home.length, crossCount: cross.length, image: cover.image})
+                groups.push({...definition, count: home.length, crossCount: cross.length, tileCount: tiles.length})
             }
         });
 
@@ -117,27 +117,27 @@ class MainContainerController extends Component {
         view.getGroupPages().forEach(page => {
             const group = groupStore.get(page.family);
 
-            group ? page.group = group : view.remove(page)
+            group ? page.group = group : stage.remove(page)
         });
 
         groupStore.forEach(group => {
-            view.getGroupPage(group.family) || view.add(view.createGroupPage(group))
+            view.getGroupPage(group.family) || stage.add(view.createGroupPage(group))
         });
 
         this.showOpenGroup()
     }
 
     /**
-     * @summary Shows the page of the open group, or the overview when no group is open or it does not publish.
-     * Pages come and go with the build, so the card is found by its group each time, never kept as an index.
+     * @summary Shows the open group's page in the stage, or `"Start here"` (`Overview`), and syncs hoisted navigation.
      */
     showOpenGroup() {
-        const view = this.component,
-              page = this.openFamily && view.getGroupPage(this.openFamily);
+        const view  = this.component,
+              stage = view.getStage(),
+              page  = this.openFamily && view.getGroupPage(this.openFamily);
 
-        // A sheet left open on a page the reader navigated away from is closed when they return
-        view.getGroupPages().forEach(item => {item.sheetOpen = false});
-        view.layout.activeIndex = page ? view.indexOf(page) : 0
+        view.sheetOpen = false;
+        view.syncNavigation(page?.group || null);
+        stage.layout.activeIndex = page ? stage.indexOf(page) : 0
     }
 }
 

@@ -266,6 +266,29 @@ test.describe('Neo.canvas.GraphScene — the renderer without a GL context', () 
         await expect.poll(() => renderer.getStats().owed, {message: 'the frame that runs settles it'}).toBe(false)
     });
 
+    test('whenDrawn answers true once the owed frame drew, never before; at once when nothing is owed; false when the graph is cleared first', async () => {
+        const answers = [];
+
+        renderer.whenDrawn().then(value => answers.push(value));
+        renderer.clearGraph();
+        await expect.poll(() => answers, {message: 'a cleared graph answers its waiter'}).toEqual([false]);
+
+        const context = createContext();
+
+        context.clear = context.clearColor = () => {};
+        renderer.context  = context;
+        renderer.isPaused = false;
+        renderer.requestFrame();
+        renderer.whenDrawn().then(value => answers.push(value));
+
+        expect(renderer.getStats().owed, 'the request owes a frame').toBe(true);
+        expect(answers, 'no answer while the frame is owed').toEqual([false]);
+
+        await expect.poll(() => answers, {message: 'the drawn frame answers'}).toEqual([false, true]);
+        expect(renderer.getStats().frames).toBe(1);
+        expect(await renderer.whenDrawn(), 'nothing owed after a drawn frame').toBe(true)
+    });
+
     test('the drawing buffer is the size times the message\'s pixel ratio, and 1:1 without one', () => {
         renderer.context = createContext();
 

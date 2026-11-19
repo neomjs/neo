@@ -153,6 +153,7 @@ class MainContainer extends Viewport {
                         dataField     : 'amount',
                         exportRenderer: ({value}) => value.toFixed(2),
                         flex          : 1,
+                        headerAlign   : 'right',
                         minWidth      : 120,
                         renderer      : ({value}) => currency(value),
                         text          : 'Amount'

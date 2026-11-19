@@ -1,22 +1,32 @@
 {
   "version": 1,
-  "families": ["grid-table", "gantt", "scheduler", "charts", "dashboard"],
+  "families": ["grid-table", "gantt", "scheduler", "board", "charts", "dashboard", "apps", "dialogs", "lists", "layouts", "tabs"],
   "suffix": "14",
   "tiles": [
-    "examples/form/field/checkbox", "examples/form/field/chip", "examples/form/field/color", "examples/form/field/combobox",
-    "examples/form/field/country", "examples/form/field/currency", "examples/form/field/date", "examples/form/field/display",
-    "examples/form/field/email", "examples/form/field/fileupload", "examples/form/field/iban", "examples/form/field/number",
-    "examples/form/field/password", "examples/form/field/phone", "examples/form/field/radio", "examples/form/field/range",
-    "examples/form/field/search", "examples/form/field/select", "examples/form/field/switch", "examples/form/field/text",
-    "examples/form/field/textarea", "examples/form/field/time", "examples/form/field/trigger/copyToClipboard", "examples/form/field/url",
+    "examples/form/field/checkbox", {"path": "examples/form/field/chip", "width": 220},
+    {"path": "examples/form/field/color", "width": 220}, {"path": "examples/form/field/combobox", "width": 220},
+    {"path": "examples/form/field/country", "width": 220}, {"path": "examples/form/field/currency", "width": 220},
+    {"path": "examples/form/field/date", "width": 220}, {"path": "examples/form/field/display", "width": 220},
+    {"path": "examples/form/field/email", "width": 220}, {"path": "examples/form/field/fileupload", "width": 220},
+    {"path": "examples/form/field/iban", "width": 224}, "examples/form/field/number",
+    {"path": "examples/form/field/password", "width": 220}, {"path": "examples/form/field/phone", "width": 220},
+    "examples/form/field/radio", {"path": "examples/form/field/range", "width": 220},
+    {"path": "examples/form/field/search", "width": 220}, {"path": "examples/form/field/select", "width": 220},
+    "examples/form/field/switch", {"path": "examples/form/field/text", "width": 220},
+    {"path": "examples/form/field/textarea", "width": 220, "height": 120}, {"path": "examples/form/field/time", "width": 220},
+    {"path": "examples/form/field/trigger/copyToClipboard", "width": 224}, {"path": "examples/form/field/url", "width": 220},
     "examples/form/field/zipcode",
-    "examples/form/fieldset", "examples/component/dateSelector", "examples/layout/form",
+    {"path": "examples/form/fieldset", "width": 220}, {"path": "examples/component/dateSelector", "width": 200, "height": 200},
+    {"path": "examples/layout/form", "width": 240, "height": 150},
     "examples/button/base", "examples/menu/list",
     "examples/list/base", "examples/list/chip", "examples/list/color",
     "examples/component/chip", "examples/component/circle", "examples/component/clock", "examples/component/magicmovetext",
-    "examples/component/progress", "examples/component/statusbadge", "examples/component/timer", "examples/component/wrapper/monacoEditor",
-    "examples/functional/defineComponent", "examples/functional/hostComponent", "examples/functional/nestedTemplateComponent",
-    "examples/sitemap"
+    {"path": "examples/component/progress", "width": 220}, "examples/component/statusbadge", "examples/component/timer",
+    {"path": "examples/component/wrapper/monacoEditor", "width": 224, "height": 150},
+    "examples/functional/defineComponent", "examples/functional/hostComponent",
+    {"path": "examples/functional/nestedTemplateComponent", "width": 240, "height": 150},
+    {"path": "examples/sitemap", "width": 224, "height": 160},
+    {"path": "examples/tab/container", "width": 264, "height": 176}
   ],
   "recipes": [
     {
@@ -196,6 +206,28 @@
       "region": {"x":0,"y":0,"width":640,"height":360}
     },
     {
+      "id": "grid-streaming",
+      "viewport": {"width": 640, "height": 360},
+      "theme": "dark",
+      "state": "50,000 settlement records streaming mid-flight with live footer progress.",
+      "ready": [
+        {"selector": ".neo-grid-cell[data-field='settlementId']", "text": "STL-100001"},
+        {"selector": ".streaming-toolbar .neo-button", "text": "Dark theme"},
+        {"selector": ".streaming-reload-button", "text": "Load again"}
+      ],
+      "steps": [
+        {"kind": "click", "selector": ".streaming-toolbar .neo-button", "text": "Dark theme"},
+        {"kind": "click", "selector": ".streaming-reload-button"},
+        {"kind": "wait", "selector": ".streaming-status-label", "text": "Streaming 1"}
+      ],
+      "after": [
+        {"selector": ".streaming-toolbar .neo-button", "text": "Light theme", "inRegion": true},
+        {"selector": ".streaming-status-label", "text": "Streaming ", "inRegion": true},
+        {"selector": ".neo-grid-cell[data-field='settlementId']", "text": "STL-100001", "inRegion": true}
+      ],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
       "id": "grid-tree",
       "viewport": {"width": 1280, "height": 720},
       "theme": "default",
@@ -203,6 +235,23 @@
       "ready": [{"selector": ".neo-grid-cell[data-field='name']", "text": "component"}],
       "steps": [{"kind": "click", "selector": ".neo-grid-row:has(.neo-grid-cell[data-field='name']:has-text('component')) .neo-tree-toggle"}],
       "after": [{"selector": ".neo-grid-cell[data-field='name']", "text": "Base.mjs"}, {"selector": ".neo-grid-cell[data-field='name']", "text": "Button.mjs"}],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "grid-server-side",
+      "viewport": {"width": 640, "height": 600},
+      "theme": "dark",
+      "state": "Dark-theme first page of seeded orders, country filter off; the request line identifies the simulated server's completed read.",
+      "ready": [{"selector": ".server-side-request", "text": "50 of 100,000 rows"}],
+      "steps": [
+        {"kind": "click", "selector": ".server-side-heading .neo-button", "text": "Dark theme"},
+        {"kind": "wait", "selector": ".server-side-heading .neo-button", "text": "Light theme"},
+        {"kind": "wait", "selector": ".neo-grid-cell[data-field='customer']:text-is('Granite Co')"}
+      ],
+      "after": [
+        {"selector": ".neo-grid-cell[data-field='customer']", "text": "Granite Co", "inRegion": true},
+        {"selector": ".server-side-scope", "text": "Simulated server", "inRegion": true}
+      ],
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },
     {
@@ -362,6 +411,99 @@
       "region": {"selector": ".neo-scheduler", "anchor": "top-left", "width": 640, "height": 360}
     },
     {
+      "id": "webdesktop",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "Signed in as Alex Morgan, with Mail open on its inbox and a message in the reading pane beside the permission-filtered launcher and the taskbar.",
+      "ready": [
+        {"selector": ".webdesktop-sign-in-card"},
+        {"selector": ".webdesktop-account-name", "text": "Alex Morgan"}
+      ],
+      "steps": [
+        {"kind": "click", "selector": ".webdesktop-account-name", "text": "Alex Morgan"},
+        {"kind": "dblclick", "selector": ".neo-desktop-launcher .neo-list-item", "text": "Mail"}
+      ],
+      "after": [
+        {"selector": ".neo-desktop-workspace"},
+        {"selector": ".webdesktop-mail-inbox"}
+      ],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "covid-dashboard",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "Country statistics table with USA selected alongside the global summary header.",
+      "dependencies": ["https://raw.githubusercontent.com/neomjs/pages/main/"],
+      "ready": [
+        {"selector": ".covid-header-container"},
+        {"selector": ".neo-country-column", "text": "USA"}
+      ],
+      "steps": [
+        {"kind": "click", "selector": ".neo-country-column", "text": "USA"}
+      ],
+      "after": [
+        {"selector": ".covid-numberbox", "text": "Cases", "inRegion": true},
+        {"selector": ".neo-country-column", "text": "USA"}
+      ],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "portal",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "Portal Learn section opened from the top header toolbar.",
+      "ready": [
+        {"selector": ".portal-header-toolbar"},
+        {"selector": ".portal-home-hero-content .neo-h1", "text": "Neo.mjs"}
+      ],
+      "steps": [
+        {"kind": "click", "selector": ".portal-header-toolbar .neo-button", "text": "Learn"}
+      ],
+      "after": [
+        {"selector": ".portal-header-toolbar .neo-button", "text": "Learn", "inRegion": true},
+        {"selector": "h1"}
+      ],
+      "region": {"x": 320, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "finance",
+      "viewport": {"width": 1020, "height": 560},
+      "theme": "default",
+      "state": "Nasdaq-100 market desk filtered by Tech and paused at 41 of 101 equities with green and red percent deltas.",
+      "ready": [
+        {"selector": ".finance-viewport"},
+        {"selector": ".neo-grid-cell[data-field='symbol']", "text": "ADBE"}
+      ],
+      "steps": [
+        {"kind": "fill", "selector": ".finance-search input", "value": "Tech"},
+        {"kind": "click", "selector": ".finance-toolbar .neo-button", "text": "Stop"}
+      ],
+      "after": [
+        {"selector": ".finance-status", "text": "41 of 101 equities · Paused", "inRegion": true},
+        {"selector": ".neo-grid-cell[data-field='changePercent']", "inRegion": true}
+      ],
+      "region": {"x": 380, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "email",
+      "viewport": {"width": 960, "height": 560},
+      "theme": "default",
+      "state": "Inbox list and functional reader side by side after selecting Project conversation 2.",
+      "ready": [
+        {"selector": ".email-workspace"},
+        {"selector": ".email-detail-view h1", "text": "Project conversation 1"}
+      ],
+      "steps": [
+        {"kind": "click", "selector": ".email-inbox .neo-grid-row", "nth": 1}
+      ],
+      "after": [
+        {"selector": ".email-inbox .neo-grid-cell[data-field='sender']", "text": "Sam Rivera"},
+        {"selector": ".email-detail-view h1", "text": "Project conversation 2", "inRegion": true}
+      ],
+      "region": {"x": 320, "y": 0, "width": 640, "height": 360}
+    },
+    {
       "id": "scheduler-big-data",
       "viewport": {"width": 1280, "height": 720},
       "theme": "dark",
@@ -370,6 +512,36 @@
       "steps": [],
       "after": [{"selector": ".year-plan-counts", "text": "300 people · 15,600 bookings"}, {"selector": ".neo-timeline-bar", "inRegion": true}],
       "region": {"selector": ".neo-scheduler", "anchor": "top-left", "width": 640, "height": 360}
+    },
+    {
+      "id": "board-basic",
+      "viewport": {"width": 640, "height": 800},
+      "theme": "dark",
+      "state": "The sprint board's title over In progress, open above its WIP limit at 6/5, beside Review under its limit at 2/3, with their first cards; Done runs on past the right edge. Five 264 px columns are wider than any cover, so the board scrolls to the two limit states it opens with; a 640 x 360 viewport would leave the board 36 px beside the table, so the viewport is taller and the region keeps its top.",
+      "ready": [{"selector": ".neo-board-column-header", "text": "In progress"}, {"selector": ".neo-board-card-title", "text": "Design the search box"}],
+      "steps": [{"kind": "scroll", "selector": ".neo-board", "x": 552}],
+      "after": [{"selector": ".neo-theme-neo-dark .neo-board"}, {"selector": ".board-example-title", "text": "Sprint board", "inRegion": true}, {"selector": ".neo-board-column-wip-exceeded .neo-board-column-header", "text": "6/5", "inRegion": true}, {"selector": ".neo-board-column-header", "text": "2/3", "inRegion": true}, {"selector": ".neo-board-card-title", "text": "Design the search box", "inRegion": true}, {"selector": ".neo-board-card-title", "text": "Measure the export dialog", "inRegion": true}],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "board-swimlanes",
+      "viewport": {"width": 640, "height": 800},
+      "theme": "dark",
+      "state": "The example as it opens, framed from the folded Web row: Web down to its header and count above the open Mobile row, whose header keeps its count in view and whose first columns show their cards. An open row is about 350 px tall, so a 640 x 360 viewport shows one row and no fold; the region keeps the viewport's full width.",
+      "ready": [{"selector": ".neo-board-lane-title", "text": "Unassigned"}, {"selector": ".neo-board-lane-collapsed .neo-board-lane-title", "text": "Web"}],
+      "steps": [],
+      "after": [{"selector": ".neo-theme-neo-dark .neo-board"}, {"selector": ".neo-board-lane-collapsed", "count": 1}, {"selector": ".neo-board-lane-collapsed .neo-board-lane-count", "text": "10", "inRegion": true}, {"selector": "[id$='__lane__Mobile'] .neo-board-lane-count", "text": "9", "inRegion": true}, {"selector": ".neo-board-card-title", "text": "A widget for today's tasks", "inRegion": true}, {"selector": ".neo-board-card-title", "text": "Deep links into a project", "inRegion": true}],
+      "region": {"selector": "[id$='__lane__Web']", "anchor": "top-left", "offsetX": -12, "offsetY": -6, "width": 640, "height": 360}
+    },
+    {
+      "id": "gantt-big-data",
+      "viewport": {"width": 640, "height": 360},
+      "theme": "dark",
+      "state": "The programme as it opens: its title and counts, 2,000 tasks and 1,972 links, over the first phase, where Zone 1's first tasks step down in bars joined by their links.",
+      "ready": [{"selector": ".programme-counts", "text": "2,000 tasks · 1,972 links"}, {"selector": ".neo-gantt-dependency-arrow"}],
+      "steps": [],
+      "after": [{"selector": ".neo-theme-neo-dark .neo-gantt"}, {"selector": ".programme-counts", "text": "2,000 tasks · 1,972 links", "inRegion": true}, {"selector": ".neo-grid-tree-cell", "text": "Zone 1", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Survey · bay 1", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Clear · bay 1", "inRegion": true}],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },
     {
       "id": "dock-layouts",
@@ -402,6 +574,16 @@
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },
     {
+      "id": "dock-tear-out",
+      "viewport": {"width": 640, "height": 360},
+      "theme": "default",
+      "state": "The support desk with a draft typed in Notes, under the line that says what popping the pane out proves.",
+      "ready": [{"selector": ".neo-example-tearout-queue .neo-list-item", "text": "#4512"}, {"selector": ".neo-tab-header-button", "text": "Notes"}],
+      "steps": [{"kind": "fill", "selector": ".neo-textfield input", "value": "Call #4512 back by noon"}],
+      "after": [{"selector": ".neo-example-tearout-claim", "text": "A pane keeps its live state in its own window", "inRegion": true}, {"selector": ".neo-tab-header-button", "text": "Queue", "inRegion": true}, {"selector": ".neo-tab-header-button", "text": "Notes", "inRegion": true}],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
       "id": "open-street-maps",
       "viewport": {"width": 1280, "height": 720},
       "theme": "dark",
@@ -411,6 +593,162 @@
       "steps": [],
       "after": [{"selector": ".ol-attribution", "text": "OpenStreetMap"}, {"selector": "input", "value": "6"}],
       "region": {"x": 320, "y": 110, "width": 640, "height": 360}
+    },
+    {
+      "id": "dialog-drag-drop",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "Dialog 1 on the example's dark theme, opened from Create Dialog over its modal mask, with its select field and the button that opens Dialog 2.",
+      "ready": [{"selector": ".neo-button", "text": "Create Dialog"}, {"selector": ".neo-button", "text": "Theme Dark"}],
+      "steps": [
+        {"kind": "click", "selector": ".neo-button", "text": "Theme Dark"},
+        {"kind": "wait", "selector": ".neo-button", "text": "Theme Light"},
+        {"kind": "click", "selector": ".neo-button", "text": "Create Dialog"}
+      ],
+      "after": [{"selector": ".neo-dialog .neo-header-toolbar", "text": "Dialog 1", "inRegion": true}, {"selector": ".neo-dialog .neo-button", "text": "Create Dialog 2", "inRegion": true}],
+      "region": {"selector": ".neo-dialog", "anchor": "center", "width": 640, "height": 360}
+    },
+    {
+      "id": "toast",
+      "viewport": {"width": 960, "height": 540},
+      "theme": "default",
+      "state": "A closable toast with its icon at the top right, created from the form, beside the call the form printed for it.",
+      "ready": [{"selector": ".neo-button", "text": "create toast"}],
+      "steps": [
+        {"kind": "fill", "selector": "input[name='msg']", "value": "Changes are safe"},
+        {"kind": "fill", "selector": "input[name='title']", "value": "Saved"},
+        {"kind": "fill", "selector": "input[name='iconCls']", "value": "fa fa-circle-check"},
+        {"kind": "click", "selector": "[data-ref='closable'] .neo-checkbox-icon"},
+        {"kind": "fill", "selector": "input[name='removeDelay']", "value": "60000"},
+        {"kind": "click", "selector": ".neo-button", "text": "create toast"}
+      ],
+      "after": [{"selector": ".neo-toast", "text": "Changes are safe", "inRegion": true}, {"selector": ".output code", "text": "closable", "inRegion": true}],
+      "region": {"x": 305, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "popover",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "The popover open above its Click Me button, aligned bc-tc as the inspector's checked radio says.",
+      "ready": [{"selector": ".neo-button", "text": "Click Me"}],
+      "steps": [{"kind": "click", "selector": ".neo-button", "text": "Click Me"}],
+      "after": [{"selector": ".neo-popover", "text": "Anchored to the button that opened it", "inRegion": true}, {"selector": ".neo-button", "text": "Click Me", "inRegion": true}],
+      "region": {"selector": ".neo-button", "anchor": "center", "offsetY": -60, "width": 640, "height": 360}
+    },
+    {
+      "id": "gallery",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "The wall of portraits, the middle portrait selected and brought forward.",
+      "ready": [{"selector": ".neo-gallery-item.neo-selected"}],
+      "steps": [],
+      "after": [{"selector": ".neo-gallery-item.neo-selected", "inRegion": true}],
+      "region": {"x": 190, "y": 180, "width": 640, "height": 360}
+    },
+    {
+      "id": "helix",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "The middle turns of the helix of portraits as it opens.",
+      "ready": [{"selector": ".neo-helix-item"}],
+      "steps": [],
+      "after": [{"selector": ".neo-helix-item"}],
+      "region": {"x": 200, "y": 180, "width": 640, "height": 360}
+    },
+    {
+      "id": "covid-gallery",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "The economies largest population first, India's card with its flag and six figures in front.",
+      "dependencies": ["https://hatscripts.github.io/circle-flags/"],
+      "ready": [{"selector": ".neo-country-gallery-item", "text": "India"}],
+      "steps": [],
+      "after": [{"selector": ".neo-country-gallery-item", "text": "India", "inRegion": true}],
+      "region": {"x": 380, "y": 340, "width": 640, "height": 360}
+    },
+    {
+      "id": "covid-helix",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "The economies coiling around the helix, Malaysia's turn curving away to the left.",
+      "dependencies": ["https://hatscripts.github.io/circle-flags/"],
+      "ready": [{"selector": ".neo-country-helix-item", "text": "India"}],
+      "steps": [],
+      "after": [{"selector": ".neo-country-helix-item", "text": "Malaysia", "inRegion": true}],
+      "region": {"x": 0, "y": 100, "width": 640, "height": 360}
+    },
+    {
+      "id": "graph-scene",
+      "viewport": {"width": 800, "height": 470},
+      "theme": "default",
+      "state": "The middle of the default 240-node scene with its labels, fitted and drawn, before any orbit.",
+      "ready": [{"selector": "canvas[data-drawn='true']"}],
+      "steps": [],
+      "after": [{"selector": ".graph-scene-stats", "text": "drag orbits"}, {"selector": "canvas[data-drawn='true']"}],
+      "region": {"selector": "canvas", "anchor": "center", "width": 640, "height": 360}
+    },
+    {
+      "id": "sparklines",
+      "viewport": {"width": 960, "height": 540},
+      "theme": "default",
+      "state": "The six metric cards at their opening readings, the feed stopped, the pulse and the smooth updates off.",
+      "ready": [{"selector": ".neo-sparkline-wrapper[data-drawn='true']", "count": 6}],
+      "steps": [
+        {"kind": "click", "selector": ".neo-switchfield", "text": "Live feed"},
+        {"kind": "click", "selector": ".neo-switchfield", "text": "Pulse"},
+        {"kind": "click", "selector": ".neo-switchfield", "text": "Smooth updates"},
+        {"kind": "click", "selector": ".neo-button", "text": "Restart"}
+      ],
+      "after": [
+        {"selector": ".neo-examples-sparkline-value", "text": "1,354 req/s"},
+        {"selector": ".neo-sparkline-wrapper[data-drawn='true']", "count": 6}
+      ],
+      "region": {"selector": ".neo-examples-sparkline-cards", "anchor": "top-left", "width": 640, "height": 360}
+    },
+    {
+      "id": "mermaid",
+      "viewport": {"width": 1120, "height": 443},
+      "theme": "default",
+      "state": "The sequence preset as Mermaid draws it from its source, fitted to the diagram's box.",
+      "ready": [{"selector": ".neo-mermaid[data-processed] svg"}],
+      "steps": [{"kind": "click", "selector": ".neo-button", "text": "Sequence"}],
+      "after": [{"selector": ".neo-mermaid svg", "text": "Confirmation email"}],
+      "region": {"selector": ".neo-mermaid", "anchor": "center", "width": 640, "height": 360}
+    },
+    {
+      "id": "layouts-side-by-side",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "The hbox and vbox frames side by side at rest, align and pack at center: the same six items as a row and as a column.",
+      "ready": [{"selector": ".examples-layouts-frame-title", "text": "cube"}, {"selector": ".examples-layouts-cube .neo-face", "text": "6"}],
+      "steps": [],
+      "after": [{"selector": ".examples-layouts-frame-hbox", "inRegion": true}, {"selector": ".examples-layouts-frame-vbox", "inRegion": true}],
+      "region": {"selector": ".examples-layouts-frame-hbox", "anchor": "top-left", "offsetX": -8, "offsetY": -4, "width": 640, "height": 360}
+    },
+    {
+      "id": "layout-cube",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "The cube on the workbench's dark theme at its opening angle with sides of 200 px, three faces in view, and the face buttons under it.",
+      "ready": [{"selector": ".neo-face", "text": "Front"}, {"selector": ".neo-button", "text": "Bottom"}],
+      "steps": [
+        {"kind": "click", "selector": ".neo-button", "text": "Theme Dark"},
+        {"kind": "fill", "selector": ".neo-rangefield:has-text('sideX') input", "value": "200"},
+        {"kind": "fill", "selector": ".neo-rangefield:has-text('sideY') input", "value": "200"},
+        {"kind": "fill", "selector": ".neo-rangefield:has-text('sideZ') input", "value": "200"}
+      ],
+      "after": [{"selector": ".neo-layout-cube", "inRegion": true}, {"selector": ".neo-button", "text": "Front", "inRegion": true}, {"selector": ".neo-button", "text": "Bottom", "inRegion": true}],
+      "region": {"selector": ".neo-layout-cube", "anchor": "center", "offsetY": 30, "width": 640, "height": 360}
+    },
+    {
+      "id": "tab-browser",
+      "viewport": {"width": 640, "height": 360},
+      "theme": "dark",
+      "state": "The opening strip: the tabs that fit, the overflow control and the + action, over the Inbox page.",
+      "ready": [{"selector": ".neo-tab-header-button", "text": "Inbox"}, {"selector": ".neo-tab-overflow-control"}],
+      "steps": [],
+      "after": [{"selector": ".neo-tab-header-button", "text": "Inbox", "inRegion": true}, {"selector": ".neo-example-browser-claim", "inRegion": true}, {"selector": ".neo-tab-overflow-control", "inRegion": true}],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     }
   ]
 }

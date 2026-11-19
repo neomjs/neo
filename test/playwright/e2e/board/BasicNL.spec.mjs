@@ -80,6 +80,22 @@ test.describe('Board, basic example: one store, two views', () => {
         await expect(badge('review')).toHaveText('2/3')
     });
 
+    test('opens in the dark theme on a system that prefers dark, unless ?theme= names another', async ({page}) => {
+        const url   = '/examples/board/basic/index.html',
+              theme = () => page.locator('.board-example').evaluate(node => [...node.classList].find(cls => cls.startsWith('neo-theme-')));
+
+        await page.emulateMedia({colorScheme: 'light'});
+        await page.goto(url);
+        await expect.poll(theme, 'a light system gets the first configured theme').toBe('neo-theme-neo-light');
+
+        await page.emulateMedia({colorScheme: 'dark'});
+        await page.goto(url);
+        await expect.poll(theme, 'a dark system gets the dark theme').toBe('neo-theme-neo-dark');
+
+        await page.goto(`${url}?theme=neo-theme-light`);
+        await expect.poll(theme, '?theme= wins over the system').toBe('neo-theme-light')
+    });
+
     for (const theme of ['neo-theme-neo-light', 'neo-theme-neo-dark']) {
         test(`a card dragged to another column moves its record, and the table on the same store shows the new status (${theme})`, async ({page, neuralLink}, testInfo) => {
             const {app, boardId, gridId, storeId, domOrder, records} = await open(page, neuralLink, theme),
@@ -150,6 +166,53 @@ test.describe('Board, basic example: one store, two views', () => {
         expect(table.y, 'the table starts below the board').toBeGreaterThanOrEqual(first.y + first.height - 1);
 
         await testInfo.attach('board-basic-390', {body: await page.screenshot(), contentType: 'image/png'})
+    });
+
+    test('with swimlanes, every lane header reads toggle, title and count from its start and keeps them in view, also on a board narrower than its columns', async ({page, neuralLink}) => {
+        const {app, boardId, storeId} = await open(page, neuralLink),
+              lanes                   = ['Alpha', 'Beta', 'Gamma'],
+              board                   = page.locator(`[id="${boardId}"]`),
+              // Per lane, against the board's padding box (a scrollbar excluded): where the toggle starts, whether
+              // toggle, title and count follow in that order, and whether all three lie inside the box
+              headers = () => board.evaluate(node => {
+                  const left  = node.getBoundingClientRect().left + node.clientLeft,
+                        right = left + node.clientWidth,
+                        box   = (lane, part) => lane.querySelector(`.neo-board-lane-${part}`).getBoundingClientRect();
+
+                  return [...node.querySelectorAll('.neo-board-lane')].map(lane => {
+                      const [toggle, title, count] = ['collapse', 'title', 'count'].map(part => box(lane, part));
+
+                      return {
+                          start : Math.round(toggle.left - left),
+                          order : toggle.right <= title.left && title.right <= count.left,
+                          inView: [toggle, title, count].every(rect => rect.left >= left - 1 && rect.right <= right + 1)
+                      }
+                  })
+              }),
+              // Board padding 12, lane border 1, header padding 12
+              expected = lanes.map(() => ({start: 25, order: true, inView: true}));
+
+        await app.callMethod(storeId, 'setData', [STATUSES.flatMap(status => lanes.map((lane, i) => ({
+            id: `${status}-${lane}`, status, lane, order: i * 1000, title: `${lane} ${status}`, description: 'Short task', tags: [], assignees: []
+        })))]);
+        // Alpha stays whole and sets the scroll range; Beta stays open but narrows to one column; Gamma folds
+        await app.setProperties(boardId, {laneField: 'lane', lanes: lanes.map(value => ({value, collapsed: value === 'Gamma'}))});
+        await expect(page.locator(`[id="${boardId}__col__done__Beta"]`)).toHaveCount(1);
+
+        for (const status of STATUSES.slice(1)) {
+            await app.setProperties(`${boardId}__col__${status}__Beta`, {collapsed: true})
+        }
+
+        await expect.poll(headers, '1920 wide, the columns fit').toEqual(expected);
+
+        for (const [width, height] of [[1280, 720], [390, 844]]) {
+            await page.setViewportSize({height, width});
+            await expect.poll(() => board.evaluate(node => node.scrollWidth > node.clientWidth), `${width} wide: the columns overflow the board`).toBe(true);
+            await expect.poll(headers, `${width} wide, at rest`).toEqual(expected);
+
+            await board.evaluate(node => {node.scrollLeft = node.scrollWidth});
+            await expect.poll(headers, `${width} wide, scrolled to the end`).toEqual(expected)
+        }
     });
 
     test('record.set({status, order}) moves the same card instance to the head of another column', async ({page, neuralLink}) => {

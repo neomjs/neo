@@ -1,0 +1,50 @@
+/* Neo.plugin.Popover names the anchor and the align class picks the side. Every theme defines the page background */
+.neo-popover[popover] {
+    background-color: var(--neo-background-color);
+    border          : none;
+    border-radius   : 4px;
+    box-shadow      : 0 4px 16px rgb(0 0 0 / 30%);
+    color           : inherit;
+    inset           : auto;
+    margin          : 0;
+    overflow        : visible;
+    padding         : 0;
+    /* its own width: squeezed into a narrow side it would wrap instead of trying the other side */
+    width           : max-content;
+
+    &.bc-tc {
+        margin-block-end      : .5rem;
+        position-area         : top;
+        position-try-fallbacks: flip-block;
+    }
+
+    &.tc-bc {
+        margin-block-start    : .5rem;
+        position-area         : bottom;
+        position-try-fallbacks: flip-block;
+    }
+
+    &.tl-tr {
+        margin-inline-start   : .5rem;
+        position-area         : right span-bottom;
+        position-try-fallbacks: flip-inline;
+    }
+
+    &.tr-tl {
+        margin-inline-end     : .5rem;
+        position-area         : left span-bottom;
+        position-try-fallbacks: flip-inline;
+    }
+
+    &.cl-cr {
+        margin-inline-start   : .5rem;
+        position-area         : right;
+        position-try-fallbacks: flip-inline;
+    }
+
+    &.cr-cl {
+        margin-inline-end     : .5rem;
+        position-area         : left;
+        position-try-fallbacks: flip-inline;
+    }
+}

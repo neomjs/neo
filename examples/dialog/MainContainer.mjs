@@ -36,19 +36,19 @@ class MainContainer extends Viewport {
             ].join('')
         }, {
             module: Toolbar,
+            // The row wraps, so every option stays on a phone's screen
+            layout: {ntype: 'hbox', align: 'center', gap: '.5em 2em', wrap: 'wrap'},
             items : [{
-                module   : Button,
-                handler  : 'up.createDialog',
-                iconCls  : 'fa fa-window-maximize',
-                reference: 'create-dialog-button',
-                text     : 'Create Dialog',
+                module : Button,
+                handler: 'up.createDialog',
+                iconCls: 'fa fa-window-maximize',
+                text   : 'Create Dialog',
             }, {
                 module        : CheckBox,
                 checked       : true,
                 hideLabel     : true,
                 hideValueLabel: false,
                 listeners     : {change: 'up.onBoundaryContainerIdChange'},
-                style         : {marginLeft: '3em'},
                 valueLabel    : 'Limit Drag&Drop to the document.body'
             }, {
                 module        : CheckBox,
@@ -56,7 +56,6 @@ class MainContainer extends Viewport {
                 hideLabel     : true,
                 hideValueLabel: false,
                 listeners     : {change: 'up.onConfigChange'},
-                style         : {marginLeft: '3em'},
                 targetConfig  : 'animated',
                 valueLabel    : 'Animated'
             }, {
@@ -65,7 +64,6 @@ class MainContainer extends Viewport {
                 hideLabel     : true,
                 hideValueLabel: false,
                 listeners     : {change: 'up.onConfigChange'},
-                style         : {marginLeft: '1em'},
                 targetConfig  : 'modal',
                 valueLabel    : 'Modal'
             }, '->', {
@@ -89,6 +87,7 @@ class MainContainer extends Viewport {
     dialog = null
 
     /**
+     * Creates the one dialog. The button stays enabled while it is open: a disabled button cannot take focus back.
      * @param {Object} data
      */
     createDialog(data) {
@@ -96,7 +95,9 @@ class MainContainer extends Viewport {
             button                                   = data.component,
             {appName, boundaryContainerId, windowId} = me;
 
-        button.disabled = true;
+        if (me.dialog) {
+            return
+        }
 
         me.dialog = Neo.create(DemoDialog, {
             animated               : me.down({valueLabel: 'Animated'}).checked,
@@ -139,8 +140,7 @@ class MainContainer extends Viewport {
      *
      */
     onWindowClose() {
-        this.dialog = null;
-        this.getReference('create-dialog-button').disabled = false
+        this.dialog = null
     }
 
     /**

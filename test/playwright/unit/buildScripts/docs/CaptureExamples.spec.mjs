@@ -38,6 +38,20 @@ test('a covered record without a recipe fails inside the migrated family, while 
     expect(() => validateCaptureRecipes(manifest(), records)).toThrow(/image|recipe/i)
 });
 
+test('external-origin covered records do not block a family while same-origin covered records still require recipes', () => {
+    const records = [...catalog(), {id: 'external-app', family: 'grid-table', image: 'external.png', urls: {devmode: 'https://neomjs.com/devindex/'}}];
+    expect(() => validateCaptureRecipes(manifest(), records)).not.toThrow();
+    records.push({id: 'local-app', family: 'grid-table', image: 'local.png', urls: {devmode: 'apps/local/index.html'}});
+    expect(() => validateCaptureRecipes(manifest(), records)).toThrow(/local-app.*image|recipe/i)
+});
+
+test('a tile in a covered family needs no recipe, a card beside it still does', () => {
+    const records = [...catalog(), {id: 'grid-tile', kind: 'component', family: 'grid-table', image: 'devmode/tiles/grid-tile-14.jpg', urls: {devmode: 'examples/grid/tile/index.html'}}];
+    expect(() => validateCaptureRecipes(manifest(), records)).not.toThrow();
+    records.push({id: 'grid-card', family: 'grid-table', image: 'grid-card.jpg', urls: {devmode: 'examples/grid/card/index.html'}});
+    expect(() => validateCaptureRecipes(manifest(), records)).toThrow(/grid-card.*image|recipe/i)
+});
+
 test('a further family joins the coverage guard explicitly', () => {
     const raw = manifest(); raw.families.push('forms');
     expect(() => validateCaptureRecipes(raw, catalog())).toThrow(/form-one.*image|recipe/i);
@@ -117,7 +131,7 @@ test('the committed Grid/Table manifest covers every current family record with 
         records = JSON.parse(fs.readFileSync(new URL('examples.json', data))),
         raw     = JSON.parse(fs.readFileSync(new URL('example-captures.json', data))),
         valid   = validateCaptureRecipes(raw, records), rows = selectCaptureRecipes(valid, {family: 'grid-table'});
-    expect(rows.map(row => row.id).sort()).toEqual(records.filter(row => row.family === 'grid-table').map(row => row.id).sort());
+    expect(rows.map(row => row.id).sort()).toEqual(records.filter(row => row.family === 'grid-table' && row.image).map(row => row.id).sort());
     expect(rows.every(row => row.steps.length > 0 && row.after.length > 0)).toBe(true)
 });
 
@@ -138,8 +152,23 @@ test('a tile is named by its examples/ path, which gives its id and devmode URL'
     expect(validateCaptureRecipes(manifest(), catalog()).tiles).toEqual([])
 });
 
-test('a tile path outside examples/, a duplicate tile or an unknown selection is refused', () => {
-    for (const tiles of [['apps/form'], ['examples/'], ['examples/../apps'], ['examples/sitemap', 'examples/sitemap']]) {
+test('a tile entry may name the size its component takes for the capture', () => {
+    const raw = {...manifest(), tiles: [{path: 'examples/form/field/text', width: 220}, {path: 'examples/sitemap', width: 320, height: 240}, 'examples/form/field/date']},
+        valid = validateCaptureRecipes(raw, catalog());
+    expect(valid.tiles).toEqual([
+        {id: 'form-field-text', path: 'examples/form/field/text', url: 'examples/form/field/text/index.html', width: 220},
+        {id: 'sitemap',         path: 'examples/sitemap',         url: 'examples/sitemap/index.html',         width: 320, height: 240},
+        {id: 'form-field-date', path: 'examples/form/field/date', url: 'examples/form/field/date/index.html'}
+    ]);
+    expect(selectTiles(valid, 'examples/form/field/text')[0].width).toBe(220)
+});
+
+test('a tile path outside examples/, a duplicate tile, a bad capture size or an unknown selection is refused', () => {
+    for (const tiles of [
+        ['apps/form'], ['examples/'], ['examples/../apps'], ['examples/sitemap', 'examples/sitemap'],
+        [{path: 'examples/sitemap', width: 79}], [{path: 'examples/sitemap', height: 641}], [{path: 'examples/sitemap', width: 220.5}],
+        [{path: 'examples/sitemap', zoom: 2}], [{width: 220}], ['examples/sitemap', {path: 'examples/sitemap', width: 220}]
+    ]) {
         expect(() => validateCaptureRecipes({...manifest(), tiles}, catalog())).toThrow(/manifest\.tiles/)
     }
     const valid = validateCaptureRecipes({...manifest(), tiles: ['examples/sitemap']}, catalog());

@@ -21,6 +21,12 @@
             padding: 0.25em 0.5em;
         }
 
+        /* Font Awesome 7 sizes a glyph's own box to 1.25em; these boxes also hold their padding */
+        .neo-toast-close,
+        .neo-toast-icon {
+            --fa-width: auto;
+        }
+
         .neo-toast-icon {
             border-right: 2px solid var(--toast-color);
             flex        : 1;

@@ -66,8 +66,8 @@ const
  * @type {String[]}
  */
 export const SCAN_SURFACE = Object.freeze([
-    `${path.relative(repoRoot, themeRoot)}/theme-*/**/*.css`,
-    path.relative(repoRoot, baselinePath)
+    `${path.relative(repoRoot, themeRoot).replaceAll('\\', '/')}/theme-*/**/*.css`,
+    path.relative(repoRoot, baselinePath).replaceAll('\\', '/')
 ]);
 
 /**
@@ -169,7 +169,7 @@ export function collectThemeFiles() {
     return fs.readdirSync(themeRoot, {withFileTypes: true})
         .filter(entry => entry.isDirectory() && entry.name.startsWith('theme-'))
         .flatMap(entry => walk(path.join(themeRoot, entry.name)))
-        .map(file => path.relative(repoRoot, file))
+        .map(file => path.relative(repoRoot, file).replaceAll('\\', '/'))
         .sort()
 }
 

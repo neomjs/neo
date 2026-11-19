@@ -6,4 +6,6 @@
     --dialog-footer-button-margin-left  : 0;
     --dialog-header-color                : #1c60a0;
     --dialog-icon-color                  : #1c60a0;
+    --dialog-header-button-background-color-hover: var(--button-background-color-hover);
+    --dialog-icon-color-hover                    : var(--dialog-icon-color);
 }

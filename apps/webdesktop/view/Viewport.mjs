@@ -91,8 +91,20 @@ class Viewport extends BaseViewport {
                     }
                 }
             },
-            taskbarConfig: {module: Taskbar},
-            windowClass  : () => import('./AppWindow.mjs')
+            // Each app's view loads on its first open, in a window sized for it
+            appWindowConfigs: {
+                calendar     : {height: 600, width: 920, view: () => import('./apps/Calendar.mjs')},
+                documents    : {height: 480, width: 800, view: () => import('./apps/Documents.mjs')},
+                help         : {height: 560, width: 640, view: () => import('./apps/Help.mjs')},
+                mail         : {height: 520, width: 880, view: () => import('./apps/Mail.mjs')},
+                messages     : {height: 500, width: 720, view: () => import('./apps/Messages.mjs')},
+                music        : {height: 480, width: 720, view: () => import('./apps/Music.mjs')},
+                photos       : {height: 520, width: 760, view: () => import('./apps/Photos.mjs')},
+                'recycle-bin': {height: 400, width: 680, view: () => import('./apps/RecycleBin.mjs')},
+                reports      : {height: 380, width: 760, view: () => import('./apps/Reports.mjs')},
+                settings     : {height: 600, width: 480, view: () => import('./apps/Settings.mjs')}
+            },
+            taskbarConfig: {module: Taskbar}
         }]
     }
 }

@@ -40,7 +40,8 @@
     }
 }
 
-.neo-event {
+.neo-event,
+.neo-allday-event {
     transition:
         background-color .15s ease-out,
         border-color     .15s ease-out,
@@ -137,7 +138,8 @@
 }
 
 .neo-event-border-all-sides {
-    .neo-event {
+    .neo-event,
+    .neo-allday-event {
         border-radius: 3px;
 
         &.neo-blue {
@@ -167,7 +169,8 @@
 }
 
 .neo-event-border-right {
-    .neo-event {
+    .neo-event,
+    .neo-allday-event {
         &.neo-blue {
             border-left : 0;
             border-right: 2px solid var(--event-blue-color);

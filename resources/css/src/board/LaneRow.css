@@ -1,4 +1,4 @@
-/* Neo.board.LaneRow: a swimlane header (title, total count badge, collapse toggle) over a horizontal row of
+/* Neo.board.LaneRow: a swimlane header (collapse toggle, title, total count badge) over a horizontal row of
    columns for one value of `board.laneField`. Collapsing the row hides `.neo-board-lane-columns` while keeping
    the header and its count badge visible. */
 .neo-board-lane {
@@ -30,12 +30,22 @@
     display      : flex;
     flex         : none;
     font-weight  : 600;
-    gap          : 8px;
     padding      : 8px 12px;
     user-select  : none;
 
+    /* An open lane is as wide as its columns, so on a narrower board its header is wider than the board. The label
+       sticks to the board's visible start. Sticky insets count from the board's content edge: 13px is the lane's 1px
+       border plus this header's 12px padding, so at rest nothing shifts. */
+    .neo-board-lane-label {
+        align-items       : center;
+        display           : flex;
+        gap               : 8px;
+        inset-inline-start: 13px;
+        min-width         : 0;
+        position          : sticky;
+    }
+
     .neo-board-lane-title {
-        flex         : 1;
         min-width    : 0;
         overflow     : hidden;
         text-overflow: ellipsis;

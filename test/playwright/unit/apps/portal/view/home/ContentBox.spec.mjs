@@ -25,13 +25,17 @@ import InstanceManager    from '../../../../../../../src/manager/Instance.mjs';
 import DomApiVnodeCreator from '../../../../../../../src/vdom/util/DomApiVnodeCreator.mjs';
 import VdomHelper         from '../../../../../../../src/vdom/Helper.mjs';
 import ContentBox         from '../../../../../../../apps/portal/view/home/ContentBox.mjs';
-import Colors             from '../../../../../../../apps/portal/view/home/parts/Colors.mjs';
+import Example            from '../../../../../../../apps/portal/model/Example.mjs';
+import ExamplesContainer  from '../../../../../../../apps/portal/view/examples/MainContainer.mjs';
+import Grid               from '../../../../../../../apps/portal/view/home/parts/Grid.mjs';
 import HeaderToolbar      from '../../../../../../../apps/portal/view/HeaderToolbar.mjs';
 import HeroContent        from '../../../../../../../apps/portal/view/home/parts/hero/Content.mjs';
 import MainContainer      from '../../../../../../../apps/portal/view/home/MainContainer.mjs';
+import Planning           from '../../../../../../../apps/portal/view/home/parts/Planning.mjs';
 
 const brainDocUrl       = 'https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/MemoryCore.md',
       currentDir        = path.dirname(fileURLToPath(import.meta.url)),
+      examplesJson      = path.resolve(currentDir, '../../../../../../../apps/portal/resources/data/examples.json'),
       featureSectionCss = path.resolve(currentDir, '../../../../../../../resources/css/src/apps/portal/home/FeatureSection.css'),
       heroCssPath       = path.resolve(currentDir, '../../../../../../../resources/css/src/apps/portal/home/parts/hero/Content.css');
 
@@ -112,20 +116,62 @@ test.describe('Portal.view.home.ContentBox', () => {
 
             const h2Texts = h2Nodes.map(node => node.textContent);
             expect(h2Texts).toEqual(expect.arrayContaining([
-                'Amazing Potential',
-                'Extreme Speed',
+                'Data Grid',
+                'Gantt & Task Board',
                 'How?',
                 'The Agent OS Brain'
             ]));
 
-            for (const headline of ['Amazing Potential', 'Extreme Speed', 'How?', 'The Agent OS Brain']) {
+            for (const headline of ['Data Grid', 'Gantt & Task Board', 'How?', 'The Agent OS Brain']) {
                 const headingNode = h2Nodes.find(node => node.textContent === headline);
                 expect(headingNode?.className).toContain('neo-h1');
             }
 
-            for (const subHeadline of ['Shared Socket Data', '40,000 Updates /s', 'How does Neo.mjs do it?']) {
+            for (const subHeadline of [Grid.config.subHeadline, Planning.config.subHeadline, 'How does Neo.mjs do it?']) {
                 const subNode = h3Nodes.find(node => node.textContent === subHeadline);
                 expect(subNode?.className).toContain('neo-h2');
+            }
+
+            // Each sub-headline counts its own snippet; the grid's feed writes records and measures its own rate
+            expect(Grid.config.subHeadline).toBe(`Live Data · ${Grid.config.livePreviewCode.split('\n').length} Lines`);
+            expect(Planning.config.subHeadline).toBe(`One Store · ${Planning.config.livePreviewCode.split('\n').length} Lines`);
+            expect(Grid.config.livePreviewCode).toContain('record.set(');
+            expect(Grid.config.livePreviewCode).toContain('done * 1000 / (Date.now() - since)');
+
+            // The planning page binds one store to both of its views, and comes first
+            expect(Planning.config.livePreviewCode.match(/bind: \{store: 'stores\.plan'\}/g)).toHaveLength(2);
+            expect(home.getItem('home-body-entry').className).toBe('Portal.view.home.parts.Planning');
+
+            // The card selected at rest and the bar highlighted at rest are one task
+            const [, highlightedBar] = Planning.config.livePreviewCode.match(/highlightedRecordIds: \['(\d+)'\]/),
+                  [, selectedCard]   = Planning.config.livePreviewCode.match(/selectionModel: \{items: \['(\d+)'\]\}/);
+
+            expect(highlightedBar).toBe(selectedCard);
+
+            // Both snippets build from engine classes alone, stay short, and end on the class they export
+            for (const part of [Grid, Planning]) {
+                const lines   = part.config.livePreviewCode.split('\n'),
+                      imports = lines.filter(line => line.startsWith('import '));
+
+                expect(imports.length).toBeGreaterThan(0);
+                imports.forEach(line => expect(line).toMatch(/ from '\.\.\/[a-z]+\/[A-Za-z]+\.mjs';$/));
+
+                expect(lines.length).toBeLessThanOrEqual(48);
+                expect(Math.max(...lines.map(line => line.length))).toBeLessThanOrEqual(91);
+                expect(lines.at(-1)).toBe('export default Neo.setupClass(MainView);')
+            }
+
+            // Every link names an examples group that shows at least one card in the production build
+            const catalog = JSON.parse(fs.readFileSync(examplesJson, 'utf8'));
+
+            for (const part of [Grid, Planning]) {
+                part.config.links.forEach(({route}) => {
+                    const group = ExamplesContainer.config.familyDefinitions.find(definition => `#${definition.route}` === route);
+
+                    expect(group, `${route} names no examples group`).toBeTruthy();
+                    expect(catalog.some(record => (record.family === group.family || record.alsoIn?.includes(group.family)) &&
+                        Example.publishes(record, 'dist_prod')), `${route} shows no card in dist_prod`).toBe(true)
+                })
             }
 
             const featureCssSource = fs.readFileSync(featureSectionCss, 'utf8');
@@ -134,13 +180,30 @@ test.describe('Portal.view.home.ContentBox', () => {
             expect(featureCssSource).toContain('.neo-h1 {');
             expect(featureCssSource).toContain('.neo-h2 {');
 
-            expect(Colors.config.learnMoreRoute).toBe('#/learn/benefits/body/MultiWindow');
-            expect(Colors.config.learnMoreRoute).not.toContain('itnext.io');
+            expect(Grid.config.learnMoreRoute).toBe('#/learn/guides/datahandling/Grids');
+            expect(Grid.config.learnMoreRoute).not.toContain('itnext.io');
 
-            const colorsSection   = home.items.find(item => item.className === 'Portal.view.home.parts.Colors');
-            const learnMoreButton = colorsSection.getItem('learn-more-button');
-            expect(learnMoreButton.route).toBe('#/learn/benefits/body/MultiWindow');
-            expect(learnMoreButton.vdom.href).toBe('#/learn/benefits/body/MultiWindow');
+            const gridSection     = home.items.find(item => item.className === 'Portal.view.home.parts.Grid');
+            const learnMoreButton = gridSection.getItem('learn-more-button');
+            expect(learnMoreButton.route).toBe('#/learn/guides/datahandling/Grids');
+            expect(learnMoreButton.vdom.href).toBe('#/learn/guides/datahandling/Grids');
+
+            // A component page's button names its guide; a page without its own text keeps the default
+            const buttonText = part => home.items.find(item => item.className === `Portal.view.home.parts.${part}`).getItem('learn-more-button').text;
+
+            expect(buttonText('Grid')).toBe('The grid guide');
+            expect(buttonText('Planning')).toBe('The Gantt guide');
+            expect(buttonText('How')).toBe('Learn more');
+
+            // A component page opens on its source, runs nothing before its page is the active one, and names
+            // the other families as routes
+            const livePreview = gridSection.getReference('live-preview'),
+                  links       = gridSection.getItem('links').items.filter(item => item.route);
+
+            expect(livePreview.activeView).toBe('source');
+            expect(livePreview.getPreviewContainer().items).toHaveLength(0);
+            expect(links.map(link => link.route)).toEqual(Grid.config.links.map(link => link.route));
+            links.forEach(link => expect(link.route).toMatch(/^#\/examples\/[a-z-]+$/));
         } finally {
             home.destroy();
             if (originalMonacoAddon === undefined) {

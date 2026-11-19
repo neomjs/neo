@@ -1,12 +1,122 @@
 .portal-examples-main-container {
-    background-color: var(--portal-examples-bg);
-    color           : var(--portal-examples-text);
-    flex-shrink     : 1 !important;
-    min-width       : 0;
+    background-color     : var(--portal-examples-bg);
+    color                : var(--portal-examples-text);
+    display              : grid;
+    flex-shrink          : 1 !important;
+    grid-template-columns: 264px minmax(0, 1fr);
+    grid-template-rows   : auto minmax(0, 1fr);
+    height               : 100%;
+    min-height           : 0;
+    min-width            : 0;
+    overflow             : hidden;
 
     .portal-examples-build-control.neo-button {
         border-radius: 8px;
         font-size    : 14px;
         white-space  : nowrap;
+    }
+
+    /* Hoisted across all examples routes; only displays on phone group pages. */
+    .portal-examples-group-crumb {
+        background-color: var(--portal-examples-bg);
+        border-bottom   : 1px solid var(--portal-examples-border);
+        display         : none;
+        gap             : 4px;
+        grid-column     : 1 / -1;
+        grid-row        : 1;
+        overflow        : visible;
+        padding         : 8px 12px;
+        position        : relative;
+        z-index         : 5;
+    }
+
+    .portal-examples-group-crumb-separator {
+        color: var(--portal-examples-text-muted);
+    }
+
+    .portal-examples-group-button.neo-button {
+        border-radius: 8px;
+        min-width    : 0;
+
+        .neo-button-text {
+            overflow     : hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* The caret says the button opens a list */
+        &::after {
+            color      : var(--button-secondary-glyph-color, var(--portal-examples-text));
+            content    : "\f0d7";
+            font-family: var(--fa-style-family-classic);
+            font-weight: 900;
+            margin-left: 8px;
+        }
+    }
+
+    .portal-examples-group-index-sheet {
+        background-color: var(--portal-examples-bg-raised);
+        border-bottom   : 1px solid var(--portal-examples-border);
+        box-shadow      : 0 18px 36px rgba(0, 0, 0, 0.35);
+        left            : 0;
+        max-height      : calc(100dvh - 130px);
+        overflow-y      : auto;
+        padding         : 12px 12px 16px;
+        position        : absolute;
+        right           : 0;
+        top             : 100%;
+    }
+
+    /* Persistent desktop group rail beside the card stage. */
+    .portal-examples-sidebar {
+        border-right: 1px solid var(--portal-examples-border);
+        box-sizing  : border-box;
+        grid-column : 1;
+        grid-row    : 2;
+        height      : 100%;
+        max-height  : calc(100dvh - 58px);
+        min-height  : 0;
+        overflow    : hidden;
+        width       : 264px;
+
+        > .portal-examples-group-index-list {
+            box-sizing: border-box;
+            flex      : 1 1 auto;
+            min-height: 0;
+            overflow-y: auto;
+            padding   : 14px 8px 16px 12px;
+        }
+    }
+
+    .portal-examples-stage {
+        grid-column: 2;
+        grid-row   : 2;
+        height     : 100%;
+        min-height : 0;
+        min-width  : 0;
+        overflow   : hidden;
+
+        > .portal-examples-overview,
+        > .portal-examples-group-page {
+            box-sizing    : border-box;
+            container-type: inline-size;
+            height        : 100%;
+            overflow-y    : auto;
+        }
+    }
+
+    @media (max-width: 640px) {
+        grid-template-columns: minmax(0, 1fr);
+
+        .portal-examples-group-crumb:not(.neo-hidden) {
+            display: flex;
+        }
+
+        .portal-examples-sidebar {
+            display: none;
+        }
+
+        .portal-examples-stage {
+            grid-column: 1;
+        }
     }
 }
