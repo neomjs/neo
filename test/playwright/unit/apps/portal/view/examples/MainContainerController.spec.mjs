@@ -652,7 +652,7 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
       ],
       newExampleIds = [
           'grid-animated-row-sorting', 'grid-cell-editing', 'grid-container', 'grid-content-sized-rows',
-          'grid-filtering', 'grid-export', 'grid-server-side', 'grid-header-groups', 'grid-locked-columns',
+          'grid-filtering', 'grid-export', 'grid-server-side', 'grid-header-groups', 'grid-locked-columns', 'grid-cell-types',
           'grid-nested-record-fields', 'grid-streaming', 'grid-tree', 'grid-value-banding', 'table-container'
       ],
       formExampleIds = [
@@ -703,7 +703,7 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
       // One group per line, so examples PRs on different groups never edit the same line.
       groupCounts = {
           apps          : [6, 5],
-          'grid-table'  : [19, 0],
+          'grid-table'  : [20, 0],
           tree          : [0, 2],
           lists         : [12, 0],
           charts        : [5, 1],
@@ -724,7 +724,7 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           functional    : [3, 1],
           'drag-drop'   : [0, 3]
       },
-      recordCount    = 124,
+      recordCount    = 125,
       publishedCount = Object.values(groupCounts).reduce((sum, [count]) => sum + count, 0),
       groupCount     = Object.keys(groupCounts).length,
       // every record with a cover publishes in a production build, so the rest wait for one
@@ -954,7 +954,7 @@ test.describe('Portal examples canonical catalog', () => {
         });
 
         expect(ids).toEqual([...coveredGridTableIds, 'timeline-basic']);
-        expect(counts).toEqual({Grid: 17, Table: 2, Timeline: 1});
+        expect(counts).toEqual({Grid: 18, Table: 2, Timeline: 1});
         expect(store.items.map(record => record.id)).toEqual(coveredGridTableIds);
         expect(store.getSource()).toBe(catalogStore)
     });
