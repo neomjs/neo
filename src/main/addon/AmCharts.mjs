@@ -133,22 +133,40 @@ class AmCharts extends Base {
     }
 
     /**
-     * @param {Object}  data
-     * @param {Boolean} data.combineSeriesTooltip
-     * @param {Object}  data.config
-     * @param {Array}   [data.data]
-     * @param {String}  [data.dataPath]
-     * @param {String}  data.id
-     * @param {String}  data.package
-     * @param {String}  data.type='XYChart'
+     * @summary Creates a chart in the theme its wrapper resolved, apart from every other chart's theme.
+     *
+     * amCharts 4 applies the themes in its global list to each object it creates, and an object made
+     * later (a series, a label, a legend item) asks its parent for themes before that list. So the
+     * list holds this chart's theme only while the chart is built, the chart keeps its own copy for
+     * what it creates afterwards, and the next chart finds the list empty.
+     * @param {Object}      data
+     * @param {Boolean}     data.combineSeriesTooltip
+     * @param {Object}      data.config
+     * @param {Array}       [data.data]
+     * @param {String}      [data.dataPath]
+     * @param {String}      data.id
+     * @param {String}      data.package
+     * @param {String|null} [data.theme=null] `'dark'` for `am4themes_dark`, null for amCharts' light default
+     * @param {String}      data.type='XYChart'
      */
     create(data) {
-        let me = this;
+        let me     = this,
+            themes = data.theme === 'dark' ? [am4themes_dark] : [];
 
-        // todo: check if globalThis[data.package] exists, if not load it and call create afterwards
-        am4core.useTheme(am4themes_dark);
+        // a chart created again under the same id replaces the one before it, never leaves it running
+        me.destroy({id: data.id});
 
-        me.charts[data.id] = am4core.createFromConfig(data.config, data.id, globalThis[data.package][data.type || 'XYChart']);
+        am4core.unuseAllThemes();
+        themes.forEach(theme => am4core.useTheme(theme));
+
+        // the themes are global while createFromConfig runs: a throwing create must not leave them registered
+        try {
+            // todo: check if globalThis[data.package] exists, if not load it and call create afterwards
+            me.charts[data.id] = am4core.createFromConfig(data.config, data.id, globalThis[data.package][data.type || 'XYChart']);
+            me.charts[data.id].themes = themes
+        } finally {
+            am4core.unuseAllThemes()
+        }
 
         if (data.combineSeriesTooltip) {
             me.combineSeriesTooltip(me.charts[data.id])
