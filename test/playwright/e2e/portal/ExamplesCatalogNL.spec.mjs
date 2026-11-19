@@ -7,13 +7,14 @@ const PORTAL    = '/apps/portal/index.html',
       CRUMB     = '.portal-examples-main-container > .portal-examples-group-crumb:visible',
       SHEET     = '.portal-examples-main-container .portal-examples-group-index-sheet',
       PAGE      = '.portal-examples-group-page:visible',
-      CARDS     = `${PAGE} .portal-examples-list`,
+      CARDS     = `${PAGE} .portal-examples-list:not(.portal-examples-tiles)`,
+      TILES     = `${PAGE} .portal-examples-tiles`,
       FEATURED  = '.portal-examples-overview:visible .portal-examples-overview-cards',
       GROUPS    = [
           'Apps', 'Grid & Table', 'Trees', 'Lists & Galleries', 'Charts, Canvas & Maps',
           'Calendar', 'Scheduler', 'Gantt', 'Task Board',
-          'Dashboard & Docking', 'Tabs', 'Dialogs & Overlays',
-          'Forms & Fields', 'More components',
+          'Dashboard & Docking', 'Tabs', 'Containers & Layouts', 'Dialogs & Overlays',
+          'Forms & Fields', 'Buttons, Menus & Toolbars', 'More components',
           'Multi-Window', 'Workers & Platform', 'State & Data', 'Functional Components', 'Drag & Drop'
       ];
 
@@ -273,17 +274,17 @@ test.describe('Portal examples section', () => {
               counts   = page.locator(`${SIDEBAR} .portal-examples-group-index-count`);
 
         await expect(page.locator(SIDEBAR)).toBeVisible();
-        await expect(headline).toHaveText('53 live examples in 19 groups');
-        expect((await counts.allTextContents()).filter(text => !text.startsWith('(')).reduce((sum, text) => sum + Number(text), 0)).toBe(53);
+        await expect(headline).toHaveText('95 live examples in 21 groups');
+        expect((await counts.allTextContents()).filter(text => !text.startsWith('(')).reduce((sum, text) => sum + Number(text), 0)).toBe(95);
         await expect(page.locator(`${SIDEBAR} .portal-examples-group-index-note`)).toBeVisible();
         await expect(page.locator(`${FEATURED} .neo-list-item`).first().locator('.portal-example-group-badge')).toHaveText('Multi-Window');
 
-        // Dev mode cannot open liquid-glass, the one card of More components
+        // Dev mode cannot open liquid-glass, the one card of More components; its eight tiles stay
         await selectBuild(page, 'Dev mode');
-        await expect(headline).toHaveText('52 live examples in 18 groups');
-        await expect(page.locator(SIDEBAR).getByRole('link', {name: /^More components, /})).toHaveCount(0);
+        await expect(headline).toHaveText('94 live examples in 21 groups');
+        await expect(page.locator(SIDEBAR).getByRole('link', {name: 'More components, 8 live examples'})).toHaveCount(1);
         await selectBuild(page, 'Production build');
-        await expect(headline).toHaveText('53 live examples in 19 groups')
+        await expect(headline).toHaveText('95 live examples in 21 groups')
     });
 
     test('the index is a navigation landmark of links: Tab reaches every entry, Enter opens it, no entry claims to be a tab', async ({page, neuralLink}) => {
@@ -318,7 +319,7 @@ test.describe('Portal examples section', () => {
               sheet  = page.locator(SHEET);
 
         await expect(button).toBeVisible();
-        await expect(button).toHaveText('All 19 groups');
+        await expect(button).toHaveText('All 21 groups');
         await button.click();
         await expect(sheet).toBeVisible();
         await expect(sheet.locator('[aria-current="page"]')).toHaveText('All examples');
@@ -394,12 +395,49 @@ test.describe('Portal examples section', () => {
         })
     }
 
+    for (const [width, height, perRow] of [[1440, 900, 6], [390, 844, 2]]) {
+        test(`${width}×${height}: Forms & Fields shows its 28 tiles by name, ${perRow} per row, each a 4:3 crop over its name`, async ({page, neuralLink}) => {
+            await page.setViewportSize({width, height});
+            await page.goto(`${PORTAL}#/examples/forms`);
+            await neuralLink.connectToApp('Portal');
+
+            const tiles = page.locator(`${TILES} .neo-list-item`),
+                  image = tiles.first().locator('.preview-image');
+
+            await expect(tiles).toHaveCount(28);
+            await expect(tiles.first().locator('.neo-title')).toHaveText('Checkbox');
+            await expect(tiles.last().locator('.neo-title')).toHaveText('ZIP code field');
+            // at rest the caption says the tile opens a running example, through the name's own link
+            await expect(tiles.first().locator('.portal-example-open-cue')).toHaveText('↗');
+            await expect(tiles.first().locator('.portal-example-open-cue'))
+                .toHaveAttribute('href', await tiles.first().locator('.neo-title').getAttribute('href'));
+            // a page of one kind heads neither
+            await expect(page.locator(`${PAGE} .portal-examples-kind-heading`)).toHaveCount(0);
+
+            const tops = await tiles.evaluateAll(items => items.map(item => Math.round(item.getBoundingClientRect().top)));
+            expect(tops.filter(top => top === tops[0])).toHaveLength(perRow);
+
+            await expect(image).toHaveCSS('background-image', /devmode\/tiles\/form-field-checkbox-14\.jpg/);
+            const box = await image.boundingBox();
+            expect(Math.abs(box.width / box.height - 4 / 3)).toBeLessThan(0.02)
+        })
+    }
+
+    test('a page that holds both kinds heads each: More components shows Demonstrations, then Components', async ({page, neuralLink}) => {
+        await page.goto(`${PORTAL}#/examples/components`);
+        await neuralLink.connectToApp('Portal');
+
+        await expect(page.locator(`${PAGE} .portal-examples-kind-heading`)).toHaveText(['Demonstrations', 'Components']);
+        await expect(page.locator(`${CARDS} .neo-list-item .neo-title`)).toHaveText(['Liquid Glass effect']);
+        await expect(page.locator(`${TILES} .neo-list-item`)).toHaveCount(8)
+    });
+
     test('what the boards cannot show: direct entry, history, the build kept across groups, the scroll of each group', async ({page, neuralLink}) => {
         await page.goto(`${PORTAL}#/examples/forms`);
         const app = await neuralLink.connectToApp('Portal');
 
         await expect(page.locator(`${PAGE} .portal-examples-group-heading h1`)).toHaveText('Forms & Fields');
-        await expect(page.locator(`${CARDS} .neo-list-item`)).toHaveCount(3);
+        await expect(page.locator(`${TILES} .neo-list-item`)).toHaveCount(28);
 
         await openGroup(page, 'Grid & Table');
         await selectBuild(page, 'ESM build');
@@ -423,10 +461,7 @@ test.describe('Portal examples section', () => {
         await expectOpenPage(page, 'Grid & Table');
         await expect.poll(() => page.locator(PAGE).evaluate(node => node.scrollTop)).toBe(600);
 
-        // a group without a card in this build, and an unknown one, open the overview
-        await page.goto(`${PORTAL}#/examples/layouts`);
-        await expect(page.locator(FEATURED)).toBeVisible();
-        await expect(page.locator(PAGE)).toHaveCount(0);
+        // an unknown group opens the overview; every defined group has a card or a tile, so the unit spec covers one without
         await page.goto(`${PORTAL}#/examples/unknown`);
         await expect(page.locator(FEATURED)).toBeVisible();
         await expect(page.locator(PAGE)).toHaveCount(0)
@@ -436,10 +471,10 @@ test.describe('Portal examples section', () => {
         await page.goto(`${PORTAL}#/examples`);
         const app = await neuralLink.connectToApp('Portal');
 
-        // the Start here list plus every published group's list borrow the one catalog
+        // the Start here list plus every published group's card list and tile list borrow the one catalog
         await expect(page.locator(FEATURED)).toBeVisible();
         let sources;
-        await expect.poll(async () => (sources = await app.queryComponent({className: 'Portal.view.examples.List'}, ['store'])).length).toBe(GROUPS.length + 1);
+        await expect.poll(async () => (sources = await app.queryComponent({className: 'Portal.view.examples.List'}, ['store'])).length).toBe(2 * GROUPS.length + 1);
         expect(new Set(sources.map(item => item.properties.store.sourceId)).size).toBe(1);
 
         for (const [label, mode, prefix] of [
