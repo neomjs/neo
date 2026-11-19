@@ -239,6 +239,45 @@ test.describe('Neo.menu.List driven by a TreeStore', () => {
         }
     });
 
+    test('a live store replacement re-derives the root, retires the open cascade, and releases only a built source', () => {
+        const root  = createMenu({store: {module: TreeStore, model: MenuModel, data: treeData()}}),
+              built = root.sourceStore,
+              file  = root.store.get('file');
+
+        menus.push(root);
+
+        root.showSubMenu(root.getItemId(root.store.getKey(file)), file);
+
+        const oldChild = root.activeSubMenu;
+
+        // A built source gives way to a borrowed one
+        root.store = treeStore;
+
+        expect(built.isDestroyed, 'the source the menu built').toBe(true);
+        expect(oldChild.isDestroyed, 'the submenu the old source drove').toBe(true);
+        expect(root.sourceStore).toBe(treeStore);
+        expect(root.store.items.map(item => item.id)).toEqual(['file', 'edit', 'about']);
+
+        treeStore.add({id: 'help', text: 'Help', isLeaf: true});
+
+        expect(root.store.items.map(item => item.id), 'the new source drives the root').toContain('help');
+
+        // A borrowed source gives way to a built one
+        root.store = {module: TreeStore, model: MenuModel, data: [{id: 'solo', text: 'Solo', isLeaf: true}]};
+
+        const second = root.sourceStore;
+
+        treeStore.add({id: 'late', text: 'Late', isLeaf: true});
+
+        expect(treeStore.isDestroyed, 'a borrowed source stays its owner\'s').toBeFalsy();
+        expect(root.store.items.map(item => item.id), 'the old source no longer reaches the root').toEqual(['solo']);
+
+        root.destroy();
+
+        expect(second.isDestroyed).toBe(true);
+        expect(treeStore.isDestroyed).toBeFalsy()
+    });
+
     test('showSubMenu opens a real child level and leaves the parent alive', () => {
         const root = createMenu({store: treeStore});
 

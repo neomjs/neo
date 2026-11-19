@@ -298,6 +298,18 @@ class List extends BaseList {
     }
 
     /**
+     * Triggered after the store config got changed. A tree store that replaces another after construction fills
+     * this level and gets its listeners here; onConstructed() does it for the first one.
+     * @param {Neo.data.Store|null} value
+     * @param {Neo.data.Store|null} oldValue
+     * @protected
+     */
+    afterSetStore(value, oldValue) {
+        super.afterSetStore(value, oldValue);
+        this.isConstructed && this.#bindSource()
+    }
+
+    /**
      * Triggered after the theme config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
@@ -332,20 +344,24 @@ class List extends BaseList {
      *
      * Instead the tree store is kept as `sourceStore` and this level receives its own flat store
      * holding exactly the records it renders. `syncLevelRecords()` fills it once the configs are applied.
-     * A class or config is built first, so a tree store is recognised however it arrives.
+     * A class or config is built first, so a tree store is recognised however it arrives. A store that replaces
+     * another after construction first retires the cascade the old source drove.
      * @param {Object|Neo.data.Store|Neo.data.TreeStore} value
      * @param {Object|Neo.data.Store} oldValue
      * @returns {Neo.data.Store}
      * @protected
      */
     beforeSetStore(value, oldValue) {
-        let built = !!value && Neo.typeOf(value) !== 'NeoInstance';
+        let me    = this,
+            built = !!value && Neo.typeOf(value) !== 'NeoInstance';
+
+        me.isConstructed && value !== me.sourceStore && me.#releaseSource();
 
         built && (value = ClassSystemUtil.beforeSetInstance(value, DataStore));
 
         if (value instanceof TreeStore) {
-            this.sourceStore      = value;
-            this.#ownsSourceStore = built;
+            me.sourceStore      = value;
+            me.#ownsSourceStore = built;
 
             // The level store reuses the tree store's model CLASS, so its records keep every field the
             // hierarchy declares (isLeaf, parentId, depth) next to the menu fields. Re-adding records
@@ -355,6 +371,61 @@ class List extends BaseList {
         }
 
         return super.beforeSetStore(value, oldValue)
+    }
+
+    /**
+     * Fills this level from its tree source and listens to it, if it has one.
+     * @private
+     */
+    #bindSource() {
+        let me            = this,
+            {sourceStore} = me;
+
+        if (sourceStore) {
+            me.syncLevelRecords();
+
+            // Its own object: Observable#on() and #un() CONSUME keys from what they are handed
+            // (`scope` among them), so the two calls can never share one literal.
+            sourceStore.on({
+                filter      : me.onSourceStoreFilter,
+                mutate      : me.onSourceStoreMutate,
+                recordChange: me.onSourceStoreRecordChange,
+                sort        : me.onSourceStoreSort,
+                scope       : me
+            })
+        }
+    }
+
+    /**
+     * Retires what a tree source drove: the submenus derived from it and this level's listeners. A source this
+     * menu built goes with them; one handed in stays its owner's.
+     * @private
+     */
+    #releaseSource() {
+        let me                        = this,
+            {sourceStore, subMenuMap} = me;
+
+        if (sourceStore) {
+            me.hideSubMenu(false);
+
+            sourceStore.un({
+                filter      : me.onSourceStoreFilter,
+                mutate      : me.onSourceStoreMutate,
+                recordChange: me.onSourceStoreRecordChange,
+                sort        : me.onSourceStoreSort,
+                scope       : me
+            });
+
+            Object.entries(subMenuMap || {}).forEach(([key, value]) => {
+                value?.destroy();
+                subMenuMap[key] = null
+            });
+
+            me.#ownsSourceStore && sourceStore.destroy();
+
+            me.sourceStore      = null;
+            me.#ownsSourceStore = false
+        }
     }
 
     /**
@@ -467,29 +538,18 @@ class List extends BaseList {
      *
      */
     destroy(...args) {
-        let me              = this,
-            {activeSubMenu} = me,
-            subMenuMap      = me.subMenuMap || {};
+        let me         = this,
+            subMenuMap = me.subMenuMap || {};
 
         me.syncOutsidePointerListener(false);
-        activeSubMenu?.unmount();
+        me.hideSubMenu(false);
+        me.#releaseSource();
 
-        // The tree store outlives every level, so a level that stops rendering must stop listening.
-        // Its own object literal — on() and un() both consume keys from what they are handed.
-        me.sourceStore?.un({
-            filter      : me.onSourceStoreFilter,
-            mutate      : me.onSourceStoreMutate,
-            recordChange: me.onSourceStoreRecordChange,
-            sort        : me.onSourceStoreSort,
-            scope       : me
-        });
-
+        // The submenus of the classic nested-items API; a tree source's went with it
         Object.entries(subMenuMap).forEach(([key, value]) => {
-            value.destroy();
+            value?.destroy();
             subMenuMap[key] = null
         });
-
-        me.#ownsSourceStore && me.sourceStore.destroy();
 
         super.destroy(...args)
     }
@@ -764,22 +824,7 @@ class List extends BaseList {
      */
     onConstructed() {
         super.onConstructed();
-
-        let me = this;
-
-        if (me.sourceStore) {
-            me.syncLevelRecords();
-
-            // Its own object: Observable#on() and #un() CONSUME keys from what they are handed
-            // (`scope` among them), so the two calls can never share one literal.
-            me.sourceStore.on({
-                filter      : me.onSourceStoreFilter,
-                mutate      : me.onSourceStoreMutate,
-                recordChange: me.onSourceStoreRecordChange,
-                sort        : me.onSourceStoreSort,
-                scope       : me
-            })
-        }
+        this.#bindSource()
     }
 
     /**
