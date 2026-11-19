@@ -368,7 +368,7 @@ test.describe('Tests scope classifier — the outputs the changes job actually d
 
         expect(Math.max(...nums), 'the dispatch job allowance').toBeGreaterThan(Math.max(...sNum));
         expect(Math.min(...nums), 'the gate job bound is unchanged').toBe(12);
-        expect(Math.min(...sNum), 'the gate test-step ceiling is unchanged').toBe(5);
+        expect(Math.min(...sNum), 'the gate test-step ceiling is six minutes').toBe(6);
     });
 
     /**
