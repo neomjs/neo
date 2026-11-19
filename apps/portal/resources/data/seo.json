@@ -22,7 +22,7 @@
     "/learn": {
         "title": "Developer Guides — Web Worker UI Engine, SharedWorker & AI Agent OS | Neo.mjs",
         "description": "Learn how to build off-main-thread JavaScript apps and AI Agent OS workflows with Neo.mjs: Web Worker UIs, multi-window SharedWorkers, data grids & MCP tools.",
-        "lastmod": "2026-11-17"
+        "lastmod": "2026-11-19"
     },
     "/news": {
         "title": "News, Blog & Release Notes — Multi-Threaded JavaScript Engine | Neo.mjs",
@@ -512,6 +512,12 @@
         "description": "Docking UIs are easy to demo and hard to trust. The demo shows a splitter, a tab you can drag, a panel that slides away to an edge. What the demo does not...",
         "schemaType": "TechArticle",
         "lastmod": "2026-10-24"
+    },
+    "/learn/guides/uibuildingblocks/WebDesktops": {
+        "title": "Build a Web Desktop in JavaScript: Launcher, Windows and Taskbar | Neo.mjs",
+        "description": "Build a web desktop with Neo.desktop: an icon launcher users arrange, app windows that open, minimize and restore, a taskbar with a start menu, and...",
+        "schemaType": "TechArticle",
+        "lastmod": "2026-11-19"
     },
     "/learn/guides/uibuildingblocks/Fragments": {
         "title": "Fragments: Phantom Containers - Neo.mjs",
@@ -1077,7 +1083,7 @@
     },
     "/examples/lists": {
         "title": "JavaScript Lists & Galleries — 3D Helix & Gallery Views | Neo.mjs",
-        "description": "Explore 4 live JavaScript list and gallery examples: Image items on a 3D helix that you reshape live.",
+        "description": "Explore 7 live JavaScript list and gallery examples: Image items on a 3D helix that you reshape live.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-19"
     },
@@ -1123,6 +1129,12 @@
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-19"
     },
+    "/examples/layouts": {
+        "title": "JavaScript Containers & Layouts — Flexbox, Card & Form | Neo.mjs",
+        "description": "Explore 1 live JavaScript layout example: A form composed by the layout-form layout with shared itemDefaults.",
+        "schemaType": "CollectionPage",
+        "lastmod": "2026-11-19"
+    },
     "/examples/dialogs": {
         "title": "JavaScript Dialogs & Overlays — Live Examples | Neo.mjs",
         "description": "Explore 1 live JavaScript dialog example: Dialogs that drag by their header and open further dialogs.",
@@ -1131,7 +1143,13 @@
     },
     "/examples/forms": {
         "title": "JavaScript Form Examples — Fields, Pickers & Validation | Neo.mjs",
-        "description": "Explore 3 live JavaScript form examples: The standalone date selector component; A date field with picker and live configuration.",
+        "description": "Explore 28 live JavaScript form examples: The standalone date selector component; A date field with picker and live configuration.",
+        "schemaType": "CollectionPage",
+        "lastmod": "2026-11-19"
+    },
+    "/examples/buttons": {
+        "title": "JavaScript Buttons, Menus & Toolbars — Live Examples | Neo.mjs",
+        "description": "Explore 2 live JavaScript button and menu examples: A button with icon, badge, ripple and tooltip, each a live config; A menu list over a store.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-19"
     },
@@ -1143,7 +1161,7 @@
     },
     "/examples/components": {
         "title": "JavaScript UI Component Examples — Off the Main Thread | Neo.mjs",
-        "description": "Explore 1 live JavaScript UI component example: A liquid glass panel that bends the photo beneath it as it drifts.",
+        "description": "Explore 9 live JavaScript UI component examples: A compact chip combines an icon, editable text and an optional close action.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-19"
     },
@@ -1155,7 +1173,7 @@
     },
     "/examples/platform": {
         "title": "JavaScript Web Worker Examples — Workers & Platform | Neo.mjs",
-        "description": "Explore 2 live JavaScript web worker examples: A chart of up to a million points, drawn in a canvas worker.",
+        "description": "Explore 3 live JavaScript web worker examples: A chart of up to a million points, drawn in a canvas worker.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-19"
     },
@@ -1167,7 +1185,7 @@
     },
     "/examples/functional": {
         "title": "JavaScript Functional Component Examples | Neo.mjs",
-        "description": "Explore 1 live JavaScript functional component example: Buffered inbox and functional message reader that detaches into its own window.",
+        "description": "Explore 4 live JavaScript functional component examples: Buffered inbox and functional message reader that detaches into its own window.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-19"
     },
@@ -1269,7 +1287,7 @@
     },
     "/examples/button/base/index.html": {
         "title": "Button — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Live runnable Button example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "description": "A button with icon, badge, ripple and tooltip, each a live config. Move the icon or the badge, change the text, and toggle disabled in the panel.",
         "schemaType": "WebPage",
         "lastmod": "2026-11-17"
     },
@@ -1551,7 +1569,7 @@
     },
     "/examples/date/selectorContainer/index.html": {
         "title": "Date SelectorContainer — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "The date SelectorContainer variant, standalone. Pick a date and jump months with the radios; compare it with the component variant.",
+        "description": "Live runnable Date SelectorContainer example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
         "schemaType": "WebPage",
         "lastmod": "2026-11-16"
     },
@@ -1569,7 +1587,7 @@
     },
     "/examples/fields/index.html": {
         "title": "Fields — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Adding and removing field triggers at runtime. Remove the triggers with the button, add one back, and click it on the field.",
+        "description": "Live runnable Fields example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
         "schemaType": "WebPage",
         "lastmod": "2025-11-19"
     },
@@ -1605,13 +1623,13 @@
     },
     "/examples/form/field/country/index.html": {
         "title": "CountryField — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Live runnable CountryField example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "description": "A country field with flags, in its states beside a live configuration panel. Choose a country, then toggle showFlags in the panel.",
         "schemaType": "WebPage",
         "lastmod": "2026-11-18"
     },
     "/examples/form/field/currency/index.html": {
         "title": "CurrencyField — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Live runnable CurrencyField example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "description": "A currency field that formats its amount, in its states beside a live configuration panel. Type an amount above maxValue to see the failure state.",
         "schemaType": "WebPage",
         "lastmod": "2026-11-18"
     },
@@ -1623,7 +1641,7 @@
     },
     "/examples/form/field/display/index.html": {
         "title": "DisplayField — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Live runnable DisplayField example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "description": "A field that shows a value without editing it, in its states beside a live configuration panel. Change the value in the panel and watch the field show it.",
         "schemaType": "WebPage",
         "lastmod": "2026-11-18"
     },
@@ -1641,7 +1659,7 @@
     },
     "/examples/form/field/iban/index.html": {
         "title": "IBANField — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Live runnable IBANField example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "description": "An IBAN field that validates its number, in its states beside a live configuration panel. Change one digit of the IBAN to see the failure state.",
         "schemaType": "WebPage",
         "lastmod": "2026-11-18"
     },
@@ -1653,19 +1671,19 @@
     },
     "/examples/form/field/password/index.html": {
         "title": "PasswordField — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Live runnable PasswordField example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "description": "A password field, in its states beside a live configuration panel. Type a password that is too short to see the failure state.",
         "schemaType": "WebPage",
         "lastmod": "2026-11-18"
     },
     "/examples/form/field/phone/index.html": {
         "title": "PhoneField — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Live runnable PhoneField example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "description": "A phone field that validates its number, in its states beside a live configuration panel. Type letters into the number to see the failure state.",
         "schemaType": "WebPage",
         "lastmod": "2026-11-18"
     },
     "/examples/form/field/picker/index.html": {
         "title": "PickerField — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "A picker field which clears back to its original value. Open the picker, choose another entry, then clear the field — the original value returns.",
+        "description": "Live runnable PickerField example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
         "schemaType": "WebPage",
         "lastmod": "2025-11-19"
     },
@@ -1677,13 +1695,13 @@
     },
     "/examples/form/field/range/index.html": {
         "title": "RangeField — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Live runnable RangeField example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "description": "A range slider, in its states beside a live configuration panel. Drag the slider, then change minValue and maxValue in the panel.",
         "schemaType": "WebPage",
         "lastmod": "2026-11-18"
     },
     "/examples/form/field/search/index.html": {
         "title": "SearchField — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Live runnable SearchField example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "description": "A search field, in its states beside a live configuration panel. Type a term, then clear it with the trigger.",
         "schemaType": "WebPage",
         "lastmod": "2026-11-18"
     },
@@ -1731,7 +1749,7 @@
     },
     "/examples/form/field/zipcode/index.html": {
         "title": "ZipCodeField — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Live runnable ZipCodeField example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "description": "A ZIP code field that validates its format, in its states beside a live configuration panel. Delete a digit to see the failure state.",
         "schemaType": "WebPage",
         "lastmod": "2026-11-18"
     },
@@ -1749,13 +1767,13 @@
     },
     "/examples/functional/defineComponent/index.html": {
         "title": "Functional Component — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Live runnable Functional Component example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "description": "A component written as a function with defineComponent(), its state in a hook. Click the greeting to switch the name, and change the greeting in the panel.",
         "schemaType": "WebPage",
         "lastmod": "2025-07-14"
     },
     "/examples/functional/hostComponent/index.html": {
         "title": "Functional Component Hosting Component — Live Demo | Neo.mjs",
-        "description": "Live runnable Functional Component Hosting Component example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in...",
+        "description": "A function component that hosts a class-based Button and counts its clicks. Click the button and watch the function's count go up.",
         "schemaType": "WebPage",
         "lastmod": "2025-07-15"
     },
@@ -1767,7 +1785,7 @@
     },
     "/examples/functional/nestedTemplateComponent/index.html": {
         "title": "Functional Nested Templates — JavaScript UI Demo | Neo.mjs",
-        "description": "Live runnable Functional Nested Templates example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "description": "A function component built from nested HTML templates. Click the card to toggle its status, and open its details with the button.",
         "schemaType": "WebPage",
         "lastmod": "2025-08-04"
     },
@@ -1911,7 +1929,7 @@
     },
     "/examples/list/base/index.html": {
         "title": "List — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Live runnable List example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "description": "A list over a store, with selection, dragging and checkboxes as live configs. Select an item, then turn on useCheckBoxes or draggable in the panel.",
         "schemaType": "WebPage",
         "lastmod": "2024-08-17"
     },
@@ -1923,7 +1941,7 @@
     },
     "/examples/list/chip/index.html": {
         "title": "ChipList — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Live runnable ChipList example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "description": "A list of chips over a store, in a row or stacked. Select a chip, then toggle stacked in the panel.",
         "schemaType": "WebPage",
         "lastmod": "2024-08-17"
     },
@@ -1935,7 +1953,7 @@
     },
     "/examples/list/color/index.html": {
         "title": "ColorList — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Live runnable ColorList example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "description": "A list of colors over a store. Select a color, then toggle disableSelection in the panel.",
         "schemaType": "WebPage",
         "lastmod": "2025-07-11"
     },
@@ -1953,7 +1971,7 @@
     },
     "/examples/menu/list/index.html": {
         "title": "MenuList — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Live runnable MenuList example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "description": "A menu list over a store. Move through the items with the arrow keys, and resize the menu in the panel.",
         "schemaType": "WebPage",
         "lastmod": "2024-08-17"
     },
@@ -2013,7 +2031,7 @@
     },
     "/examples/sitemap/index.html": {
         "title": "Sitemap — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Live runnable Sitemap example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "description": "Columns of grouped links whose items open a URL, call a handler, or stay disabled or hidden. Resize the sitemap in the panel and follow an item's link.",
         "schemaType": "WebPage",
         "lastmod": "2024-08-18"
     },

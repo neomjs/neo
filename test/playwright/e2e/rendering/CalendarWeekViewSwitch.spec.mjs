@@ -65,4 +65,43 @@ test.describe('Neo.calendar week view keeps the active week across view switches
             await expectActiveWeek(page, `after ${other} → Week`)
         }
     });
+
+    test('double-clicking two all-day bars in sequence switches the editor without losing either event (#20883)', async ({page}) => {
+        await page.setViewportSize({width: 1440, height: 900});
+        await page.goto('/examples/calendar/basic/index.html');
+
+        const freezeBar = page.locator(`${WEEK_VIEW} .neo-allday-event`, {hasText: 'Release freeze'}).first(),
+              summitBar = page.locator(`${WEEK_VIEW} .neo-allday-event`, {hasText: 'Architecture summit'}).first();
+
+        await expect(freezeBar).toBeVisible();
+        await expect(summitBar).toBeVisible();
+
+        await freezeBar.dblclick();
+
+        const editor         = page.locator('.neo-calendar-edit-event-container'),
+              titleInput     = editor.locator('input[name="title"]'),
+              allDayCheckbox = editor.locator('input[type="checkbox"]');
+
+        await expect(editor).toBeVisible();
+        await expect(titleInput).toHaveValue('Release freeze');
+        await expect(allDayCheckbox).toBeChecked();
+
+        await summitBar.dblclick();
+
+        // out-waits: EditEventContainer#onFocusLeave 100ms timeout from click 1
+        await page.waitForTimeout(150);
+
+        await expect(editor).toBeVisible();
+        await expect(titleInput).toHaveValue('Architecture summit');
+        await expect(allDayCheckbox).toBeChecked();
+        await expect(freezeBar).toBeVisible();
+        await expect(summitBar).toBeVisible();
+
+        await switchTo(page, 'Month');
+        await expect(page.locator(WEEK_VIEW).first()).toBeHidden();
+        await switchTo(page, 'Week');
+
+        await expect(freezeBar).toBeVisible();
+        await expect(summitBar).toBeVisible();
+    });
 });
