@@ -93,6 +93,9 @@ jobs:
             // The base a push's changed files were diffed from; its content reads compare against it too
             let pushBase = null;
 
+            // A pull request's file records, for red-on-base, which needs removals and a rename's old path
+            let fileRecords = [];
+
             // A newer push cancels this workflow's older run, so diffing from `before` would leave
             // the cancelled push's commits in no classified range. Diff from the head of this
             // workflow's last completed, non-cancelled push run instead: completed ranges then
@@ -137,6 +140,8 @@ jobs:
                   pull_number: context.payload.pull_request.number,
                   per_page   : 100
                 });
+
+                fileRecords = files;
 
                 return files.map(file => file.filename);
               }
@@ -477,9 +482,10 @@ jobs:
             const runUnit        = normalizedFiles.some(file => !isDocsOnlyPath(file) || requiresUnitForContent(file));
             const runComponents  = normalizedFiles.some(isComponentsRelevantPath);
             const runE2e         = normalizedFiles.some(isE2eRelevantPath);
-            // red-on-base runs changed unit specs against the base's source, so it needs both
-            const runRedOnBase   = normalizedFiles.some(file => /^test\/playwright\/unit\/.*\.spec\.mjs$/.test(file)) &&
-                                   normalizedFiles.some(file => !file.startsWith('test/'));
+            // red-on-base runs the unit specs still at head against the base's source, so it needs both. Its
+            // comparison diffs without rename detection, so a rename's old path counts as changed too.
+            const runRedOnBase   = fileRecords.some(({filename, status}) => status !== 'removed' && /^test\/playwright\/unit\/.*\.spec\.mjs$/.test(filename)) &&
+                                   fileRecords.some(({filename, previous_filename}) => [filename, previous_filename].some(file => file && !file.startsWith('test/')));
 
             core.info(`Changed files: ${normalizedFiles.join(', ')}`);
             core.info(`run_unit=${runUnit}`);

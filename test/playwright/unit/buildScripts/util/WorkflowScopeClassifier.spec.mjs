@@ -108,7 +108,8 @@ const scopeScript = () =>
  * fetch of it genuinely throws. A mock that ignored the owner would let a fork-blind classifier pass.
  *
  * @param {Object}  [config={}]
- * @param {String[]}[config.files] Changed paths the PR reports.
+ * @param {Array<String|Object>} [config.files] Changed paths the PR reports, or GitHub file records
+ * (`{filename, status, previous_filename}`) where removals and renames matter.
  * @param {Object}  [config.basePkg] `package.json` content at the base ref.
  * @param {Object}  [config.headPkg] `package.json` content at the head ref.
  * @param {String}  [config.headPkgRaw] Raw head content, to serve unparseable bytes.
@@ -138,7 +139,8 @@ const createRuntime = ({
     runs            = [{ id: 1, conclusion: 'success', head_sha: 'before-sha' }],
     runsError       = null
 } = {}) => {
-    const outputs = new Map(),
+    const records = files.map(file => typeof file === 'string' ? {filename: file} : file),
+          outputs = new Map(),
           info    = [],
           notices = [],
           summary = [],
@@ -157,7 +159,7 @@ const createRuntime = ({
           github  = {
               paginate: async() => {
                   calls.listFiles++;
-                  return files.map(filename => ({ filename }));
+                  return records;
               },
               rest: {
                   pulls: {
@@ -177,7 +179,7 @@ const createRuntime = ({
                       // A push compares its two commits rather than listing a pull request's files
                       compareCommitsWithBasehead: async({ basehead }) => {
                           calls.basehead = basehead;
-                          return { data: { files: files.map(filename => ({ filename })) } };
+                          return { data: { files: records } };
                       },
                       getContent                : async({ owner, repo, path: filePath, ref }) => {
                           const isLock = filePath === 'package-lock.json';
@@ -891,6 +893,23 @@ test.describe('Tests scope classifier — the red-on-base falsifier', () => {
         await executeScript(scopeScript(), runtime);
 
         expect(outputsOf(runtime).run_red_on_base).toBe('false');
+    });
+
+    test('a removed unit spec is nothing to run, beside a source edit too', async () => {
+        const runtime = createRuntime({ files: ['src/grid/Body.mjs', {filename: UNIT_SPEC, status: 'removed'}] });
+
+        await executeScript(scopeScript(), runtime);
+
+        expect(outputsOf(runtime).run_red_on_base).toBe('false');
+    });
+
+    test('a rename from outside test/ into the unit suite still runs it', async () => {
+        // The comparison diffs without rename detection, so the old path counts as a source change
+        const runtime = createRuntime({ files: [{filename: UNIT_SPEC, status: 'renamed', previous_filename: 'src/grid/Probe.mjs'}] });
+
+        await executeScript(scopeScript(), runtime);
+
+        expect(outputsOf(runtime).run_red_on_base).toBe('true');
     });
 
     test('the job starts on the classifier\'s verdict and keeps no copy of its predicate', () => {
