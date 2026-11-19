@@ -948,6 +948,72 @@ test.describe('Content-sized rows example', () => {
             expect(edgeRow(await settle(page)).id, 'switched back to content-sized rows').toBe(reading)
         });
 
+        test('10b. fixed-height mode applies ellipsis and clipping to wrapped columns and preserves editing', async ({page}) => {
+            // Viewport carries the example-scoped class
+            const viewportCls = await page.evaluate(() => document.querySelector('.neo-viewport')?.className);
+            expect(viewportCls, 'viewport carries example class').toContain('neo-examples-grid-content-sized-rows');
+
+            // Switch to fixed-height mode
+            await page.getByText('Content-sized rows', {exact: true}).click();
+            await expect.poll(async () => (await gridState(page)).extent, {message: 'the fixed extent'}).toBe((COUNT + 1) * ROW);
+
+            // Grid container carries the fixed-rows class
+            const gridCls = await page.evaluate(grid => document.querySelector(grid)?.className, GRID);
+            expect(gridCls, 'grid carries fixed-rows class').toContain('content-sized-rows-fixed');
+
+            // Check the 4 wrapped columns for ellipsis, nowrap, hidden overflow, and vertical containment
+            const wrappedFields = ['title', 'summary', 'details', 'notes'];
+            for (const field of wrappedFields) {
+                const cellStyles = await page.evaluate(({grid, field}) => {
+                    const cell = document.querySelector(`${grid} .neo-grid-cell[data-field="${field}"]`);
+                    if (!cell) return null;
+                    const style = getComputedStyle(cell);
+                    return {
+                        display     : style.display,
+                        overflow    : style.overflow,
+                        textOverflow: style.textOverflow,
+                        whiteSpace  : style.whiteSpace,
+                        lineHeight  : style.lineHeight,
+                        scrollHeight: cell.scrollHeight,
+                        clientHeight: cell.clientHeight
+                    };
+                }, {grid: GRID, field});
+
+                expect(cellStyles, `styles for [data-field="${field}"]`).not.toBeNull();
+                expect(cellStyles.display, `${field} display`).toBe('block');
+                expect(cellStyles.overflow, `${field} overflow`).toBe('hidden');
+                expect(cellStyles.textOverflow, `${field} text-overflow`).toBe('ellipsis');
+                expect(cellStyles.whiteSpace, `${field} white-space`).toBe('nowrap');
+                expect(cellStyles.lineHeight, `${field} line-height`).toBe('27px');
+                expect(cellStyles.scrollHeight, `${field} scrollHeight <= clientHeight`).toBeLessThanOrEqual(cellStyles.clientHeight);
+            }
+
+            // Pinned columns verification: title is in locked start, notes is in locked end
+            const titleLocked = await page.locator(`${GRID} .neo-grid-cell[data-field="title"]`).first().evaluate(el => el.classList.contains('neo-locked-start'));
+            const notesLocked = await page.locator(`${GRID} .neo-grid-cell[data-field="notes"]`).first().evaluate(el => el.classList.contains('neo-locked-end'));
+            expect(titleLocked, 'title is pinned start').toBe(true);
+            expect(notesLocked, 'notes is pinned end').toBe(true);
+
+            // Verify summary editing in fixed-height mode
+            const targetCell = page.locator(`${GRID} .neo-grid-cell[data-field="summary"]`).first();
+            await targetCell.dblclick();
+
+            const editor = page.locator(`${GRID} .neo-grid-editor input`);
+            await expect(editor, 'editor input is visible in fixed-height mode').toBeVisible();
+            await editor.fill('Fixed-height edited summary value');
+            await page.keyboard.press('Enter');
+
+            await expect(targetCell).toContainText('Fixed-height edited summary value');
+
+            // Switch back to content-sized mode: fixed-rows class leaves and natural heights return
+            await page.getByText('Content-sized rows', {exact: true}).click();
+            await settle(page);
+
+            const gridClsRestored = await page.evaluate(grid => document.querySelector(grid)?.className, GRID);
+            expect(gridClsRestored, 'fixed-rows class removed').not.toContain('content-sized-rows-fixed');
+            await expectRowsFitTheirText(page);
+        });
+
         test('wheel throughput at ordinary and fast speeds', async ({page}) => {
             // The control: a view at rest has no arrivals
             await page.evaluate(grid => window.startSampling(grid, false), GRID);

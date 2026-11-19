@@ -24,6 +24,10 @@ class MainContainer extends Viewport {
          */
         className: 'Neo.examples.grid.contentSizedRows.MainContainer',
         /**
+         * @member {String[]} cls=['neo-examples-grid-content-sized-rows']
+         */
+        cls: ['neo-examples-grid-content-sized-rows'],
+        /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          */
         layout: {ntype: 'vbox', align: 'stretch'},
@@ -85,7 +89,11 @@ class MainContainer extends Viewport {
      * @param {Boolean} data.value
      */
     onContentSizedChange({value}) {
-        this.getReference('grid').contentSizedRows = value
+        const
+            grid = this.getReference('grid'),
+            cls  = grid.cls.filter(item => item !== 'content-sized-rows-fixed');
+
+        grid.set({contentSizedRows: value, cls: value ? cls : [...cls, 'content-sized-rows-fixed']})
     }
 
     /**

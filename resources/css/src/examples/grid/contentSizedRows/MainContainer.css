@@ -1,0 +1,15 @@
+.neo-examples-grid-content-sized-rows {
+    /* Fixed rows: wrapped text would centre in the flex cell and lose both edges, so each shows one cut line */
+    .content-sized-rows-fixed .neo-grid-row .neo-grid-cell:not(:has(.neo-grid-editor)) {
+        &[data-field="title"],
+        &[data-field="summary"],
+        &[data-field="details"],
+        &[data-field="notes"] {
+            display      : block;
+            line-height  : 27px;
+            overflow     : hidden;
+            text-overflow: ellipsis;
+            white-space  : nowrap;
+        }
+    }
+}
