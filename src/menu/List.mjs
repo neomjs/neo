@@ -242,10 +242,16 @@ class List extends BaseList {
      * @protected
      */
     afterSetItems(value, oldValue) {
-        let {store} = this;
+        let me      = this,
+            {store} = me;
 
-        oldValue && store.clear(); // we can not use remove() here, since items are no records => often no id
-        value    && store.add(value)
+        if (oldValue) {
+            // A submenu is built once from its item's nested items, so items that replace them need their own
+            me.destroySubMenus();
+            store.clear() // we can not use remove() here, since items are no records => often no id
+        }
+
+        value && store.add(value)
     }
 
     /**
@@ -454,12 +460,10 @@ class List extends BaseList {
      *
      */
     destroy(...args) {
-        let me              = this,
-            {activeSubMenu} = me,
-            subMenuMap      = me.subMenuMap || {};
+        let me = this;
 
         me.syncOutsidePointerListener(false);
-        activeSubMenu?.unmount();
+        me.destroySubMenus();
 
         // The tree store outlives every level, so a level that stops rendering must stop listening.
         // Its own object literal — on() and un() both consume keys from what they are handed.
@@ -471,12 +475,19 @@ class List extends BaseList {
             scope       : me
         });
 
-        Object.entries(subMenuMap).forEach(([key, value]) => {
-            value.destroy();
-            subMenuMap[key] = null
-        });
-
         super.destroy(...args)
+    }
+
+    /**
+     * Hides the open submenu and destroys every cached one, so the next `showSubMenu()` builds from the current records
+     * @protected
+     */
+    destroySubMenus() {
+        let me = this;
+
+        me.hideSubMenu(false);
+        Object.values(me.subMenuMap || {}).forEach(menu => menu.destroy());
+        me.subMenuMap = null
     }
 
     /**
