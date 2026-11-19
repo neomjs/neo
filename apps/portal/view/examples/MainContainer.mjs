@@ -126,7 +126,7 @@ class MainContainer extends Container {
         // During construction no stage card exists yet: createItems()/createGroupPage() read the initial value
         if (me.isConstructed) {
             me.getOverview().getList().store.getFilter('catalogMode').value = value;
-            me.getGroupPages().forEach(page => {page.getList().store.getFilter('catalogMode').value = value});
+            me.getGroupPages().forEach(page => page.getLists().forEach(list => {list.store.getFilter('catalogMode').value = value}));
             me.getController().publishGroups()
         }
     }

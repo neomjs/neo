@@ -104,10 +104,11 @@ class MainContainerController extends Component {
         familyDefinitions.forEach(definition => {
             const {family} = definition,
                   home     = published.filter(record => record.family === family),
-                  cross    = published.filter(record => record.alsoIn?.includes(family));
+                  cross    = published.filter(record => record.alsoIn?.includes(family)),
+                  tiles    = [...home, ...cross].filter(record => record.kind === 'component');
 
             if (home.length + cross.length > 0) {
-                groups.push({...definition, count: home.length, crossCount: cross.length})
+                groups.push({...definition, count: home.length, crossCount: cross.length, tileCount: tiles.length})
             }
         });
 
