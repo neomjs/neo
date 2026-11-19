@@ -3,6 +3,7 @@
     --button-background-color-active            : #373a3c;
     --button-background-color-disabled          : #3c3f41;
     --button-background-color-hover             : #3a3c3e;
+    --button-background-color-pressed           : #3c3f41;
     --button-background-image                   : linear-gradient(#434749, #323536);
     --button-background-gradient-end            : #323536;
     --button-background-gradient-start          : #434749;
@@ -21,6 +22,7 @@
     --button-glyph-color-active                 : #bbb;
     --button-glyph-color-disabled               : #bbb;
     --button-glyph-color-hover                  : #bbb;
+    --button-glyph-color-pressed                : #bbb;
     --button-glyph-margin                       : 1px 6px 0 0;
     --button-height                             : initial;
     --button-margin                             : 2px;
@@ -32,6 +34,7 @@
     --button-text-color-active                  : #bbb;
     --button-text-color-disabled                : #bbb;
     --button-text-color-hover                   : #bbb;
+    --button-text-color-pressed                 : #bbb;
     --button-text-font-family                   : var(--neo-font-family);
     --button-text-font-size                     : 11px;
     --button-text-font-weight                   : 600;
@@ -45,6 +48,7 @@
     --button-ghost-background-color-active      : #373a3c;
     --button-ghost-background-color-disabled    : inherit;
     --button-ghost-background-color-hover       : transparent;
+    --button-ghost-background-color-pressed     : transparent;
     --button-ghost-background-image             : none;
     --button-ghost-badge-background-color       : var(--button-badge-color);
     --button-ghost-badge-color                  : var(--button-badge-background-color);
@@ -57,18 +61,21 @@
     --button-ghost-glyph-color-active           : var(--button-text-color);
     --button-ghost-glyph-color-disabled         : inherit;
     --button-ghost-glyph-color-hover            : var(--button-text-color);
+    --button-ghost-glyph-color-pressed          : #bbb;
     --button-ghost-opacity-disabled             : var(--neo-disabled-opacity);
     --button-ghost-ripple-background-color      : inherit;
     --button-ghost-text-color                   : var(--button-text-color);
     --button-ghost-text-color-active            : var(--button-text-color);
     --button-ghost-text-color-disabled          : inherit;
     --button-ghost-text-color-hover             : var(--button-text-color);
+    --button-ghost-text-color-pressed           : #bbb;
 
     /* {module: Button, ui: --secondary} */
     --button-secondary-background-color         : var(--button-text-color);
     --button-secondary-background-color-active  : #373a3c;
     --button-secondary-background-color-disabled: inherit;
     --button-secondary-background-color-hover   : var(--button-text-color);
+    --button-secondary-background-color-pressed : #bbb;
     --button-secondary-background-image         : none;
     --button-secondary-badge-background-color   : var(--button-badge-color);
     --button-secondary-badge-color              : var(--button-badge-background-color);
@@ -81,18 +88,21 @@
     --button-secondary-glyph-color-active       : var(--button-background-color);
     --button-secondary-glyph-color-disabled     : inherit;
     --button-secondary-glyph-color-hover        : var(--button-background-color);
+    --button-secondary-glyph-color-pressed      : #3c3f41;
     --button-secondary-opacity-disabled         : var(--neo-disabled-opacity);
     --button-secondary-ripple-background-color  : inherit;
     --button-secondary-text-color               : var(--button-background-color);
     --button-secondary-text-color-active        : var(--button-background-color);
     --button-secondary-text-color-disabled      : inherit;
     --button-secondary-text-color-hover         : var(--button-background-color);
+    --button-secondary-text-color-pressed       : #3c3f41;
 
     /* {module: Button, ui: --tertiary} */
     --button-tertiary-background-color          : transparent;
     --button-tertiary-background-color-active   : #373a3c;
     --button-tertiary-background-color-disabled : inherit;
     --button-tertiary-background-color-hover    : var(--button-background-color-hover);
+    --button-tertiary-background-color-pressed  : transparent;
     --button-tertiary-background-image          : none;
     --button-tertiary-badge-background-color    : var(--button-badge-background-color);
     --button-tertiary-badge-color               : var(--button-badge-color);
@@ -105,12 +115,14 @@
     --button-tertiary-glyph-color-active        : var(--button-glyph-color);
     --button-tertiary-glyph-color-disabled      : inherit;
     --button-tertiary-glyph-color-hover         : var(--button-glyph-color);
+    --button-tertiary-glyph-color-pressed       : #bbb;
     --button-tertiary-opacity-disabled          : var(--neo-disabled-opacity);
     --button-tertiary-ripple-background-color   : inherit;
     --button-tertiary-text-color                : var(--button-text-color);
     --button-tertiary-text-color-active         : var(--button-text-color);
     --button-tertiary-text-color-disabled       : inherit;
     --button-tertiary-text-color-hover          : var(--button-text-color);
+    --button-tertiary-text-color-pressed        : #bbb;
 
     /* Moved out of a selector block: the rule is structural, only these values are the theme's. */
     --button-min-width                          : auto;

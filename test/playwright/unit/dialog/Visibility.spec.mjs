@@ -3,8 +3,8 @@
  * @summary Pins `Neo.dialog.Base` to the `component.Base` visibility contract: `show()` and `hide()` keep `hidden`
  * in step, a dialog mounts in one flight at a time, and an explicit `autoMount: false` holds.
  *
- * A kept dialog (`closeAction: 'hide'`) is reopened with `show()` by every engine example, and Escape closes it by
- * setting `hidden = true`, so a `hidden` that stays `true` after `show()` turns that Escape into a no-op. Animated
+ * A kept dialog (`closeAction: 'hide'`) is reopened with `show()` by every engine example, and its owners read
+ * `hidden` to know whether it is open, so `show()` must write it back to `false` before Escape hides it again. Animated
  * dialogs mount through `animateShow()`, which is a mount flight of its own. The `component.Base` side of the same
  * contract is pinned in `component/MountFlight.spec.mjs`.
  */

@@ -1796,6 +1796,23 @@
         "lookFor": "Scroll down through 300 people, then sideways through the year: buffered rows and viewport-clipped bars keep the DOM compact."
     },
     {
+        "id": "gantt-big-data",
+        "image": "devmode/gantt-big-data-14.jpg",
+        "name": "A project of 2,000 tasks",
+        "sourceUrl": "examples/gantt/bigData",
+        "urls": {
+            "devmode": "examples/gantt/bigData/index.html",
+            "dist_dev": "dist/development/examples/gantt/bigData/index.html",
+            "dist_esm": "dist/esm/examples/gantt/bigData/index.html",
+            "dist_prod": "dist/production/examples/gantt/bigData/index.html"
+        },
+        "hiddenIn": [],
+        "family": "gantt",
+        "component": "Gantt",
+        "feature": "A seeded building programme: 2,000 tasks in phases and zones, linked by 1,972 dependencies",
+        "lookFor": "Expand a phase and scroll: the tree, the bars and the links keep up. Move a task and its successors follow."
+    },
+    {
         "id": "timeline-basic",
         "image": null,
         "name": "Resource Timeline",

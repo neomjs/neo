@@ -1544,6 +1544,16 @@ class Component extends Abstract {
     }
 
     /**
+     * @summary The component focus goes back to when this one gives it up: the one focus came from.
+     * @returns {Neo.component.Base|null}
+     */
+    getFocusReturnTarget() {
+        let id = this.focusEnterData?.relatedTarget?.id;
+
+        return id ? Neo.getComponent(id) : null
+    }
+
+    /**
      * @summary Convenience shortcut for transform-immune layout-box metrics.
      *
      * Mirrors {@link #getDomRect}, but resolves the LAYOUT box via `Neo.main.DomAccess.getLayoutRect()`:
@@ -1945,31 +1955,24 @@ class Component extends Abstract {
     }
 
     /**
-     * @summary Hands focus back to the component it came from, while this one holds it.
+     * @summary Hands focus back to {@link #getFocusReturnTarget}, while this component holds it.
      */
     revertFocus() {
-        let relatedTarget = this.focusEnterData?.relatedTarget;
-
-        if (this.containsFocus && relatedTarget) {
-            Neo.getComponent(relatedTarget.id)?.focus()
-        }
+        this.containsFocus && this.getFocusReturnTarget()?.focus()
     }
 
     /**
      * @summary Hands focus back as this component departs (destroy, unmount), unless the user has moved it on.
      * @description The worker's `containsFocus` runs a round trip behind the DOM, and the departure's removal reaches
      * the main thread after this call. A dock refresh, for example, moves the tab the user just pressed out of the
-     * shell it destroys, so that shell still reports focus. The focus therefore goes to `relatedTarget` through that
-     * component's own `focus()` with `restoreFrom`: the main thread settles the departure and applies only a lost
-     * focus, in the same step, so a focus that arrives meanwhile is never taken back.
+     * shell it destroys, so that shell still reports focus. The focus therefore goes to {@link #getFocusReturnTarget}
+     * through that component's own `focus()` with `restoreFrom`: the main thread settles the departure and applies
+     * only a lost focus, in the same step, so a focus that arrives meanwhile is never taken back.
      */
     revertFocusOnDeparture() {
-        let me            = this,
-            relatedTarget = me.focusEnterData?.relatedTarget;
+        let me = this;
 
-        if (me.containsFocus && relatedTarget) {
-            Neo.getComponent(relatedTarget.id)?.focus(undefined, false, undefined, undefined, me.id)
-        }
+        me.containsFocus && me.getFocusReturnTarget()?.focus(undefined, false, undefined, undefined, me.id)
     }
 
     /**

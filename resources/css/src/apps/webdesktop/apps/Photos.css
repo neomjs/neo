@@ -1,0 +1,38 @@
+.webdesktop-photos {
+    display              : grid;
+    gap                  : 12px;
+    grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+    overflow-y           : auto;
+    padding              : 14px;
+
+    .neo-list-item {
+        border-radius: 10px;
+        cursor       : pointer;
+        padding      : 6px;
+
+        &:hover {
+            background-color: var(--webdesktop-glass-hover);
+        }
+
+        &.neo-selected {
+            background-color: var(--webdesktop-glass-active);
+        }
+    }
+
+    img {
+        aspect-ratio : 3 / 4;
+        border-radius: 8px;
+        display      : block;
+        object-fit   : cover;
+        width        : 100%;
+    }
+
+    .webdesktop-photos-name {
+        font-size    : 12px;
+        margin-top   : 6px;
+        overflow     : hidden;
+        text-align   : center;
+        text-overflow: ellipsis;
+        white-space  : nowrap;
+    }
+}
