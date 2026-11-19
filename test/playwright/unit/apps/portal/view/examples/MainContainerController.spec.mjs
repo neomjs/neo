@@ -661,7 +661,7 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           'text-field', 'textarea-field', 'time-field', 'url-field',
           'country-field', 'currency-field', 'display-field', 'iban-field', 'password-field',
           'phone-field', 'range-field', 'search-field', 'zipcode-field', 'copy-to-clipboard-trigger',
-          'fieldset', 'form-validation', 'field-with-prefix', 'layout-form', 'form-app'
+          'fieldset', 'form-validation', 'field-with-prefix', 'checkout-form', 'layout-form', 'form-app'
       ],
       // the tile records of groups that had no record before the tiles, appended to the catalog
       newTileIds = [
