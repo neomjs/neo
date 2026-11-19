@@ -86,6 +86,7 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'grid/SelectionMultiBody.spec.mjs',
     'grid/StoreUpdateRowsNL.spec.mjs',
     'list/AnimateMembershipNL.spec.mjs',
+    'list/ReorderExampleNL.spec.mjs',
     'neural-link/CreateComponent.spec.mjs',
     'neural-link/CreateGrid.spec.mjs',
     'neural-link/Redo.spec.mjs',

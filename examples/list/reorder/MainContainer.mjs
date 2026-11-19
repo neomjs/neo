@@ -35,7 +35,7 @@ class MainContainer extends Viewport {
             cls : ['neo-reorder-intro'],
             vdom: {cn: [
                 {tag: 'h1', text: 'Reorder by drag'},
-                {tag: 'p',  text: 'Drag a step or a portrait to a new place. Each number is the item\'s place in its store\'s order.'}
+                {tag: 'p',  text: 'Drag a step or a portrait. Each number is its place in the store.'}
             ]}
         }, {
             module: Container,

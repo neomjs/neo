@@ -69,7 +69,7 @@ class MainContainer extends ConfigurationViewport {
             module        : Buffered,
             bufferRowRange: 3,
             height        : 400,
-            itemConfig    : ({record}) => ({module: PooledRow, record}),
+            itemConfig    : ({list, record}) => ({module: PooledRow, record, total: list.store.getCount()}),
             itemHeight    : 40,
             store         : MainStore,
             width         : 300

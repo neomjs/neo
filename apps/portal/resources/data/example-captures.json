@@ -607,7 +607,7 @@
     {
       "id": "list-reorder",
       "viewport": {"width": 1280, "height": 720},
-      "theme": "dark",
+      "theme": "default",
       "state": "The release checklist beside the wall of portraits, every item numbered by its place.",
       "ready": [{"selector": ".neo-reorder-steps .neo-list-item", "text": "Freeze the release branch"}, {"selector": ".neo-reorder-wall .neo-list-item img"}],
       "steps": [],
@@ -618,10 +618,10 @@
       "id": "list-animate",
       "viewport": {"width": 1280, "height": 720},
       "theme": "default",
-      "state": "The portrait cards sorted by last name.",
-      "ready": [{"selector": ".neo-list-item img"}, {"selector": ".neo-button", "text": "Lastname"}],
-      "steps": [{"kind": "click", "selector": ".neo-button", "text": "Lastname"}],
-      "after": [{"selector": ".neo-list-item", "inRegion": true}],
+      "state": "The portrait cards sorted by first name, the ones online marked green.",
+      "ready": [{"selector": ".neo-list-item img"}, {"selector": ".neo-list-item", "text": "Parsons"}],
+      "steps": [],
+      "after": [{"selector": ".neo-list-item", "text": "Parsons", "inRegion": true}],
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     }
   ]
