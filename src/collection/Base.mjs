@@ -1197,7 +1197,7 @@ class Collection extends Base {
      */
     indexOf(key) {
         let me = this;
-        return me._items.indexOf(me.isItem(key) ? key : me.get(key));
+        return me.isItem(key) ? me._items.indexOf(key) : me.indexOfKey(key);
     }
 
     /**
@@ -1232,7 +1232,18 @@ class Collection extends Base {
      * @returns {Number} index (-1 in case no match is found)
      */
     indexOfKey(key) {
-        return this._items.indexOf(this.get(key));
+        let me   = this,
+            item = me.map.get(key) ?? (me.trackInternalId ? me.internalIdMap?.get(key) : undefined);
+
+        if (item === undefined && me.getCanonicalKey) {
+            let canonicalKey = me.getCanonicalKey(key);
+
+            if (canonicalKey !== undefined && canonicalKey !== key) {
+                item = me.map.get(canonicalKey)
+            }
+        }
+
+        return item !== undefined ? me._items.indexOf(item) : -1
     }
 
     /**
@@ -1582,7 +1593,7 @@ class Collection extends Base {
                 key  = me.isItem(item) ? me.getKey(item) : item;
 
                 if (map.has(key)) {
-                    const removedItem = items.splice(me.indexOfKey(key), 1)[0];
+                    const removedItem = items.splice(items.indexOf(map.get(key)), 1)[0];
                     removedItems.push(removedItem);
                     map.delete(key);
 
