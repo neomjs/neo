@@ -334,6 +334,8 @@ class ControlsContainer extends Container {
     }
 
     /**
+     * @summary Slides the panel in or out. Once it is in, the view pads its right edge (`neo-controls-expanded`),
+     * so the header and the grid make room for it.
      * @param {Object} data
      */
     async onControlsToggleButtonClick(data) {
@@ -347,7 +349,7 @@ class ControlsContainer extends Container {
 
         await me.timeout(button.expanded ? 250 : 0);
 
-        me.grid.toggleCls('neo-extend-margin-right');
+        me.parent.toggleCls('neo-controls-expanded')
     }
 
     onConstructed() {

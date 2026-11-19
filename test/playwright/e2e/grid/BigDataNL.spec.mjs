@@ -126,4 +126,29 @@ test.describe('Desktop: Neural Link Baseline Validation (Grid BigData)', () => {
         expect(first.join('')).toMatch(/\d/);
         expect(await firstRows()).toEqual(first)
     });
+
+    test('the headline holds the Settings button, and the open panel leaves the grid its columns', async ({page}) => {
+        await page.setViewportSize({width: 1024, height: 768});
+        await page.goto('/examples/grid/bigData/index.html');
+
+        const grid   = page.locator('.neo-examples-bigdata-maincontainer > .neo-grid-container'),
+              button = page.locator('.controls-container-button'),
+              panel  = page.locator('.neo-examples-bigdata-controls-container');
+
+        await expect(page.locator('.neo-examples-bigdata-title')).toHaveText('A data grid that scales to 100,000 rows × 200 columns', {timeout: 30000});
+
+        // Closed, the button sits in the header band, above the grid's header row
+        await expect.poll(async () => {
+            const [gridBox, buttonBox] = [await grid.boundingBox(), await button.boundingBox()];
+            return buttonBox.y + buttonBox.height <= gridBox.y
+        }).toBe(true);
+
+        // Open, the grid ends left of the panel
+        await button.click();
+        await expect(panel).toHaveClass(/neo-expanded/);
+        await expect.poll(async () => {
+            const [gridBox, panelBox] = [await grid.boundingBox(), await panel.boundingBox()];
+            return gridBox.x + gridBox.width <= panelBox.x
+        }).toBe(true)
+    });
 });

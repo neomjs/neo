@@ -291,7 +291,7 @@
     },
     {
       "id": "grid-big-data",
-      "viewport": {"width":640,"height":360},
+      "viewport": {"width":640,"height":451},
       "theme": "dark",
       "state": "The unsorted buffered grid scrolled to five-digit row numbers with varied names.",
       "ready": [
@@ -304,16 +304,16 @@
         {"selector":".neo-grid-cell[data-field='id']:text-is('10001')","inRegion":true},
         {"selector":"[role='columnheader'][aria-sort]","count":0}
       ],
-      "region": {"x":0,"y":0,"width":640,"height":360}
+      "region": {"selector":".neo-examples-bigdata-maincontainer > .neo-grid-container","anchor":"top-left","offsetX":-16,"offsetY":-12,"width":640,"height":360}
     },
     {
       "id": "grid-tree-big-data",
       "viewport": {
         "width": 640,
-        "height": 360
+        "height": 451
       },
       "theme": "dark",
-      "state": "The first frame's open path, Engineering to Team Atlas, with Squad Alpha opened to its pods and people; the footer states the 20,000 rows.",
+      "state": "The first frame's open path, Engineering to Team Atlas, with Squad Alpha opened to its four pods; the footer states the 20,000 rows.",
       "ready": [
         {
           "selector": ".neo-grid-row[aria-level='3'] .neo-tree-toggle.is-expanded"
@@ -337,7 +337,7 @@
         },
         {
           "selector": ".neo-grid-row[aria-level='5'] .neo-grid-cell[data-field='name']",
-          "text": "John Thompson",
+          "text": "Pod 4",
           "inRegion": true
         },
         {
@@ -347,8 +347,10 @@
         }
       ],
       "region": {
-        "x": 0,
-        "y": 0,
+        "selector": ".neo-examples-treebigdata-maincontainer > .neo-grid-container",
+        "anchor": "top-left",
+        "offsetX": -16,
+        "offsetY": -12,
         "width": 640,
         "height": 360
       }
