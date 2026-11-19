@@ -82,6 +82,15 @@ body:has(.neo-examples-grid-cell-types) .neo-dragproxy [class*=neo-theme-] {
         box-shadow      : 0 -1px 0 var(--cell-types-border);
     }
 
+    .cell-types-footer {
+        background-color: var(--cell-types-background);
+        border-top      : 1px solid var(--cell-types-border);
+        color           : var(--cell-types-muted);
+        font-size       : 12px;
+        line-height     : 1.4;
+        padding         : 8px 24px;
+    }
+
     .neo-grid-cell {
         .neo-sparkline-wrapper {
             height: 28px;
@@ -155,6 +164,11 @@ body:has(.neo-examples-grid-cell-types) .neo-dragproxy [class*=neo-theme-] {
 
         .cell-types-instruction {
             font-size: 12px;
+        }
+
+        .cell-types-footer {
+            font-size: 11px;
+            padding  : 6px 16px;
         }
     }
 }

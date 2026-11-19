@@ -1362,7 +1362,7 @@
         "component": "Grid",
         "feature": "Fourteen built-in column types on one maintainer directory",
         "lookFor": "Watch Pledged and Commits tick live, click +$250 on a row, and scroll across all 14 column types.",
-        "scope": "Loads public GitHub avatars and country flags; sponsorship ticks are simulated locally."
+        "scope": "Public GitHub and LinkedIn profile data; pledges, goals, funded %, commits and tiers are generated locally."
     },
     {
         "id": "grid-nested-record-fields",

@@ -40,6 +40,7 @@ test.describe('Grid built-in cell types example', () => {
         await feedBtn.click();
 
         expect(Number(await grid.getAttribute('aria-rowcount'))).toBe(33); // 1 header + 32 maintainer rows
+        await expect(page.locator('.cell-types-footer')).toContainText('pledges, goals, funded %, commits and tiers are generated');
 
         // Verify visible column headers name their type and none truncates its label
         const initialHeaderMetrics = await page.locator('.neo-grid-header-button').evaluateAll(buttons =>
@@ -123,8 +124,14 @@ test.describe('Grid built-in cell types example', () => {
         await expect(pledgedCell).not.toHaveText(seededPledgedText);
         await expect(pledgedCell).toHaveClass(/neo-animated-positive/);
 
-        // Reset restores seeded values and restarts the live feed, which ticks values while watching
+        // Sort a column by its header, click Reset, and assert no header keeps its sort state (aria-sort absent)
+        await page.locator('.neo-grid-header-button', {hasText: 'Pledged · animatedCurrency'}).click();
+        await expect(page.locator('[role="columnheader"][aria-sort="ascending"]')).toHaveCount(1);
+
+        // Reset restores seeded values, clears header sort state, and restarts the live feed
         await page.locator('.cell-types-reset-button').click();
+        await expect(page.locator('[role="columnheader"][aria-sort]')).toHaveCount(0);
+        await expect(page.locator('.neo-grid-cell[data-field="login"]').first()).toContainText('tobiu');
         await expect(pledgedCell).toHaveText(seededPledgedText);
 
         const beforeWatchSnapshot = await page.locator('.neo-grid-cell[data-field="recentCommits"]').allTextContents();
@@ -170,11 +177,18 @@ test.describe('Grid built-in cell types example', () => {
         await page.setViewportSize({width: 390, height: 844});
 
         await expect.poll(async () => {
-            const rect = await page.locator('.neo-grid-container').evaluate(el => {
-                const r = el.getBoundingClientRect();
-                return {right: Math.round(r.right), bottom: Math.round(r.bottom), width: Math.round(r.width)}
+            const rect = await page.locator('.neo-examples-grid-cell-types').evaluate(el => {
+                const g = el.querySelector('.neo-grid-container').getBoundingClientRect(),
+                      f = el.querySelector('.cell-types-footer').getBoundingClientRect();
+                return {
+                    footerBottom: Math.round(f.bottom),
+                    footerRight : Math.round(f.right),
+                    gridBottom  : Math.round(g.bottom),
+                    gridRight   : Math.round(g.right),
+                    gridWidth   : Math.round(g.width)
+                }
             });
-            return rect.width <= 390 && rect.right <= 390 && rect.bottom <= 844
+            return rect.gridWidth <= 390 && rect.gridRight <= 390 && rect.gridBottom <= rect.footerBottom && rect.footerRight <= 390 && rect.footerBottom <= 844
         }).toBe(true);
 
         await expect(page.locator('.neo-grid-cell[data-field="login"]').first()).toContainText('tobiu');

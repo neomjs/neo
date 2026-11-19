@@ -117,6 +117,12 @@ class MainContainer extends Viewport {
                 {type: 'githubOrgs',       dataField: 'organizations', text: 'Orgs · githubOrgs',          width: 164},
                 {type: 'column',           dataField: 'ecosystem',     text: 'Stack · column',             width: 160}
             ]
+        }, {
+            module: Component,
+            cls   : ['cell-types-footer'],
+            flex  : 'none',
+            tag   : 'footer',
+            text  : 'Names, avatars, flags, trends, orgs and links are public GitHub and LinkedIn profile data; pledges, goals, funded %, commits and tiers are generated for this demo.'
         }]
     }
 
@@ -186,21 +192,13 @@ class MainContainer extends Viewport {
         })
     }
 
-    /** @summary Restores initial seeded values, clears column sorters, and restarts the deterministic feed. */
+    /** @summary Restores initial seeded values, clears active sorters and header sort state, and restarts the deterministic feed. */
     onResetButtonClick() {
-        const
-            grid  = this.getReference('grid'),
-            store = grid.store;
+        const store = this.getReference('grid').store;
 
         this.stopFeedTimers();
         this.#feedPaused = false;
         this.#feedRandom = createSeededRandom(0x21187feed);
-
-        grid.columns.items.forEach(column => {
-            if (column.isSorted) {
-                column.isSorted = null
-            }
-        });
 
         store.resetDirectory();
 
