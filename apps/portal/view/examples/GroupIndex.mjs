@@ -51,7 +51,17 @@ class GroupIndex extends Component {
         /**
          * @member {Object} bind
          */
-        bind: {store: 'stores.groups'},
+        bind: {
+            matchCounts: data => data.matchCounts,
+            store      : 'stores.groups'
+        },
+        /**
+         * Optional per-group match counts (`Map<family, {home, cross, total}>`) active while filtering.
+         * Null restores normal published counts across every group.
+         * @member {Map|Object|null} matchCounts_=null
+         * @reactive
+         */
+        matchCounts_: null,
         /**
          * `overview`, `list` or `sheet`, see the class description.
          * @member {String} presentation_='overview'
@@ -77,6 +87,16 @@ class GroupIndex extends Component {
      * @protected
      */
     afterSetActiveFamily(value, oldValue) {
+        this.store && this.createEntries()
+    }
+
+    /**
+     * @summary Updates rendered match counts and zero-match group dimming when the find filter changes.
+     * @param {Map|Object|null} value
+     * @param {Map|Object|null} oldValue
+     * @protected
+     */
+    afterSetMatchCounts(value, oldValue) {
         this.store && this.createEntries()
     }
 
@@ -152,11 +172,16 @@ class GroupIndex extends Component {
                 unbanded.push(group)
             }
 
-            borrowing ||= group.count === 0
+            if (me.matchCounts) {
+                const counts = me.matchCounts instanceof Map ? me.matchCounts.get(group.family) : me.matchCounts[group.family];
+                borrowing ||= counts ? counts.home === 0 && counts.cross > 0 : false
+            } else {
+                borrowing ||= group.count === 0
+            }
         });
 
         me.vdom.cn = [
-            {tag: 'a', cls: ['portal-examples-group-index-all'], 'aria-current': me.activeFamily === null && me.presentation !== 'overview' ? 'page' : null, href: '#/examples', removeDom: me.presentation === 'overview', cn: [
+            {tag: 'a', id: me.id + '__all', cls: ['portal-examples-group-index-all'], 'aria-current': !me.matchCounts && me.activeFamily === null && me.presentation !== 'overview' ? 'page' : null, href: '#/examples', removeDom: me.presentation === 'overview', cn: [
                 {tag: 'i', cls: ['fa', 'fa-table-cells-large'], 'aria-hidden': true},
                 {tag: 'span', text: 'All examples'}
             ]},
@@ -183,15 +208,37 @@ class GroupIndex extends Component {
      * @returns {Object}
      */
     createEntry(group) {
-        return {tag: 'li', cn: [{
+        const me     = this,
+              counts = me.matchCounts instanceof Map ? me.matchCounts.get(group.family) : me.matchCounts?.[group.family];
+        let countText, ariaLabel, liCls;
+
+        if (me.matchCounts) {
+            const home  = counts?.home || 0,
+                  cross = counts?.cross || 0,
+                  total = counts?.total || 0;
+
+            countText = home > 0 ? String(home) : cross > 0 ? `(${cross})` : '0';
+            ariaLabel = home > 0
+                ? `${group.title}, ${home === 1 ? '1 matching example' : `${home} matching examples`}`
+                : cross > 0
+                    ? `${group.title}, ${cross === 1 ? '1 matching example' : `${cross} matching examples`} from other groups`
+                    : `${group.title}, 0 matching examples`;
+            liCls = total === 0 ? ['portal-examples-group-index-zero'] : null
+        } else {
+            countText = ExampleGroup.countText(group);
+            ariaLabel = `${group.title}, ${ExampleGroup.countLabel(group)}`
+        }
+
+        return {tag: 'li', ...(liCls ? {cls: liCls} : {}), cn: [{
             tag           : 'a',
-            'aria-current': group.family === this.activeFamily ? 'page' : null,
-            'aria-label'  : `${group.title}, ${ExampleGroup.countLabel(group)}`,
+            id            : me.id + '__' + group.family,
+            'aria-current': !me.matchCounts && group.family === me.activeFamily ? 'page' : null,
+            'aria-label'  : ariaLabel,
             href          : '#' + group.route,
             cn            : [
                 {tag: 'i',    cls: [...group.iconCls.split(' '), 'portal-examples-group-index-icon'], 'aria-hidden': true},
                 {tag: 'span', cls: ['portal-examples-group-index-title'], text: group.title},
-                {tag: 'span', cls: ['portal-examples-group-index-count'], text: ExampleGroup.countText(group)}
+                {tag: 'span', cls: ['portal-examples-group-index-count'], text: countText}
             ]
         }]}
     }

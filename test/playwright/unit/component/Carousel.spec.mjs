@@ -9,10 +9,18 @@ setup({
 });
 
 import {test, expect} from '@playwright/test';
+import fs             from 'node:fs';
+import path           from 'node:path';
+import {fileURLToPath} from 'node:url';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
 import Carousel       from '../../../../src/component/Carousel.mjs';
 import Store          from '../../../../src/data/Store.mjs';
+
+const carouselCssPath = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../resources/css/src/component/Carousel.css'
+);
 
 /**
  * @summary Verifies `Neo.component.Carousel` rendering, rotation, `itemClick`, and dynamic store mutations
@@ -212,5 +220,51 @@ test.describe('Neo.component.Carousel (< 3 items & dynamic mutations)', () => {
         expect(carousel.vdom.cn[0].cn[1].cn).toHaveLength(0);
         expect(carousel.itemData).toEqual({});
         expect(carousel.vdom.cn[0].cn[0].removeDom).toBe(true)
+    })
+});
+
+test.describe('Neo.component.Carousel sizing', () => {
+    let carousel;
+
+    test.afterEach(() => {
+        carousel?.destroy();
+        carousel = null
+    });
+
+    test('AC-1: only the root carries neo-carousel, the body has its own class', () => {
+        carousel = Neo.create(Carousel, {
+            appName,
+            itemCls: 'test-carousel-item',
+            itemTpl: record => [{cls: 'quote', text: record.quote}],
+            store  : {
+                keyProperty: 'id',
+                model      : {
+                    fields: [
+                        {name: 'id',    type: 'Int'},
+                        {name: 'quote', type: 'String'}
+                    ]
+                },
+                data: [{id: 1, quote: 'A'}, {id: 2, quote: 'B'}]
+            }
+        });
+
+        const root = carousel.vdom,
+              body = root.cn[0];
+
+        expect(root.cls).toContain('neo-carousel');
+        expect(body.cls).toContain('neo-carousel-body');
+        expect(body.cls).not.toContain('neo-carousel');
+        expect(body.cn[1].cls).toContain('neo-carousel-inner')
+    });
+
+    test('AC-2: the body, inner area and slides grow with the root instead of a fixed 9rem', () => {
+        const css = fs.readFileSync(carouselCssPath, 'utf8');
+
+        expect(css).toMatch(/\.neo-carousel\s*\{[^}]*display\s*:\s*flex/);
+        expect(css).toMatch(/\.neo-carousel\s*\{[^}]*flex-direction\s*:\s*column/);
+        expect(css).toMatch(/\.neo-carousel-body\s*\{[^}]*flex\s*:\s*1 1 auto/);
+        expect(css).toMatch(/\.neo-carousel-inner\s*\{[^}]*flex\s*:\s*1 1 auto/);
+        expect(css).toMatch(/\.neo-carousel-item\s*\{[^}]*height\s*:\s*100%/);
+        expect(css).not.toMatch(/\.neo-carousel-inner\s*\{[^}]*height\s*:\s*9rem/)
     })
 });

@@ -1765,6 +1765,12 @@
         "schemaType": "WebPage",
         "lastmod": "2024-08-17"
     },
+    "/examples/form/validation/index.html": {
+        "title": "Form Validation — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "How does a form tell the user what is wrong? A sign-up form validates as you type, blocks submit and lists the errors. Type a bad email, fix it, and sign up.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-19"
+    },
     "/examples/functional/button/base/index.html": {
         "title": "Functional Button — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "Live runnable Functional Button example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",

@@ -499,6 +499,128 @@ test.describe('Portal examples overview and group pages', () => {
         expect(openCard(view)).toBe('multi-window');
         expect(stage.layout.activeIndex).toBe(stage.indexOf(view.getGroupPage('multi-window')))
     });
+
+    test('findQuery filters published records across titles, captions, group titles and keywords, updates GroupIndex matchCounts, and restores the open page on clear', async () => {
+        const view          = createView(),
+              controller    = view.getController(),
+              stage         = view.getStage(),
+              searchResults = view.getSearchResults(),
+              matchedIds    = () => searchResults.getGroupsContainer().items.flatMap(group =>
+                  group.items.filter(item => item instanceof ExamplesList).flatMap(list => list.store.items.map(r => r.id))
+              );
+
+        await controller.onExamplesRoute({itemId: 'multi-window'});
+        expect(openCard(view)).toBe('multi-window');
+
+        controller.onFindFieldChange({value: 'drag'});
+        expect(stage.items[stage.layout.activeIndex]).toBe(searchResults);
+        expect(view.getSidebarFindField().value).toBe('drag');
+        expect(view.getMobileFindField().value).toBe('drag');
+
+        const dragIds = matchedIds();
+        expect(dragIds).toEqual(expect.arrayContaining([
+            'board-basic', 'board-swimlanes', 'multi-window-drag-drop', 'dialog-drag-drop', 'dock-tear-out', 'workstation', 'webdesktop'
+        ]));
+
+        const counts = view.getStateProvider().getData('matchCounts');
+        expect(counts).toBeInstanceOf(Map);
+        expect(counts.get('board')).toEqual({home: 2, cross: 0, total: 2});
+        expect(counts.get('drag-drop')).toEqual({home: 0, cross: 3, total: 3});
+        expect(counts.get('calendar')).toEqual({home: 0, cross: 0, total: 0});
+
+        const indexVdom = view.getGroupIndex().vdom,
+              findEntry = (node, id) => node.id === id ? node : (node.cn || []).map(c => findEntry(c, id)).find(Boolean),
+              dragEntry = findEntry(indexVdom, `${view.getGroupIndex().id}__drag-drop`),
+              calEntry  = findEntry(indexVdom, `${view.getGroupIndex().id}__calendar`);
+
+        expect(dragEntry['aria-label']).toBe('Drag & Drop, 3 matching examples from other groups');
+        expect(calEntry['aria-label']).toBe('Calendar, 0 matching examples');
+
+        controller.onFindFieldChange({value: 'date'});
+        const dateIds = matchedIds();
+        expect(dateIds).toEqual(expect.arrayContaining([
+            'calendar', 'scheduler-basic', 'scheduler-big-data', 'gantt-basic', 'gantt-big-data', 'date-field', 'date-selector'
+        ]));
+        const formsGroup = searchResults.getGroupsContainer().items.find(group =>
+            group.items[0].vdom.cn[0].href === '#/examples/forms'
+        );
+        expect(formsGroup.items[1].tiles).toBe(true);
+        expect(formsGroup.items[1].store.items.map(r => r.id)).toEqual(['date-field', 'date-selector']);
+
+        controller.onFindFieldChange({value: 'liquid'});
+        expect(matchedIds()).toEqual(['liquid-glass']);
+        controller.onSelectBuild({id: 'devmode'});
+        expect(matchedIds()).toEqual([]);
+        expect(searchResults.down({reference: 'search-empty'}).hidden).toBe(false);
+        controller.onSelectBuild({id: 'dist_prod'});
+        expect(matchedIds()).toEqual(['liquid-glass']);
+
+        controller.onClearFind();
+        expect(view.findQuery).toBe('');
+        expect(view.getStateProvider().getData('matchCounts')).toBeNull();
+        expect(searchResults.getGroupsContainer().items).toHaveLength(0);
+        expect(openCard(view)).toBe('multi-window');
+        expect(stage.layout.activeIndex).toBe(stage.indexOf(view.getGroupPage('multi-window')))
+    });
+
+    test('Example.tokenizeSearchText and matchesQuery normalize camelCase, comma numbers, alsoIn titles and keywords', () => {
+        expect(Example.tokenizeSearchText('100,000 × 200 TreeGrid')).toEqual(['100000', '200', 'tree', 'grid']);
+
+        const groupTitles = {'board': 'Task Board', 'drag-drop': 'Drag & Drop'},
+              record      = {
+                  name     : 'Sprint Board',
+                  family   : 'board',
+                  alsoIn   : ['drag-drop'],
+                  component: 'Neo.board.Container',
+                  feature  : 'Kanban cards',
+                  lookFor  : 'Move a card',
+                  keywords : ['swimlane']
+              };
+
+        expect(Example.matchesQuery(record, Example.tokenizeSearchText('drag'), groupTitles)).toBe(true);
+        expect(Example.matchesQuery(record, Example.tokenizeSearchText('swim'), groupTitles)).toBe(true);
+        expect(Example.matchesQuery(record, Example.tokenizeSearchText('board container'), groupTitles)).toBe(true);
+        expect(Example.matchesQuery(record, Example.tokenizeSearchText('calendar'), groupTitles)).toBe(false)
+    });
+
+    test('MainContainer registers and releases body-level "/" preventDefault as the view activates and deactivates', () => {
+        const events       = [],
+              originalMain = Neo.main;
+
+        Neo.main = {
+            ...originalMain,
+            DomEvents: {
+                ...originalMain?.DomEvents,
+                registerPreventDefaultKeys  : data => events.push({op: 'register',   id: data.id, keys: data.keys}),
+                unregisterPreventDefaultKeys: data => events.push({op: 'unregister', id: data.id, keys: data.keys})
+            }
+        };
+
+        try {
+            const view = createView();
+
+            view.mounted = true;
+            expect(events).toEqual([{op: 'register', id: 'document.body', keys: ['/']}]);
+            expect(view.isActiveView()).toBe(true);
+
+            view.wrapperCls = [...(view.wrapperCls || []), 'neo-inactive-item'];
+            expect(view.isActiveView()).toBe(false);
+            expect(events).toHaveLength(2);
+            expect(events[1]).toEqual({op: 'unregister', id: 'document.body', keys: ['/']});
+
+            view.wrapperCls = [];
+            expect(view.isActiveView()).toBe(true);
+            expect(events).toHaveLength(3);
+            expect(events[2]).toEqual({op: 'register', id: 'document.body', keys: ['/']});
+
+            view.destroy();
+            exampleView = null;
+            expect(events).toHaveLength(4);
+            expect(events[3]).toEqual({op: 'unregister', id: 'document.body', keys: ['/']})
+        } finally {
+            Neo.main = originalMain
+        }
+    });
 });
 
 const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'), 'utf8')),
@@ -534,7 +656,7 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           'text-field', 'textarea-field', 'time-field', 'url-field',
           'country-field', 'currency-field', 'display-field', 'iban-field', 'password-field',
           'phone-field', 'range-field', 'search-field', 'zipcode-field', 'copy-to-clipboard-trigger',
-          'fieldset', 'field-with-prefix', 'layout-form', 'form-app'
+          'fieldset', 'form-validation', 'field-with-prefix', 'layout-form', 'form-app'
       ],
       // the tile records of groups that had no record before the tiles, appended to the catalog
       newTileIds = [
@@ -580,7 +702,7 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           forms         : [27, 1], buttons    : [2, 0], components: [9, 0],
           'multi-window': [6, 3], platform    : [2, 1], state: [1, 0], functional: [3, 1], 'drag-drop': [0, 3]
       },
-      recordCount    = 126,
+      recordCount    = 127,
       publishedCount = Object.values(groupCounts).reduce((sum, [count]) => sum + count, 0),
       groupCount     = Object.keys(groupCounts).length,
       // every record with a cover publishes in a production build, so the rest wait for one

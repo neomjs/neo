@@ -1,0 +1,9 @@
+{
+    "appPath"         : "test/playwright/component/apps/carousel-height/app.mjs",
+    "basePath"        : "../../../../../",
+    "environment"     : "development",
+    "mainPath"        : "./Main.mjs",
+    "mainThreadAddons": ["Stylesheet"],
+    "themes"          : ["neo-theme-neo-light"],
+    "useSharedWorkers": false
+}

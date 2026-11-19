@@ -6,6 +6,14 @@
             "apps"
         ],
         "component": "Dock Workspace",
+        "keywords": [
+            "drag",
+            "dock",
+            "popout",
+            "tear-out",
+            "ide",
+            "multi-window"
+        ],
         "feature": "A living-data workspace whose panes can leave the browser window",
         "lookFor": "Pop out the 100k Matrix tab, use it in its own window, then close that window to bring it back.",
         "scope": "Allow popups; the displayed work items and signals are demonstration data.",
@@ -45,7 +53,14 @@
         "family": "grid-table",
         "component": "Grid",
         "feature": "Opens at 20,000 × 50 and scales to 100,000 × 200, row-buffered, data in a Web Worker",
-        "lookFor": "Read the size below the rows, raise rows and columns in ☰ Settings, then scroll both ways and press a button in a cell."
+        "lookFor": "Read the size below the rows, raise rows and columns in ☰ Settings, then scroll both ways and press a button in a cell.",
+        "keywords": [
+            "virtual",
+            "scroll",
+            "performance",
+            "100000",
+            "benchmark"
+        ]
     },
     {
         "id": "grid-tree-big-data",
@@ -156,7 +171,15 @@
         "family": "scheduler",
         "component": "Scheduler",
         "feature": "Resource bookings on an editable timeline",
-        "lookFor": "Move a booking to another studio or time. Reload after it saves to see the same booking in its new slot."
+        "lookFor": "Move a booking to another studio or time. Reload after it saves to see the same booking in its new slot.",
+        "keywords": [
+            "date",
+            "drag",
+            "calendar",
+            "booking",
+            "timeline",
+            "resource"
+        ]
     },
     {
         "id": "gantt-basic",
@@ -174,7 +197,15 @@
         "family": "gantt",
         "component": "Gantt",
         "feature": "A project plan with linked, editable tasks",
-        "lookFor": "Move a task and follow its dependencies. Create a link, then reload to see the saved plan."
+        "lookFor": "Move a task and follow its dependencies. Create a link, then reload to see the saved plan.",
+        "keywords": [
+            "date",
+            "drag",
+            "timeline",
+            "schedule",
+            "dependencies",
+            "milestone"
+        ]
     },
     {
         "id": "board-basic",
@@ -192,7 +223,15 @@
         "family": "board",
         "component": "Board",
         "feature": "A kanban board and a table over one store of cards",
-        "lookFor": "Drag a card to another column, and the table below the board shows its new status."
+        "lookFor": "Drag a card to another column, and the table below the board shows its new status.",
+        "keywords": [
+            "drag",
+            "drop",
+            "kanban",
+            "agile",
+            "cards",
+            "columns"
+        ]
     },
     {
         "id": "calendar",
@@ -210,7 +249,16 @@
         "family": "calendar",
         "component": "Calendar",
         "feature": "A full calendar with day, week, month and year views, a month navigator and color-coded calendars.",
-        "lookFor": "Switch between Day, Week, Month and Year views, then toggle a calendar in the left panel to filter its events."
+        "lookFor": "Switch between Day, Week, Month and Year views, then toggle a calendar in the left panel to filter its events.",
+        "keywords": [
+            "date",
+            "schedule",
+            "events",
+            "appointment",
+            "month",
+            "week",
+            "day"
+        ]
     },
     {
         "id": "webdesktop",
@@ -218,6 +266,13 @@
         "component": "Desktop",
         "feature": "A desktop whose icons, menus and windows follow the signed-in account's permissions through one store filter",
         "lookFor": "Sign in as two accounts and compare the apps they get. Double-click an icon to open its window, then open Permissions and switch that app off: its icon, its menu entry and its window go.",
+        "keywords": [
+            "desktop",
+            "window",
+            "drag",
+            "taskbar",
+            "launcher"
+        ],
         "scope": "The accounts and their permissions are demonstration data; hiding UI is not authorization.",
         "featured": true,
         "environments": [
@@ -392,6 +447,12 @@
         "family": "tabs",
         "feature": "Tab buttons whose text, icon, color and badge change live",
         "lookFor": "Type a new Tab 1 text and a badgeText, then pick another badgePosition.",
+        "keywords": [
+            "drag",
+            "reorder",
+            "tabs",
+            "strip"
+        ],
         "featured": false,
         "image": "devmode/tiles/tab-container-14.jpg",
         "name": "Tab container",
@@ -1309,6 +1370,12 @@
         "id": "grid-locked-columns",
         "image": "devmode/grid-locked-columns-14.jpg",
         "name": "Pinned Grid Columns",
+        "keywords": [
+            "freeze",
+            "sticky",
+            "locked",
+            "pinned"
+        ],
         "sourceUrl": "examples/grid/pinnedColumns",
         "urls": {
             "devmode": "examples/grid/pinnedColumns/index.html",
@@ -1845,6 +1912,23 @@
         "lookFor": "Adjust the inner number values and try the title field in the panel."
     },
     {
+        "id": "form-validation",
+        "image": null,
+        "name": "Sign-up validation",
+        "sourceUrl": "examples/form/validation",
+        "urls": {
+            "devmode": "examples/form/validation/index.html",
+            "dist_dev": "dist/development/examples/form/validation/index.html",
+            "dist_esm": "dist/esm/examples/form/validation/index.html",
+            "dist_prod": "dist/production/examples/form/validation/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "Form Container",
+        "feature": "How does a form tell the user what is wrong? A sign-up form validates as you type, blocks submit and lists the errors",
+        "lookFor": "Type a bad email, fix it, and sign up."
+    },
+    {
         "id": "field-with-prefix",
         "image": null,
         "name": "Input masks",
@@ -1920,7 +2004,13 @@
         "family": "board",
         "component": "Board",
         "feature": "One row per team over the same five columns, each with its card count",
-        "lookFor": "Collapse a team, then drag a card into another team's row: the card joins that team and both counts change."
+        "lookFor": "Collapse a team, then drag a card into another team's row: the card joins that team and both counts change.",
+        "keywords": [
+            "kanban",
+            "swimlanes",
+            "drag",
+            "agile"
+        ]
     },
     {
         "id": "scheduler-big-data",
@@ -1937,7 +2027,15 @@
         "family": "scheduler",
         "component": "Scheduler",
         "feature": "300 people and 15,600 seeded bookings across a 52-week timeline",
-        "lookFor": "Scroll down through 300 people, then sideways through the year: buffered rows and viewport-clipped bars keep the DOM compact."
+        "lookFor": "Scroll down through 300 people, then sideways through the year: buffered rows and viewport-clipped bars keep the DOM compact.",
+        "keywords": [
+            "date",
+            "calendar",
+            "booking",
+            "timeline",
+            "resource",
+            "scale"
+        ]
     },
     {
         "id": "gantt-big-data",
@@ -1954,7 +2052,15 @@
         "family": "gantt",
         "component": "Gantt",
         "feature": "A seeded building programme: 2,000 tasks in phases and zones, linked by 1,972 dependencies",
-        "lookFor": "Expand a phase and scroll: the tree, the bars and the links keep up. Move a task and its successors follow."
+        "lookFor": "Expand a phase and scroll: the tree, the bars and the links keep up. Move a task and its successors follow.",
+        "keywords": [
+            "date",
+            "timeline",
+            "schedule",
+            "dependencies",
+            "programme",
+            "scale"
+        ]
     },
     {
         "id": "timeline-basic",
@@ -1974,7 +2080,13 @@
         ],
         "component": "Timeline",
         "feature": "A plain grid mounting the timeline column with interval bars",
-        "lookFor": "Click Shift to advance the interval by one hour and watch the bar follow the record change."
+        "lookFor": "Click Shift to advance the interval by one hour and watch the bar follow the record change.",
+        "keywords": [
+            "date",
+            "calendar",
+            "gantt",
+            "bars"
+        ]
     },
     {
         "id": "dock-layouts",
@@ -2085,6 +2197,13 @@
         "image": "devmode/finance-14.jpg",
         "feature": "Streaming equity quotes with animated currency diffs and instant filtering",
         "lookFor": "Filter by sector or ticker while live price and percent changes keep ticking, then press Stop to freeze the tape.",
+        "keywords": [
+            "streaming",
+            "realtime",
+            "quotes",
+            "sparkline",
+            "market"
+        ],
         "scope": "Quotes and volumes are deterministic local simulation data.",
         "sourceUrl": "apps/finance",
         "urls": {
@@ -2112,6 +2231,12 @@
         "image": "devmode/email-14.jpg",
         "feature": "Buffered inbox and functional message reader that detaches into its own window",
         "lookFor": "Select another conversation in the inbox, then press Open in window to move the live reader or a Compose draft into a native popup.",
+        "keywords": [
+            "inbox",
+            "mail",
+            "popout",
+            "compose"
+        ],
         "scope": "Allow popups for multi-window transfer; messages are local fixture data.",
         "sourceUrl": "apps/email",
         "urls": {
