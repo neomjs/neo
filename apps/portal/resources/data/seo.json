@@ -1463,7 +1463,7 @@
         "title": "Toast Component — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A live form previews toast configuration and launches a temporary notification. Enter a message and watch the code preview follow each field, choose a...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-05"
+        "lastmod": "2026-11-19"
     },
     "/examples/component/video/index.html": {
         "title": "Video — Web Worker JavaScript UI Demo | Neo.mjs",
