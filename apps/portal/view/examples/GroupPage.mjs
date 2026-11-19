@@ -126,6 +126,7 @@ class GroupPage extends Container {
 
     /**
      * @summary The store config of one kind's list: the group's records filtered to its cards or to its tiles.
+     * Cards keep the catalog's order; tiles sort by name, so a visitor scans them like an index.
      * @param {Boolean} tiles True for the `kind: 'component'` records
      * @returns {Object}
      * @protected
@@ -133,7 +134,7 @@ class GroupPage extends Container {
     createKindStore(tiles) {
         const {listStore} = this;
 
-        return {...listStore, filters: [...listStore.filters, {
+        return {...listStore, ...(tiles && {sorters: [{property: 'name', direction: 'ASC'}]}), filters: [...listStore.filters, {
             property: 'kind',
             fields  : ['kind'],
             value   : 'component',
