@@ -232,4 +232,46 @@ test.describe('buildScripts/util/assertInteractivePrompt (#21482)', () => {
             fs.rmSync(root, {force: true, recursive: true});
         }
     });
+
+    test('create/component.mjs does not require -C or -p on non-TTY stdin when baseClass is not a view class', () => {
+        const root = createWorkspaceFixture();
+
+        try {
+            fs.mkdirSync(path.join(root, 'buildScripts/create'), {recursive: true});
+            fs.mkdirSync(path.join(root, 'buildScripts/build'), {recursive: true});
+            fs.symlinkSync(
+                path.join(REPO_ROOT, 'buildScripts/create/class.mjs'),
+                path.join(root, 'buildScripts/create/class.mjs')
+            );
+            // Stub css.mjs and themes.mjs in the disposable workspace so component.mjs exercises its real
+            // non-TTY prompt guard and real create/class.mjs child spawn without rebuilding framework themes.
+            fs.writeFileSync(path.join(root, 'buildScripts/create/css.mjs'), 'export default {};\n');
+            fs.writeFileSync(path.join(root, 'buildScripts/build/themes.mjs'), 'export default {};\n');
+
+            for (const [className, baseClass, expectedFile] of [
+                ['MyApp.view.Foo',                  'core.Base',            'apps/myapp/view/Foo.mjs'],
+                ['MyApp.controller.MainController', 'controller.Component', 'apps/myapp/controller/MainController.mjs'],
+                ['MyApp.state.MainStateProvider',   'state.Provider',       'apps/myapp/state/MainStateProvider.mjs']
+            ]) {
+                const result = spawnSync(
+                    process.execPath,
+                    [path.join(REPO_ROOT, 'buildScripts/create/component.mjs'), '-c', className, '-b', baseClass, '-n', 'no'],
+                    {
+                        cwd     : root,
+                        encoding: 'utf8',
+                        stdio   : 'pipe',
+                        timeout : 5000
+                    }
+                );
+
+                expect(result.error, `${className} (${baseClass})`).toBeUndefined();
+                expect(result.signal, `${className} (${baseClass})`).toBeNull();
+                expect(result.stderr + result.stdout, `${className} (${baseClass}) guard silent`).not.toContain('cannot prompt for');
+                expect(result.status, `${className} (${baseClass}): ${result.stderr}`).toBe(0);
+                expect(fs.existsSync(path.join(root, expectedFile)), expectedFile).toBe(true);
+            }
+        } finally {
+            fs.rmSync(root, {force: true, recursive: true});
+        }
+    });
 });

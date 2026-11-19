@@ -331,14 +331,18 @@ if (programOpts.info) {
         }
     }
 
-    if (baseClass === 'data.Model' && !programOpts.createStore && !isDrop) {
+    const isFrameworkSrc      = root === 'Neo' && !className.startsWith('Neo.examples'),
+          needsStorePrompt    = baseClass === 'data.Model' && !isDrop,
+          needsViewCompanions = isViewBaseClass(baseClass) && !isDrop && !isFrameworkSrc;
+
+    if (needsStorePrompt && !programOpts.createStore) {
         assertInteractivePrompt({
             command: `npm run create-class -- -c ${className} -b ${baseClass} -n ${singleton} -m no`,
             missing: ['createStore (-m)']
         });
     }
 
-    if (isViewBaseClass(baseClass) && !isDrop && !(root === 'Neo' && !className.startsWith('Neo.examples'))) {
+    if (needsViewCompanions) {
         assertInteractivePrompt({
             command: `npm run create-class -- -c ${className} -b ${baseClass} -n ${singleton} -C no -p no`,
             missing: [
@@ -364,7 +368,7 @@ if (programOpts.info) {
     if (baseClass === 'data.Model') {
         let createStore = programOpts.createStore;
 
-        if (!createStore && !isDrop) {
+        if (!createStore && needsStorePrompt) {
             answer = await inquirer.prompt({
                 type   : 'select',
                 name   : 'createStore',
@@ -411,10 +415,9 @@ if (programOpts.info) {
 
     if (isViewBaseClass(baseClass)) {
         let createController    = programOpts.createController,
-            createStateProvider = programOpts.createStateProvider,
-            isFrameworkSrc      = root === 'Neo' && !className.startsWith('Neo.examples');
+            createStateProvider = programOpts.createStateProvider;
 
-        if (!createController && !isDrop && !isFrameworkSrc) {
+        if (!createController && needsViewCompanions) {
             answer = await inquirer.prompt({
                 type   : 'select',
                 name   : 'createController',
@@ -451,7 +454,7 @@ if (programOpts.info) {
             }
         }
 
-        if (!createStateProvider && !isDrop && !isFrameworkSrc) {
+        if (!createStateProvider && needsViewCompanions) {
             answer = await inquirer.prompt({
                 type   : 'select',
                 name   : 'createStateProvider',

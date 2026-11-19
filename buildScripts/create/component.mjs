@@ -8,6 +8,7 @@ import fs                        from 'fs-extra';
 import inquirer                  from 'inquirer';
 import path                      from 'path';
 import {fileURLToPath}           from 'url';
+import {isViewBaseClass}         from './class.mjs';
 import {assertInteractivePrompt} from '../util/assertInteractivePrompt.mjs';
 import {sanitizeInput}           from '../util/sanitizer.mjs';
 
@@ -73,6 +74,7 @@ if (programOpts.info) {
     const normalizedClassName = programOpts.className?.replace(/\.mjs$/, ''),
           needsViewCompanions = Boolean(
               normalizedClassName &&
+              isViewBaseClass(programOpts.baseClass) &&
               (!normalizedClassName.startsWith('Neo.') || normalizedClassName.startsWith('Neo.examples'))
           );
 
