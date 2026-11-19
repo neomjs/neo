@@ -1089,7 +1089,7 @@
     },
     "/examples/charts": {
         "title": "JavaScript Charts, Canvas & Maps — OffscreenCanvas Demos | Neo.mjs",
-        "description": "Explore 2 live JavaScript chart and canvas examples: A chart of up to a million points, drawn in a canvas worker.",
+        "description": "Explore 5 live JavaScript chart and canvas examples: A chart of up to a million points, drawn in a canvas worker.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-19"
     },
@@ -1441,6 +1441,12 @@
         "schemaType": "WebPage",
         "lastmod": "2024-08-17"
     },
+    "/examples/component/sparkline/index.html": {
+        "title": "Sparkline Component — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Six metric cards draw their last thirty readings as sparklines in the canvas worker, and a simulated feed extends them once a second. Watch the lines move...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-19"
+    },
     "/examples/component/splitter/index.html": {
         "title": "Splitter — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A draggable splitter resizes adjacent panels in either orientation. Drag the divider, then toggle horizontal and live resize in the configuration panel.",
@@ -1482,6 +1488,12 @@
         "description": "Live runnable GoogleMaps Component example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
         "schemaType": "WebPage",
         "lastmod": "2026-09-17"
+    },
+    "/examples/component/wrapper/mermaid/index.html": {
+        "title": "Mermaid Component — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Mermaid draws a flowchart, sequence, class or Gantt diagram from text, and draws it again on every edit and theme change. Edit the source on the left, load...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-18"
     },
     "/examples/component/wrapper/monacoEditor/index.html": {
         "title": "Monaco Editor — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1829,7 +1841,7 @@
         "title": "GridContainer - Content-Sized Rows — Data Grid Demo | Neo.mjs",
         "description": "Wrapped content with locked columns. Toggle content-sized rows, edit a summary, filter, or jump through 10,000 records; scroll to the wrapped Details column.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-17"
+        "lastmod": "2026-11-19"
     },
     "/examples/grid/countries/index.html": {
         "title": "JavaScript Data Grid with Country Statistics | Neo.mjs",
