@@ -45,6 +45,13 @@ test('external-origin covered records do not block a family while same-origin co
     expect(() => validateCaptureRecipes(manifest(), records)).toThrow(/local-app.*image|recipe/i)
 });
 
+test('a tile in a covered family needs no recipe, a card beside it still does', () => {
+    const records = [...catalog(), {id: 'grid-tile', kind: 'component', family: 'grid-table', image: 'devmode/tiles/grid-tile-14.jpg', urls: {devmode: 'examples/grid/tile/index.html'}}];
+    expect(() => validateCaptureRecipes(manifest(), records)).not.toThrow();
+    records.push({id: 'grid-card', family: 'grid-table', image: 'grid-card.jpg', urls: {devmode: 'examples/grid/card/index.html'}});
+    expect(() => validateCaptureRecipes(manifest(), records)).toThrow(/grid-card.*image|recipe/i)
+});
+
 test('a further family joins the coverage guard explicitly', () => {
     const raw = manifest(); raw.families.push('forms');
     expect(() => validateCaptureRecipes(raw, catalog())).toThrow(/form-one.*image|recipe/i);
