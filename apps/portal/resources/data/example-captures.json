@@ -413,17 +413,18 @@
       "id": "webdesktop",
       "viewport": {"width": 1280, "height": 720},
       "theme": "default",
-      "state": "Signed in as Alex Morgan with the permission-filtered desktop launcher and taskbar visible.",
+      "state": "Signed in as Alex Morgan, with Mail open on its inbox and a message in the reading pane beside the permission-filtered launcher and the taskbar.",
       "ready": [
         {"selector": ".webdesktop-sign-in-card"},
         {"selector": ".webdesktop-account-name", "text": "Alex Morgan"}
       ],
       "steps": [
-        {"kind": "click", "selector": ".webdesktop-account-name", "text": "Alex Morgan"}
+        {"kind": "click", "selector": ".webdesktop-account-name", "text": "Alex Morgan"},
+        {"kind": "dblclick", "selector": ".neo-desktop-launcher .neo-list-item", "text": "Mail"}
       ],
       "after": [
-        {"selector": ".webdesktop-workspace"},
-        {"selector": ".webdesktop-account-name", "text": "Alex Morgan"}
+        {"selector": ".neo-desktop-workspace"},
+        {"selector": ".webdesktop-mail-inbox"}
       ],
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },

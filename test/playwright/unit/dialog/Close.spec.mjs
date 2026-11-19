@@ -3,8 +3,9 @@
  * @summary Pins what a `Neo.dialog.Base` leaves behind when it goes: the modal mask goes with it, focus goes back to
  * its opener, and Escape does what the close button does.
  *
- * A destroyed dialog runs no timer, so the mask sync of a close happens before `destroy()`, and the main thread places
- * the mask without waiting for the removal (`main/DomAccessModalMask.spec.mjs`). Focus can enter a dialog from the
+ * A destroyed dialog runs no timer, so `destroy()` itself syncs the mask before the removal, for a close and for an
+ * owner's direct destroy alike, and the main thread places the mask without waiting for the removal
+ * (`main/DomAccessModalMask.spec.mjs`). Focus can enter a dialog from the
  * body, when its opener disabled itself or a browser did not focus the clicked button; the dialog still knows its
  * opener as `animateTarget`.
  */
@@ -101,8 +102,22 @@ test.describe('dialog.Base: a dialog takes its mask along and hands focus back',
         return opener
     };
 
-    test('a close syncs the mask away before destroy() removes the dialog, with no timer left behind', () => {
+    /**
+     * @summary A modal dialog on the page, with the events of its showing cleared
+     * @returns {Promise<Neo.dialog.Base>}
+     */
+    const createMounted = async () => {
         const dialog = create();
+
+        dialog.hidden = false;
+        await expect.poll(() => dialog.mounted).toBe(true);
+        events.length = 0;
+
+        return dialog
+    };
+
+    test('a close syncs the mask away before destroy() removes the dialog, with no timer left behind', async () => {
+        const dialog = await createMounted();
         let   closes = 0;
 
         dialog.on('close', () => {closes++});
@@ -111,6 +126,16 @@ test.describe('dialog.Base: a dialog takes its mask along and hands focus back',
 
         expect(events).toEqual([`mask:${dialog.id}:false`, `remove:${dialog.id}`]);
         expect({closes, destroyed: dialog.isDestroyed}).toEqual({closes: 1, destroyed: true})
+    });
+
+    test('a modal dialog its owner destroys without close() takes its mask along; one never shown leaves it alone', async () => {
+        const dialog = await createMounted(),
+              hidden = create();
+
+        dialog.destroy(true);
+        hidden.destroy();
+
+        expect(events).toEqual([`mask:${dialog.id}:false`, `remove:${dialog.id}`])
     });
 
     test('Escape runs the closeAction without the animation: close destroys, hide keeps the dialog', async () => {

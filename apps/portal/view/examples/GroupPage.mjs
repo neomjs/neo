@@ -85,6 +85,14 @@ class GroupPage extends Container {
                 flex: 'none'
             }]
         }, {
+            ntype    : 'component',
+            cls      : ['portal-examples-kind-heading'],
+            flex     : 'none',
+            hidden   : true,
+            reference: 'cards-heading',
+            tag      : 'h2',
+            text     : 'Demonstrations'
+        }, {
             module        : List,
             bind          : {catalogMode: data => data.catalogMode},
             flex          : 'none',
@@ -92,7 +100,24 @@ class GroupPage extends Container {
             reference     : 'group-list',
             useWrapperNode: false, // the page scrolls, not the list
             wrapperCls    : ['portal-examples-group-cards'],
-            store         : me.listStore
+            store         : me.createKindStore(false)
+        }, {
+            ntype    : 'component',
+            cls      : ['portal-examples-kind-heading'],
+            flex     : 'none',
+            hidden   : true,
+            reference: 'tiles-heading',
+            tag      : 'h2',
+            text     : me.group.tileHeading || 'Components'
+        }, {
+            module        : List,
+            bind          : {catalogMode: data => data.catalogMode},
+            flex          : 'none',
+            reference     : 'tile-list',
+            tiles         : true,
+            useWrapperNode: false,
+            wrapperCls    : ['portal-examples-group-tiles'],
+            store         : me.createKindStore(true)
         }];
 
         super.createItems();
@@ -100,10 +125,42 @@ class GroupPage extends Container {
     }
 
     /**
-     * @returns {Portal.view.examples.List}
+     * @summary The store config of one kind's list: the group's records filtered to its cards or to its tiles.
+     * Cards keep the catalog's order; tiles sort by name, so a visitor scans them like an index.
+     * @param {Boolean} tiles True for the `kind: 'component'` records
+     * @returns {Object}
+     * @protected
+     */
+    createKindStore(tiles) {
+        const {listStore} = this;
+
+        return {...listStore, ...(tiles && {sorters: [{property: 'name', direction: 'ASC'}]}), filters: [...listStore.filters, {
+            property: 'kind',
+            fields  : ['kind'],
+            value   : 'component',
+            filterBy: tiles ? ({item, value}) => item.kind !== value : ({item, value}) => item.kind === value
+        }]}
+    }
+
+    /**
+     * @returns {Portal.view.examples.List} The list of the group's cards
      */
     getList() {
         return this.down({reference: 'group-list'})
+    }
+
+    /**
+     * @returns {Portal.view.examples.List[]} The card list, then the tile list
+     */
+    getLists() {
+        return [this.getList(), this.getTileList()]
+    }
+
+    /**
+     * @returns {Portal.view.examples.List} The list of the group's tiles
+     */
+    getTileList() {
+        return this.down({reference: 'tile-list'})
     }
 
     /**
@@ -117,7 +174,13 @@ class GroupPage extends Container {
 
         title.text = group.title;
         line.text  = [ExampleGroup.countLabel(group), group.sentence].filter(Boolean).join(' · ');
-        heading.update()
+        heading.update();
+
+        // Each kind gets its heading only when the page shows both
+        const both = group.tileCount > 0 && group.count + group.crossCount > group.tileCount;
+
+        me.down({reference: 'cards-heading'}).hidden = !both;
+        me.down({reference: 'tiles-heading'}).set({hidden: !both, text: group.tileHeading || 'Components'})
     }
 }
 
