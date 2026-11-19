@@ -47,8 +47,6 @@ To access bundled versions, prefix paths with `/dist/production/`, `/dist/develo
 - [Form](https://neomjs.com/apps/form/index.html)
 - [Legit](https://neomjs.com/apps/legit/index.html)
 - [Neo.mjs - An Agent Institution](https://neomjs.com/apps/portal/index.html)
-- [Conduit](https://neomjs.com/apps/realworld/index.html)
-- [RealWorld2](https://neomjs.com/apps/realworld2/index.html)
 - [Route](https://neomjs.com/apps/route/index.html)
 - [SharedCovid MainWindow](https://neomjs.com/apps/sharedcovid/index.html)
 - [SharedDialog](https://neomjs.com/apps/shareddialog/index.html)
