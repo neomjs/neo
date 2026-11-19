@@ -35,6 +35,10 @@
     }
 }
 
+.neo-example-tearout-notes {
+    padding: 1em;
+}
+
 /* One hue per ticket priority, in both themes */
 .neo-example-tearout-queue .neo-list-item::before {
     background-color: var(--tearout-priority, #8b97a8);

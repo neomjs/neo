@@ -55,7 +55,7 @@ class Workspace extends DockWorkspace {
                 module: Component,
                 cls   : ['neo-example-tearout-metrics'],
                 header: {text: 'Metrics'},
-                html  : '<div><b>5</b>open</div><div><b>2</b>urgent</div><div><b>18 min</b>to first reply</div>'
+                html  : '<div><b>8</b>open</div><div><b>2</b>urgent</div><div><b>18 min</b>to first reply</div>'
             },
             alerts: {
                 module          : List,
@@ -73,7 +73,7 @@ class Workspace extends DockWorkspace {
                     ]
                 }
             },
-            notes: {module: TextField, header: {text: 'Notes'}, style: {padding: '1em'}, labelPosition: 'top', labelText: 'Draft'}
+            notes: {module: TextField, cls: ['neo-example-tearout-notes'], header: {text: 'Notes'}, labelPosition: 'top', labelText: 'Draft'}
         },
         /**
          * @member {Object} zones
