@@ -50,6 +50,20 @@
         }
     }
 
+    .portal-examples-group-index-zero a {
+        color  : var(--portal-examples-text-muted);
+        opacity: 0.45;
+
+        .portal-examples-group-index-icon {
+            color: var(--portal-examples-text-muted);
+        }
+
+        &:hover,
+        &:focus-visible {
+            opacity: 0.85;
+        }
+    }
+
     .portal-examples-group-index-icon {
         color     : var(--portal-examples-accent);
         text-align: center;
