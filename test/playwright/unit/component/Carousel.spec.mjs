@@ -19,7 +19,7 @@ import Store          from '../../../../src/data/Store.mjs';
 
 const carouselCssPath = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../resources/scss/src/component/Carousel.scss'
+    '../../../../resources/css/src/component/Carousel.css'
 );
 
 /**
