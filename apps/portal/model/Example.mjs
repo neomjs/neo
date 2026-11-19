@@ -26,6 +26,7 @@ class Example extends Model {
          * `image` names an existing published cover; a record without one stays in the catalog and gets no card.
          * `kind` is `'demonstration'` (the default, a card) or `'component'`: one component in the workbench, shown as
          * a tile whose `image` is its crop. Both kinds publish under the same rule.
+         * Optional `keywords` adds cross-cutting search terms read alongside titles, captions, component and group names.
          * Relative destinations resolve against List.baseUrl or List.sourceBaseUrl; HTTP links
          * remain explicit, including external apps whose mode routes differ from Engine paths.
          *
@@ -74,6 +75,10 @@ class Example extends Model {
         }, {
             name: 'image',
             type: 'String'
+        }, {
+            name        : 'keywords',
+            type        : 'Array',
+            defaultValue: []
         }, {
             name        : 'kind',
             type        : 'String',
@@ -127,6 +132,32 @@ class Example extends Model {
     }
 
     /**
+     * @summary Whether a record matches every normalized search term across its title, captions, component,
+     * group titles (`family` + `alsoIn`) and `keywords`.
+     * @param {Object} record A catalog record or its raw row
+     * @param {String[]} queryTerms Lower-cased normalized search terms (see {@link #tokenizeSearchText})
+     * @param {Object} [groupTitles={}] Map from group `family` id to display title
+     * @returns {Boolean}
+     */
+    static matchesQuery(record, queryTerms, groupTitles={}) {
+        if (!queryTerms?.length) {
+            return true
+        }
+
+        const tokens = [
+            record.name,
+            record.feature,
+            record.lookFor,
+            record.component,
+            groupTitles[record.family],
+            ...(record.alsoIn || []).map(family => groupTitles[family]),
+            ...(record.keywords || [])
+        ].flatMap(value => Example.tokenizeSearchText(value));
+
+        return queryTerms.every(term => tokens.some(token => token.startsWith(term)))
+    }
+
+    /**
      * @summary Whether a record publishes a card in a build mode: it names a cover, and the mode can open it.
      *
      * The one rule the group stores, the tab publication and `Portal.view.examples.List` read. A build script cannot
@@ -138,6 +169,25 @@ class Example extends Model {
      */
     static publishes(record, mode) {
         return !!record.image && !record.hidden && !record.hiddenIn?.includes(mode) && !!record.urls?.[mode]
+    }
+
+    /**
+     * @summary Splits free text or camelCase identifiers into lower-case alphanumeric search tokens.
+     * @param {String|Number|null|undefined} value
+     * @returns {String[]}
+     */
+    static tokenizeSearchText(value) {
+        if (value == null) {
+            return []
+        }
+
+        return String(value)
+            .replace(/(\d),(\d)/g, '$1$2')
+            .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+            .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+            .toLowerCase()
+            .split(/[^a-z0-9]+/)
+            .filter(Boolean)
     }
 }
 

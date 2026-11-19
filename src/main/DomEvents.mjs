@@ -739,7 +739,10 @@ class DomEvents extends Base {
 
             // A key the App Worker handles for this exact node: it still gets the event, only the default is gone.
             // The worker cannot cancel a default after the fact, so it registers the node before the key arrives.
-            if (preventDefaultKeys[target.id]?.includes(event.key)) {
+            // When the target is `document.body`, callers register against `'document.body'` because body often has no id.
+            const preventId = target === document.body ? (target.id || 'document.body') : target.id;
+
+            if (preventDefaultKeys[preventId]?.includes(event.key)) {
                 event.preventDefault()
             }
 

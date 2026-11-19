@@ -1367,7 +1367,7 @@
         "title": "GraphScene — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A worker-rendered WebGL graph supports orbiting, zooming, large node sets and level-of-detail passes. Choose 100k clustered, drag to orbit, and press Read...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-17"
+        "lastmod": "2026-11-19"
     },
     "/examples/component/helix/index.html": {
         "title": "Helix — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1493,7 +1493,7 @@
         "title": "Mermaid Component — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "Mermaid draws a flowchart, sequence, class or Gantt diagram from text, and draws it again on every edit and theme change. Edit the source on the left, load...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-19"
     },
     "/examples/component/wrapper/monacoEditor/index.html": {
         "title": "Monaco Editor — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1841,7 +1841,7 @@
         "title": "GridContainer - Content-Sized Rows — Data Grid Demo | Neo.mjs",
         "description": "Wrapped content with locked columns. Toggle content-sized rows, edit a summary, filter, or jump through 10,000 records; scroll to the wrapped Details column.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-17"
+        "lastmod": "2026-11-19"
     },
     "/examples/grid/countries/index.html": {
         "title": "JavaScript Data Grid with Country Statistics | Neo.mjs",
@@ -1936,7 +1936,8 @@
     "/examples/layout/sideBySide/index.html": {
         "title": "Layouts Side by Side — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "Seven layouts arrange the same six items at once, and three of them change as they run. Set align to start and pack to end, turn on flex, then press Next...",
-        "schemaType": "WebPage"
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-19"
     },
     "/examples/list/animate/index.html": {
         "title": "AnimatedList — Web Worker JavaScript UI Demo | Neo.mjs",

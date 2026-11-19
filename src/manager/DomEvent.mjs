@@ -175,7 +175,7 @@ class DomEvent extends Base {
             pathIds     = data.path ? data.path.map(e => e.id) : [],
             path        = ComponentManager.getParentPath(pathIds),
             len         = path.length,
-            component, delegationTargetId, id, preventFire;
+            component, id;
 
         for (; i < len; i++) {
             id        = path[i];
@@ -194,47 +194,7 @@ class DomEvent extends Base {
             listeners = me.items[id]?.[eventName];
 
             if (listeners) {
-                if (Array.isArray(listeners)) {
-                    // Stop iteration if a handler returns false
-                    listeners.every(listener => {
-                        let result;
-
-                        if (listener && listener.fn) {
-                            delegationTargetId = me.verifyDelegationPath(listener, data.path, path);
-
-                            if (delegationTargetId !== false) {
-                                preventFire = false;
-
-                                // we only want mouseenter & leave to fire on their top level nodes, not for children
-                                if (eventName === 'mouseenter' || eventName === 'mouseleave') {
-                                    preventFire = !DomEvent.verifyMouseEnterLeave(component, data, delegationTargetId, eventName)
-                                }
-
-                                if (!preventFire) {
-                                    // multiple listeners would change the reference of data.component
-                                    data = Neo.clone(data, true, true);
-
-                                    data.component = component;
-
-                                    // Handler needs to know which actual target matched the delegate
-                                    data.currentTarget = delegationTargetId;
-
-                                    if (Neo.isString(listener.fn)) {
-                                        me.bindCallback(listener.fn, 'fn', listener.scope, listener)
-                                    }
-
-                                    result = listener.fn.apply(listener.scope || globalThis, [data]);
-
-                                    if (listener.bubble === false) {
-                                        bubble = false
-                                    }
-                                }
-                            }
-                        }
-                        // If a listener returns false, we stop iterating the listeners
-                        return result !== false
-                    })
-                }
+                bubble = me.invokeListeners(component, listeners, data, path, eventName)
             }
 
             // we do want to trigger the FocusManager after normal domListeners on these events got executed
@@ -251,6 +211,43 @@ class DomEvent extends Base {
             // Honor the Event cancelBubble property
             if (!bubble || data.cancelBubble) {
                 break
+            }
+        }
+
+        // Listeners registered with `vnodeId: 'document.body'` observe global events reaching `<body>` even when the
+        // target sits outside their component subtree (e.g. `document.body` itself or a sibling toolbar). Components
+        // already visited in `path` were invoked during the loop above and are skipped here to prevent double-firing.
+        if (bubble && !data.cancelBubble && data.path?.some(node => node.tagName === 'body' || node.id === 'document.body')) {
+            const pathSet = new Set(path);
+
+            for (const [cmpId, eventMap] of Object.entries(me.items)) {
+                if (pathSet.has(cmpId) || !eventMap?.[eventName]) {
+                    continue
+                }
+
+                component = Neo.getComponent(cmpId);
+
+                if (
+                    !component ||
+                    component.isDestroyed ||
+                    (eventName !== 'resize' && component.disabled) ||
+                    (event.windowId && component.windowId && component.windowId !== event.windowId)
+                ) {
+                    continue
+                }
+
+                bubble = me.invokeListeners(
+                    component,
+                    eventMap[eventName],
+                    data,
+                    path,
+                    eventName,
+                    listener => listener.vnodeId === 'document.body'
+                );
+
+                if (!bubble || data.cancelBubble) {
+                    break
+                }
             }
         }
 
@@ -333,6 +330,73 @@ class DomEvent extends Base {
 
             return event || null
         }
+    }
+
+    /**
+     * @summary Invokes matching listeners for a component against the serialized DOM path and returns updated bubble state.
+     * @param {Neo.component.Base} component
+     * @param {Object[]} listeners
+     * @param {Object} data
+     * @param {String[]} path
+     * @param {String} eventName
+     * @param {Function} [predicate]
+     * @returns {Boolean} false if a matching listener specified `bubble: false`
+     * @protected
+     */
+    invokeListeners(component, listeners, data, path, eventName, predicate) {
+        let bubble = true,
+            delegationTargetId, preventFire;
+
+        if (!Array.isArray(listeners)) {
+            return bubble
+        }
+
+        // Stop iteration if a handler returns false
+        listeners.every(listener => {
+            let result;
+
+            if (listener?.fn && (!predicate || predicate(listener))) {
+                delegationTargetId = this.verifyDelegationPath(listener, data.path, path);
+
+                if (delegationTargetId !== false) {
+                    preventFire = false;
+
+                    // we only want mouseenter & leave to fire on their top level nodes, not for children
+                    if (eventName === 'mouseenter' || eventName === 'mouseleave') {
+                        preventFire = !DomEvent.verifyMouseEnterLeave(component, data, delegationTargetId, eventName)
+                    }
+
+                    if (!preventFire) {
+                        // multiple listeners would change the reference of data.component
+                        const eventData = Neo.clone(data, true, true);
+
+                        eventData.component = component;
+
+                        // Handler needs to know which actual target matched the delegate
+                        eventData.currentTarget = delegationTargetId;
+
+                        if (Neo.isString(listener.fn)) {
+                            this.bindCallback(listener.fn, 'fn', listener.scope, listener)
+                        }
+
+                        result = listener.fn.apply(listener.scope || globalThis, [eventData]);
+
+                        if (eventData.cancelBubble) {
+                            data.cancelBubble = true
+                        }
+
+                        if (listener.bubble === false) {
+                            bubble = false
+                        }
+                    }
+                }
+            }
+
+            // If a listener returns false, we stop iterating the listeners
+            return result !== false
+        });
+
+        return bubble
     }
 
     /**
@@ -618,9 +682,11 @@ class DomEvent extends Base {
             domListeners.forEach(domListener => {
                 Object.entries(domListener).forEach(([key, value]) => {
                     if (!eventConfigKeys.includes(key)) {
+                        const vnodeId = domListener.vnodeId || value.vnodeId || component.vdom?.id || component.id;
+
                         me.register({
                             bubble        : Object.hasOwn(domListener, 'bubble') ? domListener.bubble : (value && Object.hasOwn(value, 'bubble')) ? value.bubble : true,
-                            delegate      : domListener.delegate || value.delegate || '#' + (component.vdom.id || component.id),
+                            delegate      : domListener.delegate || value.delegate || (vnodeId === 'document.body' ? DomEvent.documentBodyDelegate : '#' + (component.vdom.id || component.id)),
                             eventName     : key,
                             id            : component.vdom.id || component.id, // honor wrapper nodes
                             opts          : value,
@@ -628,7 +694,7 @@ class DomEvent extends Base {
                             ownerId       : component.id,
                             priority      : domListener.priority || value.priority || 1,
                             scope         : domListener.scope    || component,
-                            vnodeId       : domListener.vnodeId  || value.vnodeId  || component.vdom?.id || component.id
+                            vnodeId
                         })
                     }
                 })
@@ -679,9 +745,11 @@ class DomEvent extends Base {
         if (typeof delegate === 'function') {
             j = delegate(path);
 
-            if (j != null) {
-                targetId = path[j].id
+            if (j == null) {
+                return false
             }
+
+            targetId = path[j].id
         } else {
             let delegationArray = delegate.match(/\[[^\]]+\]|\S+/g) || [],
                 len             = delegationArray.length,
@@ -721,8 +789,8 @@ class DomEvent extends Base {
         // Ensure the delegation path is a child of the owner component's root node in the physical DOM.
         // This covers standard inline components and is O(N).
         for (let k = j; k < pathLen; k++) {
-            if (path[k].id === listener.vnodeId) {
-                return targetId
+            if (path[k].id === listener.vnodeId || (listener.vnodeId === 'document.body' && path[k].tagName === 'body')) {
+                return targetId || (listener.vnodeId === 'document.body' ? 'document.body' : targetId)
             }
         }
 
@@ -748,6 +816,17 @@ class DomEvent extends Base {
         }
 
         return false
+    }
+
+    /**
+     * @summary Matches the `<body>` node in serialized DOM event paths for listeners scoped to `vnodeId: 'document.body'`.
+     * @param {Object[]} path
+     * @returns {Number|null}
+     */
+    static documentBodyDelegate(path) {
+        const index = path?.findIndex(node => node.tagName === 'body' || node.id === 'document.body') ?? -1;
+
+        return index === -1 ? null : index
     }
 
     /**

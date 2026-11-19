@@ -748,5 +748,52 @@ test.describe('Portal examples section', () => {
         await wsCard.locator('.portal-example-open-cue').tap();
         await expect(touchPage).toHaveURL(/\/apps\/workstation\/index\.html$/);
         await touchContext.close()
+    });
+
+    test('find filters across all groups live, focuses on slash, dims zero-match groups, and Escape restores the open page without history churn', async ({page, neuralLink}) => {
+        await page.setViewportSize({width: 1440, height: 900});
+        await page.goto(`${PORTAL}#/examples/grid`);
+        const app = await neuralLink.connectToApp('Portal');
+        await expectOpenPage(page, 'Grid & Table');
+
+        const initialHistoryLength = await page.evaluate(() => window.history.length),
+              sidebarInput         = page.locator('.portal-examples-sidebar:visible .portal-examples-find-field input'),
+              results              = page.locator('.portal-examples-search-results:visible');
+
+        await page.keyboard.press('/');
+        await expect(sidebarInput).toBeFocused();
+
+        await page.keyboard.type('drag');
+        await expect(results.getByRole('heading', {level: 1})).toContainText('matching examples');
+
+        const [mainState] = await app.queryComponent({className: 'Portal.view.examples.MainContainer'}, ['id', 'findQuery']);
+        expect(mainState.properties.findQuery).toBe('drag');
+
+        await expect(results.getByRole('link', {name: 'Sprint Board', exact: true})).toBeVisible();
+        await expect(page.locator(SIDEBAR).getByRole('link', {name: 'Drag & Drop, 3 matching examples from other groups'})).toBeVisible();
+        await expect(page.locator(`${SIDEBAR} li.portal-examples-group-index-zero`).filter({hasText: 'Calendar'})).toBeVisible();
+        await expect(page).toHaveURL(/#\/examples\/grid$/);
+        expect(await page.evaluate(() => window.history.length)).toBe(initialHistoryLength);
+
+        await sidebarInput.fill('date');
+        await expect(results.locator('.portal-examples-search-cards').getByRole('link', {name: 'Calendar', exact: true})).toBeVisible();
+        await expect(results.locator('.portal-examples-search-cards').getByRole('link', {name: 'Studio Bookings', exact: true})).toBeVisible();
+        await expect(results.locator('.portal-examples-search-cards').getByRole('link', {name: 'Community Garden Plan', exact: true})).toBeVisible();
+        await expect(results.locator('.portal-examples-tiles').getByRole('link', {name: 'Date field', exact: true})).toBeVisible();
+
+        await sidebarInput.press('Escape');
+        await expectOpenPage(page, 'Grid & Table');
+        await expect(sidebarInput).not.toBeFocused();
+
+        const [clearedState] = await app.queryComponent({className: 'Portal.view.examples.MainContainer'}, ['findQuery']);
+        expect(clearedState.properties.findQuery).toBe('');
+
+        await page.setViewportSize({width: 390, height: 844});
+        const mobileInput = page.locator(`${CRUMB} .portal-examples-find-field input`);
+        await expect(mobileInput).toBeVisible();
+        await mobileInput.fill('drag');
+        await expect(results.getByRole('link', {name: 'Sprint Board', exact: true})).toBeVisible();
+        await results.getByRole('button', {name: 'Clear (Esc)'}).click();
+        await expectOpenPage(page, 'Grid & Table')
     })
 });

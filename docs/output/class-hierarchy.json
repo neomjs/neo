@@ -666,6 +666,7 @@
  "Portal.view.examples.MainContainer": "Neo.container.Base",
  "Portal.view.examples.MainContainerController": "Neo.controller.Component",
  "Portal.view.examples.Overview": "Neo.container.Base",
+ "Portal.view.examples.SearchResults": "Neo.container.Base",
  "Portal.view.home.ContentBox": "Neo.component.Base",
  "Portal.view.home.FeatureSection": "Neo.container.Base",
  "Portal.view.home.FooterCanvas": "Neo.app.SharedCanvas",
