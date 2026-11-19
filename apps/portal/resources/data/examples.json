@@ -429,7 +429,7 @@
         "feature": "Dialogs that drag by their header and open further dialogs",
         "lookFor": "Press Create Dialog, drag the dialog by its header, then create a second one from inside it.",
         "featured": false,
-        "image": "devmode/dragdrop.png",
+        "image": "devmode/dialog-drag-drop-14.jpg",
         "name": "Dialog drag&drop",
         "sourceUrl": "examples/dialog",
         "urls": {
@@ -877,7 +877,7 @@
         "component": "Toast",
         "feature": "A live form previews toast configuration and launches a temporary notification.",
         "lookFor": "Enter a message and watch the code preview follow each field, choose a position and a ui, then press create toast.",
-        "image": null,
+        "image": "devmode/toast-14.jpg",
         "name": "component.Toast",
         "sourceUrl": "examples/component/toast",
         "urls": {
@@ -885,6 +885,23 @@
             "dist_dev": "dist/development/examples/component/toast/index.html",
             "dist_esm": "dist/esm/examples/component/toast/index.html",
             "dist_prod": "dist/production/examples/component/toast/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "popover",
+        "family": "dialogs",
+        "component": "Popover",
+        "feature": "A popover opens against the button that owns it, on the side its align value names, and flips when that side has no room.",
+        "lookFor": "Press Click Me, then pick another align value in the inspector and press the button again.",
+        "image": "devmode/popover-14.jpg",
+        "name": "plugin.Popover",
+        "sourceUrl": "examples/popover",
+        "urls": {
+            "devmode": "examples/popover/index.html",
+            "dist_dev": "dist/development/examples/popover/index.html",
+            "dist_esm": "dist/esm/examples/popover/index.html",
+            "dist_prod": "dist/production/examples/popover/index.html"
         },
         "hiddenIn": []
     },

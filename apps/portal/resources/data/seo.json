@@ -1137,7 +1137,7 @@
     },
     "/examples/dialogs": {
         "title": "JavaScript Dialogs & Overlays — Live Examples | Neo.mjs",
-        "description": "Explore 1 live JavaScript dialog example: Dialogs that drag by their header and open further dialogs.",
+        "description": "Explore 3 live JavaScript dialog examples: Dialogs that drag by their header and open further dialogs.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-19"
     },
@@ -1989,7 +1989,7 @@
     },
     "/examples/popover/index.html": {
         "title": "Popover — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Live runnable Popover example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "description": "A popover opens against the button that owns it, on the side its align value names, and flips when that side has no room. Press Click Me, then pick another...",
         "schemaType": "WebPage",
         "lastmod": "2026-11-19"
     },
