@@ -1119,7 +1119,7 @@
     },
     "/examples/dashboard": {
         "title": "JavaScript Dashboard & Docking — Panes That Pop Out | Neo.mjs",
-        "description": "Explore 4 live JavaScript dashboard examples: A scripted layout tour splits, groups and auto-hides live panes.",
+        "description": "Explore 5 live JavaScript dashboard examples: A scripted layout tour splits, groups and auto-hides live panes.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-19"
     },
@@ -1565,7 +1565,7 @@
         "title": "Dock Tear-Out — Multi-Window JavaScript Demo | Neo.mjs",
         "description": "A Notes pane keeps its draft when it moves to a separate window. Type a draft in Notes, use its pop-out action, then close the popup and find the draft back...",
         "schemaType": "WebPage",
-        "lastmod": "2026-10-11"
+        "lastmod": "2026-11-19"
     },
     "/examples/data/pipeline/index.html": {
         "title": "Data Pipeline — Web Worker JavaScript UI Demo | Neo.mjs",

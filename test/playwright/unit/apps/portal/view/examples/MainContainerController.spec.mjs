@@ -128,7 +128,7 @@ test.describe('Portal examples overview and group pages', () => {
         expect(Object.fromEntries(groupStore.items.map(group => [group.family, [group.count, group.crossCount]]))).toEqual({
             apps          : [6, 4], 'grid-table': [19, 0], tree: [0, 2], lists: [7, 0], charts: [4, 1],
             calendar      : [1, 0], scheduler   : [2, 0], gantt: [2, 0], board: [2, 0],
-            dashboard     : [4, 0], tabs        : [1, 0], layouts: [1, 0], dialogs: [3, 0],
+            dashboard     : [4, 1], tabs        : [1, 0], layouts: [1, 0], dialogs: [3, 0],
             forms         : [27, 1], buttons    : [2, 0], components: [9, 0],
             'multi-window': [6, 3], platform    : [2, 1], state: [1, 0], functional: [3, 1], 'drag-drop': [0, 3]
         });
@@ -745,7 +745,7 @@ test.describe('Portal examples canonical catalog', () => {
             'shared-offscreen-canvas': ['platform'],
             'multi-window-drag-drop' : ['apps', 'drag-drop'],
             'dialog-drag-drop'       : ['drag-drop'],
-            'colors-dashboard'       : ['apps'],
+            'colors-dashboard'       : ['apps', 'dashboard'],
             'grid-tree'              : ['tree'],
             'form-app'               : ['apps'],
             'layout-form'            : ['forms'],

@@ -444,7 +444,8 @@
         "id": "colors-dashboard",
         "family": "multi-window",
         "alsoIn": [
-            "apps"
+            "apps",
+            "dashboard"
         ],
         "component": "Dashboard",
         "feature": "The dashboard's color grid keeps updating in its own window",
