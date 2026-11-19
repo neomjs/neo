@@ -683,6 +683,7 @@ test.describe('Portal examples canonical catalog', () => {
                   mermaid           : 'charts',
                   'open-street-maps': 'charts',
                   popover           : 'dialogs',
+                  sparklines        : 'charts',
                   toast             : 'dialogs',
                   'video-move'      : 'platform'
               };
