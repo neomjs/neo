@@ -9,9 +9,14 @@ import {test, expect}  from '@playwright/test';
 import Neo             from '../../../../../../src/Neo.mjs';
 import * as core       from '../../../../../../src/core/_export.mjs';
 
-const __dirname            = path.dirname(fileURLToPath(import.meta.url));
-const seoJsonPath          = path.resolve(__dirname, '../../../../../../apps/portal/resources/data/seo.json');
-const seoJson              = JSON.parse(fs.readFileSync(seoJsonPath, 'utf-8'));
+import {extractExampleFamilyDefinitions, getExampleFamilySeo} from '../../../../../../buildScripts/docs/seo/seoJson.mjs';
+
+const __dirname         = path.dirname(fileURLToPath(import.meta.url));
+const seoJsonPath       = path.resolve(__dirname, '../../../../../../apps/portal/resources/data/seo.json');
+const seoJson           = JSON.parse(fs.readFileSync(seoJsonPath, 'utf-8'));
+const familyDefinitions = extractExampleFamilyDefinitions(fs.readFileSync(
+    path.resolve(__dirname, '../../../../../../apps/portal/view/examples/MainContainer.mjs'), 'utf-8'
+)).filter(definition => definition.family);
 const previousDocumentHead = Neo.main?.addon?.DocumentHead;
 previousDocumentHead && delete Neo.main.addon.DocumentHead;
 const {default: DocumentHead} = await import('../../../../../../src/main/addon/DocumentHead.mjs');
@@ -109,12 +114,17 @@ test.describe('Portal.service.Seo (#20945)', () => {
             // Mechanical parity check: every top-level and published /examples/<family> route in seo.json
             // must resolve to the exact same title in Portal.service.Seo#getTitle
             for (const [route, meta] of Object.entries(seoJson)) {
-                if (!route.startsWith('/learn/') && !route.startsWith('/news/blog/') && !route.startsWith('/news/releases/')) {
+                if (!route.startsWith('/learn/') && !route.startsWith('/news/blog/') && !route.startsWith('/news/releases/') && !route.endsWith('.html')) {
                     expect(SeoService.getTitle(route), `routeTitles mismatch for ${route}`).toBe(meta.title)
                 }
             }
 
             expect(SeoService.getTitle('/examples/unlisted-family')).toBe(seoJson['/examples'].title);
+
+            // Published or not: a family whose first cover lands later publishes this same title
+            for (const definition of familyDefinitions) {
+                expect(SeoService.getTitle(definition.route), definition.route).toBe(getExampleFamilySeo(definition).title)
+            }
             expect(SeoService.getTitle('/news/tickets/123')).toBe('GitHub Issue Archive — Neo.mjs');
             expect(SeoService.getTitle('learn/benefits/Introduction/#overview')).toBe(seoJson['/learn'].title);
 
@@ -173,7 +183,7 @@ test.describe('Portal.service.Seo (#20945)', () => {
             expect(staleLeaf).toBe(false);
             expect(titleCalls.at(-1)).toEqual({
                 requestedWindowId: 'neo-window-1',
-                value            : 'Neo.mjs Grid & Table Examples',
+                value            : 'JavaScript Data Grid Examples — 100k Rows in a Web Worker | Neo.mjs',
                 windowId         : 'neo-window-1'
             });
             expect(fetchCount).toBe(0);

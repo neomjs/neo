@@ -1,8 +1,16 @@
-import {test, expect}     from '@playwright/test';
-import fs                 from 'fs-extra';
-import os                 from 'os';
-import path               from 'path';
-import verifySeoArtifacts from '../../../../../../buildScripts/docs/seo/verify.mjs';
+import {test, expect} from '@playwright/test';
+import fs             from 'fs-extra';
+import os             from 'os';
+import path           from 'path';
+import verifySeoArtifacts, {
+    CONTENT_SIGNAL_DIRECTIVE,
+    LLMS_TXT_MAX_BYTES,
+    extractLocUrls,
+    validateLlmsTxtContent,
+    validateRobotsTxt,
+    validateSitemapIndexXml,
+    validateUrlsetXml
+} from '../../../../../../buildScripts/docs/seo/verify.mjs';
 
 /**
  * @summary Verifies pre-write cross-artifact validation across `seo.json`, `sitemap*.xml`,
@@ -75,6 +83,12 @@ test.describe('buildScripts/docs/seo/verify.mjs (#20774 / #20915)', () => {
                     lastmod    : '2025-11-01',
                     robots     : 'noindex, follow',
                     schemaType : 'TechArticle'
+                },
+                '/examples/grid/bigData/index.html': {
+                    title      : 'JavaScript Data Grid — 100k Rows & 200 Columns in a Web Worker | Neo.mjs',
+                    description: 'Interactive Neo.mjs JavaScript Data Grid benchmark streaming 100,000 rows and 200 columns in a Web Worker.',
+                    lastmod    : '2026-11-10',
+                    schemaType : 'WebPage'
                 }
             },
             ssgArchiveRoutes: {
@@ -88,7 +102,7 @@ test.describe('buildScripts/docs/seo/verify.mjs (#20774 / #20915)', () => {
                 '<?xml version="1.0" encoding="UTF-8"?>',
                 '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
                 '  <url><loc>https://neomjs.com/</loc><lastmod>2026-10-21</lastmod></url>',
-                '  <url><loc>https://neomjs.com/examples/grid/bigData/index.html</loc></url>',
+                '  <url><loc>https://neomjs.com/examples/grid/bigData/index.html</loc><lastmod>2026-11-10</lastmod></url>',
                 '  <url><loc>https://neomjs.com/learn/benefits/Introduction</loc><lastmod>2026-11-10</lastmod></url>',
                 '  <url><loc>https://neomjs.com/news/blog/json-ld-xss</loc><lastmod>2026-11-12</lastmod></url>',
                 '  <url><loc>https://neomjs.com/news/releases/13.4.0</loc><lastmod>2026-11-09</lastmod></url>',
@@ -453,5 +467,179 @@ test.describe('buildScripts/docs/seo/verify.mjs (#20774 / #20915)', () => {
 
         await fs.outputFile(path.join(rootDir, 'apps/portal/view/news/TabContainer.mjs'), '// News TabContainer');
         await expect(verifySeoArtifacts(buildValidBundle())).rejects.toThrow(/sitemap-core\.xml is missing indexable News hub route "\/news\/blog"/);
+    });
+
+    test('validates optional robotsTxt directives while remaining backward-compatible when omitted (#20999)', async () => {
+        expect(CONTENT_SIGNAL_DIRECTIVE).toBe('Content-Signal: search=yes, ai-input=yes');
+
+        const validRobotsTxt = [
+            'User-agent: *',
+            'Allow: /',
+            CONTENT_SIGNAL_DIRECTIVE,
+            '',
+            'Sitemap: https://neomjs.com/sitemap.xml'
+        ].join('\n');
+
+        await expect(verifySeoArtifacts(buildValidBundle())).resolves.toBeUndefined();
+        await expect(verifySeoArtifacts({
+            ...buildValidBundle(),
+            robotsTxt: validRobotsTxt
+        })).resolves.toBeUndefined();
+
+        await expect(verifySeoArtifacts({
+            ...buildValidBundle(),
+            robotsTxt: '   '
+        })).rejects.toThrow(/robots\.txt must be a non-empty string/);
+
+        await expect(verifySeoArtifacts({
+            ...buildValidBundle(),
+            robotsTxt: validRobotsTxt.replace('User-agent: *\n', '')
+        })).rejects.toThrow(/User-agent: \*/);
+
+        await expect(verifySeoArtifacts({
+            ...buildValidBundle(),
+            robotsTxt: `${validRobotsTxt}\nDisallow: /`
+        })).rejects.toThrow(/Disallow: \//);
+
+        await expect(verifySeoArtifacts({
+            ...buildValidBundle(),
+            robotsTxt: validRobotsTxt.replace('Allow: /', 'Allow: /docs')
+        })).rejects.toThrow(/Allow: \//);
+
+        await expect(verifySeoArtifacts({
+            ...buildValidBundle(),
+            robotsTxt: validRobotsTxt.replace(`${CONTENT_SIGNAL_DIRECTIVE}\n`, '')
+        })).rejects.toThrow(/Content-Signal: search=yes, ai-input=yes/);
+
+        await expect(verifySeoArtifacts({
+            ...buildValidBundle(),
+            robotsTxt: validRobotsTxt.replace(
+                CONTENT_SIGNAL_DIRECTIVE,
+                'Content-Signal: search=yes, ai-input=yes, ai-train=yes'
+            )
+        })).rejects.toThrow(/robots\.txt must declare "Content-Signal: search=yes, ai-input=yes"\./);
+
+        await expect(verifySeoArtifacts({
+            ...buildValidBundle(),
+            robotsTxt: validRobotsTxt.replace('https://neomjs.com/sitemap.xml', 'https://example.com/sitemap.xml')
+        })).rejects.toThrow(/Sitemap: https:\/\/neomjs\.com\/sitemap\.xml/);
+    });
+
+    test('exports pure SEO text validators returning accumulated error arrays (#20999)', () => {
+        expect(extractLocUrls('<urlset><url><loc> https://neomjs.com/ </loc></url></urlset>'))
+            .toEqual(['https://neomjs.com/']);
+
+        expect(validateRobotsTxt([
+            'User-agent: *',
+            'Allow: /',
+            'Content-Signal: search=yes, ai-input=yes',
+            'Sitemap: http://127.0.0.1:4173/sitemap.xml'
+        ].join('\n'), {
+            baseUrl       : 'http://127.0.0.1:4173',
+            expectedOrigin: 'https://neomjs.com'
+        })).toEqual([]);
+
+        expect(validateRobotsTxt([
+            'Disallow: /',
+            'Content-Signal: search=yes, ai-input=yes, ai-train=yes'
+        ].join('\n'))).toEqual([
+            'robots.txt must declare "User-agent: *".',
+            'robots.txt must not block the root with "Disallow: /".',
+            'robots.txt must declare "Allow: /".',
+            'robots.txt must declare "Content-Signal: search=yes, ai-input=yes".',
+            'robots.txt must declare "Sitemap: https://neomjs.com/sitemap.xml".'
+        ]);
+
+        expect(validateSitemapIndexXml([
+            '<sitemapindex>',
+            '  <sitemap><loc>https://neomjs.com/sitemap-core.xml</loc></sitemap>',
+            '  <sitemap><loc>https://neomjs.com/sitemap-core.xml</loc></sitemap>',
+            '  <sitemap><loc>https://neomjs.com/sitemap-archive.xml</loc></sitemap>',
+            '</sitemapindex>'
+        ].join('\n'))).toEqual([
+            'sitemap.xml contains duplicate <loc> entry "https://neomjs.com/sitemap-core.xml".',
+            'sitemap.xml must not reference noindex archive sitemap "https://neomjs.com/sitemap-archive.xml".',
+            'sitemap.xml is missing discussions child sitemap <loc> "https://neomjs.com/sitemap-discussions.xml".'
+        ]);
+
+        expect(validateUrlsetXml('<urlset></urlset>', 'sitemap-discussions.xml', {requireNonEmpty: true}))
+            .toEqual(['sitemap-discussions.xml must contain at least one <loc> entry.']);
+        expect(validateUrlsetXml('<urlset></urlset>', 'sitemap-discussions.xml', {requireNonEmpty: false}))
+            .toEqual([]);
+
+        expect(LLMS_TXT_MAX_BYTES).toBe(100_000);
+        expect(validateLlmsTxtContent(
+            '# Neo.mjs\n- [Disc](https://neomjs.com/news/discussions/19733)\n## GitHub Discussions\n',
+            {maxBytes: 20, requireAtlasLinks: true}
+        )).toEqual([
+            expect.stringMatching(/^llms\.txt exceeds curated ceiling \(\d+ >= 20 bytes\)\.$/),
+            'llms.txt must not contain ticket, pull-request, or discussion archive URLs.',
+            'llms.txt must not contain archive section "## GitHub Discussions".',
+            'llms.txt must reference "/llms-full.txt".',
+            'llms.txt must reference "/llms-all.txt".'
+        ]);
+    });
+
+    test('rejects excluded testbeds, missing standalone .html seo.json entries, and duplicate standalone titles (#21169)', async () => {
+        for (const blockedPath of ['/examples/dashboard/crossWindowWitness/index.html', '/apps/ai/neural-link/index.html']) {
+            const testbedBundle = {
+                ...buildValidBundle(),
+                sitemapCoreXml: [
+                    '<urlset>',
+                    '  <url><loc>https://neomjs.com/</loc><lastmod>2026-10-21</lastmod></url>',
+                    `  <url><loc>https://neomjs.com${blockedPath}</loc></url>`,
+                    '</urlset>'
+                ].join('\n')
+            };
+            await expect(verifySeoArtifacts(testbedBundle)).rejects.toThrow(/non-indexable standalone path/);
+        }
+
+        const missingStandaloneSeoBundle = buildValidBundle();
+        delete missingStandaloneSeoBundle.seoJson['/examples/grid/bigData/index.html'];
+        await expect(verifySeoArtifacts(missingStandaloneSeoBundle)).rejects.toThrow(/missing metadata entry.*\/examples\/grid\/bigData\/index\.html/);
+
+        const duplicateTitleBundle = buildValidBundle();
+        duplicateTitleBundle.seoJson['/examples/tree/index.html'] = {
+            title      : duplicateTitleBundle.seoJson['/examples/grid/bigData/index.html'].title,
+            description: 'Duplicate standalone title fixture.',
+            lastmod    : '2026-11-10',
+            schemaType : 'WebPage'
+        };
+        duplicateTitleBundle.sitemapCoreXml = duplicateTitleBundle.sitemapCoreXml.replace(
+            '</urlset>',
+            '  <url><loc>https://neomjs.com/examples/tree/index.html</loc><lastmod>2026-11-10</lastmod></url>\n</urlset>'
+        );
+        await expect(verifySeoArtifacts(duplicateTitleBundle)).rejects.toThrow(/share duplicate title/);
+
+        const duplicateSourceTitleBundle = buildValidBundle();
+        await fs.outputFile(
+            path.join(rootDir, 'examples/button/base/index.html'),
+            '<!DOCTYPE html><html><head><title>Neo Button</title></head></html>'
+        );
+        await fs.outputFile(
+            path.join(rootDir, 'examples/grid/valueBanding/index.html'),
+            '<!DOCTYPE html><html><head><title>Neo Button</title></head></html>'
+        );
+        duplicateSourceTitleBundle.seoJson['/examples/button/base/index.html'] = {
+            title      : 'Button — Web Worker JavaScript UI Demo | Neo.mjs',
+            description: 'Button base demo in Neo.mjs.',
+            lastmod    : '2026-11-10',
+            schemaType : 'WebPage'
+        };
+        duplicateSourceTitleBundle.seoJson['/examples/grid/valueBanding/index.html'] = {
+            title      : 'Button — Web Worker Data Grid Demo | Neo.mjs',
+            description: 'Grid value banding demo in Neo.mjs.',
+            lastmod    : '2026-11-10',
+            schemaType : 'WebPage'
+        };
+        duplicateSourceTitleBundle.sitemapCoreXml = duplicateSourceTitleBundle.sitemapCoreXml.replace(
+            '</urlset>',
+            [
+                '  <url><loc>https://neomjs.com/examples/button/base/index.html</loc><lastmod>2026-11-10</lastmod></url>',
+                '  <url><loc>https://neomjs.com/examples/grid/valueBanding/index.html</loc><lastmod>2026-11-10</lastmod></url>',
+                '</urlset>'
+            ].join('\n')
+        );
+        await expect(verifySeoArtifacts(duplicateSourceTitleBundle)).rejects.toThrow(/share duplicate source HTML <title> "Neo Button"/);
     });
 });

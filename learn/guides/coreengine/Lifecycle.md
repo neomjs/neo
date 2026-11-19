@@ -12,10 +12,13 @@ When you call `Neo.create(MyClass, config)`, the engine orchestrates a precise s
 
 1. **`constructor()` (Native):** The native parameterless constructor runs, initializing all basic class fields.
 2. **`construct(config)` (Synchronous):** The engine merges configs, initializes the reactive config system, and applies the initial state payload.
-3. **`onConstructed()` (Synchronous):** A hook for subclasses to perform logic immediately after the core construction is complete. The `isConstructed` flag is set to `true`.
-4. **`init()` (Synchronous):** A secondary hook for synchronous initialization, often used by components to build their initial VDOM tree.
-5. **`initAsync()` (Asynchronous):** The critical phase for async operations. The engine pauses here.
-6. **`afterSetIsReady(true)` (Synchronous):** Fired strictly *after* the promise returned by `initAsync` resolves.
+3. **`onConstructed()` (Synchronous):** A hook for subclasses to perform logic immediately after the core construction is complete.
+4. **`onAfterConstructed()` (Synchronous):** Runs once every `onConstructed()` in the class hierarchy has finished. The `isConstructed` flag is set to `true` here, and an observable class fires its `constructed` event.
+5. **`init()` (Synchronous):** A secondary hook for synchronous initialization, often used by components to build their initial VDOM tree.
+6. **`initAsync()` (Asynchronous):** The critical phase for async operations. The engine pauses here.
+7. **`afterSetIsReady(true)` (Synchronous):** Fired strictly *after* the promise returned by `initAsync` resolves.
+
+Each of these phases, with the mounting and destruction that follow them, is described in the reference page [Instance Lifecycle](../fundamentals/InstanceLifecycle.md).
 
 ## Why `initAsync` is Essential
 

@@ -19,7 +19,7 @@ test.describe('check-theme-coverage — baselined zero-coverage guard', () => {
     const makeTree = ({srcPkgs = [], darkPkgs = [], lightPkgs = []} = {}) => {
         const root   = fs.mkdtempSync(path.join(tmpRoot, 'theme-coverage-')),
               srcDir = path.join(root, 'src'),
-              mk     = (dir, pkg) => { fs.mkdirSync(path.join(dir, pkg), {recursive: true}); fs.writeFileSync(path.join(dir, pkg, 'X.scss'), '.x {}') };
+              mk     = (dir, pkg) => { fs.mkdirSync(path.join(dir, pkg), {recursive: true}); fs.writeFileSync(path.join(dir, pkg, 'X.css'), '.x {}') };
 
         fs.mkdirSync(srcDir, {recursive: true});
         srcPkgs.forEach(pkg => fs.mkdirSync(path.join(srcDir, pkg), {recursive: true}));

@@ -211,7 +211,7 @@ test.describe('GraphScene native pointer origin', () => {
         // Installed before navigation, outside the other describe's beforeEach. Only expose inherited input;
         // the example's real renderer, pointer handler, worker transport and scene remain the exercised path.
         await context.route('**/examples/component/graphScene/canvas/Renderer.mjs*', async route => {
-            const response = await route.fetch(), source = await response.text(),
+            const response = await route.fetch({maxRetries: 2}), source = await response.text(),
                   needle   = 'return {...super.getStats(), lodLap:';
             expect(source.split(needle), 'the served example still has exactly one getStats instrumentation site').toHaveLength(2);
             rendererHits++;

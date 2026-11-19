@@ -53,6 +53,16 @@ class PerspectiveState extends Base {
     }
 
     /**
+     * @summary The declared perspective names in declaration order: what a switch may offer.
+     * @param {Neo.dashboard.dock.Workspace} workspace
+     * @returns {String[]} Empty when nothing is declared.
+     */
+    static declaredNames(workspace) {
+        return Object.keys(workspace.perspectives ??
+            (workspace.panes != null || workspace.zones != null ? {[Authoring.defaultPerspectiveName]: null} : {}))
+    }
+
+    /**
      * @summary Reads the name carried into projection, never inferring identity from document equality.
      * Before declaration capture, the initial config or first declared name supplies the seed.
      * @param {Neo.dashboard.dock.Workspace} workspace
@@ -61,8 +71,7 @@ class PerspectiveState extends Base {
      */
     static read(workspace, document=workspace.dockModel) {
         const selection = workspace.perspectiveSelection,
-              names     = Object.keys(workspace.perspectives ??
-                  (workspace.panes != null || workspace.zones != null ? {[Authoring.defaultPerspectiveName]: null} : {})),
+              names     = this.declaredNames(workspace),
               active = selection?.publishedName ?? (names.includes(workspace.activePerspective)
                   ? workspace.activePerspective : names[0] ?? null);
         return {active, modified: this.isModified(document, selection?.document(active)), pending: selection?.pendingName ?? null}
@@ -71,20 +80,23 @@ class PerspectiveState extends Base {
     /**
      * @summary Seeds the owned namespace before a configured provider runs formulas, retaining consumer data.
      * A supplied instance has already constructed; it receives the same local namespace immediately.
+     * Beside the committed leaves of `dock.perspective` it publishes `dock.declaredPerspectives`, the
+     * names a switch binds to. They do not change after declaration, so only the seed writes them.
      * @param {Neo.dashboard.dock.Workspace} workspace
      * @param {Object|Neo.state.Provider|Neo.core.Base|null} value
      * @returns {Object|Neo.state.Provider|null}
      */
     static seedProvider(workspace, value) {
         if (!value) return value;
-        const state = this.read(workspace), type = Neo.typeOf(value);
+        const state = this.read(workspace), declaredPerspectives = this.declaredNames(workspace), type = Neo.typeOf(value);
         if (type === 'NeoInstance') {
             value.setDataAtSameLevel('dock.perspective', state);
+            value.setDataAtSameLevel('dock.declaredPerspectives', declaredPerspectives);
             return value
         }
         if (type === 'NeoClass') value = {module: value};
         const data = value.data ?? {}, dock = data.dock ?? {};
-        return {...value, data: {...data, dock: {...dock, perspective: {...dock.perspective, ...state}}}}
+        return {...value, data: {...data, dock: {...dock, declaredPerspectives, perspective: {...dock.perspective, ...state}}}}
     }
 
     /**

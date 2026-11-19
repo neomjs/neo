@@ -1,0 +1,46 @@
+.webdesktop-sign-in {
+    padding: 24px;
+
+    .webdesktop-sign-in-card {
+        backdrop-filter : blur(28px) saturate(160%);
+        background-color: var(--webdesktop-glass);
+        border          : 1px solid var(--webdesktop-glass-border);
+        border-radius   : 24px;
+        box-shadow      : var(--webdesktop-shadow);
+        padding         : 32px 24px 18px;
+        width           : min(440px, 100%);
+    }
+
+    .webdesktop-sign-in-header {
+        margin-bottom: 18px;
+        text-align   : center;
+
+        h1 {
+            font-size     : 26px;
+            font-weight   : 700;
+            letter-spacing: -.01em;
+            margin        : 16px 0 8px;
+        }
+
+        p {
+            color      : var(--webdesktop-ink-dim);
+            font-size  : 14px;
+            line-height: 1.5;
+            margin     : 0 auto;
+            max-width  : 340px;
+        }
+    }
+
+    .webdesktop-sign-in-logo {
+        align-items    : center;
+        background     : linear-gradient(135deg, #60a5fa, #a78bfa 55%, #2dd4bf);
+        border-radius  : 18px;
+        box-shadow     : 0 12px 30px -10px rgba(96, 165, 250, .8);
+        color          : #fff;
+        display        : inline-flex;
+        font-size      : 26px;
+        height         : 60px;
+        justify-content: center;
+        width          : 60px;
+    }
+}

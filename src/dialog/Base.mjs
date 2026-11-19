@@ -110,18 +110,22 @@ class Dialog extends Panel {
             Escape: 'onKeyDownEscape'
         },
         /**
-         * @member {String} maximizeCls='far fa-window-maximize'
+         * The maximize action's glyph while the dialog is not maximized. The window glyphs are one set: a line, a
+         * square, two offset squares and a cross.
+         * @member {String} maximizeCls='far fa-square'
          */
-        maximizeCls: 'far fa-window-maximize',
+        maximizeCls: 'far fa-square',
         /**
          * @member {Boolean} maximized_=false
          * @reactive
          */
         maximized_: false,
         /**
-         * @member {String} minimizeCls='far fa-window-minimize'
+         * The minimize action's glyph. The dialog has no minimize of its own: the action fires `headerAction`, and
+         * a window manager that can restore the dialog handles it (`Neo.desktop.WindowManager`).
+         * @member {String} minimizeCls='fas fa-minus'
          */
-        minimizeCls: 'far fa-window-minimize',
+        minimizeCls: 'fas fa-minus',
         /**
          * @member {Boolean} modal_=false
          * @reactive
@@ -137,6 +141,11 @@ class Dialog extends Panel {
          */
         resizablePluginConfig: null,
         /**
+         * The maximize action's glyph while the dialog is maximized: a click restores it
+         * @member {String} restoreCls='far fa-clone'
+         */
+        restoreCls: 'far fa-clone',
+        /**
          * @member {String|null} title_=null
          * @reactive
          */
@@ -151,6 +160,8 @@ class Dialog extends Panel {
     }
 
     /**
+     * The component the animation starts from. Null when `animateTargetId` names a node without a component, such as
+     * a list item: the animation still runs, and the dialog keeps its own `windowId` and `appName`.
      * @member {Neo.component.Base|null} animateTarget=null
      */
     get animateTarget() {
@@ -253,6 +264,8 @@ class Dialog extends Panel {
         NeoArray.toggle(cls, 'neo-maximized', value);
         me.update();
 
+        me.syncMaximizeAction();
+
         if (!firstCall) {
             await(me.timeout(250));
 
@@ -286,7 +299,10 @@ class Dialog extends Panel {
         super.afterSetMounted(value, oldValue);
 
         // Ensure focus trapping is up-to-date, enabled or disabled.
-        oldValue !== undefined && this.syncTrapFocus()
+        oldValue !== undefined && this.syncTrapFocus();
+
+        // A mounted modal dialog is on the page now: the mask goes below it
+        value && this.syncModalMask()
     }
 
     /**
@@ -306,6 +322,9 @@ class Dialog extends Panel {
                     module       : module.default,
                     appName,
                     delegationCls: 'neo-dialog',
+                    // A move writes the dialog's geometry into `style` (onDragEnd), which would mask a resize in
+                    // `wrapperStyle`
+                    styleConfig  : 'style',
                     ...me.resizablePluginConfig
                 });
 
@@ -368,8 +387,12 @@ class Dialog extends Panel {
             rects, windowId;
 
         // Assuming that we want to show the dialog inside the same browser window as the animation target
-        me.windowId = windowId = animateTarget.windowId;
-        me.appName  = animateTarget.appName;
+        if (animateTarget) {
+            me.windowId = animateTarget.windowId;
+            me.appName  = animateTarget.appName
+        }
+
+        windowId = me.windowId;
 
         rects = await me.getDomRect([id, me.animateTargetId])
 
@@ -414,11 +437,13 @@ class Dialog extends Panel {
     async animateShow() {
         let me                         = this,
             {animateTarget, id, style} = me,
-            appName, rect;
+            rect;
 
         // Assuming that we want to show the dialog inside the same browser window as the animation target
-        me.windowId = animateTarget.windowId;
-        me.appName  = appName = animateTarget.appName;
+        if (animateTarget) {
+            me.windowId = animateTarget.windowId;
+            me.appName  = animateTarget.appName
+        }
 
         rect = await me.getDomRect(me.animateTargetId);
 
@@ -501,20 +526,18 @@ class Dialog extends Panel {
         if (animate) {
             me.animateHide()
         } else {
+            // destroy() takes the mask along and retires the instance and its timers
             me.fire('close');
             me.destroy(true)
         }
     }
 
     /**
+     * Runs the {@link #closeAction}: what the close button and Escape do
      * @param {Boolean} animate=!!this.animateTargetId
      */
-    async closeOrHide(animate=!!this.animateTargetId) {
-        let me = this;
-
-        me[me.closeAction](animate);
-        await me.timeout(30);
-        me.syncModalMask(me.id)
+    closeOrHide(animate=!!this.animateTargetId) {
+        this[this.closeAction](animate)
     }
 
     /**
@@ -527,11 +550,13 @@ class Dialog extends Panel {
     }
 
     /**
-     *
+     * Creates the header toolbar. Its vocabulary gets the window controls the dialog dresses from its own configs
+     * ({@link #getWindowActionMap}); an entry of `headerConfig.actionMap` with the same name replaces one.
      */
     createHeader() {
         let me                  = this,
             {appName, windowId} = me,
+            headerConfig        = me.headerConfig || {},
             cls                 = ['neo-header-toolbar', 'neo-toolbar'],
             headers             = me.headers || [];
 
@@ -544,15 +569,32 @@ class Dialog extends Panel {
             dock     : 'top',
             flex     : 'none',
             id       : me.getHeaderToolbarId(),
-            listeners: {headerAction: me.executeHeaderAction, scope: me},
+            // A rebuilt action list builds maximize unpressed: the sync states it again
+            listeners: {actionsChange: me.syncMaximizeAction, headerAction: me.executeHeaderAction, scope: me},
             title    : me.title,
             windowId,
-            ...me.headerConfig
+            ...headerConfig,
+            actionMap: {...me.getWindowActionMap(), ...headerConfig.actionMap}
         });
+
+        // A dialog created maximized offers the restore at once
+        me.maximized && me.syncMaximizeAction();
 
         headers.unshift(me.headerToolbar);
 
         me.headers = headers
+    }
+
+    /**
+     * A modal dialog on the page releases its mask however it leaves: through close(), or destroyed by its owner.
+     * @param {...*} args Arguments to pass to the superclass destroy method.
+     */
+    destroy(...args) {
+        let me = this;
+
+        me.mounted && me.modal && me.syncModalMask(me.id, false);
+
+        super.destroy(...args)
     }
 
     /**
@@ -583,6 +625,16 @@ class Dialog extends Panel {
     }
 
     /**
+     * A dialog hands focus back to the component focus came from, else to its opener, the {@link #animateTarget} it
+     * grows out of: focus enters from the body when the opener disables itself, or when a browser does not focus a
+     * clicked button.
+     * @returns {Neo.component.Base|null}
+     */
+    getFocusReturnTarget() {
+        return super.getFocusReturnTarget() || this.animateTarget
+    }
+
+    /**
      * Returns the id of the header toolbar
      * @returns {String}
      */
@@ -595,6 +647,30 @@ class Dialog extends Panel {
      */
     getProxyVdom() {
         return VDomUtil.clone(this.vdom)
+    }
+
+    /**
+     * The window controls the dialog dresses from its own configs. Maximize is a `Neo.toolbar.ActionButton`
+     * toggle: `maximized` presses it ({@link #syncMaximizeAction}), also when the header builds it anew, and its glyph
+     * and accessible name then say what a click does next. Minimize is listed in no default `actions`: it belongs on a
+     * dialog a window manager can restore.
+     * @returns {Object} Action name → config factory
+     * @protected
+     */
+    getWindowActionMap() {
+        let me = this;
+
+        return {
+            maximize: () => ({
+                action            : 'maximize',
+                actionLabel       : 'maximize',
+                iconCls           : me.maximizeCls,
+                ntype             : 'toolbar-action-button',
+                pressedActionLabel: 'restore',
+                pressedIconCls    : me.restoreCls
+            }),
+            minimize: () => ({action: 'minimize', iconCls: me.minimizeCls})
+        }
     }
 
     /**
@@ -618,31 +694,22 @@ class Dialog extends Panel {
     }
 
     /**
-     *
+     * A dialog with an animation target is created unmounted ({@link #afterSetAnimateTargetId}): `autoShow` shows it
      */
     init() {
         super.init();
 
         let me = this;
 
-        if (me.animateTargetId) {
-            me.autoShow && me.show()
-        } else {
-            me.timeout(100).then(() => {
-                me.syncModalMask()
-            })
-        }
+        me.animateTargetId && me.autoShow && me.show()
     }
 
     /**
+     * The maximize action's handler: maximizes the dialog, or restores a maximized one
      * @param {Object} [data]
      */
     maximize(data) {
-        let me = this;
-
-        data.component.iconCls = me.maximized ? me.maximizeCls : me.minimizeCls;
-
-        me.maximized = !me.maximized
+        this.maximized = !this.maximized
     }
 
     /**
@@ -754,10 +821,10 @@ class Dialog extends Panel {
     }
 
     /**
-     *
+     * Escape does what the close button does, with or without the animation
      */
     onKeyDownEscape() {
-        this.hidden = true
+        this.closeOrHide()
     }
 
     /**
@@ -804,13 +871,21 @@ class Dialog extends Panel {
     }
 
     /**
-     * @param {String} id=this.id
+     * States `maximized` as the maximize action's `pressed`, for a click and a programmatic change alike. A header
+     * without that action has nothing to sync.
+     * @protected
      */
-    syncModalMask(id=this.id) {
-        let {modal, windowId} = this;
+    syncMaximizeAction() {
+        this.headerToolbar?.getAction?.('maximize')?.set({pressed: this.maximized})
+    }
 
-        // This should sync the visibility and position of the modal mask element.
-        Neo.main.DomAccess.syncModalMask({id, modal, windowId})
+    /**
+     * Syncs the visibility and position of the modal mask element
+     * @param {String}  id=this.id
+     * @param {Boolean} modal=this.modal `false` releases the mask while the dialog is still on the page
+     */
+    syncModalMask(id=this.id, modal=this.modal) {
+        Neo.main.DomAccess.syncModalMask({id, modal, windowId: this.windowId})
     }
 
     /**

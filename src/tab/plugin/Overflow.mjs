@@ -407,6 +407,9 @@ class Overflow extends Plugin {
                     me.project(false)
                 })
             }
+            me.observeConfig(me.owner, 'mounted', value => {
+                !value && !me.isDestroyed && me.onOwnerUnmounted()
+            })
         }
     }
 
@@ -513,6 +516,21 @@ class Overflow extends Plugin {
         owner.on('actionVisibilityChange', me.onActionVisibilityChange, me);
         me.getTabContainer()?.on('moveTo', me.onTabSetChange, me);
         me.project(true)
+    }
+
+    /**
+     * @summary Retires the floating control when its toolbar unmounts.
+     *
+     * The floating embodiment mounts under `document.body`, outside the toolbar's DOM, so it cannot leave with
+     * the toolbar. A control whose insert is still in flight is destroyed once that insert settles
+     * (`mountFloatingControl()`), and a remount runs {@link #onOwnerMounted} and projects afresh. The action
+     * embodiment lives inside the toolbar and leaves with it.
+     * @protected
+     */
+    onOwnerUnmounted() {
+        let me = this;
+
+        !me.projectAsAction && me.control && me.syncControl([], me.getTabContainer())
     }
 
     /**
@@ -849,6 +867,8 @@ class Overflow extends Plugin {
 
     /**
      * Measures (natural widths as needed, strip extent always) and applies the visible/hidden split.
+     * A measure without layout (getLayoutRect answers one object instead of a list, as on a server-side
+     * render) skips the pass: no split is applied and nothing is logged.
      * @param {Boolean} recapture  Re-read natural widths (mount, or the tab set changed).
      */
     async project(recapture) {
@@ -894,7 +914,8 @@ class Overflow extends Plugin {
         me.measuring = true;
         me.publishProjectionState();
 
-        try {
+        // `break pass` leaves a pass that has nothing to project; the finally and the drain below still run.
+        pass: try {
             let controlIconCls = geometry.dimension === 'height'
                 ? 'fa fa-ellipsis-vertical'
                 : 'fa fa-ellipsis';
@@ -967,6 +988,8 @@ class Overflow extends Plugin {
 
                 let rects = await owner.getLayoutRect(buttons.map(button => button.id));
 
+                if (!Array.isArray(rects)) break pass;
+
                 me.naturalWidths      = {};
                 me.naturalWidthLabels = {};
                 buttons.forEach((button, index) => {
@@ -1007,6 +1030,8 @@ class Overflow extends Plugin {
                 await owner.setContextualActionMeasureReveal?.(false);
                 me.measuringWithheldActions = false
             }
+
+            if (!Array.isArray(rects)) break pass;
 
             let ownerRect     = rects.shift(),
                 actionRects   = rects.splice(0, actionItems.length),
@@ -1097,7 +1122,9 @@ class Overflow extends Plugin {
             // A drag can begin while either DOM round-trip above is in flight. Recheck at the
             // mutation boundary so a pre-gesture measurement cannot hide/show members beneath the
             // SortZone snapshot captured in the meantime.
-            if (!me.queueSortDragProjection(recapture, false) && !me.queueOpenMenuProjection(recapture)) {
+            // The owner can also unmount meanwhile: a split applied then would create a floating control
+            // for a toolbar that is gone (onOwnerUnmounted()).
+            if (owner.mounted && !me.queueSortDragProjection(recapture, false) && !me.queueOpenMenuProjection(recapture)) {
                 me.applySplit(hidden, buttons, tabContainer, {
                     activeButton,
                     focusedButton,

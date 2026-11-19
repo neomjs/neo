@@ -30,7 +30,7 @@ if (!insideNeo) {
     fs.readdirSync(resourcesPath).forEach(itemName => {
         itemPath = path.resolve(resourcesPath, itemName);
 
-        if (!fs.lstatSync(itemPath).isFile() && itemName !== 'scss') {
+        if (!fs.lstatSync(itemPath).isFile() && itemName !== 'css') {
             target = path.resolve(cwd, buildTarget.folder, 'resources', itemName);
 
             fs.mkdirpSync(target);

@@ -18,21 +18,28 @@ setup({
 import { test, expect }   from '@playwright/test';
 import Neo                from '../../../../src/Neo.mjs';
 import * as core          from '../../../../src/core/_export.mjs';
-import VdomHelper         from '../../../../src/vdom/Helper.mjs';
-import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
 import CalendarsStore     from '../../../../src/calendar/store/Calendars.mjs';
+import DayComponent       from '../../../../src/calendar/view/DayComponent.mjs';
+import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
+import EditEventContainer from '../../../../src/calendar/view/EditEventContainer.mjs';
 import EventsStore        from '../../../../src/calendar/store/Events.mjs';
+import StateProvider      from '../../../../src/state/Provider.mjs';
+import VdomHelper         from '../../../../src/vdom/Helper.mjs';
 import WeekComponent      from '../../../../src/calendar/view/week/Component.mjs';
 import WeekDragDrop       from '../../../../src/calendar/view/week/plugin/DragDrop.mjs';
 
 test.describe('Neo.calendar.view.week.Component - Issue #19930 & #1069', () => {
-    let originalScrollBy,
+    let originalGetRect,
+        originalScrollBy,
+        originalScrollTo,
         originalSetConfigs,
         scrollByCalls;
 
     test.beforeEach(() => {
         scrollByCalls      = [];
+        originalGetRect    = Neo.main.DomAccess.getBoundingClientRect;
         originalScrollBy   = Neo.main.DomAccess.scrollBy;
+        originalScrollTo   = Neo.main.DomAccess.scrollTo;
         originalSetConfigs = Neo.main.addon.DragDrop.setConfigs;
 
         Neo.main.DomAccess.scrollBy = async (data) => {
@@ -41,8 +48,10 @@ test.describe('Neo.calendar.view.week.Component - Issue #19930 & #1069', () => {
     });
 
     test.afterEach(() => {
-        Neo.main.DomAccess.scrollBy        = originalScrollBy;
-        Neo.main.addon.DragDrop.setConfigs = originalSetConfigs;
+        Neo.main.DomAccess.getBoundingClientRect = originalGetRect;
+        Neo.main.DomAccess.scrollBy              = originalScrollBy;
+        Neo.main.DomAccess.scrollTo              = originalScrollTo;
+        Neo.main.addon.DragDrop.setConfigs       = originalSetConfigs;
     });
 
     test('Constructs cleanly when currentDate is null and updates header when set', async () => {
@@ -126,6 +135,12 @@ test.describe('Neo.calendar.view.week.Component - Issue #19930 & #1069', () => {
     });
 
     test('onScroll pages buffered columns at right and left edges, preserves deterministic column/header IDs, and ignores vertical scroll on the scroll container (#1069)', async () => {
+        const scrollToCalls = [];
+
+        // The geometry the scroll events below describe: 750 px wide, a 50 px time axis, 21 columns of 100 px
+        Neo.main.DomAccess.getBoundingClientRect = async () => ({width: 2100, height: 1000, x: 0, y: 0});
+        Neo.main.DomAccess.scrollTo              = async data => {scrollToCalls.push(data)};
+
         const component = Neo.create({
             className      : 'Neo.calendar.view.week.Component',
             appName,
@@ -158,27 +173,10 @@ test.describe('Neo.calendar.view.week.Component - Issue #19930 & #1069', () => {
             return lastPromiseUpdate;
         };
 
-        // 1. Vertical-only scroll events on .neo-c-w-scrollcontainer (including at scrollLeft = 0) are ignored
-        scrollByCalls.length = 0;
+        // 1. The mount scrolls to the middle third, and neither that scroll's own event nor a vertical-only scroll
+        // event at the same scrollLeft pages
+        expect(scrollToCalls.map(call => call.value)).toEqual([700]);
 
-        component.onScroll({
-            clientWidth: 750,
-            scrollLeft : 0,
-            scrollTop  : 150,
-            target     : {cls: ['neo-c-w-scrollcontainer'], id: scrollContainer.id}
-        });
-
-        component.onScroll({
-            clientWidth: 750,
-            scrollLeft : 0,
-            scrollTop  : 320,
-            target     : {cls: ['neo-c-w-scrollcontainer'], id: scrollContainer.id}
-        });
-
-        expect(getColumnFlags()).toEqual(initialFlags);
-        expect(scrollByCalls).toEqual([]);
-
-        // 2. Center baseline scroll on .neo-c-w-scrollcontainer, followed by vertical scroll at scrollLeft = 700
         component.onScroll({
             clientWidth: 750,
             scrollLeft : 700,
@@ -196,7 +194,7 @@ test.describe('Neo.calendar.view.week.Component - Issue #19930 & #1069', () => {
         expect(getColumnFlags()).toEqual(initialFlags);
         expect(scrollByCalls).toEqual([]);
 
-        // 3. Drag-scroll to right edge (scrollLeft = 1400, width = 700 -> Math.round(1400/700*7) = 14 > 13)
+        // 2. Drag-scroll to right edge (scrollLeft = 1400, width = 700 -> Math.round(1400/700*7) = 14 > 13)
         scrollByCalls.length = 0;
 
         component.onScroll({
@@ -225,7 +223,7 @@ test.describe('Neo.calendar.view.week.Component - Issue #19930 & #1069', () => {
             windowId : component.windowId
         }]);
 
-        // 4. Drag-scroll to left edge (scrollLeft = 0, width = 700 -> Math.round(0/700*7) = 0 < 1)
+        // 3. Drag-scroll to left edge (scrollLeft = 0, width = 700 -> Math.round(0/700*7) = 0 < 1)
         scrollByCalls.length = 0;
 
         component.onScroll({
@@ -493,5 +491,358 @@ test.describe('Neo.calendar.view.week.Component - Issue #19930 & #1069', () => {
             Neo.applyDeltas         = originalApplyDeltas;
             Neo.main.addon.DragDrop = originalDragDrop;
         }
+    });
+
+    const createCalendarFixture = async ({eventsData = [], module = WeekComponent, parent} = {}) => {
+        const calendarStore = Neo.create(CalendarsStore, {
+                  data: [
+                      {active: true, color: 'blue',  id: 1, name: 'Work'},
+                      {active: true, color: 'green', id: 2, name: 'Team'}
+                  ]
+              }),
+              eventStore    = Neo.create(EventsStore, {data: eventsData}),
+              component     = Neo.create(module, {
+                  appName,
+                  calendarStore,
+                  currentDate    : new Date(2026, 4, 13),
+                  enableDrag     : false,
+                  endTime        : '24:00',
+                  eventStore,
+                  intlFormat_time: new Intl.DateTimeFormat('en-US', {hour: '2-digit', hour12: false, minute: '2-digit'}),
+                  startTime      : '00:00',
+                  weekStartDay   : 0,
+                  ...(parent ? {parentId: parent.id} : {})
+              });
+
+        component.timeout = () => Promise.resolve();
+        await component.initVnode();
+        component._mounted = true;
+        await component.afterSetMounted(true, false);
+
+        return {calendarStore, component, eventStore};
+    };
+
+    test('all-day row stays out of the DOM when no all-day event overlaps the rendered range', async () => {
+        const {calendarStore, component, eventStore} = await createCalendarFixture({
+            eventsData: [{
+                allDay    : false,
+                calendarId: 1,
+                id        : 1,
+                title     : 'Timed meeting',
+                startDate : new Date(2026, 4, 13, 9, 0),
+                endDate   : new Date(2026, 4, 13, 10, 0)
+            }]
+        });
+
+        const allDayRow = component.getAllDayContainer();
+
+        expect(allDayRow.removeDom).toBe(true);
+        expect(component.getAllDayLanesContainer().cn).toEqual([]);
+
+        component.destroy();
+        calendarStore.destroy();
+        eventStore.destroy();
+    });
+
+    test('renders a single-day all-day event in the all-day row of both week and day views, and omits it from the time grid', async () => {
+        for (const module of [WeekComponent, DayComponent]) {
+            const {calendarStore, component, eventStore} = await createCalendarFixture({
+                module,
+                eventsData: [{
+                    allDay    : true,
+                    calendarId: 1,
+                    id        : 10,
+                    title     : 'Release freeze',
+                    startDate : new Date(2026, 4, 13, 0, 0),
+                    endDate   : new Date(2026, 4, 13, 23, 59)
+                }]
+            });
+
+            const allDayRow = component.getAllDayContainer(),
+                  bars      = component.getAllDayLanesContainer().cn,
+                  cols      = component.getColumnContainer().cn,
+                  targetCol = cols.find(col => col.flag === '2026-05-13'),
+                  colCount  = cols.filter(col => !col.removeDom).length,
+                  targetIdx = cols.findIndex(col => col.flag === '2026-05-13');
+
+            expect(allDayRow.removeDom).toBe(false);
+            expect(bars).toHaveLength(1);
+            expect(bars[0].cls).toContain('neo-blue');
+            expect(bars[0].cn[0].text).toBe('Release freeze');
+            expect(bars[0].style.left).toBe(`calc(${(targetIdx / colCount * 100).toFixed(4)}% + 1px)`);
+            expect(bars[0].style.width).toBe(`calc(${(1 / colCount * 100).toFixed(4)}% - 3px)`);
+            expect(targetCol.cn).toEqual([]);
+
+            component.destroy();
+            calendarStore.destroy();
+            eventStore.destroy();
+        }
+    });
+
+    test('renders a 3-day all-day event across three columns and stacks overlapping bars into two lanes', async () => {
+        const {calendarStore, component, eventStore} = await createCalendarFixture({
+            eventsData: [{
+                allDay    : true,
+                calendarId: 1,
+                id        : 20,
+                title     : 'Architecture summit',
+                startDate : new Date(2026, 4, 12, 0, 0),
+                endDate   : new Date(2026, 4, 14, 23, 59)
+            }, {
+                allDay    : true,
+                calendarId: 2,
+                id        : 21,
+                title     : 'Release freeze',
+                startDate : new Date(2026, 4, 14, 0, 0),
+                endDate   : new Date(2026, 4, 14, 23, 59)
+            }]
+        });
+
+        const cols      = component.getColumnContainer().cn,
+              startIdx  = cols.findIndex(col => col.flag === '2026-05-12'),
+              lanesBox  = component.getAllDayLanesContainer(),
+              bars      = lanesBox.cn,
+              summitBar = bars.find(bar => bar.flag === 20),
+              freezeBar = bars.find(bar => bar.flag === 21);
+
+        expect(bars).toHaveLength(2);
+        expect(summitBar.style.left).toBe(`calc(${(startIdx / 21 * 100).toFixed(4)}% + 1px)`);
+        expect(summitBar.style.width).toBe(`calc(${(3 / 21 * 100).toFixed(4)}% - 3px)`);
+        expect(freezeBar.style.top).not.toBe(summitBar.style.top);
+        expect(lanesBox.style.height).toBe('56px');
+
+        component.destroy();
+        calendarStore.destroy();
+        eventStore.destroy();
+    });
+
+    test('keeps all-day bars aligned with their day columns after scrolling horizontally in both directions', async () => {
+        const {calendarStore, component, eventStore} = await createCalendarFixture({
+            eventsData: [{
+                allDay    : true,
+                calendarId: 1,
+                id        : 30,
+                title     : 'Next week sprint',
+                startDate : new Date(2026, 4, 18, 0, 0),
+                endDate   : new Date(2026, 4, 20, 23, 59)
+            }]
+        });
+
+        const expectAligned = () => {
+            const cols     = component.getColumnContainer().cn,
+                  startIdx = cols.findIndex(col => col.flag === '2026-05-18'),
+                  bar      = component.getAllDayLanesContainer().cn.find(item => item.flag === 30);
+
+            expect(bar.style.left).toBe(`calc(${(startIdx / 21 * 100).toFixed(4)}% + 1px)`);
+            expect(bar.style.width).toBe(`calc(${(3 / 21 * 100).toFixed(4)}% - 3px)`)
+        };
+
+        expectAligned();
+
+        component.onWheel({clientWidth: 750, deltaX: 1, deltaY: 0, scrollLeft: 1400});
+        await expect.poll(() => component.isUpdating).toBe(false);
+        expect(component.getColumnContainer().cn[0].flag).toBe('2026-05-10');
+        expectAligned();
+
+        component.onWheel({clientWidth: 750, deltaX: -1, deltaY: 0, scrollLeft: 0});
+        await expect.poll(() => component.isUpdating).toBe(false);
+        expect(component.getColumnContainer().cn[0].flag).toBe('2026-05-03');
+        expectAligned();
+
+        component.destroy();
+        calendarStore.destroy();
+        eventStore.destroy();
+    });
+
+    test('EditEventContainer sets and clears allDay with time field visibility and the week view moves the event', async () => {
+        const provider = Neo.create(StateProvider, {
+                  appName,
+                  data: {
+                      endTime             : '24:00',
+                      minimumEventDuration: 30,
+                      startTime           : '00:00',
+                      timeFormatter       : new Intl.DateTimeFormat('en-US', {hour: '2-digit', hour12: false, minute: '2-digit'})
+                  },
+                  stores: {
+                      calendars: {
+                          module: CalendarsStore,
+                          data  : [{active: true, color: 'blue', id: 1, name: 'Work'}]
+                      },
+                      events: {
+                          module: EventsStore,
+                          data  : [{
+                              allDay    : false,
+                              calendarId: 1,
+                              id        : 40,
+                              title     : 'Review',
+                              startDate : new Date(2026, 4, 13, 9, 0),
+                              endDate   : new Date(2026, 4, 13, 10, 0)
+                          }]
+                      }
+                  }
+              }),
+              eventStore = provider.getStore('events'),
+              weekView   = Neo.create(WeekComponent, {
+                  appName,
+                  calendarStore  : provider.getStore('calendars'),
+                  currentDate    : new Date(2026, 4, 13),
+                  enableDrag     : false,
+                  endTime        : '24:00',
+                  eventStore,
+                  intlFormat_time: new Intl.DateTimeFormat('en-US', {hour: '2-digit', hour12: false, minute: '2-digit'}),
+                  startTime      : '00:00',
+                  weekStartDay   : 0
+              }),
+              editor     = Neo.create(EditEventContainer, {
+                  appName,
+                  stateProvider: provider
+              }),
+              record     = eventStore.get(40);
+
+        weekView.timeout = () => Promise.resolve();
+        await weekView.initVnode();
+        weekView._mounted = true;
+        await weekView.afterSetMounted(true, false);
+
+        editor.record = record;
+        await Promise.resolve();
+
+        const allDayField = await editor.getField('allDay'),
+              startField  = await editor.getField('startTime'),
+              endField    = await editor.getField('endTime'),
+              dayCol      = weekView.getColumnContainer().cn.find(col => col.flag === '2026-05-13');
+
+        expect(allDayField.checked).toBe(false);
+        expect(startField.hidden).toBe(false);
+        expect(endField.hidden).toBe(false);
+        expect(dayCol.cn).toHaveLength(1);
+        expect(weekView.getAllDayContainer().removeDom).toBe(true);
+
+        allDayField.checked = true;
+
+        expect(record.allDay).toBe(true);
+        await expect.poll(() => startField.hidden).toBe(true);
+        await expect.poll(() => endField.hidden).toBe(true);
+        expect(weekView.getAllDayContainer().removeDom).toBe(false);
+        expect(weekView.getAllDayLanesContainer().cn).toHaveLength(1);
+        expect(dayCol.cn).toEqual([]);
+
+        allDayField.checked = false;
+
+        expect(record.allDay).toBe(false);
+        await expect.poll(() => startField.hidden).toBe(false);
+        await expect.poll(() => endField.hidden).toBe(false);
+        expect(weekView.getAllDayContainer().removeDom).toBe(true);
+        expect(dayCol.cn).toHaveLength(1);
+
+        editor.destroy();
+        weekView.destroy();
+        provider.destroy();
+    });
+
+    test('switching EditEventContainer between two all-day events preserves allDay on both records and cancels stale focus-leave unmount', async () => {
+        const provider = Neo.create(StateProvider, {
+                  appName,
+                  data: {
+                      endTime             : '24:00',
+                      minimumEventDuration: 30,
+                      startTime           : '00:00',
+                      timeFormatter       : new Intl.DateTimeFormat('en-US', {hour: '2-digit', hour12: false, minute: '2-digit'})
+                  },
+                  stores: {
+                      calendars: {
+                          module: CalendarsStore,
+                          data  : [{active: true, color: 'blue', id: 1, name: 'Work'}]
+                      },
+                      events: {
+                          module: EventsStore,
+                          data  : [{
+                              allDay    : true,
+                              calendarId: 1,
+                              id        : 41,
+                              title     : 'Architecture summit',
+                              startDate : new Date(2026, 4, 12, 0, 0),
+                              endDate   : new Date(2026, 4, 14, 23, 59)
+                          }, {
+                              allDay    : true,
+                              calendarId: 1,
+                              id        : 42,
+                              title     : 'Release freeze',
+                              startDate : new Date(2026, 4, 14, 0, 0),
+                              endDate   : new Date(2026, 4, 14, 23, 59)
+                          }]
+                      }
+                  }
+              }),
+              eventStore = provider.getStore('events'),
+              weekView   = Neo.create(WeekComponent, {
+                  appName,
+                  calendarStore  : provider.getStore('calendars'),
+                  currentDate    : new Date(2026, 4, 13),
+                  enableDrag     : false,
+                  endTime        : '24:00',
+                  eventStore,
+                  intlFormat_time: new Intl.DateTimeFormat('en-US', {hour: '2-digit', hour12: false, minute: '2-digit'}),
+                  startTime      : '00:00',
+                  weekStartDay   : 0
+              }),
+              editor     = Neo.create(EditEventContainer, {
+                  appName,
+                  stateProvider: provider
+              }),
+              summit     = eventStore.get(41),
+              freeze     = eventStore.get(42);
+
+        weekView.timeout = () => Promise.resolve();
+        await weekView.initVnode();
+        weekView._mounted = true;
+        await weekView.afterSetMounted(true, false);
+
+        editor.record = freeze;
+
+        const allDayField   = editor.down({name: 'allDay'}),
+              calendarField = editor.down({name: 'calendarId'}),
+              startField    = editor.down({name: 'startTime'}),
+              endField      = editor.down({name: 'endTime'}),
+              titleField    = editor.down({name: 'title'});
+
+        [titleField, calendarField, startField, endField].forEach(field => {
+            field.updateCenterBorderElWidth = () => {}
+        });
+
+        expect(allDayField.checked).toBe(true);
+        expect(allDayField.value).toBe(true);
+        expect(titleField.value).toBe('Release freeze');
+        expect(startField.hidden).toBe(true);
+        expect(weekView.getAllDayLanesContainer().cn).toHaveLength(2);
+
+        let resolveFocusTimer;
+        editor.timeout        = () => new Promise(resolve => {resolveFocusTimer = resolve});
+        editor._mounted       = true;
+        editor._containsFocus = false;
+
+        const focusLeavePromise = editor.onFocusLeave();
+
+        editor.unmount();
+        editor.setSilent({_hidden: false, record: summit});
+        editor._mounted = true;
+        editor.afterSetMounted(true, false);
+
+        resolveFocusTimer();
+        await focusLeavePromise;
+
+        expect(freeze.allDay).toBe(true);
+        expect(summit.allDay).toBe(true);
+        expect(allDayField.checked).toBe(true);
+        expect(allDayField.value).toBe(true);
+        expect(titleField.value).toBe('Architecture summit');
+        expect(startField.hidden).toBe(true);
+        expect(endField.hidden).toBe(true);
+        expect(editor.mounted).toBe(true);
+        expect(weekView.getAllDayLanesContainer().cn).toHaveLength(2);
+
+        editor.destroy();
+        weekView.destroy();
+        provider.destroy();
     });
 });

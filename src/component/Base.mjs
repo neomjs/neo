@@ -842,6 +842,9 @@ class Component extends Abstract {
                     me.focusOnMount && me.focus(me.id, true)
                 }
 
+                // Mounted, a shared-tooltip target knows its root, which may lie outside the main view
+                !Neo.config.unitTestMode && me.cls.includes('neo-uses-shared-tooltip') && Neo.tooltip.Base.delegateFromRootOf(me);
+
                 me.fire('mounted', me.id);
             } else { // unmount
                 me.revertFocusOnDeparture()
@@ -1415,10 +1418,11 @@ class Component extends Abstract {
         } else {
             me._tooltip = value;
 
-            // The shared instance delegates from the app's main view. The unit harness runs without
-            // one, so the singleton is skipped there and the config stays readable on the owner —
-            // the same deliberate no-op `updateVdom()` takes in unit-test mode.
-            !Neo.config.unitTestMode && Neo.tooltip.Base.createSingleton(me.app);
+            // A target in a window reaches that window's shared tooltip now, before a pointer can reach the target, and
+            // again on every mount, which may find it under another root. The unit harness runs without windows, so
+            // the config stays readable on the owner — the same deliberate no-op `updateVdom()` takes in unit-test mode.
+            !Neo.config.unitTestMode && me.windowId && Neo.tooltip.Base.delegateFromRootOf(me);
+
             me.addCls('neo-uses-shared-tooltip');
             me.update()
         }
@@ -1537,6 +1541,16 @@ class Component extends Abstract {
         }
 
         return Rectangle.clone(result)
+    }
+
+    /**
+     * @summary The component focus goes back to when this one gives it up: the one focus came from.
+     * @returns {Neo.component.Base|null}
+     */
+    getFocusReturnTarget() {
+        let id = this.focusEnterData?.relatedTarget?.id;
+
+        return id ? Neo.getComponent(id) : null
     }
 
     /**
@@ -1941,31 +1955,24 @@ class Component extends Abstract {
     }
 
     /**
-     * @summary Hands focus back to the component it came from, while this one holds it.
+     * @summary Hands focus back to {@link #getFocusReturnTarget}, while this component holds it.
      */
     revertFocus() {
-        let relatedTarget = this.focusEnterData?.relatedTarget;
-
-        if (this.containsFocus && relatedTarget) {
-            Neo.getComponent(relatedTarget.id)?.focus()
-        }
+        this.containsFocus && this.getFocusReturnTarget()?.focus()
     }
 
     /**
      * @summary Hands focus back as this component departs (destroy, unmount), unless the user has moved it on.
      * @description The worker's `containsFocus` runs a round trip behind the DOM, and the departure's removal reaches
      * the main thread after this call. A dock refresh, for example, moves the tab the user just pressed out of the
-     * shell it destroys, so that shell still reports focus. The focus therefore goes to `relatedTarget` through that
-     * component's own `focus()` with `restoreFrom`: the main thread settles the departure and applies only a lost
-     * focus, in the same step, so a focus that arrives meanwhile is never taken back.
+     * shell it destroys, so that shell still reports focus. The focus therefore goes to {@link #getFocusReturnTarget}
+     * through that component's own `focus()` with `restoreFrom`: the main thread settles the departure and applies
+     * only a lost focus, in the same step, so a focus that arrives meanwhile is never taken back.
      */
     revertFocusOnDeparture() {
-        let me            = this,
-            relatedTarget = me.focusEnterData?.relatedTarget;
+        let me = this;
 
-        if (me.containsFocus && relatedTarget) {
-            Neo.getComponent(relatedTarget.id)?.focus(undefined, false, undefined, undefined, me.id)
-        }
+        me.containsFocus && me.getFocusReturnTarget()?.focus(undefined, false, undefined, undefined, me.id)
     }
 
     /**

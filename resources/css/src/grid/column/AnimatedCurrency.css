@@ -1,0 +1,37 @@
+/* Both tints have the same alpha and the same luminance: a loss and a gain weigh the same on a dark and on a light row */
+@keyframes grid-animated-cell-negative {
+    50%  {background-color: rgb(218 54 51 / 60%);}
+}
+
+@keyframes grid-animated-cell-positive {
+    50%  {background-color: rgb(35 134 54 / 60%);}
+}
+
+/* The same keyframes under second names: a change inside a live mark switches to them, which restarts the animation */
+@keyframes grid-animated-cell-negative-alt {
+    50%  {background-color: rgb(218 54 51 / 60%);}
+}
+
+@keyframes grid-animated-cell-positive-alt {
+    50%  {background-color: rgb(35 134 54 / 60%);}
+}
+
+.neo-grid-container .neo-grid-row .neo-grid-cell.neo-animated-negative, .neo-grid-container .neo-grid-row.neo-even .neo-grid-cell.neo-animated-negative {
+    animation-name: grid-animated-cell-negative;
+    animation-duration: 0.4s;
+    animation-timing-function: ease-in-out;
+}
+
+.neo-grid-container .neo-grid-row .neo-grid-cell.neo-animated-negative.neo-animated-alt, .neo-grid-container .neo-grid-row.neo-even .neo-grid-cell.neo-animated-negative.neo-animated-alt {
+    animation-name: grid-animated-cell-negative-alt;
+}
+
+.neo-grid-container .neo-grid-row .neo-grid-cell.neo-animated-positive, .neo-grid-container .neo-grid-row.neo-even .neo-grid-cell.neo-animated-positive {
+    animation-name: grid-animated-cell-positive;
+    animation-duration: 0.4s;
+    animation-timing-function: ease-in-out;
+}
+
+.neo-grid-container .neo-grid-row .neo-grid-cell.neo-animated-positive.neo-animated-alt, .neo-grid-container .neo-grid-row.neo-even .neo-grid-cell.neo-animated-positive.neo-animated-alt {
+    animation-name: grid-animated-cell-positive-alt;
+}

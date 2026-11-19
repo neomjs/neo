@@ -1,0 +1,58 @@
+/* The sparkline example: a toolbar above a grid of metric cards. Colours come from the theme's own tokens, so
+   the cards follow neo-light and neo-dark without a theme file of their own. */
+.neo-examples-sparkline {
+    background: var(--neo-background-color);
+    color     : var(--neo-color);
+
+    .neo-examples-sparkline-toolbar {
+        border-bottom: 1px solid color-mix(in srgb, var(--neo-color) 14%, transparent);
+        column-gap   : 16px;
+        padding      : 8px 16px;
+        row-gap      : 8px;
+    }
+
+    .neo-examples-sparkline-title {
+        font-size  : 15px;
+        font-weight: 600;
+    }
+
+    /* A card is a container, and containers clip (`overflow: hidden`), which leaves a grid item no minimum
+       height: content-sized rows keep every card whole when the six overflow a phone screen */
+    .neo-examples-sparkline-cards {
+        align-content        : start;
+        display              : grid;
+        gap                  : 16px;
+        grid-auto-rows       : max-content;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        overflow             : auto;
+        padding              : 16px;
+    }
+
+    .neo-examples-sparkline-card {
+        background    : color-mix(in srgb, var(--neo-color) 4%, var(--neo-background-color));
+        border        : 1px solid color-mix(in srgb, var(--neo-color) 12%, transparent);
+        border-radius : 8px;
+        display       : flex;
+        flex-direction: column;
+        gap           : 4px;
+        padding       : 12px 14px;
+
+        /* A size-contained wrapper has no height of its own to keep, so it would shrink with its card */
+        .neo-sparkline-wrapper {
+            flex      : none;
+            height    : 56px;
+            margin-top: 6px;
+        }
+    }
+
+    .neo-examples-sparkline-label {
+        font-size: 13px;
+        opacity  : 0.75;
+    }
+
+    .neo-examples-sparkline-value {
+        font-size           : 24px;
+        font-variant-numeric: tabular-nums;
+        font-weight         : 600;
+    }
+}

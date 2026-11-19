@@ -14,7 +14,7 @@ const
 
 /**
  * @summary `npm run seat:start`: every Start regenerates `AGENTS.md` from the installed skills,
- * and rebuilds the development themes only when the checkout serves CSS older than its SCSS.
+ * and rebuilds the development themes only when the checkout serves CSS older than its sources.
  */
 test.describe('buildScripts/helpers/seatStart (#20429)', () => {
     const roots = [];
@@ -66,9 +66,9 @@ test.describe('buildScripts/helpers/seatStart (#20429)', () => {
         writeFile(root, 'dist/development/css/theme-neo-dark/Global.css', mtimeMs)
     }
 
-    function seedScss(root, mtimeMs) {
-        writeFile(root, 'resources/scss/src/Global.scss', mtimeMs);
-        writeFile(root, 'resources/scss/theme-neo-dark/Global.scss', mtimeMs)
+    function seedSources(root, mtimeMs) {
+        writeFile(root, 'resources/css/src/Global.css', mtimeMs);
+        writeFile(root, 'resources/css/theme-neo-dark/Global.css', mtimeMs)
     }
 
     test.afterAll(() => {
@@ -81,7 +81,7 @@ test.describe('buildScripts/helpers/seatStart (#20429)', () => {
             logs = [];
         let builds = 0;
 
-        seedScss(root, 1000);
+        seedSources(root, 1000);
         materialize(root, 2000);
 
         const result = await seatStart({
@@ -95,16 +95,16 @@ test.describe('buildScripts/helpers/seatStart (#20429)', () => {
         expect(logs.at(-1)).toContain('current')
     });
 
-    test('an SCSS change rebuilds once, and a second Start is a no-op', async () => {
+    test('a theme source change rebuilds once, and a second Start is a no-op', async () => {
         const
             root = createRoot(),
             logs = [];
         let builds = 0;
 
-        seedScss(root, 1000);
+        seedSources(root, 1000);
         materialize(root, 2000);
-        // The fast-forward brought in a peer SCSS change
-        writeFile(root, 'resources/scss/src/Global.scss', 3000);
+        // The fast-forward brought in a peer theme source change
+        writeFile(root, 'resources/css/src/Global.css', 3000);
 
         const build = async () => {
             builds++;
@@ -126,9 +126,9 @@ test.describe('buildScripts/helpers/seatStart (#20429)', () => {
     test('a failed build rejects and names the recovery command', async () => {
         const root = createRoot();
 
-        seedScss(root, 1000);
+        seedSources(root, 1000);
         materialize(root, 2000);
-        writeFile(root, 'resources/scss/src/Global.scss', 3000);
+        writeFile(root, 'resources/css/src/Global.css', 3000);
 
         await expect(seatStart({
             repoRoot: root,
@@ -142,7 +142,7 @@ test.describe('buildScripts/helpers/seatStart (#20429)', () => {
             root   = createRoot(),
             target = path.join(root, 'AGENTS.md');
 
-        seedScss(root, 1000);
+        seedSources(root, 1000);
         materialize(root, 2000);
         declareAgentsMd(root);
 
@@ -164,7 +164,7 @@ test.describe('buildScripts/helpers/seatStart (#20429)', () => {
             root = createRoot(),
             logs = [];
 
-        seedScss(root, 1000);
+        seedSources(root, 1000);
         materialize(root, 2000);
 
         const result = await seatStart({repoRoot: root, build: async () => {}, logger: {log: line => logs.push(line)}});
@@ -178,9 +178,9 @@ test.describe('buildScripts/helpers/seatStart (#20429)', () => {
         const root   = createRoot();
         let   builds = 0;
 
-        seedScss(root, 1000);
+        seedSources(root, 1000);
         materialize(root, 2000);
-        writeFile(root, 'resources/scss/src/Global.scss', 3000);
+        writeFile(root, 'resources/css/src/Global.css', 3000);
         declareAgentsMd(root, {installed: false});
 
         await expect(seatStart({
@@ -195,9 +195,9 @@ test.describe('buildScripts/helpers/seatStart (#20429)', () => {
     test('a generator that exits non-zero fails the Start, and so does a failed build beside it', async () => {
         const root = createRoot();
 
-        seedScss(root, 1000);
+        seedSources(root, 1000);
         materialize(root, 2000);
-        writeFile(root, 'resources/scss/src/Global.scss', 3000);
+        writeFile(root, 'resources/css/src/Global.css', 3000);
 
         await expect(seatStart({
             repoRoot  : root,
@@ -210,7 +210,7 @@ test.describe('buildScripts/helpers/seatStart (#20429)', () => {
     test('the entry point exits 0 at once on a current checkout', () => {
         const root = createRoot();
 
-        seedScss(root, 1000);
+        seedSources(root, 1000);
         materialize(root, 2000);
 
         const stdout = execFileSync(process.execPath, [ENTRY_POINT], {cwd: root, encoding: 'utf8'});
@@ -221,9 +221,9 @@ test.describe('buildScripts/helpers/seatStart (#20429)', () => {
     test('the entry point exits 1 and reports when the build cannot run', () => {
         const root = createRoot();
 
-        seedScss(root, 1000);
+        seedSources(root, 1000);
         materialize(root, 2000);
-        writeFile(root, 'resources/scss/src/Global.scss', 3000);
+        writeFile(root, 'resources/css/src/Global.css', 3000);
 
         // A root without a package.json has no `build-themes` script, so the canonical build fails
         let error;
@@ -242,7 +242,7 @@ test.describe('buildScripts/helpers/seatStart (#20429)', () => {
     test('the entry point exits 1 and names AGENTS.md when the generation fails', () => {
         const root = createRoot();
 
-        seedScss(root, 1000);
+        seedSources(root, 1000);
         materialize(root, 2000);
         declareAgentsMd(root, {installed: false});
 

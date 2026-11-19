@@ -1,7 +1,8 @@
 import Model from '../../../src/data/Model.mjs';
 
 /**
- * @class Neo.examples.grid.container.MainModel
+ * @summary Describes the fictional colleagues displayed by the value-banding example.
+ * @class Neo.examples.grid.valueBanding.MainModel
  * @extends Neo.data.Model
  */
 class MainModel extends Model {
@@ -21,10 +22,7 @@ class MainModel extends Model {
             name: 'role',
             type: 'String'
         }, {
-            name: 'firstname',
-            type: 'String'
-        }, {
-            name: 'lastname',
+            name: 'name',
             type: 'String'
         }]
     }

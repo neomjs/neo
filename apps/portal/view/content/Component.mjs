@@ -1,4 +1,5 @@
-import ContentComponent from '../../../../src/app/content/Component.mjs';
+import ContentComponent   from '../../../../src/app/content/Component.mjs';
+import {rewriteRepoLinks} from '../../Util.mjs';
 
 // GitHub bot/app actors whose `github.com/<login>.png` avatar 404s — bot avatars live at
 // `avatars.githubusercontent.com/in/<app-id>` (not derivable from the login), so these fall back to a
@@ -113,6 +114,16 @@ class Component extends ContentComponent {
      */
     getAvatarRecordProps(user) {
         return this.isBotActor(user) ? {iconCls: 'fa-brands fa-github'} : {image: this.getAvatarUrl(user)}
+    }
+
+    /**
+     * @summary Resolves the relative links of a body written on GitHub from the repository root, where its
+     * author meant them: a repository file opens on GitHub, a `learn/` page opens its Portal route.
+     * @param {String} html
+     * @returns {String}
+     */
+    rewriteLinks(html) {
+        return rewriteRepoLinks(super.rewriteLinks(html))
     }
 
     /**

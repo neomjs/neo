@@ -25,7 +25,7 @@ const
  * *    drifting, and re-parenting (Visualizing "Atomic Moves").
  * 2. **Autonomous Agents (The Neural Link):** "Seeker Drones" roam the graph using Boid behavior
  *    (Separation, Alignment, Cohesion). They "scan" nodes, transferring energy and triggering
- *    visual highlights, representing the active intelligence of the framework.
+ *    visual highlights, representing the active intelligence of the engine.
  * 3. **Data Flow (Signal Packets):** Pulses of light travel along connections from child to parent,
  *    visualizing the flow of events and data upstream.
  * 4. **Atmosphere (Parallax):** A multi-layered depth system creates a volumetric feel, distinguishing

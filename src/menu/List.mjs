@@ -1,7 +1,9 @@
-import BaseList  from '../list/Base.mjs';
-import ListModel from '../selection/menu/ListModel.mjs';
-import Store     from './Store.mjs';
-import TreeStore from '../data/TreeStore.mjs';
+import BaseList        from '../list/Base.mjs';
+import ClassSystemUtil from '../util/ClassSystem.mjs';
+import DataStore       from '../data/Store.mjs';
+import ListModel       from '../selection/menu/ListModel.mjs';
+import Store           from './Store.mjs';
+import TreeStore       from '../data/TreeStore.mjs';
 
 /**
  * A floating root menu forms one interaction island with its exact align target and every mounted
@@ -191,13 +193,18 @@ class List extends BaseList {
     /**
      * The hierarchy source, when this menu is driven by a `Neo.data.TreeStore`.
      *
-     * The tree store is the single source of truth and is shared by every level of the cascade; it is
-     * never owned by a level and never destroyed by one. Each level renders the flat `store` derived
-     * from it. Null for the classic nested-`items` API.
+     * The tree store is the single source of truth and is shared by every level of the cascade. One handed in as
+     * an instance stays its owner's; one the root built from a class or config is the root's, and only the root
+     * destroys it. Each level renders the flat `store` derived from it. Null for the classic nested-`items` API.
      * @member {Neo.data.TreeStore|null} sourceStore=null
      * @protected
      */
     sourceStore = null
+    /**
+     * True when this menu built its `sourceStore` from a class or config, so destroy() takes it along.
+     * @member {Boolean} #ownsSourceStore=false
+     */
+    #ownsSourceStore = false
 
     /**
      * @param {Object} config
@@ -291,6 +298,18 @@ class List extends BaseList {
     }
 
     /**
+     * Triggered after the store config got changed. A tree store that replaces another after construction fills
+     * this level and gets its listeners here; onConstructed() does it for the first one.
+     * @param {Neo.data.Store|null} value
+     * @param {Neo.data.Store|null} oldValue
+     * @protected
+     */
+    afterSetStore(value, oldValue) {
+        super.afterSetStore(value, oldValue);
+        this.isConstructed && this.#bindSource()
+    }
+
+    /**
      * Triggered after the theme config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
@@ -325,14 +344,32 @@ class List extends BaseList {
      *
      * Instead the tree store is kept as `sourceStore` and this level receives its own flat store
      * holding exactly the records it renders. `syncLevelRecords()` fills it once the configs are applied.
+     * A class or config is built first, so a tree store is recognised however it arrives. A store that replaces
+     * another after construction first retires the cascade the old source drove; the current store or tree source
+     * assigned again changes nothing.
      * @param {Object|Neo.data.Store|Neo.data.TreeStore} value
      * @param {Object|Neo.data.Store} oldValue
-     * @returns {Neo.data.Store}
+     * @returns {Neo.data.Store|undefined} Nothing for a store or source that is already in place
      * @protected
      */
     beforeSetStore(value, oldValue) {
+        let me    = this,
+            built = !!value && Neo.typeOf(value) !== 'NeoInstance';
+
+        if (me.isConstructed) {
+            // Assigned again: the level, its source's listeners and who owns that source stay as they are
+            if (value && (value === oldValue || value === me.sourceStore)) {
+                return
+            }
+
+            me.#releaseSource()
+        }
+
+        built && (value = ClassSystemUtil.beforeSetInstance(value, DataStore));
+
         if (value instanceof TreeStore) {
-            this.sourceStore = value;
+            me.sourceStore      = value;
+            me.#ownsSourceStore = built;
 
             // The level store reuses the tree store's model CLASS, so its records keep every field the
             // hierarchy declares (isLeaf, parentId, depth) next to the menu fields. Re-adding records
@@ -342,6 +379,61 @@ class List extends BaseList {
         }
 
         return super.beforeSetStore(value, oldValue)
+    }
+
+    /**
+     * Fills this level from its tree source and listens to it, if it has one.
+     * @private
+     */
+    #bindSource() {
+        let me            = this,
+            {sourceStore} = me;
+
+        if (sourceStore) {
+            me.syncLevelRecords();
+
+            // Its own object: Observable#on() and #un() CONSUME keys from what they are handed
+            // (`scope` among them), so the two calls can never share one literal.
+            sourceStore.on({
+                filter      : me.onSourceStoreFilter,
+                mutate      : me.onSourceStoreMutate,
+                recordChange: me.onSourceStoreRecordChange,
+                sort        : me.onSourceStoreSort,
+                scope       : me
+            })
+        }
+    }
+
+    /**
+     * Retires what a tree source drove: the submenus derived from it and this level's listeners. A source this
+     * menu built goes with them; one handed in stays its owner's.
+     * @private
+     */
+    #releaseSource() {
+        let me                        = this,
+            {sourceStore, subMenuMap} = me;
+
+        if (sourceStore) {
+            me.hideSubMenu(false);
+
+            sourceStore.un({
+                filter      : me.onSourceStoreFilter,
+                mutate      : me.onSourceStoreMutate,
+                recordChange: me.onSourceStoreRecordChange,
+                sort        : me.onSourceStoreSort,
+                scope       : me
+            });
+
+            Object.entries(subMenuMap || {}).forEach(([key, value]) => {
+                value?.destroy();
+                subMenuMap[key] = null
+            });
+
+            me.#ownsSourceStore && sourceStore.destroy();
+
+            me.sourceStore      = null;
+            me.#ownsSourceStore = false
+        }
     }
 
     /**
@@ -454,24 +546,16 @@ class List extends BaseList {
      *
      */
     destroy(...args) {
-        let me              = this,
-            {activeSubMenu} = me,
-            subMenuMap      = me.subMenuMap || {};
+        let me         = this,
+            subMenuMap = me.subMenuMap || {};
 
         me.syncOutsidePointerListener(false);
-        activeSubMenu?.unmount();
+        me.hideSubMenu(false);
+        me.#releaseSource();
 
-        // The tree store outlives every level, so a level that stops rendering must stop listening.
-        // Its own object literal — on() and un() both consume keys from what they are handed.
-        me.sourceStore?.un({
-            mutate      : me.onSourceStoreMutate,
-            recordChange: me.onSourceStoreRecordChange,
-            sort        : me.onSourceStoreSort,
-            scope       : me
-        });
-
+        // The submenus of the classic nested-items API; a tree source's went with it
         Object.entries(subMenuMap).forEach(([key, value]) => {
-            value.destroy();
+            value?.destroy();
             subMenuMap[key] = null
         });
 
@@ -748,21 +832,7 @@ class List extends BaseList {
      */
     onConstructed() {
         super.onConstructed();
-
-        let me = this;
-
-        if (me.sourceStore) {
-            me.syncLevelRecords();
-
-            // Its own object: Observable#on() and #un() CONSUME keys from what they are handed
-            // (`scope` among them), so the two calls can never share one literal.
-            me.sourceStore.on({
-                mutate      : me.onSourceStoreMutate,
-                recordChange: me.onSourceStoreRecordChange,
-                sort        : me.onSourceStoreSort,
-                scope       : me
-            })
-        }
+        this.#bindSource()
     }
 
     /**
@@ -914,21 +984,38 @@ class List extends BaseList {
     }
 
     /**
+     * Re-derives this level after the tree store's filters change.
+     *
+     * A filter changes which nodes the store keeps without adding or removing any, so, as with a sort, there
+     * is nothing to splice.
+     * @protected
+     */
+    onSourceStoreFilter() {
+        this.syncLevelRecords();
+        this.#hideOrphanedSubMenu()
+    }
+
+    /**
      * Splices this level for a tree mutation, rather than re-deriving it.
      *
      * Records contributed to a group after mount therefore appear without rebuilding the cascade, and
      * order follows the Structural Layer — so a sort applied to the tree store reaches every level.
+     * Additions the tree store's filters hide stay out.
+     *
+     * A level renders structure, not expansion: a collapse projects rows out that `TreeStore#get()` still
+     * resolves, so only a node the tree no longer holds leaves the level, and an expansion re-adds none it lists.
      * @param {Object} data
      * @param {Object[]} data.addedItems
      * @param {Object[]} data.removedItems
      * @protected
      */
     onSourceStoreMutate(data) {
-        let me            = this,
-            {sourceStore} = me,
-            removed       = (data.removedItems || []).filter(record => me.belongsToLevel(record)),
-            added         = (data.addedItems   || [])
-                .filter(record => me.belongsToLevel(record))
+        let me                   = this,
+            {sourceStore, store} = me,
+            removed              = (data.removedItems || [])
+                .filter(record => me.belongsToLevel(record) && !sourceStore.get(sourceStore.getKey(record))),
+            added                = (data.addedItems || [])
+                .filter(record => me.belongsToLevel(record) && sourceStore.isKept(record) && !store.get(sourceStore.getKey(record)))
                 // Resolve every addition through the source before inserting it. The mutate payload can
                 // carry raw data, and letting the level store hydrate that would mint a SECOND record
                 // instance for the same key. Levels resolve a later recordChange by identity, so a clone
@@ -938,8 +1025,10 @@ class List extends BaseList {
         // Splicing the level store is enough to repaint it: the collection turns a mutation into a
         // `load` (via onCollectionMutate), which list.Base already re-renders on. Calling createItems()
         // here as well rendered the level twice per contribution.
-        removed.length && me.store.remove(removed);
-        added.length   && me.store.add(added)
+        removed.length && store.remove(removed);
+        added.length   && store.add(added);
+
+        me.#hideOrphanedSubMenu()
     }
 
     /**
@@ -974,7 +1063,9 @@ class List extends BaseList {
     }
 
     /**
-     * Fills this level's flat store with exactly the records it renders.
+     * Fills this level's flat store with exactly the records it renders: the children of `parentRecordId`
+     * that the tree store's filters keep. `TreeStore#getChildren()` reads the Structural Layer and returns
+     * filtered-out children too, so the level applies `TreeStore#isKept()` itself.
      *
      * A no-op for the classic nested-`items` API, where `afterSetItems()` already owns the contents.
      * Driven from `onConstructed()` rather than a config setter because the derivation needs both
@@ -983,11 +1074,26 @@ class List extends BaseList {
      * @protected
      */
     syncLevelRecords() {
-        let me = this;
+        let me            = this,
+            {sourceStore} = me;
 
-        if (me.sourceStore) {
+        if (sourceStore) {
             me.store.clear();
-            me.store.add(me.sourceStore.getChildren(me.parentRecordId))
+            me.store.add(sourceStore.getChildren(me.parentRecordId).filter(record => sourceStore.isKept(record)))
+        }
+    }
+
+    /**
+     * Hides the open submenu once its item has left this tree-driven level, so no floating level outlives the
+     * item that opened it. Focus inside that submenu has no item left to return to.
+     * @private
+     */
+    #hideOrphanedSubMenu() {
+        let me              = this,
+            {activeSubMenu} = me;
+
+        if (activeSubMenu && !me.store.get(activeSubMenu.parentRecordId)) {
+            me.hideSubMenu(false)
         }
     }
 

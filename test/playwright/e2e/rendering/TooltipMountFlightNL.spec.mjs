@@ -12,7 +12,7 @@ async function observeMount(page, tooltipId) {
         const manager  = Neo.worker.Manager,
               original = manager.handleDomUpdate,
               witness  = window.tooltipMountWitness = {
-                  holding: true, pending: [], received: [], applied: [], maxNodes: 0, duplicateIds: []
+                  holding: true, pending: [], received: [], applied: [], maxNodes: 0, duplicateIds: [], visible: 0
               },
               targets  = delta => (delta.id || delta.vnode?.id) === id;
 
@@ -40,6 +40,13 @@ async function observeMount(page, tooltipId) {
             witness.duplicateIds.push(...ids.filter((value, index) => ids.indexOf(value) !== index))
         });
 
+        // Counts the DOM changes after which the tooltip would paint: a mutation callback runs before the next frame
+        const paint = new MutationObserver(() => {
+            [...document.querySelectorAll(`[id="${id}"]`)].some(root => getComputedStyle(root).visibility !== 'hidden') && witness.visible++
+        });
+
+        paint.observe(document.body, {attributeFilter: ['class', 'style'], childList: true, subtree: true});
+
         witness.release = () => {
             witness.holding = false;
             witness.pending.splice(0).forEach(({receiver, args}) => original.apply(receiver, args))
@@ -47,7 +54,8 @@ async function observeMount(page, tooltipId) {
         witness.restore = () => {
             witness.release();
             manager.handleDomUpdate = original;
-            Neo.main.DeltaUpdates.un('updated', listener)
+            Neo.main.DeltaUpdates.un('updated', listener);
+            paint.disconnect()
         }
     }, tooltipId);
 
@@ -84,7 +92,8 @@ function readWitness(page) {
             received    : witness.received,
             applied     : witness.applied,
             maxNodes    : witness.maxNodes,
-            duplicateIds: [...new Set(witness.duplicateIds)]
+            duplicateIds: [...new Set(witness.duplicateIds)],
+            visible     : witness.visible
         } : null
     })
 }
@@ -222,6 +231,23 @@ test.describe('Tooltip mount flights through App, VDOM and Main', () => {
         await app.callMethod(tooltipId, 'show');
         await expectTarget(tooltipHarness, targets[0]);
         expect(await readWitness(page)).toMatchObject({maxNodes: 1, duplicateIds: []})
+    });
+
+    test('a pointer that leaves while the native insert waits never paints the tooltip', async ({tooltipHarness}) => {
+        const {app, page, tooltipId, targets} = tooltipHarness;
+
+        await page.locator(`[id="${targets[0].id}"]`).hover();
+        await expect.poll(async () => (await readWitness(page)).pending, 'control: the insert waits at Main').toBe(1);
+        await page.mouse.move(5, 5);
+        await expect.poll(() => app.getComponent(tooltipId, ['hidden']), 'the departure hid it in the worker').toMatchObject({hidden: true});
+
+        await landMount(tooltipHarness);
+        await expect(page.locator(`[id="${tooltipId}"]`)).toHaveCount(0);
+
+        const witness = await readWitness(page);
+
+        expect(witness.applied, 'control: the held insert did reach the DOM').toContain('insertNode');
+        expect(witness.visible, 'no DOM change left the tooltip paintable').toBe(0)
     });
 
     test('retargeting during the native mount lands the latest text and alignment once', async ({tooltipHarness}) => {

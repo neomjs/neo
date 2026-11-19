@@ -44,6 +44,16 @@ const DefaultConfig = {
      */
     basePath: './',
     /**
+     * The build run the app's files come from. The build writes it into each app's `neo-config.json`, which loads
+     * network-first. Development mode builds nothing and keeps `null`. `Neo.main.addon.ServiceWorker` registers the
+     * service worker under it, so a redeploy that keeps its version still replaces the previous build's cache.
+     * @default null
+     * @memberOf! module:Neo
+     * @name config.buildId
+     * @type String|null
+     */
+    buildId: null,
+    /**
      * Pass a token in case you are using the CesiumJS main thread addon
      * See: https://github.com/neomjs/neo/blob/dev/src/main/addon/CesiumJS.mjs
      * @default undefined
@@ -216,6 +226,26 @@ const DefaultConfig = {
      * @type Boolean
      */
     renderCountDeltas: false,
+    /**
+     * The path in front of every `'pathname'` route, without a trailing slash: with `'/docs'`, the route
+     * `/learn/Intro` is the URL `/docs/learn/Intro`. Ignored in `'hash'` mode.
+     * @default ''
+     * @memberOf! module:Neo
+     * @name config.routerBasePath
+     * @type String
+     */
+    routerBasePath: '',
+    /**
+     * Where a window keeps its route. `'hash'` uses `location.hash`. `'pathname'` uses the path after `routerBasePath`
+     * and moves it with the History API, so a route is a clean URL. The server then has to answer every route path
+     * with the app, and routes have to be paths (`/learn/Intro`). The App worker receives the same `hashChange`
+     * message in both modes.
+     * @default 'hash'
+     * @memberOf! module:Neo
+     * @name config.routerMode
+     * @type String
+     */
+    routerMode: 'hash',
     /**
      * Add themes you want to use here. The first theme will get applied.
      * @default ['neo-theme-light','neo-theme-dark','neo-theme-neo-light']

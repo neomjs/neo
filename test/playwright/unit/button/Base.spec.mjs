@@ -100,6 +100,9 @@ test.describe('Neo.button.Base VDOM (Node.js)', () => {
         const {vnode} = await button.initVnode();
         button.mounted = true;
 
+        expect(button.pressed).toBeNull();
+        expect(button.getVdomRoot()['aria-pressed']).toBeUndefined();
+        expect(vnode.attributes?.['aria-pressed']).toBeUndefined();
         expect(vnode.className.includes('pressed')).toBe(false);
 
         let updateData = await button.set({pressed: true});
@@ -107,6 +110,9 @@ test.describe('Neo.button.Base VDOM (Node.js)', () => {
         let delta = updateData.deltas[0];
         expect(delta.id).toBe(button.id);
         expect(delta.cls.add).toEqual(['pressed']);
+        expect(delta.attributes).toEqual({'aria-pressed': 'true'});
+        expect(button.getVdomRoot()['aria-pressed']).toBe('true');
+        expect(updateData.vnode.attributes['aria-pressed']).toBe('true');
         expect(updateData.vnode.className.includes('pressed')).toBe(true);
 
         updateData = await button.set({pressed: false});
@@ -114,9 +120,44 @@ test.describe('Neo.button.Base VDOM (Node.js)', () => {
         delta = updateData.deltas[0];
         expect(delta.id).toBe(button.id);
         expect(delta.cls.remove).toEqual(['pressed']);
+        expect(delta.attributes).toEqual({'aria-pressed': 'false'});
+        expect(button.getVdomRoot()['aria-pressed']).toBe('false');
+        expect(updateData.vnode.attributes['aria-pressed']).toBe('false');
+        expect(updateData.vnode.className.includes('pressed')).toBe(false);
+
+        updateData = await button.set({pressed: null});
+        expect(button.getVdomRoot()['aria-pressed']).toBeUndefined();
+        expect(updateData.vnode.attributes?.['aria-pressed']).toBeUndefined();
         expect(updateData.vnode.className.includes('pressed')).toBe(false);
 
         button.destroy();
+    });
+
+    test('should render aria-pressed semantics only for toggle buttons', async () => {
+        const plainButton         = Neo.create(Button, {appName});
+        const {vnode: plainVnode} = await plainButton.initVnode();
+
+        expect(plainButton.getVdomRoot()['aria-pressed']).toBeUndefined();
+        expect(plainVnode.attributes?.['aria-pressed']).toBeUndefined();
+        expect(plainVnode.className.includes('pressed')).toBe(false);
+
+        const unpressedButton         = Neo.create(Button, {appName, pressed: false});
+        const {vnode: unpressedVnode} = await unpressedButton.initVnode();
+
+        expect(unpressedButton.getVdomRoot()['aria-pressed']).toBe('false');
+        expect(unpressedVnode.attributes['aria-pressed']).toBe('false');
+        expect(unpressedVnode.className.includes('pressed')).toBe(false);
+
+        const pressedButton         = Neo.create(Button, {appName, pressed: true});
+        const {vnode: pressedVnode} = await pressedButton.initVnode();
+
+        expect(pressedButton.getVdomRoot()['aria-pressed']).toBe('true');
+        expect(pressedVnode.attributes['aria-pressed']).toBe('true');
+        expect(pressedVnode.className.includes('pressed')).toBe(true);
+
+        plainButton.destroy();
+        unpressedButton.destroy();
+        pressedButton.destroy();
     });
 
     test('should project disabled state onto Button and SplitButton native roots', async () => {
@@ -327,8 +368,57 @@ test.describe('Neo.button.Base VDOM (Node.js)', () => {
 
         ({vnode} = await splitButton.set({ui: 'tertiary'}));
         expect(vnode.childNodes[0].className).toContain('neo-button-tertiary');
-        expect(vnode.childNodes[1].className).toContain('neo-button-tertiary');
+
+        // The trigger is a child component the split references, so it renders its own ui change
+        await splitButton.triggerButton.promiseUpdate();
+        expect(splitButton.triggerButton.vnode.className).toContain('neo-button-tertiary');
 
         splitButton.destroy();
+    });
+
+    test('a size config sets its class, a change swaps it, and null leaves the size to the context', async () => {
+        const button = Neo.create(Button, {appName, size: 'large', text: 'Get started', ui: 'secondary'});
+
+        expect(button.cls).toContain('neo-size-large');
+        expect(button.cls, 'the size is not a ui').toContain('neo-button-secondary');
+
+        button.size = 'small';
+        expect(button.cls).toContain('neo-size-small');
+        expect(button.cls).not.toContain('neo-size-large');
+
+        button.size = null;
+        expect(button.cls.filter(cls => cls.startsWith('neo-size-'))).toEqual([]);
+
+        button.destroy()
+    });
+
+    test('a size and a ui stay independent, even a ui named like a size', async () => {
+        const button  = Neo.create(Button, {appName, size: 'large', text: 'Save', ui: 'size-large'}),
+              plain   = Neo.create(Button, {appName, size: 'large', text: 'Save'}),
+              sizeCls = plain.cls.filter(cls => cls.includes('size'));
+
+        button.ui = null;
+        expect(button.cls, 'clearing the ui keeps the size').toEqual(expect.arrayContaining(sizeCls));
+
+        button.ui   = 'size-large';
+        button.size = 'small';
+        expect(button.cls, 'changing the size keeps the ui').toContain('neo-button-size-large');
+
+        button.destroy();
+        plain.destroy()
+    });
+
+    test('an unknown size is refused, and the button keeps the size it has', async () => {
+        const button = Neo.create(Button, {appName, size: 'medium', text: 'Save'}),
+              error  = console.error;
+
+        console.error = () => {};
+        button.size   = 'huge';
+        console.error = error;
+
+        expect(button.size).toBe('medium');
+        expect(button.cls).toContain('neo-size-medium');
+
+        button.destroy()
     });
 });

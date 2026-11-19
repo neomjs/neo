@@ -1033,6 +1033,29 @@ class Collection extends Base {
     }
 
     /**
+     * @summary Resolves the key a lookup by `value` reaches, e.g. for the id fragment a list item renders.
+     *
+     * A collection declares no key type, so it reads one from its first item ({@link #getKeyType}): an
+     * integer-keyed collection parses the value, and every other keeps it as received. `Neo.data.Store`
+     * overrides this with the type its key field declares.
+     * @param {*} value The key as it was received
+     * @returns {*|undefined} The canonical key, or `undefined` for an absent value or one an integer-keyed
+     * collection cannot parse
+     */
+    getCanonicalKey(value) {
+        if (value === null || value === undefined) {
+            return undefined
+        }
+
+        if (this.getKeyType() === 'int') {
+            let key = typeof value === 'string' && value.trim() !== '' ? Number(value) : value;
+            return Number.isFinite(key) ? key : undefined
+        }
+
+        return value
+    }
+
+    /**
      * Returns the config value of this.count
      * @returns {Number}
      * @deprecated Use `this.count` directly instead.
@@ -1236,11 +1259,7 @@ class Collection extends Base {
             item = me.map.get(key) ?? (me.trackInternalId ? me.internalIdMap?.get(key) : undefined);
 
         if (item === undefined && me.getCanonicalKey) {
-            let canonicalKey = me.getCanonicalKey(key);
-
-            if (canonicalKey !== undefined && canonicalKey !== key) {
-                item = me.map.get(canonicalKey)
-            }
+            item = me.map.get(me.getCanonicalKey(key))
         }
 
         return item !== undefined ? me._items.indexOf(item) : -1

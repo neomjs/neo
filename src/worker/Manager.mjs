@@ -232,26 +232,17 @@ class Manager extends Base {
             });
 
             if (swVersion?.version && swVersion.version !== Neo.config.version) {
-                const
-                    key        = 'neoVersionReload',
-                    lastReload = parseInt(sessionStorage.getItem(key) || '0'),
-                    now        = Date.now();
-
-                if (now - lastReload < 5000) {
-                    console.error('Reload loop detected. Aborting version enforcement.');
-                    return
-                }
-
-                sessionStorage.setItem(key, String(now));
-
-                console.error(`Version Mismatch! Client: ${Neo.config.version}, SW: ${swVersion.version}. Reloading.`);
-                location.reload(true)
+                this.reloadOnce(`Version Mismatch! Client: ${Neo.config.version}, SW: ${swVersion.version}. Reloading.`)
             }
         }
     }
 
     /**
      * Creates a web worker using the passed options as well as adding error & message event listeners.
+     *
+     * A build's worker URL carries its `buildId`: a shared worker is keyed by its URL and name, so a page of a new
+     * build starts its own workers instead of joining those another tab of the previous build still runs. The name
+     * stays as it is, since a canvas worker reads its group from it.
      * @param {Object} opts
      * @returns {SharedWorker|Worker}
      */
@@ -259,7 +250,8 @@ class Manager extends Base {
         let me            = this,
             {canvasGroup} = me,
             {fileName}    = opts,
-            filePath      = (opts.basePath || Neo.config.workerBasePath) + fileName,
+            {buildId}     = Neo.config,
+            filePath      = (opts.basePath || Neo.config.workerBasePath) + fileName + (buildId ? `?buildId=${encodeURIComponent(buildId)}` : ''),
             isCanvas      = opts === me.workers.canvas,
             name          = isCanvas ? CANVAS_WORKER_NAME_PREFIX + canvasGroup : `neomjs-${fileName.substring(0, fileName.indexOf('.')).toLowerCase()}-worker`,
             isShared      = me.sharedWorkersEnabled && NeoConfig.useSharedWorkers,
@@ -294,23 +286,20 @@ class Manager extends Base {
      * document base beside its location, so workspace connections honor the page's base element.
      */
     createWorkers() {
-        let me                   = this,
-            config               = Neo.clone(NeoConfig, true),
-            {hash, href, search} = location,
-            {windowId}           = me,
-            ssrData              = window.__NEO_SSR__,
+        let me             = this,
+            config         = Neo.clone(NeoConfig, true),
+            {href, search} = location,
+            {windowId}     = me,
+            route          = DomEvents.getRouteConfig(windowId),
+            ssrData        = window.__NEO_SSR__,
             key, value;
 
         // remove configs which are not relevant for the workers scope
         delete config.cesiumJsToken;
 
-        // pass the initial hash value as Neo.configs
-        if (hash) {
-            config.hash = {
-                hash      : DomEvents.parseHash(hash.substring(1)),
-                hashString: hash.substring(1),
-                windowId
-            }
+        // pass the initial route as Neo.configs
+        if (route) {
+            config.hash = route
         }
 
         config.url = {base: document.baseURI, href, search};
@@ -734,6 +723,28 @@ class Manager extends Base {
     }
 
     /**
+     * @summary Reloads the page to load one consistent set of files, unless it reloaded for this within the last five
+     * seconds: a mismatch that a reload does not cure would otherwise reload forever.
+     * @param {String} message Logged when the reload starts
+     */
+    reloadOnce(message) {
+        const
+            key        = 'neoVersionReload',
+            lastReload = parseInt(sessionStorage.getItem(key) || '0'),
+            now        = Date.now();
+
+        if (now - lastReload < 5000) {
+            console.error('Reload loop detected. Aborting version enforcement.');
+            return
+        }
+
+        sessionStorage.setItem(key, String(now));
+
+        console.error(message);
+        location.reload(true)
+    }
+
+    /**
      * @summary Resolves this window's canvas group by the carrier rule and keeps it in the window's sessionStorage,
      * where a `reload` of this window and a popup opened from it find it again.
      * @returns {String}
@@ -873,19 +884,16 @@ class Manager extends Base {
         item.worker = me.createWorker(item);
 
         // 3. Register Config
-        let config               = Neo.clone(NeoConfig, true),
-            {hash, href, search} = location,
-            {windowId}           = me;
+        let config         = Neo.clone(NeoConfig, true),
+            {href, search} = location,
+            {windowId}     = me,
+            route          = DomEvents.getRouteConfig(windowId);
 
         delete config.cesiumJsToken;
         config.url = {base: document.baseURI, href, search};
 
-        if (hash) {
-            config.hash = {
-                hash      : DomEvents.parseHash(hash.substring(1)),
-                hashString: hash.substring(1),
-                windowId
-            }
+        if (route) {
+            config.hash = route
         }
 
         let workerConfig = {...config, windowId};

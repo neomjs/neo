@@ -94,6 +94,11 @@ class Store extends Collection {
      */
     #batchRecords = null;
     /**
+     * @member {Number} #rowBatchDepth=0 The {@link #updateRows} batches running, a nested one included.
+     * @private
+     */
+    #rowBatchDepth = 0;
+    /**
      * Record notifications deferred while an opted-in key transaction commits its maps.
      * @member {Map} #keyChanges=new Map()
      * @private
@@ -406,8 +411,9 @@ class Store extends Collection {
     }
 
     /**
-     * @param value
-     * @param oldValue
+     * @summary Replaces what the store holds with the assigned data, whether an assignment, `add()` or a load put it there.
+     * @param {Object[]|Neo.data.Model[]|null} value
+     * @param {Object[]|Neo.data.Model[]|null} oldValue
      * @protected
      */
     afterSetData(value, oldValue) {
@@ -415,7 +421,7 @@ class Store extends Collection {
 
         if (me.configsApplied) {
             if (value) {
-                if (oldValue) {
+                if (oldValue || me.holdsRecords()) {
                     me.clear()
                 }
 
@@ -903,6 +909,20 @@ class Store extends Collection {
     }
 
     /**
+     * @summary The row this store holds under a key, as it holds it: raw in Turbo Mode until something hydrates it,
+     * which this lookup never does. A flat store answers from its unfiltered population (`allItems`), a filtered-out
+     * row included; a subclass that holds rows elsewhere answers from there. A raw-key miss falls back to
+     * {@link #getCanonicalKey}, as in {@link #get}.
+     * @param {Number|String} key
+     * @returns {Object|Neo.data.Record|undefined}
+     * @protected
+     */
+    getRow(key) {
+        const {map} = this.allItems || this;
+        return map.get(map.has(key) ? key : this.getCanonicalKey(key))
+    }
+
+    /**
      * @summary Counts canonical scalar values under every predicate except one exact contribution, without source writes.
      * The complete flat local population must already expose canonical values. Raw complex fields, incomplete
      * loads, remote projections and trees are unsupported. Callbacks must be observational; this method never
@@ -1055,6 +1075,16 @@ class Store extends Collection {
      */
     prepareAddedItems(items) {
         return this.createRecord([...items])
+    }
+
+    /**
+     * @summary Whether the store holds a record, one a filter hides included.
+     * Overridable: {@link Neo.data.TreeStore#holdsRecords} reads its structural layer.
+     * @returns {Boolean}
+     * @protected
+     */
+    holdsRecords() {
+        return this.count > 0 || this.allItems?.count > 0
     }
 
     /**
@@ -1690,15 +1720,17 @@ class Store extends Collection {
 
     /**
      * @summary Checks current opt-in and exact population identity, excluding stale retained records.
-     * @param {Object} record
+     * Given the changed fields, only a filter that reads one reapplies: its `fields`, else its `property`, while a
+     * `filterBy` without `fields` may read any. A batch passes no record: its rows are ones the store holds.
+     * @param {Object|null} record The changed record, or null for an {@link #updateRows} batch
+     * @param {Object[]} [fields] The changed fields, `{name}` each; omitted, any field may have changed
      * @returns {Boolean}
      * @protected
      */
-    shouldReapplyFilters(record) {
-        const population = this.allItems || this;
+    shouldReapplyFilters(record, fields) {
         return !this.isDestroyed && !this.isPipelinePushProjectionUncertain() && !this.isLoading && !this.isStreaming &&
-            population.map.get(this.getKey(record)) === record &&
-            this.filters.some(filter => filter.reapplyOnRecordChange && !filter.disabled &&
+            (!record || (this.allItems || this).map.get(this.getKey(record)) === record) &&
+            this.filters.some(filter => filter.reapplyOnRecordChange && !filter.disabled && (!fields || this.#reads(filter, fields)) &&
                 (filter.filterBy || !filter.includeEmptyValues || !Neo.isEmpty(filter.value)))
     }
 
@@ -1715,14 +1747,28 @@ class Store extends Collection {
         if (me.isDestroyed || me.#sortingRecordChange || !me.autoSort || me.isLoading || me.isStreaming ||
             me.isPipelinePushProjectionUncertain()) return false;
 
-        const affected = me.sorters.some(sorter => sorter.reapplyOnRecordChange &&
-            (!fields || sorter.sortBy || model.getField(sorter.property)?.virtual || fields.some(({name}) =>
-                name === sorter.property || typeof sorter.property === 'string' && sorter.property.startsWith(name + '.'))));
-        if (!affected) return false;
+        if (!me.sorters.some(sorter => sorter.reapplyOnRecordChange && (!fields || me.#reads(sorter, fields, model)))) return false;
 
-        const key     = me.getKey(record),
-              current = me.hasNtype('tree-store') ? me.get(key) : me.map.get(key);
-        return current === record
+        // a filtered flat store sorts only the rows its filters keep; any other store every row it holds
+        const key = me.getKey(record);
+        return (me.allItems ? me.map.get(key) : me.getRow(key)) === record
+    }
+
+    /**
+     * @summary Checks whether a filter or sorter reads one of the changed fields: its `fields`, else its `property`. A
+     * read meets a change on the same path or on a path below the other, either way round: a read of `profile` sees a
+     * change of `profile.name`, and a read of `profile.name` a change of `profile`. A virtual field derives from any, so
+     * it reads every change. A `filterBy` or `sortBy` callback without `fields` may read any field.
+     * @param {Neo.collection.Filter|Neo.collection.Sorter} rule
+     * @param {Object[]} fields The changed fields, `{name}` each
+     * @param {Neo.data.Model} [model=this.model]
+     * @returns {Boolean}
+     * @private
+     */
+    #reads(rule, fields, model=this.model) {
+        const read = rule.fields || (rule.filterBy || rule.sortBy ? null : [rule.property]);
+        return !read || read.some(name => !!model.getField(name)?.virtual || typeof name === 'string' &&
+            fields.some(({name: changed}) => changed === name || name.startsWith(changed + '.') || changed.startsWith(name + '.')))
     }
 
     /**
@@ -1785,16 +1831,75 @@ class Store extends Collection {
     }
 
     /**
+     * @summary Whether a row batch may write a declared model field under the store's resolved key.
+     * @param {String} name Fully qualified field name.
+     * @param {Object|null} field Field from the store model.
+     * @param {String} keyProperty The store's resolved key field.
+     * @returns {Boolean}
+     * @private
+     */
+    #isWritableRowField(name, field, keyProperty) {
+        return !!field && !field.calculate && name !== keyProperty
+    }
+
+    /**
+     * @summary Applies whole-record updates to existing rows as one batch.
+     *
+     * The key locates the row. Only declared writable fields are copied, including leaves of nested input
+     * objects. The caller's objects stay untouched. Field eligibility is shared with {@link #updateRows}.
+     * @param {Object[]} records Whole-record input containing the store's key field.
+     * @returns {{errors: Error[], missing: Array}} The result of {@link #updateRows}.
+     */
+    updateRecords(records) {
+        const me          = this,
+              keyProperty = me.getKeyProperty(),
+              {model}     = me;
+
+        function collect(data, values, prefix='') {
+            for (const [name, value] of Object.entries(data)) {
+                const path  = prefix + name,
+                      field = model.getField(path);
+
+                if (me.#isWritableRowField(path, field, keyProperty)) {
+                    values[path] = value
+                } else if (!field && Neo.isObject(value)) {
+                    collect(value, values, path + '.')
+                }
+            }
+        }
+
+        return me.updateRows(records.map(record => {
+            const values = {};
+
+            collect(record, values);
+            return {key: record[keyProperty], values}
+        }))
+    }
+
+    /**
+     * @summary True while an {@link #updateRows} batch writes its rows and reapplies the filters and sorters it opted
+     * into, until it fires `rowsChange`. A `recordChange`, `filter`, `sort` or `mutate` listener that redraws once per
+     * change can leave a batch's events to that single `rowsChange`. A batch a listener starts inside another one ends
+     * while this stays true: only the outermost batch's `rowsChange` fires with it false.
+     * @member {Boolean} isUpdatingRows
+     */
+    get isUpdatingRows() {
+        return this.#rowBatchDepth > 0
+    }
+
+    /**
      * @summary Writes a batch of row edits as one change: Turbo Mode rows stay raw, and the batch publishes once.
      *
      * A raw row is written in place, as its own data for those fields: nothing is hydrated, and the values Soft
      * Hydration kept on it derive again from the new data. Rows that already are records adopt their values together
-     * ({@link Neo.data.RecordFactory#applyPreparedFields}) and publish `recordChange` with `isBatch: true`. Opted-in
-     * filters or sorters (`reapplyOnRecordChange`) then reapply once, and `rowsChange` fires once.
+     * ({@link Neo.data.RecordFactory#applyPreparedFields}) and publish `recordChange` with `isBatch: true`. An opted-in
+     * filter or sorter (`reapplyOnRecordChange`) that reads a field the batch wrote then reapplies once, and
+     * `rowsChange` fires once.
      *
-     * Keys go through {@link #getCanonicalKey}; one the store does not hold is skipped, a filtered-out row is held.
-     * Changes to one row merge, the later value winning. The key field, a calculated or an undeclared field, or a row
-     * of another model ({@link #modelOf}) throws before any row is written.
+     * Keys go through {@link #getCanonicalKey}, and {@link #getRow} finds the rows: one the store does not hold is
+     * skipped, a filtered-out row is held, and so is a `Neo.data.TreeStore` row under a collapsed parent. Changes to
+     * one row merge, the later value winning. The key field, a calculated or an undeclared field, or a row of another
+     * model ({@link #modelOf}) throws before any row is written.
      * @param {Object[]} changes
      * @param {Number|String} changes[].key
      * @param {Object} changes[].values Model field names (dotted for nested fields) and their values
@@ -1806,18 +1911,12 @@ class Store extends Collection {
         let me          = this,
             keyProperty = me.getKeyProperty(),
             model       = me.model,
-            population  = me.allItems || me,
             errors      = [],
             missing     = [],
             rows        = new Map();
 
         for (const {key, values} of changes) {
-            let item = population.map.get(key),
-                canonical, row, rowKey;
-
-            if (item === undefined && (canonical = me.getCanonicalKey(key)) !== undefined && canonical !== key) {
-                item = population.map.get(canonical)
-            }
+            let item = me.getRow(key), row, rowKey;
 
             if (item === undefined) {
                 missing.push(key);
@@ -1831,7 +1930,7 @@ class Store extends Collection {
             for (const name in values) {
                 const field = model.getField(name);
 
-                if (!field || field.calculate || name === keyProperty) {
+                if (!me.#isWritableRowField(name, field, keyProperty)) {
                     throw new TypeError(`Expected a declared, non-key, non-calculated field: ${name}`)
                 }
             }
@@ -1843,16 +1942,26 @@ class Store extends Collection {
         }
 
         if (rows.size) {
-            rows   = [...rows.values()];
-            errors = me.writeRows(rows);
+            let fields;
 
-            // every field the batch wrote, and the calculated ones, which may read them
-            const fields = [...new Set([...rows.flatMap(({values}) => Object.keys(values)), ...model.calculatedFieldsMap.keys()])];
+            rows = [...rows.values()];
+            me.#rowBatchDepth++;
 
-            me.#reapply(
-                rows.some(({item}) => me.shouldReapplyFilters(item)),
-                rows.some(({item}) => me.shouldReapplySorters({fields: fields.map(name => ({name})), model, record: item}))
-            );
+            try {
+                errors = me.writeRows(rows);
+
+                // every field written, also to the rows writeRows() added, and the calculated ones, which may read them
+                fields = [...new Set([...rows.flatMap(({values}) => Object.keys(values)), ...model.calculatedFieldsMap.keys()])];
+
+                const changed = fields.map(name => ({name}));
+
+                me.#reapply(
+                    me.shouldReapplyFilters(null, changed),
+                    rows.some(({item}) => me.shouldReapplySorters({fields: changed, model, record: item}))
+                )
+            } finally {
+                me.#rowBatchDepth--
+            }
 
             me.fire('rowsChange', {fields, keys: rows.map(row => row.key)})
         }
@@ -1864,7 +1973,10 @@ class Store extends Collection {
      * @summary Writes the rows of an {@link #updateRows} batch. The records adopt their values through one
      * {@link Neo.data.RecordFactory#applyPreparedFields} call, whose seal writes the raw rows in place: a record that
      * refuses its values leaves every row as it was.
-     * A subclass keeps its derived state in step by reading each row before `super.writeRows()` and after it.
+     * A subclass keeps its derived state in step by reading each row before `super.writeRows()` and after it. A row it
+     * rewrites besides them, such as a group that sums them, it appends to `rows` as `{item, key, values}` once
+     * `super.writeRows()` returned: the batch's `rowsChange` then reports it after them, and the batch's filters and
+     * sorters check its fields too.
      * @param {Object[]} rows One per row: `{item, key, values}`, the item being the raw row or the record
      * @returns {Error[]} The errors subscribers threw while the records published
      * @protected
@@ -2245,8 +2357,9 @@ class Store extends Collection {
  * and opted-in filters and sorters reapplied. A raw row publishes nothing else; each record of the batch published
  * `recordChange` with `isBatch: true` before it.
  * @event rowsChange
- * @param {String[]} fields The fields the batch wrote, and the model's calculated fields, which may read them
- * @param {Array}    keys   The changed rows' keys, in batch order
+ * @param {String[]} fields The fields the batch wrote, also to the rows a subclass added
+ * ({@link Neo.data.Store#writeRows}), and the model's calculated fields, which may read them
+ * @param {Array}    keys   The changed rows' keys, in batch order, then those of the rows a subclass added
  */
 
 export default Neo.setupClass(Store);

@@ -369,7 +369,7 @@ jobs:
               file.startsWith('learn/');
 
             // Whitelist: the components suite mounts real components in a browser against
-            // the webpack dev server — engine (src/), live-compiled theme SCSS, the component
+            // the dev server — engine (src/), the theme sources it builds, the component
             // specs + their harness apps, the config chain, dep manifests, or this workflow.
             // Same completeness rule as integration: a missed path silently skips the suite
             // (#15368 — this suite ran in NO workflow at all until it was wired here).
@@ -380,7 +380,7 @@ jobs:
             // invisible to the suites it decides for.
             const isComponentsRelevantPath = file =>
               file.startsWith('src/') ||
-              file.startsWith('resources/scss/') ||
+              file.startsWith('resources/css/') ||
               file.startsWith('test/playwright/component/') ||
               file === 'test/playwright/playwright.config.component.mjs' ||
               (file === 'package.json' && packageJsonDependencyChange) ||
@@ -402,8 +402,8 @@ jobs:
             //
             //   src/                  the engine under test
             //   examples/, apps/      navigated by the grid, colors, dock and workstation specs
-            //   resources/scss/       compiled to the theme the paint and geometry arms measure
-            //   buildScripts/         the theme assets, the webpack server `server-start` runs,
+            //   resources/css/        built into the theme the paint and geometry arms measure
+            //   buildScripts/         the theme assets, the file server `server-start` runs,
             //                         and `e2eCiSelection.mjs`, which DECIDES the spec population
             //   test/playwright/      the config, the fixtures, the helpers they import, the specs
             //
@@ -428,13 +428,14 @@ jobs:
             //                                          executed by SourceMoveWorkspaceNL
             //
             // A unit arm reds when either premise stops holding. A false positive is not cheap either:
-            // one starts the engine tier's fourteen shards on a twenty-job cap.
+            // one starts the engine tier's fifteen shards on a twenty-job cap.
             const isPortalBlogRegistry      = file => file === 'apps/portal/resources/data/blog.json';
             const isPortalServerOnlySeoData = file =>
               file === 'apps/portal/resources/data/seo.json' ||
               file === 'apps/portal/resources/data/ssg-archive-routes.json';
             const isOutsideE2eLaunchChain   = file =>
-              /^buildScripts\/(create|helpers|release)\//.test(file) && file !== 'buildScripts/create/move.mjs';
+              file === 'buildScripts/util/claimResponse.mjs' || // contributor workflows and their unit tests
+              (/^buildScripts\/(create|helpers|release)\//.test(file) && file !== 'buildScripts/create/move.mjs');
 
             const isE2eTestSupportPath = file =>
               file.startsWith('test/playwright/component/apps/') || (
@@ -447,7 +448,7 @@ jobs:
               file.startsWith('src/') ||
               file.startsWith('examples/') ||
               (file.startsWith('apps/') && !isPortalBlogRegistry(file) && !isPortalServerOnlySeoData(file)) ||
-              file.startsWith('resources/scss/') ||
+              file.startsWith('resources/css/') ||
               (file.startsWith('buildScripts/') && !isOutsideE2eLaunchChain(file)) ||
               isE2eTestSupportPath(file) ||
               (file === 'package.json' && (packageJsonDependencyChange || packageJsonE2eScriptChange)) ||

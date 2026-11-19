@@ -79,12 +79,15 @@ class NeoExecutor extends Base {
      * 4.  **Namespace Cleaning**: It actively deletes the target class from the `Neo` namespace before execution. This is critical
      *     for **Hot Module Replacement (HMR)** workflows, ensuring that re-running the code actually updates the class definition
      *     instead of using a cached version.
+     * 5.  **Superseded Runs**: The container keeps its previous result until the imports resolve. A run that `current` no longer
+     *     names by then leaves the container alone, so quick edits never stack two results.
      * @param {Object} data
      * @param {String} data.code
      * @param {Neo.container.Base} data.container
-     * @returns {Promise<Object>}
+     * @param {Function} [data.current] Returns false once a newer run, a mode change or a teardown supersedes this one
+     * @returns {Promise<Object>} Settles once the run has rendered its result or stood down
      */
-    async execute({code, container}) {
+    async execute({code, container, current = () => true}) {
         let me                = this,
             {environment}     = Neo.config,
             source            = code,
@@ -159,14 +162,17 @@ class NeoExecutor extends Base {
             return `import('${item.path}')`
         });
 
+        // Only a run that is still current replaces the result: destroy, silent => the removal merges into the add's cycle
         codeString = [
-            'Promise.all([',
+            'return Promise.all([',
             `    ${promises.join(',\n')}`,
             `]).then(([${params.join(', ')}]) => {`,
+            '    if (!current()) return;',
             `${vars.join('\n')}`,
             `    ${cleanLines.join('\n')}`,
             '',
             `    module = module || Neo.ns('${className}');`,
+            '    container.removeAll(true, true);',
             '',
             `    if (module && (`,
             `        Neo.component.Base.isPrototypeOf(module) ||`,
@@ -176,13 +182,12 @@ class NeoExecutor extends Base {
             '    }',
             '})',
             '.catch(error => {',
+            '    if (!current()) return;',
             '    console.warn("LivePreview Error:", error);',
+            '    container.removeAll(true, true);',
             '    container.add({ntype:\'component\', html:error.message});',
             '})'
         ].join('\n');
-
-        // destroy, silent => merge changes into one update cycle
-        container.removeAll(true, true);
 
         // We must ensure that classes inside the editor won't get cached, since this disables run-time changes
         // See: https://github.com/neomjs/neo/issues/5863
@@ -197,8 +202,10 @@ class NeoExecutor extends Base {
         });
 
         try {
-            new Function('container', 'module', codeString)(container, module);
+            await new Function('container', 'module', 'current', codeString)(container, module, current)
         } catch (error) {
+            container.removeAll(true, true);
+
             container.add({
                 ntype: 'component',
                 html : error.message

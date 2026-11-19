@@ -1,0 +1,9 @@
+/* A card is a picture: its surface stays dark and its text light in the light theme too. */
+:where(.neo-theme-neo-light) {
+    --portal-examples-list-edge          : color-mix(in srgb, var(--sem-color-text-neutral-default) 12%, transparent);
+    --portal-examples-list-gradient-start: color-mix(in srgb, var(--portal-headline-primary) 25%, var(--portal-bg-main));
+    --portal-examples-list-gradient-end  : color-mix(in srgb, var(--portal-bg-main) 90%, var(--portal-headline-primary));
+    --portal-examples-list-link-hover    : var(--portal-headline-primary);
+    --portal-examples-list-surface       : var(--sem-color-bg-neutral-contrast);
+    --portal-examples-list-text          : var(--gray-50);
+}

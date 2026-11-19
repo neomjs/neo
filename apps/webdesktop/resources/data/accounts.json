@@ -1,0 +1,6 @@
+[
+    {"id": "alex",   "name": "Alex Morgan", "role": "Administrator", "color": "#6366f1", "permissions": ["view-mail", "view-messages", "view-calendar", "view-photos", "view-music", "view-documents", "view-recycle-bin", "view-settings", "view-reports", "view-help"]},
+    {"id": "sam",    "name": "Sam Rivera",  "role": "Editor",        "color": "#0ea5e9", "permissions": ["view-mail", "view-calendar", "view-photos", "view-documents", "view-help"]},
+    {"id": "robin",  "name": "Robin Chen",  "role": "Guest",         "color": "#14b8a6", "permissions": ["view-help"]},
+    {"id": "taylor", "name": "Taylor Reed", "role": "Suspended",     "color": "#f43f5e", "permissions": []}
+]

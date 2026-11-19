@@ -59,6 +59,9 @@
 !/apps/shareddialog/neo-config.json
 !/apps/shareddialog/childapps/shareddialog2/index.html
 !/apps/shareddialog/childapps/shareddialog2/neo-config.json
+!/apps/webdesktop/index.html
+!/apps/webdesktop/**/*.mjs
+!/apps/webdesktop/neo-config.json
 !/apps/workstation/index.html
 !/apps/workstation/**/*.mjs
 !/apps/workstation/neo-config.json
@@ -159,6 +162,7 @@ resources/content/
 # Keep the Engine-owned contributor guards and Kimi hook-root README visible.
 .claude/hooks/*
 !.claude/hooks/bodyFileGuardHook.mjs
+!.claude/hooks/gitCommitPushGuardHook.mjs
 !.claude/hooks/helperCallGuardHook.mjs
 !.claude/hooks/redirectionGuardHook.mjs
 !.claude/hooks/rgReplaceGuardHook.mjs

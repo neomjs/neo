@@ -112,14 +112,6 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
-     * A debugging helper method to log the instance of the splitter component to the console.
-     * This can be wired up to a button in the configuration panel for easy inspection.
-     */
-    logInstance() {
-        console.log(this.exampleComponent.down({module: Splitter}))
-    }
-
-    /**
      * Switches between the proxy-first compatibility path and direct live sibling resizing.
      * @param {Object} data
      * @param {Boolean} data.value

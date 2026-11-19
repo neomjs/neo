@@ -149,11 +149,11 @@ if (programOpts.info) {
     childProcess.status && process.exit(childProcess.status);
 
 
-    //create scss stubs only if it is a NEO component or a view component
+    //create css stubs only if it is a NEO component or a view component
     const resultView = ns.filter(f => f === 'view');
     if (rootLowerCase === 'neo' || resultView.length > 0) {
         let childProcess = spawnSync('node', [
-            './buildScripts/create/scss.mjs',
+            './buildScripts/create/css.mjs',
             '-c',
             className,
             '-b',
@@ -192,10 +192,8 @@ if (programOpts.info) {
         let componentPath = `/examples/${temp.join('/')}`;
         componentPath     = componentPath.toLowerCase();
 
-        let startServer = spawnSync('webpack', [
-            'serve',
-            '-c',
-            './buildScripts/webpack/webpack.server.config.mjs',
+        let startServer = spawnSync(process.execPath, [
+            path.join(__dirname, 'util/fileServer.mjs'),
             '--open',
             componentPath
         ], {env: process.env, cwd: process.cwd(), stdio: 'inherit'});

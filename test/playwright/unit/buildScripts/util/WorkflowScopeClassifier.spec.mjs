@@ -944,12 +944,12 @@ test.describe('Tests scope classifier — the e2e engine tier predicate', () => 
         // They are the reason the boundary is now stated as rules over the job's launch chain: each
         // one is consumed by the run, and none of them is a spec, an engine file or a nav target —
         // the three shapes a location list notices.
-        {file: 'resources/scss/src/dashboard/Container.scss',        why: 'compiles to the theme the dock paint and geometry arms measure'},
+        {file: 'resources/css/src/dashboard/Container.css',          why: 'builds into the theme the dock paint and geometry arms measure'},
         {file: 'test/playwright/externalBrainSelection.mjs',         why: 'imported by playwright.config.e2e.mjs — it decides the ignored population'},
         {file: 'test/playwright/resolveFreePort.mjs',                why: 'imported by playwright.config.e2e.mjs — it picks the server port'},
         {file: 'test/playwright/util/RmaHelpers.mjs',                why: 'imported by the shared fixtures every spec builds on'},
         {file: 'test/playwright/e2e/globalSetup.mjs',                why: 'the first half of the tier\'s own webServer.command'},
-        {file: 'buildScripts/webpack/webpack.server.config.mjs',     why: 'the server `server-start` launches for the tier to drive'},
+        {file: 'buildScripts/util/fileServer.mjs',                   why: 'the server `server-start` launches for the tier to drive'},
         {file: 'buildScripts/util/developmentThemeAssets.mjs',       why: 'builds the theme assets the run serves'},
         // Runtime reach, which no import scan sees: the Portal Videos store fetches videos.json on
         // #/news/videos (VideosNL.spec.mjs), and a Docs spec's browser setup executes the docs generator
@@ -1029,6 +1029,37 @@ test.describe('Tests scope classifier — the e2e engine tier predicate', () => 
             await executeScript(scopeScript(), runtime);
             expect(outputsOf(runtime), file).toMatchObject({ run_e2e: 'true' });
         }
+    });
+
+    test('a contributor claim change runs units; a mixed change still runs browser tests', async () => {
+        const claimHelper = 'buildScripts/util/claimResponse.mjs',
+              files       = ['.github/workflows/claim-responder.yml', 'CONTRIBUTING.md', claimHelper,
+                  'test/playwright/unit/buildScripts/util/claimResponse.spec.mjs'],
+              claimOnly   = createRuntime({files});
+
+        await executeScript(scopeScript(), claimOnly);
+        expect(outputsOf(claimOnly)).toMatchObject({run_unit: 'true', run_e2e: 'false'});
+        expect(outputsOf(claimOnly).e2e_boundary_report).toContain(`${claimHelper}: out (buildScripts outside the e2e launch chain)`);
+
+        for (const extra of ['src/grid/View.mjs', 'test/playwright/e2e/grid/New.spec.mjs', 'buildScripts/util/newHelper.mjs']) {
+            const mixed = createRuntime({files: [...files, extra]});
+            await executeScript(scopeScript(), mixed);
+            expect(outputsOf(mixed), extra).toMatchObject({run_unit: 'true', run_e2e: 'true'});
+        }
+    });
+
+    test('a new reader of the claim, standing or guidance helper requires a browser reachability check', () => {
+        // Standing and guidance import claim rules; all three are read only by contributor workflows and unit tests.
+        // Include guidance in the search so a future browser consumer of it reopens this boundary too.
+        const readers = execFileSync('git', ['grep', '--untracked', '-Il', '-E', 'claimResponse|contributorStanding|claimGuidance', '--',
+            '*.mjs', '*.cjs', '*.js', '*.ts', '*.html', 'package.json', '*.sh', '.github/actions', '.github/workflows/test-e2e.yml',
+            ':!test/playwright/unit'], {cwd: repoRoot, encoding: 'utf8'}).trim().split('\n');
+
+        expect(readers).toContain('buildScripts/util/contributorStanding.mjs');
+        expect(readers).toContain('buildScripts/util/claimGuidance.mjs');
+        expect(readers.filter(file => !['buildScripts/util/claimResponse.mjs', 'buildScripts/util/contributorStanding.mjs',
+            'buildScripts/util/claimGuidance.mjs'].includes(file)),
+            'check the new reader against the Engine browser launch chain').toEqual([]);
     });
 
     test('the exclusions hold only while no e2e code reaches what they exclude', () => {
@@ -1127,7 +1158,7 @@ test.describe('Tests scope classifier — the e2e engine tier predicate', () => 
         // Absent at base, present at head: the tier's own webServer command line changing.
         const invoked = createRuntime({
             files  : ['package.json'],
-            headPkg: { dependencies: { leftpad: '1.0.0' }, scripts: { 'build:all': 'a', 'server-start': 'webpack serve --port 9000' } }
+            headPkg: { dependencies: { leftpad: '1.0.0' }, scripts: { 'build:all': 'a', 'server-start': 'node ./buildScripts/util/fileServer.mjs --port 9000' } }
         });
 
         await executeScript(scopeScript(), invoked);

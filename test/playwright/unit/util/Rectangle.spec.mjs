@@ -23,6 +23,31 @@ test.describe('Rectangle', () => {
         expect(new Rectangle(0, 0, 100, 100).contains(new Rectangle(10, -10, 80, 80))).toBe(false);
     });
 
+    test.describe('gapBetween — the gap from a target to a subject aligned beside it, relative to the subject', () => {
+        const target = {height: 30, width: 80, x: 100, y: 100};
+
+        test('below or above the target, it spans the gap across both boxes', () => {
+            expect(Rectangle.gapBetween(target, {height: 24, width: 120, x: 90, y: 140}), 'below, a 10px gap')
+                .toEqual({height: 10, left: 0, top: -10, width: 120});
+            expect(Rectangle.gapBetween(target, {height: 24, width: 60, x: 130, y: 152}), 'below, offset by 12px and narrower')
+                .toEqual({height: 22, left: -30, top: -22, width: 90});
+            expect(Rectangle.gapBetween(target, {height: 24, width: 120, x: 90, y: 66}), 'above')
+                .toEqual({height: 10, left: 0, top: 24, width: 120})
+        });
+
+        test('beside the target, it spans the gap along both boxes', () => {
+            expect(Rectangle.gapBetween(target, {height: 24, width: 60, x: 190, y: 103}), 'to the right')
+                .toEqual({height: 30, left: -10, top: -3, width: 10});
+            expect(Rectangle.gapBetween(target, {height: 24, width: 60, x: 30, y: 103}), 'to the left')
+                .toEqual({height: 30, left: 60, top: -3, width: 10})
+        });
+
+        test('touching or overlapping boxes have no gap', () => {
+            expect(Rectangle.gapBetween(target, {height: 24, width: 120, x: 90, y: 130})).toBe(null);
+            expect(Rectangle.gapBetween(target, {height: 24, width: 120, x: 90, y: 110})).toBe(null)
+        })
+    });
+
     test.describe('intersects', () => {
         const rect = new Rectangle(0, 0, 100, 100);
 
@@ -412,6 +437,40 @@ test.describe('Rectangle', () => {
                 edgeAlign   : 'r100-l100'
             });
             expect(result.equals(new Rectangle(50, 140, 50, 50))).toBe(true);
+        });
+
+        test('an oversized subject uses the largest available placement and keeps the requested side on a tie', () => {
+            const bounds  = new Rectangle(10, 20, 500, 300),
+                  target  = new Rectangle(210, 150, 100, 40),
+                  subject = new Rectangle(0, 0, 600, 700);
+
+            // The two horizontal strips each offer 500 × 130, the other sides 200 × 300.
+            const result = subject.alignTo({target, constrainTo: bounds, edgeAlign: 't0-b0'});
+            expect(result.toJSON()).toMatchObject({x: 10, y: 190, width: 500, height: 130});
+            expect([result.zone, result.position]).toEqual([2, 'bottom']);
+
+            const above = subject.alignTo({target: new Rectangle(210, 280, 100, 20), constrainTo: bounds,
+                edgeAlign: 't0-b0', targetMargin: 5, offset: [2, 3]});
+            expect(above.toJSON()).toMatchObject({x: 12, y: 23, width: 500, height: 255});
+            expect(above.position).toBe('top');
+            expect(subject.toJSON()).toMatchObject({x: 0, y: 0, width: 600, height: 700})
+        });
+
+        test('a rejected preferred side does not replace a natural fit elsewhere with a smaller rectangle', () => {
+            const result = new Rectangle(0, 0, 140, 210).alignTo({
+                target   : new Rectangle(270, 230, 30, 30), constrainTo: new Rectangle(0, 0, 300, 270),
+                edgeAlign: 't0-b0', axisLock: true
+            });
+            expect(result.toJSON()).toMatchObject({x: 160, y: 20, width: 140, height: 210});
+            expect(result.position).toBe('top')
+        });
+
+        test('an explicit minimum that is larger than the viewport keeps its size and a reachable leading edge', () => {
+            const subject = new Rectangle(0, 0, 400, 500);
+            subject.minWidth = 400;
+            const result = subject.alignTo({target: new Rectangle(220, 220, 20, 20),
+                constrainTo: new Rectangle(10, 20, 240, 250), edgeAlign: 't0-b0'});
+            expect(result.toJSON()).toMatchObject({x: 10, y: 20, width: 400, height: 250});
         });
 
         test.describe('constrained, edgeAlign : "t-b"', () => {

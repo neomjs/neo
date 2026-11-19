@@ -783,6 +783,52 @@ class TreeStore extends Store {
     }
 
     /**
+     * @summary Whether the store holds a node, a collapsed or filtered-out one included.
+     * @returns {Boolean}
+     * @protected
+     */
+    holdsRecords() {
+        return this.#allRecordsMap.size > 0
+    }
+
+    /**
+     * @summary Tells whether the active filters keep a node, expansion aside.
+     *
+     * Filtering is ancestor-aware (see {@link #filter}): a node is kept when it matches, when an ancestor
+     * matched, or when a descendant matched. Without an active filter every node is kept. A
+     * level-at-a-time consumer pairs this with {@link #getChildren}, which reads the Structural Layer and
+     * therefore returns filtered-out children too.
+     * @param {Number|String|Object|Neo.data.Record} nodeOrKey A record, a raw node, or its key
+     * @returns {Boolean}
+     */
+    isKept(nodeOrKey) {
+        let me           = this,
+            {_keptNodes} = me,
+            key;
+
+        if (!_keptNodes) {
+            return true
+        }
+
+        key = me.isItem(nodeOrKey) ? me.getKey(nodeOrKey) : nodeOrKey;
+
+        return _keptNodes.has(key) || _keptNodes.has(me.getCanonicalKey(key))
+    }
+
+    /**
+     * @summary Answers from the Structural Layer too, so a row under a collapsed parent or one the filters hide is held.
+     * The visible projection answers first, as in {@link #get}: after a re-add it can hold a node apart from its
+     * Structural Layer entry, and a batch writes the row `get()` hydrates.
+     * @param {Number|String} key
+     * @returns {Object|Neo.data.Record|undefined}
+     * @protected
+     */
+    getRow(key) {
+        const me = this;
+        return super.getRow(key) ?? me.#allRecordsMap.get(me.#allRecordsMap.has(key) ? key : me.getCanonicalKey(key))
+    }
+
+    /**
      * @summary Refuses flat value counts; tree visibility is not a complete local facet population.
      * @returns {Object}
      */
@@ -1034,7 +1080,8 @@ class TreeStore extends Store {
      * - **Removals:** When a node is removed, this method recursively identifies and deletes all of its
      *   deep descendants from the Structural Layer, preventing memory leaks and ghost nodes.
      * - **Additions/Moves:** When nodes are added (or moved to a new parent via Drag & Drop), they are
-     *   ingested into the Structural Layer.
+     *   ingested into the Structural Layer. The whole batch is ingested before any visible subtree is
+     *   collected, so a node and the descendants that follow it in the same call project together.
      * - **ARIA Synchronization:** After any mutation, the O(N) `updateSiblingStats` is called on affected
      *   parents to recalculate `siblingCount` and `siblingIndex`. This trade-off guarantees O(1) reads
      *   during the `grid.Row` hot-path rendering.
@@ -1114,8 +1161,9 @@ class TreeStore extends Store {
             pendingVisibleNodes = [];
 
         if (toAddArray) {
-            let items    = Array.isArray(toAddArray) ? toAddArray : [toAddArray],
-                newRoots = [];
+            let items         = Array.isArray(toAddArray) ? toAddArray : [toAddArray],
+                attachedRoots = [],
+                newRoots      = [];
 
             if (items.length > 0) {
                 // 2a. Ingest nodes into the Structural Layer maps
@@ -1125,7 +1173,7 @@ class TreeStore extends Store {
                     let existing         = me.#allRecordsMap.get(key),
                         oldParent        = existing ? (existing.parentId || 'root') : null,
                         oldCollapsed     = existing ? existing.collapsed : null,
-                        wasVisible       = Boolean(existing && me.map.has(key)),
+                        wasVisible       = Boolean(existing && me.map?.has(key)),
                         oldVisible       = wasVisible ? me.map.get(key) : null,
                         isHydratedUpdate = Boolean(existing && data !== existing && RecordFactory.isRecord(existing) && !RecordFactory.isRecord(data));
 
@@ -1140,35 +1188,14 @@ class TreeStore extends Store {
                     }
 
                     if (isHydratedUpdate) {
-                        const updateFields = {...data};
-
-                        if (updateFields.parentId === undefined && existing.parentId !== undefined) {
-                            delete updateFields.parentId
+                        const updateFields = {};
+                        for (const [k, v] of Object.entries(data)) {
+                            if (v !== undefined) updateFields[k] = v
                         }
-
-                        if (updateFields.depth === undefined) {
-                            if (parentId !== oldParent || existing.depth === undefined) {
-                                if (parentId === 'root') {
-                                    updateFields.depth = 0
-                                } else {
-                                    let parentNode = me.#allRecordsMap.get(parentId);
-                                    updateFields.depth = parentNode && parentNode.depth !== undefined ? parentNode.depth + 1 : 1
-                                }
-                            }
+                        if (updateFields.depth === undefined && (parentId !== oldParent || existing.depth === undefined)) {
+                            let parentNode = parentId === 'root' ? null : me.#allRecordsMap.get(parentId);
+                            updateFields.depth = parentId === 'root' ? 0 : (parentNode?.depth !== undefined ? parentNode.depth + 1 : 1)
                         }
-
-                        if (updateFields.isLeaf === undefined) {
-                            delete updateFields.isLeaf
-                        }
-
-                        if (updateFields.childCount === undefined) {
-                            delete updateFields.childCount
-                        }
-
-                        if (updateFields.collapsed === undefined) {
-                            delete updateFields.collapsed
-                        }
-
                         existing.setSilent(updateFields);
                         data = existing;
                         hydratedUpdates.push(existing);
@@ -1259,49 +1286,41 @@ class TreeStore extends Store {
                     }
 
                     // Reconcile Projection Layer visibility for replacements, moves, and new nodes
+                    const queueVisibleSubtreeRemoval = (root, startIdx) => {
+                        let descendants = [];
+                        me.collectAllDescendants(root, descendants);
+                        for (let j = startIdx, dLen = descendants.length; j < dLen; j++) {
+                            let descKey = me.getKey(descendants[j]);
+                            if (me.map?.has(descKey)) visibleToRemove.push(me.map.get(descKey))
+                        }
+                    };
+
                     if (wasVisible && parentId === oldParent) {
-                        if (oldVisible !== data) {
-                            visibleReplacements.push({key, newItem: data, oldItem: oldVisible})
-                        }
-
-                        if (oldCollapsed === false && data.collapsed === true) {
-                            let descendants = [];
-                            me.collectAllDescendants(data, descendants);
-
-                            for (let j = 1, dLen = descendants.length; j < dLen; j++) {
-                                let descKey = me.getKey(descendants[j]);
-                                if (me.map.has(descKey)) {
-                                    visibleToRemove.push(me.map.get(descKey))
-                                }
-                            }
-                        } else if (oldCollapsed !== false && data.collapsed === false) {
-                            expandedParents.push(data)
-                        }
+                        if (oldVisible !== data) visibleReplacements.push({key, newItem: data, oldItem: oldVisible});
+                        if (oldCollapsed === false && data.collapsed === true) queueVisibleSubtreeRemoval(data, 1);
+                        else if (oldCollapsed !== false && data.collapsed === false) expandedParents.push(data)
                     } else {
-                        if (wasVisible) {
-                            let descendants = [];
-                            me.collectAllDescendants(existing, descendants);
-
-                            for (let j = 0, dLen = descendants.length; j < dLen; j++) {
-                                let descKey = me.getKey(descendants[j]);
-                                if (me.map.has(descKey)) {
-                                    visibleToRemove.push(me.map.get(descKey))
-                                }
-                            }
-                        }
+                        if (wasVisible) queueVisibleSubtreeRemoval(existing, 0);
 
                         if (parentId === 'root') {
                             newRoots.push(data)
                         } else {
                             let parentNode = me.#allRecordsMap.get(parentId);
-                            if (parentNode && parentNode.collapsed === false && me.map.has(parentId)) {
-                                pendingVisibleNodes.push(data)
+                            // Visible means projected; a store that is still processing its configs has no projection yet
+                            if (parentNode && parentNode.collapsed === false && me.map?.has(parentId)) {
+                                // Collected after this loop: later items of the batch can still be its descendants
+                                attachedRoots.push(data)
                             }
                         }
                     }
                 }
 
-                // 2b. Queue new roots after all batch items are ingested into #childrenMap
+                // 2b. Queue subtrees attached under projected parents, then new roots,
+                // once the structural maps hold the whole batch
+                for (i = 0, len = attachedRoots.length; i < len; i++) {
+                    pendingVisibleNodes.push(attachedRoots[i])
+                }
+
                 for (i = 0, len = newRoots.length; i < len; i++) {
                     pendingVisibleNodes.push(newRoots[i])
                 }
@@ -1362,7 +1381,7 @@ class TreeStore extends Store {
         // Fast path: full clear/reload or bulk load into an empty projection delegates directly to super.splice.
         const isFullClear = index === 0 && removeCountOrToRemoveArray === me.count;
 
-        if (isFullClear || (me._items.length === 0 && visibleReplacements.length === 0 && visibleToRemove.length === 0 && expandedParents.length === 0 && hydratedUpdates.length === 0)) {
+        if (isFullClear || (!me._items?.length && visibleReplacements.length === 0 && visibleToRemove.length === 0 && expandedParents.length === 0 && hydratedUpdates.length === 0)) {
             for (i = 0, len = pendingVisibleNodes.length; i < len; i++) {
                 node = pendingVisibleNodes[i];
                 if (me.#allRecordsMap.get(me.getKey(node)) === node) {

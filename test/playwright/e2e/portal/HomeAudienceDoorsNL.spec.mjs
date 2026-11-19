@@ -22,16 +22,12 @@ async function queryOne(app, selector, properties = ['id', 'className', 'mounted
 }
 
 /**
- * Smoothly scrolls the Home container to a referenced part and waits until scroll motion settles.
+ * Waits until a smooth scroll on the Home container settles at a stage whose top aligns with the scroller.
  * @param {import('@playwright/test').Page} page
- * @param {Object} app
  * @param {String} homeId
- * @param {String} reference
  * @param {String} targetId
  */
-async function scrollHomeToReference(page, app, homeId, reference, targetId) {
-    await app.callMethod(homeId, 'scrollToPart', [reference]);
-
+async function waitForStageTop(page, homeId, targetId) {
     await expect.poll(async () => {
         return page.evaluate(({scrollerId, partId}) => {
             const scroller = document.getElementById(scrollerId);
@@ -50,6 +46,65 @@ async function scrollHomeToReference(page, app, homeId, reference, targetId) {
 }
 
 /**
+ * Waits until scroll motion on the Home container has settled across two samples.
+ * @param {import('@playwright/test').Page} page
+ * @param {String} homeId
+ */
+async function waitForScrollSettled(page, homeId) {
+    let previousTop = null;
+
+    await expect.poll(async () => {
+        const currentTop = await page.locator(`#${homeId}`).evaluate(el => Math.round(el.scrollTop));
+        const settled    = previousTop !== null && currentTop === previousTop;
+
+        previousTop = currentTop;
+        return settled
+    }, {intervals: [100, 100, 150], timeout: 10000}).toBe(true)
+}
+
+/**
+ * Waits until Portal Home's dynamically injected theme/part stylesheets and web fonts have settled
+ * so smooth scrollIntoView targets post-swap Hero geometry rather than fallback font line-wrapping.
+ * @param {import('@playwright/test').Page} page
+ */
+async function waitForHomeStylesAndFonts(page) {
+    await expect.poll(async () => {
+        return page.evaluate(() => {
+            const heroCopy  = document.querySelector('.portal-home-hero-content .neo-h3');
+            const heroTitle = document.querySelector('.portal-home-hero-content .neo-h1');
+            const doors     = document.querySelector('.portal-home-parts-audiencedoors');
+
+            if (!heroCopy || !heroTitle || !doors) {
+                return false
+            }
+
+            if (!getComputedStyle(heroCopy).fontFamily.includes('Source Sans 3')) {
+                return false
+            }
+
+            const links = [...document.querySelectorAll('link[rel="stylesheet"]')];
+            return links.length > 0 && links.every(link => Boolean(link.sheet))
+        })
+    }, {timeout: 10000}).toBe(true);
+
+    await page.evaluate(() => document.fonts.ready)
+}
+
+/**
+ * Smoothly scrolls the Home container to a referenced part and waits until scroll motion settles.
+ * @param {import('@playwright/test').Page} page
+ * @param {Object} app
+ * @param {String} homeId
+ * @param {String} reference
+ * @param {String} targetId
+ */
+async function scrollHomeToReference(page, app, homeId, reference, targetId) {
+    await waitForHomeStylesAndFonts(page);
+    await app.callMethod(homeId, 'scrollToPart', [reference]);
+    await waitForStageTop(page, homeId, targetId)
+}
+
+/**
  * @summary Whitebox Neural Link verification for the Portal Home AudienceDoors stage,
  * reference-based scroll routing, proof destinations, and responsive viewport geometry.
  */
@@ -61,16 +116,20 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
         const app = await neuralLink.connectToApp('Portal');
         await expect(page.locator('.portal-home-parts-audiencedoors').getByRole('heading', {level: 2})).toHaveText('Who Neo.mjs Is For');
 
+        const header    = await queryOne(app, {className: 'Portal.view.HeaderToolbar'});
         const home      = await queryOne(app, {className: 'Portal.view.home.MainContainer'});
         const hero      = await queryOne(app, {className: 'Portal.view.home.parts.hero.Content'});
         const doors     = await queryOne(app, {reference: 'home-audience-doors'});
         const bodyEntry = await queryOne(app, {reference: 'home-body-entry'});
+        const planning  = await queryOne(app, {className: 'Portal.view.home.parts.Planning'});
         const agentOs   = await queryOne(app, {reference: 'home-agent-os'});
 
+        expect(header?.id).toBeTruthy();
         expect(home?.id).toBeTruthy();
         expect(hero?.id).toBeTruthy();
+        expect(planning?.id).toBeTruthy();
         expect(doors?.className).toBe('Portal.view.home.parts.AudienceDoors');
-        expect(bodyEntry?.className).toBe('Portal.view.home.parts.Colors');
+        expect(bodyEntry?.className).toBe('Portal.view.home.parts.Planning');
         expect(agentOs?.className).toBe('Portal.view.home.parts.AiToolchain');
 
         const doorBuild     = await queryOne(app, {reference: 'door-build'});
@@ -130,8 +189,10 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
         await expect(agentsCtaEl).toHaveAttribute('href', `#${agentOs.id}`);
         expect(await buildCtaEl.getAttribute('target')).toBeNull();
         expect(await agentsCtaEl.getAttribute('target')).toBeNull();
-        await expect(page.locator(`#${bodyEntry.id}`)).toHaveClass(/portal-home-parts-colors/);
+        await expect(page.locator(`#${bodyEntry.id}`)).toHaveClass(/portal-home-parts-planning/);
         await expect(page.locator(`#${agentOs.id}`)).toHaveClass(/portal-home-parts-aitoolchain/);
+
+        const initialHeaderHeight = await page.locator(`#${header.id}`).evaluate(el => el.getBoundingClientRect().height);
 
         // Scroll AudienceDoors into view and click Door 1 CTA -> Body entry stage while keeping #/home hash
         await scrollHomeToReference(page, app, home.id, 'home-audience-doors', doors.id);
@@ -143,14 +204,38 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
             return page.locator(`#${home.id}`).evaluate(el => el.scrollTop)
         }, {timeout: 10000}).toBeGreaterThan(doorsScrollTop + 200);
         await expect(page.locator(`#${bodyEntry.id}`)).toBeInViewport();
+        await waitForScrollSettled(page, home.id);
         await expect(page).toHaveURL(/#\/home$/);
 
         // Return to AudienceDoors and click Door 2 CTA -> Agent OS Brain stage while keeping #/home hash
         await scrollHomeToReference(page, app, home.id, 'home-audience-doors', doors.id);
         await agentsCtaEl.click();
         await expect(page.locator(`#${agentOs.id}`)).toBeInViewport({timeout: 10000});
+        await waitForScrollSettled(page, home.id);
         await expect(page.locator(`#${agentOs.id}`).getByRole('heading', {name: 'The Agent OS Brain'})).toBeVisible();
         await expect(page).toHaveURL(/#\/home$/);
+
+        // Embedded Viewport previews inside LivePreview must keep their theme scoped instead of hijacking document.body.
+        // The home's own snippets mount no themed Viewport, so this witness hands one to a preview in tab mode.
+        const previewId = await page.locator(`#${planning.id} .neo-code-live-preview`).getAttribute('id');
+        expect(previewId).toBeTruthy();
+        await app.setProperties(previewId, {activeView: 'source'});
+        await app.setProperties(previewId, {value: [
+            "import Viewport from '../container/Viewport.mjs';",
+            "",
+            "class MainView extends Viewport {",
+            "    static config = {",
+            "        className: 'Portal.view.ThemedPreview',",
+            "        theme    : 'neo-theme-dark'",
+            "    }",
+            "}",
+            "MainView = Neo.setupClass(MainView);"
+        ].join('\n')});
+        await app.setProperties(previewId, {activeView: 'preview'});
+        await expect(page.locator(`#${planning.id} .neo-viewport.neo-theme-dark`)).toBeAttached({timeout: 15000});
+        await expect(page.locator('body')).toHaveClass(/neo-theme-neo-dark/);
+        await expect(page.locator('body')).not.toHaveClass(/(^|\s)neo-theme-dark(\s|$)/);
+        expect(await page.locator(`#${header.id}`).evaluate(el => el.getBoundingClientRect().height)).toBe(initialHeaderHeight);
 
         // Return to AudienceDoors and click Door 3 CTA -> What Is Neo.mjs? guide
         await scrollHomeToReference(page, app, home.id, 'home-audience-doors', doors.id);

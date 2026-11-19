@@ -441,6 +441,29 @@ test.describe('e2e CI selection — the selection on this tree', () => {
             .toEqual({'test/playwright/e2e/core/Boot.spec.mjs': 1.2, 'test/playwright/e2e/grid/Heavy.spec.mjs': 114})
     });
 
+    test('several runs keep each file at its costliest run, never their sum', () => {
+        const ok   = (file, duration) => `  ✓  1 [chromium] › test/playwright/e2e/${file}:12:5 › a title (${duration})`,
+              fast = [ok('portal/Catalog.spec.mjs', '28s'), ok('core/Boot.spec.mjs', '5s')].join('\n'),
+              slow = [ok('portal/Catalog.spec.mjs', '1.4m'), ok('core/Boot.spec.mjs', '4s')].join('\n'),
+              most = {'test/playwright/e2e/core/Boot.spec.mjs': 5, 'test/playwright/e2e/portal/Catalog.spec.mjs': 84},
+              dir  = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-e2e-durations-')),
+              logs = [fast, slow].map((text, index) => {
+                  const file = path.join(dir, `run-${index}.log`);
+
+                  fs.writeFileSync(file, text);
+                  return file
+              });
+
+        expect(engineDurations(fast, slow)).toEqual(most);
+        // Control: one text is one run, so two runs pasted together add up
+        expect(engineDurations(`${fast}\n${slow}`)['test/playwright/e2e/portal/Catalog.spec.mjs']).toBe(112);
+        // The CLI takes one log file per run
+        expect(JSON.parse(execFileSync(process.execPath, ['buildScripts/util/e2eCiSelection.mjs', '--engine-durations', ...logs], {cwd: root}).toString()))
+            .toEqual(most);
+
+        fs.rmSync(dir, {recursive: true, force: true})
+    });
+
     test('the classifier reads a full selection as its reasons, and a selected one as the engine tier\'s files and matrix', () => {
         const full     = selectionOutput({changed: ['src/core/Base.mjs'], root}),
               selected = selectionOutput({changed: ['src/calendar/view/month/Component.mjs'], root}),

@@ -379,13 +379,14 @@ class ComboBox extends Picker {
 
     /**
      * Triggered before the listConfig config gets changed.
+     * Resolves its `'@config:'` strings, passed as one item: a bare object would read as a keyed items map.
      * @param {Object} value
      * @param {Object} oldValue
      * @returns {Object}
      * @protected
      */
     beforeSetListConfig(value, oldValue) {
-        value && this.parseItemConfigs(value);
+        value && this.parseItemConfigs([value]);
         return value
     }
 

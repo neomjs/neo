@@ -6,7 +6,7 @@ import {isDescriptor} from '../core/ConfigSymbols.mjs';
  * @summary The default button component for the Neo.mjs framework.
  *
  * This class extends `Neo.component.Base` and offers comprehensive configurations for
- * text, icons, badges, and event handling. It supports advanced features like
+ * text, icons, badges, sizes, and event handling. It supports advanced features like
  * internal routing, external URL redirection, and optional ripple effects on click.
  * This class serves as the foundation for other specialized button types like
  * SplitButton, TabHeaderButton, and GridHeaderButton.
@@ -30,6 +30,13 @@ class Button extends Component {
      * @static
      */
     static iconPositions = ['top', 'right', 'bottom', 'left']
+    /**
+     * Valid values for size
+     * @member {Array} sizes=[null,'small','medium','large']
+     * @protected
+     * @static
+     */
+    static sizes = [null, 'small', 'medium', 'large']
 
     static config = {
         /**
@@ -135,6 +142,14 @@ class Button extends Component {
          * @reactive
          */
         route_: null,
+        /**
+         * The button's size: `'small'`, `'medium'` or `'large'`, in every theme and over the size of its context.
+         * `null` takes the context's size: compact in a toolbar, and the theme's default elsewhere.
+         * The size is independent of `ui`, which carries a state such as `'primary'`.
+         * @member {'small'|'medium'|'large'|null} size_=null
+         * @reactive
+         */
+        size_: null,
         /**
          * The text displayed on the button [optional]
          * You can either pass a string, or a vdom cn array.
@@ -273,7 +288,7 @@ class Button extends Component {
      * Mirrors the framework-generic disabled state onto an effective native button root.
      * The parent hook keeps toggling the `neo-disabled` class, which remains the sole styling
      * authority: projecting the attribute activates the UA `button:disabled` cascade, so
-     * `button/Base.scss` pins the one axis the class does not declare (`color`), and the
+     * `button/Base.css` pins the one axis the class does not declare (`color`), and the
      * render-equivalence component spec witnesses that the attribute contributes no paint.
      * The DOM-event manager remains defense in depth. URL and non-editing route configs turn the
      * root into an anchor, where the native `disabled` attribute has no semantics and must not
@@ -383,15 +398,19 @@ class Button extends Component {
      * @protected
      */
     afterSetPressed(value, oldValue) {
-        let vdomRoot = this.getVdomRoot();
-
-        if (value === null) {
-            delete vdomRoot['aria-pressed']
-        } else {
-            vdomRoot['aria-pressed'] = String(value === true)
-        }
-
+        this.syncAriaPressedState();
         this.updatePressedCls(value === true)
+    }
+
+    /**
+     * @summary Reconciles `aria-pressed` when the explicit ARIA role changes.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetRole(value, oldValue) {
+        this.syncAriaPressedState();
+        super.afterSetRole(value, oldValue)
     }
 
     /**
@@ -425,6 +444,17 @@ class Button extends Component {
      */
     afterSetRoute(value, oldValue) {
         !this.editRoute && this.updateTag()
+    }
+
+    /**
+     * Triggered after the size config got changed
+     * @param {String|null} value    The new value of the size config.
+     * @param {String|null} oldValue The old value of the size config.
+     * @protected
+     */
+    afterSetSize(value, oldValue) {
+        // Outside `ui`'s `neo-button-<ui>` namespace, so neither config can remove the other's class
+        this.removeAddCls(oldValue ? `neo-size-${oldValue}` : [], value ? `neo-size-${value}` : [])
     }
 
     /**
@@ -572,6 +602,17 @@ class Button extends Component {
     }
 
     /**
+     * Triggered before the size config gets changed
+     * @param {String|null} value    The new value of the size config.
+     * @param {String|null} oldValue The old value of the size config.
+     * @returns {String|null}
+     * @protected
+     */
+    beforeSetSize(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'size')
+    }
+
+    /**
      * Changes the application's route based on the button's route config.
      * @protected
      */
@@ -590,7 +631,8 @@ class Button extends Component {
 
     /**
      * Handles the click event on the button.
-     * Triggers the configured handler, toggles the menu, updates the route, and shows the ripple effect if applicable.
+     * Triggers the configured handler, toggles the menu this button built, updates the route, and shows the ripple
+     * effect if applicable.
      * @param {Object} data The click event data object.
      */
     onClick(data) {
@@ -599,7 +641,7 @@ class Button extends Component {
         me.bindCallback(me.handler, 'handler', me.handlerScope || me);
         me.handler?.(data);
 
-        me.menu            && me.toggleMenu();
+        me.menu            && me.menuListReady && me.toggleMenu();
         me.route           && me.changeRoute(); // only relevant for editRoute=true
         me.useRippleEffect && me.showRipple(data)
     }
@@ -689,6 +731,21 @@ class Button extends Component {
     }
 
     /**
+     * @summary Reconciles `aria-pressed` with the Button's effective root tag and role.
+     * @protected
+     */
+    syncAriaPressedState() {
+        let vdomRoot = this.getVdomRoot(),
+            {role}   = this;
+
+        if (vdomRoot.tag === 'button' && (!role || role === 'button') && this.pressed !== null) {
+            vdomRoot['aria-pressed'] = String(this.pressed === true)
+        } else {
+            delete vdomRoot['aria-pressed']
+        }
+    }
+
+    /**
      * @summary Reconciles the native disabled attribute with the Button's effective root tag.
      *
      * Button roots are polymorphic: URL and non-editing route configs render anchors, while the
@@ -738,6 +795,7 @@ class Button extends Component {
             delete vdomRoot.target
         }
 
+        me.syncAriaPressedState();
         me.syncNativeDisabledState();
         me.update()
     }

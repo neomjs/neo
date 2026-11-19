@@ -7,19 +7,20 @@ import isEntryModule        from '../../util/isEntryModule.mjs';
 import {requireContentRoot} from '../../util/contentRoot.mjs';
 import {sanitizeInput}      from '../../util/sanitizer.mjs';
 import {
-    TOP_LEVEL_SOURCE_PATHS, chunkArray, collectExampleFamilyRoutes, collectExampleRoutes,
-    extractExampleFamilyDefinitions, extractFrontmatterDateOnly, extractFrontmatterField,
+    NON_INDEXABLE_STANDALONE_PATHS, TOP_LEVEL_SOURCE_PATHS, chunkArray, collectExampleFamilyRoutes,
+    collectExampleRoutes, extractExampleFamilyDefinitions, extractFrontmatterDateOnly, extractFrontmatterField,
     extractMarkdownSeoMetadata, extractPortalIndexMetadata, formatLastmodDate, formatLearnSeoTitle,
-    getChangedGitPaths, getChangedLastmod, getGitLastModifiedBatch, getGitPath, getMaxReleaseMajor,
-    getPublishedExampleFamilies, getSeoJson, hasReliableGitHistory, isIndexableReleaseVersion,
+    formatStandaloneExampleSeo, getChangedGitPaths, getChangedLastmod, getGitLastModifiedBatch, getGitPath,
+    getMaxReleaseMajor, getPublishedExampleFamilies, getSeoJson, hasReliableGitHistory, isIndexableReleaseVersion,
     isRedirectMarkdown, normalizeIsoDateOnly, resolveLearnTreeLeaves
 } from './seoJson.mjs';
 
 export {
-    TOP_LEVEL_SOURCE_PATHS, collectExampleFamilyRoutes, collectExampleRoutes, extractExampleFamilyDefinitions,
-    extractFrontmatterField, extractMarkdownSeoMetadata, extractPortalIndexMetadata, formatLearnSeoTitle,
-    getMaxReleaseMajor, getPublishedExampleFamilies, getSeoJson, hasReliableGitHistory,
-    isIndexableReleaseVersion, isRedirectMarkdown, resolveLearnTreeLeaves
+    NON_INDEXABLE_STANDALONE_PATHS, TOP_LEVEL_SOURCE_PATHS, collectExampleFamilyRoutes, collectExampleRoutes,
+    extractExampleFamilyDefinitions, extractFrontmatterField, extractMarkdownSeoMetadata,
+    extractPortalIndexMetadata, formatLearnSeoTitle, formatStandaloneExampleSeo, getMaxReleaseMajor,
+    getPublishedExampleFamilies, getSeoJson, hasReliableGitHistory, isIndexableReleaseVersion,
+    isRedirectMarkdown, resolveLearnTreeLeaves
 };
 
 /**
@@ -94,6 +95,7 @@ const PRIORITIES = new Map([
     // Identity apex: organism / Agent OS / AI engineering team
     ['benefits/Introduction'                        , 1.0],
     ['benefits/ArchitectureOverview'                , 1.0],
+    ['benefits/EnterpriseEvaluation'                , 0.9],
     ['benefits/brain/AIEngineeringTeam'             , 1.0],
     ['benefits/brain/IdentityRitualsCulture'        , 1.0],
     ['benefits/brain/AgentMemory'                   , 1.0],
@@ -155,11 +157,13 @@ const PRIORITIES = new Map([
     ['guides/uibuildingblocks/DockLayoutsFeatures'    , 0.8],
     ['guides/uibuildingblocks/DockLayoutsPanes'       , 0.8],
     ['guides/uibuildingblocks/DockLayoutsWindows'     , 0.8],
+    ['guides/uibuildingblocks/WebDesktops'            , 0.8],
     ['guides/testing/DockLayoutsTesting'              , 0.8],
     ['tutorials/DockLayoutsFirstLayout'               , 0.8],
     ['guides/datahandling/Grids'                      , 0.8],
     ['guides/datahandling/Tables'                     , 0.8],
     ['guides/datahandling/UsingStores'                , 0.8],
+    ['guides/datahandling/Timeline'                   , 0.8],
     ['guides/userinteraction/Forms'                   , 0.8],
 
     // Internal evidence surfaces (hidden tree entries): registered explicitly at the floor so

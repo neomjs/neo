@@ -88,6 +88,7 @@ test.beforeEach(async ({page}) => {
 
     await page.waitForSelector('.neo-dashboard-dock-splitter', {state: 'attached'});
     await page.waitForSelector(`#${IFRAME_ID}`,                {state: 'attached'})
+    await page.waitForSelector(`#${IFRAME_ID}-passthrough`,    {state: 'attached'})
 });
 
 test.afterEach(async ({page}) => {
@@ -108,7 +109,7 @@ test.describe('DockSplitter — a drag whose path crosses an iframe', () => {
     test('neo-drag-passthrough opts an iframe out of the gesture shield', async ({page}) => {
         // A pure test of THIS rule's contract, keyed on the class the rule is keyed on, and
         // deliberately NOT run inside a live gesture. During a DragZone drag
-        // `resources/scss/src/draggable/DragProxyComponent.scss` applies
+        // `resources/css/src/draggable/DragProxyComponent.css` applies
         // `body:has(.neo-is-dragging) * { pointer-events: none !important }` — a universal selector
         // carrying `!important`, which no `:not()` exclusion can outrank. Measuring the opt-out
         // there would report the other rule's verdict, not this one's.

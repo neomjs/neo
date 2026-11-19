@@ -24,7 +24,7 @@ test.beforeEach(async ({page}) => {
     let routed = false;
 
     await page.route('**/examples/dashboard/dock/neo-config.json', async route => {
-        const response = await route.fetch();
+        const response = await route.fetch({maxRetries: 2});
 
         routed = true;
         await route.fulfill({json: {...await response.json(), useAiClient: false}, response})

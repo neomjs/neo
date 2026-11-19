@@ -2,20 +2,21 @@ import {test, expect}       from '@playwright/test';
 import fs                   from 'node:fs';
 import path                 from 'node:path';
 import {fileURLToPath}      from 'node:url';
-import * as sass            from 'sass';
 import {findSelectorBlocks} from '../../../../buildScripts/util/check-theme-value-files.mjs';
+import flattenCss           from '../../util/flattenCss.mjs';
 
 const
     __dirname = path.dirname(fileURLToPath(import.meta.url)),
     repoRoot  = path.resolve(__dirname, '../../../..'),
-    srcPath   = path.join(repoRoot, 'resources/scss/src/component/Carousel.scss'),
+    srcPath   = path.join(repoRoot, 'resources/css/src/component/Carousel.css'),
     themes    = [
-        {name: 'theme-light',     selector: ':root .neo-theme-light',        path: path.join(repoRoot, 'resources/scss/theme-light/component/Carousel.scss')},
-        {name: 'theme-dark',      selector: ':root .neo-theme-dark',         path: path.join(repoRoot, 'resources/scss/theme-dark/component/Carousel.scss')},
-        {name: 'theme-neo-light', selector: ':where(.neo-theme-neo-light)',  path: path.join(repoRoot, 'resources/scss/theme-neo-light/component/Carousel.scss')},
-        {name: 'theme-neo-dark',  selector: ':where(.neo-theme-neo-dark)',   path: path.join(repoRoot, 'resources/scss/theme-neo-dark/component/Carousel.scss')},
-        {name: 'theme-cyberpunk', selector: ':root .neo-theme-cyberpunk',    path: path.join(repoRoot, 'resources/scss/theme-cyberpunk/component/Carousel.scss')}
-    ];
+        {name: 'theme-light',     selector: ':root .neo-theme-light',        path: path.join(repoRoot, 'resources/css/theme-light/component/Carousel.css')},
+        {name: 'theme-dark',      selector: ':root .neo-theme-dark',         path: path.join(repoRoot, 'resources/css/theme-dark/component/Carousel.css')},
+        {name: 'theme-neo-light', selector: ':where(.neo-theme-neo-light)',  path: path.join(repoRoot, 'resources/css/theme-neo-light/component/Carousel.css')},
+        {name: 'theme-neo-dark',  selector: ':where(.neo-theme-neo-dark)',   path: path.join(repoRoot, 'resources/css/theme-neo-dark/component/Carousel.css')},
+        {name: 'theme-cyberpunk', selector: ':root .neo-theme-cyberpunk',    path: path.join(repoRoot, 'resources/css/theme-cyberpunk/component/Carousel.css')}
+    ],
+    flat      = file => flattenCss(fs.readFileSync(path.join(repoRoot, 'resources/css', file), 'utf8'));
 
 const extractDefinedTokens = source => new Set(
     [...source.matchAll(/^\s*(--carousel-[a-z0-9-]+)\s*:/gm)].map(m => m[1])
@@ -25,8 +26,8 @@ const extractConsumedTokens = source => new Set(
     [...source.matchAll(/var\(\s*(--[a-z0-9-]+)/g)].map(m => m[1])
 );
 
-test.describe('Neo.component.Carousel SCSS theme variable files', () => {
-    test('src/component/Carousel.scss consumes only --carousel-* tokens and no foreign component tokens', () => {
+test.describe('Neo.component.Carousel theme variable files', () => {
+    test('src/component/Carousel.css consumes only --carousel-* tokens and no foreign component tokens', () => {
         const
             src      = fs.readFileSync(srcPath, 'utf8'),
             consumed = [...extractConsumedTokens(src)].sort();
@@ -52,7 +53,7 @@ test.describe('Neo.component.Carousel SCSS theme variable files', () => {
             consumed = [...extractConsumedTokens(src)].sort();
 
         for (const theme of themes) {
-            expect(fs.existsSync(theme.path), `${theme.name}/component/Carousel.scss exists`).toBe(true);
+            expect(fs.existsSync(theme.path), `${theme.name}/component/Carousel.css exists`).toBe(true);
 
             const
                 content = fs.readFileSync(theme.path, 'utf8'),
@@ -64,12 +65,12 @@ test.describe('Neo.component.Carousel SCSS theme variable files', () => {
         }
     });
 
-    test('compiled Cyberpunk and Light theme sheets resolve offscreen slide transform, duration, and inner color intent', () => {
+    test('flattened Cyberpunk and Light theme sheets resolve offscreen slide transform, duration, and inner color intent', () => {
         const
-            cyberGlobal = sass.compile(path.join(repoRoot, 'resources/scss/theme-cyberpunk/Global.scss')).css,
-            cyberTheme  = sass.compile(path.join(repoRoot, 'resources/scss/theme-cyberpunk/component/Carousel.scss')).css,
-            lightTheme  = sass.compile(path.join(repoRoot, 'resources/scss/theme-light/component/Carousel.scss')).css,
-            structural  = sass.compile(srcPath).css;
+            cyberGlobal = flat('theme-cyberpunk/Global.css'),
+            cyberTheme  = flat('theme-cyberpunk/component/Carousel.css'),
+            lightTheme  = flat('theme-light/component/Carousel.css'),
+            structural  = flat('src/component/Carousel.css');
 
         const parseDeclarations = css => {
             const map = new Map();

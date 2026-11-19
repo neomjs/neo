@@ -1,7 +1,7 @@
 import {test, expect}              from '@playwright/test';
 import {readFileSync, readdirSync} from 'node:fs';
 import {join}                      from 'node:path';
-import * as sass                   from 'sass';
+import flattenCss                  from '../../util/flattenCss.mjs';
 
 /**
  * The layering invariant for the dock rail tab: the ENGINE paints it, apps supply values.
@@ -11,29 +11,29 @@ import * as sass                   from 'sass';
  * the next app to adopt the dock will hit the identical problem and reach for the identical local
  * patch. The rule below is what makes the engine the obvious place to look instead.
  *
- * **The first version of this file asserted on SCSS source only, and that was not enough.** Source
+ * **The first version of this file asserted on source text only, and that was not enough.** Source
  * text cannot see the cascade. Moving a declaration to the correct owner does not preserve its
  * winning specificity, and the promotion this guard protects did exactly that: both apps had been
  * carrying a higher-specificity `min-width: 0` to escape a tie with the theme's 48px button floor,
  * and lifting the paint engine-side without also outranking the theme would have handed every
  * consumer the empty-pill regression those app rules existed to prevent. That was caught by a
- * reader rather than by a test, which is the gap the compiled arm below closes: it is the oracle
+ * reader rather than by a test, which is the gap the flattened arm below closes: it is the oracle
  * that would have caught it here.
  *
- * The compilation is done in-process rather than read from `dist/`: CI never runs `build-themes`,
+ * The flattening is done in-process rather than read from `dist/`: CI never runs `build-themes`,
  * so a `dist/`-reading guard would find no files, match nothing, and report green.
  *
  * @see https://github.com/neomjs/neo/issues/17522
  */
 test.describe('dock rail tab — the engine paints it, apps only set values', () => {
     const
-        SCSS_ROOT   = 'resources/scss',
-        ENGINE_FILE = 'resources/scss/src/dashboard/Container.scss',
+        CSS_ROOT    = 'resources/css',
+        ENGINE_FILE = 'resources/css/src/dashboard/Container.css',
         // Every root an application stylesheet can live under. The first version scanned only
         // `src/apps` and would not have seen a rail tab repainted from `theme-neo-dark/apps`.
-        APP_ROOTS   = ['resources/scss/src/apps',      'resources/scss/theme-dark/apps',
-                       'resources/scss/theme-light/apps', 'resources/scss/theme-neo-dark/apps',
-                       'resources/scss/theme-neo-light/apps'],
+        APP_ROOTS   = ['resources/css/src/apps',      'resources/css/theme-dark/apps',
+                       'resources/css/theme-light/apps', 'resources/css/theme-neo-dark/apps',
+                       'resources/css/theme-neo-light/apps'],
         TOKENS      = ['--dock-rail-tab-background', '--dock-rail-tab-background-hover',
                        '--dock-rail-tab-color',      '--dock-rail-tab-color-hover',
                        '--dock-rail-tab-font-family'],
@@ -56,18 +56,18 @@ test.describe('dock rail tab — the engine paints it, apps only set values', ()
                        'neo-dashboard-dock-edge-rail-left',  'neo-dashboard-dock-edge-rail-right',
                        'neo-dashboard-dock-edge-rail-top',   'neo-dashboard-dock-edge-rail-bottom'];
 
-    /** Every `.scss` under a root, recursively. */
-    const scssFiles = (dir, out = []) => {
+    /** Every `.css` under a root, recursively. */
+    const cssFiles = (dir, out = []) => {
         for (const entry of readdirSync(dir, {withFileTypes: true})) {
             const path = join(dir, entry.name);
 
-            entry.isDirectory() ? scssFiles(path, out) : entry.name.endsWith('.scss') && out.push(path)
+            entry.isDirectory() ? cssFiles(path, out) : entry.name.endsWith('.css') && out.push(path)
         }
 
         return out
     };
 
-    /** [ids, classes, types] for the flat selectors Sass emits here. */
+    /** [ids, classes, types] for the flat selectors `flattenCss` emits here. */
     const specificity = selector => {
         const s = selector.replace(/::[\w-]+/g, '');
 
@@ -105,18 +105,16 @@ test.describe('dock rail tab — the engine paints it, apps only set values', ()
         })
     };
 
-    /** Compile every stylesheet that mentions a button, and collect the rules reaching a rail tab. */
+    /** Flatten every stylesheet that mentions a button, and collect the rules reaching a rail tab. */
     const reachingRules = () => {
         const rules = [];
 
-        for (const file of scssFiles(SCSS_ROOT)) {
+        for (const file of cssFiles(CSS_ROOT)) {
             const source = readFileSync(file, 'utf8');
 
             if (!/neo-button|neo-dashboard-dock-rail-tab/.test(source)) continue;
 
-            const css = sass.compile(file, {
-                silenceDeprecations: ['import', 'global-builtin', 'color-functions', 'slash-div']
-            }).css;
+            const css = flattenCss(source);
 
             for (const block of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
                 for (const selector of block[1].split(',').map(s => s.trim().replace(/\s+/g, ' ')).filter(Boolean)) {
@@ -142,8 +140,9 @@ test.describe('dock rail tab — the engine paints it, apps only set values', ()
      * `.neo-button-text { font-family }` inside is app VOICE and legitimate, while a
      * `font-family` on the tab itself is engine paint.
      */
-    const railTabOwnDeclarations = source => {
-        const found = [];
+    const railTabOwnDeclarations = text => {
+        const found  = [],
+              source = text.replace(/\/\*[\s\S]*?\*\//g, '');
 
         for (const match of source.matchAll(/([^\n{}]*neo-dashboard-dock-rail-tab[^\n{}]*)\{/g)) {
             let depth = 1, i = match.index + match[0].length, body = '';
@@ -228,7 +227,7 @@ test.describe('dock rail tab — the engine paints it, apps only set values', ()
         const offenders = [];
 
         for (const root of APP_ROOTS) {
-            for (const file of scssFiles(root)) {
+            for (const file of cssFiles(root)) {
                 for (const {selector, property} of railTabOwnDeclarations(readFileSync(file, 'utf8'))) {
                     // A custom property IS the sanctioned mechanism; anything else is re-painting.
                     if (!property.startsWith('--') && ENGINE_PAINT.includes(property)) {
@@ -277,13 +276,11 @@ test.describe('dock rail tab — the engine paints it, apps only set values', ()
         const escapees = [];
 
         for (const root of APP_ROOTS) {
-            for (const file of scssFiles(root)) {
-                const css = sass.compile(file, {
-                    silenceDeprecations: ['import', 'global-builtin', 'color-functions', 'slash-div']
-                }).css;
+            for (const file of cssFiles(root)) {
+                const css = flattenCss(readFileSync(file, 'utf8'));
 
                 for (const block of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-                    if (!TOKENS.some(t => block[2].includes(`${t}:`))) continue;
+                    if (!TOKENS.some(t => new RegExp(`${t}\\s*:`).test(block[2]))) continue;
 
                     for (const selector of block[1].split(',').map(s => s.trim())) {
                         // `:root`-only or bare-element scoping would leak an app's identity into

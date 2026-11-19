@@ -1,0 +1,12 @@
+:where(.neo-theme-neo-light) {
+    --grid-filtering-accent    : #176b72;
+    --grid-filtering-alternate : #f8fafc;
+    --grid-filtering-background: #f1f5f8;
+    --grid-filtering-border    : #dce5eb;
+    --grid-filtering-header    : #eaf1f5;
+    --grid-filtering-hover     : #dcefed;
+    --grid-filtering-muted     : #647786;
+    --grid-filtering-surface   : #fff;
+    --grid-filtering-text      : #455c6b;
+    --grid-filtering-title     : #182e3b;
+}

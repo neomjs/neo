@@ -56,17 +56,24 @@ const MenuModel = Neo.setupClass(MenuTreeModel);
 function createTreeStore(config={}) {
     return Neo.create(TreeStore, {
         model: MenuModel,
-        data : [
-            {id: 'file',      text: 'File',       isLeaf: false, collapsed: true},
-            {id: 'file-new',  text: 'New',        isLeaf: false, collapsed: true, parentId: 'file'},
-            {id: 'file-new-f',text: 'File…',      isLeaf: true,                   parentId: 'file-new'},
-            {id: 'file-open', text: 'Open',       isLeaf: true,                   parentId: 'file'},
-            {id: 'edit',      text: 'Edit',       isLeaf: false, collapsed: true},
-            {id: 'edit-copy', text: 'Copy',       isLeaf: true,                   parentId: 'edit'},
-            {id: 'about',     text: 'About',      isLeaf: true}
-        ],
+        data : treeData(),
         ...config
     })
+}
+
+/**
+ * @returns {Object[]} A fresh copy of the menu tree, per store
+ */
+function treeData() {
+    return [
+        {id: 'file',      text: 'File',       isLeaf: false, collapsed: true},
+        {id: 'file-new',  text: 'New',        isLeaf: false, collapsed: true, parentId: 'file'},
+        {id: 'file-new-f',text: 'File…',      isLeaf: true,                   parentId: 'file-new'},
+        {id: 'file-open', text: 'Open',       isLeaf: true,                   parentId: 'file'},
+        {id: 'edit',      text: 'Edit',       isLeaf: false, collapsed: true},
+        {id: 'edit-copy', text: 'Copy',       isLeaf: true,                   parentId: 'edit'},
+        {id: 'about',     text: 'About',      isLeaf: true}
+    ]
 }
 
 /**
@@ -200,6 +207,111 @@ test.describe('Neo.menu.List driven by a TreeStore', () => {
         expect(treeStore.getChildren('edit')).toHaveLength(1)
     });
 
+    test('a tree store passed as a class or a config drives the same levels, and the root destroys what it built', () => {
+        const ClassFormStore = Neo.setupClass(class extends TreeStore {
+                  static config = {
+                      className: 'Test.Unit.Menu.ListTreeStore.ClassFormStore',
+                      model    : MenuModel,
+                      data     : treeData()
+                  }
+              }),
+              byClass  = createMenu({store: ClassFormStore}),
+              byConfig = createMenu({store: {module: TreeStore, model: MenuModel, data: treeData()}});
+
+        menus.push(byClass, byConfig);
+
+        for (const root of [byClass, byConfig]) {
+            const {sourceStore} = root,
+                  file          = root.store.get('file');
+
+            expect(sourceStore instanceof TreeStore).toBe(true);
+            expect(root.store.items.map(item => item.id)).toEqual(['file', 'edit', 'about']);
+            expect(root.hasChildren(file), 'a parent, not a leaf the click would close the menu on').toBe(true);
+
+            root.showSubMenu(root.getItemId(root.store.getKey(file)), file);
+
+            expect(root.activeSubMenu.sourceStore).toBe(sourceStore);
+            expect(root.activeSubMenu.store.items.map(item => item.id)).toEqual(['file-new', 'file-open']);
+
+            root.destroy();
+
+            expect(sourceStore.isDestroyed).toBe(true)
+        }
+    });
+
+    test('a live store replacement re-derives the root, retires the open cascade, and releases only a built source', () => {
+        const root  = createMenu({store: {module: TreeStore, model: MenuModel, data: treeData()}}),
+              built = root.sourceStore,
+              file  = root.store.get('file');
+
+        menus.push(root);
+
+        root.showSubMenu(root.getItemId(root.store.getKey(file)), file);
+
+        const oldChild = root.activeSubMenu;
+
+        // A built source gives way to a borrowed one
+        root.store = treeStore;
+
+        expect(built.isDestroyed, 'the source the menu built').toBe(true);
+        expect(oldChild.isDestroyed, 'the submenu the old source drove').toBe(true);
+        expect(root.sourceStore).toBe(treeStore);
+        expect(root.store.items.map(item => item.id)).toEqual(['file', 'edit', 'about']);
+
+        treeStore.add({id: 'help', text: 'Help', isLeaf: true});
+
+        expect(root.store.items.map(item => item.id), 'the new source drives the root').toContain('help');
+
+        // A borrowed source gives way to a built one
+        root.store = {module: TreeStore, model: MenuModel, data: [{id: 'solo', text: 'Solo', isLeaf: true}]};
+
+        const second = root.sourceStore;
+
+        treeStore.add({id: 'late', text: 'Late', isLeaf: true});
+
+        expect(treeStore.isDestroyed, 'a borrowed source stays its owner\'s').toBeFalsy();
+        expect(root.store.items.map(item => item.id), 'the old source no longer reaches the root').toEqual(['solo']);
+
+        root.destroy();
+
+        expect(second.isDestroyed).toBe(true);
+        expect(treeStore.isDestroyed).toBeFalsy()
+    });
+
+    test('the store or tree source already in place, assigned again, keeps one set of listeners and its owner', () => {
+        const count = store => {
+                  const {listeners} = store.toJSON();
+                  return ['filter', 'mutate', 'recordChange', 'sort'].map(name => (listeners[name] || []).length)
+              },
+              pristine = count(treeStore),
+              owner    = createMenu({store: {module: TreeStore, model: MenuModel, data: treeData()}}),
+              borrower = createMenu({store: treeStore}),
+              built    = owner.sourceStore,
+              file     = owner.store.get('file');
+
+        menus.push(owner, borrower);
+
+        owner.showSubMenu(owner.getItemId(owner.store.getKey(file)), file);
+
+        const child  = owner.activeSubMenu,
+              levels = [owner.store, borrower.store],
+              before = [count(built), count(treeStore)];
+
+        owner.store    = built;
+        owner.store    = owner.store;
+        borrower.store = treeStore;
+
+        expect([owner.store, borrower.store], 'each level stays').toEqual(levels);
+        expect(owner.activeSubMenu, 'the open submenu stays').toBe(child);
+        expect([count(built), count(treeStore)], 'no listener is bound twice').toEqual(before);
+
+        owner.destroy();
+        borrower.destroy();
+
+        expect(built.isDestroyed, 'the menu still owns the source it built').toBe(true);
+        expect(count(treeStore), 'the borrowed source keeps none of the menu\'s listeners').toEqual(pristine)
+    });
+
     test('showSubMenu opens a real child level and leaves the parent alive', () => {
         const root = createMenu({store: treeStore});
 
@@ -326,6 +438,148 @@ test.describe('Neo.menu.List driven by a TreeStore', () => {
         expect(menu.store.get('late').text).toBe('Late (modified)')
     });
 
+    test('a filter set before the menu exists reaches every level, a kept ancestor included', () => {
+        // Only "Copy" matches. Its group stays because a descendant matched (TreeStore#filter()'s ancestor
+        // preservation); "File", its subtree and "About" match nothing and leave every level.
+        treeStore.filters = [{property: 'text', value: 'Copy'}];
+
+        const root   = createMenu({store: treeStore}),
+              level1 = createMenu({...root.getSubMenuData(root.store.get('edit'))});
+
+        menus.push(root, level1);
+
+        expect(root.store.items.map(item => item.id)).toEqual(['edit']);
+        expect(level1.store.items.map(item => item.id)).toEqual(['edit-copy']);
+
+        // The Structural Layer read stays filter-independent: the level applies the mask, getChildren() does not
+        expect(treeStore.getChildren('root').map(item => item.id)).toEqual(['file', 'edit', 'about'])
+    });
+
+    test('changing or clearing the filters re-derives every live level', () => {
+        const root   = createMenu({store: treeStore}),
+              level1 = createMenu({...root.getSubMenuData(root.store.get('file'))});
+
+        menus.push(root, level1);
+
+        // No group text is listed, so a group stays only for a kept child. A group that matched itself would
+        // keep its whole subtree (TreeStore#filter()'s descendant preservation).
+        treeStore.filters = [{property: 'text', operator: 'included', value: ['New', 'Copy']}];
+
+        expect(root.store.items.map(item => item.id)).toEqual(['file', 'edit']);
+        expect(level1.store.items.map(item => item.id)).toEqual(['file-new']);
+
+        treeStore.filters = [{property: 'text', operator: 'included', value: ['Open', 'About']}];
+
+        expect(root.store.items.map(item => item.id)).toEqual(['file', 'about']);
+        expect(level1.store.items.map(item => item.id)).toEqual(['file-open']);
+
+        treeStore.clearFilters();
+
+        expect(root.store.items.map(item => item.id)).toEqual(['file', 'edit', 'about']);
+        expect(level1.store.items.map(item => item.id)).toEqual(['file-new', 'file-open'])
+    });
+
+    test('a record added under an active filter joins its level only when the filter keeps it', () => {
+        // Groups carry no iconCls, so a group stays only for a kept child
+        treeStore.filters = [{property: 'iconCls', value: 'keep'}];
+
+        const root   = createMenu({store: treeStore}),
+              level1 = createMenu({parentRecordId: 'file', store: treeStore});
+
+        menus.push(root, level1);
+
+        expect(root.store.getCount()).toBe(0);
+        expect(level1.store.getCount()).toBe(0);
+
+        treeStore.add([
+            {id: 'file-hidden', text: 'Hidden', isLeaf: true, parentId: 'file'},
+            {id: 'file-save',   text: 'Save',   isLeaf: true, parentId: 'file', iconCls: 'keep'}
+        ]);
+
+        // Exactly once: the filter event re-derives the level before the mutation reaches it
+        expect(level1.store.items.map(item => item.id)).toEqual(['file-save']);
+        expect(level1.store.get('file-save')).toBe(treeStore.get('file-save'));
+        expect(root.store.items.map(item => item.id)).toEqual(['file'])
+    });
+
+    test('a filter that drops the item of the open submenu hides that submenu', () => {
+        const root   = createMenu({store: treeStore}),
+              record = root.store.get('file');
+
+        menus.push(root);
+
+        root.showSubMenu(root.getItemId(root.store.getKey(record)), record);
+
+        const submenu = root.activeSubMenu;
+
+        menus.push(submenu);
+
+        expect(submenu.parentRecordId).toBe('file');
+
+        treeStore.filters = [{property: 'text', value: 'About'}];
+
+        expect(root.store.items.map(item => item.id)).toEqual(['about']);
+        expect(root.activeSubMenu).toBeNull()
+    });
+
+    /**
+     * Opens root → File → New and returns every level.
+     * @param {Neo.menu.List} root
+     * @returns {Object}
+     */
+    function openFileNewCascade(root) {
+        const file = root.store.get('file');
+
+        root.showSubMenu(root.getItemId(root.store.getKey(file)), file);
+
+        const fileLevel = root.activeSubMenu,
+              newRecord = fileLevel.store.get('file-new');
+
+        fileLevel.showSubMenu(fileLevel.getItemId(fileLevel.store.getKey(newRecord)), newRecord);
+
+        menus.push(fileLevel, fileLevel.activeSubMenu);
+
+        return {fileLevel, newLevel: fileLevel.activeSubMenu}
+    }
+
+    test('a collapse in the tree is no removal: an open cascade survives the collapse/expand round trip', async () => {
+        await treeStore.expand('file');
+        await treeStore.expand('file-new');
+
+        const root = createMenu({store: treeStore});
+
+        menus.push(root);
+
+        const {fileLevel, newLevel} = openFileNewCascade(root);
+
+        // The Projection Layer drops the branch's visible descendants, the Structural Layer keeps them
+        treeStore.collapse('file');
+
+        expect(fileLevel.store.items.map(item => item.id)).toEqual(['file-new', 'file-open']);
+        expect(newLevel.store.items.map(item => item.id)).toEqual(['file-new-f']);
+        expect(fileLevel.activeSubMenu).toBe(newLevel);
+
+        await treeStore.expand('file');
+
+        // Exactly once: the expansion re-projects rows no level let go of
+        expect(fileLevel.store.items.map(item => item.id)).toEqual(['file-new', 'file-open']);
+        expect(newLevel.store.items.map(item => item.id)).toEqual(['file-new-f']);
+        expect(fileLevel.activeSubMenu).toBe(newLevel)
+    });
+
+    test('removing the item of the open submenu from the tree hides that submenu', () => {
+        const root = createMenu({store: treeStore});
+
+        menus.push(root);
+
+        const {fileLevel} = openFileNewCascade(root);
+
+        treeStore.remove('file-new');
+
+        expect(fileLevel.store.items.map(item => item.id)).toEqual(['file-open']);
+        expect(fileLevel.activeSubMenu).toBeNull()
+    });
+
     test('a destroyed level leaves no listener behind on the still-live source', () => {
         const root   = createMenu({store: treeStore}),
               level1 = createMenu({...root.getSubMenuData(root.store.get('file'))});
@@ -341,7 +595,8 @@ test.describe('Neo.menu.List driven by a TreeStore', () => {
         const after = treeStore.toJSON().listeners;
 
         // Teardown must be symmetric with what onConstructed subscribed. An asymmetric un() leaves a
-        // destroyed level still driving syncLevelRecords on the next source sort.
+        // destroyed level still driving syncLevelRecords on the next source sort or filter.
+        expect((after.filter       || []).length).toBe(before.filter.length       - 1);
         expect((after.mutate       || []).length).toBe(before.mutate.length       - 1);
         expect((after.recordChange || []).length).toBe(before.recordChange.length - 1);
         expect((after.sort         || []).length).toBe(before.sort.length         - 1);
