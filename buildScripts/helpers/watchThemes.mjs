@@ -13,6 +13,18 @@ import {
 const REPO_ROOT = process.cwd();
 
 /**
+ * CLI usage text scoping `watch-themes` to supervised interactive shells or explicit daemons.
+ * @type {String}
+ */
+export const WATCH_THEMES_HELP = [
+    'Usage: npm run watch-themes [-- --help]',
+    '',
+    'Starts a persistent foreground CSS watcher for supervised interactive development shells',
+    '(or explicit background daemon supervision). It never exits on its own.',
+    `For unattended one-shot theme builds in CI or coding-agent tasks, run: ${DEVELOPMENT_THEME_BUILD_COMMAND}`
+].join('\n');
+
+/**
  * @summary Returns the theme source roots the full theme builder reads, in override order
  * ({@link themeCssRoots}), and refuses to start without one of them. Like the builder, it takes a
  * package name containing `neo.mjs` for the Engine checkout.
@@ -548,8 +560,12 @@ export async function startThemeWatcher({
 }
 
 if (isEntryModule(import.meta.url)) {
-    startThemeWatcher().catch(error => {
-        console.error(error.message);
-        process.exitCode = 1
-    })
+    if (process.argv.includes('-h') || process.argv.includes('--help')) {
+        console.log(WATCH_THEMES_HELP);
+    } else {
+        startThemeWatcher().catch(error => {
+            console.error(error.message);
+            process.exitCode = 1
+        })
+    }
 }

@@ -1,12 +1,13 @@
-import chalk           from 'chalk';
-import {spawnSync}     from 'child_process';
-import {Command}       from 'commander';
-import envinfo         from 'envinfo';
-import fs              from 'fs-extra';
-import inquirer        from 'inquirer';
-import os              from 'os';
-import path            from 'path';
-import {sanitizeInput} from '../util/sanitizer.mjs';
+import chalk                     from 'chalk';
+import {spawnSync}               from 'child_process';
+import {Command}                 from 'commander';
+import envinfo                   from 'envinfo';
+import fs                        from 'fs-extra';
+import inquirer                  from 'inquirer';
+import os                        from 'os';
+import path                      from 'path';
+import {assertInteractivePrompt} from '../util/assertInteractivePrompt.mjs';
+import {sanitizeInput}           from '../util/sanitizer.mjs';
 
 const
     __dirname        = path.resolve(),
@@ -100,7 +101,12 @@ if (programOpts.info) {
         });
     }
 
-    inquirer.prompt(questions).then(answers => {
+    assertInteractivePrompt({
+        command: 'npm run create-app -- -a MyApp -t all -u no',
+        questions
+    });
+
+    (questions.length ? inquirer.prompt(questions) : Promise.resolve({})).then(answers => {
         let appName          = programOpts.appName          || answers.appName,
             mainThreadAddons = programOpts.mainThreadAddons || ['DragDrop', 'Navigator', 'Stylesheet'],
             themes           = programOpts.themes           || answers.themes,

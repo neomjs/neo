@@ -1,15 +1,16 @@
 #!/usr/bin/env node
 
-import chalk           from 'chalk';
-import {Command}       from 'commander';
-import envinfo         from 'envinfo';
-import fs              from 'fs-extra';
-import inquirer        from 'inquirer';
-import os              from 'os';
-import path            from 'path';
-import {fileURLToPath} from 'url';
-import isEntryModule   from '../util/isEntryModule.mjs';
-import {sanitizeInput} from '../util/sanitizer.mjs';
+import chalk                     from 'chalk';
+import {Command}                 from 'commander';
+import envinfo                   from 'envinfo';
+import fs                        from 'fs-extra';
+import inquirer                  from 'inquirer';
+import os                        from 'os';
+import path                      from 'path';
+import {fileURLToPath}           from 'url';
+import {assertInteractivePrompt} from '../util/assertInteractivePrompt.mjs';
+import isEntryModule             from '../util/isEntryModule.mjs';
+import {sanitizeInput}           from '../util/sanitizer.mjs';
 
 const
     __dirname      = fileURLToPath(new URL('../', import.meta.url)),
@@ -98,6 +99,15 @@ if (programOpts.info) {
         }
     }
 
+    assertInteractivePrompt({
+        command: 'npm run create-class -- -c MyApp.view.MainContainer -b container.Base -n no -C no -p no',
+        missing: [
+            !programOpts.className && 'className (-c)',
+            !programOpts.baseClass && 'baseClass (-b)',
+            !programOpts.singleton && 'singleton (-n)'
+        ].filter(Boolean)
+    });
+
     let answers = {},
         answer;
 
@@ -144,7 +154,7 @@ if (programOpts.info) {
         });
     }
 
-    answer = await inquirer.prompt(questions);
+    answer = questions.length ? await inquirer.prompt(questions) : {};
 
     Object.assign(answers, answer);
 
@@ -283,6 +293,11 @@ if (programOpts.info) {
             let createModel = programOpts.createModel;
 
             if (!createModel && !isDrop) {
+                assertInteractivePrompt({
+                    command: `npm run create-class -- -c ${className} -b ${baseClass} -n ${singleton} -M no`,
+                    missing: ['createModel (-M)']
+                });
+
                 answer = await inquirer.prompt({
                     type   : 'select',
                     name   : 'createModel',
@@ -314,6 +329,23 @@ if (programOpts.info) {
                 storeModelName = modelName;
             }
         }
+    }
+
+    if (baseClass === 'data.Model' && !programOpts.createStore && !isDrop) {
+        assertInteractivePrompt({
+            command: `npm run create-class -- -c ${className} -b ${baseClass} -n ${singleton} -m no`,
+            missing: ['createStore (-m)']
+        });
+    }
+
+    if (isViewBaseClass(baseClass) && !isDrop && !(root === 'Neo' && !className.startsWith('Neo.examples'))) {
+        assertInteractivePrompt({
+            command: `npm run create-class -- -c ${className} -b ${baseClass} -n ${singleton} -C no -p no`,
+            missing: [
+                !programOpts.createController    && 'createController (-C)',
+                !programOpts.createStateProvider && 'createStateProvider (-p)'
+            ].filter(Boolean)
+        });
     }
 
     createClass({
