@@ -1,7 +1,9 @@
-import BaseList  from '../list/Base.mjs';
-import ListModel from '../selection/menu/ListModel.mjs';
-import Store     from './Store.mjs';
-import TreeStore from '../data/TreeStore.mjs';
+import BaseList        from '../list/Base.mjs';
+import ClassSystemUtil from '../util/ClassSystem.mjs';
+import DataStore       from '../data/Store.mjs';
+import ListModel       from '../selection/menu/ListModel.mjs';
+import Store           from './Store.mjs';
+import TreeStore       from '../data/TreeStore.mjs';
 
 /**
  * A floating root menu forms one interaction island with its exact align target and every mounted
@@ -191,13 +193,18 @@ class List extends BaseList {
     /**
      * The hierarchy source, when this menu is driven by a `Neo.data.TreeStore`.
      *
-     * The tree store is the single source of truth and is shared by every level of the cascade; it is
-     * never owned by a level and never destroyed by one. Each level renders the flat `store` derived
-     * from it. Null for the classic nested-`items` API.
+     * The tree store is the single source of truth and is shared by every level of the cascade. One handed in as
+     * an instance stays its owner's; one the root built from a class or config is the root's, and only the root
+     * destroys it. Each level renders the flat `store` derived from it. Null for the classic nested-`items` API.
      * @member {Neo.data.TreeStore|null} sourceStore=null
      * @protected
      */
     sourceStore = null
+    /**
+     * True when this menu built its `sourceStore` from a class or config, so destroy() takes it along.
+     * @member {Boolean} #ownsSourceStore=false
+     */
+    #ownsSourceStore = false
 
     /**
      * @param {Object} config
@@ -325,14 +332,20 @@ class List extends BaseList {
      *
      * Instead the tree store is kept as `sourceStore` and this level receives its own flat store
      * holding exactly the records it renders. `syncLevelRecords()` fills it once the configs are applied.
+     * A class or config is built first, so a tree store is recognised however it arrives.
      * @param {Object|Neo.data.Store|Neo.data.TreeStore} value
      * @param {Object|Neo.data.Store} oldValue
      * @returns {Neo.data.Store}
      * @protected
      */
     beforeSetStore(value, oldValue) {
+        let built = !!value && Neo.typeOf(value) !== 'NeoInstance';
+
+        built && (value = ClassSystemUtil.beforeSetInstance(value, DataStore));
+
         if (value instanceof TreeStore) {
-            this.sourceStore = value;
+            this.sourceStore      = value;
+            this.#ownsSourceStore = built;
 
             // The level store reuses the tree store's model CLASS, so its records keep every field the
             // hierarchy declares (isLeaf, parentId, depth) next to the menu fields. Re-adding records
@@ -475,6 +488,8 @@ class List extends BaseList {
             value.destroy();
             subMenuMap[key] = null
         });
+
+        me.#ownsSourceStore && me.sourceStore.destroy();
 
         super.destroy(...args)
     }

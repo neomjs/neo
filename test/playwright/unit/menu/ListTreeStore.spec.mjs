@@ -56,17 +56,24 @@ const MenuModel = Neo.setupClass(MenuTreeModel);
 function createTreeStore(config={}) {
     return Neo.create(TreeStore, {
         model: MenuModel,
-        data : [
-            {id: 'file',      text: 'File',       isLeaf: false, collapsed: true},
-            {id: 'file-new',  text: 'New',        isLeaf: false, collapsed: true, parentId: 'file'},
-            {id: 'file-new-f',text: 'File…',      isLeaf: true,                   parentId: 'file-new'},
-            {id: 'file-open', text: 'Open',       isLeaf: true,                   parentId: 'file'},
-            {id: 'edit',      text: 'Edit',       isLeaf: false, collapsed: true},
-            {id: 'edit-copy', text: 'Copy',       isLeaf: true,                   parentId: 'edit'},
-            {id: 'about',     text: 'About',      isLeaf: true}
-        ],
+        data : treeData(),
         ...config
     })
+}
+
+/**
+ * @returns {Object[]} A fresh copy of the menu tree, per store
+ */
+function treeData() {
+    return [
+        {id: 'file',      text: 'File',       isLeaf: false, collapsed: true},
+        {id: 'file-new',  text: 'New',        isLeaf: false, collapsed: true, parentId: 'file'},
+        {id: 'file-new-f',text: 'File…',      isLeaf: true,                   parentId: 'file-new'},
+        {id: 'file-open', text: 'Open',       isLeaf: true,                   parentId: 'file'},
+        {id: 'edit',      text: 'Edit',       isLeaf: false, collapsed: true},
+        {id: 'edit-copy', text: 'Copy',       isLeaf: true,                   parentId: 'edit'},
+        {id: 'about',     text: 'About',      isLeaf: true}
+    ]
 }
 
 /**
@@ -198,6 +205,38 @@ test.describe('Neo.menu.List driven by a TreeStore', () => {
         expect(treeStore.isDestroyed).toBeFalsy();
         expect(treeStore.getCount()).toBe(3);
         expect(treeStore.getChildren('edit')).toHaveLength(1)
+    });
+
+    test('a tree store passed as a class or a config drives the same levels, and the root destroys what it built', () => {
+        const ClassFormStore = Neo.setupClass(class extends TreeStore {
+                  static config = {
+                      className: 'Test.Unit.Menu.ListTreeStore.ClassFormStore',
+                      model    : MenuModel,
+                      data     : treeData()
+                  }
+              }),
+              byClass  = createMenu({store: ClassFormStore}),
+              byConfig = createMenu({store: {module: TreeStore, model: MenuModel, data: treeData()}});
+
+        menus.push(byClass, byConfig);
+
+        for (const root of [byClass, byConfig]) {
+            const {sourceStore} = root,
+                  file          = root.store.get('file');
+
+            expect(sourceStore instanceof TreeStore).toBe(true);
+            expect(root.store.items.map(item => item.id)).toEqual(['file', 'edit', 'about']);
+            expect(root.hasChildren(file), 'a parent, not a leaf the click would close the menu on').toBe(true);
+
+            root.showSubMenu(root.getItemId(root.store.getKey(file)), file);
+
+            expect(root.activeSubMenu.sourceStore).toBe(sourceStore);
+            expect(root.activeSubMenu.store.items.map(item => item.id)).toEqual(['file-new', 'file-open']);
+
+            root.destroy();
+
+            expect(sourceStore.isDestroyed).toBe(true)
+        }
     });
 
     test('showSubMenu opens a real child level and leaves the parent alive', () => {
