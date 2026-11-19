@@ -1,20 +1,20 @@
 import Model from '../../../src/data/Model.mjs';
 
 /**
+ * @summary Record schema with nested `user` (`firstname`, `lastname`) and `address` (`city`, `country`) fields
+ * and `trackModifiedFields: true` for dialog-based row editing.
  * @class Neo.examples.grid.nestedRecordFields.MainModel
  * @extends Neo.data.Model
  */
 class MainModel extends Model {
     static config = {
-        /**
-         * @member {String} className='Neo.examples.grid.nestedRecordFields.MainModel'
-         * @protected
-         */
-        className: 'Neo.examples.grid.nestedRecordFields.MainModel',
-        /**
-         * @member {Object[]} fields
-         */
+        className          : 'Neo.examples.grid.nestedRecordFields.MainModel',
+        trackModifiedFields: true,
+
         fields: [{
+            name: 'id',
+            type: 'String'
+        }, {
             name: 'annotations',
             type: 'Object',
 
@@ -23,18 +23,6 @@ class MainModel extends Model {
                 type        : 'Boolean',
                 defaultValue: false
             }]
-        }, {
-            name: 'country',
-            type: 'String'
-        }, {
-            name: 'date',
-            type: 'String'
-        }, {
-            name: 'edit',
-            type: 'String'
-        }, {
-            name: 'githubId',
-            type: 'String'
         }, {
             name: 'user',
             type: 'Object',
@@ -46,11 +34,30 @@ class MainModel extends Model {
                 name: 'lastname',
                 type: 'String'
             }]
-        }],
-        /**
-         * @member {Boolean} trackModifiedFields=true
-         */
-        trackModifiedFields: true
+        }, {
+            name: 'address',
+            type: 'Object',
+
+            fields: [{
+                name: 'city',
+                type: 'String'
+            }, {
+                name: 'country',
+                type: 'String'
+            }]
+        }, {
+            name: 'organization',
+            type: 'String'
+        }, {
+            name: 'role',
+            type: 'String'
+        }, {
+            name: 'date',
+            type: 'String'
+        }, {
+            name: 'edit',
+            type: 'String'
+        }]
     }
 }
 

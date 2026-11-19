@@ -188,21 +188,20 @@
     },
     {
       "id": "grid-nested-record-fields",
-      "viewport": {"width":640,"height":360},
+      "viewport": {"width":1280,"height":720},
       "theme": "dark",
-      "state": "Nested user fields in the grid, sorted by Lastname; no edit dialog.",
+      "state": "Edit Partner Contact modal open over the 28-row partner directory.",
       "ready": [
-        {"selector":".neo-grid-cell[data-field='user.firstname']","text":"Tobias"}
+        {"selector":".neo-grid-cell[data-field='user.firstname']","text":"Amara"}
       ],
       "steps": [
-        {"kind":"click","selector":".neo-grid-header-button","text":"Lastname"}
+        {"kind":"click","selector":".neo-grid-row .neo-button","text":"Edit","nth":1}
       ],
       "after": [
-        {"selector":"[role='columnheader'][aria-sort='ascending']","text":"Lastname","inRegion":true},
-        {"selector":".neo-grid-row:first-child .neo-grid-cell[data-field='user.lastname']","text":"Dehl","inRegion":true},
-        {"selector":".neo-grid-row.neo-selected .neo-grid-cell[data-field='user.firstname']","text":"Rich","inRegion":true}
+        {"selector":".neo-dialog .neo-header-toolbar","text":"Edit Partner Contact","inRegion":true},
+        {"selector":".neo-dialog .neo-countryfield","inRegion":true}
       ],
-      "region": {"x":0,"y":0,"width":640,"height":360}
+      "region": {"selector":".neo-dialog","anchor":"top-left","width":640,"height":360}
     },
     {
       "id": "grid-streaming",
