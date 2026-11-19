@@ -1065,7 +1065,7 @@
     },
     "/examples/grid": {
         "title": "JavaScript Data Grid Examples — 100k Rows in a Web Worker | Neo.mjs",
-        "description": "Explore 17 live JavaScript data grid examples: Opens at 20,000 × 50 and scales to 100,000 × 200, row-buffered, data in a Web Worker.",
+        "description": "Explore 18 live JavaScript data grid examples: Opens at 20,000 × 50 and scales to 100,000 × 200, row-buffered, data in a Web Worker.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-19"
     },
@@ -1241,7 +1241,7 @@
         "title": "Web Desktop — Multi-Threaded JavaScript App | Neo.mjs",
         "description": "A desktop whose icons, menus and windows follow the signed-in account's permissions through one store filter. Sign in as two accounts and compare the apps...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-19"
     },
     "/apps/workstation/index.html": {
         "title": "Workstation — Multi-Window JavaScript Demo | Neo.mjs",
@@ -1559,7 +1559,7 @@
         "title": "Dialog — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "Live runnable Dialog example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
         "schemaType": "WebPage",
-        "lastmod": "2025-12-21"
+        "lastmod": "2026-11-19"
     },
     "/examples/fields/index.html": {
         "title": "Fields — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1854,6 +1854,12 @@
         "description": "A Neo.mjs JavaScript Data Grid with columns pinned at both edges: product and region stay at the start, the total at the end, while 36 months scroll between.",
         "schemaType": "WebPage",
         "lastmod": "2026-11-17"
+    },
+    "/examples/grid/streaming/index.html": {
+        "title": "Streaming 50,000 Rows in a Data Grid | Neo.mjs",
+        "description": "A Neo.mjs JavaScript Data Grid that streams 50,000 NDJSON rows in chunks so the first rows are scrollable immediately while live progress updates in the footer.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-19"
     },
     "/examples/grid/tree/index.html": {
         "title": "Tree Grid Example — Web Worker Data Grid Demo | Neo.mjs",

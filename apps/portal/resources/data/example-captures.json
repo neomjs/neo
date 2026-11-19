@@ -196,6 +196,28 @@
       "region": {"x":0,"y":0,"width":640,"height":360}
     },
     {
+      "id": "grid-streaming",
+      "viewport": {"width": 640, "height": 360},
+      "theme": "dark",
+      "state": "50,000 settlement records streaming mid-flight with live footer progress.",
+      "ready": [
+        {"selector": ".neo-grid-cell[data-field='settlementId']", "text": "STL-100001"},
+        {"selector": ".streaming-toolbar .neo-button", "text": "Dark theme"},
+        {"selector": ".streaming-reload-button", "text": "Load again"}
+      ],
+      "steps": [
+        {"kind": "click", "selector": ".streaming-toolbar .neo-button", "text": "Dark theme"},
+        {"kind": "click", "selector": ".streaming-reload-button"},
+        {"kind": "wait", "selector": ".streaming-status-label", "text": "Streaming 1"}
+      ],
+      "after": [
+        {"selector": ".streaming-toolbar .neo-button", "text": "Light theme", "inRegion": true},
+        {"selector": ".streaming-status-label", "text": "Streaming ", "inRegion": true},
+        {"selector": ".neo-grid-cell[data-field='settlementId']", "text": "STL-100001", "inRegion": true}
+      ],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
       "id": "grid-tree",
       "viewport": {"width": 1280, "height": 720},
       "theme": "default",
