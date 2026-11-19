@@ -79,6 +79,7 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'grid/LockedDnDDuplication.spec.mjs',
     'grid/LockedRegionRowRender.spec.mjs',
     'grid/PremeasureRowsNL.spec.mjs',
+    'grid/ServerSidePagingNL.spec.mjs',
     'grid/RowSlotRemapDuplication.spec.mjs',
     'grid/ScrollPagesNL.spec.mjs',
     'grid/SearchToolbarNL.spec.mjs',
