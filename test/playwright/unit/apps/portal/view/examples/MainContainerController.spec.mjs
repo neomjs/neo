@@ -224,12 +224,16 @@ test.describe('Portal examples overview and group pages', () => {
         expect(mobIx.vdom.cn.filter(node => node.tag === 'section').map(band => band.cn[0].text))
             .toEqual(['Data views', 'Planning', 'Layout', 'Components', 'Platform']);
         expect(links(mobIx).map(link => link.href)).toEqual(publishedRoutes.map(route => '#' + route));
-        // a group with home examples shows their count, one that only borrows shows the borrowed count in parentheses
+        // a group shows its home examples; one that only borrows shows no number, and its label still names what it borrows
         expect(links(mobIx).map(link => link.cn[2].text))
-            .toEqual(Object.values(groupCounts).map(([count, crossCount]) => count ? String(count) : `(${crossCount})`));
+            .toEqual(Object.values(groupCounts).map(([count]) => count ? String(count) : ''));
+        expect(links(mobIx).filter(link => !link.cn[2].text).map(link => link.href))
+            .toEqual(publishedRoutes.filter((route, index) => Object.values(groupCounts)[index][0] === 0).map(route => '#' + route));
+        expect(links(mobIx).filter(link => !link.cn[2].text).every(link => link['aria-label'].endsWith('from other groups'))).toBe(true);
         expect(links(mobIx).every(link => link['aria-current'] === null)).toBe(true);
         expect(mobIx.vdom.cn[0].removeDom).toBe(true);
-        expect(mobIx.vdom.cn.at(-1).removeDom).toBe(false);
+        // the all-examples link, the unbanded list and one section per band: no note under them
+        expect(mobIx.vdom.cn.map(node => node.tag)).toEqual(['a', 'ul', 'section', 'section', 'section', 'section', 'section']);
 
         expect(index.presentation).toBe('list');
         expect(index.vdom.cn[0].removeDom).toBe(false);

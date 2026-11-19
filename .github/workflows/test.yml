@@ -204,9 +204,11 @@ jobs:
 
   # Advisory falsifier: head specs meet the merge parent's source with head dependencies kept.
   # Warnings are not failures. Missing reports fail this optional job; it is never a merge gate.
+  # Its runner starts only when the classifier reports a changed unit spec and a path outside test/.
   red-on-base:
     name: red-on-base (advisory)
-    if: ${{ github.event_name == 'pull_request' }}
+    needs: changes
+    if: ${{ github.event_name == 'pull_request' && needs.changes.outputs.run_red_on_base == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -218,40 +220,23 @@ jobs:
           fetch-depth: 2
           persist-credentials: false
 
-      - name: Select changed specs and non-test paths
-        id: selection
-        run: |
-          node --input-type=module <<'NODE'
-          import {execFileSync} from 'node:child_process';
-          import {appendFileSync, existsSync} from 'node:fs';
-          const files = execFileSync('git', ['diff', '--name-only', '--no-renames', '-z', 'HEAD^1', 'HEAD'], {encoding: 'utf8'}).split('\0').filter(Boolean);
-          const specs = files.filter(file => /^test\/playwright\/unit\/.*\.spec\.mjs$/.test(file) && existsSync(file));
-          const run = specs.length > 0 && files.some(file => !file.startsWith('test/'));
-          appendFileSync(process.env.GITHUB_OUTPUT, `run=${run}\n`);
-          if (!run) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `## Red on base\n\nSkipped: ${!specs.length ? 'no added or modified unit specs' : 'no paths outside test/ changed'}.\n`);
-          NODE
-
       - name: Setup Node.js
-        if: ${{ steps.selection.outputs.run == 'true' }}
         uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: npm
 
       - name: Install head dependencies
-        if: ${{ steps.selection.outputs.run == 'true' }}
         run: npm ci
 
       - name: Bundle browser dependencies
-        if: ${{ steps.selection.outputs.run == 'true' }}
         run: npm run bundle-browser-deps
 
       - name: Compare changed specs with and without the source change
-        if: ${{ steps.selection.outputs.run == 'true' }}
         run: node test/playwright/runRedOnBase.mjs
 
       - name: Retain both reports and the comparison
-        if: ${{ always() && steps.selection.outputs.run == 'true' }}
+        if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
           name: red-on-base-${{ github.run_id }}

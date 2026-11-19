@@ -108,7 +108,8 @@ const scopeScript = () =>
  * fetch of it genuinely throws. A mock that ignored the owner would let a fork-blind classifier pass.
  *
  * @param {Object}  [config={}]
- * @param {String[]}[config.files] Changed paths the PR reports.
+ * @param {Array<String|Object>} [config.files] Changed paths the PR reports, or GitHub file records
+ * (`{filename, status, previous_filename}`) where removals and renames matter.
  * @param {Object}  [config.basePkg] `package.json` content at the base ref.
  * @param {Object}  [config.headPkg] `package.json` content at the head ref.
  * @param {String}  [config.headPkgRaw] Raw head content, to serve unparseable bytes.
@@ -138,7 +139,8 @@ const createRuntime = ({
     runs            = [{ id: 1, conclusion: 'success', head_sha: 'before-sha' }],
     runsError       = null
 } = {}) => {
-    const outputs = new Map(),
+    const records = files.map(file => typeof file === 'string' ? {filename: file} : file),
+          outputs = new Map(),
           info    = [],
           notices = [],
           summary = [],
@@ -157,7 +159,7 @@ const createRuntime = ({
           github  = {
               paginate: async() => {
                   calls.listFiles++;
-                  return files.map(filename => ({ filename }));
+                  return records;
               },
               rest: {
                   pulls: {
@@ -177,7 +179,7 @@ const createRuntime = ({
                       // A push compares its two commits rather than listing a pull request's files
                       compareCommitsWithBasehead: async({ basehead }) => {
                           calls.basehead = basehead;
-                          return { data: { files: files.map(filename => ({ filename })) } };
+                          return { data: { files: records } };
                       },
                       getContent                : async({ owner, repo, path: filePath, ref }) => {
                           const isLock = filePath === 'package-lock.json';
@@ -245,7 +247,7 @@ test.describe('Tests scope classifier — the outputs the changes job actually d
         const outputs = readWorkflow(CLASSIFIER).jobs.classify.outputs;
 
         expect(Object.keys(outputs).sort()).toEqual(['e2e_boundary_report', 'e2e_engine_matrix', 'e2e_engine_paths', 'e2e_engine_shards',
-            'e2e_selection', 'e2e_selection_report', 'run_components', 'run_e2e', 'run_unit', 'skip_reason']);
+            'e2e_selection', 'e2e_selection_report', 'run_components', 'run_e2e', 'run_red_on_base', 'run_unit', 'skip_reason']);
     });
 
     test('a pull request\'s e2e selection runs only for a caller that asks, and its tier verdicts win', async () => {
@@ -556,9 +558,10 @@ test.describe('Tests scope classifier — stale-head guard', () => {
         expect(runtime.calls.listFiles).toBe(0);
         expect(runtime.calls.getContent).toBe(0);
         expect(outputsOf(runtime)).toMatchObject({
-            run_components: 'false',
-            run_e2e       : 'false',
-            run_unit      : 'false'
+            run_components : 'false',
+            run_e2e        : 'false',
+            run_red_on_base: 'false',
+            run_unit       : 'false'
         });
         expect(outputsOf(runtime).skip_reason).toContain('stale workflow head');
         expect(runtime.notices.join(' ')).toContain('Skipping expensive test suites');
@@ -837,10 +840,11 @@ test.describe('Tests scope classifier — unavailable diffs', () => {
         expect(runtime.calls.listFiles, 'a dispatch has no diff to list').toBe(0);
         expect(runtime.calls.pullsGet,  'and no head to compare').toBe(0);
         expect(outputsOf(runtime)).toMatchObject({
-            run_components: 'true',
-            run_e2e       : 'true',
-            run_unit      : 'true',
-            skip_reason   : 'changed files unavailable'
+            run_components : 'true',
+            run_e2e        : 'true',
+            run_red_on_base: 'true',
+            run_unit       : 'true',
+            skip_reason    : 'changed files unavailable'
         });
     });
 
@@ -850,11 +854,73 @@ test.describe('Tests scope classifier — unavailable diffs', () => {
         await executeScript(scopeScript(), runtime);
 
         expect(outputsOf(runtime)).toMatchObject({
-            run_components: 'true',
-            run_e2e       : 'true',
-            run_unit      : 'true',
-            skip_reason   : 'changed files unavailable'
+            run_components : 'true',
+            run_e2e        : 'true',
+            run_red_on_base: 'true',
+            run_unit       : 'true',
+            skip_reason    : 'changed files unavailable'
         });
+    });
+
+});
+
+test.describe('Tests scope classifier — the red-on-base falsifier', () => {
+
+    // red-on-base re-runs a pull request's changed unit specs against the merge parent's source, so
+    // it has a comparison only when the change holds both. Its runner starts on this verdict alone;
+    // `runRedOnBase.mjs` keeps the exact check on the merge commit.
+    const UNIT_SPEC = 'test/playwright/unit/grid/Body.spec.mjs';
+
+    test('a pull request that changes no unit spec starts no red-on-base runner', async () => {
+        const runtime = createRuntime({ files: ['src/grid/Body.mjs', 'test/playwright/component/grid/Body.spec.mjs'] });
+
+        await executeScript(scopeScript(), runtime);
+
+        expect(outputsOf(runtime).run_red_on_base).toBe('false');
+    });
+
+    test('a changed unit spec with a source change still runs it', async () => {
+        const runtime = createRuntime({ files: ['src/grid/Body.mjs', UNIT_SPEC] });
+
+        await executeScript(scopeScript(), runtime);
+
+        expect(outputsOf(runtime).run_red_on_base).toBe('true');
+    });
+
+    test('a test-only change leaves no base source to compare', async () => {
+        const runtime = createRuntime({ files: [UNIT_SPEC, 'test/playwright/util/helpers.mjs'] });
+
+        await executeScript(scopeScript(), runtime);
+
+        expect(outputsOf(runtime).run_red_on_base).toBe('false');
+    });
+
+    test('a removed unit spec is nothing to run, beside a source edit too', async () => {
+        const runtime = createRuntime({ files: ['src/grid/Body.mjs', {filename: UNIT_SPEC, status: 'removed'}] });
+
+        await executeScript(scopeScript(), runtime);
+
+        expect(outputsOf(runtime).run_red_on_base).toBe('false');
+    });
+
+    test('a rename from outside test/ into the unit suite still runs it', async () => {
+        // The comparison diffs without rename detection, so the old path counts as a source change
+        const runtime = createRuntime({ files: [{filename: UNIT_SPEC, status: 'renamed', previous_filename: 'src/grid/Probe.mjs'}] });
+
+        await executeScript(scopeScript(), runtime);
+
+        expect(outputsOf(runtime).run_red_on_base).toBe('true');
+    });
+
+    test('the job starts on the classifier\'s verdict and keeps no copy of its predicate', () => {
+        // A deleted selection step leaves its `if:` conditions reading an empty output, and every
+        // step after the checkout would then skip on a green job.
+        const job = readWorkflow('test.yml').jobs['red-on-base'];
+
+        expect(job.needs).toBe('changes');
+        expect(job.if).toBe("${{ github.event_name == 'pull_request' && needs.changes.outputs.run_red_on_base == 'true' }}");
+        expect(job.steps.filter(step => String(step.run).includes('git diff')), 'no step re-derives the changed files').toEqual([]);
+        expect(job.steps.filter(step => String(step.if).includes('steps.selection')), 'no step waits on one').toEqual([]);
     });
 
 });
