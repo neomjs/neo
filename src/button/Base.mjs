@@ -6,7 +6,7 @@ import {isDescriptor} from '../core/ConfigSymbols.mjs';
  * @summary The default button component for the Neo.mjs framework.
  *
  * This class extends `Neo.component.Base` and offers comprehensive configurations for
- * text, icons, badges, and event handling. It supports advanced features like
+ * text, icons, badges, sizes, and event handling. It supports advanced features like
  * internal routing, external URL redirection, and optional ripple effects on click.
  * This class serves as the foundation for other specialized button types like
  * SplitButton, TabHeaderButton, and GridHeaderButton.
@@ -30,6 +30,13 @@ class Button extends Component {
      * @static
      */
     static iconPositions = ['top', 'right', 'bottom', 'left']
+    /**
+     * Valid values for size
+     * @member {Array} sizes=[null,'small','medium','large']
+     * @protected
+     * @static
+     */
+    static sizes = [null, 'small', 'medium', 'large']
 
     static config = {
         /**
@@ -135,6 +142,14 @@ class Button extends Component {
          * @reactive
          */
         route_: null,
+        /**
+         * The button's size: `'small'`, `'medium'` or `'large'`, in every theme and over the size of its context.
+         * `null` takes the context's size: compact in a toolbar, and the theme's default elsewhere.
+         * The size is independent of `ui`, which carries a state such as `'primary'`.
+         * @member {'small'|'medium'|'large'|null} size_=null
+         * @reactive
+         */
+        size_: null,
         /**
          * The text displayed on the button [optional]
          * You can either pass a string, or a vdom cn array.
@@ -432,6 +447,17 @@ class Button extends Component {
     }
 
     /**
+     * Triggered after the size config got changed
+     * @param {String|null} value    The new value of the size config.
+     * @param {String|null} oldValue The old value of the size config.
+     * @protected
+     */
+    afterSetSize(value, oldValue) {
+        // Outside `ui`'s `neo-button-<ui>` namespace, so neither config can remove the other's class
+        this.removeAddCls(oldValue ? `neo-size-${oldValue}` : [], value ? `neo-size-${value}` : [])
+    }
+
+    /**
      * Triggered after the theme config got changed
      * @param {String|null} value    The new value of the theme config.
      * @param {String|null} oldValue The old value of the theme config.
@@ -573,6 +599,17 @@ class Button extends Component {
      */
     beforeSetIconPosition(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'iconPosition')
+    }
+
+    /**
+     * Triggered before the size config gets changed
+     * @param {String|null} value    The new value of the size config.
+     * @param {String|null} oldValue The old value of the size config.
+     * @returns {String|null}
+     * @protected
+     */
+    beforeSetSize(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'size')
     }
 
     /**
