@@ -1,0 +1,131 @@
+.neo-examples-grid-tree,
+.neo-examples-grid-tree [class*=neo-theme-] {
+    --grid-container-border-color                  : var(--tree-grid-border);
+    --grid-container-cell-background-color         : var(--tree-grid-surface);
+    --grid-container-cell-background-color-even    : var(--tree-grid-alternate);
+    --grid-container-color                         : var(--tree-grid-text);
+    --grid-container-font-size                     : 13px;
+    --grid-cell-background-color-hover             : var(--tree-grid-hover);
+    --grid-header-button-background-color          : var(--tree-grid-header);
+    --grid-header-button-background-color-hover    : var(--tree-grid-hover);
+    --grid-header-button-background-image          : none;
+    --grid-header-button-border-right-color        : var(--tree-grid-border);
+    --grid-header-button-color                     : var(--tree-grid-title);
+    --grid-header-button-color-hover               : var(--tree-grid-accent);
+    --grid-header-button-font-size                 : 12px;
+    --grid-header-button-font-weight               : 600;
+    --grid-header-button-glyph-color               : var(--tree-grid-muted);
+    --grid-header-button-glyph-color-hover         : var(--tree-grid-accent);
+    --grid-rowmodel-selected-cell-background-color : var(--tree-grid-hover);
+    --grid-rowmodel-selected-cell-color            : var(--tree-grid-title);
+}
+
+.neo-examples-grid-tree.neo-viewport {
+    background-color: var(--tree-grid-background);
+    color           : var(--tree-grid-text);
+    font-family     : var(--neo-font-family);
+
+    .tree-grid-toolbar {
+        background-color: var(--tree-grid-background);
+        flex-wrap       : wrap;
+        gap             : 16px;
+        padding         : 18px 24px;
+    }
+
+    .tree-grid-intro {
+        flex: 1 1 320px;
+    }
+
+    .tree-grid-title {
+        color         : var(--tree-grid-title);
+        font-size     : 22px;
+        font-weight   : 700;
+        letter-spacing: -0.02em;
+        line-height   : 1.2;
+    }
+
+    .tree-grid-instruction {
+        color      : var(--tree-grid-muted);
+        font-size  : 13px;
+        line-height: 1.45;
+        margin-top : 4px;
+    }
+
+    .tree-grid-actions {
+        background-color: transparent;
+        flex-wrap       : wrap;
+        gap             : 8px;
+
+        .neo-button {
+            background-color: var(--tree-grid-surface);
+            border          : 1px solid var(--tree-grid-border);
+            border-radius   : 8px;
+            color           : var(--tree-grid-title);
+        }
+    }
+
+    .neo-grid-container {
+        background-color: var(--tree-grid-surface);
+        box-shadow      : 0 -1px 0 var(--tree-grid-border);
+        min-height      : 0;
+        min-width       : 0;
+    }
+
+    .neo-grid-row .neo-grid-cell {
+        font-variant-numeric: tabular-nums;
+    }
+
+    .neo-grid-row:has(.neo-tree-toggle:not(.is-leaf)) .neo-grid-cell {
+        font-weight: 600;
+    }
+
+    .neo-grid-cell[data-field="status"] {
+        align-items: center;
+        display    : flex;
+    }
+
+    .tree-budget-status {
+        border-radius: 999px;
+        display      : inline-block;
+        font-size    : 11px;
+        font-weight  : 600;
+        line-height  : 1.4;
+        padding      : 2px 9px;
+        white-space  : nowrap;
+
+        &.is-on-track {
+            background-color: var(--tree-grid-ontrack-bg);
+            color           : var(--tree-grid-ontrack-text);
+        }
+
+        &.is-committed {
+            background-color: var(--tree-grid-committed-bg);
+            color           : var(--tree-grid-committed-text);
+        }
+
+        &.is-watch {
+            background-color: var(--tree-grid-watch-bg);
+            color           : var(--tree-grid-watch-text);
+        }
+    }
+
+    @media (max-width: 700px) {
+        .tree-grid-toolbar {
+            gap    : 10px;
+            padding: 12px 14px;
+        }
+
+        .tree-grid-title {
+            font-size: 18px;
+        }
+
+        .tree-grid-instruction {
+            font-size: 12px;
+        }
+
+        .tree-grid-actions .neo-button {
+            font-size: 11px;
+            padding  : 4px 8px;
+        }
+    }
+}
