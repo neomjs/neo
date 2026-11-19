@@ -13,7 +13,6 @@ export const catalog = [
     {id: 'media',         text: 'Media',         iconCls: 'fas fa-photo-film', isLeaf: false, collapsed: false},
     {id: 'photos',        text: 'Photos',        iconCls: 'fas fa-images',           parentId: 'media',         color: '#ec4899', permission: 'view-photos',      description: 'Browse your pictures.'},
     {id: 'music',         text: 'Music',         iconCls: 'fas fa-music',            parentId: 'media',         color: '#a855f7', permission: 'view-music',       description: 'Play your library.'},
-    {id: 'videos',        text: 'Videos',        iconCls: 'fas fa-film',             parentId: 'media',         color: '#ef4444', permission: 'view-videos',      description: 'Watch recordings.'},
     {id: 'files',         text: 'Files',         iconCls: 'fas fa-folder-open', isLeaf: false, collapsed: false},
     {id: 'documents',     text: 'Documents',     iconCls: 'fas fa-folder-open',      parentId: 'files',         color: '#eab308', permission: 'view-documents',   description: 'Open shared documents.'},
     {id: 'recycle-bin',   text: 'Recycle Bin',   iconCls: 'fas fa-trash-can',        parentId: 'files',         color: '#64748b', permission: 'view-recycle-bin', description: 'Restore deleted files.'},

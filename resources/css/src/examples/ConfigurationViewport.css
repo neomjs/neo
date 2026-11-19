@@ -85,10 +85,80 @@
         }
     }
 
+    .neo-workbench-inspector-content {
+        min-height: 0;
+    }
+
     .neo-configuration-panel-body {
         flex      : 1 1 auto;
+        min-height: 0;
         overflow-y: auto;
         padding   : 14px;
+    }
+
+    .neo-workbench-code-panel {
+        border-top    : 1px solid var(--panel-border-color);
+        display       : flex;
+        flex          : 0 0 auto;
+        flex-direction: column;
+        max-height    : 220px;
+        min-height    : 0;
+
+        .neo-workbench-code-header {
+            align-items  : center;
+            border-bottom: 1px solid var(--panel-border-color);
+            display      : flex;
+            flex         : 0 0 auto;
+            gap          : 8px;
+            padding      : 6px 12px;
+
+            .neo-workbench-code-title {
+                color         : var(--secondary-text-color, #888);
+                font-size     : 11px;
+                font-weight   : 700;
+                letter-spacing: 0.05em;
+                text-transform: uppercase;
+            }
+
+            .neo-button-copy-code {
+                font-size: 12px;
+            }
+        }
+
+        .neo-workbench-code-output,
+        .neo-workbench-code-body {
+            display   : flex;
+            flex      : 1 1 auto;
+            min-height: 0;
+            overflow  : hidden;
+            position  : relative;
+        }
+
+        .neo-workbench-code-pre {
+            background-color: var(--body-background-color);
+            box-sizing      : border-box;
+            color           : var(--label-color, inherit);
+            flex            : 1 1 auto;
+            font-family     : ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size       : 12px;
+            line-height     : 1.5;
+            margin          : 0;
+            overflow        : auto;
+            padding         : 10px 12px;
+            user-select     : text;
+            white-space     : pre;
+            width           : 100%;
+        }
+
+        .neo-workbench-code-clipboard {
+            height        : 1px;
+            left          : -9999px;
+            opacity       : 0;
+            pointer-events: none;
+            position      : fixed;
+            top           : -9999px;
+            width         : 1px;
+        }
     }
 
     .neo-inspector-group-title {
@@ -143,10 +213,27 @@
             width         : calc(100% - 20px) !important;
         }
 
+        .neo-workbench-inspector-content {
+            min-height: 0 !important;
+        }
+
         .neo-configuration-panel-body {
             flex      : 1 1 auto !important;
+            min-height: 110px !important;
             overflow-y: auto !important;
             -webkit-overflow-scrolling: touch;
+        }
+
+        .neo-workbench-code-panel {
+            flex      : 0 0 auto !important;
+            max-height: 160px !important;
+        }
+
+        .neo-button-copy-code {
+            font-size : 13px !important;
+            min-height: 36px !important;
+            min-width : 44px !important;
+            padding   : 6px 12px !important;
         }
 
         .neo-button-reset,

@@ -60,7 +60,7 @@ test.describe('Neo.board.LaneRow & Board swimlanes', () => {
         board = createBoard({store});
 
         expect(board.cls).toContain('neo-board-lanes');
-        expect(board.layout.ntype).toBe('layout-vbox');
+        expect(board.layout.ntype).toBe('layout-grid');
         expect(board.items.every(item => item instanceof LaneRow)).toBe(true);
         expect(laneValues(board)).toEqual(['Atlas', 'Beacon', null]);
 
@@ -71,16 +71,19 @@ test.describe('Neo.board.LaneRow & Board swimlanes', () => {
 
         expect(atlas.title).toBe('Atlas');
         expect(atlas.count).toBe(2);
-        expect(atlas.header.vdom.cn[0].text).toBe('Atlas');
-        expect(atlas.header.vdom.cn[1].text).toBe('2');
+        // Toggle, title and count form one label, which sticks to the board's visible start on a narrower board
+        expect(atlas.header.vdom.cn.map(node => node.cls[0])).toEqual(['neo-board-lane-label']);
+        expect(atlas.header.vdom.cn[0].cn.map(node => node.cls[0])).toEqual(['neo-board-lane-collapse', 'neo-board-lane-title', 'neo-board-lane-count']);
+        expect(atlas.header.vdom.cn[0].cn[1].text).toBe('Atlas');
+        expect(atlas.header.vdom.cn[0].cn[2].text).toBe('2');
 
         expect(beacon.title).toBe('Beacon');
         expect(beacon.count).toBe(2);
 
         expect(unassigned.title).toBe('Unassigned');
         expect(unassigned.count).toBe(2);
-        expect(unassigned.header.vdom.cn[0].text).toBe('Unassigned');
-        expect(unassigned.header.vdom.cn[1].text).toBe('2');
+        expect(unassigned.header.vdom.cn[0].cn[1].text).toBe('Unassigned');
+        expect(unassigned.header.vdom.cn[0].cn[2].text).toBe('2');
 
         expect(board.getColumn('backlog', 'Atlas').id).toBe(`${board.id}__col__backlog__Atlas`);
         expect(board.getColumn('in-progress', 'Atlas').id).toBe(`${board.id}__col__in-progress__Atlas`);
@@ -142,16 +145,16 @@ test.describe('Neo.board.LaneRow & Board swimlanes', () => {
             expect(beacon.collapsed).toBe(true);
             expect(beacon.cls).toContain('neo-board-lane-collapsed');
             expect(beacon.columnContainer.hidden).toBe(true);
-            expect(beacon.header.vdom.cn[0].text).toBe('Beacon Ops');
-            expect(beacon.header.vdom.cn[1].text).toBe('2');
-            expect(beacon.header.vdom.cn[2]['aria-expanded']).toBe('false');
+            expect(beacon.header.vdom.cn[0].cn[1].text).toBe('Beacon Ops');
+            expect(beacon.header.vdom.cn[0].cn[2].text).toBe('2');
+            expect(beacon.header.vdom.cn[0].cn[0]['aria-expanded']).toBe('false');
 
             // Toggling collapsed restores the columns container and updates ARIA
             beacon.onCollapseClick({});
             expect(beacon.collapsed).toBe(false);
             expect(beacon.cls).not.toContain('neo-board-lane-collapsed');
             expect(beacon.columnContainer.hidden).toBe(false);
-            expect(beacon.header.vdom.cn[2]['aria-expanded']).toBe('true');
+            expect(beacon.header.vdom.cn[0].cn[0]['aria-expanded']).toBe('true');
 
             // Re-collapse Beacon and verify SortZone#onDragStart snapshots only non-collapsed lane columns
             beacon.collapsed = true;

@@ -11,6 +11,8 @@
     --dialog-footer-button-margin-left  : 0.3em;
     --dialog-header-color                : var(--purple-500);
     --dialog-icon-color                  : var(--purple-500);
+    --dialog-header-button-background-color-hover: var(--cmp-button-ghost-surface-hover);
+    --dialog-icon-color-hover                    : var(--sem-color-icon-neutral-contrast);
 
     .neo-dialog {
         .neo-header-toolbar {

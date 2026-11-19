@@ -1,6 +1,7 @@
 import Model from '../../../src/data/Model.mjs';
 
 /**
+ * @summary Represents one equity row rendered in the live Finance market desk grid.
  * @class Finance.model.Company
  * @extends Neo.data.Model
  */
@@ -16,11 +17,19 @@ class Company extends Model {
          */
         fields: [{
             name        : 'change',
-            defaultValue: null,
+            defaultValue: 0,
+            type        : 'Float'
+        }, {
+            name        : 'changePercent',
+            defaultValue: 0,
             type        : 'Float'
         }, {
             name: 'name',
             type: 'String'
+        }, {
+            name        : 'priorClose',
+            defaultValue: 0,
+            type        : 'Float'
         }, {
             name: 'sector',
             type: 'String'
@@ -28,8 +37,17 @@ class Company extends Model {
             name: 'symbol',
             type: 'String'
         }, {
-            name: 'value',
-            type: 'Float'
+            name        : 'tickDelta',
+            defaultValue: 0,
+            type        : 'Float'
+        }, {
+            name        : 'value',
+            defaultValue: 0,
+            type        : 'Float'
+        }, {
+            name        : 'volume',
+            defaultValue: 0,
+            type        : 'Integer'
         }]
     }
 }

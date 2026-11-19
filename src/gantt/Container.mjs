@@ -121,28 +121,36 @@ class Container extends SchedulerContainer {
         return store
     }
 
-    /** @summary Binds record changes and keeps the overlay aligned. */
+    /**
+     * @summary Binds record changes and keeps the overlay aligned.
+     * @description A store batch (`updateRows()`) re-projects the overlay once, on its `rowsChange`. Its records'
+     * `recordChange` events and the filter or sort it reapplies arrive first, while `store.isUpdatingRows` is true,
+     * and leave the overlay to that final event.
+     */
     afterSetStore(value, oldValue) {
         super.afterSetStore(value, oldValue);
         this.#analysis?.invalidateSchedule();
         this.#storeCleanups.forEach(fn => fn());
         this.#storeCleanups = [];
         if (value) {
-            const changed = data => {
+            // A batch's events only note that the schedule went stale; its final rowsChange invalidates and projects once
+            let   stale  = false;
+            const settle = (invalidate, data) => {
                 if (this._movingTask) return;
-                this.#analysis?.invalidateSchedule(data);
+                stale ||= invalidate;
+                if (value.isUpdatingRows) return;
+                if (stale) { stale = false; this.#analysis?.invalidateSchedule(data) }
                 if (!(this.schedule?.isPublishing && this.#serviceCleanup)) this.syncDependencyLayer()
             };
+            const changed      = data => settle(true, data);
             const recordChange = data => {
-                if (this._movingTask) return;
                 const fields = data?.fields;
-                if (!Array.isArray(fields) || !fields.length || fields.some(field => {
+                settle(!Array.isArray(fields) || !fields.length || fields.some(field => {
                     const name = typeof field === 'string' ? field : field?.name;
                     return !name || [this.startDateField, this.endDateField, 'milestone', 'parentId', 'isLeaf', 'id', value.keyProperty].includes(name)
-                })) this.#analysis?.invalidateSchedule();
-                if (!(this.schedule?.isPublishing && this.#serviceCleanup)) this.syncDependencyLayer()
+                }))
             };
-            const listeners = {mutate: changed, recordChange, filter: changed};
+            const listeners = {mutate: changed, recordChange, rowsChange: recordChange, filter: changed};
             value.on(listeners);
             this.#storeCleanups.push(() => value.un(listeners))
         }
@@ -151,18 +159,21 @@ class Container extends SchedulerContainer {
         if (oldValue && oldValue !== value && this.#ownedTasks.has(oldValue)) oldValue.destroy()
     }
 
-    /** @summary Rebinds dependency changes and releases a store owned by this chart. */
+    /**
+     * @summary Rebinds dependency changes and releases a store owned by this chart.
+     * @description Like the task store, a batch of link edits re-projects the overlay once, on its `rowsChange`.
+     */
     afterSetDependencyStore(value, oldValue) {
         this.#analysis?.invalidateSchedule();
         this.#dependencyCleanups.forEach(fn => fn());
         this.#dependencyCleanups = [];
         if (value) {
             const changed = () => {
-                if (this._movingTask) return;
+                if (this._movingTask || value.isUpdatingRows) return;
                 this.#analysis?.invalidateSchedule();
                 if (!(this.schedule?.isPublishing && this.#serviceCleanup)) this.syncDependencyLayer()
             };
-            const listeners = {mutate: changed, recordChange: changed, filter: changed};
+            const listeners = {mutate: changed, recordChange: changed, rowsChange: changed, filter: changed};
             value.on(listeners);
             this.#dependencyCleanups.push(() => value.un(listeners))
         }
