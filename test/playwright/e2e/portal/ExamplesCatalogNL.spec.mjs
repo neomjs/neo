@@ -34,6 +34,17 @@ async function readList(app, family, reference='group-list') {
 }
 
 /**
+ * @summary Reads the overview's featured "Start here" list from this page's App Worker.
+ * @param {Object} app The bound Neural Link app.
+ * @returns {Promise<Object>} The list's Store.
+ */
+async function readOverviewList(app) {
+    const lists = await app.queryComponent({className: 'Portal.view.examples.List'}, ['reference', 'store']);
+
+    return lists.find(match => match.properties.reference === 'overview-list')
+}
+
+/**
  * @summary Waits until the named group's page is the only page that shows. The card switch updates the page it hides
  * and the page it shows one by one, so for a moment either both show or still the old one.
  * @param {Object} page The test page.
@@ -243,14 +254,16 @@ test.describe('Portal examples section', () => {
         test(`${viewport.width}×${viewport.height}: the overview names every published group in reach, without a menu`, async ({page, neuralLink}, testInfo) => {
             await page.setViewportSize(viewport);
             await page.goto(`${PORTAL}#/examples`);
-            await neuralLink.connectToApp('Portal');
+            const app = await neuralLink.connectToApp('Portal');
 
             const isPhone  = viewport.width <= 640,
                   navSel   = isPhone ? MOBILE_IX : SIDEBAR,
                   links    = page.locator(`${navSel} ul a`),
                   featured = page.locator(FEATURED);
 
-            await expect(featured.locator('.neo-list-item')).toHaveCount(12);
+            // the featured list's Store holds the count to show; the unit spec pins which examples it holds
+            await expect(featured.locator('.neo-list-item').first()).toBeVisible();
+            await expect(featured.locator('.neo-list-item')).toHaveCount((await readOverviewList(app)).properties.store.count);
             await expect.poll(() => links.locator('.portal-examples-group-index-title').allTextContents()).toEqual(GROUPS);
 
             if (isPhone) {
@@ -510,16 +523,18 @@ test.describe('Portal examples section', () => {
                 .toHaveAttribute('href', `https://neomjs.com/${prefix}examples/grid/treeBigData/index.html`);
             await openGroup(page, 'Multi-Window');
             // the six covered records plus dock-cross-window, dock-tear-out and Email (via alsoIn); the external
-            // OffscreenCanvas demo has no ESM destination
-            await expect(page.locator(`${CARDS} .portal-example-feature`)).toHaveCount(mode === 'dist_esm' ? 8 : 9);
+            // OffscreenCanvas demo has no ESM destination, so the list's Store holds one card fewer there
+            await expect.poll(async () => (await readList(app, 'multi-window')).properties.catalogMode).toBe(mode);
+            await expect(page.locator(`${CARDS} .portal-example-feature`)).toHaveCount((await readList(app, 'multi-window')).properties.store.count);
             await expect(page.locator(CARDS).getByRole('link', {name: 'Colors Dashboard', exact: true}))
                 .toHaveAttribute('href', `https://neomjs.com/${prefix}apps/colors/index.html`);
             await openOverview(page)
         }
 
-        // A record without a cover stays in the catalog and gets no card: Calendar shows its one covered example.
+        // A record without a cover stays in the catalog and gets no card: Calendar shows its covered examples only.
         await openGroup(page, 'Calendar');
-        await expect(page.locator(`${CARDS} .neo-list-item`)).toHaveCount(1);
+        await expect(page.locator(`${CARDS} .neo-list-item`).first()).toBeVisible();
+        await expect(page.locator(`${CARDS} .neo-list-item`)).toHaveCount((await readList(app, 'calendar')).properties.store.count);
         await expect(page.locator(CARDS).getByRole('link', {name: 'Studio Bookings', exact: true})).toHaveCount(0);
 
         for (const [mode, prefix] of [['dist_prod', 'dist/production/'], ['dist_esm', 'dist/esm/'], ['dist_dev', 'dist/development/'], ['devmode', '']]) {
@@ -540,7 +555,8 @@ test.describe('Portal examples section', () => {
                 await expect(page.locator(`.neo-viewport.${theme}`)).toBeVisible();
 
                 const featured = page.locator(FEATURED);
-                await expect(featured.locator('.neo-list-item')).toHaveCount(12);
+                await expect(featured.locator('.neo-list-item').first()).toBeVisible();
+                await expect(featured.locator('.neo-list-item')).toHaveCount((await readOverviewList(app)).properties.store.count);
                 await page.evaluate(() => document.fonts.ready);
                 await expectCardLayout(featured, viewport.width);
                 await expect(featured.locator('.neo-title').nth(0)).toHaveText('Workstation');
