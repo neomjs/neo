@@ -634,7 +634,7 @@ test.describe('Portal examples section', () => {
 
                 // A stable string identity also survives the lazy-cover path at the end of the list.
                 await overview.locator('.neo-list-item').last().scrollIntoViewIfNeeded();
-                await expect(overview.locator('.neo-list-item').last().getByRole('link', {name: 'Table Configuration'})).toBeVisible()
+                await expect(overview.locator('.neo-list-item').last().getByRole('link', {name: 'When to Use a Table'})).toBeVisible()
             })
         }
     }
