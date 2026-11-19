@@ -41,6 +41,33 @@
         position: fixed;
     }
 
+    /* A phone's text size, as a variable on the button itself, so a size class re-values it */
+    @media (max-width: 600px) {
+        --button-text-font-size: 13px;
+    }
+
+    /* The size config re-values the sizing variables on the button itself, so its size wins over its context's */
+    &.neo-size-small {
+        --button-height        : var(--button-size-small-height);
+        --button-min-width     : var(--button-size-small-height);
+        --button-padding       : var(--button-size-small-padding);
+        --button-text-font-size: var(--button-size-small-font-size);
+    }
+
+    &.neo-size-medium {
+        --button-height        : var(--button-size-medium-height);
+        --button-min-width     : var(--button-size-medium-height);
+        --button-padding       : var(--button-size-medium-padding);
+        --button-text-font-size: var(--button-size-medium-font-size);
+    }
+
+    &.neo-size-large {
+        --button-height        : var(--button-size-large-height);
+        --button-min-width     : var(--button-size-large-height);
+        --button-padding       : var(--button-size-large-padding);
+        --button-text-font-size: var(--button-size-large-font-size);
+    }
+
     .neo-button-badge {
         background-color: var(--button-badge-background-color);
         border-radius   : 5px;
@@ -110,10 +137,6 @@
         pointer-events: none;
         text-transform: var(--button-text-transform);
         z-index       : 2;
-
-        @media (max-width: 600px) {
-            font-size: 13px;
-        }
     }
 
     &:active {

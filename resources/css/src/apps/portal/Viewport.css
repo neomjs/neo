@@ -7,6 +7,15 @@ body {
     }
 }
 
+/* The Portal's buttons stand alone on wide sections, and its header canvas draws its waves around each nav item: both
+   take the large size. Any other toolbar keeps the neo themes' medium one. */
+.neo-viewport, .portal-header-toolbar {
+    --button-height        : var(--button-size-large-height);
+    --button-min-width     : var(--button-size-large-height);
+    --button-padding       : var(--button-size-large-padding);
+    --button-text-font-size: var(--button-size-large-font-size);
+}
+
 .neo-viewport {
     /* sometimes when transitioning between card & cube layouts, the flex value does get lost
        see: https://github.com/neomjs/neo/issues/5637 */

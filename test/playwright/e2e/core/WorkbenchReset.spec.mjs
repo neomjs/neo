@@ -13,14 +13,15 @@ test('button Reset restores the rendered badge and checked inspector radio', asy
 
 test('field Reset restores the rendered label and its inspector textbox', async ({page}) => {
     await page.goto('/examples/form/field/text/index.html');
+    // The inspector drives the live field, the stage's first item; the field's states follow it
     const input = page.getByRole('textbox', {name: 'labelText', exact: true}),
-          label = page.locator('.neo-example-container label');
+          label = page.locator('.neo-example-container > :first-child label');
     await input.fill('A different label');
     await input.press('Tab');
     await expect(label).toHaveText('A different label');
     await page.getByRole('button', {name: 'Reset', exact: true}).click();
-    await expect(label).toHaveText('Label');
-    await expect(input).toHaveValue('Label');
+    await expect(label).toHaveText('Project name');
+    await expect(input).toHaveValue('Project name');
 });
 
 test('list Reset restores the rendered width and its inspector spinbutton', async ({page}) => {

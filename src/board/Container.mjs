@@ -258,7 +258,7 @@ class Board extends Container {
     }
 
     /**
-     * @summary Switches the board between single-row (`hbox`) and swimlane (`vbox`) layout and re-projects when
+     * @summary Switches the board between single-row (`hbox`) and swimlane (`grid`) layout and re-projects when
      * `laneField` changes after construction
      * @param {String|null} value
      * @param {String|null} oldValue
@@ -299,18 +299,21 @@ class Board extends Container {
     }
 
     /**
-     * @summary Syncs the board's `neo-board-lanes` class and `vbox` / `hbox` layout with {@link #laneField}
+     * @summary Syncs the board's `neo-board-lanes` class and `grid` / `hbox` layout with {@link #laneField}
+     * @description Lanes stack in a one-track grid (`Container.css`): the track is as wide as the widest lane, so a
+     * lane narrowed by its own collapsed columns, or folded, still spans the board's scroll range, and its sticky
+     * header label stays in view. A `vbox` stretches lanes only to the board's visible width.
      */
     applyLaneLayout() {
         let me      = this,
             hasLane = Boolean(me.laneField),
-            target  = hasLane ? 'vbox' : 'hbox',
+            target  = hasLane ? 'grid' : 'hbox',
             ntype   = me.layout?.ntype;
 
         me.toggleCls('neo-board-lanes', hasLane);
 
         if (ntype !== target && ntype !== `layout-${target}`) {
-            me.layout = {ntype: target, align: 'stretch'}
+            me.layout = hasLane ? {ntype: target} : {ntype: target, align: 'stretch'}
         }
     }
 

@@ -1,12 +1,15 @@
 {
   "version": 1,
-  "families": ["grid-table", "gantt", "scheduler"],
+  "families": ["grid-table", "gantt", "scheduler", "board", "charts", "dashboard", "apps"],
   "suffix": "14",
   "tiles": [
     "examples/form/field/checkbox", "examples/form/field/chip", "examples/form/field/color", "examples/form/field/combobox",
-    "examples/form/field/date", "examples/form/field/email", "examples/form/field/fileupload", "examples/form/field/number",
-    "examples/form/field/radio", "examples/form/field/select", "examples/form/field/switch", "examples/form/field/text",
+    "examples/form/field/country", "examples/form/field/currency", "examples/form/field/date", "examples/form/field/display",
+    "examples/form/field/email", "examples/form/field/fileupload", "examples/form/field/iban", "examples/form/field/number",
+    "examples/form/field/password", "examples/form/field/phone", "examples/form/field/radio", "examples/form/field/range",
+    "examples/form/field/search", "examples/form/field/select", "examples/form/field/switch", "examples/form/field/text",
     "examples/form/field/textarea", "examples/form/field/time", "examples/form/field/trigger/copyToClipboard", "examples/form/field/url",
+    "examples/form/field/zipcode",
     "examples/form/fieldset", "examples/component/dateSelector", "examples/layout/form",
     "examples/button/base", "examples/menu/list",
     "examples/list/base", "examples/list/chip", "examples/list/color",
@@ -357,6 +360,159 @@
       "steps": [],
       "after": [{"selector": ".neo-timeline-bar", "text": "Quartet recording", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Piano", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Orchestral mix", "inRegion": true}],
       "region": {"selector": ".neo-scheduler", "anchor": "top-left", "width": 640, "height": 360}
+    },
+    {
+      "id": "webdesktop",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "Signed in as Alex Morgan with the permission-filtered desktop launcher and taskbar visible.",
+      "ready": [
+        {"selector": ".webdesktop-sign-in-card"},
+        {"selector": ".webdesktop-account-name", "text": "Alex Morgan"}
+      ],
+      "steps": [
+        {"kind": "click", "selector": ".webdesktop-account-name", "text": "Alex Morgan"}
+      ],
+      "after": [
+        {"selector": ".webdesktop-workspace"},
+        {"selector": ".webdesktop-account-name", "text": "Alex Morgan"}
+      ],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "covid-dashboard",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "Country statistics table with USA selected alongside the global summary header.",
+      "dependencies": ["https://raw.githubusercontent.com/neomjs/pages/main/"],
+      "ready": [
+        {"selector": ".covid-header-container"},
+        {"selector": ".neo-country-column", "text": "USA"}
+      ],
+      "steps": [
+        {"kind": "click", "selector": ".neo-country-column", "text": "USA"}
+      ],
+      "after": [
+        {"selector": ".covid-numberbox", "text": "Cases", "inRegion": true},
+        {"selector": ".neo-country-column", "text": "USA"}
+      ],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "portal",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "Portal Learn section opened from the top header toolbar.",
+      "ready": [
+        {"selector": ".portal-header-toolbar"},
+        {"selector": ".portal-home-hero-content .neo-h1", "text": "Neo.mjs"}
+      ],
+      "steps": [
+        {"kind": "click", "selector": ".portal-header-toolbar .neo-button", "text": "Learn"}
+      ],
+      "after": [
+        {"selector": ".portal-header-toolbar .neo-button", "text": "Learn", "inRegion": true},
+        {"selector": "h1"}
+      ],
+      "region": {"x": 320, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "finance",
+      "viewport": {"width": 1020, "height": 560},
+      "theme": "default",
+      "state": "Nasdaq-100 market desk filtered by Tech and paused at 41 of 101 equities with green and red percent deltas.",
+      "ready": [
+        {"selector": ".finance-viewport"},
+        {"selector": ".neo-grid-cell[data-field='symbol']", "text": "ADBE"}
+      ],
+      "steps": [
+        {"kind": "fill", "selector": ".finance-search input", "value": "Tech"},
+        {"kind": "click", "selector": ".finance-toolbar .neo-button", "text": "Stop"}
+      ],
+      "after": [
+        {"selector": ".finance-status", "text": "41 of 101 equities · Paused", "inRegion": true},
+        {"selector": ".neo-grid-cell[data-field='changePercent']", "inRegion": true}
+      ],
+      "region": {"x": 380, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "email",
+      "viewport": {"width": 960, "height": 560},
+      "theme": "default",
+      "state": "Inbox list and functional reader side by side after selecting Project conversation 2.",
+      "ready": [
+        {"selector": ".email-workspace"},
+        {"selector": ".email-detail-view h1", "text": "Project conversation 1"}
+      ],
+      "steps": [
+        {"kind": "click", "selector": ".email-inbox .neo-grid-row", "nth": 1}
+      ],
+      "after": [
+        {"selector": ".email-inbox .neo-grid-cell[data-field='sender']", "text": "Sam Rivera"},
+        {"selector": ".email-detail-view h1", "text": "Project conversation 2", "inRegion": true}
+      ],
+      "region": {"x": 320, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "scheduler-big-data",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "300 people and 15,600 bookings opened on Week 1 in 3-week view, with locked resource names beside viewport-clipped colored timeline bars.",
+      "ready": [{"selector": ".year-plan-counts", "text": "300 people · 15,600 bookings"}, {"selector": ".neo-timeline-bar"}],
+      "steps": [],
+      "after": [{"selector": ".year-plan-counts", "text": "300 people · 15,600 bookings"}, {"selector": ".neo-timeline-bar", "inRegion": true}],
+      "region": {"selector": ".neo-scheduler", "anchor": "top-left", "width": 640, "height": 360}
+    },
+    {
+      "id": "board-swimlanes",
+      "viewport": {"width": 640, "height": 800},
+      "theme": "dark",
+      "state": "The example as it opens, framed from the folded Web row: Web down to its header and count above the open Mobile row, whose header keeps its count in view and whose first columns show their cards. An open row is about 350 px tall, so a 640 x 360 viewport shows one row and no fold; the region keeps the viewport's full width.",
+      "ready": [{"selector": ".neo-board-lane-title", "text": "Unassigned"}, {"selector": ".neo-board-lane-collapsed .neo-board-lane-title", "text": "Web"}],
+      "steps": [],
+      "after": [{"selector": ".neo-theme-neo-dark .neo-board"}, {"selector": ".neo-board-lane-collapsed", "count": 1}, {"selector": ".neo-board-lane-collapsed .neo-board-lane-count", "text": "10", "inRegion": true}, {"selector": "[id$='__lane__Mobile'] .neo-board-lane-count", "text": "9", "inRegion": true}, {"selector": ".neo-board-card-title", "text": "A widget for today's tasks", "inRegion": true}, {"selector": ".neo-board-card-title", "text": "Deep links into a project", "inRegion": true}],
+      "region": {"selector": "[id$='__lane__Web']", "anchor": "top-left", "offsetX": -12, "offsetY": -6, "width": 640, "height": 360}
+    },
+    {
+      "id": "dock-layouts",
+      "viewport": {"width": 640, "height": 360},
+      "theme": "default",
+      "state": "The operations desk's first frame: the perspectives bar over Strategy with today's plan, the Terminal and Logs feeds, and Cedar the builder in the Inspector.",
+      "ready": [{"selector": ".neo-example-desk-plan", "text": "Today's plan"}, {"selector": ".neo-example-desk-inspector-role", "text": "Builder"}],
+      "steps": [],
+      "after": [{"selector": ".neo-dashboard-dock-perspective-toolbar", "text": "Perspectives", "inRegion": true}, {"selector": ".neo-example-desk-plan", "text": "Today's plan", "inRegion": true}, {"selector": ".neo-tab-header-button", "text": "Terminal", "inRegion": true}, {"selector": ".neo-tab-header-button", "text": "Logs", "inRegion": true}, {"selector": ".neo-example-desk-inspector-role", "text": "Builder", "inRegion": true}],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "dock-cross-window",
+      "viewport": {"width": 640, "height": 360},
+      "theme": "default",
+      "state": "The cross-window dock's first layout three seconds in: the Tour bar over the Workbench pane with its counter running, and the Inspector, Timeline and Console tabs beside it.",
+      "ready": [{"selector": ".agentos-dockdemo-counter-label", "text": "Workbench"}],
+      "steps": [{"kind": "wait", "selector": ".agentos-dockdemo-counter-value", "text": "3s unbroken"}],
+      "after": [{"selector": ".agentos-dockdemo-tour-play", "text": "Tour", "inRegion": true}, {"selector": ".agentos-dockdemo-counter-value", "text": "3s unbroken", "inRegion": true}, {"selector": ".agentos-dockdemo-counter-note", "text": "same worker instance", "inRegion": true}, {"selector": ".neo-tab-header-button", "text": "Inspector", "inRegion": true}],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "dock-choreography",
+      "viewport": {"width": 640, "height": 360},
+      "theme": "default",
+      "state": "The choreography's first frame, as its 13.2 cover showed it: the Tour bar over the Editor pane with its live clock, and the Preview pane beside it.",
+      "ready": [{"selector": ".agentos-dockdemo-clock-note", "text": "live through every transition"}],
+      "steps": [],
+      "after": [{"selector": ".agentos-dockdemo-tour-play", "text": "Tour", "inRegion": true}, {"selector": ".agentos-dockdemo-clock-note", "text": "live through every transition", "inRegion": true}, {"selector": ".neo-tab-header-button", "text": "Editor", "inRegion": true}, {"selector": ".neo-tab-header-button", "text": "Preview", "inRegion": true}],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "open-street-maps",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "Iceland with the example's 51 earthquake markers from its local file, at zoom 6.",
+      "dependencies": ["https://tile.openstreetmap.org/", "https://cdn.jsdelivr.net/npm/ol@10.6.0/"],
+      "ready": [{"selector": ".neo-button", "text": "Fly to Iceland"}, {"selector": "[data-rendered='true'] .ol-viewport"}],
+      "steps": [],
+      "after": [{"selector": ".ol-attribution", "text": "OpenStreetMap"}, {"selector": "input", "value": "6"}],
+      "region": {"x": 320, "y": 110, "width": 640, "height": 360}
     }
   ]
 }

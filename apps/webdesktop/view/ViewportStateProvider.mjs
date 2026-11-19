@@ -2,7 +2,6 @@ import Accounts      from '../store/Accounts.mjs';
 import Apps          from '../store/Apps.mjs';
 import Permissions   from '../store/Permissions.mjs';
 import StateProvider from '../../../src/state/Provider.mjs';
-import Tasks         from '../../../src/desktop/store/Tasks.mjs';
 
 /**
  * @summary The desktop's one source of state: who signed in, and which permission keys they hold.
@@ -46,8 +45,7 @@ class ViewportStateProvider extends StateProvider {
         stores: {
             accounts   : Accounts,
             apps       : Apps,
-            permissions: Permissions,
-            tasks      : Tasks
+            permissions: Permissions
         }
     }
 

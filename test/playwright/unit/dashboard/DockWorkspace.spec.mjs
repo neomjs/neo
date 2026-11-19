@@ -5089,8 +5089,14 @@ test('the holder contract: a config-assigned document is readable before any ope
             Neo.config.useSharedWorkers = true;
 
             try {
+                // A tab drag: the proxy is the tab's 76.5 × 32 header button, the pane measured 640 × 500.
                 const identity = {generationToken: 'lineage-7', groupId: 'group-a', workspaceKey: 'popup:editor'},
-                      vessel   = await workspace.openTearOutVessel({itemId: 'editor', proxyRect: {height: 500, width: 640, x: 100, y: 60}, topologyIdentity: identity});
+                      vessel   = await workspace.openTearOutVessel({
+                          itemId          : 'editor',
+                          proxyRect       : {height: 32, width: 76.5, x: 100, y: 60},
+                          sourceRect      : {height: 500, width: 640, x: 12, y: 48},
+                          topologyIdentity: identity
+                      });
 
                 expect(opens.length, 'the engine opened a window without any consumer hook').toBe(1);
 
@@ -5103,11 +5109,10 @@ test('the holder contract: a config-assigned document is readable before any ope
                 expect(url.searchParams.get('existing'), 'the host document\'s own params survive').toBe('keep');
                 expect(opens[0].topologyIdentity, 'the reserved slot rides the staged-open carrier').toEqual(identity);
 
-                // The proxy rect is where the user let go, offset into screen space.
-                expect(opens[0].windowFeatures).toContain('width=640');
-                expect(opens[0].windowFeatures).toContain('height=500');
+                // The pane sizes the window; the proxy only places it, offset into screen space.
+                expect(opens[0].windowFeatures).toBe('height=500,left=140,top=140,width=640');
 
-                expect(vessel).toMatchObject({windowName: 'neo-dock-tearout-editor'})
+                expect(vessel).toEqual({popupHeight: 500, popupWidth: 640, windowName: 'neo-dock-tearout-editor'})
             } finally {
                 Neo.Main = originalMain;
                 Neo.config.useSharedWorkers = useSharedWorkers

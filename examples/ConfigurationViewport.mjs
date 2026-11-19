@@ -34,6 +34,12 @@ class ConfigurationViewport extends Viewport {
          */
         baseCls: ['neo-examples-configuration-viewport', 'neo-viewport', 'neo-workbench'],
         /**
+         * The name in the stage header ("Date field"). Null derives it from the example component's className.
+         * @member {String|null} componentName=null
+         * @see #getComponentName
+         */
+        componentName: null,
+        /**
          * @member {Number} configItemLabelWidth=150
          */
         configItemLabelWidth: 150,
@@ -189,6 +195,16 @@ class ConfigurationViewport extends Viewport {
      */
     createExampleComponent() {
         return null;
+    }
+
+    /**
+     * Override this method to show more on the stage than the example component, e.g. the same field in its states.
+     * The items follow the example component, which stays the stage's first item: the inspector drives it,
+     * and the tile recipe (`buildScripts/docs/captureExamples.mjs`) crops it alone.
+     * @returns {Object[]}
+     */
+    createStageItems() {
+        return []
     }
 
     /**
@@ -457,7 +473,7 @@ class ConfigurationViewport extends Viewport {
                 module: Container,
                 cls   : ['neo-example-container'],
                 flex  : 1,
-                items : [me.exampleComponent],
+                items : [me.exampleComponent, ...me.createStageItems()],
                 layout: 'base',
                 ...me.exampleContainerConfig,
                 style : {

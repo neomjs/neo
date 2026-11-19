@@ -1,10 +1,7 @@
 :where(.neo-theme-neo-light) {
     /* .neo-button – Styles that will be inherited by ALL button styles */
-    --button-height                             : var(--cmp-button-height);
     --button-margin                             : var(--cmp-button-gap);
-    --button-padding                            : 0 var(--cmp-button-spacinghorizontal);
     --button-text-font-family                   : var(--core-fontfamily-sans);
-    --button-text-font-size                     : var(--core-fontsize-label);
     --button-text-font-weight                   : var(--core-fontweight-semibold);
     --button-text-line-height                   : inherit;
     --button-text-transform                     : none;
@@ -149,8 +146,30 @@
     --button-tertiary-ripple-background-color   : inherit;
 
     /* Moved out of a selector block: the rule is structural, only these values are the theme's. */
-    --button-min-width                          : var(--cmp-button-height);
     --button-tertiary-text-decoration           : underline;
     --button-tertiary-text-decoration-color     : var(--sem-color-text-primary-default);
     --button-tertiary-text-underline-offset     : 3px;
+}
+
+/* The three sizes a button's `size` config picks. The large one is the design system's call to action
+   (--cmp-button-height), for a button alone on a wide page. */
+:where(.neo-theme-neo-light) {
+    --button-size-small-font-size : 0.75rem;
+    --button-size-small-height    : var(--height-24);
+    --button-size-small-padding   : 0 var(--sem-spacing-xsmall);
+    --button-size-medium-font-size: 0.875rem;
+    --button-size-medium-height   : var(--height-32);
+    --button-size-medium-padding  : 0 var(--sem-spacing-small);
+    --button-size-large-font-size : var(--core-fontsize-label);
+    --button-size-large-height    : var(--cmp-button-height);
+    --button-size-large-padding   : 0 var(--cmp-button-spacinghorizontal);
+}
+
+/* A button without a size is an app control: medium. A toolbar keeps this size under an ancestor that raises it, as
+   the Portal does, through `--toolbar-button-*` (toolbar/Base.css). */
+:where(.neo-theme-neo-light) {
+    --button-height        : var(--button-size-medium-height);
+    --button-min-width     : var(--button-size-medium-height);
+    --button-padding       : var(--button-size-medium-padding);
+    --button-text-font-size: var(--button-size-medium-font-size);
 }

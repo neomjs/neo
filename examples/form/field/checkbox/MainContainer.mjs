@@ -1,19 +1,34 @@
-import CheckBox              from '../../../../src/form/field/CheckBox.mjs';
-import ConfigurationViewport from '../../../ConfigurationViewport.mjs';
-import NumberField           from '../../../../src/form/field/Number.mjs';
-import Radio                 from '../../../../src/form/field/Radio.mjs';
-import TextField             from '../../../../src/form/field/Text.mjs';
+import CheckBox       from '../../../../src/form/field/CheckBox.mjs';
+import NumberField    from '../../../../src/form/field/Number.mjs';
+import Radio          from '../../../../src/form/field/Radio.mjs';
+import StatesViewport from '../StatesViewport.mjs';
+import TextField      from '../../../../src/form/field/Text.mjs';
 
 /**
  * @class Neo.examples.form.field.checkbox.MainContainer
- * @extends Neo.examples.ConfigurationViewport
+ * @extends Neo.examples.form.field.StatesViewport
  */
-class MainContainer extends ConfigurationViewport {
+class MainContainer extends StatesViewport {
     static config = {
-        className           : 'Neo.examples.form.field.checkbox.MainContainer',
-        autoMount           : true,
-        configItemLabelWidth: 160,
-        layout              : {ntype: 'hbox', align: 'stretch'}
+        className    : 'Neo.examples.form.field.checkbox.MainContainer',
+        autoMount    : true,
+        componentName: 'Check box',
+        layout       : {ntype: 'hbox', align: 'stretch'},
+
+        field: {
+            module    : CheckBox,
+            labelText : 'Updates',
+            labelWidth: 80,
+            valueLabel: 'Email me release notes',
+            width     : 300
+        },
+        // A check box has no read-only state
+        states: {
+            filled  : {checked: true},
+            empty   : {},
+            invalid : {required: true},
+            disabled: {}
+        }
     }
 
     createConfigurationComponents() {
@@ -70,12 +85,6 @@ class MainContainer extends ConfigurationViewport {
             value    : me.exampleComponent.labelWidth
         }, {
             module   : CheckBox,
-            checked  : me.exampleComponent.readOnly,
-            labelText: 'readOnly',
-            listeners: {change: me.onConfigChange.bind(me, 'readOnly')},
-            style    : {marginTop: '10px'}
-        }, {
-            module   : CheckBox,
             checked  : me.exampleComponent.required,
             labelText: 'required',
             listeners: {change: me.onConfigChange.bind(me, 'required')},
@@ -103,14 +112,6 @@ class MainContainer extends ConfigurationViewport {
             style  : {marginTop: '10px', width: '50%'},
             text   : 'reset()'
         }]
-    }
-
-    createExampleComponent() {
-        return Neo.create(CheckBox, {
-            labelText : 'Label',
-            labelWidth: 70,
-            width     : 200
-        })
     }
 }
 

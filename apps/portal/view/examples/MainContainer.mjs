@@ -3,18 +3,19 @@ import Container               from '../../../../src/container/Base.mjs';
 import Example                 from '../../model/Example.mjs';
 import ExampleGroupStore       from '../../store/ExampleGroups.mjs';
 import ExampleStore            from '../../store/Examples.mjs';
+import GroupIndex              from './GroupIndex.mjs';
 import GroupPage               from './GroupPage.mjs';
 import MainContainerController from './MainContainerController.mjs';
 import Overview                from './Overview.mjs';
 import StateProvider           from '../../../../src/state/Provider.mjs';
 
 /**
- * @summary The examples section: an overview of the example groups at `/examples`, and a page per group.
+ * @summary The examples shell: a persistent group index beside a card stage holding `"Start here"` (`/examples`) and
+ * one page per published group (`/examples/{group}`).
  *
  * A group appears while one of its records publishes a card in the selected build (`Portal.model.Example.publishes()`):
- * it gets its entry in the overview and in the banded index (`Portal.view.examples.GroupIndex`), and its page at its
- * route. The section owns the one fetched catalog, the groups store every view of the groups renders
- * (`Portal.store.ExampleGroups`), and the selected build (`catalogMode`).
+ * it gets its entry in the hoisted navigation index (`Portal.view.examples.GroupIndex`, rendered once in the desktop
+ * left rail and once in the phone crumb sheet) and its page in `.portal-examples-stage`.
  * @class Portal.view.examples.MainContainer
  * @extends Neo.container.Base
  */
@@ -40,8 +41,8 @@ class MainContainer extends Container {
             {id: 'devmode',   text: 'Dev mode',          status: 'Running in dev mode'}
         ],
         /**
-         * The selected build mode, bound to the state provider's `catalogMode`. The group pages filter by it, and the
-         * controller publishes the groups that have a card to show in it.
+         * The selected build mode, bound to the state provider's `catalogMode`. The overview and group pages filter by
+         * it, and the controller publishes the groups that have a card to show in it.
          * @member {String|null} catalogMode_=null
          * @reactive
          */
@@ -57,44 +58,47 @@ class MainContainer extends Container {
          */
         controller: MainContainerController,
         /**
-         * The single ordered source of the example groups: id (`family`), band, title, route and icon. A group lists its
-         * home records and the records whose `alsoIn` names it, and appears while one of them publishes a card in the
-         * active build mode (`Portal.model.Example.publishes()`). `sentence` says what the group shows, and `tile` names
-         * the record whose cover stands for it. Every value is a literal: `buildScripts/docs/seo/seoJson.mjs` reads this
-         * list from the source.
+         * The single ordered source of the 21 example groups: id (`family`), band (`null` above the bands for Apps),
+         * title, route, icon, sentence and optional `tileHeading`. Every value is a literal:
+         * `buildScripts/docs/seo/seoJson.mjs` reads this list from the source.
          * @member {Object[]} familyDefinitions
          */
         familyDefinitions: [
-            {family: 'grid-table',   band: 'Complex widgets',   title: 'Grid & Table',              route: '/examples/grid',         iconCls: 'fa fa-table',               sentence: 'Up to 100,000 rows × 200 columns, tree grids, locked columns, header groups, cell editing', tile: 'grid-tree-big-data'},
-            {family: 'tree',         band: 'Complex widgets',   title: 'Tree',                      route: '/examples/tree',         iconCls: 'fa fa-folder-tree',         sentence: 'Tree lists and accordion trees'},
-            {family: 'forms',        band: 'Complex widgets',   title: 'Forms & Fields',            route: '/examples/forms',        iconCls: 'fa fa-keyboard',            sentence: 'Every field type with its configs live, field sets, and a multi-page form app', tile: 'form-app'},
-            {family: 'calendar',     band: 'Complex widgets',   title: 'Calendar',                  route: '/examples/calendar',     iconCls: 'fa fa-calendar',            sentence: 'Day, week, month and year views', tile: 'calendar'},
-            {family: 'scheduler',    band: 'Complex widgets',   title: 'Scheduler',                 route: '/examples/scheduler',    iconCls: 'fa fa-calendar-week',       sentence: 'Resource bookings on an editable timeline', tile: 'scheduler-basic'},
-            {family: 'gantt',        band: 'Complex widgets',   title: 'Gantt',                     route: '/examples/gantt',        iconCls: 'fa fa-chart-gantt',         sentence: 'A project plan with linked, editable tasks', tile: 'gantt-basic'},
-            {family: 'board',        band: 'Complex widgets',   title: 'Kanban Board',              route: '/examples/board',        iconCls: 'fa fa-table-columns'},
-            {family: 'timeline',     band: 'Complex widgets',   title: 'Timeline',                  route: '/examples/timeline',     iconCls: 'fa fa-timeline',            sentence: 'Interval bars in a grid column', tile: 'timeline-basic'},
-            {family: 'tabs',         band: 'Complex widgets',   title: 'Tab Container',             route: '/examples/tabs',         iconCls: 'fa fa-folder-open',         sentence: 'Tab bars on every side; text, icon and badge change live', tile: 'tab-container'},
-            {family: 'layouts',      band: 'Complex widgets',   title: 'Containers & Layouts',      route: '/examples/layouts',      iconCls: 'fa fa-table-cells-large',   sentence: 'Card, cube and form layouts, accordions, panels, a full viewport'},
-            {family: 'dashboard',    band: 'Complex widgets',   title: 'Dashboard & Docking',       route: '/examples/dashboard',    iconCls: 'far fa-window-maximize',    sentence: 'Dock, split and group panes, switch named perspectives, tear a pane into its own window', tile: 'dock-choreography'},
-            {family: 'drag-drop',    band: 'Complex widgets',   title: 'Drag & Drop',               route: '/examples/drag-drop',    iconCls: 'fa fa-up-down-left-right',  sentence: 'Dragging across the platform: dialogs, dock panes, drops between browser windows', tile: 'multi-window-drag-drop'},
-            {family: 'buttons',      band: 'Component shelves', title: 'Buttons, Menus & Toolbars', route: '/examples/buttons',      iconCls: 'fa fa-square-caret-down',   sentence: 'Split and effect buttons, context and list menus, a breadcrumb toolbar'},
-            {family: 'lists',        band: 'Component shelves', title: 'Lists & Galleries',         route: '/examples/lists',        iconCls: 'fa fa-list',                sentence: 'Animated, buffered and chip lists, galleries, a 3D helix', tile: 'helix'},
-            {family: 'dialogs',      band: 'Component shelves', title: 'Dialogs & Overlays',        route: '/examples/dialogs',      iconCls: 'fa fa-message',             sentence: 'Dialogs, popovers and toasts', tile: 'dialog-drag-drop'},
-            {family: 'charts',       band: 'Component shelves', title: 'Charts, Canvas & Maps',     route: '/examples/charts',       iconCls: 'fa fa-chart-line',          sentence: 'A pie chart, canvas and WebGL scenes, a globe and a street map'},
-            {family: 'components',   band: 'Component shelves', title: 'More components',           route: '/examples/components',   iconCls: 'fa fa-cubes',               sentence: 'Clock, timer, progress, chips, status badges, a splitter, Markdown, video, a code editor', tile: 'liquid-glass'},
-            {family: 'multi-window', band: 'Platform proofs',   title: 'Multi-Window',              route: '/examples/multi-window', iconCls: 'far fa-window-restore',     sentence: 'One app across several browser windows, on shared state', tile: 'shared-covid'},
-            {family: 'state',        band: 'Platform proofs',   title: 'State & Data',              route: '/examples/state',        iconCls: 'fa fa-database',            sentence: 'State providers, nested and two-way bindings, a data pipeline', tile: 'state-provider'},
-            {family: 'functional',   band: 'Platform proofs',   title: 'Functional Components',     route: '/examples/functional',   iconCls: 'fa fa-code',                sentence: 'Function components and templates beside classes, nested both ways'},
-            {family: 'platform',     band: 'Platform proofs',   title: 'Workers & Platform',        route: '/examples/platform',     iconCls: 'fa fa-microchip',           sentence: 'Worker tasks, remote method access, asset preloading, a canvas drawn off the main thread', tile: 'offscreen-canvas'},
-            {family: 'apps',         band: 'Applications',      title: 'Apps',                      route: '/examples/apps',         iconCls: 'fa fa-rocket',              sentence: 'Complete applications: a web desktop, a live-price grid, an email client, this website', tile: 'webdesktop'}
+            {family: 'apps',         band: null,         title: 'Apps',                      route: '/examples/apps',         iconCls: 'fa fa-rocket',             sentence: 'Complete applications: a web desktop, a live-price grid, an email client, this website'},
+            {family: 'grid-table',   band: 'Data views', title: 'Grid & Table',              route: '/examples/grid',         iconCls: 'fa fa-table',              sentence: 'Up to 100,000 rows × 200 columns, tree grids, locked columns, header groups, cell editing'},
+            {family: 'tree',         band: 'Data views', title: 'Trees',                     route: '/examples/tree',         iconCls: 'fa fa-folder-tree',        sentence: 'Tree grids, tree lists, accordion trees and a file explorer'},
+            {family: 'lists',        band: 'Data views', title: 'Lists & Galleries',         route: '/examples/lists',        iconCls: 'fa fa-list',               sentence: 'Animated, buffered and chip lists, galleries, a 3D helix'},
+            {family: 'charts',       band: 'Data views', title: 'Charts, Canvas & Maps',     route: '/examples/charts',       iconCls: 'fa fa-chart-line',         sentence: 'A chart of a million points drawn in a worker, and a street map'},
+            {family: 'calendar',     band: 'Planning',   title: 'Calendar',                  route: '/examples/calendar',     iconCls: 'fa fa-calendar',           sentence: 'Day, week, month and year views'},
+            {family: 'scheduler',    band: 'Planning',   title: 'Scheduler',                 route: '/examples/scheduler',    iconCls: 'fa fa-calendar-week',      sentence: 'Resource bookings on an editable timeline'},
+            {family: 'gantt',        band: 'Planning',   title: 'Gantt',                     route: '/examples/gantt',        iconCls: 'fa fa-chart-gantt',        sentence: 'A project plan with linked, editable tasks'},
+            {family: 'board',        band: 'Planning',   title: 'Task Board',                route: '/examples/board',        iconCls: 'fa fa-table-columns',      sentence: 'Kanban boards, swimlanes, WIP limits and pipeline stages'},
+            {family: 'dashboard',    band: 'Layout',     title: 'Dashboard & Docking',       route: '/examples/dashboard',    iconCls: 'far fa-window-maximize',   sentence: 'Dock, split and group panes, switch named perspectives, tear a pane into its own window'},
+            {family: 'tabs',         band: 'Layout',     title: 'Tabs',                      route: '/examples/tabs',         iconCls: 'fa fa-folder-open',        sentence: 'Reorderable tab bars on any side, closable tabs and an overflow menu'},
+            {family: 'layouts',      band: 'Layout',     title: 'Containers & Layouts',      route: '/examples/layouts',      iconCls: 'fa fa-table-cells-large',  sentence: 'Card, cube and form layouts, accordions, panels, a full viewport'},
+            {family: 'dialogs',      band: 'Layout',     title: 'Dialogs & Overlays',        route: '/examples/dialogs',      iconCls: 'fa fa-message',            sentence: 'Dialogs, popovers, tooltips and toasts'},
+            {family: 'forms',        band: 'Components', title: 'Forms & Fields',            route: '/examples/forms',        iconCls: 'fa fa-keyboard',           sentence: 'Every field type with every config live, validation, input masks, and a multi-step form app', tileHeading: 'Field types'},
+            {family: 'buttons',      band: 'Components', title: 'Buttons, Menus & Toolbars', route: '/examples/buttons',      iconCls: 'fa fa-square-caret-down',  sentence: 'Split and menu buttons, context and list menus, application and breadcrumb toolbars'},
+            {family: 'components',   band: 'Components', title: 'More components',           route: '/examples/components',   iconCls: 'fa fa-cubes',              sentence: 'Clock, timer, progress, chips, status badges, a splitter, Markdown, video, a code editor'},
+            {family: 'multi-window', band: 'Platform',   title: 'Multi-Window',              route: '/examples/multi-window', iconCls: 'far fa-window-restore',    sentence: 'One app across several browser windows, on shared state'},
+            {family: 'platform',     band: 'Platform',   title: 'Workers & Platform',        route: '/examples/platform',     iconCls: 'fa fa-microchip',          sentence: 'Worker tasks, remote method access, asset preloading, a canvas drawn off the main thread'},
+            {family: 'state',        band: 'Platform',   title: 'State & Data',              route: '/examples/state',        iconCls: 'fa fa-database',           sentence: 'State providers, nested and two-way bindings, a data pipeline'},
+            {family: 'functional',   band: 'Platform',   title: 'Functional Components',     route: '/examples/functional',   iconCls: 'fa fa-code',               sentence: 'Function components and templates beside classes, nested both ways'},
+            {family: 'drag-drop',    band: 'Platform',   title: 'Drag & Drop',               route: '/examples/drag-drop',    iconCls: 'fa fa-up-down-left-right', sentence: 'Dragging across the platform: dialogs, dock panes, drops between browser windows'}
         ],
         /**
-         * Inactive cards stay in the DOM, hidden: a browser keeps the scroll position of a hidden element, and loses it
-         * with a removed one, so each group page and the overview keep their own.
-         * @member {Object} layout={ntype:'card',activeIndex:0,removeInactiveCards:false}
+         * Shell CSS grid placing the mobile crumb across the top, the desktop group rail on the left, and the
+         * card-managed stage on the right.
+         * @member {Object} layout={ntype:'grid'}
          * @reactive
          */
-        layout: {ntype: 'card', activeIndex: 0, removeInactiveCards: false},
+        layout: {ntype: 'grid'},
+        /**
+         * True while the mobile crumb's sheet shows the group index.
+         * @member {Boolean} sheetOpen_=false
+         * @reactive
+         */
+        sheetOpen_: false,
         /**
          * Owns the one fetched catalog, the groups that publish in the selected build, and that selection.
          * @member {Object} stateProvider
@@ -111,7 +115,7 @@ class MainContainer extends Container {
     }
 
     /**
-     * @summary Moves every group page's `catalogMode` filter to the new build, then republishes the groups for it.
+     * @summary Moves the overview and every group page's `catalogMode` filter to the new build, then republishes the groups.
      * @param {String|null} value
      * @param {String|null} oldValue
      * @protected
@@ -119,11 +123,28 @@ class MainContainer extends Container {
     afterSetCatalogMode(value, oldValue) {
         let me = this;
 
-        // During construction no page exists yet: createGroupPage() reads the value it starts with
+        // During construction no stage card exists yet: createItems()/createGroupPage() read the initial value
         if (me.isConstructed) {
+            me.getOverview().getList().store.getFilter('catalogMode').value = value;
             me.getGroupPages().forEach(page => {page.getList().store.getFilter('catalogMode').value = value});
             me.getController().publishGroups()
         }
+    }
+
+    /**
+     * @summary Shows or hides the mobile crumb sheet and syncs its button's disclosure attribute.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetSheetOpen(value, oldValue) {
+        if (oldValue === undefined) return;
+
+        const button = this.getGroupButton();
+
+        button.getVdomRoot()['aria-expanded'] = value;
+        button.update();
+        this.getSheet().hidden = !value
     }
 
     /**
@@ -178,29 +199,122 @@ class MainContainer extends Container {
     }
 
     /**
-     * @summary Seeds the overview as the first card; the controller adds a page per published group after it.
+     * @summary Builds the hoisted mobile crumb + sheet, the persistent desktop sidebar group index, and the card stage
+     * starting on `Overview`; the controller adds a page per published group into the stage after catalog load.
      * @protected
      */
     createItems() {
-        let me = this;
+        const me          = this,
+              groupTitles = Object.fromEntries(me.familyDefinitions.map(definition => [definition.family, definition.title]));
 
         me.items = [{
-            module      : Overview,
-            bands       : [...new Set(me.familyDefinitions.map(definition => definition.band))],
-            buildControl: me.createBuildControl(),
-            groupStore  : me.getGroupStore(),
-            reference   : 'examples-overview'
+            module   : Container,
+            cls      : ['portal-examples-group-crumb'],
+            layout   : {ntype: 'hbox', align: 'center'},
+            reference: 'examples-crumb',
+            items    : [{
+                module   : Button,
+                cls      : ['portal-examples-group-crumb-home'],
+                hidden   : true,
+                reference: 'crumb-home',
+                route    : '/examples',
+                text     : 'Examples',
+                ui       : 'tertiary'
+            }, {
+                ntype    : 'component',
+                cls      : ['portal-examples-group-crumb-separator'],
+                hidden   : true,
+                reference: 'crumb-separator',
+                vdom     : {tag: 'span', 'aria-hidden': true, cn: [{tag: 'span', text: '›'}]}
+            }, {
+                module   : Button,
+                cls      : ['portal-examples-group-button'],
+                handler  : me.onGroupButtonClick.bind(me),
+                iconCls  : 'fa fa-table-cells-large',
+                reference: 'group-button',
+                text     : 'All examples',
+                ui       : 'secondary'
+            }, {
+                module      : GroupIndex,
+                hidden      : true,
+                id          : me.id + '__sheet',
+                presentation: 'sheet',
+                reference   : 'group-sheet',
+                domListeners: {
+                    click  : me.onSheetClick,
+                    keydown: me.onSheetKeyDown,
+                    scope  : me
+                }
+            }]
+        }, {
+            module   : Container,
+            cls      : ['portal-examples-sidebar'],
+            layout   : {ntype: 'vbox', align: 'stretch'},
+            reference: 'examples-sidebar',
+            items    : [{
+                module      : GroupIndex,
+                flex        : 1,
+                presentation: 'list',
+                reference   : 'group-index'
+            }]
+        }, {
+            module   : Container,
+            cls      : ['portal-examples-stage'],
+            layout   : {ntype: 'card', activeIndex: 0, removeInactiveCards: false},
+            reference: 'examples-stage',
+            items    : [{
+                module      : Overview,
+                buildControl: me.createBuildControl(),
+                catalogMode : me.catalogMode,
+                catalogStore: me.getCatalogStore(),
+                groupStore  : me.getGroupStore(),
+                groupTitles,
+                reference   : 'examples-overview'
+            }]
         }];
 
-        super.createItems()
+        super.createItems();
+
+        // The engine's button has no disclosure state: MainContainer owns which sheet it controls and whether it is open
+        Object.assign(me.getGroupButton().getVdomRoot(), {'aria-controls': me.id + '__sheet', 'aria-expanded': false})
     }
 
     /**
-     * @summary Returns the section-owned unfiltered catalog; the group pages borrow its records.
+     * @returns {Neo.container.Base}
+     */
+    getActivePage() {
+        const stage = this.getStage();
+
+        return stage.items[stage.layout.activeIndex]
+    }
+
+    /**
+     * @summary Returns the section-owned unfiltered catalog; the overview and group pages borrow its records.
      * @returns {Portal.store.Examples}
      */
     getCatalogStore() {
         return this.getStateProvider().getStore('catalog')
+    }
+
+    /**
+     * @returns {Neo.container.Base}
+     */
+    getCrumb() {
+        return this.down({reference: 'examples-crumb'})
+    }
+
+    /**
+     * @returns {Neo.button.Base}
+     */
+    getGroupButton() {
+        return this.down({reference: 'group-button'})
+    }
+
+    /**
+     * @returns {Portal.view.examples.GroupIndex}
+     */
+    getGroupIndex() {
+        return this.down({reference: 'group-index'})
     }
 
     /**
@@ -217,7 +331,7 @@ class MainContainer extends Container {
      * @returns {Portal.view.examples.GroupPage[]}
      */
     getGroupPages() {
-        return this.items.filter(item => item instanceof GroupPage)
+        return this.getStage().items.filter(item => item instanceof GroupPage)
     }
 
     /**
@@ -226,6 +340,82 @@ class MainContainer extends Container {
      */
     getGroupStore() {
         return this.getStateProvider().getStore('groups')
+    }
+
+    /**
+     * @returns {Portal.view.examples.Overview}
+     */
+    getOverview() {
+        return this.down({reference: 'examples-overview'})
+    }
+
+    /**
+     * @returns {Portal.view.examples.GroupIndex}
+     */
+    getSheet() {
+        return this.down({reference: 'group-sheet'})
+    }
+
+    /**
+     * @returns {Neo.container.Base}
+     */
+    getStage() {
+        return this.down({reference: 'examples-stage'})
+    }
+
+    /**
+     * @summary The group button toggles the sheet. An opened sheet takes focus.
+     */
+    async onGroupButtonClick() {
+        const me    = this,
+              sheet = me.getSheet();
+
+        me.sheetOpen = !me.sheetOpen;
+
+        if (me.sheetOpen) {
+            await sheet.waitFor(() => sheet.mounted);
+            sheet.mounted && sheet.focus(sheet.id, true)
+        }
+    }
+
+    /**
+     * @summary A followed link closes the sheet; the route opens its page.
+     * @param {Object} data
+     */
+    onSheetClick(data) {
+        if (data.path.some(node => node.tagName === 'a')) {
+            this.sheetOpen = false
+        }
+    }
+
+    /**
+     * @summary Escape closes the sheet and returns focus to its button.
+     * @param {Object} data
+     */
+    onSheetKeyDown(data) {
+        if (data.key === 'Escape') {
+            this.sheetOpen = false;
+            this.getGroupButton().focus()
+        }
+    }
+
+    /**
+     * @summary Synchronizes desktop sidebar active state, mobile crumb controls and mobile group picker button.
+     * @param {Portal.model.ExampleGroup|null} group
+     */
+    syncNavigation(group) {
+        const me     = this,
+              family = group?.family || null,
+              total  = me.getGroupStore().getCount();
+
+        me.getGroupIndex().activeFamily                = family;
+        me.getSheet().activeFamily                     = family;
+        me.down({reference: 'crumb-home'}).hidden      = !group;
+        me.down({reference: 'crumb-separator'}).hidden = !group;
+        me.getGroupButton().set(group
+            ? {iconCls: group.iconCls, text: group.title}
+            : {iconCls: 'fa fa-table-cells-large', text: total ? `All ${total} groups` : 'All examples'}
+        )
     }
 }
 

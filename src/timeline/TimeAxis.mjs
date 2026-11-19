@@ -107,6 +107,13 @@ class TimeAxis extends Base {
          */
         nonWorkingDays_: [0, 6],
         /**
+         * The instant the timeline family marks as the current time (`Date`, timestamp, or ISO string).
+         * `null` reads the viewer's clock whenever the mark is drawn; a spec or a seeded example sets a fixed instant.
+         * @member {Date|null} now_=null
+         * @reactive
+         */
+        now_: null,
+        /**
          * Pixels per minute when `size` is `null`. Ignored when an explicit `size` is provided.
          * @member {Number} pxPerMinute_=2
          * @reactive
@@ -376,6 +383,16 @@ class TimeAxis extends Base {
                 .map(Number)
                 .filter(n => Number.isInteger(n) && n >= 0 && n <= 6)
         )]
+    }
+
+    /**
+     * @summary Coerces a set `now` to a `Date` instance; `null` keeps reading the clock.
+     * @param {Date|Number|String|null} value
+     * @returns {Date|null}
+     * @protected
+     */
+    beforeSetNow(value) {
+        return value == null ? null : this.toDate(value)
     }
 
     /**
@@ -774,6 +791,15 @@ class TimeAxis extends Base {
         }
 
         return ranges
+    }
+
+    /**
+     * @summary Returns the pixel offset of {@link #now}, or of the clock when `now` is `null`.
+     * @returns {Number|null} `null` when the instant lies outside `[start, end)`
+     */
+    getNowOffset() {
+        const now = this.now ?? new Date();
+        return now >= this.start && now < this.end ? this.dateToOffset(now) : null
     }
 
     /**

@@ -38,6 +38,13 @@ test('a covered record without a recipe fails inside the migrated family, while 
     expect(() => validateCaptureRecipes(manifest(), records)).toThrow(/image|recipe/i)
 });
 
+test('external-origin covered records do not block a family while same-origin covered records still require recipes', () => {
+    const records = [...catalog(), {id: 'external-app', family: 'grid-table', image: 'external.png', urls: {devmode: 'https://neomjs.com/devindex/'}}];
+    expect(() => validateCaptureRecipes(manifest(), records)).not.toThrow();
+    records.push({id: 'local-app', family: 'grid-table', image: 'local.png', urls: {devmode: 'apps/local/index.html'}});
+    expect(() => validateCaptureRecipes(manifest(), records)).toThrow(/local-app.*image|recipe/i)
+});
+
 test('a further family joins the coverage guard explicitly', () => {
     const raw = manifest(); raw.families.push('forms');
     expect(() => validateCaptureRecipes(raw, catalog())).toThrow(/form-one.*image|recipe/i);
@@ -117,7 +124,7 @@ test('the committed Grid/Table manifest covers every current family record with 
         records = JSON.parse(fs.readFileSync(new URL('examples.json', data))),
         raw     = JSON.parse(fs.readFileSync(new URL('example-captures.json', data))),
         valid   = validateCaptureRecipes(raw, records), rows = selectCaptureRecipes(valid, {family: 'grid-table'});
-    expect(rows.map(row => row.id).sort()).toEqual(records.filter(row => row.family === 'grid-table').map(row => row.id).sort());
+    expect(rows.map(row => row.id).sort()).toEqual(records.filter(row => row.family === 'grid-table' && row.image).map(row => row.id).sort());
     expect(rows.every(row => row.steps.length > 0 && row.after.length > 0)).toBe(true)
 });
 
@@ -152,7 +159,8 @@ test('the committed tile list names workbench entries that exist', () => {
     expect(valid.tiles.length).toBeGreaterThan(0);
     for (const tile of valid.tiles) {
         const source = fs.readFileSync(new URL(`../../../../../${tile.path}/MainContainer.mjs`, import.meta.url), 'utf8');
-        expect(source, tile.path).toContain('ConfigurationViewport')
+        // A field entry extends the workbench through its states template
+        expect(source, tile.path).toMatch(/ConfigurationViewport|StatesViewport/)
     }
 });
 

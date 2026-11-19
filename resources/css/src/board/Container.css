@@ -16,8 +16,12 @@
     padding    : var(--neo-board-padding);
     position   : relative;
 
+    /* One track as wide as the widest lane (and at least the board): every lane, open, narrowed by its own collapsed
+       columns or folded, spans the scroll range, so its sticky header label stays in view */
     &.neo-board-lanes {
-        overflow-y: auto;
+        align-content        : start;
+        grid-template-columns: minmax(max-content, 1fr);
+        overflow-y           : auto;
     }
 
     .neo-board-live-region {

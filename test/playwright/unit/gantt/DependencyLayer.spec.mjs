@@ -34,6 +34,23 @@ test('highlighted edges use neutral classes and markers, and borrowed inputs sur
     tasks.destroy(); edges.destroy(); axis.destroy()
 });
 
+test('a link to the second of two successors starting on its end date never crosses the first one\'s bar', () => {
+    const date  = x => new Date(epoch + x * 60_000);
+    const task  = (id, from, to) => ({id, title: id, isLeaf: true, collapsed: false, parentId: null, startDate: date(from), endDate: date(to)});
+    const store = Neo.create(TaskStore, {data: [task('design', 20, 108), task('build', 108, 200), task('test', 108, 160)]});
+    const links = Neo.create(DependencyStore, {data: [{id: 'to-test', fromId: 'design', toId: 'test', type: 'FS'}]});
+    const axis  = Neo.create(TimeAxis, {start: date(0), end: date(400), pxPerMinute: 1});
+    const layer = Neo.create(DependencyLayer, {appName, taskStore: store, dependencyStore: links, rowHeight: 24, timeAxis: axis, viewportWidth: 400, bufferPx: 0});
+
+    try {
+        const [route] = layer.project();
+        // Row 1 holds build from x 108 on; the route turns on the boundary below design (y 24) and drops at x 96
+        expect(route.d).toBe('M 108 12 L 120 12 L 120 24 L 96 24 L 96 60 L 108 60')
+    } finally {
+        layer.destroy(); links.destroy(); store.destroy(); axis.destroy()
+    }
+});
+
 test('the buffered horizontal window intersects the rounded SVG route, including turns outside its anchors', () => {
     const date = x => new Date(epoch + x * 60_000);
     const task = (id, x, extra) => ({id, title: id, isLeaf: true, collapsed: false, parentId: null,
@@ -60,8 +77,9 @@ test('the buffered horizontal window intersects the rounded SVG route, including
         expect([...byId.keys()]).toEqual(['return-sf','left','forward','right','return-fs','child-link']);
         expect(byId.get('left')).toEqual(['left', layer.id + '__dep__left', 'M 100 12 L 88 12 L 88 36 L 100 36']);
         expect(byId.get('right')[2]).toBe('M 208.01 60 L 220.01 60 L 220.01 84 L 208.01 84');
-        expect(byId.get('return-sf')[2]).toBe('M 200.01 60 L 212.01 60 L 212.01 36 L 96 36 L 96 12 L 108 12');
-        expect(byId.get('return-fs')[2]).toBe('M 208.01 60 L 220.01 60 L 220.01 36 L 88 36 L 88 12 L 100 12');
+        // A return turns on the boundary between rows c and b (y 48), never through b's bar at its centre (y 36)
+        expect(byId.get('return-sf')[2]).toBe('M 200.01 60 L 212.01 60 L 212.01 48 L 96 48 L 96 12 L 108 12');
+        expect(byId.get('return-fs')[2]).toBe('M 208.01 60 L 220.01 60 L 220.01 48 L 88 48 L 88 12 L 100 12');
         expect(byId.get('forward')[2]).toBe('M 108 12 L 154.01 12 L 154.01 60 L 200.01 60');
         // The left edge needs overscan to touch x=88. The right edge rounds out to 220.01.
         expect(project(86, 1, 1)).toEqual(['left','return-fs'].map(id => byId.get(id)));

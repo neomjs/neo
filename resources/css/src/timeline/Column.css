@@ -34,6 +34,18 @@
     z-index       : 0;
 }
 
+/* The current time (TimeAxis#now), drawn beneath the bars so it never crosses a title */
+.neo-timeline-now {
+    background    : var(--neo-timeline-now-color);
+    bottom        : 0;
+    margin-left   : -1px;
+    pointer-events: none;
+    position      : absolute;
+    top           : 0;
+    width         : 2px;
+    z-index       : 0;
+}
+
 .neo-timeline-bar {
     align-items  : center;
     background   : var(--neo-timeline-bar-background);
@@ -80,7 +92,13 @@
         top           : 0;
     }
 
+    /* While the bar's start is scrolled out, the title moves into its visible part:
+       the body's scroll offset, less the track's and the bar's offsets, keeping 48px of the bar */
     .neo-timeline-bar-label {
+        --neo-timeline-bar-label-shift: clamp(0px, calc(var(--grid-scroll-left, 0px) - var(--neo-timeline-track-x, 0px) - var(--neo-timeline-bar-left, 0px)), calc(var(--neo-timeline-bar-width, 0px) - 48px));
+
+        left         : var(--neo-timeline-bar-label-shift);
+        max-width    : calc(100% - var(--neo-timeline-bar-label-shift));
         overflow     : hidden;
         position     : relative;
         text-overflow: ellipsis;

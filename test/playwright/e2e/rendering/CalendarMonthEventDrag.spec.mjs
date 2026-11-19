@@ -11,7 +11,7 @@ import {test, expect} from '../../fixtures.mjs';
 test.describe('Neo.calendar event drag, drop, and Escape cancel', () => {
     test('Escape mid-drag aborts the move in week and month views while a completed drop moves the event', async ({page}) => {
         await page.setViewportSize({width: 1280, height: 720});
-        await page.goto('/examples/calendar/basic/index.html');
+        await page.goto('/test/playwright/component/apps/calendar-basic/index.html');
 
         const getAppWorker = () => page.workers().find(w => w.url().includes('worker/App'));
 
@@ -189,13 +189,12 @@ test.describe('Neo.calendar event drag, drop, and Escape cancel', () => {
         expect(await readRecordDates(dragTargets.monthId, dragTargets.eventId)).not.toEqual(initialMonthDates);
     });
 
-    
     for (const timezoneId of ['Europe/Berlin', 'Pacific/Auckland']) {
         test.describe(`week-view drop in ${timezoneId}`, () => {
             test.use({timezoneId, viewport: {width: 1280, height: 720}});
 
             test('a week-view drop lands on the target column', async ({page}) => {
-                await page.goto('/examples/calendar/basic/index.html');
+                await page.goto('/test/playwright/component/apps/calendar-basic/index.html');
 
                 const weekLocator = page.locator('.neo-calendar-weekcomponent').first();
                 await expect(weekLocator.locator('.neo-event').first()).toBeVisible();

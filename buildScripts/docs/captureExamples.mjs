@@ -148,7 +148,7 @@ export function validateCaptureRecipes(manifest, catalog) {
         } else for (const axis of ['x', 'y']) insist(Number.isFinite(region[axis]) && region[axis] >= 0, `${field}.region.${axis}`, 'expected a nonnegative coordinate');
         return {...structuredClone(recipe), family: record.family, url: record.urls.devmode, name: record.name || record.id}
     });
-    for (const record of catalog) if (manifest.families.includes(record.family) && record.image) insist(ids.has(record.id), `catalog.${record.id}.image`, 'covered record has no recipe in this family');
+    for (const record of catalog) if (manifest.families.includes(record.family) && record.image && !/^https?:\/\//i.test(record.urls?.devmode || '')) insist(ids.has(record.id), `catalog.${record.id}.image`, 'covered record has no recipe in this family');
     return {...structuredClone(manifest), recipes, tiles: tileList(manifest.tiles)}
 }
 
@@ -415,6 +415,8 @@ async function captureTile(browser, tile, manifest, baseUrl, output) {
         await expect(target).toBeVisible();
         // The switch repaints the whole workbench, stage surface included
         row.theme = await applyTileTheme(await page.evaluate(() => globalThis.Neo?.config?.themes), themeOf, next);
+        // A tile shows the component alone: the stage's other items (a field's states) keep their place, unpainted
+        await page.locator('.neo-example-container > :not(:first-child)').evaluateAll(nodes => nodes.forEach(node => node.style.visibility = 'hidden'));
         row.region = await tileRegion(page, target);
         await paintReady(page, row.region);
         for (const quality of QUALITIES) {

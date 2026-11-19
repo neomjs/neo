@@ -11,4 +11,5 @@
     --neo-timeline-focus-color            : var(--cyber-cyan);
     --neo-timeline-non-working-bg         : color-mix(in srgb, var(--cyber-cyan) 4.5%, transparent);
     --neo-timeline-non-working-border     : color-mix(in srgb, var(--cyber-cyan) 16%, transparent);
+    --neo-timeline-now-color              : var(--cyber-red);
 }

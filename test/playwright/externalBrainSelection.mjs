@@ -27,6 +27,7 @@ import path from 'node:path';
  */
 export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'board/BasicNL.spec.mjs',
+    'board/SwimlanesNL.spec.mjs',
     'core/DistEsmWorkspaceBoot.spec.mjs',
     'core/RefreshDomCorpseRepro.spec.mjs',
     'core/SourceMoveWorkspaceNL.spec.mjs',
@@ -110,6 +111,7 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'rendering/TooltipWindowSequenceNL.spec.mjs',
     'rendering/YieldedMoveCoalescingNL.spec.mjs',
     'scheduler/BasicNL.spec.mjs',
+    'scheduler/BigDataNL.spec.mjs',
     'tab/TabHeaderActionsNL.spec.mjs',
     'workstation/DockSplitterZoneIdNL.spec.mjs',
     'workstation/VesselClosesMidFirstRenderNL.spec.mjs',
