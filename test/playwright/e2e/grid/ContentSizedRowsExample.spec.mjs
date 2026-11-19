@@ -953,9 +953,17 @@ test.describe('Content-sized rows example', () => {
             const viewportCls = await page.evaluate(() => document.querySelector('.neo-viewport')?.className);
             expect(viewportCls, 'viewport carries example class').toContain('neo-examples-grid-content-sized-rows');
 
+            // Caption displays content-sized proof line in default state
+            const caption = page.locator('.content-sized-rows-caption');
+            await expect(caption, 'caption is visible in content-sized mode').toBeVisible();
+            await expect(caption, 'content-sized caption text').toHaveText('10,000 rows, each as tall as its text.');
+
             // Switch to fixed-height mode
             await page.getByText('Content-sized rows', {exact: true}).click();
             await expect.poll(async () => (await gridState(page)).extent, {message: 'the fixed extent'}).toBe((COUNT + 1) * ROW);
+
+            // Caption updates to fixed-height proof line
+            await expect(caption, 'fixed-height caption text').toHaveText('Fixed-height rows clip overflowing text.');
 
             // Grid container carries the fixed-rows class
             const gridCls = await page.evaluate(grid => document.querySelector(grid)?.className, GRID);
@@ -1011,6 +1019,7 @@ test.describe('Content-sized rows example', () => {
 
             const gridClsRestored = await page.evaluate(grid => document.querySelector(grid)?.className, GRID);
             expect(gridClsRestored, 'fixed-rows class removed').not.toContain('content-sized-rows-fixed');
+            await expect(caption, 'restored caption text').toHaveText('10,000 rows, each as tall as its text.');
             await expectRowsFitTheirText(page);
         });
 
@@ -1245,6 +1254,10 @@ test.describe('Content-sized rows example', () => {
         });
 
         test('initial viewport demonstrates at least three distinct row heights at both desktop and mobile widths', async ({page}) => {
+            const caption = page.locator('.content-sized-rows-caption');
+            await expect(caption, 'caption is visible on desktop').toBeVisible();
+            await expect(caption, 'desktop caption text').toHaveText('10,000 rows, each as tall as its text.');
+
             let desktopState   = await settle(page),
                 desktopHeights = new Set(desktopState.rows.slice(0, 10).map(r => r.height));
 
@@ -1253,6 +1266,25 @@ test.describe('Content-sized rows example', () => {
             // Switch to mobile viewport
             await page.setViewportSize({width: 390, height: 844});
             await settle(page);
+
+            await expect(caption, 'caption is visible on mobile').toBeVisible();
+            await expect(caption, 'mobile caption text').toHaveText('10,000 rows, each as tall as its text.');
+
+            const captionBox = await caption.boundingBox();
+            expect(captionBox.width, 'caption width fits mobile viewport without overflow').toBeLessThanOrEqual(390);
+
+            const overflowMetrics = await page.evaluate(() => {
+                const captionEl = document.querySelector('.content-sized-rows-caption');
+                return {
+                    captionScrollWidth: captionEl?.scrollWidth ?? 0,
+                    captionClientWidth: captionEl?.clientWidth ?? 0,
+                    docScrollWidth    : document.documentElement.scrollWidth,
+                    winInnerWidth     : window.innerWidth
+                };
+            });
+
+            expect(overflowMetrics.captionScrollWidth, 'caption scrollWidth <= clientWidth').toBeLessThanOrEqual(overflowMetrics.captionClientWidth);
+            expect(overflowMetrics.docScrollWidth, 'document scrollWidth <= innerWidth').toBeLessThanOrEqual(overflowMetrics.winInnerWidth);
 
             let mobileState   = await settle(page),
                 mobileHeights = new Set(mobileState.rows.slice(0, 10).map(r => r.height));

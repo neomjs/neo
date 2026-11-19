@@ -1,5 +1,6 @@
 import CheckBox      from '../../../src/form/field/CheckBox.mjs';
 import GridContainer from '../../../src/grid/Container.mjs';
+import Label         from '../../../src/component/Label.mjs';
 import MainStore     from './MainStore.mjs';
 import NumberField   from '../../../src/form/field/Number.mjs';
 import TextField     from '../../../src/form/field/Text.mjs';
@@ -64,6 +65,12 @@ class MainContainer extends Viewport {
                 width        : 200
             }]
         }, {
+            module   : Label,
+            cls      : ['content-sized-rows-caption'],
+            flex     : 'none',
+            reference: 'caption',
+            text     : '10,000 rows, each as tall as its text.'
+        }, {
             module          : GridContainer,
             cellEditing     : true,
             contentSizedRows: true,
@@ -93,7 +100,11 @@ class MainContainer extends Viewport {
             grid = this.getReference('grid'),
             cls  = grid.cls.filter(item => item !== 'content-sized-rows-fixed');
 
-        grid.set({contentSizedRows: value, cls: value ? cls : [...cls, 'content-sized-rows-fixed']})
+        grid.set({contentSizedRows: value, cls: value ? cls : [...cls, 'content-sized-rows-fixed']});
+
+        this.getReference('caption').text = value ?
+            '10,000 rows, each as tall as its text.' :
+            'Fixed-height rows clip overflowing text.'
     }
 
     /**
