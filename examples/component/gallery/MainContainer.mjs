@@ -25,48 +25,23 @@ class MainContainer extends Viewport {
          */
         layout: {ntype: 'hbox', align: 'stretch'},
         /**
-         * @member {Boolean} showGitHubStarButton=true
-         */
-        showGitHubStarButton: true,
-        /**
          * @member {Object[]} items
          */
         items: [{
             ntype : 'container',
             flex  : 1,
             layout: 'fit',
-            style : {position: 'relative'},
-
-            items : [{
-                ntype: 'component',
-                html : 'DeltaUpdates / s: <span id="neo-delta-updates"></span>',
-                style: {
-                    position: 'absolute',
-                    right   : '150px',
-                    top     : '25px',
-                    width   : '200px',
-                    zIndex  : 1
-                }
-            }, {
-                ntype: 'component',
-                html : '<a class="github-button" href="https://github.com/neomjs/neo" data-size="large" data-show-count="true" aria-label="Star neomjs/neo on GitHub">Star</a>',
-                style: {
-                    position: 'absolute',
-                    right   : '20px',
-                    top     : '20px',
-                    zIndex  : 1
-                }
-            }]
+            style : {position: 'relative'}
         }, {
             ntype : 'panel',
             layout: {ntype: 'vbox', align: 'stretch'},
-            style : {backgroundColor: '#2b2b2b'},
+            style : {backgroundColor: '#2b2b2b', maxWidth: '50%'},
             width : 260,
 
             itemDefaults: {
                 ntype        : 'rangefield',
-                flex         : '0 1 auto',
-                labelWidth   : '110px',
+                flex         : 'none',
+                labelPosition: 'top',
                 style        : {padding: '10px'},
                 useInputEvent: true,
 
@@ -161,7 +136,6 @@ class MainContainer extends Viewport {
                 }
             }, {
                 ntype    : 'button',
-                disabled : true,
                 text     : 'Sort by Lastname',
                 listeners: {},
                 style    : {margin: '20px', marginBottom: '10px'},
@@ -179,7 +153,6 @@ class MainContainer extends Viewport {
                 }
             }, {
                 ntype    : 'button',
-                disabled : true,
                 text     : 'Sort by Firstname',
                 listeners: {},
                 style    : {margin: '20px', marginTop: 0},
@@ -197,7 +170,7 @@ class MainContainer extends Viewport {
                 }
             }, {
                 ntype: 'label',
-                text : [
+                html : [
                     '<b>Navigation Concept</b>',
                     '<p>Click on an item to select it. Afterwards you can use the Arrow Keys to walk through the items.</p>'
                 ].join(''),
@@ -229,18 +202,7 @@ class MainContainer extends Viewport {
             ...me.galleryConfig
         });
 
-        me.items[0].items.unshift(me.gallery);
-
-        if (me.showGitHubStarButton) {
-            me.on('mounted', () => {
-                Neo.main.DomAccess.addScript({
-                    async   : true,
-                    defer   : true,
-                    src     : 'https://buttons.github.io/buttons.js',
-                    windowId: me.windowId
-                })
-            })
-        }
+        me.items[0].items = [me.gallery]
     }
 
     /**
