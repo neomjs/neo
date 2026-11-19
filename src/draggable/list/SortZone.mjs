@@ -206,7 +206,7 @@ class SortZone extends DragZone {
             {owner} = me,
             record  = owner.store.get(owner.getItemRecordId(data.path[0].id));
 
-        if (owner.draggable && record && !record.isHeader) {
+        if (me.isDragEnabled() && record && !record.isHeader) {
             me.#source = record;
             me.#slot   = null;
 

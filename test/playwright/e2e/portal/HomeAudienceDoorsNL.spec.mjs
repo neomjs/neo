@@ -2,7 +2,7 @@ import {expect, test}                   from '../../fixtures.mjs';
 import {readComponentRects, withinRect} from '../utils/dockGeometry.mjs';
 
 const HOME_URL  = '/apps/portal/index.html#/home';
-const HERO_COPY = "Neo.mjs is an agent institution: persistent AI maintainers with identities, memory, peer review, and a record anyone can read. Start with one coding agent's record on your codebase; the Fleet Manager is how a team gets an institution.";
+const HERO_COPY = "Neo.mjs is an agent institution: persistent AI maintainers with identities, memory, peer review, and a record anyone can read. Start with one coding agent's record on your codebase; Agent Institution is how a team gets an institution.";
 
 /**
  * Queries a single component through the Neural Link bridge and normalizes array vs object replies.
