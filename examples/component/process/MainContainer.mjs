@@ -40,13 +40,10 @@ class MainContainer extends ConfigurationViewport {
     createExampleComponent() {
         return Neo.create({
             module: Container,
-            style: {
-                overflow: 'auto',
-                maxHeight: '100%'
-            },
+            cls   : ['neo-examples-process-trip'],
             items : [{
-                html : '<h1>Trip log</h1>',
-                style: {textAlign: 'center'}
+                cls : ['neo-examples-process-heading'],
+                html: '<h1>Trip log</h1>'
             }, {
                 module    : Process,
                 flag      : 'color-change',

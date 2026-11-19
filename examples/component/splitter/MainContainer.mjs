@@ -96,14 +96,13 @@ class MainContainer extends ConfigurationViewport {
     createExampleComponent() {
         return Neo.ntype({
             ntype : 'container',
+            cls   : ['neo-examples-splitter-panes'],
             height: 600,
             layout: {ntype: 'hbox', align: 'stretch'},
-            // The stage is narrower than 600px on a phone: the panels share what there is
-            style: {border: '1px solid var(--panel-border-color)', maxWidth: '100%'},
-            width: 600,
-            items: [{
+            width : 600,
+            items : [{
                 ntype: 'component',
-                style: {padding: '0 1em'},
+                cls  : ['neo-examples-splitter-pane'],
                 vdom : {cn: [
                     {tag: 'h3', text: 'Folders'},
                     {tag: 'ul', cn: [
@@ -118,7 +117,7 @@ class MainContainer extends ConfigurationViewport {
                 liveResize: true
             }, {
                 ntype: 'component',
-                style: {padding: '0 1em'},
+                cls  : ['neo-examples-splitter-pane'],
                 vdom : {cn: [
                     {tag: 'h3', text: 'Inbox'},
                     {tag: 'p',  text: 'Drag the bar between the panels: one side grows as the other shrinks.'},
