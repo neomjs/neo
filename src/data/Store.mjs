@@ -94,6 +94,11 @@ class Store extends Collection {
      */
     #batchRecords = null;
     /**
+     * @member {Number} #rowBatchDepth=0 The {@link #updateRows} batches running, a nested one included.
+     * @private
+     */
+    #rowBatchDepth = 0;
+    /**
      * Record notifications deferred while an opted-in key transaction commits its maps.
      * @member {Map} #keyChanges=new Map()
      * @private
@@ -1872,6 +1877,17 @@ class Store extends Collection {
     }
 
     /**
+     * @summary True while an {@link #updateRows} batch writes its rows and reapplies the filters and sorters it opted
+     * into, until it fires `rowsChange`. A `recordChange`, `filter`, `sort` or `mutate` listener that redraws once per
+     * change can leave a batch's events to that single `rowsChange`. A batch a listener starts inside another one ends
+     * while this stays true: only the outermost batch's `rowsChange` fires with it false.
+     * @member {Boolean} isUpdatingRows
+     */
+    get isUpdatingRows() {
+        return this.#rowBatchDepth > 0
+    }
+
+    /**
      * @summary Writes a batch of row edits as one change: Turbo Mode rows stay raw, and the batch publishes once.
      *
      * A raw row is written in place, as its own data for those fields: nothing is hydrated, and the values Soft
@@ -1926,17 +1942,26 @@ class Store extends Collection {
         }
 
         if (rows.size) {
-            rows   = [...rows.values()];
-            errors = me.writeRows(rows);
+            let fields;
 
-            // every field written, also to the rows writeRows() added, and the calculated ones, which may read them
-            const fields  = [...new Set([...rows.flatMap(({values}) => Object.keys(values)), ...model.calculatedFieldsMap.keys()])],
-                  changed = fields.map(name => ({name}));
+            rows = [...rows.values()];
+            me.#rowBatchDepth++;
 
-            me.#reapply(
-                me.shouldReapplyFilters(null, changed),
-                rows.some(({item}) => me.shouldReapplySorters({fields: changed, model, record: item}))
-            );
+            try {
+                errors = me.writeRows(rows);
+
+                // every field written, also to the rows writeRows() added, and the calculated ones, which may read them
+                fields = [...new Set([...rows.flatMap(({values}) => Object.keys(values)), ...model.calculatedFieldsMap.keys()])];
+
+                const changed = fields.map(name => ({name}));
+
+                me.#reapply(
+                    me.shouldReapplyFilters(null, changed),
+                    rows.some(({item}) => me.shouldReapplySorters({fields: changed, model, record: item}))
+                )
+            } finally {
+                me.#rowBatchDepth--
+            }
 
             me.fire('rowsChange', {fields, keys: rows.map(row => row.key)})
         }
