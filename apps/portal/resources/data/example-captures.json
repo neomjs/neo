@@ -10,7 +10,7 @@
     "examples/form/field/search", "examples/form/field/select", "examples/form/field/switch", "examples/form/field/text",
     "examples/form/field/textarea", "examples/form/field/time", "examples/form/field/trigger/copyToClipboard", "examples/form/field/url",
     "examples/form/field/zipcode",
-    "examples/form/fieldset", "examples/form/validation", "examples/component/dateSelector", "examples/layout/form",
+    "examples/form/fieldset", "examples/component/dateSelector", "examples/layout/form",
     "examples/button/base", "examples/menu/list",
     "examples/list/base", "examples/list/chip", "examples/list/color",
     "examples/component/chip", "examples/component/circle", "examples/component/clock", "examples/component/magicmovetext",
