@@ -765,10 +765,13 @@
       "id": "live-preview",
       "viewport": {"width": 640, "height": 360},
       "theme": "default",
-      "state": "The Source tab as the page opens: the function component the Preview tab runs, a defineComponent counter with its useConfig state.",
+      "state": "The Source tab as the page opens in neo-light: the function component the Preview tab runs, a defineComponent counter with its useConfig state.",
       "ready": [{"selector": ".view-lines", "text": "defineComponent"}],
-      "steps": [],
-      "after": [{"selector": ".view-lines", "text": "useConfig", "inRegion": true}, {"selector": ".view-lines", "text": "setCount", "inRegion": true}],
+      "steps": [
+        {"kind": "wait", "selector": ".monaco-scrollable-element > .scrollbar.vertical.invisible.fade"},
+        {"kind": "wait", "selector": ".monaco-scrollable-element > .scrollbar.horizontal.invisible.fade"}
+      ],
+      "after": [{"selector": ".view-line span", "text": "useConfig(0)", "inRegion": true}, {"selector": ".view-line span", "text": "setCount", "inRegion": true}],
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     }
   ]
