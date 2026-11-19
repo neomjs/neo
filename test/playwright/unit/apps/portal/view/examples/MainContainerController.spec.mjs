@@ -660,7 +660,7 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           'text-field', 'textarea-field', 'time-field', 'url-field',
           'country-field', 'currency-field', 'display-field', 'iban-field', 'password-field',
           'phone-field', 'range-field', 'search-field', 'zipcode-field', 'copy-to-clipboard-trigger',
-          'fieldset', 'form-validation', 'field-with-prefix', 'layout-form', 'form-app'
+          'fieldset', 'form-validation', 'field-with-prefix', 'checkout-form', 'layout-form', 'form-app'
       ],
       // the tile records of groups that had no record before the tiles, appended to the catalog
       newTileIds = [
@@ -706,7 +706,7 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           forms         : [27, 1], buttons    : [2, 0], components: [9, 0],
           'multi-window': [6, 3], platform    : [2, 1], state: [1, 0], functional: [3, 1], 'drag-drop': [0, 3]
       },
-      recordCount    = 123,
+      recordCount    = 124,
       publishedCount = Object.values(groupCounts).reduce((sum, [count]) => sum + count, 0),
       groupCount     = Object.keys(groupCounts).length,
       // every record with a cover publishes in a production build, so the rest wait for one
