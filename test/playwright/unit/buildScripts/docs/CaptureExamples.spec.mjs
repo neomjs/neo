@@ -145,8 +145,23 @@ test('a tile is named by its examples/ path, which gives its id and devmode URL'
     expect(validateCaptureRecipes(manifest(), catalog()).tiles).toEqual([])
 });
 
-test('a tile path outside examples/, a duplicate tile or an unknown selection is refused', () => {
-    for (const tiles of [['apps/form'], ['examples/'], ['examples/../apps'], ['examples/sitemap', 'examples/sitemap']]) {
+test('a tile entry may name the size its component takes for the capture', () => {
+    const raw = {...manifest(), tiles: [{path: 'examples/form/field/text', width: 220}, {path: 'examples/sitemap', width: 320, height: 240}, 'examples/form/field/date']},
+        valid = validateCaptureRecipes(raw, catalog());
+    expect(valid.tiles).toEqual([
+        {id: 'form-field-text', path: 'examples/form/field/text', url: 'examples/form/field/text/index.html', width: 220},
+        {id: 'sitemap',         path: 'examples/sitemap',         url: 'examples/sitemap/index.html',         width: 320, height: 240},
+        {id: 'form-field-date', path: 'examples/form/field/date', url: 'examples/form/field/date/index.html'}
+    ]);
+    expect(selectTiles(valid, 'examples/form/field/text')[0].width).toBe(220)
+});
+
+test('a tile path outside examples/, a duplicate tile, a bad capture size or an unknown selection is refused', () => {
+    for (const tiles of [
+        ['apps/form'], ['examples/'], ['examples/../apps'], ['examples/sitemap', 'examples/sitemap'],
+        [{path: 'examples/sitemap', width: 79}], [{path: 'examples/sitemap', height: 641}], [{path: 'examples/sitemap', width: 220.5}],
+        [{path: 'examples/sitemap', zoom: 2}], [{width: 220}], ['examples/sitemap', {path: 'examples/sitemap', width: 220}]
+    ]) {
         expect(() => validateCaptureRecipes({...manifest(), tiles}, catalog())).toThrow(/manifest\.tiles/)
     }
     const valid = validateCaptureRecipes({...manifest(), tiles: ['examples/sitemap']}, catalog());

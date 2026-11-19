@@ -1,0 +1,147 @@
+.neo-examples-grid-server-side.neo-viewport {
+    background-color: var(--server-side-background);
+    color: var(--server-side-text);
+    font-family: var(--neo-font-family);
+    padding: 20px;
+    gap: 12px;
+
+    .server-side-heading {
+        background-color: transparent;
+
+        h1, p {
+            font-family: var(--neo-font-family);
+        }
+
+        gap: 16px;
+
+        h1 {
+            font-size: 24px;
+            line-height: 1.2;
+            margin: 0 0 8px;
+        }
+
+        p {
+            font-size: 14px;
+            line-height: 1.5;
+            margin: 0;
+        }
+    }
+
+    .server-side-controls {
+        background-color: transparent;
+        gap: 20px;
+    }
+
+    .server-side-scope {
+        color: var(--server-side-muted);
+        font-size: 13px;
+    }
+
+    .server-side-request {
+        background-color: var(--server-side-receipt);
+        border-radius: 6px;
+        font-family: monospace;
+        font-size: 12px;
+        line-height: 1.6;
+        min-height: 40px;
+        padding: 10px 12px;
+        white-space: normal;
+    }
+
+    .neo-grid-container {
+        min-height: 180px;
+    }
+
+    .neo-grid-cell {
+        font-variant-numeric: tabular-nums;
+    }
+
+    .neo-grid-header-button {
+        padding: 0 4px;
+    }
+
+    .neo-load-mask-body {
+        color: var(--server-side-text);
+        font-size: 14px;
+        padding: 16px;
+    }
+
+    .neo-loading-message {
+        max-width: 240px;
+        white-space: normal;
+    }
+
+    &.server-side-busy {
+        .neo-grid-header-toolbar,
+        .server-side-controls {
+            pointer-events: none;
+        }
+    }
+
+    .server-side-paging {
+        background-color: transparent;
+        flex-wrap: wrap;
+        gap: 8px 0;
+    }
+
+    @media (max-width: 700px) {
+        padding: 12px;
+
+        .server-side-heading {
+            align-items: flex-start;
+
+            h1 {
+                font-size: 20px;
+            }
+
+            .neo-button {
+                flex: none;
+            }
+        }
+
+        .server-side-controls {
+            align-items: flex-start;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .neo-grid-header-button {
+            --grid-header-button-font-size: 12px;
+            gap: 0;
+            padding: 6px 4px;
+
+            .neo-button-glyph {
+                margin: 0 0 0 4px;
+            }
+        }
+
+        .server-side-paging {
+            flex-wrap: nowrap;
+            gap: 4px;
+
+            .server-side-page-button {
+                font-size: 12px;
+                height: 36px;
+                margin: 0 !important;
+                min-width: 32px;
+                padding: 6px;
+
+                .neo-button-text {
+                    display: none;
+                }
+            }
+
+            .server-side-page-position {
+                font-size: 12px;
+                margin: 0 2px !important;
+                white-space: nowrap;
+            }
+
+            .server-side-page-size-label,
+            .server-side-page-spacer,
+            .server-side-page-total {
+                display: none;
+            }
+        }
+    }
+}
