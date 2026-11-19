@@ -2,5 +2,5 @@
     "apps/workstation/tour/NativeGestureDriver.mjs": 1238,
     "src/canvas/GraphScene.mjs": 1085,
     "src/dashboard/dock/Workspace.mjs": 1073,
-    "src/data/Store.mjs": 1100
+    "src/data/Store.mjs": 1110
 }

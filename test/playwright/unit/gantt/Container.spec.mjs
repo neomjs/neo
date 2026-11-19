@@ -488,4 +488,146 @@ test.describe('Neo.gantt.Container', () => {
         dependencyStore.destroy();
         taskStore.destroy()
     });
+
+    test('a store batch re-projects the links once', () => {
+        const
+            taskStore = Neo.create(TaskStore, {
+                data: [
+                    {id: 'A', parentId: null, isLeaf: true, title: 'A', startDate: '2026-11-09T00:00:00Z', endDate: '2026-11-09T02:00:00Z'},
+                    {id: 'B', parentId: null, isLeaf: true, title: 'B', startDate: '2026-11-09T02:00:00Z', endDate: '2026-11-09T04:00:00Z'},
+                    {id: 'C', parentId: null, isLeaf: true, title: 'C', startDate: '2026-11-09T04:00:00Z', endDate: '2026-11-09T06:00:00Z'}
+                ]
+            }),
+            dependencyStore = Neo.create(DependencyStore, {
+                data: [
+                    {id: 'ab', fromId: 'A', toId: 'B', type: 'FS', lag: 0, lagUnit: 'hour'},
+                    {id: 'bc', fromId: 'B', toId: 'C', type: 'FS', lag: 0, lagUnit: 'hour'}
+                ]
+            });
+
+        gantt = Neo.create(GanttContainer, {
+            appName,
+            dependencyStore,
+            store        : taskStore,
+            timeAxis     : {start: '2026-11-09T00:00:00Z', end: '2026-11-10T00:00:00Z', tickUnit: 'hour', tickStep: 1, pxPerMinute: 1, snapMinutes: 15},
+            viewportWidth: 2000
+        });
+        gantt.syncDependencyLayer();
+
+        const
+            layer   = gantt.dependencyLayer,
+            project = layer.project.bind(layer),
+            // The last x of a route is where its arrow ends, in px at 1 px per minute.
+            end     = id => Number(layer.arrows.find(arrow => arrow.data.dependencyId === id)?.d.split(' ').at(-2));
+        let projects = 0;
+
+        layer.project = (...args) => { projects++; return project(...args) };
+
+        expect(end('ab')).toBe(120);
+        expect(end('bc')).toBe(240);
+
+        taskStore.updateRows([
+            {key: 'B', values: {startDate: new Date('2026-11-09T03:00:00Z'), endDate: new Date('2026-11-09T05:00:00Z')}},
+            {key: 'C', values: {startDate: new Date('2026-11-09T05:00:00Z'), endDate: new Date('2026-11-09T07:00:00Z')}}
+        ]);
+
+        expect(projects).toBe(1);
+        expect(end('ab')).toBe(180);
+        expect(end('bc')).toBe(300);
+
+        projects = 0;
+        dependencyStore.updateRows([{key: 'ab', values: {type: 'SS'}}, {key: 'bc', values: {type: 'SS'}}]);
+
+        expect(projects).toBe(1);
+        expect(layer.arrows.map(arrow => arrow.data.type)).toEqual(['SS', 'SS']);
+
+        dependencyStore.destroy();
+        taskStore.destroy()
+    });
+
+    test('a batch that reapplies an opted-in filter re-projects once; an explicit filter and a single edit still project', () => {
+        const
+            taskStore = Neo.create(TaskStore, {
+                data: [
+                    {id: 'A', parentId: null, isLeaf: true, title: 'A', startDate: '2026-11-09T00:00:00Z', endDate: '2026-11-09T02:00:00Z', percentDone: 0},
+                    {id: 'B', parentId: null, isLeaf: true, title: 'B', startDate: '2026-11-09T02:00:00Z', endDate: '2026-11-09T04:00:00Z', percentDone: 0},
+                    {id: 'C', parentId: null, isLeaf: true, title: 'C', startDate: '2026-11-09T04:00:00Z', endDate: '2026-11-09T06:00:00Z', percentDone: 0}
+                ],
+                filters: [{property: 'percentDone', operator: '<', value: 100, reapplyOnRecordChange: true}]
+            }),
+            dependencyStore = Neo.create(DependencyStore, {
+                data: [
+                    {id: 'ab', fromId: 'A', toId: 'B', type: 'FS', lag: 0, lagUnit: 'hour'},
+                    {id: 'bc', fromId: 'B', toId: 'C', type: 'FS', lag: 0, lagUnit: 'hour'}
+                ]
+            });
+
+        gantt = Neo.create(GanttContainer, {
+            appName,
+            dependencyStore,
+            store        : taskStore,
+            timeAxis     : {start: '2026-11-09T00:00:00Z', end: '2026-11-10T00:00:00Z', tickUnit: 'hour', tickStep: 1, pxPerMinute: 1, snapMinutes: 15},
+            viewportWidth: 2000
+        });
+        gantt.syncDependencyLayer();
+
+        const
+            layer   = gantt.dependencyLayer,
+            project = layer.project.bind(layer),
+            routes  = () => layer.arrows.map(arrow => arrow.data.dependencyId);
+        let projects = 0;
+
+        layer.project = (...args) => { projects++; return project(...args) };
+
+        // The batch finishes B, so the refilter hides it with both of its links, and moves C: one projection, after the filter
+        taskStore.updateRows([
+            {key: 'B', values: {percentDone: 100}},
+            {key: 'C', values: {startDate: new Date('2026-11-09T05:00:00Z'), endDate: new Date('2026-11-09T07:00:00Z')}}
+        ]);
+        expect(projects).toBe(1);
+        expect(taskStore.items.map(task => task.id)).toEqual(['A', 'C']);
+        expect(routes()).toEqual([]);
+
+        // A link batch under an active FS filter hides both links: one projection
+        taskStore.filters = [];
+        dependencyStore.filters = [{property: 'type', value: 'FS', reapplyOnRecordChange: true}];
+        expect(routes()).toEqual(['ab', 'bc']);
+        projects = 0;
+        dependencyStore.updateRows([{key: 'ab', values: {type: 'SS'}}, {key: 'bc', values: {type: 'SS'}}]);
+        expect(projects).toBe(1);
+        expect(routes()).toEqual([]);
+
+        // An explicit filter and a single edit are not batches: each still projects
+        projects = 0;
+        dependencyStore.filters = [];
+        expect(projects).toBe(1);
+        expect(routes()).toEqual(['ab', 'bc']);
+        projects = 0;
+        taskStore.get('C').set({startDate: new Date('2026-11-09T06:00:00Z'), endDate: new Date('2026-11-09T08:00:00Z')});
+        expect(projects).toBe(1);
+
+        // A listener that starts a second batch inside a filtered one: the outer batch's rowsChange projects once for both
+        taskStore.filters = [{property: 'percentDone', operator: '<', value: 100, reapplyOnRecordChange: true}];
+        let   nested  = 0;
+        const reenter = ({record}) => {
+            if (record.id === 'A' && nested++ === 0) {
+                taskStore.updateRows([{key: 'C', values: {startDate: new Date('2026-11-09T07:00:00Z'), endDate: new Date('2026-11-09T09:00:00Z')}}])
+            }
+        };
+        // A registered schedule analysis hears of the nested date edit once, before the single projection
+        const order = [];
+        gantt.registerScheduleAnalysis({invalidateSchedule: () => order.push('invalidate'), getHighlights: () => ({})});
+        layer.project = (...args) => { projects++; order.push('project'); return project(...args) };
+        taskStore.on('recordChange', reenter);
+        projects = 0;
+        taskStore.updateRows([{key: 'A', values: {percentDone: 50}}]);
+        taskStore.un('recordChange', reenter);
+        expect(nested).toBe(1);
+        expect(projects).toBe(1);
+        expect(order).toEqual(['invalidate', 'project']);
+        expect(taskStore.isUpdatingRows).toBe(false);
+
+        dependencyStore.destroy();
+        taskStore.destroy()
+    });
 });
