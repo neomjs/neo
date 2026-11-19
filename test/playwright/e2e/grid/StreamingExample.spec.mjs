@@ -115,15 +115,27 @@ test.describe('Streaming 50,000 Grid Rows (Neural Link)', () => {
               bodyId  = grid.properties['body.id'],
               storeId = grid.properties['store.id'];
 
+        const rows = page.locator(`#${bodyId} .neo-grid-row[data-record-id]:visible`);
+        await expect(rows.first()).toBeVisible();
+        const initialRecordId = await rows.first().getAttribute('data-record-id');
+
         // Trigger a fresh stream once NL is connected so interactions land cleanly mid-stream.
         await page.locator('.streaming-reload-button').click();
 
         await expect.poll(async () => {
-            const state = await app.getComponent(storeId, ['count', 'isStreaming']);
-            return state.isStreaming && state.count >= 250 && state.count < 50000
-        }, {message: 'fresh stream active mid-flight', timeout: 10000}).toBe(true);
+            const state          = await app.getComponent(storeId, ['count', 'isStreaming']),
+                  currentFirstId = await rows.count() > 0
+                      ? await rows.first().getAttribute('data-record-id', {timeout: 250}).catch(() => null)
+                      : null;
 
-        const targetRow = page.locator(`#${bodyId} .neo-grid-row[data-record-id]:visible`).first();
+            return state.isStreaming
+                && state.count >= 250
+                && state.count < 50000
+                && Boolean(currentFirstId)
+                && currentFirstId !== initialRecordId
+        }, {message: 'fresh stream active mid-flight', timeout: 15000}).toBe(true);
+
+        const targetRow = rows.first();
         await expect(targetRow).toBeVisible();
 
         const selectedRecordId = await targetRow.getAttribute('data-record-id');

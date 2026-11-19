@@ -2,7 +2,7 @@
     "/": {
         "title": "Neo.mjs - An Agent Institution",
         "description": "Neo.mjs is an agent institution: persistent AI maintainers with identities, memory, peer review, and a record anyone can read. Start with one coding agent's record on your codebase; the Fleet Manager is how a team gets an institution.",
-        "lastmod": "2026-11-15"
+        "lastmod": "2026-11-19"
     },
     "/about-us": {
         "title": "About Us - Neo.mjs",
@@ -22,7 +22,7 @@
     "/learn": {
         "title": "Developer Guides — Web Worker UI Engine, SharedWorker & AI Agent OS | Neo.mjs",
         "description": "Learn how to build off-main-thread JavaScript apps and AI Agent OS workflows with Neo.mjs: Web Worker UIs, multi-window SharedWorkers, data grids & MCP tools.",
-        "lastmod": "2026-11-17"
+        "lastmod": "2026-11-19"
     },
     "/news": {
         "title": "News, Blog & Release Notes — Multi-Threaded JavaScript Engine | Neo.mjs",
@@ -74,7 +74,7 @@
     "/home": {
         "title": "Neo.mjs - An Agent Institution",
         "description": "Neo.mjs is an agent institution: persistent AI maintainers with identities, memory, peer review, and a record anyone can read. Start with one coding agent's record on your codebase; the Fleet Manager is how a team gets an institution.",
-        "lastmod": "2026-11-15"
+        "lastmod": "2026-11-19"
     },
     "/learn/UsingTheseTopics": {
         "title": "Using These Topics — Multi-Threaded JavaScript Application Engine | Neo.mjs",
@@ -512,6 +512,12 @@
         "description": "Docking UIs are easy to demo and hard to trust. The demo shows a splitter, a tab you can drag, a panel that slides away to an edge. What the demo does not...",
         "schemaType": "TechArticle",
         "lastmod": "2026-10-24"
+    },
+    "/learn/guides/uibuildingblocks/WebDesktops": {
+        "title": "Build a Web Desktop in JavaScript: Launcher, Windows and Taskbar | Neo.mjs",
+        "description": "Build a web desktop with Neo.desktop: an icon launcher users arrange, app windows that open, minimize and restore, a taskbar with a start menu, and...",
+        "schemaType": "TechArticle",
+        "lastmod": "2026-11-19"
     },
     "/learn/guides/uibuildingblocks/Fragments": {
         "title": "Fragments: Phantom Containers - Neo.mjs",
@@ -1065,7 +1071,7 @@
     },
     "/examples/grid": {
         "title": "JavaScript Data Grid Examples — 100k Rows in a Web Worker | Neo.mjs",
-        "description": "Explore 18 live JavaScript data grid examples: Opens at 20,000 × 50 and scales to 100,000 × 200, row-buffered, data in a Web Worker.",
+        "description": "Explore 19 live JavaScript data grid examples: Opens at 20,000 × 50 and scales to 100,000 × 200, row-buffered, data in a Web Worker.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-19"
     },
@@ -1277,7 +1283,7 @@
         "title": "SplitButton — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "Live runnable SplitButton example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
         "schemaType": "WebPage",
-        "lastmod": "2025-11-19"
+        "lastmod": "2026-11-19"
     },
     "/examples/calendar/basic/index.html": {
         "title": "Calendar Basic — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1854,6 +1860,12 @@
         "description": "A Neo.mjs JavaScript Data Grid with columns pinned at both edges: product and region stay at the start, the total at the end, while 36 months scroll between.",
         "schemaType": "WebPage",
         "lastmod": "2026-11-17"
+    },
+    "/examples/grid/serverSide/index.html": {
+        "title": "Grid — Simulated Server Paging — Web Worker Data Grid Demo | Neo.mjs",
+        "description": "One-page loading with remote sorting and filtering over 100,000 seeded orders. Change page, sort a header or choose a country: the request line shows the...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-19"
     },
     "/examples/grid/streaming/index.html": {
         "title": "Streaming 50,000 Rows in a Data Grid | Neo.mjs",
