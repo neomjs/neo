@@ -14,7 +14,31 @@
     }
 
     .email-inbox {
-        flex     : 1;
-        min-width: 0;
+        flex      : 1;
+        min-height: 0;
+        min-width : 0;
+        overflow  : hidden;
+    }
+
+    @media (max-width: 767px) {
+        flex          : 0 0 52% !important;
+        flex-direction: column;
+        height        : 52%;
+        min-height    : 0;
+        min-width     : 0;
+        overflow      : hidden;
+        width         : 100%;
+
+        .email-navigation {
+            align-items: center;
+            display    : flex;
+            flex       : 0 0 auto;
+            flex-wrap  : wrap;
+            gap        : 10px;
+            padding    : 10px 12px;
+
+            .neo-button { width: auto; }
+            h2, p { margin: 0; }
+        }
     }
 }

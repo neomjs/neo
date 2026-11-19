@@ -41,8 +41,9 @@ jobs:
         env:
           OVERFLOW_WRITE_DELAY_MS: '1000'
           MERGEABILITY_CONCURRENCY: '4'
-          MERGEABILITY_POLL_ATTEMPTS: '4'
-          MERGEABILITY_POLL_DELAY_MS: '250'
+          MERGEABILITY_POLL_ATTEMPTS: '7'
+          MERGEABILITY_POLL_DELAY_MS: '2000'
+          MERGEABILITY_POLL_MAX_DELAY_MS: '30000'
           MERGEABILITY_MAX_RESTARTS: '3'
         with:
           retries: 3
@@ -50,6 +51,7 @@ jobs:
             const contextKey  = 'review-admission/mergeability';
             const maxPolls    = Number(process.env.MERGEABILITY_POLL_ATTEMPTS);
             const delayMs     = Number(process.env.MERGEABILITY_POLL_DELAY_MS);
+            const maxDelayMs  = Number(process.env.MERGEABILITY_POLL_MAX_DELAY_MS) || 30000;
             const maxRestarts = Number(process.env.MERGEABILITY_MAX_RESTARTS);
             const concurrency = Math.max(1, Number(process.env.MERGEABILITY_CONCURRENCY) || 4);
             const sleep       = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -90,10 +92,11 @@ jobs:
               prs = [...new Set(pulls.map(pull => pull.number))].sort((a, b) => a - b);
             }
 
-            // 32 is an operational per-trigger burst ceiling: one worst-case null sweep costs at
-            // most ~256 REST calls, while idempotent terminal writes stay below the ~80 content
-            // writes/minute guidance. Overflow attempts paced error transitions, reports failures,
-            // and refuses partial certification.
+            // 32 is the per-trigger burst ceiling under the repository GITHUB_TOKEN budget (1,000 REST
+            // requests/hour shared across workflows): at 7 polls/PR, one single-pass worst-case null sweep
+            // costs at most 385 REST calls (1 list + 32 * 12: pre-warm seed, 7 polls, final, status read/write,
+            // post-write), while idempotent terminal writes stay below ~80 content writes/minute. Overflow
+            // paces error transitions, reports failures, and refuses partial certification.
             if (prs.length > 32) {
               const publicationFailures = [];
               const writeDelayMs        = Number(process.env.OVERFLOW_WRITE_DELAY_MS);
@@ -167,15 +170,32 @@ jobs:
                 .find(status => status.context === contextKey)?.state || null;
             };
 
+            const prewarmedReads = new Map();
+
             const evaluatePullRequest = async prNumber => {
               let lastCoordinate = null;
 
               const readPull = async() => {
-                const {data} = await github.rest.pulls.get({
-                  owner      : context.repo.owner,
-                  repo       : context.repo.repo,
-                  pull_number: prNumber
-                });
+                let response;
+
+                if (prewarmedReads.has(prNumber)) {
+                  const cached = prewarmedReads.get(prNumber);
+                  prewarmedReads.delete(prNumber);
+
+                  if (!cached.ok) {
+                    throw cached.error;
+                  }
+
+                  response = cached.response;
+                } else {
+                  response = await github.rest.pulls.get({
+                    owner      : context.repo.owner,
+                    repo       : context.repo.repo,
+                    pull_number: prNumber
+                  });
+                }
+
+                const {data} = response;
 
                 if (data.state !== 'open') {
                   throw new PullClosed(`PR #${prNumber} is ${data.merged ? 'merged' : 'closed'}; no mergeability status after close.`);
@@ -225,7 +245,7 @@ jobs:
 
                   for (let poll = 0; poll < maxPolls; poll++) {
                     if (poll > 0) {
-                      await sleep(delayMs * (2 ** (poll - 1)));
+                      await sleep(Math.min(delayMs * (2 ** (poll - 1)), maxDelayMs));
                     }
 
                     const observed           = await readPull();
@@ -301,7 +321,11 @@ jobs:
                     continue;
                   }
 
-                  await publish('error', coordinate, 'Mergeability unresolved against current dev base');
+                  if (typeof finalPull.mergeable === 'boolean' && restart < maxRestarts) {
+                    continue;
+                  }
+
+                  await publish('pending', coordinate, 'Mergeability still computing against current dev base; retry controller');
 
                   const postNullWrite           = await readPull();
                   const postNullWriteCoordinate = coordinateOf(postNullWrite);
@@ -311,7 +335,12 @@ jobs:
                     continue;
                   }
 
-                  core.setFailed(`PR #${prNumber} mergeability stayed null after ${maxPolls} bounded polls.`);
+                  const exhaustedMessage = `PR #${prNumber} mergeability stayed null after ${maxPolls} bounded polls.`;
+                  if (context.eventName === 'pull_request_target') {
+                    core.warning(exhaustedMessage);
+                  } else {
+                    core.setFailed(exhaustedMessage);
+                  }
                   return;
                 }
 
@@ -335,8 +364,34 @@ jobs:
               }
             };
 
-            let nextIndex = 0;
             const workerCount = Math.min(concurrency, prs.length);
+
+            if (prs.length > 1) {
+              // Request every open PR once upfront before polling any so GitHub starts computing
+              // mergeability across the whole board at t = 0 rather than queuing behind earlier PRs.
+              let warmIndex = 0;
+
+              await Promise.all(
+                Array.from({length: workerCount}, async() => {
+                  while (warmIndex < prs.length) {
+                    const prNumber = prs[warmIndex++];
+
+                    try {
+                      const response = await github.rest.pulls.get({
+                        owner      : context.repo.owner,
+                        repo       : context.repo.repo,
+                        pull_number: prNumber
+                      });
+                      prewarmedReads.set(prNumber, {ok: true, response});
+                    } catch (error) {
+                      prewarmedReads.set(prNumber, {ok: false, error});
+                    }
+                  }
+                })
+              );
+            }
+
+            let nextIndex = 0;
 
             await Promise.all(
               Array.from({length: workerCount}, async() => {

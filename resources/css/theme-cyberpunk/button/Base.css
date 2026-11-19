@@ -35,7 +35,8 @@
     --button-text-font-family                   : var(--neo-font-family);
     --button-text-font-size                     : 13px;
     --button-text-font-weight                   : 600;
-    --button-text-line-height                   : 11px;
+    /* The glyph's 12px, so a button with text and one with only an icon are equally tall */
+    --button-text-line-height                   : 12px;
     --button-text-transform                     : none;
     --button-use-gradients                      : false;
 
@@ -116,4 +117,15 @@
     --button-tertiary-text-decoration           : none;
     --button-tertiary-text-decoration-color     : currentColor;
     --button-tertiary-text-underline-offset     : auto;
+
+    /* The three sizes a button's `size` config picks, content-sized like the default, which is the medium one */
+    --button-size-small-font-size               : 11px;
+    --button-size-small-height                  : initial;
+    --button-size-small-padding                 : 2px 8px;
+    --button-size-medium-font-size              : 13px;
+    --button-size-medium-height                 : initial;
+    --button-size-medium-padding                : 5px 12px;
+    --button-size-large-font-size               : 15px;
+    --button-size-large-height                  : initial;
+    --button-size-large-padding                 : 9px 16px;
 }
