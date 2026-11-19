@@ -16,30 +16,9 @@
             flex-direction: row-reverse;
         }
 
-        /* The text is a band above the content, which takes the rest of exactly one snap page. */
-        &.portal-position-top {
-            flex-direction: column;
-            max-height    : 100%;
-
-            .portal-content-text {
-                align-items          : center;
-                column-gap           : 2.5rem;
-                display              : grid;
-                flex                 : none;
-                grid-template-areas  : "headline paragraph button" "sub-headline links button";
-                grid-template-columns: max-content 1fr max-content;
-                padding              : .75rem 2rem 0;
-
-                > .neo-h1                 {grid-area: headline;}
-                > .neo-h2                 {grid-area: sub-headline;}
-                > p                       {grid-area: paragraph; margin: 0;}
-                > .portal-content-links   {grid-area: links;}
-                > .neo-button             {grid-area: button;}
-            }
-
-            .portal-content-wrapper {
-                padding-top: 12px;
-            }
+        /* A live preview fills its page and scrolls inside: a grid taller than the page does not grow the page. */
+        &:has(.page-live-preview) {
+            max-height: 100%;
         }
     }
 
@@ -63,9 +42,12 @@
         text-align : start;
     }
 
+    /* No wider than its page: on a phone a preview's own content is wider than the screen */
     .page-live-preview {
-        height: 100%;
-        margin: 0;
+        height   : 100%;
+        margin   : 0;
+        max-width: 100%;
+        min-width: 0;
     }
 
     .portal-content-text {

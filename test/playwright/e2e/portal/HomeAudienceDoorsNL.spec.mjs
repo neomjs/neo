@@ -219,7 +219,7 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
         // The home's own snippets mount no themed Viewport, so this witness hands one to a preview in tab mode.
         const previewId = await page.locator(`#${planning.id} .neo-code-live-preview`).getAttribute('id');
         expect(previewId).toBeTruthy();
-        await app.setProperties(previewId, {activeView: 'source', sideBySide: false});
+        await app.setProperties(previewId, {activeView: 'source'});
         await app.setProperties(previewId, {value: [
             "import Viewport from '../container/Viewport.mjs';",
             "",

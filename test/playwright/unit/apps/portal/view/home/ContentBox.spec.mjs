@@ -25,6 +25,8 @@ import InstanceManager    from '../../../../../../../src/manager/Instance.mjs';
 import DomApiVnodeCreator from '../../../../../../../src/vdom/util/DomApiVnodeCreator.mjs';
 import VdomHelper         from '../../../../../../../src/vdom/Helper.mjs';
 import ContentBox         from '../../../../../../../apps/portal/view/home/ContentBox.mjs';
+import Example            from '../../../../../../../apps/portal/model/Example.mjs';
+import ExamplesContainer  from '../../../../../../../apps/portal/view/examples/MainContainer.mjs';
 import Grid               from '../../../../../../../apps/portal/view/home/parts/Grid.mjs';
 import HeaderToolbar      from '../../../../../../../apps/portal/view/HeaderToolbar.mjs';
 import HeroContent        from '../../../../../../../apps/portal/view/home/parts/hero/Content.mjs';
@@ -33,6 +35,7 @@ import Planning           from '../../../../../../../apps/portal/view/home/parts
 
 const brainDocUrl       = 'https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/MemoryCore.md',
       currentDir        = path.dirname(fileURLToPath(import.meta.url)),
+      examplesJson      = path.resolve(currentDir, '../../../../../../../apps/portal/resources/data/examples.json'),
       featureSectionCss = path.resolve(currentDir, '../../../../../../../resources/css/src/apps/portal/home/FeatureSection.css'),
       heroCssPath       = path.resolve(currentDir, '../../../../../../../resources/css/src/apps/portal/home/parts/hero/Content.css');
 
@@ -145,8 +148,7 @@ test.describe('Portal.view.home.ContentBox', () => {
 
             expect(highlightedBar).toBe(selectedCard);
 
-            // Both snippets build from engine classes alone, and fit the code column of a 1440×900 window whole:
-            // 48 lines of 91 characters in the type the page gives its editor
+            // Both snippets build from engine classes alone, stay short, and end on the class they export
             for (const part of [Grid, Planning]) {
                 const lines   = part.config.livePreviewCode.split('\n'),
                       imports = lines.filter(line => line.startsWith('import '));
@@ -155,7 +157,21 @@ test.describe('Portal.view.home.ContentBox', () => {
                 imports.forEach(line => expect(line).toMatch(/ from '\.\.\/[a-z]+\/[A-Za-z]+\.mjs';$/));
 
                 expect(lines.length).toBeLessThanOrEqual(48);
-                expect(Math.max(...lines.map(line => line.length))).toBeLessThanOrEqual(91)
+                expect(Math.max(...lines.map(line => line.length))).toBeLessThanOrEqual(91);
+                expect(lines.at(-1)).toBe('export default Neo.setupClass(MainView);')
+            }
+
+            // Every link names an examples group that shows at least one card in the production build
+            const catalog = JSON.parse(fs.readFileSync(examplesJson, 'utf8'));
+
+            for (const part of [Grid, Planning]) {
+                part.config.links.forEach(({route}) => {
+                    const group = ExamplesContainer.config.familyDefinitions.find(definition => `#${definition.route}` === route);
+
+                    expect(group, `${route} names no examples group`).toBeTruthy();
+                    expect(catalog.some(record => (record.family === group.family || record.alsoIn?.includes(group.family)) &&
+                        Example.publishes(record, 'dist_prod')), `${route} shows no card in dist_prod`).toBe(true)
+                })
             }
 
             const featureCssSource = fs.readFileSync(featureSectionCss, 'utf8');
@@ -179,14 +195,12 @@ test.describe('Portal.view.home.ContentBox', () => {
             expect(buttonText('Planning')).toBe('The Gantt guide');
             expect(buttonText('How')).toBe('Learn more');
 
-            // A component page shows its code beside the result, and names the other families as routes
+            // A component page opens on its source, runs nothing before its page is the active one, and names
+            // the other families as routes
             const livePreview = gridSection.getReference('live-preview'),
                   links       = gridSection.getItem('links').items.filter(item => item.route);
 
-            expect(livePreview.sideBySide).toBe(true);
-            expect(livePreview.getItem('editor').fontSize).toBe(12);
-            expect(livePreview.cls).toContain('neo-side-by-side');
-            expect(livePreview.activeView).toBe('preview');
+            expect(livePreview.activeView).toBe('source');
             expect(livePreview.getPreviewContainer().items).toHaveLength(0);
             expect(links.map(link => link.route)).toEqual(Grid.config.links.map(link => link.route));
             links.forEach(link => expect(link.route).toMatch(/^#\/examples\/[a-z-]+$/));

@@ -1,8 +1,8 @@
 import FeatureSection from '../FeatureSection.mjs';
 
 /**
- * @summary The home's grid proof: 300 records under a live feed, beside the code that builds the grid and the
- * feed. Prices tick, a change is green or red by its sign, each row draws its own trend, and the footer shows
+ * @summary The home's grid proof: 300 records under a live feed; the snippet behind its Source tab builds the grid
+ * and the feed. Prices tick, a change is green or red by its sign, each row draws its own trend, and the footer shows
  * the rate the feed measured.
  * @class Portal.view.home.parts.Grid
  * @extends Portal.view.home.FeatureSection
@@ -39,7 +39,7 @@ class Grid extends FeatureSection {
          * @reactive
          */
         links: [
-            {route: '#/examples/grid-table', text: 'More grids'},
+            {route: '#/examples/grid',       text: 'More grids'},
             {route: '#/examples/forms',      text: 'Forms'},
             {route: '#/examples/scheduler',  text: 'Scheduler'},
             {route: '#/examples/gantt',      text: 'Gantt'},
@@ -69,9 +69,9 @@ class Grid extends FeatureSection {
             "    const [price] = walk(record.price, 1), trend = [...record.trend.slice(1), price];",
             "    record.set({price, trend, change: price - record.open})",
             "};",
-            "const money  = {type: 'animatedCurrency', compareField: 'change', width: 110};",
+            "const money  = {type: 'animatedCurrency', compareField: 'change', width: 130};",
             "// A gain is green and a loss is red, also while nothing moves",
-            "const signed = {type: 'currency', width: 110, renderer: ({column: {formatter}, value}) =>",
+            "const signed = {type: 'currency', width: 130, renderer: ({column: {formatter}, value}) =>",
             "    ({text: formatter.format(value), style: {color: value < 0 ? '#e54' : '#294'}})};",
             "",
             "class MainView extends GridContainer {",
@@ -81,8 +81,8 @@ class Grid extends FeatureSection {
             "            {dataField: 'name', text: 'Company', width: 190, locked: 'start'},",
             "            {...money, dataField: 'price', text: 'Price'},",
             "            {...signed, dataField: 'change', text: 'Change'},",
-            "            {type: 'sparkline', dataField: 'trend', text: 'Trend', width: 150},",
-            "            {type: 'progress', dataField: 'demand', text: 'Demand', width: 126}",
+            "            {type: 'sparkline', dataField: 'trend', text: 'Trend', width: 230},",
+            "            {type: 'progress', dataField: 'demand', text: 'Demand', width: 180}",
             "        ],",
             "        footerToolbar: {items: [{ntype: 'label', text: `${data.length} rows`}]},",
             "        store: {data, model: {fields: Object.keys(data[0]).map(name => ({name}))}}",
@@ -98,30 +98,26 @@ class Grid extends FeatureSection {
             "        }",
             "    }",
             "}",
-            "MainView = Neo.setupClass(MainView);"
+            "export default Neo.setupClass(MainView);"
         ].join('\n'),
         /**
          * @member {String} paragraph
          */
         paragraph: [
-            'A feed changes twenty of 300 records ten times a second, and the grid follows: prices tick, ',
+            'A feed changes twenty records at a time, and the grid follows: prices tick, ',
             'changes turn green or red, each row draws its trend. It runs in a worker, so scrolling never waits ',
             'for the feed. Change the code, or move the grid into its own window.'
         ].join(''),
-        /**
-         * @member {Boolean} sideBySide=true
-         */
-        sideBySide: true,
         /**
          * @member {String} subHeadline='Live Data · 48 Lines'
          * @reactive
          */
         subHeadline: 'Live Data · 48 Lines',
         /**
-         * @member {String} textContainerPosition='top'
+         * @member {String} textContainerPosition='end'
          * @reactive
          */
-        textContainerPosition: 'top'
+        textContainerPosition: 'end'
     }
 }
 

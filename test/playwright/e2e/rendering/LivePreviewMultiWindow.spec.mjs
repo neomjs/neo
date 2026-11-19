@@ -16,13 +16,10 @@ async function verifyLivePreviewPopout(page, livePreviewLocatorOptions = undefin
     // Wait a moment for UI to settle
     await page.waitForTimeout(1000);
 
-    // Switch to Preview tab; a side-by-side preview (the home's) shows no tabs and is on Preview already
+    // Switch to Preview tab
     const previewTab = livePreview.getByText('Preview', { exact: true });
-    await previewTab.waitFor({ state: 'attached', timeout: 10000 });
-
-    if (await previewTab.isVisible()) {
-        await previewTab.click();
-    }
+    await previewTab.waitFor({ state: 'visible', timeout: 10000 });
+    await previewTab.click();
 
     // Wait for the Preview activeIndex change to spawn the component
     await page.waitForTimeout(1000);
@@ -97,8 +94,6 @@ test.describe('LivePreview Multi-Window Functionality (Issue #9586)', () => {
                   live = page.locator(`#${id}`);
 
             expect(await page.evaluate(() => Neo.config.useSharedWorkers)).toBe(true);
-            // The home's preview is side by side and runs when its page is scrolled to; this witness drives the tabs
-            await neo.setConfig(id, {activeView: 'source', sideBySide: false});
             await neo.setConfig(id, {language: 'mermaid', value: 'flowchart TD\n A[Before popout] --> B[Initial]'});
             await live.getByText('Preview', {exact: true}).click();
             await expect(live.locator(rendered)).toHaveCount(1);
@@ -149,7 +144,7 @@ test.describe('LivePreview Multi-Window Functionality (Issue #9586)', () => {
     for (const env of environments) {
         test.describe(`Environment: ${env.name}`, () => {
 
-            test('Popout LivePreview from Home Route (Grid, side by side)', async ({ page }) => {
+            test('Popout LivePreview from Home Route (Planning)', async ({ page }) => {
                 await page.goto(env.path);
                 await verifyLivePreviewPopout(page);
             });

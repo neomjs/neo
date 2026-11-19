@@ -21,8 +21,7 @@ async function openPage(page, selector, rendered) {
 
 /**
  * @param {import('@playwright/test').Locator} section
- * @returns {Promise<Object>} The boxes of the page's editor, its last code line and its preview card, and the
- * window's size
+ * @returns {Promise<Object>} The boxes of the page's text block and its live preview, and the window's size
  */
 function readLayout(section) {
     return section.evaluate(node => {
@@ -32,29 +31,26 @@ function readLayout(section) {
         };
 
         return {
-            card    : box('.neo-tab-body-container > :last-child'),
-            code    : Math.max(...[...node.querySelectorAll('.view-line > span')].map(span => span.getBoundingClientRect().right)),
-            editor  : box('.neo-monaco-editor'),
-            lastLine: box([...node.querySelectorAll('.view-line')].sort((a, b) => a.offsetTop - b.offsetTop).at(-1)),
-            pane    : box('.page-live-preview'),
-            window  : {height: innerHeight, scrollWidth: document.documentElement.scrollWidth, width: innerWidth}
+            pane  : box('.page-live-preview'),
+            text  : box('.portal-content-text'),
+            window: {height: innerHeight, scrollWidth: document.documentElement.scrollWidth, width: innerWidth}
         }
     })
 }
 
 /**
- * @summary Asserts that a page shows its code and its result side by side inside the window, with every line of
- * the snippet inside the editor: none is cut at the bottom or at the right.
+ * @summary Asserts the shape of a home page: the text block beside the live preview, the preview the wider of the
+ * two, and all of it inside the window.
  * @param {Object} layout The result of readLayout()
+ * @param {Boolean} textFirst True when the text stands at the start of the page
  */
-function expectWholeSnippetBesideResult(layout) {
-    expect(layout.editor.width).toBeGreaterThan(400);
-    expect(layout.card.width).toBeGreaterThan(400);
-    expect(layout.editor.right).toBeLessThanOrEqual(layout.card.left + 2);
+function expectTextBesidePreview(layout, textFirst) {
+    const [first, second] = textFirst ? [layout.text, layout.pane] : [layout.pane, layout.text];
+
+    expect(first.right).toBeLessThanOrEqual(second.left + 2);
+    expect(layout.pane.width).toBeGreaterThan(layout.text.width);
     expect(layout.pane.right).toBeLessThanOrEqual(layout.window.width);
-    expect(layout.pane.bottom).toBeLessThanOrEqual(layout.window.height);
-    expect(layout.lastLine.bottom).toBeLessThanOrEqual(layout.editor.bottom);
-    expect(layout.code).toBeLessThanOrEqual(layout.editor.right)
+    expect(layout.pane.bottom).toBeLessThanOrEqual(layout.window.height)
 }
 
 /**
@@ -69,13 +65,16 @@ function readBars(section) {
 }
 
 /**
- * @summary Asserts that a page's sub-headline counts the lines its editor shows.
+ * @summary Asserts that a page's sub-headline counts the lines of the snippet in its Source tab.
+ * @param {import('@playwright/test').Page} page
  * @param {import('@playwright/test').Locator} section
  */
-async function expectLineCount(section) {
-    const subHeadline = await section.getByRole('heading', {level: 3}).textContent();
+async function expectLineCount(page, section) {
+    const subHeadline = await section.getByRole('heading', {level: 3}).textContent(),
+          editorId    = await section.locator('.neo-monaco-editor').getAttribute('id');
 
-    await expect(section.locator('.view-line')).toHaveCount(Number(subHeadline.match(/(\d+) Lines/)[1]))
+    await expect.poll(() => page.evaluate(id => Neo.main.addon.MonacoEditor.map[id]?.getModel()?.getLineCount(), editorId))
+        .toBe(Number(subHeadline.match(/(\d+) Lines/)[1]))
 }
 
 /**
@@ -88,16 +87,17 @@ function readLinks(section) {
 
 /**
  * @summary The home's two component pages: one plan as a Gantt chart and a task board on one store, and a grid
- * under a live feed, each built by the code shown beside it.
- * Covers what a unit test cannot see: both halves on screen inside one snap page, the selected card's bar
- * highlighted and following a click, a card move recolouring its bar and a bar move taking its successors along,
- * the feed reaching the cells, a change coloured by its sign, the rate the feed measured, the preview following an
- * edit, the links to the other families, the wheel passing the code on its way down the page, and the phone layout.
+ * under a live feed, each built by the snippet behind its Source tab.
+ * Covers what a unit test cannot see: the text beside the preview inside one snap page, the switch from the source
+ * to the running result, the selected card's bar highlighted and following a click, a card move recolouring its bar
+ * and a bar move taking its successors along, the feed reaching the cells, a change coloured by its sign, the rate
+ * the feed measured, the preview following an edit, the links to the other families, the wheel and the keyboard
+ * moving the page on, and the phone layout.
  */
-test.describe('Portal home: the live grid and the plan beside their code', () => {
+test.describe('Portal home: the plan and the live grid beside their text', () => {
     test.setTimeout(120000);
 
-    test('desktop: code and result share one snap page, the views follow their data, and the families are linked', async ({page, neuralLink}) => {
+    test('desktop: text and preview share one snap page, the views follow their data, and the families are linked', async ({page, neuralLink}) => {
         const errors = [];
 
         // A view that changes its height after the first render warns here: a cell registers on a node that is gone
@@ -112,10 +112,14 @@ test.describe('Portal home: the live grid and the plan beside their code', () =>
               planning = await openPage(page, '.portal-home-parts-planning', '.neo-timeline-bar'),
               layout   = await readLayout(planning);
 
-        expectWholeSnippetBesideResult(layout);
+        expectTextBesidePreview(layout, true);
+
+        // The page opened on its source and switched to the running result; the source stays one click away
+        await expect(planning.locator('.neo-monaco-editor')).toBeHidden();
+        await expect(planning.getByText('Source', {exact: true})).toBeVisible();
 
         await expect(planning.getByRole('heading', {level: 2})).toHaveText('Gantt & Task Board');
-        await expectLineCount(planning);
+        await expectLineCount(page, planning);
         await expect(planning.getByRole('link', {name: 'The Gantt guide'})).toBeVisible();
         await expect(planning.locator('.neo-timeline-bar')).toHaveCount(11);
         await expect(planning.locator('.neo-board-column')).toHaveCount(4);
@@ -140,7 +144,7 @@ test.describe('Portal home: the live grid and the plan beside their code', () =>
 
         // The planning page links its own families first
         expect(await readLinks(planning)).toEqual([
-            '#/examples/gantt', '#/examples/board', '#/examples/grid-table', '#/examples/forms',
+            '#/examples/gantt', '#/examples/board', '#/examples/grid', '#/examples/forms',
             '#/examples/scheduler', '#/examples/calendar', '#/examples/dashboard'
         ]);
 
@@ -163,6 +167,8 @@ test.describe('Portal home: the live grid and the plan beside their code', () =>
         await app.callMethod(gantt.id, 'moveTask', ['5', {endDate: '2026-11-14', startDate: '2026-11-11'}]);
 
         await expect.poll(async () => (await readBars(planning))[5].left).toBeGreaterThan(atRest[5].left);
+        // The cascade may reach the chart's last bar one update after the moved bar
+        await expect.poll(async () => (await readBars(planning))[10].left).toBeGreaterThan(atRest[10].left);
 
         const moved = await readBars(planning);
 
@@ -173,11 +179,11 @@ test.describe('Portal home: the live grid and the plan beside their code', () =>
         expect(moved[6].left).toBe(atRest[6].left);
         await expect(planning.locator('.neo-board-card')).toHaveCount(8);
 
-        // The wheel over the code moves the page on: the snippet has nothing left to scroll
+        // The wheel over the page's text moves the page on
         const home      = page.locator('.portal-home-maincontainer'),
               scrollTop = await home.evaluate(node => node.scrollTop);
 
-        await page.mouse.move(layout.editor.left + 200, layout.editor.top + 200);
+        await page.mouse.move(layout.text.left + 100, layout.text.top + 100);
         await page.mouse.wheel(0, 900);
         await expect.poll(() => home.evaluate(node => node.scrollTop), {timeout: 10000}).toBeGreaterThan(scrollTop + 300);
 
@@ -185,10 +191,10 @@ test.describe('Portal home: the live grid and the plan beside their code', () =>
         const grid   = await openPage(page, '.portal-home-parts-grid', '.neo-grid-row'),
               footer = grid.locator('.neo-grid-footer-toolbar');
 
-        expectWholeSnippetBesideResult(await readLayout(grid));
+        expectTextBesidePreview(await readLayout(grid), false);
 
         await expect(grid.getByRole('heading', {level: 2})).toHaveText('Data Grid');
-        await expectLineCount(grid);
+        await expectLineCount(page, grid);
         await expect(grid.getByRole('link', {name: 'The grid guide'})).toBeVisible();
         await expect(grid.locator('.neo-grid-row').first()).toContainText('Novatek Energy');
 
@@ -212,7 +218,7 @@ test.describe('Portal home: the live grid and the plan beside their code', () =>
 
         // The other families are one click away
         expect(await readLinks(grid)).toEqual([
-            '#/examples/grid-table', '#/examples/forms', '#/examples/scheduler', '#/examples/gantt',
+            '#/examples/grid', '#/examples/forms', '#/examples/scheduler', '#/examples/gantt',
             '#/examples/board', '#/examples/calendar', '#/examples/dashboard'
         ]);
 
@@ -255,7 +261,7 @@ test.describe('Portal home: the live grid and the plan beside their code', () =>
         expect(layout.window.scrollWidth).toBeLessThanOrEqual(layout.window.width);
         expect(layout.pane.right).toBeLessThanOrEqual(layout.window.width);
 
-        // Too narrow for both: the tabs are back, Preview in front
+        // The same tabs on a phone, Preview in front
         await expect(grid.getByText('Source', {exact: true})).toBeVisible();
         await expect(grid.locator('.neo-monaco-editor')).toBeHidden();
 

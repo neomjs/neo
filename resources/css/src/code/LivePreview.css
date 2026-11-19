@@ -30,25 +30,4 @@
             border-top                : 0;
         }
     }
-
-    /* Wide enough for both, the editor stays visible beside the active preview and the tabs are one view. */
-    &.neo-side-by-side {
-        container-type: inline-size;
-
-        @container (min-width: 700px) {
-            .neo-tab-header-button,
-            .neo-tab-strip {
-                display: none;
-            }
-
-            .neo-tab-body-container > * {
-                flex: 1 1 50%;
-            }
-
-            .neo-tab-body-container > .neo-monaco-editor.neo-inactive-item {
-                border-right: 1px solid var(--live-preview-border-color);
-                display     : block !important;
-            }
-        }
-    }
 }

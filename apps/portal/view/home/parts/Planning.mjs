@@ -2,7 +2,7 @@ import FeatureSection from '../FeatureSection.mjs';
 
 /**
  * @summary The home's planning proof, new in version 14: one release plan as a Gantt chart over a task board,
- * both on one store, beside the code that builds them. The selected card's bar is highlighted, a card moved to
+ * both on one store, built by the snippet behind its Source tab. The selected card's bar is highlighted, a card moved to
  * another column recolours its bar, and a moved bar takes its successors along.
  * @class Portal.view.home.parts.Planning
  * @extends Portal.view.home.FeatureSection
@@ -41,7 +41,7 @@ class Planning extends FeatureSection {
         links: [
             {route: '#/examples/gantt',      text: 'More Gantt charts'},
             {route: '#/examples/board',      text: 'Task Boards'},
-            {route: '#/examples/grid-table', text: 'Grids'},
+            {route: '#/examples/grid',       text: 'Grids'},
             {route: '#/examples/forms',      text: 'Forms'},
             {route: '#/examples/scheduler',  text: 'Scheduler'},
             {route: '#/examples/calendar',   text: 'Calendar'},
@@ -88,7 +88,7 @@ class Planning extends FeatureSection {
             "            barRenderer: ({bar}, {vdom}) => { // its status colour; the tree names the task",
             "                vdom.style.background = colors[bar.status]; return ''},",
             "            taskColumns: [{type: 'tree', dataField: 'title', text: 'Task', width: 160}],",
-            "            timeAxis   : {start: day(2), end: day(22), tickUnit: 'day', pxPerMinute: .018},",
+            "            timeAxis   : {start: day(2), end: day(22), tickUnit: 'day', pxPerMinute: .025},",
             "            timelineColumnConfig: {highlightedRecordIds: ['3']} // the selected card's bar",
             "        }, {",
             "            module: Board, bind: {store: 'stores.plan'}, flex: 1,",
@@ -98,7 +98,7 @@ class Planning extends FeatureSection {
             "        }]",
             "    }",
             "}",
-            "MainView = Neo.setupClass(MainView);"
+            "export default Neo.setupClass(MainView);"
         ].join('\n'),
         /**
          * @member {String} paragraph
@@ -109,19 +109,10 @@ class Planning extends FeatureSection {
             'the code and both follow.'
         ].join(''),
         /**
-         * @member {Boolean} sideBySide=true
-         */
-        sideBySide: true,
-        /**
          * @member {String} subHeadline='One Store · 48 Lines'
          * @reactive
          */
-        subHeadline: 'One Store · 48 Lines',
-        /**
-         * @member {String} textContainerPosition='top'
-         * @reactive
-         */
-        textContainerPosition: 'top'
+        subHeadline: 'One Store · 48 Lines'
     }
 }
 
