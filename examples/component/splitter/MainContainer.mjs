@@ -98,9 +98,10 @@ class MainContainer extends ConfigurationViewport {
             ntype : 'container',
             height: 600,
             layout: {ntype: 'hbox', align: 'stretch'},
-            style : {border: '1px solid var(--panel-border-color)'},
-            width : 600,
-            items : [{
+            // The stage is narrower than 600px on a phone: the panels share what there is
+            style: {border: '1px solid var(--panel-border-color)', maxWidth: '100%'},
+            width: 600,
+            items: [{
                 ntype: 'component',
                 style: {padding: '0 1em'},
                 vdom : {cn: [

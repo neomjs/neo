@@ -77,6 +77,8 @@ class MainContainer extends Viewport {
         items: [{
             module: Toolbar,
             flex  : 'none',
+            // The row wraps, so every button stays on a phone's screen
+            layout: {ntype: 'flexbox', align: 'center', direction: 'row', pack: 'start', wrap: 'wrap'},
             items : [{
                 module : Button,
                 handler: 'up.onStreamButtonClick',
