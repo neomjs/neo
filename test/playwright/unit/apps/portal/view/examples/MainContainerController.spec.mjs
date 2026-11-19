@@ -103,14 +103,14 @@ test.describe('Portal examples overview and group pages', () => {
         // Board still lacks a cover; Timeline was retired and its example moved to Grid & Table + Scheduler; Trees and Functional Components publish via alsoIn
         expect(groupStore.items.map(group => group.route)).toEqual(publishedRoutes);
         expect(view.getGroupPages().map(page => page.family)).toEqual(groupStore.items.map(group => group.family));
-        expect(view.getCatalogStore().getCount()).toBe(100);
+        expect(view.getCatalogStore().getCount()).toBe(101);
 
         // every example counts once, in its home group: the counts add up to the records that publish
         expect(groupStore.items.reduce((sum, group) => sum + group.count, 0)).toBe(published.length);
-        expect(published).toHaveLength(53);
+        expect(published).toHaveLength(54);
         expect(Object.fromEntries(groupStore.items.map(group => [group.family, [group.count, group.crossCount]]))).toEqual({
             apps          : [6, 4], 'grid-table': [17, 0], tree: [0, 2], lists: [4, 0], charts: [4, 1],
-            calendar      : [1, 0], scheduler   : [2, 0], gantt: [1, 0], board: [1, 0],
+            calendar      : [1, 0], scheduler   : [2, 0], gantt: [2, 0], board: [1, 0],
             dashboard     : [3, 0], tabs        : [1, 0], dialogs: [1, 0],
             forms         : [3, 0], components  : [1, 0],
             'multi-window': [6, 2], platform    : [1, 1], state: [1, 0], functional: [0, 1], 'drag-drop': [0, 2]
@@ -125,7 +125,7 @@ test.describe('Portal examples overview and group pages', () => {
         expect(pageIds(view, 'multi-window')).toEqual(multiWindowPageIds);
         expect(pageIds(view, 'calendar')).toEqual(['calendar']);
         expect(pageIds(view, 'scheduler')).toEqual(['scheduler-basic', 'scheduler-big-data']);
-        expect(pageIds(view, 'gantt')).toEqual(['gantt-basic']);
+        expect(pageIds(view, 'gantt')).toEqual(['gantt-basic', 'gantt-big-data']);
         // a group lists its home records and the records whose alsoIn names it, in catalog order
         expect(pageIds(view, 'functional')).toEqual(['email']);
         expect(pageIds(view, 'drag-drop')).toEqual(['multi-window-drag-drop', 'dialog-drag-drop']);
@@ -149,7 +149,7 @@ test.describe('Portal examples overview and group pages', () => {
               intro    = overview.down({reference: 'overview-intro'}),
               list     = overview.getList();
 
-        expect(intro.vdom.cn[1].text).toBe('53 live examples in 19 groups');
+        expect(intro.vdom.cn[1].text).toBe('54 live examples in 19 groups');
         expect(overview.down({reference: 'overview-index-heading'}).vdom.cn[0].text).toBe('All 19 groups');
         expect(list.leadCard).toBe(true);
         expect(list.showGroup).toBe(true);
@@ -177,7 +177,7 @@ test.describe('Portal examples overview and group pages', () => {
         expect(mobIx.vdom.cn.filter(node => node.tag === 'section').map(band => band.cn[0].text))
             .toEqual(['Data views', 'Planning', 'Layout', 'Components', 'Platform']);
         expect(links(mobIx).map(link => link.href)).toEqual(publishedRoutes.map(route => '#' + route));
-        expect(links(mobIx).map(link => link.cn[2].text)).toEqual(['6', '17', '(2)', '4', '4', '1', '2', '1', '1', '3', '1', '1', '3', '1', '6', '1', '1', '(1)', '(2)']);
+        expect(links(mobIx).map(link => link.cn[2].text)).toEqual(['6', '17', '(2)', '4', '4', '1', '2', '2', '1', '3', '1', '1', '3', '1', '6', '1', '1', '(1)', '(2)']);
         expect(links(mobIx).every(link => link['aria-current'] === null)).toBe(true);
         expect(mobIx.vdom.cn[0].removeDom).toBe(true);
         expect(mobIx.vdom.cn.at(-1).removeDom).toBe(false);
@@ -397,7 +397,7 @@ test.describe('Portal examples overview and group pages', () => {
         expect(view.getGroupStore().get('drag-drop').count).toBe(0);
         expect(view.getGroupStore().get('tree').count).toBe(0);
         expect(view.getCatalogStore().items.filter(record => record.id === 'dialog-drag-drop')).toHaveLength(1);
-        expect(view.getCatalogStore().getCount()).toBe(100)
+        expect(view.getCatalogStore().getCount()).toBe(101)
     });
 
     for (const mode of ['dist_prod', 'dist_esm', 'dist_dev', 'devmode']) {
@@ -423,7 +423,7 @@ test.describe('Portal examples overview and group pages', () => {
         expect(view.getGroupPage('components')).toBeNull();
         expect(openCard(view)).toBe('overview');
         // the overview's headline follows the build: Dev mode cannot open liquid-glass
-        expect(view.down({reference: 'overview-intro'}).vdom.cn[1].text).toBe('52 live examples in 18 groups');
+        expect(view.down({reference: 'overview-intro'}).vdom.cn[1].text).toBe('53 live examples in 18 groups');
 
         // the route still names the group: its page returns with its cards
         controller.onSelectBuild({id: 'dist_prod'});
@@ -567,12 +567,12 @@ test.describe('Portal examples canonical catalog', () => {
         })
     }
 
-    test('loads 100 logical examples with unique stable string identities', () => {
+    test('loads 101 logical examples with unique stable string identities', () => {
         const {store} = createList(),
               ids     = [];
 
-        expect(catalog).toHaveLength(100);
-        expect(store.getCount()).toBe(100);
+        expect(catalog).toHaveLength(101);
+        expect(store.getCount()).toBe(101);
 
         store.forEach(record => {
             expect(typeof record.id, record.name).toBe('string');
@@ -580,7 +580,7 @@ test.describe('Portal examples canonical catalog', () => {
             ids.push(record.id)
         });
 
-        expect(new Set(ids).size).toBe(100);
+        expect(new Set(ids).size).toBe(101);
         expect(list.catalogMode).toBe('dist_prod')
     });
 
@@ -762,7 +762,7 @@ test.describe('Portal examples canonical catalog', () => {
         const {store}     = createList(),
               completeIds = [
                   ...startHereIds, ...establishedTailIds, ...componentExampleIds, ...establishedMiddleIds,
-                  ...newExampleIds, ...formExampleIds, 'board-swimlanes', 'scheduler-big-data', 'timeline-basic',
+                  ...newExampleIds, ...formExampleIds, 'board-swimlanes', 'scheduler-big-data', 'gantt-big-data', 'timeline-basic',
                   ...multiWindowExampleIds, 'finance', 'email'
               ],
               excluded = {

@@ -1,0 +1,14 @@
+:where(.neo-theme-cyberpunk) {
+    --programme-header-bg    : var(--cyber-bg);
+    --programme-border       : var(--cyber-border);
+    --programme-title        : var(--cyber-cyan);
+    --programme-muted        : var(--cyber-text);
+    --programme-badge-bg     : color-mix(in srgb, var(--cyber-cyan) 12%, var(--cyber-bg-alt));
+    --programme-badge-border : var(--cyber-border);
+    --programme-badge-text   : var(--cyber-cyan);
+    --programme-control-bg   : var(--cyber-bg-alt);
+    --programme-hover-bg     : color-mix(in srgb, var(--cyber-cyan) 14%, transparent);
+    --programme-selected-bg  : var(--cyber-cyan);
+    --programme-selected-text: var(--cyber-bg);
+    --programme-focus        : var(--cyber-gold);
+}
