@@ -293,4 +293,232 @@ test.describe('Neo.manager.DomEvent Delegation Verification', () => {
             vnodeId : 'container-root'
         }, [path[0], path[2], path[3]], ['img-child', 'toolbar-1', 'container-root'])).toBe(false);
     });
+
+    test('should fire vnodeId: document.body listeners once across body, sibling and self targets', async () => {
+        const calls = [];
+
+        const toolbar = Neo.create(Container, {
+            appName,
+            id      : 'doc-body-sibling-toolbar',
+            windowId: 1,
+            items   : [{
+                module: Component,
+                id    : 'doc-body-sibling-button'
+            }]
+        });
+
+        const owner = Neo.create(Container, {
+            appName,
+            id          : 'doc-body-owner',
+            windowId    : 1,
+            domListeners: [{
+                keydown: data => calls.push({currentTarget: data.currentTarget, key: data.key, targetId: data.target?.id}),
+                scope  : null,
+                vnodeId: 'document.body'
+            }],
+            items       : [{
+                module: Component,
+                id    : 'doc-body-owner-child'
+            }]
+        });
+
+        const otherWindowOwner = Neo.create(Component, {
+            appName,
+            id          : 'doc-body-other-window',
+            windowId    : 2,
+            domListeners: [{
+                keydown: () => calls.push({wrongWindow: true}),
+                vnodeId: 'document.body'
+            }]
+        });
+
+        await Promise.all([toolbar.initVnode(), owner.initVnode(), otherWindowOwner.initVnode()]);
+
+        // 1. Target is document.body directly (componentPath is empty)
+        DomEvent.fire({
+            eventName: 'keydown',
+            windowId : 1,
+            data     : {
+                key   : '/',
+                target: {id: '', tagName: 'body'},
+                path  : [{id: '', cls: [], tagName: 'body'}, {id: '', cls: [], tagName: 'html'}]
+            }
+        });
+        expect(calls).toEqual([{currentTarget: 'document.body', key: '/', targetId: ''}]);
+
+        // 2. Target sits in a sibling container outside owner
+        DomEvent.fire({
+            eventName: 'keydown',
+            windowId : 1,
+            data     : {
+                key   : '/',
+                target: {id: 'doc-body-sibling-button', tagName: 'button'},
+                path  : [
+                    {id: 'doc-body-sibling-button', cls: ['neo-component'], tagName: 'button'},
+                    {id: 'doc-body-sibling-toolbar', cls: ['neo-container'], tagName: 'div'},
+                    {id: 'document.body', cls: [], tagName: 'body'}
+                ]
+            }
+        });
+        expect(calls).toHaveLength(2);
+        expect(calls[1].currentTarget).toBe('document.body');
+
+        // 3. Target sits inside owner itself: must invoke once, never double-fire
+        DomEvent.fire({
+            eventName: 'keydown',
+            windowId : 1,
+            data     : {
+                key   : '/',
+                target: {id: 'doc-body-owner-child', tagName: 'div'},
+                path  : [
+                    {id: 'doc-body-owner-child', cls: ['neo-component'], tagName: 'div'},
+                    {id: 'doc-body-owner', cls: ['neo-container'], tagName: 'div'},
+                    {id: '', cls: [], tagName: 'body'}
+                ]
+            }
+        });
+        expect(calls).toHaveLength(3);
+
+        // 4. Destroy removes listeners cleanly
+        owner.destroy();
+        expect(DomEvent.bodyListenerOwners.get('keydown')?.has('doc-body-owner') ?? false).toBe(false);
+        DomEvent.fire({
+            eventName: 'keydown',
+            windowId : 1,
+            data     : {
+                key   : '/',
+                target: {id: '', tagName: 'body'},
+                path  : [{id: '', cls: [], tagName: 'body'}]
+            }
+        });
+        expect(calls).toHaveLength(3);
+
+        toolbar.destroy();
+        otherWindowOwner.destroy();
+        expect(DomEvent.bodyListenerOwners.has('keydown')).toBe(false);
+    });
+
+    test('body-listener index never visits components without a body listener and removes owners on unregister()', async () => {
+        const calls          = [],
+              originalGetCmp = Neo.getComponent.bind(Neo);
+        let bystanderItemReads  = 0,
+            bystanderCmpLookups = 0;
+
+        const bystander = Neo.create(Component, {
+            appName,
+            id          : 'doc-body-bystander',
+            windowId    : 1,
+            domListeners: [{
+                click  : () => calls.push('bystander-click'),
+                keydown: () => calls.push('bystander-keydown')
+            }]
+        });
+
+        const owner = Neo.create(Component, {
+            appName,
+            id      : 'doc-body-indexed-owner',
+            windowId: 1
+        });
+
+        await Promise.all([bystander.initVnode(), owner.initVnode()]);
+
+        const bystanderMap = DomEvent.items['doc-body-bystander'];
+
+        Object.defineProperty(DomEvent.items, 'doc-body-bystander', {
+            configurable: true,
+            enumerable  : true,
+            get() {
+                bystanderItemReads++;
+                return bystanderMap
+            }
+        });
+
+        Neo.getComponent = id => {
+            if (id === 'doc-body-bystander') {
+                bystanderCmpLookups++
+            }
+            return originalGetCmp(id)
+        };
+
+        try {
+            expect(DomEvent.bodyListenerOwners.has('keydown')).toBe(false);
+
+            // 1. No body listener registered: in-document events skip the body pass in O(1)
+            DomEvent.fire({
+                eventName: 'keydown',
+                windowId : 1,
+                data     : {
+                    key   : '/',
+                    target: {id: '', tagName: 'body'},
+                    path  : [{id: '', cls: [], tagName: 'body'}]
+                }
+            });
+            expect(bystanderItemReads).toBe(0);
+            expect(bystanderCmpLookups).toBe(0);
+            expect(calls).toEqual([]);
+
+            // 2. Register a body listener on owner: bystander is still never visited by the body pass
+            const registration = {
+                eventName: 'keydown',
+                id       : owner.id,
+                opts     : data => calls.push(`owner:${data.key}`),
+                ownerId  : owner.id,
+                scope    : owner,
+                vnodeId  : 'document.body'
+            };
+
+            expect(DomEvent.register(registration)).toBe(true);
+            expect([...(DomEvent.bodyListenerOwners.get('keydown') || [])]).toEqual(['doc-body-indexed-owner']);
+
+            DomEvent.fire({
+                eventName: 'keydown',
+                windowId : 1,
+                data     : {
+                    key   : '/',
+                    target: {id: '', tagName: 'body'},
+                    path  : [{id: '', cls: [], tagName: 'body'}]
+                }
+            });
+            DomEvent.fire({
+                eventName: 'click',
+                windowId : 1,
+                data     : {
+                    target: {id: '', tagName: 'body'},
+                    path  : [{id: '', cls: [], tagName: 'body'}]
+                }
+            });
+
+            expect(calls).toEqual(['owner:/']);
+            expect(bystanderItemReads).toBe(0);
+            expect(bystanderCmpLookups).toBe(0);
+
+            // 3. unregister() removes the owner from bodyListenerOwners and prunes the empty event set
+            expect(DomEvent.unregister(registration)).toBe(true);
+            expect(DomEvent.bodyListenerOwners.has('keydown')).toBe(false);
+            expect(DomEvent.unregister(registration)).toBe(false);
+
+            DomEvent.fire({
+                eventName: 'keydown',
+                windowId : 1,
+                data     : {
+                    key   : '/',
+                    target: {id: '', tagName: 'body'},
+                    path  : [{id: '', cls: [], tagName: 'body'}]
+                }
+            });
+            expect(calls).toEqual(['owner:/']);
+            expect(bystanderItemReads).toBe(0);
+            expect(bystanderCmpLookups).toBe(0);
+        } finally {
+            Neo.getComponent = originalGetCmp;
+            Object.defineProperty(DomEvent.items, 'doc-body-bystander', {
+                configurable: true,
+                enumerable  : true,
+                value       : bystanderMap,
+                writable    : true
+            });
+            bystander.destroy();
+            owner.destroy()
+        }
+    });
 });

@@ -48,6 +48,7 @@
             margin-top : 2px;
         }
 
+        /* A label keeps one line; a description longer than the stage is wide wraps instead of clipping */
         .neo-workbench-stage-desc {
             color      : var(--label-color, inherit);
             font-size  : 13px;

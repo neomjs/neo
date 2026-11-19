@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "families": ["grid-table", "gantt", "scheduler", "board", "charts", "dashboard", "apps", "dialogs", "lists", "layouts", "tabs", "buttons"],
+  "families": ["grid-table", "gantt", "scheduler", "board", "charts", "dashboard", "apps", "dialogs", "lists", "layouts", "tabs", "forms", "components", "buttons"],
   "suffix": "14",
   "tiles": [
     "examples/form/field/checkbox", {"path": "examples/form/field/chip", "width": 220},
@@ -19,9 +19,11 @@
     {"path": "examples/form/fieldset", "width": 220}, {"path": "examples/component/dateSelector", "width": 200, "height": 200},
     {"path": "examples/layout/form", "width": 240, "height": 150},
     "examples/button/base", "examples/menu/list",
-    "examples/list/base", "examples/list/chip", "examples/list/color",
+    "examples/list/base", "examples/list/chip", "examples/list/color", "examples/list/buffered", "examples/list/circle",
+    "examples/component/carousel",
     "examples/component/chip", "examples/component/circle", "examples/component/clock", "examples/component/magicmovetext",
-    {"path": "examples/component/progress", "width": 220}, "examples/component/statusbadge", "examples/component/timer",
+    "examples/component/process", {"path": "examples/component/progress", "width": 220},
+    {"path": "examples/component/splitter", "width": 420, "height": 240}, "examples/component/statusbadge", "examples/component/timer",
     {"path": "examples/component/wrapper/monacoEditor", "width": 224, "height": 150},
     "examples/functional/defineComponent", "examples/functional/hostComponent",
     {"path": "examples/functional/nestedTemplateComponent", "width": 240, "height": 150},
@@ -69,12 +71,11 @@
       "id": "grid-container",
       "viewport": {"width": 1280, "height": 720},
       "theme": "dark",
-      "state": "A selected row crosses a selected column in Cell & Column & Row mode.",
-      "ready": [{"selector": ".neo-grid-cell[data-field='firstname']"}],
+      "state": "A selected clinician row crosses a selected weekday column in Cell & Column & Row mode.",
+      "ready": [{"selector": ".neo-grid-cell[data-field='staff']"}],
       "steps": [
         {"kind": "click", "selector": ".neo-configuration-header-toolbar .neo-button", "text": "Theme Dark"},
-        {"kind": "click", "selector": ".neo-radiofield", "text": "Cell & Column & Row"},
-        {"kind": "click", "selector": ".neo-grid-cell[data-field='lastname']", "nth": 1}
+        {"kind": "click", "selector": ".neo-radiofield", "text": "Cell & Column & Row"}
       ],
       "after": [
         {"selector": ".neo-grid-row.neo-selected"},
@@ -189,21 +190,20 @@
     },
     {
       "id": "grid-nested-record-fields",
-      "viewport": {"width":640,"height":360},
+      "viewport": {"width":1280,"height":720},
       "theme": "dark",
-      "state": "Nested user fields in the grid, sorted by Lastname; no edit dialog.",
+      "state": "Edit Partner Contact modal open over the 28-row partner directory.",
       "ready": [
-        {"selector":".neo-grid-cell[data-field='user.firstname']","text":"Tobias"}
+        {"selector":".neo-grid-cell[data-field='user.firstname']","text":"Amara"}
       ],
       "steps": [
-        {"kind":"click","selector":".neo-grid-header-button","text":"Lastname"}
+        {"kind":"click","selector":".neo-grid-row .neo-button","text":"Edit","nth":1}
       ],
       "after": [
-        {"selector":"[role='columnheader'][aria-sort='ascending']","text":"Lastname","inRegion":true},
-        {"selector":".neo-grid-row:first-child .neo-grid-cell[data-field='user.lastname']","text":"Dehl","inRegion":true},
-        {"selector":".neo-grid-row.neo-selected .neo-grid-cell[data-field='user.firstname']","text":"Rich","inRegion":true}
+        {"selector":".neo-dialog .neo-header-toolbar","text":"Edit Partner Contact","inRegion":true},
+        {"selector":".neo-dialog .neo-countryfield","inRegion":true}
       ],
-      "region": {"x":0,"y":0,"width":640,"height":360}
+      "region": {"selector":".neo-dialog","anchor":"top-left","width":640,"height":360}
     },
     {
       "id": "grid-streaming",
@@ -274,22 +274,22 @@
     },
     {
       "id": "table-container",
-      "viewport": {"width":1030,"height":360},
+      "viewport": {"width":1000,"height":420},
       "theme": "dark",
-      "state": "Fit width enabled using the public configuration checkbox; complete six-column table and row menu visible, Configuration panel outside the frame.",
+      "state": "Sorted specification sheet showing content-sized columns and wrapped operational notes with the Inspector outside the frame.",
       "ready": [
-        {"selector":".neo-table-cell .neo-button","text":"⋮"}
+        {"selector":".neo-table-cell.neo-table-spec-notes"}
       ],
       "steps": [
         {"kind":"click","selector":".neo-configuration-header-toolbar .neo-button","text":"Theme Dark"},
-        {"kind":"click","selector":".neo-checkboxfield","text":"Fit width"},
-        {"kind":"click","selector":".neo-table-cell .neo-button","text":"⋮","nth":0}
+        {"kind":"click","selector":".neo-table-header-button","text":"Specification"}
       ],
       "after": [
-        {"selector":"#myTableStoreContainer","inRegion":true},
-        {"selector":".neo-menu-list","text":"Menu option 4","inRegion":true}
+        {"selector":"th[aria-sort='ascending']","text":"Specification","inRegion":true},
+        {"selector":".neo-table-cell","text":"Audit log retention","inRegion":true},
+        {"selector":".neo-table-cell","text":"Security","inRegion":true}
       ],
-      "region": {"x":10,"y":0,"width":640,"height":360}
+      "region": {"x":20,"y":20,"width":640,"height":360}
     },
     {
       "id": "grid-big-data",
@@ -670,6 +670,16 @@
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },
     {
+      "id": "markdown",
+      "viewport": {"width": 640, "height": 360},
+      "theme": "default",
+      "state": "The end of the document the page streamed on open: the code block, the table under its head, and a script tag and a javascript: link rendered as plain text.",
+      "ready": [{"selector": "p", "text": "render as plain text"}],
+      "steps": [],
+      "after": [{"selector": "th", "text": "Surface", "inRegion": true}, {"selector": "p", "text": "render as plain text", "inRegion": true}],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
       "id": "gallery",
       "viewport": {"width": 1280, "height": 720},
       "theme": "dark",
@@ -712,6 +722,26 @@
       "region": {"x": 0, "y": 100, "width": 640, "height": 360}
     },
     {
+      "id": "list-reorder",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "The release checklist beside the wall of portraits, every item numbered by its place.",
+      "ready": [{"selector": ".neo-reorder-steps .neo-list-item", "text": "Freeze the release branch"}, {"selector": ".neo-reorder-wall .neo-list-item img"}],
+      "steps": [],
+      "after": [{"selector": ".neo-reorder-steps .neo-list-item", "text": "Freeze the release branch", "inRegion": true}, {"selector": ".neo-reorder-wall .neo-list-item", "inRegion": true}],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "list-animate",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "The portrait cards sorted by first name, the ones online marked green.",
+      "ready": [{"selector": ".neo-list-item img"}, {"selector": ".neo-list-item", "text": "Parsons"}],
+      "steps": [],
+      "after": [{"selector": ".neo-list-item", "text": "Parsons", "inRegion": true}],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
       "id": "graph-scene",
       "viewport": {"width": 800, "height": 470},
       "theme": "default",
@@ -750,6 +780,17 @@
       "region": {"selector": ".neo-mermaid", "anchor": "center", "width": 640, "height": 360}
     },
     {
+      "id": "am-charts",
+      "viewport": {"width": 740, "height": 460},
+      "theme": "default",
+      "state": "The nine countries' shares as amCharts draws the pie from its static data, with its labels and legend.",
+      "dependencies": ["https://cdn.amcharts.com/lib/4/"],
+      "ready": [{"selector": "[data-drawn='true']", "count": 1}],
+      "steps": [],
+      "after": [{"selector": "svg text", "text": "Lithuania: 30.5%"}],
+      "region": {"selector": "[data-drawn='true']", "anchor": "top-left", "width": 640, "height": 360}
+    },
+    {
       "id": "layouts-side-by-side",
       "viewport": {"width": 1280, "height": 720},
       "theme": "dark",
@@ -782,6 +823,30 @@
       "ready": [{"selector": ".neo-tab-header-button", "text": "Inbox"}, {"selector": ".neo-tab-overflow-control"}],
       "steps": [],
       "after": [{"selector": ".neo-tab-header-button", "text": "Inbox", "inRegion": true}, {"selector": ".neo-example-browser-claim", "inRegion": true}, {"selector": ".neo-tab-overflow-control", "inRegion": true}],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "form-app",
+      "viewport": {"width": 640, "height": 470},
+      "theme": "default",
+      "state": "The account form's second step after a valid first one: the step list marks About you as done, and the Address step is filled in.",
+      "ready": [{"selector": ".form-header-label", "text": "About you"}],
+      "steps": [
+        {"kind": "fill", "selector": "input[name='person.firstName']", "value": "Ada"},
+        {"kind": "fill", "selector": "input[name='person.lastName']", "value": "Lovelace"},
+        {"kind": "fill", "selector": "input[name='person.email']", "value": "ada@example.com"},
+        {"kind": "click", "selector": ".neo-button", "text": "Next"},
+        {"kind": "wait", "selector": ".form-header-label", "text": "Address"},
+        {"kind": "fill", "selector": "input[name='address.street']", "value": "Unter den Linden 1"},
+        {"kind": "fill", "selector": "input[name='address.zip']", "value": "10115"},
+        {"kind": "fill", "selector": "input[name='address.city']", "value": "Berlin"}
+      ],
+      "after": [
+        {"selector": ".form-side-nav-state-valid", "count": 1},
+        {"selector": ".form-header-label", "text": "Address", "inRegion": true},
+        {"selector": ".form-side-nav-list .neo-list-item", "text": "Review", "inRegion": true},
+        {"selector": "input[name='address.city']", "inRegion": true}
+      ],
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     }
   ]

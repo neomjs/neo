@@ -6,6 +6,14 @@
             "apps"
         ],
         "component": "Dock Workspace",
+        "keywords": [
+            "drag",
+            "dock",
+            "popout",
+            "tear-out",
+            "ide",
+            "multi-window"
+        ],
         "feature": "A living-data workspace whose panes can leave the browser window",
         "lookFor": "Pop out the 100k Matrix tab, use it in its own window, then close that window to bring it back.",
         "scope": "Allow popups; the displayed work items and signals are demonstration data.",
@@ -45,7 +53,14 @@
         "family": "grid-table",
         "component": "Grid",
         "feature": "Opens at 20,000 × 50 and scales to 100,000 × 200, row-buffered, data in a Web Worker",
-        "lookFor": "Read the size below the rows, raise rows and columns in ☰ Settings, then scroll both ways and press a button in a cell."
+        "lookFor": "Read the size below the rows, raise rows and columns in ☰ Settings, then scroll both ways and press a button in a cell.",
+        "keywords": [
+            "virtual",
+            "scroll",
+            "performance",
+            "100000",
+            "benchmark"
+        ]
     },
     {
         "id": "grid-tree-big-data",
@@ -73,26 +88,26 @@
         "lookFor": "Open a squad to its people, give kudos from a cell, then raise rows and depth in ☰ and expand all; filter by first name."
     },
     {
-        "id": "dock-choreography",
-        "family": "dashboard",
-        "component": "Dock Workspace",
-        "feature": "A scripted layout tour splits, groups and auto-hides live panes",
-        "lookFor": "Press Tour and watch the editor clock keep ticking as the panes rearrange.",
+        "id": "devindex",
+        "family": "apps",
         "featured": true,
         "environments": [
-            "Desktop"
+            "Desktop",
+            "Mobile"
         ],
-        "image": "devmode/dock-choreography-14.jpg",
-        "name": "Dock Choreography Demo",
-        "sharedWorkers": true,
-        "sourceUrl": "examples/dashboard/choreography",
+        "image": "devmode/devindex-14.jpg",
+        "name": "GitHub Meritocracy Index",
+        "sourceUrl": "https://github.com/neomjs/devindex",
         "urls": {
-            "devmode": "examples/dashboard/choreography/index.html",
-            "dist_dev": "dist/development/examples/dashboard/choreography/index.html",
-            "dist_esm": "dist/esm/examples/dashboard/choreography/index.html",
-            "dist_prod": "dist/production/examples/dashboard/choreography/index.html"
+            "devmode": "https://neomjs.com/devindex/",
+            "dist_dev": "https://neomjs.com/devindex/dist/development/apps/devindex/",
+            "dist_esm": "https://neomjs.com/devindex/",
+            "dist_prod": "https://neomjs.com/devindex/dist/production/apps/devindex/"
         },
-        "hiddenIn": []
+        "hiddenIn": [],
+        "feature": "GitHub contributor rankings in a buffered grid",
+        "lookFor": "Open Search, filter the contributor grid by username, and compare ranks and contribution totals.",
+        "scope": "Loads a published GitHub contributor dataset rather than querying GitHub live."
     },
     {
         "id": "shared-covid",
@@ -156,7 +171,15 @@
         "family": "scheduler",
         "component": "Scheduler",
         "feature": "Resource bookings on an editable timeline",
-        "lookFor": "Move a booking to another studio or time. Reload after it saves to see the same booking in its new slot."
+        "lookFor": "Move a booking to another studio or time. Reload after it saves to see the same booking in its new slot.",
+        "keywords": [
+            "date",
+            "drag",
+            "calendar",
+            "booking",
+            "timeline",
+            "resource"
+        ]
     },
     {
         "id": "gantt-basic",
@@ -174,7 +197,15 @@
         "family": "gantt",
         "component": "Gantt",
         "feature": "A project plan with linked, editable tasks",
-        "lookFor": "Move a task and follow its dependencies. Create a link, then reload to see the saved plan."
+        "lookFor": "Move a task and follow its dependencies. Create a link, then reload to see the saved plan.",
+        "keywords": [
+            "date",
+            "drag",
+            "timeline",
+            "schedule",
+            "dependencies",
+            "milestone"
+        ]
     },
     {
         "id": "board-basic",
@@ -192,7 +223,15 @@
         "family": "board",
         "component": "Board",
         "feature": "A kanban board and a table over one store of cards",
-        "lookFor": "Drag a card to another column, and the table below the board shows its new status."
+        "lookFor": "Drag a card to another column, and the table below the board shows its new status.",
+        "keywords": [
+            "drag",
+            "drop",
+            "kanban",
+            "agile",
+            "cards",
+            "columns"
+        ]
     },
     {
         "id": "calendar",
@@ -210,7 +249,16 @@
         "family": "calendar",
         "component": "Calendar",
         "feature": "A full calendar with day, week, month and year views, a month navigator and color-coded calendars.",
-        "lookFor": "Switch between Day, Week, Month and Year views, then toggle a calendar in the left panel to filter its events."
+        "lookFor": "Switch between Day, Week, Month and Year views, then toggle a calendar in the left panel to filter its events.",
+        "keywords": [
+            "date",
+            "schedule",
+            "events",
+            "appointment",
+            "month",
+            "week",
+            "day"
+        ]
     },
     {
         "id": "webdesktop",
@@ -218,6 +266,13 @@
         "component": "Desktop",
         "feature": "A desktop whose icons, menus and windows follow the signed-in account's permissions through one store filter",
         "lookFor": "Sign in as two accounts and compare the apps they get. Double-click an icon to open its window, then open Permissions and switch that app off: its icon, its menu entry and its window go.",
+        "keywords": [
+            "desktop",
+            "window",
+            "drag",
+            "taskbar",
+            "launcher"
+        ],
         "scope": "The accounts and their permissions are demonstration data; hiding UI is not authorization.",
         "featured": true,
         "environments": [
@@ -236,8 +291,30 @@
         "hiddenIn": []
     },
     {
-        "id": "grid-countries",
+        "id": "dock-choreography",
+        "family": "dashboard",
+        "component": "Dock Workspace",
+        "feature": "A scripted layout tour splits, groups and auto-hides live panes",
+        "lookFor": "Press Tour and watch the editor clock keep ticking as the panes rearrange.",
         "featured": true,
+        "environments": [
+            "Desktop"
+        ],
+        "image": "devmode/dock-choreography-14.jpg",
+        "name": "Dock Choreography Demo",
+        "sharedWorkers": true,
+        "sourceUrl": "examples/dashboard/choreography",
+        "urls": {
+            "devmode": "examples/dashboard/choreography/index.html",
+            "dist_dev": "dist/development/examples/dashboard/choreography/index.html",
+            "dist_esm": "dist/esm/examples/dashboard/choreography/index.html",
+            "dist_prod": "dist/production/examples/dashboard/choreography/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "grid-countries",
+        "featured": false,
         "image": "devmode/grid-countries-14.jpg",
         "name": "Country Statistics Grid",
         "sourceUrl": "examples/grid/countries",
@@ -270,28 +347,6 @@
             "dist_prod": "dist/production/examples/component/helix/index.html"
         },
         "hiddenIn": []
-    },
-    {
-        "id": "devindex",
-        "family": "apps",
-        "featured": false,
-        "environments": [
-            "Desktop",
-            "Mobile"
-        ],
-        "image": "devmode/DevIndex.png",
-        "name": "GitHub Meritocracy Index",
-        "sourceUrl": "https://github.com/neomjs/devindex",
-        "urls": {
-            "devmode": "https://neomjs.com/devindex/",
-            "dist_dev": "https://neomjs.com/devindex/dist/development/apps/devindex/",
-            "dist_esm": "https://neomjs.com/devindex/",
-            "dist_prod": "https://neomjs.com/devindex/dist/production/apps/devindex/"
-        },
-        "hiddenIn": [],
-        "feature": "GitHub contributor rankings in a buffered grid",
-        "lookFor": "Open Search, filter the contributor grid by username, and compare ranks and contribution totals.",
-        "scope": "Loads a published GitHub contributor dataset rather than querying GitHub live."
     },
     {
         "id": "multi-window-covid-gallery",
@@ -392,6 +447,12 @@
         "family": "tabs",
         "feature": "Tab buttons whose text, icon, color and badge change live",
         "lookFor": "Type a new Tab 1 text and a badgeText, then pick another badgePosition.",
+        "keywords": [
+            "drag",
+            "reorder",
+            "tabs",
+            "strip"
+        ],
         "featured": false,
         "image": "devmode/tiles/tab-container-14.jpg",
         "name": "Tab container",
@@ -555,13 +616,44 @@
         "hiddenIn": []
     },
     {
-        "id": "carousel",
+        "id": "list-reorder",
         "family": "lists",
-        "component": "Carousel",
-        "feature": "An automatically advancing carousel cycles through styled testimonial cards.",
-        "lookFor": "Watch the slides rotate every 5.5 seconds, then resize the carousel with the height and width fields.",
-        "image": null,
-        "name": "component.Carousel",
+        "feature": "A checklist and a wall of portraits, each reordered by drag and drop over its own store",
+        "lookFor": "Drag Freeze the release branch below Write the release notes, then drag a portrait to another place on the wall.",
+        "featured": false,
+        "image": "devmode/list-reorder-14.jpg",
+        "name": "Reorder by Drag",
+        "sourceUrl": "examples/list/reorder",
+        "urls": {
+            "devmode": "examples/list/reorder/index.html",
+            "dist_dev": "dist/development/examples/list/reorder/index.html",
+            "dist_esm": "dist/esm/examples/list/reorder/index.html",
+            "dist_prod": "dist/production/examples/list/reorder/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "list-animate",
+        "family": "lists",
+        "feature": "Fifteen portrait cards that sort, filter and search, every move animated",
+        "lookFor": "Press Lastname, type an a into Search, then turn on Is online and watch the cards slide into place.",
+        "featured": false,
+        "image": "devmode/list-animate-14.jpg",
+        "name": "Animated List",
+        "sourceUrl": "examples/list/animate",
+        "urls": {
+            "devmode": "examples/list/animate/index.html",
+            "dist_dev": "dist/development/examples/list/animate/index.html",
+            "dist_esm": "dist/esm/examples/list/animate/index.html",
+            "dist_prod": "dist/production/examples/list/animate/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "carousel",
+        "kind": "component",
+        "image": "devmode/tiles/component-carousel-14.jpg",
+        "name": "Carousel",
         "sourceUrl": "examples/component/carousel",
         "urls": {
             "devmode": "examples/component/carousel/index.html",
@@ -569,7 +661,11 @@
             "dist_esm": "dist/esm/examples/component/carousel/index.html",
             "dist_prod": "dist/production/examples/component/carousel/index.html"
         },
-        "hiddenIn": []
+        "hiddenIn": [],
+        "family": "lists",
+        "component": "Carousel",
+        "feature": "A carousel that advances through portraits on its own",
+        "lookFor": "Watch a portrait slide in every four seconds, then change the height and width in the panel."
     },
     {
         "id": "chip",
@@ -648,8 +744,8 @@
         "family": "components",
         "component": "Markdown VDOM",
         "feature": "Markdown is parsed into VDOM subtrees and supports incremental streaming updates.",
-        "lookFor": "Press Stream demo and watch headings, lists, code, a table and a quote render progressively.",
-        "image": null,
+        "lookFor": "The page opens streaming: headings, lists, code, a table and a quote render as the text arrives. Its last lines show a script tag and a javascript: link rendered as plain text.",
+        "image": "devmode/markdown-14.jpg",
         "name": "Markdown VDOM",
         "sourceUrl": "examples/component/markdown",
         "urls": {
@@ -661,109 +757,20 @@
         "hiddenIn": []
     },
     {
-        "id": "mwc-button",
-        "family": "components",
-        "component": "MWC Button",
-        "feature": "A Material button exposes dense, outlined, raised, icon and disabled states.",
-        "lookFor": "Toggle outlined and raised, change the label or icon, and compare the button states.",
-        "image": null,
-        "name": "MWC Button",
-        "sourceUrl": "examples/component/mwc/button",
-        "urls": {
-            "devmode": "examples/component/mwc/button/index.html",
-            "dist_dev": "dist/development/examples/component/mwc/button/index.html",
-            "dist_esm": "dist/esm/examples/component/mwc/button/index.html",
-            "dist_prod": "dist/production/examples/component/mwc/button/index.html"
-        },
-        "hiddenIn": [],
-        "scope": "Loads Google's Material Icons and Roboto fonts over the network; dev mode also loads the Material web components from unpkg."
-    },
-    {
-        "id": "mwc-buttons",
-        "family": "components",
-        "component": "MWC Button",
-        "feature": "Two tabs compare standard, outlined, raised, unelevated, dense and icon button variants.",
-        "lookFor": "Switch between Tab 1 and Tab 2 and compare each button style.",
-        "image": null,
-        "name": "MWC Buttons",
-        "sourceUrl": "examples/component/mwc/buttons",
-        "urls": {
-            "devmode": "examples/component/mwc/buttons/index.html",
-            "dist_dev": "dist/development/examples/component/mwc/buttons/index.html",
-            "dist_esm": "dist/esm/examples/component/mwc/buttons/index.html",
-            "dist_prod": "dist/production/examples/component/mwc/buttons/index.html"
-        },
-        "hiddenIn": [],
-        "scope": "Loads Google's Material Icons and Roboto fonts over the network; dev mode also loads the Material web components from unpkg."
-    },
-    {
-        "id": "mwc-text-field",
-        "family": "components",
-        "component": "MWC TextField",
-        "feature": "A Material text field exposes helper text, leading and trailing icons, outlined styling and validation.",
-        "lookFor": "Change the value and press check validity (the result is logged to the browser console), then toggle outlined or disabled in the configuration panel.",
-        "image": null,
-        "name": "MWC TextField",
-        "sourceUrl": "examples/component/mwc/textField",
-        "urls": {
-            "devmode": "examples/component/mwc/textField/index.html",
-            "dist_dev": "dist/development/examples/component/mwc/textField/index.html",
-            "dist_esm": "dist/esm/examples/component/mwc/textField/index.html",
-            "dist_prod": "dist/production/examples/component/mwc/textField/index.html"
-        },
-        "hiddenIn": [],
-        "scope": "Loads Google's Material Icons and Roboto fonts over the network; dev mode also loads the Material web components from unpkg."
-    },
-    {
-        "id": "mwc-text-fields",
-        "family": "components",
-        "component": "MWC TextField",
-        "feature": "Filled and outlined text-field variants, on two tabs, show optional icons and helper text.",
-        "lookFor": "Switch between the Filled and Outlined tabs and compare the field decorations.",
-        "image": null,
-        "name": "MWC TextFields",
-        "sourceUrl": "examples/component/mwc/textFields",
-        "urls": {
-            "devmode": "examples/component/mwc/textFields/index.html",
-            "dist_dev": "dist/development/examples/component/mwc/textFields/index.html",
-            "dist_esm": "dist/esm/examples/component/mwc/textFields/index.html",
-            "dist_prod": "dist/production/examples/component/mwc/textFields/index.html"
-        },
-        "hiddenIn": [],
-        "scope": "Loads Google's Material Icons and Roboto fonts over the network; dev mode also loads the Material web components from unpkg."
-    },
-    {
         "id": "process",
         "family": "components",
         "component": "Process",
         "feature": "A process component connects ordered steps with configurable orientation, arrows and icons.",
-        "lookFor": "Toggle horizontal and change the arrow or icon color; the stages reflow without losing their order.",
-        "image": null,
-        "name": "component.Process",
+        "lookFor": "Toggle horizontal and change the arrow or icon color; the trip's four stages reflow without losing their order.",
+        "kind": "component",
+        "image": "devmode/tiles/component-process-14.jpg",
+        "name": "Process",
         "sourceUrl": "examples/component/process",
         "urls": {
             "devmode": "examples/component/process/index.html",
             "dist_dev": "dist/development/examples/component/process/index.html",
             "dist_esm": "dist/esm/examples/component/process/index.html",
             "dist_prod": "dist/production/examples/component/process/index.html"
-        },
-        "hiddenIn": []
-    },
-    {
-        "id": "process-real-world",
-        "family": "components",
-        "component": "Process",
-        "feature": "An electric-vehicle trip calculator turns staged battery and odometer inputs into remaining range and consumption.",
-        "lookFor": "Set the start and end battery percentages and odometer readings; the result fields update and the save button becomes available.",
-        "scope": "Loads the current Berlin temperature from the Open-Meteo public API; all other values are demonstration data.",
-        "image": null,
-        "name": "Process Real-World Example",
-        "sourceUrl": "examples/component/process/realWorldExample",
-        "urls": {
-            "devmode": "examples/component/process/realWorldExample/index.html",
-            "dist_dev": "dist/development/examples/component/process/realWorldExample/index.html",
-            "dist_esm": "dist/esm/examples/component/process/realWorldExample/index.html",
-            "dist_prod": "dist/production/examples/component/process/realWorldExample/index.html"
         },
         "hiddenIn": []
     },
@@ -790,9 +797,10 @@
         "family": "components",
         "component": "Splitter",
         "feature": "A draggable splitter resizes adjacent panels in either orientation.",
-        "lookFor": "Drag the divider, then toggle horizontal and live resize in the configuration panel.",
-        "image": null,
-        "name": "component.Splitter",
+        "lookFor": "Drag the bar between the folders and the inbox, then toggle horizontal and live resize in the configuration panel.",
+        "kind": "component",
+        "image": "devmode/tiles/component-splitter-14.jpg",
+        "name": "Splitter",
         "sourceUrl": "examples/component/splitter",
         "urls": {
             "devmode": "examples/component/splitter/index.html",
@@ -951,7 +959,7 @@
         "feature": "An amCharts pie chart wrapper renders a labelled dataset and interactive legend.",
         "lookFor": "Hover the pie segments and legend entries to compare each country's share.",
         "scope": "Loads amCharts 4 from cdn.amcharts.com; the country values are static demonstration data.",
-        "image": null,
+        "image": "devmode/am-charts-14.jpg",
         "name": "amCharts Pie",
         "sourceUrl": "examples/charts",
         "urls": {
@@ -1215,8 +1223,8 @@
         "hiddenIn": [],
         "family": "grid-table",
         "component": "Grid",
-        "feature": "Cell, row and column selection",
-        "lookFor": "Switch between cell, row, column and combined selection, then change the grid height."
+        "feature": "Cell, row, column and crosshair selection modes",
+        "lookFor": "Click any shift on a 42-clinician weekly roster, move with ArrowUp/Down/Left/Right, and switch between Cell, Column, Row and combined crosshair models."
     },
     {
         "id": "grid-content-sized-rows",
@@ -1311,6 +1319,12 @@
         "id": "grid-locked-columns",
         "image": "devmode/grid-locked-columns-14.jpg",
         "name": "Pinned Grid Columns",
+        "keywords": [
+            "freeze",
+            "sticky",
+            "locked",
+            "pinned"
+        ],
         "sourceUrl": "examples/grid/pinnedColumns",
         "urls": {
             "devmode": "examples/grid/pinnedColumns/index.html",
@@ -1327,7 +1341,7 @@
     {
         "id": "grid-nested-record-fields",
         "image": "devmode/grid-nested-record-fields-14.jpg",
-        "name": "Nested Grid Records",
+        "name": "Edit a Row in a Dialog",
         "sourceUrl": "examples/grid/nestedRecordFields",
         "urls": {
             "devmode": "examples/grid/nestedRecordFields/index.html",
@@ -1338,8 +1352,8 @@
         "hiddenIn": [],
         "family": "grid-table",
         "component": "Grid",
-        "feature": "Nested records and component cells",
-        "lookFor": "Open Edit to change nested user fields and watch modified-cell highlighting; compare header-only and full-column dragging."
+        "feature": "Modal form editing on a grid row",
+        "lookFor": "Press Edit in any row to open its dialog form, change contact or nested address fields, and save to highlight modified cells; compare header-only and full-column dragging."
     },
     {
         "id": "grid-streaming",
@@ -1399,7 +1413,7 @@
     {
         "id": "table-container",
         "image": "devmode/table-container-14.jpg",
-        "name": "Table Configuration",
+        "name": "When to Use a Table",
         "sourceUrl": "examples/table/container",
         "urls": {
             "devmode": "examples/table/container/index.html",
@@ -1410,8 +1424,8 @@
         "hiddenIn": [],
         "family": "grid-table",
         "component": "Table",
-        "feature": "Selection modes and embedded controls",
-        "lookFor": "Switch selection models, toggle fit width or column dragging, and open a cell menu."
+        "feature": "Content-sized columns, sticky headers and wrapping cells on local data",
+        "lookFor": "Compare 14 service tier specifications where columns size to their text and notes wrap. Sort, filter inline, resize or drag-reorder headers, and toggle Fit width."
     },
     {
         "id": "checkbox-field",
@@ -1847,6 +1861,23 @@
         "lookFor": "Adjust the inner number values and try the title field in the panel."
     },
     {
+        "id": "form-validation",
+        "image": null,
+        "name": "Sign-up validation",
+        "sourceUrl": "examples/form/validation",
+        "urls": {
+            "devmode": "examples/form/validation/index.html",
+            "dist_dev": "dist/development/examples/form/validation/index.html",
+            "dist_esm": "dist/esm/examples/form/validation/index.html",
+            "dist_prod": "dist/production/examples/form/validation/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "Form Container",
+        "feature": "How does a form tell the user what is wrong? A sign-up form validates as you type, blocks submit and lists the errors",
+        "lookFor": "Type a bad email, fix it, and sign up."
+    },
+    {
         "id": "field-with-prefix",
         "image": null,
         "name": "Input masks",
@@ -1886,10 +1917,11 @@
     },
     {
         "id": "form-app",
-        "image": null,
-        "name": "Form App",
+        "image": "devmode/form-app-14.jpg",
+        "name": "Multi-Step Account Form",
         "environments": [
-            "Desktop"
+            "Desktop",
+            "Mobile"
         ],
         "sourceUrl": "apps/form",
         "urls": {
@@ -1904,8 +1936,8 @@
             "apps"
         ],
         "component": "Form",
-        "feature": "A complete form application: 15 pages behind a side navigation",
-        "lookFor": "Open pages from the side navigation and step through their fields."
+        "feature": "Each step validates before Next and names what is wrong; Create account checks every step and shows the object the form submits",
+        "lookFor": "Press Next on the empty first step, then open Review and press Create account."
     },
     {
         "id": "board-swimlanes",
@@ -1922,7 +1954,13 @@
         "family": "board",
         "component": "Board",
         "feature": "One row per team over the same five columns, each with its card count",
-        "lookFor": "Collapse a team, then drag a card into another team's row: the card joins that team and both counts change."
+        "lookFor": "Collapse a team, then drag a card into another team's row: the card joins that team and both counts change.",
+        "keywords": [
+            "kanban",
+            "swimlanes",
+            "drag",
+            "agile"
+        ]
     },
     {
         "id": "scheduler-big-data",
@@ -1939,7 +1977,15 @@
         "family": "scheduler",
         "component": "Scheduler",
         "feature": "300 people and 15,600 seeded bookings across a 52-week timeline",
-        "lookFor": "Scroll down through 300 people, then sideways through the year: buffered rows and viewport-clipped bars keep the DOM compact."
+        "lookFor": "Scroll down through 300 people, then sideways through the year: buffered rows and viewport-clipped bars keep the DOM compact.",
+        "keywords": [
+            "date",
+            "calendar",
+            "booking",
+            "timeline",
+            "resource",
+            "scale"
+        ]
     },
     {
         "id": "gantt-big-data",
@@ -1956,7 +2002,15 @@
         "family": "gantt",
         "component": "Gantt",
         "feature": "A seeded building programme: 2,000 tasks in phases and zones, linked by 1,972 dependencies",
-        "lookFor": "Expand a phase and scroll: the tree, the bars and the links keep up. Move a task and its successors follow."
+        "lookFor": "Expand a phase and scroll: the tree, the bars and the links keep up. Move a task and its successors follow.",
+        "keywords": [
+            "date",
+            "timeline",
+            "schedule",
+            "dependencies",
+            "programme",
+            "scale"
+        ]
     },
     {
         "id": "timeline-basic",
@@ -1976,7 +2030,13 @@
         ],
         "component": "Timeline",
         "feature": "A plain grid mounting the timeline column with interval bars",
-        "lookFor": "Click Shift to advance the interval by one hour and watch the bar follow the record change."
+        "lookFor": "Click Shift to advance the interval by one hour and watch the bar follow the record change.",
+        "keywords": [
+            "date",
+            "calendar",
+            "gantt",
+            "bars"
+        ]
     },
     {
         "id": "dock-layouts",
@@ -2080,10 +2140,20 @@
         "family": "apps",
         "component": "Grid",
         "name": "Live Finance Desk",
-        "environments": ["Desktop", "Mobile"],
+        "environments": [
+            "Desktop",
+            "Mobile"
+        ],
         "image": "devmode/finance-14.jpg",
         "feature": "Streaming equity quotes with animated currency diffs and instant filtering",
         "lookFor": "Filter by sector or ticker while live price and percent changes keep ticking, then press Stop to freeze the tape.",
+        "keywords": [
+            "streaming",
+            "realtime",
+            "quotes",
+            "sparkline",
+            "market"
+        ],
         "scope": "Quotes and volumes are deterministic local simulation data.",
         "sourceUrl": "apps/finance",
         "urls": {
@@ -2097,14 +2167,26 @@
     {
         "id": "email",
         "family": "apps",
-        "alsoIn": ["multi-window", "functional"],
+        "alsoIn": [
+            "multi-window",
+            "functional"
+        ],
         "component": "Dashboard",
         "name": "Multi-Window Email Client",
         "sharedWorkers": true,
-        "environments": ["Desktop", "Mobile"],
+        "environments": [
+            "Desktop",
+            "Mobile"
+        ],
         "image": "devmode/email-14.jpg",
         "feature": "Buffered inbox and functional message reader that detaches into its own window",
         "lookFor": "Select another conversation in the inbox, then press Open in window to move the live reader or a Compose draft into a native popup.",
+        "keywords": [
+            "inbox",
+            "mail",
+            "popout",
+            "compose"
+        ],
         "scope": "Allow popups for multi-window transfer; messages are local fixture data.",
         "sourceUrl": "apps/email",
         "urls": {
@@ -2204,6 +2286,42 @@
         "component": "ColorList",
         "feature": "A list of colors over a store",
         "lookFor": "Select a color, then toggle disableSelection in the panel."
+    },
+    {
+        "id": "list-buffered",
+        "kind": "component",
+        "image": "devmode/tiles/list-buffered-14.jpg",
+        "name": "Buffered list",
+        "sourceUrl": "examples/list/buffered",
+        "urls": {
+            "devmode": "examples/list/buffered/index.html",
+            "dist_dev": "dist/development/examples/list/buffered/index.html",
+            "dist_esm": "dist/esm/examples/list/buffered/index.html",
+            "dist_prod": "dist/production/examples/list/buffered/index.html"
+        },
+        "hiddenIn": [],
+        "family": "lists",
+        "component": "Buffered",
+        "feature": "A list of 5,000 records that renders only the rows in view and recycles them as you scroll",
+        "lookFor": "Scroll through the records, then raise bufferRowRange or itemHeight in the panel."
+    },
+    {
+        "id": "list-circle",
+        "kind": "component",
+        "image": "devmode/tiles/list-circle-14.jpg",
+        "name": "Circle list",
+        "sourceUrl": "examples/list/circle",
+        "urls": {
+            "devmode": "examples/list/circle/index.html",
+            "dist_dev": "dist/development/examples/list/circle/index.html",
+            "dist_esm": "dist/esm/examples/list/circle/index.html",
+            "dist_prod": "dist/production/examples/list/circle/index.html"
+        },
+        "hiddenIn": [],
+        "family": "lists",
+        "component": "CircleList",
+        "feature": "Groups as circles in a list, each showing its member count",
+        "lookFor": "Switch Sort to DESC, then rename a group in the panel."
     },
     {
         "id": "functional-define-component",

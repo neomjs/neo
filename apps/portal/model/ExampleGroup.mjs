@@ -81,13 +81,13 @@ class ExampleGroup extends Model {
     }
 
     /**
-     * @summary A group's count in the banded index: its home records, or the examples it shows from other groups in
-     * parentheses when it has none.
+     * @summary A group's number in the banded index: its home records, and none for a group that owns none. What a
+     * group borrows from others is said in words by {@link #countLabel}, the entry's `aria-label` and its page's line.
      * @param {Object} record A group record or its raw row
      * @returns {String}
      */
-    static countText({count, crossCount}) {
-        return count > 0 ? String(count) : `(${crossCount})`
+    static countText({count}) {
+        return count > 0 ? String(count) : ''
     }
 }
 

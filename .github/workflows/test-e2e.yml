@@ -237,6 +237,30 @@ jobs:
         env:
           SELECTED: ${{ needs.changes.outputs.e2e_engine_paths }}
 
+      # The Docs specs read `docs/output`, which is not tracked. Generated in their `beforeAll`, that parse of every class
+      # landed in the run step's ceiling and in the planner's per-file costs (#21501). A shard whose specs call
+      # `ensureDocsOutput()` generates it here instead, and the helper then skips it. The selection repeats the run
+      # step's; should the two drift, a spec generates the index itself, as before.
+      - name: Generate the Docs class index
+        if: ${{ steps.head.outputs.current == 'true' }}
+        timeout-minutes: 3
+        env:
+          PROBE_SPECS: ${{ inputs.specs }}
+          SHARD: ${{ matrix.shard }}/${{ matrix.shards }}
+          TIER_PATHS: ${{ steps.selection.outputs.paths }}
+        run: |
+          if [ -n "${PROBE_SPECS}" ]; then
+            paths="${PROBE_SPECS}"
+          else
+            paths=$(node buildScripts/util/e2eCiSelection.mjs --engine-paths)
+          fi
+
+          # Deliberately unquoted, as in the run step: the selection is a space-separated list of paths
+          if [ -n "${paths}" ] && grep -rqs 'ensureDocsOutput' ${paths}; then
+            node buildScripts/docs/generateDocsJson.mjs
+            echo 'NEO_DOCS_OUTPUT_READY=true' >> "$GITHUB_ENV"
+          fi
+
       # Serial by measurement, not caution: this tier drives real windows, drag
       # thresholds and geometry, which parallel workers on one runner perturb.
       #
