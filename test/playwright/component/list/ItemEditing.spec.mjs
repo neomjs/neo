@@ -61,7 +61,17 @@ const list = (page, plugin, withPlugin) => create(page, {
 const
     item     = (page, text) => page.locator(`#${ID} .neo-list-item`).filter({hasText: new RegExp(`^${text}$`)}),
     texts    = page => page.locator(`#${ID} .neo-list-item`).allInnerTexts(),
-    focusedText = page => page.evaluate(() => document.activeElement?.closest('.neo-list-item')?.innerText ?? null);
+    focusedText = page => page.evaluate(() => document.activeElement?.closest('.neo-list-item')?.innerText ?? null),
+    /*
+     * The editor opens focused with its whole text selected. A key the page receives before the worker's queued
+     * selection lands edits the old name instead of replacing it, so the arms wait for the selection before the first
+     * editing key.
+     */
+    editorReady = page => expect.poll(() => page.evaluate(selector => {
+        const input = document.querySelector(selector);
+
+        return !!input && document.activeElement === input && input.selectionStart === 0 && input.selectionEnd === input.value.length
+    }, EDITOR), 'the editor opens with its whole text selected').toBe(true);
 
 test.describe('Neo.list.plugin.ItemEditing — items are renamed in place', () => {
     test.beforeEach(async ({page}) => {
@@ -83,6 +93,7 @@ test.describe('Neo.list.plugin.ItemEditing — items are renamed in place', () =
         await expect(page.locator(EDITOR)).toBeFocused();
         await expect(page.locator(EDITOR)).toHaveValue('b.txt');
 
+        await editorReady(page);
         await page.keyboard.type('renamed.txt');
         await page.keyboard.press('Enter');
 
@@ -97,6 +108,7 @@ test.describe('Neo.list.plugin.ItemEditing — items are renamed in place', () =
         await item(page, 'c.txt').dblclick();
         await expect(page.locator(EDITOR)).toBeFocused();
 
+        await editorReady(page);
         await page.keyboard.type('moved.txt');
         await item(page, 'a.txt').click();
 
@@ -112,6 +124,7 @@ test.describe('Neo.list.plugin.ItemEditing — items are renamed in place', () =
         await expect(page.locator(EDITOR)).toBeFocused();
 
         // Inside the field the keys edit text: the list's navigation pauses
+        await editorReady(page);
         await page.keyboard.type('draft');
         await page.keyboard.press('Home');
         await page.keyboard.press('ArrowDown');
@@ -131,6 +144,7 @@ test.describe('Neo.list.plugin.ItemEditing — items are renamed in place', () =
         await page.keyboard.press('F2');
         await expect(page.locator(EDITOR)).toBeFocused();
 
+        await editorReady(page);
         await page.keyboard.press('Backspace');
         await page.keyboard.press('Enter');
 
@@ -161,6 +175,7 @@ test.describe('Neo.list.plugin.ItemEditing — items are renamed in place', () =
         await item(page, 'a.txt').click();
         await page.keyboard.press('F2');
         await expect(page.locator(EDITOR)).toHaveValue('a.txt');
+        await editorReady(page);
         await page.keyboard.type('notes.txt');
         await page.keyboard.press('Enter');
 
@@ -168,6 +183,7 @@ test.describe('Neo.list.plugin.ItemEditing — items are renamed in place', () =
 
         await item(page, 'docs').dblclick();
         await expect(page.locator(EDITOR)).toHaveValue('docs');
+        await editorReady(page);
         await page.keyboard.type('papers');
         await page.keyboard.press('Enter');
 
