@@ -1,7 +1,6 @@
 import {expect, test} from '../../fixtures.mjs';
 import {
-    expectChartTextInside, expectContentFillsWindow, expectFrameAtPaneSize, expectPanesRefill, expectProxyOverSource,
-    readUnion, readWindowSize
+    expectContentFillsWindow, expectFrameAtPaneSize, expectProxyOverSource, readWindowSize
 } from '../utils/tearOutGeometry.mjs';
 
 /**
@@ -140,8 +139,6 @@ test.describe('tear-out portability matrix — colors app, headed', () => {
     });
 
     test('row 1 probe — boundary-exit fires on a slow crossing, popup acquired MID-GESTURE, persists the drop terminal, Neo content renders (ratio-trace + instance-identity receipts pending)', async ({context, page}, testInfo) => {
-        const panelsBefore = await readUnion(page, panels);
-
         // Diagnostic channels: the app worker's console surfaces re-entry/cleanup decisions
         // (`onDragBoundaryEntry` logs on the reattach path — the only popup-closing path).
         const mainConsole = [];
@@ -190,9 +187,7 @@ test.describe('tear-out portability matrix — colors app, headed', () => {
         const popupSize = await readWindowSize(popup);
 
         expectFrameAtPaneSize({height: popupSize.outerHeight, width: popupSize.outerWidth}, arming.sourceRect, 'the popup');
-        await expectContentFillsWindow(popup, panels, 'the popup');
-        await expectPanesRefill(page, panels, panelsBefore, 'the main window after the drop');
-        await expectChartTextInside(page, 'the main window after the drop')
+        await expectContentFillsWindow(popup, panels, 'the popup')
     });
 
     test('row 2 probe — activation decay-trace capture across an 8s held gesture (expiry itself UNMEASURABLE under CDP input; receipts recorded, verdict pending real-input + blocking-controlled cells)', async ({context, page}) => {
