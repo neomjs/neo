@@ -62,8 +62,10 @@ class Split extends Button {
 
     /**
      * Creates the trigger button as a child this split button references in its vdom, so it renders once
-     * and updates in place. Its handler runs in the scope of this split button, and it owns the menu: the
-     * menu aligns to it, a click on it toggles the menu, and a press anywhere else closes it.
+     * and updates in place. A click on it runs this split button's own splitButtonHandler, never a controller
+     * method of that name; a handler name in triggerButtonConfig resolves from this split button's controllers.
+     * It owns the menu, in this split button's theme: the menu aligns to it, a click on it toggles the menu, and
+     * a press anywhere else closes it.
      * @param {Object} config
      */
     construct(config) {
@@ -76,13 +78,14 @@ class Split extends Button {
             appName     : me.appName,
             cls         : ['neo-trigger-button'],
             disabled    : me.disabled,
-            handler     : 'splitButtonHandler',
+            handler     : data => me.splitButtonHandler(data),
             handlerScope: me,
             hidden      : me.hideTriggerButton,
             iconCls     : me.triggerButtonIconCls,
             menu        : me.menu,
             parentId    : me.id,
             pressed     : me.pressed,
+            theme       : me.theme,
             ui          : me.ui,
             windowId    : me.windowId,
             ...me.triggerButtonConfig
@@ -169,6 +172,23 @@ class Split extends Button {
         }
 
         super.afterSetPressed(value, oldValue);
+    }
+
+    /**
+     * Triggered after the theme config got changed. The trigger button follows, and with it the floating menu it
+     * owns, which inherits no theme from the page where it floats.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetTheme(value, oldValue) {
+        let {triggerButton} = this;
+
+        if (triggerButton) {
+            triggerButton.theme = value
+        }
+
+        super.afterSetTheme(value, oldValue)
     }
 
     /**
