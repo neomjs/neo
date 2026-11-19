@@ -5,6 +5,8 @@
  * @module Neo.examples.component.sparkline.metrics
  */
 
+import {createSeededRandom} from '../../../src/util/Random.mjs';
+
 /**
  * The readings each sparkline shows: thirty, one per second.
  * @type {Number}
@@ -25,25 +27,6 @@ export const METRICS = [
 ];
 
 /**
- * @summary A small seeded generator (mulberry32): the same seed yields the same numbers.
- * @param {Number} seed
- * @returns {Function} Answers a number in [0, 1)
- */
-function createRandom(seed) {
-    let state = seed >>> 0;
-
-    return () => {
-        state = (state + 0x6D2B79F5) >>> 0;
-
-        let value = Math.imul(state ^ (state >>> 15), 1 | state);
-
-        value ^= value + Math.imul(value ^ (value >>> 7), 61 | value);
-
-        return ((value ^ (value >>> 14)) >>> 0) / 4294967296
-    }
-}
-
-/**
  * @summary A metric's feed: a slow wave plus seeded noise around the resting value. `next()` answers the next
  * reading; a new feed for the same metric starts over with the same readings.
  * @param {Object} metric One of {@link METRICS}
@@ -51,7 +34,7 @@ function createRandom(seed) {
  * @returns {{next: Function}}
  */
 export function createFeed(metric, index) {
-    const random = createRandom(index + 1), phase = index * 1.3;
+    const random = createSeededRandom(index + 1), phase = index * 1.3;
     let   tick   = 0;
 
     return {
