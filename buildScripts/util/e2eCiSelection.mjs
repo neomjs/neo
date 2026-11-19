@@ -213,7 +213,7 @@ export const FULL_SHARDS = {engine: 15};
 /**
  * Measured seconds per engine-tier spec file, which {@link balancedShard} balances the tier's shards by.
  * `--engine-durations` rebuilds it from several full runs' logs, one file per run (`gh run view <id> --log`); a file
- * the table does not list yet counts as its median.
+ * the table does not list yet plans at its 90th percentile.
  * @member {Object<String, Number>} ENGINE_DURATIONS
  */
 export const ENGINE_DURATIONS = JSON.parse(readFileSync(new URL('./e2eEngineDurations.json', import.meta.url), 'utf8'));
@@ -397,15 +397,18 @@ function parseShard(shard) {
 }
 
 /**
- * @summary Seconds per spec file, a file the table does not list yet counting as the table's median.
+ * @summary Seconds per spec file, a file the table does not list yet planning at the table's 90th percentile.
+ * @description A new spec costs more than the median often enough to matter. Planned too high, it leaves its own shard
+ * light and spreads the excess thinly over the other shards; planned too low, the whole error lands on the one shard
+ * that holds it, which then runs into the ceiling.
  * @param {Object<String, Number>} durations
  * @returns {Function} `path => seconds`
  */
 function durationOf(durations) {
-    const known  = Object.values(durations).toSorted((a, b) => a - b),
-          median = known.length ? known[Math.floor(known.length / 2)] : 0;
+    const known    = Object.values(durations).toSorted((a, b) => a - b),
+          fallback = known.length ? known[Math.floor(known.length * .9)] : 0;
 
-    return path => durations[path] ?? median
+    return path => durations[path] ?? fallback
 }
 
 /**

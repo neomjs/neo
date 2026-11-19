@@ -84,10 +84,20 @@ class DragZone extends BaseDragZone {
     }
 
     /**
+     * Whether the owner's items start a drag: its `draggable` config. A zone its owner enables through another
+     * config overrides this, as `Neo.draggable.tree.SortZone` does for `Neo.tree.List#dragResortable`.
+     * @returns {Boolean}
+     * @protected
+     */
+    isDragEnabled() {
+        return this.owner.draggable
+    }
+
+    /**
      * @param {Object} data
      */
     onDragEnd(data) {
-        if (this.owner.draggable) {
+        if (this.isDragEnabled()) {
             let me           = this,
                 proxy        = me.dragProxy,
                 cls          = proxy.cls || {},
@@ -117,7 +127,7 @@ class DragZone extends BaseDragZone {
     async onDragStart(data) {
         let me = this;
 
-        if (me.owner.draggable) {
+        if (me.isDragEnabled()) {
             me.dragElement = VDomUtil.find(me.owner.vdom, data.path[0].id).vdom;
             await me.dragStart(data)
         }

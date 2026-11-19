@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 
-import chalk       from 'chalk';
-import { Command }     from 'commander';
-import envinfo     from 'envinfo';
-import fs          from 'fs-extra';
-import inquirer    from 'inquirer';
-import os          from 'os';
-import path        from 'path';
-import {sanitizeInput} from '../util/sanitizer.mjs';
+import chalk                     from 'chalk';
+import { Command }               from 'commander';
+import envinfo                   from 'envinfo';
+import fs                        from 'fs-extra';
+import inquirer                  from 'inquirer';
+import os                        from 'os';
+import path                      from 'path';
+import {assertInteractivePrompt} from '../util/assertInteractivePrompt.mjs';
+import {sanitizeInput}           from '../util/sanitizer.mjs';
 
 const
     __dirname   = path.resolve(),
@@ -212,6 +213,17 @@ if (programOpts.info) {
         .then(console.log);
 } else {
     console.log(chalk.green(programName));
+
+    assertInteractivePrompt({
+        command: 'npm run add-config -- -c MyApp.view.MainContainer -n myConfig -t String -d null -h none',
+        missing: [
+            !programOpts.className                               && 'className (-c)',
+            !programOpts.configName                              && 'configName (-n)',
+            (!programOpts.type || programOpts.type === 'Custom') && 'type (-t <Type>, not Custom)',
+            !programOpts.defaultValue                            && 'defaultValue (-d)',
+            !programOpts.hooks                                   && 'hooks (-h)'
+        ].filter(Boolean)
+    });
 
     let answers = {},
         answer;
