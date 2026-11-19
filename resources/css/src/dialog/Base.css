@@ -83,6 +83,13 @@
                 margin-right: 0.3em;
                 padding     : 0;
 
+                /* The neo themes paint these controls with a structural transparent rule at
+                   theme-root weight, so the hover state is declared here, above it, and a
+                   disabled control keeps no hover state. */
+                &:hover:not(.neo-disabled) {
+                    background-color: var(--dialog-header-button-background-color-hover, transparent);
+                }
+
                 &:active {
                     border: none !important;
                 }
@@ -102,6 +109,10 @@
                 height         : 24px;
                 justify-content: center;
                 width          : 28px;
+            }
+
+            .neo-button:hover .neo-button-glyph {
+                color: var(--dialog-icon-color-hover, var(--dialog-icon-color));
             }
 
             .neo-panel-header-text {
