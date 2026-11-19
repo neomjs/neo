@@ -24,6 +24,8 @@ class Example extends Model {
          * `feature` states what the example demonstrates and `lookFor` gives a concrete action.
          * Optional `scope` qualifies external dependencies or limits of that demonstration.
          * `image` names an existing published cover; a record without one stays in the catalog and gets no card.
+         * `kind` is `'demonstration'` (the default, a card) or `'component'`: one component in the workbench, shown as
+         * a tile whose `image` is its crop. Both kinds publish under the same rule.
          * Relative destinations resolve against List.baseUrl or List.sourceBaseUrl; HTTP links
          * remain explicit, including external apps whose mode routes differ from Engine paths.
          *
@@ -72,6 +74,10 @@ class Example extends Model {
         }, {
             name: 'image',
             type: 'String'
+        }, {
+            name        : 'kind',
+            type        : 'String',
+            defaultValue: 'demonstration'
         }, {
             name: 'lookFor',
             type: 'String'

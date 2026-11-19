@@ -557,8 +557,9 @@
         "component": "Chip",
         "feature": "A compact chip combines an icon, editable text and an optional close action.",
         "lookFor": "Change the text or icon class, and toggle closable to show or hide the close button.",
-        "image": null,
-        "name": "component.Chip",
+        "kind": "component",
+        "image": "devmode/tiles/component-chip-14.jpg",
+        "name": "Chip",
         "sourceUrl": "examples/component/chip",
         "urls": {
             "devmode": "examples/component/chip/index.html",
@@ -574,8 +575,9 @@
         "component": "Circle",
         "feature": "A three-dimensional circle distributes items around a configurable radius.",
         "lookFor": "Change the item size, maximum item count and rotation, then press Expand, Collapse or Flip.",
-        "image": null,
-        "name": "component.Circle",
+        "kind": "component",
+        "image": "devmode/tiles/component-circle-14.jpg",
+        "name": "Circle",
         "sourceUrl": "examples/component/circle",
         "urls": {
             "devmode": "examples/component/circle/index.html",
@@ -591,8 +593,9 @@
         "component": "Clock",
         "feature": "A clock face renders a settable time at an adjustable size",
         "lookFor": "Change the time to 09:45 and compare the hands, then change size and fontSize to resize the face and its hands.",
-        "image": null,
-        "name": "component.Clock",
+        "kind": "component",
+        "image": "devmode/tiles/component-clock-14.jpg",
+        "name": "Clock",
         "sourceUrl": "examples/component/clock",
         "urls": {
             "devmode": "examples/component/clock/index.html",
@@ -626,8 +629,9 @@
         "component": "MagicMoveText",
         "feature": "Characters animate between changing strings while remaining inside one text component.",
         "lookFor": "Wait for automatic cycling or change autoCycle, then adjust the move and fade colors to follow the transition.",
-        "image": null,
-        "name": "MagicMoveText",
+        "kind": "component",
+        "image": "devmode/tiles/component-magicmovetext-14.jpg",
+        "name": "Magic move text",
         "sourceUrl": "examples/component/magicmovetext",
         "urls": {
             "devmode": "examples/component/magicmovetext/index.html",
@@ -767,8 +771,9 @@
         "component": "Progress",
         "feature": "A labelled progress bar exposes a percentage value and configurable dimensions.",
         "lookFor": "Change the value, label and size in the configuration panel and watch the bar and label update.",
-        "image": null,
-        "name": "component.Progress",
+        "kind": "component",
+        "image": "devmode/tiles/component-progress-14.jpg",
+        "name": "Progress bar",
         "sourceUrl": "examples/component/progress",
         "urls": {
             "devmode": "examples/component/progress/index.html",
@@ -801,8 +806,9 @@
         "component": "StatusBadge",
         "feature": "Status badges support alert, error, info, neutral and success states with configurable labels and icons.",
         "lookFor": "Switch the state radio and toggle the state or side icons; the badge label and decoration update.",
-        "image": null,
-        "name": "component.StatusBadge",
+        "kind": "component",
+        "image": "devmode/tiles/component-statusbadge-14.jpg",
+        "name": "Status badge",
         "sourceUrl": "examples/component/statusbadge",
         "urls": {
             "devmode": "examples/component/statusbadge/index.html",
@@ -818,8 +824,9 @@
         "component": "Timer",
         "feature": "A circular countdown timer accepts a duration and animates a gradient progress ring.",
         "lookFor": "Enter 10s and press play; the card flips to the countdown and the ring drains as time passes.",
-        "image": null,
-        "name": "component.Timer",
+        "kind": "component",
+        "image": "devmode/tiles/component-timer-14.jpg",
+        "name": "Timer",
         "sourceUrl": "examples/component/timer",
         "urls": {
             "devmode": "examples/component/timer/index.html",
@@ -887,8 +894,9 @@
         "component": "Monaco Editor",
         "feature": "A Monaco editor wrapper exposes themes, cursor behavior, read-only state, minimap and sizing options.",
         "lookFor": "Edit the sample function, then switch the editor theme and the cursor blinking mode, or toggle the minimap.",
-        "image": null,
-        "name": "Monaco Editor",
+        "kind": "component",
+        "image": "devmode/tiles/component-wrapper-monacoEditor-14.jpg",
+        "name": "Monaco editor",
         "sourceUrl": "examples/component/wrapper/monacoEditor",
         "urls": {
             "devmode": "examples/component/wrapper/monacoEditor/index.html",
@@ -973,8 +981,9 @@
     {
         "id": "date-selector",
         "featured": false,
-        "image": "devmode/dateSelector.png",
-        "name": "component.DateSelector",
+        "kind": "component",
+        "image": "devmode/tiles/component-dateSelector-14.jpg",
+        "name": "Date selector",
         "sourceUrl": "examples/component/dateSelector",
         "urls": {
             "devmode": "examples/component/dateSelector/index.html",
@@ -991,8 +1000,9 @@
     {
         "id": "date-field",
         "featured": false,
-        "image": "devmode/dateField.png",
-        "name": "form.field.Date",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-date-14.jpg",
+        "name": "Date field",
         "sourceUrl": "examples/form/field/date",
         "urls": {
             "devmode": "examples/form/field/date/index.html",
@@ -1009,8 +1019,9 @@
     {
         "id": "combobox-field",
         "featured": false,
-        "image": "devmode/selectField.png",
-        "name": "form.field.ComboBox",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-combobox-14.jpg",
+        "name": "Combo box",
         "sourceUrl": "examples/form/field/combobox",
         "urls": {
             "devmode": "examples/form/field/combobox/index.html",
@@ -1293,8 +1304,9 @@
     },
     {
         "id": "checkbox-field",
-        "image": null,
-        "name": "form.field.CheckBox",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-checkbox-14.jpg",
+        "name": "Checkbox",
         "sourceUrl": "examples/form/field/checkbox",
         "urls": {
             "devmode": "examples/form/field/checkbox/index.html",
@@ -1310,8 +1322,9 @@
     },
     {
         "id": "chip-field",
-        "image": null,
-        "name": "form.field.Chip",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-chip-14.jpg",
+        "name": "Chip field",
         "sourceUrl": "examples/form/field/chip",
         "urls": {
             "devmode": "examples/form/field/chip/index.html",
@@ -1327,8 +1340,9 @@
     },
     {
         "id": "color-field",
-        "image": null,
-        "name": "form.field.Color",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-color-14.jpg",
+        "name": "Color field",
         "sourceUrl": "examples/form/field/color",
         "urls": {
             "devmode": "examples/form/field/color/index.html",
@@ -1344,8 +1358,9 @@
     },
     {
         "id": "email-field",
-        "image": null,
-        "name": "form.field.Email",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-email-14.jpg",
+        "name": "Email field",
         "sourceUrl": "examples/form/field/email",
         "urls": {
             "devmode": "examples/form/field/email/index.html",
@@ -1361,8 +1376,9 @@
     },
     {
         "id": "fileupload-field",
-        "image": null,
-        "name": "form.field.FileUpload",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-fileupload-14.jpg",
+        "name": "File upload",
         "sourceUrl": "examples/form/field/fileupload",
         "urls": {
             "devmode": "examples/form/field/fileupload/index.html",
@@ -1379,8 +1395,9 @@
     },
     {
         "id": "number-field",
-        "image": null,
-        "name": "form.field.Number",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-number-14.jpg",
+        "name": "Number field",
         "sourceUrl": "examples/form/field/number",
         "urls": {
             "devmode": "examples/form/field/number/index.html",
@@ -1395,26 +1412,10 @@
         "lookFor": "Change the number, then use the clear trigger — the original 20 returns."
     },
     {
-        "id": "picker-field",
-        "image": null,
-        "name": "form.field.Picker",
-        "sourceUrl": "examples/form/field/picker",
-        "urls": {
-            "devmode": "examples/form/field/picker/index.html",
-            "dist_dev": "dist/development/examples/form/field/picker/index.html",
-            "dist_esm": "dist/esm/examples/form/field/picker/index.html",
-            "dist_prod": "dist/production/examples/form/field/picker/index.html"
-        },
-        "hiddenIn": [],
-        "family": "forms",
-        "component": "PickerField",
-        "feature": "A picker field which clears back to its original value",
-        "lookFor": "Open the picker, choose another entry, then clear the field — the original value returns."
-    },
-    {
         "id": "radio-field",
-        "image": null,
-        "name": "form.field.Radio",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-radio-14.jpg",
+        "name": "Radio button",
         "sourceUrl": "examples/form/field/radio",
         "urls": {
             "devmode": "examples/form/field/radio/index.html",
@@ -1430,8 +1431,9 @@
     },
     {
         "id": "select-field",
-        "image": null,
-        "name": "form.field.Select",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-select-14.jpg",
+        "name": "Select field",
         "sourceUrl": "examples/form/field/select",
         "urls": {
             "devmode": "examples/form/field/select/index.html",
@@ -1447,8 +1449,9 @@
     },
     {
         "id": "switch-field",
-        "image": null,
-        "name": "form.field.Switch",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-switch-14.jpg",
+        "name": "Switch",
         "sourceUrl": "examples/form/field/switch",
         "urls": {
             "devmode": "examples/form/field/switch/index.html",
@@ -1464,8 +1467,9 @@
     },
     {
         "id": "text-field",
-        "image": null,
-        "name": "form.field.Text",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-text-14.jpg",
+        "name": "Text field",
         "sourceUrl": "examples/form/field/text",
         "urls": {
             "devmode": "examples/form/field/text/index.html",
@@ -1481,8 +1485,9 @@
     },
     {
         "id": "textarea-field",
-        "image": null,
-        "name": "form.field.TextArea",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-textarea-14.jpg",
+        "name": "Text area",
         "sourceUrl": "examples/form/field/textarea",
         "urls": {
             "devmode": "examples/form/field/textarea/index.html",
@@ -1498,8 +1503,9 @@
     },
     {
         "id": "time-field",
-        "image": null,
-        "name": "form.field.Time",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-time-14.jpg",
+        "name": "Time field",
         "sourceUrl": "examples/form/field/time",
         "urls": {
             "devmode": "examples/form/field/time/index.html",
@@ -1515,8 +1521,9 @@
     },
     {
         "id": "url-field",
-        "image": null,
-        "name": "form.field.Url",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-url-14.jpg",
+        "name": "URL field",
         "sourceUrl": "examples/form/field/url",
         "urls": {
             "devmode": "examples/form/field/url/index.html",
@@ -1531,9 +1538,172 @@
         "lookFor": "Type an address over the placeholder and clear it with the trigger."
     },
     {
+        "id": "country-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-country-14.jpg",
+        "name": "Country field",
+        "sourceUrl": "examples/form/field/country",
+        "urls": {
+            "devmode": "examples/form/field/country/index.html",
+            "dist_dev": "dist/development/examples/form/field/country/index.html",
+            "dist_esm": "dist/esm/examples/form/field/country/index.html",
+            "dist_prod": "dist/production/examples/form/field/country/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "CountryField",
+        "feature": "A country field with flags, in its states beside a live configuration panel",
+        "lookFor": "Choose a country, then toggle showFlags in the panel."
+    },
+    {
+        "id": "currency-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-currency-14.jpg",
+        "name": "Currency field",
+        "sourceUrl": "examples/form/field/currency",
+        "urls": {
+            "devmode": "examples/form/field/currency/index.html",
+            "dist_dev": "dist/development/examples/form/field/currency/index.html",
+            "dist_esm": "dist/esm/examples/form/field/currency/index.html",
+            "dist_prod": "dist/production/examples/form/field/currency/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "CurrencyField",
+        "feature": "A currency field that formats its amount, in its states beside a live configuration panel",
+        "lookFor": "Type an amount above maxValue to see the failure state."
+    },
+    {
+        "id": "display-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-display-14.jpg",
+        "name": "Display field",
+        "sourceUrl": "examples/form/field/display",
+        "urls": {
+            "devmode": "examples/form/field/display/index.html",
+            "dist_dev": "dist/development/examples/form/field/display/index.html",
+            "dist_esm": "dist/esm/examples/form/field/display/index.html",
+            "dist_prod": "dist/production/examples/form/field/display/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "DisplayField",
+        "feature": "A field that shows a value without editing it, in its states beside a live configuration panel",
+        "lookFor": "Change the value in the panel and watch the field show it."
+    },
+    {
+        "id": "iban-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-iban-14.jpg",
+        "name": "IBAN field",
+        "sourceUrl": "examples/form/field/iban",
+        "urls": {
+            "devmode": "examples/form/field/iban/index.html",
+            "dist_dev": "dist/development/examples/form/field/iban/index.html",
+            "dist_esm": "dist/esm/examples/form/field/iban/index.html",
+            "dist_prod": "dist/production/examples/form/field/iban/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "IBANField",
+        "feature": "An IBAN field that validates its number, in its states beside a live configuration panel",
+        "lookFor": "Change one digit of the IBAN to see the failure state."
+    },
+    {
+        "id": "password-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-password-14.jpg",
+        "name": "Password field",
+        "sourceUrl": "examples/form/field/password",
+        "urls": {
+            "devmode": "examples/form/field/password/index.html",
+            "dist_dev": "dist/development/examples/form/field/password/index.html",
+            "dist_esm": "dist/esm/examples/form/field/password/index.html",
+            "dist_prod": "dist/production/examples/form/field/password/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "PasswordField",
+        "feature": "A password field, in its states beside a live configuration panel",
+        "lookFor": "Type a password that is too short to see the failure state."
+    },
+    {
+        "id": "phone-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-phone-14.jpg",
+        "name": "Phone field",
+        "sourceUrl": "examples/form/field/phone",
+        "urls": {
+            "devmode": "examples/form/field/phone/index.html",
+            "dist_dev": "dist/development/examples/form/field/phone/index.html",
+            "dist_esm": "dist/esm/examples/form/field/phone/index.html",
+            "dist_prod": "dist/production/examples/form/field/phone/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "PhoneField",
+        "feature": "A phone field that validates its number, in its states beside a live configuration panel",
+        "lookFor": "Type letters into the number to see the failure state."
+    },
+    {
+        "id": "range-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-range-14.jpg",
+        "name": "Range slider",
+        "sourceUrl": "examples/form/field/range",
+        "urls": {
+            "devmode": "examples/form/field/range/index.html",
+            "dist_dev": "dist/development/examples/form/field/range/index.html",
+            "dist_esm": "dist/esm/examples/form/field/range/index.html",
+            "dist_prod": "dist/production/examples/form/field/range/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "RangeField",
+        "feature": "A range slider, in its states beside a live configuration panel",
+        "lookFor": "Drag the slider, then change minValue and maxValue in the panel."
+    },
+    {
+        "id": "search-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-search-14.jpg",
+        "name": "Search field",
+        "sourceUrl": "examples/form/field/search",
+        "urls": {
+            "devmode": "examples/form/field/search/index.html",
+            "dist_dev": "dist/development/examples/form/field/search/index.html",
+            "dist_esm": "dist/esm/examples/form/field/search/index.html",
+            "dist_prod": "dist/production/examples/form/field/search/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "SearchField",
+        "feature": "A search field, in its states beside a live configuration panel",
+        "lookFor": "Type a term, then clear it with the trigger."
+    },
+    {
+        "id": "zipcode-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-zipcode-14.jpg",
+        "name": "ZIP code field",
+        "sourceUrl": "examples/form/field/zipcode",
+        "urls": {
+            "devmode": "examples/form/field/zipcode/index.html",
+            "dist_dev": "dist/development/examples/form/field/zipcode/index.html",
+            "dist_esm": "dist/esm/examples/form/field/zipcode/index.html",
+            "dist_prod": "dist/production/examples/form/field/zipcode/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "ZipCodeField",
+        "feature": "A ZIP code field that validates its format, in its states beside a live configuration panel",
+        "lookFor": "Delete a digit to see the failure state."
+    },
+    {
         "id": "copy-to-clipboard-trigger",
-        "image": null,
-        "name": "form.field.trigger.CopyToClipboard",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-trigger-copyToClipboard-14.jpg",
+        "name": "Copy-to-clipboard trigger",
         "sourceUrl": "examples/form/field/trigger/copyToClipboard",
         "urls": {
             "devmode": "examples/form/field/trigger/copyToClipboard/index.html",
@@ -1549,8 +1719,9 @@
     },
     {
         "id": "fieldset",
-        "image": null,
-        "name": "form.Fieldset",
+        "kind": "component",
+        "image": "devmode/tiles/form-fieldset-14.jpg",
+        "name": "Fieldset",
         "sourceUrl": "examples/form/fieldset",
         "urls": {
             "devmode": "examples/form/fieldset/index.html",
@@ -1582,26 +1753,10 @@
         "lookFor": "Type into the phone field and watch the +1 (___) ___-___-____ mask carry your digits, then try the [0-9] date field."
     },
     {
-        "id": "fields-runtime-triggers",
-        "image": null,
-        "name": "form.field",
-        "sourceUrl": "examples/fields",
-        "urls": {
-            "devmode": "examples/fields/index.html",
-            "dist_dev": "dist/development/examples/fields/index.html",
-            "dist_esm": "dist/esm/examples/fields/index.html",
-            "dist_prod": "dist/production/examples/fields/index.html"
-        },
-        "hiddenIn": [],
-        "family": "forms",
-        "component": "PickerField",
-        "feature": "Adding and removing field triggers at runtime",
-        "lookFor": "Remove the triggers with the button, add one back, and click it on the field."
-    },
-    {
         "id": "layout-form",
-        "image": null,
-        "name": "layout.Form",
+        "kind": "component",
+        "image": "devmode/tiles/layout-form-14.jpg",
+        "name": "Form layout",
         "sourceUrl": "examples/layout/form",
         "urls": {
             "devmode": "examples/layout/form/index.html",
@@ -1617,23 +1772,6 @@
         "component": "Form",
         "feature": "A form composed by the layout-form layout with shared itemDefaults",
         "lookFor": "Note both fields share the clearable textfield defaults while their labels differ in length."
-    },
-    {
-        "id": "date-selector-container",
-        "image": null,
-        "name": "date.SelectorContainer",
-        "sourceUrl": "examples/date/selectorContainer",
-        "urls": {
-            "devmode": "examples/date/selectorContainer/index.html",
-            "dist_dev": "dist/development/examples/date/selectorContainer/index.html",
-            "dist_esm": "dist/esm/examples/date/selectorContainer/index.html",
-            "dist_prod": "dist/production/examples/date/selectorContainer/index.html"
-        },
-        "hiddenIn": [],
-        "family": "forms",
-        "component": "SelectorContainer",
-        "feature": "The date SelectorContainer variant, standalone",
-        "lookFor": "Pick a date and jump months with the radios; compare it with the component variant."
     },
     {
         "id": "form-app",
@@ -1865,5 +2003,167 @@
             "dist_prod": "dist/production/apps/email/index.html"
         },
         "hiddenIn": []
+    },
+    {
+        "id": "button-base",
+        "kind": "component",
+        "image": "devmode/tiles/button-base-14.jpg",
+        "name": "Button",
+        "sourceUrl": "examples/button/base",
+        "urls": {
+            "devmode": "examples/button/base/index.html",
+            "dist_dev": "dist/development/examples/button/base/index.html",
+            "dist_esm": "dist/esm/examples/button/base/index.html",
+            "dist_prod": "dist/production/examples/button/base/index.html"
+        },
+        "hiddenIn": [],
+        "family": "buttons",
+        "component": "Button",
+        "feature": "A button with icon, badge, ripple and tooltip, each a live config",
+        "lookFor": "Move the icon or the badge, change the text, and toggle disabled in the panel."
+    },
+    {
+        "id": "menu-list",
+        "kind": "component",
+        "image": "devmode/tiles/menu-list-14.jpg",
+        "name": "Menu list",
+        "sourceUrl": "examples/menu/list",
+        "urls": {
+            "devmode": "examples/menu/list/index.html",
+            "dist_dev": "dist/development/examples/menu/list/index.html",
+            "dist_esm": "dist/esm/examples/menu/list/index.html",
+            "dist_prod": "dist/production/examples/menu/list/index.html"
+        },
+        "hiddenIn": [],
+        "family": "buttons",
+        "component": "MenuList",
+        "feature": "A menu list over a store",
+        "lookFor": "Move through the items with the arrow keys, and resize the menu in the panel."
+    },
+    {
+        "id": "list-base",
+        "kind": "component",
+        "image": "devmode/tiles/list-base-14.jpg",
+        "name": "List",
+        "sourceUrl": "examples/list/base",
+        "urls": {
+            "devmode": "examples/list/base/index.html",
+            "dist_dev": "dist/development/examples/list/base/index.html",
+            "dist_esm": "dist/esm/examples/list/base/index.html",
+            "dist_prod": "dist/production/examples/list/base/index.html"
+        },
+        "hiddenIn": [],
+        "family": "lists",
+        "component": "List",
+        "feature": "A list over a store, with selection, dragging and checkboxes as live configs",
+        "lookFor": "Select an item, then turn on useCheckBoxes or draggable in the panel."
+    },
+    {
+        "id": "chip-list",
+        "kind": "component",
+        "image": "devmode/tiles/list-chip-14.jpg",
+        "name": "Chip list",
+        "sourceUrl": "examples/list/chip",
+        "urls": {
+            "devmode": "examples/list/chip/index.html",
+            "dist_dev": "dist/development/examples/list/chip/index.html",
+            "dist_esm": "dist/esm/examples/list/chip/index.html",
+            "dist_prod": "dist/production/examples/list/chip/index.html"
+        },
+        "hiddenIn": [],
+        "family": "lists",
+        "component": "ChipList",
+        "feature": "A list of chips over a store, in a row or stacked",
+        "lookFor": "Select a chip, then toggle stacked in the panel."
+    },
+    {
+        "id": "color-list",
+        "kind": "component",
+        "image": "devmode/tiles/list-color-14.jpg",
+        "name": "Color list",
+        "sourceUrl": "examples/list/color",
+        "urls": {
+            "devmode": "examples/list/color/index.html",
+            "dist_dev": "dist/development/examples/list/color/index.html",
+            "dist_esm": "dist/esm/examples/list/color/index.html",
+            "dist_prod": "dist/production/examples/list/color/index.html"
+        },
+        "hiddenIn": [],
+        "family": "lists",
+        "component": "ColorList",
+        "feature": "A list of colors over a store",
+        "lookFor": "Select a color, then toggle disableSelection in the panel."
+    },
+    {
+        "id": "functional-define-component",
+        "kind": "component",
+        "image": "devmode/tiles/functional-defineComponent-14.jpg",
+        "name": "Function component",
+        "sourceUrl": "examples/functional/defineComponent",
+        "urls": {
+            "devmode": "examples/functional/defineComponent/index.html",
+            "dist_dev": "dist/development/examples/functional/defineComponent/index.html",
+            "dist_esm": "dist/esm/examples/functional/defineComponent/index.html",
+            "dist_prod": "dist/production/examples/functional/defineComponent/index.html"
+        },
+        "hiddenIn": [],
+        "family": "functional",
+        "component": "defineComponent",
+        "feature": "A component written as a function with defineComponent(), its state in a hook",
+        "lookFor": "Click the greeting to switch the name, and change the greeting in the panel."
+    },
+    {
+        "id": "functional-host-component",
+        "kind": "component",
+        "image": "devmode/tiles/functional-hostComponent-14.jpg",
+        "name": "Hosting a class component",
+        "sourceUrl": "examples/functional/hostComponent",
+        "urls": {
+            "devmode": "examples/functional/hostComponent/index.html",
+            "dist_dev": "dist/development/examples/functional/hostComponent/index.html",
+            "dist_esm": "dist/esm/examples/functional/hostComponent/index.html",
+            "dist_prod": "dist/production/examples/functional/hostComponent/index.html"
+        },
+        "hiddenIn": [],
+        "family": "functional",
+        "component": "defineComponent",
+        "feature": "A function component that hosts a class-based Button and counts its clicks",
+        "lookFor": "Click the button and watch the function's count go up."
+    },
+    {
+        "id": "functional-nested-template",
+        "kind": "component",
+        "image": "devmode/tiles/functional-nestedTemplateComponent-14.jpg",
+        "name": "Nested templates",
+        "sourceUrl": "examples/functional/nestedTemplateComponent",
+        "urls": {
+            "devmode": "examples/functional/nestedTemplateComponent/index.html",
+            "dist_dev": "dist/development/examples/functional/nestedTemplateComponent/index.html",
+            "dist_esm": "dist/esm/examples/functional/nestedTemplateComponent/index.html",
+            "dist_prod": "dist/production/examples/functional/nestedTemplateComponent/index.html"
+        },
+        "hiddenIn": [],
+        "family": "functional",
+        "component": "defineComponent",
+        "feature": "A function component built from nested HTML templates",
+        "lookFor": "Click the card to toggle its status, and open its details with the button."
+    },
+    {
+        "id": "sitemap",
+        "kind": "component",
+        "image": "devmode/tiles/sitemap-14.jpg",
+        "name": "Sitemap",
+        "sourceUrl": "examples/sitemap",
+        "urls": {
+            "devmode": "examples/sitemap/index.html",
+            "dist_dev": "dist/development/examples/sitemap/index.html",
+            "dist_esm": "dist/esm/examples/sitemap/index.html",
+            "dist_prod": "dist/production/examples/sitemap/index.html"
+        },
+        "hiddenIn": [],
+        "family": "platform",
+        "component": "Sitemap",
+        "feature": "Columns of grouped links whose items open a URL, call a handler, or stay disabled or hidden",
+        "lookFor": "Resize the sitemap in the panel and follow an item's link."
     }
 ]
