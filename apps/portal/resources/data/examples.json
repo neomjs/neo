@@ -1286,6 +1286,24 @@
         "lookFor": "Open Edit to change nested user fields and watch modified-cell highlighting; compare header-only and full-column dragging."
     },
     {
+        "id": "grid-streaming",
+        "image": "devmode/grid-streaming-14.jpg",
+        "name": "Streaming 50,000 Rows",
+        "sourceUrl": "examples/grid/streaming",
+        "urls": {
+            "devmode": "examples/grid/streaming/index.html",
+            "dist_dev": "dist/development/examples/grid/streaming/index.html",
+            "dist_esm": "dist/esm/examples/grid/streaming/index.html",
+            "dist_prod": "dist/production/examples/grid/streaming/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "component": "Grid",
+        "feature": "50,000 NDJSON rows arriving in chunks with a live footer progress bar",
+        "lookFor": "Scroll, sort or select while batches arrive, then press Load again to empty the grid and stream from zero.",
+        "scope": "Generates and streams all 50,000 rows in-browser; no external backend is required."
+    },
+    {
         "id": "grid-tree",
         "image": "devmode/grid-tree-14.jpg",
         "name": "Tree Grid",
