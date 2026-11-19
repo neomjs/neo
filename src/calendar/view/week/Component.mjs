@@ -1,10 +1,12 @@
 import BaseComponent     from '../../../component/Base.mjs';
 import DateUtil          from '../../../util/Date.mjs';
+import IntervalPacker    from '../../../timeline/util/IntervalPacker.mjs';
 import NeoArray          from '../../../util/Array.mjs';
 import TimeAxisComponent from './TimeAxisComponent.mjs';
 import VDomUtil          from '../../../util/VDom.mjs';
 
-const todayDate = new Date();
+const dayInMs   = 86400000,
+      todayDate = new Date();
 
 const today = {
     day  : todayDate.getDate(),
@@ -13,6 +15,7 @@ const today = {
 };
 
 /**
+ * @summary Multi-day scroll container for calendar week and day views, rendering both timed events and an all-day lane row.
  * @class Neo.calendar.view.week.Component
  * @extends Neo.component.Base
  */
@@ -203,7 +206,7 @@ class Component extends BaseComponent {
          * @protected
          */
         totalColumns: null,
-        updateDepth: -1,
+        updateDepth : -1,
         /**
          * @member {Object} vdom
          */
@@ -212,6 +215,10 @@ class Component extends BaseComponent {
             {cls: ['neo-scroll-overlay']},
             {cls: ['neo-c-w-scrollcontainer'], flag: 'neo-c-w-scrollcontainer', cn: [
                 {cls: ['neo-header-row'], flag: 'neo-header-row', cn: []},
+                {cls: ['neo-allday-row'], flag: 'neo-allday-row', removeDom: true, cn: [
+                    {cls: ['neo-allday-spacer']},
+                    {cls: ['neo-allday-lanes'], flag: 'neo-allday-lanes', style: {}, cn: []}
+                ]},
                 {cls: ['neo-c-w-column-timeaxis-container'], flag: 'neo-c-w-column-timeaxis-container', cn: [
                     {cls: ['neo-c-w-column-container'], flag: 'neo-c-w-column-container', style: {}, cn: []}
                 ]}
@@ -267,6 +274,7 @@ class Component extends BaseComponent {
 
         me.addDomListeners([
             {dblclick: me.onEventDoubleClick, scope: me, delegate: '.neo-event'},
+            {dblclick: me.onEventDoubleClick, scope: me, delegate: '.neo-allday-event'},
             {scroll  : me.onScroll,           scope: me},
             {wheel   : me.onWheel,            scope: me}
         ]);
@@ -680,6 +688,31 @@ class Component extends BaseComponent {
     }
 
     /**
+     * @summary Returns the sticky all-day row container VDOM node.
+     * @returns {Object}
+     */
+    getAllDayContainer() {
+        return VDomUtil.getByFlag(this.vdom, 'neo-allday-row')
+    }
+
+    /**
+     * @summary Returns the deterministic DOM id for an all-day event bar.
+     * @param {Number|String} recordId
+     * @returns {String}
+     */
+    getAllDayEventId(recordId) {
+        return `${this.id}__allday__${recordId}`
+    }
+
+    /**
+     * @summary Returns the lanes track VDOM node holding positioned all-day bars.
+     * @returns {Object}
+     */
+    getAllDayLanesContainer() {
+        return VDomUtil.getByFlag(this.vdom, 'neo-allday-lanes')
+    }
+
+    /**
      *
      */
     getColumnContainer() {
@@ -758,19 +791,35 @@ class Component extends BaseComponent {
      */
     onEventDoubleClick(data) {
         if (this.data.events.enableEdit) {
-            let {path} = data;
+            let {path}   = data,
+                barIndex = path.findIndex(node => node.cls?.includes('neo-event') || node.cls?.includes('neo-allday-event'));
 
-            !path[0].cls.includes('neo-event') && path.shift();
+            if (barIndex < 0) {
+                return
+            }
 
-            let me                 = this,
+            let me                   = this,
                 {editEventContainer} = me.owner,
-                eventNode          = path[0],
-                eventVdom          = VDomUtil.find(me.vdom, eventNode.id).vdom,
-                record             = me.eventStore.get(eventVdom.flag),
-                {style}            = editEventContainer;
+                eventNode            = path[barIndex],
+                parentNode           = path[barIndex + 1],
+                eventVdom            = VDomUtil.find(me.vdom, eventNode.id).vdom,
+                record               = me.eventStore.get(eventVdom.flag),
+                style                = {...editEventContainer.style};
 
-            Object.assign(style, {left: `${eventNode.rect.width + 15}px`, top: eventVdom.style.top});
-            editEventContainer.setSilent({parentId: path[1].id, record, style});
+            if (editEventContainer.mounted) {
+                editEventContainer.unmount()
+            }
+
+            if (eventNode.cls.includes('neo-allday-event')) {
+                Object.assign(style, {
+                    left: eventVdom.style.left,
+                    top : `${(parseFloat(eventVdom.style.top) || 0) + 26}px`
+                })
+            } else {
+                Object.assign(style, {left: `${eventNode.rect.width + 15}px`, top: eventVdom.style.top})
+            }
+
+            editEventContainer.setSilent({_hidden: false, parentId: parentNode.id, record, style});
             editEventContainer.initVnode(true)
         }
     }
@@ -795,10 +844,11 @@ class Component extends BaseComponent {
      * @param {Object[]} data.path
      */
     onFocusChange(data) {
-        let {oldPath, path} = data;
+        let {oldPath, path} = data,
+            isEventNode     = node => node?.cls.includes('neo-event') || node?.cls.includes('neo-allday-event');
 
-        oldPath?.[0]?.cls.includes('neo-event') && Neo.applyDeltas(this.windowId, {id: oldPath[0].id, cls: {remove: ['neo-focus']}});
-        path   ?.[0]?.cls.includes('neo-event') && Neo.applyDeltas(this.windowId, {id: path[0]   .id, cls: {add:    ['neo-focus']}})
+        isEventNode(oldPath?.[0]) && Neo.applyDeltas(this.windowId, {id: oldPath[0].id, cls: {remove: ['neo-focus']}});
+        isEventNode(path   ?.[0]) && Neo.applyDeltas(this.windowId, {id: path[0]   .id, cls: {add:    ['neo-focus']}})
     }
 
     /**
@@ -922,6 +972,8 @@ class Component extends BaseComponent {
                 me.isUpdating     = true;
                 me.lastScrollLeft = data.scrollLeft + scrollValue;
 
+                me.updateAllDayEvents();
+
                 me.promiseUpdate().then(() => {
                     Neo.main.DomAccess.scrollBy({
                         direction: 'left',
@@ -961,6 +1013,108 @@ class Component extends BaseComponent {
     }
 
     /**
+     * @summary Packs and positions active all-day bars into the sticky all-day row across rendered columns.
+     * @protected
+     */
+    updateAllDayEvents() {
+        let me                          = this,
+            allDayRow                   = me.getAllDayContainer(),
+            lanesContainer              = me.getAllDayLanesContainer(),
+            {calendarStore, eventStore} = me,
+            columns                     = me.getColumnContainer()?.cn.filter(col => !col.removeDom) || [],
+            colCount                    = columns.length;
+
+        if (!colCount || !calendarStore || !eventStore) {
+            allDayRow.removeDom = true;
+            lanesContainer.cn   = [];
+            delete lanesContainer.style.height;
+            return
+        }
+
+        let [startY, startM, startD] = columns[0].flag.split('-').map(Number),
+            [endY,   endM,   endD]   = columns[colCount - 1].flag.split('-').map(Number),
+            records                  = eventStore.getAllDayRecords(new Date(startY, startM - 1, startD), new Date(endY, endM - 1, endD)),
+            spans                    = [];
+
+        records.forEach(record => {
+            let calendarRecord = calendarStore.get(record.calendarId);
+
+            if (!calendarRecord?.active) {
+                return
+            }
+
+            let eventStartKey = DateUtil.convertToyyyymmdd(record.startDate),
+                eventEndKey   = DateUtil.convertToyyyymmdd(record.endDate),
+                startIdx      = -1,
+                endIdx        = -1,
+                k             = 0;
+
+            for (; k < colCount; k++) {
+                let colKey = columns[k].flag;
+
+                if (colKey >= eventStartKey && colKey <= eventEndKey) {
+                    if (startIdx === -1) {
+                        startIdx = k
+                    }
+                    endIdx = k
+                }
+            }
+
+            if (startIdx !== -1) {
+                spans.push({
+                    calendarRecord,
+                    end  : new Date((endIdx + 1) * dayInMs),
+                    endIdx,
+                    record,
+                    start: new Date(startIdx * dayInMs),
+                    startIdx
+                })
+            }
+        });
+
+        if (!spans.length) {
+            allDayRow.removeDom = true;
+            lanesContainer.cn   = [];
+            delete lanesContainer.style.height;
+            return
+        }
+
+        let packed   = IntervalPacker.pack(spans, {endField: 'end', startField: 'start'}),
+            maxLanes = 1;
+
+        lanesContainer.cn = packed.map(({item, lane}) => {
+            maxLanes = Math.max(maxLanes, lane + 1);
+
+            let {calendarRecord, endIdx, record, startIdx} = item,
+                recordKey                                  = record[eventStore.keyProperty],
+                barId                                      = me.getAllDayEventId(recordKey),
+                leftPct                                    = (startIdx / colCount * 100).toFixed(4),
+                widthPct                                   = ((endIdx - startIdx + 1) / colCount * 100).toFixed(4);
+
+            return {
+                cls     : ['neo-allday-event', `neo-${calendarRecord.color}`],
+                flag    : recordKey,
+                id      : barId,
+                tabIndex: -1,
+                style   : {
+                    height: '22px',
+                    left  : `calc(${leftPct}% + 1px)`,
+                    top   : `${lane * 26 + 2}px`,
+                    width : `calc(${widthPct}% - 3px)`
+                },
+                cn: [{
+                    cls : ['neo-event-title'],
+                    id  : `${barId}__title`,
+                    text: record.title
+                }]
+            }
+        });
+
+        allDayRow.removeDom         = false;
+        lanesContainer.style.height = `${maxLanes * 26 + 4}px`
+    }
+
+    /**
      * The algorithm relies on the eventStore being sorted by startDate ASC
      * @param {Boolean} [silent=false]
      * @param {Number} [startIndex=0]
@@ -975,12 +1129,12 @@ class Component extends BaseComponent {
             me.needsEventUpdate = true
         } else {
             let {calendarStore, eventStore, showEventEndTime, timeAxis, vdom} = me,
-                endTime   = timeAxis.getTime(me.endTime),
-                startTime = timeAxis.getTime(me.startTime),
-                totalTime = endTime - startTime,
-                date      = DateUtil.clone(me.firstColumnDate),
-                content   = me.getColumnContainer(),
-                j         = startIndex,
+                endTime                                                       = timeAxis.getTime(me.endTime),
+                startTime                                                     = timeAxis.getTime(me.startTime),
+                totalTime                                                     = endTime - startTime,
+                date                                                          = DateUtil.clone(me.firstColumnDate),
+                content                                                       = me.getColumnContainer(),
+                j                                                             = startIndex,
                 calendarRecord, column, dayRecords, duration, endDate, eventCls, eventIntervals, hasOverflow, height, i,
                 len, record, recordKey, startDate, startHours, top;
 
@@ -998,7 +1152,7 @@ class Component extends BaseComponent {
                     record         = dayRecords[i];
                     calendarRecord = calendarStore.get(record.calendarId);
 
-                    if (calendarRecord?.active) {
+                    if (calendarRecord?.active && !record.allDay) {
                         endDate   = record.endDate;
                         startDate = record.startDate;
 
@@ -1071,6 +1225,8 @@ class Component extends BaseComponent {
 
                 date.setDate(date.getDate() + 1)
             }
+
+            me.updateAllDayEvents();
 
             !silent && me.update()
         }
