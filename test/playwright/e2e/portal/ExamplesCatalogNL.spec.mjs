@@ -248,7 +248,7 @@ test.describe('Portal examples section', () => {
                   links    = page.locator(`${navSel} ul a`),
                   featured = page.locator(FEATURED);
 
-            await expect(featured.locator('.neo-list-item')).toHaveCount(11);
+            await expect(featured.locator('.neo-list-item')).toHaveCount(12);
             await expect.poll(() => links.locator('.portal-examples-group-index-title').allTextContents()).toEqual(GROUPS);
 
             if (isPhone) {
@@ -273,17 +273,17 @@ test.describe('Portal examples section', () => {
               counts   = page.locator(`${SIDEBAR} .portal-examples-group-index-count`);
 
         await expect(page.locator(SIDEBAR)).toBeVisible();
-        await expect(headline).toHaveText('52 live examples in 19 groups');
-        expect((await counts.allTextContents()).filter(text => !text.startsWith('(')).reduce((sum, text) => sum + Number(text), 0)).toBe(52);
+        await expect(headline).toHaveText('53 live examples in 19 groups');
+        expect((await counts.allTextContents()).filter(text => !text.startsWith('(')).reduce((sum, text) => sum + Number(text), 0)).toBe(53);
         await expect(page.locator(`${SIDEBAR} .portal-examples-group-index-note`)).toBeVisible();
         await expect(page.locator(`${FEATURED} .neo-list-item`).first().locator('.portal-example-group-badge')).toHaveText('Multi-Window');
 
         // Dev mode cannot open liquid-glass, the one card of More components
         await selectBuild(page, 'Dev mode');
-        await expect(headline).toHaveText('51 live examples in 18 groups');
+        await expect(headline).toHaveText('52 live examples in 18 groups');
         await expect(page.locator(SIDEBAR).getByRole('link', {name: /^More components, /})).toHaveCount(0);
         await selectBuild(page, 'Production build');
-        await expect(headline).toHaveText('52 live examples in 19 groups')
+        await expect(headline).toHaveText('53 live examples in 19 groups')
     });
 
     test('the index is a navigation landmark of links: Tab reaches every entry, Enter opens it, no entry claims to be a tab', async ({page, neuralLink}) => {
@@ -489,7 +489,7 @@ test.describe('Portal examples section', () => {
                 await expect(page.locator(`.neo-viewport.${theme}`)).toBeVisible();
 
                 const featured = page.locator(FEATURED);
-                await expect(featured.locator('.neo-list-item')).toHaveCount(11);
+                await expect(featured.locator('.neo-list-item')).toHaveCount(12);
                 await page.evaluate(() => document.fonts.ready);
                 await expectCardLayout(featured, viewport.width);
                 await expect(featured.locator('.neo-title').nth(0)).toHaveText('Workstation');
