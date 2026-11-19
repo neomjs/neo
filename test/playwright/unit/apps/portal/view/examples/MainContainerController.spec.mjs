@@ -132,8 +132,9 @@ test.describe('Portal examples overview and group pages', () => {
 
         expect(pageIds(view, 'grid-table')).toEqual(coveredGridTableIds);
         expect(pageIds(view, 'tree')).toEqual(['grid-tree-big-data', 'grid-tree']);
-        // Forms & Fields is all tiles, its own and the form layout lent by Containers & Layouts, in the order of their names
-        expect(pageIds(view, 'forms')).toEqual([]);
+        // Forms & Fields shows the form app as its card, then tiles: its own and the form layout lent by Containers &
+        // Layouts, in the order of their names
+        expect(pageIds(view, 'forms')).toEqual(['form-app']);
         expect(tileIds(view, 'forms')).toEqual(formTileIds);
         expect(pageIds(view, 'multi-window')).toEqual(multiWindowPageIds);
         expect(pageIds(view, 'calendar')).toEqual(['calendar']);
@@ -147,7 +148,7 @@ test.describe('Portal examples overview and group pages', () => {
         expect(pageIds(view, 'drag-drop')).toEqual(['multi-window-drag-drop', 'dialog-drag-drop', 'dock-tear-out']);
         expect(pageIds(view, 'apps')).toEqual([
             'workstation', 'shared-covid', 'webdesktop', 'devindex', 'multi-window-drag-drop', 'colors-dashboard',
-            'covid-dashboard', 'portal', 'finance', 'email'
+            'covid-dashboard', 'portal', 'form-app', 'finance', 'email'
         ]);
 
         // every card and tile of every page has its image; the catalog keeps the records that wait for one
@@ -224,12 +225,16 @@ test.describe('Portal examples overview and group pages', () => {
         expect(mobIx.vdom.cn.filter(node => node.tag === 'section').map(band => band.cn[0].text))
             .toEqual(['Data views', 'Planning', 'Layout', 'Components', 'Platform']);
         expect(links(mobIx).map(link => link.href)).toEqual(publishedRoutes.map(route => '#' + route));
-        // a group with home examples shows their count, one that only borrows shows the borrowed count in parentheses
+        // a group shows its home examples; one that only borrows shows no number, and its label still names what it borrows
         expect(links(mobIx).map(link => link.cn[2].text))
-            .toEqual(Object.values(groupCounts).map(([count, crossCount]) => count ? String(count) : `(${crossCount})`));
+            .toEqual(Object.values(groupCounts).map(([count]) => count ? String(count) : ''));
+        expect(links(mobIx).filter(link => !link.cn[2].text).map(link => link.href))
+            .toEqual(publishedRoutes.filter((route, index) => Object.values(groupCounts)[index][0] === 0).map(route => '#' + route));
+        expect(links(mobIx).filter(link => !link.cn[2].text).every(link => link['aria-label'].endsWith('from other groups'))).toBe(true);
         expect(links(mobIx).every(link => link['aria-current'] === null)).toBe(true);
         expect(mobIx.vdom.cn[0].removeDom).toBe(true);
-        expect(mobIx.vdom.cn.at(-1).removeDom).toBe(false);
+        // the all-examples link, the unbanded list and one section per band: no note under them
+        expect(mobIx.vdom.cn.map(node => node.tag)).toEqual(['a', 'ul', 'section', 'section', 'section', 'section', 'section']);
 
         expect(index.presentation).toBe('list');
         expect(index.vdom.cn[0].removeDom).toBe(false);
@@ -696,10 +701,10 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
       // The catalog's only count literals: a new covered example changes its group's row, a new record the record count.
       // [home count, count from other groups] per group in a production build, in definition order
       groupCounts = {
-          apps          : [6, 4], 'grid-table': [19, 0], tree: [0, 2], lists: [12, 0], charts: [4, 1],
+          apps          : [6, 5], 'grid-table': [19, 0], tree: [0, 2], lists: [12, 0], charts: [4, 1],
           calendar      : [1, 0], scheduler   : [2, 0], gantt: [2, 0], board: [2, 0],
           dashboard     : [4, 1], tabs        : [2, 0], layouts: [3, 0], dialogs: [3, 0],
-          forms         : [27, 1], buttons    : [2, 0], components: [9, 0],
+          forms         : [28, 1], buttons    : [2, 0], components: [9, 0],
           'multi-window': [6, 3], platform    : [2, 1], state: [1, 0], functional: [3, 1], 'drag-drop': [0, 3]
       },
       recordCount    = 127,
