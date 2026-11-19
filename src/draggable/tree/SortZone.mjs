@@ -30,12 +30,18 @@ class SortZone extends DragZone {
          */
         ntype: 'tree-sortzone',
         /**
+         * The proxy may pass the tree's edge: it hangs beside the pointer, and the main thread clamps by the item's
+         * full width, which would push a label-sized proxy back over the items
+         * @member {Boolean} allowOverdrag=true
+         */
+        allowOverdrag: true,
+        /**
          * Every move reaches the App Worker, carrying the main thread's hit test
          * @member {Boolean} alwaysFireDragMove=true
          */
         alwaysFireDragMove: true,
         /**
-         * The proxy shrinks to the item's label, so the slot on the item below it stays in view
+         * The proxy shrinks to the item's label
          * @member {Object|null} dragProxyConfig
          */
         dragProxyConfig: {
@@ -116,6 +122,16 @@ class SortZone extends DragZone {
         }
 
         return false
+    }
+
+    /**
+     * The proxy hangs below and to the right of the pointer instead of at the point it was grabbed, clear of the item
+     * the pointer is over, so that item's label and its slot stay in view
+     * @returns {Object}
+     * @protected
+     */
+    getMainThreadConfigs() {
+        return {...super.getMainThreadConfigs(), offsetX: -16, offsetY: -26}
     }
 
     /**

@@ -135,6 +135,12 @@ test.describe('Neo.draggable.tree.SortZone — items move by drag', () => {
         await dragOver(page, 'a', 'sub', .5);
         await expect(page.locator(item('sub')), 'the folder shows it takes the item in').toHaveClass(/neo-drop-inside/);
         await expect(page.locator(item('a')),   'the source stays in place, dimmed').toHaveClass(/neo-sort-source/);
+
+        // The proxy hangs below the pointer, clear of the folder's label and outline
+        const proxy  = await page.locator('.neo-dragproxy').boundingBox(),
+              folder = await page.locator(item('sub')).boundingBox();
+
+        expect(proxy.y, 'the proxy covers no part of the folder it would drop into').toBeGreaterThanOrEqual(folder.y + folder.height);
         await drop(page);
 
         await expect.poll(() => shown(page, 'sub')).toEqual(['c', 'a']);
