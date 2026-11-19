@@ -524,7 +524,7 @@
         "lookFor": "Raise Amount Rows in Gallery Controls until the wall fills the window, then press Order by Row.",
         "featured": false,
         "image": "devmode/gallery-14.jpg",
-        "name": "component.Gallery",
+        "name": "Gallery",
         "sourceUrl": "examples/component/gallery",
         "urls": {
             "devmode": "examples/component/gallery/index.html",

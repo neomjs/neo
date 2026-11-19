@@ -595,12 +595,12 @@
       "id": "covid-helix",
       "viewport": {"width": 1280, "height": 720},
       "theme": "dark",
-      "state": "The economies on the helix, largest population first, India and China at the top.",
+      "state": "The economies coiling around the helix, Malaysia's turn curving away to the left.",
       "dependencies": ["https://hatscripts.github.io/circle-flags/"],
       "ready": [{"selector": ".neo-country-helix-item", "text": "India"}],
       "steps": [],
-      "after": [{"selector": ".neo-country-helix-item", "text": "India", "inRegion": true}],
-      "region": {"x": 380, "y": 0, "width": 640, "height": 360}
+      "after": [{"selector": ".neo-country-helix-item", "text": "Malaysia", "inRegion": true}],
+      "region": {"x": 0, "y": 100, "width": 640, "height": 360}
     }
   ]
 }

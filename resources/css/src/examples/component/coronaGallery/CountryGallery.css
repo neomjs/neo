@@ -10,6 +10,11 @@
     color: green;
 }
 
+/* The page caps its controls beside the gallery; a popup that adopts the panel gives it the whole window */
+.neo-gallery-viewport > .neo-controls-panel {
+    max-width: 50%;
+}
+
 .neo-gallery-maincontainer {
     .neo-controls-panel {
         transition: width .5s ease-in-out;

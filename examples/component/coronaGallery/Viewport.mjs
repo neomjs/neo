@@ -51,7 +51,7 @@ class Viewport extends BaseViewport {
             cls      : ['neo-controls-panel', 'neo-panel', 'neo-container'],
             layout   : {ntype: 'vbox', align: 'stretch'},
             reference: 'controls-panel',
-            style    : {backgroundColor: '#2b2b2b', maxWidth: '50%'},
+            style    : {backgroundColor: '#2b2b2b'},
             width    : 260,
 
             containerConfig: {
