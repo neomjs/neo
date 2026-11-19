@@ -1,4 +1,7 @@
 .neo-dragproxy.neo-tree-list {
+    /* An open folder sticks at z-index 10000 + its level (`Neo.tree.List#createItem`); the proxy passes over it */
+    z-index: 20000;
+
     .neo-list {
         overflow: hidden;
 
