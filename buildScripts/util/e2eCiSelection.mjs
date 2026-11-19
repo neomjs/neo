@@ -208,7 +208,7 @@ export const QUARANTINES = [];
  * shard keeps the test time a full run gives it: a smaller selection costs fewer jobs, not shorter ones.
  * @member {{engine: Number}} FULL_SHARDS
  */
-export const FULL_SHARDS = {engine: 15};
+export const FULL_SHARDS = {engine: 16};
 
 /**
  * Measured seconds per engine-tier spec file, which {@link balancedShard} balances the tier's shards by.
