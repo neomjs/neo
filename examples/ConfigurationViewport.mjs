@@ -1,7 +1,9 @@
-import Button       from '../src/button/Base.mjs';
-import Container    from '../src/container/Base.mjs';
-import Panel        from '../src/container/Panel.mjs';
-import Viewport     from '../src/container/Viewport.mjs';
+import Button              from '../src/button/Base.mjs';
+import CodeView            from './workbench/CodeView.mjs';
+import Container           from '../src/container/Base.mjs';
+import Panel               from '../src/container/Panel.mjs';
+import Viewport            from '../src/container/Viewport.mjs';
+import {formatExampleCode} from './workbench/formatConfig.mjs';
 
 // Default themes
 const themes = [
@@ -12,12 +14,25 @@ const themes = [
 ];
 
 /**
- * Base class for example Apps which should be configurable (workbench stage, inspector, reset)
+ * Base class for example Apps which should be configurable (workbench stage, inspector, code view, reset)
  * @class Neo.examples.ConfigurationViewport
  * @extends Neo.container.Viewport
  * @abstract
  */
 class ConfigurationViewport extends Viewport {
+    /**
+     * Config keys excluded from code-view diffing and reset snapshots because they hold creation-only
+     * structures or internal runtime/VDOM bookkeeping rather than tweakable component configs.
+     * @member {Set<String>} internalExampleConfigs
+     * @protected
+     * @static
+     */
+    static internalExampleConfigs = new Set([
+        'appName', 'body', 'columnDefaults', 'columns', 'handler', 'id', 'isDestroying',
+        'isReady', 'isVdomUpdating', 'items', 'listeners', 'module', 'mounted',
+        'needsVnodeUpdate', 'parentComponent', 'parentId', 'plugins', 'store',
+        'vdom', 'vnode', 'windowId', 'wrapperStyle'
+    ])
     static config = {
         /**
          * @member {String} className='Neo.examples.ConfigurationViewport'
@@ -259,54 +274,173 @@ class ConfigurationViewport extends Viewport {
     }
 
     /**
+     * Config keys currently subscribed on `exampleComponent` via `observeConfig`.
+     * @member {Set<String>} #observedExampleConfigs=new Set()
+     * @private
+     */
+    #observedExampleConfigs = new Set()
+
+    /**
+     * @summary Returns only tracked configs whose current value differs from initial state.
+     * @returns {Object} Map of changed config keys to their current values
+     */
+    getChangedConfigs() {
+        let me      = this,
+            changed = {};
+
+        if (!me.initialConfigValues || !me.exampleComponent) {
+            return changed
+        }
+
+        Object.entries(me.initialConfigValues).forEach(([key, initialValue]) => {
+            if (ConfigurationViewport.internalExampleConfigs.has(key)) {
+                return
+            }
+
+            let currentValue = me.exampleComponent[key];
+
+            if (currentValue !== undefined && !Neo.isEqual(currentValue, initialValue)) {
+                changed[key] = currentValue
+            }
+        });
+
+        return changed
+    }
+
+    /**
+     * @summary Builds the evaluable Neo config snippet for `exampleComponent` and its changed configs.
+     * @returns {String}
+     */
+    getCodeText() {
+        const me = this;
+
+        if (!me.exampleComponent) {
+            return '{\n}'
+        }
+
+        return formatExampleCode(me.exampleComponent.className || 'Neo.component.Base', me.getChangedConfigs())
+    }
+
+    /**
+     * @summary Updates a tracked example config and refreshes the live Code View.
      * @param {String} config
      * @param {Object} opts
      */
     onConfigChange(config, opts) {
-        if (!this.initialConfigValues) {
-            this.initialConfigValues = {};
-        }
-        if (!(config in this.initialConfigValues) && this.exampleComponent) {
-            this.initialConfigValues[config] = this.exampleComponent[config];
-        }
+        this.trackExampleConfig(config);
         this.exampleComponent[config] = opts.value;
+        this.updateCodeView()
     }
 
     /**
+     * @summary Updates a tracked record-id config and refreshes the live Code View.
      * @param {String} config
      * @param {Object} opts
      */
     onConfigRecordChange(config, opts) {
-        if (!this.initialConfigValues) {
-            this.initialConfigValues = {};
-        }
-        if (!(config in this.initialConfigValues) && this.exampleComponent) {
-            this.initialConfigValues[config] = this.exampleComponent[config];
-        }
+        this.trackExampleConfig(config);
         this.exampleComponent[config] = opts.value?.['id'];
+        this.updateCodeView()
     }
 
     /**
+     * @summary Copies the Code View snippet to the clipboard via {@link Neo.examples.workbench.CodeView#copyCode}.
+     * @param {Object} [data]
+     * @returns {Promise<void>}
+     */
+    onCopyCode(data) {
+        return this.down({reference: 'code-panel'})?.copyCode(data)
+    }
+
+    /**
+     * @summary Updates a tracked radio config when selected and refreshes the live Code View.
      * @param {String} config
      * @param {String} value
      * @param {Object} opts
      */
     onRadioChange(config, value, opts) {
-        if (!this.initialConfigValues) {
-            this.initialConfigValues = {};
-        }
-        if (!(config in this.initialConfigValues) && this.exampleComponent) {
-            this.initialConfigValues[config] = this.exampleComponent[config];
-        }
+        this.trackExampleConfig(config);
         if (opts.value === true) {
             this.exampleComponent[config] = value;
+            this.updateCodeView()
+        }
+    }
+
+    /**
+     * @summary Resolves the candidate config key bound to an inspector control if present on `exampleComponent`.
+     * Controls without an explicit `name` match by camel-cased `labelText` or `valueLabel` convention.
+     * @param {Object} item
+     * @returns {String|null}
+     * @protected
+     */
+    resolveControlConfigKey(item) {
+        let example = this.exampleComponent;
+
+        if (!example || !item) {
+            return null
+        }
+
+        for (const candidate of [item.name, item.labelText, item.valueLabel]) {
+            if (typeof candidate !== 'string' || !candidate) continue;
+
+            if (!ConfigurationViewport.internalExampleConfigs.has(candidate) &&
+                (candidate in example) &&
+                typeof example[candidate] !== 'function') {
+                return candidate
+            }
+
+            let camel = candidate[0].toLowerCase() + candidate.slice(1);
+
+            if (/^[a-zA-Z_$][\w$]*$/.test(camel) &&
+                !ConfigurationViewport.internalExampleConfigs.has(camel) &&
+                (camel in example) &&
+                typeof example[camel] !== 'function') {
+                return camel
+            }
+        }
+
+        return null
+    }
+
+    /**
+     * @summary Records initial value and subscribes to reactive changes for an exposed example config.
+     * @param {String|null} configKey
+     * @protected
+     */
+    trackExampleConfig(configKey) {
+        let me = this;
+
+        if (!configKey || ConfigurationViewport.internalExampleConfigs.has(configKey) || !me.exampleComponent) {
+            return
+        }
+
+        me.initialConfigValues ??= {};
+
+        if (!(configKey in me.initialConfigValues) && (configKey in me.exampleComponent)) {
+            me.initialConfigValues[configKey] = Neo.clone(me.exampleComponent[configKey], true, true)
+        }
+
+        if (!me.#observedExampleConfigs.has(configKey) && me.exampleComponent.isConfig?.(configKey)) {
+            me.#observedExampleConfigs.add(configKey);
+            me.observeConfig(me.exampleComponent, configKey, () => me.updateCodeView())
+        }
+    }
+
+    /**
+     * @summary Pushes the latest {@link #getCodeText} snippet into the reactive Code View component.
+     */
+    updateCodeView() {
+        const codePanel = this.down({reference: 'code-panel'});
+
+        if (codePanel) {
+            codePanel.code = this.getCodeText()
         }
     }
 
     /**
      * Snapshots the initial state of the inspector controls and of the example component configs they control.
-     * Only configs bound to a control (`item.name`) are restored by `onReset()`. The creation config
-     * (stores, columns, items, handlers) is never written back, since this would re-create them.
+     * Only configs bound to a control (`item.name` / `labelText` / `valueLabel`) are restored by `onReset()`.
+     * Creation configs (stores, columns, items, handlers) are excluded, since restoring them would re-create them.
      */
     snapshotInitialState() {
         let me = this;
@@ -316,8 +450,8 @@ class ConfigurationViewport extends Viewport {
 
         const inspector = me.items?.[1];
 
-        const inspectControl = (item) => {
-            if (!item) return;
+        const inspectControl = item => {
+            if (!item || item.reference === 'code-panel') return;
 
             if (item.ntype !== 'button' && !item.isButton && item.ntype !== 'label') {
                 const hasChecked = typeof item.checked === 'boolean';
@@ -325,17 +459,15 @@ class ConfigurationViewport extends Viewport {
 
                 if (hasChecked || hasValue) {
                     me.initialControlStates.push({
-                        item,
                         hasChecked,
-                        initialChecked: item.checked,
                         hasValue,
-                        initialValue  : item.value
+                        initialChecked: item.checked,
+                        initialValue  : item.value,
+                        item
                     });
                 }
 
-                if (item.name && me.exampleComponent && (item.name in me.exampleComponent)) {
-                    me.initialConfigValues[item.name] = me.exampleComponent[item.name];
-                }
+                me.trackExampleConfig(me.resolveControlConfigKey(item));
             }
 
             if (Array.isArray(item.items)) {
@@ -348,6 +480,8 @@ class ConfigurationViewport extends Viewport {
         } else if (Array.isArray(me.configurationComponents)) {
             me.configurationComponents.forEach(inspectControl);
         }
+
+        me.updateCodeView()
     }
 
     /**
@@ -359,8 +493,8 @@ class ConfigurationViewport extends Viewport {
         // 1. Reset example component configs
         if (me.initialConfigValues && me.exampleComponent) {
             Object.entries(me.initialConfigValues).forEach(([config, val]) => {
-                if (config !== 'id' && config !== 'vnode' && config !== 'vdom') {
-                    me.exampleComponent[config] = val;
+                if (!ConfigurationViewport.internalExampleConfigs.has(config) && !Neo.isEqual(me.exampleComponent[config], val)) {
+                    me.exampleComponent[config] = Neo.clone(val, true, true)
                 }
             });
         }
@@ -385,6 +519,8 @@ class ConfigurationViewport extends Viewport {
                 }
             });
         }
+
+        me.updateCodeView()
     }
 
     /**
@@ -486,9 +622,13 @@ class ConfigurationViewport extends Viewport {
             flex  : me.exampleComponentFlex,
             layout: 'base'
         }, {
-            module: Panel,
-            cls   : ['neo-panel', 'neo-container', 'neo-configuration-panel', 'neo-workbench-inspector'],
-            flex  : me.configPanelFlex,
+            module         : Panel,
+            cls            : ['neo-panel', 'neo-container', 'neo-configuration-panel', 'neo-workbench-inspector'],
+            containerConfig: {
+                cls   : ['neo-workbench-inspector-content'],
+                layout: {ntype: 'vbox', align: 'stretch'}
+            },
+            flex           : me.configPanelFlex,
 
             style: {
                 maxWidth: me.configPanelMaxWidth ? me.configPanelMaxWidth + 'px' : null,
@@ -525,6 +665,7 @@ class ConfigurationViewport extends Viewport {
             items: [{
                 module      : Container,
                 reference   : 'inspector-body',
+                flex        : 1,
                 layout      : {ntype: 'vbox', align: null},
                 cls         : ['neo-configuration-panel-body'],
                 itemDefaults: {
@@ -534,6 +675,10 @@ class ConfigurationViewport extends Viewport {
                 },
 
                 items: me.configurationComponents
+            }, {
+                module   : CodeView,
+                code     : me.getCodeText(),
+                reference: 'code-panel'
             }]
         }];
 

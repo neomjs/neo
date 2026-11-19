@@ -119,17 +119,27 @@ class MainContainer extends ConfigurationViewport {
     createExampleComponent() {
         return Neo.create({
             module : SplitButton,
-            iconCls: 'fa fa-home',
-            text   : 'Hello World',
+            iconCls: 'fa fa-floppy-disk',
+            text   : 'Save',
             ui     : 'ghost',
 
             handler: data => {
                 console.log('button click =>', data.component.id)
             },
 
-            splitButtonHandler: data => {
-                console.log('split button click =>', data.component.id)
-            }
+            menu: [{
+                handler: record => console.log('menu item click =>', record.text),
+                iconCls: 'fa fa-copy',
+                text   : 'Save as…'
+            }, {
+                handler: record => console.log('menu item click =>', record.text),
+                iconCls: 'fa fa-file-export',
+                text   : 'Export'
+            }, {
+                handler: record => console.log('menu item click =>', record.text),
+                iconCls: 'fa fa-print',
+                text   : 'Print'
+            }]
         })
     }
 }

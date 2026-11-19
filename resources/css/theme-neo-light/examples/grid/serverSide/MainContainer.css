@@ -1,0 +1,6 @@
+:where(.neo-theme-neo-light) {
+    --server-side-background: #f1f5f8;
+    --server-side-muted: #526777;
+    --server-side-receipt: #e1edf2;
+    --server-side-text: #182e3b;
+}

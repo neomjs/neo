@@ -1,16 +1,26 @@
 import Viewport from './Viewport.mjs';
 
 /**
- * @summary Starts the sprint board example in the theme `?theme=` names, or the first configured theme.
+ * @summary Starts the sprint board example in the theme `?theme=` names, else in the dark theme when the system
+ * prefers dark, else in the first configured theme.
  * @returns {Neo.controller.Application}
  */
 export const onStart = () => {
     const
-        {themes, url} = Neo.config,
-        requested     = new URLSearchParams(url?.search).get('theme');
+        {prefersDarkTheme, themes, url} = Neo.config,
+        requested                       = new URLSearchParams(url?.search).get('theme'),
+        dark                            = 'neo-theme-neo-dark';
+
+    let theme = themes[0];
+
+    if (themes.includes(requested)) {
+        theme = requested
+    } else if (prefersDarkTheme && themes.includes(dark)) {
+        theme = dark
+    }
 
     return Neo.app({
-        mainView: {module: Viewport, theme: themes.includes(requested) ? requested : themes[0]},
+        mainView: {module: Viewport, theme},
         name    : 'BoardBasic'
     })
 };

@@ -1,0 +1,7 @@
+/* Value sheet for the dialog tokens the shared `src/dialog/Base.css` hover rule reads.
+   The rest of this theme's dialog styling is untouched: no other --dialog-* token is set
+   here, exactly as before, so nothing but the title-bar hover changes (#21422). */
+:root .neo-theme-cyberpunk { /* .neo-dialog */
+    --dialog-header-button-background-color-hover: var(--button-background-color-hover);
+    --dialog-icon-color-hover                    : var(--button-glyph-color-hover);
+}
