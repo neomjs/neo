@@ -51,9 +51,9 @@ class MainModel extends TreeModel {
             type        : 'Integer',
             defaultValue: 0
         }, {
-            name        : 'utilization',
-            type        : 'Integer',
-            defaultValue: 0
+            name     : 'utilization',
+            type     : 'Integer',
+            calculate: data => data.budget > 0 ? Math.round((data.spent / data.budget) * 100) : 0
         }]
     }
 }

@@ -84,5 +84,23 @@ test.describe('examples/grid/tree MainStore', () => {
         expect(store.get('dept-platform').budget).toBe(deptBase);
 
         store.destroy()
+    });
+
+    test('a ratio-changing leaf edit recomputes the edited leaf utilization alongside its ancestors', () => {
+        const store = Neo.create(MainStore),
+              leaf  = store.get('item-worker-pool'),
+              team  = store.get('team-runtime'),
+              dept  = store.get('dept-platform');
+
+        expect(leaf.utilization).toBe(75);
+        expect(store.get('item-signing').owner).toBe('Kwame Mensah');
+
+        leaf.set({spent: leaf.spent + 200000});
+
+        expect(leaf.utilization).toBe(117);
+        expect(team.utilization).toBe(Math.round((team.spent / team.budget) * 100));
+        expect(dept.utilization).toBe(Math.round((dept.spent / dept.budget) * 100));
+
+        store.destroy()
     })
 });

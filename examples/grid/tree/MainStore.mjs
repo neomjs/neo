@@ -78,27 +78,17 @@ const RAW_BUDGET_NODES = [
     {id: 'team-security', parentId: 'dept-cloud', isLeaf: false, collapsed: true, levelKind: 'Team', name: 'Security & Audit', owner: 'Rafael Costa', status: 'On track'},
     {id: 'item-dep-scan',    parentId: 'team-security', isLeaf: true, levelKind: 'Item', name: 'Dependency Scanning', owner: 'Rafael Costa',  status: 'On track', headcount: 2, budget: 230000, spent: 168000},
     {id: 'item-csp-guards',  parentId: 'team-security', isLeaf: true, levelKind: 'Item', name: 'CSP & Sandbox Guards', owner: 'Ingrid Solberg', status: 'On track', headcount: 2, budget: 240000, spent: 176000},
-    {id: 'item-signing',     parentId: 'team-security', isLeaf: true, levelKind: 'Item', name: 'Supply-Chain Signing', owner: 'kwame Mensah'.replace(/^k/, 'K'), status: 'Committed', headcount: 2, budget: 220000, spent: 170000}
+    {id: 'item-signing',     parentId: 'team-security', isLeaf: true, levelKind: 'Item', name: 'Supply-Chain Signing', owner: 'Kwame Mensah', status: 'Committed', headcount: 2, budget: 220000, spent: 170000}
 ];
 
 /**
- * @param {Number} spent
- * @param {Number} budget
- * @returns {Number} Integer percentage in [0, 100]
- */
-function calcUtilization(spent, budget) {
-    return budget > 0 ? Math.round((spent / budget) * 100) : 0
-}
-
-/**
- * @summary Clones the raw hierarchy and computes every parent's `headcount`, `budget`, `spent`,
- * and `utilization` bottom-up from its direct children.
+ * @summary Clones the raw hierarchy and computes every parent's `headcount`, `budget`, and `spent`
+ * bottom-up from its direct children (`utilization` derives per-record via `MainModel#fields`).
  * @param {Object[]} rawNodes
  * @returns {Object[]}
  */
 export function buildRollupData(rawNodes = RAW_BUDGET_NODES) {
     const clones           = rawNodes.map(node => ({...node})),
-          byId             = new Map(clones.map(node => [node.id, node])),
           childrenByParent = new Map();
 
     for (const node of clones) {
@@ -115,7 +105,6 @@ export function buildRollupData(rawNodes = RAW_BUDGET_NODES) {
         const children = childrenByParent.get(node.id);
 
         if (!children?.length) {
-            node.utilization = calcUtilization(node.spent, node.budget);
             return node
         }
 
@@ -130,10 +119,9 @@ export function buildRollupData(rawNodes = RAW_BUDGET_NODES) {
             spent     += child.spent
         }
 
-        node.budget      = budget;
-        node.headcount   = headcount;
-        node.spent       = spent;
-        node.utilization = calcUtilization(spent, budget);
+        node.budget    = budget;
+        node.headcount = headcount;
+        node.spent     = spent;
 
         return node
     };
@@ -219,8 +207,7 @@ class MainStore extends Store {
                 parent.set({
                     budget,
                     headcount,
-                    spent,
-                    utilization: calcUtilization(spent, budget)
+                    spent
                 });
 
                 parentId = parent.parentId
