@@ -318,7 +318,7 @@ test.describe('Portal examples section', () => {
               sheet  = page.locator(SHEET);
 
         await expect(button).toBeVisible();
-        await expect(button).toHaveText('All 19 groups');
+        await expect(button).toHaveText('All 20 groups');
         await button.click();
         await expect(sheet).toBeVisible();
         await expect(sheet.locator('[aria-current="page"]')).toHaveText('All examples');
