@@ -368,7 +368,10 @@ test.describe('Neo.button.Base VDOM (Node.js)', () => {
 
         ({vnode} = await splitButton.set({ui: 'tertiary'}));
         expect(vnode.childNodes[0].className).toContain('neo-button-tertiary');
-        expect(vnode.childNodes[1].className).toContain('neo-button-tertiary');
+
+        // The trigger is a child component the split references, so it renders its own ui change
+        await splitButton.triggerButton.promiseUpdate();
+        expect(splitButton.triggerButton.vnode.className).toContain('neo-button-tertiary');
 
         splitButton.destroy();
     });

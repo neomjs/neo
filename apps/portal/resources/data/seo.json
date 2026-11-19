@@ -1065,7 +1065,7 @@
     },
     "/examples/grid": {
         "title": "JavaScript Data Grid Examples — 100k Rows in a Web Worker | Neo.mjs",
-        "description": "Explore 17 live JavaScript data grid examples: Opens at 20,000 × 50 and scales to 100,000 × 200, row-buffered, data in a Web Worker.",
+        "description": "Explore 18 live JavaScript data grid examples: Opens at 20,000 × 50 and scales to 100,000 × 200, row-buffered, data in a Web Worker.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-19"
     },
@@ -1866,6 +1866,12 @@
         "description": "A Neo.mjs JavaScript Data Grid with columns pinned at both edges: product and region stay at the start, the total at the end, while 36 months scroll between.",
         "schemaType": "WebPage",
         "lastmod": "2026-11-17"
+    },
+    "/examples/grid/serverSide/index.html": {
+        "title": "Grid — Simulated Server Paging — Web Worker Data Grid Demo | Neo.mjs",
+        "description": "One-page loading with remote sorting and filtering over 100,000 seeded orders. Change page, sort a header or choose a country: the request line shows the...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-18"
     },
     "/examples/grid/tree/index.html": {
         "title": "Tree Grid Example — Web Worker Data Grid Demo | Neo.mjs",

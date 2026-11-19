@@ -631,7 +631,8 @@ class Button extends Component {
 
     /**
      * Handles the click event on the button.
-     * Triggers the configured handler, toggles the menu, updates the route, and shows the ripple effect if applicable.
+     * Triggers the configured handler, toggles the menu this button built, updates the route, and shows the ripple
+     * effect if applicable.
      * @param {Object} data The click event data object.
      */
     onClick(data) {
@@ -640,7 +641,7 @@ class Button extends Component {
         me.bindCallback(me.handler, 'handler', me.handlerScope || me);
         me.handler?.(data);
 
-        me.menu            && me.toggleMenu();
+        me.menu            && me.menuListReady && me.toggleMenu();
         me.route           && me.changeRoute(); // only relevant for editRoute=true
         me.useRippleEffect && me.showRipple(data)
     }
