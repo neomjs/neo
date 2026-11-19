@@ -1188,6 +1188,24 @@
         "lookFor": "Filter and sort 300 invoices, show the CSV beside the grid, switch to semicolons, then download it."
     },
     {
+        "id": "grid-server-side",
+        "image": "devmode/grid-server-side-14.jpg",
+        "name": "Grid Server-side Paging",
+        "sourceUrl": "examples/grid/serverSide",
+        "urls": {
+            "devmode": "examples/grid/serverSide/index.html",
+            "dist_dev": "dist/development/examples/grid/serverSide/index.html",
+            "dist_esm": "dist/esm/examples/grid/serverSide/index.html",
+            "dist_prod": "dist/production/examples/grid/serverSide/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "component": "Grid",
+        "feature": "One-page loading with remote sorting and filtering over 100,000 seeded orders",
+        "lookFor": "Change page, sort a header or choose a country: the request line shows the parameters and only one page reaches the grid.",
+        "scope": "The server is simulated inside the example; no HTTP API or backend process is required."
+    },
+    {
         "id": "grid-header-groups",
         "image": "devmode/grid-header-groups-14.jpg",
         "name": "Grouped Grid Headers",

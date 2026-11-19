@@ -206,6 +206,23 @@
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },
     {
+      "id": "grid-server-side",
+      "viewport": {"width": 640, "height": 600},
+      "theme": "dark",
+      "state": "Dark-theme first page of seeded orders, country filter off; the request line identifies the simulated server's completed read.",
+      "ready": [{"selector": ".server-side-request", "text": "50 of 100,000 rows"}],
+      "steps": [
+        {"kind": "click", "selector": ".server-side-heading .neo-button", "text": "Dark theme"},
+        {"kind": "wait", "selector": ".server-side-heading .neo-button", "text": "Light theme"},
+        {"kind": "wait", "selector": ".neo-grid-cell[data-field='customer']:text-is('Granite Co')"}
+      ],
+      "after": [
+        {"selector": ".neo-grid-cell[data-field='customer']", "text": "Granite Co", "inRegion": true},
+        {"selector": ".server-side-scope", "text": "Simulated server", "inRegion": true}
+      ],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
       "id": "grid-value-banding",
       "viewport": {"width":1030,"height":360},
       "theme": "default",
