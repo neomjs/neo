@@ -1353,8 +1353,8 @@
             "tree"
         ],
         "component": "Grid",
-        "feature": "Hierarchical rows",
-        "lookFor": "Expand and collapse the sample file hierarchy in the Name column."
+        "feature": "A three-level budget hierarchy whose parent rows roll up seats, budget and spend from their children",
+        "lookFor": "Expand a team with its arrow or Right/Left keys and check that its items sum to the team and department totals."
     },
     {
         "id": "grid-value-banding",

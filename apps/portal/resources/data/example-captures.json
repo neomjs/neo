@@ -229,12 +229,12 @@
     },
     {
       "id": "grid-tree",
-      "viewport": {"width": 1280, "height": 720},
+      "viewport": {"width": 960, "height": 640},
       "theme": "default",
-      "state": "The src/component hierarchy is expanded two levels to show Base.mjs and Button.mjs.",
-      "ready": [{"selector": ".neo-grid-cell[data-field='name']", "text": "component"}],
-      "steps": [{"kind": "click", "selector": ".neo-grid-row:has(.neo-grid-cell[data-field='name']:has-text('component')) .neo-tree-toggle"}],
-      "after": [{"selector": ".neo-grid-cell[data-field='name']", "text": "Base.mjs"}, {"selector": ".neo-grid-cell[data-field='name']", "text": "Button.mjs"}],
+      "state": "Core Platform's Runtime Engine team is expanded so its three budget items show under their rolled-up team and department totals.",
+      "ready": [{"selector": ".neo-grid-cell[data-field='name']", "text": "Runtime Engine"}],
+      "steps": [{"kind": "click", "selector": ".neo-grid-row:has(.neo-grid-cell[data-field='name']:has-text('Runtime Engine')) .neo-tree-toggle"}],
+      "after": [{"selector": ".neo-grid-cell[data-field='name']", "text": "V8 Worker Pool"}, {"selector": ".neo-grid-cell[data-field='name']", "text": "Virtual DOM Diffing"}],
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },
     {
