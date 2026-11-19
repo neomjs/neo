@@ -274,22 +274,22 @@
     },
     {
       "id": "table-container",
-      "viewport": {"width":1030,"height":360},
+      "viewport": {"width":1000,"height":420},
       "theme": "dark",
-      "state": "Fit width enabled using the public configuration checkbox; complete six-column table and row menu visible, Configuration panel outside the frame.",
+      "state": "Sorted specification sheet showing content-sized columns and wrapped operational notes with the Inspector outside the frame.",
       "ready": [
-        {"selector":".neo-table-cell .neo-button","text":"⋮"}
+        {"selector":".neo-table-cell.neo-table-spec-notes"}
       ],
       "steps": [
         {"kind":"click","selector":".neo-configuration-header-toolbar .neo-button","text":"Theme Dark"},
-        {"kind":"click","selector":".neo-checkboxfield","text":"Fit width"},
-        {"kind":"click","selector":".neo-table-cell .neo-button","text":"⋮","nth":0}
+        {"kind":"click","selector":".neo-table-header-button","text":"Specification"}
       ],
       "after": [
-        {"selector":"#myTableStoreContainer","inRegion":true},
-        {"selector":".neo-menu-list","text":"Menu option 4","inRegion":true}
+        {"selector":"th[aria-sort='ascending']","text":"Specification","inRegion":true},
+        {"selector":".neo-table-cell","text":"Audit log retention","inRegion":true},
+        {"selector":".neo-table-cell","text":"Security","inRegion":true}
       ],
-      "region": {"x":10,"y":0,"width":640,"height":360}
+      "region": {"x":20,"y":20,"width":640,"height":360}
     },
     {
       "id": "grid-big-data",
