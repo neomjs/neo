@@ -18,15 +18,11 @@
         text-align: right;
     }
 
-    .neo-content-critical {
-        color: orange;
-    }
-
-    .neo-content-deaths {
+    .neo-content-down {
         color: red;
     }
 
-    .neo-content-recovered {
+    .neo-content-up {
         color: green;
     }
 

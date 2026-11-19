@@ -1322,16 +1322,16 @@
         "lastmod": "2024-08-17"
     },
     "/examples/component/coronaGallery/index.html": {
-        "title": "COVID19 Gallery — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "COVID country statistics in a 3D gallery, sorted by the figure you pick. Under Sort By, choose Deaths, then raise Amount Rows in Gallery Controls.",
+        "title": "Country Gallery — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "217 economies in a 3D gallery, each with its flag and six World Bank figures, sorted by the one you pick. Under Sort By, choose GDP, then raise Amount Rows in Gallery Controls.",
         "schemaType": "WebPage",
-        "lastmod": "2026-03-07"
+        "lastmod": "2026-11-19"
     },
     "/examples/component/coronaHelix/index.html": {
-        "title": "COVID19 Helix — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "COVID country statistics on a 3D helix, sorted by the figure you pick. Under Sort By, choose Deaths and watch the countries reorder along the helix.",
+        "title": "Country Helix — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "217 economies on a 3D helix, each with its flag and six World Bank figures, sorted by the one you pick. Under Sort By, choose Life and watch the countries reorder along the helix.",
         "schemaType": "WebPage",
-        "lastmod": "2026-03-07"
+        "lastmod": "2026-11-19"
     },
     "/examples/component/dateSelector/index.html": {
         "title": "DateSelector — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1370,7 +1370,7 @@
         "lastmod": "2026-06-13"
     },
     "/examples/component/multiWindowCoronaGallery/index.html": {
-        "title": "Multi-Window Corona Gallery — Multi-Window JavaScript Demo | Neo.mjs",
+        "title": "Multi-Window Country Gallery — Multi-Window JavaScript Demo | Neo.mjs",
         "description": "Gallery controls move into a second window while still controlling the gallery. Maximise Gallery Controls, change Translate X in the popup, then close it to...",
         "schemaType": "WebPage",
         "lastmod": "2026-01-21"
