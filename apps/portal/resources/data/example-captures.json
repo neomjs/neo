@@ -735,6 +735,17 @@
       "region": {"selector": ".neo-mermaid", "anchor": "center", "width": 640, "height": 360}
     },
     {
+      "id": "am-charts",
+      "viewport": {"width": 740, "height": 460},
+      "theme": "default",
+      "state": "The nine countries' shares as amCharts draws the pie from its static data, with its labels and legend.",
+      "dependencies": ["https://cdn.amcharts.com/lib/4/"],
+      "ready": [{"selector": "[data-drawn='true']", "count": 1}],
+      "steps": [],
+      "after": [{"selector": "svg text", "text": "Lithuania: 30.5%"}],
+      "region": {"selector": "[data-drawn='true']", "anchor": "top-left", "width": 640, "height": 360}
+    },
+    {
       "id": "layouts-side-by-side",
       "viewport": {"width": 1280, "height": 720},
       "theme": "dark",

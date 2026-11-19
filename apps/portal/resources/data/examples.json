@@ -1047,7 +1047,7 @@
         "feature": "An amCharts pie chart wrapper renders a labelled dataset and interactive legend.",
         "lookFor": "Hover the pie segments and legend entries to compare each country's share.",
         "scope": "Loads amCharts 4 from cdn.amcharts.com; the country values are static demonstration data.",
-        "image": null,
+        "image": "devmode/am-charts-14.jpg",
         "name": "amCharts Pie",
         "sourceUrl": "examples/charts",
         "urls": {

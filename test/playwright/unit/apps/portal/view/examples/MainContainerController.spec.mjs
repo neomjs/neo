@@ -444,7 +444,7 @@ test.describe('Portal examples overview and group pages', () => {
         expect(pageIds(view, 'dialogs')).toEqual(['dialog-drag-drop', 'toast', 'popover']);
         expect(pageIds(view, 'drag-drop').filter(id => id === 'dialog-drag-drop')).toHaveLength(1);
         expect(pageIds(view, 'platform')).toEqual(['offscreen-canvas', 'shared-offscreen-canvas']);
-        expect(pageIds(view, 'charts')).toEqual(['offscreen-canvas', 'open-street-maps', 'graph-scene', 'sparklines', 'mermaid']);
+        expect(pageIds(view, 'charts')).toEqual(['offscreen-canvas', 'open-street-maps', 'graph-scene', 'am-charts', 'sparklines', 'mermaid']);
         expect(pageIds(view, 'tree')).toEqual(['grid-tree-big-data', 'grid-tree']);
         expect(view.getGroupStore().get('dialogs').count).toBe(3);
         expect(view.getGroupStore().get('drag-drop').count).toBe(0);
@@ -698,7 +698,7 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
       // The catalog's only count literals: a new covered example changes its group's row, a new record the record count.
       // [home count, count from other groups] per group in a production build, in definition order
       groupCounts = {
-          apps          : [6, 5], 'grid-table': [19, 0], tree: [0, 2], lists: [12, 0], charts: [4, 1],
+          apps          : [6, 5], 'grid-table': [19, 0], tree: [0, 2], lists: [12, 0], charts: [5, 1],
           calendar      : [1, 0], scheduler   : [2, 0], gantt: [2, 0], board: [2, 0],
           dashboard     : [4, 1], tabs        : [2, 0], layouts: [3, 0], dialogs: [3, 0],
           forms         : [28, 1], buttons    : [2, 0], components: [9, 0],
