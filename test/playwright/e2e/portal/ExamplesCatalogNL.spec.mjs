@@ -437,8 +437,8 @@ test.describe('Portal examples section', () => {
             await expect(tiles.first().locator('.portal-example-open-cue')).toHaveText('↗');
             await expect(tiles.first().locator('.portal-example-open-cue'))
                 .toHaveAttribute('href', await tiles.first().locator('.neo-title').getAttribute('href'));
-            // a page of one kind heads neither
-            await expect(page.locator(`${PAGE} .portal-examples-kind-heading`)).toHaveCount(0);
+            // the form app's card stands above the tiles, and a page of both kinds heads each
+            await expect(page.locator(`${PAGE} .portal-examples-kind-heading`)).toHaveText(['Demonstrations', 'Field types']);
 
             const tops = await tiles.evaluateAll(items => items.map(item => Math.round(item.getBoundingClientRect().top)));
             expect(tops.filter(top => top === tops[0])).toHaveLength(perRow);

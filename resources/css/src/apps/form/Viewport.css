@@ -1,0 +1,35 @@
+.form-viewport {
+    background: var(--neo-background-color);
+    color     : var(--neo-color);
+
+    .form-step-nav {
+        padding: 24px;
+        width  : 280px;
+    }
+
+    .form-step-nav-text {
+        color      : var(--sem-color-text-neutral-subdued);
+        font-size  : 14px;
+        line-height: 1.5;
+        margin     : 0 0 20px;
+    }
+
+    .form-step-nav-title {
+        font-size  : 24px;
+        font-weight: 700;
+        margin     : 0 0 8px;
+    }
+
+    /* A phone folds the step list away: the form's header names the step */
+    @media (max-width: 599px) {
+        .form-step-nav {
+            display: none;
+        }
+
+        .form-form-container.neo-container {
+            border       : 0;
+            border-radius: 0;
+            margin       : 0;
+        }
+    }
+}

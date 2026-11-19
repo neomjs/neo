@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "families": ["grid-table", "gantt", "scheduler", "board", "charts", "dashboard", "apps", "dialogs", "lists", "layouts", "tabs"],
+  "families": ["grid-table", "gantt", "scheduler", "board", "charts", "dashboard", "apps", "dialogs", "lists", "layouts", "tabs", "forms"],
   "suffix": "14",
   "tiles": [
     "examples/form/field/checkbox", {"path": "examples/form/field/chip", "width": 220},
@@ -748,6 +748,28 @@
       "ready": [{"selector": ".neo-tab-header-button", "text": "Inbox"}, {"selector": ".neo-tab-overflow-control"}],
       "steps": [],
       "after": [{"selector": ".neo-tab-header-button", "text": "Inbox", "inRegion": true}, {"selector": ".neo-example-browser-claim", "inRegion": true}, {"selector": ".neo-tab-overflow-control", "inRegion": true}],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "form-app",
+      "viewport": {"width": 640, "height": 360},
+      "theme": "default",
+      "state": "The account form's second step after a valid first one: the step list marks About you as done, and the Address step is filled in.",
+      "ready": [{"selector": ".form-header-label", "text": "About you"}],
+      "steps": [
+        {"kind": "fill", "selector": "input[name='person.firstName']", "value": "Ada"},
+        {"kind": "fill", "selector": "input[name='person.lastName']", "value": "Lovelace"},
+        {"kind": "fill", "selector": "input[name='person.email']", "value": "ada@example.com"},
+        {"kind": "click", "selector": ".neo-button", "text": "Next"},
+        {"kind": "wait", "selector": ".form-header-label", "text": "Address"},
+        {"kind": "fill", "selector": "input[name='address.street']", "value": "Unter den Linden 1"},
+        {"kind": "fill", "selector": "input[name='address.zip']", "value": "10115"},
+        {"kind": "fill", "selector": "input[name='address.city']", "value": "Berlin"}
+      ],
+      "after": [
+        {"selector": ".form-side-nav-state-valid", "count": 1},
+        {"selector": ".form-header-label", "text": "Address", "inRegion": true}
+      ],
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     }
   ]
