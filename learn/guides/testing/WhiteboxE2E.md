@@ -61,9 +61,9 @@ The shared scope classifier picks the tier's population:
 
 The tier's job summary names what the selection ran and why, spec by spec. A `dev` red after a selective green belongs to the merged pull request's author: their change is the one the selection judged unable to reach the spec. They triage it first, rerunning a chronic flaker on record and noting it on that flaker's ticket, and otherwise fixing forward or reverting.
 
-Each shard's test step stops at five minutes.
+Each shard's test step stops at six minutes.
 
-The shards split the tier by measured time, not by test count. `buildScripts/util/e2eEngineDurations.json` holds each file's seconds, and `e2eCiSelection.mjs` gives each file, longest first, to the shard with the least time so far. A file the table does not list yet counts as its median, so a new spec needs no table edit. A file's time varies from runner to runner, so the table holds each file's costliest of several runs. When the shards' times drift from the table, rebuild it from the logs of at least five green full-matrix runs, `dev` pushes first, one log file per run:
+The shards split the tier by measured time, not by test count. `buildScripts/util/e2eEngineDurations.json` holds each file's seconds, and `e2eCiSelection.mjs` gives each file, longest first, to the shard with the least time so far. A file the table does not list yet counts as the table's 90th percentile, so a new spec needs no table edit. A file's time varies from runner to runner, so the table holds each file's costliest of several runs. When the shards' times drift from the table, rebuild it from the logs of at least five green full-matrix runs, `dev` pushes first, one log file per run:
 
 ```bash
 for id in <run-id> <run-id> <run-id> <run-id> <run-id>; do gh run view "$id" --log > "e2e-$id.log"; done
