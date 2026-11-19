@@ -13,7 +13,8 @@ import TextField from '../../form/field/Text.mjs';
  * open and the record unchanged. {@link #editor} configures the field, its `validator` included.
  *
  * While an edit runs, the list's keyboard navigation pauses, so the arrow keys, Home, End and Enter move the
- * caret and commit instead of moving between items.
+ * caret and commit instead of moving between items. A click inside the field stays in it: it places the caret
+ * instead of reaching the list as an item click, which would toggle a tree folder or the selection.
  * @class Neo.list.plugin.ItemEditing
  * @extends Neo.plugin.Base
  */
@@ -48,6 +49,11 @@ class ItemEditing extends Plugin {
      * @member {Object|null} #f2Key=null
      */
     #f2Key = null
+    /**
+     * The owner's double-click listener, kept to remove it again
+     * @member {Object[]|null} #ownerDomListeners=null
+     */
+    #ownerDomListeners = null
 
     /**
      * Ends an edit without writing it: the item shows its text again.
@@ -97,10 +103,19 @@ class ItemEditing extends Plugin {
      * @param {...*} args
      */
     destroy(...args) {
-        let me = this;
+        let me               = this,
+            {owner, session} = me;
 
-        me.session && me.#endEdit();
-        me.#f2Key && me.owner.keys?.removeKey(me.#f2Key);
+        // An owner being destroyed takes its items, keys and listeners with it: only the editor is left to go. A
+        // plugin destroyed on its own leaves a list that lives on, so the edit ends and the bindings come off.
+        if (owner.isDestroying) {
+            me.session = null;
+            session?.editor.destroy(!!session.editor.parent, true)
+        } else {
+            session && me.#endEdit();
+            me.#f2Key && owner.keys?.removeKey(me.#f2Key);
+            me.#ownerDomListeners && owner.removeDomListeners(me.#ownerDomListeners)
+        }
 
         super.destroy(...args)
     }
@@ -125,6 +140,13 @@ class ItemEditing extends Plugin {
         }
 
         return null
+    }
+
+    /**
+     * A click or double-click inside the field belongs to the field. Its listener stops the event before it reaches
+     * the list (`bubble: false`), and there is nothing else to do.
+     */
+    onEditorClick() {
     }
 
     /**
@@ -161,14 +183,11 @@ class ItemEditing extends Plugin {
         let me      = this,
             {owner} = me;
 
-        me.#f2Key = {fn: me.onF2Key.bind(me), key: 'F2', scope: owner.id};
+        me.#f2Key = {fn: 'onF2Key', key: 'F2', scope: me.id};
         owner.keys?._keys.push(me.#f2Key);
 
-        owner.addDomListeners({
-            dblclick: me.onItemDoubleClick,
-            delegate: '.' + owner.itemCls,
-            scope   : me
-        })
+        me.#ownerDomListeners = [{dblclick: me.onItemDoubleClick, delegate: '.' + owner.itemCls, scope: me}];
+        owner.addDomListeners(me.#ownerDomListeners)
     }
 
     /**
@@ -204,15 +223,14 @@ class ItemEditing extends Plugin {
             appName  : owner.appName,
             cls      : NeoArray.union(me.editor?.cls || [], ['neo-list-item-editor']),
             hideLabel: true,
-            keys     : {
-                Enter : () => me.completeEdit(),
-                Escape: () => me.cancelEdit()
-            },
+            keys     : {Enter: 'completeEdit', Escape: 'cancelEdit', scope: me.id},
             parentId : owner.id,
             theme    : owner.theme,
             value    : record[owner.displayField],
             windowId : owner.windowId
         });
+
+        editor.addDomListeners({click: me.onEditorClick, dblclick: me.onEditorClick, bubble: false, scope: me});
 
         editor.on({
             focusLeave: me.onEditorFocusLeave,

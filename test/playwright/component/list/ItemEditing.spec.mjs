@@ -174,6 +174,35 @@ test.describe('Neo.list.plugin.ItemEditing — items are renamed in place', () =
         await expect.poll(() => texts(page)).toEqual(['papers', 'notes.txt'])
     });
 
+    test('a click inside the field leaves a tree folder open and the edit running', async ({page}) => {
+        await create(page, {
+            importPath                : '../tree/List.mjs',
+            ntype                     : 'treelist',
+            showCollapseExpandAllIcons: false,
+            store                     : {
+                model: {fields: FIELDS},
+                data : [
+                    {id: 'docs', name: 'docs',  parentId: null,   isLeaf: false, collapsed: false},
+                    {id: 'a',    name: 'a.txt', parentId: 'docs', isLeaf: true}
+                ]
+            }
+        });
+
+        await item(page, 'docs').dblclick();
+        await expect(page.locator(EDITOR)).toBeFocused();
+
+        // A list item click would toggle the folder: the press places the caret instead
+        await page.locator(EDITOR).click();
+        await page.locator(EDITOR).dblclick();
+
+        await expect(page.locator(EDITOR), 'the edit stays open').toBeFocused();
+        await expect(page.locator(`#${ID}__docs`), 'the folder stays open').toHaveClass(/neo-folder-open/);
+        await expect(item(page, 'a.txt'), 'its child stays in view').toBeVisible();
+
+        await page.keyboard.press('Escape');
+        await expect.poll(() => texts(page)).toEqual(['docs', 'a.txt'])
+    });
+
     test('AC-4: a list without the plugin opens no editor', async ({page}) => {
         await list(page, undefined, false);
 
