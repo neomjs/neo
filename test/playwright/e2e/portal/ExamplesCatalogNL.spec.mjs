@@ -12,7 +12,7 @@ const PORTAL    = '/apps/portal/index.html',
       FEATURED  = '.portal-examples-overview:visible .portal-examples-overview-cards',
       GROUPS    = [
           'Apps', 'Grid & Table', 'Trees', 'Lists & Galleries', 'Charts, Canvas & Maps',
-          'Calendar', 'Scheduler', 'Gantt',
+          'Calendar', 'Scheduler', 'Gantt', 'Task Board',
           'Dashboard & Docking', 'Tabs', 'Containers & Layouts', 'Dialogs & Overlays',
           'Forms & Fields', 'Buttons, Menus & Toolbars', 'More components',
           'Multi-Window', 'Workers & Platform', 'State & Data', 'Functional Components', 'Drag & Drop'
@@ -274,17 +274,17 @@ test.describe('Portal examples section', () => {
               counts   = page.locator(`${SIDEBAR} .portal-examples-group-index-count`);
 
         await expect(page.locator(SIDEBAR)).toBeVisible();
-        await expect(headline).toHaveText('91 live examples in 20 groups');
-        expect((await counts.allTextContents()).filter(text => !text.startsWith('(')).reduce((sum, text) => sum + Number(text), 0)).toBe(91);
+        await expect(headline).toHaveText('92 live examples in 21 groups');
+        expect((await counts.allTextContents()).filter(text => !text.startsWith('(')).reduce((sum, text) => sum + Number(text), 0)).toBe(92);
         await expect(page.locator(`${SIDEBAR} .portal-examples-group-index-note`)).toBeVisible();
         await expect(page.locator(`${FEATURED} .neo-list-item`).first().locator('.portal-example-group-badge')).toHaveText('Multi-Window');
 
         // Dev mode cannot open liquid-glass, the one card of More components; its eight tiles stay
         await selectBuild(page, 'Dev mode');
-        await expect(headline).toHaveText('90 live examples in 20 groups');
+        await expect(headline).toHaveText('91 live examples in 21 groups');
         await expect(page.locator(SIDEBAR).getByRole('link', {name: 'More components, 8 live examples'})).toHaveCount(1);
         await selectBuild(page, 'Production build');
-        await expect(headline).toHaveText('91 live examples in 20 groups')
+        await expect(headline).toHaveText('92 live examples in 21 groups')
     });
 
     test('the index is a navigation landmark of links: Tab reaches every entry, Enter opens it, no entry claims to be a tab', async ({page, neuralLink}) => {
@@ -319,7 +319,7 @@ test.describe('Portal examples section', () => {
               sheet  = page.locator(SHEET);
 
         await expect(button).toBeVisible();
-        await expect(button).toHaveText('All 20 groups');
+        await expect(button).toHaveText('All 21 groups');
         await button.click();
         await expect(sheet).toBeVisible();
         await expect(sheet.locator('[aria-current="page"]')).toHaveText('All examples');
@@ -457,10 +457,7 @@ test.describe('Portal examples section', () => {
         await expectOpenPage(page, 'Grid & Table');
         await expect.poll(() => page.locator(PAGE).evaluate(node => node.scrollTop)).toBe(600);
 
-        // a group without a card in this build, and an unknown one, open the overview
-        await page.goto(`${PORTAL}#/examples/board`);
-        await expect(page.locator(FEATURED)).toBeVisible();
-        await expect(page.locator(PAGE)).toHaveCount(0);
+        // an unknown group opens the overview; every defined group has a card or a tile, so the unit spec covers one without
         await page.goto(`${PORTAL}#/examples/unknown`);
         await expect(page.locator(FEATURED)).toBeVisible();
         await expect(page.locator(PAGE)).toHaveCount(0)
