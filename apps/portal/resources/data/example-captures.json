@@ -491,6 +491,16 @@
       "region": {"selector": "[id$='__lane__Web']", "anchor": "top-left", "offsetX": -12, "offsetY": -6, "width": 640, "height": 360}
     },
     {
+      "id": "gantt-big-data",
+      "viewport": {"width": 640, "height": 360},
+      "theme": "dark",
+      "state": "The programme as it opens: its title and counts, 2,000 tasks and 1,972 links, over the first phase, where Zone 1's first tasks step down in bars joined by their links.",
+      "ready": [{"selector": ".programme-counts", "text": "2,000 tasks · 1,972 links"}, {"selector": ".neo-gantt-dependency-arrow"}],
+      "steps": [],
+      "after": [{"selector": ".neo-theme-neo-dark .neo-gantt"}, {"selector": ".programme-counts", "text": "2,000 tasks · 1,972 links", "inRegion": true}, {"selector": ".neo-grid-tree-cell", "text": "Zone 1", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Survey · bay 1", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Clear · bay 1", "inRegion": true}],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
       "id": "dock-layouts",
       "viewport": {"width": 640, "height": 360},
       "theme": "default",

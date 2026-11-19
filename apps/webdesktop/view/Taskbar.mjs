@@ -30,8 +30,8 @@ class WebDesktopTaskbar extends Taskbar {
                 weight : 40
             },
             theme: {
+                bind   : {iconCls: data => data.theme === 'neo-theme-neo-light' ? 'fas fa-moon' : 'fas fa-sun'},
                 handler: 'onThemeButtonClick',
-                iconCls: 'fas fa-sun',
                 vdom   : {'aria-label': 'Switch theme'},
                 weight : 50
             },

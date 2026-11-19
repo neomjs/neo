@@ -1,0 +1,16 @@
+.webdesktop-documents-folders {
+    border-right: 1px solid var(--desktop-app-window-border-color);
+    overflow-y  : auto;
+    padding-top : 6px;
+    width       : 180px;
+}
+
+.webdesktop-documents-toolbar {
+    border-bottom: 1px solid var(--desktop-app-window-border-color);
+    padding      : 6px 12px;
+
+    .webdesktop-documents-title {
+        font-size  : 14px;
+        font-weight: 600;
+    }
+}

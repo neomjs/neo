@@ -299,7 +299,10 @@ class Dialog extends Panel {
         super.afterSetMounted(value, oldValue);
 
         // Ensure focus trapping is up-to-date, enabled or disabled.
-        oldValue !== undefined && this.syncTrapFocus()
+        oldValue !== undefined && this.syncTrapFocus();
+
+        // A mounted modal dialog is on the page now: the mask goes below it
+        value && this.syncModalMask()
     }
 
     /**
@@ -523,20 +526,19 @@ class Dialog extends Panel {
         if (animate) {
             me.animateHide()
         } else {
+            // The mask leaves with the dialog: destroy() retires the instance and its timers
+            me.syncModalMask(me.id, false);
             me.fire('close');
             me.destroy(true)
         }
     }
 
     /**
+     * Runs the {@link #closeAction}: what the close button and Escape do
      * @param {Boolean} animate=!!this.animateTargetId
      */
-    async closeOrHide(animate=!!this.animateTargetId) {
-        let me = this;
-
-        me[me.closeAction](animate);
-        await me.timeout(30);
-        me.syncModalMask(me.id)
+    closeOrHide(animate=!!this.animateTargetId) {
+        this[this.closeAction](animate)
     }
 
     /**
@@ -612,6 +614,16 @@ class Dialog extends Panel {
     }
 
     /**
+     * A dialog hands focus back to the component focus came from, else to its opener, the {@link #animateTarget} it
+     * grows out of: focus enters from the body when the opener disables itself, or when a browser does not focus a
+     * clicked button.
+     * @returns {Neo.component.Base|null}
+     */
+    getFocusReturnTarget() {
+        return super.getFocusReturnTarget() || this.animateTarget
+    }
+
+    /**
      * Returns the id of the header toolbar
      * @returns {String}
      */
@@ -671,20 +683,14 @@ class Dialog extends Panel {
     }
 
     /**
-     *
+     * A dialog with an animation target is created unmounted ({@link #afterSetAnimateTargetId}): `autoShow` shows it
      */
     init() {
         super.init();
 
         let me = this;
 
-        if (me.animateTargetId) {
-            me.autoShow && me.show()
-        } else {
-            me.timeout(100).then(() => {
-                me.syncModalMask()
-            })
-        }
+        me.animateTargetId && me.autoShow && me.show()
     }
 
     /**
@@ -804,10 +810,10 @@ class Dialog extends Panel {
     }
 
     /**
-     *
+     * Escape does what the close button does, with or without the animation
      */
     onKeyDownEscape() {
-        this.hidden = true
+        this.closeOrHide()
     }
 
     /**
@@ -863,13 +869,12 @@ class Dialog extends Panel {
     }
 
     /**
-     * @param {String} id=this.id
+     * Syncs the visibility and position of the modal mask element
+     * @param {String}  id=this.id
+     * @param {Boolean} modal=this.modal `false` releases the mask while the dialog is still on the page
      */
-    syncModalMask(id=this.id) {
-        let {modal, windowId} = this;
-
-        // This should sync the visibility and position of the modal mask element.
-        Neo.main.DomAccess.syncModalMask({id, modal, windowId})
+    syncModalMask(id=this.id, modal=this.modal) {
+        Neo.main.DomAccess.syncModalMask({id, modal, windowId: this.windowId})
     }
 
     /**
