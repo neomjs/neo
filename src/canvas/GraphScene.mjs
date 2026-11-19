@@ -201,7 +201,8 @@ class GraphScene extends Base {
                 'setScene',
                 'setTheme',
                 'updateMouseState',
-                'updateSize'
+                'updateSize',
+                'whenDrawn'
             ]
         },
         /**
@@ -816,6 +817,12 @@ class GraphScene extends Base {
      */
     drawnLabels = []
     /**
+     * The resolvers of {@link #whenDrawn} calls waiting for an owed frame or a flight to finish.
+     * @member {Function[]} drawnWaiters=[]
+     * @protected
+     */
+    drawnWaiters = []
+    /**
      * The distance the camera fitted at, the wheel's reference.
      * @member {Number} fittedDistance=3
      */
@@ -925,6 +932,9 @@ class GraphScene extends Base {
 
         me.dispose();
         super.clearGraph();
+
+        // nothing this graph owed will draw now
+        me.drawnWaiters.splice(0).forEach(resolve => resolve(false));
 
         me.contextLost  = false;
         me.drawnLabels  = [];
@@ -1396,7 +1406,7 @@ class GraphScene extends Base {
 
         me.drawLabels();
         me.frames++;
-        me.flightPlan && me.requestFrame()
+        me.flightPlan ? me.requestFrame() : me.drawnWaiters.splice(0).forEach(resolve => resolve(true))
     }
 
     /**
@@ -1486,6 +1496,19 @@ class GraphScene extends Base {
             me.fit();
             me.requestFrame()
         }
+    }
+
+    /**
+     * @summary Remote entry: answers once the canvas shows the current state, which a host needs to say its pixels
+     * are drawn ({@link Neo.component.Canvas#drawn}). A change only owes a frame, and `setScene` answers before that
+     * frame draws, so the answer waits until no frame is owed and no flight moves the camera: `true` then, at once
+     * when that already holds after a drawn frame, and `false` when `clearGraph` drops the graph first.
+     * @returns {Promise<Boolean>}
+     */
+    whenDrawn() {
+        const me = this;
+
+        return me.frames > 0 && !me.animationId && !me.flightPlan ? Promise.resolve(true) : new Promise(resolve => me.drawnWaiters.push(resolve))
     }
 
     /**
