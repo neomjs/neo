@@ -27,7 +27,7 @@ test.describe('build programs resolve dependencies from their own module', () =>
             fs.symlinkSync(path.join(engineRoot, 'node_modules', name), path.join(root, 'node_modules', name), 'junction')
         }
 
-        for (const file of ['webpack/buildThreads.mjs', 'util/buildId.mjs', 'util/sanitizer.mjs',
+        for (const file of ['webpack/buildThreads.mjs', 'util/assertInteractivePrompt.mjs', 'util/buildId.mjs', 'util/sanitizer.mjs',
                 ...BROWSER_BUNDLES.map(name => `build/${name}.mjs`)]) {
             fs.copySync(path.join(engineRoot, 'buildScripts', file), path.join(installedEngine, 'buildScripts', file))
         }

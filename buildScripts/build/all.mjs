@@ -1,14 +1,15 @@
-import chalk           from 'chalk';
-import {spawnSync}     from 'child_process';
-import {Command}       from 'commander';
-import envinfo         from 'envinfo';
-import fs              from 'fs-extra';
-import inquirer        from 'inquirer';
-import os              from 'os';
-import path            from 'path';
-import * as BuildId    from '../util/buildId.mjs';
-import {esmOutputRoot} from '../util/esmDistTransforms.mjs';
-import {sanitizeInput} from '../util/sanitizer.mjs';
+import chalk                     from 'chalk';
+import {spawnSync}               from 'child_process';
+import {Command}                 from 'commander';
+import envinfo                   from 'envinfo';
+import fs                        from 'fs-extra';
+import inquirer                  from 'inquirer';
+import os                        from 'os';
+import path                      from 'path';
+import * as BuildId              from '../util/buildId.mjs';
+import {assertInteractivePrompt} from '../util/assertInteractivePrompt.mjs';
+import {esmOutputRoot}           from '../util/esmDistTransforms.mjs';
+import {sanitizeInput}           from '../util/sanitizer.mjs';
 
 
 const __dirname   = path.resolve(),
@@ -84,7 +85,7 @@ if (programOpts.info) {
             });
         }
 
-        if (!programOpts.npminstall) {
+        if (!programOpts.themes) {
             questions.push({
                 type   : 'select',
                 name   : 'themes',
@@ -115,7 +116,12 @@ if (programOpts.info) {
         }
     }
 
-    inquirer.prompt(questions).then(answers => {
+    assertInteractivePrompt({
+        command: 'npm run build-all -- -e dev -l no -t yes -w yes -p no',
+        questions
+    });
+
+    (questions.length ? inquirer.prompt(questions) : Promise.resolve({})).then(answers => {
         const env        = answers.env        || programOpts.env        || 'all',
               npminstall = answers.npminstall || programOpts.npminstall || 'yes',
               parsedocs  = answers.parsedocs  || programOpts.parsedocs  || 'yes',
