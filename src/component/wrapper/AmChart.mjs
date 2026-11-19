@@ -142,7 +142,8 @@ class AmChart extends Component {
             let me = this;
 
             me.vdom['data-drawn'] = value ? 'true' : null;
-            me.update()
+            // destroy() clears drawn on its way out: a chart that is going away renders nothing more
+            !me.isDestroying && me.update()
         }
     }
 
@@ -260,10 +261,16 @@ class AmChart extends Component {
         }, () => {}) // cancelled by a newer create, an unmount or destroy()
     }
 
+    /**
+     * @summary Drops `drawn` and voids the answer still owed, then destroys the main-thread chart.
+     * @param {...*} args
+     */
     destroy(...args) {
-        let {appName, id, windowId} = this;
+        let me                      = this,
+            {appName, id, windowId} = me;
 
-        Neo.main.addon.AmCharts.destroy({appName, id, windowId})
+        me.clearDrawn();
+        Neo.main.addon.AmCharts.destroy({appName, id, windowId});
 
         super.destroy(...args)
     }

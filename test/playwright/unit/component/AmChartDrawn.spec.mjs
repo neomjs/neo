@@ -1,7 +1,7 @@
 /**
  * @file test/playwright/unit/component/AmChartDrawn.spec.mjs
  * @summary Pins when an amCharts wrapper says it is drawn: only from the main thread's answer for its
- * latest create or data, never from an answer that a newer create, new data or an unmount overtook.
+ * latest create or data, never from an answer that a newer create, new data, an unmount or destroy() overtook.
  */
 
 import {setup} from '../../setup.mjs';
@@ -130,6 +130,31 @@ test.describe('Neo.component.wrapper.AmChart#drawn', () => {
         await expect.poll(() => answers.length).toBe(1);
 
         instance.mounted = false;
+        answers[0](true);
+
+        await wait(20);
+        expect(instance.drawn).toBe(false)
+    });
+
+    test('destroy drops a drawn chart\'s drawn without a render', async () => {
+        let updates = 0;
+
+        await mountDrawn();
+
+        instance.update = () => {updates++};
+        instance.destroy();
+
+        expect(instance.drawn).toBe(false);
+        expect(updates, 'renders while destroying').toBe(0);
+        expect(calls.at(-1)).toBe('destroy')
+    });
+
+    test('an answer still owed when the chart is destroyed does not set drawn', async () => {
+        instance = Neo.create(AmChart, {appName, chartConfig});
+        instance.mounted = true;
+        await expect.poll(() => answers.length).toBe(1);
+
+        instance.destroy();
         answers[0](true);
 
         await wait(20);
