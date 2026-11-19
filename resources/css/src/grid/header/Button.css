@@ -117,6 +117,19 @@
         }
     }
 
+    &.neo-header-align-right {
+        flex-direction: row;
+        justify-content: end;
+
+        .neo-button-glyph {
+            margin: 0 6px 0 0;
+        }
+    }
+
+    &.neo-header-align-center {
+        justify-content: center;
+    }
+
     .neo-button-glyph {
         color         : var(--grid-header-button-glyph-color);
         font-size     : 12px;
