@@ -752,7 +752,7 @@
     },
     {
       "id": "form-app",
-      "viewport": {"width": 640, "height": 360},
+      "viewport": {"width": 640, "height": 470},
       "theme": "default",
       "state": "The account form's second step after a valid first one: the step list marks About you as done, and the Address step is filled in.",
       "ready": [{"selector": ".form-header-label", "text": "About you"}],
@@ -770,7 +770,7 @@
         {"selector": ".form-side-nav-state-valid", "count": 1},
         {"selector": ".form-header-label", "text": "Address", "inRegion": true},
         {"selector": ".form-side-nav-list .neo-list-item", "text": "Review", "inRegion": true},
-        {"selector": ".form-footer", "inRegion": true}
+        {"selector": "input[name='address.city']", "inRegion": true}
       ],
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     }
