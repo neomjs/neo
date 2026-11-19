@@ -11,6 +11,8 @@ class MainContainer extends ConfigurationViewport {
     static config = {
         className           : 'Neo.examples.fieldWithPrefix.MainContainer',
         autoMount           : true,
+        componentName       : 'Input masks',
+        description         : 'Type into a field: the mask fills its slots as you go and refuses characters it does not accept.',
         configItemLabelWidth: 100,
         configItemWidth     : 230,
         layout              : {ntype: 'hbox', align: 'stretch'},
@@ -88,7 +90,7 @@ class MainContainer extends ConfigurationViewport {
                 plugins  : [
                     {
                         module : PrefixPlugin,
-                        pattern: '+1 (___) ___-___-____',
+                        pattern: '+1 (___) ___-____',
                         slots  : '_'
                     }
                 ]
@@ -104,7 +106,7 @@ class MainContainer extends ConfigurationViewport {
                 ]
             }, {
                 module   : TextField,
-                labelText: '[A-H] MAC Adress',
+                labelText: '[A-H] MAC Address',
                 plugins  : [
                     {
                         module : PrefixPlugin,

@@ -1792,7 +1792,7 @@
     {
         "id": "field-with-prefix",
         "image": null,
-        "name": "plugin.field.Prefix",
+        "name": "Input masks",
         "sourceUrl": "examples/fieldWithPrefix",
         "urls": {
             "devmode": "examples/fieldWithPrefix/index.html",
@@ -1803,8 +1803,8 @@
         "hiddenIn": [],
         "family": "forms",
         "component": "TextField",
-        "feature": "Input masks from the PrefixField plugin: a phone pattern and a digits-only date",
-        "lookFor": "Type into the phone field and watch the +1 (___) ___-___-____ mask carry your digits, then try the [0-9] date field."
+        "feature": "Input masks from the PrefixField plugin: a phone number, a date, a MAC address, a code and a card number",
+        "lookFor": "Type letters into the phone field to see them refused, then fill +1 (___) ___-____ with a 10-digit number."
     },
     {
         "id": "layout-form",
