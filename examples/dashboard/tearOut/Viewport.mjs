@@ -18,14 +18,24 @@ class Viewport extends BaseViewport {
          */
         className: 'Neo.examples.dashboard.tearOut.Viewport',
         /**
+         * The dashboard examples' shared palette, which this example's stylesheet reads
+         * @member {String[]} additionalThemeFiles=['Neo.examples.dashboard.Palette']
+         */
+        additionalThemeFiles: ['Neo.examples.dashboard.Palette'],
+        /**
+         * @member {String[]} cls=['neo-example-tearout']
+         * @reactive
+         */
+        cls: ['neo-example-tearout'],
+        /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          */
         layout: {ntype: 'vbox', align: 'stretch'}
     }
 
     /**
-     * Reads this window's URL and mounts the workspace, unless the window is a tear-out target:
-     * that one is marked `tear-out-target` and stays empty.
+     * Reads this window's URL and mounts the claim line and the workspace, unless the window is a tear-out
+     * target: that one is marked `tear-out-target` and stays empty.
      */
     async onConstructed() {
         super.onConstructed();
@@ -40,7 +50,16 @@ class Viewport extends BaseViewport {
             return
         }
 
-        me.add({module: Workspace, flex: 1})
+        me.add([{
+            cls : ['neo-example-tearout-claim'],
+            flex: 'none',
+            html: '<b>A pane keeps its live state in its own window.</b> ' +
+                  'Type a draft in Notes, pop the pane out with its header\'s window action, then close that window: ' +
+                  'the pane comes home with your draft.'
+        }, {
+            module: Workspace,
+            flex  : 1
+        }])
     }
 }
 

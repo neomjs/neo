@@ -573,6 +573,16 @@
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },
     {
+      "id": "dock-tear-out",
+      "viewport": {"width": 640, "height": 360},
+      "theme": "default",
+      "state": "The support desk with a draft typed in Notes, under the line that says what popping the pane out proves.",
+      "ready": [{"selector": ".neo-example-tearout-queue .neo-list-item", "text": "#4512"}, {"selector": ".neo-tab-header-button", "text": "Notes"}],
+      "steps": [{"kind": "fill", "selector": ".neo-textfield input", "value": "Call #4512 back by noon"}],
+      "after": [{"selector": ".neo-example-tearout-claim", "text": "A pane keeps its live state in its own window", "inRegion": true}, {"selector": ".neo-tab-header-button", "text": "Queue", "inRegion": true}, {"selector": ".neo-tab-header-button", "text": "Notes", "inRegion": true}],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
       "id": "open-street-maps",
       "viewport": {"width": 1280, "height": 720},
       "theme": "dark",
