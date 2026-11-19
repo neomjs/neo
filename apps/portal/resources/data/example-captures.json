@@ -623,6 +623,16 @@
       "steps": [{"kind": "click", "selector": ".neo-button", "text": "Click Me"}],
       "after": [{"selector": ".neo-popover", "text": "Anchored to the button that opened it", "inRegion": true}, {"selector": ".neo-button", "text": "Click Me", "inRegion": true}],
       "region": {"selector": ".neo-button", "anchor": "center", "offsetY": -60, "width": 640, "height": 360}
+    },
+    {
+      "id": "live-preview",
+      "viewport": {"width": 640, "height": 360},
+      "theme": "default",
+      "state": "The Source tab as the page opens: the function component the Preview tab runs, a defineComponent counter with its useConfig state.",
+      "ready": [{"selector": ".view-lines", "text": "defineComponent"}],
+      "steps": [],
+      "after": [{"selector": ".view-lines", "text": "useConfig", "inRegion": true}, {"selector": ".view-lines", "text": "setCount", "inRegion": true}],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     }
   ]
 }

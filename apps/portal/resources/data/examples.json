@@ -659,6 +659,26 @@
         "hiddenIn": []
     },
     {
+        "id": "live-preview",
+        "family": "components",
+        "alsoIn": [
+            "functional"
+        ],
+        "component": "Live Preview",
+        "feature": "The engine's code editor runs the function component it holds, and runs it again after every edit.",
+        "lookFor": "Open Preview and press the counter, then change its text in Source: Preview shows the edited component, and only that one.",
+        "image": "devmode/live-preview-14.jpg",
+        "name": "Live Preview",
+        "sourceUrl": "examples/code/livePreview",
+        "urls": {
+            "devmode": "examples/code/livePreview/index.html",
+            "dist_dev": "dist/development/examples/code/livePreview/index.html",
+            "dist_esm": "dist/esm/examples/code/livePreview/index.html",
+            "dist_prod": "dist/production/examples/code/livePreview/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
         "id": "mwc-button",
         "family": "components",
         "component": "MWC Button",

@@ -1,0 +1,7 @@
+{
+    "appPath"         : "examples/code/livePreview/app.mjs",
+    "basePath"        : "../../../",
+    "environment"     : "development",
+    "mainPath"        : "./Main.mjs",
+    "mainThreadAddons": ["DragDrop", "MonacoEditor", "Navigator", "Stylesheet"]
+}

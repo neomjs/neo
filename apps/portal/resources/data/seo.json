@@ -1155,7 +1155,7 @@
     },
     "/examples/components": {
         "title": "JavaScript UI Component Examples — Off the Main Thread | Neo.mjs",
-        "description": "Explore 9 live JavaScript UI component examples: A compact chip combines an icon, editable text and an optional close action.",
+        "description": "Explore 10 live JavaScript UI component examples: A compact chip combines an icon, editable text and an optional close action.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-19"
     },
@@ -1179,7 +1179,7 @@
     },
     "/examples/functional": {
         "title": "JavaScript Functional Component Examples | Neo.mjs",
-        "description": "Explore 4 live JavaScript functional component examples: Buffered inbox and functional message reader that detaches into its own window.",
+        "description": "Explore 5 live JavaScript functional component examples: The engine's code editor runs the function component it holds, and runs it again after every edit.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-19"
     },
@@ -1308,6 +1308,11 @@
         "description": "An amCharts pie chart wrapper renders a labelled dataset and interactive legend. Hover the pie segments and legend entries to compare each country's share.",
         "schemaType": "WebPage",
         "lastmod": "2024-08-17"
+    },
+    "/examples/code/livePreview/index.html": {
+        "title": "Live Preview — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "The engine's code editor runs the function component it holds, and runs it again after every edit. Open Preview and press the counter, then change its text...",
+        "schemaType": "WebPage"
     },
     "/examples/component/canvas/index.html": {
         "title": "OffscreenCanvas Web Worker Rendering Example | Neo.mjs",
@@ -1829,7 +1834,7 @@
         "title": "GridContainer - Content-Sized Rows — Data Grid Demo | Neo.mjs",
         "description": "Wrapped content with locked columns. Toggle content-sized rows, edit a summary, filter, or jump through 10,000 records; scroll to the wrapped Details column.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-17"
+        "lastmod": "2026-11-19"
     },
     "/examples/grid/countries/index.html": {
         "title": "JavaScript Data Grid with Country Statistics | Neo.mjs",
