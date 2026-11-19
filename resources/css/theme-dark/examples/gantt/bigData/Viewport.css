@@ -1,0 +1,14 @@
+:where(.neo-theme-dark) {
+    --programme-header-bg    : var(--grid-container-border-color, #2b2b2b);
+    --programme-border       : #4b5052;
+    --programme-title        : #e8eaed;
+    --programme-muted        : var(--neo-color);
+    --programme-badge-bg     : #34393c;
+    --programme-badge-border : #5a6266;
+    --programme-badge-text   : #e8eaed;
+    --programme-control-bg   : var(--grid-container-cell-background-color, #3c3f41);
+    --programme-hover-bg     : var(--grid-cell-background-color-hover, #54595c);
+    --programme-selected-bg  : var(--grid-rowmodel-selected-cell-background-color, #64b5f6);
+    --programme-selected-text: #1e242b;
+    --programme-focus        : var(--grid-rowmodel-selected-cell-background-color, #64b5f6);
+}
