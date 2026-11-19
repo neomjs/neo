@@ -248,6 +248,30 @@ export default Neo.setupClass(PreviewButton);`,
         })
     }
 
+    test('rapid native edits of a Neo.mjs source leave one preview, of the latest edit', async ({page, neo}) => {
+        const source = text => `import Button from '../button/Base.mjs';
+class PreviewButton extends Button {
+    static config = {className: 'Test.LivePreview.RapidButton', cls: ['rapid-preview'], text: '${text}'}
+}
+export default Neo.setupClass(PreviewButton);`;
+
+        await createSurface(neo, {activeView: 'preview', language: 'neomjs', value: source('First')});
+        const live     = page.locator(`#${ROOT_ID}`),
+              editorId = await editorIdFor(page, live),
+              previews = live.locator('.rapid-preview');
+
+        // The first run loads the executor, so each edit after it starts its run in the same pass
+        await expect(previews).toHaveText(['First']);
+        await page.evaluate(({id, sources}) => {
+            const editor = Neo.main.addon.MonacoEditor.map[id];
+
+            sources.forEach(value => editor.setValue(value))
+        }, {id: editorId, sources: [source('Superseded'), source('Older'), source('Latest')]});
+
+        await expect.poll(() => neo.getConfig(ROOT_ID, ['value'])).toEqual([source('Latest')]);
+        await expect(previews).toHaveText(['Latest'])
+    });
+
     for (const action of ['destroy', 'switch renderer']) {
         test(`${action} while the real Mermaid module loads cannot revive the old preview`, async ({page, neo}) => {
             let release, entered;

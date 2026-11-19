@@ -60,11 +60,12 @@ test.describe('dialog.Base: a dialog takes its mask along and hands focus back',
     });
 
     test.afterEach(() => {
+        // A mounted modal dialog syncs its mask away in destroy(), so the stubs stay until every dialog is gone
+        instances.forEach(instance => !instance.isDestroyed && instance.destroy());
+
         Neo.applyDeltas = applyDeltas;
 
-        ownMethods.forEach(([name, own, method]) => {own ? domAccess[name] = method : delete domAccess[name]});
-
-        instances.forEach(instance => !instance.isDestroyed && instance.destroy())
+        ownMethods.forEach(([name, own, method]) => {own ? domAccess[name] = method : delete domAccess[name]})
     });
 
     /**
