@@ -1071,7 +1071,7 @@
     },
     "/examples/grid": {
         "title": "JavaScript Data Grid Examples — 100k Rows in a Web Worker | Neo.mjs",
-        "description": "Explore 18 live JavaScript data grid examples: Opens at 20,000 × 50 and scales to 100,000 × 200, row-buffered, data in a Web Worker.",
+        "description": "Explore 19 live JavaScript data grid examples: Opens at 20,000 × 50 and scales to 100,000 × 200, row-buffered, data in a Web Worker.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-19"
     },
@@ -1089,7 +1089,7 @@
     },
     "/examples/charts": {
         "title": "JavaScript Charts, Canvas & Maps — OffscreenCanvas Demos | Neo.mjs",
-        "description": "Explore 2 live JavaScript chart and canvas examples: A chart of up to a million points, drawn in a canvas worker.",
+        "description": "Explore 5 live JavaScript chart and canvas examples: A chart of up to a million points, drawn in a canvas worker.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-19"
     },
@@ -1301,7 +1301,7 @@
         "title": "Calendar Basic — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A full calendar with day, week, month and year views, a month navigator and color-coded calendars. Switch between Day, Week, Month and Year views, then...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-19"
     },
     "/examples/charts/index.html": {
         "title": "amCharts — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1341,13 +1341,13 @@
     },
     "/examples/component/coronaGallery/index.html": {
         "title": "Country Gallery — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "217 economies in a 3D gallery, each with its flag and six World Bank figures, sorted by the one you pick. Under Sort By, choose GDP, then raise Amount Rows in Gallery Controls.",
+        "description": "217 economies in a 3D gallery, each with its flag and six World Bank figures, sorted by the one you pick. Under Sort By, choose GDP, then raise Amount Rows...",
         "schemaType": "WebPage",
         "lastmod": "2026-11-19"
     },
     "/examples/component/coronaHelix/index.html": {
         "title": "Country Helix — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "217 economies on a 3D helix, each with its flag and six World Bank figures, sorted by the one you pick. Under Sort By, choose Life and watch the countries reorder along the helix.",
+        "description": "217 economies on a 3D helix, each with its flag and six World Bank figures, sorted by the one you pick. Under Sort By, choose Life and watch the countries...",
         "schemaType": "WebPage",
         "lastmod": "2026-11-19"
     },
@@ -1361,7 +1361,7 @@
         "title": "Gallery — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "Image items in a 3D gallery that you reshape live. Raise Amount Rows in Gallery Controls until the wall fills the window, then press Order by Row.",
         "schemaType": "WebPage",
-        "lastmod": "2025-12-21"
+        "lastmod": "2026-11-19"
     },
     "/examples/component/graphScene/index.html": {
         "title": "GraphScene — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1373,7 +1373,7 @@
         "title": "Helix — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "Image items on a 3D helix that you reshape live. Scroll over the helix, then change Radius and Perspective in Helix Controls.",
         "schemaType": "WebPage",
-        "lastmod": "2025-11-19"
+        "lastmod": "2026-11-19"
     },
     "/examples/component/magicmovetext/index.html": {
         "title": "Magic Move - Text — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1388,10 +1388,10 @@
         "lastmod": "2026-06-13"
     },
     "/examples/component/multiWindowCoronaGallery/index.html": {
-        "title": "Multi-Window Country Gallery — Multi-Window JavaScript Demo | Neo.mjs",
+        "title": "Multi-Window Country Gallery — Multi-Window Demo | Neo.mjs",
         "description": "Gallery controls move into a second window while still controlling the gallery. Maximise Gallery Controls, change Translate X in the popup, then close it to...",
         "schemaType": "WebPage",
-        "lastmod": "2026-01-21"
+        "lastmod": "2026-11-19"
     },
     "/examples/component/multiWindowHelix/index.html": {
         "title": "Multi-Window Helix — Multi-Window JavaScript Demo | Neo.mjs",
@@ -1441,6 +1441,12 @@
         "schemaType": "WebPage",
         "lastmod": "2024-08-17"
     },
+    "/examples/component/sparkline/index.html": {
+        "title": "Sparkline Component — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Six metric cards draw their last thirty readings as sparklines in the canvas worker, and a simulated feed extends them once a second. Watch the lines move...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-19"
+    },
     "/examples/component/splitter/index.html": {
         "title": "Splitter — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A draggable splitter resizes adjacent panels in either orientation. Drag the divider, then toggle horizontal and live resize in the configuration panel.",
@@ -1463,7 +1469,7 @@
         "title": "Toast Component — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A live form previews toast configuration and launches a temporary notification. Enter a message and watch the code preview follow each field, choose a...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-05"
+        "lastmod": "2026-11-19"
     },
     "/examples/component/video/index.html": {
         "title": "Video — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1482,6 +1488,12 @@
         "description": "Live runnable GoogleMaps Component example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
         "schemaType": "WebPage",
         "lastmod": "2026-09-17"
+    },
+    "/examples/component/wrapper/mermaid/index.html": {
+        "title": "Mermaid Component — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Mermaid draws a flowchart, sequence, class or Gantt diagram from text, and draws it again on every edit and theme change. Edit the source on the left, load...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-18"
     },
     "/examples/component/wrapper/monacoEditor/index.html": {
         "title": "Monaco Editor — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1879,6 +1891,12 @@
         "schemaType": "WebPage",
         "lastmod": "2026-11-19"
     },
+    "/examples/grid/streaming/index.html": {
+        "title": "Streaming 50,000 Rows in a Data Grid | Neo.mjs",
+        "description": "A Neo.mjs JavaScript Data Grid that streams 50,000 NDJSON rows in chunks so the first rows are scrollable immediately while live progress updates in the footer.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-19"
+    },
     "/examples/grid/tree/index.html": {
         "title": "Tree Grid Example — Web Worker Data Grid Demo | Neo.mjs",
         "description": "Hierarchical rows. Expand and collapse the sample file hierarchy in the Name column.",
@@ -1985,7 +2003,7 @@
         "title": "Popover — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A popover opens against the button that owns it, on the side its align value names, and flips when that side has no room. Press Click Me, then pick another...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-16"
+        "lastmod": "2026-11-19"
     },
     "/examples/preloadingAssets/index.html": {
         "title": "Preloading Assets — Web Worker JavaScript UI Demo | Neo.mjs",

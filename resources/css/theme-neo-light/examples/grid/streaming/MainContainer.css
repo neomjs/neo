@@ -1,0 +1,13 @@
+:where(.neo-theme-neo-light) {
+    --grid-streaming-accent    : #176b72;
+    --grid-streaming-alternate : #f8fafc;
+    --grid-streaming-background: #f1f5f8;
+    --grid-streaming-border    : #dce5eb;
+    --grid-streaming-header    : #eaf1f5;
+    --grid-streaming-hover     : #dcefed;
+    --grid-streaming-muted     : #647786;
+    --grid-streaming-surface   : #fff;
+    --grid-streaming-text      : #455c6b;
+    --grid-streaming-title     : #182e3b;
+    --grid-streaming-track     : #cbd8e2;
+}
