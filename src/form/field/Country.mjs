@@ -99,15 +99,42 @@ class Country extends ComboBox {
     }
 
     /**
-     * Triggered after the zipCodeField config got changed
+     * @summary Links or unlinks `this` as `zipCodeField.countryField`.
      * @param {Neo.form.field.Base|null} value
      * @param {Neo.form.field.Base|null} oldValue
      * @protected
      */
     afterSetZipCodeField(value, oldValue) {
-        if (value && value instanceof Neo.form.field.Base) {
+        if (oldValue && !oldValue.isDestroyed && oldValue.countryField === this) {
+            oldValue.countryField = null
+        }
+
+        if (value instanceof Neo.form.field.Base) {
             value.countryField = this
         }
+    }
+
+    /**
+     * @summary Resolves string component references to the target zip-code field instance.
+     * @param {Neo.form.field.Base|String|null} value
+     * @returns {Neo.form.field.Base|null}
+     * @protected
+     */
+    beforeSetZipCodeField(value) {
+        return this.resolveFieldReference(value, 'zipCodeField')
+    }
+
+    /**
+     * @param {...*} args
+     */
+    destroy(...args) {
+        let {zipCodeField} = this;
+
+        if (zipCodeField && !zipCodeField.isDestroyed && zipCodeField.countryField === this) {
+            zipCodeField.countryField = null
+        }
+
+        super.destroy(...args)
     }
 
     /**

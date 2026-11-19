@@ -94,6 +94,18 @@ class Field extends Component {
      */
     #explicitConfigKeys = new Set()
     /**
+     * Unresolved field-reference strings keyed by reactive config name.
+     * @type {Map<String, String>}
+     * @private
+     */
+    #pendingFieldReferences = new Map()
+    /**
+     * Ancestor containers currently observed for `itemsCreated` while resolving `#pendingFieldReferences`.
+     * @type {Set<Neo.container.Base>}
+     * @private
+     */
+    #pendingReferenceParents = new Set()
+    /**
      * An internal cache for formGroups of all parent levels
      * @member {String|null} formGroupString=null
      */
@@ -138,7 +150,8 @@ class Field extends Component {
         super.afterSetParentId(value, oldValue);
 
         if (oldValue !== undefined && value && value !== 'document.body') {
-            this.applyParentFieldDefaults()
+            this.applyParentFieldDefaults();
+            this.#pendingFieldReferences.size > 0 && this.#flushPendingFieldReferences()
         }
     }
 
@@ -480,6 +493,83 @@ class Field extends Component {
                 }
             })
         }
+    }
+
+    /**
+     * @param {...*} args
+     */
+    destroy(...args) {
+        this.#clearPendingFieldReferences();
+        super.destroy(...args)
+    }
+
+    /**
+     * @private
+     */
+    #clearPendingFieldReferences() {
+        let me = this;
+
+        for (const parent of me.#pendingReferenceParents) {
+            !parent.isDestroyed && parent.un('itemsCreated', me.#flushPendingFieldReferences, me)
+        }
+
+        me.#pendingReferenceParents.clear();
+        me.#pendingFieldReferences.clear()
+    }
+
+    /**
+     * @private
+     */
+    #flushPendingFieldReferences() {
+        let me = this;
+
+        if (me.isDestroyed) {
+            return
+        }
+
+        for (const [configName, reference] of [...me.#pendingFieldReferences.entries()]) {
+            me[configName] = reference
+        }
+    }
+
+    /**
+     * @summary Resolves a sibling or ancestor component `reference` string for field-linking configs, deferring until `itemsCreated` or `afterSetParentId` when the target is not constructed yet.
+     * @param {Neo.component.Base|String|null} value
+     * @param {String} configName
+     * @returns {Neo.component.Base|null}
+     * @protected
+     */
+    resolveFieldReference(value, configName) {
+        let me = this;
+
+        if (!Neo.isString(value)) {
+            me.#pendingFieldReferences.delete(configName);
+            me.#pendingFieldReferences.size === 0 && me.#clearPendingFieldReferences();
+            return value
+        }
+
+        const parents = ComponentManager.getParents(me);
+
+        for (const parent of parents) {
+            const target = parent.getReference(value);
+
+            if (target) {
+                me.#pendingFieldReferences.delete(configName);
+                me.#pendingFieldReferences.size === 0 && me.#clearPendingFieldReferences();
+                return target
+            }
+        }
+
+        me.#pendingFieldReferences.set(configName, value);
+
+        for (const parent of parents) {
+            if (!parent.isConstructed && !me.#pendingReferenceParents.has(parent)) {
+                me.#pendingReferenceParents.add(parent);
+                parent.on('itemsCreated', me.#flushPendingFieldReferences, me)
+            }
+        }
+
+        return null
     }
 
     /**
