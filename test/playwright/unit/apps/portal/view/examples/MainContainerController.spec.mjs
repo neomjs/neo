@@ -120,13 +120,13 @@ test.describe('Portal examples overview and group pages', () => {
         // Timeline was retired and its example moved to Grid & Table + Scheduler; Trees publishes via alsoIn; every other group has a card or a tile
         expect(groupStore.items.map(group => group.route)).toEqual(publishedRoutes);
         expect(view.getGroupPages().map(page => page.family)).toEqual(groupStore.items.map(group => group.family));
-        expect(view.getCatalogStore().getCount()).toBe(120);
+        expect(view.getCatalogStore().getCount()).toBe(121);
 
         // every example counts once, in its home group: the counts add up to the records that publish, tiles included
         expect(groupStore.items.reduce((sum, group) => sum + group.count, 0)).toBe(published.length);
-        expect(published).toHaveLength(102);
+        expect(published).toHaveLength(103);
         expect(Object.fromEntries(groupStore.items.map(group => [group.family, [group.count, group.crossCount]]))).toEqual({
-            apps          : [6, 4], 'grid-table': [18, 0], tree: [0, 2], lists: [12, 0], charts: [1, 1],
+            apps          : [6, 4], 'grid-table': [19, 0], tree: [0, 2], lists: [12, 0], charts: [1, 1],
             calendar      : [1, 0], scheduler   : [2, 0], gantt: [2, 0], board: [2, 0],
             dashboard     : [3, 0], tabs        : [1, 0], layouts: [1, 0], dialogs: [3, 0],
             forms         : [27, 1], buttons    : [2, 0], components: [9, 0],
@@ -200,7 +200,7 @@ test.describe('Portal examples overview and group pages', () => {
               intro    = overview.down({reference: 'overview-intro'}),
               list     = overview.getList();
 
-        expect(intro.vdom.cn[1].text).toBe('102 live examples in 21 groups');
+        expect(intro.vdom.cn[1].text).toBe('103 live examples in 21 groups');
         expect(overview.down({reference: 'overview-index-heading'}).vdom.cn[0].text).toBe('All 21 groups');
         expect(list.leadCard).toBe(true);
         expect(list.showGroup).toBe(true);
@@ -228,7 +228,7 @@ test.describe('Portal examples overview and group pages', () => {
         expect(mobIx.vdom.cn.filter(node => node.tag === 'section').map(band => band.cn[0].text))
             .toEqual(['Data views', 'Planning', 'Layout', 'Components', 'Platform']);
         expect(links(mobIx).map(link => link.href)).toEqual(publishedRoutes.map(route => '#' + route));
-        expect(links(mobIx).map(link => link.cn[2].text)).toEqual(['6', '18', '(2)', '12', '1', '1', '2', '2', '2', '3', '1', '1', '3', '27', '2', '9', '6', '2', '1', '3', '(2)']);
+        expect(links(mobIx).map(link => link.cn[2].text)).toEqual(['6', '19', '(2)', '12', '1', '1', '2', '2', '2', '3', '1', '1', '3', '27', '2', '9', '6', '2', '1', '3', '(2)']);
         expect(links(mobIx).every(link => link['aria-current'] === null)).toBe(true);
         expect(mobIx.vdom.cn[0].removeDom).toBe(true);
         expect(mobIx.vdom.cn.at(-1).removeDom).toBe(false);
@@ -450,7 +450,7 @@ test.describe('Portal examples overview and group pages', () => {
         expect(view.getGroupStore().get('drag-drop').count).toBe(0);
         expect(view.getGroupStore().get('tree').count).toBe(0);
         expect(view.getCatalogStore().items.filter(record => record.id === 'dialog-drag-drop')).toHaveLength(1);
-        expect(view.getCatalogStore().getCount()).toBe(120)
+        expect(view.getCatalogStore().getCount()).toBe(121)
     });
 
     for (const mode of ['dist_prod', 'dist_esm', 'dist_dev', 'devmode']) {
@@ -474,7 +474,7 @@ test.describe('Portal examples overview and group pages', () => {
         expect(view.getGroupPage('components')).toBeNull();
         expect(openCard(view)).toBe('overview');
         // the overview's headline follows the build: Dev mode opens none of the nine More components records
-        expect(view.down({reference: 'overview-intro'}).vdom.cn[1].text).toBe('93 live examples in 20 groups');
+        expect(view.down({reference: 'overview-intro'}).vdom.cn[1].text).toBe('94 live examples in 20 groups');
 
         // the route still names the group: its page returns with its cards
         controller.onSelectBuild({id: 'dist_prod'});
@@ -527,7 +527,7 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
       newExampleIds = [
           'grid-animated-row-sorting', 'grid-cell-editing', 'grid-container', 'grid-content-sized-rows',
           'grid-filtering', 'grid-export', 'grid-server-side', 'grid-header-groups', 'grid-locked-columns',
-          'grid-nested-record-fields', 'grid-tree', 'grid-value-banding', 'table-container'
+          'grid-nested-record-fields', 'grid-streaming', 'grid-tree', 'grid-value-banding', 'table-container'
       ],
       formExampleIds = [
           'checkbox-field', 'chip-field', 'color-field', 'email-field', 'fileupload-field',
@@ -632,12 +632,12 @@ test.describe('Portal examples canonical catalog', () => {
         })
     }
 
-    test('loads 120 logical examples with unique stable string identities', () => {
+    test('loads 121 logical examples with unique stable string identities', () => {
         const {store} = createList(),
               ids     = [];
 
-        expect(catalog).toHaveLength(120);
-        expect(store.getCount()).toBe(120);
+        expect(catalog).toHaveLength(121);
+        expect(store.getCount()).toBe(121);
 
         store.forEach(record => {
             expect(typeof record.id, record.name).toBe('string');
@@ -645,7 +645,7 @@ test.describe('Portal examples canonical catalog', () => {
             ids.push(record.id)
         });
 
-        expect(new Set(ids).size).toBe(120);
+        expect(new Set(ids).size).toBe(121);
         expect(list.catalogMode).toBe('dist_prod')
     });
 
@@ -774,7 +774,7 @@ test.describe('Portal examples canonical catalog', () => {
         expect(() => check([{...example, lookFor: ''}])).toThrow()
     });
 
-    test('the catalog holds the 19 Grid and Table identities and their page shows the 18 covered ones', () => {
+    test('the catalog holds the 20 Grid and Table identities and their page shows the 19 covered ones', () => {
         const view         = createView(),
               catalogStore = view.getCatalogStore(),
               store        = view.getGroupPage('grid-table').getList().store,
@@ -790,7 +790,7 @@ test.describe('Portal examples canonical catalog', () => {
         });
 
         expect(ids).toEqual([...coveredGridTableIds, 'timeline-basic']);
-        expect(counts).toEqual({Grid: 16, Table: 2, Timeline: 1});
+        expect(counts).toEqual({Grid: 17, Table: 2, Timeline: 1});
         expect(store.items.map(record => record.id)).toEqual(coveredGridTableIds);
         expect(store.getSource()).toBe(catalogStore)
     });

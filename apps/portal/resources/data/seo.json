@@ -1071,7 +1071,7 @@
     },
     "/examples/grid": {
         "title": "JavaScript Data Grid Examples — 100k Rows in a Web Worker | Neo.mjs",
-        "description": "Explore 18 live JavaScript data grid examples: Opens at 20,000 × 50 and scales to 100,000 × 200, row-buffered, data in a Web Worker.",
+        "description": "Explore 19 live JavaScript data grid examples: Opens at 20,000 × 50 and scales to 100,000 × 200, row-buffered, data in a Web Worker.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-19"
     },
@@ -1463,7 +1463,7 @@
         "title": "Toast Component — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A live form previews toast configuration and launches a temporary notification. Enter a message and watch the code preview follow each field, choose a...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-05"
+        "lastmod": "2026-11-19"
     },
     "/examples/component/video/index.html": {
         "title": "Video — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1876,6 +1876,12 @@
     "/examples/grid/serverSide/index.html": {
         "title": "Grid — Simulated Server Paging — Web Worker Data Grid Demo | Neo.mjs",
         "description": "One-page loading with remote sorting and filtering over 100,000 seeded orders. Change page, sort a header or choose a country: the request line shows the...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-19"
+    },
+    "/examples/grid/streaming/index.html": {
+        "title": "Streaming 50,000 Rows in a Data Grid | Neo.mjs",
+        "description": "A Neo.mjs JavaScript Data Grid that streams 50,000 NDJSON rows in chunks so the first rows are scrollable immediately while live progress updates in the footer.",
         "schemaType": "WebPage",
         "lastmod": "2026-11-19"
     },

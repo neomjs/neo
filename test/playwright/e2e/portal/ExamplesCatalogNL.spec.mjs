@@ -274,17 +274,17 @@ test.describe('Portal examples section', () => {
               counts   = page.locator(`${SIDEBAR} .portal-examples-group-index-count`);
 
         await expect(page.locator(SIDEBAR)).toBeVisible();
-        await expect(headline).toHaveText('102 live examples in 21 groups');
-        expect((await counts.allTextContents()).filter(text => !text.startsWith('(')).reduce((sum, text) => sum + Number(text), 0)).toBe(102);
+        await expect(headline).toHaveText('103 live examples in 21 groups');
+        expect((await counts.allTextContents()).filter(text => !text.startsWith('(')).reduce((sum, text) => sum + Number(text), 0)).toBe(103);
         await expect(page.locator(`${SIDEBAR} .portal-examples-group-index-note`)).toBeVisible();
         await expect(page.locator(`${FEATURED} .neo-list-item`).first().locator('.portal-example-group-badge')).toHaveText('Multi-Window');
 
         // Dev mode cannot open liquid-glass, the one card of More components; its eight tiles stay
         await selectBuild(page, 'Dev mode');
-        await expect(headline).toHaveText('101 live examples in 21 groups');
+        await expect(headline).toHaveText('102 live examples in 21 groups');
         await expect(page.locator(SIDEBAR).getByRole('link', {name: 'More components, 8 live examples'})).toHaveCount(1);
         await selectBuild(page, 'Production build');
-        await expect(headline).toHaveText('102 live examples in 21 groups')
+        await expect(headline).toHaveText('103 live examples in 21 groups')
     });
 
     test('the index is a navigation landmark of links: Tab reaches every entry, Enter opens it, no entry claims to be a tab', async ({page, neuralLink}) => {
@@ -537,20 +537,20 @@ test.describe('Portal examples section', () => {
                 await openGroup(page, 'Grid & Table');
                 const overview = page.locator(CARDS);
 
-                await expect(overview.locator('.portal-example-feature')).toHaveCount(18);
+                await expect(overview.locator('.portal-example-feature')).toHaveCount(19);
                 const columns = await overview.evaluate(node => getComputedStyle(node).gridTemplateColumns.split(' ').length);
                 expect(columns).toBe(viewport.width === 1440 ? 3 : 1);
                 const list = await readList(app, 'grid-table');
                 expect(list.id).toBe(await overview.getAttribute('id'));
                 // the page's Store lists the covered records; the catalog keeps the others for their covers
-                expect(list.properties.store.count).toBe(18);
+                expect(list.properties.store.count).toBe(19);
                 expect(list.properties.store.model.className).toBe('Portal.model.Example');
                 await expect(overview.locator('.neo-title').nth(0)).toHaveText('Data Grid: 100k Rows & 200 Columns');
                 await expect(overview.locator('.neo-title').nth(1)).toHaveText('TreeGrid - Big Data');
                 await expect(overview.locator('.neo-title').nth(2)).toHaveText('GitHub Issues Grid');
 
                 const covered = overview.locator('.portal-example-image-card .neo-item-bottom-position');
-                await expect(covered).toHaveCount(18);
+                await expect(covered).toHaveCount(19);
                 await expect(overview.locator('.portal-example-placeholder')).toHaveCount(0);
 
                 const issues = overview.locator('.neo-list-item').filter({hasText: 'GitHub Issues Grid'});
@@ -634,7 +634,7 @@ test.describe('Portal examples section', () => {
         await page.goto(`${PORTAL}#/examples/devmode`);
         app = await neuralLink.connectToApp('Portal');
         await openGroup(page, 'Grid & Table');
-        await expect(page.locator(`${CARDS} .portal-example-feature`)).toHaveCount(18);
+        await expect(page.locator(`${CARDS} .portal-example-feature`)).toHaveCount(19);
         const gridList = await readList(app, 'grid-table');
         await app.setProperties(gridList.id, {baseUrl: `${baseURL}/`});
         await app.callMethod(gridList.id, 'createItems');
