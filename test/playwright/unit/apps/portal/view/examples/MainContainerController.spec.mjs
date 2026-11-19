@@ -583,6 +583,45 @@ test.describe('Portal examples overview and group pages', () => {
         expect(Example.matchesQuery(record, Example.tokenizeSearchText('board container'), groupTitles)).toBe(true);
         expect(Example.matchesQuery(record, Example.tokenizeSearchText('calendar'), groupTitles)).toBe(false)
     });
+
+    test('MainContainer registers and releases body-level "/" preventDefault as the view activates and deactivates', () => {
+        const events       = [],
+              originalMain = Neo.main;
+
+        Neo.main = {
+            ...originalMain,
+            DomEvents: {
+                ...originalMain?.DomEvents,
+                registerPreventDefaultKeys  : data => events.push({op: 'register',   id: data.id, keys: data.keys}),
+                unregisterPreventDefaultKeys: data => events.push({op: 'unregister', id: data.id, keys: data.keys})
+            }
+        };
+
+        try {
+            const view = createView();
+
+            view.mounted = true;
+            expect(events).toEqual([{op: 'register', id: 'document.body', keys: ['/']}]);
+            expect(view.isActiveView()).toBe(true);
+
+            view.wrapperCls = [...(view.wrapperCls || []), 'neo-inactive-item'];
+            expect(view.isActiveView()).toBe(false);
+            expect(events).toHaveLength(2);
+            expect(events[1]).toEqual({op: 'unregister', id: 'document.body', keys: ['/']});
+
+            view.wrapperCls = [];
+            expect(view.isActiveView()).toBe(true);
+            expect(events).toHaveLength(3);
+            expect(events[2]).toEqual({op: 'register', id: 'document.body', keys: ['/']});
+
+            view.destroy();
+            exampleView = null;
+            expect(events).toHaveLength(4);
+            expect(events[3]).toEqual({op: 'unregister', id: 'document.body', keys: ['/']})
+        } finally {
+            Neo.main = originalMain
+        }
+    });
 });
 
 const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'), 'utf8')),

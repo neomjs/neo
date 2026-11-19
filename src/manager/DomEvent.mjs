@@ -2,7 +2,6 @@ import Base             from '../core/Base.mjs';
 import ComponentManager from './Component.mjs';
 import FocusManager     from './Focus.mjs';
 import Logger           from '../util/Logger.mjs';
-import NeoArray         from '../util/Array.mjs';
 import VDomUtil         from '../util/VDom.mjs';
 import VNodeUtil        from '../util/VNode.mjs';
 
@@ -94,6 +93,13 @@ class DomEvent extends Base {
         singleton: true
     }
 
+    /**
+     * Per-event index of component owner IDs with at least one `vnodeId: 'document.body'` listener.
+     * Lets `fire()` skip the document-level pass in O(1) when empty instead of scanning `items`.
+     * @member {Map<String, Set<String>>} bodyListenerOwners=new Map()
+     * @protected
+     */
+    bodyListenerOwners = new Map()
     /**
      * @member {Object} mountTimeouts={}
      * @private
@@ -217,11 +223,24 @@ class DomEvent extends Base {
         // Listeners registered with `vnodeId: 'document.body'` observe global events reaching `<body>` even when the
         // target sits outside their component subtree (e.g. `document.body` itself or a sibling toolbar). Components
         // already visited in `path` were invoked during the loop above and are skipped here to prevent double-firing.
-        if (bubble && !data.cancelBubble && data.path?.some(node => node.tagName === 'body' || node.id === 'document.body')) {
-            const pathSet = new Set(path);
+        const bodyOwners = me.bodyListenerOwners.get(eventName);
 
-            for (const [cmpId, eventMap] of Object.entries(me.items)) {
-                if (pathSet.has(cmpId) || !eventMap?.[eventName]) {
+        if (
+            bodyOwners?.size > 0 &&
+            bubble &&
+            !data.cancelBubble &&
+            data.path?.some(node => node.tagName === 'body' || node.id === 'document.body')
+        ) {
+            const pathSet = path.length > 0 ? new Set(path) : null;
+
+            for (const cmpId of bodyOwners) {
+                if (pathSet?.has(cmpId)) {
+                    continue
+                }
+
+                const eventListeners = me.items[cmpId]?.[eventName];
+
+                if (!eventListeners) {
                     continue
                 }
 
@@ -238,7 +257,7 @@ class DomEvent extends Base {
 
                 bubble = me.invokeListeners(
                     component,
-                    eventMap[eventName],
+                    eventListeners,
                     data,
                     path,
                     eventName,
@@ -577,11 +596,13 @@ class DomEvent extends Base {
 
         config.listenerId = listenerId;
 
-        let local = config.local || (Neo.isObject(opts) && opts.local) || false;
+        let local    = config.local || (Neo.isObject(opts) && opts.local) || false,
+            vnodeId  = config.vnodeId || (Neo.isObject(opts) && opts.vnodeId) || config.id,
+            delegate = config.delegate || (Neo.isObject(opts) && opts.delegate) || (vnodeId === 'document.body' ? DomEvent.documentBodyDelegate : '#' + config.id);
 
         listenerConfig = {
-            bubble        : Object.hasOwn(config, 'bubble') ? config.bubble : Object.hasOwn(opts, 'bubble') ? opts.bubble : true,
-            delegate      : config.delegate,
+            bubble        : Object.hasOwn(config, 'bubble') ? config.bubble : (Neo.isObject(opts) && Object.hasOwn(opts, 'bubble')) ? opts.bubble : true,
+            delegate,
             eventName,
             fn,
             id            : listenerId,
@@ -589,9 +610,9 @@ class DomEvent extends Base {
             mounted       : !local && globalDomEvents.includes(eventName),
             originalConfig: config.originalConfig,
             ownerId       : config.ownerId,
-            priority      : config.priority || opts.priority || 1,
+            priority      : config.priority || (Neo.isObject(opts) && opts.priority) || 1,
             scope,
-            vnodeId       : config.vnodeId || opts.vnodeId || config.id
+            vnodeId
         };
 
         me.map[listenerId] = listenerConfig;
@@ -599,6 +620,17 @@ class DomEvent extends Base {
         listeners[id][eventName].push(listenerConfig);
 
         listeners[id][eventName].sort((a, b) => b.priority - a.priority);
+
+        if (listenerConfig.vnodeId === 'document.body') {
+            let owners = me.bodyListenerOwners.get(eventName);
+
+            if (!owners) {
+                owners = new Set();
+                me.bodyListenerOwners.set(eventName, owners)
+            }
+
+            owners.add(id)
+        }
 
         return true
     }
@@ -626,27 +658,77 @@ class DomEvent extends Base {
     }
 
     /**
+     * @summary Removes a matching DOM event listener from `items`, `map`, and `bodyListenerOwners`.
      * @param {Object} config
-     * @param {Boolean} config.bubble
-     * @param {String} config.eventName
-     * @param {String} config.id
-     * @param {Object} config.opts
-     * @param {Object} config.scope
-     * @param {String} config.vnodeId
-     * @param {Object} scope
+     * @param {String} [config.delegate]
+     * @param {String} [config.eventName]
+     * @param {Function|String} [config.fn]
+     * @param {String} [config.id]
+     * @param {String} [config.listenerId]
+     * @param {Function|Object|String} [config.opts]
+     * @param {Object} [config.originalConfig]
+     * @param {String} [config.ownerId]
+     * @param {Object} [config.scope]
+     * @param {String} [config.vnodeId]
+     * @param {Object} [scope]
      * @returns {Boolean} true in case the listener did exist and got removed
      */
     unregister(config, scope) {
-        // todo
-        console.log('unregister', config);
-        console.log(this.generateListenerConfig(config, scope));
-        return;
-
-        let listener = this.getListener(config);
-
-        if (listener) {
-            console.log('listener found', listener)
+        if (!Neo.isObject(config)) {
+            return false
         }
+
+        let me          = this,
+            eventName   = config.eventName || me.getEventName(config),
+            ownerId     = config.ownerId || scope?.id || config.id,
+            listeners   = ownerId && eventName ? me.items[ownerId]?.[eventName] : null,
+            opts        = config.opts ?? (eventName ? config[eventName] : undefined),
+            fn          = typeof opts === 'function' || typeof opts === 'string' ? opts : opts?.fn ?? config.fn,
+            targetScope = (Neo.isObject(opts) && opts.scope) || config.scope || scope,
+            vnodeId     = config.vnodeId || (Neo.isObject(opts) && opts.vnodeId),
+            delegate    = config.delegate || (Neo.isObject(opts) && opts.delegate),
+            index;
+
+        if (!Array.isArray(listeners) || listeners.length === 0) {
+            return false
+        }
+
+        index = listeners.findIndex(listener => {
+            if (config.listenerId) {
+                return listener.id === config.listenerId
+            }
+
+            if (config.originalConfig) {
+                return listener.originalConfig === config.originalConfig
+            }
+
+            return (!fn || listener.fn === fn || listener.fn?.toString() === fn?.toString()) &&
+                   (!targetScope || listener.scope === targetScope) &&
+                   (!vnodeId || listener.vnodeId === vnodeId) &&
+                   (!delegate || listener.delegate === delegate)
+        });
+
+        if (index === -1) {
+            return false
+        }
+
+        const [removed] = listeners.splice(index, 1);
+
+        delete me.map[removed.id];
+
+        if (removed.vnodeId === 'document.body' && !listeners.some(item => item.vnodeId === 'document.body')) {
+            const owners = me.bodyListenerOwners.get(eventName);
+
+            if (owners) {
+                owners.delete(ownerId);
+
+                if (owners.size === 0) {
+                    me.bodyListenerOwners.delete(eventName)
+                }
+            }
+        }
+
+        return true
     }
 
     /**
@@ -655,25 +737,22 @@ class DomEvent extends Base {
      * @param {Object[]} oldDomListeners
      */
     updateDomListeners(component, domListeners, oldDomListeners) {
-        let me                  = this,
-            registeredListeners = me.items[component.id] || {},
-            i, len, listeners;
+        let me = this;
 
         if (Array.isArray(domListeners)) {
             if (Array.isArray(oldDomListeners)) {
                 oldDomListeners.forEach(oldDomListener => {
                     // find & remove no longer existing listeners
                     if (!domListeners.includes(oldDomListener)) {
-                        listeners = registeredListeners[me.getEventName(oldDomListener)] || [];
-                        i         = 0;
-                        len       = listeners.length;
-
-                        for (; i < len; i++) {
-                            if (listeners[i].originalConfig === oldDomListener) {
-                                NeoArray.remove(listeners, listeners[i]);
-                                break
+                        Object.keys(oldDomListener).forEach(key => {
+                            if (!eventConfigKeys.includes(key)) {
+                                me.unregister({
+                                    eventName     : key,
+                                    originalConfig: oldDomListener,
+                                    ownerId       : component.id
+                                })
                             }
-                        }
+                        })
                     }
                 })
             }

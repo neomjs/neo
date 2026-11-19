@@ -129,6 +129,8 @@ class MainContainer extends Container {
         }
     }
 
+    /** @summary Tracks whether `'/'` is registered with `Neo.main.DomEvents#registerPreventDefaultKeys`. */
+    preventDefaultKeysRegistered = false
     /**
      * Element id focused immediately before the `'/'` shortcut moved focus to the find input.
      * @member {String|null} returnFocusId=null
@@ -184,22 +186,22 @@ class MainContainer extends Container {
         }
     }
 
-    /**
-     * @summary Registers `'/'` as a body-level preventDefault shortcut once mounted so browsers do not open Quick Find.
-     * @param {Boolean} value
-     * @param {Boolean|undefined} oldValue
-     * @protected
-     */
+    /** @summary Re-syncs `'/'` preventDefault registration when component classes change. */
+    afterSetCls(value, oldValue) {
+        super.afterSetCls(value, oldValue);
+        this.syncPreventDefaultKeys()
+    }
+
+    /** @summary Synchronizes `'/'` body-level preventDefault registration with mount state. */
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
+        this.syncPreventDefaultKeys()
+    }
 
-        if (value) {
-            Neo.main?.DomEvents?.registerPreventDefaultKeys?.({
-                id      : 'document.body',
-                keys    : ['/'],
-                windowId: this.windowId
-            })
-        }
+    /** @summary Releases `'/'` preventDefault on `document.body` when card layout marks this view inactive. */
+    afterSetWrapperCls(value, oldValue) {
+        super.afterSetWrapperCls(value, oldValue);
+        this.syncPreventDefaultKeys()
     }
 
     /**
@@ -476,6 +478,12 @@ class MainContainer extends Container {
         return this.down({reference: 'sidebar-find'})
     }
 
+    /** @summary Releases any active `'/'` preventDefault registration before destroying child items. */
+    destroy(...args) {
+        this.syncPreventDefaultKeys(false);
+        super.destroy(...args)
+    }
+
     /**
      * @summary Moves focus to whichever find input (`sidebar-find` on desktop, `mobile-find` on phone) is currently visible.
      */
@@ -507,7 +515,7 @@ class MainContainer extends Container {
      * @returns {Boolean}
      */
     isActiveView() {
-        return !this.isDestroyed && !this.cls?.includes('neo-inactive-item')
+        return !this.isDestroyed && !this.wrapperCls?.includes('neo-inactive-item') && !this.cls?.includes('neo-inactive-item')
     }
 
     /**
@@ -675,6 +683,17 @@ class MainContainer extends Container {
             ? {iconCls: group.iconCls, text: group.title}
             : {iconCls: 'fa fa-table-cells-large', text: total ? `All ${total} groups` : 'All examples'}
         )
+    }
+    /** @summary Registers `'/'` preventDefault on `document.body` only while mounted and active. */
+    syncPreventDefaultKeys(active=Boolean(this.mounted && this.isActiveView())) {
+        if (this.preventDefaultKeysRegistered !== active) {
+            this.preventDefaultKeysRegistered = active;
+            Neo.main?.DomEvents?.[active ? 'registerPreventDefaultKeys' : 'unregisterPreventDefaultKeys']?.({
+                id      : 'document.body',
+                keys    : ['/'],
+                windowId: this.windowId
+            })
+        }
     }
 }
 
