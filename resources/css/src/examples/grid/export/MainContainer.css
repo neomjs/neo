@@ -44,8 +44,6 @@ body:has(.neo-examples-grid-export) .neo-dragproxy [class*=neo-theme-] {
             border: 1px solid var(--grid-export-border);
             border-radius: 8px;
             color: var(--grid-export-title);
-            height: auto;
-            padding: 8px 12px;
         }
     }
 

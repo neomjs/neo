@@ -1059,7 +1059,7 @@
     },
     "/examples/apps": {
         "title": "JavaScript Web App Examples — Full Apps on Worker Threads | Neo.mjs",
-        "description": "Explore 8 live JavaScript web app examples: A living-data workspace whose panes can leave the browser window.",
+        "description": "Explore 10 live JavaScript web app examples: A living-data workspace whose panes can leave the browser window.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-18"
     },
@@ -1137,7 +1137,7 @@
     },
     "/examples/multi-window": {
         "title": "Multi-Window JavaScript App Examples — SharedWorker State | Neo.mjs",
-        "description": "Explore 7 live multi-window JavaScript app examples: A living-data workspace whose panes can leave the browser window.",
+        "description": "Explore 8 live multi-window JavaScript app examples: A living-data workspace whose panes can leave the browser window.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-18"
     },
@@ -1150,6 +1150,12 @@
     "/examples/state": {
         "title": "JavaScript State Management Examples — Reactive Stores | Neo.mjs",
         "description": "Explore 1 live JavaScript state management example: Nested state providers bind button texts through the formatters shown beside them.",
+        "schemaType": "CollectionPage",
+        "lastmod": "2026-11-18"
+    },
+    "/examples/functional": {
+        "title": "JavaScript Functional Component Examples | Neo.mjs",
+        "description": "Explore 1 live JavaScript functional component example: Buffered inbox and functional message reader that detaches into its own window.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-18"
     },
@@ -1169,19 +1175,19 @@
         "title": "COVID-19 IN NUMBERS — Multi-Threaded JavaScript App | Neo.mjs",
         "description": "Country statistics and country selection. Browse the country table and choose a country from the picker.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-05"
+        "lastmod": "2026-11-18"
     },
     "/apps/email/index.html": {
-        "title": "Email — Multi-Threaded JavaScript App | Neo.mjs",
-        "description": "Live runnable Email app in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "title": "Email — Multi-Window JavaScript Demo | Neo.mjs",
+        "description": "Buffered inbox and functional message reader that detaches into its own window. Select another conversation in the inbox, then press Open in window to move...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-06"
+        "lastmod": "2026-11-18"
     },
     "/apps/finance/index.html": {
         "title": "Finance Dashboard — Multi-Threaded JavaScript App | Neo.mjs",
-        "description": "Live runnable Finance Dashboard app in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "description": "Streaming equity quotes with animated currency diffs and instant filtering. Filter by sector or ticker while live price and percent changes keep ticking...",
         "schemaType": "WebPage",
-        "lastmod": "2025-08-12"
+        "lastmod": "2026-11-18"
     },
     "/apps/form/index.html": {
         "title": "Form — Multi-Threaded JavaScript App | Neo.mjs",
