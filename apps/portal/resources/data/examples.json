@@ -394,7 +394,7 @@
         "lookFor": "Type a new Tab 1 text and a badgeText, then pick another badgePosition.",
         "featured": false,
         "image": "devmode/tiles/tab-container-14.jpg",
-        "name": "tab.Container",
+        "name": "Tab container",
         "sourceUrl": "examples/tab/container",
         "urls": {
             "devmode": "examples/tab/container/index.html",
