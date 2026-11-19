@@ -33,9 +33,8 @@ class MainContainer extends Viewport {
          */
         items: [{
             module: Toolbar,
+            cls   : ['neo-examples-list-animate-toolbar'],
             flex  : 'none',
-            // On a phone the sort buttons and the three checkboxes take two rows instead of leaving the screen
-            style : {flexWrap: 'wrap', rowGap: '8px'},
 
             itemDefaults: {
                 ntype: 'button',
