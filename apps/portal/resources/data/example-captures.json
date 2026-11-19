@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "families": ["grid-table", "gantt", "scheduler", "charts", "dashboard", "apps"],
+  "families": ["grid-table", "gantt", "scheduler", "board", "charts", "dashboard", "apps"],
   "suffix": "14",
   "tiles": [
     "examples/form/field/checkbox", "examples/form/field/chip", "examples/form/field/color", "examples/form/field/combobox",
@@ -462,6 +462,16 @@
       "steps": [],
       "after": [{"selector": ".year-plan-counts", "text": "300 people · 15,600 bookings"}, {"selector": ".neo-timeline-bar", "inRegion": true}],
       "region": {"selector": ".neo-scheduler", "anchor": "top-left", "width": 640, "height": 360}
+    },
+    {
+      "id": "board-swimlanes",
+      "viewport": {"width": 640, "height": 800},
+      "theme": "dark",
+      "state": "The example as it opens, framed from the folded Web row: Web down to its header and count above the open Mobile row, whose header keeps its count in view and whose first columns show their cards. An open row is about 350 px tall, so a 640 x 360 viewport shows one row and no fold; the region keeps the viewport's full width.",
+      "ready": [{"selector": ".neo-board-lane-title", "text": "Unassigned"}, {"selector": ".neo-board-lane-collapsed .neo-board-lane-title", "text": "Web"}],
+      "steps": [],
+      "after": [{"selector": ".neo-theme-neo-dark .neo-board"}, {"selector": ".neo-board-lane-collapsed", "count": 1}, {"selector": ".neo-board-lane-collapsed .neo-board-lane-count", "text": "10", "inRegion": true}, {"selector": "[id$='__lane__Mobile'] .neo-board-lane-count", "text": "9", "inRegion": true}, {"selector": ".neo-board-card-title", "text": "A widget for today's tasks", "inRegion": true}, {"selector": ".neo-board-card-title", "text": "Deep links into a project", "inRegion": true}],
+      "region": {"selector": "[id$='__lane__Web']", "anchor": "top-left", "offsetX": -12, "offsetY": -6, "width": 640, "height": 360}
     },
     {
       "id": "gantt-big-data",
