@@ -18,7 +18,7 @@ class MainContainer extends ConfigurationViewport {
 
         return [{
             module   : CheckBox,
-            checked  : false,
+            checked  : true,
             value    : 5,
             labelText: 'horizontal',
             listeners: {change: me.onConfigChange.bind(me, 'horizontal')}
@@ -51,7 +51,7 @@ class MainContainer extends ConfigurationViewport {
                 module    : Process,
                 flag      : 'color-change',
                 arrowColor: '#aaa',
-                horizontal: false,
+                horizontal: true,
                 iconColor : '#953499',
                 items     : [{
                     iconCls: 'fa fa-plane-departure',

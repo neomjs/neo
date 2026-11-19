@@ -274,17 +274,17 @@ test.describe('Portal examples section', () => {
               counts   = page.locator(`${SIDEBAR} .portal-examples-group-index-count`);
 
         await expect(page.locator(SIDEBAR)).toBeVisible();
-        await expect(headline).toHaveText('97 live examples in 21 groups');
-        expect((await counts.allTextContents()).filter(text => !text.startsWith('(')).reduce((sum, text) => sum + Number(text), 0)).toBe(97);
+        await expect(headline).toHaveText('100 live examples in 21 groups');
+        expect((await counts.allTextContents()).filter(text => !text.startsWith('(')).reduce((sum, text) => sum + Number(text), 0)).toBe(100);
         await expect(page.locator(`${SIDEBAR} .portal-examples-group-index-note`)).toBeVisible();
         await expect(page.locator(`${FEATURED} .neo-list-item`).first().locator('.portal-example-group-badge')).toHaveText('Multi-Window');
 
-        // Dev mode cannot open liquid-glass, the one card of More components; its eight tiles stay
+        // Dev mode cannot open liquid-glass, one of the two cards of More components; the markdown card and the ten tiles stay
         await selectBuild(page, 'Dev mode');
-        await expect(headline).toHaveText('96 live examples in 21 groups');
-        await expect(page.locator(SIDEBAR).getByRole('link', {name: 'More components, 8 live examples'})).toHaveCount(1);
+        await expect(headline).toHaveText('99 live examples in 21 groups');
+        await expect(page.locator(SIDEBAR).getByRole('link', {name: 'More components, 11 live examples'})).toHaveCount(1);
         await selectBuild(page, 'Production build');
-        await expect(headline).toHaveText('97 live examples in 21 groups')
+        await expect(headline).toHaveText('100 live examples in 21 groups')
     });
 
     test('the index is a navigation landmark of links: Tab reaches every entry, Enter opens it, no entry claims to be a tab', async ({page, neuralLink}) => {
@@ -428,8 +428,8 @@ test.describe('Portal examples section', () => {
         await neuralLink.connectToApp('Portal');
 
         await expect(page.locator(`${PAGE} .portal-examples-kind-heading`)).toHaveText(['Demonstrations', 'Components']);
-        await expect(page.locator(`${CARDS} .neo-list-item .neo-title`)).toHaveText(['Liquid Glass effect']);
-        await expect(page.locator(`${TILES} .neo-list-item`)).toHaveCount(8)
+        await expect(page.locator(`${CARDS} .neo-list-item .neo-title`)).toHaveText(['Markdown VDOM', 'Liquid Glass effect']);
+        await expect(page.locator(`${TILES} .neo-list-item`)).toHaveCount(10)
     });
 
     test('what the boards cannot show: direct entry, history, the build kept across groups, the scroll of each group', async ({page, neuralLink}) => {

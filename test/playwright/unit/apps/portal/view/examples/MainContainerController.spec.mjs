@@ -120,16 +120,16 @@ test.describe('Portal examples overview and group pages', () => {
         // Timeline was retired and its example moved to Grid & Table + Scheduler; Trees publishes via alsoIn; every other group has a card or a tile
         expect(groupStore.items.map(group => group.route)).toEqual(publishedRoutes);
         expect(view.getGroupPages().map(page => page.family)).toEqual(groupStore.items.map(group => group.family));
-        expect(view.getCatalogStore().getCount()).toBe(116);
+        expect(view.getCatalogStore().getCount()).toBe(111);
 
         // every example counts once, in its home group: the counts add up to the records that publish, tiles included
         expect(groupStore.items.reduce((sum, group) => sum + group.count, 0)).toBe(published.length);
-        expect(published).toHaveLength(97);
+        expect(published).toHaveLength(100);
         expect(Object.fromEntries(groupStore.items.map(group => [group.family, [group.count, group.crossCount]]))).toEqual({
             apps          : [6, 4], 'grid-table': [18, 0], tree: [0, 2], lists: [7, 0], charts: [1, 1],
             calendar      : [1, 0], scheduler   : [2, 0], gantt: [2, 0], board: [2, 0],
             dashboard     : [3, 0], tabs        : [1, 0], layouts: [1, 0], dialogs: [3, 0],
-            forms         : [27, 1], buttons    : [2, 0], components: [9, 0],
+            forms         : [27, 1], buttons    : [2, 0], components: [12, 0],
             'multi-window': [6, 2], platform    : [2, 1], state: [1, 0], functional: [3, 1], 'drag-drop': [0, 2]
         });
 
@@ -158,7 +158,7 @@ test.describe('Portal examples overview and group pages', () => {
 
         // every card and tile of every page has its image; the catalog keeps the records that wait for one
         view.getGroupPages().forEach(page => page.getLists().forEach(list => list.store.forEach(record => expect(record.image, record.id).toBeTruthy())));
-        expect(view.getCatalogStore().items.filter(record => !record.image)).toHaveLength(19);
+        expect(view.getCatalogStore().items.filter(record => !record.image)).toHaveLength(11);
         expect(view.getCatalogStore().items.filter(record => record.image && !Example.publishes(record, 'dist_prod')).map(record => record.id))
             .toEqual([]);
         expect(view.getGroupPage('grid-table').getList().store.getSource()).toBe(view.getCatalogStore());
@@ -166,30 +166,32 @@ test.describe('Portal examples overview and group pages', () => {
     });
 
     test('a component record is a tile: it counts as a live example, and its page\'s tileCount follows the build', () => {
-        // the clock's tile cannot open in the ESM build, liquid-glass's card cannot open in Dev mode
-        const records = structuredClone(catalog).map(record => record.id === 'clock' ? {...record, hiddenIn: ['dist_esm']} : record),
-              view    = createView(records),
-              group   = () => view.getGroupStore().get('components'),
-              page    = view.getGroupPage('components'),
-              heading = reference => page.down({reference});
+        // the clock's tile cannot open in the ESM build, liquid-glass's card cannot open in Dev mode, and here
+        // neither can the markdown card, so Dev mode shows tiles alone
+        const hiddenIn = {clock: ['dist_esm'], markdown: ['devmode']},
+              records  = structuredClone(catalog).map(record => hiddenIn[record.id] ? {...record, hiddenIn: hiddenIn[record.id]} : record),
+              view     = createView(records),
+              group    = () => view.getGroupStore().get('components'),
+              page     = view.getGroupPage('components'),
+              heading  = reference => page.down({reference});
 
         expect(view.getCatalogStore().get('liquid-glass').kind).toBe('demonstration');
         expect(view.getCatalogStore().get('clock').kind).toBe('component');
-        expect([group().count, group().tileCount]).toEqual([9, 8]);
+        expect([group().count, group().tileCount]).toEqual([12, 10]);
 
         // the card shows under "Demonstrations", the tiles by name under the default tile heading
-        expect(pageIds(view, 'components')).toEqual(['liquid-glass']);
-        expect(tileIds(view, 'components')).toEqual(['chip', 'circle', 'clock', 'magic-move-text', 'monaco-editor', 'progress', 'status-badge', 'timer']);
+        expect(pageIds(view, 'components')).toEqual(['markdown', 'liquid-glass']);
+        expect(tileIds(view, 'components')).toEqual(['chip', 'circle', 'clock', 'magic-move-text', 'monaco-editor', 'process', 'progress', 'splitter', 'status-badge', 'timer']);
         expect([heading('cards-heading').hidden, heading('tiles-heading').hidden, heading('tiles-heading').text]).toEqual([false, false, 'Components']);
 
         // the same rule publishes a tile and a card: a build that cannot open the tile drops it from both counts
         view.getController().onSelectBuild({id: 'dist_esm'});
-        expect([group().count, group().tileCount]).toEqual([8, 7]);
+        expect([group().count, group().tileCount]).toEqual([11, 9]);
         expect(tileIds(view, 'components')).not.toContain('clock');
 
         // a page that shows one kind heads neither
         view.getController().onSelectBuild({id: 'devmode'});
-        expect([group().count, group().tileCount]).toEqual([8, 8]);
+        expect([group().count, group().tileCount]).toEqual([10, 10]);
         expect(pageIds(view, 'components')).toEqual([]);
         expect([heading('cards-heading').hidden, heading('tiles-heading').hidden]).toEqual([true, true])
     });
@@ -200,7 +202,7 @@ test.describe('Portal examples overview and group pages', () => {
               intro    = overview.down({reference: 'overview-intro'}),
               list     = overview.getList();
 
-        expect(intro.vdom.cn[1].text).toBe('97 live examples in 21 groups');
+        expect(intro.vdom.cn[1].text).toBe('100 live examples in 21 groups');
         expect(overview.down({reference: 'overview-index-heading'}).vdom.cn[0].text).toBe('All 21 groups');
         expect(list.leadCard).toBe(true);
         expect(list.showGroup).toBe(true);
@@ -228,7 +230,7 @@ test.describe('Portal examples overview and group pages', () => {
         expect(mobIx.vdom.cn.filter(node => node.tag === 'section').map(band => band.cn[0].text))
             .toEqual(['Data views', 'Planning', 'Layout', 'Components', 'Platform']);
         expect(links(mobIx).map(link => link.href)).toEqual(publishedRoutes.map(route => '#' + route));
-        expect(links(mobIx).map(link => link.cn[2].text)).toEqual(['6', '18', '(2)', '7', '1', '1', '2', '2', '2', '3', '1', '1', '3', '27', '2', '9', '6', '2', '1', '3', '(2)']);
+        expect(links(mobIx).map(link => link.cn[2].text)).toEqual(['6', '18', '(2)', '7', '1', '1', '2', '2', '2', '3', '1', '1', '3', '27', '2', '12', '6', '2', '1', '3', '(2)']);
         expect(links(mobIx).every(link => link['aria-current'] === null)).toBe(true);
         expect(mobIx.vdom.cn[0].removeDom).toBe(true);
         expect(mobIx.vdom.cn.at(-1).removeDom).toBe(false);
@@ -450,7 +452,7 @@ test.describe('Portal examples overview and group pages', () => {
         expect(view.getGroupStore().get('drag-drop').count).toBe(0);
         expect(view.getGroupStore().get('tree').count).toBe(0);
         expect(view.getCatalogStore().items.filter(record => record.id === 'dialog-drag-drop')).toHaveLength(1);
-        expect(view.getCatalogStore().getCount()).toBe(116)
+        expect(view.getCatalogStore().getCount()).toBe(111)
     });
 
     for (const mode of ['dist_prod', 'dist_esm', 'dist_dev', 'devmode']) {
@@ -473,14 +475,14 @@ test.describe('Portal examples overview and group pages', () => {
         expect(view.getGroupStore().items.map(group => group.route)).not.toContain('/examples/components');
         expect(view.getGroupPage('components')).toBeNull();
         expect(openCard(view)).toBe('overview');
-        // the overview's headline follows the build: Dev mode opens none of the nine More components records
+        // the overview's headline follows the build: Dev mode opens none of the twelve More components records
         expect(view.down({reference: 'overview-intro'}).vdom.cn[1].text).toBe('88 live examples in 20 groups');
 
         // the route still names the group: its page returns with its cards
         controller.onSelectBuild({id: 'dist_prod'});
         expect(view.getGroupStore().items.map(group => group.route)).toEqual(publishedRoutes);
         expect(openCard(view)).toBe('components');
-        expect(pageIds(view, 'components')).toEqual(['liquid-glass'])
+        expect(pageIds(view, 'components')).toEqual(['markdown', 'liquid-glass'])
     });
 
     test('an open page stays open when a build switch removes or adds another page', async () => {
@@ -516,8 +518,7 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
       ],
       componentExampleIds = [
           'carousel', 'chip', 'circle', 'clock', 'graph-scene', 'magic-move-text',
-          'markdown', 'mwc-button', 'mwc-buttons', 'mwc-text-field', 'mwc-text-fields',
-          'process', 'process-real-world', 'progress', 'splitter', 'status-badge', 'timer',
+          'markdown', 'process', 'progress', 'splitter', 'status-badge', 'timer',
           'toast', 'popover', 'video', 'monaco-editor', 'open-street-maps', 'am-charts',
           'video-move'
       ],
@@ -636,8 +637,8 @@ test.describe('Portal examples canonical catalog', () => {
         const {store} = createList(),
               ids     = [];
 
-        expect(catalog).toHaveLength(116);
-        expect(store.getCount()).toBe(116);
+        expect(catalog).toHaveLength(111);
+        expect(store.getCount()).toBe(111);
 
         store.forEach(record => {
             expect(typeof record.id, record.name).toBe('string');
@@ -645,7 +646,7 @@ test.describe('Portal examples canonical catalog', () => {
             ids.push(record.id)
         });
 
-        expect(new Set(ids).size).toBe(116);
+        expect(new Set(ids).size).toBe(111);
         expect(list.catalogMode).toBe('dist_prod')
     });
 
@@ -847,7 +848,7 @@ test.describe('Portal examples canonical catalog', () => {
         // the list hides what its store would filter out: a record without a cover publishes no card in any mode
         const uncovered = completeIds.filter(id => !store.get(id).image);
 
-        expect(uncovered).toHaveLength(19);
+        expect(uncovered).toHaveLength(11);
 
         cases.forEach(([mode, bigDataUrl, workstationUrl, choreographyUrl]) => {
             list.catalogMode = mode;
