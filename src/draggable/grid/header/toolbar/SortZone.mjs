@@ -552,11 +552,7 @@ class SortZone extends BaseSortZone {
             // which handles sorting, DOM syncing, and layout calculations.
             column.locked = newLocked
         } else {
-            owner.items.forEach((item, index) => {
-                item.vdom['aria-colindex'] = index + 1 + owner.ariaColumnOffset // 1 based, grid-wide
-            });
-
-            owner.updateDepth = 2;
+            owner.syncAriaColumnIndexes();
 
             // A flex header measured before every header is back in the flow takes their space as its width
             await owner.measureAfterUpdate();

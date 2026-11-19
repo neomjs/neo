@@ -269,5 +269,25 @@ test.describe('Grid: one ARIA grid across locked regions', () => {
         expect(removed).toBe(grid.horizontalScrollbar);
         expect(vdomIds()).toEqual([grid.ariaWrapper.id, grid.verticalScrollbar.id]);
         removed.destroy()
+    });
+
+    test('a header whose own update joins the renumbering leaves no other header on its old index (#21449)', async () => {
+        grid = await createGrid(store);
+
+        let {headerToolbar, headerWrapper} = grid,
+            [name, city]                   = grid.centerColumns;
+
+        // The setup leaves the toolbar at updateDepth -1, which always ships whole: a settled cycle resets it
+        await headerToolbar.promiseUpdate();
+
+        // The renumbering writes into the headers silently, and the text change merges into the same toolbar cycle
+        headerWrapper.applyColumnButtonOrder(grid.lockedStartColumns, [city, name], grid.lockedEndColumns);
+        headerWrapper.getButton('city').text = 'Town';
+
+        await expect.poll(() => [headerToolbar, ...headerToolbar.items].every(item => !item.isVdomUpdating && !item.needsVdomUpdate)).toBe(true);
+
+        // The vnode holds what reached the DOM: the vdom has the new index either way
+        expect(Object.fromEntries(headerToolbar.items.map(button => [button.dataField, button.vnode.attributes['aria-colindex']])))
+            .toEqual({city: '3', name: '4'})
     })
 });
