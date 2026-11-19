@@ -1894,6 +1894,35 @@
         "lookFor": "Type letters into the phone field to see them refused, then fill +1 (___) ___-____ with a 10-digit number."
     },
     {
+        "id": "checkout-form",
+        "image": null,
+        "name": "Address and payment",
+        "sourceUrl": "examples/form/checkout",
+        "urls": {
+            "devmode": "examples/form/checkout/index.html",
+            "dist_dev": "dist/development/examples/form/checkout/index.html",
+            "dist_esm": "dist/esm/examples/form/checkout/index.html",
+            "dist_prod": "dist/production/examples/form/checkout/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "Form",
+        "keywords": [
+            "checkout",
+            "address",
+            "payment",
+            "country",
+            "postal code",
+            "zip code",
+            "phone",
+            "currency",
+            "iban"
+        ],
+        "feature": "Do the fields know countries, postal codes, phone numbers and bank accounts? A checkout form with Country, ZipCode, Phone, Currency and IBAN",
+        "lookFor": "Switch the country to Switzerland: the postal code now takes 4 digits, and the amount is in CHF. Change one IBAN digit to fail its check.",
+        "scope": "Postal codes and the IBAN format are checked for Austria, Switzerland and Germany; IBAN check digits for every country. The phone field checks the number's shape, not the country."
+    },
+    {
         "id": "layout-form",
         "kind": "component",
         "image": "devmode/tiles/layout-form-14.jpg",
