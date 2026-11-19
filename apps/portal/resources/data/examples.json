@@ -1972,7 +1972,7 @@
         "feature": "A Notes pane keeps its draft when it moves to a separate window",
         "lookFor": "Type a draft in Notes, use its pop-out action, then close the popup and find the draft back in Notes.",
         "scope": "Allow popups. The pane returns when its window closes.",
-        "image": null,
+        "image": "devmode/dock-tear-out-14.jpg",
         "sharedWorkers": true,
         "sourceUrl": "examples/dashboard/tearOut",
         "urls": {

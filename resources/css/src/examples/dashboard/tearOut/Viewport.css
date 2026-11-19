@@ -1,0 +1,71 @@
+/* The tear-out example reads the dashboard examples' shared palette (`Neo.examples.dashboard.Palette`), so it
+   matches the other dock examples in the dark and the light neo theme. A torn-out window boots this viewport
+   too, so its pane keeps these styles there. */
+.neo-example-tearout {
+    background : var(--dashboard-example-ground);
+    color      : var(--dashboard-example-ink);
+    font-family: var(--dashboard-example-font-sans);
+}
+
+.neo-example-tearout-claim {
+    border-bottom: 1px solid var(--dashboard-example-line);
+    color        : var(--dashboard-example-ink-dim);
+    font-size    : 13px;
+    line-height  : 1.45;
+    padding      : 10px 14px;
+
+    b {
+        color: var(--dashboard-example-ink);
+    }
+}
+
+.neo-example-tearout-list {
+    background: var(--dashboard-example-panel);
+    font-size : 13px;
+    overflow  : auto;
+
+    /* One line per row: a narrow pane, as on a phone where the dock keeps its zones, ends a title with an ellipsis */
+    .neo-list-item {
+        border-bottom: 1px solid var(--dashboard-example-line-soft);
+        color        : var(--dashboard-example-ink);
+        overflow     : hidden;
+        padding      : 7px 12px;
+        text-overflow: ellipsis;
+        white-space  : nowrap;
+    }
+}
+
+/* One hue per ticket priority, in both themes */
+.neo-example-tearout-queue .neo-list-item::before {
+    background-color: var(--tearout-priority, #8b97a8);
+    border-radius   : 50%;
+    content         : '';
+    display         : inline-block;
+    height          : 8px;
+    margin-right    : 8px;
+    width           : 8px;
+}
+
+.neo-example-tearout-urgent {--tearout-priority: #e5484d;}
+.neo-example-tearout-normal {--tearout-priority: #3e9bff;}
+.neo-example-tearout-low    {--tearout-priority: #8b97a8;}
+
+.neo-example-tearout-metrics {
+    background: var(--dashboard-example-panel);
+    display   : flex;
+    gap       : 24px;
+    padding   : 14px;
+
+    div {
+        color         : var(--dashboard-example-ink-dim);
+        display       : flex;
+        flex-direction: column;
+        font-size     : 12px;
+    }
+
+    b {
+        color               : var(--dashboard-example-ink);
+        font-size           : 22px;
+        font-variant-numeric: tabular-nums;
+    }
+}

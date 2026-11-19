@@ -1119,7 +1119,7 @@
     },
     "/examples/dashboard": {
         "title": "JavaScript Dashboard & Docking — Panes That Pop Out | Neo.mjs",
-        "description": "Explore 3 live JavaScript dashboard examples: A scripted layout tour splits, groups and auto-hides live panes.",
+        "description": "Explore 4 live JavaScript dashboard examples: A scripted layout tour splits, groups and auto-hides live panes.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-19"
     },
@@ -1161,7 +1161,7 @@
     },
     "/examples/multi-window": {
         "title": "Multi-Window JavaScript App Examples — SharedWorker State | Neo.mjs",
-        "description": "Explore 8 live multi-window JavaScript app examples: A living-data workspace whose panes can leave the browser window.",
+        "description": "Explore 9 live multi-window JavaScript app examples: A living-data workspace whose panes can leave the browser window.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-19"
     },
@@ -1185,7 +1185,7 @@
     },
     "/examples/drag-drop": {
         "title": "JavaScript Drag & Drop Examples — Across Windows | Neo.mjs",
-        "description": "Explore 2 live JavaScript drag and drop examples: A draggable dialog can move into a second browser window.",
+        "description": "Explore 3 live JavaScript drag and drop examples: A draggable dialog can move into a second browser window.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-19"
     },
