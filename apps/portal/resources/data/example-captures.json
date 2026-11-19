@@ -3,7 +3,7 @@
   "families": ["grid-table", "gantt", "scheduler", "board", "charts", "dashboard", "apps"],
   "suffix": "14",
   "tiles": [
-    {"path": "examples/form/field/checkbox", "width": 220}, {"path": "examples/form/field/chip", "width": 220},
+    "examples/form/field/checkbox", {"path": "examples/form/field/chip", "width": 220},
     {"path": "examples/form/field/color", "width": 220}, {"path": "examples/form/field/combobox", "width": 220},
     {"path": "examples/form/field/country", "width": 220}, {"path": "examples/form/field/currency", "width": 220},
     {"path": "examples/form/field/date", "width": 220}, {"path": "examples/form/field/display", "width": 220},
