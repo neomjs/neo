@@ -5,13 +5,17 @@ import {fileURLToPath} from 'node:url';
 
 import {
     decideGitCommitPushGuard,
+    gitInvocations,
     gitSubcommands,
-    GIT_COMMIT_PUSH_GUARD_MESSAGE
+    GIT_COMMIT_PUSH_GUARD_MESSAGE,
+    GIT_PUSH_REFSPEC_GUARD_MESSAGE,
+    pushRefspecs
 } from '../../../../.claude/hooks/gitCommitPushGuardHook.mjs';
 
 const hookPath     = fileURLToPath(new URL('../../../../.claude/hooks/gitCommitPushGuardHook.mjs', import.meta.url)),
       templatePath = fileURLToPath(new URL('../../../../.claude/settings.template.json', import.meta.url)),
       block        = {decision: 'block', reason: GIT_COMMIT_PUSH_GUARD_MESSAGE},
+      refspecBlock = {decision: 'block', reason: GIT_PUSH_REFSPEC_GUARD_MESSAGE},
       decide       = command => decideGitCommitPushGuard({tool_name: 'Bash', tool_input: {command}});
 
 test.describe('gitCommitPushGuardHook — Claude PreToolUse Bash guard', () => {
@@ -57,6 +61,46 @@ test.describe('gitCommitPushGuardHook — Claude PreToolUse Bash guard', () => {
         expect(decide("git push && gh pr comment 1 --body 'ran git commit first'")).toBeNull()
     });
 
+    test('a push that names a colon refspec is blocked in every shell form, the ones the settings glob misses included', () => {
+        [
+            'git -C ../w push -u origin ada/1-x:ada/1-x',
+            'cd ../w && git push origin ada/1-x:ada/1-x',
+            'git push origin HEAD:refs/heads/ada/1-x',
+            'git push origin "${sha}:refs/heads/ada/1-x-evidence"',
+            'git push origin :ada/1-x',
+            'git push --repo=origin ada/1-x:dev',
+            'git push origin ada/1-x:ada/1-x 2>&1 | tail -2'
+        ].forEach(command => expect(decide(command), command).toEqual(refspecBlock))
+    });
+
+    test('a push by branch name passes, and a colon outside a refspec never counts', () => {
+        [
+            'git push -u origin ada/1-x',
+            'git -C ../w push origin ada/1-x',
+            'git push https://github.com/o/r.git ada/1-x',
+            'git push git@github.com:o/r.git ada/1-x',
+            'git push -o ci:skip origin ada/1-x',
+            'git push --push-option=ci:skip origin ada/1-x',
+            'git push origin ada/1-x 2> push:log',
+            'git log --format=%h:%s && git push origin ada/1-x',
+            'git stash push -m a:b',
+            'echo "git push origin a:b"'
+        ].forEach(command => expect(decide(command), command).toBeNull())
+    });
+
+    test('an invocation keeps the words up to the end of its simple command, and a push lists its refspecs', () => {
+        expect(gitInvocations('cd ../w && git -C x push -u origin a 2>&1 | tail -2'))
+            .toEqual([{subcommand: 'push', args: ['-u', 'origin', 'a', '2>&1']}]);
+        expect(gitInvocations('git fetch -q origin; git push origin a:b'))
+            .toEqual([{subcommand: 'fetch', args: ['-q', 'origin']}, {subcommand: 'push', args: ['origin', 'a:b']}]);
+
+        expect(pushRefspecs(['-u', 'origin', 'a:b', 'c'])).toEqual(['a:b', 'c']);
+        expect(pushRefspecs(['origin'])).toEqual([]);
+        expect(pushRefspecs(['--repo', 'origin', 'a'])).toEqual(['a']);
+        expect(pushRefspecs(['--repo=origin', 'a'])).toEqual(['a']);
+        expect(pushRefspecs(['-o', 'ci:skip', 'origin', 'a', '>', 'out:log'])).toEqual(['a'])
+    });
+
     test('PreToolUse decision ignores other tools and payloads without a command', () => {
         expect(decideGitCommitPushGuard({tool_name: 'Write', tool_input: {content: 'git commit && git push'}})).toBeNull();
         expect(decideGitCommitPushGuard({tool_name: 'Bash', tool_input: {}})).toBeNull();
@@ -70,6 +114,10 @@ test.describe('gitCommitPushGuardHook — Claude PreToolUse Bash guard', () => {
 
         expect(blocked.status).toBe(0);
         expect(JSON.parse(blocked.stdout)).toEqual(block);
+
+        const refspec = run(JSON.stringify({tool_name: 'Bash', tool_input: {command: 'git -C ../w push origin a:a'}}));
+
+        expect(JSON.parse(refspec.stdout)).toEqual(refspecBlock);
 
         const malformed = run('{not json');
 
