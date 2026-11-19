@@ -1,5 +1,6 @@
 import Button        from '../../button/Base.mjs';
 import CalendarStore from '../store/Calendars.mjs';
+import CheckBox      from '../../form/field/CheckBox.mjs';
 import ColorField    from '../../form/field/Color.mjs';
 import DateUtil      from '../../util/Date.mjs';
 import FormContainer from '../../form/Container.mjs';
@@ -7,6 +8,7 @@ import TextField     from '../../form/field/Text.mjs';
 import TimeField     from '../../form/field/Time.mjs';
 
 /**
+ * @summary Inline floating editor form for calendar event title, calendar, all-day flag, and start/end times.
  * @class Neo.calendar.view.EditEventContainer
  * @extends Neo.form.Container
  */
@@ -30,6 +32,10 @@ class EditEventContainer extends FormContainer {
             minimumEventDuration: data => data.minimumEventDuration,
             startTime           : data => data.startTime
         },
+        /**
+         * @member {Object|null} allDayFieldConfig=null
+         */
+        allDayFieldConfig: null,
         /**
          * @member {Object|null} calendarFieldConfig=null
          */
@@ -110,8 +116,11 @@ class EditEventContainer extends FormContainer {
                 timeFormat          = me.intlFormat_time,
                 {calendarId, title} = value;
 
+            me.getField('allDay')   .then(field => {if (field) field.checked = Boolean(value.allDay)});
             me.getField('endTime')  .then(field => field.minValue = me.getEndTimeMinValue(value));
             me.getField('startTime').then(field => field.maxValue = me.getStartTimeMaxValue(value));
+
+            me.syncTimeFieldsVisibility(Boolean(value.allDay));
 
             me.reset({
                 calendarId,
@@ -128,9 +137,9 @@ class EditEventContainer extends FormContainer {
      *
      */
     createItems() {
-        let me         = this,
-            {record}   = me,
-            timeFormat = me.intlFormat_time,
+        let me                = this,
+            {record}          = me,
+            timeFormat        = me.intlFormat_time,
             timeFieldDefaults = {
                 module              : TimeField,
                 clearToOriginalValue: true,
@@ -185,6 +194,17 @@ class EditEventContainer extends FormContainer {
 
                 ...me.calendarFieldConfig
             }, {
+                module    : CheckBox,
+                checked   : Boolean(record.allDay),
+                flex      : 'none',
+                hideLabel : true,
+                listeners : {change: me.onAllDayFieldChange, scope: me},
+                name      : 'allDay',
+                style     : {marginBottom: '.5em'},
+                valueLabel: 'All day',
+                ...me.allDayFieldConfig
+            }, {
+                hidden   : Boolean(record.allDay),
                 labelText: 'Start Time',
                 maxValue : me.getStartTimeMaxValue(record),
                 minValue : me.startTime,
@@ -193,6 +213,7 @@ class EditEventContainer extends FormContainer {
                 ...timeFieldDefaults,
                 ...me.startTimeFieldConfig
             }, {
+                hidden   : Boolean(record.allDay),
                 labelText: 'End Time',
                 maxValue : me.endTime,
                 minValue : me.getEndTimeMinValue(record),
@@ -235,6 +256,33 @@ class EditEventContainer extends FormContainer {
         date.setMinutes(date.getMinutes() - this.minimumEventDuration);
 
         return this.intlFormat_time.format(date)
+    }
+
+    /**
+     * @summary Toggles the record's `allDay` flag and shows or hides time inputs.
+     * @param {Object} data
+     */
+    onAllDayFieldChange(data) {
+        let me     = this,
+            allDay = Boolean(data.value);
+
+        if (me.record) {
+            me.record.allDay = allDay
+        }
+
+        me.syncTimeFieldsVisibility(allDay)
+    }
+
+    /**
+     * @summary Shows or hides start/end time fields based on whether the event is marked all-day.
+     * @param {Boolean} allDay
+     * @protected
+     */
+    syncTimeFieldsVisibility(allDay) {
+        let hidden = Boolean(allDay);
+
+        this.getField('startTime').then(field => {if (field) field.hidden = hidden});
+        this.getField('endTime')  .then(field => {if (field) field.hidden = hidden})
     }
 
     /**
