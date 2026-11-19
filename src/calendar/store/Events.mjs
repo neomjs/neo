@@ -36,8 +36,9 @@ class Events extends Store {
 
     /**
      * @summary Returns all-day event records overlapping the inclusive `[startDate, endDate]` day range, sorted by `startDate` ascending.
-     * @param {Date} startDate
-     * @param {Date} endDate
+     * Both the `[startDate, endDate]` query bounds and each event's `endDate` are compared as inclusive `yyyy-mm-dd` calendar days.
+     * @param {Date} startDate Inclusive range start day
+     * @param {Date} endDate Inclusive range end day
      * @returns {Neo.calendar.model.Event[]}
      */
     getAllDayRecords(startDate, endDate) {

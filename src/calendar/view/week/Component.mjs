@@ -804,7 +804,11 @@ class Component extends BaseComponent {
                 parentNode           = path[barIndex + 1],
                 eventVdom            = VDomUtil.find(me.vdom, eventNode.id).vdom,
                 record               = me.eventStore.get(eventVdom.flag),
-                {style}              = editEventContainer;
+                style                = {...editEventContainer.style};
+
+            if (editEventContainer.mounted) {
+                editEventContainer.unmount()
+            }
 
             if (eventNode.cls.includes('neo-allday-event')) {
                 Object.assign(style, {
@@ -815,7 +819,7 @@ class Component extends BaseComponent {
                 Object.assign(style, {left: `${eventNode.rect.width + 15}px`, top: eventVdom.style.top})
             }
 
-            editEventContainer.setSilent({parentId: parentNode.id, record, style});
+            editEventContainer.setSilent({_hidden: false, parentId: parentNode.id, record, style});
             editEventContainer.initVnode(true)
         }
     }

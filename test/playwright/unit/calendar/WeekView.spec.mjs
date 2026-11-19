@@ -739,4 +739,110 @@ test.describe('Neo.calendar.view.week.Component - Issue #19930 & #1069', () => {
         weekView.destroy();
         provider.destroy();
     });
+
+    test('switching EditEventContainer between two all-day events preserves allDay on both records and cancels stale focus-leave unmount', async () => {
+        const provider = Neo.create(StateProvider, {
+                  appName,
+                  data: {
+                      endTime             : '24:00',
+                      minimumEventDuration: 30,
+                      startTime           : '00:00',
+                      timeFormatter       : new Intl.DateTimeFormat('en-US', {hour: '2-digit', hour12: false, minute: '2-digit'})
+                  },
+                  stores: {
+                      calendars: {
+                          module: CalendarsStore,
+                          data  : [{active: true, color: 'blue', id: 1, name: 'Work'}]
+                      },
+                      events: {
+                          module: EventsStore,
+                          data  : [{
+                              allDay    : true,
+                              calendarId: 1,
+                              id        : 41,
+                              title     : 'Architecture summit',
+                              startDate : new Date(2026, 4, 12, 0, 0),
+                              endDate   : new Date(2026, 4, 14, 23, 59)
+                          }, {
+                              allDay    : true,
+                              calendarId: 1,
+                              id        : 42,
+                              title     : 'Release freeze',
+                              startDate : new Date(2026, 4, 14, 0, 0),
+                              endDate   : new Date(2026, 4, 14, 23, 59)
+                          }]
+                      }
+                  }
+              }),
+              eventStore = provider.getStore('events'),
+              weekView   = Neo.create(WeekComponent, {
+                  appName,
+                  calendarStore  : provider.getStore('calendars'),
+                  currentDate    : new Date(2026, 4, 13),
+                  enableDrag     : false,
+                  endTime        : '24:00',
+                  eventStore,
+                  intlFormat_time: new Intl.DateTimeFormat('en-US', {hour: '2-digit', hour12: false, minute: '2-digit'}),
+                  startTime      : '00:00',
+                  weekStartDay   : 0
+              }),
+              editor     = Neo.create(EditEventContainer, {
+                  appName,
+                  stateProvider: provider
+              }),
+              summit     = eventStore.get(41),
+              freeze     = eventStore.get(42);
+
+        weekView.timeout = () => Promise.resolve();
+        await weekView.initVnode();
+        weekView._mounted = true;
+        await weekView.afterSetMounted(true, false);
+
+        editor.record = freeze;
+
+        const allDayField   = editor.down({name: 'allDay'}),
+              calendarField = editor.down({name: 'calendarId'}),
+              startField    = editor.down({name: 'startTime'}),
+              endField      = editor.down({name: 'endTime'}),
+              titleField    = editor.down({name: 'title'});
+
+        [titleField, calendarField, startField, endField].forEach(field => {
+            field.updateCenterBorderElWidth = () => {}
+        });
+
+        expect(allDayField.checked).toBe(true);
+        expect(allDayField.value).toBe(true);
+        expect(titleField.value).toBe('Release freeze');
+        expect(startField.hidden).toBe(true);
+        expect(weekView.getAllDayLanesContainer().cn).toHaveLength(2);
+
+        let resolveFocusTimer;
+        editor.timeout        = () => new Promise(resolve => {resolveFocusTimer = resolve});
+        editor._mounted       = true;
+        editor._containsFocus = false;
+
+        const focusLeavePromise = editor.onFocusLeave();
+
+        editor.unmount();
+        editor.setSilent({_hidden: false, record: summit});
+        editor._mounted = true;
+        editor.afterSetMounted(true, false);
+
+        resolveFocusTimer();
+        await focusLeavePromise;
+
+        expect(freeze.allDay).toBe(true);
+        expect(summit.allDay).toBe(true);
+        expect(allDayField.checked).toBe(true);
+        expect(allDayField.value).toBe(true);
+        expect(titleField.value).toBe('Architecture summit');
+        expect(startField.hidden).toBe(true);
+        expect(endField.hidden).toBe(true);
+        expect(editor.mounted).toBe(true);
+        expect(weekView.getAllDayLanesContainer().cn).toHaveLength(2);
+
+        editor.destroy();
+        weekView.destroy();
+        provider.destroy();
+    });
 });

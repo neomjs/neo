@@ -84,6 +84,19 @@ class EditEventContainer extends FormContainer {
     }
 
     /**
+     * Monotonic counter cancelling stale {@link #onFocusLeave} delayed unmount callbacks when the editor re-opens.
+     * @member {Number} #focusLeaveGeneration=0
+     * @private
+     */
+    #focusLeaveGeneration = 0
+    /**
+     * Suppresses record writes from field `change` listeners while {@link #syncRecordFields} populates a new record.
+     * @member {Boolean} #isSyncingRecord=false
+     * @private
+     */
+    #isSyncingRecord = false
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -101,7 +114,11 @@ class EditEventContainer extends FormContainer {
      */
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
-        value && this.getField('title').then(field => field.focus())
+
+        if (value) {
+            this.#focusLeaveGeneration++;
+            this.down({name: 'title'})?.focus()
+        }
     }
 
     /**
@@ -111,25 +128,60 @@ class EditEventContainer extends FormContainer {
      * @protected
      */
     afterSetRecord(value, oldValue) {
-        if (value && oldValue) {
-            let me                  = this,
-                timeFormat          = me.intlFormat_time,
-                {calendarId, title} = value;
+        if (value) {
+            this.#focusLeaveGeneration++;
 
-            me.getField('allDay')   .then(field => {if (field) field.checked = Boolean(value.allDay)});
-            me.getField('endTime')  .then(field => field.minValue = me.getEndTimeMinValue(value));
-            me.getField('startTime').then(field => field.maxValue = me.getStartTimeMaxValue(value));
+            if (oldValue) {
+                this.syncRecordFields(value)
+            } else {
+                this.createItems()
+            }
+        }
+    }
 
-            me.syncTimeFieldsVisibility(Boolean(value.allDay));
+    /**
+     * @summary Synchronously populates form fields from `record` without clobbering `CheckBox#value` or mutating `record` via `change` listeners.
+     * @param {Neo.calendar.model.Event} record
+     * @protected
+     */
+    syncRecordFields(record) {
+        let me            = this,
+            allDay        = Boolean(record.allDay),
+            timeFormat    = me.intlFormat_time,
+            allDayField   = me.down({name: 'allDay'}),
+            calendarField = me.down({name: 'calendarId'}),
+            endField      = me.down({name: 'endTime'}),
+            startField    = me.down({name: 'startTime'}),
+            titleField    = me.down({name: 'title'});
 
-            me.reset({
-                calendarId,
-                endTime  : timeFormat.format(value.endDate),
-                startTime: timeFormat.format(value.startDate),
-                title
-            })
-        } else if (value) {
-            this.createItems()
+        me.#isSyncingRecord = true;
+
+        try {
+            if (titleField) {
+                titleField.reset(record.title)
+            }
+
+            if (calendarField) {
+                calendarField.reset(record.calendarId)
+            }
+
+            if (allDayField) {
+                allDayField.checked = allDay
+            }
+
+            if (startField) {
+                startField.hidden   = allDay;
+                startField.maxValue = me.getStartTimeMaxValue(record);
+                startField.reset(timeFormat.format(record.startDate))
+            }
+
+            if (endField) {
+                endField.hidden   = allDay;
+                endField.minValue = me.getEndTimeMinValue(record);
+                endField.reset(timeFormat.format(record.endDate))
+            }
+        } finally {
+            me.#isSyncingRecord = false
         }
     }
 
@@ -263,8 +315,13 @@ class EditEventContainer extends FormContainer {
      * @param {Object} data
      */
     onAllDayFieldChange(data) {
-        let me     = this,
-            allDay = Boolean(data.value);
+        let me = this;
+
+        if (me.#isSyncingRecord) {
+            return
+        }
+
+        let allDay = Boolean(data.value);
 
         if (me.record) {
             me.record.allDay = allDay
@@ -279,17 +336,19 @@ class EditEventContainer extends FormContainer {
      * @protected
      */
     syncTimeFieldsVisibility(allDay) {
-        let hidden = Boolean(allDay);
+        let hidden     = Boolean(allDay),
+            startField = this.down({name: 'startTime'}),
+            endField   = this.down({name: 'endTime'});
 
-        this.getField('startTime').then(field => {if (field) field.hidden = hidden});
-        this.getField('endTime')  .then(field => {if (field) field.hidden = hidden})
+        if (startField) startField.hidden = hidden;
+        if (endField)   endField.hidden   = hidden
     }
 
     /**
      * @param {Object} data
      */
     onCalendarFieldChange(data) {
-        if (!Neo.isEmpty(data.value)) {
+        if (!this.#isSyncingRecord && !Neo.isEmpty(data.value)) {
             this.record.calendarId = data.value[data.component.store.keyProperty]
         }
     }
@@ -309,20 +368,28 @@ class EditEventContainer extends FormContainer {
      * @param {Object} data
      */
     async onFocusLeave(data) {
-        let me = this;
+        let me         = this,
+            generation = ++me.#focusLeaveGeneration;
 
         // we need a short delay, since a TimeField picker could be open
         await me.timeout(100);
 
-        me.mounted && me.unmount()
+        if (me.#focusLeaveGeneration === generation && me.mounted && !me.containsFocus) {
+            me.unmount()
+        }
     }
 
     /**
      * @param {Object} data
      */
     onTimeFieldChange(data) {
-        let me     = this,
-            name   = data.component.name,
+        let me = this;
+
+        if (me.#isSyncingRecord) {
+            return
+        }
+
+        let name   = data.component.name,
             field  = name === 'endTime' ? 'endDate' : 'startDate',
             record = me.record,
             date   = DateUtil.clone(me.record[field]),
@@ -344,7 +411,7 @@ class EditEventContainer extends FormContainer {
      * @param {Object} data
      */
     onTitleFieldChange(data) {
-        if (!Neo.isEmpty(data.value)) {
+        if (!this.#isSyncingRecord && !Neo.isEmpty(data.value)) {
             this.record.title = data.value
         }
     }
