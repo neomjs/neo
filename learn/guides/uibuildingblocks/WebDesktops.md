@@ -274,12 +274,19 @@ keeps a stack of the windows it created and sets their `z-index` from `baseZInde
 window beneath the engine's floating layer, menus at 100 and dialogs at 1000: the start menu opens above every window,
 and a dialog an app opens stays above all of them. Two desktops on one App worker keep two separate orders.
 
-The window is a `Neo.desktop.AppWindow` unless you name another class in `windowClass`; any `Neo.dialog.Base`
-subclass works. It takes its title and its header icon from its app's record, and its items read the app as
-`data.record`. It also names the desktop its `parentComponent`, so the state provider of a view inside a window
-continues into the desktop's. In the web desktop app, that is how Settings binds the signed-in account and the theme,
-and how Documents and the Recycle Bin share two stores of the root provider: deleting a file in one window moves it
-into the other.
+The window is a `Neo.desktop.AppWindow`, which shows its app's record: the title and the header icon follow the record,
+and its items read the app as `data.record` from the window's own state provider. On a phone, its stylesheet makes it
+fill the width above the taskbar. The desktop names itself every window's `parentComponent`, so the state provider of
+a view inside a window continues into the desktop's. In the web desktop demo, that is how Settings binds the
+signed-in account and the theme, and how Documents and the Recycle Bin share two stores of the root provider: deleting
+a file in one window moves it into the other.
+
+`windowClass` takes another `Neo.dialog.Base` subclass, or a loader of one. The window manager needs only what every
+dialog has: `show()`, `hide()`, `hidden`, its `hide` and `headerAction` events, and `style.zIndex`. It still adds the
+minimize action to the window's header and keeps the windows' order. Everything `AppWindow` adds is then yours to
+supply: a title and an icon from the app record the window's config carries as `record`, a state provider if its
+items bind the app, a `record` config of its own if a replaced apps store should rebind the window, and its own
+phone layout.
 
 Your own code can drive all of it. `desktop.openApp(record)` resolves to the window, or to `null` when something ended
 the open before its window appeared: a close of the app, a `reset()`, or a filter that dropped it. The `windowManager` the container creates has `minimize()`, `restore()`, `close()`,
@@ -366,11 +373,13 @@ To keep arrangements on a server instead, subclass the launcher and override `re
 ## Navigation that follows permissions
 
 A desktop usually serves people with different rights. The family brings no rule of its own for that: which apps show
-is the apps store's filter, and every part of the desktop follows it. The web desktop app needs three pieces: a
-permission field on the model, one filter on that field, and the granted keys written into the filter.
+is the apps store's filter, and every part of the desktop follows it. It takes three modules: a model with a permission
+field, a store with one filter on that field, and a state provider that writes the granted keys into the filter. Here
+they are as an app of your own would hold them, with two apps.
+
+`model/App.mjs`, the engine's app record plus the key that grants it:
 
 ```javascript
-// model/App.mjs: the engine's app record, plus the key that grants it
 import App from '../../../src/desktop/model/App.mjs';
 
 class WebDesktopApp extends App {
@@ -380,21 +389,25 @@ class WebDesktopApp extends App {
     }
 }
 
-// store/Apps.mjs: groups name no permission, apps name theirs, and one filter decides
+export default Neo.setupClass(WebDesktopApp);
+```
+
+`store/Apps.mjs`, where groups name no permission, apps name theirs, and one filter decides:
+
+```javascript
 import App  from '../model/App.mjs';
 import Apps from '../../../src/desktop/store/Apps.mjs';
-
-export const catalog = [
-    {id: 'communication', text: 'Communication', iconCls: 'fas fa-comments', isLeaf: false, collapsed: false},
-    {id: 'mail',          text: 'Mail',          iconCls: 'fas fa-envelope', parentId: 'communication', color: '#3b82f6', permission: 'view-mail', description: 'Read and send email.'}
-    // … one row per group and app
-];
 
 class WebDesktopApps extends Apps {
     static config = {
         className: 'WebDesktop.store.Apps',
-        data     : catalog,
-        filters  : [{
+        data     : [
+            {id: 'communication', text: 'Communication', iconCls: 'fas fa-comments', isLeaf: false, collapsed: false},
+            {id: 'mail',          text: 'Mail',          iconCls: 'fas fa-envelope', parentId: 'communication', color: '#3b82f6', permission: 'view-mail', description: 'Read and send email.'},
+            {id: 'support',       text: 'Support',       iconCls: 'fas fa-life-ring', isLeaf: false, collapsed: false},
+            {id: 'help',          text: 'Help',          iconCls: 'fas fa-circle-question', parentId: 'support', color: '#8b5cf6', permission: 'view-help', description: 'Find answers.'}
+        ],
+        filters: [{
             includeEmptyValues: false,
             operator          : 'included',
             property          : 'permission',
@@ -404,15 +417,38 @@ class WebDesktopApps extends Apps {
     }
 }
 
-// view/ViewportStateProvider.mjs: the granted keys become the filter's value
-onDataPropertyChange(key, value, oldValue) {
-    super.onDataPropertyChange(key, value, oldValue);
+export default Neo.setupClass(WebDesktopApps);
+```
 
-    if (key === 'permissions') {
-        this.getStore('apps').getFilter('permission').value = value
+`view/ViewportStateProvider.mjs`, where the granted keys become the filter's value:
+
+```javascript
+import Apps          from '../store/Apps.mjs';
+import StateProvider from '../../../src/state/Provider.mjs';
+
+class ViewportStateProvider extends StateProvider {
+    static config = {
+        className: 'WebDesktop.view.ViewportStateProvider',
+        data     : {permissions: []},
+        stores   : {apps: Apps}
+    }
+
+    onDataPropertyChange(key, value, oldValue) {
+        super.onDataPropertyChange(key, value, oldValue);
+
+        if (key === 'permissions') {
+            this.getStore('apps').getFilter('permission').value = value
+        }
     }
 }
+
+export default Neo.setupClass(ViewportStateProvider);
 ```
+
+The view root takes the provider as `stateProvider: {module: ViewportStateProvider}` and binds the desktop to its store
+with `bind: {appStore: 'stores.apps'}`. A sign-in is then one write of the granted keys,
+`setState('permissions', grantedKeys)`, as the web desktop demo's controller does. The demo itself holds these three
+modules with its full catalog of ten apps, its accounts and its other stores.
 
 The store keeps exactly the apps the account may use, and the launcher, every start-menu level and the window manager
 follow: an app the filter drops loses its icon and its menu entry, and its window closes, minimized or not. Granting
@@ -439,7 +475,7 @@ Below 600px the desktop rearranges itself instead of shrinking:
 - The launcher runs its icons in rows, each group's caption across a row of its own.
 - The taskbar shows icons only. The labels stay in the markup for screen readers, the task list scrolls sideways, and
   the date gives its room to the tasks while the time stays.
-- Every window fills the width above the taskbar, and drops its maximize button, since it is already as large as it
+- Every `AppWindow` fills the width above the taskbar, and drops its maximize button, since it is already as large as it
   can be.
 
 A touch device has no double-click, so a single tap on an icon opens its app there. With a mouse, a click selects an
