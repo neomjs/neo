@@ -17,7 +17,7 @@
     "/examples": {
         "title": "Live JavaScript Examples — Web Worker Grids & Multi-Window UI | Neo.mjs",
         "description": "Interactive Neo.mjs examples running off the main thread: 100k-row virtual-scrolling data grids, SharedWorker multi-window apps, calendars & OffscreenCanvas.",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-19"
     },
     "/learn": {
         "title": "Developer Guides — Web Worker UI Engine, SharedWorker & AI Agent OS | Neo.mjs",
@@ -1061,109 +1061,115 @@
         "title": "JavaScript Web App Examples — Full Apps on Worker Threads | Neo.mjs",
         "description": "Explore 10 live JavaScript web app examples: A living-data workspace whose panes can leave the browser window.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-19"
     },
     "/examples/grid": {
         "title": "JavaScript Data Grid Examples — 100k Rows in a Web Worker | Neo.mjs",
         "description": "Explore 17 live JavaScript data grid examples: Opens at 20,000 × 50 and scales to 100,000 × 200, row-buffered, data in a Web Worker.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-19"
     },
     "/examples/tree": {
         "title": "JavaScript Trees — Tree Grids, Lists & Accordions | Neo.mjs",
         "description": "Explore 2 live JavaScript tree and tree grid examples: An organization of 20,000 people and units as a tree grid, up to 100,000 rows, 200 columns and 20 levels.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-19"
     },
     "/examples/lists": {
         "title": "JavaScript Lists & Galleries — 3D Helix & Gallery Views | Neo.mjs",
         "description": "Explore 4 live JavaScript list and gallery examples: Image items on a 3D helix that you reshape live.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-19"
     },
     "/examples/charts": {
         "title": "JavaScript Charts, Canvas & Maps — OffscreenCanvas Demos | Neo.mjs",
         "description": "Explore 2 live JavaScript chart and canvas examples: A chart of up to a million points, drawn in a canvas worker.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-19"
     },
     "/examples/calendar": {
         "title": "MIT JavaScript Calendar — Day, Week, Month & Year Views | Neo.mjs",
         "description": "Explore 1 live JavaScript calendar example: A full calendar with day, week, month and year views, a month navigator and color-coded calendars.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-19"
     },
     "/examples/scheduler": {
         "title": "MIT JavaScript Resource Scheduler — Editable Timeline | Neo.mjs",
         "description": "Explore 2 live JavaScript resource scheduler examples: Resource bookings on an editable timeline.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-19"
     },
     "/examples/gantt": {
         "title": "MIT JavaScript Gantt Chart — Linked, Editable Tasks | Neo.mjs",
-        "description": "Explore 1 live JavaScript Gantt chart example: A project plan with linked, editable tasks.",
+        "description": "Explore 2 live JavaScript Gantt chart examples: A project plan with linked, editable tasks.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-19"
+    },
+    "/examples/board": {
+        "title": "JavaScript Task & Kanban Board — Swimlanes & Cards | Neo.mjs",
+        "description": "Explore 1 live JavaScript task and kanban board example: One row per team over the same five columns, each with its card count.",
+        "schemaType": "CollectionPage",
+        "lastmod": "2026-11-19"
     },
     "/examples/dashboard": {
         "title": "JavaScript Dashboard & Docking — Panes That Pop Out | Neo.mjs",
         "description": "Explore 3 live JavaScript dashboard examples: A scripted layout tour splits, groups and auto-hides live panes.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-19"
     },
     "/examples/tabs": {
         "title": "JavaScript Tabs — Reorderable Tab Bars & Overflow | Neo.mjs",
         "description": "Explore 1 live JavaScript tabs example: Tab buttons whose text, icon, color and badge change live.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-19"
     },
     "/examples/dialogs": {
         "title": "JavaScript Dialogs & Overlays — Live Examples | Neo.mjs",
         "description": "Explore 1 live JavaScript dialog example: Dialogs that drag by their header and open further dialogs.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-19"
     },
     "/examples/forms": {
         "title": "JavaScript Form Examples — Fields, Pickers & Validation | Neo.mjs",
         "description": "Explore 3 live JavaScript form examples: The standalone date selector component; A date field with picker and live configuration.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-19"
     },
     "/examples/components": {
         "title": "JavaScript UI Component Examples — Off the Main Thread | Neo.mjs",
         "description": "Explore 1 live JavaScript UI component example: A liquid glass panel that bends the photo beneath it as it drifts.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-19"
     },
     "/examples/multi-window": {
         "title": "Multi-Window JavaScript App Examples — SharedWorker State | Neo.mjs",
         "description": "Explore 8 live multi-window JavaScript app examples: A living-data workspace whose panes can leave the browser window.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-19"
     },
     "/examples/platform": {
         "title": "JavaScript Web Worker Examples — Workers & Platform | Neo.mjs",
         "description": "Explore 2 live JavaScript web worker examples: A chart of up to a million points, drawn in a canvas worker.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-19"
     },
     "/examples/state": {
         "title": "JavaScript State Management Examples — Reactive Stores | Neo.mjs",
         "description": "Explore 1 live JavaScript state management example: Nested state providers bind button texts through the formatters shown beside them.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-19"
     },
     "/examples/functional": {
         "title": "JavaScript Functional Component Examples | Neo.mjs",
         "description": "Explore 1 live JavaScript functional component example: Buffered inbox and functional message reader that detaches into its own window.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-19"
     },
     "/examples/drag-drop": {
         "title": "JavaScript Drag & Drop Examples — Across Windows | Neo.mjs",
         "description": "Explore 2 live JavaScript drag and drop examples: A draggable dialog can move into a second browser window.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-19"
     },
     "/apps/colors/index.html": {
         "title": "Colors Dashboard — Multi-Window JavaScript Demo | Neo.mjs",
@@ -1175,19 +1181,19 @@
         "title": "COVID-19 IN NUMBERS — Multi-Threaded JavaScript App | Neo.mjs",
         "description": "Country statistics and country selection. Browse the country table and choose a country from the picker.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-19"
     },
     "/apps/email/index.html": {
         "title": "Email — Multi-Window JavaScript Demo | Neo.mjs",
         "description": "Buffered inbox and functional message reader that detaches into its own window. Select another conversation in the inbox, then press Open in window to move...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-19"
     },
     "/apps/finance/index.html": {
         "title": "Finance Dashboard — Multi-Threaded JavaScript App | Neo.mjs",
         "description": "Streaming equity quotes with animated currency diffs and instant filtering. Filter by sector or ticker while live price and percent changes keep ticking...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-19"
     },
     "/apps/form/index.html": {
         "title": "Form — Multi-Threaded JavaScript App | Neo.mjs",
@@ -1248,6 +1254,12 @@
         "description": "A kanban board and a table over one store of cards. Drag a card to another column, and the table below the board shows its new status.",
         "schemaType": "WebPage",
         "lastmod": "2026-11-18"
+    },
+    "/examples/board/swimlanes/index.html": {
+        "title": "A board by team · Neo Board — JavaScript UI Demo | Neo.mjs",
+        "description": "One row per team over the same five columns, each with its card count. Collapse a team, then drag a card into another team's row: the card joins that team...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-19"
     },
     "/examples/button/base/index.html": {
         "title": "Button — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1505,7 +1517,7 @@
         "title": "Cross-Window Dock — Multi-Window JavaScript Demo | Neo.mjs",
         "description": "A live workbench travels between windows without restarting its counter. Press Tour and follow Workbench into the popup and home again as its counter keeps...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-08"
+        "lastmod": "2026-11-19"
     },
     "/examples/dashboard/desk/index.html": {
         "title": "Dashboard — Operations Desk — JavaScript UI Demo | Neo.mjs",
@@ -1764,6 +1776,12 @@
         "description": "A project plan with linked, editable tasks. Move a task and follow its dependencies. Create a link, then reload to see the saved plan.",
         "schemaType": "WebPage",
         "lastmod": "2026-11-14"
+    },
+    "/examples/gantt/bigData/index.html": {
+        "title": "A project of 2,000 tasks · Neo Gantt — JavaScript UI Demo | Neo.mjs",
+        "description": "A seeded building programme: 2,000 tasks in phases and zones, linked by 1,972 dependencies. Expand a phase and scroll: the tree, the bars and the links keep...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-19"
     },
     "/examples/grid/animatedRowSorting/index.html": {
         "title": "Grid: Animated Row Sorting — Web Worker Data Grid Demo | Neo.mjs",
