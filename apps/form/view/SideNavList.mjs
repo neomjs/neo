@@ -19,26 +19,21 @@ class SideNavList extends List {
         /**
          * @member {Boolean} itemsFocusable=true
          */
-        itemsFocusable: true,
-        /**
-         * @member {Boolean} useHeaders=true
-         * @reactive
-         */
-        useHeaders: true
+        itemsFocusable: true
     }
 
     /**
+     * @summary A step's number, its name, and an icon for the state its last validation left it in.
      * @param {Object} record
      * @param {Number} index
-     * @returns {Object|Object[]|String} Either a config object to assign to the item, a vdom cn array or a html string
+     * @returns {Object[]}
      */
     createItemContent(record, index) {
-        let itemText = record[this.displayField];
-
-        return record.isHeader ? itemText : [
-            {tag: 'i', cls: this.getIconCls(record)},
-            {text: itemText}
-        ];
+        return [
+            {tag: 'span', cls: ['form-side-nav-number'], text: String(record.cardIndex + 1)},
+            {tag: 'span', cls: ['form-side-nav-name'],   text: record.name},
+            {tag: 'i',    cls: this.getIconCls(record)}
+        ]
     }
 
     /**
@@ -46,52 +41,38 @@ class SideNavList extends List {
      * @returns {String[]}
      */
     getIconCls(record) {
-        let cls = ['neo-list-icon'];
+        let cls = ['form-side-nav-state', `form-side-nav-state-${record.formState}`];
 
         if (record.formState === 'valid') {
-            return [...cls, 'neo-color-green', 'far', 'fa-circle-check'];
+            return [...cls, 'far', 'fa-circle-check']
         }
 
         if (record.formState === 'invalid') {
-            return [...cls, 'neo-color-red', 'far', 'fa-circle-xmark'];
+            return [...cls, 'fas', 'fa-circle-exclamation']
         }
 
-        if (record.formState === 'inProgress') {
-            return [...cls, 'neo-color-blue', 'fas', 'fa-circle-half-stroke'];
-        }
-
-        // clean
-        return [...cls, 'neo-color-blue', 'far', 'fa-circle'];
+        return cls
     }
 
     /**
-     * Saves activeIndex & activeTitle into the closest stateProvider
+     * @summary Opens the selected step. The list navigates freely: Next and Create account validate. A selection the
+     * `activeIndex` binding made mirrors the open step, whose message must stay.
      * @param {String[]} items
      */
     onSelect(items) {
         let me     = this,
             record = me.store.get(me.getItemRecordId(items[0]));
 
-        me.setState({
-            activeIndex: record.cardIndex,
-            activeTitle: record.name
-        })
+        if (record.cardIndex !== me.getStateProvider().data.activeIndex) {
+            me.getController().showStep(record.cardIndex)
+        }
     }
 
     /**
-     * Saves the amount of non-header items into the closest view model
+     * @summary Publishes the index of the last step to the state provider.
      */
     onStoreLoad() {
-        let maxIndex = -1;
-
-        this.store.forEach(record => {
-            if (!record.isHeader) {
-                maxIndex++
-            }
-        });
-
-        this.getStateProvider().data.maxIndex = maxIndex;
-
+        this.getStateProvider().data.maxIndex = this.store.count - 1;
         super.onStoreLoad()
     }
 }

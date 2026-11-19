@@ -132,8 +132,9 @@ test.describe('Portal examples overview and group pages', () => {
 
         expect(pageIds(view, 'grid-table')).toEqual(coveredGridTableIds);
         expect(pageIds(view, 'tree')).toEqual(['grid-tree-big-data', 'grid-tree']);
-        // Forms & Fields is all tiles, its own and the form layout lent by Containers & Layouts, in the order of their names
-        expect(pageIds(view, 'forms')).toEqual([]);
+        // Forms & Fields shows the form app as its card, then tiles: its own and the form layout lent by Containers &
+        // Layouts, in the order of their names
+        expect(pageIds(view, 'forms')).toEqual(['form-app']);
         expect(tileIds(view, 'forms')).toEqual(formTileIds);
         expect(pageIds(view, 'multi-window')).toEqual(multiWindowPageIds);
         expect(pageIds(view, 'calendar')).toEqual(['calendar']);
@@ -146,8 +147,8 @@ test.describe('Portal examples overview and group pages', () => {
         expect(tileIds(view, 'buttons')).toEqual(['button-base', 'menu-list']);
         expect(pageIds(view, 'drag-drop')).toEqual(['multi-window-drag-drop', 'dialog-drag-drop', 'dock-tear-out']);
         expect(pageIds(view, 'apps')).toEqual([
-            'workstation', 'shared-covid', 'webdesktop', 'devindex', 'multi-window-drag-drop', 'colors-dashboard',
-            'covid-dashboard', 'portal', 'finance', 'email'
+            'workstation', 'devindex', 'shared-covid', 'webdesktop', 'multi-window-drag-drop', 'colors-dashboard',
+            'covid-dashboard', 'portal', 'form-app', 'finance', 'email'
         ]);
 
         // every card and tile of every page has its image; the catalog keeps the records that wait for one
@@ -202,10 +203,7 @@ test.describe('Portal examples overview and group pages', () => {
         expect(overview.down({reference: 'overview-index-heading'}).vdom.cn[0].text).toBe(`All ${groupCount} groups`);
         expect(list.leadCard).toBe(true);
         expect(list.showGroup).toBe(true);
-        expect(list.store.items.map(record => record.id)).toEqual([
-            'workstation', 'grid-big-data', 'grid-tree-big-data', 'dock-choreography', 'shared-covid',
-            'grid-issues', 'scheduler-basic', 'gantt-basic', 'board-basic', 'calendar', 'webdesktop', 'grid-countries'
-        ]);
+        expect(list.store.items.map(record => record.id)).toEqual(startHereIds);
 
         // the action opens its record in the selected build
         expect(overview.down({reference: 'overview-action-grid-big-data'}).url).toBe('https://neomjs.com/dist/production/examples/grid/bigData/index.html');
@@ -226,12 +224,16 @@ test.describe('Portal examples overview and group pages', () => {
         expect(mobIx.vdom.cn.filter(node => node.tag === 'section').map(band => band.cn[0].text))
             .toEqual(['Data views', 'Planning', 'Layout', 'Components', 'Platform']);
         expect(links(mobIx).map(link => link.href)).toEqual(publishedRoutes.map(route => '#' + route));
-        // a group with home examples shows their count, one that only borrows shows the borrowed count in parentheses
+        // a group shows its home examples; one that only borrows shows no number, and its label still names what it borrows
         expect(links(mobIx).map(link => link.cn[2].text))
-            .toEqual(Object.values(groupCounts).map(([count, crossCount]) => count ? String(count) : `(${crossCount})`));
+            .toEqual(Object.values(groupCounts).map(([count]) => count ? String(count) : ''));
+        expect(links(mobIx).filter(link => !link.cn[2].text).map(link => link.href))
+            .toEqual(publishedRoutes.filter((route, index) => Object.values(groupCounts)[index][0] === 0).map(route => '#' + route));
+        expect(links(mobIx).filter(link => !link.cn[2].text).every(link => link['aria-label'].endsWith('from other groups'))).toBe(true);
         expect(links(mobIx).every(link => link['aria-current'] === null)).toBe(true);
         expect(mobIx.vdom.cn[0].removeDom).toBe(true);
-        expect(mobIx.vdom.cn.at(-1).removeDom).toBe(false);
+        // the all-examples link, the unbanded list and one section per band: no note under them
+        expect(mobIx.vdom.cn.map(node => node.tag)).toEqual(['a', 'ul', 'section', 'section', 'section', 'section', 'section']);
 
         expect(index.presentation).toBe('list');
         expect(index.vdom.cn[0].removeDom).toBe(false);
@@ -444,7 +446,7 @@ test.describe('Portal examples overview and group pages', () => {
         expect(pageIds(view, 'dialogs')).toEqual(['dialog-drag-drop', 'toast', 'popover']);
         expect(pageIds(view, 'drag-drop').filter(id => id === 'dialog-drag-drop')).toHaveLength(1);
         expect(pageIds(view, 'platform')).toEqual(['offscreen-canvas', 'shared-offscreen-canvas']);
-        expect(pageIds(view, 'charts')).toEqual(['offscreen-canvas', 'open-street-maps', 'graph-scene', 'sparklines', 'mermaid']);
+        expect(pageIds(view, 'charts')).toEqual(['offscreen-canvas', 'open-street-maps', 'graph-scene', 'am-charts', 'sparklines', 'mermaid']);
         expect(pageIds(view, 'tree')).toEqual(['grid-tree-big-data', 'grid-tree']);
         expect(view.getGroupStore().get('dialogs').count).toBe(3);
         expect(view.getGroupStore().get('drag-drop').count).toBe(0);
@@ -501,19 +503,141 @@ test.describe('Portal examples overview and group pages', () => {
         expect(openCard(view)).toBe('multi-window');
         expect(stage.layout.activeIndex).toBe(stage.indexOf(view.getGroupPage('multi-window')))
     });
+
+    test('findQuery filters published records across titles, captions, group titles and keywords, updates GroupIndex matchCounts, and restores the open page on clear', async () => {
+        const view          = createView(),
+              controller    = view.getController(),
+              stage         = view.getStage(),
+              searchResults = view.getSearchResults(),
+              matchedIds    = () => searchResults.getGroupsContainer().items.flatMap(group =>
+                  group.items.filter(item => item instanceof ExamplesList).flatMap(list => list.store.items.map(r => r.id))
+              );
+
+        await controller.onExamplesRoute({itemId: 'multi-window'});
+        expect(openCard(view)).toBe('multi-window');
+
+        controller.onFindFieldChange({value: 'drag'});
+        expect(stage.items[stage.layout.activeIndex]).toBe(searchResults);
+        expect(view.getSidebarFindField().value).toBe('drag');
+        expect(view.getMobileFindField().value).toBe('drag');
+
+        const dragIds = matchedIds();
+        expect(dragIds).toEqual(expect.arrayContaining([
+            'board-basic', 'board-swimlanes', 'multi-window-drag-drop', 'dialog-drag-drop', 'dock-tear-out', 'workstation', 'webdesktop'
+        ]));
+
+        const counts = view.getStateProvider().getData('matchCounts');
+        expect(counts).toBeInstanceOf(Map);
+        expect(counts.get('board')).toEqual({home: 2, cross: 0, total: 2});
+        expect(counts.get('drag-drop')).toEqual({home: 0, cross: 3, total: 3});
+        expect(counts.get('calendar')).toEqual({home: 0, cross: 0, total: 0});
+
+        const indexVdom = view.getGroupIndex().vdom,
+              findEntry = (node, id) => node.id === id ? node : (node.cn || []).map(c => findEntry(c, id)).find(Boolean),
+              dragEntry = findEntry(indexVdom, `${view.getGroupIndex().id}__drag-drop`),
+              calEntry  = findEntry(indexVdom, `${view.getGroupIndex().id}__calendar`);
+
+        expect(dragEntry['aria-label']).toBe('Drag & Drop, 3 matching examples from other groups');
+        expect(calEntry['aria-label']).toBe('Calendar, 0 matching examples');
+
+        controller.onFindFieldChange({value: 'date'});
+        const dateIds = matchedIds();
+        expect(dateIds).toEqual(expect.arrayContaining([
+            'calendar', 'scheduler-basic', 'scheduler-big-data', 'gantt-basic', 'gantt-big-data', 'date-field', 'date-selector'
+        ]));
+        const formsGroup = searchResults.getGroupsContainer().items.find(group =>
+            group.items[0].vdom.cn[0].href === '#/examples/forms'
+        );
+        expect(formsGroup.items[1].tiles).toBe(true);
+        expect(formsGroup.items[1].store.items.map(r => r.id)).toEqual(['date-field', 'date-selector']);
+
+        controller.onFindFieldChange({value: 'liquid'});
+        expect(matchedIds()).toEqual(['liquid-glass']);
+        controller.onSelectBuild({id: 'devmode'});
+        expect(matchedIds()).toEqual([]);
+        expect(searchResults.down({reference: 'search-empty'}).hidden).toBe(false);
+        controller.onSelectBuild({id: 'dist_prod'});
+        expect(matchedIds()).toEqual(['liquid-glass']);
+
+        controller.onClearFind();
+        expect(view.findQuery).toBe('');
+        expect(view.getStateProvider().getData('matchCounts')).toBeNull();
+        expect(searchResults.getGroupsContainer().items).toHaveLength(0);
+        expect(openCard(view)).toBe('multi-window');
+        expect(stage.layout.activeIndex).toBe(stage.indexOf(view.getGroupPage('multi-window')))
+    });
+
+    test('Example.tokenizeSearchText and matchesQuery normalize camelCase, comma numbers, alsoIn titles and keywords', () => {
+        expect(Example.tokenizeSearchText('100,000 × 200 TreeGrid')).toEqual(['100000', '200', 'tree', 'grid']);
+
+        const groupTitles = {'board': 'Task Board', 'drag-drop': 'Drag & Drop'},
+              record      = {
+                  name     : 'Sprint Board',
+                  family   : 'board',
+                  alsoIn   : ['drag-drop'],
+                  component: 'Neo.board.Container',
+                  feature  : 'Kanban cards',
+                  lookFor  : 'Move a card',
+                  keywords : ['swimlane']
+              };
+
+        expect(Example.matchesQuery(record, Example.tokenizeSearchText('drag'), groupTitles)).toBe(true);
+        expect(Example.matchesQuery(record, Example.tokenizeSearchText('swim'), groupTitles)).toBe(true);
+        expect(Example.matchesQuery(record, Example.tokenizeSearchText('board container'), groupTitles)).toBe(true);
+        expect(Example.matchesQuery(record, Example.tokenizeSearchText('calendar'), groupTitles)).toBe(false)
+    });
+
+    test('MainContainer registers and releases body-level "/" preventDefault as the view activates and deactivates', () => {
+        const events       = [],
+              originalMain = Neo.main;
+
+        Neo.main = {
+            ...originalMain,
+            DomEvents: {
+                ...originalMain?.DomEvents,
+                registerPreventDefaultKeys  : data => events.push({op: 'register',   id: data.id, keys: data.keys}),
+                unregisterPreventDefaultKeys: data => events.push({op: 'unregister', id: data.id, keys: data.keys})
+            }
+        };
+
+        try {
+            const view = createView();
+
+            view.mounted = true;
+            expect(events).toEqual([{op: 'register', id: 'document.body', keys: ['/']}]);
+            expect(view.isActiveView()).toBe(true);
+
+            view.wrapperCls = [...(view.wrapperCls || []), 'neo-inactive-item'];
+            expect(view.isActiveView()).toBe(false);
+            expect(events).toHaveLength(2);
+            expect(events[1]).toEqual({op: 'unregister', id: 'document.body', keys: ['/']});
+
+            view.wrapperCls = [];
+            expect(view.isActiveView()).toBe(true);
+            expect(events).toHaveLength(3);
+            expect(events[2]).toEqual({op: 'register', id: 'document.body', keys: ['/']});
+
+            view.destroy();
+            exampleView = null;
+            expect(events).toHaveLength(4);
+            expect(events[3]).toEqual({op: 'unregister', id: 'document.body', keys: ['/']})
+        } finally {
+            Neo.main = originalMain
+        }
+    });
 });
 
 const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'), 'utf8')),
       modes   = ['devmode', 'dist_dev', 'dist_esm', 'dist_prod'],
       // the 12 Start here demonstrations placed first in featured catalog order
       startHereIds = [
-          'workstation', 'grid-big-data', 'grid-tree-big-data', 'dock-choreography', 'shared-covid',
-          'grid-issues', 'scheduler-basic', 'gantt-basic', 'board-basic', 'calendar', 'webdesktop', 'grid-countries'
+          'workstation', 'grid-big-data', 'grid-tree-big-data', 'devindex', 'shared-covid',
+          'grid-issues', 'scheduler-basic', 'gantt-basic', 'board-basic', 'calendar', 'webdesktop', 'dock-choreography'
       ],
       establishedTailIds = [
-          'helix', 'devindex', 'multi-window-covid-gallery', 'offscreen-canvas', 'shared-offscreen-canvas',
+          'grid-countries', 'helix', 'multi-window-covid-gallery', 'offscreen-canvas', 'shared-offscreen-canvas',
           'multi-window-drag-drop', 'tab-container', 'tab-browser', 'state-provider', 'dialog-drag-drop',
-          'colors-dashboard', 'covid-dashboard', 'covid-helix', 'covid-gallery', 'gallery'
+          'colors-dashboard', 'covid-dashboard', 'covid-helix', 'covid-gallery', 'gallery', 'list-reorder', 'list-animate'
       ],
       componentExampleIds = [
           'carousel', 'chip', 'circle', 'clock', 'magic-move-text',
@@ -535,11 +659,11 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           'text-field', 'textarea-field', 'time-field', 'url-field',
           'country-field', 'currency-field', 'display-field', 'iban-field', 'password-field',
           'phone-field', 'range-field', 'search-field', 'zipcode-field', 'copy-to-clipboard-trigger',
-          'fieldset', 'field-with-prefix', 'layout-form', 'form-app'
+          'fieldset', 'form-validation', 'field-with-prefix', 'layout-form', 'form-app'
       ],
       // the tile records of groups that had no record before the tiles, appended to the catalog
       newTileIds = [
-          'button-base', 'menu-list', 'list-base', 'chip-list', 'color-list',
+          'button-base', 'menu-list', 'list-base', 'chip-list', 'color-list', 'list-buffered', 'list-circle',
           'functional-define-component', 'functional-host-component', 'functional-nested-template', 'sitemap'
       ],
       // the Containers & Layouts cards, appended after the tiles
@@ -573,15 +697,32 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           '/examples/multi-window', '/examples/platform', '/examples/state', '/examples/functional', '/examples/drag-drop'
       ],
       // The catalog's only count literals: a new covered example changes its group's row, a new record the record count.
-      // [home count, count from other groups] per group in a production build, in definition order
+      // [home count, count from other groups] per group in a production build, in definition order.
+      // One group per line, so examples PRs on different groups never edit the same line.
       groupCounts = {
-          apps          : [6, 4], 'grid-table': [19, 0], tree: [0, 2], lists: [7, 0], charts: [4, 1],
-          calendar      : [1, 0], scheduler   : [2, 0], gantt: [2, 0], board: [2, 0],
-          dashboard     : [4, 1], tabs        : [2, 0], layouts: [3, 0], dialogs: [3, 0],
-          forms         : [27, 1], buttons    : [2, 0], components: [12, 0],
-          'multi-window': [6, 3], platform    : [2, 1], state: [1, 0], functional: [3, 1], 'drag-drop': [0, 3]
+          apps          : [6, 5],
+          'grid-table'  : [19, 0],
+          tree          : [0, 2],
+          lists         : [12, 0],
+          charts        : [5, 1],
+          calendar      : [1, 0],
+          scheduler     : [2, 0],
+          gantt         : [2, 0],
+          board         : [2, 0],
+          dashboard     : [4, 1],
+          tabs          : [2, 0],
+          layouts       : [3, 0],
+          dialogs       : [3, 0],
+          forms         : [28, 1],
+          buttons       : [2, 0],
+          components    : [12, 0],
+          'multi-window': [6, 3],
+          platform      : [2, 1],
+          state         : [1, 0],
+          functional    : [3, 1],
+          'drag-drop'   : [0, 3]
       },
-      recordCount    = 117,
+      recordCount    = 122,
       publishedCount = Object.values(groupCounts).reduce((sum, [count]) => sum + count, 0),
       groupCount     = Object.keys(groupCounts).length,
       // every record with a cover publishes in a production build, so the rest wait for one

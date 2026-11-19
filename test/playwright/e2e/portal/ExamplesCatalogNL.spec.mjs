@@ -287,8 +287,8 @@ test.describe('Portal examples section', () => {
         const headline   = page.locator('.portal-examples-overview:visible .portal-examples-overview-headline'),
               counts     = page.locator(`${SIDEBAR} .portal-examples-group-index-count`),
               components = counts.nth(GROUPS.indexOf('More components')),
-              // a group that only borrows shows the borrowed count in parentheses, which its headline does not add
-              sum        = async () => (await counts.allTextContents()).filter(text => !text.startsWith('(')).reduce((sum, text) => sum + Number(text), 0),
+              // a group that only borrows shows no number, so the list's numbers add up to the headline
+              sum        = async () => (await counts.allTextContents()).reduce((sum, text) => sum + Number(text), 0),
               headlineOf = published => `${published} live examples in ${GROUPS.length} groups`;
 
         await expect(page.locator(SIDEBAR)).toBeVisible();
@@ -299,7 +299,7 @@ test.describe('Portal examples section', () => {
               componentCount = Number(await components.textContent());
 
         expect(published).toBeGreaterThan(0);
-        await expect(page.locator(`${SIDEBAR} .portal-examples-group-index-note`)).toBeVisible();
+        await expect(counts.filter({hasText: '('}), 'no count needs a footnote').toHaveCount(0);
         await expect(page.locator(`${FEATURED} .neo-list-item`).first().locator('.portal-example-group-badge')).toHaveText('Multi-Window');
 
         // Dev mode cannot open liquid-glass, one of the two cards of More components; the markdown card and the tiles stay
@@ -437,8 +437,8 @@ test.describe('Portal examples section', () => {
             await expect(tiles.first().locator('.portal-example-open-cue')).toHaveText('↗');
             await expect(tiles.first().locator('.portal-example-open-cue'))
                 .toHaveAttribute('href', await tiles.first().locator('.neo-title').getAttribute('href'));
-            // a page of one kind heads neither
-            await expect(page.locator(`${PAGE} .portal-examples-kind-heading`)).toHaveCount(0);
+            // the form app's card stands above the tiles, and a page of both kinds heads each
+            await expect(page.locator(`${PAGE} .portal-examples-kind-heading`)).toHaveText(['Demonstrations', 'Field types']);
 
             const tops = await tiles.evaluateAll(items => items.map(item => Math.round(item.getBoundingClientRect().top)));
             expect(tops.filter(top => top === tops[0])).toHaveLength(perRow);
@@ -634,7 +634,7 @@ test.describe('Portal examples section', () => {
 
                 // A stable string identity also survives the lazy-cover path at the end of the list.
                 await overview.locator('.neo-list-item').last().scrollIntoViewIfNeeded();
-                await expect(overview.locator('.neo-list-item').last().getByRole('link', {name: 'Table Configuration'})).toBeVisible()
+                await expect(overview.locator('.neo-list-item').last().getByRole('link', {name: 'When to Use a Table'})).toBeVisible()
             })
         }
     }
@@ -780,5 +780,55 @@ test.describe('Portal examples section', () => {
         await wsCard.locator('.portal-example-open-cue').tap();
         await expect(touchPage).toHaveURL(/\/apps\/workstation\/index\.html$/);
         await touchContext.close()
+    });
+
+    test('find filters across all groups live, focuses on slash, dims zero-match groups, and Escape restores the open page without history churn', async ({page, neuralLink}) => {
+        await page.setViewportSize({width: 1440, height: 900});
+        await page.goto(`${PORTAL}#/examples/grid`);
+        const app = await neuralLink.connectToApp('Portal');
+        await expectOpenPage(page, 'Grid & Table');
+
+        const initialHistoryLength = await page.evaluate(() => window.history.length),
+              sidebarInput         = page.locator('.portal-examples-sidebar:visible .portal-examples-find-field input'),
+              results              = page.locator('.portal-examples-search-results:visible');
+
+        await page.keyboard.press('/');
+        await expect(sidebarInput).toBeFocused();
+
+        await page.keyboard.type('drag');
+        await expect(results.getByRole('heading', {level: 1})).toContainText('matching examples');
+
+        const [mainState] = await app.queryComponent({className: 'Portal.view.examples.MainContainer'}, ['id', 'findQuery']);
+        expect(mainState.properties.findQuery).toBe('drag');
+
+        await expect(results.getByRole('link', {name: 'Sprint Board', exact: true})).toBeVisible();
+        await expect(page.locator(SIDEBAR).getByRole('link', {name: 'Drag & Drop, 3 matching examples from other groups'})).toBeVisible();
+        // its matches are all borrowed, so like outside a filter it shows no number, only its label says it
+        await expect(page.locator(SIDEBAR).getByRole('link', {name: 'Drag & Drop, 3 matching examples from other groups'})
+            .locator('.portal-examples-group-index-count')).toHaveText('');
+        await expect(page.locator(`${SIDEBAR} li.portal-examples-group-index-zero`).filter({hasText: 'Calendar'})).toBeVisible();
+        await expect(page).toHaveURL(/#\/examples\/grid$/);
+        expect(await page.evaluate(() => window.history.length)).toBe(initialHistoryLength);
+
+        await sidebarInput.fill('date');
+        await expect(results.locator('.portal-examples-search-cards').getByRole('link', {name: 'Calendar', exact: true})).toBeVisible();
+        await expect(results.locator('.portal-examples-search-cards').getByRole('link', {name: 'Studio Bookings', exact: true})).toBeVisible();
+        await expect(results.locator('.portal-examples-search-cards').getByRole('link', {name: 'Community Garden Plan', exact: true})).toBeVisible();
+        await expect(results.locator('.portal-examples-tiles').getByRole('link', {name: 'Date field', exact: true})).toBeVisible();
+
+        await sidebarInput.press('Escape');
+        await expectOpenPage(page, 'Grid & Table');
+        await expect(sidebarInput).not.toBeFocused();
+
+        const [clearedState] = await app.queryComponent({className: 'Portal.view.examples.MainContainer'}, ['findQuery']);
+        expect(clearedState.properties.findQuery).toBe('');
+
+        await page.setViewportSize({width: 390, height: 844});
+        const mobileInput = page.locator(`${CRUMB} .portal-examples-find-field input`);
+        await expect(mobileInput).toBeVisible();
+        await mobileInput.fill('drag');
+        await expect(results.getByRole('link', {name: 'Sprint Board', exact: true})).toBeVisible();
+        await results.getByRole('button', {name: 'Clear (Esc)'}).click();
+        await expectOpenPage(page, 'Grid & Table')
     })
 });

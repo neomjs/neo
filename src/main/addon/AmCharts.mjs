@@ -47,7 +47,8 @@ class AmCharts extends Base {
             'destroy',
             'setProperties',
             'setProperty',
-            'updateData'
+            'updateData',
+            'whenDrawn'
         ],
         /**
          * Remote method access for other workers
@@ -61,7 +62,8 @@ class AmCharts extends Base {
                 'destroy',
                 'setProperties',
                 'setProperty',
-                'updateData'
+                'updateData',
+                'whenDrawn'
             ]
         },
         /**
@@ -291,6 +293,37 @@ class AmCharts extends Base {
                 Neo.ns(data.dataPath, false, chart).data = data.data
             }
         }
+    }
+
+    /**
+     * @summary Answers once the chart under `id` shows its current data.
+     *
+     * amCharts validates data and draws over later frames, after `createFromConfig()` and after every data
+     * change, so neither {@link #create} nor {@link #updateData} returning says the chart is drawn. It is
+     * drawn once it is ready and neither it nor a series holds data awaiting validation; the answer follows
+     * one frame later, after the browser painted that state.
+     * @param {Object} data
+     * @param {String} data.id
+     * @returns {Promise<Boolean>} `true` once drawn, `false` when no chart has the id, or a destroy or a new
+     * create under the id comes first
+     */
+    whenDrawn({id}) {
+        let me    = this,
+            chart = me.charts[id];
+
+        return new Promise(resolve => {
+            let check = () => {
+                if (!chart || me.charts[id] !== chart) {
+                    resolve(false)
+                } else if (chart.isReady() && !chart.dataInvalid && !chart.series?.values.some(series => series.dataInvalid)) {
+                    requestAnimationFrame(() => resolve(me.charts[id] === chart))
+                } else {
+                    requestAnimationFrame(check)
+                }
+            };
+
+            check()
+        })
     }
 }
 
