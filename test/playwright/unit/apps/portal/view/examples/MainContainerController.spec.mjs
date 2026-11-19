@@ -160,34 +160,34 @@ test.describe('Portal examples overview and group pages', () => {
     });
 
     test('a component record is a tile: it counts as a live example, and its page\'s tileCount follows the build', () => {
-        // the clock's tile cannot open in the ESM build, liquid-glass's card cannot open in Dev mode
-        // Hiding the Live preview card in Dev mode leaves that build one kind to show
-        const hidden  = {clock: ['dist_esm'], 'live-preview': ['devmode']},
-              records = structuredClone(catalog).map(record => hidden[record.id] ? {...record, hiddenIn: hidden[record.id]} : record),
-              view    = createView(records),
-              group   = () => view.getGroupStore().get('components'),
-              page    = view.getGroupPage('components'),
-              heading = reference => page.down({reference}),
-              // two cards, live-preview and liquid-glass, and the rest tiles
-              count   = groupCounts.components[0];
+        // the clock's tile cannot open in the ESM build, liquid-glass's card cannot open in Dev mode, and here
+        // neither can the markdown and Live preview cards, so Dev mode shows tiles alone
+        const hiddenIn = {clock: ['dist_esm'], markdown: ['devmode'], 'live-preview': ['devmode']},
+              records  = structuredClone(catalog).map(record => hiddenIn[record.id] ? {...record, hiddenIn: hiddenIn[record.id]} : record),
+              view     = createView(records),
+              group    = () => view.getGroupStore().get('components'),
+              page     = view.getGroupPage('components'),
+              heading  = reference => page.down({reference}),
+              // three cards, markdown, live-preview and liquid-glass, and the rest tiles
+              count    = groupCounts.components[0];
 
         expect(view.getCatalogStore().get('liquid-glass').kind).toBe('demonstration');
         expect(view.getCatalogStore().get('clock').kind).toBe('component');
-        expect([group().count, group().tileCount]).toEqual([count, count - 2]);
+        expect([group().count, group().tileCount]).toEqual([count, count - 3]);
 
         // the cards show under "Demonstrations", the tiles by name under the default tile heading
-        expect(pageIds(view, 'components')).toEqual(['live-preview', 'liquid-glass']);
-        expect(tileIds(view, 'components')).toEqual(['chip', 'circle', 'clock', 'magic-move-text', 'monaco-editor', 'progress', 'status-badge', 'timer']);
+        expect(pageIds(view, 'components')).toEqual(['markdown', 'live-preview', 'liquid-glass']);
+        expect(tileIds(view, 'components')).toEqual(['chip', 'circle', 'clock', 'magic-move-text', 'monaco-editor', 'process', 'progress', 'splitter', 'status-badge', 'timer']);
         expect([heading('cards-heading').hidden, heading('tiles-heading').hidden, heading('tiles-heading').text]).toEqual([false, false, 'Components']);
 
         // the same rule publishes a tile and a card: a build that cannot open the tile drops it from both counts
         view.getController().onSelectBuild({id: 'dist_esm'});
-        expect([group().count, group().tileCount]).toEqual([count - 1, count - 3]);
+        expect([group().count, group().tileCount]).toEqual([count - 1, count - 4]);
         expect(tileIds(view, 'components')).not.toContain('clock');
 
         // a page that shows one kind heads neither
         view.getController().onSelectBuild({id: 'devmode'});
-        expect([group().count, group().tileCount]).toEqual([count - 2, count - 2]);
+        expect([group().count, group().tileCount]).toEqual([count - 3, count - 3]);
         expect(pageIds(view, 'components')).toEqual([]);
         expect([heading('cards-heading').hidden, heading('tiles-heading').hidden]).toEqual([true, true])
     });
@@ -481,7 +481,7 @@ test.describe('Portal examples overview and group pages', () => {
         controller.onSelectBuild({id: 'dist_prod'});
         expect(view.getGroupStore().items.map(group => group.route)).toEqual(publishedRoutes);
         expect(openCard(view)).toBe('components');
-        expect(pageIds(view, 'components')).toEqual(['live-preview', 'liquid-glass'])
+        expect(pageIds(view, 'components')).toEqual(['markdown', 'live-preview', 'liquid-glass'])
     });
 
     test('an open page stays open when a build switch removes or adds another page', async () => {
@@ -639,8 +639,7 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
       ],
       componentExampleIds = [
           'carousel', 'chip', 'circle', 'clock', 'magic-move-text',
-          'markdown', 'live-preview', 'mwc-button', 'mwc-buttons', 'mwc-text-field', 'mwc-text-fields',
-          'process', 'process-real-world', 'progress', 'splitter', 'status-badge', 'timer',
+          'markdown', 'live-preview', 'process', 'progress', 'splitter', 'status-badge', 'timer',
           'toast', 'popover', 'video', 'monaco-editor', 'open-street-maps', 'graph-scene', 'am-charts',
           'sparklines', 'mermaid', 'video-move'
       ],
@@ -701,10 +700,10 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           apps          : [6, 4], 'grid-table': [19, 0], tree: [0, 2], lists: [7, 0], charts: [4, 1],
           calendar      : [1, 0], scheduler   : [2, 0], gantt: [2, 0], board: [2, 0],
           dashboard     : [4, 1], tabs        : [2, 0], layouts: [3, 0], dialogs: [3, 0],
-          forms         : [27, 1], buttons    : [2, 0], components: [10, 0],
+          forms         : [27, 1], buttons    : [2, 0], components: [13, 0],
           'multi-window': [6, 3], platform    : [2, 1], state: [1, 0], functional: [3, 2], 'drag-drop': [0, 3]
       },
-      recordCount    = 123,
+      recordCount    = 118,
       publishedCount = Object.values(groupCounts).reduce((sum, [count]) => sum + count, 0),
       groupCount     = Object.keys(groupCounts).length,
       // every record with a cover publishes in a production build, so the rest wait for one

@@ -709,8 +709,8 @@
         "family": "components",
         "component": "Markdown VDOM",
         "feature": "Markdown is parsed into VDOM subtrees and supports incremental streaming updates.",
-        "lookFor": "Press Stream demo and watch headings, lists, code, a table and a quote render progressively.",
-        "image": null,
+        "lookFor": "The page opens streaming: headings, lists, code, a table and a quote render as the text arrives. Its last lines show a script tag and a javascript: link rendered as plain text.",
+        "image": "devmode/markdown-14.jpg",
         "name": "Markdown VDOM",
         "sourceUrl": "examples/component/markdown",
         "urls": {
@@ -742,109 +742,20 @@
         "hiddenIn": []
     },
     {
-        "id": "mwc-button",
-        "family": "components",
-        "component": "MWC Button",
-        "feature": "A Material button exposes dense, outlined, raised, icon and disabled states.",
-        "lookFor": "Toggle outlined and raised, change the label or icon, and compare the button states.",
-        "image": null,
-        "name": "MWC Button",
-        "sourceUrl": "examples/component/mwc/button",
-        "urls": {
-            "devmode": "examples/component/mwc/button/index.html",
-            "dist_dev": "dist/development/examples/component/mwc/button/index.html",
-            "dist_esm": "dist/esm/examples/component/mwc/button/index.html",
-            "dist_prod": "dist/production/examples/component/mwc/button/index.html"
-        },
-        "hiddenIn": [],
-        "scope": "Loads Google's Material Icons and Roboto fonts over the network; dev mode also loads the Material web components from unpkg."
-    },
-    {
-        "id": "mwc-buttons",
-        "family": "components",
-        "component": "MWC Button",
-        "feature": "Two tabs compare standard, outlined, raised, unelevated, dense and icon button variants.",
-        "lookFor": "Switch between Tab 1 and Tab 2 and compare each button style.",
-        "image": null,
-        "name": "MWC Buttons",
-        "sourceUrl": "examples/component/mwc/buttons",
-        "urls": {
-            "devmode": "examples/component/mwc/buttons/index.html",
-            "dist_dev": "dist/development/examples/component/mwc/buttons/index.html",
-            "dist_esm": "dist/esm/examples/component/mwc/buttons/index.html",
-            "dist_prod": "dist/production/examples/component/mwc/buttons/index.html"
-        },
-        "hiddenIn": [],
-        "scope": "Loads Google's Material Icons and Roboto fonts over the network; dev mode also loads the Material web components from unpkg."
-    },
-    {
-        "id": "mwc-text-field",
-        "family": "components",
-        "component": "MWC TextField",
-        "feature": "A Material text field exposes helper text, leading and trailing icons, outlined styling and validation.",
-        "lookFor": "Change the value and press check validity (the result is logged to the browser console), then toggle outlined or disabled in the configuration panel.",
-        "image": null,
-        "name": "MWC TextField",
-        "sourceUrl": "examples/component/mwc/textField",
-        "urls": {
-            "devmode": "examples/component/mwc/textField/index.html",
-            "dist_dev": "dist/development/examples/component/mwc/textField/index.html",
-            "dist_esm": "dist/esm/examples/component/mwc/textField/index.html",
-            "dist_prod": "dist/production/examples/component/mwc/textField/index.html"
-        },
-        "hiddenIn": [],
-        "scope": "Loads Google's Material Icons and Roboto fonts over the network; dev mode also loads the Material web components from unpkg."
-    },
-    {
-        "id": "mwc-text-fields",
-        "family": "components",
-        "component": "MWC TextField",
-        "feature": "Filled and outlined text-field variants, on two tabs, show optional icons and helper text.",
-        "lookFor": "Switch between the Filled and Outlined tabs and compare the field decorations.",
-        "image": null,
-        "name": "MWC TextFields",
-        "sourceUrl": "examples/component/mwc/textFields",
-        "urls": {
-            "devmode": "examples/component/mwc/textFields/index.html",
-            "dist_dev": "dist/development/examples/component/mwc/textFields/index.html",
-            "dist_esm": "dist/esm/examples/component/mwc/textFields/index.html",
-            "dist_prod": "dist/production/examples/component/mwc/textFields/index.html"
-        },
-        "hiddenIn": [],
-        "scope": "Loads Google's Material Icons and Roboto fonts over the network; dev mode also loads the Material web components from unpkg."
-    },
-    {
         "id": "process",
         "family": "components",
         "component": "Process",
         "feature": "A process component connects ordered steps with configurable orientation, arrows and icons.",
-        "lookFor": "Toggle horizontal and change the arrow or icon color; the stages reflow without losing their order.",
-        "image": null,
-        "name": "component.Process",
+        "lookFor": "Toggle horizontal and change the arrow or icon color; the trip's four stages reflow without losing their order.",
+        "kind": "component",
+        "image": "devmode/tiles/component-process-14.jpg",
+        "name": "Process",
         "sourceUrl": "examples/component/process",
         "urls": {
             "devmode": "examples/component/process/index.html",
             "dist_dev": "dist/development/examples/component/process/index.html",
             "dist_esm": "dist/esm/examples/component/process/index.html",
             "dist_prod": "dist/production/examples/component/process/index.html"
-        },
-        "hiddenIn": []
-    },
-    {
-        "id": "process-real-world",
-        "family": "components",
-        "component": "Process",
-        "feature": "An electric-vehicle trip calculator turns staged battery and odometer inputs into remaining range and consumption.",
-        "lookFor": "Set the start and end battery percentages and odometer readings; the result fields update and the save button becomes available.",
-        "scope": "Loads the current Berlin temperature from the Open-Meteo public API; all other values are demonstration data.",
-        "image": null,
-        "name": "Process Real-World Example",
-        "sourceUrl": "examples/component/process/realWorldExample",
-        "urls": {
-            "devmode": "examples/component/process/realWorldExample/index.html",
-            "dist_dev": "dist/development/examples/component/process/realWorldExample/index.html",
-            "dist_esm": "dist/esm/examples/component/process/realWorldExample/index.html",
-            "dist_prod": "dist/production/examples/component/process/realWorldExample/index.html"
         },
         "hiddenIn": []
     },
@@ -871,9 +782,10 @@
         "family": "components",
         "component": "Splitter",
         "feature": "A draggable splitter resizes adjacent panels in either orientation.",
-        "lookFor": "Drag the divider, then toggle horizontal and live resize in the configuration panel.",
-        "image": null,
-        "name": "component.Splitter",
+        "lookFor": "Drag the bar between the folders and the inbox, then toggle horizontal and live resize in the configuration panel.",
+        "kind": "component",
+        "image": "devmode/tiles/component-splitter-14.jpg",
+        "name": "Splitter",
         "sourceUrl": "examples/component/splitter",
         "urls": {
             "devmode": "examples/component/splitter/index.html",

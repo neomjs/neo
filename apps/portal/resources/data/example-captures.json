@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "families": ["grid-table", "gantt", "scheduler", "board", "charts", "dashboard", "apps", "dialogs", "lists", "layouts", "tabs"],
+  "families": ["grid-table", "gantt", "scheduler", "board", "charts", "dashboard", "apps", "dialogs", "lists", "layouts", "tabs", "components"],
   "suffix": "14",
   "tiles": [
     "examples/form/field/checkbox", {"path": "examples/form/field/chip", "width": 220},
@@ -21,7 +21,8 @@
     "examples/button/base", "examples/menu/list",
     "examples/list/base", "examples/list/chip", "examples/list/color",
     "examples/component/chip", "examples/component/circle", "examples/component/clock", "examples/component/magicmovetext",
-    {"path": "examples/component/progress", "width": 220}, "examples/component/statusbadge", "examples/component/timer",
+    "examples/component/process", {"path": "examples/component/progress", "width": 220},
+    {"path": "examples/component/splitter", "width": 420, "height": 240}, "examples/component/statusbadge", "examples/component/timer",
     {"path": "examples/component/wrapper/monacoEditor", "width": 224, "height": 150},
     "examples/functional/defineComponent", "examples/functional/hostComponent",
     {"path": "examples/functional/nestedTemplateComponent", "width": 240, "height": 150},
@@ -634,6 +635,16 @@
       "steps": [{"kind": "click", "selector": ".neo-button", "text": "Click Me"}],
       "after": [{"selector": ".neo-popover", "text": "Anchored to the button that opened it", "inRegion": true}, {"selector": ".neo-button", "text": "Click Me", "inRegion": true}],
       "region": {"selector": ".neo-button", "anchor": "center", "offsetY": -60, "width": 640, "height": 360}
+    },
+    {
+      "id": "markdown",
+      "viewport": {"width": 640, "height": 360},
+      "theme": "default",
+      "state": "The end of the document the page streamed on open: the code block, the table under its head, and a script tag and a javascript: link rendered as plain text.",
+      "ready": [{"selector": "p", "text": "render as plain text"}],
+      "steps": [],
+      "after": [{"selector": "th", "text": "Surface", "inRegion": true}, {"selector": "p", "text": "render as plain text", "inRegion": true}],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },
     {
       "id": "gallery",
