@@ -388,12 +388,13 @@
     },
     {
         "id": "tab-container",
+        "kind": "component",
         "family": "tabs",
         "feature": "Tab buttons whose text, icon, color and badge change live",
         "lookFor": "Type a new Tab 1 text and a badgeText, then pick another badgePosition.",
         "featured": false,
-        "image": "devmode/tabContainer.png",
-        "name": "tab.Container",
+        "image": "devmode/tiles/tab-container-14.jpg",
+        "name": "Tab container",
         "sourceUrl": "examples/tab/container",
         "urls": {
             "devmode": "examples/tab/container/index.html",
@@ -402,6 +403,24 @@
             "dist_prod": "dist/production/examples/tab/container/index.html"
         },
         "hiddenIn": []
+    },
+    {
+        "id": "tab-browser",
+        "name": "Browser-Style Tabs",
+        "family": "tabs",
+        "component": "Tab container",
+        "feature": "Thirty tabs in one strip close, open, reorder by drag and overflow into a menu",
+        "lookFor": "Drag a tab to a new place, close one with its ×, open one with +, then pick a hidden tab from the menu at the strip's end.",
+        "scope": "All in one window; the tabs reset on reload.",
+        "image": "devmode/tab-browser-14.jpg",
+        "sharedWorkers": false,
+        "sourceUrl": "examples/tab/browser",
+        "urls": {
+            "devmode": "examples/tab/browser/index.html",
+            "dist_dev": "dist/development/examples/tab/browser/index.html",
+            "dist_esm": "dist/esm/examples/tab/browser/index.html",
+            "dist_prod": "dist/production/examples/tab/browser/index.html"
+        }
     },
     {
         "id": "state-provider",
@@ -1828,7 +1847,7 @@
     {
         "id": "field-with-prefix",
         "image": null,
-        "name": "plugin.field.Prefix",
+        "name": "Input masks",
         "sourceUrl": "examples/fieldWithPrefix",
         "urls": {
             "devmode": "examples/fieldWithPrefix/index.html",
@@ -1839,8 +1858,8 @@
         "hiddenIn": [],
         "family": "forms",
         "component": "TextField",
-        "feature": "Input masks from the PrefixField plugin: a phone pattern and a digits-only date",
-        "lookFor": "Type into the phone field and watch the +1 (___) ___-___-____ mask carry your digits, then try the [0-9] date field."
+        "feature": "Input masks from the PrefixField plugin: a phone number, a date, a MAC address, a code and a card number",
+        "lookFor": "Type letters into the phone field to see them refused, then fill +1 (___) ___-____ with a 10-digit number."
     },
     {
         "id": "layout-form",
