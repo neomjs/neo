@@ -1,8 +1,9 @@
-import Button    from '../src/button/Base.mjs';
-import Component from '../src/component/Base.mjs';
-import Container from '../src/container/Base.mjs';
-import Panel     from '../src/container/Panel.mjs';
-import Viewport  from '../src/container/Viewport.mjs';
+import Button              from '../src/button/Base.mjs';
+import CodeView            from './workbench/CodeView.mjs';
+import Container           from '../src/container/Base.mjs';
+import Panel               from '../src/container/Panel.mjs';
+import Viewport            from '../src/container/Viewport.mjs';
+import {formatExampleCode} from './workbench/formatConfig.mjs';
 
 // Default themes
 const themes = [
@@ -280,150 +281,6 @@ class ConfigurationViewport extends Viewport {
     #observedExampleConfigs = new Set()
 
     /**
-     * @summary Builds the docked live Code View container with its Copy action and clipboard target.
-     * @returns {Object} Neo container configuration
-     * @protected
-     */
-    createCodePanel() {
-        let me          = this,
-            initialCode = me.getCodeText();
-
-        return {
-            module   : Container,
-            cls      : ['neo-workbench-code-panel'],
-            flex     : 'none',
-            layout   : {ntype: 'vbox', align: 'stretch'},
-            reference: 'code-panel',
-            items    : [{
-                module   : Container,
-                cls      : ['neo-workbench-code-header'],
-                flex     : 'none',
-                layout   : {ntype: 'hbox', align: 'center'},
-                reference: 'code-header',
-                items    : [{
-                    ntype    : 'label',
-                    cls      : ['neo-workbench-code-title'],
-                    reference: 'code-title',
-                    text     : 'Code'
-                }, {
-                    ntype: 'component',
-                    flex : 1
-                }, {
-                    module   : Button,
-                    cls      : ['neo-button-copy-code'],
-                    handler  : me.onCopyCode.bind(me),
-                    id       : me.id + '__copyCodeButton',
-                    reference: 'copy-code-button',
-                    text     : 'Copy'
-                }]
-            }, {
-                module   : Component,
-                cls      : ['neo-workbench-code-output'],
-                flex     : 1,
-                reference: 'code-output',
-                vdom     : {
-                    cls: ['neo-workbench-code-body'],
-                    cn : [{
-                        tag: 'pre',
-                        cls: ['neo-workbench-code-pre'],
-                        cn : [{
-                            tag : 'code',
-                            cls : ['neo-workbench-code-content'],
-                            text: initialCode
-                        }]
-                    }, {
-                        'aria-hidden': 'true',
-                        cls          : ['neo-workbench-code-clipboard'],
-                        id           : me.id + '__codeClipboard',
-                        readOnly     : true,
-                        tabIndex     : -1,
-                        tag          : 'textarea',
-                        text         : initialCode,
-                        value        : initialCode
-                    }]
-                }
-            }]
-        }
-    }
-
-    /**
-     * @summary Escapes a string literal as valid single-quoted Neo config source.
-     * @param {String} value
-     * @returns {String}
-     * @protected
-     */
-    formatConfigString(value) {
-        let escaped = value
-            .replace(/\\/g, '\\\\')
-            .replace(/'/g, "\\'")
-            .replace(/\n/g, '\\n')
-            .replace(/\r/g, '\\r')
-            .replace(/\t/g, '\\t');
-
-        return `'${escaped}'`
-    }
-
-    /**
-     * @summary Formats an object key as bare identifier when valid JS syntax, otherwise quoted.
-     * @param {String} key
-     * @returns {String}
-     * @protected
-     */
-    formatConfigKey(key) {
-        return /^[a-zA-Z_$][\w$]*$/.test(key) ? key : this.formatConfigString(key)
-    }
-
-    /**
-     * @summary Formats any runtime config value into valid indented Neo config syntax.
-     * @param {*} value
-     * @param {Number} [indent=4]
-     * @returns {String}
-     * @protected
-     */
-    formatConfigValue(value, indent=4) {
-        let me   = this,
-            type = Neo.typeOf(value),
-            pad  = ' '.repeat(indent);
-
-        if (value === null)      return 'null';
-        if (value === undefined) return 'undefined';
-
-        if (type === 'String')   return me.formatConfigString(value);
-        if (type === 'Number' || type === 'Boolean') return String(value);
-        if (type === 'Date')     return `new Date(${me.formatConfigString(value.toISOString())})`;
-        if (type === 'RegExp')   return String(value);
-        if (type === 'NeoClass') return value.prototype?.className || 'null';
-        if (type === 'NeoInstance') return value.className || 'null';
-        if (type === 'Function') return '() => {}';
-
-        if (type === 'Array') {
-            if (value.length === 0) return '[]';
-
-            let childPad = ' '.repeat(indent + 4),
-                items    = value.map(item => `${childPad}${me.formatConfigValue(item, indent + 4)}`);
-
-            return `[\n${items.join(',\n')}\n${pad}]`
-        }
-
-        if (type === 'Object') {
-            let entries = Object.entries(value);
-
-            if (entries.length === 0) return '{}';
-
-            let childPad = ' '.repeat(indent + 4),
-                keyPad   = Math.max(...entries.map(([key]) => me.formatConfigKey(key).length)),
-                lines    = entries.map(([key, item]) => {
-                    let formattedKey = me.formatConfigKey(key).padEnd(keyPad, ' ');
-                    return `${childPad}${formattedKey}: ${me.formatConfigValue(item, indent + 4)}`
-                });
-
-            return `{\n${lines.join(',\n')}\n${pad}}`
-        }
-
-        return String(value)
-    }
-
-    /**
      * @summary Returns only tracked configs whose current value differs from initial state.
      * @returns {Object} Map of changed config keys to their current values
      */
@@ -451,27 +308,17 @@ class ConfigurationViewport extends Viewport {
     }
 
     /**
-     * @summary Builds the copyable Neo config snippet for `exampleComponent` and its changed configs.
+     * @summary Builds the evaluable Neo config snippet for `exampleComponent` and its changed configs.
      * @returns {String}
      */
     getCodeText() {
-        let me = this;
+        const me = this;
 
         if (!me.exampleComponent) {
             return '{\n}'
         }
 
-        let moduleName = me.exampleComponent.className || 'Neo.component.Base',
-            entries    = [['module', moduleName]];
-
-        Object.entries(me.getChangedConfigs()).forEach(([key, value]) => {
-            entries.push([me.formatConfigKey(key), me.formatConfigValue(value, 4)])
-        });
-
-        let keyPad = Math.max(...entries.map(([key]) => key.length)),
-            lines  = entries.map(([key, formattedValue]) => `    ${key.padEnd(keyPad, ' ')}: ${formattedValue}`);
-
-        return `{\n${lines.join(',\n')}\n}`
+        return formatExampleCode(me.exampleComponent.className || 'Neo.component.Base', me.getChangedConfigs())
     }
 
     /**
@@ -497,53 +344,12 @@ class ConfigurationViewport extends Viewport {
     }
 
     /**
-     * @summary Copies the displayed config snippet to the clipboard via Main DomAccess.
+     * @summary Copies the Code View snippet to the clipboard via {@link Neo.examples.workbench.CodeView#copyCode}.
      * @param {Object} [data]
      * @returns {Promise<void>}
      */
-    async onCopyCode(data) {
-        let me     = this,
-            button = data?.component || me.down({reference: 'copy-code-button'}),
-            text   = me.getCodeText();
-
-        me.lastCopiedCode = text;
-
-        if (Neo.main?.DomAccess?.selectNode && Neo.main?.DomAccess?.execCommand) {
-            await Neo.main.DomAccess.selectNode({
-                appName : me.appName,
-                end     : text.length,
-                id      : me.id + '__codeClipboard',
-                start   : 0,
-                windowId: me.windowId
-            });
-
-            await Neo.main.DomAccess.execCommand({
-                appName : me.appName,
-                command : 'copy',
-                windowId: me.windowId
-            });
-
-            button && Neo.main.DomAccess.focus?.({
-                id           : button.id,
-                modality     : 'pointer',
-                preventScroll: true,
-                windowId     : me.windowId
-            })
-        }
-
-        if (button && !button.isDestroyed) {
-            button.text = 'Copied';
-
-            me.timeout(1200).then(() => {
-                if (!me.isDestroyed && !button.isDestroyed) {
-                    button.text = 'Copy'
-                }
-            }).catch(error => {
-                if (error !== Neo.isDestroyed) {
-                    throw error
-                }
-            })
-        }
+    onCopyCode(data) {
+        return this.down({reference: 'code-panel'})?.copyCode(data)
     }
 
     /**
@@ -562,6 +368,7 @@ class ConfigurationViewport extends Viewport {
 
     /**
      * @summary Resolves the candidate config key bound to an inspector control if present on `exampleComponent`.
+     * Controls without an explicit `name` match by camel-cased `labelText` or `valueLabel` convention.
      * @param {Object} item
      * @returns {String|null}
      * @protected
@@ -620,29 +427,14 @@ class ConfigurationViewport extends Viewport {
     }
 
     /**
-     * @summary Synchronizes the rendered Code View content and hidden clipboard textarea with `getCodeText()`.
+     * @summary Pushes the latest {@link #getCodeText} snippet into the reactive Code View component.
      */
     updateCodeView() {
-        let me         = this,
-            codeOutput = me.down({reference: 'code-output'});
+        const codePanel = this.down({reference: 'code-panel'});
 
-        if (!codeOutput) {
-            return
+        if (codePanel) {
+            codePanel.code = this.getCodeText()
         }
-
-        let code = me.getCodeText(),
-            cn   = codeOutput.vdom?.cn;
-
-        if (cn?.[0]?.cn?.[0]) {
-            cn[0].cn[0].text = code
-        }
-
-        if (cn?.[1]) {
-            cn[1].text  = code;
-            cn[1].value = code
-        }
-
-        codeOutput.update()
     }
 
     /**
@@ -883,7 +675,11 @@ class ConfigurationViewport extends Viewport {
                 },
 
                 items: me.configurationComponents
-            }, me.createCodePanel()]
+            }, {
+                module   : CodeView,
+                code     : me.getCodeText(),
+                reference: 'code-panel'
+            }]
         }];
 
         super.onConstructed();

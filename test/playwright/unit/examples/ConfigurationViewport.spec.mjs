@@ -70,6 +70,8 @@ import FieldMainContainer      from '../../../../examples/form/field/text/MainCo
 import ListMainContainer       from '../../../../examples/list/base/MainContainer.mjs';
 import GridMainContainer       from '../../../../examples/grid/valueBanding/MainContainer.mjs';
 import FunctionalMainContainer from '../../../../examples/functional/hostComponent/MainContainer.mjs';
+import Store                   from '../../../../src/data/Store.mjs';
+import {formatExampleCode}     from '../../../../examples/workbench/formatConfig.mjs';
 
 test.describe('ConfigurationViewport Workbench (Stage, Inspector, Reset, Theme)', () => {
     test('renders stage and inspector with reset button and theme switch', async () => {
@@ -395,6 +397,7 @@ test.describe('ConfigurationViewport Workbench (Stage, Inspector, Reset, Theme)'
 
     test('onCopyCode selects hidden clipboard textarea and executes copy command matching component configs', async () => {
         const viewport    = Neo.create(ButtonMainContainer, {autoMount: false});
+        const codePanel   = viewport.down({reference: 'code-panel'});
         const origSelect  = Neo.main.DomAccess.selectNode;
         const origExec    = Neo.main.DomAccess.execCommand;
         const origFocus   = Neo.main.DomAccess.focus;
@@ -412,25 +415,61 @@ test.describe('ConfigurationViewport Workbench (Stage, Inspector, Reset, Theme)'
 
             await viewport.onCopyCode();
 
+            expect(codePanel.code).toBe(expected);
             expect(selectCalls).toEqual([{
-                appName : viewport.appName,
+                appName : codePanel.appName,
                 end     : expected.length,
-                id      : viewport.id + '__codeClipboard',
+                id      : codePanel.getClipboardId(),
                 start   : 0,
-                windowId: viewport.windowId
+                windowId: codePanel.windowId
             }]);
             expect(execCalls).toEqual([{
-                appName : viewport.appName,
+                appName : codePanel.appName,
                 command : 'copy',
-                windowId: viewport.windowId
+                windowId: codePanel.windowId
             }]);
-            expect(viewport.lastCopiedCode).toBe(expected);
+            expect(codePanel.lastCopiedCode).toBe(expected);
             expect(viewport.down({reference: 'code-output'}).vdom.cn[1].value).toBe(expected);
         } finally {
             if (origSelect) Neo.main.DomAccess.selectNode  = origSelect; else delete Neo.main.DomAccess.selectNode;
             if (origExec)   Neo.main.DomAccess.execCommand = origExec;   else delete Neo.main.DomAccess.execCommand;
             if (origFocus)  Neo.main.DomAccess.focus       = origFocus;  else delete Neo.main.DomAccess.focus;
             viewport.destroy();
+        }
+    });
+
+    test('formatExampleCode omits functions and Neo instances with comment lines and keeps code evaluable', () => {
+        const store = Neo.create(Store, {autoLoad: false});
+
+        try {
+            const code = formatExampleCode('Neo.grid.Container', {
+                height  : 420,
+                renderer: value => String(value),
+                store,
+                nested  : {onClick: () => {}}
+            });
+
+            expect(code).toContain('module: Neo.grid.Container');
+            expect(code).toContain('height: 420');
+            expect(code).toContain('    // renderer: a function, not shown');
+            expect(code).toContain('    // store: a Neo.data.Store instance, not shown');
+            expect(code).toContain('    // nested: contains non-literal values, not shown');
+            expect(code).not.toContain('() => {}');
+            expect(code).not.toContain('store   : Neo.data.Store');
+
+            const parsed = new Function('Neo', 'return ' + code)(Neo);
+            expect(parsed).toEqual({
+                height: 420,
+                module: Neo.grid.Container
+            });
+
+            const fnOnly = formatExampleCode('Neo.button.Base', {
+                formatter: value => value
+            });
+            expect(fnOnly).toBe('{\n    module: Neo.button.Base\n    // formatter: a function, not shown\n}');
+            expect(new Function('Neo', 'return ' + fnOnly)(Neo)).toEqual({module: Neo.button.Base});
+        } finally {
+            store.destroy();
         }
     });
 });
