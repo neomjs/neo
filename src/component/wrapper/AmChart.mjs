@@ -49,6 +49,14 @@ class AmChart extends Component {
          */
         dataPath: '',
         /**
+         * `true` while the chart shows its current data, reflected as `data-drawn` on the root like
+         * {@link Neo.component.Canvas#drawn_}. amCharts draws in the main thread after a create or a data change,
+         * so the moment comes from {@link Neo.main.addon.AmCharts#whenDrawn}.
+         * @member {Boolean} drawn_=false
+         * @reactive
+         */
+        drawn_: false,
+        /**
          * am4charts, am4maps
          * @member {String} package='am4charts'
          */
@@ -88,6 +96,12 @@ class AmChart extends Component {
      */
     #createdTheme
     /**
+     * Counts the creates and data changes whose drawn answer is owed, so only the latest one sets `drawn`.
+     * @member {Number} #drawnRequest=0
+     * @private
+     */
+    #drawnRequest = 0
+    /**
      * Cancels the create that {@link #createChart} has scheduled and not yet sent, or `null`.
      * @member {AbortController|null} #pendingCreate=null
      * @private
@@ -111,7 +125,24 @@ class AmChart extends Component {
                 dataPath,
                 id,
                 windowId
-            })
+            });
+
+            me.mounted && me.syncDrawn()
+        }
+    }
+
+    /**
+     * Triggered after the drawn config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetDrawn(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me = this;
+
+            me.vdom['data-drawn'] = value ? 'true' : null;
+            me.update()
         }
     }
 
@@ -128,6 +159,7 @@ class AmChart extends Component {
         if (value === false && oldValue !== undefined) {
             // a create still waiting for its slot would draw into a chart that is gone
             me.#pendingCreate?.abort();
+            me.clearDrawn();
             Neo.main.addon.AmCharts.destroy({appName, id, windowId})
         }
 
@@ -174,6 +206,15 @@ class AmChart extends Component {
     }
 
     /**
+     * @summary Drops `drawn` and voids the answer still owed for the chart's last create or data.
+     * @protected
+     */
+    clearDrawn() {
+        this.#drawnRequest++;
+        this.drawn = false
+    }
+
+    /**
      * @summary Asks the main thread to create the chart in the amCharts theme {@link #resolveTheme} answers.
      *
      * The create goes out 50 ms later. A newer create cancels one still waiting, and so do an unmount and
@@ -205,10 +246,17 @@ class AmChart extends Component {
 
         me.#pendingCreate?.abort();
         me.#pendingCreate = pending;
+        me.clearDrawn();
 
         me.timeout(50, {signal: pending.signal}).then(() => {
             me.#pendingCreate = null;
-            Neo.main.addon.AmCharts.create(opts).then(me.onChartMounted)
+
+            Neo.main.addon.AmCharts.create(opts).then(() => {
+                if (!me.isDestroyed) {
+                    me.onChartMounted();
+                    me.syncDrawn()
+                }
+            })
         }, () => {}) // cancelled by a newer create, an unmount or destroy()
     }
 
@@ -250,6 +298,26 @@ class AmChart extends Component {
      */
     resolveTheme() {
         return this.themeMap[this.getTheme()] ?? null
+    }
+
+    /**
+     * @summary Sets `drawn` from the main thread's answer for the chart's latest create or data.
+     * An answer that arrives after a newer create or data change, an unmount or `destroy()` is dropped.
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async syncDrawn() {
+        let me                      = this,
+            {appName, id, windowId} = me,
+            request, drawn;
+
+        me.clearDrawn();
+        request = me.#drawnRequest;
+        drawn   = await Neo.main.addon.AmCharts.whenDrawn({appName, id, windowId});
+
+        if (!me.isDestroyed && request === me.#drawnRequest) {
+            me.drawn = drawn
+        }
     }
 
     /**
