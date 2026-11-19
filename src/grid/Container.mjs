@@ -1149,7 +1149,7 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     * Applies the first matching responsive locked-column breakpoint.
+     * @summary Applies the first matching responsive locked-column breakpoint, coalescing multi-column transitions into one rebuild.
      * @param {Object|Number} data Resize payload or measured width
      * @returns {Boolean} true when at least one column lock state changed
      */
@@ -1158,7 +1158,7 @@ class GridContainer extends BaseContainer {
             policy      = me.responsiveLockPolicy,
             width       = me.resolveResponsiveLockPolicyWidth(data),
             breakpoints = me.getResponsiveLockPolicyBreakpoints(policy),
-            changed     = false;
+            lastColumn  = null;
 
         if (!width || breakpoints.length === 0) {
             return false
@@ -1174,17 +1174,36 @@ class GridContainer extends BaseContainer {
             return false
         }
 
-        for (let key in columns) {
-            let column = me.getResponsiveLockPolicyColumn(key),
-                locked = me.normalizeResponsiveLockValue(columns[key]);
+        me.syncingGroupLock = true;
 
-            if (column && locked !== undefined && column.locked !== locked) {
-                column.locked = locked;
-                changed       = true
+        try {
+            for (let key in columns) {
+                let column = me.getResponsiveLockPolicyColumn(key),
+                    locked = me.normalizeResponsiveLockValue(columns[key]);
+
+                if (column && locked !== undefined && column.locked !== locked) {
+                    column.locked = locked;
+                    lastColumn    = column;
+
+                    if (column.headerGroup) {
+                        me.columns.items.forEach(sibling => {
+                            if (sibling.headerGroup?.id === column.headerGroup.id && sibling.locked !== locked) {
+                                sibling.locked = locked
+                            }
+                        })
+                    }
+                }
             }
+        } finally {
+            me.syncingGroupLock = false
         }
 
-        return changed
+        if (lastColumn) {
+            me.onColumnLockChange(lastColumn);
+            return true
+        }
+
+        return false
     }
 
     /**
@@ -1284,7 +1303,7 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     * True while {@link #onColumnLockChange} carries a column's `locked` to the rest of its header group
+     * @summary True while a multi-column lock batch ({@link #onColumnLockChange} group sync or {@link #applyResponsiveLockPolicy}) updates `locked` setters before a single rebuild.
      * @member {Boolean} syncingGroupLock=false
      * @protected
      */
