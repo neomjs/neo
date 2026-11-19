@@ -38,6 +38,13 @@ test('a covered record without a recipe fails inside the migrated family, while 
     expect(() => validateCaptureRecipes(manifest(), records)).toThrow(/image|recipe/i)
 });
 
+test('external-origin covered records do not block a family while same-origin covered records still require recipes', () => {
+    const records = [...catalog(), {id: 'external-app', family: 'grid-table', image: 'external.png', urls: {devmode: 'https://neomjs.com/devindex/'}}];
+    expect(() => validateCaptureRecipes(manifest(), records)).not.toThrow();
+    records.push({id: 'local-app', family: 'grid-table', image: 'local.png', urls: {devmode: 'apps/local/index.html'}});
+    expect(() => validateCaptureRecipes(manifest(), records)).toThrow(/local-app.*image|recipe/i)
+});
+
 test('a further family joins the coverage guard explicitly', () => {
     const raw = manifest(); raw.families.push('forms');
     expect(() => validateCaptureRecipes(raw, catalog())).toThrow(/form-one.*image|recipe/i);

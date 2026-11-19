@@ -1157,13 +1157,14 @@ class Workspace extends Container {
      * still overrides, and the override remains authoritative.
      * @param {Object} request
      * @param {String} request.itemId
-     * @param {Object} [request.proxyRect] Where the user released the drag proxy.
+     * @param {Object} [request.proxyRect] Where the user released the drag proxy: the vessel's position.
+     * @param {Object|null} [request.sourceRect] The pane's rect, measured at drag arming: the vessel's size.
      * @param {Object} request.topologyIdentity The slot the host reserved; `Main.windowOpen` writes it
      *   into the vessel's carrier, and the vessel presents it when it connects.
-     * @returns {Promise<Object|null>} `{windowName}`, or `null` when no vessel opened.
+     * @returns {Promise<Object|null>} `{popupHeight, popupWidth, windowName}`, or `null` when no vessel opened.
      * @protected
      */
-    async openTearOutVessel({itemId, proxyRect, topologyIdentity}={}) {
+    async openTearOutVessel({itemId, proxyRect, sourceRect=null, topologyIdentity}={}) {
         let me         = this,
             {windowId} = me;
 
@@ -1176,9 +1177,11 @@ class Workspace extends Container {
         }
 
         try {
-            let [hostUrl, winData] = await Promise.all([
+            // The vessel's size rule lives with the Group's placement, which a single-window app never loads.
+            let [hostUrl, winData, {default: Placement}] = await Promise.all([
                     Neo.Main.getByPath({path: 'document.URL', windowId}),
-                    Neo.Main.getWindowData({windowId})
+                    Neo.Main.getWindowData({windowId}),
+                    import('./window/Placement.mjs')
                 ]),
                 url = new URL(hostUrl);
 
@@ -1189,13 +1192,12 @@ class Workspace extends Container {
             url.searchParams.delete('tearout');
             url.searchParams.set('tearout', itemId);
 
-            // The proxy rect is the pane the user dragged, so the vessel opens where they let go.
-            // Floors keep a degenerate rect (a collapsed rail tab) from opening an unusable window.
-            let height     = Math.max(Math.round(proxyRect?.height || 360), 240),
-                width      = Math.max(Math.round(proxyRect?.width  || 480), 320),
-                left       = Math.round((proxyRect?.x ?? 120) + (winData?.screenLeft || 0)),
-                top        = Math.round((proxyRect?.y ?? 120) + ((winData?.outerHeight - winData?.innerHeight) || 0) + (winData?.screenTop || 0)),
-                windowName = me.tearOutWindowName(itemId, topologyIdentity?.workspaceKey);
+            // The vessel opens at the pane's size and where the user let go. A tab drag's proxy is the
+            // tab's header button, so it places the window and never sizes it.
+            let {height, width} = Placement.resolveVesselSize({screen: winData?.screen, sourceRect}),
+                left            = Math.round((proxyRect?.x ?? 120) + (winData?.screenLeft || 0)),
+                top             = Math.round((proxyRect?.y ?? 120) + ((winData?.outerHeight - winData?.innerHeight) || 0) + (winData?.screenTop || 0)),
+                windowName      = me.tearOutWindowName(itemId, topologyIdentity?.workspaceKey);
 
             const opened = await Neo.Main.windowOpen({
                 nativeCapabilities: {close: true, position: true, resize: true},
@@ -1213,7 +1215,7 @@ class Workspace extends Container {
                 return null
             }
 
-            return {windowName}
+            return {popupHeight: height, popupWidth: width, windowName}
         } catch (error) {
             console.warn(`Dock tear-out: opening a vessel for "${itemId}" threw`, me.id, error);
             return null

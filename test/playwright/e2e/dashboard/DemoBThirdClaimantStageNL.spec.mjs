@@ -1,4 +1,8 @@
-import {test, expect} from '../../fixtures.mjs';
+import {test, expect}                                           from '../../fixtures.mjs';
+import {expectContentFillsWindow, expectPanesRefill, readUnion} from '../utils/tearOutGeometry.mjs';
+
+// The dock's panes in a window: what must keep filling it while stages open beside it.
+const dockPanes = '.neo-dashboard-dock-tabs';
 
 /**
  * @summary Whitebox witness for Demo B's third registered claim target (the row-6 arbitration
@@ -41,8 +45,9 @@ test.describe('Dashboard Demo B — three registered claim targets', () => {
             expect(document?.nodes, `${workspaceId} must resolve a committed workspace document`).toBeTruthy()
         }
 
-        const receipt1 = await app.callMethod(wsId, 'openCrossWindowStage', []),
-              receipt2 = await app.callMethod(wsId, 'openCrossWindowStage', ['demo-b-popup-2']);
+        const panesBefore = await readUnion(page, dockPanes),
+              receipt1    = await app.callMethod(wsId, 'openCrossWindowStage', []),
+              receipt2    = await app.callMethod(wsId, 'openCrossWindowStage', ['demo-b-popup-2']);
 
         expect(receipt1).toMatchObject({workspaceId: 'demo-b-popup'});
         expect(receipt2).toMatchObject({workspaceId: 'demo-b-popup-2'});
@@ -60,6 +65,14 @@ test.describe('Dashboard Demo B — three registered claim targets', () => {
             timeout  : 30000,
             intervals: [100, 250]
         }).toEqual(['demo-b-popup', 'demo-b-popup-2']);
+
+        // Each stage keeps its keyboard panel above the dock, so its panes fill the dock host.
+        for (const stage of page.context().pages().filter(child => child !== page)) {
+            await stage.locator(dockPanes).first().waitFor();
+            await expectContentFillsWindow(stage, dockPanes, `stage ${new URL(stage.url()).searchParams.get('workspaceId')}`, {within: '.agentos-dockdemo-dock-host'})
+        }
+
+        await expectPanesRefill(page, dockPanes, panesBefore, 'the main window beside two stages');
 
         // Every claimant exposes measurable claim geometry — the row-6 cell's executable surface.
         for (const workspaceId of ['demo-b-main', 'demo-b-popup', 'demo-b-popup-2']) {

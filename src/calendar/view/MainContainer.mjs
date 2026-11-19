@@ -376,6 +376,7 @@ class MainContainer extends Container {
                 me.items[0].items[1].add({
                     handler: me.toggleSettings.bind(me),
                     iconCls: 'fa fa-cog',
+                    size   : 'small',
                     style  : {marginLeft: '10px'}
                 })
             })
@@ -483,17 +484,20 @@ class MainContainer extends Container {
             width : me.sideBarWidth,
             items : [{
                 handler: me.toggleSidebar.bind(me),
-                iconCls: 'fa fa-bars'
+                iconCls: 'fa fa-bars',
+                size   : 'small'
             }, '->', {
                 handler: me.onPreviousIntervalButtonClick.bind(me),
                 iconCls: 'fa fa-chevron-left',
+                size   : 'small'
             }, {
                 handler: me.onTodayButtonClick.bind(me),
-                height : 24,
+                size   : 'small',
                 text   : 'Today'
             }, {
                 handler: me.onNextIntervalButtonClick.bind(me),
-                iconCls: 'fa fa-chevron-right'
+                iconCls: 'fa fa-chevron-right',
+                size   : 'small'
             }]
         }, {
             module: Toolbar,
@@ -596,8 +600,8 @@ class MainContainer extends Container {
         me.views.forEach((view, index) => {
             buttons.push({
                 handler    : me.changeActiveView.bind(me, view),
-                height     : 24,
                 pressed    : activeIndex === index,
+                size       : 'small',
                 text       : Neo.capitalize(view),
                 toggleGroup: 'mainViews',
                 value      : view

@@ -51,7 +51,6 @@ body:has(.neo-examples-grid-pinned-columns) .neo-dragproxy [class*=neo-theme-] .
             border       : 1px solid var(--pinned-columns-border);
             border-radius: 8px;
             color        : var(--pinned-columns-title);
-            padding      : 8px 12px;
         }
     }
 
