@@ -1,10 +1,14 @@
 import BaseViewport  from '../../../src/container/Viewport.mjs';
+import Button        from '../../../src/button/Base.mjs';
 import GridContainer from '../../../src/grid/Container.mjs';
+import Label         from '../../../src/component/Label.mjs';
 import MainStore     from './MainStore.mjs';
 import NumberField   from '../../../src/form/field/Number.mjs';
 import Toolbar       from '../../../src/toolbar/Base.mjs';
 
 /**
+ * @summary Viewport for the animated row sorting example featuring a live leaderboard,
+ * transition speed adjustments, and pause/resume controls.
  * @class Neo.examples.grid.animatedRowSorting.Viewport
  * @extends Neo.container.Viewport
  */
@@ -25,7 +29,13 @@ class Viewport extends BaseViewport {
         items: [{
             module: Toolbar,
             flex  : 'none',
-            style : {marginBottom: '1em', maxWidth: 'fit-content'},
+            layout: {
+                ntype: 'flexbox',
+                wrap : 'wrap',
+                align: 'center',
+                gap  : '0.75em'
+            },
+            style : {marginBottom: '1em'},
 
             items : [{
                 ntype        : 'textfield',
@@ -42,15 +52,33 @@ class Viewport extends BaseViewport {
                 maxValue     : 1000,
                 minValue     : 200,
                 stepSize     : 100,
-                style        : {marginLeft: '1em'},
                 value        : 500,
                 width        : 180
+            },{
+                module   : Button,
+                reference: 'pauseButton',
+                iconCls  : 'fa fa-pause',
+                text     : 'Pause',
+                handler  : 'up.onPauseButtonClick',
+                style    : {
+                    '--button-outline-active': '2px solid var(--textfield-border-color-active, #5d83a7)',
+                    outlineOffset            : '1px'
+                }
+            },{
+                module: Label,
+                text  : 'Rows re-sort as scores change. Click a header to sort by another column.',
+                style : {
+                    fontSize  : '0.9em',
+                    lineHeight: '1.4',
+                    maxWidth  : '100%',
+                    opacity   : 0.8,
+                    whiteSpace: 'normal'
+                }
             }]
         }, {
-            module      : GridContainer,
-            reference   : 'grid',
-            store       : MainStore,
-            wrapperStyle: {maxWidth: '902px'},
+            module   : GridContainer,
+            reference: 'grid',
+            store    : MainStore,
 
             body: {
                 animatedRowSorting: true
@@ -75,6 +103,22 @@ class Viewport extends BaseViewport {
      */
     onFirstnameFieldChange(data) {
         this.getReference('grid').store.getFilter('firstname').value = data.value
+    }
+
+    /**
+     * @summary Toggles automatic leaderboard updates and updates button appearance.
+     * @param {Object} data
+     */
+    onPauseButtonClick(data) {
+        let me          = this,
+            store       = me.getReference('grid').store,
+            isPaused    = store.togglePause(),
+            pauseButton = me.getReference('pauseButton');
+
+        pauseButton.set({
+            iconCls: isPaused ? 'fa fa-play' : 'fa fa-pause',
+            text   : isPaused ? 'Resume' : 'Pause'
+        })
     }
 
     /**
