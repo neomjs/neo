@@ -1,5 +1,4 @@
 import BaseViewport       from '../../../src/container/Viewport.mjs';
-import CheckBox           from '../../../src/form/field/CheckBox.mjs';
 import Helix              from '../../../src/component/Helix.mjs';
 import ImageStore         from './ImageStore.mjs';
 import NumberField        from '../../../src/form/field/Number.mjs';
@@ -14,7 +13,6 @@ import ViewportController from './ViewportController.mjs';
  * integrated into a standard application layout. It demonstrates several key Neo.mjs concepts:
  *
  * - **Component Lifecycle:** The `construct` method is used to dynamically create the `Helix` instance and inject it into the items array before the component tree is mounted.
- * - **Reactivity & Hooks:** `afterSet` hooks (`afterSetMounted`, `afterSetShowGitHubStarButton`) are used to trigger side effects when configs change, such as adding external scripts or showing/hiding components.
  * - **Controller-View Interaction:** It delegates all event handling and business logic to its `ViewportController`.
  * - **Advanced Layouts:** It uses a combination of `hbox` and `fit` layouts to create a responsive UI with a main content area and a side control panel.
  *
@@ -26,14 +24,6 @@ import ViewportController from './ViewportController.mjs';
  * @see Neo.examples.component.helix.ViewportController
  */
 class Viewport extends BaseViewport {
-    /**
-     * Internally storing the windowIds, into which this container got mounted
-     * @member {Number[]} windowIds=[]
-     * @protected
-     * @static
-     */
-    static windowIds = []
-
     static config = {
         /**
          * @member {String} className='Neo.examples.component.helix.Viewport'
@@ -60,12 +50,6 @@ class Viewport extends BaseViewport {
          */
         layout: {ntype: 'hbox', align: 'stretch'},
         /**
-         * Controls the visibility of the GitHub star button.
-         * @member {Boolean} showGitHubStarButton_=true
-         * @reactive
-         */
-        showGitHubStarButton_: true,
-        /**
          * @member {Object[]} items
          * @protected
          */
@@ -73,30 +57,7 @@ class Viewport extends BaseViewport {
             ntype : 'container',
             flex  : 1,
             layout: 'fit',
-            style : {position: 'relative'},
-
-            items: [{
-                ntype: 'component',
-                html : 'DeltaUpdates / s: <span id="neo-delta-updates"></span>',
-                style: {
-                    position: 'absolute',
-                    right   : '150px',
-                    top     : '25px',
-                    width   : '200px',
-                    zIndex  : 1
-                }
-            }, {
-                ntype    : 'component',
-                html     : '<a class="github-button" href="https://github.com/neomjs/neo" data-size="large" data-show-count="true" aria-label="Star neomjs/neo on GitHub">Star</a>',
-                reference: 'github-button',
-
-                style: {
-                    position: 'absolute',
-                    right   : '20px',
-                    top     : '20px',
-                    zIndex  : 1
-                }
-            }]
+            style : {position: 'relative'}
         }, {
             module   : Panel,
             layout   : {ntype: 'vbox', align: 'stretch'},
@@ -206,18 +167,14 @@ class Viewport extends BaseViewport {
                 text     : 'Flip Items'
             }, {
                 ntype    : 'button',
-                disabled : true,
                 handler  : 'onSortLastnameButtonClick',
                 listeners: {},
-                reference: 'sort-lastname-button',
                 style    : {margin: '20px', marginBottom: '10px'},
                 text     : 'Sort by Lastname'
             }, {
                 ntype    : 'button',
-                disabled : true,
                 handler  : 'onSortFirstnameButtonClick',
                 listeners: {},
-                reference: 'sort-firstname-button',
                 style    : {margin: '20px', marginTop: 0},
                 text     : 'Sort by Firstname'
             }, {
@@ -227,14 +184,6 @@ class Viewport extends BaseViewport {
                 listeners: {},
                 style    : {margin: '20px', marginBottom: '10px'},
                 text     : 'Follow Selection'
-            }, {
-                module        : CheckBox,
-                checked       : Neo.config.logDeltaUpdates,
-                hideLabel     : true,
-                hideValueLabel: false,
-                listeners     : {change: 'onLogDeltasCheckboxChange'},
-                style         : {marginLeft: '10px', marginTop: '10px'},
-                valueLabel    : 'logDeltaUpdates'
             }, {
                 ntype: 'label',
                 html : [
@@ -277,59 +226,7 @@ class Viewport extends BaseViewport {
             ...me.helixConfig
         });
 
-        me.items[0].items.unshift(me.helix)
-    }
-
-    /**
-     * Triggered after the mounted config got changed. This hook is used to perform actions
-     * that should only run once the component is live in the DOM.
-     * @param {Boolean} value The new value of `mounted`
-     * @param {Boolean} oldValue The old value of `mounted`
-     * @protected
-     */
-    afterSetMounted(value, oldValue) {
-        super.afterSetMounted(value, oldValue);
-
-        if (value) {
-            let me = this;
-
-            // Enable render delta logging for performance monitoring.
-            Neo.Main.setNeoConfig({
-                key     : 'renderCountDeltas',
-                value   : true,
-                windowId: me.windowId
-            });
-
-            // Dynamically load the GitHub buttons script if the star button is visible.
-            if (me.showGitHubStarButton) {
-                me.timeout(200).then(() => {
-                    let {windowId}  = me,
-                        {windowIds} = Viewport;
-
-                    if (!windowIds.includes(windowId)) {
-                        windowIds.push(windowId);
-
-                        Neo.main.DomAccess.addScript({
-                            async: true,
-                            defer: true,
-                            src  : 'https://buttons.github.io/buttons.js',
-                            windowId
-                        })
-                    }
-                })
-            }
-        }
-    }
-
-    /**
-     * A hook that fires after the `showGitHubStarButton` config is changed.
-     * It toggles the visibility of the GitHub button component.
-     * @param {Boolean} value The new value
-     * @param {Boolean} oldValue The old value
-     * @protected
-     */
-    afterSetShowGitHubStarButton(value, oldValue) {
-        this.getItem('github-button').hidden = !value
+        me.items[0].items = [me.helix]
     }
 }
 

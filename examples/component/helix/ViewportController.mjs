@@ -57,32 +57,15 @@ class ViewportController extends Controller {
     /**
      * @param {Object} data
      */
-    onLogDeltasCheckboxChange(data) {
-        Neo.Main.setNeoConfig({
-            key     : 'logDeltaUpdates',
-            value   : data.value,
-            windowId: data.component.windowId
-        })
-    }
-
-    /**
-     * @param {Object} data
-     */
     onRangefieldChange(data) {
-        let me      = this,
-            {name}  = data.component,
+        let {name}  = data.component,
             {value} = data;
 
         if (['deltaY', 'maxOpacity', 'minOpacity'].includes(name)) {
             value /= 100
         }
 
-        if (name === 'maxItems') {
-            me.getReference('sort-firstname-button').disabled = value !== 600;
-            me.getReference('sort-lastname-button') .disabled = value !== 600
-        }
-
-        me.helix[name] = value
+        this.helix[name] = value
     }
 
     /**
@@ -102,8 +85,8 @@ class ViewportController extends Controller {
      */
     onSortFirstnameButtonClick(data) {
         this.helix.store.sorters = [
-            {property : 'lastname',  direction: 'ASC'},
-            {property : 'firstname', direction: 'ASC'}
+            {property : 'firstname', direction: 'ASC'},
+            {property : 'lastname',  direction: 'ASC'}
         ]
     }
 
@@ -112,8 +95,8 @@ class ViewportController extends Controller {
      */
     onSortLastnameButtonClick(data) {
         this.helix.store.sorters = [
-            {property : 'firstname', direction: 'ASC'},
-            {property : 'lastname',  direction: 'ASC'}
+            {property : 'lastname',  direction: 'ASC'},
+            {property : 'firstname', direction: 'ASC'}
         ]
     }
 }
