@@ -84,12 +84,11 @@ class DemoDialog extends Dialog {
                 })()
             }
         }, {
-            module   : Button,
-            handler  : me.createDialog.bind(me),
-            iconCls  : 'fa fa-window-maximize',
-            reference: 'create-dialog-button',
-            style    : {marginTop: '3em'},
-            text     : 'Create Dialog ' + (me.index + 1),
+            module : Button,
+            handler: me.createDialog.bind(me),
+            iconCls: 'fa fa-window-maximize',
+            style  : {marginTop: '3em'},
+            text   : 'Create Dialog ' + (me.index + 1),
         }]
     }
 
@@ -124,6 +123,7 @@ class DemoDialog extends Dialog {
     }
 
     /**
+     * Creates the next dialog. The button stays enabled while it is open: a disabled button cannot take focus back.
      * @param {Object} data
      */
     createDialog(data) {
@@ -131,7 +131,9 @@ class DemoDialog extends Dialog {
             button    = data.component,
             nextIndex = me.index + 1;
 
-        button.disabled = true;
+        if (me.dialog) {
+            return
+        }
 
         me.dialog = Neo.create(DemoDialog, {
             animated               : me.animated,
@@ -162,8 +164,7 @@ class DemoDialog extends Dialog {
      *
      */
     onWindowClose() {
-        this.dialog = null;
-        this.getReference('create-dialog-button').disabled = false
+        this.dialog = null
     }
 }
 

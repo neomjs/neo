@@ -37,11 +37,10 @@ class MainContainer extends Viewport {
         }, {
             module: Toolbar,
             items : [{
-                module   : Button,
-                handler  : 'up.createDialog',
-                iconCls  : 'fa fa-window-maximize',
-                reference: 'create-dialog-button',
-                text     : 'Create Dialog',
+                module : Button,
+                handler: 'up.createDialog',
+                iconCls: 'fa fa-window-maximize',
+                text   : 'Create Dialog',
             }, {
                 module        : CheckBox,
                 checked       : true,
@@ -89,6 +88,7 @@ class MainContainer extends Viewport {
     dialog = null
 
     /**
+     * Creates the one dialog. The button stays enabled while it is open: a disabled button cannot take focus back.
      * @param {Object} data
      */
     createDialog(data) {
@@ -96,7 +96,9 @@ class MainContainer extends Viewport {
             button                                   = data.component,
             {appName, boundaryContainerId, windowId} = me;
 
-        button.disabled = true;
+        if (me.dialog) {
+            return
+        }
 
         me.dialog = Neo.create(DemoDialog, {
             animated               : me.down({valueLabel: 'Animated'}).checked,
@@ -139,8 +141,7 @@ class MainContainer extends Viewport {
      *
      */
     onWindowClose() {
-        this.dialog = null;
-        this.getReference('create-dialog-button').disabled = false
+        this.dialog = null
     }
 
     /**
