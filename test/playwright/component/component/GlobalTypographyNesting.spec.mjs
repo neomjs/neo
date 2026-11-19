@@ -14,9 +14,10 @@ import {test, expect} from '@playwright/test';
  *
  * The shape is reachable, not hypothetical, and the precise reach is worth stating. `theme_` is a
  * first-class per-component config (`src/component/Base.mjs`), so any consumer can open a scope
- * anywhere. In this repository the classic-inside-neo case ships as `livePreviewCode` in
- * `apps/portal/view/home/parts/Helix.mjs` and `Colors.mjs` — source the portal compiles and mounts
- * when a reader opens the preview, rather than a scope present in the default page render.
+ * anywhere. In this repository the classic-inside-neo case shipped as `livePreviewCode` on the home
+ * until its two demo pages built their views from engine classes; a live preview whose source sets `theme`
+ * on its root mounts one, outside the default page render (`HomeAudienceDoorsNL.spec.mjs` hands the
+ * home such a source).
  *
  * **The outer assertion is the non-vacuity control and runs first by construction.** If the neo arm
  * resolved nothing, every inner expectation would still pass — for the wrong reason — because "no

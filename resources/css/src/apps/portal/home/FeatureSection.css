@@ -15,6 +15,11 @@
         &.portal-position-end {
             flex-direction: row-reverse;
         }
+
+        /* A live preview fills its page and scrolls inside: a grid taller than the page does not grow the page. */
+        &:has(.page-live-preview) {
+            max-height: 100%;
+        }
     }
 
     .neo-content {
@@ -37,9 +42,12 @@
         text-align : start;
     }
 
+    /* No wider than its page: on a phone a preview's own content is wider than the screen */
     .page-live-preview {
-        height: 100%;
-        margin: 0;
+        height   : 100%;
+        margin   : 0;
+        max-width: 100%;
+        min-width: 0;
     }
 
     .portal-content-text {
@@ -63,9 +71,31 @@
         }
     }
 
+    .portal-content-links {
+        align-items     : center;
+        background-color: transparent;
+        display         : flex;
+        flex-wrap       : wrap;
+        gap             : .25rem;
+
+        .portal-content-links-label {
+            margin-right: .5rem;
+            opacity     : .7;
+        }
+
+        .neo-button {
+            height : 2rem;
+            margin : 0;
+            padding: 0 .6rem;
+        }
+    }
+
+    /* A flex item is as wide and as tall as its content unless told otherwise: the content scrolls inside. */
     .portal-content-wrapper {
-        flex   : 2;
-        padding: 20px;
+        flex      : 2;
+        min-height: 0;
+        min-width : 0;
+        padding   : 20px;
 
         @media (max-width: 600px) {
             max-height: 35em;
