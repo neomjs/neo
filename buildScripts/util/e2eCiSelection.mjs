@@ -52,6 +52,7 @@ export const RUN_PATHS = [
     'test/playwright/e2e/grid',
     'test/playwright/e2e/list',
     'test/playwright/e2e/neural-link',
+    'test/playwright/e2e/popover',
     'test/playwright/e2e/portal',
     'test/playwright/e2e/realworld',
     'test/playwright/e2e/rendering/ButtonBaseNL.spec.mjs',
