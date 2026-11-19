@@ -22,7 +22,7 @@
     "/learn": {
         "title": "Developer Guides — Web Worker UI Engine, SharedWorker & AI Agent OS | Neo.mjs",
         "description": "Learn how to build off-main-thread JavaScript apps and AI Agent OS workflows with Neo.mjs: Web Worker UIs, multi-window SharedWorkers, data grids & MCP tools.",
-        "lastmod": "2026-11-17"
+        "lastmod": "2026-11-19"
     },
     "/news": {
         "title": "News, Blog & Release Notes — Multi-Threaded JavaScript Engine | Neo.mjs",
@@ -512,6 +512,12 @@
         "description": "Docking UIs are easy to demo and hard to trust. The demo shows a splitter, a tab you can drag, a panel that slides away to an edge. What the demo does not...",
         "schemaType": "TechArticle",
         "lastmod": "2026-10-24"
+    },
+    "/learn/guides/uibuildingblocks/WebDesktops": {
+        "title": "Build a Web Desktop in JavaScript: Launcher, Windows and Taskbar | Neo.mjs",
+        "description": "Build a web desktop with Neo.desktop: an icon launcher users arrange, app windows that open, minimize and restore, a taskbar with a start menu, and...",
+        "schemaType": "TechArticle",
+        "lastmod": "2026-11-19"
     },
     "/learn/guides/uibuildingblocks/Fragments": {
         "title": "Fragments: Phantom Containers - Neo.mjs",
