@@ -1,7 +1,8 @@
 import Component from '../Base.mjs';
 
 /**
- * Convenience class to render an amChart
+ * @summary Renders an amCharts 4 chart through the main thread's AmCharts addon, created in the
+ * amCharts theme that matches the chart's Neo theme ({@link #themeMap}).
  * Requires setting Neo.config.useAmCharts to true (or manually include the lib)
  * @class Neo.component.wrapper.AmChart
  * @extends Neo.component.Base
@@ -56,6 +57,22 @@ class AmChart extends Component {
             height: '100%'
         },
         /**
+         * Maps a Neo theme onto the amCharts theme a chart is created in: `'dark'` for `am4themes_dark`,
+         * `null` for amCharts' own light default.
+         *
+         * A map rather than a test on the theme's name, because `neo-theme-cyberpunk` is dark and its
+         * name does not say so: the shape of {@link Neo.component.wrapper.MonacoEditor#themeMap}.
+         * Extend it for a theme Neo does not ship.
+         * @member {Object} themeMap
+         */
+        themeMap: {
+            'neo-theme-cyberpunk': 'dark',
+            'neo-theme-dark'     : 'dark',
+            'neo-theme-light'    : null,
+            'neo-theme-neo-dark' : 'dark',
+            'neo-theme-neo-light': null
+        },
+        /**
          * @member {Object} _vdom
          */
         _vdom:
@@ -63,6 +80,19 @@ class AmChart extends Component {
             {style: {position: 'absolute', height: '100%', width: '100%'}, cn: [{}]}
         ]}
     }
+
+    /**
+     * The amCharts theme the chart was last created in, `undefined` before the first create.
+     * @member {String|null|undefined} #createdTheme
+     * @private
+     */
+    #createdTheme
+    /**
+     * Cancels the create that {@link #createChart} has scheduled and not yet sent, or `null`.
+     * @member {AbortController|null} #pendingCreate=null
+     * @private
+     */
+    #pendingCreate = null
 
     /**
      * Triggered after the chartData config got changed
@@ -93,37 +123,42 @@ class AmChart extends Component {
      */
     afterSetMounted(value, oldValue) {
         let me                      = this,
-            {appName, id, windowId} = me,
-            opts                    = {appName, id, windowId};
+            {appName, id, windowId} = me;
 
         if (value === false && oldValue !== undefined) {
-            Neo.main.addon.AmCharts.destroy(opts)
+            // a create still waiting for its slot would draw into a chart that is gone
+            me.#pendingCreate?.abort();
+            Neo.main.addon.AmCharts.destroy({appName, id, windowId})
         }
 
         super.afterSetMounted(value, oldValue);
 
-        if (value) {
-            opts = {
-                ...opts,
-                combineSeriesTooltip: me.combineSeriesTooltip,
-                config              : me.chartConfig,
-                package             : me.package,
-                type                : me.chartType
-            };
+        value && me.createChart()
+    }
 
-            if (me.chartData) {
-                opts.data     = me.chartData;
-                opts.dataPath = me.dataPath;
-            }
+    /**
+     * Triggered after the theme config got changed.
+     * amCharts applies a theme when it creates a chart, so a mounted chart whose amCharts theme
+     * changes is created again; a change that resolves to the same amCharts theme leaves it alone.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetTheme(value, oldValue) {
+        super.afterSetTheme(value, oldValue);
 
-            me.timeout(50).then(() => {
-                Neo.main.addon.AmCharts.create(opts).then(me.onChartMounted)
-            })
+        let me                      = this,
+            {appName, id, windowId} = me;
+
+        if (me.mounted && me.resolveTheme() !== me.#createdTheme) {
+            Neo.main.addon.AmCharts.destroy({appName, id, windowId});
+            me.createChart()
         }
     }
 
     /**
      * Triggered before the chartConfig config gets changed.
+     * Resolves its `'@config:'` strings, passed as one item: a bare object would read as a keyed items map.
      * @param {Object} value
      * @param {Object} oldValue
      * @returns {Object}
@@ -134,8 +169,47 @@ class AmChart extends Component {
             console.error('wrapper.AmChart defined without a chartConfig', this.id)
         }
 
-        this.parseItemConfigs(value);
+        this.parseItemConfigs([value]);
         return value
+    }
+
+    /**
+     * @summary Asks the main thread to create the chart in the amCharts theme {@link #resolveTheme} answers.
+     *
+     * The create goes out 50 ms later. A newer create cancels one still waiting, and so do an unmount and
+     * `destroy()`, so only the latest request reaches the main thread and none arrives after the chart is gone.
+     * @protected
+     */
+    createChart() {
+        let me                      = this,
+            {appName, id, windowId} = me,
+            pending                 = new AbortController(),
+            theme                   = me.resolveTheme(),
+            opts                    = {
+                appName,
+                combineSeriesTooltip: me.combineSeriesTooltip,
+                config              : me.chartConfig,
+                id,
+                package             : me.package,
+                theme,
+                type                : me.chartType,
+                windowId
+            };
+
+        if (me.chartData) {
+            opts.data     = me.chartData;
+            opts.dataPath = me.dataPath
+        }
+
+        me.#createdTheme = theme;
+
+        me.#pendingCreate?.abort();
+        me.#pendingCreate = pending;
+
+        me.timeout(50, {signal: pending.signal}).then(() => {
+            me.#pendingCreate = null;
+            Neo.main.addon.AmCharts.create(opts).then(me.onChartMounted)
+        }, () => {}) // cancelled by a newer create, an unmount or destroy()
     }
 
     destroy(...args) {
@@ -165,6 +239,17 @@ class AmChart extends Component {
      */
     onChartMounted() {
 
+    }
+
+    /**
+     * @summary Resolves the amCharts theme this chart is created in from its Neo theme.
+     * Goes through {@link Neo.component.Base#getTheme}, never the `theme` config: a chart inside a
+     * themed container inherits the container's theme and declares none of its own.
+     * @returns {String|null} `'dark'`, or null for amCharts' light default
+     * @protected
+     */
+    resolveTheme() {
+        return this.themeMap[this.getTheme()] ?? null
     }
 
     /**

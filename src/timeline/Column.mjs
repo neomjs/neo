@@ -452,7 +452,7 @@ class Column extends BaseColumn {
         if (value) {
             me.width = value.totalSize;
 
-            for (const prop of ['start', 'end', 'pxPerMinute', 'size', 'tickUnit', 'tickStep', 'nonWorkingDays', 'nonWorkingDates', 'timeZone']) {
+            for (const prop of ['start', 'end', 'pxPerMinute', 'size', 'tickUnit', 'tickStep', 'nonWorkingDays', 'nonWorkingDates', 'timeZone', 'now']) {
                 me.#axisCleanups.push(
                     me.observeConfig(value, prop, () => me.onTimeAxisChange())
                 )
@@ -676,10 +676,13 @@ class Column extends BaseColumn {
                 ...(isHighlighted ? {highlighted: 'true'} : {})
             },
             style       : {
-                height: `${height}%`,
-                left  : `${left}px`,
-                top   : `${top}%`,
-                width : `${width}px`
+                // The label reads both to stay inside the visible part of a partly scrolled-out bar
+                '--neo-timeline-bar-left' : `${left}px`,
+                '--neo-timeline-bar-width': `${width}px`,
+                height                    : `${height}%`,
+                left                      : `${left}px`,
+                top                       : `${top}%`,
+                width                     : `${width}px`
             },
             cn
         };
@@ -750,7 +753,17 @@ class Column extends BaseColumn {
                 : [],
             bars                       = me.getRowBars(record, visibleStart, visibleEnd),
             barNodes                   = bars.map(barDescriptor => me.buildBarVdom(barDescriptor, data)),
+            nowOffset                  = timeAxis.getNowOffset(),
             cn                         = [...barNodes, ...nonWorkingNodes];
+
+        if (nowOffset !== null && nowOffset >= timeAxis.dateToOffset(visibleStart) && nowOffset <= timeAxis.dateToOffset(visibleEnd)) {
+            cn.push({
+                id           : `${trackId}__now`,
+                cls          : ['neo-timeline-now'],
+                'aria-hidden': 'true',
+                style        : {left: `${nowOffset}px`}
+            })
+        }
 
         return {
             id   : `${rowId}__timeline-cell`,
@@ -760,9 +773,10 @@ class Column extends BaseColumn {
                 id   : trackId,
                 cls  : ['neo-timeline-track'],
                 style: {
-                    height  : '100%',
-                    position: 'relative',
-                    width   : `${timeAxis.totalSize}px`
+                    '--neo-timeline-track-x': `${me.parent?.body?.columnPositions?.get(me.dataField)?.x ?? 0}px`,
+                    height                  : '100%',
+                    position                : 'relative',
+                    width                   : `${timeAxis.totalSize}px`
                 },
                 cn
             }]

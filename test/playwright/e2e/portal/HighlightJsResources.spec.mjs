@@ -9,7 +9,7 @@ const prefix = process.env.NEO_HIGHLIGHT_DIST_PREFIX || '';
 test.beforeEach(async ({page}) => {
     // Keep source fixtures on the test's network routes rather than shared/service-worker caches.
     await page.route('**/neo-config.json*', async route => {
-        const response = await route.fetch();
+        const response = await route.fetch({maxRetries: 2});
         await route.fulfill({response, json: {
             ...await response.json(), useAiClient: false, useSharedWorkers: false,
             useCanvasWorkerStartingPoint: false, useServiceWorker: false

@@ -20,14 +20,14 @@ checking the element that actually paints. It applies to every theme the engine 
 
 Dock styling is split into three layers, and each one owns a different kind of decision.
 
-**The engine structure layer** lives in `resources/scss/src/dashboard/`. Its `Container.scss` is the single source of
+**The engine structure layer** lives in `resources/css/src/dashboard/`. Its `Container.css` is the single source of
 the dock's token vocabulary: splitter geometry, rail and reveal sizing, the maximize gap and shadow, and the motion
 durations every dock transition reads. Its defaults are an affordance floor rather than a look. The splitter band is
 `color-mix(in srgb, currentColor 9%, transparent)` — mixed from the text colour, because the engine cannot know your
 palette and a band derived from the ink reads on any ground. Decorations that belong to a product's signal language,
 such as a ring or a glow around the splitter handle, ship as `none` for you to fill.
 
-**The theme values layer** lives in each theme tree, under `resources/scss/theme-*/dashboard/`. It supplies the colours
+**The theme values layer** lives in each theme tree, under `resources/css/theme-*/dashboard/`. It supplies the colours
 the structure layer reads: the drop-preview accents, the preview ground and line, the drag proxy, the arrival outline,
 and the placeholder a pane leaves behind while it lives in another window. Every shipped theme has one, and every one
 declares at `:where(.neo-theme-*)` weight — zero specificity — so nothing it states can win against a value you project.
@@ -106,7 +106,7 @@ at the body.
 Values resolve on the floating element, then, as long as a rule reaches that element. The Workstation reaches all three
 the same way: it names the floating element under a condition that only its own documents meet.
 
-```scss readonly
+```css readonly
 body:has(.workstation-viewport) .neo-menu-list.neo-tab-overflow-menu {
     --menu-list-background-color: var(--workstation-panel-2);
     --menu-list-item-color      : var(--workstation-ink);
@@ -202,7 +202,7 @@ that comparison.
 
 The rule that holds mirrors the theme's own reach instead of guessing an element:
 
-```scss readonly
+```css readonly
 :root .workstation-viewport[class*="neo-theme-"],
 :root .workstation-viewport [class*="neo-theme-"] {
     --tab-button-glyph-color: var(--workstation-ink-dim);

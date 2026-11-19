@@ -1,0 +1,14 @@
+:where(.neo-theme-neo-dark) {
+    --programme-header-bg    : #171e2c;
+    --programme-border       : #38465b;
+    --programme-title        : #f1f5fb;
+    --programme-muted        : #b0bed0;
+    --programme-badge-bg     : #1f2b40;
+    --programme-badge-border : #4a6389;
+    --programme-badge-text   : #dbeafe;
+    --programme-control-bg   : #253145;
+    --programme-hover-bg     : #34445c;
+    --programme-selected-bg  : #b9ccf6;
+    --programme-selected-text: #18253c;
+    --programme-focus        : #a9c7ff;
+}

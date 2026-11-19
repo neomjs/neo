@@ -135,7 +135,7 @@ and classes, doing builds, and starting a server. We'll use several of them thro
 - create-app-minimal &mdash; creates a application shell with no content
 - server-start &mdash; starts a server with webroot set to the workspace
 - build-all &mdash; builds minimized versions of your apps
-- build-themes &mdash; creates app .css from .scss files found in `resources/scss`
+- build-themes &mdash; copies the plain .css theme sources found in `resources/css` into `dist`
 - watch-themes &mdash; creates app .css as you save changes to any app
 
 

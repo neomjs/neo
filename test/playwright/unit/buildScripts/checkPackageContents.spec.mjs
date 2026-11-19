@@ -23,10 +23,10 @@ import {parsePackOutput} from '../../../../buildScripts/util/check-package-conte
 test.describe('check-package-contents — fires on private state; a carve-out passes only its own subtree', () => {
     const CARVED = [{prefix: '.neo-ai-data/', allow: ['.neo-ai-data/keep/'], why: 'fixture: a deliberate export inside private state'}];
 
-    let findForbiddenEntries, FORBIDDEN_PREFIXES, parsePackOutput;
+    let findForbiddenEntries, FORBIDDEN_PREFIXES, FORBIDDEN_SUFFIXES, parsePackOutput;
 
     test.beforeAll(async () => {
-        ({findForbiddenEntries, FORBIDDEN_PREFIXES, parsePackOutput} =
+        ({findForbiddenEntries, FORBIDDEN_PREFIXES, FORBIDDEN_SUFFIXES, parsePackOutput} =
             await import('../../../../buildScripts/util/check-package-contents.mjs'));
     });
 
@@ -85,6 +85,26 @@ test.describe('check-package-contents — fires on private state; a carve-out pa
         expect(findForbiddenEntries(['src/Neo.mjs', 'src/util/Array.mjs', 'package.json'])).toEqual([]);
     });
 
+    test('FIRES: an engine spec, in the test tree and in an app', () => {
+        // The class is the contract. `.gitignore` re-includes every `.mjs` file of a shipped app, so the
+        // second path passes the ignore rule; a rule pinned to `test/playwright/` would pass it here too.
+        const findings = findForbiddenEntries([
+            'test/playwright/unit/core/Base.spec.mjs',
+            'apps/portal/view/Viewport.spec.mjs'
+        ]);
+
+        expect(findings.map(finding => finding.suffix)).toEqual(['.spec.mjs', '.spec.mjs']);
+    });
+
+    test('PASSES: what a workspace imports from the test tree', () => {
+        expect(findForbiddenEntries([
+            'test/playwright/setup.mjs',
+            'test/playwright/fixtures.mjs',
+            'test/playwright/playwright.config.unit.mjs',
+            'test/playwright/e2e/utils/pngPixels.mjs'
+        ])).toEqual([]);
+    });
+
     test('every rule carries a reason, because the failure message is the whole product', () => {
         // A violation report that names a path without saying why it must not ship sends the reader
         // to `.npmignore` to reason about patterns — which is the activity that produced the defect.
@@ -92,6 +112,11 @@ test.describe('check-package-contents — fires on private state; a carve-out pa
             expect(rule.prefix.endsWith('/')).toBe(true);
             expect(rule.why.length).toBeGreaterThan(40);
             expect(Array.isArray(rule.allow)).toBe(true);
+        }
+
+        for (const rule of FORBIDDEN_SUFFIXES) {
+            expect(rule.suffix.startsWith('.')).toBe(true);
+            expect(rule.why.length).toBeGreaterThan(40);
         }
     });
 
@@ -142,11 +167,12 @@ test.describe('check-package-contents — fires on private state; a carve-out pa
         expect(findForbiddenEntries(['.neo-ai-data/keep/nested/deep.jsonl'], CARVED)).toEqual([]);
     });
 
-    test('the rule set names DIRECTORIES only — the two generated portal FILES are a boundary, not a gap', () => {
+    test('the rule set names DIRECTORIES and one file CLASS — the two generated portal FILES are a boundary, not a gap', () => {
         // `.npmignore` also excludes `/apps/portal/sitemap.xml` and `/apps/portal/llms.txt` (3.22 MiB),
-        // and they are deliberately not gated here. Prefixes cover whole private or generated trees;
-        // individual public SEO artifacts remain ordinary ignore rules.
+        // and they are deliberately not gated here. Prefixes cover whole private or generated trees, the
+        // one suffix a class no folder separates; individual public SEO artifacts remain ordinary ignore rules.
         expect(FORBIDDEN_PREFIXES.every(rule => rule.prefix.endsWith('/'))).toBe(true);
+        expect(FORBIDDEN_SUFFIXES.map(rule => rule.suffix)).toEqual(['.spec.mjs']);
     });
 });
 
@@ -174,7 +200,8 @@ test.describe('check-package-contents — source-only release', () => {
             fs.writeFileSync(path.join(dir, '.gitignore'), fs.readFileSync(path.join(root, '.gitignore')));
 
             for (const file of [...sourcePaths.filter(file => file !== 'package.json'), ...generated,
-                '.neo-ai-data/sqlite/synthetic.sqlite', '.neo-ai-data/concepts/synthetic.json']) {
+                '.neo-ai-data/sqlite/synthetic.sqlite', '.neo-ai-data/concepts/synthetic.json',
+                'test/playwright/setup.mjs', 'test/playwright/unit/synthetic.spec.mjs']) {
                 const target = path.join(dir, file);
 
                 fs.mkdirSync(path.dirname(target), {recursive: true});
@@ -187,7 +214,8 @@ test.describe('check-package-contents — source-only release', () => {
             ))[0].files.map(file => file.path));
 
             expect(files.filter(file => file.startsWith('dist/'))).toEqual([]);
-            expect(files).toEqual(expect.arrayContaining(sourcePaths));
+            expect(files.filter(file => file.endsWith('.spec.mjs'))).toEqual([]);
+            expect(files).toEqual(expect.arrayContaining([...sourcePaths, 'test/playwright/setup.mjs']));
             expect(files).not.toContain('.neo-ai-data/sqlite/synthetic.sqlite');
             expect(files).not.toContain('.neo-ai-data/concepts/synthetic.json')
         } finally {

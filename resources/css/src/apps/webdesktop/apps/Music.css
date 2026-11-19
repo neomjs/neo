@@ -1,0 +1,16 @@
+.webdesktop-music-now-playing {
+    border-top: 1px solid var(--desktop-app-window-border-color);
+    gap       : 10px;
+    padding   : 8px 12px;
+
+    .webdesktop-music-track {
+        font-size  : 13.5px;
+        font-weight: 600;
+    }
+
+    .webdesktop-music-duration {
+        color               : var(--webdesktop-ink-dim);
+        font-size           : 12.5px;
+        font-variant-numeric: tabular-nums;
+    }
+}

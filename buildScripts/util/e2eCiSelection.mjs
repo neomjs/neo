@@ -46,6 +46,8 @@ export const RUN_PATHS = [
     'test/playwright/e2e/colors',
     'test/playwright/e2e/core',
     'test/playwright/e2e/dashboard',
+    'test/playwright/e2e/desktop',
+    'test/playwright/e2e/dialog',
     'test/playwright/e2e/gantt',
     'test/playwright/e2e/grid',
     'test/playwright/e2e/list',
@@ -55,6 +57,7 @@ export const RUN_PATHS = [
     'test/playwright/e2e/rendering/ButtonBaseNL.spec.mjs',
     'test/playwright/e2e/rendering/CalendarMonthEventDrag.spec.mjs',
     'test/playwright/e2e/rendering/CalendarMonthRollover.spec.mjs',
+    'test/playwright/e2e/rendering/CalendarPhoneAndFold.spec.mjs',
     'test/playwright/e2e/rendering/CalendarWeekViewSwitch.spec.mjs',
     'test/playwright/e2e/rendering/ContextMenuNL.spec.mjs',
     'test/playwright/e2e/rendering/DeltaCoherenceRegistryNL.spec.mjs',
@@ -70,6 +73,7 @@ export const RUN_PATHS = [
     'test/playwright/e2e/rendering/SparseUpdatesNL.spec.mjs',
     'test/playwright/e2e/rendering/StoreLoadingNL.spec.mjs',
     'test/playwright/e2e/rendering/TooltipMountFlightNL.spec.mjs',
+    'test/playwright/e2e/rendering/TooltipWindowSequenceNL.spec.mjs',
     'test/playwright/e2e/rendering/ViewTransitionReveal.spec.mjs',
     'test/playwright/e2e/rendering/YieldedMoveCoalescingNL.spec.mjs',
     'test/playwright/e2e/scheduler',
@@ -203,12 +207,12 @@ export const QUARANTINES = [];
  * shard keeps the test time a full run gives it: a smaller selection costs fewer jobs, not shorter ones.
  * @member {{engine: Number}} FULL_SHARDS
  */
-export const FULL_SHARDS = {engine: 14};
+export const FULL_SHARDS = {engine: 15};
 
 /**
  * Measured seconds per engine-tier spec file, which {@link balancedShard} balances the tier's shards by.
- * `--engine-durations` rebuilds it from a full `dev` run's log (`gh run view <id> --log`); a file the table does not
- * list yet counts as its median.
+ * `--engine-durations` rebuilds it from several full runs' logs, one file per run (`gh run view <id> --log`); a file
+ * the table does not list yet counts as its median.
  * @member {Object<String, Number>} ENGINE_DURATIONS
  */
 export const ENGINE_DURATIONS = JSON.parse(readFileSync(new URL('./e2eEngineDurations.json', import.meta.url), 'utf8'));
@@ -433,19 +437,15 @@ export function balancedShard({paths, shard, durations}) {
 }
 
 /**
- * @summary {@link ENGINE_DURATIONS} rebuilt from engine-tier logs: what each file cost the shard that ran it, every
- * attempt included, because the shard paid for those too.
- * @description Playwright's list reporter prints a line as each test ends. In GitHub's run log every line carries its
- * job and a timestamp, so a test costs the time since the job's previous test ended, or since its run started: hooks
- * and fixtures included, which a test's own duration leaves out (a 3 ms test can end 15 s into its shard). A log
- * without timestamps falls back to the durations the lines print.
- * @param {String} text Any number of shards' logs; skipped tests, whose lines carry no duration, are ignored.
- * @returns {Object<String, Number>} Seconds per file to a tenth, keyed by its repository path, in path order.
+ * @summary What each file cost one run's shards: per test, the time since its job's previous test ended, or since its
+ * run started, else the duration its line prints.
+ * @param {String} text One run's logs, any number of shards.
+ * @returns {Object<String, Number>} Unrounded seconds per file, keyed by its repository path.
  */
-export function engineDurations(text) {
+function runCosts(text) {
     const unit  = {ms: 0.001, s: 1, m: 60, h: 3600},
           ended = new Map(),
-          table = {};
+          costs = {};
 
     for (const line of text.split('\n')) {
         const [, job, stamp] = /^([^\t]+)\t[^\t]*\t(\d{4}-\d\d-\d\dT[\d:.]+Z) /.exec(line) ?? [],
@@ -456,11 +456,36 @@ export function engineDurations(text) {
             const [, file, value, scale] = test,
                   path                   = file.startsWith('test/playwright/e2e/') ? file : `test/playwright/e2e/${file}`;
 
-            table[path] = (table[path] ?? 0) + (ended.has(job) ? at - ended.get(job) : Number(value) * unit[scale])
+            costs[path] = (costs[path] ?? 0) + (ended.has(job) ? at - ended.get(job) : Number(value) * unit[scale])
         }
 
         if (at && (test || /Running \d+ tests? using/.test(line))) {
             ended.set(job, at)
+        }
+    }
+
+    return costs
+}
+
+/**
+ * @summary {@link ENGINE_DURATIONS} rebuilt from engine-tier logs: what each file cost the shard that ran it, every
+ * attempt included, because the shard paid for those too.
+ * @description Playwright's list reporter prints a line as each test ends. In GitHub's run log every line carries its
+ * job and a timestamp, so a test costs the time since the job's previous test ended, or since its run started: hooks
+ * and fixtures included, which a test's own duration leaves out (a 3 ms test can end 15 s into its shard). A log
+ * without timestamps falls back to the durations the lines print.
+ *
+ * Given several runs, a file keeps its costliest one: its time varies from runner to runner, and the shard that holds
+ * it pays its slow runs, not its average.
+ * @param {...String} runs One run's logs each; skipped tests, whose lines carry no duration, are ignored.
+ * @returns {Object<String, Number>} Seconds per file to a tenth, keyed by its repository path, in path order.
+ */
+export function engineDurations(...runs) {
+    const table = {};
+
+    for (const costs of runs.map(runCosts)) {
+        for (const [path, seconds] of Object.entries(costs)) {
+            table[path] = Math.max(table[path] ?? 0, seconds)
         }
     }
 
@@ -629,12 +654,15 @@ if (isEntryModule(import.meta.url)) {
 
         process.stdout.write((SHARD ? balancedShard({paths, shard: SHARD, durations: ENGINE_DURATIONS}).paths : paths).join(' '))
     } else if (mode === '--engine-durations') {
-        process.stdout.write(JSON.stringify(engineDurations(readFileSync(0, 'utf8')), null, 4) + '\n')
+        // One run's log per file argument, or one run's on stdin
+        const logs = process.argv.slice(3);
+
+        process.stdout.write(JSON.stringify(engineDurations(...(logs.length ? logs : [0]).map(log => readFileSync(log, 'utf8'))), null, 4) + '\n')
     } else if (mode === '--select') {
         // The changed files the E2E impact boundary admits, as JSON, because a path list is not shell-safe
         process.stdout.write(selectionOutput({changed: JSON.parse(process.env.E2E_FILES || '[]')}))
     } else {
-        console.error('usage: e2eCiSelection.mjs --coverage-line | --paths | --summary | --engine-paths | --engine-durations | --select');
+        console.error('usage: e2eCiSelection.mjs --coverage-line | --paths | --summary | --engine-paths | --engine-durations [run.log ...] | --select');
         process.exit(2)
     }
 }

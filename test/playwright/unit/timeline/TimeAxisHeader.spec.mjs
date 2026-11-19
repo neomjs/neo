@@ -122,8 +122,8 @@ test.describe('Neo.timeline.TimeAxisHeader', () => {
         const [majorRow, minorRow] = header.vdom.cn;
 
         expect(majorRow.cn.length).toBe(2);
-        expect(majorRow.cn[0].text).toBe('H-0');
-        expect(majorRow.cn[1].text).toBe('H-1');
+        expect(majorRow.cn[0].cn[0].text).toBe('H-0');
+        expect(majorRow.cn[1].cn[0].text).toBe('H-1');
 
         expect(minorRow.cn.length).toBe(8);
         expect(minorRow.cn[0].text).toBe('M-0');
@@ -131,5 +131,64 @@ test.describe('Neo.timeline.TimeAxisHeader', () => {
 
         header.destroy();
         axis.destroy();
+    });
+
+    test('default labels name the hour, day, week, month and year in the axis zone, never an ISO key', () => {
+        const axis   = Neo.create(TimeAxis, {timeZone: 'Asia/Tokyo', start: '2026-11-01', end: '2028-01-01', tickUnit: 'day'});
+        const header = Neo.create(TimeAxisHeader, {appName, timeAxis: axis, locale: 'en-US', viewportWidth: 600});
+        const at     = wall => axis.fromWallTime(new Date(`${wall}Z`));
+        const tick   = (unit, from, to) => ({unit, date: at(from), endDate: to && at(to)});
+        // ICU spaces a range dash with thin spaces; the assertions read the words, not the spacing
+        const plain = label => label.replace(/\s+/g, ' ');
+
+        try {
+            const labels = [
+                header.formatMajorTick(tick('hour',  '2026-11-09T14:00', '2026-11-09T15:00')),
+                header.formatMajorTick(tick('day',   '2026-11-09T00:00', '2026-11-10T00:00')),
+                header.formatMajorTick(tick('week',  '2026-11-08T00:00', '2026-11-15T00:00')),
+                header.formatMajorTick(tick('month', '2026-11-01T00:00', '2026-12-01T00:00')),
+                header.formatMajorTick(tick('month', '2026-11-01T00:00', '2027-02-01T00:00')),
+                header.formatMajorTick(tick('month', '2027-01-01T00:00', '2028-01-01T00:00')),
+                header.formatMinorTick(tick('week',  '2026-11-08T00:00', '2026-11-15T00:00')),
+                header.formatMinorTick(tick('month', '2026-11-01T00:00', '2026-12-01T00:00'))
+            ];
+
+            expect(labels.map(plain)).toEqual(['Mon, Nov 9, 14:00', 'Mon, Nov 9', 'Nov 8 – 14', 'November 2026',
+                'Nov 2026 – Jan 2027', '2027', 'Nov 8', 'Nov']);
+            expect(labels.filter(label => /\d{4}-\d{2}/.test(label))).toEqual([]);
+
+            // One instant, two calendars: Monday 05:00 in Tokyo is still Sunday in UTC
+            const instant = {unit: 'day', date: new Date('2026-11-08T20:00:00Z')};
+            expect(header.formatMajorTick(instant)).toBe('Mon, Nov 9');
+            axis.timeZone = 'UTC';
+            expect(header.formatMajorTick(instant)).toBe('Sun, Nov 8');
+            header.locale = 'en-GB';
+            // The axis keeps its Tokyo-midnight start instant, which is still Oct 31 in UTC
+            expect(plain(header.vdom.cn[0].cn[0].cn[0].text)).toBe('31 Oct – 7 Nov');
+        } finally {
+            header.destroy();
+            axis.destroy()
+        }
+    });
+
+    test('the current time marks its ticks and draws one header line, and nothing outside the axis range', () => {
+        const axis   = Neo.create(TimeAxis, {timeZone: 'UTC', start: '2026-11-13', end: '2026-11-14', tickUnit: 'hour', pxPerMinute: 1, now: '2026-11-13T10:30:00Z'});
+        const header = Neo.create(TimeAxisHeader, {appName, timeAxis: axis, locale: 'en-US', viewportWidth: 1440, bufferPx: 0});
+        const rows   = () => header.vdom.cn;
+        const marks  = row => row.cn.filter(node => node.cls.includes('neo-timeline-tick-current')).map(node => node.data.date);
+        const lines  = () => rows()[1].cn.filter(node => node.cls.includes('neo-timeline-now'));
+
+        try {
+            expect(lines().map(node => node.style.left)).toEqual(['630px']);
+            expect(marks(rows()[1])).toEqual(['2026-11-13T10:00:00.000Z']);
+            expect(marks(rows()[0])).toEqual(['2026-11-13T00:00:00.000Z']);
+
+            axis.now = '2026-11-14T00:00:00Z';
+            expect(lines()).toEqual([]);
+            expect([...marks(rows()[0]), ...marks(rows()[1])]).toEqual([])
+        } finally {
+            header.destroy();
+            axis.destroy()
+        }
     });
 });

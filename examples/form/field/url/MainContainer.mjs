@@ -1,20 +1,36 @@
-import CheckBox              from '../../../../src/form/field/CheckBox.mjs';
-import ConfigurationViewport from '../../../ConfigurationViewport.mjs';
-import UrlField            from '../../../../src/form/field/Url.mjs';
-import NumberField           from '../../../../src/form/field/Number.mjs';
-import Radio                 from '../../../../src/form/field/Radio.mjs';
-import TextField             from '../../../../src/form/field/Text.mjs';
+import CheckBox       from '../../../../src/form/field/CheckBox.mjs';
+import NumberField    from '../../../../src/form/field/Number.mjs';
+import Radio          from '../../../../src/form/field/Radio.mjs';
+import StatesViewport from '../StatesViewport.mjs';
+import TextField      from '../../../../src/form/field/Text.mjs';
+import UrlField       from '../../../../src/form/field/Url.mjs';
 
 /**
  * @class Neo.examples.form.field.url.MainContainer
- * @extends Neo.examples.ConfigurationViewport
+ * @extends Neo.examples.form.field.StatesViewport
  */
-class MainContainer extends ConfigurationViewport {
+class MainContainer extends StatesViewport {
     static config = {
-        className           : 'Neo.examples.form.field.url.MainContainer',
-        autoMount           : true,
-        configItemLabelWidth: 160,
-        layout              : {ntype: 'hbox', align: 'stretch'}
+        className    : 'Neo.examples.form.field.url.MainContainer',
+        autoMount    : true,
+        componentName: 'URL field',
+        layout       : {ntype: 'hbox', align: 'stretch'},
+
+        field: {
+            module         : UrlField,
+            clearable      : true,
+            labelText      : 'Website',
+            labelWidth     : 80,
+            placeholderText: 'https://domain.com',
+            width          : 300
+        },
+        states: {
+            filled  : {value: 'https://neomjs.com'},
+            empty   : {},
+            invalid : {value: 'neomjs dot com'},
+            disabled: {},
+            readOnly: {}
+        }
     }
 
     createConfigurationComponents() {
@@ -114,16 +130,6 @@ class MainContainer extends ConfigurationViewport {
             style    : {marginTop: '10px'},
             value    : me.exampleComponent.width
         }]
-    }
-
-    createExampleComponent() {
-        return Neo.create(UrlField, {
-            clearable       : true,
-            labelText       : 'Label',
-            labelWidth      : 70,
-            placeholderText : 'http://domain.com',
-            width           : 250
-        })
     }
 }
 

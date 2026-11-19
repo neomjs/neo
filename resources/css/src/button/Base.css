@@ -41,6 +41,33 @@
         position: fixed;
     }
 
+    /* A phone's text size, as a variable on the button itself, so a size class re-values it */
+    @media (max-width: 600px) {
+        --button-text-font-size: 13px;
+    }
+
+    /* The size config re-values the sizing variables on the button itself, so its size wins over its context's */
+    &.neo-size-small {
+        --button-height        : var(--button-size-small-height);
+        --button-min-width     : var(--button-size-small-height);
+        --button-padding       : var(--button-size-small-padding);
+        --button-text-font-size: var(--button-size-small-font-size);
+    }
+
+    &.neo-size-medium {
+        --button-height        : var(--button-size-medium-height);
+        --button-min-width     : var(--button-size-medium-height);
+        --button-padding       : var(--button-size-medium-padding);
+        --button-text-font-size: var(--button-size-medium-font-size);
+    }
+
+    &.neo-size-large {
+        --button-height        : var(--button-size-large-height);
+        --button-min-width     : var(--button-size-large-height);
+        --button-padding       : var(--button-size-large-padding);
+        --button-text-font-size: var(--button-size-large-font-size);
+    }
+
     .neo-button-badge {
         background-color: var(--button-badge-background-color);
         border-radius   : 5px;
@@ -110,10 +137,6 @@
         pointer-events: none;
         text-transform: var(--button-text-transform);
         z-index       : 2;
-
-        @media (max-width: 600px) {
-            font-size: 13px;
-        }
     }
 
     &:active {
@@ -228,6 +251,13 @@
         }
 
         &.pressed {
+            --button-ghost-background-color      : var(--button-ghost-background-color-pressed);
+            --button-ghost-background-color-hover: var(--button-ghost-background-color-pressed);
+            --button-ghost-glyph-color           : var(--button-ghost-glyph-color-pressed);
+            --button-ghost-glyph-color-hover     : var(--button-ghost-glyph-color-pressed);
+            --button-ghost-text-color            : var(--button-ghost-text-color-pressed);
+            --button-ghost-text-color-hover      : var(--button-ghost-text-color-pressed);
+
             border: var(--button-ghost-border-pressed);
         }
     }
@@ -281,6 +311,13 @@
         }
 
         &.pressed {
+            --button-secondary-background-color      : var(--button-secondary-background-color-pressed);
+            --button-secondary-background-color-hover: var(--button-secondary-background-color-pressed);
+            --button-secondary-glyph-color           : var(--button-secondary-glyph-color-pressed);
+            --button-secondary-glyph-color-hover     : var(--button-secondary-glyph-color-pressed);
+            --button-secondary-text-color            : var(--button-secondary-text-color-pressed);
+            --button-secondary-text-color-hover      : var(--button-secondary-text-color-pressed);
+
             border: var(--button-secondary-border-pressed);
         }
     }
@@ -340,6 +377,13 @@
         }
 
         &.pressed {
+            --button-tertiary-background-color      : var(--button-tertiary-background-color-pressed);
+            --button-tertiary-background-color-hover: var(--button-tertiary-background-color-pressed);
+            --button-tertiary-glyph-color           : var(--button-tertiary-glyph-color-pressed);
+            --button-tertiary-glyph-color-hover     : var(--button-tertiary-glyph-color-pressed);
+            --button-tertiary-text-color            : var(--button-tertiary-text-color-pressed);
+            --button-tertiary-text-color-hover      : var(--button-tertiary-text-color-pressed);
+
             border: var(--button-tertiary-border-pressed);
         }
     }
@@ -350,7 +394,17 @@
         }
     }
 
+    /* A pressed button re-values its own colour variables, so its rest and hover rules both draw the pressed
+       state, while a subclass drawn from its own variables (a tab header) keeps its look. A theme's pressed
+       values never read the variables they replace: a button carrying a theme class would form a cycle. */
     &.pressed {
+        --button-background-color      : var(--button-background-color-pressed);
+        --button-background-color-hover: var(--button-background-color-pressed);
+        --button-glyph-color           : var(--button-glyph-color-pressed);
+        --button-glyph-color-hover     : var(--button-glyph-color-pressed);
+        --button-text-color            : var(--button-text-color-pressed);
+        --button-text-color-hover      : var(--button-text-color-pressed);
+
         border: var(--button-border-pressed);
     }
 }

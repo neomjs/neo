@@ -1,8 +1,8 @@
 import Accounts      from '../store/Accounts.mjs';
 import Apps          from '../store/Apps.mjs';
+import Files         from '../store/Files.mjs';
 import Permissions   from '../store/Permissions.mjs';
 import StateProvider from '../../../src/state/Provider.mjs';
-import Tasks         from '../store/Tasks.mjs';
 
 /**
  * @summary The desktop's one source of state: who signed in, and which permission keys they hold.
@@ -38,16 +38,25 @@ class ViewportStateProvider extends StateProvider {
              * True shows the panel that simulates the backend changing permissions
              * @member {Boolean} data.permissionsPanel=false
              */
-            permissionsPanel: false
+            permissionsPanel: false,
+            /**
+             * The viewport's theme. The controller writes it with the viewport (`setTheme()`), and the taskbar's theme
+             * button and the Settings app read it.
+             * @member {String|null} data.theme=null
+             */
+            theme: null
         },
         /**
+         * `documents` and `recycleBin` live here, not in their apps' views: deleting and restoring move a file between
+         * two windows that each load on their first open
          * @member {Object} stores
          */
         stores: {
             accounts   : Accounts,
             apps       : Apps,
+            documents  : {module: Files, responseRoot: 'documents', filters: [{property: 'folder', value: null}]},
             permissions: Permissions,
-            tasks      : Tasks
+            recycleBin : {module: Files, responseRoot: 'recycleBin'}
         }
     }
 

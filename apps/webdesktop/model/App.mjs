@@ -1,16 +1,16 @@
-import TreeModel from '../../../src/data/TreeModel.mjs';
+import App from '../../../src/desktop/model/App.mjs';
 
 /**
- * @summary One launchable app, or a group of apps, in the desktop's navigation tree.
+ * @summary One launchable app, or a group of apps, in the desktop's navigation tree: the engine's app with the
+ * permission key that grants it.
  *
- * An app names the permission key that grants it. A group names none: the apps store's filter keeps a group exactly
- * when it keeps one of the group's apps (`Neo.data.TreeStore` ancestor preservation), so a group needs no rule of its
- * own and never shows up empty. A group that matched the filter itself would keep its whole subtree, which is why
- * groups carry no permission.
+ * A group names no permission: the apps store's filter keeps a group exactly when it keeps one of the group's apps
+ * (`Neo.data.TreeStore` ancestor preservation), so a group needs no rule of its own and never shows up empty. A group
+ * that matched the filter itself would keep its whole subtree, which is why groups carry no permission.
  * @class WebDesktop.model.App
- * @extends Neo.data.TreeModel
+ * @extends Neo.desktop.model.App
  */
-class App extends TreeModel {
+class WebDesktopApp extends App {
     static config = {
         /**
          * @member {String} className='WebDesktop.model.App'
@@ -21,39 +21,10 @@ class App extends TreeModel {
          * @member {Object[]} fields
          */
         fields: [{
-            name: 'color',
-            type: 'String'
-        }, {
-            name: 'description',
-            type: 'String'
-        }, {
-            name: 'iconCls',
-            type: 'String'
-        }, {
-            // menu.List calls the handler of a chosen item: an app opens through the viewport controller
-            name     : 'handler',
-            type     : 'String',
-            calculate: data => data.isLeaf === false ? null : 'onStartMenuAppChoose'
-        }, {
-            name: 'id',
-            type: 'String'
-        }, {
-            // list.Base renders a header row for records flagged this way (`useHeaders`)
-            name     : 'isHeader',
-            type     : 'Boolean',
-            calculate: data => data.isLeaf === false
-        }, {
-            // The place among its siblings: the apps store sorts by it, and the launcher's drag writes it
-            name: 'order',
-            type: 'Number'
-        }, {
             name: 'permission',
-            type: 'String'
-        }, {
-            name: 'text',
             type: 'String'
         }]
     }
 }
 
-export default Neo.setupClass(App);
+export default Neo.setupClass(WebDesktopApp);

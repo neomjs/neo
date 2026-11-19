@@ -16,5 +16,9 @@
 # step, so excluding them here cannot make the deployed site stale.
 /apps/portal/sitemap.xml
 /apps/portal/llms.txt
+# The engine's own specs, and the visual baselines Playwright keeps in folders named after them. A workspace
+# imports the Playwright configs, `setup.mjs`, `fixtures.mjs` and their helpers from the test tree and never
+# runs the engine's suite. `check-package-contents` names the class too.
+*.spec.mjs
 
 # Original content of the .gitignore file

@@ -51,7 +51,7 @@ Neo.ns('Colors.backend.ColorService', true).read = ({amountRows}) => new Promise
     })
 });
 
-test.describe('Colors ViewportController resume across a drag', () => {
+test.describe('Colors ViewportController', () => {
     let dragProxy, viewport;
 
     /**
@@ -107,12 +107,13 @@ test.describe('Colors ViewportController resume across a drag', () => {
 
     /**
      * @summary Creates the real Colors Viewport, whose controller asks for its first answer while constructing.
+     * @param {Object} [config={}] Configs for the Viewport, such as a controller with its own deadline
      * @returns {Object} `{controller, dashboard, grid, gridPanel}`
      */
-    function createViewport() {
+    function createViewport(config={}) {
         // applyBodyCls is off for the same reason the stand-ins above exist: it would reach the real
         // `Neo.main.DomAccess`, and standing an object in for that namespace breaks later spec files
-        viewport = Neo.create(Viewport, {appName, applyBodyCls: false, parentId: 'document.body'});
+        viewport = Neo.create(Viewport, {appName, applyBodyCls: false, parentId: 'document.body', ...config});
 
         return {
             controller: viewport.controller,
@@ -168,7 +169,30 @@ test.describe('Colors ViewportController resume across a drag', () => {
 
         expect(controller.getReference('grid')).toBe(grid);
         expect(grid.store.first().columnA).toBe(`answer-${readCount}`);
-        expect(controller.getReference('bar-chart').chartData).toEqual([{color: `#00000${readCount}`, count: 10}])
+        expect(controller.getReference('bar-chart').chartData).toEqual([{color: `#00000${readCount}`, count: 10}]);
+        expect(viewport.getStateProvider().getData('dataSource'), 'an answer in time keeps the backend').toBe('backend')
+    });
+
+    test('a backend that does not answer in time: the app generates the batch and stops asking', async () => {
+        const {controller, grid} = createViewport({controller: {module: ViewportController, backendDeadline: 50}}),
+              stateProvider      = viewport.getStateProvider();
+
+        expect(stateProvider.getData('dataSource')).toBe('backend');
+
+        await expect.poll(() => grid.store.getCount(), {timeout: 1000}).toBe(10);
+
+        const summary = controller.getReference('bar-chart').chartData;
+
+        expect(stateProvider.getData('dataSource')).toBe('local');
+        expect(summary).toHaveLength(10);
+        expect(summary.reduce((sum, {count}) => sum + count, 0), 'ten rows of ten columns').toBe(100);
+
+        // The answer that arrives late reaches nobody, and the next batch asks nobody
+        releaseReads();
+        await controller.updateWidgets();
+
+        expect(pendingReads).toHaveLength(0);
+        expect(grid.store.first().columnA).not.toContain('answer')
     });
 
     test('CONTROL: a widget that is gone leaves the resume returning instead of throwing', async () => {

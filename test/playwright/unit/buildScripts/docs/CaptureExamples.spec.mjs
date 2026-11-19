@@ -1,8 +1,10 @@
-import {test, expect}                                 from '@playwright/test';
-import fs                                             from 'node:fs';
-import {execFileSync}                                 from 'node:child_process';
-import {fileURLToPath}                                from 'node:url';
-import {validateCaptureRecipes, selectCaptureRecipes} from '../../../../../buildScripts/docs/captureExamples.mjs';
+import {test, expect}  from '@playwright/test';
+import fs              from 'node:fs';
+import {execFileSync}  from 'node:child_process';
+import {fileURLToPath} from 'node:url';
+import {
+    applyTileTheme, fitTileRegion, validateCaptureRecipes, selectCaptureRecipes, selectTiles
+} from '../../../../../buildScripts/docs/captureExamples.mjs';
 
 /** @summary Gives the producer one covered local record and an unrelated legacy cover. */
 function catalog() {
@@ -34,6 +36,13 @@ test('a covered record without a recipe fails inside the migrated family, while 
     expect(() => validateCaptureRecipes(manifest(), records)).not.toThrow();
     records.push({id: 'grid-two', family: 'grid-table', image: 'grid-two.jpg', urls: {devmode: 'examples/grid/two/'}});
     expect(() => validateCaptureRecipes(manifest(), records)).toThrow(/image|recipe/i)
+});
+
+test('external-origin covered records do not block a family while same-origin covered records still require recipes', () => {
+    const records = [...catalog(), {id: 'external-app', family: 'grid-table', image: 'external.png', urls: {devmode: 'https://neomjs.com/devindex/'}}];
+    expect(() => validateCaptureRecipes(manifest(), records)).not.toThrow();
+    records.push({id: 'local-app', family: 'grid-table', image: 'local.png', urls: {devmode: 'apps/local/index.html'}});
+    expect(() => validateCaptureRecipes(manifest(), records)).toThrow(/local-app.*image|recipe/i)
 });
 
 test('a further family joins the coverage guard explicitly', () => {
@@ -115,12 +124,113 @@ test('the committed Grid/Table manifest covers every current family record with 
         records = JSON.parse(fs.readFileSync(new URL('examples.json', data))),
         raw     = JSON.parse(fs.readFileSync(new URL('example-captures.json', data))),
         valid   = validateCaptureRecipes(raw, records), rows = selectCaptureRecipes(valid, {family: 'grid-table'});
-    expect(rows.map(row => row.id).sort()).toEqual(records.filter(row => row.family === 'grid-table').map(row => row.id).sort());
+    expect(rows.map(row => row.id).sort()).toEqual(records.filter(row => row.family === 'grid-table' && row.image).map(row => row.id).sort());
     expect(rows.every(row => row.steps.length > 0 && row.after.length > 0)).toBe(true)
 });
 
 test('the command exposes help without starting a browser or requiring a running server', () => {
     const file = fileURLToPath(new URL('../../../../../buildScripts/docs/captureExamples.mjs', import.meta.url)),
         output = execFileSync(process.execPath, [file, '--help'], {encoding: 'utf8'});
-    expect(output).toContain('--record'); expect(output).toContain('--preview')
+    expect(output).toContain('--record'); expect(output).toContain('--preview'); expect(output).toContain('--tiles')
+});
+
+test('a tile is named by its examples/ path, which gives its id and devmode URL', () => {
+    const raw = {...manifest(), tiles: ['examples/form/field/date', 'examples/sitemap']},
+        valid = validateCaptureRecipes(raw, catalog());
+    expect(valid.tiles).toEqual([
+        {id: 'form-field-date', path: 'examples/form/field/date', url: 'examples/form/field/date/index.html'},
+        {id: 'sitemap',         path: 'examples/sitemap',         url: 'examples/sitemap/index.html'}
+    ]);
+    expect(selectTiles(valid, 'examples/sitemap').map(tile => tile.id)).toEqual(['sitemap']);
+    expect(validateCaptureRecipes(manifest(), catalog()).tiles).toEqual([])
+});
+
+test('a tile entry may name the size its component takes for the capture', () => {
+    const raw = {...manifest(), tiles: [{path: 'examples/form/field/text', width: 220}, {path: 'examples/sitemap', width: 320, height: 240}, 'examples/form/field/date']},
+        valid = validateCaptureRecipes(raw, catalog());
+    expect(valid.tiles).toEqual([
+        {id: 'form-field-text', path: 'examples/form/field/text', url: 'examples/form/field/text/index.html', width: 220},
+        {id: 'sitemap',         path: 'examples/sitemap',         url: 'examples/sitemap/index.html',         width: 320, height: 240},
+        {id: 'form-field-date', path: 'examples/form/field/date', url: 'examples/form/field/date/index.html'}
+    ]);
+    expect(selectTiles(valid, 'examples/form/field/text')[0].width).toBe(220)
+});
+
+test('a tile path outside examples/, a duplicate tile, a bad capture size or an unknown selection is refused', () => {
+    for (const tiles of [
+        ['apps/form'], ['examples/'], ['examples/../apps'], ['examples/sitemap', 'examples/sitemap'],
+        [{path: 'examples/sitemap', width: 79}], [{path: 'examples/sitemap', height: 641}], [{path: 'examples/sitemap', width: 220.5}],
+        [{path: 'examples/sitemap', zoom: 2}], [{width: 220}], ['examples/sitemap', {path: 'examples/sitemap', width: 220}]
+    ]) {
+        expect(() => validateCaptureRecipes({...manifest(), tiles}, catalog())).toThrow(/manifest\.tiles/)
+    }
+    const valid = validateCaptureRecipes({...manifest(), tiles: ['examples/sitemap']}, catalog());
+    expect(() => selectTiles(valid, 'examples/form/field/date')).toThrow(/no matching tiles/)
+});
+
+test('the committed tile list names workbench entries that exist', () => {
+    const data = new URL('../../../../../apps/portal/resources/data/', import.meta.url),
+        valid  = validateCaptureRecipes(JSON.parse(fs.readFileSync(new URL('example-captures.json', data))), JSON.parse(fs.readFileSync(new URL('examples.json', data))));
+    expect(valid.tiles.length).toBeGreaterThan(0);
+    for (const tile of valid.tiles) {
+        const source = fs.readFileSync(new URL(`../../../../../${tile.path}/MainContainer.mjs`, import.meta.url), 'utf8');
+        // A field entry extends the workbench through its states template
+        expect(source, tile.path).toMatch(/ConfigurationViewport|StatesViewport/)
+    }
+});
+
+/** @summary Whether box `outer` ({x, y, width, height}) holds box `inner` ({left, top, right, bottom}). */
+function holds(outer, inner) {
+    return outer.x <= inner.left && outer.y <= inner.top && outer.x + outer.width >= inner.right && outer.y + outer.height >= inner.bottom
+}
+
+test('a tile region holds its component inside the stage, giving up padding before content', () => {
+    const stage = {x: 300, y: 100, width: 1000, height: 700};
+    for (const content of [
+        {left: 686, top: 364.5, right: 914, bottom: 535.5}, // a compact control, mid-stage
+        {left: 300, top: 100,   right: 400, bottom: 160},   // in the stage's corner
+        {left: 340, top: 300,   right: 1260, bottom: 500}   // fits the 933 px wide 4:3 maximum only without padding
+    ]) {
+        const region = fitTileRegion(content, stage);
+        expect(holds(region, content), JSON.stringify(content)).toBe(true);
+        expect(holds({...stage}, {left: region.x, top: region.y, right: region.x + region.width, bottom: region.y + region.height})).toBe(true);
+        expect(region.width / region.height).toBeCloseTo(4 / 3, 1)
+    }
+});
+
+test('a tile refuses a blank stage and a component no tile-aspect region inside the stage can hold', () => {
+    const stage = {x: 0, y: 0, width: 500, height: 600};
+    expect(() => fitTileRegion(null, stage)).toThrow(/renders nothing/);
+    expect(() => fitTileRegion({left: 10, top: 10, right: 14, bottom: 14}, stage)).toThrow(/renders nothing/);
+    // A 4:3 region inside a 500 × 600 stage is at most 500 × 375: a 562 px tall component would lose its top and bottom
+    expect(() => fitTileRegion({left: 139, top: 19, right: 361, bottom: 581}, stage)).toThrow(/222×562 component does not fit/)
+});
+
+/** @summary A theme switch like the workbench's: a click shows the next offered theme; with nothing else to show, it times out. */
+function themeSwitch(offered, active) {
+    const state = {clicks: 0, index: offered.indexOf(active)};
+    return {
+        state,
+        themeOf: async () => offered[state.index],
+        next   : async () => {
+            state.clicks++;
+            if (offered.length < 2) throw new Error('the theme never changed');
+            state.index = (state.index + 1) % offered.length
+        }
+    }
+}
+
+test('a tile takes the preferred dark theme a workbench offers, clicking only while it is inactive', async () => {
+    for (const [offered, active, theme, clicks] of [
+        [['neo-theme-light', 'neo-theme-dark', 'neo-theme-neo-light'], 'neo-theme-light', 'neo-theme-dark', 1],     // the engine default
+        [['neo-theme-light', 'neo-theme-dark', 'neo-theme-neo-dark'],  'neo-theme-light', 'neo-theme-neo-dark', 2], // neo-dark wins
+        [['neo-theme-dark'],                                           'neo-theme-dark',  'neo-theme-dark', 0]      // its only theme, already on
+    ]) {
+        const fake = themeSwitch(offered, active);
+        expect(await applyTileTheme(offered, fake.themeOf, fake.next), offered.join()).toBe(theme);
+        expect(fake.state.clicks, offered.join()).toBe(clicks)
+    }
+    const light = themeSwitch(['neo-theme-light'], 'neo-theme-light');
+    await expect(applyTileTheme(['neo-theme-light'], light.themeOf, light.next)).rejects.toThrow(/offers no dark theme/);
+    await expect(applyTileTheme(undefined, light.themeOf, light.next)).rejects.toThrow(/reports no themes/)
 });

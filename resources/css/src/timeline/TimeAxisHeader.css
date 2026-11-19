@@ -1,5 +1,6 @@
 /* Neo.timeline.TimeAxisHeader: two-tier horizontal time scale inside Neo.grid.header.Toolbar.
-   Renders only viewport-visible major and minor ticks positioned at their exact TimeAxis offsets. */
+   Renders only viewport-visible major and minor ticks positioned at their exact TimeAxis offsets.
+   `overflow: clip` instead of `hidden` keeps the scrolled toolbar the sticky labels' scroll container. */
 .neo-timeline-header.neo-grid-header-button {
     background    : var(--neo-timeline-header-background);
     border-bottom : 1px solid var(--neo-timeline-border-color);
@@ -8,7 +9,7 @@
     display       : flex;
     flex-direction: column;
     height        : var(--neo-timeline-header-height, 44px);
-    overflow      : hidden;
+    overflow      : clip;
     padding       : 0;
     position      : relative;
     user-select   : none;
@@ -16,7 +17,7 @@
     .neo-timeline-header-row {
         box-sizing: border-box;
         flex      : 1 1 50%;
-        overflow  : hidden;
+        overflow  : clip;
         position  : relative;
         width     : 100%;
     }
@@ -57,5 +58,33 @@
         top          : 0;
         white-space  : nowrap;
         z-index      : 1;
+    }
+
+    /* A day, week or month whose start is scrolled out keeps its name at the visible left edge */
+    .neo-timeline-tick-major {
+        overflow: clip;
+
+        .neo-timeline-tick-label {
+            left         : 0;
+            overflow     : hidden;
+            position     : sticky;
+            text-overflow: ellipsis;
+        }
+    }
+
+    .neo-timeline-tick-current {
+        color      : var(--neo-timeline-now-color);
+        font-weight: 600;
+    }
+
+    .neo-timeline-now {
+        background    : var(--neo-timeline-now-color);
+        bottom        : 0;
+        margin-left   : -1px;
+        pointer-events: none;
+        position      : absolute;
+        top           : 0;
+        width         : 2px;
+        z-index       : 2;
     }
 }

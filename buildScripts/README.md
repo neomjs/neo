@@ -112,15 +112,13 @@ Scripts used by the maintainers to publish new versions of the platform.
 
 ## 6. Webpack Configurations (`buildScripts/webpack/`)
 
-Webpack is used **only** for:
-1. Running the development server (`npm run server-start`).
-2. Creating the production builds (`dist/`).
-
-It is **not** used for the daily development workflow, which uses native ES modules directly.
+Webpack is used **only** for creating the builds in `dist/`. It is **not** used for the daily
+development workflow, which loads native ES modules directly from the file server
+(`npm run server-start`).
 
 | Folder | Description |
 | :--- | :--- |
-| `development/` | Configs for the dev server (mapped to source). |
+| `development/` | Configs for the development build (`dist/development`). |
 | `production/` | Configs for the production build (minification, tree-shaking). |
 | `loader/` | Custom loaders for Neo.mjs templates. |
 
@@ -131,8 +129,10 @@ It is **not** used for the daily development workflow, which uses native ES modu
 Internal shared libraries used by the scripts above.
 
 - `copyFile.mjs` / `copyFolder.mjs`: File system operations.
+- `measure-esm-vs-bundled.mjs`: Reproducible HTTP/2 and HTTP/3 `dist/esm`, `dist/production`, and `esbuild --splitting` measurement harness.
 - `minifyFile.mjs` / `minifyHtml.mjs`: Terser/HTMLMinifier wrappers.
 - `Sanitizer.mjs`: Input sanitization for CLI prompts.
+- `fileServer.mjs`: The development server `npm run server-start` runs (see below).
 
 ---
 
@@ -336,11 +336,16 @@ Options:
 ```
 
 ## `npm run server-start`
-**Script:** `webpack serve -c ./buildScripts/webpack/webpack.server.config.mjs --open`
+**Script:** `node ./buildScripts/util/fileServer.mjs --open`
 
-Starts the development server with Hot Module Replacement (HMR).
-- Opens the App Store (portal) by default.
-- Serves the project on `localhost:8080`.
+Starts the development server: it serves the working directory as files, the way dev mode loads them.
+- Opens the browser on the served root. `-- --open <path>` opens a path under it, `-- --no-open` opens nothing.
+- Listens on `--port <n>`, else on `PORT`, and fails if that port is taken. With neither, it listens on
+  `8080` or the next free port.
+- Serves `.mjs` and `.wasm` with their MIME types and honors range requests. A directory answers with its
+  `index.html`, or else with a listing.
+- Serves the engine's release notes at `/.github/RELEASE_NOTES/` and no other dot-path.
+- Warns at startup, and while theme CSS is requested, when the development themes trail their sources.
 
 ## `npm run test`
 **Script:** `playwright test`

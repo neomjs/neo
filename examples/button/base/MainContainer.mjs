@@ -188,7 +188,6 @@ class MainContainer extends ConfigurationViewport {
             handler  : data => console.log('button click =>', data.component.id),
             height   : 50,
             iconCls  : 'fa fa-home',
-            style    : {marginBottom: '1500px', marginTop: '500px'},
             text     : 'Hello World',
             ui       : 'primary',
             width    : 150,

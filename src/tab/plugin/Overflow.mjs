@@ -867,6 +867,8 @@ class Overflow extends Plugin {
 
     /**
      * Measures (natural widths as needed, strip extent always) and applies the visible/hidden split.
+     * A measure without layout (getLayoutRect answers one object instead of a list, as on a server-side
+     * render) skips the pass: no split is applied and nothing is logged.
      * @param {Boolean} recapture  Re-read natural widths (mount, or the tab set changed).
      */
     async project(recapture) {
@@ -912,7 +914,8 @@ class Overflow extends Plugin {
         me.measuring = true;
         me.publishProjectionState();
 
-        try {
+        // `break pass` leaves a pass that has nothing to project; the finally and the drain below still run.
+        pass: try {
             let controlIconCls = geometry.dimension === 'height'
                 ? 'fa fa-ellipsis-vertical'
                 : 'fa fa-ellipsis';
@@ -985,6 +988,8 @@ class Overflow extends Plugin {
 
                 let rects = await owner.getLayoutRect(buttons.map(button => button.id));
 
+                if (!Array.isArray(rects)) break pass;
+
                 me.naturalWidths      = {};
                 me.naturalWidthLabels = {};
                 buttons.forEach((button, index) => {
@@ -1025,6 +1030,8 @@ class Overflow extends Plugin {
                 await owner.setContextualActionMeasureReveal?.(false);
                 me.measuringWithheldActions = false
             }
+
+            if (!Array.isArray(rects)) break pass;
 
             let ownerRect     = rects.shift(),
                 actionRects   = rects.splice(0, actionItems.length),

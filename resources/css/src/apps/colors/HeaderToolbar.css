@@ -9,6 +9,12 @@
         margin-left: 1em;
     }
 
+    .colors-data-source {
+        font-size  : 13px;
+        margin-left: .5em;
+        opacity    : .75;
+    }
+
     @media (max-width: 600px) {
         .header-spacer {
             display: none;

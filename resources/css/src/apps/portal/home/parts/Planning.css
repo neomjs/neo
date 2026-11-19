@@ -1,0 +1,9 @@
+/* The planning preview's card is about 890px wide in a 1440px window. */
+.portal-home-parts-planning {
+    /* Four columns fit side by side, down to a window of about 1260px */
+    .neo-board {
+        --neo-board-column-width: 190px;
+        --neo-board-gap         : 8px;
+        --neo-board-padding     : 8px;
+    }
+}

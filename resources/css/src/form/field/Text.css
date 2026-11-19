@@ -6,7 +6,10 @@
     margin-top   : 5px;
     white-space  : nowrap;
 
-    &.neo-has-character-count {
+    /* A counter or an in-flow error gets a row of its own under the input; inside a flex row it would take the
+       input's width. `:where()` keeps both selectors at the counter rule's specificity. */
+    &.neo-has-character-count,
+    &:where(:has(> .neo-textfield-error-wrapper > .neo-textfield-error:not(.neo-absolute))) {
         display              : grid;
         grid-template-areas  : "label input" ". counter" ". error";
         grid-template-columns: auto minmax(0, 1fr);

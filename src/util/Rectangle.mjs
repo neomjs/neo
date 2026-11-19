@@ -136,6 +136,42 @@ export default class Rectangle extends DOMRect {
     }
 
     /**
+     * @summary The gap between a target and a subject aligned beside it, relative to the subject's box: on the side
+     * that faces the target, as deep as the gap, and across both boxes along that side. A pointer on its way from the
+     * target to the subject crosses it; one beside the subject anywhere else does not.
+     * @param {{height: Number, width: Number, x: Number, y: Number}} target
+     * @param {{height: Number, width: Number, x: Number, y: Number}} subject
+     * @returns {{height: Number, left: Number, top: Number, width: Number}|null} Null when the boxes touch or overlap
+     */
+    static gapBetween(target, subject) {
+        let targetBottom  = target.y  + target.height,
+            targetRight   = target.x  + target.width,
+            subjectBottom = subject.y + subject.height,
+            subjectRight  = subject.x + subject.width,
+            // Across both boxes, for a gap above or below the subject, and beside it
+            across        = {left: Math.min(target.x, subject.x) - subject.x, width: Math.max(targetRight, subjectRight) - Math.min(target.x, subject.x)},
+            along         = {top : Math.min(target.y, subject.y) - subject.y, height: Math.max(targetBottom, subjectBottom) - Math.min(target.y, subject.y)};
+
+        if (subject.y > targetBottom) {
+            return {...across, height: subject.y - targetBottom, top: targetBottom - subject.y}
+        }
+
+        if (subjectBottom < target.y) {
+            return {...across, height: target.y - subjectBottom, top: subject.height}
+        }
+
+        if (subject.x > targetRight) {
+            return {...along, left: targetRight - subject.x, width: subject.x - targetRight}
+        }
+
+        if (subjectRight < target.x) {
+            return {...along, left: subject.width, width: target.x - subjectRight}
+        }
+
+        return null
+    }
+
+    /**
      * Returns the overlapping area of rect1 & rect2 as a new Rectangle
      * @param {DOMRect|Neo.util.Rectangle} rect1
      * @param {DOMRect|Neo.util.Rectangle} rect2

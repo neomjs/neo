@@ -113,7 +113,7 @@ test.describe('Docs mixin members', () => {
             }
         }, sourceId);
         await page.route('**/docs/app/view/MainContainer.mjs', async route => {
-            const response = await route.fetch();
+            const response = await route.fetch({maxRetries: 2});
             await page.waitForFunction(() => !window.__docsPublication || window.__docsPublication.mountHeld);
             await route.fulfill({response})
         });
