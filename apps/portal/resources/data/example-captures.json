@@ -215,6 +215,23 @@
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },
     {
+      "id": "grid-server-side",
+      "viewport": {"width": 640, "height": 600},
+      "theme": "dark",
+      "state": "Dark-theme first page of seeded orders, country filter off; the request line identifies the simulated server's completed read.",
+      "ready": [{"selector": ".server-side-request", "text": "50 of 100,000 rows"}],
+      "steps": [
+        {"kind": "click", "selector": ".server-side-heading .neo-button", "text": "Dark theme"},
+        {"kind": "wait", "selector": ".server-side-heading .neo-button", "text": "Light theme"},
+        {"kind": "wait", "selector": ".neo-grid-cell[data-field='customer']:text-is('Granite Co')"}
+      ],
+      "after": [
+        {"selector": ".neo-grid-cell[data-field='customer']", "text": "Granite Co", "inRegion": true},
+        {"selector": ".server-side-scope", "text": "Simulated server", "inRegion": true}
+      ],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
       "id": "grid-value-banding",
       "viewport": {"width":1030,"height":360},
       "theme": "default",
@@ -481,6 +498,16 @@
       "steps": [],
       "after": [{"selector": ".neo-theme-neo-dark .neo-board"}, {"selector": ".neo-board-lane-collapsed", "count": 1}, {"selector": ".neo-board-lane-collapsed .neo-board-lane-count", "text": "10", "inRegion": true}, {"selector": "[id$='__lane__Mobile'] .neo-board-lane-count", "text": "9", "inRegion": true}, {"selector": ".neo-board-card-title", "text": "A widget for today's tasks", "inRegion": true}, {"selector": ".neo-board-card-title", "text": "Deep links into a project", "inRegion": true}],
       "region": {"selector": "[id$='__lane__Web']", "anchor": "top-left", "offsetX": -12, "offsetY": -6, "width": 640, "height": 360}
+    },
+    {
+      "id": "gantt-big-data",
+      "viewport": {"width": 640, "height": 360},
+      "theme": "dark",
+      "state": "The programme as it opens: its title and counts, 2,000 tasks and 1,972 links, over the first phase, where Zone 1's first tasks step down in bars joined by their links.",
+      "ready": [{"selector": ".programme-counts", "text": "2,000 tasks · 1,972 links"}, {"selector": ".neo-gantt-dependency-arrow"}],
+      "steps": [],
+      "after": [{"selector": ".neo-theme-neo-dark .neo-gantt"}, {"selector": ".programme-counts", "text": "2,000 tasks · 1,972 links", "inRegion": true}, {"selector": ".neo-grid-tree-cell", "text": "Zone 1", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Survey · bay 1", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Clear · bay 1", "inRegion": true}],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },
     {
       "id": "dock-layouts",
