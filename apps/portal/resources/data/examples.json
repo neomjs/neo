@@ -1429,7 +1429,7 @@
     {
         "id": "table-container",
         "image": "devmode/table-container-14.jpg",
-        "name": "Table Configuration",
+        "name": "When to Use a Table",
         "sourceUrl": "examples/table/container",
         "urls": {
             "devmode": "examples/table/container/index.html",
@@ -1440,8 +1440,8 @@
         "hiddenIn": [],
         "family": "grid-table",
         "component": "Table",
-        "feature": "Selection modes and embedded controls",
-        "lookFor": "Switch selection models, toggle fit width or column dragging, and open a cell menu."
+        "feature": "Content-sized columns, sticky headers and wrapping cells on local data",
+        "lookFor": "Compare 14 service tier specifications where columns size to their text and notes wrap. Sort, filter inline, resize or drag-reorder headers, and toggle Fit width."
     },
     {
         "id": "checkbox-field",
