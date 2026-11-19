@@ -25,13 +25,38 @@ class MainContainer extends Viewport {
          */
         layout: {ntype: 'hbox', align: 'stretch'},
         /**
+         * @member {Boolean} showGitHubStarButton=true
+         */
+        showGitHubStarButton: true,
+        /**
          * @member {Object[]} items
          */
         items: [{
             ntype : 'container',
             flex  : 1,
             layout: 'fit',
-            style : {position: 'relative'}
+            style : {position: 'relative'},
+
+            items : [{
+                ntype: 'component',
+                html : 'DeltaUpdates / s: <span id="neo-delta-updates"></span>',
+                style: {
+                    position: 'absolute',
+                    right   : '150px',
+                    top     : '25px',
+                    width   : '200px',
+                    zIndex  : 1
+                }
+            }, {
+                ntype: 'component',
+                html : '<a class="github-button" href="https://github.com/neomjs/neo" data-size="large" data-show-count="true" aria-label="Star neomjs/neo on GitHub">Star</a>',
+                style: {
+                    position: 'absolute',
+                    right   : '20px',
+                    top     : '20px',
+                    zIndex  : 1
+                }
+            }]
         }, {
             ntype : 'panel',
             layout: {ntype: 'vbox', align: 'stretch'},
@@ -136,6 +161,7 @@ class MainContainer extends Viewport {
                 }
             }, {
                 ntype    : 'button',
+                disabled : true,
                 text     : 'Sort by Lastname',
                 listeners: {},
                 style    : {margin: '20px', marginBottom: '10px'},
@@ -153,6 +179,7 @@ class MainContainer extends Viewport {
                 }
             }, {
                 ntype    : 'button',
+                disabled : true,
                 text     : 'Sort by Firstname',
                 listeners: {},
                 style    : {margin: '20px', marginTop: 0},
@@ -202,7 +229,18 @@ class MainContainer extends Viewport {
             ...me.galleryConfig
         });
 
-        me.items[0].items = [me.gallery]
+        me.items[0].items.unshift(me.gallery);
+
+        if (me.showGitHubStarButton) {
+            me.on('mounted', () => {
+                Neo.main.DomAccess.addScript({
+                    async   : true,
+                    defer   : true,
+                    src     : 'https://buttons.github.io/buttons.js',
+                    windowId: me.windowId
+                })
+            })
+        }
     }
 
     /**

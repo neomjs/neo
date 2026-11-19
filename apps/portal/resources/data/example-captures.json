@@ -607,9 +607,9 @@
       "id": "gallery",
       "viewport": {"width": 1280, "height": 720},
       "theme": "dark",
-      "state": "The wall of portraits sorted by last name, the middle portrait selected and brought forward.",
-      "ready": [{"selector": ".neo-gallery-item"}, {"selector": ".neo-button", "text": "Sort by Lastname"}],
-      "steps": [{"kind": "click", "selector": ".neo-button", "text": "Sort by Lastname"}],
+      "state": "The wall of portraits, the middle portrait selected and brought forward.",
+      "ready": [{"selector": ".neo-gallery-item.neo-selected"}],
+      "steps": [],
       "after": [{"selector": ".neo-gallery-item.neo-selected", "inRegion": true}],
       "region": {"x": 190, "y": 180, "width": 640, "height": 360}
     },
