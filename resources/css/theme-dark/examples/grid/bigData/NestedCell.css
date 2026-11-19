@@ -1,0 +1,5 @@
+:root .neo-theme-dark { /* .bigdata-nested-cell */
+    --examples-bigdata-nested-cell-background-color: rgba(93, 131, 167, .2);
+    --examples-bigdata-nested-cell-border-color    : rgba(93, 131, 167, .6);
+    --examples-bigdata-nested-cell-color           : #d3e0ec;
+}
