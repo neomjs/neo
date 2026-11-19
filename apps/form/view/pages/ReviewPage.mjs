@@ -2,7 +2,7 @@ import Component from '../../../../src/component/Base.mjs';
 
 /**
  * @summary Step 5: the object the form submits, read from the whole form each time the step opens. After Create
- * account it confirms the account and shows what was submitted.
+ * account it confirms the account and shows what was submitted, until the next edit.
  * @class Form.view.pages.ReviewPage
  * @extends Neo.component.Base
  */

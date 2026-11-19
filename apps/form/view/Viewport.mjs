@@ -5,8 +5,8 @@ import ViewportController    from './ViewportController.mjs';
 import ViewportStateProvider from './ViewportStateProvider.mjs';
 
 /**
- * @summary The account form: its steps in a list beside the form. Below 600px the list folds away, and the form's
- * header names the step.
+ * @summary The account form: its steps in a list beside the form. Below 600px the list folds away, the form's header
+ * names the step, and its Steps button unfolds the list above the form.
  * @class Form.view.Viewport
  * @extends Neo.container.Viewport
  */
@@ -32,6 +32,7 @@ class Viewport extends BaseViewport {
          */
         items: [{
             ntype: 'container',
+            bind : {cls: data => data.stepsOpen ? ['form-step-nav', 'form-step-nav-open'] : ['form-step-nav']},
             cls  : ['form-step-nav'],
             flex : 'none',
             items: [{

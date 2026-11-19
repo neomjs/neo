@@ -5,7 +5,8 @@ import Toolbar           from '../../../src/toolbar/Base.mjs';
 
 /**
  * @summary The account form: one nested form per step inside a card layout, which loads each step's module the first
- * time it opens. Back, Next and Create account sit below; the viewport's controller handles them.
+ * time it opens. Back, Next and Create account sit below, a phone's Steps button in the header; the viewport's
+ * controller handles them, and every edit.
  * @class Form.view.FormContainer
  * @extends Neo.form.Container
  */
@@ -38,6 +39,12 @@ class FormContainer extends BaseFormContainer {
                 bind  : {text: data => data.activeTitle},
                 cls   : ['form-header-label'],
                 flex  : 'none'
+            }, '->', {
+                bind   : {pressed: data => data.stepsOpen},
+                cls    : ['form-steps-button'],
+                handler: 'onStepsButtonClick',
+                iconCls: 'fas fa-list-ol',
+                text   : 'Steps'
             }]
         }, {
             module   : Container,
@@ -80,7 +87,12 @@ class FormContainer extends BaseFormContainer {
                 iconCls: 'fas fa-check',
                 text   : 'Create account'
             }]
-        }]
+        }],
+        /**
+         * An edit clears what the last check marked
+         * @member {Object} listeners={fieldUserChange:'onFieldUserChange'}
+         */
+        listeners: {fieldUserChange: 'onFieldUserChange'}
     }
 }
 

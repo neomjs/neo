@@ -20,10 +20,36 @@
         margin     : 0 0 8px;
     }
 
-    /* A phone folds the step list away: the form's header names the step */
+    /* A short screen, such as a phone held sideways, keeps every step in view */
+    @media (max-height: 479px) {
+        .form-step-nav {
+            padding: 12px 16px;
+        }
+
+        .form-step-nav-text {
+            display: none;
+        }
+
+        .form-step-nav-title {
+            font-size: 18px;
+            margin   : 0 0 4px;
+        }
+    }
+
+    /* A phone folds the step list away: the form's header names the step, and its Steps button unfolds the list above the form */
     @media (max-width: 599px) {
+        &.neo-flex-container.neo-flex-direction-row {
+            flex-direction: column;
+        }
+
         .form-step-nav {
             display: none;
+            width  : auto;
+
+            &.form-step-nav-open {
+                border-bottom: 1px solid var(--sem-color-border-default);
+                display      : flex;
+            }
         }
 
         .form-form-container.neo-container {

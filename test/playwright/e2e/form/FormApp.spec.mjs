@@ -1,6 +1,7 @@
 /**
  * @summary The form app opens a team account in steps: Next validates the open step and names what is wrong, Create
- * account validates every step and shows the object the form submits, and a phone folds the step list away.
+ * account validates every step and shows the object the form submits until the next edit, and a phone folds the step
+ * list away behind a Steps button.
  * @see https://github.com/neomjs/neo/issues/21336
  */
 import {test, expect} from '../../fixtures.mjs';
@@ -87,17 +88,52 @@ test.describe('Form app', () => {
         expect(submitted.preferences.topics).toEqual(expect.arrayContaining(['forms', 'grids']))
     });
 
-    test('the form fills the frame on a desktop, and a phone folds the step list away', async ({page}) => {
-        const form = await page.locator('.form-form-container').boundingBox();
+    test('an edit after Create account drops the confirmation and the valid mark of its step', async ({page}) => {
+        const values = async () => JSON.parse(await page.locator('.form-review-values').textContent() || '{}');
+
+        await fillAboutYou(page);
+        await page.getByRole('button', {name: 'Next'}).click();
+        await expect(header(page)).toHaveText('Address');
+        await fillAddress(page);
+        await step(page, 'Review').click();
+        await page.getByRole('button', {name: 'Create account'}).click();
+        await expect(page.locator('.form-review-done')).toBeVisible();
+
+        await step(page, 'About you').click();
+        await expect(step(page, 'About you').locator('.form-side-nav-state-valid')).toHaveCount(1);
+        await input(page, 'person.firstName').fill('Grace');
+        await expect(step(page, 'About you').locator('.form-side-nav-state-valid')).toHaveCount(0);
+
+        await step(page, 'Review').click();
+        await expect(page.locator('.form-review-done')).toHaveCount(0);
+        await expect(page.locator('.form-review-lead')).toBeVisible();
+        await expect.poll(async () => (await values()).person?.firstName).toBe('Grace')
+    });
+
+    test('the form fills the frame on a desktop, and a phone folds the step list away until Steps unfolds it', async ({page}) => {
+        const form  = await page.locator('.form-form-container').boundingBox(),
+              steps = page.getByRole('button', {name: 'Steps'});
 
         expect(form.x + form.width).toBeGreaterThan(1400);
         expect(form.height).toBeGreaterThan(840);
         await expect(page.locator('.form-step-nav')).toBeVisible();
+        await expect(steps).toBeHidden();
 
         await page.setViewportSize({width: 390, height: 844});
 
         await expect(page.locator('.form-step-nav')).toBeHidden();
         await expect(header(page)).toBeInViewport();
-        await expect(input(page, 'person.firstName')).toBeInViewport()
+        await expect(input(page, 'person.firstName')).toBeInViewport();
+
+        // the list unfolds above the form, whose header keeps the Steps button in reach
+        await steps.click();
+        await expect(steps).toHaveAttribute('aria-pressed', 'true');
+        await expect(step(page, 'Review')).toBeInViewport({ratio: 1});
+        await expect(header(page)).toBeInViewport();
+
+        await step(page, 'Review').click();
+        await expect(header(page)).toHaveText('Review');
+        await expect(page.locator('.form-step-nav')).toBeHidden();
+        await expect(page.getByRole('button', {name: 'Create account'})).toBeInViewport()
     })
 });

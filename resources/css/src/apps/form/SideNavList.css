@@ -30,4 +30,15 @@
     .form-side-nav-state-valid {
         color: var(--status-badge-state-success-text-color, #3fb950);
     }
+
+    @media (max-height: 479px) {
+        .neo-list-item {
+            padding: 6px 10px;
+        }
+
+        .form-side-nav-number {
+            height: 22px;
+            width : 22px;
+        }
+    }
 }

@@ -48,6 +48,27 @@ class ViewportController extends Component {
     }
 
     /**
+     * @summary An edit makes the last check stale: the edited step loses its valid mark until Next or Create account
+     * checks it again, and the review step shows the open form instead of the object Create account submitted.
+     * @param {Object} data
+     * @param {Neo.form.field.Base} data.component The edited field
+     */
+    onFieldUserChange({component}) {
+        let me     = this,
+            index  = me.getReference('pages-container').items.indexOf(component.up('form-container')),
+            record = index > -1 ? me.getStateProvider().getStore('sideNav').getAt(index) : null,
+            review = me.getReference('review');
+
+        if (record?.formState === 'valid') {
+            record.formState = 'clean'
+        }
+
+        if (review?.submitted) {
+            review.submitted = null
+        }
+    }
+
+    /**
      * @param {Object} data
      */
     async onNextButtonClick(data) {
@@ -60,14 +81,22 @@ class ViewportController extends Component {
     }
 
     /**
-     * @summary Opens a step and clears the message of the step before.
+     * @summary Unfolds the step list above the form on a phone, or folds it away again.
+     * @param {Object} data
+     */
+    onStepsButtonClick(data) {
+        this.setState({stepsOpen: !this.getStateProvider().data.stepsOpen})
+    }
+
+    /**
+     * @summary Opens a step, clears the message of the step before, and folds a phone's step list away.
      * @param {Number} index
      * @param {String|null} [stepMessage=null]
      */
     showStep(index, stepMessage=null) {
         let record = this.getStateProvider().getStore('sideNav').getAt(index);
 
-        this.setState({activeIndex: index, activeTitle: record.name, stepMessage})
+        this.setState({activeIndex: index, activeTitle: record.name, stepMessage, stepsOpen: false})
     }
 
     /**

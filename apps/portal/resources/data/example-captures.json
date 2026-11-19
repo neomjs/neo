@@ -768,7 +768,9 @@
       ],
       "after": [
         {"selector": ".form-side-nav-state-valid", "count": 1},
-        {"selector": ".form-header-label", "text": "Address", "inRegion": true}
+        {"selector": ".form-header-label", "text": "Address", "inRegion": true},
+        {"selector": ".form-side-nav-list .neo-list-item", "text": "Review", "inRegion": true},
+        {"selector": ".form-footer", "inRegion": true}
       ],
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     }

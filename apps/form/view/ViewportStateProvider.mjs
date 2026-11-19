@@ -35,7 +35,12 @@ class ViewportStateProvider extends StateProvider {
              * What the open step asks the visitor to fix after Next or Create account met an invalid field
              * @member {String|null} data.stepMessage
              */
-            stepMessage: null
+            stepMessage: null,
+            /**
+             * True while a phone shows the step list above the form
+             * @member {Boolean} data.stepsOpen
+             */
+            stepsOpen: false
         },
         /**
          * @member {Object} stores
