@@ -179,7 +179,7 @@
     {
         "id": "board-basic",
         "featured": true,
-        "image": null,
+        "image": "devmode/board-basic-14.jpg",
         "name": "Sprint Board",
         "sourceUrl": "examples/board/basic",
         "urls": {
