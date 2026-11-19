@@ -52,37 +52,12 @@ exposes `sequence`, `batchCount`, `batchSize` and `intervalMs`. `appendBatch()` 
 Neural Link readers can address `stateProvider.stores.feed.sequence` on the workspace. There is no
 second counter on the view.
 
-## Activate the optional tours
+## Activate the visitor tour and scripted screenplays
 
-Two screenplays share one player.
+One visitor-facing **Start tour** action launches the product tour (`apps/workstation/tour/denseWorkstation.mjs`): it opens the real overflow menu, scrolls the 100k grid, crosses live drop zones, promotes a pane through `splitNode`, returns it through `addTab`, and flips both themes — no windows are opened. Pane, store, component, and relevant DOM identities remain stable while the layout changes.
 
-**Start dense tour** opens the real overflow menu, scrolls the 100k grid, promotes a live pane
-through `splitNode`, returns it through `addTab`, and flips both themes — no windows are opened.
-Pane, store, component, and relevant DOM identities remain stable while the layout changes.
+The flagship film screenplay (`apps/workstation/tour/fiveBeatFilm.mjs`) shares the same player and remains accessible to capture and test callers through the tour driver (`startFilmTour({autoGates})`), without adding a second visitor launcher to the toolbar. It plays ten multi-window scenes: a pane leaves the window into a real vessel mid-gesture and stays; a second pane crosses every boundary under one pointer-down; the merged stack returns home as one; a pane folds into its edge rail and comes back; the main boundary follows a real pointer drag; the drop-zone showcase commits a cross-zone move; a perspective is captured, torn apart and restored with undo and redo; the saved two-window arrangement is restored, its window born again around both panes, then its stack dragged home; and the hundred-thousand-row grid scrolls through its midpoint while the feed keeps ticking. Before every beat that opens a window the tour stops at a gate and reveals **Continue**: that click is the user activation the browser demands for `window.open`, so **Continue** is visible only while a gate is pending. One click covers one activation; further births inside a single held drag rest on the site's pop-up permission (or degrade to the in-window proxy).
 
-**Start film tour** plays the flagship film's ten scenes, and it opens on the tear-outs: a
-breath of the living room, then a pane leaves the window into a real vessel mid-gesture and
-stays; a second pane crosses every boundary under one pointer-down — out, back over the room, out
-again, into the first window, out once more, and in to stay; the merged stack is dragged home as
-one; a pane folds into its edge rail and comes back; the main boundary follows a real pointer drag;
-the drop-zone showcase puts the travelled pane wherever the viewer likes; a perspective is
-captured, torn apart and restored, one dock mutation undone and redone; the two-window arrangement
-saved during the journey is restored, its window born again around both panes, then its stack dragged home; and
-the closing readout
-scrolls the hundred-thousand-row grid through its midpoint while the feed keeps ticking. Before
-every beat that opens a window the tour stops at a gate and shows **Continue**: that click is the
-user activation the browser demands for `window.open`, so the window is born inside your gesture
-rather than blocked as a popup. One click covers one activation: the journey scene births further
-windows inside the same held drag, and those rest on the site's one-time pop-up permission — allow
-pop-ups for the site once, or the later births degrade to the in-window proxy. Two measured
-preconditions shape the screenplay: a tab folded
-into a tab bar's overflow menu is not a drag handle, and a torn-out pane's stored home must
-survive its departure for the stack to return to it — which is why the hook tears Metrics out of
-a two-tab group.
-
-Both data-only screenplays live in `apps/workstation/tour/` (`denseWorkstation.mjs`,
-`fiveBeatFilm.mjs`); the mounted whitebox journeys are the runtime and visual falsifiers. A
-recorded take of the same runnable script is the flagship-film epic's next step, not wired here.
 A cue that fails stops the tour at that beat, with the failed cue's receipt in the tour receipt.
 
 For programmatic playback from outside the view, resolve the optional owner with
@@ -91,11 +66,13 @@ For programmatic playback from outside the view, resolve the optional owner with
 `cancelTour()` retires that playback controller and waits for its started cue work; a later Start
 creates a fresh controller. The workspace and its stores remain owned by the ordinary application.
 
-## Layout controls and persistence
+## Layout controls, header action ownership, and persistence
 
-Two rows keep the workspace chrome compact: tour, arrangement and theme controls above, live store
-statistics beside **Reset to default**, **Undo** and **Redo** below. Undo and Redo retain their
-reactive step badges. Opening more popup participants adds no controls or rows.
+Two global header rows keep the workspace chrome compact:
+- **Row 1 (`view/TourToolbar.mjs`):** **Start tour**, conditional **Continue** (while a viewer gate is pending), **Operations** / **Planning** (when both arrangements are declared), and the theme toggle (**Light mode** / **Dark mode**).
+- **Row 2 (`view/TopologyToolbar.mjs` beside `view/StatusComponent.mjs`):** live store statistics beside **Reset to default**, **Undo**, and **Redo** (with reactive step badges). Opening more popup participants adds no controls or rows.
+
+**Action placement rule:** a new demo, capture, or test scenario uses the tour runner (`TourController`) or test fixture rather than adding a launcher to the global headers; a new product function belongs where a person uses it. Any deliberate change to the global header actions updates this section and [`test/playwright/e2e/workstation/WorkstationTourActivationNL.spec.mjs`](../../test/playwright/e2e/workstation/WorkstationTourActivationNL.spec.mjs) together.
 
 **Operations** and **Planning** switch between the declared arrangements. A switch is one Group
 commit that names the arrangement, so **Undo** returns the previous one and a save records it. In

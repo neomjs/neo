@@ -278,7 +278,6 @@
 }
 
 .workstation-workspace .neo-button.workstation-tour-play,
-.workstation-workspace .neo-button.workstation-tour-film,
 .workstation-workspace .neo-button.workstation-tour-continue {
     --button-background-color       : var(--workstation-signal);
     --button-background-color-active: color-mix(in srgb, var(--workstation-signal) 78%, var(--workstation-ink));
