@@ -1,12 +1,14 @@
 import {expect, test} from '../../fixtures.mjs';
 
 /**
- * @summary `headerAlign` in `examples/grid/export`: the Amount header's label sits over its digits (right edge within
- * the column's right padding), while a default header's label stays at the left edge.
+ * @summary `headerAlign` in `examples/grid/export`: verifies label positioning, center alignment, header filter
+ * coexistence, default left alignment, sorting, and column-menu coexistence.
  *
  * AC-1: `headerAlign: 'right'` puts the label's right edge within header padding of the column's right edge.
+ *       With `showHeaderFilter: true`, the label still stays at the right edge with the filter field ordered before it.
+ * AC-2: `headerAlign: 'center'` centers the label within the hidden glyph's width of the header's center.
  * AC-4: A column without `headerAlign` renders exactly as on dev (label x is at the left edge).
- * AC-5: The sort glyph, column menu trigger, and showHeaderFilter stay inside the header and keep working.
+ * AC-5: With label aligned right, sort glyph, column menu trigger, and showHeaderFilter stay inside header and keep working.
  */
 const GRID = '.neo-examples-grid-export .neo-grid-container',
       URL  = '/examples/grid/export/index.html';
@@ -39,9 +41,62 @@ test.describe('Grid export example — headerAlign', () => {
         // Gap between label's right edge and header's right edge must be small (within padding, ≤ 20 px)
         const gap = headerBox.x + headerBox.width - (labelBox.x + labelBox.width);
         expect(gap).toBeLessThanOrEqual(20);
+        expect(gap).toBeGreaterThanOrEqual(0);
+        expect(gap).toBeLessThan(200)
+    });
 
-        // And the label must have actually moved: gap must be less than 200 px (old misaligned state)
-        expect(gap).toBeGreaterThanOrEqual(0)
+    /**
+     * With showHeaderFilter: true, the field sits before the label (order: -1)
+     * and the label stays within padding of the column's right edge.
+     */
+    test('a right-aligned header with showHeaderFilter keeps its label at the right edge', async ({page, neo}) => {
+        await page.setViewportSize({width: 1440, height: 900});
+        await ready(page);
+
+        const header   = page.locator(`${GRID} .neo-grid-header-button`).filter({hasText: 'Amount'});
+        const headerId = await header.getAttribute('id');
+        await neo.setConfig(headerId, {showHeaderFilter: true});
+
+        const filterField = header.locator('.neo-textfield');
+        await expect(filterField).toBeVisible({timeout: 5000});
+
+        const label     = header.locator('.neo-button-text');
+        const headerBox = await header.boundingBox();
+        const labelBox  = await label.boundingBox();
+
+        // Label right edge remains within 20 px of the column right edge
+        const gap = headerBox.x + headerBox.width - (labelBox.x + labelBox.width);
+        expect(gap).toBeLessThanOrEqual(20);
+        expect(gap).toBeGreaterThanOrEqual(0);
+        expect(gap).toBeLessThan(200)
+    });
+
+    /**
+     * AC-2: Centered label — label center sits within the glyph width of the header center.
+     */
+    test('a centered header puts its label center within the glyph width of the header center', async ({page, neo}) => {
+        await page.setViewportSize({width: 1440, height: 900});
+        await ready(page);
+
+        const header   = page.locator(`${GRID} .neo-grid-header-button`).filter({hasText: 'Customer'});
+        const headerId = await header.getAttribute('id');
+        await neo.setConfig(headerId, {headerAlign: 'center'});
+
+        await expect(header).toHaveClass(/neo-header-align-center/);
+
+        const label     = header.locator('.neo-button-text');
+        const glyph     = header.locator('.neo-button-glyph');
+
+        const headerBox = await header.boundingBox();
+        const labelBox  = await label.boundingBox();
+        const glyphBox  = await glyph.boundingBox();
+
+        const headerCenter = headerBox.x + headerBox.width / 2;
+        const labelCenter  = labelBox.x + labelBox.width / 2;
+
+        // Label's center sits within the hidden glyph's width + margin of the header's center
+        const glyphAllowance = glyphBox ? glyphBox.width + 8 : 18;
+        expect(Math.abs(headerCenter - labelCenter)).toBeLessThanOrEqual(glyphAllowance)
     });
 
     /**
@@ -75,5 +130,32 @@ test.describe('Grid export example — headerAlign', () => {
 
         // After one click the header carries aria-sort="ascending"
         await expect(header).toHaveAttribute('aria-sort', 'ascending', {timeout: 5000})
+    });
+
+    /**
+     * A right-aligned header with columnMenu keeps trigger in place and opens menu.
+     */
+    test('a right-aligned header with columnMenu keeps trigger in place and opens menu', async ({page, neo}) => {
+        await page.setViewportSize({width: 1440, height: 900});
+        await ready(page);
+
+        const header   = page.locator(`${GRID} .neo-grid-header-button`).filter({hasText: 'Amount'});
+        const headerId = await header.getAttribute('id');
+        await neo.setConfig(headerId, {columnMenu: true});
+
+        const wrapper = page.locator(`${GRID} .neo-grid-menu-wrapper`).filter({hasText: 'Amount'});
+        const trigger = wrapper.locator('.neo-grid-menu-trigger');
+        await expect(trigger).toBeVisible({timeout: 5000});
+
+        const label      = header.locator('.neo-button-text');
+        const triggerBox = await trigger.boundingBox();
+        const labelBox   = await label.boundingBox();
+
+        // Trigger is positioned after the label (to the right of it)
+        expect(triggerBox.x).toBeGreaterThan(labelBox.x + labelBox.width);
+
+        // Clicking the trigger opens the column menu
+        await trigger.click();
+        await expect(page.locator('.neo-grid-column-menu')).toBeVisible({timeout: 5000})
     })
 });
