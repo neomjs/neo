@@ -102,12 +102,15 @@ class MainContainer extends ConfigurationViewport {
      * @returns {Neo.component.Base}
      */
     createExampleComponent() {
+        // Three 260 px circles a row fit the stage at 1440 px; the list's stylesheet caps it at a narrower stage
         let list = Neo.create({
-            module : CircleList,
-            animate: true,
-            height : 1000,
-            store  : MainStore,
-            width  : 1000
+            module    : CircleList,
+            animate   : true,
+            height    : 560,
+            itemHeight: 260,
+            itemWidth : 260,
+            store     : MainStore,
+            width     : 800
         });
 
         list.store.on('sort', this.onStoreSort, this);

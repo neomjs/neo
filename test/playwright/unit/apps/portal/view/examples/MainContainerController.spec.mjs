@@ -638,7 +638,7 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
       establishedTailIds = [
           'helix', 'devindex', 'multi-window-covid-gallery', 'offscreen-canvas', 'shared-offscreen-canvas',
           'multi-window-drag-drop', 'tab-container', 'tab-browser', 'state-provider', 'dialog-drag-drop',
-          'colors-dashboard', 'covid-dashboard', 'covid-helix', 'covid-gallery', 'gallery'
+          'colors-dashboard', 'covid-dashboard', 'covid-helix', 'covid-gallery', 'gallery', 'list-reorder', 'list-animate'
       ],
       componentExampleIds = [
           'carousel', 'chip', 'circle', 'clock', 'magic-move-text',
@@ -665,7 +665,7 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
       ],
       // the tile records of groups that had no record before the tiles, appended to the catalog
       newTileIds = [
-          'button-base', 'menu-list', 'list-base', 'chip-list', 'color-list',
+          'button-base', 'menu-list', 'list-base', 'chip-list', 'color-list', 'list-buffered', 'list-circle',
           'functional-define-component', 'functional-host-component', 'functional-nested-template', 'sitemap'
       ],
       // the Containers & Layouts cards, appended after the tiles
@@ -701,13 +701,13 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
       // The catalog's only count literals: a new covered example changes its group's row, a new record the record count.
       // [home count, count from other groups] per group in a production build, in definition order
       groupCounts = {
-          apps          : [6, 5], 'grid-table': [19, 0], tree: [0, 2], lists: [7, 0], charts: [4, 1],
+          apps          : [6, 5], 'grid-table': [19, 0], tree: [0, 2], lists: [12, 0], charts: [4, 1],
           calendar      : [1, 0], scheduler   : [2, 0], gantt: [2, 0], board: [2, 0],
           dashboard     : [4, 1], tabs        : [2, 0], layouts: [3, 0], dialogs: [3, 0],
           forms         : [28, 1], buttons    : [2, 0], components: [9, 0],
           'multi-window': [6, 3], platform    : [2, 1], state: [1, 0], functional: [3, 1], 'drag-drop': [0, 3]
       },
-      recordCount    = 123,
+      recordCount    = 127,
       publishedCount = Object.values(groupCounts).reduce((sum, [count]) => sum + count, 0),
       groupCount     = Object.keys(groupCounts).length,
       // every record with a cover publishes in a production build, so the rest wait for one
