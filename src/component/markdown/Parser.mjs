@@ -14,11 +14,13 @@
  * insert-only tail batch (sequential same-parent appends ride the consumer's insertNode batching
  * natively), and growth of the open tail block diffs as in-place `updateVtext` / `updateNode`
  * mutation. Block sequence numbers never recycle — not within a value lifetime and not across
- * resets — so a reset cannot birth two-nodes-one-id across batches.
+ * resets — so a reset cannot birth two-nodes-one-id across batches. Child ids carry their node's
+ * kind, so a tail re-parse cannot hand one node's id to a node of another kind either.
  *
  * **Streaming model:** `update(source)` detects appends (`source.startsWith(previous)`); the
- * settled prefix is reused untouched, only the open tail block (an unterminated fence or the
- * trailing paragraph) re-parses merged with the appended slice. Any non-append change resets the
+ * settled prefix is reused untouched, only the open tail block (an unterminated fence, a heading
+ * whose line has not ended, or a trailing paragraph, list, quote or table) re-parses merged with
+ * the appended slice. Any non-append change resets the
  * ledger and re-parses fully with fresh ids. ATX headings only — setext underlines are
  * deliberately unsupported because they retro-promote an already-settled paragraph, which breaks
  * the settled-prefix invariant streaming depends on.
@@ -226,7 +228,9 @@ export default class MarkdownParser {
         }
 
         me.#segment(tailSlice).forEach((raw, index) => {
-            me.#blocks.push(me.#createBlock(raw, index === 0 ? reuseId : null))
+            // A tail that turns into another block type (a paragraph into a table) cannot change in place: its
+            // children would take the ids of the old ones, so it becomes a new block under a fresh id
+            me.#blocks.push(me.#createBlock(raw, index === 0 && raw.type === tail?.type ? reuseId : null))
         })
     }
 
@@ -245,7 +249,9 @@ export default class MarkdownParser {
 
         let child = 0;
 
-        const childId = () => `${id}-c${child++}`;
+        // An id carries its node's kind: a re-parse of the growing tail can shift a position to another kind
+        // (an unclosed `**` turns into `strong`), and the differ matches by id
+        const childId = kind => `${id}-${kind}${child++}`;
 
         let vdom;
 
@@ -260,9 +266,9 @@ export default class MarkdownParser {
                     cls: ['neo-md-code'],
                     cn : [{
                         tag: 'code',
-                        id : childId(),
+                        id : childId('code'),
                         ...(raw.lang ? {cls: [`language-${raw.lang}`]} : {}),
-                        cn : [{vtype: 'text', id: childId(), text: raw.lines.join('\n')}]
+                        cn : [{vtype: 'text', id: childId('t'), text: raw.lines.join('\n')}]
                     }]
                 };
                 break
@@ -281,7 +287,7 @@ export default class MarkdownParser {
                     ...(raw.ordered && raw.start !== undefined ? {start: String(raw.start)} : {}),
                     cn : raw.items.map(item => ({
                         tag: 'li',
-                        id : childId(),
+                        id : childId('li'),
                         cn : me.#parseInline(item, childId)
                     }))
                 };
@@ -300,15 +306,15 @@ export default class MarkdownParser {
                     id,
                     cls: ['neo-md-table'],
                     cn : [
-                        {tag: 'thead', id: childId(), cn: [{
+                        {tag: 'thead', id: childId('thead'), cn: [{
                             tag: 'tr',
-                            id : childId(),
-                            cn : raw.header.map(cell => ({tag: 'th', id: childId(), cn: me.#parseInline(cell, childId)}))
+                            id : childId('tr'),
+                            cn : raw.header.map(cell => ({tag: 'th', id: childId('th'), cn: me.#parseInline(cell, childId)}))
                         }]},
-                        {tag: 'tbody', id: childId(), cn: raw.rows.map(row => ({
+                        {tag: 'tbody', id: childId('tbody'), cn: raw.rows.map(row => ({
                             tag: 'tr',
-                            id : childId(),
-                            cn : row.map(cell => ({tag: 'td', id: childId(), cn: me.#parseInline(cell, childId)}))
+                            id : childId('tr'),
+                            cn : row.map(cell => ({tag: 'td', id: childId('td'), cn: me.#parseInline(cell, childId)}))
                         }))}
                     ]
                 };
@@ -337,14 +343,14 @@ export default class MarkdownParser {
      * Everything outside a token — including raw HTML, which the engine renders inert via
      * `textContent` — lands in text nodes.
      * @param {String} content
-     * @param {Function} childId The block-scoped deterministic id dispenser
+     * @param {Function} childId The block-scoped deterministic id dispenser, called with the node's kind
      * @returns {Object[]} vdom `cn` array
      * @private
      */
     #parseInline(content, childId) {
         const
             cn   = [],
-            text = value => value && cn.push({vtype: 'text', id: childId(), text: value});
+            text = value => value && cn.push({vtype: 'text', id: childId('t'), text: value});
 
         let cursor = 0;
 
@@ -355,8 +361,8 @@ export default class MarkdownParser {
             cursor = match.index + full.length;
 
             if (codeSpan !== undefined) {
-                cn.push({tag: 'code', id: childId(), cls: ['neo-md-inline-code'], cn: [
-                    {vtype: 'text', id: childId(), text: codeSpan.trim()}
+                cn.push({tag: 'code', id: childId('code'), cls: ['neo-md-inline-code'], cn: [
+                    {vtype: 'text', id: childId('t'), text: codeSpan.trim()}
                 ]})
             } else if (destination !== undefined) {
                 if (!SAFE_DESTINATION.test(destination) || full.startsWith('!')) {
@@ -366,15 +372,15 @@ export default class MarkdownParser {
                 } else {
                     cn.push({
                         tag : 'a',
-                        id  : childId(),
+                        id  : childId('a'),
                         href: destination,
-                        cn  : [{vtype: 'text', id: childId(), text: label || destination}]
+                        cn  : [{vtype: 'text', id: childId('t'), text: label || destination}]
                     })
                 }
             } else if (strong !== undefined) {
-                cn.push({tag: 'strong', id: childId(), cn: [{vtype: 'text', id: childId(), text: strong}]})
+                cn.push({tag: 'strong', id: childId('strong'), cn: [{vtype: 'text', id: childId('t'), text: strong}]})
             } else if (em !== undefined) {
-                cn.push({tag: 'em', id: childId(), cn: [{vtype: 'text', id: childId(), text: em}]})
+                cn.push({tag: 'em', id: childId('em'), cn: [{vtype: 'text', id: childId('t'), text: em}]})
             }
         }
 
@@ -386,15 +392,22 @@ export default class MarkdownParser {
     /**
      * Line-based block segmentation. Fences consume everything until their closing marker —
      * or the end of input, which leaves them `open` (the streaming state the next append
-     * continues). A trailing paragraph with no blank-line terminator is equally `open`.
+     * continues). A trailing paragraph, list, quote or table with no blank-line terminator is
+     * equally `open`, and so is a heading or break whose line has not ended yet.
+     *
+     * The empty string after a final newline is a line that has not arrived, not a blank line:
+     * a block that reaches it stays open, and its source keeps that newline, so the next append
+     * continues the exact suffix.
      * @param {String} source
      * @returns {Object[]} raw blocks `{type, lines, level?, lang?, open, source}`
      * @private
      */
     #segment(source) {
         const
-            blocks = [],
-            lines  = source.split('\n');
+            blocks     = [],
+            lines      = source.split('\n'),
+            reachesEnd = end => end >= lines.length - (lines.at(-1) === '' ? 1 : 0),
+            sourceOf   = (start, end) => lines.slice(start, reachesEnd(end) ? lines.length : end).join('\n');
 
         let index = 0;
 
@@ -436,7 +449,8 @@ export default class MarkdownParser {
                     type  : BLOCK_TYPES.code,
                     lines : content,
                     lang  : fence[2] || null,
-                    open  : !closed,
+                    // A closing marker on the unfinished last line can still grow into content
+                    open  : !closed || index >= lines.length,
                     source: lines.slice(start, index).join('\n')
                 });
                 continue
@@ -445,20 +459,22 @@ export default class MarkdownParser {
             const heading = line.match(REGEX_HEADING);
 
             if (heading) {
+                index++;
+
                 blocks.push({
                     type  : BLOCK_TYPES.heading,
                     lines : [heading[2].trim()],
                     level : heading[1].length,
-                    open  : false,
+                    open  : index >= lines.length,
                     source: line
                 });
-                index++;
                 continue
             }
 
             if (REGEX_BREAK.test(line)) {
-                blocks.push({type: BLOCK_TYPES.break, open: false, source: line});
                 index++;
+
+                blocks.push({type: BLOCK_TYPES.break, open: index >= lines.length, source: line});
                 continue
             }
 
@@ -497,8 +513,8 @@ export default class MarkdownParser {
                     items,
                     ordered,
                     ...(ordered && startNumber !== 1 ? {start: startNumber} : {}),
-                    open  : index >= lines.length,
-                    source: lines.slice(start, index).join('\n')
+                    open  : reachesEnd(index),
+                    source: sourceOf(start, index)
                 });
                 continue
             }
@@ -516,8 +532,8 @@ export default class MarkdownParser {
                 blocks.push({
                     type  : BLOCK_TYPES.quote,
                     lines : content,
-                    open  : index >= lines.length,
-                    source: lines.slice(start, index).join('\n')
+                    open  : reachesEnd(index),
+                    source: sourceOf(start, index)
                 });
                 continue
             }
@@ -546,8 +562,8 @@ export default class MarkdownParser {
                     type  : BLOCK_TYPES.table,
                     header,
                     rows,
-                    open  : index >= lines.length,
-                    source: lines.slice(start, index).join('\n')
+                    open  : reachesEnd(index),
+                    source: sourceOf(start, index)
                 });
                 continue
             }
@@ -566,8 +582,8 @@ export default class MarkdownParser {
                 lines : content,
                 // A paragraph is only "settled" once a terminator (blank line / next block
                 // opener) exists after it — the trailing paragraph stays open for appends.
-                open  : index >= lines.length,
-                source: lines.slice(start, index).join('\n')
+                open  : reachesEnd(index),
+                source: sourceOf(start, index)
             })
         }
 
