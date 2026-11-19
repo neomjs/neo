@@ -157,13 +157,7 @@ class ComboBox extends Picker {
          * which you want to submit instead
          * @member {Number|String} valueField='id'
          */
-        valueField: 'id',
-        /**
-         * Default width to prevent rendering issues.
-         * @member {Number} width=150
-         * @reactive
-         */
-        width: 150
+        valueField: 'id'
     }
 
     /**
