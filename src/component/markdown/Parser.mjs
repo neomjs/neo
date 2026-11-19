@@ -18,10 +18,11 @@
  * kind, so a tail re-parse cannot hand one node's id to a node of another kind either.
  *
  * **Streaming model:** `update(source)` detects appends (`source.startsWith(previous)`); the
- * settled prefix is reused untouched, only the open tail block (an unterminated fence, a heading
- * whose line has not ended, or a trailing paragraph, list, quote or table) re-parses merged with
- * the appended slice. Any non-append change resets the
- * ledger and re-parses fully with fresh ids. ATX headings only — setext underlines are
+ * settled prefix is reused untouched, and the text after it (the open blocks, and any blank or
+ * indented start of the last line) re-parses with the appended slice. The last line has not
+ * ended, so a paragraph, list, quote or table that stops at it or runs into it stays open: that
+ * line can still become a delimiter row, a continuation or another block. Any non-append change
+ * resets the ledger and re-parses fully with fresh ids. ATX headings only — setext underlines are
  * deliberately unsupported because they retro-promote an already-settled paragraph, which breaks
  * the settled-prefix invariant streaming depends on.
  *
@@ -109,8 +110,8 @@ const REGEX_INLINE = /(`+)([^`]|[^`][\s\S]*?[^`])\1(?!`)|!?\[([^\]]*)\]\(([^)\s]
 export default class MarkdownParser {
     /**
      * Ordered ledger of parsed blocks: `{id, type, source, open, vdom}` — `source` is the raw
-     * slice the block was parsed from (the memo key), `open` marks the streaming tail (an
-     * unterminated fence or the trailing paragraph) which the next append re-parses.
+     * slice the block was parsed from (the memo key), `open` marks the streaming tail the next
+     * append re-parses: the block that stops at the unfinished last line, and the one it starts.
      * @member {Object[]} #blocks
      * @private
      */
@@ -128,6 +129,13 @@ export default class MarkdownParser {
      * @private
      */
     #source = '';
+    /**
+     * Where the text after the last settled block starts in `#source`. An append re-parses from
+     * here, so no character of the unfinished last line is parsed apart from its start.
+     * @member {Number} #settledEnd
+     * @private
+     */
+    #settledEnd = 0;
 
     /**
      * @param {Object} [config]
@@ -154,7 +162,7 @@ export default class MarkdownParser {
      * `units` is the block's structural content size (content lines for code/paragraphs/quotes,
      * items for lists, rows+header for tables, 1 for headings/breaks) — the owner maps units to
      * estimated pixel heights. Settled blocks are immutable, so their `units` are measure-once
-     * facts; only the open tail entry can still change.
+     * facts; only the open entries at the end can still change.
      * @returns {Object[]}
      */
     get blockMeta() {
@@ -171,8 +179,9 @@ export default class MarkdownParser {
      * see `#seq`.
      */
     reset() {
-        this.#blocks = [];
-        this.#source = ''
+        this.#blocks     = [];
+        this.#settledEnd = 0;
+        this.#source     = ''
     }
 
     /**
@@ -194,10 +203,14 @@ export default class MarkdownParser {
             const previous = me.#source;
 
             if (previous.length > 0 && source.startsWith(previous)) {
-                me.#appendParse(source, source.slice(previous.length))
+                me.#appendParse(source)
             } else {
                 me.reset();
-                me.#blocks = me.#segment(source).map(raw => me.#createBlock(raw))
+
+                const {blocks, settledEnd} = me.#segment(source);
+
+                me.#blocks     = blocks.map(raw => me.#createBlock(raw));
+                me.#settledEnd = settledEnd
             }
 
             me.#source = source
@@ -207,36 +220,35 @@ export default class MarkdownParser {
     }
 
     /**
-     * Incremental tail re-parse: drop the open tail block (its id is reused for its grown
-     * continuation), keep every settled block untouched, segment only the tail slice.
+     * Incremental re-parse: keep every settled block untouched, drop the open ones, and segment
+     * the source from the end of the settled prefix. A new block of the same type as the open
+     * block at its position keeps that block's id and diffs in place.
      * @param {String} source The new full source
-     * @param {String} appended The appended slice
      * @private
      */
-    #appendParse(source, appended) {
+    #appendParse(source) {
         const
             me   = this,
-            tail = me.#blocks.at(-1);
+            open = [];
 
-        let reuseId   = null,
-            tailSlice = appended;
-
-        if (tail?.open) {
-            me.#blocks.pop();
-            reuseId   = tail.id;
-            tailSlice = tail.source + appended
+        while (me.#blocks.at(-1)?.open) {
+            open.unshift(me.#blocks.pop())
         }
 
-        me.#segment(tailSlice).forEach((raw, index) => {
-            // A tail that turns into another block type (a paragraph into a table) cannot change in place: its
+        const {blocks, settledEnd} = me.#segment(source.slice(me.#settledEnd));
+
+        blocks.forEach((raw, index) => {
+            // A block that turns into another type (a paragraph into a table) cannot change in place: its
             // children would take the ids of the old ones, so it becomes a new block under a fresh id
-            me.#blocks.push(me.#createBlock(raw, index === 0 && raw.type === tail?.type ? reuseId : null))
-        })
+            me.#blocks.push(me.#createBlock(raw, raw.type === open[index]?.type ? open[index].id : null))
+        });
+
+        me.#settledEnd += settledEnd
     }
 
     /**
      * Parses one raw block slice into its ledger entry. The optional id reuse serves exactly
-     * one case: the open tail block growing across appends (same identity, in-place diff).
+     * one case: an open block growing across appends (same identity, in-place diff).
      * @param {Object} raw `{type, lines, lang, open, source}` from the segmenter
      * @param {String|null} [reuseId=null]
      * @returns {Object} The ledger entry `{id, type, source, open, units, vdom}`
@@ -392,24 +404,32 @@ export default class MarkdownParser {
     /**
      * Line-based block segmentation. Fences consume everything until their closing marker —
      * or the end of input, which leaves them `open` (the streaming state the next append
-     * continues). A trailing paragraph, list, quote or table with no blank-line terminator is
-     * equally `open`, and so is a heading or break whose line has not ended yet.
+     * continues); a heading or break is open while its line has not ended.
      *
-     * The empty string after a final newline is a line that has not arrived, not a blank line:
-     * a block that reaches it stays open, and its source keeps that newline, so the next append
-     * continues the exact suffix.
+     * The last line has not ended: after a final newline it is the empty string of a line that
+     * has not arrived, and any other last line can still grow. A paragraph, list, quote or table
+     * that stops at it or runs into it is `open`, because that line can still turn into a row, a
+     * continuation or a terminator.
      * @param {String} source
-     * @returns {Object[]} raw blocks `{type, lines, level?, lang?, open, source}`
+     * @returns {{blocks: Object[], settledEnd: Number}} raw blocks `{type, lines, level?, lang?, open, source}`,
+     * and the offset where the text after the last settled block starts
      * @private
      */
     #segment(source) {
         const
             blocks     = [],
             lines      = source.split('\n'),
-            reachesEnd = end => end >= lines.length - (lines.at(-1) === '' ? 1 : 0),
+            reachesEnd = end => end >= lines.length - 1,
             sourceOf   = (start, end) => lines.slice(start, reachesEnd(end) ? lines.length : end).join('\n');
 
-        let index = 0;
+        let index   = 0,
+            settled = 0; // the line after the last settled block
+
+        // Every branch has moved `index` past its block when it pushes
+        const push = block => {
+            blocks.push(block);
+            block.open || (settled = index)
+        };
 
         while (index < lines.length) {
             const line = lines[index];
@@ -445,7 +465,7 @@ export default class MarkdownParser {
                     index++
                 }
 
-                blocks.push({
+                push({
                     type  : BLOCK_TYPES.code,
                     lines : content,
                     lang  : fence[2] || null,
@@ -461,7 +481,7 @@ export default class MarkdownParser {
             if (heading) {
                 index++;
 
-                blocks.push({
+                push({
                     type  : BLOCK_TYPES.heading,
                     lines : [heading[2].trim()],
                     level : heading[1].length,
@@ -474,7 +494,7 @@ export default class MarkdownParser {
             if (REGEX_BREAK.test(line)) {
                 index++;
 
-                blocks.push({type: BLOCK_TYPES.break, open: index >= lines.length, source: line});
+                push({type: BLOCK_TYPES.break, open: index >= lines.length, source: line});
                 continue
             }
 
@@ -508,7 +528,7 @@ export default class MarkdownParser {
                     index++
                 }
 
-                blocks.push({
+                push({
                     type  : BLOCK_TYPES.list,
                     items,
                     ordered,
@@ -529,7 +549,7 @@ export default class MarkdownParser {
                     index++
                 }
 
-                blocks.push({
+                push({
                     type  : BLOCK_TYPES.quote,
                     lines : content,
                     open  : reachesEnd(index),
@@ -558,7 +578,7 @@ export default class MarkdownParser {
                     index++
                 }
 
-                blocks.push({
+                push({
                     type  : BLOCK_TYPES.table,
                     header,
                     rows,
@@ -577,7 +597,7 @@ export default class MarkdownParser {
                 index++
             }
 
-            blocks.push({
+            push({
                 type  : BLOCK_TYPES.paragraph,
                 lines : content,
                 // A paragraph is only "settled" once a terminator (blank line / next block
@@ -587,7 +607,8 @@ export default class MarkdownParser {
             })
         }
 
-        return blocks
+        // A settled block ends before the last line, so a newline follows its text
+        return {blocks, settledEnd: settled && lines.slice(0, settled).join('\n').length + 1}
     }
 
     /**

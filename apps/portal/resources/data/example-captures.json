@@ -634,6 +634,44 @@
       "steps": [],
       "after": [{"selector": "th", "text": "Surface", "inRegion": true}, {"selector": "p", "text": "render as plain text", "inRegion": true}],
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "graph-scene",
+      "viewport": {"width": 800, "height": 470},
+      "theme": "default",
+      "state": "The middle of the default 240-node scene with its labels, fitted and drawn, before any orbit.",
+      "ready": [{"selector": "canvas[data-drawn='true']"}],
+      "steps": [],
+      "after": [{"selector": ".graph-scene-stats", "text": "drag orbits"}, {"selector": "canvas[data-drawn='true']"}],
+      "region": {"selector": "canvas", "anchor": "center", "width": 640, "height": 360}
+    },
+    {
+      "id": "sparklines",
+      "viewport": {"width": 960, "height": 540},
+      "theme": "default",
+      "state": "The six metric cards at their opening readings, the feed stopped, the pulse and the smooth updates off.",
+      "ready": [{"selector": ".neo-sparkline-wrapper[data-drawn='true']", "count": 6}],
+      "steps": [
+        {"kind": "click", "selector": ".neo-switchfield", "text": "Live feed"},
+        {"kind": "click", "selector": ".neo-switchfield", "text": "Pulse"},
+        {"kind": "click", "selector": ".neo-switchfield", "text": "Smooth updates"},
+        {"kind": "click", "selector": ".neo-button", "text": "Restart"}
+      ],
+      "after": [
+        {"selector": ".neo-examples-sparkline-value", "text": "1,354 req/s"},
+        {"selector": ".neo-sparkline-wrapper[data-drawn='true']", "count": 6}
+      ],
+      "region": {"selector": ".neo-examples-sparkline-cards", "anchor": "top-left", "width": 640, "height": 360}
+    },
+    {
+      "id": "mermaid",
+      "viewport": {"width": 1120, "height": 443},
+      "theme": "default",
+      "state": "The sequence preset as Mermaid draws it from its source, fitted to the diagram's box.",
+      "ready": [{"selector": ".neo-mermaid[data-processed] svg"}],
+      "steps": [{"kind": "click", "selector": ".neo-button", "text": "Sequence"}],
+      "after": [{"selector": ".neo-mermaid svg", "text": "Confirmation email"}],
+      "region": {"selector": ".neo-mermaid", "anchor": "center", "width": 640, "height": 360}
     }
   ]
 }

@@ -274,17 +274,17 @@ test.describe('Portal examples section', () => {
               counts   = page.locator(`${SIDEBAR} .portal-examples-group-index-count`);
 
         await expect(page.locator(SIDEBAR)).toBeVisible();
-        await expect(headline).toHaveText('101 live examples in 21 groups');
-        expect((await counts.allTextContents()).filter(text => !text.startsWith('(')).reduce((sum, text) => sum + Number(text), 0)).toBe(101);
+        await expect(headline).toHaveText('104 live examples in 21 groups');
+        expect((await counts.allTextContents()).filter(text => !text.startsWith('(')).reduce((sum, text) => sum + Number(text), 0)).toBe(104);
         await expect(page.locator(`${SIDEBAR} .portal-examples-group-index-note`)).toBeVisible();
         await expect(page.locator(`${FEATURED} .neo-list-item`).first().locator('.portal-example-group-badge')).toHaveText('Multi-Window');
 
         // Dev mode cannot open liquid-glass, one of the two cards of More components; the markdown card and the ten tiles stay
         await selectBuild(page, 'Dev mode');
-        await expect(headline).toHaveText('100 live examples in 21 groups');
+        await expect(headline).toHaveText('103 live examples in 21 groups');
         await expect(page.locator(SIDEBAR).getByRole('link', {name: 'More components, 11 live examples'})).toHaveCount(1);
         await selectBuild(page, 'Production build');
-        await expect(headline).toHaveText('101 live examples in 21 groups')
+        await expect(headline).toHaveText('104 live examples in 21 groups')
     });
 
     test('the index is a navigation landmark of links: Tab reaches every entry, Enter opens it, no entry claims to be a tab', async ({page, neuralLink}) => {

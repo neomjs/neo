@@ -333,35 +333,49 @@ test.describe('MarkdownParser — extended block grammar', () => {
 });
 
 test.describe('MarkdownParser — a streamed document ends as its one-shot parse', () => {
-    // Every block type, and lines a chunk can cut anywhere: a heading mid-word, a table header before its delimiter
-    const source = '# Title\n\nA paragraph that wraps\nacross two lines.\n\n## Why transcripts need this\n\n' +
-                   '- one\n- two\n\n1. first\n2. second\n\n> a quote\n> on two lines\n\n```js\nconst x = 1;\n```\n\n' +
-                   '| Surface | Layer |\n|---|---|\n| Parser | App Worker |\n| Deltas | Main |\n\n---\n\nThe end.\n';
+    const documents = [
+        // Every block type, and lines a chunk can cut anywhere: a heading mid-word, a table header before its delimiter
+        '# Title\n\nA paragraph that wraps\nacross two lines.\n\n## Why transcripts need this\n\n' +
+        '- one\n- two\n\n1. first\n2. second\n\n> a quote\n> on two lines\n\n```js\nconst x = 1;\n```\n\n' +
+        '| Surface | Layer |\n|---|---|\n| Parser | App Worker |\n| Deltas | Main |\n\n---\n\nThe end.\n',
+        // A chunk can end in the indentation or the first cells of a line that still decides the block before it
+        '- alpha\n- beta\n  continues here\n',
+        '- alpha\n  - beta\n  - gamma\n',
+        'first line\n  second line\n',
+        '> line one\n  > line two\n',
+        '| a | b |\n  |---|---|\n  | 1 | 2 |\n',
+        '# Title\n\n    - four spaces not a list\n',
+        '# Title\n\n # Not a heading\n',
+        'Surface | Layer\n---|---\nParser | App Worker\nDeltas | Main\n',
+        '| a | b |\n---|\n| 1 | 2 |\n'
+    ];
 
     const shape = nodes => nodes.map(node => ({tag: node.tag, text: textOf(node.cn ?? [])}));
 
     [1, 2, 3, 5, 7, 11, 24].forEach(size => {
         test(`in chunks of ${size} characters, with every id naming one kind of node`, () => {
-            const expected = shape(new MarkdownParser({idPrefix: 'whole'}).update(source)),
-                  parser   = new MarkdownParser({idPrefix: 'stream'}),
-                  kinds    = new Map(),
-                  // The differ matches nodes by id: one id naming a text node, then a table head, keeps the text
-                  track    = nodes => nodes.forEach(node => {
-                      const kind = node.vtype === 'text' ? '#text' : node.tag;
+            documents.forEach(source => {
+                const expected = shape(new MarkdownParser({idPrefix: 'whole'}).update(source)),
+                      parser   = new MarkdownParser({idPrefix: 'stream'}),
+                      kinds    = new Map(),
+                      // The differ matches nodes by id: one id naming a text node, then a table head, keeps the text
+                      track    = nodes => nodes.forEach(node => {
+                          const kind = node.vtype === 'text' ? '#text' : node.tag;
 
-                      expect(kinds.get(node.id) ?? kind, `${node.id} names one kind of node`).toBe(kind);
-                      kinds.set(node.id, kind);
-                      node.cn && track(node.cn)
-                  });
+                          expect(kinds.get(node.id) ?? kind, `${node.id} names one kind of node`).toBe(kind);
+                          kinds.set(node.id, kind);
+                          node.cn && track(node.cn)
+                      });
 
-            let blocks;
+                let blocks;
 
-            for (let end = size; end - size < source.length; end += size) {
-                blocks = parser.update(source.slice(0, end));
-                track(blocks)
-            }
+                for (let end = size; end - size < source.length; end += size) {
+                    blocks = parser.update(source.slice(0, end));
+                    track(blocks)
+                }
 
-            expect(shape(blocks)).toEqual(expected)
+                expect(shape(blocks), JSON.stringify(source)).toEqual(expected)
+            })
         })
     })
 });
