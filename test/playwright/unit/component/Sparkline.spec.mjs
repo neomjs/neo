@@ -154,5 +154,47 @@ test.describe('Neo.component.Sparkline drawn', () => {
 
         await answer('updateData');
         await expect.poll(() => sparkline.drawn).toBe(true)
+    });
+
+    test('cleared values reset drawn', async () => {
+        await createSparkline({values: [3, 1, 4, 1, 5]});
+
+        sparkline.offscreenRegistered = true;
+
+        await answer('register');
+        await answer('updateData');
+        await answer('updateSize');
+        await expect.poll(() => sparkline.drawn).toBe(true);
+
+        sparkline.values = null;
+
+        expect(sparkline.drawn, 'a canvas without values shows no content').toBe(false);
+        expect(sparkline.vdom['data-drawn']).toBe(null)
+    });
+
+    test('a sparkline destroyed while the renderer answers sends nothing more', async () => {
+        await createSparkline({values: [3, 1, 4, 1, 5]});
+
+        sparkline.offscreenRegistered = true;
+
+        await answer('register');
+        await expect.poll(() => calls[0]?.name).toBe('updateData');
+
+        const destroyed    = sparkline;
+        let   domRectReads = 0;
+
+        sparkline = null;
+        destroyed.destroy();
+
+        // destroy() deleted the instance's own stub: a size sync would now reach this one
+        destroyed.getDomRect = async () => {domRectReads++; return {height: 45, width: 139}};
+
+        calls.shift().resolve();
+
+        // Microtask turns only: each awaited call continues inside them
+        for (let turn = 0; turn < 10; turn++) await Promise.resolve();
+
+        expect(domRectReads, 'no size read').toBe(0);
+        expect(calls.map(call => call.name), 'no renderer call').toEqual([])
     })
 });

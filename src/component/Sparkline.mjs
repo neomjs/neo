@@ -139,12 +139,16 @@ class Sparkline extends Canvas {
     async afterSetValues(value, oldValue) {
         let me = this;
 
-        if (me.offscreenRegistered && value) {
-            await me.renderer?.updateData({
-                canvasId: me.id,
-                values  : value,
-                windowId: me.windowId
-            });
+        if (me.offscreenRegistered) {
+            if (value) {
+                await me.renderer?.updateData({
+                    canvasId: me.id,
+                    values  : value,
+                    windowId: me.windowId
+                });
+
+                if (me.isDestroyed) return
+            }
 
             me.syncDrawn()
         }
@@ -188,6 +192,8 @@ class Sparkline extends Canvas {
     }
 
     /**
+     * Registers the canvas, sends its values and syncs its size. A sparkline destroyed while one of these calls is
+     * in flight stops at the answer: it sends nothing more and sets no flag.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      */
@@ -206,18 +212,22 @@ class Sparkline extends Canvas {
                 windowId        : me.windowId
             });
 
+            if (me.isDestroyed) return;
+
             if (values) {
                 await me.renderer?.updateData({
                     canvasId: me.id,
                     values,
                     windowId: me.windowId
-                })
+                });
+
+                if (me.isDestroyed) return
             }
 
             // Initial size sync
             let rect = await me.getDomRect(me.id);
 
-            if (rect) {
+            if (rect && !me.isDestroyed) {
                 await me.renderer?.updateSize({
                     canvasId        : me.id,
                     devicePixelRatio: Neo.config.devicePixelRatio,
@@ -225,6 +235,8 @@ class Sparkline extends Canvas {
                     width           : rect.width,
                     windowId        : me.windowId
                 });
+
+                if (me.isDestroyed) return;
 
                 me.#sized = me.offscreenRegistered;
                 me.syncDrawn()
@@ -324,6 +336,8 @@ class Sparkline extends Canvas {
                 width           : data.contentRect.width,
                 windowId        : me.windowId
             });
+
+            if (me.isDestroyed) return;
 
             me.#sized = me.offscreenRegistered;
             me.syncDrawn()
