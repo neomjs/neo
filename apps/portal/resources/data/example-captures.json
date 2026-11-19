@@ -743,7 +743,7 @@
     {
       "id": "tab-browser",
       "viewport": {"width": 640, "height": 360},
-      "theme": "default",
+      "theme": "dark",
       "state": "The opening strip: the tabs that fit, the overflow control and the + action, over the Inbox page.",
       "ready": [{"selector": ".neo-tab-header-button", "text": "Inbox"}, {"selector": ".neo-tab-overflow-control"}],
       "steps": [],
