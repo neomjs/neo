@@ -161,32 +161,34 @@ test.describe('Portal examples overview and group pages', () => {
     });
 
     test('a component record is a tile: it counts as a live example, and its page\'s tileCount follows the build', () => {
-        // the clock's tile cannot open in the ESM build, liquid-glass's card cannot open in Dev mode
-        const records = structuredClone(catalog).map(record => record.id === 'clock' ? {...record, hiddenIn: ['dist_esm']} : record),
-              view    = createView(records),
-              group   = () => view.getGroupStore().get('components'),
-              page    = view.getGroupPage('components'),
-              heading = reference => page.down({reference}),
-              // one card, liquid-glass, and the rest tiles
-              count   = groupCounts.components[0];
+        // the clock's tile cannot open in the ESM build, liquid-glass's card cannot open in Dev mode, and here
+        // neither can the markdown card, so Dev mode shows tiles alone
+        const hiddenIn = {clock: ['dist_esm'], markdown: ['devmode']},
+              records  = structuredClone(catalog).map(record => hiddenIn[record.id] ? {...record, hiddenIn: hiddenIn[record.id]} : record),
+              view     = createView(records),
+              group    = () => view.getGroupStore().get('components'),
+              page     = view.getGroupPage('components'),
+              heading  = reference => page.down({reference}),
+              // two cards, markdown and liquid-glass, and the rest tiles
+              count    = groupCounts.components[0];
 
         expect(view.getCatalogStore().get('liquid-glass').kind).toBe('demonstration');
         expect(view.getCatalogStore().get('clock').kind).toBe('component');
-        expect([group().count, group().tileCount]).toEqual([count, count - 1]);
+        expect([group().count, group().tileCount]).toEqual([count, count - 2]);
 
         // the card shows under "Demonstrations", the tiles by name under the default tile heading
-        expect(pageIds(view, 'components')).toEqual(['liquid-glass']);
-        expect(tileIds(view, 'components')).toEqual(['chip', 'circle', 'clock', 'magic-move-text', 'monaco-editor', 'progress', 'status-badge', 'timer']);
+        expect(pageIds(view, 'components')).toEqual(['markdown', 'liquid-glass']);
+        expect(tileIds(view, 'components')).toEqual(['chip', 'circle', 'clock', 'magic-move-text', 'monaco-editor', 'process', 'progress', 'splitter', 'status-badge', 'timer']);
         expect([heading('cards-heading').hidden, heading('tiles-heading').hidden, heading('tiles-heading').text]).toEqual([false, false, 'Components']);
 
         // the same rule publishes a tile and a card: a build that cannot open the tile drops it from both counts
         view.getController().onSelectBuild({id: 'dist_esm'});
-        expect([group().count, group().tileCount]).toEqual([count - 1, count - 2]);
+        expect([group().count, group().tileCount]).toEqual([count - 1, count - 3]);
         expect(tileIds(view, 'components')).not.toContain('clock');
 
         // a page that shows one kind heads neither
         view.getController().onSelectBuild({id: 'devmode'});
-        expect([group().count, group().tileCount]).toEqual([count - 1, count - 1]);
+        expect([group().count, group().tileCount]).toEqual([count - 2, count - 2]);
         expect(pageIds(view, 'components')).toEqual([]);
         expect([heading('cards-heading').hidden, heading('tiles-heading').hidden]).toEqual([true, true])
     });
@@ -444,6 +446,8 @@ test.describe('Portal examples overview and group pages', () => {
         expect(pageIds(view, 'dialogs')).toEqual(['dialog-drag-drop', 'toast', 'popover']);
         expect(pageIds(view, 'drag-drop').filter(id => id === 'dialog-drag-drop')).toHaveLength(1);
         expect(pageIds(view, 'platform')).toEqual(['offscreen-canvas', 'shared-offscreen-canvas']);
+        // the paging toolbar reaches Buttons through the grid that runs it on the simulated server
+        expect(pageIds(view, 'buttons')).toEqual(['context-menu-files', 'breadcrumb', 'grid-server-side']);
         expect(pageIds(view, 'charts')).toEqual(['offscreen-canvas', 'open-street-maps', 'graph-scene', 'am-charts', 'sparklines', 'mermaid']);
         expect(pageIds(view, 'tree')).toEqual(['grid-tree-big-data', 'grid-tree']);
         expect(view.getGroupStore().get('dialogs').count).toBe(3);
@@ -481,7 +485,7 @@ test.describe('Portal examples overview and group pages', () => {
         controller.onSelectBuild({id: 'dist_prod'});
         expect(view.getGroupStore().items.map(group => group.route)).toEqual(publishedRoutes);
         expect(openCard(view)).toBe('components');
-        expect(pageIds(view, 'components')).toEqual(['liquid-glass'])
+        expect(pageIds(view, 'components')).toEqual(['markdown', 'liquid-glass'])
     });
 
     test('an open page stays open when a build switch removes or adds another page', async () => {
@@ -639,10 +643,9 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
       ],
       componentExampleIds = [
           'carousel', 'chip', 'circle', 'clock', 'magic-move-text',
-          'markdown', 'mwc-button', 'mwc-buttons', 'mwc-text-field', 'mwc-text-fields',
-          'process', 'process-real-world', 'progress', 'splitter', 'status-badge', 'timer',
+          'markdown', 'process', 'progress', 'splitter', 'status-badge', 'timer',
           'toast', 'popover', 'video', 'monaco-editor', 'open-street-maps', 'graph-scene', 'am-charts',
-          'sparklines', 'mermaid', 'video-move'
+          'sparklines', 'mermaid', 'video-move', 'context-menu-files', 'breadcrumb'
       ],
       establishedMiddleIds = [
           'table-filtering', 'date-selector', 'date-field', 'combobox-field', 'portal', 'liquid-glass'
@@ -713,15 +716,15 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           layouts       : [3, 0],
           dialogs       : [3, 0],
           forms         : [28, 1],
-          buttons       : [2, 0],
-          components    : [9, 0],
+          buttons       : [4, 1],
+          components    : [12, 0],
           'multi-window': [6, 3],
           platform      : [2, 1],
           state         : [1, 0],
           functional    : [3, 1],
           'drag-drop'   : [0, 3]
       },
-      recordCount    = 127,
+      recordCount    = 124,
       publishedCount = Object.values(groupCounts).reduce((sum, [count]) => sum + count, 0),
       groupCount     = Object.keys(groupCounts).length,
       // every record with a cover publishes in a production build, so the rest wait for one
@@ -833,15 +836,17 @@ test.describe('Portal examples canonical catalog', () => {
     test('visual component records keep their captions and build destinations in their home groups', () => {
         const store = createView().getCatalogStore(),
               homes = {
-                  'am-charts'       : 'charts',
-                  carousel          : 'lists',
-                  'graph-scene'     : 'charts',
-                  mermaid           : 'charts',
-                  'open-street-maps': 'charts',
-                  popover           : 'dialogs',
-                  sparklines        : 'charts',
-                  toast             : 'dialogs',
-                  'video-move'      : 'platform'
+                  'am-charts'         : 'charts',
+                  breadcrumb          : 'buttons',
+                  carousel            : 'lists',
+                  'context-menu-files': 'buttons',
+                  'graph-scene'       : 'charts',
+                  mermaid             : 'charts',
+                  'open-street-maps'  : 'charts',
+                  popover             : 'dialogs',
+                  sparklines          : 'charts',
+                  toast               : 'dialogs',
+                  'video-move'        : 'platform'
               };
 
         for (const id of componentExampleIds) {
@@ -903,6 +908,7 @@ test.describe('Portal examples canonical catalog', () => {
             'dialog-drag-drop'       : ['drag-drop'],
             'colors-dashboard'       : ['apps', 'dashboard'],
             'grid-tree'              : ['tree'],
+            'grid-server-side'       : ['buttons'],
             'form-app'               : ['apps'],
             'layout-form'            : ['forms'],
             'timeline-basic'         : ['scheduler'],

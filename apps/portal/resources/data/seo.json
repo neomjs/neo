@@ -1149,13 +1149,13 @@
     },
     "/examples/buttons": {
         "title": "JavaScript Buttons, Menus & Toolbars — Live Examples | Neo.mjs",
-        "description": "Explore 2 live JavaScript button and menu examples: A button with icon, badge, ripple and tooltip, each a live config; A menu list over a store.",
+        "description": "Explore 5 live JavaScript button and menu examples: A right-click on a project file opens its actions at the pointer, and every action changes the list.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-19"
     },
     "/examples/components": {
         "title": "JavaScript UI Component Examples — Off the Main Thread | Neo.mjs",
-        "description": "Explore 9 live JavaScript UI component examples: A compact chip combines an icon, editable text and an optional close action.",
+        "description": "Explore 12 live JavaScript UI component examples: A compact chip combines an icon, editable text and an optional close action.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-19"
     },
@@ -1383,9 +1383,9 @@
     },
     "/examples/component/markdown/index.html": {
         "title": "Markdown VDOM (streaming) — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Markdown is parsed into VDOM subtrees and supports incremental streaming updates. Press Stream demo and watch headings, lists, code, a table and a quote...",
+        "description": "Markdown is parsed into VDOM subtrees and supports incremental streaming updates. The page opens streaming: headings, lists, code, a table and a quote...",
         "schemaType": "WebPage",
-        "lastmod": "2026-06-13"
+        "lastmod": "2026-11-19"
     },
     "/examples/component/multiWindowCoronaGallery/index.html": {
         "title": "Multi-Window Country Gallery — Multi-Window Demo | Neo.mjs",
@@ -1401,37 +1401,37 @@
     },
     "/examples/component/mwc/button/index.html": {
         "title": "MWC Button — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "A Material button exposes dense, outlined, raised, icon and disabled states. Toggle outlined and raised, change the label or icon, and compare the button...",
+        "description": "Live runnable MWC Button example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
         "schemaType": "WebPage",
         "lastmod": "2024-08-17"
     },
     "/examples/component/mwc/buttons/index.html": {
         "title": "MWC Buttons — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Two tabs compare standard, outlined, raised, unelevated, dense and icon button variants. Switch between Tab 1 and Tab 2 and compare each button style.",
+        "description": "Live runnable MWC Buttons example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
         "schemaType": "WebPage",
         "lastmod": "2024-11-18"
     },
     "/examples/component/mwc/textField/index.html": {
         "title": "MWC TextField — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "A Material text field exposes helper text, leading and trailing icons, outlined styling and validation. Change the value and press check validity (the...",
+        "description": "Live runnable MWC TextField example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
         "schemaType": "WebPage",
         "lastmod": "2024-08-17"
     },
     "/examples/component/mwc/textFields/index.html": {
         "title": "MWC TextFields — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Filled and outlined text-field variants, on two tabs, show optional icons and helper text. Switch between the Filled and Outlined tabs and compare the field...",
+        "description": "Live runnable MWC TextFields example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
         "schemaType": "WebPage",
         "lastmod": "2024-11-18"
     },
     "/examples/component/process/index.html": {
         "title": "Process Component — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "A process component connects ordered steps with configurable orientation, arrows and icons. Toggle horizontal and change the arrow or icon color; the stages...",
+        "description": "A process component connects ordered steps with configurable orientation, arrows and icons. Toggle horizontal and change the arrow or icon color; the trip's...",
         "schemaType": "WebPage",
-        "lastmod": "2024-08-17"
+        "lastmod": "2026-11-19"
     },
     "/examples/component/process/realWorldExample/index.html": {
         "title": "Process Real World Example — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "An electric-vehicle trip calculator turns staged battery and odometer inputs into remaining range and consumption. Set the start and end battery percentages...",
+        "description": "Live runnable Process Real World Example example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
         "schemaType": "WebPage",
         "lastmod": "2024-08-17"
     },
@@ -1449,9 +1449,9 @@
     },
     "/examples/component/splitter/index.html": {
         "title": "Splitter — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "A draggable splitter resizes adjacent panels in either orientation. Drag the divider, then toggle horizontal and live resize in the configuration panel.",
+        "description": "A draggable splitter resizes adjacent panels in either orientation. Drag the bar between the folders and the inbox, then toggle horizontal and live resize...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-17"
+        "lastmod": "2026-11-19"
     },
     "/examples/component/statusbadge/index.html": {
         "title": "StatusBadge — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1993,6 +1993,12 @@
         "schemaType": "WebPage",
         "lastmod": "2026-08-29"
     },
+    "/examples/menu/contextFiles/index.html": {
+        "title": "Context Menu: Project Files — JavaScript UI Demo | Neo.mjs",
+        "description": "A right-click on a project file opens its actions at the pointer, and every action changes the list. Right-click a file to move, star, duplicate or delete...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-19"
+    },
     "/examples/menu/list/index.html": {
         "title": "MenuList — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A menu list over a store. Move through the items with the arrow keys, and resize the menu in the panel.",
@@ -2169,9 +2175,9 @@
     },
     "/examples/toolbar/breadcrumb/index.html": {
         "title": "Breadcrumb Toolbar — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Live runnable Breadcrumb Toolbar example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "description": "A breadcrumb over the engine repository's folders: a subfolder goes one level down, a crumb goes back up. Open grid under src, then press the neo crumb to...",
         "schemaType": "WebPage",
-        "lastmod": "2025-07-11"
+        "lastmod": "2026-11-19"
     },
     "/examples/tree/index.html": {
         "title": "Tree — Web Worker JavaScript UI Demo | Neo.mjs",

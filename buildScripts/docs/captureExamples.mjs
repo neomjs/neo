@@ -57,10 +57,12 @@ function check(value, field) {
     if (value.minDistinctHeights !== undefined) insist(Number.isInteger(value.minDistinctHeights) && value.minDistinctHeights >= 2, `${field}.minDistinctHeights`, 'expected an integer of at least two')
 }
 
-/** @summary Validates the small public-DOM action vocabulary, including dynamic text-based fills. */
+/** @summary Validates the small public-DOM action vocabulary, including dynamic text-based fills and right-clicks. */
 function step(value, field) {
-    keys(value, ['kind', 'selector', 'text', 'nth', 'value', 'fromSelector', 'key', 'x', 'y'], field);
+    keys(value, ['kind', 'selector', 'text', 'nth', 'value', 'fromSelector', 'key', 'x', 'y', 'button'], field);
     insist(STEP_KINDS.has(value.kind), `${field}.kind`, 'unsupported action');
+    // A right-click opens a context menu; no other action takes a button
+    insist(value.button === undefined || value.kind === 'click' && ['left', 'right'].includes(value.button), `${field}.button`, 'only click takes button: left or right');
     text(value.selector, `${field}.selector`);
     if (value.text !== undefined) text(value.text, `${field}.text`);
     if (value.nth !== undefined) insist(Number.isInteger(value.nth) && value.nth >= 0, `${field}.nth`, 'expected a nonnegative integer');
@@ -228,7 +230,7 @@ async function actions(page, entries) {
             value = (await page.locator(entry.fromSelector).first().innerText()).trim();
             insist(value.length > 0, entry.fromSelector, 'dynamic fill text is empty')
         }
-        if (entry.kind === 'click') await target.click();
+        if (entry.kind === 'click') await target.click({button: entry.button ?? 'left'});
         else if (entry.kind === 'dblclick') await target.dblclick();
         else if (entry.kind === 'fill') await target.fill(value);
         else if (entry.kind === 'press') await target.press(entry.key);

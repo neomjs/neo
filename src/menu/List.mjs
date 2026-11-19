@@ -249,10 +249,16 @@ class List extends BaseList {
      * @protected
      */
     afterSetItems(value, oldValue) {
-        let {store} = this;
+        let me      = this,
+            {store} = me;
 
-        oldValue && store.clear(); // we can not use remove() here, since items are no records => often no id
-        value    && store.add(value)
+        if (oldValue) {
+            // A submenu is built once from its item's nested items, so items that replace them need their own
+            me.destroySubMenus();
+            store.clear() // we can not use remove() here, since items are no records => often no id
+        }
+
+        value && store.add(value)
     }
 
     /**
@@ -410,12 +416,10 @@ class List extends BaseList {
      * @private
      */
     #releaseSource() {
-        let me                        = this,
-            {sourceStore, subMenuMap} = me;
+        let me            = this,
+            {sourceStore} = me;
 
         if (sourceStore) {
-            me.hideSubMenu(false);
-
             sourceStore.un({
                 filter      : me.onSourceStoreFilter,
                 mutate      : me.onSourceStoreMutate,
@@ -424,10 +428,7 @@ class List extends BaseList {
                 scope       : me
             });
 
-            Object.entries(subMenuMap || {}).forEach(([key, value]) => {
-                value?.destroy();
-                subMenuMap[key] = null
-            });
+            me.destroySubMenus();
 
             me.#ownsSourceStore && sourceStore.destroy();
 
@@ -546,20 +547,26 @@ class List extends BaseList {
      *
      */
     destroy(...args) {
-        let me         = this,
-            subMenuMap = me.subMenuMap || {};
+        let me = this;
 
         me.syncOutsidePointerListener(false);
-        me.hideSubMenu(false);
         me.#releaseSource();
-
         // The submenus of the classic nested-items API; a tree source's went with it
-        Object.entries(subMenuMap).forEach(([key, value]) => {
-            value?.destroy();
-            subMenuMap[key] = null
-        });
+        me.destroySubMenus();
 
         super.destroy(...args)
+    }
+
+    /**
+     * Hides the open submenu and destroys every cached one, so the next `showSubMenu()` builds from the current records
+     * @protected
+     */
+    destroySubMenus() {
+        let me = this;
+
+        me.hideSubMenu(false);
+        Object.values(me.subMenuMap || {}).forEach(menu => menu.destroy());
+        me.subMenuMap = null
     }
 
     /**

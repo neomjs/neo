@@ -302,7 +302,7 @@ test.describe('Portal examples section', () => {
         await expect(counts.filter({hasText: '('}), 'no count needs a footnote').toHaveCount(0);
         await expect(page.locator(`${FEATURED} .neo-list-item`).first().locator('.portal-example-group-badge')).toHaveText('Multi-Window');
 
-        // Dev mode cannot open liquid-glass, the one card of More components; its tiles stay
+        // Dev mode cannot open liquid-glass, one of the two cards of More components; the markdown card and the tiles stay
         await selectBuild(page, 'Dev mode');
         await expect(headline).toHaveText(headlineOf(published - 1));
         await expect(page.locator(SIDEBAR).getByRole('link', {name: `More components, ${componentCount - 1} live examples`})).toHaveCount(1);
@@ -455,7 +455,7 @@ test.describe('Portal examples section', () => {
               tiles = page.locator(`${TILES} .neo-list-item`);
 
         await expect(page.locator(`${PAGE} .portal-examples-kind-heading`)).toHaveText(['Demonstrations', 'Components']);
-        await expect(page.locator(`${CARDS} .neo-list-item .neo-title`)).toHaveText(['Liquid Glass effect']);
+        await expect(page.locator(`${CARDS} .neo-list-item .neo-title`)).toHaveText(['Markdown VDOM', 'Liquid Glass effect']);
         // the Store behind the tiles holds the count to show, so a new tile changes only the unit spec's table
         await expect(tiles.first()).toBeVisible();
         await expect(tiles).toHaveCount((await readList(app, 'components', 'tile-list')).properties.store.count)
