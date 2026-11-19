@@ -243,10 +243,12 @@ test.describe('e2e CI selection — the engine tier and the local-only specs', (
         expect(split(), 'every shard computes the same split').toEqual(split());
     });
 
-    test('a file the table does not list yet counts as its median, and a shard that is not N/M is refused', () => {
-        const durations = {'a.spec.mjs': 10, 'b.spec.mjs': 20, 'c.spec.mjs': 90};
+    test('a file the table does not list yet plans at its 90th percentile, and a shard that is not N/M is refused', () => {
+        // Twenty files of 5 s to 100 s: the median is 55 s, the 90th percentile 95 s, the maximum 100 s
+        const durations = Object.fromEntries(Array.from({length: 20}, (_, index) => [`f${index}.spec.mjs`, (index + 1) * 5]));
 
-        expect(balancedShard({paths: ['new.spec.mjs'], shard: '1/1', durations}).seconds).toBe(20);
+        expect(balancedShard({paths: ['new.spec.mjs'], shard: '1/1', durations}).seconds).toBe(95);
+        expect(balancedShard({paths: ['new.spec.mjs'], shard: '1/1', durations: {}}).seconds, 'an empty table plans nothing').toBe(0);
 
         for (const shard of ['0/10', '11/10', '1/0', '3', 'a/b', '']) {
             expect(() => balancedShard({paths: [], shard, durations})).toThrow(`Shard '${shard}' is not N/M`);
