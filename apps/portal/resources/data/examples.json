@@ -1242,8 +1242,8 @@
         "hiddenIn": [],
         "family": "grid-table",
         "component": "Grid",
-        "feature": "Cell, row and column selection",
-        "lookFor": "Switch between cell, row, column and combined selection, then change the grid height."
+        "feature": "Cell, row, column and crosshair selection modes",
+        "lookFor": "Click any shift on a 42-clinician weekly roster, move with ArrowUp/Down/Left/Right, and switch between Cell, Column, Row and combined crosshair models."
     },
     {
         "id": "grid-content-sized-rows",
