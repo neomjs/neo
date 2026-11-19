@@ -142,7 +142,7 @@ class Split extends Button {
 
     /**
      * Triggered after the menu config got changed. The trigger button owns the menu, so this split button
-     * creates no list of its own.
+     * builds no list of its own, and a click on the main button leaves the menu alone.
      * @param {Object|Object[]|null} value
      * @param {Object|Object[]|null} oldValue
      * @protected
@@ -240,21 +240,6 @@ class Split extends Button {
      */
     getVnodeRoot() {
         return this.vnode.childNodes[0];
-    }
-
-    /**
-     * Runs the main button's handler, route and ripple. The menu belongs to the trigger button, so this
-     * click leaves it alone.
-     * @param {Object} data The click event data object.
-     */
-    onClick(data) {
-        let me = this;
-
-        me.bindCallback(me.handler, 'handler', me.handlerScope || me);
-        me.handler?.(data);
-
-        me.route           && me.changeRoute();
-        me.useRippleEffect && me.showRipple(data)
     }
 
     /**
