@@ -101,12 +101,28 @@ class MainContainer extends ConfigurationViewport {
             style : {border: '1px solid var(--panel-border-color)'},
             width : 600,
             items : [{
-                ntype: 'component'
+                ntype: 'component',
+                style: {padding: '0 1em'},
+                vdom : {cn: [
+                    {tag: 'h3', text: 'Folders'},
+                    {tag: 'ul', cn: [
+                        {tag: 'li', text: 'Inbox'},
+                        {tag: 'li', text: 'Drafts'},
+                        {tag: 'li', text: 'Sent'},
+                        {tag: 'li', text: 'Archive'}
+                    ]}
+                ]}
             }, {
                 module    : Splitter,
                 liveResize: true
             }, {
-                ntype: 'component'
+                ntype: 'component',
+                style: {padding: '0 1em'},
+                vdom : {cn: [
+                    {tag: 'h3', text: 'Inbox'},
+                    {tag: 'p',  text: 'Drag the bar between the panels: one side grows as the other shrinks.'},
+                    {tag: 'p',  text: 'With live resize on, both panels follow the pointer; with it off, they resize on release.'}
+                ]}
             }]
         })
     }

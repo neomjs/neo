@@ -115,6 +115,18 @@ class MainContainer extends Viewport {
     streamRun = 0
 
     /**
+     * The page opens streaming: the first mount starts the stream demo, so the proof needs no click.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
+        value && !this.streamRun && this.onStreamButtonClick()
+    }
+
+    /**
      * Streams the canonical source into the component in fixed-size chunks, simulating an
      * LLM response producer: the value re-assigns as the GROWING full source per tick, which
      * is exactly the append shape the parser's incremental path consumes.
