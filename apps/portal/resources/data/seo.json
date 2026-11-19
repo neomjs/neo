@@ -1125,7 +1125,7 @@
     },
     "/examples/tabs": {
         "title": "JavaScript Tabs — Reorderable Tab Bars & Overflow | Neo.mjs",
-        "description": "Explore 1 live JavaScript tabs example: Tab buttons whose text, icon, color and badge change live.",
+        "description": "Explore 2 live JavaScript tabs examples: Tab buttons whose text, icon, color and badge change live.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-19"
     },
@@ -2106,11 +2106,17 @@
         "schemaType": "WebPage",
         "lastmod": "2025-07-29"
     },
+    "/examples/tab/browser/index.html": {
+        "title": "Browser-Style Tabs — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Thirty tabs in one strip close, open, reorder by drag and overflow into a menu. Drag a tab to a new place, close one with its ×, open one with +, then pick...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-19"
+    },
     "/examples/tab/container/index.html": {
         "title": "TabContainer — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "Tab buttons whose text, icon, color and badge change live. Type a new Tab 1 text and a badgeText, then pick another badgePosition.",
         "schemaType": "WebPage",
-        "lastmod": "2026-08-20"
+        "lastmod": "2026-11-19"
     },
     "/examples/table/container/index.html": {
         "title": "TableContainer — Web Worker Data Grid Demo | Neo.mjs",

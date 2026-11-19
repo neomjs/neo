@@ -1,0 +1,7 @@
+{
+    "appPath"    : "examples/tab/browser/app.mjs",
+    "basePath"   : "../../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs",
+    "themes"     : ["neo-theme-neo-light", "neo-theme-neo-dark"]
+}

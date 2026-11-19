@@ -1,0 +1,36 @@
+/* Thirty tabs in one strip, each tab a small page. Colours come from the neo theme tokens, so the page follows the
+   light and the dark neo theme. */
+.neo-example-browser {
+    background-color: var(--neo-background-color);
+    color           : var(--neo-color);
+    font-family     : var(--neo-font-family);
+}
+
+.neo-example-browser-claim {
+    font-size  : 14px;
+    line-height: 1.45;
+    opacity    : .85;
+    padding    : 12px 16px;
+}
+
+.neo-example-browser-page {
+    overflow: auto;
+    padding : 24px 28px;
+
+    h2 {
+        font-size  : 22px;
+        font-weight: 600;
+        margin     : 0 0 6px;
+    }
+
+    p {
+        font-size: 15px;
+        margin   : 0 0 10px;
+    }
+
+    .neo-example-browser-address {
+        font-family: monospace;
+        font-size  : 13px;
+        opacity    : .7;
+    }
+}

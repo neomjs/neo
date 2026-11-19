@@ -388,11 +388,12 @@
     },
     {
         "id": "tab-container",
+        "kind": "component",
         "family": "tabs",
         "feature": "Tab buttons whose text, icon, color and badge change live",
         "lookFor": "Type a new Tab 1 text and a badgeText, then pick another badgePosition.",
         "featured": false,
-        "image": "devmode/tabContainer.png",
+        "image": "devmode/tiles/tab-container-14.jpg",
         "name": "tab.Container",
         "sourceUrl": "examples/tab/container",
         "urls": {
@@ -402,6 +403,24 @@
             "dist_prod": "dist/production/examples/tab/container/index.html"
         },
         "hiddenIn": []
+    },
+    {
+        "id": "tab-browser",
+        "name": "Browser-Style Tabs",
+        "family": "tabs",
+        "component": "Tab container",
+        "feature": "Thirty tabs in one strip close, open, reorder by drag and overflow into a menu",
+        "lookFor": "Drag a tab to a new place, close one with its ×, open one with +, then pick a hidden tab from the menu at the strip's end.",
+        "scope": "All in one window; the tabs reset on reload.",
+        "image": "devmode/tab-browser-14.jpg",
+        "sharedWorkers": false,
+        "sourceUrl": "examples/tab/browser",
+        "urls": {
+            "devmode": "examples/tab/browser/index.html",
+            "dist_dev": "dist/development/examples/tab/browser/index.html",
+            "dist_esm": "dist/esm/examples/tab/browser/index.html",
+            "dist_prod": "dist/production/examples/tab/browser/index.html"
+        }
     },
     {
         "id": "state-provider",

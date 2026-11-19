@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "families": ["grid-table", "gantt", "scheduler", "board", "charts", "dashboard", "apps", "dialogs", "lists", "layouts"],
+  "families": ["grid-table", "gantt", "scheduler", "board", "charts", "dashboard", "apps", "dialogs", "lists", "layouts", "tabs"],
   "suffix": "14",
   "tiles": [
     "examples/form/field/checkbox", {"path": "examples/form/field/chip", "width": 220},
@@ -25,7 +25,8 @@
     {"path": "examples/component/wrapper/monacoEditor", "width": 224, "height": 150},
     "examples/functional/defineComponent", "examples/functional/hostComponent",
     {"path": "examples/functional/nestedTemplateComponent", "width": 240, "height": 150},
-    {"path": "examples/sitemap", "width": 224, "height": 160}
+    {"path": "examples/sitemap", "width": 224, "height": 160},
+    {"path": "examples/tab/container", "width": 360, "height": 200}
   ],
   "recipes": [
     {
@@ -738,6 +739,16 @@
       ],
       "after": [{"selector": ".neo-layout-cube", "inRegion": true}, {"selector": ".neo-button", "text": "Front", "inRegion": true}, {"selector": ".neo-button", "text": "Bottom", "inRegion": true}],
       "region": {"selector": ".neo-layout-cube", "anchor": "center", "offsetY": 30, "width": 640, "height": 360}
+    },
+    {
+      "id": "tab-browser",
+      "viewport": {"width": 640, "height": 360},
+      "theme": "default",
+      "state": "The opening strip: the tabs that fit, the overflow control and the + action, over the Inbox page.",
+      "ready": [{"selector": ".neo-tab-header-button", "text": "Inbox"}, {"selector": ".neo-tab-overflow-control"}],
+      "steps": [],
+      "after": [{"selector": ".neo-tab-header-button", "text": "Inbox", "inRegion": true}, {"selector": ".neo-example-browser-claim", "inRegion": true}, {"selector": ".neo-tab-overflow-control", "inRegion": true}],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     }
   ]
 }
