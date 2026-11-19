@@ -2,7 +2,7 @@
     "/": {
         "title": "Neo.mjs - An Agent Institution",
         "description": "Neo.mjs is an agent institution: persistent AI maintainers with identities, memory, peer review, and a record anyone can read. Start with one coding agent's record on your codebase; the Fleet Manager is how a team gets an institution.",
-        "lastmod": "2026-11-15"
+        "lastmod": "2026-11-19"
     },
     "/about-us": {
         "title": "About Us - Neo.mjs",
@@ -74,7 +74,7 @@
     "/home": {
         "title": "Neo.mjs - An Agent Institution",
         "description": "Neo.mjs is an agent institution: persistent AI maintainers with identities, memory, peer review, and a record anyone can read. Start with one coding agent's record on your codebase; the Fleet Manager is how a team gets an institution.",
-        "lastmod": "2026-11-15"
+        "lastmod": "2026-11-19"
     },
     "/learn/UsingTheseTopics": {
         "title": "Using These Topics — Multi-Threaded JavaScript Application Engine | Neo.mjs",
@@ -1107,7 +1107,7 @@
     },
     "/examples/board": {
         "title": "JavaScript Task & Kanban Board — Swimlanes & Cards | Neo.mjs",
-        "description": "Explore 1 live JavaScript task and kanban board example: One row per team over the same five columns, each with its card count.",
+        "description": "Explore 2 live JavaScript task and kanban board examples: A kanban board and a table over one store of cards.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-19"
     },
@@ -1241,7 +1241,7 @@
         "title": "Web Desktop — Multi-Threaded JavaScript App | Neo.mjs",
         "description": "A desktop whose icons, menus and windows follow the signed-in account's permissions through one store filter. Sign in as two accounts and compare the apps...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-19"
     },
     "/apps/workstation/index.html": {
         "title": "Workstation — Multi-Window JavaScript Demo | Neo.mjs",
@@ -1253,7 +1253,7 @@
         "title": "Sprint board · Neo Board — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A kanban board and a table over one store of cards. Drag a card to another column, and the table below the board shows its new status.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-19"
     },
     "/examples/board/swimlanes/index.html": {
         "title": "A board by team · Neo Board — JavaScript UI Demo | Neo.mjs",
@@ -1277,7 +1277,7 @@
         "title": "SplitButton — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "Live runnable SplitButton example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
         "schemaType": "WebPage",
-        "lastmod": "2025-11-19"
+        "lastmod": "2026-11-19"
     },
     "/examples/calendar/basic/index.html": {
         "title": "Calendar Basic — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1571,7 +1571,7 @@
         "title": "Dialog — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "Live runnable Dialog example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
         "schemaType": "WebPage",
-        "lastmod": "2025-12-21"
+        "lastmod": "2026-11-19"
     },
     "/examples/fields/index.html": {
         "title": "Fields — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1871,7 +1871,7 @@
         "title": "Grid — Simulated Server Paging — Web Worker Data Grid Demo | Neo.mjs",
         "description": "One-page loading with remote sorting and filtering over 100,000 seeded orders. Change page, sort a header or choose a country: the request line shows the...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-19"
     },
     "/examples/grid/tree/index.html": {
         "title": "Tree Grid Example — Web Worker Data Grid Demo | Neo.mjs",

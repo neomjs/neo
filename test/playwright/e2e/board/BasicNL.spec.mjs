@@ -80,6 +80,22 @@ test.describe('Board, basic example: one store, two views', () => {
         await expect(badge('review')).toHaveText('2/3')
     });
 
+    test('opens in the dark theme on a system that prefers dark, unless ?theme= names another', async ({page}) => {
+        const url   = '/examples/board/basic/index.html',
+              theme = () => page.locator('.board-example').evaluate(node => [...node.classList].find(cls => cls.startsWith('neo-theme-')));
+
+        await page.emulateMedia({colorScheme: 'light'});
+        await page.goto(url);
+        await expect.poll(theme, 'a light system gets the first configured theme').toBe('neo-theme-neo-light');
+
+        await page.emulateMedia({colorScheme: 'dark'});
+        await page.goto(url);
+        await expect.poll(theme, 'a dark system gets the dark theme').toBe('neo-theme-neo-dark');
+
+        await page.goto(`${url}?theme=neo-theme-light`);
+        await expect.poll(theme, '?theme= wins over the system').toBe('neo-theme-light')
+    });
+
     for (const theme of ['neo-theme-neo-light', 'neo-theme-neo-dark']) {
         test(`a card dragged to another column moves its record, and the table on the same store shows the new status (${theme})`, async ({page, neuralLink}, testInfo) => {
             const {app, boardId, gridId, storeId, domOrder, records} = await open(page, neuralLink, theme),

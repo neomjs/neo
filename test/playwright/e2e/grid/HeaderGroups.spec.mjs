@@ -11,7 +11,9 @@ import {expect, test} from '../../fixtures.mjs';
 
 /**
  * Every group cell against its leaves, matched by the grid-wide column index: a cell spans `aria-colspan` leaves
- * from its own `aria-colindex`
+ * from its own `aria-colindex`. A drop re-renders the leaves and the group cells in turn, so a cell can name a leaf
+ * that is briefly absent: its leaf edges read `NaN` then, which fails every comparison, so a poll keeps polling
+ * where a throw would end it.
  * @param {Object} page
  * @returns {Promise<Object[]>} `{index, text, left, right, leafLeft, leafRight}` per group cell, `index` its first
  * column's `aria-colindex`
@@ -33,8 +35,8 @@ const groupEdges = page => page.evaluate(() => {
             text     : cell.textContent,
             left     : Math.round(rect.left),
             right    : Math.round(rect.right),
-            leafLeft : Math.round(leaves.get(first).left),
-            leafRight: Math.round(leaves.get(last).right)
+            leafLeft : Math.round(leaves.get(first)?.left ?? NaN),
+            leafRight: Math.round(leaves.get(last)?.right ?? NaN)
         }
     })
 });
@@ -663,17 +665,27 @@ test.describe('examples/grid/headerGroups', () => {
     const groupOrder = async page => (await groupEdges(page)).sort((a, b) => a.index - b.index).map(({text}) => text);
 
     /**
-     * After a group drop: no proxy is left, every group cell spans its leaves, and the body cells follow the headers
+     * After a group drop: no proxy is left, every group cell spans its leaves, and the body cells follow the headers.
+     * Cells still off their leaves after the poll get 10 s more: a stalled re-projection stays off, a slow runner
+     * heals, and the failure says which.
      * @param {Object} page
      */
     const expectRelaidOut = async page => {
-        await expect(page.locator('.neo-dragproxy')).toHaveCount(0);
-        await expect.poll(async () => {
-            const edges = await groupEdges(page);
+        const spanned   = edges => edges.length === 5 && edges.every(({left, right, leafLeft, leafRight}) =>
+                  Math.abs(left - leafLeft) < 2 && Math.abs(right - leafRight) < 2),
+              relaidOut = timeout => expect.poll(async () => spanned(await groupEdges(page)), {timeout}).toBe(true);
 
-            return edges.length === 5 && edges.every(({left, right, leafLeft, leafRight}) =>
-                Math.abs(left - leafLeft) < 2 && Math.abs(right - leafRight) < 2)
-        }).toBe(true);
+        await expect(page.locator('.neo-dragproxy')).toHaveCount(0);
+
+        try {
+            await relaidOut()
+        } catch (error) {
+            const first  = await groupEdges(page),
+                  healed = await relaidOut(10000).then(() => true, () => false);
+
+            throw new Error(`Group cells off their leaves, ${healed ? 'healed' : 'still off'} within 10 s more: ${JSON.stringify({first, later: await groupEdges(page)})}`, {cause: error})
+        }
+
         await expect.poll(() => cellsFollowHeaders(page)).toBe(true)
     };
 
