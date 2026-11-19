@@ -535,13 +535,44 @@
         "hiddenIn": []
     },
     {
-        "id": "carousel",
+        "id": "list-reorder",
         "family": "lists",
-        "component": "Carousel",
-        "feature": "An automatically advancing carousel cycles through styled testimonial cards.",
-        "lookFor": "Watch the slides rotate every 5.5 seconds, then resize the carousel with the height and width fields.",
-        "image": null,
-        "name": "component.Carousel",
+        "feature": "A checklist and a wall of portraits, each reordered by drag and drop over its own store",
+        "lookFor": "Drag Freeze the release branch below Write the release notes, then drag a portrait to another place on the wall.",
+        "featured": false,
+        "image": "devmode/list-reorder-14.jpg",
+        "name": "Reorder by Drag",
+        "sourceUrl": "examples/list/reorder",
+        "urls": {
+            "devmode": "examples/list/reorder/index.html",
+            "dist_dev": "dist/development/examples/list/reorder/index.html",
+            "dist_esm": "dist/esm/examples/list/reorder/index.html",
+            "dist_prod": "dist/production/examples/list/reorder/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "list-animate",
+        "family": "lists",
+        "feature": "Fifteen portrait cards that sort, filter and search, every move animated",
+        "lookFor": "Press Lastname, type an a into Search, then turn on Is online and watch the cards slide into place.",
+        "featured": false,
+        "image": "devmode/list-animate-14.jpg",
+        "name": "Animated List",
+        "sourceUrl": "examples/list/animate",
+        "urls": {
+            "devmode": "examples/list/animate/index.html",
+            "dist_dev": "dist/development/examples/list/animate/index.html",
+            "dist_esm": "dist/esm/examples/list/animate/index.html",
+            "dist_prod": "dist/production/examples/list/animate/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "carousel",
+        "kind": "component",
+        "image": "devmode/tiles/component-carousel-14.jpg",
+        "name": "Carousel",
         "sourceUrl": "examples/component/carousel",
         "urls": {
             "devmode": "examples/component/carousel/index.html",
@@ -549,7 +580,11 @@
             "dist_esm": "dist/esm/examples/component/carousel/index.html",
             "dist_prod": "dist/production/examples/component/carousel/index.html"
         },
-        "hiddenIn": []
+        "hiddenIn": [],
+        "family": "lists",
+        "component": "Carousel",
+        "feature": "A carousel that advances through portraits on its own",
+        "lookFor": "Watch a portrait slide in every four seconds, then change the height and width in the panel."
     },
     {
         "id": "chip",
@@ -1952,7 +1987,10 @@
         "family": "apps",
         "component": "Grid",
         "name": "Live Finance Desk",
-        "environments": ["Desktop", "Mobile"],
+        "environments": [
+            "Desktop",
+            "Mobile"
+        ],
         "image": "devmode/finance-14.jpg",
         "feature": "Streaming equity quotes with animated currency diffs and instant filtering",
         "lookFor": "Filter by sector or ticker while live price and percent changes keep ticking, then press Stop to freeze the tape.",
@@ -1969,11 +2007,17 @@
     {
         "id": "email",
         "family": "apps",
-        "alsoIn": ["multi-window", "functional"],
+        "alsoIn": [
+            "multi-window",
+            "functional"
+        ],
         "component": "Dashboard",
         "name": "Multi-Window Email Client",
         "sharedWorkers": true,
-        "environments": ["Desktop", "Mobile"],
+        "environments": [
+            "Desktop",
+            "Mobile"
+        ],
         "image": "devmode/email-14.jpg",
         "feature": "Buffered inbox and functional message reader that detaches into its own window",
         "lookFor": "Select another conversation in the inbox, then press Open in window to move the live reader or a Compose draft into a native popup.",
@@ -2076,6 +2120,42 @@
         "component": "ColorList",
         "feature": "A list of colors over a store",
         "lookFor": "Select a color, then toggle disableSelection in the panel."
+    },
+    {
+        "id": "list-buffered",
+        "kind": "component",
+        "image": "devmode/tiles/list-buffered-14.jpg",
+        "name": "Buffered list",
+        "sourceUrl": "examples/list/buffered",
+        "urls": {
+            "devmode": "examples/list/buffered/index.html",
+            "dist_dev": "dist/development/examples/list/buffered/index.html",
+            "dist_esm": "dist/esm/examples/list/buffered/index.html",
+            "dist_prod": "dist/production/examples/list/buffered/index.html"
+        },
+        "hiddenIn": [],
+        "family": "lists",
+        "component": "Buffered",
+        "feature": "A list of 5,000 records that renders only the rows in view and recycles them as you scroll",
+        "lookFor": "Scroll through the records, then raise bufferRowRange or itemHeight in the panel."
+    },
+    {
+        "id": "list-circle",
+        "kind": "component",
+        "image": "devmode/tiles/list-circle-14.jpg",
+        "name": "Circle list",
+        "sourceUrl": "examples/list/circle",
+        "urls": {
+            "devmode": "examples/list/circle/index.html",
+            "dist_dev": "dist/development/examples/list/circle/index.html",
+            "dist_esm": "dist/esm/examples/list/circle/index.html",
+            "dist_prod": "dist/production/examples/list/circle/index.html"
+        },
+        "hiddenIn": [],
+        "family": "lists",
+        "component": "CircleList",
+        "feature": "Groups as circles in a list, each showing its member count",
+        "lookFor": "Switch Sort to DESC, then rename a group in the panel."
     },
     {
         "id": "functional-define-component",

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "families": ["grid-table", "gantt", "scheduler", "board", "charts", "dashboard", "apps"],
+  "families": ["grid-table", "gantt", "scheduler", "board", "charts", "dashboard", "apps", "lists"],
   "suffix": "14",
   "tiles": [
     "examples/form/field/checkbox", {"path": "examples/form/field/chip", "width": 220},
@@ -19,7 +19,8 @@
     {"path": "examples/form/fieldset", "width": 220}, {"path": "examples/component/dateSelector", "width": 200, "height": 200},
     {"path": "examples/layout/form", "width": 240, "height": 150},
     "examples/button/base", "examples/menu/list",
-    "examples/list/base", "examples/list/chip", "examples/list/color",
+    "examples/list/base", "examples/list/chip", "examples/list/color", "examples/list/buffered", "examples/list/circle",
+    "examples/component/carousel",
     "examples/component/chip", "examples/component/circle", "examples/component/clock", "examples/component/magicmovetext",
     {"path": "examples/component/progress", "width": 220}, "examples/component/statusbadge", "examples/component/timer",
     {"path": "examples/component/wrapper/monacoEditor", "width": 224, "height": 150},
@@ -560,6 +561,26 @@
       "steps": [],
       "after": [{"selector": ".ol-attribution", "text": "OpenStreetMap"}, {"selector": "input", "value": "6"}],
       "region": {"x": 320, "y": 110, "width": 640, "height": 360}
+    },
+    {
+      "id": "list-reorder",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "The release checklist beside the wall of portraits, every item numbered by its place.",
+      "ready": [{"selector": ".neo-reorder-steps .neo-list-item", "text": "Freeze the release branch"}, {"selector": ".neo-reorder-wall .neo-list-item img"}],
+      "steps": [],
+      "after": [{"selector": ".neo-reorder-steps .neo-list-item", "text": "Freeze the release branch", "inRegion": true}, {"selector": ".neo-reorder-wall .neo-list-item", "inRegion": true}],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "list-animate",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "default",
+      "state": "The portrait cards sorted by last name.",
+      "ready": [{"selector": ".neo-list-item img"}, {"selector": ".neo-button", "text": "Lastname"}],
+      "steps": [{"kind": "click", "selector": ".neo-button", "text": "Lastname"}],
+      "after": [{"selector": ".neo-list-item", "inRegion": true}],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     }
   ]
 }
