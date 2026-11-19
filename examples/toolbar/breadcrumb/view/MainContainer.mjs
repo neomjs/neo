@@ -33,18 +33,20 @@ class MainContainer extends Viewport {
          */
         items: [{
             module   : BreadcrumbToolbar,
-            activeKey: 4,
+            activeKey: 2,
             flex     : 'none',
             reference: 'breadcrumb-toolbar',
             store    : {data: folders.map(({id, name, parentId, route}) => ({id, name, parentId, route}))}
         }, {
             module   : Label,
             cls      : ['neo-breadcrumb-folders-name'],
+            flex     : 'none',
             reference: 'folder-name',
             text     : ''
         }, {
             module   : Label,
             cls      : ['neo-breadcrumb-folders-description'],
+            flex     : 'none',
             reference: 'folder-description',
             text     : ''
         }, {

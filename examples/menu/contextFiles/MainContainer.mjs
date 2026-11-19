@@ -33,10 +33,12 @@ class MainContainer extends Viewport {
         items: [{
             module: Label,
             cls   : ['neo-context-files-title'],
+            flex  : 'none',
             text  : 'Project files'
         }, {
             module: Label,
             cls   : ['neo-context-files-hint'],
+            flex  : 'none',
             text  : 'Right-click a file for its actions, or the free space below the files for a new one.'
         }, {
             module   : FileList,
@@ -45,6 +47,7 @@ class MainContainer extends Viewport {
         }, {
             module   : Label,
             cls      : ['neo-context-files-status'],
+            flex     : 'none',
             reference: 'status',
             text     : 'Last action: none'
         }]

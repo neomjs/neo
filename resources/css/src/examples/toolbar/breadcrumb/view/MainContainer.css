@@ -9,6 +9,10 @@
         border-bottom : 1px solid var(--breadcrumb-folders-rule);
         flex-wrap     : wrap;
         padding-bottom: 8px;
+
+        .neo-button {
+            font-size: 15px;
+        }
     }
 
     .neo-breadcrumb-folders-name {
@@ -26,8 +30,9 @@
     }
 
     .neo-breadcrumb-folders-children {
-        gap       : 12px;
-        margin-top: 8px;
+        background-color: transparent;
+        gap             : 12px;
+        margin-top      : 8px;
 
         .neo-button {
             min-width: 9em;
