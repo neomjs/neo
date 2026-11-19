@@ -1301,7 +1301,7 @@
         "title": "Calendar Basic — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A full calendar with day, week, month and year views, a month navigator and color-coded calendars. Switch between Day, Week, Month and Year views, then...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-19"
     },
     "/examples/charts/index.html": {
         "title": "amCharts — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1991,7 +1991,7 @@
         "title": "Popover — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "Live runnable Popover example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-16"
+        "lastmod": "2026-11-19"
     },
     "/examples/preloadingAssets/index.html": {
         "title": "Preloading Assets — Web Worker JavaScript UI Demo | Neo.mjs",
