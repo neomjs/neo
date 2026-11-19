@@ -156,13 +156,12 @@ class GroupIndex extends Component {
 
     /**
      * @summary Renders optional unbanded groups above the bands, then every banded group in its section. A band without
-     * a published group has no section, and the note under the bands explains a count in parentheses while one shows.
+     * a published group has no section.
      */
     createEntries() {
-        let me        = this,
-            bands     = new Map(),
-            borrowing = false,
-            unbanded  = [];
+        let me       = this,
+            bands    = new Map(),
+            unbanded = [];
 
         me.store.forEach(group => {
             if (group.band) {
@@ -170,13 +169,6 @@ class GroupIndex extends Component {
                 bands.get(group.band).push(group)
             } else {
                 unbanded.push(group)
-            }
-
-            if (me.matchCounts) {
-                const counts = me.matchCounts instanceof Map ? me.matchCounts.get(group.family) : me.matchCounts[group.family];
-                borrowing ||= counts ? counts.home === 0 && counts.cross > 0 : false
-            } else {
-                borrowing ||= group.count === 0
             }
         });
 
@@ -193,9 +185,7 @@ class GroupIndex extends Component {
                     {tag: 'h3', text: band},
                     {tag: 'ul', cn: groups.map(group => me.createEntry(group))}
                 ]
-            })),
-            {tag: 'p', cls: ['portal-examples-group-index-note'], removeDom: !borrowing,
-                text: 'A count in parentheses: the examples a group shows from other groups.'}
+            }))
         ];
 
         me.update()
@@ -217,7 +207,8 @@ class GroupIndex extends Component {
                   cross = counts?.cross || 0,
                   total = counts?.total || 0;
 
-            countText = home > 0 ? String(home) : cross > 0 ? `(${cross})` : '0';
+            // a group matching only through borrowed examples shows no number, as without a filter; its label says so
+            countText = home > 0 ? String(home) : cross > 0 ? '' : '0';
             ariaLabel = home > 0
                 ? `${group.title}, ${home === 1 ? '1 matching example' : `${home} matching examples`}`
                 : cross > 0
