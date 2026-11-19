@@ -1933,10 +1933,11 @@
     },
     {
         "id": "form-app",
-        "image": null,
-        "name": "Form App",
+        "image": "devmode/form-app-14.jpg",
+        "name": "Multi-Step Account Form",
         "environments": [
-            "Desktop"
+            "Desktop",
+            "Mobile"
         ],
         "sourceUrl": "apps/form",
         "urls": {
@@ -1951,8 +1952,8 @@
             "apps"
         ],
         "component": "Form",
-        "feature": "A complete form application: 15 pages behind a side navigation",
-        "lookFor": "Open pages from the side navigation and step through their fields."
+        "feature": "Each step validates before Next and names what is wrong; Create account checks every step and shows the object the form submits",
+        "lookFor": "Press Next on the empty first step, then open Review and press Create account."
     },
     {
         "id": "board-swimlanes",
