@@ -1119,7 +1119,7 @@
     },
     "/examples/dashboard": {
         "title": "JavaScript Dashboard & Docking — Panes That Pop Out | Neo.mjs",
-        "description": "Explore 3 live JavaScript dashboard examples: A scripted layout tour splits, groups and auto-hides live panes.",
+        "description": "Explore 5 live JavaScript dashboard examples: A scripted layout tour splits, groups and auto-hides live panes.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-19"
     },
@@ -1161,7 +1161,7 @@
     },
     "/examples/multi-window": {
         "title": "Multi-Window JavaScript App Examples — SharedWorker State | Neo.mjs",
-        "description": "Explore 8 live multi-window JavaScript app examples: A living-data workspace whose panes can leave the browser window.",
+        "description": "Explore 9 live multi-window JavaScript app examples: A living-data workspace whose panes can leave the browser window.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-19"
     },
@@ -1185,7 +1185,7 @@
     },
     "/examples/drag-drop": {
         "title": "JavaScript Drag & Drop Examples — Across Windows | Neo.mjs",
-        "description": "Explore 2 live JavaScript drag and drop examples: A draggable dialog can move into a second browser window.",
+        "description": "Explore 3 live JavaScript drag and drop examples: A draggable dialog can move into a second browser window.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-19"
     },
@@ -1340,16 +1340,16 @@
         "lastmod": "2024-08-17"
     },
     "/examples/component/coronaGallery/index.html": {
-        "title": "COVID19 Gallery — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "COVID country statistics in a 3D gallery, sorted by the figure you pick. Under Sort By, choose Deaths, then raise Amount Rows in Gallery Controls.",
+        "title": "Country Gallery — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "217 economies in a 3D gallery, each with its flag and six World Bank figures, sorted by the one you pick. Under Sort By, choose GDP, then raise Amount Rows...",
         "schemaType": "WebPage",
-        "lastmod": "2026-03-07"
+        "lastmod": "2026-11-19"
     },
     "/examples/component/coronaHelix/index.html": {
-        "title": "COVID19 Helix — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "COVID country statistics on a 3D helix, sorted by the figure you pick. Under Sort By, choose Deaths and watch the countries reorder along the helix.",
+        "title": "Country Helix — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "217 economies on a 3D helix, each with its flag and six World Bank figures, sorted by the one you pick. Under Sort By, choose Life and watch the countries...",
         "schemaType": "WebPage",
-        "lastmod": "2026-03-07"
+        "lastmod": "2026-11-19"
     },
     "/examples/component/dateSelector/index.html": {
         "title": "DateSelector — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1361,7 +1361,7 @@
         "title": "Gallery — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "Image items in a 3D gallery that you reshape live. Raise Amount Rows in Gallery Controls until the wall fills the window, then press Order by Row.",
         "schemaType": "WebPage",
-        "lastmod": "2025-12-21"
+        "lastmod": "2026-11-19"
     },
     "/examples/component/graphScene/index.html": {
         "title": "GraphScene — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1373,7 +1373,7 @@
         "title": "Helix — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "Image items on a 3D helix that you reshape live. Scroll over the helix, then change Radius and Perspective in Helix Controls.",
         "schemaType": "WebPage",
-        "lastmod": "2025-11-19"
+        "lastmod": "2026-11-19"
     },
     "/examples/component/magicmovetext/index.html": {
         "title": "Magic Move - Text — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1388,10 +1388,10 @@
         "lastmod": "2026-11-19"
     },
     "/examples/component/multiWindowCoronaGallery/index.html": {
-        "title": "Multi-Window Corona Gallery — Multi-Window JavaScript Demo | Neo.mjs",
+        "title": "Multi-Window Country Gallery — Multi-Window Demo | Neo.mjs",
         "description": "Gallery controls move into a second window while still controlling the gallery. Maximise Gallery Controls, change Translate X in the popup, then close it to...",
         "schemaType": "WebPage",
-        "lastmod": "2026-01-21"
+        "lastmod": "2026-11-19"
     },
     "/examples/component/multiWindowHelix/index.html": {
         "title": "Multi-Window Helix — Multi-Window JavaScript Demo | Neo.mjs",
@@ -1565,7 +1565,7 @@
         "title": "Dock Tear-Out — Multi-Window JavaScript Demo | Neo.mjs",
         "description": "A Notes pane keeps its draft when it moves to a separate window. Type a draft in Notes, use its pop-out action, then close the popup and find the draft back...",
         "schemaType": "WebPage",
-        "lastmod": "2026-10-11"
+        "lastmod": "2026-11-19"
     },
     "/examples/data/pipeline/index.html": {
         "title": "Data Pipeline — Web Worker JavaScript UI Demo | Neo.mjs",

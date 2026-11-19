@@ -260,7 +260,7 @@
         "feature": "Image items on a 3D helix that you reshape live",
         "lookFor": "Scroll over the helix, then change Radius and Perspective in Helix Controls.",
         "featured": false,
-        "image": "devmode/helix.png",
+        "image": "devmode/helix-14.jpg",
         "name": "3D Helix",
         "sourceUrl": "examples/component/helix",
         "urls": {
@@ -299,10 +299,10 @@
         "component": "Gallery",
         "feature": "Gallery controls move into a second window while still controlling the gallery",
         "lookFor": "Maximise Gallery Controls, change Translate X in the popup, then close it to return the controls.",
-        "scope": "Allow popups. Uses a static COVID data snapshot hosted on Pages.",
+        "scope": "Allow popups. Reads the World Bank file the country grid ships with.",
         "featured": false,
         "image": "devmode/mwCoronaGallery.png",
-        "name": "Multi Window Covid Gallery",
+        "name": "Multi Window Country Gallery",
         "sharedWorkers": true,
         "sourceUrl": "examples/component/multiWindowCoronaGallery",
         "urls": {
@@ -444,7 +444,8 @@
         "id": "colors-dashboard",
         "family": "multi-window",
         "alsoIn": [
-            "apps"
+            "apps",
+            "dashboard"
         ],
         "component": "Dashboard",
         "feature": "The dashboard's color grid keeps updating in its own window",
@@ -484,12 +485,12 @@
     {
         "id": "covid-helix",
         "family": "lists",
-        "feature": "COVID country statistics on a 3D helix, sorted by the figure you pick",
-        "lookFor": "Under Sort By, choose Deaths and watch the countries reorder along the helix.",
-        "scope": "Uses a static COVID data snapshot hosted on Pages.",
+        "feature": "217 economies on a 3D helix, each with its flag and six World Bank figures, sorted by the one you pick",
+        "lookFor": "Under Sort By, choose Life and watch the countries reorder along the helix.",
+        "scope": "Reads the World Bank file the country grid ships with.",
         "featured": false,
-        "image": "devmode/coronaHelix.png",
-        "name": "COVID-19 Helix",
+        "image": "devmode/covid-helix-14.jpg",
+        "name": "Country Helix",
         "sourceUrl": "examples/component/coronaHelix",
         "urls": {
             "devmode": "examples/component/coronaHelix/index.html",
@@ -502,12 +503,12 @@
     {
         "id": "covid-gallery",
         "family": "lists",
-        "feature": "COVID country statistics in a 3D gallery, sorted by the figure you pick",
-        "lookFor": "Under Sort By, choose Deaths, then raise Amount Rows in Gallery Controls.",
-        "scope": "Uses a static COVID data snapshot hosted on Pages.",
+        "feature": "217 economies in a 3D gallery, each with its flag and six World Bank figures, sorted by the one you pick",
+        "lookFor": "Under Sort By, choose GDP, then raise Amount Rows in Gallery Controls.",
+        "scope": "Reads the World Bank file the country grid ships with.",
         "featured": false,
-        "image": "devmode/coronaGallery.png",
-        "name": "COVID-19 Gallery",
+        "image": "devmode/covid-gallery-14.jpg",
+        "name": "Country Gallery",
         "sourceUrl": "examples/component/coronaGallery",
         "urls": {
             "devmode": "examples/component/coronaGallery/index.html",
@@ -523,8 +524,8 @@
         "feature": "Image items in a 3D gallery that you reshape live",
         "lookFor": "Raise Amount Rows in Gallery Controls until the wall fills the window, then press Order by Row.",
         "featured": false,
-        "image": "devmode/gallery.png",
-        "name": "component.Gallery",
+        "image": "devmode/gallery-14.jpg",
+        "name": "Gallery",
         "sourceUrl": "examples/component/gallery",
         "urls": {
             "devmode": "examples/component/gallery/index.html",
@@ -1884,7 +1885,7 @@
         "feature": "A Notes pane keeps its draft when it moves to a separate window",
         "lookFor": "Type a draft in Notes, use its pop-out action, then close the popup and find the draft back in Notes.",
         "scope": "Allow popups. The pane returns when its window closes.",
-        "image": null,
+        "image": "devmode/dock-tear-out-14.jpg",
         "sharedWorkers": true,
         "sourceUrl": "examples/dashboard/tearOut",
         "urls": {
