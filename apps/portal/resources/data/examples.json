@@ -88,26 +88,26 @@
         "lookFor": "Open a squad to its people, give kudos from a cell, then raise rows and depth in ☰ and expand all; filter by first name."
     },
     {
-        "id": "dock-choreography",
-        "family": "dashboard",
-        "component": "Dock Workspace",
-        "feature": "A scripted layout tour splits, groups and auto-hides live panes",
-        "lookFor": "Press Tour and watch the editor clock keep ticking as the panes rearrange.",
+        "id": "devindex",
+        "family": "apps",
         "featured": true,
         "environments": [
-            "Desktop"
+            "Desktop",
+            "Mobile"
         ],
-        "image": "devmode/dock-choreography-14.jpg",
-        "name": "Dock Choreography Demo",
-        "sharedWorkers": true,
-        "sourceUrl": "examples/dashboard/choreography",
+        "image": "devmode/devindex-14.jpg",
+        "name": "GitHub Meritocracy Index",
+        "sourceUrl": "https://github.com/neomjs/devindex",
         "urls": {
-            "devmode": "examples/dashboard/choreography/index.html",
-            "dist_dev": "dist/development/examples/dashboard/choreography/index.html",
-            "dist_esm": "dist/esm/examples/dashboard/choreography/index.html",
-            "dist_prod": "dist/production/examples/dashboard/choreography/index.html"
+            "devmode": "https://neomjs.com/devindex/",
+            "dist_dev": "https://neomjs.com/devindex/dist/development/apps/devindex/",
+            "dist_esm": "https://neomjs.com/devindex/",
+            "dist_prod": "https://neomjs.com/devindex/dist/production/apps/devindex/"
         },
-        "hiddenIn": []
+        "hiddenIn": [],
+        "feature": "GitHub contributor rankings in a buffered grid",
+        "lookFor": "Open Search, filter the contributor grid by username, and compare ranks and contribution totals.",
+        "scope": "Loads a published GitHub contributor dataset rather than querying GitHub live."
     },
     {
         "id": "shared-covid",
@@ -291,8 +291,30 @@
         "hiddenIn": []
     },
     {
-        "id": "grid-countries",
+        "id": "dock-choreography",
+        "family": "dashboard",
+        "component": "Dock Workspace",
+        "feature": "A scripted layout tour splits, groups and auto-hides live panes",
+        "lookFor": "Press Tour and watch the editor clock keep ticking as the panes rearrange.",
         "featured": true,
+        "environments": [
+            "Desktop"
+        ],
+        "image": "devmode/dock-choreography-14.jpg",
+        "name": "Dock Choreography Demo",
+        "sharedWorkers": true,
+        "sourceUrl": "examples/dashboard/choreography",
+        "urls": {
+            "devmode": "examples/dashboard/choreography/index.html",
+            "dist_dev": "dist/development/examples/dashboard/choreography/index.html",
+            "dist_esm": "dist/esm/examples/dashboard/choreography/index.html",
+            "dist_prod": "dist/production/examples/dashboard/choreography/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "grid-countries",
+        "featured": false,
         "image": "devmode/grid-countries-14.jpg",
         "name": "Country Statistics Grid",
         "sourceUrl": "examples/grid/countries",
@@ -325,28 +347,6 @@
             "dist_prod": "dist/production/examples/component/helix/index.html"
         },
         "hiddenIn": []
-    },
-    {
-        "id": "devindex",
-        "family": "apps",
-        "featured": false,
-        "environments": [
-            "Desktop",
-            "Mobile"
-        ],
-        "image": "devmode/DevIndex.png",
-        "name": "GitHub Meritocracy Index",
-        "sourceUrl": "https://github.com/neomjs/devindex",
-        "urls": {
-            "devmode": "https://neomjs.com/devindex/",
-            "dist_dev": "https://neomjs.com/devindex/dist/development/apps/devindex/",
-            "dist_esm": "https://neomjs.com/devindex/",
-            "dist_prod": "https://neomjs.com/devindex/dist/production/apps/devindex/"
-        },
-        "hiddenIn": [],
-        "feature": "GitHub contributor rankings in a buffered grid",
-        "lookFor": "Open Search, filter the contributor grid by username, and compare ranks and contribution totals.",
-        "scope": "Loads a published GitHub contributor dataset rather than querying GitHub live."
     },
     {
         "id": "multi-window-covid-gallery",
@@ -1047,7 +1047,7 @@
         "feature": "An amCharts pie chart wrapper renders a labelled dataset and interactive legend.",
         "lookFor": "Hover the pie segments and legend entries to compare each country's share.",
         "scope": "Loads amCharts 4 from cdn.amcharts.com; the country values are static demonstration data.",
-        "image": null,
+        "image": "devmode/am-charts-14.jpg",
         "name": "amCharts Pie",
         "sourceUrl": "examples/charts",
         "urls": {

@@ -284,7 +284,7 @@
         "title": "ADR 0018: Neo Identity Source-of-Truth Model - Neo.mjs",
         "description": "Neo's identity is not a document — it is a distributed property spread across ~30+ surfaces: hand-edited canonical prose (README.md, .github/VISION.md...",
         "schemaType": "TechArticle",
-        "lastmod": "2026-10-16"
+        "lastmod": "2026-11-19"
     },
     "/learn/agentos/decisions/0020-agent-harness-concept": {
         "title": "ADR 0020 moved to Agent Institution — AI Agent OS & Multi-Threaded Application Engine | Neo.mjs",
@@ -577,7 +577,7 @@
         "title": "JavaScript Data Grid Guide: Virtual Scrolling & Pooled Cells | Neo.mjs",
         "description": "Build high-performance JavaScript data grids with Neo.grid.Container: virtual scrolling, pooled DOM cells, sorting, header filters, and inline editing.",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-16"
+        "lastmod": "2026-11-19"
     },
     "/learn/guides/datahandling/DynamicGrids": {
         "title": "100k-Row JavaScript Data Grid: Dynamic Columns & Virtual Scrolling | Neo.mjs",
@@ -697,7 +697,7 @@
         "title": "Whitebox E2E Testing with Neural Link — Neo.mjs Developer Guide",
         "description": "Traditional end-to-end (E2E) testing treats the application as a \"black box,\" interacting purely through DOM element locators (e.g. page.locator('button'))...",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-19"
     },
     "/learn/guides/testing/DockLayoutsTesting": {
         "title": "Dock Layouts: Testing and Debugging - Neo.mjs",
@@ -1061,11 +1061,11 @@
         "title": "Neo.mjs v14.0.0 Release Notes",
         "description": "Release Type: Pending the operator. Planned as a major: Engine 14 — The Front Door (ROADMAP). Stability: Pending the operator. It is set at the cut...",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-16"
+        "lastmod": "2026-11-19"
     },
     "/examples/apps": {
         "title": "JavaScript Web App Examples — Full Apps on Worker Threads | Neo.mjs",
-        "description": "Explore 11 live JavaScript web app examples: A living-data workspace whose panes can leave the browser window.",
+        "description": "Explore 11 live JavaScript web app examples: A living-data workspace whose panes can leave the browser window; GitHub contributor rankings in a buffered grid.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-19"
     },
@@ -1265,7 +1265,7 @@
         "title": "Workstation — Multi-Window JavaScript Demo | Neo.mjs",
         "description": "A living-data workspace whose panes can leave the browser window. Pop out the 100k Matrix tab, use it in its own window, then close that window to bring it...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-17"
+        "lastmod": "2026-11-19"
     },
     "/examples/board/basic/index.html": {
         "title": "Sprint board · Neo Board — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1599,9 +1599,9 @@
     },
     "/examples/fieldWithPrefix/index.html": {
         "title": "Field with Prefix — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Input masks from the PrefixField plugin: a phone pattern and a digits-only date. Type into the phone field and watch the +1 (___) ___-___-____ mask carry...",
+        "description": "Input masks from the PrefixField plugin: a phone number, a date, a MAC address, a code and a card number. Type letters into the phone field to see them...",
         "schemaType": "WebPage",
-        "lastmod": "2024-08-17"
+        "lastmod": "2026-11-19"
     },
     "/examples/form/field/checkbox/index.html": {
         "title": "CheckBoxField — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1839,9 +1839,9 @@
     },
     "/examples/grid/container/index.html": {
         "title": "GridContainer — Web Worker Data Grid Demo | Neo.mjs",
-        "description": "Cell, row and column selection. Switch between cell, row, column and combined selection, then change the grid height.",
+        "description": "Cell, row, column and crosshair selection modes. Click any shift on a 42-clinician weekly roster, move with ArrowUp/Down/Left/Right, and switch between...",
         "schemaType": "WebPage",
-        "lastmod": "2026-09-13"
+        "lastmod": "2026-11-19"
     },
     "/examples/grid/contentSizedRows/index.html": {
         "title": "GridContainer - Content-Sized Rows — Data Grid Demo | Neo.mjs",
@@ -1859,7 +1859,7 @@
         "title": "JavaScript Data Grid CSV Export | Neo.mjs",
         "description": "A Neo.mjs JavaScript Data Grid that exports what it shows as CSV: filter and sort 300 invoices, preview the CSV beside the grid, then download it.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-17"
+        "lastmod": "2026-11-19"
     },
     "/examples/grid/filtering/index.html": {
         "title": "JavaScript Data Grid with Column Filters | Neo.mjs",
@@ -1881,9 +1881,9 @@
     },
     "/examples/grid/nestedRecordFields/index.html": {
         "title": "Grid: Nested Record Fields — Web Worker Data Grid Demo | Neo.mjs",
-        "description": "Nested records and component cells. Open Edit to change nested user fields and watch modified-cell highlighting; compare header-only and full-column dragging.",
+        "description": "Modal form editing on a grid row. Press Edit in any row to open its dialog form, change contact or nested address fields, and save to highlight modified...",
         "schemaType": "WebPage",
-        "lastmod": "2025-08-12"
+        "lastmod": "2026-11-19"
     },
     "/examples/grid/pinnedColumns/index.html": {
         "title": "JavaScript Data Grid with Pinned Columns | Neo.mjs",
@@ -2133,9 +2133,9 @@
     },
     "/examples/table/container/index.html": {
         "title": "TableContainer — Web Worker Data Grid Demo | Neo.mjs",
-        "description": "Selection modes and embedded controls. Switch selection models, toggle fit width or column dragging, and open a cell menu.",
+        "description": "Content-sized columns, sticky headers and wrapping cells on local data. Compare 14 service tier specifications where columns size to their text and notes...",
         "schemaType": "WebPage",
-        "lastmod": "2026-09-18"
+        "lastmod": "2026-11-19"
     },
     "/examples/tableFiltering/index.html": {
         "title": "Table Filtering — Web Worker Data Grid Demo | Neo.mjs",

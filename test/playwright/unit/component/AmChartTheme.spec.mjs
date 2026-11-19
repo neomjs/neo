@@ -101,7 +101,8 @@ test.describe('a mounted chart asks the addon for its theme', () => {
         addon.AmCharts = {
             create    : async opts => {calls.push({fn: 'create', theme: opts.theme})},
             destroy   : opts => {calls.push({fn: 'destroy', id: opts.id})},
-            updateData: () => {}
+            updateData: () => {},
+            whenDrawn : async () => true
         }
     });
 

@@ -147,7 +147,7 @@ test.describe('Portal examples overview and group pages', () => {
         expect(tileIds(view, 'buttons')).toEqual(['button-base', 'menu-list']);
         expect(pageIds(view, 'drag-drop')).toEqual(['multi-window-drag-drop', 'dialog-drag-drop', 'dock-tear-out']);
         expect(pageIds(view, 'apps')).toEqual([
-            'workstation', 'shared-covid', 'webdesktop', 'devindex', 'multi-window-drag-drop', 'colors-dashboard',
+            'workstation', 'devindex', 'shared-covid', 'webdesktop', 'multi-window-drag-drop', 'colors-dashboard',
             'covid-dashboard', 'portal', 'form-app', 'finance', 'email'
         ]);
 
@@ -201,10 +201,7 @@ test.describe('Portal examples overview and group pages', () => {
         expect(overview.down({reference: 'overview-index-heading'}).vdom.cn[0].text).toBe(`All ${groupCount} groups`);
         expect(list.leadCard).toBe(true);
         expect(list.showGroup).toBe(true);
-        expect(list.store.items.map(record => record.id)).toEqual([
-            'workstation', 'grid-big-data', 'grid-tree-big-data', 'dock-choreography', 'shared-covid',
-            'grid-issues', 'scheduler-basic', 'gantt-basic', 'board-basic', 'calendar', 'webdesktop', 'grid-countries'
-        ]);
+        expect(list.store.items.map(record => record.id)).toEqual(startHereIds);
 
         // the action opens its record in the selected build
         expect(overview.down({reference: 'overview-action-grid-big-data'}).url).toBe('https://neomjs.com/dist/production/examples/grid/bigData/index.html');
@@ -447,7 +444,7 @@ test.describe('Portal examples overview and group pages', () => {
         expect(pageIds(view, 'dialogs')).toEqual(['dialog-drag-drop', 'toast', 'popover']);
         expect(pageIds(view, 'drag-drop').filter(id => id === 'dialog-drag-drop')).toHaveLength(1);
         expect(pageIds(view, 'platform')).toEqual(['offscreen-canvas', 'shared-offscreen-canvas']);
-        expect(pageIds(view, 'charts')).toEqual(['offscreen-canvas', 'open-street-maps', 'graph-scene', 'sparklines', 'mermaid']);
+        expect(pageIds(view, 'charts')).toEqual(['offscreen-canvas', 'open-street-maps', 'graph-scene', 'am-charts', 'sparklines', 'mermaid']);
         expect(pageIds(view, 'tree')).toEqual(['grid-tree-big-data', 'grid-tree']);
         expect(view.getGroupStore().get('dialogs').count).toBe(3);
         expect(view.getGroupStore().get('drag-drop').count).toBe(0);
@@ -632,11 +629,11 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
       modes   = ['devmode', 'dist_dev', 'dist_esm', 'dist_prod'],
       // the 12 Start here demonstrations placed first in featured catalog order
       startHereIds = [
-          'workstation', 'grid-big-data', 'grid-tree-big-data', 'dock-choreography', 'shared-covid',
-          'grid-issues', 'scheduler-basic', 'gantt-basic', 'board-basic', 'calendar', 'webdesktop', 'grid-countries'
+          'workstation', 'grid-big-data', 'grid-tree-big-data', 'devindex', 'shared-covid',
+          'grid-issues', 'scheduler-basic', 'gantt-basic', 'board-basic', 'calendar', 'webdesktop', 'dock-choreography'
       ],
       establishedTailIds = [
-          'helix', 'devindex', 'multi-window-covid-gallery', 'offscreen-canvas', 'shared-offscreen-canvas',
+          'grid-countries', 'helix', 'multi-window-covid-gallery', 'offscreen-canvas', 'shared-offscreen-canvas',
           'multi-window-drag-drop', 'tab-container', 'tab-browser', 'state-provider', 'dialog-drag-drop',
           'colors-dashboard', 'covid-dashboard', 'covid-helix', 'covid-gallery', 'gallery', 'list-reorder', 'list-animate'
       ],
@@ -706,7 +703,7 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           'grid-table'  : [19, 0],
           tree          : [0, 2],
           lists         : [12, 0],
-          charts        : [4, 1],
+          charts        : [5, 1],
           calendar      : [1, 0],
           scheduler     : [2, 0],
           gantt         : [2, 0],
