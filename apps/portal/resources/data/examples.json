@@ -1812,7 +1812,7 @@
     {
         "id": "form-validation",
         "image": null,
-        "name": "form.Validation",
+        "name": "Sign-up validation",
         "sourceUrl": "examples/form/validation",
         "urls": {
             "devmode": "examples/form/validation/index.html",

@@ -145,4 +145,19 @@ test.describe('examples/form/validation MainContainer', () => {
 
         parts.page.destroy()
     });
+
+    test('with everything else filled, an untouched terms box is named as still to fill in', async () => {
+        const parts = await createPage();
+
+        fillValidForm(parts);
+        parts.terms.checked = false;
+        parts.page.engagedFields.delete('terms');
+        await parts.page.updateValidationState();
+
+        expect(parts.button.disabled).toBe(true);
+        expect(parts.problems.html).toContain('<strong>Still to fill in:</strong> Terms');
+        expect(parts.problems.html).not.toContain('Nothing wrong');
+
+        parts.page.destroy()
+    });
 });

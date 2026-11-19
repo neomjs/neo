@@ -37,7 +37,8 @@ function escapeHtml(value) {
  * is valid, which `form.Container#isValid` decides and which enables or disables the Sign up
  * button, and what the visitor entered, which `form.Container#getSubmitValues` hands over after
  * a successful sign-up. A list beside the button repeats the errors of the fields the visitor
- * has already engaged with, so every current problem reads in one place. The one rule no field
+ * has already engaged with and, once the visitor has started, names the untouched fields that
+ * still block Sign up, so a blocked button always says why. The one rule no field
  * can check on its own, that the repeated password matches the first one, is applied by this
  * page through the repeat field's `error` config.
  * @class Neo.examples.form.validation.MainContainer
@@ -160,8 +161,8 @@ class MainContainer extends Viewport {
 
     /**
      * The names of the fields the visitor has changed at least once, or tried to submit.
-     * Only their errors join the problem list: a field the visitor has not reached yet stays
-     * quiet, exactly like its own error display does
+     * Only their errors join the problem list: a field the visitor has not reached yet is
+     * only named as still to fill in, and only once the visitor has started
      * @member {Set<String>} engagedFields=new Set()
      */
     engagedFields = new Set()
@@ -177,8 +178,8 @@ class MainContainer extends Viewport {
     }
 
     /**
-     * A press on Sign up first validates the whole form, which shows every field's error,
-     * and only a valid form hands its values over
+     * Sign up is enabled only while the form is valid. A press validates the whole form once
+     * more and hands the values over only if it still is
      */
     async onSignUpClick() {
         let me   = this,
@@ -194,20 +195,26 @@ class MainContainer extends Viewport {
     }
 
     /**
-     * Recomputes the problem list from the fields' current errors. `isValid()` validates
-     * every field silently first, so each field's `error` is current when this reads it
+     * Recomputes the problem list. An engaged field adds its current error. Once the visitor
+     * has started, an untouched field that fails its own check is named as still to fill in:
+     * it is what keeps Sign up blocked when every engaged field is fine
      */
     renderProblems() {
-        let me       = this,
-            problems = [];
+        let me        = this,
+            problems  = [],
+            untouched = [];
 
         FIELDS.forEach(({name, label, reference}) => {
             let field = me.getReference(reference);
 
-            if (me.engagedFields.has(name) && field.error) {
-                problems.push(`<li><strong>${label}:</strong> ${escapeHtml(field.error)}</li>`)
+            if (me.engagedFields.has(name)) {
+                field.error && problems.push(`<li><strong>${label}:</strong> ${escapeHtml(field.error)}</li>`)
+            } else if (me.engagedFields.size && !field.isValid()) {
+                untouched.push(label)
             }
         });
+
+        untouched.length && problems.push(`<li><strong>Still to fill in:</strong> ${untouched.join(', ')}</li>`);
 
         me.getReference('signup-problems').html = problems.length ?
             `<p class="signup-problems-title">${problems.length} ${problems.length === 1 ? 'problem' : 'problems'} to fix:</p><ul>${problems.join('')}</ul>` :
