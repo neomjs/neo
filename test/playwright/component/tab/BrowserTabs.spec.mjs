@@ -34,6 +34,25 @@ function selected(page) {
     return page.locator('.neo-tab-header-button[aria-selected="true"]')
 }
 
+test('the overflow control and the "+" sit in the header together and share one look', async ({page}) => {
+    const look = await page.evaluate(() => {
+        const read = node => {
+            const {height, width}                  = node.getBoundingClientRect(),
+                  {backgroundColor, borderRadius} = getComputedStyle(node);
+
+            return {backgroundColor, borderRadius, height: Math.round(height), inHeader: !!node.closest('.neo-tab-header-toolbar'), width: Math.round(width)}
+        };
+
+        return {
+            add     : read([...document.querySelectorAll('.neo-toolbar-action')].find(node => node.querySelector('.fa-plus'))),
+            overflow: read(document.querySelector('.neo-tab-overflow-control'))
+        }
+    });
+
+    expect(look.overflow.inHeader, 'the overflow control is a header action, not a floating button').toBe(true);
+    expect(look.overflow).toEqual(look.add)
+});
+
 test('the overflow menu reaches a hidden tab and activates it', async ({page}) => {
     expect(await titles(page), 'Playground, the 30th tab, does not fit').not.toContain('Playground');
 

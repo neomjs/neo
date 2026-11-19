@@ -8,8 +8,9 @@ import Viewport                from '../../../src/container/Viewport.mjs';
  * reorder, and an overflow menu for the tabs that no longer fit.
  *
  * Every behaviour is a `Neo.tab.Container` config: `closable` on a header, `headerActions` for the "+",
- * `activateInsertedTabs`, `dragResortable`, and the `Neo.tab.plugin.Overflow` plugin on the header toolbar. The
- * controller only answers the "+" with a new tab.
+ * `activateInsertedTabs`, `dragResortable`, and the `Neo.tab.plugin.Overflow` plugin on the header toolbar, whose
+ * control sits beside the "+" as a header action (`projectAsAction`). The controller only answers the "+" with a
+ * new tab.
  * @class Neo.examples.tab.browser.MainContainer
  * @extends Neo.container.Viewport
  */
@@ -102,7 +103,8 @@ class MainContainer extends Viewport {
             dragResortable      : true,
             flex                : 1,
             headerActions       : [{action: 'add-tab', iconCls: 'fa fa-plus', showOnFocus: false, tooltip: 'Open a new tab'}],
-            headerToolbar       : {plugins: [{module: TabOverflow}]},
+            // The overflow control joins the "+" in the header's action rail, so the two share one look
+            headerToolbar       : {plugins: [{module: TabOverflow, projectAsAction: true}]},
             listeners           : {headerAction: 'onHeaderAction'},
             reference           : 'tabs',
             items               : this.pages.map(page => this.createPage(...page))
