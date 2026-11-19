@@ -49,9 +49,10 @@
         }
 
         .neo-workbench-stage-desc {
-            color     : var(--label-color, inherit);
-            font-size : 13px;
-            margin-top: 4px;
+            color      : var(--label-color, inherit);
+            font-size  : 13px;
+            margin-top : 4px;
+            white-space: normal;
         }
     }
 
