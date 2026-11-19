@@ -228,7 +228,8 @@ class Toolbar extends BaseToolbar {
     }
 
     /**
-     * Triggered after the sortable config got changed
+     * @summary Propagates `sortable` silently to every header button and ships the full direct-child subtree densely
+     * (`denseUpdate = true`) so a single header's merged update cannot skip sibling `neo-sort-hidden` updates.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
@@ -244,6 +245,7 @@ class Toolbar extends BaseToolbar {
             });
 
             me.updateDepth = 2;
+            me.denseUpdate = true;
             me.update()
         }
     }
