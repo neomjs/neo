@@ -131,40 +131,23 @@ class MainContainer extends ConfigurationViewport {
 
         super.onReset();
 
-        if (table) {
-            let cls = [...table.cls];
-            NeoArray.remove(cls, 'neo-table-fit-width');
-            table.cls = cls;
-        }
-
         if (store) {
             store.clearFilters();
             store.clearSorters();
             store.data = [];
-            store.data = Neo.clone(MainStore.initialData, true);
+            store.data = Neo.clone(MainStore.initialData, true)
         }
 
-        if (toolbar) {
-            const initialOrder = ['specification', 'area', 'starter', 'production', 'notes'];
+        toolbar?.set({
+            dragResortable: true,
+            resizable     : true
+        });
 
-            toolbar.items.sort((a, b) => initialOrder.indexOf(a.dataField) - initialOrder.indexOf(b.dataField));
-            toolbar.vdom.cn[0].cn = toolbar.items.map(item => item.createVdomReference());
-
-            toolbar.items.forEach(item => {
-                let style = item.wrapperStyle;
-
-                style.maxWidth    = null;
-                style.minWidth    = null;
-                style.width       = null;
-                item.wrapperStyle = style;
-                item.isSorted     = null
-            });
-
-            toolbar.dragResortable = true;
-            toolbar.resizable      = true;
-            toolbar.updateDepth    = -1;
-            toolbar.update();
-            table.body?.createViewData()
+        if (table) {
+            let cls = [...table.cls];
+            NeoArray.remove(cls, 'neo-table-fit-width');
+            table.cls     = cls;
+            table.columns = me.createColumns()
         }
     }
 
