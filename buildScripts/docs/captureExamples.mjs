@@ -103,7 +103,8 @@ function tileList(value) {
 
 /**
  * @summary Validates raw recipes and returns detached recipes with catalog-derived family, URL and name.
- * Coverage is scoped to declared families; legacy covers in other families do not block this producer.
+ * Coverage is scoped to declared families; legacy covers in other families do not block this producer. A tile
+ * (`kind: 'component'`) takes its crop from the `tiles` list, so it needs no recipe in a declared family.
  * @param {Object} manifest Raw version1 recipe manifest.
  * @param {Object[]} catalog Canonical examples.json records.
  * @returns {Object} Validated manifest; recipes carry derived `family`, `url` and `name`, tiles their `id` and `url`.
@@ -156,7 +157,7 @@ export function validateCaptureRecipes(manifest, catalog) {
         } else for (const axis of ['x', 'y']) insist(Number.isFinite(region[axis]) && region[axis] >= 0, `${field}.region.${axis}`, 'expected a nonnegative coordinate');
         return {...structuredClone(recipe), family: record.family, url: record.urls.devmode, name: record.name || record.id}
     });
-    for (const record of catalog) if (manifest.families.includes(record.family) && record.image && !/^https?:\/\//i.test(record.urls?.devmode || '')) insist(ids.has(record.id), `catalog.${record.id}.image`, 'covered record has no recipe in this family');
+    for (const record of catalog) if (manifest.families.includes(record.family) && record.kind !== 'component' && record.image && !/^https?:\/\//i.test(record.urls?.devmode || '')) insist(ids.has(record.id), `catalog.${record.id}.image`, 'covered record has no recipe in this family');
     return {...structuredClone(manifest), recipes, tiles: tileList(manifest.tiles)}
 }
 
