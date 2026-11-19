@@ -81,8 +81,8 @@ class MainContainer extends Viewport {
                 name     : 'maxWidth'
             }, {
                 module   : NumberField,
-                labelText: 'timeout = 3000',
-                name     : 'timeout',
+                labelText: 'removeDelay = 3000',
+                name     : 'removeDelay',
                 maxValue : 99999
             }, {
                 module       : CheckBox,
@@ -124,7 +124,7 @@ class MainContainer extends Viewport {
                     literal = value => Neo.isString(value) ? `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'` : String(value),
                     entries = [['appName', 'this.appName'], ['windowId', 'this.windowId'], ['msg', literal(data.msg)]];
 
-                for (const key of ['title', 'iconCls', 'closable', 'position', 'slideDirection', 'maxWidth', 'minHeight', 'ui']) {
+                for (const key of ['title', 'iconCls', 'closable', 'position', 'slideDirection', 'maxWidth', 'minHeight', 'removeDelay', 'ui']) {
                     data[key] && entries.push([key, literal(data[key])])
                 }
 
