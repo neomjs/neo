@@ -345,17 +345,25 @@ class List extends BaseList {
      * Instead the tree store is kept as `sourceStore` and this level receives its own flat store
      * holding exactly the records it renders. `syncLevelRecords()` fills it once the configs are applied.
      * A class or config is built first, so a tree store is recognised however it arrives. A store that replaces
-     * another after construction first retires the cascade the old source drove.
+     * another after construction first retires the cascade the old source drove; the current store or tree source
+     * assigned again changes nothing.
      * @param {Object|Neo.data.Store|Neo.data.TreeStore} value
      * @param {Object|Neo.data.Store} oldValue
-     * @returns {Neo.data.Store}
+     * @returns {Neo.data.Store|undefined} Nothing for a store or source that is already in place
      * @protected
      */
     beforeSetStore(value, oldValue) {
         let me    = this,
             built = !!value && Neo.typeOf(value) !== 'NeoInstance';
 
-        me.isConstructed && value !== me.sourceStore && me.#releaseSource();
+        if (me.isConstructed) {
+            // Assigned again: the level, its source's listeners and who owns that source stay as they are
+            if (value && (value === oldValue || value === me.sourceStore)) {
+                return
+            }
+
+            me.#releaseSource()
+        }
 
         built && (value = ClassSystemUtil.beforeSetInstance(value, DataStore));
 

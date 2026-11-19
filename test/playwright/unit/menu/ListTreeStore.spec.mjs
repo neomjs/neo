@@ -278,6 +278,40 @@ test.describe('Neo.menu.List driven by a TreeStore', () => {
         expect(treeStore.isDestroyed).toBeFalsy()
     });
 
+    test('the store or tree source already in place, assigned again, keeps one set of listeners and its owner', () => {
+        const count = store => {
+                  const {listeners} = store.toJSON();
+                  return ['filter', 'mutate', 'recordChange', 'sort'].map(name => (listeners[name] || []).length)
+              },
+              pristine = count(treeStore),
+              owner    = createMenu({store: {module: TreeStore, model: MenuModel, data: treeData()}}),
+              borrower = createMenu({store: treeStore}),
+              built    = owner.sourceStore,
+              file     = owner.store.get('file');
+
+        menus.push(owner, borrower);
+
+        owner.showSubMenu(owner.getItemId(owner.store.getKey(file)), file);
+
+        const child  = owner.activeSubMenu,
+              levels = [owner.store, borrower.store],
+              before = [count(built), count(treeStore)];
+
+        owner.store    = built;
+        owner.store    = owner.store;
+        borrower.store = treeStore;
+
+        expect([owner.store, borrower.store], 'each level stays').toEqual(levels);
+        expect(owner.activeSubMenu, 'the open submenu stays').toBe(child);
+        expect([count(built), count(treeStore)], 'no listener is bound twice').toEqual(before);
+
+        owner.destroy();
+        borrower.destroy();
+
+        expect(built.isDestroyed, 'the menu still owns the source it built').toBe(true);
+        expect(count(treeStore), 'the borrowed source keeps none of the menu\'s listeners').toEqual(pristine)
+    });
+
     test('showSubMenu opens a real child level and leaves the parent alive', () => {
         const root = createMenu({store: treeStore});
 
