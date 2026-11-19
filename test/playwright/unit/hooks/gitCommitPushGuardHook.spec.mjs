@@ -68,7 +68,10 @@ test.describe('gitCommitPushGuardHook — Claude PreToolUse Bash guard', () => {
             'git push origin HEAD:refs/heads/ada/1-x',
             'git push origin "${sha}:refs/heads/ada/1-x-evidence"',
             'git push origin :ada/1-x',
-            'git push --repo=origin ada/1-x:dev',
+            'git push --repo=origin https://example.invalid/team/repo.git ada/1-x:dev',
+            'git push origin -uo ci:skip ada/1-x:dev',
+            'git push --force-with-lease origin ada/1-x:dev',
+            'git push origin -- ada/1-x:dev',
             'git push origin ada/1-x:ada/1-x 2>&1 | tail -2'
         ].forEach(command => expect(decide(command), command).toEqual(refspecBlock))
     });
@@ -81,6 +84,10 @@ test.describe('gitCommitPushGuardHook — Claude PreToolUse Bash guard', () => {
             'git push git@github.com:o/r.git ada/1-x',
             'git push -o ci:skip origin ada/1-x',
             'git push --push-option=ci:skip origin ada/1-x',
+            'git push --push-opt ci:skip origin ada/1-x',
+            'git push origin -uo ci:skip ada/1-x',
+            'git push --repo=origin https://example.invalid/team/repo.git ada/1-x',
+            'git push --recurse-submodules check https://example.invalid/team/repo.git ada/1-x',
             'git push origin ada/1-x 2> push:log',
             'git log --format=%h:%s && git push origin ada/1-x',
             'git stash push -m a:b',
@@ -96,9 +103,22 @@ test.describe('gitCommitPushGuardHook — Claude PreToolUse Bash guard', () => {
 
         expect(pushRefspecs(['-u', 'origin', 'a:b', 'c'])).toEqual(['a:b', 'c']);
         expect(pushRefspecs(['origin'])).toEqual([]);
-        expect(pushRefspecs(['--repo', 'origin', 'a'])).toEqual(['a']);
-        expect(pushRefspecs(['--repo=origin', 'a'])).toEqual(['a']);
         expect(pushRefspecs(['-o', 'ci:skip', 'origin', 'a', '>', 'out:log'])).toEqual(['a'])
+    });
+
+    test('a push reads its words the way git does: option values are skipped and the first positional is the repository', () => {
+        // the first positional is the repository even when --repo names one (git push -h: <repository> [<refspec>...])
+        expect(pushRefspecs(['--repo', 'origin', 'a'])).toEqual([]);
+        expect(pushRefspecs(['--repo=origin', 'url', 'a:b'])).toEqual(['a:b']);
+        // a value option reads the next word: in a short group ending in o, and by its name or a unique abbreviation
+        expect(pushRefspecs(['origin', '-uo', 'ci:skip', 'a'])).toEqual(['a']);
+        expect(pushRefspecs(['origin', '-oci:skip', 'a'])).toEqual(['a']);
+        expect(pushRefspecs(['--recurse-submodules', 'check', 'url', 'a'])).toEqual(['a']);
+        expect(pushRefspecs(['--push-opt', 'ci:skip', 'origin', 'a'])).toEqual(['a']);
+        // an optional value is read after = only, an ambiguous abbreviation reads nothing, and -- ends the options
+        expect(pushRefspecs(['--force-with-lease', 'origin', 'a:b'])).toEqual(['a:b']);
+        expect(pushRefspecs(['--re', 'origin', 'a'])).toEqual(['a']);
+        expect(pushRefspecs(['origin', '--', '-u', 'a'])).toEqual(['-u', 'a'])
     });
 
     test('PreToolUse decision ignores other tools and payloads without a command', () => {

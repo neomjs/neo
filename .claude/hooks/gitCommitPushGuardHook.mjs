@@ -28,8 +28,14 @@ export const GIT_PUSH_REFSPEC_GUARD_MESSAGE = 'This push names a colon refspec (
 
 // The global options whose value is the next word
 const VALUE_OPTIONS = new Set(['-C', '-c', '--config-env', '--git-dir', '--namespace', '--super-prefix', '--work-tree']);
-// The `git push` options whose value is the next word; `--repo` also takes the place of the remote positional
-const PUSH_VALUE_OPTIONS = new Set(['-o', '--push-option', '--receive-pack', '--exec', '--repo']);
+// The long options of `git push`, as `git push -h` lists them; git also accepts an unambiguous abbreviation of each
+const PUSH_LONG_OPTIONS = [
+    'all', 'atomic', 'branches', 'delete', 'dry-run', 'exec', 'follow-tags', 'force', 'force-if-includes',
+    'force-with-lease', 'ipv4', 'ipv6', 'mirror', 'no-verify', 'porcelain', 'progress', 'prune', 'push-option', 'quiet',
+    'receive-pack', 'recurse-submodules', 'repo', 'set-upstream', 'signed', 'tags', 'thin', 'verbose', 'verify'
+];
+// The ones whose value may be the next word; `--force-with-lease` and `--signed` read theirs after `=` only
+const PUSH_VALUE_OPTIONS = new Set(['exec', 'push-option', 'receive-pack', 'recurse-submodules', 'repo']);
 
 /**
  * @summary Lists the git invocations `command` runs, in order: each `git` in command position, past its global
@@ -71,15 +77,32 @@ export function gitSubcommands(command = '') {
 }
 
 /**
- * @summary Lists the refspecs a `git push` names: its positionals after the remote, or all of them when `--repo`
- * names the remote. Option values and redirections are not positionals, so a URL remote or `--push-option=a:b` never
- * counts as a refspec.
+ * @summary Tells whether a `git push` option word takes the next word as its value, the way git parses it: a
+ * short-option group that ends in `o` (`-o`, `-uo`), or a long option without `=` that names or unambiguously
+ * abbreviates one of `PUSH_VALUE_OPTIONS`.
+ * @param {String} word An option word, starting with `-`
+ * @returns {Boolean}
+ */
+function takesNextWord(word) {
+    if (!word.startsWith('--')) return word.indexOf('o') === word.length - 1;
+    if (word.includes('='))     return false;
+
+    const name    = word.slice(2),
+          matches = PUSH_LONG_OPTIONS.filter(option => option.startsWith(name));
+
+    return PUSH_VALUE_OPTIONS.has(PUSH_LONG_OPTIONS.includes(name) ? name : matches.length === 1 ? matches[0] : '')
+}
+
+/**
+ * @summary Lists the refspecs a `git push` names, reading its words the way git does: options and their values are
+ * skipped, `--` ends the options, and the first positional is the repository even when `--repo` names one, so every
+ * later positional is a refspec. A colon in a URL, in an option value or in a redirection never counts.
  * @param {String[]} args The words after `push`.
  * @returns {String[]}
  */
 export function pushRefspecs(args = []) {
     const positionals = [];
-    let   repoOption  = false;
+    let   options     = true;
 
     for (let i = 0; i < args.length; i++) {
         const arg = args[i];
@@ -88,15 +111,16 @@ export function pushRefspecs(args = []) {
             i++ // a bare redirection operator: its target is the next word
         } else if (/^\d*(>>?|<)/.test(arg)) {
             // a redirection with its target attached, such as `2>&1`
-        } else if (arg.startsWith('-')) {
-            arg.startsWith('--repo') && (repoOption = true);
-            PUSH_VALUE_OPTIONS.has(arg) && i++
+        } else if (options && arg === '--') {
+            options = false
+        } else if (options && arg.length > 1 && arg.startsWith('-')) {
+            takesNextWord(arg) && i++
         } else {
             positionals.push(arg)
         }
     }
 
-    return repoOption ? positionals : positionals.slice(1)
+    return positionals.slice(1)
 }
 
 /** @summary Parses the hook payload, or returns `null` when it is not JSON. @param {String} raw @returns {Object|null} */
