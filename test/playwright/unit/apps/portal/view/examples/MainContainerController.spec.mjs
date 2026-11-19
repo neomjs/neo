@@ -638,7 +638,7 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
       establishedTailIds = [
           'helix', 'devindex', 'multi-window-covid-gallery', 'offscreen-canvas', 'shared-offscreen-canvas',
           'multi-window-drag-drop', 'tab-container', 'tab-browser', 'state-provider', 'dialog-drag-drop',
-          'colors-dashboard', 'covid-dashboard', 'covid-helix', 'covid-gallery', 'gallery'
+          'colors-dashboard', 'covid-dashboard', 'covid-helix', 'covid-gallery', 'gallery', 'list-reorder', 'list-animate'
       ],
       componentExampleIds = [
           'carousel', 'chip', 'circle', 'clock', 'magic-move-text',
@@ -665,7 +665,7 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
       ],
       // the tile records of groups that had no record before the tiles, appended to the catalog
       newTileIds = [
-          'button-base', 'menu-list', 'list-base', 'chip-list', 'color-list',
+          'button-base', 'menu-list', 'list-base', 'chip-list', 'color-list', 'list-buffered', 'list-circle',
           'functional-define-component', 'functional-host-component', 'functional-nested-template', 'sitemap'
       ],
       // the Containers & Layouts cards, appended after the tiles
@@ -705,7 +705,7 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           apps          : [6, 5],
           'grid-table'  : [19, 0],
           tree          : [0, 2],
-          lists         : [7, 0],
+          lists         : [12, 0],
           charts        : [4, 1],
           calendar      : [1, 0],
           scheduler     : [2, 0],
@@ -724,7 +724,7 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           functional    : [3, 1],
           'drag-drop'   : [0, 3]
       },
-      recordCount    = 123,
+      recordCount    = 127,
       publishedCount = Object.values(groupCounts).reduce((sum, [count]) => sum + count, 0),
       groupCount     = Object.keys(groupCounts).length,
       // every record with a cover publishes in a production build, so the rest wait for one
