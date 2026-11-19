@@ -400,6 +400,54 @@ Remote projections, incomplete data, trees, unknown fields, complex raw records 
 be compared display an explanation instead of applying a partial filter. An application needing server
 facets must supply that authority separately; visible buffered rows cannot establish complete counts.
 
+## Header label alignment
+
+By default every column header label sits at its left edge.
+For numeric or currency columns whose cells are right-aligned, that leaves the label ~200 px from the digits it describes.
+`headerAlign` closes that gap by moving only the label — it does not touch cell alignment.
+
+| Value | Effect |
+|---|---|
+| `'left'` (default) | Label at the left edge — no extra class, no change to existing grids. |
+| `'right'` | Label at the right edge — mirrors the digits of a right-aligned column. |
+| `'center'` | Label centred inside the header width. |
+| `'auto'` | Label tracks `cellAlign`: right column → right label, left column → left label. Changing `cellAlign` at runtime moves the label with it. |
+
+### Per-column `headerAlign`
+
+```javascript
+columns: [
+    {
+        cellAlign  : 'right',
+        dataField  : 'amount',
+        headerAlign: 'right',   // label sits over the digits
+        text       : 'Amount'
+    },
+    {dataField: 'name', text: 'Name'}  // no headerAlign → default left
+]
+```
+
+### Grid-wide `auto` alignment with `columnDefaults`
+
+`'auto'` is the most convenient choice when every numeric column already carries `cellAlign: 'right'`:
+the header label follows without any per-column config.
+
+```javascript
+{
+    module        : GridContainer,
+    columnDefaults: {headerAlign: 'auto'},
+    columns: [
+        {cellAlign: 'right', dataField: 'amount',   text: 'Amount'},
+        {cellAlign: 'right', dataField: 'quantity',  text: 'Qty'},
+        {dataField: 'name',  text: 'Name'}          // cellAlign defaults to left → label stays left
+    ]
+}
+```
+
+> [!TIP]
+> The sort glyph, column-menu trigger, and inline filter field all stay inside the header regardless of `headerAlign`.
+> Setting `headerAlign` does not affect `cellAlign`; both configs are independent.
+
 ## Sorting
 
 Neo.mjs grids provide built-in support for sorting data by one or more columns. Sorting is primarily managed by the
