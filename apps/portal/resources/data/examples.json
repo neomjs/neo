@@ -1242,8 +1242,8 @@
         "hiddenIn": [],
         "family": "grid-table",
         "component": "Grid",
-        "feature": "Cell, row and column selection",
-        "lookFor": "Switch between cell, row, column and combined selection, then change the grid height."
+        "feature": "Cell, row, column and crosshair selection modes",
+        "lookFor": "Click any shift on a 42-clinician weekly roster, move with ArrowUp/Down/Left/Right, and switch between Cell, Column, Row and combined crosshair models."
     },
     {
         "id": "grid-content-sized-rows",
@@ -1357,7 +1357,7 @@
     {
         "id": "grid-nested-record-fields",
         "image": "devmode/grid-nested-record-fields-14.jpg",
-        "name": "Nested Grid Records",
+        "name": "Edit a Row in a Dialog",
         "sourceUrl": "examples/grid/nestedRecordFields",
         "urls": {
             "devmode": "examples/grid/nestedRecordFields/index.html",
@@ -1368,8 +1368,8 @@
         "hiddenIn": [],
         "family": "grid-table",
         "component": "Grid",
-        "feature": "Nested records and component cells",
-        "lookFor": "Open Edit to change nested user fields and watch modified-cell highlighting; compare header-only and full-column dragging."
+        "feature": "Modal form editing on a grid row",
+        "lookFor": "Press Edit in any row to open its dialog form, change contact or nested address fields, and save to highlight modified cells; compare header-only and full-column dragging."
     },
     {
         "id": "grid-streaming",
@@ -1429,7 +1429,7 @@
     {
         "id": "table-container",
         "image": "devmode/table-container-14.jpg",
-        "name": "Table Configuration",
+        "name": "When to Use a Table",
         "sourceUrl": "examples/table/container",
         "urls": {
             "devmode": "examples/table/container/index.html",
@@ -1440,8 +1440,8 @@
         "hiddenIn": [],
         "family": "grid-table",
         "component": "Table",
-        "feature": "Selection modes and embedded controls",
-        "lookFor": "Switch selection models, toggle fit width or column dragging, and open a cell menu."
+        "feature": "Content-sized columns, sticky headers and wrapping cells on local data",
+        "lookFor": "Compare 14 service tier specifications where columns size to their text and notes wrap. Sort, filter inline, resize or drag-reorder headers, and toggle Fit width."
     },
     {
         "id": "checkbox-field",
@@ -1875,6 +1875,23 @@
         "component": "Fieldset",
         "feature": "A fieldset grouping number fields under a titled frame",
         "lookFor": "Adjust the inner number values and try the title field in the panel."
+    },
+    {
+        "id": "form-validation",
+        "image": null,
+        "name": "Sign-up validation",
+        "sourceUrl": "examples/form/validation",
+        "urls": {
+            "devmode": "examples/form/validation/index.html",
+            "dist_dev": "dist/development/examples/form/validation/index.html",
+            "dist_esm": "dist/esm/examples/form/validation/index.html",
+            "dist_prod": "dist/production/examples/form/validation/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "Form Container",
+        "feature": "How does a form tell the user what is wrong? A sign-up form validates as you type, blocks submit and lists the errors",
+        "lookFor": "Type a bad email, fix it, and sign up."
     },
     {
         "id": "field-with-prefix",

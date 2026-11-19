@@ -287,8 +287,8 @@ test.describe('Portal examples section', () => {
         const headline   = page.locator('.portal-examples-overview:visible .portal-examples-overview-headline'),
               counts     = page.locator(`${SIDEBAR} .portal-examples-group-index-count`),
               components = counts.nth(GROUPS.indexOf('More components')),
-              // a group that only borrows shows the borrowed count in parentheses, which its headline does not add
-              sum        = async () => (await counts.allTextContents()).filter(text => !text.startsWith('(')).reduce((sum, text) => sum + Number(text), 0),
+              // a group that only borrows shows no number, so the list's numbers add up to the headline
+              sum        = async () => (await counts.allTextContents()).reduce((sum, text) => sum + Number(text), 0),
               headlineOf = published => `${published} live examples in ${GROUPS.length} groups`;
 
         await expect(page.locator(SIDEBAR)).toBeVisible();
@@ -299,7 +299,7 @@ test.describe('Portal examples section', () => {
               componentCount = Number(await components.textContent());
 
         expect(published).toBeGreaterThan(0);
-        await expect(page.locator(`${SIDEBAR} .portal-examples-group-index-note`)).toBeVisible();
+        await expect(counts.filter({hasText: '('}), 'no count needs a footnote').toHaveCount(0);
         await expect(page.locator(`${FEATURED} .neo-list-item`).first().locator('.portal-example-group-badge')).toHaveText('Multi-Window');
 
         // Dev mode cannot open liquid-glass, the one card of More components; its tiles stay
@@ -634,7 +634,7 @@ test.describe('Portal examples section', () => {
 
                 // A stable string identity also survives the lazy-cover path at the end of the list.
                 await overview.locator('.neo-list-item').last().scrollIntoViewIfNeeded();
-                await expect(overview.locator('.neo-list-item').last().getByRole('link', {name: 'Table Configuration'})).toBeVisible()
+                await expect(overview.locator('.neo-list-item').last().getByRole('link', {name: 'When to Use a Table'})).toBeVisible()
             })
         }
     }
@@ -803,6 +803,9 @@ test.describe('Portal examples section', () => {
 
         await expect(results.getByRole('link', {name: 'Sprint Board', exact: true})).toBeVisible();
         await expect(page.locator(SIDEBAR).getByRole('link', {name: 'Drag & Drop, 3 matching examples from other groups'})).toBeVisible();
+        // its matches are all borrowed, so like outside a filter it shows no number, only its label says it
+        await expect(page.locator(SIDEBAR).getByRole('link', {name: 'Drag & Drop, 3 matching examples from other groups'})
+            .locator('.portal-examples-group-index-count')).toHaveText('');
         await expect(page.locator(`${SIDEBAR} li.portal-examples-group-index-zero`).filter({hasText: 'Calendar'})).toBeVisible();
         await expect(page).toHaveURL(/#\/examples\/grid$/);
         expect(await page.evaluate(() => window.history.length)).toBe(initialHistoryLength);

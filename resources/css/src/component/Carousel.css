@@ -1,7 +1,17 @@
 .neo-carousel {
-    background: var(--carousel-background-color);
-    height    : 14rem;
-    padding   : 15px;
+    background     : var(--carousel-background-color);
+    display        : flex;
+    flex-direction : column;
+    height         : 14rem;
+    padding        : 15px;
+
+    /* The body fills the root; only the root carries the 14rem default and the padding. */
+    .neo-carousel-body {
+        display       : flex;
+        flex          : 1 1 auto;
+        flex-direction: column;
+        min-height    : 0;
+    }
 
     .neo-carousel-btn-bar {
         text-align: end;
@@ -16,7 +26,8 @@
         background-color: var(--carousel-inner-background-color);
         border-radius   : 5px;
         color           : var(--carousel-inner-color);
-        height          : 9rem;
+        flex            : 1 1 auto;
+        min-height      : 0;
         overflow        : hidden;
         position        : relative;
 
@@ -43,7 +54,7 @@
         }
 
         .neo-carousel-item {
-            height                    : 9rem;
+            height                    : 100%;
             inset                     : 0;
             padding                   : 15px;
             position                  : absolute;

@@ -224,12 +224,16 @@ test.describe('Portal examples overview and group pages', () => {
         expect(mobIx.vdom.cn.filter(node => node.tag === 'section').map(band => band.cn[0].text))
             .toEqual(['Data views', 'Planning', 'Layout', 'Components', 'Platform']);
         expect(links(mobIx).map(link => link.href)).toEqual(publishedRoutes.map(route => '#' + route));
-        // a group with home examples shows their count, one that only borrows shows the borrowed count in parentheses
+        // a group shows its home examples; one that only borrows shows no number, and its label still names what it borrows
         expect(links(mobIx).map(link => link.cn[2].text))
-            .toEqual(Object.values(groupCounts).map(([count, crossCount]) => count ? String(count) : `(${crossCount})`));
+            .toEqual(Object.values(groupCounts).map(([count]) => count ? String(count) : ''));
+        expect(links(mobIx).filter(link => !link.cn[2].text).map(link => link.href))
+            .toEqual(publishedRoutes.filter((route, index) => Object.values(groupCounts)[index][0] === 0).map(route => '#' + route));
+        expect(links(mobIx).filter(link => !link.cn[2].text).every(link => link['aria-label'].endsWith('from other groups'))).toBe(true);
         expect(links(mobIx).every(link => link['aria-current'] === null)).toBe(true);
         expect(mobIx.vdom.cn[0].removeDom).toBe(true);
-        expect(mobIx.vdom.cn.at(-1).removeDom).toBe(false);
+        // the all-examples link, the unbanded list and one section per band: no note under them
+        expect(mobIx.vdom.cn.map(node => node.tag)).toEqual(['a', 'ul', 'section', 'section', 'section', 'section', 'section']);
 
         expect(index.presentation).toBe('list');
         expect(index.vdom.cn[0].removeDom).toBe(false);
@@ -656,7 +660,7 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           'text-field', 'textarea-field', 'time-field', 'url-field',
           'country-field', 'currency-field', 'display-field', 'iban-field', 'password-field',
           'phone-field', 'range-field', 'search-field', 'zipcode-field', 'copy-to-clipboard-trigger',
-          'fieldset', 'field-with-prefix', 'layout-form', 'form-app'
+          'fieldset', 'form-validation', 'field-with-prefix', 'layout-form', 'form-app'
       ],
       // the tile records of groups that had no record before the tiles, appended to the catalog
       newTileIds = [
@@ -702,7 +706,7 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           forms         : [27, 1], buttons    : [2, 0], components: [9, 0],
           'multi-window': [6, 3], platform    : [2, 1], state: [1, 0], functional: [3, 1], 'drag-drop': [0, 3]
       },
-      recordCount    = 122,
+      recordCount    = 123,
       publishedCount = Object.values(groupCounts).reduce((sum, [count]) => sum + count, 0),
       groupCount     = Object.keys(groupCounts).length,
       // every record with a cover publishes in a production build, so the rest wait for one
