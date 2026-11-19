@@ -16,5 +16,7 @@ export default [
     {id: 10, parentId: 8,    name: 'toolbar',   route: '/neo/examples/toolbar/',   description: 'Toolbar examples: this breadcrumb and a paging toolbar.'},
     {id: 11, parentId: 1,    name: 'learn',     route: '/neo/learn/',              description: 'Guides, tutorials and the concepts behind the engine.'},
     {id: 12, parentId: 11,   name: 'guides',    route: '/neo/learn/guides/',       description: 'Guides to components, data handling and the multi-threaded core.'},
-    {id: 13, parentId: 11,   name: 'tutorials', route: '/neo/learn/tutorials/',    description: 'Tutorials that build an application step by step.'}
+    {id: 13, parentId: 11,   name: 'tutorials', route: '/neo/learn/tutorials/',    description: 'Tutorials that build an application step by step.'},
+    {id: 14, parentId: 12,   name: 'datahandling',     route: '/neo/learn/guides/datahandling/',     description: 'Collections, records and stores, and the grids, boards and schedulers that show them.'},
+    {id: 15, parentId: 12,   name: 'uibuildingblocks', route: '/neo/learn/guides/uibuildingblocks/', description: 'Components, containers, layouts, dock layouts and templates: the pieces an application is built from.'}
 ];

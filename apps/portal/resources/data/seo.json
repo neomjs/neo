@@ -1135,6 +1135,12 @@
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-19"
     },
+    "/examples/buttons": {
+        "title": "JavaScript Buttons, Menus & Toolbars — Live Examples | Neo.mjs",
+        "description": "Explore 3 live JavaScript button and menu examples: A right-click on a project file opens its actions at the pointer, and every action changes the list.",
+        "schemaType": "CollectionPage",
+        "lastmod": "2026-11-19"
+    },
     "/examples/components": {
         "title": "JavaScript UI Component Examples — Off the Main Thread | Neo.mjs",
         "description": "Explore 1 live JavaScript UI component example: A liquid glass panel that bends the photo beneath it as it drifts.",
@@ -1939,6 +1945,12 @@
         "schemaType": "WebPage",
         "lastmod": "2026-08-29"
     },
+    "/examples/menu/contextFiles/index.html": {
+        "title": "Context Menu: Project Files — JavaScript UI Demo | Neo.mjs",
+        "description": "A right-click on a project file opens its actions at the pointer, and every action changes the list. Right-click a file to move, star, duplicate or delete...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-19"
+    },
     "/examples/menu/list/index.html": {
         "title": "MenuList — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "Live runnable MenuList example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
@@ -2109,9 +2121,9 @@
     },
     "/examples/toolbar/breadcrumb/index.html": {
         "title": "Breadcrumb Toolbar — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Live runnable Breadcrumb Toolbar example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "description": "A breadcrumb over the engine repository's folders: a subfolder goes one level down, a crumb goes back up. Open grid under src, then press the neo crumb to...",
         "schemaType": "WebPage",
-        "lastmod": "2025-07-11"
+        "lastmod": "2026-11-19"
     },
     "/examples/tree/index.html": {
         "title": "Tree — Web Worker JavaScript UI Demo | Neo.mjs",

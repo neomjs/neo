@@ -936,6 +936,40 @@
         "hiddenIn": []
     },
     {
+        "id": "context-menu-files",
+        "family": "buttons",
+        "component": "Context Menu",
+        "feature": "A right-click on a project file opens its actions at the pointer, and every action changes the list.",
+        "lookFor": "Right-click a file to move, star, duplicate or delete it; right-click the free space below the files for a new one.",
+        "image": "devmode/context-menu-files-14.jpg",
+        "name": "Context Menu",
+        "sourceUrl": "examples/menu/contextFiles",
+        "urls": {
+            "devmode": "examples/menu/contextFiles/index.html",
+            "dist_dev": "dist/development/examples/menu/contextFiles/index.html",
+            "dist_esm": "dist/esm/examples/menu/contextFiles/index.html",
+            "dist_prod": "dist/production/examples/menu/contextFiles/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "breadcrumb",
+        "family": "buttons",
+        "component": "Breadcrumb",
+        "feature": "A breadcrumb over the engine repository's folders: a subfolder goes one level down, a crumb goes back up.",
+        "lookFor": "Open grid under src, then press the neo crumb to return to the top; reload and the page keeps its folder.",
+        "image": "devmode/breadcrumb-14.jpg",
+        "name": "Breadcrumb Toolbar",
+        "sourceUrl": "examples/toolbar/breadcrumb",
+        "urls": {
+            "devmode": "examples/toolbar/breadcrumb/index.html",
+            "dist_dev": "dist/development/examples/toolbar/breadcrumb/index.html",
+            "dist_esm": "dist/esm/examples/toolbar/breadcrumb/index.html",
+            "dist_prod": "dist/production/examples/toolbar/breadcrumb/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
         "id": "table-filtering",
         "featured": false,
         "image": "devmode/table-filtering-14.jpg",
@@ -1164,6 +1198,9 @@
         },
         "hiddenIn": [],
         "family": "grid-table",
+        "alsoIn": [
+            "buttons"
+        ],
         "component": "Grid",
         "feature": "One-page loading with remote sorting and filtering over 100,000 seeded orders",
         "lookFor": "Change page, sort a header or choose a country: the request line shows the parameters and only one page reaches the grid.",
