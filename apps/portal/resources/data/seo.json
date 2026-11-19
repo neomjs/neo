@@ -1270,7 +1270,8 @@
     "/examples/board/swimlanes/index.html": {
         "title": "A board by team · Neo Board — JavaScript UI Demo | Neo.mjs",
         "description": "One row per team over the same five columns, each with its card count. Collapse a team, then drag a card into another team's row: the card joins that team...",
-        "schemaType": "WebPage"
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-19"
     },
     "/examples/button/base/index.html": {
         "title": "Button — Web Worker JavaScript UI Demo | Neo.mjs",
