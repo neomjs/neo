@@ -50,7 +50,6 @@ body:has(.neo-examples-grid-filtering) .neo-dragproxy [class*=neo-theme-] .neo-g
             border       : 1px solid var(--grid-filtering-border);
             border-radius: 8px;
             color        : var(--grid-filtering-title);
-            padding      : 8px 12px;
         }
     }
 

@@ -335,7 +335,6 @@ body:has(.workstation-viewport) .neo-grid-container.neo-dragproxy .neo-grid-head
     --button-text-color-hover       : var(--workstation-ink);
     border-radius: 6px;
     font-family  : var(--workstation-font-mono);
-    height       : 30px;
 }
 
 /* `FeedPane` / `ScalePane` root. A torn-out data pane keeps its own frame, and the sparkline

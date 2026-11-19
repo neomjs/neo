@@ -18,9 +18,10 @@
     margin: 0;
 }
 
+/* A phone's toolbar padding for a button without a size; a size class re-values the variable on the button itself */
 @media (max-width: 600px) {
-    .neo-toolbar .neo-button {
-        padding: 0 5px;
+    :where(.neo-toolbar) {
+        --button-padding: 0 5px;
     }
 }
 
