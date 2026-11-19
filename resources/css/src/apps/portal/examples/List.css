@@ -371,11 +371,18 @@
             }
         }
 
+        .portal-example-title-row {
+            padding: 9px 12px 11px;
+        }
+
         .neo-title {
             color      : var(--portal-examples-list-text);
             font-size  : 14px;
             line-height: 1.3;
-            padding    : 9px 12px 11px;
+        }
+
+        .portal-example-open-cue {
+            font-size: 14px;
         }
     }
 }

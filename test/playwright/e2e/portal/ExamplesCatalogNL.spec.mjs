@@ -407,6 +407,10 @@ test.describe('Portal examples section', () => {
             await expect(tiles).toHaveCount(28);
             await expect(tiles.first().locator('.neo-title')).toHaveText('Checkbox');
             await expect(tiles.last().locator('.neo-title')).toHaveText('ZIP code field');
+            // at rest the caption says the tile opens a running example, through the name's own link
+            await expect(tiles.first().locator('.portal-example-open-cue')).toHaveText('↗');
+            await expect(tiles.first().locator('.portal-example-open-cue'))
+                .toHaveAttribute('href', await tiles.first().locator('.neo-title').getAttribute('href'));
             // a page of one kind heads neither
             await expect(page.locator(`${PAGE} .portal-examples-kind-heading`)).toHaveCount(0);
 

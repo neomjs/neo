@@ -207,9 +207,13 @@ class List extends BaseList {
             imageStyle = index < 6 ? me.getBackgroundImageStyle(record) : null;
 
         if (me.tiles) {
+            // A tile is too narrow for the card's "Open live ↗": its caption keeps the arrow alone
             return [{cls: ['content', 'portal-example-tile'], data: {recordId: record.id}, removeDom: me.isHiddenItem(record), cn: [
                 {cls: ['preview-image'], flag: `image-${record.id}`, style: imageStyle},
-                {...me.createLink(record)}
+                {cls: ['portal-example-title-row'], cn: [
+                    {...me.createLink(record)},
+                    {...me.createOpenCue(record), text: '↗'}
+                ]}
             ]}]
         }
 
