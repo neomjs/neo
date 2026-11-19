@@ -55,16 +55,20 @@ open apps, and the app windows. The demo hands it the apps store and adds its ow
     bind         : {appStore: 'stores.apps', hidden: data => !data.account},
     items        : {workspace: {items: {permissions: {module: PermissionPanel, weight: 30}}}},
     taskbarConfig: {module: Taskbar},
-    windowClass  : () => import('./AppWindow.mjs')
+    appWindowConfigs: {
+        mail: {height: 520, width: 880, view: () => import('./apps/Mail.mjs')}
+        // one entry per app
+    }
 }
 ```
 
 Double-click an icon, or press Enter on it, and the app opens in a window that grows out of the icon: one window per
-app, loaded on first use through the lazy `import()` and kept afterwards. The window (`view/AppWindow.mjs`) is the
-engine's `Neo.desktop.AppWindow` with the app's card as its content. The desktop names itself the window's parent, so
-the card binds the app as `data.record` from the window's own provider and `account` from the demo's. The desktop's
-window manager keeps the open apps in the taskbar, orders the windows, and closes the window of an app the permission
-filter drops, minimized or not. A sign-out calls its `reset()`.
+app, kept afterwards. The window is the engine's `Neo.desktop.AppWindow`, sized by the app's `appWindowConfigs` entry,
+and its content is the app's view under `view/apps/`, whose module loads on the app's first open. The desktop names
+itself the window's parent, so a view reaches the demo's state provider: Settings binds the account, the theme and the
+permissions, and Documents and the Recycle Bin share the provider's `documents` and `recycleBin` stores, so a delete or
+a restore moves a file between two windows. The desktop's window manager keeps the open apps in the taskbar, orders the
+windows, and closes the window of an app the permission filter drops, minimized or not. A sign-out calls its `reset()`.
 
 ## Arranging icons
 
@@ -91,4 +95,6 @@ has no double-click, so a single tap opens an app there.
 | `store/Permissions.mjs`, `view/PermissionList.mjs` | The panel that simulates the backend changing permissions. |
 | `view/SignIn.mjs`, `view/AccountList.mjs` | The lock screen. |
 | `view/Viewport.mjs`, `view/Taskbar.mjs` | The sign-in screen and the engine's `Neo.desktop.Container`, with the demo's panel, note and taskbar items. |
-| `view/AppWindow.mjs`, `view/AppView.mjs` | An app's window, the engine's `Neo.desktop.AppWindow`, and its content. |
+| `view/apps/*.mjs` | Each app's view, with its data. `GlassGrid` puts their grids on the window glass. |
+| `store/Files.mjs`, `model/File.mjs`, `resources/data/files.json` | The shared files of Documents and the Recycle Bin. |
+| `resources/data/help.md` | The Help app's guide. |

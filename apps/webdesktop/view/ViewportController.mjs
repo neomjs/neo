@@ -87,24 +87,46 @@ class ViewportController extends Controller {
     }
 
     /**
-     * Switches between the dark and the light neo theme. A floating menu keeps the theme it was created with, so the
-     * start menu follows explicitly.
+     * Records the viewport's starting theme as state, which the taskbar's theme button and the Settings app read.
+     */
+    onComponentConstructed() {
+        super.onComponentConstructed();
+        this.setState('theme', this.component.getTheme())
+    }
+
+    /**
+     * Switches between the dark and the light neo theme.
      * @param {Object} data
      */
     onThemeButtonClick(data) {
+        this.setTheme(this.getState('theme') === 'neo-theme-neo-light' ? 'neo-theme-neo-dark' : 'neo-theme-neo-light')
+    }
+
+    /**
+     * Applies the theme a Settings theme button names (`themeName`).
+     * @param {Object}          data
+     * @param {Neo.button.Base} data.component
+     */
+    onThemeSettingClick({component}) {
+        this.setTheme(component.themeName)
+    }
+
+    /**
+     * The one writer of the theme: the viewport takes it, then the state. A floating menu keeps the theme it was
+     * created with, so the start menu follows explicitly.
+     * @param {String} theme
+     */
+    setTheme(theme) {
         let me         = this,
-            viewport   = me.component,
-            isLight    = viewport.getTheme() === 'neo-theme-neo-light',
-            theme      = isLight ? 'neo-theme-neo-dark' : 'neo-theme-neo-light',
             {menuList} = me.getReference('start-button');
 
-        viewport.theme = theme;
+        me.component.theme = theme;
 
         if (menuList) {
             menuList.theme = theme
         }
 
-        data.component.iconCls = isLight ? 'fas fa-sun' : 'fas fa-moon'
+        me.setState('theme', theme)
     }
 }
 
