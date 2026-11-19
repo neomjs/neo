@@ -36,6 +36,8 @@ class MainContainer extends Viewport {
             ].join('')
         }, {
             module: Toolbar,
+            // The row wraps, so every option stays on a phone's screen
+            layout: {ntype: 'hbox', align: 'center', gap: '.5em 2em', wrap: 'wrap'},
             items : [{
                 module : Button,
                 handler: 'up.createDialog',
@@ -47,7 +49,6 @@ class MainContainer extends Viewport {
                 hideLabel     : true,
                 hideValueLabel: false,
                 listeners     : {change: 'up.onBoundaryContainerIdChange'},
-                style         : {marginLeft: '3em'},
                 valueLabel    : 'Limit Drag&Drop to the document.body'
             }, {
                 module        : CheckBox,
@@ -55,7 +56,6 @@ class MainContainer extends Viewport {
                 hideLabel     : true,
                 hideValueLabel: false,
                 listeners     : {change: 'up.onConfigChange'},
-                style         : {marginLeft: '3em'},
                 targetConfig  : 'animated',
                 valueLabel    : 'Animated'
             }, {
@@ -64,7 +64,6 @@ class MainContainer extends Viewport {
                 hideLabel     : true,
                 hideValueLabel: false,
                 listeners     : {change: 'up.onConfigChange'},
-                style         : {marginLeft: '1em'},
                 targetConfig  : 'modal',
                 valueLabel    : 'Modal'
             }, '->', {
