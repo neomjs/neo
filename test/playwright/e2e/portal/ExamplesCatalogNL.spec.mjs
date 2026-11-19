@@ -438,11 +438,14 @@ test.describe('Portal examples section', () => {
 
     test('a page that holds both kinds heads each: More components shows Demonstrations, then Components', async ({page, neuralLink}) => {
         await page.goto(`${PORTAL}#/examples/components`);
-        await neuralLink.connectToApp('Portal');
+        const app   = await neuralLink.connectToApp('Portal'),
+              tiles = page.locator(`${TILES} .neo-list-item`);
 
         await expect(page.locator(`${PAGE} .portal-examples-kind-heading`)).toHaveText(['Demonstrations', 'Components']);
         await expect(page.locator(`${CARDS} .neo-list-item .neo-title`)).toHaveText(['Liquid Glass effect']);
-        await expect(page.locator(`${TILES} .neo-list-item`)).toHaveCount(8)
+        // the Store behind the tiles holds the count to show, so a new tile changes only the unit spec's table
+        await expect(tiles.first()).toBeVisible();
+        await expect(tiles).toHaveCount((await readList(app, 'components', 'tile-list')).properties.store.count)
     });
 
     test('what the boards cannot show: direct entry, history, the build kept across groups, the scroll of each group', async ({page, neuralLink}) => {
