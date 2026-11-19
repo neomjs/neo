@@ -5,9 +5,12 @@ import Store           from './Store.mjs';
 import TreeModel       from './TreeModel.mjs';
 
 const
-    isFiltered    = Symbol.for('isFiltered'),
-    isSorted      = Symbol.for('isSorted'),
-    updatingIndex = Symbol.for('updatingIndex');
+    countMutations     = Symbol.for('countMutations'),
+    initialIndexSymbol = Symbol.for('initialIndex'),
+    isFiltered         = Symbol.for('isFiltered'),
+    isSorted           = Symbol.for('isSorted'),
+    silentUpdateMode   = Symbol.for('silentUpdateMode'),
+    updatingIndex      = Symbol.for('updatingIndex');
 
 /**
  * @summary Manages hierarchical data by projecting a visible subset into a flat array for virtual scrolling.
@@ -891,8 +894,8 @@ class TreeStore extends Store {
         }
 
         if (parentId !== 'root') {
-            let parentNode  = me.get(parentId),
-                parentIndex = me.indexOf(parentNode);
+            let parentNode  = me.map.get(parentId),
+                parentIndex = parentNode ? me._items.indexOf(parentNode) : -1;
 
             if (parentIndex > -1) {
                 return parentIndex + 1
@@ -1151,7 +1154,11 @@ class TreeStore extends Store {
         }
 
         // --- 2. Process Additions & Moves ---
-        let insertIndex = index;
+        let insertIndex         = index,
+            visibleReplacements = [],
+            hydratedUpdates     = [],
+            expandedParents     = [],
+            pendingVisibleNodes = [];
 
         if (toAddArray) {
             let items         = Array.isArray(toAddArray) ? toAddArray : [toAddArray],
@@ -1161,9 +1168,16 @@ class TreeStore extends Store {
             if (items.length > 0) {
                 // 2a. Ingest nodes into the Structural Layer maps
                 for (i = 0, len = items.length; i < len; i++) {
-                    let data = items[i];
-                    key      = me.getKey(data);
-                    parentId = data.parentId || 'root';
+                    let data             = items[i];
+                    key                  = me.getKey(data);
+                    let existing         = me.#allRecordsMap.get(key),
+                        oldParent        = existing ? (existing.parentId || 'root') : null,
+                        oldCollapsed     = existing ? existing.collapsed : null,
+                        wasVisible       = Boolean(existing && me.map?.has(key)),
+                        oldVisible       = wasVisible ? me.map.get(key) : null,
+                        isHydratedUpdate = Boolean(existing && data !== existing && RecordFactory.isRecord(existing) && !RecordFactory.isRecord(data));
+
+                    parentId = data.parentId !== undefined ? (data.parentId || 'root') : (oldParent || 'root');
 
                     if (parentId !== 'root' && !me.#allRecordsMap.has(parentId)) {
                         parentId = me.getCanonicalKey(parentId) ?? parentId;
@@ -1173,32 +1187,60 @@ class TreeStore extends Store {
                         }
                     }
 
-                    // Soft Hydration for hierarchical fields
-                    if (data.depth === undefined) {
-                        if (parentId === 'root') {
-                            data.depth = 0
-                        } else {
-                            let parentNode = me.#allRecordsMap.get(parentId);
-                            data.depth = parentNode && parentNode.depth !== undefined ? parentNode.depth + 1 : 1
+                    if (isHydratedUpdate) {
+                        const updateFields = {};
+                        for (const [k, v] of Object.entries(data)) {
+                            if (v !== undefined) updateFields[k] = v
+                        }
+                        if (updateFields.depth === undefined && (parentId !== oldParent || existing.depth === undefined)) {
+                            let parentNode = parentId === 'root' ? null : me.#allRecordsMap.get(parentId);
+                            updateFields.depth = parentId === 'root' ? 0 : (parentNode?.depth !== undefined ? parentNode.depth + 1 : 1)
+                        }
+                        existing.setSilent(updateFields);
+                        data = existing;
+                        hydratedUpdates.push(existing);
+                        affectedParents.add(parentId)
+                    } else {
+                        if (data.parentId === undefined && oldParent && oldParent !== 'root') {
+                            data.parentId = oldParent
+                        }
+
+                        // Soft Hydration for hierarchical fields
+                        if (data.depth === undefined) {
+                            if (parentId === 'root') {
+                                data.depth = 0
+                            } else {
+                                let parentNode = me.#allRecordsMap.get(parentId);
+                                data.depth = parentNode && parentNode.depth !== undefined ? parentNode.depth + 1 : 1
+                            }
+                        }
+
+                        if (data.isLeaf === undefined) {
+                            data.isLeaf = existing?.isLeaf ?? (me.#childrenMap.get(key)?.length > 0 ? false : true)
+                        }
+
+                        if (data.childCount === undefined) {
+                            data.childCount = existing?.childCount ?? (me.#childrenMap.get(key)?.length || 0)
+                        }
+
+                        if (data.collapsed === undefined) {
+                            data.collapsed = existing?.collapsed ?? true
                         }
                     }
 
-                    if (data.isLeaf === undefined) {
-                        data.isLeaf = true
+                    if (existing && oldParent !== parentId) {
+                        let oldSiblings = me.#childrenMap.get(oldParent);
+                        if (oldSiblings) {
+                            let oldIdx = oldSiblings.indexOf(existing);
+                            if (oldIdx < 0) {
+                                oldIdx = oldSiblings.findIndex(sibling => me.getKey(sibling) === key)
+                            }
+                            if (oldIdx > -1) {
+                                oldSiblings.splice(oldIdx, 1)
+                            }
+                        }
+                        affectedParents.add(oldParent)
                     }
-
-                    if (data.childCount === undefined) {
-                        data.childCount = 0
-                    }
-
-                    if (data.collapsed === undefined) {
-                        data.collapsed = true
-                    }
-
-                    // Captured before the overwrite: this is both the node a re-add replaces and the
-                    // proof that the key is in the hierarchy at all, which is what keeps `#addChild()`
-                    // from scanning a level per ingested node.
-                    let existing = me.#allRecordsMap.get(key);
 
                     me.#allRecordsMap.set(key, data);
 
@@ -1214,64 +1256,73 @@ class TreeStore extends Store {
                         }
                     }
 
-                    me.#addChild(parentId, data, existing, affectedParents);
+                    me.#addChild(parentId, data, oldParent === parentId ? existing : undefined, affectedParents);
 
-                    // Identify nodes that need their flat visible descendants calculated
-                    if (parentId === 'root' || !me.#allRecordsMap.has(parentId)) {
-                        newRoots.push(data);
+                    // Auto-heal disconnected branches by reparenting them to 'root'
+                    if (parentId !== 'root' && !me.#allRecordsMap.has(parentId)) {
+                        let orphanParent = parentId;
+                        parentId         = 'root';
 
-                        // Auto-heal disconnected branches by reparenting them to 'root'
-                        if (parentId !== 'root') {
+                        if (RecordFactory.isRecord(data)) {
+                            data.setSilent({depth: 0, parentId: 'root'})
+                        } else {
                             data.parentId = 'root';
-
                             // The re-parenting carries its own derived invariant. `depth` was resolved
                             // against the declared parent above — and that parent is precisely the one
                             // that turned out to be absent, so the value it produced describes a level
                             // this node no longer sits on. A root-level node is at depth 0.
-                            data.depth = 0;
-
-                            let siblings = me.#childrenMap.get(parentId);
-                            if (siblings) {
-                                let idx = siblings.indexOf(data);
-                                if (idx > -1) {
-                                    siblings.splice(idx, 1)
-                                }
-                            }
-
-                            me.#addChild('root', data, existing, affectedParents)
+                            data.depth = 0
                         }
-                    } else {
-                        let parentNode = me.#allRecordsMap.get(parentId);
-                        // Visible means projected; a store that is still processing its configs has no projection yet
-                        if (parentNode.collapsed === false && me.map?.has(parentId)) {
-                            // Collected after this loop: later items of the batch can still be its descendants
-                            attachedRoots.push(data);
 
-                            if (!Neo.isNumber(insertIndex)) {
-                                let calcIndex = me.getInsertIndexForNode(data);
-                                if (calcIndex > -1) {
-                                    insertIndex = calcIndex
-                                }
+                        let siblings = me.#childrenMap.get(orphanParent);
+                        if (siblings) {
+                            let idx = siblings.indexOf(data);
+                            if (idx > -1) {
+                                siblings.splice(idx, 1)
+                            }
+                        }
+
+                        me.#addChild('root', data, oldParent === 'root' ? existing : undefined, affectedParents)
+                    }
+
+                    // Reconcile Projection Layer visibility for replacements, moves, and new nodes
+                    const queueVisibleSubtreeRemoval = (root, startIdx) => {
+                        let descendants = [];
+                        me.collectAllDescendants(root, descendants);
+                        for (let j = startIdx, dLen = descendants.length; j < dLen; j++) {
+                            let descKey = me.getKey(descendants[j]);
+                            if (me.map?.has(descKey)) visibleToRemove.push(me.map.get(descKey))
+                        }
+                    };
+
+                    if (wasVisible && parentId === oldParent) {
+                        if (oldVisible !== data) visibleReplacements.push({key, newItem: data, oldItem: oldVisible});
+                        if (oldCollapsed === false && data.collapsed === true) queueVisibleSubtreeRemoval(data, 1);
+                        else if (oldCollapsed !== false && data.collapsed === false) expandedParents.push(data)
+                    } else {
+                        if (wasVisible) queueVisibleSubtreeRemoval(existing, 0);
+
+                        if (parentId === 'root') {
+                            newRoots.push(data)
+                        } else {
+                            let parentNode = me.#allRecordsMap.get(parentId);
+                            // Visible means projected; a store that is still processing its configs has no projection yet
+                            if (parentNode && parentNode.collapsed === false && me.map?.has(parentId)) {
+                                // Collected after this loop: later items of the batch can still be its descendants
+                                attachedRoots.push(data)
                             }
                         }
                     }
                 }
 
-                // 2b. Calculate the visible delta once the structural maps hold the whole batch:
-                // the subtrees attached under a projected parent, then the new roots
+                // 2b. Queue subtrees attached under projected parents, then new roots,
+                // once the structural maps hold the whole batch
                 for (i = 0, len = attachedRoots.length; i < len; i++) {
-                    me.collectVisibleDescendants(attachedRoots[i], visibleToAdd)
+                    pendingVisibleNodes.push(attachedRoots[i])
                 }
 
                 for (i = 0, len = newRoots.length; i < len; i++) {
-                    me.collectVisibleDescendants(newRoots[i], visibleToAdd);
-
-                    if (!Neo.isNumber(insertIndex)) {
-                        let calcIndex = me.getInsertIndexForNode(newRoots[i]);
-                        if (calcIndex > -1) {
-                            insertIndex = calcIndex
-                        }
-                    }
+                    pendingVisibleNodes.push(newRoots[i])
                 }
             }
         }
@@ -1292,7 +1343,9 @@ class TreeStore extends Store {
         // would impose an order the consumer explicitly opted out of — and only on the hidden path,
         // which is a fresh divergence between hidden and visible in the opposite direction from the
         // one this block exists to close.
-        if (me.autoSort && me.sorters?.length > 0 && visibleToAdd.length < 1 && visibleToRemove.length < 1) {
+        const hasProjectionChanges = visibleReplacements.length > 0 || visibleToRemove.length > 0 || expandedParents.length > 0 || pendingVisibleNodes.length > 0 || hydratedUpdates.length > 0;
+
+        if (me.autoSort && me.sorters?.length > 0 && !hasProjectionChanges) {
             for (const pid of affectedParents) {
                 const siblings = me.#childrenMap.get(pid);
 
@@ -1325,19 +1378,218 @@ class TreeStore extends Store {
             }
         }
 
-        // A full removal (`clear()`, a reload) keeps the Collection's numeric form, which drops the projection in
-        // one pass. Handed over as an item array, the Collection would scan for each item's position.
-        if (index === 0 && removeCountOrToRemoveArray === me.count) {
-            return super.splice(0, me.count, visibleToAdd, silent)
+        // Fast path: full clear/reload or bulk load into an empty projection delegates directly to super.splice.
+        const isFullClear = index === 0 && removeCountOrToRemoveArray === me.count;
+
+        if (isFullClear || (!me._items?.length && visibleReplacements.length === 0 && visibleToRemove.length === 0 && expandedParents.length === 0 && hydratedUpdates.length === 0)) {
+            for (i = 0, len = pendingVisibleNodes.length; i < len; i++) {
+                node = pendingVisibleNodes[i];
+                if (me.#allRecordsMap.get(me.getKey(node)) === node) {
+                    me.collectVisibleDescendants(node, visibleToAdd)
+                }
+            }
+
+            if (isFullClear) {
+                return super.splice(0, me.count, visibleToAdd, silent)
+            }
+
+            if (visibleToAdd.length > 0) {
+                return super.splice(insertIndex, visibleToRemove, visibleToAdd, silent)
+            }
         }
 
-        // Delegate to super.splice ONLY if the Projection Layer (visible items) actually changed.
-        if (visibleToRemove.length > 0 || visibleToAdd.length > 0) {
-            return super.splice(insertIndex, visibleToRemove, visibleToAdd, silent)
+        // Incremental Projection Layer update: preserves in-place replacement positions,
+        // per-node structural insertion order, and zero lazy hydration.
+        if (hasProjectionChanges) {
+            let addedItems   = [],
+                removedItems = [],
+                items        = me._items,
+                {map}        = me,
+                registerItem = item => {
+                    me.itemFactory?.(item);
+                    let itemKey = me.getKey(item);
+
+                    if (itemKey == null) {
+                        item[me.keyProperty] = itemKey = me.keyPropertyIndex;
+                        me.keyPropertyIndex--
+                    }
+
+                    if (Object.hasOwn(item, initialIndexSymbol)) {
+                        item[initialIndexSymbol] = me.initialIndexCounter++
+                    }
+
+                    map.set(itemKey, item);
+
+                    if (me.trackInternalId) {
+                        let internalKey = me.getInternalKey(item);
+                        if (internalKey) {
+                            me.internalIdMap.set(internalKey, item)
+                        }
+                    }
+                };
+
+            // 4a. Apply in-place replacements first so preceding siblings resolve accurately in _items
+            for (i = 0, len = visibleReplacements.length; i < len; i++) {
+                let {key: repKey, newItem} = visibleReplacements[i],
+                    currentVisible         = map.get(repKey);
+
+                if (currentVisible && currentVisible !== newItem) {
+                    let currentIdx = items.indexOf(currentVisible);
+
+                    if (currentIdx > -1) {
+                        if (me.trackInternalId) {
+                            let oldInternalId = me.getInternalKey(currentVisible);
+                            if (oldInternalId) {
+                                me.internalIdMap.delete(oldInternalId)
+                            }
+                        }
+
+                        items[currentIdx] = newItem;
+                        registerItem(newItem);
+                        removedItems.push(currentVisible);
+                        addedItems.push(newItem)
+                    }
+                }
+            }
+
+            // 4b. Evict removed nodes and collapsed descendants without calling get()
+            if (visibleToRemove.length > 0) {
+                for (i = 0, len = visibleToRemove.length; i < len; i++) {
+                    let remItem = visibleToRemove[i],
+                        remKey  = me.isItem(remItem) ? me.getKey(remItem) : remItem;
+
+                    if (map.has(remKey)) {
+                        let currentVisible = map.get(remKey),
+                            remIdx         = items.indexOf(currentVisible);
+
+                        if (remIdx > -1) {
+                            let removed = items.splice(remIdx, 1)[0];
+                            removedItems.push(removed);
+                            map.delete(remKey);
+
+                            if (me.trackInternalId) {
+                                let oldInternalId = me.getInternalKey(removed);
+                                if (oldInternalId) {
+                                    me.internalIdMap.delete(oldInternalId)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 4c. Insert newly revealed children for parents that transitioned collapsed -> expanded
+            for (i = 0, len = expandedParents.length; i < len; i++) {
+                let parentNode  = expandedParents[i],
+                    parentKey   = me.getKey(parentNode),
+                    parentIdx   = items.indexOf(map.get(parentKey)),
+                    children    = me.#childrenMap.get(parentKey) || [],
+                    toInsert    = [];
+
+                if (parentIdx > -1 && children.length > 0) {
+                    for (let j = 0, cLen = children.length; j < cLen; j++) {
+                        let desc = [];
+                        me.collectVisibleDescendants(children[j], desc);
+
+                        for (let k = 0; k < desc.length; k++) {
+                            let descKey = me.getKey(desc[k]);
+                            if (!map.has(descKey)) {
+                                registerItem(desc[k]);
+                                toInsert.push(desc[k]);
+                                addedItems.push(desc[k])
+                            }
+                        }
+                    }
+
+                    if (toInsert.length > 0) {
+                        items.splice(parentIdx + 1, 0, ...toInsert)
+                    }
+                }
+            }
+
+            // 4d. Insert newly visible roots / children at their own structural sibling position
+            let explicitIndex = Neo.isNumber(insertIndex) ? insertIndex : null;
+
+            for (i = 0, len = pendingVisibleNodes.length; i < len; i++) {
+                node = pendingVisibleNodes[i];
+                let nodeKey = me.getKey(node);
+
+                if (me.#allRecordsMap.get(nodeKey) !== node || map.has(nodeKey)) {
+                    continue
+                }
+
+                let subtree  = [],
+                    toInsert = [];
+
+                me.collectVisibleDescendants(node, subtree);
+
+                for (let j = 0, sLen = subtree.length; j < sLen; j++) {
+                    let subKey = me.getKey(subtree[j]);
+                    if (!map.has(subKey)) {
+                        registerItem(subtree[j]);
+                        toInsert.push(subtree[j]);
+                        addedItems.push(subtree[j])
+                    }
+                }
+
+                if (toInsert.length > 0) {
+                    let targetIndex = explicitIndex !== null ? explicitIndex : me.getInsertIndexForNode(node);
+
+                    if (targetIndex < 0 || targetIndex > items.length) {
+                        targetIndex = items.length
+                    }
+
+                    if (toInsert.length > 5000) {
+                        const beginning = items.slice(0, targetIndex),
+                              end       = items.slice(targetIndex);
+
+                        items = me._items = beginning.concat(toInsert, end)
+                    } else {
+                        items.splice(targetIndex, 0, ...toInsert)
+                    }
+
+                    if (explicitIndex !== null) {
+                        explicitIndex += toInsert.length
+                    }
+                }
+            }
+
+            if ((addedItems.length > 0 || hydratedUpdates.length > 0) && me.autoSort && me._sorters?.length > 0) {
+                me.doSort(undefined, true)
+            }
+
+            if (addedItems.length > 0 || removedItems.length > 0 || hydratedUpdates.length > 0) {
+                me[countMutations]++
+            }
+
+            me.allItems?.mirrorMutation({addedItems, removedItems});
+
+            if (me[updatingIndex] === 0) {
+                me.count = me._items.length;
+
+                me.calcValueBands(index || 0);
+
+                !silent && me.fire('mutate', {
+                    addedItems     : addedItems.length > 0 ? addedItems : hydratedUpdates,
+                    preventBubbleUp: me.preventBubbleUp,
+                    removedItems
+                })
+            } else if (!me[silentUpdateMode]) {
+                me.cacheUpdate({
+                    addedItems,
+                    removedItems
+                })
+            }
+
+            if (me[updatingIndex] === 0) {
+                delete me.preventBubbleUp
+            }
+
+            return {addedItems, removedItems}
         }
 
         // Fallback Mutation Event: If we added/removed hidden nodes, the visible array didn't change,
-        // so we skipped super.splice(). We must manually fire 'mutate' to keep systems like Store.count in sync.
+        // so we skipped projection updates. We must manually fire 'mutate' to keep systems like Store.count in sync.
         // The projection's own write (`silent`) fires nothing on this exit either.
         if (!silent && (toAddArray || removeCountOrToRemoveArray)) {
             me.fire('mutate', {
