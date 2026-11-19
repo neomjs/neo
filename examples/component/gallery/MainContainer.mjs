@@ -60,13 +60,13 @@ class MainContainer extends Viewport {
         }, {
             ntype : 'panel',
             layout: {ntype: 'vbox', align: 'stretch'},
-            style : {backgroundColor: '#2b2b2b'},
+            style : {backgroundColor: '#2b2b2b', maxWidth: '50%'},
             width : 260,
 
             itemDefaults: {
                 ntype        : 'rangefield',
-                flex         : '0 1 auto',
-                labelWidth   : '110px',
+                flex         : 'none',
+                labelPosition: 'top',
                 style        : {padding: '10px'},
                 useInputEvent: true,
 
@@ -197,7 +197,7 @@ class MainContainer extends Viewport {
                 }
             }, {
                 ntype: 'label',
-                text : [
+                html : [
                     '<b>Navigation Concept</b>',
                     '<p>Click on an item to select it. Afterwards you can use the Arrow Keys to walk through the items.</p>'
                 ].join(''),
