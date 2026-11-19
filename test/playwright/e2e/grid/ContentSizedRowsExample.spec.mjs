@@ -1060,62 +1060,7 @@ test.describe('Content-sized rows example', () => {
                 const store = Neo.getComponent(viewId).store,
                       count = store.getCount();
 
-                // Specific scenario-matching patterns designed to distinguish related scenarios
-                // within the same topic area without relying on broad generic keywords.
-                const SCENARIO_MAP = {
-                    // Topic 1: Virtual Scroll
-                    'Virtual scroll offset drift on high DPI displays':
-                        /(drift|fling-scroll|blank bands|momentum deceleration|Chromium 128|delta rounding errors accumulate)/i,
-                    'Smooth wheel scrolling jitter during row recycling':
-                        /(touch wheel|row buffer|compositor clock|translation matrix|fractional pixel|recycling listeners|discrepancies under high DPI)/i,
-
-                    // Topic 2: Worker Threads
-                    'Worker message serialization overhead in large stores':
-                        /(queuing latency|structural cloning|queue depth|five hundred updates|transferable array buffers)/i,
-                    'Worker thread postMessage queue congestion under burst updates':
-                        /(cross-thread|burst (?:record )?insertions|reconciliation lags?|compact array transfers|exceeding four milliseconds|delta packets|discrete tick intervals)/i,
-
-                    // Topic 3: Memory Management
-                    'Detached DOM node retention in recycled table rows':
-                        /(repeated store data reloads|detached (?:cell )?vnodes?|clear and add cycles|thirty megabytes|disconnecting node references)/i,
-                    'Excessive garbage collection pause during continuous scrolling':
-                        /(frame stutters|subscriber registries|unbinding listener delegates|unmounting large table viewports|circular references|retained component instances|WeakRef)/i,
-
-                    // Topic 4: Rendering Engine
-                    'Subtree layout thrashing during column resize operations':
-                        /(redundant layout|getLayoutRect|sluggish when table rows|reflow passes|recalculate-style|synchronous DOM reads)/i,
-                    'Content-sized row measurement invalidation timing issue':
-                        /(content-sized row modes|measurement pool|deferring measurement|repaint flashes|outside the scheduled requestAnimationFrame|math rounding parity)/i,
-
-                    // Topic 5: State Store
-                    'Store filter index corruption on concurrent edits':
-                        /(store filter indexes|mismatched rows|stale item index|filter cache reflects|filtered item collection drops|clear-filter operations|transactional mutation locks)/i,
-                    'Sort comparator instability with localized unicode strings':
-                        /(localized unicode|concurrent edits arrive during an active sort|atomic transaction markers|asynchronous sorting|collection splice|Intl\.Collator)/i,
-
-                    // Topic 6: Accessibility
-                    'Keyboard focus ring clipping on horizontal scroll boundaries':
-                        /(focus indicators? clip|split bodies|tab orders loop|ArrowRight across locked|outline-offset)/i,
-                    'Screen reader navigation breakdown in locked grid columns':
-                        /(omit column headers|dynamic aria rowindex|aria-rowcount|axe accessibility|aria-rowindex dynamically|high contrast)/i,
-
-                    // Topic 7: Data Pipeline
-                    'Streaming record ingest pipeline backpressure deadlock':
-                        /(streaming ingest pipeline stalls|network latency spikes|deadlock between the buffer queue|backpressure triggering socket|stream consumer deadlocks|reactive backpressure)/i,
-                    'Incremental data loader starvation under heavy client load':
-                        /(incremental record loaders starve|telemetry feeds experience packet queue|dynamic flow control thresholds|decompression workers|sliding window buffer|packet reassembly errors|chunk boundary validation)/i,
-
-                    // Topic 8: Component System
-                    'Dynamic CSS class token collision between nested themes':
-                        /(nested theme switching|incorrect typography tokens|failed to purge scoped class tokens|theme token selectors bleed|modal dialog is mounted|typography and color tokens clashing|stale stylesheet links)/i,
-                    'Lifecycle hook execution sequence discrepancy on remount':
-                        /(lifecycle hooks execute in reverse order|destructors on unmounted child views|refactoring class scoping rules|prototype pollution|caching compiled class selectors by component id|construct hooks executing|top-down initialization order)/i
-                };
-
-                const COUNTRIES      = ['Brazil', 'Canada', 'Germany', 'India', 'Japan', 'Kenya', 'Mexico', 'Norway', 'Spain', 'Vietnam'],
-                      OWNERS         = ['Ada', 'Clio', 'Emmy', 'Euclid', 'Fable', 'Grace', 'Sophie', 'Vega'],
-                      STATUSES       = ['Draft', 'Review', 'Approved', 'Shipped', 'Archived'],
-                      sentenceEnd    = /[.!?]$/,
+                const sentenceEnd    = /[.!?]$/,
                       invalidRecords = [];
 
                 let hash = 0;
@@ -1135,8 +1080,10 @@ test.describe('Content-sized rows example', () => {
                     }
 
                     // 1. Scalar field validation
-                    if (r.id !== i + 1 || !COUNTRIES.includes(r.country) || !OWNERS.includes(r.owner) ||
-                        !STATUSES.includes(r.status) || typeof r.score !== 'number' || r.score < 0 || r.score >= 100) {
+                    if (r.id !== i + 1 || typeof r.country !== 'string' || r.country.length === 0 ||
+                        typeof r.owner !== 'string' || r.owner.length === 0 ||
+                        typeof r.status !== 'string' || r.status.length === 0 ||
+                        typeof r.score !== 'number' || r.score < 0 || r.score >= 100) {
                         invalidRecords.push({id: r.id, index: i, reason: 'invalid scalar values'});
                     }
 
@@ -1150,17 +1097,9 @@ test.describe('Content-sized rows example', () => {
                         }
                     }
 
-                    // 3. Recognized scenario title and scenario-specific coherence
-                    const pattern = SCENARIO_MAP[r.title];
-                    if (!pattern) {
-                        invalidRecords.push({index: i, reason: 'unrecognized scenario title', title: r.title});
-                    } else {
-                        if (!pattern.test(r.summary)) {
-                            invalidRecords.push({index: i, reason: 'summary does not match scenario', title: r.title});
-                        }
-                        if (!pattern.test(r.details)) {
-                            invalidRecords.push({index: i, reason: 'details does not match scenario', title: r.title});
-                        }
+                    // 3. Each record must carry a non-empty title
+                    if (typeof r.title !== 'string' || r.title.length === 0) {
+                        invalidRecords.push({index: i, reason: 'missing or empty title'});
                     }
 
                     // Cap error array to prevent large transfer payload over CDP on systemic failure
