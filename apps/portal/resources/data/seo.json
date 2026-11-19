@@ -1905,9 +1905,9 @@
     },
     "/examples/grid/tree/index.html": {
         "title": "Tree Grid Example — Web Worker Data Grid Demo | Neo.mjs",
-        "description": "Hierarchical rows. Expand and collapse the sample file hierarchy in the Name column.",
+        "description": "A three-level budget hierarchy whose parent rows roll up seats, budget and spend from their children. Expand a team with its arrow or Right/Left keys and...",
         "schemaType": "WebPage",
-        "lastmod": "2026-03-15"
+        "lastmod": "2026-11-19"
     },
     "/examples/grid/treeBigData/index.html": {
         "title": "TreeGrid - Big Data — Web Worker Data Grid Demo | Neo.mjs",
