@@ -57,15 +57,32 @@ class ViewportController extends Controller {
     /**
      * @param {Object} data
      */
+    onLogDeltasCheckboxChange(data) {
+        Neo.Main.setNeoConfig({
+            key     : 'logDeltaUpdates',
+            value   : data.value,
+            windowId: data.component.windowId
+        })
+    }
+
+    /**
+     * @param {Object} data
+     */
     onRangefieldChange(data) {
-        let {name}  = data.component,
+        let me      = this,
+            {name}  = data.component,
             {value} = data;
 
         if (['deltaY', 'maxOpacity', 'minOpacity'].includes(name)) {
             value /= 100
         }
 
-        this.helix[name] = value
+        if (name === 'maxItems') {
+            me.getReference('sort-firstname-button').disabled = value !== 600;
+            me.getReference('sort-lastname-button') .disabled = value !== 600
+        }
+
+        me.helix[name] = value
     }
 
     /**
@@ -84,6 +101,7 @@ class ViewportController extends Controller {
      * @param {Object} data
      */
     onSortFirstnameButtonClick(data) {
+        // The first sorter is the primary one
         this.helix.store.sorters = [
             {property : 'firstname', direction: 'ASC'},
             {property : 'lastname',  direction: 'ASC'}
