@@ -7,6 +7,21 @@ import SimulatedConnection, {rowCount} from '../../../../examples/grid/serverSid
 
 setup({appConfig: {name: 'ServerSideExampleTest'}});
 
+test('seeded orders vary customers and countries without the old eight-row cycle', () => {
+    const connection = Neo.create(SimulatedConnection);
+    try {
+        const rows = connection.generateRows(), first = rows.slice(0, 50);
+        expect(rows[0]).toEqual({id: 1, customer: 'Granite Co', country: 'DK', amount: 1120});
+        expect(new Set(first.map(row => row.customer)).size).toBeGreaterThan(20);
+        expect(new Set(first.map(row => row.country)).size).toBe(8);
+        expect(rows.filter(row => row.country === 'DE')).toHaveLength(12539);
+        expect(first.slice(0, 8).map(row => row.country)).not.toEqual(first.slice(8, 16).map(row => row.country));
+        expect(connection.generateRows().slice(0, 50)).toEqual(first)
+    } finally {
+        connection.destroy()
+    }
+});
+
 test('the real pipeline admits an example connection and only commits one page', async () => {
     const store      = Neo.create(MainStore),
           connection = store.pipeline.connection;

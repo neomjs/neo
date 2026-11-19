@@ -161,7 +161,6 @@
         --button-glyph-color              : var(--workstation-ink-dim);
         --button-glyph-color-disabled     : color-mix(in srgb, var(--workstation-ink-dim) 45%, transparent);
         --button-glyph-color-hover        : var(--workstation-signal);
-        --button-height                   : 32px;
         --button-opacity-disabled         : 1;
         --button-text-color               : var(--workstation-ink);
         --button-text-color-disabled      : color-mix(in srgb, var(--workstation-ink) 45%, transparent);
@@ -170,6 +169,7 @@
 }
 
 .workstation-tourbar {
+    /* The tour bar's own control height, on purpose: one line with the arrangement switch's 34px pill */
     --button-height: 34px;
 
     background: linear-gradient(90deg,
@@ -257,6 +257,7 @@
             --button-glyph-color            : var(--workstation-ink-faint);
             --button-glyph-color-active     : var(--workstation-signal);
             --button-glyph-color-hover      : var(--workstation-signal);
+            /* Between the small and medium sizes on purpose: the switch's border and padding make one 34px pill */
             --button-height                 : 28px;
             --button-ripple-background-color: color-mix(in srgb, var(--workstation-signal) 28%, transparent);
             --button-text-color             : var(--workstation-ink-dim);

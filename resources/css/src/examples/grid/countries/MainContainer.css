@@ -77,7 +77,6 @@ body:has(.neo-examples-grid-countries) .neo-dragproxy [class*=neo-theme-] .neo-g
             border       : 1px solid var(--countries-border);
             border-radius: 8px;
             color        : var(--countries-title);
-            padding      : 8px 12px;
         }
     }
 

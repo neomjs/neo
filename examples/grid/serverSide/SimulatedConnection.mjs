@@ -31,16 +31,26 @@ class SimulatedConnection extends Connection {
     generateRows() {
         let   seed      = 21189;
         const customers = ['Alder Studio', 'Beacon Foods', 'Cedar Works', 'Delta Supply',
-                           'Elm Partners', 'Fjord Design', 'Grove Retail', 'Harbor Labs'];
+                           'Elm Partners', 'Fjord Design', 'Grove Retail', 'Harbor Labs',
+                           'Atlas Books', 'Birch Cafe', 'Copper Mill', 'Dune Media',
+                           'Echo Print', 'Fern Market', 'Granite Co', 'Hazel House',
+                           'Iris Health', 'Juniper Co', 'Kite Solar', 'Linden Tech',
+                           'Maple Farm', 'North Glass', 'Oak Textiles', 'Pine Motors',
+                           'Quartz Lab', 'Reed Bakery', 'Sage Travel', 'Terra Tools',
+                           'Union Paper', 'Vale Music', 'Willow Home', 'Yarrow Co'];
+
+        /** @summary Advances the fixed seed and samples using its full unsigned range, avoiding low-bit cycles. */
+        function draw(length) {
+            seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+            return Math.floor(seed / 4294967296 * length)
+        }
 
         return Array.from({length: rowCount}, (_, index) => {
-            seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
-
             return {
                 id      : index + 1,
-                customer: customers[(index + Math.floor(index / 8)) % customers.length],
-                country : countries[(index * 3 + 2) % countries.length],
-                amount  : 100 + seed % 9900
+                customer: customers[draw(customers.length)],
+                country : countries[draw(countries.length)],
+                amount  : 100 + draw(9900)
             }
         })
     }

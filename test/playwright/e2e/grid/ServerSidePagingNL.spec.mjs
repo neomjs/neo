@@ -41,7 +41,7 @@ test('page, header sort and country filter each make one server request', async 
     await expect.poll(async () => (await readGrid(app)).loading).toBe(false);
     expect(await readGrid(app)).toMatchObject({count: 50, total: 100000, page: 2, request: {number: 2, page: 2}});
 
-    await page.getByRole('columnheader', {name: 'Amount', exact: true}).click();
+    await page.getByRole('columnheader', {name: 'Amount €', exact: true}).click();
     await expect.poll(async () => {
         const state = await readGrid(app);
         return state.request.number === 3 && !state.loading && state.count === 50
@@ -54,7 +54,7 @@ test('page, header sort and country filter each make one server request', async 
         const state = await readGrid(app);
         return state.request.number === 4 && !state.loading && state.count === 50
     }).toBe(true);
-    expect(await readGrid(app)).toMatchObject({count: 50, total: 12500, page: 1,
+    expect(await readGrid(app)).toMatchObject({count: 50, total: 12539, page: 1,
         request: {number: 4, filters: [{property: 'country', operator: '===', value: 'DE'}],
             sorters: [{property: 'amount', direction: 'ASC'}]}});
     const [grid] = await app.queryComponent({reference: 'grid'}, ['store.id']),
@@ -63,11 +63,11 @@ test('page, header sort and country filter each make one server request', async 
     expect(data.items.every(row => row.country === 'DE')).toBe(true);
     const amounts = data.items.map(row => row.amount);
     expect(amounts).toEqual(amounts.slice().sort((a, b) => a - b));
-    await expect(page.locator('.server-side-request')).toContainText('50 of 12,500 rows');
+    await expect(page.locator('.server-side-request')).toContainText('50 of 12,539 rows');
 
     await page.getByRole('button', {name: 'Last', exact: true}).click();
-    await expect.poll(async () => (await readGrid(app)).page).toBe(250);
-    await expect.poll(async () => (await readGrid(app)).count).toBe(50);
+    await expect.poll(async () => (await readGrid(app)).page).toBe(251);
+    await expect.poll(async () => (await readGrid(app)).count).toBe(39);
     expect((await readGrid(app)).request.number).toBe(5)
 });
 
@@ -85,6 +85,7 @@ for (const viewport of [{width: 1440, height: 900}, {width: 390, height: 844}]) 
             await expect(page.getByRole('columnheader', {name: 'Order', exact: true})
                 .locator('.neo-button-text')).toHaveCSS('font-weight', dark ? '400' : '600');
             await expect(page.locator('.server-side-scope')).toBeVisible();
+            await expect(page.locator('.server-side-page-total')).toHaveText('Total: 100,000 rows');
             await widenObservationWindow(app);
             await page.getByRole('heading', {name: 'One page. 100,000 orders.', exact: true}).click();
             await page.mouse.move(0, 0);
@@ -92,7 +93,7 @@ for (const viewport of [{width: 1440, height: 900}, {width: 390, height: 844}]) 
             await expect(next).toBeInViewport();
             const layout = await page.evaluate(() => ({width: innerWidth, scroll: document.documentElement.scrollWidth}));
             expect(layout.scroll).toBeLessThanOrEqual(layout.width);
-            for (const name of ['Order', 'Customer', 'Country', 'Amount']) {
+            for (const name of ['Order', 'Customer', 'Country', 'Amount €']) {
                 await expect(page.getByRole('columnheader', {name, exact: true})).toBeInViewport({ratio: 1})
             }
             await expect.poll(async () => page.locator('[role="columnheader"] .neo-button-text').evaluateAll(elements =>

@@ -86,7 +86,7 @@ class MainContainer extends Viewport {
                 {dataField: 'id', text: 'Order', width: 72},
                 {dataField: 'customer', text: 'Customer', flex: 2, minWidth: 112},
                 {dataField: 'country', text: 'Country', flex: 1, minWidth: 84},
-                {dataField: 'amount', text: 'Amount', flex: 1, minWidth: 96, cellAlign: 'right', renderer: ({value}) => money.format(value)}
+                {dataField: 'amount', text: 'Amount €', flex: 1, minWidth: 96, cellAlign: 'right', renderer: ({value}) => money.format(value)}
             ]
         }, {
             module   : PagingToolbar,
@@ -95,6 +95,7 @@ class MainContainer extends Viewport {
             flex     : 'none',
             bind     : {store: 'stores.orders'},
             pageSize : 50,
+            totalText: count => `Total: ${count.toLocaleString('en-GB')} rows`,
             items    : {
                 'nav-button-first': {text: 'First', tooltip: 'First page', cls: ['server-side-page-button'],
                     useRippleEffect: false, vdom: {'aria-label': 'First'}},
