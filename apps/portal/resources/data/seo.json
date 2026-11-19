@@ -1071,7 +1071,7 @@
     },
     "/examples/grid": {
         "title": "JavaScript Data Grid Examples — 100k Rows in a Web Worker | Neo.mjs",
-        "description": "Explore 18 live JavaScript data grid examples: Opens at 20,000 × 50 and scales to 100,000 × 200, row-buffered, data in a Web Worker.",
+        "description": "Explore 19 live JavaScript data grid examples: Opens at 20,000 × 50 and scales to 100,000 × 200, row-buffered, data in a Web Worker.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-19"
     },
@@ -1301,7 +1301,7 @@
         "title": "Calendar Basic — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A full calendar with day, week, month and year views, a month navigator and color-coded calendars. Switch between Day, Week, Month and Year views, then...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-19"
     },
     "/examples/charts/index.html": {
         "title": "amCharts — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1445,7 +1445,7 @@
         "title": "Sparkline Component — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "Six metric cards draw their last thirty readings as sparklines in the canvas worker, and a simulated feed extends them once a second. Watch the lines move...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-19"
     },
     "/examples/component/splitter/index.html": {
         "title": "Splitter — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1469,7 +1469,7 @@
         "title": "Toast Component — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A live form previews toast configuration and launches a temporary notification. Enter a message and watch the code preview follow each field, choose a...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-05"
+        "lastmod": "2026-11-19"
     },
     "/examples/component/video/index.html": {
         "title": "Video — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1891,6 +1891,12 @@
         "schemaType": "WebPage",
         "lastmod": "2026-11-19"
     },
+    "/examples/grid/streaming/index.html": {
+        "title": "Streaming 50,000 Rows in a Data Grid | Neo.mjs",
+        "description": "A Neo.mjs JavaScript Data Grid that streams 50,000 NDJSON rows in chunks so the first rows are scrollable immediately while live progress updates in the footer.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-19"
+    },
     "/examples/grid/tree/index.html": {
         "title": "Tree Grid Example — Web Worker Data Grid Demo | Neo.mjs",
         "description": "Hierarchical rows. Expand and collapse the sample file hierarchy in the Name column.",
@@ -1997,7 +2003,7 @@
         "title": "Popover — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A popover opens against the button that owns it, on the side its align value names, and flips when that side has no room. Press Click Me, then pick another...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-16"
+        "lastmod": "2026-11-19"
     },
     "/examples/preloadingAssets/index.html": {
         "title": "Preloading Assets — Web Worker JavaScript UI Demo | Neo.mjs",
