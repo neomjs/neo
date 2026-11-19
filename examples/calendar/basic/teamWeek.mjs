@@ -41,6 +41,12 @@ const thisWeek = [
     [5, '11:00', 30, 6, 'On-call handover']
 ];
 
+// Each entry: startDay (0 = Sunday), endDay (inclusive), calendarId, title
+const allDayThisWeek = [
+    [2, 4, 6, 'Architecture summit'],
+    [4, 4, 5, 'Release freeze']
+];
+
 /**
  * @summary Creates the events of today's week (Sunday to Saturday) and the recurring meetings of the weeks around it.
  * @param {Date} [today=new Date()]
@@ -57,8 +63,16 @@ export function createEvents(today = new Date()) {
         events.push({allDay: false, calendarId, endDate: new Date(startDate.getTime() + minutes * 60000), id: events.length + 1, startDate, title})
     };
 
+    const addAllDay = ([startDay, endDay, calendarId, title]) => {
+        const startDate = new Date(sunday.getFullYear(), sunday.getMonth(), sunday.getDate() + startDay, 0, 0),
+              endDate   = new Date(sunday.getFullYear(), sunday.getMonth(), sunday.getDate() + endDay,  23, 59);
+
+        events.push({allDay: true, calendarId, endDate, id: events.length + 1, startDate, title})
+    };
+
     for (const week of [-1, 0, 1]) recurring.forEach(event => add(week, event));
     thisWeek.forEach(event => add(0, event));
+    allDayThisWeek.forEach(addAllDay);
 
     return events
 }
