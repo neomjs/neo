@@ -1,0 +1,37 @@
+:where(.neo-theme-cyberpunk) {
+    --workshop-header-bg             : #090614;
+    --workshop-subbar-bg             : #100b21;
+    --workshop-border                : #2a1d4e;
+    --workshop-title                 : #e0f2fe;
+    --workshop-muted                 : #94a3b8;
+    --workshop-focus                 : #00f0ff;
+
+    --workshop-overload-bg           : #3b1c06;
+    --workshop-overload-border       : #facc15;
+    --workshop-overload-text         : #fef9c3;
+
+    --workshop-clear-bg              : #052e2b;
+    --workshop-clear-border          : #00f0ff;
+    --workshop-clear-text            : #ccfbf1;
+
+    --workshop-chip-open-bg          : #140e29;
+    --workshop-chip-open-border      : #31235c;
+    --workshop-chip-open-text        : #bae6fd;
+
+    --workshop-chip-limit-bg         : #24103a;
+    --workshop-chip-limit-border     : #e879f9;
+    --workshop-chip-limit-text       : #fae8ff;
+
+    --workshop-stepper-bg            : #0b0718;
+    --workshop-stepper-border        : #3b2a6e;
+    --workshop-stepper-text          : #e0f2fe;
+    --workshop-stepper-btn-bg        : #1c1338;
+    --workshop-stepper-btn-hover     : #2d1f59;
+    --workshop-stepper-btn-text      : #00f0ff;
+
+    --workshop-exceeded-col-bg       : #25150c;
+    --workshop-exceeded-col-border   : #facc15;
+    --workshop-exceeded-banner-bg    : #381e08;
+    --workshop-exceeded-banner-border: #fde047;
+    --workshop-exceeded-banner-text  : #fef9c3;
+}
