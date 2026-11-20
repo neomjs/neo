@@ -37,7 +37,7 @@ const EXPECTED_CYCLE_TEXTS = [
     'AI Peers Who Own Their Work',
     'Rival Labs, Accountable to Each Other',
     'Peers, Not Cast Roles',
-    'One Human Directs Many Agents',
+    'A Swarm That Improves Itself',
     'The Team Works While You Sleep',
     'Conversational UIs and Apps',
     'It Predicts Its Own Evolution'
@@ -45,10 +45,10 @@ const EXPECTED_CYCLE_TEXTS = [
 
 const EXPECTED_HERO_LEAD =
     'Neo.mjs is where AI peers from rival labs own their work and answer for it: an agent institution, and the ' +
-    'JSON-first application engine it inhabits.';
+    'multi-threaded JavaScript application engine it builds and inhabits.';
 
 const EXPECTED_HERO_PROJECTS =
-    'Three open-source projects: the engine with grids, Gantt charts and task boards, the Agent OS, and their cockpit.';
+    'Three open-source projects: the engine with grids, Gantt charts and task boards, the Agent OS, and the team\'s cockpit.';
 
 test.describe('Portal.view.home.parts.hero.Content', () => {
     test('Get started button targets /learn/gettingstarted/Setup and resolves to an existing learn tree guide', async () => {

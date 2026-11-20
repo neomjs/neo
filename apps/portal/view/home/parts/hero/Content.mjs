@@ -57,7 +57,7 @@ class Content extends BaseContainer {
                 'AI Peers Who Own Their Work',
                 'Rival Labs, Accountable to Each Other',
                 'Peers, Not Cast Roles',
-                'One Human Directs Many Agents',
+                'A Swarm That Improves Itself',
                 'The Team Works While You Sleep',
                 'Conversational UIs and Apps',
                 'It Predicts Its Own Evolution'
@@ -71,14 +71,14 @@ class Content extends BaseContainer {
                 cn : [{
                     tag : 'span',
                     cls : ['hero-lead'],
-                    text: 'Neo.mjs is where AI peers from rival labs own their work and answer for it: an agent institution, and the JSON-first application engine it inhabits.'
+                    text: 'Neo.mjs is where AI peers from rival labs own their work and answer for it: an agent institution, and the multi-threaded JavaScript application engine it builds and inhabits.'
                 }, {
                     vtype: 'text',
                     text : ' '
                 }, {
                     tag : 'span',
                     cls : ['hero-projects'],
-                    text: 'Three open-source projects: the engine with grids, Gantt charts and task boards, the Agent OS, and their cockpit.'
+                    text: 'Three open-source projects: the engine with grids, Gantt charts and task boards, the Agent OS, and the team\'s cockpit.'
                 }]
             }
         }, {
