@@ -129,7 +129,7 @@ test.describe('Portal.view.home.parts.AudienceDoors', () => {
 
         expect(bodyMatch).not.toBeNull();
         expect(readmeSource).toContain('## Who This Is For');
-        expect(readmeSource).toContain('### 🤖 The Body — The Application Engine');
+        expect(readmeSource).toContain('## The Engine');
         expect(readmeSource).toContain('npx neo-app@latest');
 
         const [, classCount, namespaceCount] = bodyMatch;
