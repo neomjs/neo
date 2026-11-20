@@ -132,9 +132,9 @@ test.describe('Portal examples overview and group pages', () => {
 
         expect(pageIds(view, 'grid-table')).toEqual(coveredGridTableIds);
         expect(pageIds(view, 'tree')).toEqual(['grid-tree-big-data', 'grid-tree']);
-        // Forms & Fields shows the form app as its card, then tiles: its own and the form layout lent by Containers &
-        // Layouts, in the order of their names
-        expect(pageIds(view, 'forms')).toEqual(['form-app']);
+        // Forms & Fields leads with the form app among its demonstration cards, then tiles: its own and the form layout lent
+        // by Containers & Layouts, in the order of their names
+        expect(pageIds(view, 'forms')).toEqual(['form-app', 'form-validation', 'field-with-prefix']);
         expect(tileIds(view, 'forms')).toEqual(formTileIds);
         expect(pageIds(view, 'multi-window')).toEqual(multiWindowPageIds);
         expect(pageIds(view, 'calendar')).toEqual(['calendar']);
@@ -545,13 +545,16 @@ test.describe('Portal examples overview and group pages', () => {
         controller.onFindFieldChange({value: 'date'});
         const dateIds = matchedIds();
         expect(dateIds).toEqual(expect.arrayContaining([
-            'calendar', 'scheduler-basic', 'scheduler-big-data', 'gantt-basic', 'gantt-big-data', 'date-field', 'date-selector'
+            'calendar', 'scheduler-basic', 'scheduler-big-data', 'gantt-basic', 'gantt-big-data', 'date-field', 'date-selector', 'field-with-prefix'
         ]));
         const formsGroup = searchResults.getGroupsContainer().items.find(group =>
             group.items[0].vdom.cn[0].href === '#/examples/forms'
         );
-        expect(formsGroup.items[1].tiles).toBe(true);
-        expect(formsGroup.items[1].store.items.map(r => r.id)).toEqual(['date-field', 'date-selector']);
+        // A group lists its matching cards before its matching tiles: the input masks card names a date mask
+        expect(formsGroup.items[1].tiles).toBe(false);
+        expect(formsGroup.items[1].store.items.map(r => r.id)).toEqual(['field-with-prefix']);
+        expect(formsGroup.items[2].tiles).toBe(true);
+        expect(formsGroup.items[2].store.items.map(r => r.id)).toEqual(['date-field', 'date-selector']);
 
         controller.onFindFieldChange({value: 'liquid'});
         expect(matchedIds()).toEqual(['liquid-glass']);
@@ -661,7 +664,7 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           'text-field', 'textarea-field', 'time-field', 'url-field',
           'country-field', 'currency-field', 'display-field', 'iban-field', 'password-field',
           'phone-field', 'range-field', 'search-field', 'zipcode-field', 'copy-to-clipboard-trigger',
-          'fieldset', 'form-validation', 'field-with-prefix', 'layout-form', 'form-app'
+          'fieldset', 'form-app', 'form-validation', 'field-with-prefix', 'layout-form'
       ],
       // the tile records of groups that had no record before the tiles, appended to the catalog
       newTileIds = [
@@ -715,7 +718,7 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           tabs          : [2, 0],
           layouts       : [3, 0],
           dialogs       : [3, 0],
-          forms         : [28, 1],
+          forms         : [30, 1],
           buttons       : [4, 1],
           components    : [13, 0],
           'multi-window': [6, 3],
