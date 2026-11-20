@@ -22,6 +22,12 @@ class Overview extends Container {
          */
         className: 'Portal.view.examples.Overview',
         /**
+         * @member {Object} bind
+         */
+        bind: {
+            compactLead: data => data.size === 'x-small'
+        },
+        /**
          * The build control's config, from `Portal.view.examples.MainContainer#createBuildControl()`. The overview
          * shows it beside its heading, and a copy under its featured cards that only a phone displays.
          * @member {Object|null} buildControl=null
@@ -43,6 +49,13 @@ class Overview extends Container {
          */
         cls: ['portal-examples-overview'],
         /**
+         * True when the Portal viewport is at phone width (`size: 'x-small'`, `<= 640 px`), switching the intro to
+         * `phoneLead`.
+         * @member {Boolean} compactLead_=false
+         * @reactive
+         */
+        compactLead_: false,
+        /**
          * The groups that publish in the selected build, from `Portal.view.examples.MainContainer#getGroupStore()`.
          * @member {Portal.store.ExampleGroups|null} groupStore=null
          */
@@ -63,6 +76,12 @@ class Overview extends Container {
          */
         lead: 'Grids with 100,000 rows × 200 columns, forms, calendars, a Gantt chart, docking dashboards and multi-window apps, each one running live in your browser. Neo.mjs keeps the app and its data in workers, so the main thread only paints.',
         /**
+         * Concise single-sentence lead shown on phone viewports (`size: 'x-small'`, `<= 640 px`) so the first featured
+         * card starts by the middle of the first screen.
+         * @member {String} phoneLead
+         */
+        phoneLead: 'Grids, Gantt charts, forms and apps, each one running live in your browser.',
+        /**
          * The action that tests the headline's first claim, and the one beside it: a catalog record each, opened in the
          * selected build.
          * @member {Object[]} actions
@@ -71,6 +90,23 @@ class Overview extends Container {
             {record: 'grid-big-data', text: 'Open the 100,000 × 200 grid', iconCls: 'fa fa-play', ui: 'primary'},
             {record: 'workstation',   text: 'or the Workstation →',                             ui: 'tertiary'}
         ]
+    }
+
+    /**
+     * @summary Switches the intro lead between `phoneLead` (`size: 'x-small'`) and the two-sentence desktop `lead`.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetCompactLead(value, oldValue) {
+        if (oldValue !== undefined) {
+            const intro = this.down({reference: 'overview-intro'});
+
+            if (intro) {
+                intro.vdom.cn[2].text = value ? this.phoneLead : this.lead;
+                intro.update()
+            }
+        }
     }
 
     /**
@@ -95,7 +131,7 @@ class Overview extends Container {
                 vdom     : {tag: 'header', cn: [
                     {tag: 'p',  cls: ['portal-examples-overview-eyebrow'], text: 'Neo.mjs examples'},
                     {tag: 'h1', cls: ['portal-examples-overview-headline']},
-                    {tag: 'p',  cls: ['portal-examples-overview-lead'], text: me.lead}
+                    {tag: 'p',  cls: ['portal-examples-overview-lead'], text: me.compactLead ? me.phoneLead : me.lead}
                 ]}
             }, {
                 module: Container,

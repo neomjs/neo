@@ -290,7 +290,27 @@ test.describe('Portal examples section', () => {
                 weight: '400'
             });
 
+            // Phone viewports use the concise two-line lead and bring the first featured card above the screen's midpoint
+            await expect.poll(() => page.locator('.portal-examples-overview:visible .portal-examples-overview-lead').evaluate(node => {
+                const style = getComputedStyle(node);
+
+                return {
+                    linesValid: Math.round(node.getBoundingClientRect().height / parseFloat(style.lineHeight)) <= (window.innerWidth <= 640 ? 2 : 3),
+                    text      : node.textContent.trim()
+                }
+            })).toEqual({
+                linesValid: true,
+                text      : isPhone
+                    ? 'Grids, Gantt charts, forms and apps, each one running live in your browser.'
+                    : 'Grids with 100,000 rows × 200 columns, forms, calendars, a Gantt chart, docking dashboards and multi-window apps, each one running live in your browser. Neo.mjs keeps the app and its data in workers, so the main thread only paints.'
+            });
+
             if (isPhone) {
+                if (viewport.width === 390 && viewport.height === 844) {
+                    const firstCardTop = await featured.locator('.neo-list-item').first().evaluate(node => node.getBoundingClientRect().top);
+                    expect(firstCardTop).toBeLessThanOrEqual(422)
+                }
+
                 const indexBox = await page.locator(MOBILE_IX).evaluate(node => ({height: node.getBoundingClientRect().height}));
                 expect(indexBox.height).toBeLessThanOrEqual(viewport.height * 1.35)
             } else {
@@ -404,6 +424,50 @@ test.describe('Portal examples section', () => {
         await expect(page.locator(`${CRUMB} .portal-examples-group-button`)).toHaveAttribute('aria-expanded', 'false');
         await expect(page.locator(`${CRUMB} .portal-examples-group-button`)).toHaveText('Calendar')
     });
+
+    for (const width of [360, 639]) {
+        test(`${width}×800: the phone crumb shares one row with >=180px find field and neither crumb nor hero actions overflow`, async ({page, neuralLink}) => {
+            await page.setViewportSize({width, height: 800});
+            await page.goto(`${PORTAL}#/examples`);
+            await neuralLink.connectToApp('Portal');
+
+            const button = page.locator(`${CRUMB} .portal-examples-group-button`),
+                  find   = page.locator(`${CRUMB} .portal-examples-find-field`);
+
+            await expect(button).toHaveText(`All ${GROUPS.length} groups`);
+            await expect(find).toBeVisible();
+
+            const geometry = await page.locator(CRUMB).evaluate((crumb, width) => {
+                const btn      = crumb.querySelector('.portal-examples-group-button'),
+                      btnText  = btn.querySelector('.neo-button-text'),
+                      findNode = crumb.querySelector('.portal-examples-find-field'),
+                      overview = document.querySelector('.portal-examples-overview'),
+                      actions  = overview.querySelector('.portal-examples-overview-actions'),
+                      wsLink   = overview.querySelector('[data-ref="overview-action-workstation"]') || actions.lastElementChild,
+                      btnRect  = btn.getBoundingClientRect(),
+                      findRect = findNode.getBoundingClientRect(),
+                      wsRect   = wsLink.getBoundingClientRect();
+
+                return {
+                    actionsOverflow: actions.scrollWidth > actions.clientWidth + 1 || wsRect.right > width + 0.5,
+                    buttonLabelCut : btnText.scrollWidth > btnText.clientWidth + 1,
+                    crumbOverflow  : crumb.scrollWidth > crumb.clientWidth + 1 || findRect.right > width + 0.5,
+                    findWidth      : findRect.width,
+                    overviewScrollX: overview.scrollWidth > overview.clientWidth + 1,
+                    sameCrumbRow   : Math.abs((btnRect.top + btnRect.height / 2) - (findRect.top + findRect.height / 2)) <= 2
+                }
+            }, width);
+
+            expect(geometry).toMatchObject({
+                actionsOverflow: false,
+                buttonLabelCut : false,
+                crumbOverflow  : false,
+                overviewScrollX: false,
+                sameCrumbRow   : true
+            });
+            expect(geometry.findWidth).toBeGreaterThanOrEqual(180)
+        })
+    }
 
     for (const viewport of [{width: 1440, height: 900}, {width: 1280, height: 720}]) {
         test(`${viewport.width}×${viewport.height}, list: the hoisted index stands beside the cards inside the viewport, 3 cols at 1440 with 2×2 lead`, async ({page, neuralLink}, testInfo) => {
