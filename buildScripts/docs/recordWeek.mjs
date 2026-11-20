@@ -201,15 +201,16 @@ export function buildRecord({from, pulls, repo, to}) {
         repo,
         from   : new Date(from).toISOString(),
         to     : new Date(to).toISOString(),
-        // the scene opens the caption with the count in this unit; a caption too long for its room keeps the window
+        // the scene counts in this unit after the window, and a caption too long for its room keeps the window. The
+        // change requests are not named here: the scene counts them beside their colour, in its legend
         caption: [
             windowLabel(from, to),
             counted(totals.reviews, 'review'),
-            counted(totals.changeRequests, 'change request'),
             counted(totals.contributors, 'outside contributor'),
             repo
         ].join(' · '),
-        unit  : `pull request${totals.merged === 1 ? '' : 's'} merged, one square each`,
+        // "merged" leads, so "181 of 301 merged pull requests" cannot read as a share that was merged
+        unit  : `merged pull request${totals.merged === 1 ? '' : 's'}, one square each`,
         groups: groups.map(id => ({id, name: seated.find(seat => seat.group === id).groupName})),
         seats,
         totals,
