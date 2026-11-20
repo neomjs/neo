@@ -101,7 +101,9 @@ class MainStore extends Store {
 
         let me = this;
 
-        me.intervalId = setInterval(me.updateRankings.bind(me), 1500)
+        if (!me.id.endsWith('-all')) {
+            me.intervalId = setInterval(me.updateRankings.bind(me), 1500)
+        }
     }
 
     /**

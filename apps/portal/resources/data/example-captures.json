@@ -7,7 +7,7 @@
       "id": "grid-animated-row-sorting",
       "viewport": {"width": 640, "height": 360},
       "theme": "default",
-      "state": "Firstname sorted ascending, with the Transition Duration control above the reordered rows.",
+      "state": "Live leaderboard with Firstname sorted ascending mid-transition, showing Transition Duration and Pause controls.",
       "ready": [{"selector": ".neo-grid-cell[data-field='firstname']", "text": "Max"}],
       "steps": [
         {"kind": "fill", "selector": ".neo-numberfield input", "value": "1000"},
@@ -16,7 +16,7 @@
       ],
       "after": [
         {"selector": "[role='columnheader'][aria-sort='ascending']", "text": "Firstname"},
-        {"selector": ".neo-grid-row:first-child .neo-grid-cell[data-field='firstname']", "text": "Amanda"},
+        {"selector": ".neo-grid-row:first-child .neo-grid-cell[data-field='firstname']", "text": "Alex"},
         {"selector": ".neo-numberfield", "text": "Transition Duration"}
       ],
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
