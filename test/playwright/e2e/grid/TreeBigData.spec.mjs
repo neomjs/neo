@@ -280,4 +280,28 @@ test.describe('TreeGrid Big Data E2E', () => {
         // We assert that the row MUST get the .neo-selected class.
         await expect(targetRow).toHaveClass(/neo-selected/, { timeout: 5000 });
     });
+
+    test('the headline holds the Settings button, and the open panel leaves the grid its columns', async ({ page }) => {
+        await page.setViewportSize({ width: 1024, height: 768 });
+
+        const grid   = page.locator('.neo-examples-treebigdata-maincontainer > .neo-grid-container'),
+              button = page.locator('.controls-container-button'),
+              panel  = page.locator('.neo-examples-treebigdata-controls-container');
+
+        await expect(page.locator('.neo-examples-treebigdata-title')).toHaveText('An organization of 20,000 people as a tree grid');
+
+        // Closed, the button sits in the header band, above the grid's header row
+        await expect.poll(async () => {
+            const [gridBox, buttonBox] = [await grid.boundingBox(), await button.boundingBox()];
+            return buttonBox.y + buttonBox.height <= gridBox.y
+        }).toBe(true);
+
+        // Open, the grid ends left of the panel
+        await button.click();
+        await expect(panel).toHaveClass(/neo-expanded/);
+        await expect.poll(async () => {
+            const [gridBox, panelBox] = [await grid.boundingBox(), await panel.boundingBox()];
+            return gridBox.x + gridBox.width <= panelBox.x
+        }).toBe(true)
+    });
 });

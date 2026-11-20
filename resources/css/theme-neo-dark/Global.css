@@ -78,6 +78,21 @@
     --Transparent                  : rgba(255,255,255,0);
     --white                        : #FFFFFF;
     --white-off                    : #DDDDEE;
+    /* Status hues: each 500 step is a light accent for dark surfaces (red-500 is the theme's error red).
+       The 100 step is 20% of it in --white; the 600-900 steps are 80, 40, 20 and 10% of it in --gray-900,
+       so tinted surfaces stay in the theme's own dark family */
+    --red-100                      : color-mix(in srgb, var(--red-500) 20%, var(--white));
+    --red-500                      : #FF8A80;
+    --red-800                      : color-mix(in srgb, var(--red-500) 20%, var(--gray-900));
+    --red-900                      : color-mix(in srgb, var(--red-500) 10%, var(--gray-900));
+    --orange-500                   : #FFAB40;
+    --orange-700                   : color-mix(in srgb, var(--orange-500) 40%, var(--gray-900));
+    --yellow-500                   : #FFE57F;
+    --yellow-600                   : color-mix(in srgb, var(--yellow-500) 80%, var(--gray-900));
+    --yellow-700                   : color-mix(in srgb, var(--yellow-500) 40%, var(--gray-900));
+    --blue-100                     : color-mix(in srgb, var(--blue-500) 20%, var(--white));
+    --blue-500                     : #82B1FF;
+    --blue-800                     : color-mix(in srgb, var(--blue-500) 20%, var(--gray-900));
 }
 
 
@@ -242,7 +257,7 @@
     --cmp-tab-unselected-bg-active              : var(--sem-color-surface-neutral-active);
     --cmp-tab-unselected-bg-default             : transparent;
     --cmp-tab-unselected-bg-hover               : var(--sem-color-surface-neutral-hover);
-    --cmp-tooltip-bg                            : var(--sem-color-surface-neutral-contrast);
+    --cmp-tooltip-bg                            : var(--sem-color-bg-neutral-contrast);
     --cmp-tooltip-borderradius                  : var(--sem-borderradius-medium);
     --cmp-tooltip-fg                            : var(--sem-color-fg-neutral-inverted);
     --cmp-tooltip-height                        : var(--height-24);

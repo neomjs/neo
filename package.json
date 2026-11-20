@@ -181,7 +181,8 @@
         ],
         "resources/css/**/*.css": [
             "node ./buildScripts/util/check-theme-coverage.mjs",
-            "node ./buildScripts/util/check-theme-value-files.mjs"
+            "node ./buildScripts/util/check-theme-value-files.mjs",
+            "node ./buildScripts/util/check-theme-var-references.mjs"
         ],
         "learn/**/*.md": [
             "node ./buildScripts/util/check-relative-links.mjs"
