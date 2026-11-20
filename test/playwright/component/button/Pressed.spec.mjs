@@ -68,12 +68,23 @@ const applyTheme = (page, theme) => page.evaluate(name => {
  */
 const readColors = (page, id) => page.evaluate(buttonId => {
     const button = document.getElementById(buttonId),
-          style  = getComputedStyle(button);
+          style  = getComputedStyle(button),
+          probe  = document.createElement('div');
+
+    probe.style.backgroundColor = 'var(--sem-color-surface-neutral-default)';
+    document.body.appendChild(probe);
+
+    const surface = getComputedStyle(probe).backgroundColor;
+
+    probe.remove();
 
     return {
-        background: style.backgroundColor,
-        border    : style.borderTopColor,
-        text      : getComputedStyle(button.querySelector('.neo-button-text')).color
+        background : style.backgroundColor,
+        border     : style.borderTopColor,
+        borderStyle: style.borderTopStyle,
+        borderWidth: style.borderTopWidth,
+        surface,
+        text       : getComputedStyle(button.querySelector('.neo-button-text')).color
     }
 }, id);
 
@@ -194,10 +205,18 @@ test.describe('Neo.button.Base — pressed', () => {
                 expect(await readHovered(page, idOf(ui, true)), `${name}: hovered pressed`).toEqual(pressed)
             }
 
-            const defaultRest = await readColors(page, idOf(null, false)),
-                  primaryRest = await readColors(page, idOf('primary', false));
+            const defaultRest   = await readColors(page, idOf(null, false)),
+                  secondaryRest = await readColors(page, idOf('secondary', false)),
+                  primaryRest   = await readColors(page, idOf('primary', false));
 
             expect(defaultRest.background, 'default (ui: null) rest surface is neutral transparent').toBe('rgba(0, 0, 0, 0)');
+            expect(defaultRest.borderWidth, 'default (ui: null) rest border width is 1px').toBe('1px');
+            expect(defaultRest.borderStyle, 'default (ui: null) rest border style is solid').toBe('solid');
+            expect(defaultRest.border, 'default (ui: null) rest border is neutral').toBe(secondaryRest.border);
+            expect(defaultRest.border, 'default (ui: null) rest border is visible').not.toBe('rgba(0, 0, 0, 0)');
+            expect(defaultRest.border, 'default (ui: null) rest border is not primary CTA blue').not.toBe(PRIMARY);
+            expect(defaultRest.text, 'default (ui: null) rest label is neutral text').toBe(secondaryRest.text);
+            expect(contrast(defaultRest.text, defaultRest.surface), 'default: rest label contrast on neutral surface').toBeGreaterThanOrEqual(4.5);
             expect((await readColors(page, idOf(null, true))).border, 'default: pressed border').toBe(PRIMARY);
             expect((await readColors(page, idOf('secondary', true))).border, 'secondary: pressed border').toBe(PRIMARY);
             expect(primaryRest.background, 'primary (ui: primary) rest surface is filled CTA blue').toBe(PRIMARY);
