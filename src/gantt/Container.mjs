@@ -34,8 +34,9 @@ class Container extends SchedulerContainer {
          * Moves the bars and links a cascade changed from their previous to their final dates over the chart's
          * `--motion-panel` with `--ease-out-soft`, instead of in one update. A dragged or resized task stays where
          * its preview dropped it while its successors move. Reduced motion collapses that tier to `0ms` and keeps
-         * one update. A scroll, a zoom, a store load, filter or sort, and the next move land a running move at once.
-         * A service decision that settles later lands in one update.
+         * one update, and so does a chart whose tier read has not answered yet. A scroll, a zoom, a store load,
+         * filter or sort, and the next move land a running move at once; another store drops it. A service decision
+         * that settles later lands in one update.
          * See {@link Neo.gantt.CascadeMotion}.
          * @member {Boolean} animateCascade_=false
          * @reactive
@@ -147,6 +148,8 @@ class Container extends SchedulerContainer {
      * and leave the overlay to that final event.
      */
     afterSetStore(value, oldValue) {
+        // Another store's records reuse the keys of a running move: drop it before the grid draws them
+        if (oldValue) this.#cascadeMotion?.stop();
         super.afterSetStore(value, oldValue);
         this.#analysis?.invalidateSchedule();
         this.#storeCleanups.forEach(fn => fn());
@@ -202,9 +205,15 @@ class Container extends SchedulerContainer {
         if (oldValue && oldValue !== value && this.#ownedDependencies.has(oldValue)) oldValue.destroy()
     }
 
-    /** @summary Lands a running cascade move when the transition is switched off. */
+    /** @summary Reads the motion tier when the transition is switched on; lands a running move when it is switched off. */
     afterSetAnimateCascade(value) {
-        if (!value) this.#cascadeMotion?.end()
+        value ? this.#motion().readTokens() : this.#cascadeMotion?.end()
+    }
+
+    /** @summary A chart that mounts with the transition on reads its motion tier from its node, which exists now. */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+        if (value && this.animateCascade) this.#motion().readTokens()
     }
 
     /** @summary Enables link gestures when creation is available. */
@@ -436,6 +445,7 @@ class Container extends SchedulerContainer {
         this.#pendingCleanup = this.#serviceCleanup = null;
         this.#analysis = null;
         this.#cascadeMotion?.destroy();
+        this.#cascadeMotion = null; // the grid's teardown unbinds the store next, which reads it
         this.#cleanups.forEach(fn => fn());
         this.#storeCleanups.forEach(fn => fn());
         this.#dependencyCleanups.forEach(fn => fn());
@@ -976,8 +986,13 @@ class Container extends SchedulerContainer {
     #moveCascade(record, previous, cascaded, meta) {
         if (this.animateCascade) {
             const dropped = meta.source === 'drag' || meta.source === 'resize';
-            (this.#cascadeMotion ??= Neo.create(CascadeMotion, {chart: this})).start(dropped ? cascaded : [{record, previous}, ...cascaded])
+            this.#motion().start(dropped ? cascaded : [{record, previous}, ...cascaded])
         }
+    }
+
+    /** @summary The chart's cascade motion, created on first use. @returns {Neo.gantt.CascadeMotion} */
+    #motion() {
+        return this.#cascadeMotion ??= Neo.create(CascadeMotion, {chart: this})
     }
 
     /** @summary Emits the settled task edit. */

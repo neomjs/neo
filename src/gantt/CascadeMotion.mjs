@@ -10,12 +10,13 @@ const STEP_MS = 16;
  * chart's {@link Neo.gantt.Container#drawnSpans}, which only this class writes, so a link never leaves its bar.
  * The records hold their final dates throughout.
  *
- * {@link #start} runs inside the chart's synchronous edit, after the cascade's writes. The rows those writes
- * repainted send their update only after the current task, so its repaint at the previous spans is what the
- * browser shows first. The steps follow the chart's `--motion-panel` duration and `--ease-out-soft` easing,
- * read from its node. A `0ms` tier (reduced motion), or a read that fails or finds no tier, lands the tasks in
- * one update. {@link #end} lands them at once; the chart calls it on a scroll, a zoom, a store load, filter or
- * sort, and before the next move.
+ * The steps follow the chart's `--motion-panel` duration and `--ease-out-soft` easing, which {@link #readTokens}
+ * reads from its node ahead of the moves. {@link #start} runs inside the chart's synchronous edit, after the
+ * cascade's writes, and moves the tasks only on a positive tier: a `0ms` tier (reduced motion), or a read that
+ * failed, found no tier or has not answered yet, leaves the edit's own repaint as the one update. When it moves
+ * them, the rows those writes repainted send their update only after the current task, so its repaint at the
+ * previous spans is what the browser shows first. {@link #end} lands a move at once; the chart calls it on a
+ * scroll, a zoom, a store load, filter or sort, and before the next move. {@link #stop} drops it unpainted.
  * @class Neo.gantt.CascadeMotion
  * @extends Neo.core.Base
  */
@@ -57,9 +58,13 @@ class CascadeMotion extends Base {
 
     /** The moving tasks by span key: their store key and the spans they move between, in ms. */
     #moves = new Map()
-    /** Counts starts and ends, so a token read or a step of an earlier move leaves a later one alone. */
+    /** Counts token reads, so only the latest one answers. */
+    #read = 0
+    /** Counts starts and ends, so a step of an earlier move leaves a later one alone. */
     #run = 0
     #timer = null
+    /** The tokens the latest read found: `{duration, ease}`, null until one answers. */
+    #tokens = null
 
     /** @summary Stops the clock without painting. @param {...*} args */
     destroy(...args) {
@@ -74,15 +79,23 @@ class CascadeMotion extends Base {
     end() {
         const me = this;
 
+        me.chart.drawnSpans.clear();
+        me.#moves.size && me.#paint();
+        me.stop()
+    }
+
+    /**
+     * @summary Stops the clock and forgets the moving tasks without painting them, for a chart about to draw
+     * other records under the same keys.
+     */
+    stop() {
+        const me = this;
+
         me.#run++;
         clearTimeout(me.#timer);
         me.#timer = null;
-        me.chart.drawnSpans.clear();
-
-        if (me.#moves.size) {
-            me.#paint();
-            me.#moves.clear()
-        }
+        me.#moves.clear();
+        me.chart.drawnSpans.clear()
     }
 
     /**
@@ -101,11 +114,15 @@ class CascadeMotion extends Base {
     }
 
     /**
-     * @summary Reads the chart's motion tokens: the duration in ms, 0 when the read fails or finds no tier.
-     * @returns {Promise<{duration: Number, ease: Function}>}
+     * @summary Reads the chart's motion tokens from its node, for the moves that follow. The chart reads them when
+     * it switches the transition on and when it mounts, and {@link #start} after each move. Only the latest read
+     * answers; one that fails or finds no tier keeps the tasks still.
+     * @returns {Promise<void>}
      */
-    async #readTokens() {
-        const {chart} = this;
+    async readTokens() {
+        const me = this, {chart} = me, read = ++me.#read;
+
+        let tokens = {duration: 0};
 
         try {
             const
@@ -116,17 +133,18 @@ class CascadeMotion extends Base {
                 points = /cubic-bezier\(([^)]*)\)/.exec(styles?.['--ease-out-soft'] ?? '')?.[1].split(',').map(Number),
                 value  = parseFloat(tier);
 
-            return {
+            tokens = {
                 duration: !Number.isFinite(value) ? 0 : tier.endsWith('ms') ? value : tier.endsWith('s') ? value * 1000 : value,
                 ease    : points?.length === 4 && points.every(Number.isFinite) ? CascadeMotion.cubicBezier(...points) : x => x
             }
-        } catch {
-            return {duration: 0}
-        }
+        } catch {}
+
+        if (read === me.#read && !me.isDestroyed) me.#tokens = tokens
     }
 
     /**
-     * @summary Lands a running move, then moves the given tasks from their previous to their current dates.
+     * @summary Lands a running move, then moves the given tasks from their previous to their current dates, when the
+     * latest token read found a positive tier.
      * @param {Object[]} changed `{record, previous}` per changed task: `previous` holds the fields the edit changed
      */
     start(changed) {
@@ -136,11 +154,12 @@ class CascadeMotion extends Base {
             spans   = chart.drawnSpans,
             start   = chart.startDateField,
             end     = chart.endDateField,
-            toMs    = value => value instanceof Date ? value.getTime() : new Date(value).getTime();
+            toMs    = value => value instanceof Date ? value.getTime() : new Date(value).getTime(),
+            {duration = 0, ease} = me.#tokens || {};
 
         me.end();
 
-        for (const {record, previous} of changed) {
+        for (const {record, previous} of duration > 0 ? changed : []) {
             const key = record && chart.store.getKey(record), spanKey = String(key);
 
             if (record && !me.#moves.has(spanKey)) {
@@ -156,16 +175,13 @@ class CascadeMotion extends Base {
         }
 
         if (me.#moves.size) {
-            const run = me.#run;
+            const run = me.#run, startTime = performance.now();
 
             me.#paint();
-
-            me.#readTokens().then(({duration, ease}) => {
-                if (run === me.#run && !me.isDestroyed) {
-                    duration > 0 ? me.#step(run, performance.now(), duration, ease) : me.end()
-                }
-            })
+            me.#timer = setTimeout(() => me.#step(run, startTime, duration, ease), STEP_MS)
         }
+
+        me.readTokens()
     }
 
     /**

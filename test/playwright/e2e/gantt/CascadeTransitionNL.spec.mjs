@@ -37,13 +37,19 @@ const lefts = page => page.evaluate(ids => Object.fromEntries(ids.map(id => {
     return [id, bar ? parseFloat(bar.style.left) : null]
 })), moved);
 
-/** Opens the basic plan, with the panel tier lengthened on the chart when `tier` is given. */
+/**
+ * Opens the basic plan, with the panel tier lengthened on the chart when `tier` is given: a loaded runner still
+ * samples the steps of a lengthened tier. The chart reads its tier when it mounts, so the rule is in place first.
+ */
 const openPlan = async (page, neuralLink, tier) => {
+    if (tier) await page.addInitScript(value => document.addEventListener('DOMContentLoaded', () => {
+        const style = document.createElement('style');
+        style.textContent = `.neo-gantt {--motion-panel: ${value}}`;
+        document.head.append(style)
+    }), tier);
     await page.goto('/examples/gantt/basic/index.html');
     await expect(page.locator('.neo-timeline-bar[data-event-id="survey"]')).toBeVisible();
     await expect(page.getByText('Edits stay on this device')).toBeVisible();
-    // A loaded runner still samples the steps of a lengthened tier.
-    if (tier) await page.locator('.neo-gantt').evaluate((node, value) => node.style.setProperty('--motion-panel', value), tier);
     const app     = await neuralLink.connectToApp('GanttBasic');
     const [gantt] = await app.findInstances({className: 'Neo.gantt.Container'}, ['id', 'animateCascade']);
     return {app, gantt}

@@ -77,7 +77,7 @@ test.describe('Neo.gantt.CascadeMotion', () => {
     });
 
     test('on: the edit and its cascade start at their previous spans, the records at their final dates', async () => {
-        tokens({'--motion-panel': '0ms', '--ease-out-soft': ease});
+        tokens({'--motion-panel': '20000ms', '--ease-out-soft': ease});
         await create({animateCascade: true});
 
         gantt.moveTask('a', moveA);
@@ -85,12 +85,62 @@ test.describe('Neo.gantt.CascadeMotion', () => {
         expect(gantt.store.get('b').startDate.toISOString()).toBe('2026-11-09T03:00:00.000Z');
         expect([...gantt.drawnSpans.keys()]).toEqual(['a', 'b']);
         expect([barLeft(0), barLeft(1), barLeft(2)]).toEqual([60, 120, 300]);
-        expect(link()).toEqual([120, 120]);
+        expect(link()).toEqual([120, 120])
+    });
 
-        // A 0ms tier, reduced motion's, lands both in the next update
-        await expect.poll(() => gantt.drawnSpans.size).toBe(0);
+    /** The commit's own repaint is final, and nothing paints a previous span after it. */
+    const expectFinalOnly = async () => {
+        expect(gantt.drawnSpans.size).toBe(0);
+        expect([barLeft(0), barLeft(1), barLeft(2)]).toEqual([120, 180, 300]);
+        expect(link()).toEqual([180, 180]);
+
+        await new Promise(resolve => setTimeout(resolve, 60));
+        expect(gantt.drawnSpans.size).toBe(0);
         expect([barLeft(0), barLeft(1)]).toEqual([120, 180]);
         expect(link()).toEqual([180, 180])
+    };
+
+    test('a 0ms tier, reduced motion\'s, leaves the commit as the one update', async () => {
+        tokens({'--motion-panel': '0ms', '--ease-out-soft': ease});
+        await create({animateCascade: true});
+
+        gantt.moveTask('a', moveA);
+        await expectFinalOnly()
+    });
+
+    /** Holds every token read until release() is called. */
+    const holdReads = reply => {
+        let release;
+        const gate = new Promise(resolve => release = resolve);
+        Neo.main.DomAccess.getComputedStyle = async () => {await gate; return reply()};
+        return () => release()
+    };
+
+    for (const [outcome, reply] of [
+        ['a 0ms tier', () => ({'--motion-panel': '0ms', '--ease-out-soft': ease})],
+        ['a failed read', () => {throw new Error('no main thread')}]
+    ]) {
+        test(`${outcome} that answers after the commit leaves the commit as the one update`, async () => {
+            const release = holdReads(reply);
+            await create({animateCascade: true});
+
+            gantt.moveTask('a', moveA);
+            release();
+            await expectFinalOnly()
+        })
+    }
+
+    test('a positive tier that answers after the commit moves the next cascade, not this one', async () => {
+        const release = holdReads(() => ({'--motion-panel': '20000ms', '--ease-out-soft': ease}));
+        await create({animateCascade: true});
+
+        gantt.moveTask('a', moveA);
+        release();
+        await expectFinalOnly();
+
+        gantt.moveTask('c', {startDate: '2026-11-09T06:00:00Z', endDate: '2026-11-09T07:00:00Z'});
+        expect([...gantt.drawnSpans.keys()]).toEqual(['c']);
+        expect(barLeft(2)).toBe(300)
     });
 
     test('the steps follow the panel tier eased, keep each link on its bars, and end exactly at the final spans', async () => {
@@ -131,13 +181,59 @@ test.describe('Neo.gantt.CascadeMotion', () => {
         expect(barLeft(0)).toBe(120)
     });
 
-    test('a failed token read lands the move in one update', async () => {
+    test('a failed token read leaves the commit as the one update', async () => {
         Neo.main.DomAccess.getComputedStyle = async () => {throw new Error('no main thread')};
         await create({animateCascade: true});
 
         gantt.moveTask('a', moveA);
-        await expect.poll(() => gantt.drawnSpans.size).toBe(0);
-        expect([barLeft(0), barLeft(1)]).toEqual([120, 180])
+        await expectFinalOnly()
+    });
+
+    test('another store drops a running move: its records draw at their own dates, at once and after a step', async () => {
+        tokens({'--motion-panel': '20000ms', '--ease-out-soft': ease});
+        await create({animateCascade: true});
+
+        gantt.moveTask('a', moveA);
+        await midway();
+
+        // The same keys, other dates: a at 08:00 (480 px), b at 09:00 (540 px)
+        const replacement = Neo.create(TaskStore, {data: [
+            {id: 'a', parentId: null, isLeaf: true, title: 'A', startDate: '2026-11-09T08:00:00Z', endDate: '2026-11-09T09:00:00Z'},
+            {id: 'b', parentId: null, isLeaf: true, title: 'B', startDate: '2026-11-09T09:00:00Z', endDate: '2026-11-09T10:00:00Z'},
+            {id: 'c', parentId: null, isLeaf: true, title: 'C', startDate: '2026-11-09T11:00:00Z', endDate: '2026-11-09T11:30:00Z'}
+        ]});
+
+        try {
+            gantt.store = replacement;
+            // Draws the replacement's rows, as create() draws the first store's
+            gantt.timelineColumn.refreshMountedRows();
+
+            expect(gantt.drawnSpans.size).toBe(0);
+            expect([barLeft(0), barLeft(1)]).toEqual([480, 540]);
+            expect(link()).toEqual([540, 540]);
+
+            await new Promise(resolve => setTimeout(resolve, 60));
+            expect([barLeft(0), barLeft(1)]).toEqual([480, 540]);
+            expect(link()).toEqual([540, 540])
+        } finally {
+            gantt.destroy();
+            gantt = null;
+            replacement.destroy()
+        }
+    });
+
+    test('the same store assigned again keeps a running move', async () => {
+        tokens({'--motion-panel': '20000ms', '--ease-out-soft': ease});
+        await create({animateCascade: true});
+
+        gantt.moveTask('a', moveA);
+        await midway();
+        const left = barLeft(1);
+
+        gantt.store = gantt.store;
+
+        expect([...gantt.drawnSpans.keys()]).toEqual(['a', 'b']);
+        await expect.poll(() => barLeft(1)).toBeGreaterThan(left)
     });
 
     for (const [trigger, land, final] of [
