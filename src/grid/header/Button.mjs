@@ -162,7 +162,7 @@ class Button extends BaseButton {
      */
     afterSetDataField(value, oldValue) {
         if (oldValue !== undefined) {
-            const container = this.up('grid-container');
+            const container = this.getGridContainer();
             if (container) this.isFiltered = container.isColumnFiltered(value)
         }
     }
@@ -192,7 +192,7 @@ class Button extends BaseButton {
      */
     afterSetIsSorted(value, oldValue) {
         let me        = this,
-            container = me.up('grid-container'),
+            container = me.getGridContainer(),
             // WAI-ARIA 1.2 allows aria-sort on a columnheader only: the outer wrapper when this header has a
             // column menu, or the button itself otherwise. The arrow class below is invisible to a screen reader,
             // so the attribute is the announcement. A null direction has to remove it, or a header that clears
@@ -418,6 +418,16 @@ class Button extends BaseButton {
         }
     }
 
+    /**
+     * @summary Returns the grid this header belongs to: the one that set itself on this header's toolbar, which finds
+     * a grid subclass with an ntype of its own (`scheduler`, `gantt`) too. A header placed under a bare
+     * `grid-container` without a header toolbar is found by that ntype.
+     * @returns {Neo.grid.Container|null}
+     */
+    getGridContainer() {
+        return this.parent?.gridContainer || this.up('grid-container')
+    }
+
     /** @summary Returns the native sort-button vdom. @returns {Object} */
     getVdomRoot() {
         return this.menuRootWrapped ? this.vdom.cn[0] : super.getVdomRoot()
@@ -600,7 +610,7 @@ class Button extends BaseButton {
      */
     changeFilterOperator(data) {
         let me            = this,
-            gridContainer = me.up('grid-container'),
+            gridContainer = me.getGridContainer(),
             store         = gridContainer?.store,
             operator      = data.value,
             filter;
@@ -628,7 +638,7 @@ class Button extends BaseButton {
      */
     changeFilterValue(data) {
         let me            = this,
-            gridContainer = me.up('grid-container'),
+            gridContainer = me.getGridContainer(),
             store         = gridContainer?.store,
             {value}       = data,
             field, filter, model;

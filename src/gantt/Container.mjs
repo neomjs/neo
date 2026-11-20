@@ -150,7 +150,8 @@ class Container extends SchedulerContainer {
                     return !name || [this.startDateField, this.endDateField, 'milestone', 'parentId', 'isLeaf', 'id', value.keyProperty].includes(name)
                 }))
             };
-            const listeners = {mutate: changed, recordChange, rowsChange: recordChange, filter: changed};
+            // A sort moves rows, never dates: the links follow without a schedule pass
+            const listeners = {mutate: changed, recordChange, rowsChange: recordChange, filter: changed, sort: data => settle(false, data)};
             value.on(listeners);
             this.#storeCleanups.push(() => value.un(listeners))
         }
