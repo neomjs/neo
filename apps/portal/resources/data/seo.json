@@ -1215,7 +1215,7 @@
     },
     "/apps/form/index.html": {
         "title": "Form — Multi-Threaded JavaScript App | Neo.mjs",
-        "description": "Each step validates before Next and names what is wrong; Create account checks every step and shows the object the form submits. Press Next on the empty...",
+        "description": "Each step validates before Next and says what is wrong; the last step shows the submitted object. Press Next on the empty first step, then open Review and...",
         "schemaType": "WebPage",
         "lastmod": "2026-11-19"
     },
@@ -1773,7 +1773,7 @@
     },
     "/examples/form/validation/index.html": {
         "title": "Form Validation — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "How does a form tell the user what is wrong? A sign-up form validates as you type, blocks submit and lists the errors. Type a bad email, fix it, and sign up.",
+        "description": "A sign-up form validates as you type, blocks submit and lists the errors. Type a bad email, fix it, and sign up.",
         "schemaType": "WebPage",
         "lastmod": "2026-11-19"
     },
