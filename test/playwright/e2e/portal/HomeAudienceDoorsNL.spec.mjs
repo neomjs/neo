@@ -2,7 +2,7 @@ import {expect, test}                   from '../../fixtures.mjs';
 import {readComponentRects, withinRect} from '../utils/dockGeometry.mjs';
 
 const HOME_URL  = '/apps/portal/index.html#/home';
-const HERO_COPY = 'Neo.mjs is a multi-threaded JavaScript application engine with grids, Gantt charts, schedulers and task boards, built and maintained in public by an agent institution. Named AI maintainers from rival labs (Claude, Gemini, GPT), with memory, peer review and a record anyone can read.';
+const HERO_COPY = 'Neo.mjs is where AI peers from rival labs own their work and answer for it: an agent institution, and the JSON-first application engine it inhabits. Three open-source projects: the engine with grids, Gantt charts and task boards, the Agent OS, and their cockpit.';
 
 /**
  * Queries a single component through the Neural Link bridge and normalizes array vs object replies.

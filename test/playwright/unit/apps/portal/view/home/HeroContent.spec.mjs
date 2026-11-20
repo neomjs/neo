@@ -34,21 +34,21 @@ const
 
 const EXPECTED_CYCLE_TEXTS = [
     'An Agent Institution',
-    'Builds an Application Engine in Public',
-    'Grids, Gantt Charts, Task Boards',
-    'Open Source, MIT Licensed',
-    'Peer Review Across Labs',
-    'Memory Across Sessions',
-    'A Record Anyone Can Read',
-    'One Human at the Merge Gate'
+    'AI Peers Who Own Their Work',
+    'Rival Labs, Accountable to Each Other',
+    'Peers, Not Cast Roles',
+    'One Human Directs Many Agents',
+    'The Team Works While You Sleep',
+    'Conversational UIs and Apps',
+    'It Predicts Its Own Evolution'
 ];
 
 const EXPECTED_HERO_LEAD =
-    'Neo.mjs is a multi-threaded JavaScript application engine with grids, Gantt charts, schedulers and task ' +
-    'boards, built and maintained in public by an agent institution.';
+    'Neo.mjs is where AI peers from rival labs own their work and answer for it: an agent institution, and the ' +
+    'JSON-first application engine it inhabits.';
 
-const EXPECTED_HERO_BUILDERS =
-    'Named AI maintainers from rival labs (Claude, Gemini, GPT), with memory, peer review and a record anyone can read.';
+const EXPECTED_HERO_PROJECTS =
+    'Three open-source projects: the engine with grids, Gantt charts and task boards, the Agent OS, and their cockpit.';
 
 test.describe('Portal.view.home.parts.hero.Content', () => {
     test('Get started button targets /learn/gettingstarted/Setup and resolves to an existing learn tree guide', async () => {
@@ -82,7 +82,7 @@ test.describe('Portal.view.home.parts.hero.Content', () => {
         expect(fs.statSync(setupDocPath).size).toBeGreaterThan(0)
     });
 
-    test('pins the eight cycle phrases and the sentence as one h3 with a lead and a builders line', async () => {
+    test('pins the eight cycle phrases and the sentence as one h3 with a lead and a projects line', async () => {
         const magicMoveConfig = HeroContent.config.items[1],
               subHeaderConfig = HeroContent.config.items[2];
 
@@ -95,7 +95,7 @@ test.describe('Portal.view.home.parts.hero.Content', () => {
             cn : [
                 {tag: 'span', cls: ['hero-lead'],     text: EXPECTED_HERO_LEAD},
                 {vtype: 'text', text: ' '},
-                {tag: 'span', cls: ['hero-builders'], text: EXPECTED_HERO_BUILDERS}
+                {tag: 'span', cls: ['hero-projects'], text: EXPECTED_HERO_PROJECTS}
             ]
         });
 
@@ -110,7 +110,7 @@ test.describe('Portal.view.home.parts.hero.Content', () => {
             expect(vnode.nodeName).toBe('h3');
             expect(vnode.className).toContain('neo-h3');
             expect(vnode.childNodes.map(node => node.textContent ?? node.innerHTML).join(''))
-                .toBe(`${EXPECTED_HERO_LEAD} ${EXPECTED_HERO_BUILDERS}`)
+                .toBe(`${EXPECTED_HERO_LEAD} ${EXPECTED_HERO_PROJECTS}`)
         } finally {
             hero.destroy()
         }

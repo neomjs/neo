@@ -51,34 +51,34 @@ class Content extends BaseContainer {
             reference: 'magic-move',
             renderSeoList: true,
 
-            // What the institution builds, then who it is
+            // What the institution's peers do, then what they inhabit
             cycleTexts: [
                 'An Agent Institution',
-                'Builds an Application Engine in Public',
-                'Grids, Gantt Charts, Task Boards',
-                'Open Source, MIT Licensed',
-                'Peer Review Across Labs',
-                'Memory Across Sessions',
-                'A Record Anyone Can Read',
-                'One Human at the Merge Gate'
+                'AI Peers Who Own Their Work',
+                'Rival Labs, Accountable to Each Other',
+                'Peers, Not Cast Roles',
+                'One Human Directs Many Agents',
+                'The Team Works While You Sleep',
+                'Conversational UIs and Apps',
+                'It Predicts Its Own Evolution'
             ]
         }, {
             cls : ['neo-h3'],
             flex: 'none',
-            // One sentence for crawlers and screen readers, two weights on screen: the engine leads
+            // One sentence for crawlers and screen readers, two weights on screen: the pitch, then the three projects
             vdom: {
                 tag: 'h3',
                 cn : [{
                     tag : 'span',
                     cls : ['hero-lead'],
-                    text: 'Neo.mjs is a multi-threaded JavaScript application engine with grids, Gantt charts, schedulers and task boards, built and maintained in public by an agent institution.'
+                    text: 'Neo.mjs is where AI peers from rival labs own their work and answer for it: an agent institution, and the JSON-first application engine it inhabits.'
                 }, {
                     vtype: 'text',
                     text : ' '
                 }, {
                     tag : 'span',
-                    cls : ['hero-builders'],
-                    text: 'Named AI maintainers from rival labs (Claude, Gemini, GPT), with memory, peer review and a record anyone can read.'
+                    cls : ['hero-projects'],
+                    text: 'Three open-source projects: the engine with grids, Gantt charts and task boards, the Agent OS, and their cockpit.'
                 }]
             }
         }, {
