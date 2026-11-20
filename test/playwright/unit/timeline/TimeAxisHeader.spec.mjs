@@ -191,4 +191,24 @@ test.describe('Neo.timeline.TimeAxisHeader', () => {
             axis.destroy()
         }
     });
+
+    test('carries its lock region class like a header button, and drops it when unlocked', () => {
+        const axis    = Neo.create(TimeAxis, {timeZone: 'UTC', start: '2026-11-13', end: '2026-11-14', tickUnit: 'hour', pxPerMinute: 1});
+        const header  = Neo.create(TimeAxisHeader, {appName, timeAxis: axis, locked: 'end'});
+        const regions = () => header.cls.filter(cls => cls.startsWith('neo-locked-'));
+
+        try {
+            expect(regions()).toEqual(['neo-locked-end']);
+
+            header.locked = 'start';
+            expect(regions()).toEqual(['neo-locked-start']);
+
+            header.locked = null;
+            expect(regions()).toEqual([]);
+            expect(header.cls).toContain('neo-timeline-header')
+        } finally {
+            header.destroy();
+            axis.destroy()
+        }
+    });
 });

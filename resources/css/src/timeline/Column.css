@@ -9,6 +9,17 @@
     width     : 100%;
 }
 
+/* The row separator sits inside the cell, where the now line covers it and meets the next row's: the grid's own
+   border-bottom lies outside the clipped track */
+.neo-grid-body .neo-grid-row .neo-grid-cell.neo-timeline-cell {
+    border-bottom-width: 0;
+    box-shadow         : inset 0 -1px var(--grid-container-border-color);
+
+    &.neo-last-column {
+        box-shadow: 1px 0 var(--grid-container-border-color), inset 0 -1px var(--grid-container-border-color);
+    }
+}
+
 .neo-timeline-track {
     background-image: repeating-linear-gradient(
         to right,
