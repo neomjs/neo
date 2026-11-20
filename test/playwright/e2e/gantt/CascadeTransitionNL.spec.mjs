@@ -95,6 +95,36 @@ test('under reduced motion the cascade lands in one update', async ({page, neura
     }
 });
 
+test('reduced motion switched on after an animated cascade leaves the next one in one update', async ({page, neuralLink}) => {
+    await openPlan(page, neuralLink);
+    const bar = page.locator('.neo-timeline-bar[data-event-id="survey"]');
+
+    // A first move that animates: the chart holds a positive tier
+    await bar.focus();
+    const first0    = await lefts(page),
+          sampling0 = sample(page, 1200);
+    await page.keyboard.press('ArrowRight');
+    const frames0 = await sampling0, first1 = await lefts(page);
+
+    expect(frames0.some(frame => moved.some(id => frame.lefts[id] > first0[id] && frame.lefts[id] < first1[id])), 'the first move animates')
+        .toBe(true);
+
+    // The system preference changes; main relays it to the App worker
+    await page.emulateMedia({reducedMotion: 'reduce'});
+    await page.waitForTimeout(300);
+
+    const before   = await lefts(page),
+          sampling = sample(page, 800);
+    await page.keyboard.press('ArrowRight');
+    const frames = await sampling, after = await lefts(page);
+
+    for (const id of moved) {
+        expect(after[id]).toBeGreaterThan(before[id]);
+        expect(frames.filter(frame => frame.lefts[id] !== before[id] && frame.lefts[id] !== after[id]), `${id}: no intermediate geometry`)
+            .toEqual([])
+    }
+});
+
 test('a zoom during the steps ends them at the final geometry', async ({page, neuralLink}) => {
     const {app, gantt} = await openPlan(page, neuralLink, '6000ms');
     const before       = await lefts(page);

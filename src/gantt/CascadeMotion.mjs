@@ -116,7 +116,7 @@ class CascadeMotion extends Base {
     /**
      * @summary Reads the chart's motion tokens from its node, for the moves that follow. The chart reads them when
      * it switches the transition on and when it mounts, and {@link #start} after each move. Only the latest read
-     * answers; one that fails or finds no tier keeps the tasks still.
+     * answers; one that fails or finds no tier keeps the tasks still, and lands a move that is running.
      * @returns {Promise<void>}
      */
     async readTokens() {
@@ -139,12 +139,15 @@ class CascadeMotion extends Base {
             }
         } catch {}
 
-        if (read === me.#read && !me.isDestroyed) me.#tokens = tokens
+        if (read === me.#read && !me.isDestroyed) {
+            me.#tokens = tokens;
+            tokens.duration > 0 || me.end()
+        }
     }
 
     /**
      * @summary Lands a running move, then moves the given tasks from their previous to their current dates, when the
-     * latest token read found a positive tier.
+     * latest token read found a positive tier and `Neo.config.prefersReducedMotion` is off.
      * @param {Object[]} changed `{record, previous}` per changed task: `previous` holds the fields the edit changed
      */
     start(changed) {
@@ -155,7 +158,8 @@ class CascadeMotion extends Base {
             start   = chart.startDateField,
             end     = chart.endDateField,
             toMs    = value => value instanceof Date ? value.getTime() : new Date(value).getTime(),
-            {duration = 0, ease} = me.#tokens || {};
+            // The preference is known now; a tier read before it changed is not
+            {duration = 0, ease} = Neo.config.prefersReducedMotion ? {} : me.#tokens || {};
 
         me.end();
 
@@ -196,7 +200,7 @@ class CascadeMotion extends Base {
 
         if (run !== me.#run) return;
 
-        if (elapsed >= 1) {
+        if (elapsed >= 1 || Neo.config.prefersReducedMotion) {
             me.end();
             return
         }

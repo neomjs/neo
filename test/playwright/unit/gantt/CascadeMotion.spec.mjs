@@ -60,6 +60,7 @@ test.describe('Neo.gantt.CascadeMotion', () => {
     });
 
     test.afterEach(() => {
+        Neo.config.prefersReducedMotion = false;
         Neo.main.DomAccess.getComputedStyle = readTokens;
         gantt?.destroy();
         gantt = null
@@ -127,6 +128,48 @@ test.describe('Neo.gantt.CascadeMotion', () => {
             gantt.moveTask('a', moveA);
             release();
             await expectFinalOnly()
+        })
+    }
+
+    // A chart that already read a positive tier: the preference reaches the worker as Neo.config.prefersReducedMotion
+    test('reduced motion switched on after a positive tier was read leaves the next commit as the one update', async () => {
+        tokens({'--motion-panel': '20000ms', '--ease-out-soft': ease});
+        await create({animateCascade: true});
+
+        Neo.config.prefersReducedMotion = true;
+        gantt.moveTask('a', moveA);
+        await expectFinalOnly()
+    });
+
+    test('reduced motion switched on during a move lands it at the next step', async () => {
+        tokens({'--motion-panel': '20000ms', '--ease-out-soft': ease});
+        await create({animateCascade: true});
+
+        gantt.moveTask('a', moveA);
+        await midway();
+        Neo.config.prefersReducedMotion = true;
+
+        await expect.poll(() => gantt.drawnSpans.size).toBe(0);
+        expect([barLeft(0), barLeft(1)]).toEqual([120, 180]);
+        expect(link()).toEqual([180, 180])
+    });
+
+    for (const [outcome, reply] of [
+        ['a 0ms tier', () => ({'--motion-panel': '0ms', '--ease-out-soft': ease})],
+        ['a failed read', () => {throw new Error('no main thread')}]
+    ]) {
+        test(`${outcome} answering the read after a warm chart's commit lands the running move`, async () => {
+            tokens({'--motion-panel': '20000ms', '--ease-out-soft': ease});
+            await create({animateCascade: true});
+            const release = holdReads(reply);
+
+            gantt.moveTask('a', moveA);
+            expect([...gantt.drawnSpans.keys()]).toEqual(['a', 'b']);
+            release();
+
+            await expect.poll(() => gantt.drawnSpans.size).toBe(0);
+            expect([barLeft(0), barLeft(1)]).toEqual([120, 180]);
+            expect(link()).toEqual([180, 180])
         })
     }
 
