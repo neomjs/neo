@@ -1,4 +1,5 @@
 import * as childProcess from 'node:child_process';
+import {EventEmitter}    from 'node:events';
 import fs                from 'node:fs';
 import {fileURLToPath}   from 'node:url';
 
@@ -52,4 +53,21 @@ export function spawnSync(command, args=[], options={}) {
     return {status: 0}
 }
 
-export default {...childProcess, spawnSync};
+/**
+ * @summary The asynchronous twin of {@link spawnSync}, for the steps `all.mjs` runs together: it records and answers
+ * the same way, and reports the status through a `close` event.
+ * @param {String}   command
+ * @param {String[]} [args=[]]
+ * @param {Object}   [options={}]
+ * @returns {EventEmitter}
+ */
+export function spawn(command, args=[], options={}) {
+    const child    = new EventEmitter(),
+          {status} = spawnSync(command, args, options);
+
+    setImmediate(() => child.emit('close', status));
+
+    return child
+}
+
+export default {...childProcess, spawn, spawnSync};

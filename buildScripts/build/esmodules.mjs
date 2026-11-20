@@ -122,7 +122,9 @@ async function minifyFile(content, outputPath, sourcePath, type) {
 
 emitFiles().then(() => {
     const docsOutputPath = path.resolve(root, 'docs/output');
-    if (fs.existsSync(docsOutputPath)) {
+
+    // `build-all` passes `--no-docs-output`: it runs `generate-docs-json` beside this step and copies the result itself
+    if (!process.argv.includes('--no-docs-output') && fs.existsSync(docsOutputPath)) {
         fs.copySync(docsOutputPath, path.resolve(root, outputBasePath, 'docs/output'))
     }
 
