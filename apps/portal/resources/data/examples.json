@@ -1961,7 +1961,7 @@
         "hiddenIn": [],
         "family": "forms",
         "component": "TextField",
-        "feature": "Input masks from the PrefixField plugin: a phone number, a date, a MAC address, a code and a card number",
+        "feature": "The PrefixField plugin masks a phone number, a date, a MAC address, a code and a card number",
         "lookFor": "Type letters into the phone field to see them refused, then fill +1 (___) ___-____ with a 10-digit number."
     },
     {
