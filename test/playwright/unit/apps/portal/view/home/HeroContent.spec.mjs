@@ -34,39 +34,21 @@ const
 
 const EXPECTED_CYCLE_TEXTS = [
     'An Agent Institution',
-    'Self-Evolving Software Organism',
-    'Professional AI Engineering Team',
-    'The Application Engine for the AI Era',
-    'Conversational UIs',
-    'Agentic Control',
-    'Neural Link Possession Interface',
-    'Active Hybrid GraphRAG',
-    'The Dream Pipeline',
-    'Live Runtime Mutation',
-    'AI-Native Runtime',
-    'JSON Blueprints since 2019',
-    'Object Permanence',
-    'Context Engineering',
-    'True Multithreading',
-    'SharedWorker Simulations',
-    'Physics-Driven UI',
-    'Desktop-Class Performance',
-    'Linear Scalability',
-    'Multi-Window Orchestration',
-    'Cross-Window Messaging',
-    'Hierarchical State Management',
-    'Clean Architecture',
-    'Separation of Concerns',
-    'Zero Build Step',
-    '100% Web Standards',
-    'No Transpilation',
-    'Instant Page Reloads'
+    'AI Peers Who Own Their Work',
+    'Rival Labs, Accountable to Each Other',
+    'Peers, Not Cast Roles',
+    'A Swarm That Improves Itself',
+    'The Team Works While You Sleep',
+    'Conversational UIs and Apps',
+    'It Predicts Its Own Evolution'
 ];
 
-const EXPECTED_HERO_SENTENCE =
-    "Neo.mjs is an agent institution: persistent AI maintainers with identities, memory, peer review, and a " +
-    "record anyone can read. Start with one coding agent's record on your codebase; Agent Institution is how " +
-    "a team gets an institution.";
+const EXPECTED_HERO_LEAD =
+    'Neo.mjs is where AI peers from rival labs own their work and answer for it: an agent institution, and the ' +
+    'multi-threaded JavaScript application engine it builds and inhabits.';
+
+const EXPECTED_HERO_PROJECTS =
+    'Three open-source projects: the engine with grids, Gantt charts and task boards, the Agent OS, and the team\'s cockpit.';
 
 test.describe('Portal.view.home.parts.hero.Content', () => {
     test('Get started button targets /learn/gettingstarted/Setup and resolves to an existing learn tree guide', async () => {
@@ -100,15 +82,38 @@ test.describe('Portal.view.home.parts.hero.Content', () => {
         expect(fs.statSync(setupDocPath).size).toBeGreaterThan(0)
     });
 
-    test('preserves the hero value-proposition sentence and all 28 MagicMoveText cycle phrases', () => {
+    test('pins the eight cycle phrases and the sentence as one h3 with a lead and a projects line', async () => {
         const magicMoveConfig = HeroContent.config.items[1],
               subHeaderConfig = HeroContent.config.items[2];
 
         expect(magicMoveConfig.autoCycle).toBe(false);
         expect(magicMoveConfig.cycleTexts).toEqual(EXPECTED_CYCLE_TEXTS);
-        expect(magicMoveConfig.cycleTexts).toHaveLength(28);
         expect(magicMoveConfig.cycleTexts[0]).toBe('An Agent Institution');
-        expect(subHeaderConfig.text).toBe(EXPECTED_HERO_SENTENCE)
+
+        expect(subHeaderConfig.vdom).toEqual({
+            tag: 'h3',
+            cn : [
+                {tag: 'span', cls: ['hero-lead'],     text: EXPECTED_HERO_LEAD},
+                {vtype: 'text', text: ' '},
+                {tag: 'span', cls: ['hero-projects'], text: EXPECTED_HERO_PROJECTS}
+            ]
+        });
+
+        const hero = Neo.create(HeroContent, {appName});
+
+        try {
+            await hero.initVnode();
+
+            const {vnode} = hero.items[2];
+
+            // Crawlers and screen readers get one sentence: both lines, joined by the text node
+            expect(vnode.nodeName).toBe('h3');
+            expect(vnode.className).toContain('neo-h3');
+            expect(vnode.childNodes.map(node => node.textContent ?? node.innerHTML).join(''))
+                .toBe(`${EXPECTED_HERO_LEAD} ${EXPECTED_HERO_PROJECTS}`)
+        } finally {
+            hero.destroy()
+        }
     });
 
     test('initial activate() holds "An Agent Institution", ignores duplicate activate(), then enables autoCycle', async () => {

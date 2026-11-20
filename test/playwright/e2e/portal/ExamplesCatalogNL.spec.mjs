@@ -155,6 +155,7 @@ async function expectCardLayout(list, width) {
               caption = node.querySelector('.neo-item-bottom-position'),
               copy    = caption.getBoundingClientRect(),
               image   = node.querySelector('.preview-image').getBoundingClientRect(),
+              feature = node.querySelector('.portal-example-feature'),
               more    = node.querySelector('.portal-example-more'),
               shown   = [
                   node.querySelector('.portal-example-group-badge'),
@@ -181,7 +182,9 @@ async function expectCardLayout(list, width) {
             // a group card has no action line to keep closed
             closed      : !more || more.getBoundingClientRect().height < 1,
             opaque      : [node, caption, ...texts].every(text => getComputedStyle(text).opacity === '1'),
-            noInlineSize: !node.style.height && !node.querySelector('.content').style.aspectRatio
+            noInlineSize: !node.style.height && !node.querySelector('.content').style.aspectRatio,
+            // the proof line shows whole at rest, or ends in an ellipsis
+            featureWhole: !feature || feature.scrollHeight <= feature.clientHeight + 1
         }
     }));
 
@@ -213,6 +216,7 @@ async function expectCardLayout(list, width) {
 /**
  * @summary Measures the caption's text colors against the actual composited paint of scrim and cover behind them.
  * The first sampled row is where the title starts, the place the scrim has to hold against a white cover.
+ * Below the text the scrim must paint its opaque surface: a cover that shows through fails.
  * @param {Object} caption Caption locator.
  * @param {Object} testInfo Playwright evidence writer.
  * @param {String} name Attachment name.
@@ -246,6 +250,19 @@ async function expectCaptionContrast(caption, testInfo, name) {
         })
     }));
     expect(Math.min(...contrasts), 'ordinary caption text contrasts with the rendered surface').toBeGreaterThanOrEqual(4.5);
+    // the text region is opaque: inside the bottom padding the caption paints its surface, never the cover
+    const surface = await caption.evaluate(node => {
+        const probe = document.body.appendChild(document.createElement('i'));
+        probe.style.color = getComputedStyle(node).getPropertyValue('--portal-examples-list-surface');
+        const color = getComputedStyle(probe).color, values = color.match(/[\d.]+/g).map(Number);
+        probe.remove();
+        return color.startsWith('color(') ? values.slice(0, 3).map(value => value * 255) : values.slice(0, 3)
+    });
+    [0.12, 0.5, 0.88].forEach(fraction => {
+        const offset = ((decoded.height - 4) * decoded.width + Math.floor(decoded.width * fraction)) * decoded.channels;
+        expect([...decoded.pixels.subarray(offset, offset + 3)].every((value, index) => Math.abs(value - surface[index]) <= 2),
+            'the caption paints its surface behind the text, not the cover').toBe(true)
+    });
     await testInfo.attach(name, {body: screenshot, contentType: 'image/png'})
 }
 
@@ -324,34 +341,52 @@ test.describe('Portal examples section', () => {
         })
     }
 
-    test('the overview counts what the selected build publishes, and every count adds up to its headline', async ({page, neuralLink}) => {
+    test('the overview counts what the selected build publishes, each group number counts its page, and one line gives the total', async ({page, neuralLink}) => {
         await page.goto(`${PORTAL}#/examples`);
-        await neuralLink.connectToApp('Portal');
+        const app = await neuralLink.connectToApp('Portal');
 
         const headline   = page.locator('.portal-examples-overview:visible .portal-examples-overview-headline'),
               counts     = page.locator(`${SIDEBAR} .portal-examples-group-index-count`),
+              note       = page.locator(`${SIDEBAR} .portal-examples-group-index-note`),
               components = counts.nth(GROUPS.indexOf('More components')),
-              // a group that only borrows shows no number, so the list's numbers add up to the headline
+              apps       = counts.nth(GROUPS.indexOf('Apps')),
               sum        = async () => (await counts.allTextContents()).reduce((sum, text) => sum + Number(text), 0),
+              noteOf     = published => `${published} examples in all. Some appear in more than one group.`,
               headlineOf = published => `${published} live examples in ${GROUPS.length} groups`;
 
         await expect(page.locator(SIDEBAR)).toBeVisible();
         await expect(counts).toHaveCount(GROUPS.length);
-        await expect.poll(async () => await headline.textContent() === headlineOf(await sum())).toBe(true);
+        await expect(note).toHaveText(/^\d+ examples in all\. Some appear in more than one group\.$/);
 
-        const published      = await sum(),
+        const published      = Number((await note.textContent()).split(' ')[0]),
               componentCount = Number(await components.textContent());
 
+        // the line gives the headline's total; a borrowed example counts in every group that shows it, so the list adds up to more
+        await expect(headline).toHaveText(headlineOf(published));
         expect(published).toBeGreaterThan(0);
+        expect((await counts.allTextContents()).every(text => /^\d+$/.test(text)), 'every group shows a number').toBe(true);
+        expect(await sum()).toBeGreaterThan(published);
         await expect(counts.filter({hasText: '('}), 'no count needs a footnote').toHaveCount(0);
         await expect(page.locator(`${FEATURED} .neo-list-item`).first().locator('.portal-example-group-badge')).toHaveText('Multi-Window');
 
         // Dev mode cannot open liquid-glass, one of the three cards of More components; the markdown and Live preview cards and the tiles stay
         await selectBuild(page, 'Dev mode');
         await expect(headline).toHaveText(headlineOf(published - 1));
+        await expect(note).toHaveText(noteOf(published - 1));
         await expect(page.locator(SIDEBAR).getByRole('link', {name: `More components, ${componentCount - 1} live examples`})).toHaveCount(1);
         await selectBuild(page, 'Production build');
-        await expect(headline).toHaveText(headlineOf(published))
+        await expect(headline).toHaveText(headlineOf(published));
+
+        // Apps shows its own examples and the ones other groups lend it, and its number counts the whole page
+        const appsCount = Number(await apps.textContent());
+        await openGroup(page, 'Apps');
+        await expect(page.locator(PAGE)).toHaveCount(1);
+        await expect(page.locator(`${PAGE} .portal-examples-group-heading p`)).toHaveText(new RegExp(`^${appsCount} live examples( · |$)`));
+        await expect.poll(async () => {
+            const cards = await readList(app, 'apps'),
+                  tiles = await readList(app, 'apps', 'tile-list');
+            return (cards?.properties.store.count || 0) + (tiles?.properties.store.count || 0)
+        }).toBe(appsCount)
     });
 
     test('the index is a navigation landmark of links: Tab reaches every entry, Enter opens it, no entry claims to be a tab', async ({page, neuralLink}) => {
@@ -646,7 +681,12 @@ test.describe('Portal examples section', () => {
                 await expect(featured.locator('.neo-list-item').first()).toBeVisible();
                 await expect(featured.locator('.neo-list-item')).toHaveCount((await readOverviewList(app)).properties.store.count);
                 await page.evaluate(() => document.fonts.ready);
-                await expectCardLayout(featured, viewport.width);
+                const startHere = await expectCardLayout(featured, viewport.width);
+
+                if (viewport.width > 600) {
+                    // a desktop card never opens its proof line: what rests on the card is all a visitor reads
+                    expect(startHere.filter(card => !card.featureWhole).map(card => card.title), 'every Start here proof line reads whole at rest').toEqual([])
+                }
                 await expect(featured.locator('.neo-title').nth(0)).toHaveText('Workstation');
                 await expect(featured.locator('.portal-example-group-badge').nth(0)).toHaveText('Multi-Window');
                 await expect(featured.locator('.neo-title').nth(1)).toHaveText('Data Grid: 100k Rows & 200 Columns');
@@ -890,10 +930,12 @@ test.describe('Portal examples section', () => {
         expect(mainState.properties.findQuery).toBe('drag');
 
         await expect(results.getByRole('link', {name: 'Sprint Board', exact: true})).toBeVisible();
-        await expect(page.locator(SIDEBAR).getByRole('link', {name: 'Drag & Drop, 3 matching examples from other groups'})).toBeVisible();
-        // its matches are all borrowed, so like outside a filter it shows no number, only its label says it
-        await expect(page.locator(SIDEBAR).getByRole('link', {name: 'Drag & Drop, 3 matching examples from other groups'})
-            .locator('.portal-examples-group-index-count')).toHaveText('');
+        await expect(page.locator(SIDEBAR).getByRole('link', {name: 'Drag & Drop, 3 matching examples', exact: true})).toBeVisible();
+        // its matches are all borrowed, and like outside a filter its number counts what its page shows
+        await expect(page.locator(SIDEBAR).getByRole('link', {name: 'Drag & Drop, 3 matching examples', exact: true})
+            .locator('.portal-examples-group-index-count')).toHaveText('3');
+        // the line under the list explains the catalog's sums; a filter shows matches, so it stays out
+        await expect(page.locator(`${SIDEBAR} .portal-examples-group-index-note`)).toHaveCount(0);
         await expect(page.locator(`${SIDEBAR} li.portal-examples-group-index-zero`).filter({hasText: 'Calendar'})).toBeVisible();
         await expect(page).toHaveURL(/#\/examples\/grid$/);
         expect(await page.evaluate(() => window.history.length)).toBe(initialHistoryLength);

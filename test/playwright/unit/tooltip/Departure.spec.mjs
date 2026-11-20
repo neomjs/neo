@@ -33,9 +33,10 @@ function makeHost(config = {}) {
           shows = [];
 
     Object.entries({
-        _hidden           : true,
-        activeTarget      : null,
-        align             : {},
+        _hidden       : true,
+        activeTarget  : null,
+        activeTargetId: null,
+        align         : {},
         // Main's alignment, which paints a tooltip still meant to show (`Tooltip#alignTo`)
         alignTo           : async () => { host._hidden || (host.painted = true) },
         dismissDelay      : null,
@@ -69,8 +70,6 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
  */
 async function showOn(host, target) {
     host.onDelegateMouseEnter({currentTarget: target});
-    // Neo.get answers the hovered component; the host has none registered
-    host.activeTarget = {id: target};
     await expect.poll(() => host.mounted).toBe(true)
 }
 
@@ -90,7 +89,6 @@ test.describe('Neo.tooltip.Base — where the pointer goes decides when a toolti
         await showOn(host, 'target-1');
         host.onDelegateMouseLeave({currentTarget: 'target-1', relatedTarget: {id: 'target-2'}});
         host.onDelegateMouseEnter({currentTarget: 'target-2'});
-        host.activeTarget = {id: 'target-2'};
 
         await wait(100);
 
@@ -100,15 +98,29 @@ test.describe('Neo.tooltip.Base — where the pointer goes decides when a toolti
     });
 
     test('a target left for its hoverable tooltip keeps it, and the tooltip left for the page hides it', async () => {
-        const {host} = makeHost();
+        const tooltip = Neo.create(Tooltip, {
+            appName       : 'TooltipDepartureTest',
+            retargetWindow: 40,
+            showDelay     : 20,
+            stayOnHover   : true,
+            windowId      : `hoverable-window-${++hosts}`
+        });
 
-        await showOn(host, 'target-1');
-        host.onDelegateMouseLeave({currentTarget: 'target-1', relatedTarget: {id: host.id}});
-        await wait(100);
-        expect(host.mounted, 'onto the hit area that spans the gap').toBe(true);
+        tooltip.initVnode = async () => { tooltip.mounted = true; tooltip.painted = true };
+        tooltip.unmount   = () => { tooltip.mounted = false };
+        tooltip.alignTo   = async () => { tooltip._hidden || (tooltip.painted = true) };
 
-        host.onMouseLeave({path: [{id: host.id}], relatedTarget: {id: 'page'}});
-        await expect.poll(() => host.mounted, {timeout: 150}).toBe(false)
+        try {
+            await showOn(tooltip, 'target-1');
+            tooltip.onDelegateMouseLeave({currentTarget: 'target-1', relatedTarget: {id: tooltip.id}});
+            await wait(100);
+            expect(tooltip.mounted, 'onto the hit area that spans the gap').toBe(true);
+
+            tooltip.onMouseLeave({path: [{id: tooltip.id}], relatedTarget: {id: 'page'}});
+            await expect.poll(() => tooltip.mounted, {timeout: 150}).toBe(false)
+        } finally {
+            tooltip.destroy()
+        }
     });
 
     test('the tooltip left for its target or a node inside the tooltip stays', async () => {
@@ -211,7 +223,6 @@ test.describe('Neo.tooltip.Base — one visible tooltip per window, and a warm s
               {host: second, shows: secondShows} = makeHost({windowId: 'unwarmed-window', showDelay: 80});
 
         first.onDelegateMouseEnter({currentTarget: 'target-1'});
-        first.activeTarget = {id: 'target-1'};
         first.onDelegateMouseLeave({currentTarget: 'target-1', relatedTarget: {id: 'page'}});
 
         let entered = Date.now();
@@ -227,7 +238,6 @@ test.describe('Neo.tooltip.Base — one visible tooltip per window, and a warm s
 
         first.initVnode = () => new Promise(resolve => {release = () => {first.mounted = true; resolve()}});
         first.onDelegateMouseEnter({currentTarget: 'target-1'});
-        first.activeTarget = {id: 'target-1'};
         await expect.poll(() => typeof release, 'control: the show started its insert').toBe('function');
 
         first.onDelegateMouseLeave({currentTarget: 'target-1', relatedTarget: {id: 'page'}});
@@ -301,7 +311,6 @@ test.describe('Neo.tooltip.Base — one visible tooltip per window, and a warm s
             expect(typeof releaseRemoval, 'control: the departure before the paint started the removal').toBe('function');
 
             host.onDelegateMouseEnter({currentTarget: 'target-1'});
-            host.activeTarget = {id: 'target-1'};
             await expect.poll(() => host._hidden, 'control: the same tooltip shows again while its removal is held').toBe(false);
 
             alignments[0]();
@@ -330,7 +339,6 @@ test.describe('Neo.tooltip.Base — one visible tooltip per window, and a warm s
 
         // The first one is painted, so the window is warm and the second shows at once
         second.onDelegateMouseEnter({currentTarget: 'target-2'});
-        second.activeTarget = {id: 'target-2'};
         await wait(40);
         expect(secondShows, 'not while the first is still in the DOM').toHaveLength(0);
 
@@ -349,7 +357,6 @@ test.describe('Neo.tooltip.Base — one visible tooltip per window, and a warm s
         second.initVnode = async () => {second.mounted = true; log.push('second in')};
 
         first.onDelegateMouseEnter({currentTarget: 'target-1'});
-        first.activeTarget = {id: 'target-1'};
         await expect.poll(() => typeof release).toBe('function');
 
         second.show();
@@ -367,7 +374,6 @@ test.describe('Neo.tooltip.Base — one visible tooltip per window, and a warm s
 
         first.initVnode = () => new Promise(resolve => {release = () => {first.mounted = true; resolve()}});
         first.onDelegateMouseEnter({currentTarget: 'target-1'});
-        first.activeTarget = {id: 'target-1'};
         await expect.poll(() => typeof release, 'control: the show started its insert').toBe('function');
 
         // The departure retires the first one before the second target is entered
@@ -409,5 +415,53 @@ test.describe('Neo.tooltip.Base — one visible tooltip per window, and a warm s
         host.onMouseEnter({path: [{id: host.id}]});
 
         await expect.poll(() => host.mounted, {timeout: 150}).toBe(false)
+    });
+
+    test('a non-component [data-neo-tooltip] VDOM target stays across child return and hides on departure', async () => {
+        const root = Neo.create('Neo.component.Base', {
+            appName: 'TooltipDepartureTest',
+            id     : 'data-tooltip-root',
+            vdom   : {
+                id: 'data-tooltip-root',
+                cn: [{
+                    id  : 'data-tooltip-pill',
+                    data: {neoTooltip: 'Multi-window live example'},
+                    cn  : [{id: 'data-tooltip-pill-label', text: 'Multi-window'}]
+                }]
+            }
+        });
+
+        const tooltip = Neo.create(Tooltip, {
+            appName       : 'TooltipDepartureTest',
+            delegate      : Tooltip.delegateFilter,
+            retargetWindow: 20,
+            showDelay     : 10,
+            windowId      : 'data-target-window'
+        });
+
+        tooltip.initVnode = async () => { tooltip.mounted = true; tooltip.painted = true };
+        tooltip.unmount   = () => { tooltip.mounted = false };
+        tooltip.alignTo   = async () => { tooltip._hidden || (tooltip.painted = true) };
+        tooltip.addDelegationRoot(root);
+
+        try {
+            tooltip.onDelegateMouseEnter({currentTarget: 'data-tooltip-pill'});
+            expect(tooltip.activeTarget, 'non-component VDOM node is not in Neo.get').toBe(null);
+            expect(tooltip.activeTargetId).toBe('data-tooltip-pill');
+            await expect.poll(() => tooltip.mounted).toBe(true);
+
+            // Leaving the tooltip onto a child node of the [data-neo-tooltip] target keeps it up
+            tooltip.onMouseLeave({path: [{id: tooltip.id}], relatedTarget: {id: 'data-tooltip-pill-label'}});
+            await wait(60);
+            expect(tooltip.mounted, 'child node inside [data-neo-tooltip] counts as staying').toBe(true);
+
+            // Leaving the [data-neo-tooltip] target for empty space hides it within retargetWindow
+            tooltip.onDelegateMouseLeave({currentTarget: 'data-tooltip-pill', relatedTarget: {id: 'page'}});
+            await expect.poll(() => tooltip.mounted, {timeout: 150}).toBe(false);
+            expect(tooltip.activeTargetId).toBe(null)
+        } finally {
+            tooltip.destroy();
+            root.destroy()
+        }
     })
 });

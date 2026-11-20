@@ -28,7 +28,23 @@ export const onStart = () => Neo.app({
             layout: {ntype: 'hbox'},
             items : [
                 {module: Button, id: 'tooltip-departure-own-1', text: 'Own one', tooltip: {ownInstance: true, text: 'Own tooltip one'}},
-                {module: Button, id: 'tooltip-departure-own-2', text: 'Own two', tooltip: {ownInstance: true, text: 'Own tooltip two'}}
+                {module: Button, id: 'tooltip-departure-own-2', text: 'Own two', tooltip: {ownInstance: true, text: 'Own tooltip two'}},
+                {
+                    ntype: 'component',
+                    id   : 'tooltip-departure-data-host',
+                    vdom : {
+                        cn: [{
+                            id   : 'tooltip-departure-data-pill',
+                            cls  : ['neo-multi-window'],
+                            data : {neoTooltip: 'Multi-window live example'},
+                            style: {alignItems: 'center', display: 'inline-flex', gap: '6px', padding: '6px 12px'},
+                            cn   : [
+                                {tag: 'i',    id: 'tooltip-departure-data-icon',  text: '❐'},
+                                {tag: 'span', id: 'tooltip-departure-data-label', text: 'Multi-window'}
+                            ]
+                        }]
+                    }
+                }
             ]
         }]
     },

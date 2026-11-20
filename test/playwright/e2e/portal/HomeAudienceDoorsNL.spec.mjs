@@ -2,7 +2,7 @@ import {expect, test}                   from '../../fixtures.mjs';
 import {readComponentRects, withinRect} from '../utils/dockGeometry.mjs';
 
 const HOME_URL  = '/apps/portal/index.html#/home';
-const HERO_COPY = "Neo.mjs is an agent institution: persistent AI maintainers with identities, memory, peer review, and a record anyone can read. Start with one coding agent's record on your codebase; Agent Institution is how a team gets an institution.";
+const HERO_COPY = 'Neo.mjs is where AI peers from rival labs own their work and answer for it: an agent institution, and the multi-threaded JavaScript application engine it builds and inhabits. Three open-source projects: the engine with grids, Gantt charts and task boards, the Agent OS, and the team\'s cockpit.';
 
 /**
  * Queries a single component through the Neural Link bridge and normalizes array vs object replies.
@@ -325,7 +325,8 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
                 text: el.innerText
             }));
 
-            expect(snapshot.text).toContain(HERO_COPY);
+            // The hero's sentence renders as two block lines, so innerText breaks where textContent has a space
+            expect(snapshot.text.replace(/\s+/g, ' ')).toContain(HERO_COPY);
             expect(snapshot.text).toContain('$ npx neo-app@latest');
             expect(snapshot.text).toContain('neo-agent-brain · neo-agent-institution');
             expect(snapshot.text).toContain('MX · Two Hemispheres · Gated RSI');

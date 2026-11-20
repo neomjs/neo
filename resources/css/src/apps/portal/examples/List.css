@@ -1,6 +1,5 @@
 .portal-examples-list.neo-list {
-    /* The scrim and the muted text derive from one opaque surface, so text never carries alpha. */
-    --portal-examples-list-scrim     : color-mix(in srgb, var(--portal-examples-list-surface) 95%, transparent);
+    /* The muted text derives from the opaque surface, so text never carries alpha. */
     --portal-examples-list-text-muted: color-mix(in srgb, var(--portal-examples-list-text) 78%, var(--portal-examples-list-surface));
 
     align-content        : start;
@@ -77,7 +76,7 @@
 
     .neo-item-bottom-position {
         /* The scrim is solid behind every line of text and fades only inside the top padding: a white cover stays legible. */
-        background     : linear-gradient(to top, var(--portal-examples-list-scrim) 0%, var(--portal-examples-list-scrim) calc(100% - 22px), transparent 100%);
+        background     : linear-gradient(to top, var(--portal-examples-list-surface) 0%, var(--portal-examples-list-surface) calc(100% - 22px), transparent 100%);
         bottom         : 0;
         box-sizing     : border-box;
         color          : var(--portal-examples-list-text);
@@ -201,7 +200,7 @@
         margin-top : 10px;
     }
 
-    /* Compact 1×1 cards keep resting copy tight so clear cover stays above 45 % even with a group badge. */
+    /* Compact 1×1 cards keep resting copy tight: two lines of proof under a group badge still leave 45 % of the cover clear. */
     @container (max-width: 520px) {
         .neo-item-bottom-position {
             padding: 23px 14px 8px;
@@ -218,9 +217,8 @@
         }
 
         .portal-example-feature {
-            -webkit-line-clamp: 1;
-            font-size         : 13.5px;
-            line-height       : 1.35;
+            font-size  : 13.5px;
+            line-height: 1.35;
         }
 
         .portal-example-look-for {
@@ -276,7 +274,7 @@
 
     .neo-multi-window {
         align-items  : center;
-        background   : var(--portal-examples-list-scrim);
+        background   : var(--portal-examples-list-surface);
         border       : 1px solid var(--portal-examples-list-edge);
         border-radius: 999px;
         box-shadow   : 0 5px 10px rgba(0, 0, 0, 0.3);

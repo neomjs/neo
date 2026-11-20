@@ -3,6 +3,7 @@ import {execFileSync} from 'node:child_process';
 import fs             from 'node:fs';
 import os             from 'node:os';
 import path           from 'node:path';
+import * as yaml      from 'js-yaml';
 import {
     ADAPTER_ELIGIBLE_SPECS,
     selectExternalBrainSpecs
@@ -498,14 +499,16 @@ test.describe('e2e CI selection — the selection on this tree', () => {
                   JSON.parse(new RegExp(`${key} \\|\\| '([^']+)'`).exec(fs.readFileSync(path.join(root, '.github/workflows', file), 'utf8'))[1])),
               matrix   = shards => [Array.from({length: shards}, (_, index) => index + 1), [shards]];
 
-        expect(fallback('test-e2e.yml', 'engine')).toEqual(matrix(FULL_SHARDS.engine))
+        expect(fallback('test.yml', 'engine')).toEqual(matrix(FULL_SHARDS.engine))
     });
 
     test('the engine run step takes its shard\'s files from --engine-paths, never Playwright\'s count split', () => {
-        const workflow = fs.readFileSync(path.join(root, '.github/workflows/test-e2e.yml'), 'utf8');
+        // The components job in the same workflow does pass `--shard`, so only the engine job's steps are read
+        const steps = yaml.load(fs.readFileSync(path.join(root, '.github/workflows/test.yml'), 'utf8')).jobs['e2e-engine'].steps,
+              runs  = steps.map(step => `${step.run ?? ''}\n${JSON.stringify(step.env ?? {})}`).join('\n');
 
-        expect(workflow).toContain('paths=$(node buildScripts/util/e2eCiSelection.mjs --engine-paths)');
-        expect(workflow).not.toMatch(/--shard[= ]/)
+        expect(runs).toContain('paths=$(node buildScripts/util/e2eCiSelection.mjs --engine-paths)');
+        expect(runs).not.toMatch(/--shard[= ]/)
     });
 
     test('every historical red in an engine-tier spec runs in full, runs its failing spec, or is a recorded miss', () => {

@@ -7,12 +7,15 @@ import {expect, test} from '../../fixtures.mjs';
  * The real App Worker, DOM, hit testing and `relatedTarget` run here. The bounds sit well inside the delays this
  * replaced: a 400ms hide and a 200ms show.
  */
-const TOOLTIP = '.neo-tooltip',
-      OFFSET  = '#tooltip-departure-offset',
-      OWN_1   = '#tooltip-departure-own-1',
-      OWN_2   = '#tooltip-departure-own-2',
-      PLAIN   = '#tooltip-departure-plain',
-      SHARED  = '#tooltip-departure-shared-1';
+const TOOLTIP   = '.neo-tooltip',
+      DATA_PILL = '#tooltip-departure-data-pill',
+      DATA_ICON = '#tooltip-departure-data-icon',
+      DATA_TEXT = '#tooltip-departure-data-label',
+      OFFSET    = '#tooltip-departure-offset',
+      OWN_1     = '#tooltip-departure-own-1',
+      OWN_2     = '#tooltip-departure-own-2',
+      PLAIN     = '#tooltip-departure-plain',
+      SHARED    = '#tooltip-departure-shared-1';
 
 /**
  * Hovers a target and waits for its tooltip, and for the gap Main writes on it once aligned, which its hit area spans
@@ -227,5 +230,22 @@ test.describe('Neo.tooltip.Base: where the pointer goes decides when a tooltip h
 
         await page.waitForTimeout(600);
         await expect(page.locator(TOOLTIP), 'inside its show delay, then left').toHaveCount(0)
+    });
+
+    test('a [data-neo-tooltip] element with child nodes keeps its text across internal moves and hides when moving to the top (#21605)', async ({page}) => {
+        await hoverUntilShown(page, DATA_TEXT, 'Multi-window live example');
+
+        const iconBox = await centerOf(page.locator(DATA_ICON)),
+              pillBox = await page.locator(DATA_PILL).boundingBox();
+
+        // Cross from child <span> to child <i> and onto the pill's own left padding: text and visibility hold
+        await page.mouse.move(iconBox.x, iconBox.y, {steps: 4});
+        await page.mouse.move(pillBox.x + 3, pillBox.y + pillBox.height / 2, {steps: 4});
+        await page.waitForTimeout(150);
+        await expect(page.locator(TOOLTIP)).toHaveText('Multi-window live example');
+
+        // Move pointer to top of viewport: tooltip dismisses within 300ms instead of staying stuck
+        await page.mouse.move(5, 5, {steps: 6});
+        await expect(page.locator(TOOLTIP), 'leaving [data-neo-tooltip] for the top hides it promptly').toHaveCount(0, {timeout: 300})
     })
 });

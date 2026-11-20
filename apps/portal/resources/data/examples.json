@@ -1927,7 +1927,7 @@
             "apps"
         ],
         "component": "Form",
-        "feature": "Each step validates before Next and names what is wrong; Create account checks every step and shows the object the form submits",
+        "feature": "Each step validates before Next and says what is wrong; the last step shows the submitted object",
         "lookFor": "Press Next on the empty first step, then open Review and press Create account."
     },
     {
@@ -1944,7 +1944,7 @@
         "hiddenIn": [],
         "family": "forms",
         "component": "Form Container",
-        "feature": "How does a form tell the user what is wrong? A sign-up form validates as you type, blocks submit and lists the errors",
+        "feature": "A sign-up form validates as you type, blocks submit and lists the errors",
         "lookFor": "Type a bad email, fix it, and sign up."
     },
     {
@@ -1961,7 +1961,7 @@
         "hiddenIn": [],
         "family": "forms",
         "component": "TextField",
-        "feature": "Input masks from the PrefixField plugin: a phone number, a date, a MAC address, a code and a card number",
+        "feature": "The PrefixField plugin masks a phone number, a date, a MAC address, a code and a card number",
         "lookFor": "Type letters into the phone field to see them refused, then fill +1 (___) ___-____ with a 10-digit number."
     },
     {
