@@ -21,7 +21,7 @@ const
         {id: 'site', title: 'Site and foundation', tasks: [
             ['survey', 'Survey and stake out', 1, []],
             ['permits', 'Post the permits', 1, []],
-            ['clear', 'Clear the site', 2, ['survey']],
+            ['clear', 'Clear the site', 2, ['survey', 'permits']],
             ['dig', 'Dig the footings', 2, ['clear']],
             ['footings', 'Pour the footings', 1, ['dig']],
             ['foundation', 'Lay the foundation walls', 3, ['footings']],
