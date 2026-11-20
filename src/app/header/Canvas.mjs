@@ -59,6 +59,29 @@ class Canvas extends SharedCanvas {
      */
     navRectsTimeoutId = null
 
+    /** @member {Number} motionRead=0 Identifies the latest read for this header. */
+    motionRead = 0
+
+    /**
+     * @summary Reads the mount's motion token. A failed read leaves the header still, and a departed graph's
+     * result cannot change its successor. The user's pulse setting is a separate input.
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async syncMotion() {
+        const me = this, read = ++me.motionRead, graph = me.rendererGraph, {windowId} = me;
+        let duration;
+
+        try {
+            const styles = await Neo.main.DomAccess.getComputedStyle({id: me.id, style: '--motion-base', windowId});
+            duration = parseFloat(styles?.['--motion-base'])
+        } catch {}
+
+        if (read === me.motionRead && !me.isDestroyed && me.isCanvasReady && me.rendererGraph === graph && me.windowId === windowId) {
+            me.renderer.updateConfig?.({still: !(duration > 0), windowId})
+        }
+    }
+
     /**
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -68,9 +91,20 @@ class Canvas extends SharedCanvas {
 
         let me = this;
 
-        if (value && me.activeId) {
+        if (value) {
+            me.syncMotion();
             me.renderer.updateActiveId({id: me.activeId, windowId: me.windowId})
         }
+    }
+
+    /**
+     * @summary Rechecks the OS preference when the user returns to the window.
+     * @param {Object} data
+     * @protected
+     */
+    onWindowVisibility(data) {
+        super.onWindowVisibility(data);
+        !data.hidden && this.isCanvasReady && this.syncMotion()
     }
 
     /**
