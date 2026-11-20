@@ -251,6 +251,21 @@ test.describe('Portal home: the plan and the live grid beside their text', () =>
         expect(errors).toEqual([])
     });
 
+    test('desktop: the board ends where the Gantt chart ends, in a wider window too', async ({page}) => {
+        await page.setViewportSize({width: 1440, height: 900});
+        await page.goto(HOME_URL);
+
+        for (const size of [{width: 1440, height: 900}, {width: 1920, height: 1080}]) {
+            await page.setViewportSize(size);
+
+            const planning = await openPage(page, '.portal-home-parts-planning', '.neo-board-column'),
+                  right    = selector => planning.locator(selector).last().evaluate(node => node.getBoundingClientRect().right);
+
+            await expect.poll(async () => Math.abs(await right('.neo-board-column') - await right('.neo-timeline-header')))
+                .toBeLessThanOrEqual(1)
+        }
+    });
+
     test('phone: the pages fall back to tabs and stay inside the screen', async ({page}) => {
         await page.setViewportSize({width: 390, height: 844});
         await page.goto(HOME_URL);
