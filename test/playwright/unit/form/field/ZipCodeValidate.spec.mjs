@@ -20,6 +20,7 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../src/Neo.mjs';
 import * as core      from '../../../../../src/core/_export.mjs';
 import ComboBox       from '../../../../../src/form/field/ComboBox.mjs';
+import ConnectionXhr  from '../../../../../src/data/connection/Xhr.mjs';
 import Container      from '../../../../../src/container/Base.mjs';
 import Country        from '../../../../../src/form/field/Country.mjs';
 import ZipCode        from '../../../../../src/form/field/ZipCode.mjs';
@@ -258,5 +259,235 @@ test.describe('Neo.form.field.ZipCode <-> Neo.form.field.Country linking', () =>
         // Destroying zip detaches from secondCountry cleanly so subsequent changes do not touch destroyed zip
         zip.destroy();
         expect(() => {secondCountry.value = 'de'}).not.toThrow()
+    });
+
+    test('resolves late dynamic peer registration in both directions, preserves nearest-container precedence, and releases observers', () => {
+        // 1. Dynamic ZipCode -> late Country in an already-constructed container
+        const lateCountryBox = track(Neo.create(Container, {appName}));
+        const zipFirst       = lateCountryBox.add({
+            module      : ZipCode,
+            countryField: 'country',
+            reference   : 'zip',
+            value       : '1234'
+        });
+
+        expect(zipFirst.countryField).toBeNull();
+        expect(zipFirst.validate(false)).toBe(true);
+
+        const lateCountry = lateCountryBox.add({
+            module   : Country,
+            reference: 'country',
+            value    : 'de'
+        });
+
+        expect(zipFirst.countryField).toBe(lateCountry);
+        expect(zipFirst.countryCode).toBe('DE');
+        expect(zipFirst.validate(false)).toBe(false);
+        expect(zipFirst.cls).toContain('neo-invalid');
+
+        // 2. Dynamic Country -> late ZipCode in an already-constructed container
+        const lateZipBox   = track(Neo.create(Container, {appName}));
+        const countryFirst = lateZipBox.add({
+            module      : Country,
+            reference   : 'country',
+            value       : 'de',
+            zipCodeField: 'zip'
+        });
+
+        expect(countryFirst.zipCodeField).toBeNull();
+
+        const lateZip = lateZipBox.add({
+            module   : ZipCode,
+            reference: 'zip',
+            value    : '1234'
+        });
+
+        expect(countryFirst.zipCodeField).toBe(lateZip);
+        expect(lateZip.countryField).toBe(countryFirst);
+        expect(lateZip.countryCode).toBe('DE');
+        expect(lateZip.validate(false)).toBe(false);
+
+        // 3. Nested construction: outer DE exists before inner [ZipCode, CH] finishes constructing
+        const nestedOrderRoot = track(Neo.create(Container, {
+            appName,
+            items: [{
+                module   : Country,
+                reference: 'country',
+                value    : 'de'
+            }, {
+                module   : Container,
+                reference: 'inner',
+                items    : [{
+                    module      : ZipCode,
+                    countryField: 'country',
+                    reference   : 'inner-zip',
+                    value       : '1234'
+                }, {
+                    module   : Country,
+                    reference: 'country',
+                    value    : 'ch'
+                }]
+            }]
+        }));
+
+        const innerZip = nestedOrderRoot.getReference('inner-zip');
+        expect(innerZip.countryCode).toBe('CH');
+        expect(innerZip.validate(false)).toBe(true);
+
+        // 4. Nearest-container upgrade when an inner reference registers after an outer match
+        const upgradeRoot = track(Neo.create(Container, {
+            appName,
+            items: [{
+                module   : Country,
+                reference: 'country',
+                value    : 'de'
+            }, {
+                module   : Container,
+                reference: 'inner-box',
+                items    : [{
+                    module      : ZipCode,
+                    countryField: 'country',
+                    reference   : 'upgrading-zip',
+                    value       : '1234'
+                }]
+            }]
+        }));
+
+        const upgradingZip = upgradeRoot.getReference('upgrading-zip'),
+              innerBox     = upgradeRoot.getReference('inner-box');
+
+        expect(upgradingZip.countryCode).toBe('DE');
+        expect(upgradingZip.validate(false)).toBe(false);
+        expect(upgradingZip.cls).toContain('neo-invalid');
+
+        const nearerCh = innerBox.add({
+            module   : Country,
+            reference: 'country',
+            value    : 'ch'
+        });
+
+        expect(upgradingZip.countryField).toBe(nearerCh);
+        expect(upgradingZip.countryCode).toBe('CH');
+        expect(upgradingZip.cls).not.toContain('neo-invalid');
+        expect(upgradingZip.validate(false)).toBe(true);
+
+        // 5. Pending observers release when resolved, cleared, changed, or owner is destroyed
+        nearerCh.destroy();
+        expect(upgradingZip.countryField).toBeNull();
+        const postResolvePeer = innerBox.add({module: Country, reference: 'country', value: 'de'});
+        expect(upgradingZip.countryField).toBeNull();
+        expect(postResolvePeer.value?.code).toBe('de');
+
+        const releaseBox   = track(Neo.create(Container, {appName})),
+              clearedZip   = releaseBox.add({module: ZipCode, countryField: 'pending-c', value: '1234'}),
+              retargeted   = releaseBox.add({module: ZipCode, countryField: 'pending-c', value: '1234'}),
+              destroyedZip = releaseBox.add({module: ZipCode, countryField: 'pending-c', value: '1234'});
+
+        clearedZip.countryField = null;
+        retargeted.countryField = 'other-ref';
+        destroyedZip.destroy();
+
+        expect(() => releaseBox.add({module: Country, reference: 'pending-c', value: 'de'})).not.toThrow();
+        expect(clearedZip.countryField).toBeNull();
+        expect(retargeted.countryField).toBeNull()
+    });
+
+    test('synchronizes async Store.load() ComboBox resolution, clears derived validation on unlink or source destroy, and keeps standalone countryCode', async () => {
+        const originalPromiseJson = ConnectionXhr.prototype.promiseJson;
+
+        ConnectionXhr.prototype.promiseJson = async () => ({
+            json: [
+                {id: 'AT', name: 'Austria'},
+                {id: 'DE', name: 'Germany'}
+            ]
+        });
+
+        try {
+            // 1. Async Store.load() on a custom id-keyed ComboBox with preselected 'DE' (silent selection, no change event)
+            const asyncCombo = track(Neo.create(ComboBox, {
+                appName,
+                displayField: 'name',
+                value       : 'DE',
+                store       : {
+                    keyProperty: 'id',
+                    url        : '/test-countries.json',
+                    model      : {
+                        fields: [
+                            {name: 'id',   type: 'String'},
+                            {name: 'name', type: 'String'}
+                        ]
+                    }
+                }
+            }));
+
+            const asyncZip = track(Neo.create(ZipCode, {
+                appName,
+                countryField: asyncCombo,
+                value       : '1234'
+            }));
+
+            expect(asyncZip.countryCode).toBeNull();
+            expect(asyncZip.validate(false)).toBe(true);
+
+            await asyncCombo.store.load();
+
+            expect(asyncZip.countryCode).toBe('DE');
+            expect(asyncZip.validate(false)).toBe(false);
+            expect(asyncZip.cls).toContain('neo-invalid');
+
+            asyncCombo.value = 'AT';
+            expect(asyncZip.countryCode).toBe('AT');
+            expect(asyncZip.cls).not.toContain('neo-invalid');
+            expect(asyncZip.validate(false)).toBe(true);
+
+            // 2. Direct detach (zip.countryField = null) and country.zipCodeField = null clear derived code, pattern, and stale error
+            asyncCombo.value = 'DE';
+            expect(asyncZip.validate(false)).toBe(false);
+            expect(asyncZip.cls).toContain('neo-invalid');
+
+            asyncZip.countryField = null;
+            expect(asyncZip.countryCode).toBeNull();
+            expect(asyncZip.inputPattern).toBeNull();
+            expect(asyncZip._error).toBeNull();
+            expect(asyncZip.cls).not.toContain('neo-invalid');
+            expect(asyncZip.validate(false)).toBe(true);
+
+            const reverseZip     = track(Neo.create(ZipCode, {appName, value: '1234'})),
+                  reverseCountry = track(Neo.create(Country, {appName, value: 'de', zipCodeField: reverseZip}));
+
+            expect(reverseZip.validate(false)).toBe(false);
+            expect(reverseZip.cls).toContain('neo-invalid');
+
+            reverseCountry.zipCodeField = null;
+            expect(reverseZip.countryField).toBeNull();
+            expect(reverseZip.countryCode).toBeNull();
+            expect(reverseZip.inputPattern).toBeNull();
+            expect(reverseZip.cls).not.toContain('neo-invalid');
+            expect(reverseZip.validate(false)).toBe(true);
+
+            // 3. Destroying a directly linked Country clears zip.countryField and derived validation
+            const doomedCountry = track(Neo.create(Country, {appName, value: 'de'})),
+                  survivingZip  = track(Neo.create(ZipCode, {appName, countryField: doomedCountry, value: '1234'}));
+
+            expect(survivingZip.validate(false)).toBe(false);
+            expect(survivingZip.cls).toContain('neo-invalid');
+
+            doomedCountry.destroy();
+            expect(survivingZip.countryField).toBeNull();
+            expect(survivingZip.countryCode).toBeNull();
+            expect(survivingZip.inputPattern).toBeNull();
+            expect(survivingZip.cls).not.toContain('neo-invalid');
+            expect(survivingZip.validate(false)).toBe(true);
+
+            // 4. Explicit standalone countryCode behavior remains intact
+            const standaloneDe = track(Neo.create(ZipCode, {appName, countryCode: 'de', value: '1234'}));
+            expect(standaloneDe.countryCode).toBe('DE');
+            expect(standaloneDe.validate(false)).toBe(false);
+            standaloneDe.countryField = null;
+            expect(standaloneDe.countryCode).toBe('DE');
+            expect(standaloneDe.validate(false)).toBe(false)
+        } finally {
+            ConnectionXhr.prototype.promiseJson = originalPromiseJson
+        }
     });
 });

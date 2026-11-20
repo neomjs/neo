@@ -58,6 +58,12 @@ class Country extends ComboBox {
     }
 
     /**
+     * @type {Function|null}
+     * @private
+     */
+    #zipCodeDestroyCleanup = null
+
+    /**
      * Triggered after the triggers config got changed
      * @param {Object[]} value
      * @param {Object[]} oldValue
@@ -105,12 +111,27 @@ class Country extends ComboBox {
      * @protected
      */
     afterSetZipCodeField(value, oldValue) {
-        if (oldValue && !oldValue.isDestroyed && oldValue.countryField === this) {
+        let me = this;
+
+        if (me.#zipCodeDestroyCleanup) {
+            me.#zipCodeDestroyCleanup();
+            me.#zipCodeDestroyCleanup = null
+        }
+
+        if (oldValue && !oldValue.isDestroyed && oldValue.countryField === me) {
             oldValue.countryField = null
         }
 
         if (value instanceof Neo.form.field.Base) {
-            value.countryField = this
+            if (value.isConfig?.('isDestroying')) {
+                me.#zipCodeDestroyCleanup = me.observeConfig(value, 'isDestroying', destroying => {
+                    if (destroying && me.zipCodeField === value) {
+                        me.zipCodeField = null
+                    }
+                })
+            }
+
+            value.countryField = me
         }
     }
 
@@ -128,9 +149,15 @@ class Country extends ComboBox {
      * @param {...*} args
      */
     destroy(...args) {
-        let {zipCodeField} = this;
+        let me             = this,
+            {zipCodeField} = me;
 
-        if (zipCodeField && !zipCodeField.isDestroyed && zipCodeField.countryField === this) {
+        if (me.#zipCodeDestroyCleanup) {
+            me.#zipCodeDestroyCleanup();
+            me.#zipCodeDestroyCleanup = null
+        }
+
+        if (zipCodeField && !zipCodeField.isDestroyed && zipCodeField.countryField === me) {
             zipCodeField.countryField = null
         }
 

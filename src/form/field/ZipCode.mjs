@@ -53,7 +53,23 @@ class ZipCode extends Text {
     }
 
     /**
-     * @summary Assigns `inputPattern` from `ZipCode.countryCodes` and re-validates dirty non-empty values.
+     * @type {Boolean}
+     * @private
+     */
+    #applyingDerivedCountryCode = false
+    /**
+     * @type {Function[]}
+     * @private
+     */
+    #countryFieldCleanups = []
+    /**
+     * @type {Boolean}
+     * @private
+     */
+    #hasDerivedCountryCode = false
+
+    /**
+     * @summary Assigns `inputPattern` from `ZipCode.countryCodes` and re-validates while preserving `clean` state.
      * @param {String|null} value
      * @param {String|null} oldValue
      * @protected
@@ -61,13 +77,17 @@ class ZipCode extends Text {
     afterSetCountryCode(value, oldValue) {
         let me = this;
 
+        if (!me.#applyingDerivedCountryCode && (oldValue !== undefined || value !== null)) {
+            me.#hasDerivedCountryCode = false
+        }
+
         me.inputPattern = ZipCode.countryCodes[value] || null;
 
-        oldValue !== undefined && me.value && !me.clean && me.validate(false)
+        oldValue !== undefined && me.validate(me.clean)
     }
 
     /**
-     * @summary Subscribes to `countryField` changes, detaching any prior field listener, and syncs `countryCode`.
+     * @summary Tracks `countryField` value, `change`, and destruction lifecycle, clearing derived `countryCode` on unbind.
      * @param {Neo.form.field.Base|null} value
      * @param {Neo.form.field.Base|null} oldValue
      * @protected
@@ -75,7 +95,7 @@ class ZipCode extends Text {
     afterSetCountryField(value, oldValue) {
         let me = this;
 
-        oldValue && !oldValue.isDestroyed && oldValue.un('change', me.onCountryFieldChange, me);
+        me.#detachCountryField(oldValue);
 
         if (value) {
             value.on({
@@ -83,12 +103,47 @@ class ZipCode extends Text {
                 scope : me
             });
 
+            if (value.isConfig?.('value')) {
+                me.#countryFieldCleanups.push(me.observeConfig(value, 'value', newValue => {
+                    me.onCountryFieldChange({
+                        component: value,
+                        record   : value.record,
+                        value    : newValue
+                    })
+                }))
+            }
+
+            if (value.isConfig?.('isDestroying')) {
+                me.#countryFieldCleanups.push(me.observeConfig(value, 'isDestroying', destroying => {
+                    if (destroying && me.countryField === value) {
+                        me.countryField = null
+                    }
+                }))
+            }
+
             me.onCountryFieldChange({
                 component: value,
                 record   : value.record,
                 value    : value.value
             })
+        } else if (oldValue && me.#hasDerivedCountryCode) {
+            me.#hasDerivedCountryCode = false;
+            me.countryCode = null
         }
+    }
+
+    /**
+     * @param {Neo.form.field.Base|null} field
+     * @private
+     */
+    #detachCountryField(field) {
+        let me = this;
+
+        while (me.#countryFieldCleanups.length > 0) {
+            me.#countryFieldCleanups.pop()()
+        }
+
+        field && !field.isDestroyed && field.un('change', me.onCountryFieldChange, me)
     }
 
     /**
@@ -119,9 +174,7 @@ class ZipCode extends Text {
      * @param {...*} args
      */
     destroy(...args) {
-        let me = this;
-
-        me.countryField && !me.countryField.isDestroyed && me.countryField.un('change', me.onCountryFieldChange, me);
+        this.#detachCountryField(this.countryField);
         super.destroy(...args)
     }
 
@@ -156,7 +209,10 @@ class ZipCode extends Text {
             }
         }
 
-        me.countryCode = code
+        me.#applyingDerivedCountryCode = true;
+        me.#hasDerivedCountryCode      = true;
+        me.countryCode                 = code;
+        me.#applyingDerivedCountryCode = false
     }
 }
 
