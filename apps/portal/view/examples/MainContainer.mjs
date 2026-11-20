@@ -245,16 +245,17 @@ class MainContainer extends Container {
     /**
      * @summary Creates one synchronized find input shared between desktop sidebar and phone crumb surfaces.
      * @param {String} reference
+     * @param {Number|String} [flex='none']
      * @returns {Object}
      */
-    createFindField(reference) {
+    createFindField(reference, flex='none') {
         return {
             module         : SearchField,
             clearable      : true,
             cls            : ['portal-examples-find-field'],
             domListeners   : {keydown: this.onFindFieldKeyDown, scope: this},
             emptyValue     : '',
-            flex           : 'none',
+            flex,
             hideLabel      : true,
             listeners      : {change: 'onFindFieldChange'},
             placeholderText: 'Find examples…  /',
@@ -306,7 +307,7 @@ class MainContainer extends Container {
         me.items = [{
             module   : Container,
             cls      : ['portal-examples-group-crumb'],
-            layout   : {ntype: 'vbox', align: 'stretch'},
+            layout   : {ntype: 'hbox', align: 'center', wrap: 'wrap'},
             reference: 'examples-crumb',
             items    : [{
                 module: Container,
@@ -336,7 +337,7 @@ class MainContainer extends Container {
                     text     : 'All examples',
                     ui       : 'secondary'
                 }]
-            }, me.createFindField('mobile-find'), {
+            }, me.createFindField('mobile-find', '1 1 180px'), {
                 module      : GroupIndex,
                 hidden      : true,
                 id          : me.id + '__sheet',

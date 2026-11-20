@@ -16,8 +16,9 @@ const
  * An item appears at its author's seat. Each review is a chord from the reviewer's seat to it: an approval in the
  * reviewer's colour, a change request in the warning colour, and that one knocks the item back. An approved item
  * rides the rim to the merge seat and waits there until its merge, so the queue in front of the merge is drawn as
- * it was. Merged, it lands as one square in its day's column of a strip along the bottom. Under the pointer a
- * square, an item or a seat names itself.
+ * it was. Merged, it lands as one square in its day's column of a strip along the bottom. The strip's caption says
+ * that the scene replays and how far it is, its legend names every colour, and the merge seat's label what that
+ * seat does. Under the pointer a square, an item or a seat names itself.
  *
  * A frame is a function of the record and a clock: nothing accumulates, so the replay loops, seeks and tests
  * exactly. The first frame starts late in the window, so the strip is already dense; after the last merge the scene
@@ -137,6 +138,11 @@ class RoundTable extends Base {
      * @member {Object|null} indexed=null
      */
     indexed = null
+    /**
+     * Each seat's label, written once ({@link #arrange}): its name, and at the merge seat the verb for what it does.
+     * @member {String[]} labels=[]
+     */
+    labels = []
     /**
      * When the last frame stepped, or `0` when the next one steps by nothing.
      * @member {Number} lastTime=0
@@ -587,12 +593,13 @@ class RoundTable extends Base {
     }
 
     /**
-     * @summary The strip's caption: how many of the record's items have landed, in the record's own `unit`, then
-     * the record's caption. A strip half full then reads as a replay under way. A still scene names the total.
+     * @summary The strip's caption: the record's window, how many of its items have landed in the record's own
+     * `unit`, then the rest of the record's caption. A moving scene opens with "Replay of" and counts `landed of
+     * total`: a bare fraction read as a share that failed. A still scene replays nothing and names the total.
      *
-     * Given a test of what `fits`, the caption is shortened until it passes. The record's caption gives up its
-     * parts from the end, but never the first: it names the window, and a count without its dates would not stay
-     * true at any age. Then the unit gives up what follows its comma, then the unit goes.
+     * Given a test of what `fits`, the caption is shortened until it passes. The unit gives up what follows its
+     * comma, then the record's caption its parts from the end, then the unit goes. The window stays: a count
+     * without its dates would not stay true at any age.
      * @param {Number}   landed
      * @param {Function} [fits] Whether a text has room; without it the caption is whole
      * @returns {String}
@@ -600,19 +607,24 @@ class RoundTable extends Base {
     captionOf(landed, fits) {
         const
             {indexed: data, record, still} = this,
-            parts                          = String(record.caption ?? '').split(' · ').filter(Boolean),
-            least                          = Math.min(1, parts.length),
+            [period, ...rest]              = String(record.caption ?? '').split(' · ').filter(Boolean),
+            lead                           = still ? period : period ? `Replay of ${period}` : 'Replay',
             whole                          = record.unit || '',
-            units                          = fits ? [...new Set([whole, whole.split(',')[0], ''])] : [whole];
+            short                          = whole.split(',')[0],
+            units                          = fits ? [...new Set([whole, short, ''])] : [whole];
 
         let text = '';
 
         for (const unit of units) {
-            const words = unit && ` ${unit}`, head = still ? words && `${data.count}${words}` : `${landed} / ${data.count}${words}`;
+            const
+                words = unit && ` ${unit}`,
+                count = still ? words && `${data.count}${words}` : `${landed} of ${data.count}${words}`,
+                // what a square is goes before any part does; a count that lost its unit keeps the window alone
+                most  = unit || !whole ? rest.length : 0,
+                least = unit === whole && short !== whole ? most : 0;
 
-            // only the whole unit is worth more of the caption than its window
-            for (let n = unit === whole ? parts.length : least; n >= least; n--) {
-                text = [head, ...parts.slice(0, n)].filter(Boolean).join(' · ');
+            for (let n = most; n >= least; n--) {
+                text = [lead, count, ...rest.slice(0, n)].filter(Boolean).join(' · ');
 
                 if (!fits || fits(text)) {
                     return text
@@ -900,8 +912,8 @@ class RoundTable extends Base {
     }
 
     /**
-     * @summary The seats: each a dot in its colour that glows while its seat reviews or opens work, with its name
-     * beside it where the layout holds names. The merge seat is a ring.
+     * @summary The seats: each a dot in its colour that glows while its seat reviews or opens work, with its label
+     * beside it where the layout holds names. The merge seat is a ring, and its label says what it does.
      * @param {OffscreenCanvasRenderingContext2D} ctx
      * @param {Object} palette
      * @param {Number} clock
@@ -968,13 +980,14 @@ class RoundTable extends Base {
             ctx.globalAlpha = dim ? 0.45 : seat.kind === 'seat' ? 0.92 : 0.78;
             ctx.fillStyle   = palette.ink;
             ctx.textAlign   = side < 0 ? 'right' : 'left';
-            ctx.fillText(seat.name, x + side * (seat.kind === 'merge' ? 16 : 12), y + measures.label * 0.34)
+            ctx.fillText(me.labels[s], x + side * (seat.kind === 'merge' ? 16 : 12), y + measures.label * 0.34)
         })
     }
 
     /**
      * @summary The strip: one square per landed item in its day's column and its author's colour, the day names
-     * below, then the caption with the replay's clock, and the groups' legend at the far end.
+     * below, then the caption with the replay's clock, and the legend at the far end: a square per group and for
+     * the door, a line with the count of change requests.
      * @param {OffscreenCanvasRenderingContext2D} ctx
      * @param {Object} palette
      * @param {Number} clock
@@ -1016,7 +1029,7 @@ class RoundTable extends Base {
 
             if (strip.words) {
                 // each day's name, dim until the replay reaches it; beside it how many have landed in it so far,
-                // and at the day the replay is in, its clock
+                // and at the day the replay is in, its clock where the row has room for one
                 const y = strip.baseline + measures.small + 4;
 
                 let x = strip.x + day * (strip.dayW + strip.dayGap);
@@ -1032,17 +1045,18 @@ class RoundTable extends Base {
                     x += ctx.measureText(words.numbers[words.landed[day]]).width + 9
                 }
 
-                if (day === today) {
+                if (day === today && words.zone !== null) {
                     const tick = clock / 5 | 0;
 
-                    tick !== words.tick && (words.tick = tick, words.clock = me.stamp(tick * 5));
+                    tick !== words.tick && (words.tick = tick, words.clock = me.stamp(tick * 5, words.zone));
                     ctx.fillStyle = palette.inkDim;
                     ctx.fillText(words.clock, x, y)
                 }
             }
         }
 
-        ctx.globalAlpha = 0.9;
+        // the legend and the caption take the dim ink at full strength: text this small needs all of its contrast
+        ctx.globalAlpha = 1;
 
         // the legend first, from the far end, so the caption knows its room
         let end = strip.x + strip.width;
@@ -1056,8 +1070,21 @@ class RoundTable extends Base {
                 ctx.fillStyle = palette.inkDim;
                 ctx.fillText(name, end, strip.captionY);
                 end -= ctx.measureText(name).width + 6;
-                ctx.fillStyle = key === 'door' ? palette.door : palette.groups?.[key] || palette.inkDim;
-                ctx.fillRect(end - 7, strip.captionY - 8, 7, 7);
+
+                if (key === 'warn') {
+                    // a change request is a line in the scene, so its key is one
+                    ctx.strokeStyle = palette.warn;
+                    ctx.lineWidth   = 1.6;
+                    ctx.beginPath();
+                    ctx.moveTo(end - 10, strip.captionY - 4.5);
+                    ctx.lineTo(end, strip.captionY - 4.5);
+                    ctx.stroke();
+                    end -= 3
+                } else {
+                    ctx.fillStyle = key === 'door' ? palette.door : palette.groups?.[key] || palette.inkDim;
+                    ctx.fillRect(end - 7, strip.captionY - 8, 7, 7)
+                }
+
                 end -= 21
             }
         }
@@ -1208,10 +1235,18 @@ class RoundTable extends Base {
 
         if (context && canvasSize && data && quiet && canvasSize.width > 0 && canvasSize.height > 0) {
             context.font  = `600 ${measures.label}px ${measures.font}`;
-            me.nameWidths = record.seats.map(seat => context.measureText(seat.name).width);
+            // a verb at the merge seat, not a title: the merge is what that seat does
+            me.labels     = record.seats.map(seat => seat.kind === 'merge' ? `${seat.name} merges` : seat.name);
+            me.nameWidths = me.labels.map(label => context.measureText(label).width);
 
             // the strip's words, written once: the day names with their widths, the counts, the legend
             const days = Array.from({length: data.days}, (_, day) => RoundTable.dayLabel(data.from, day));
+
+            let changes = 0;
+
+            for (let r = 0; r < data.reviews.count; r++) {
+                data.reviews.state[r] === 2 && changes++
+            }
 
             context.font = `500 ${measures.small}px ${measures.font}`;
 
@@ -1222,10 +1257,16 @@ class RoundTable extends Base {
                 days,
                 dayWidths: days.map(day => context.measureText(day).width),
                 landed   : new Uint16Array(data.days),
-                legend   : [...(record.groups || []).map(group => [group.name, group.id]), ...(record.seats.some(seat => seat.kind === 'door') ? [['Contributors', 'door']] : [])],
-                numbers  : Array.from({length: data.dayMax + 1}, (_, n) => String(n)),
-                room     : 0,
-                tick     : -2
+                // the groups, the door, and the one warm mark with its count
+                legend   : [
+                    ...(record.groups || []).map(group => [group.name, group.id]),
+                    ...(record.seats.some(seat => seat.kind === 'door') ? [['Contributors', 'door']] : []),
+                    ...(changes ? [[`${changes} change request${changes === 1 ? '' : 's'}`, 'warn']] : [])
+                ],
+                numbers: Array.from({length: data.dayMax + 1}, (_, n) => String(n)),
+                room   : 0,
+                tick   : -2,
+                zone   : null
             };
 
             me.place = RoundTable.layout({
@@ -1239,7 +1280,16 @@ class RoundTable extends Base {
                 nameWidths: me.nameWidths,
                 seats     : record.seats,
                 width     : canvasSize.width
-            })
+            });
+
+            // the replay's clock ends a gap before the next day's name, beside the widest name and the fullest count
+            // with their gaps as drawn: with its zone, else without it, else it is left out
+            const
+                {strip} = me.place,
+                lead    = Math.max(...me.words.dayWidths) + 7 + context.measureText(me.words.numbers.at(-1)).width + 9,
+                room    = strip?.words ? strip.dayW + strip.dayGap - lead - 9 : -1;
+
+            me.words.zone = [' UTC', ''].find(zone => context.measureText(`00:00${zone}`).width <= room) ?? null
         }
     }
 
@@ -1393,14 +1443,16 @@ class RoundTable extends Base {
     }
 
     /**
-     * @summary The replay's clock as the strip shows it beside the day it is in: `14:20 UTC`.
+     * @summary The replay's clock as the strip shows it beside the day it is in: `14:20 UTC`, or `14:20` where
+     * the day row has no room for the zone.
      * @param {Number} clock Minutes
+     * @param {String} [zone=' UTC']
      * @returns {String}
      */
-    stamp(clock) {
+    stamp(clock, zone = ' UTC') {
         const date = new Date(this.indexed.from + Math.max(clock, 0) * 60000), pad = n => String(n).padStart(2, '0');
 
-        return `${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())} UTC`
+        return `${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}${zone}`
     }
 
     /**

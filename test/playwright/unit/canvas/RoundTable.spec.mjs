@@ -362,34 +362,96 @@ test.describe('Neo.canvas.RoundTable — the scene and its inputs', () => {
         expect(renderer.seatLines(4)).toEqual(['Contributors', '1 account · 1 pull request merged']);
         expect(renderer.seatLines(5)).toEqual(['@t', 'merged 4 pull requests']);
         expect(renderer.captionOf(2), 'a still scene without a unit names the record\'s caption alone').toBe('two days');
-        renderer.setRecord({record: {...record(), unit: 'things landed'}});
-        expect(renderer.captionOf(2)).toBe('4 things landed · two days');
         renderer.still = false;
-        expect(renderer.captionOf(2), 'a replay under way says how far it is').toBe('2 / 4 things landed · two days');
+        expect(renderer.captionOf(2), 'a replay without a unit still counts').toBe('Replay of two days · 2 of 4');
+        renderer.still = true;
+        renderer.setRecord({record: {...record(), unit: 'landed things'}});
+        expect(renderer.captionOf(2), 'a still scene replays nothing: the window, then the total').toBe('two days · 4 landed things');
+        renderer.still = false;
+        expect(renderer.captionOf(2), 'a replay under way says that it is one, and how far').toBe('Replay of two days · 2 of 4 landed things');
+        renderer.setRecord({record: {...record(), caption: '', unit: 'landed things'}});
+        expect(renderer.captionOf(2), 'a record without a caption').toBe('Replay · 2 of 4 landed things');
         expect(renderer.stamp(860)).toBe('14:20 UTC');
         renderer.still = true;
+        expect(renderer.captionOf(2)).toBe('4 landed things');
 
         expect(RoundTable.duration(47)).toBe('47 min');
         expect(RoundTable.duration(4610)).toBe('3 d 4 h');
         expect(RoundTable.dayLabel(Date.parse('2026-11-13T00:00:00Z'), 1)).toBe('Sat 14')
     });
 
-    test('a caption too long for its room keeps the window: its last parts go, then what a square is, then the unit', () => {
+    test('a caption too long for its room keeps the window: what a square is goes, then its last parts, then the unit', () => {
         const within = length => text => text.length <= length;
 
-        renderer.setRecord({record: {...record(), caption: 'two days · five reviews · some/repo', unit: 'things landed, one square each'}});
+        renderer.setRecord({record: {...record(), caption: 'two days · five reviews · some/repo', unit: 'landed things, one square each'}});
         renderer.still = false;
 
-        expect(renderer.captionOf(2, within(74))).toBe('2 / 4 things landed, one square each · two days · five reviews · some/repo');
-        expect(renderer.captionOf(2, within(62))).toBe('2 / 4 things landed, one square each · two days · five reviews');
-        expect(renderer.captionOf(2, within(47))).toBe('2 / 4 things landed, one square each · two days');
-        expect(renderer.captionOf(2, within(46)), 'the window outlasts what a square is').toBe('2 / 4 things landed · two days');
-        expect(renderer.captionOf(2, within(29))).toBe('2 / 4 · two days');
-        expect(renderer.captionOf(2, within(5)), 'and stays where nothing fits').toBe('2 / 4 · two days');
+        expect(renderer.captionOf(2)).toBe('Replay of two days · 2 of 4 landed things, one square each · five reviews · some/repo');
+        expect(renderer.captionOf(2, within(85))).toBe('Replay of two days · 2 of 4 landed things, one square each · five reviews · some/repo');
+        expect(renderer.captionOf(2, within(84)), 'what a square is goes before a part of the record does').toBe('Replay of two days · 2 of 4 landed things · five reviews · some/repo');
+        expect(renderer.captionOf(2, within(67))).toBe('Replay of two days · 2 of 4 landed things · five reviews');
+        expect(renderer.captionOf(2, within(55))).toBe('Replay of two days · 2 of 4 landed things');
+        expect(renderer.captionOf(2, within(40)), 'a count without its unit keeps the window alone').toBe('Replay of two days · 2 of 4');
+        expect(renderer.captionOf(2, within(5)), 'and stays where nothing fits').toBe('Replay of two days · 2 of 4');
 
         renderer.still = true;
 
-        expect(renderer.captionOf(2, within(42))).toBe('4 things landed · two days');
+        expect(renderer.captionOf(2, within(49))).toBe('two days · 4 landed things · five reviews');
         expect(renderer.captionOf(2, within(25)), 'a total without its unit says nothing').toBe('two days')
+    });
+
+    test('the legend names the warm mark with its count, and the merge seat says what it does', () => {
+        const texts = [], context = createContext();
+
+        context.fillText = text => texts.push(text);
+        renderer.context = context;
+        renderer.setLook({palettes});
+        renderer.setQuiet(wide);
+        renderer.setRecord({record: record()});
+
+        expect(renderer.words.legend.map(([name]) => name)).toEqual(['Claude', 'Gemini', 'GPT', 'Contributors', '1 change request']);
+        expect(renderer.words.legend.at(-1)[1], 'drawn in the palette\'s warning colour').toBe('warn');
+        expect(renderer.labels).toEqual(['Ada', 'Clio', 'Julia', 'Euclid', 'Contributors', '@t merges']);
+        expect(texts, 'the frame writes both').toEqual(expect.arrayContaining(['1 change request', '@t merges']));
+
+        const {seats} = renderer.getStats(), merge = seats.at(-1);
+
+        expect(merge.name, 'the record\'s name stays the name').toBe('@t');
+        expect(merge.box[2], 'the box holds the label that is drawn').toBe('@t merges'.length * 7 + 28);
+
+        const calm = record();
+
+        calm.items[1][6] = [[3, 'A', 60]];
+        renderer.setRecord({record: calm});
+
+        expect(renderer.words.legend.map(([name]) => name), 'no change request, no key').toEqual(['Claude', 'Gemini', 'GPT', 'Contributors'])
+    });
+
+    test('the replay\'s clock ends before the next day\'s name: with its zone, without it, or not at all', () => {
+        const
+            texts   = [],
+            context = createContext(),
+            // seven day columns; the last statement is as wide as a 768 px surface allows
+            week    = {...record(), to: '2026-11-20T00:00:00Z'},
+            tablet  = {blocks: [{height: 300, width: 700, x: 34, y: 300}]};
+
+        context.fillText = text => texts.push(text);
+        renderer.context = context;
+        renderer.setLook({palettes});
+        renderer.setRecord({record: week});
+        renderer.setMotion({still: false});
+
+        for (const [width, height, statement, zone] of [[1440, 842, wide, ' UTC'], [900, 642, narrow, ''], [768, 966, tablet, null]]) {
+            renderer.updateSize({devicePixelRatio: 1, height, width});
+            stopLoop();
+            texts.length = 0;
+            renderer.setQuiet(statement);
+            stopLoop();
+
+            expect(renderer.words.zone, `at ${width} px`).toBe(zone);
+            expect(texts.filter(text => /^\d\d:\d\d/.test(text)), `the frame at ${width} px`).toEqual(zone === null ? [] : [expect.stringMatching(new RegExp(`^\\d\\d:\\d\\d${zone}$`))])
+        }
+
+        expect(renderer.stamp(860, ''), 'the clock without its zone').toBe('14:20')
     })
 });

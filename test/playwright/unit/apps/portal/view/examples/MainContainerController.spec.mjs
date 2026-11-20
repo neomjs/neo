@@ -1189,5 +1189,26 @@ test.describe('Portal examples canonical catalog', () => {
         const uncovered = store.items.find(record => !record.image);
         expect(uncovered).toBeDefined();
         expect(list.getBackgroundImageStyle(uncovered).backgroundImage).not.toContain('url(')
+    });
+
+    test('Overview switches its intro lead between phoneLead (size: x-small) and desktop lead, and mobile-find flexes on one crumb row', () => {
+        const view     = createView(),
+              overview = view.getOverview(),
+              intro    = overview.down({reference: 'overview-intro'}),
+              crumb    = view.getCrumb(),
+              find     = view.getMobileFindField();
+
+        expect(crumb.layout.ntype).toBe('layout-hbox');
+        expect(crumb.layout.wrap).toBe('wrap');
+        expect(find.flex).toBe('1 1 180px');
+        expect(intro.vdom.cn[2].text).toBe(overview.lead);
+
+        view.getStateProvider().setData({size: 'x-small'});
+        expect(overview.compactLead).toBe(true);
+        expect(intro.vdom.cn[2].text).toBe('Grids, Gantt charts, forms and apps, each one running live in your browser.');
+
+        view.getStateProvider().setData({size: 'large'});
+        expect(overview.compactLead).toBe(false);
+        expect(intro.vdom.cn[2].text).toBe(overview.lead)
     })
 });
