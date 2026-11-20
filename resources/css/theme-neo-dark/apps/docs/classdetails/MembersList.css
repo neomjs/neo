@@ -1,5 +1,5 @@
 :where(.neo-theme-neo-dark) { /* .docs-classhierarchy-memberslist */
-    --docs-classhierarchy-memberslist-background-color : var(--sem-color-bg-subtle);
+    --docs-classhierarchy-memberslist-background-color : var(--sem-color-bg-neutral-highlighted);
     --docs-memberlist-group-header-background-color    : #1c60a0;
     --docs-memberlist-group-header-color               : #fff;
     --docs-param-table-list-item-background-color      : var(--sem-color-surface-neutral-default);
@@ -8,8 +8,8 @@
     --docs-param-table-list-item-header-text-shadow    : none;
     --docs-param-table-list-item-highlight-search-color: red;
     --docs-param-table-source-link-color               : var(--sem-color-text-neutral-subdued);
-    --docs-param-table-source-link-color-hover         : var(--sem-color-text-primary-highlighted);
-    --docs-param-table-thead-background-color          : var(--sem-color-bg-subtle);
+    --docs-param-table-source-link-color-hover         : var(--sem-color-fg-primary-highlighted);
+    --docs-param-table-thead-background-color          : var(--sem-color-bg-neutral-highlighted);
     --docs-param-table-thead-background-image          : none;
     --docs-param-table-tr-background-clip              : none;
     --docs-param-table-tr-color                        : var(--sem-color-text-neutral-default);
