@@ -75,6 +75,7 @@ test.describe('Portal.view.home.parts.hero.Content', () => {
         expect(HeroContent.config.initialHoldDelay).toBe(5300);
         expect(getStartedConfig.route).toBe('/learn/gettingstarted/Setup');
         expect(getStartedConfig.text).toBe('Get started');
+        expect(getStartedConfig.ui).toBe('primary');
 
         const hero = Neo.create(HeroContent, {appName});
 
@@ -83,6 +84,7 @@ test.describe('Portal.view.home.parts.hero.Content', () => {
 
             const getStartedButton = hero.items[3].items[0];
             expect(getStartedButton.route).toBe('/learn/gettingstarted/Setup');
+            expect(getStartedButton.cls).toContain('neo-button-primary');
             expect(getStartedButton.vdom.tag).toBe('a');
             expect(getStartedButton.vdom.href).toBe('#/learn/gettingstarted/Setup');
         } finally {

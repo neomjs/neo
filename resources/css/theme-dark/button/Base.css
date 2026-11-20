@@ -43,6 +43,33 @@
     --button-text-transform                     : none;
     --button-use-gradients                      : true;
 
+    /* {module: Button, ui: --primary} */
+    --button-primary-background-color           : #3c3f41;
+    --button-primary-background-color-active    : #373a3c;
+    --button-primary-background-color-disabled  : #3c3f41;
+    --button-primary-background-color-hover     : #3a3c3e;
+    --button-primary-background-color-pressed   : #3c3f41;
+    --button-primary-background-image           : linear-gradient(#434749, #323536);
+    --button-primary-badge-background-color     : var(--button-badge-background-color);
+    --button-primary-badge-color                : var(--button-badge-color);
+    --button-primary-border                     : 1px solid #2b2b2b;
+    --button-primary-border-active              : 1px solid #282828;
+    --button-primary-border-disabled            : 1px solid #2b2b2b;
+    --button-primary-border-hover               : 1px solid #292929;
+    --button-primary-border-pressed             : 1px solid #5d83a7;
+    --button-primary-glyph-color                : #bbb;
+    --button-primary-glyph-color-active         : #bbb;
+    --button-primary-glyph-color-disabled       : #bbb;
+    --button-primary-glyph-color-hover          : #bbb;
+    --button-primary-glyph-color-pressed        : #bbb;
+    --button-primary-opacity-disabled           : var(--neo-disabled-opacity);
+    --button-primary-ripple-background-color    : rgb(28.8501960784%, 41.3082352941%, 53.1105882353%);
+    --button-primary-text-color                 : #bbb;
+    --button-primary-text-color-active          : #bbb;
+    --button-primary-text-color-disabled        : #bbb;
+    --button-primary-text-color-hover           : #bbb;
+    --button-primary-text-color-pressed         : #bbb;
+
     /* {module: Button, ui: --ghost} */
     --button-ghost-background-color             : transparent;
     --button-ghost-background-color-active      : #373a3c;

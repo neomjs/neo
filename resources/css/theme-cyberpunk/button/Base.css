@@ -43,6 +43,33 @@
     --button-text-transform                     : none;
     --button-use-gradients                      : false;
 
+    /* {module: Button, ui: --primary} */
+    --button-primary-background-color           : transparent;
+    --button-primary-background-color-active    : var(--cyber-bg-alt);
+    --button-primary-background-color-disabled  : transparent;
+    --button-primary-background-color-hover     : rgba(0, 210, 255, 0.1);
+    --button-primary-background-color-pressed   : rgba(0, 210, 255, 0.1);
+    --button-primary-background-image           : none;
+    --button-primary-badge-background-color     : var(--button-badge-background-color);
+    --button-primary-badge-color                : var(--button-badge-color);
+    --button-primary-border                     : 1px solid var(--cyber-border);
+    --button-primary-border-active              : 1px solid var(--cyber-cyan);
+    --button-primary-border-disabled            : 1px solid var(--cyber-border);
+    --button-primary-border-hover               : 1px solid var(--cyber-cyan);
+    --button-primary-border-pressed             : 1px solid var(--cyber-cyan);
+    --button-primary-glyph-color                : var(--cyber-cyan);
+    --button-primary-glyph-color-active         : var(--cyber-cyan);
+    --button-primary-glyph-color-disabled       : var(--neo-disabled-opacity);
+    --button-primary-glyph-color-hover          : #fff;
+    --button-primary-glyph-color-pressed        : #fff;
+    --button-primary-opacity-disabled           : var(--neo-disabled-opacity);
+    --button-primary-ripple-background-color    : rgba(0, 210, 255, 0.3);
+    --button-primary-text-color                 : var(--cyber-text);
+    --button-primary-text-color-active          : var(--cyber-cyan);
+    --button-primary-text-color-disabled        : var(--neo-disabled-opacity);
+    --button-primary-text-color-hover           : #fff;
+    --button-primary-text-color-pressed         : #fff;
+
     /* {module: Button, ui: --ghost} */
     --button-ghost-background-color             : transparent;
     --button-ghost-background-color-active      : var(--cyber-bg-alt);
