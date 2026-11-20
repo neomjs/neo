@@ -98,9 +98,12 @@ async function openGroup(page, name) {
  * @returns {Promise<void>}
  */
 async function selectBuild(page, label) {
-    await page.getByRole('button', {name: /^Running /}).locator('visible=true').click();
+    const control = page.getByRole('button', {name: /^(Examples open|Open) in: /}).locator('visible=true');
+
+    await control.click();
     await page.locator('.neo-menu-list:visible .neo-list-item').filter({hasText: label}).click();
-    await expect(page.locator('.neo-menu-list:visible')).toHaveCount(0)
+    await expect(page.locator('.neo-menu-list:visible')).toHaveCount(0);
+    await expect(control).toHaveText(new RegExp(`^(Examples open|Open) in: ${label}$`))
 }
 
 /**
@@ -265,6 +268,27 @@ test.describe('Portal examples section', () => {
             await expect(featured.locator('.neo-list-item').first()).toBeVisible();
             await expect(featured.locator('.neo-list-item')).toHaveCount((await readOverviewList(app)).properties.store.count);
             await expect.poll(() => links.locator('.portal-examples-group-index-title').allTextContents()).toEqual(GROUPS);
+
+            // the build control is a setting, not a second action: beside the heading on a desktop, and under the featured
+            // cards on a phone, off its first screen. Its phone label waits for the viewport to measure its size.
+            await expect.poll(() => page.locator('.portal-examples-build-control').locator('visible=true').evaluate(node => {
+                const control  = node.getBoundingClientRect(),
+                      overview = node.closest('.portal-examples-overview'),
+                      cards    = overview.querySelector('.portal-examples-overview-cards').getBoundingClientRect(),
+                      heading  = overview.querySelector('.portal-examples-overview-start .portal-examples-overview-heading').getBoundingClientRect();
+
+                return {
+                    height: control.height,
+                    label : node.textContent.trim(),
+                    place : control.top < heading.bottom ? 'beside the heading' : control.top >= cards.bottom ? 'under the cards' : 'between',
+                    weight: getComputedStyle(node.querySelector('.neo-button-text')).fontWeight
+                }
+            })).toEqual({
+                height: 36,
+                label : `${isPhone ? 'Open' : 'Examples open'} in: Production build`,
+                place : isPhone ? 'under the cards' : 'beside the heading',
+                weight: '400'
+            });
 
             if (isPhone) {
                 const indexBox = await page.locator(MOBILE_IX).evaluate(node => ({height: node.getBoundingClientRect().height}));
@@ -476,7 +500,7 @@ test.describe('Portal examples section', () => {
         await openOverview(page);
         await openGroup(page, 'Multi-Window');
         // the build selected on another page holds here
-        await expect(page.getByRole('button', {name: /^Running /}).locator('visible=true')).toHaveText(/Running the ESM build/);
+        await expect(page.getByRole('button', {name: /^Examples open in: /}).locator('visible=true')).toHaveText('Examples open in: ESM build');
         await expect((await readList(app, 'multi-window')).properties.catalogMode).toBe('dist_esm');
         expect(await page.locator(PAGE).evaluate(node => node.scrollTop)).toBe(0);
 

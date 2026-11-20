@@ -71,6 +71,18 @@
         padding   : 0;
     }
 
+    /* A phone shows the build control under the featured cards, so the first card moves up its first screen */
+    .portal-examples-overview-build-foot {
+        align-self: flex-start;
+        margin-top: 16px;
+    }
+
+    @media (min-width: 641px) {
+        .portal-examples-overview-build-foot {
+            display: none;
+        }
+    }
+
     /* Desktop shows the persistent sidebar rail instead; phone renders the index below Start here. */
     .portal-examples-overview-mobile-index {
         display   : none;
@@ -97,6 +109,10 @@
                 align-items   : flex-start;
                 flex-direction: column;
                 gap           : 2px;
+            }
+
+            > .portal-examples-build-control {
+                display: none;
             }
         }
 
