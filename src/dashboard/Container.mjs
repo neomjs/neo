@@ -190,7 +190,8 @@ class Container extends BaseContainer {
     }
 
     /**
-     * Marks a detached widget as intentionally left in its popup after a terminal window drop.
+     * @summary Marks a detached widget as intentionally left in its popup after a terminal window drop, and ends the
+     * dashboard's mid-gesture hold on it (`onWindowConnect`): kept past the drop, it would render here again.
      * @param {Object} data
      * @param {Neo.component.Base} data.draggedItem
      * @param {Neo.draggable.dashboard.SortZone} data.sortZone
@@ -202,7 +203,16 @@ class Container extends BaseContainer {
             detachedItem  = widgetName ? me.detachedItems.get(widgetName) : null;
 
         if (detachedItem) {
-            detachedItem.terminalDrop = true
+            let {parent} = draggedItem;
+
+            detachedItem.terminalDrop = true;
+
+            // The popup parents and mounts the widget, so it stays mounted. remove() also clears this layout's child
+            // attributes, which the popup's layout had set on the widget: that layout sets them again.
+            if (parent && parent !== me && me.items.includes(draggedItem)) {
+                me.remove(draggedItem, false, false, true);
+                parent.layout?.applyChildAttributes(draggedItem, parent.indexOf(draggedItem), true)
+            }
         }
 
         me.fire('windowDragTerminalDrop', {
@@ -343,8 +353,8 @@ class Container extends BaseContainer {
                 detachedItem.windowId = windowId;
 
                 detachedItem.widget.wrapperStyle = {};
-                // Add the widget to the popup window
-                mainView.add(detachedItem.widget, false, !me.#isWindowDragging)
+                // A live gesture shares the widget, keeping it here for a re-entry; after the drop it moves
+                mainView.add(detachedItem.widget, false, !me.#isWindowDragging || detachedItem.terminalDrop === true)
             }
         }
     }

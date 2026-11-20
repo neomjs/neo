@@ -5,6 +5,8 @@ import ViewportController    from './ViewportController.mjs';
 import ViewportStateProvider from './ViewportStateProvider.mjs';
 
 /**
+ * @summary The account form: its steps in a list beside the form. Below 600px the list folds away, the form's header
+ * names the step, and its Steps button unfolds the list above the form.
  * @class Form.view.Viewport
  * @extends Neo.container.Viewport
  */
@@ -16,6 +18,11 @@ class Viewport extends BaseViewport {
          */
         className: 'Form.view.Viewport',
         /**
+         * @member {String[]} cls=['form-viewport']
+         * @reactive
+         */
+        cls: ['form-viewport'],
+        /**
          * @member {Neo.controller.Component} controller=ViewportController
          * @reactive
          */
@@ -25,25 +32,33 @@ class Viewport extends BaseViewport {
          */
         items: [{
             ntype: 'container',
-            style: {margin: '0 1em'},
-            width: '300',
-
+            bind : {cls: data => data.stepsOpen ? ['form-step-nav', 'form-step-nav-open'] : ['form-step-nav']},
+            cls  : ['form-step-nav'],
+            flex : 'none',
             items: [{
-                flex: 'none',
-                vdom: {tag: 'h1', html: 'Nested Forms'}
+                ntype: 'component',
+                cls  : ['form-step-nav-title'],
+                flex : 'none',
+                tag  : 'h1',
+                text : 'Open a team account'
+            }, {
+                ntype: 'component',
+                cls  : ['form-step-nav-text'],
+                flex : 'none',
+                tag  : 'p',
+                text : 'Next checks the step you are on, and Create account checks every step.'
             }, {
                 module   : SideNavList,
                 reference: 'side-nav',
-
-                bind: {
+                bind     : {
                     headerlessSelectedIndex: data => data.activeIndex,
                     store                  : 'stores.sideNav'
                 }
             }]
         }, {
             module   : FormContainer,
-            reference: 'main-form',
-            style    : {margin: '20px'}
+            flex     : 1,
+            reference: 'main-form'
         }],
         /**
          * @member {Object} layout={ntype:'hbox',align:'stretch'}

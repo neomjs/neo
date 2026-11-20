@@ -49,6 +49,7 @@ export const RUN_PATHS = [
     'test/playwright/e2e/dashboard',
     'test/playwright/e2e/desktop',
     'test/playwright/e2e/dialog',
+    'test/playwright/e2e/form',
     'test/playwright/e2e/gantt',
     'test/playwright/e2e/grid',
     'test/playwright/e2e/list',

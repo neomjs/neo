@@ -284,7 +284,7 @@
         "title": "ADR 0018: Neo Identity Source-of-Truth Model - Neo.mjs",
         "description": "Neo's identity is not a document — it is a distributed property spread across ~30+ surfaces: hand-edited canonical prose (README.md, .github/VISION.md...",
         "schemaType": "TechArticle",
-        "lastmod": "2026-10-16"
+        "lastmod": "2026-11-19"
     },
     "/learn/agentos/decisions/0020-agent-harness-concept": {
         "title": "ADR 0020 moved to Agent Institution — AI Agent OS & Multi-Threaded Application Engine | Neo.mjs",
@@ -577,7 +577,7 @@
         "title": "JavaScript Data Grid Guide: Virtual Scrolling & Pooled Cells | Neo.mjs",
         "description": "Build high-performance JavaScript data grids with Neo.grid.Container: virtual scrolling, pooled DOM cells, sorting, header filters, and inline editing.",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-16"
+        "lastmod": "2026-11-19"
     },
     "/learn/guides/datahandling/DynamicGrids": {
         "title": "100k-Row JavaScript Data Grid: Dynamic Columns & Virtual Scrolling | Neo.mjs",
@@ -697,7 +697,7 @@
         "title": "Whitebox E2E Testing with Neural Link — Neo.mjs Developer Guide",
         "description": "Traditional end-to-end (E2E) testing treats the application as a \"black box,\" interacting purely through DOM element locators (e.g. page.locator('button'))...",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-19"
     },
     "/learn/guides/testing/DockLayoutsTesting": {
         "title": "Dock Layouts: Testing and Debugging - Neo.mjs",
@@ -1061,11 +1061,11 @@
         "title": "Neo.mjs v14.0.0 Release Notes",
         "description": "Release Type: Pending the operator. Planned as a major: Engine 14 — The Front Door (ROADMAP). Stability: Pending the operator. It is set at the cut...",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-16"
+        "lastmod": "2026-11-19"
     },
     "/examples/apps": {
         "title": "JavaScript Web App Examples — Full Apps on Worker Threads | Neo.mjs",
-        "description": "Explore 10 live JavaScript web app examples: A living-data workspace whose panes can leave the browser window.",
+        "description": "Explore 11 live JavaScript web app examples: A living-data workspace whose panes can leave the browser window; GitHub contributor rankings in a buffered grid.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-19"
     },
@@ -1083,7 +1083,7 @@
     },
     "/examples/lists": {
         "title": "JavaScript Lists & Galleries — 3D Helix & Gallery Views | Neo.mjs",
-        "description": "Explore 7 live JavaScript list and gallery examples: Image items on a 3D helix that you reshape live.",
+        "description": "Explore 12 live JavaScript list and gallery examples: Image items on a 3D helix that you reshape live.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-19"
     },
@@ -1143,13 +1143,13 @@
     },
     "/examples/forms": {
         "title": "JavaScript Form Examples — Fields, Pickers & Validation | Neo.mjs",
-        "description": "Explore 28 live JavaScript form examples: The standalone date selector component; A date field with picker and live configuration.",
+        "description": "Explore 29 live JavaScript form examples: The standalone date selector component; A date field with picker and live configuration.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-19"
     },
     "/examples/buttons": {
         "title": "JavaScript Buttons, Menus & Toolbars — Live Examples | Neo.mjs",
-        "description": "Explore 2 live JavaScript button and menu examples: A button with icon, badge, ripple and tooltip, each a live config; A menu list over a store.",
+        "description": "Explore 5 live JavaScript button and menu examples: A right-click on a project file opens its actions at the pointer, and every action changes the list.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-19"
     },
@@ -1215,9 +1215,9 @@
     },
     "/apps/form/index.html": {
         "title": "Form — Multi-Threaded JavaScript App | Neo.mjs",
-        "description": "A complete form application: 15 pages behind a side navigation. Open pages from the side navigation and step through their fields.",
+        "description": "Each step validates before Next and names what is wrong; Create account checks every step and shows the object the form submits. Press Next on the empty...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-19"
     },
     "/apps/legit/index.html": {
         "title": "Legit — Multi-Threaded JavaScript App | Neo.mjs",
@@ -1265,7 +1265,7 @@
         "title": "Workstation — Multi-Window JavaScript Demo | Neo.mjs",
         "description": "A living-data workspace whose panes can leave the browser window. Pop out the 100k Matrix tab, use it in its own window, then close that window to bring it...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-17"
+        "lastmod": "2026-11-19"
     },
     "/examples/board/basic/index.html": {
         "title": "Sprint board · Neo Board — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1323,9 +1323,9 @@
     },
     "/examples/component/carousel/index.html": {
         "title": "Carousel — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "An automatically advancing carousel cycles through styled testimonial cards. Watch the slides rotate every 5.5 seconds, then resize the carousel with the...",
+        "description": "A carousel that advances through portraits on its own. Watch a portrait slide in every four seconds, then change the height and width in the panel.",
         "schemaType": "WebPage",
-        "lastmod": "2024-08-17"
+        "lastmod": "2026-11-19"
     },
     "/examples/component/chip/index.html": {
         "title": "Chip — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1605,9 +1605,9 @@
     },
     "/examples/fieldWithPrefix/index.html": {
         "title": "Field with Prefix — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Input masks from the PrefixField plugin: a phone pattern and a digits-only date. Type into the phone field and watch the +1 (___) ___-___-____ mask carry...",
+        "description": "Input masks from the PrefixField plugin: a phone number, a date, a MAC address, a code and a card number. Type letters into the phone field to see them...",
         "schemaType": "WebPage",
-        "lastmod": "2024-08-17"
+        "lastmod": "2026-11-19"
     },
     "/examples/form/field/checkbox/index.html": {
         "title": "CheckBoxField — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1771,6 +1771,12 @@
         "schemaType": "WebPage",
         "lastmod": "2024-08-17"
     },
+    "/examples/form/validation/index.html": {
+        "title": "Form Validation — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "How does a form tell the user what is wrong? A sign-up form validates as you type, blocks submit and lists the errors. Type a bad email, fix it, and sign up.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-19"
+    },
     "/examples/functional/button/base/index.html": {
         "title": "Functional Button — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "Live runnable Functional Button example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
@@ -1839,9 +1845,9 @@
     },
     "/examples/grid/container/index.html": {
         "title": "GridContainer — Web Worker Data Grid Demo | Neo.mjs",
-        "description": "Cell, row and column selection. Switch between cell, row, column and combined selection, then change the grid height.",
+        "description": "Cell, row, column and crosshair selection modes. Click any shift on a 42-clinician weekly roster, move with ArrowUp/Down/Left/Right, and switch between...",
         "schemaType": "WebPage",
-        "lastmod": "2026-09-13"
+        "lastmod": "2026-11-19"
     },
     "/examples/grid/contentSizedRows/index.html": {
         "title": "GridContainer - Content-Sized Rows — Data Grid Demo | Neo.mjs",
@@ -1859,7 +1865,7 @@
         "title": "JavaScript Data Grid CSV Export | Neo.mjs",
         "description": "A Neo.mjs JavaScript Data Grid that exports what it shows as CSV: filter and sort 300 invoices, preview the CSV beside the grid, then download it.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-17"
+        "lastmod": "2026-11-19"
     },
     "/examples/grid/filtering/index.html": {
         "title": "JavaScript Data Grid with Column Filters | Neo.mjs",
@@ -1881,9 +1887,9 @@
     },
     "/examples/grid/nestedRecordFields/index.html": {
         "title": "Grid: Nested Record Fields — Web Worker Data Grid Demo | Neo.mjs",
-        "description": "Nested records and component cells. Open Edit to change nested user fields and watch modified-cell highlighting; compare header-only and full-column dragging.",
+        "description": "Modal form editing on a grid row. Press Edit in any row to open its dialog form, change contact or nested address fields, and save to highlight modified...",
         "schemaType": "WebPage",
-        "lastmod": "2025-08-12"
+        "lastmod": "2026-11-19"
     },
     "/examples/grid/pinnedColumns/index.html": {
         "title": "JavaScript Data Grid with Pinned Columns | Neo.mjs",
@@ -1905,9 +1911,9 @@
     },
     "/examples/grid/tree/index.html": {
         "title": "Tree Grid Example — Web Worker Data Grid Demo | Neo.mjs",
-        "description": "Hierarchical rows. Expand and collapse the sample file hierarchy in the Name column.",
+        "description": "A three-level budget hierarchy whose parent rows roll up seats, budget and spend from their children. Expand a team with its arrow or Right/Left keys and...",
         "schemaType": "WebPage",
-        "lastmod": "2026-03-15"
+        "lastmod": "2026-11-19"
     },
     "/examples/grid/treeBigData/index.html": {
         "title": "TreeGrid - Big Data — Web Worker Data Grid Demo | Neo.mjs",
@@ -1947,9 +1953,9 @@
     },
     "/examples/list/animate/index.html": {
         "title": "AnimatedList — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Live runnable AnimatedList example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "description": "Fifteen portrait cards that sort, filter and search, every move animated. Press Lastname, type an a into Search, then turn on Is online and watch the cards...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-03"
+        "lastmod": "2026-11-19"
     },
     "/examples/list/base/index.html": {
         "title": "List — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1959,9 +1965,9 @@
     },
     "/examples/list/buffered/index.html": {
         "title": "Buffered List — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Live runnable Buffered List example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "description": "A list of 5,000 records that renders only the rows in view and recycles them as you scroll. Scroll through the records, then raise bufferRowRange or...",
         "schemaType": "WebPage",
-        "lastmod": "2026-08-31"
+        "lastmod": "2026-11-19"
     },
     "/examples/list/chip/index.html": {
         "title": "ChipList — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1971,9 +1977,9 @@
     },
     "/examples/list/circle/index.html": {
         "title": "CircleList — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Live runnable CircleList example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "description": "Groups as circles in a list, each showing its member count. Switch Sort to DESC, then rename a group in the panel.",
         "schemaType": "WebPage",
-        "lastmod": "2025-11-19"
+        "lastmod": "2026-11-19"
     },
     "/examples/list/color/index.html": {
         "title": "ColorList — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1981,11 +1987,23 @@
         "schemaType": "WebPage",
         "lastmod": "2025-07-11"
     },
+    "/examples/list/reorder/index.html": {
+        "title": "Reorder by Drag — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "A checklist and a wall of portraits, each reordered by drag and drop over its own store. Drag Freeze the release branch below Write the release notes, then...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-19"
+    },
     "/examples/menu/context/index.html": {
         "title": "Context Menu — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "Live runnable Context Menu example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
         "schemaType": "WebPage",
         "lastmod": "2026-08-29"
+    },
+    "/examples/menu/contextFiles/index.html": {
+        "title": "Context Menu: Project Files — JavaScript UI Demo | Neo.mjs",
+        "description": "A right-click on a project file opens its actions at the pointer, and every action changes the list. Right-click a file to move, star, duplicate or delete...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-19"
     },
     "/examples/menu/list/index.html": {
         "title": "MenuList — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -2127,9 +2145,9 @@
     },
     "/examples/table/container/index.html": {
         "title": "TableContainer — Web Worker Data Grid Demo | Neo.mjs",
-        "description": "Selection modes and embedded controls. Switch selection models, toggle fit width or column dragging, and open a cell menu.",
+        "description": "Content-sized columns, sticky headers and wrapping cells on local data. Compare 14 service tier specifications where columns size to their text and notes...",
         "schemaType": "WebPage",
-        "lastmod": "2026-09-18"
+        "lastmod": "2026-11-19"
     },
     "/examples/tableFiltering/index.html": {
         "title": "Table Filtering — Web Worker Data Grid Demo | Neo.mjs",
@@ -2163,9 +2181,9 @@
     },
     "/examples/toolbar/breadcrumb/index.html": {
         "title": "Breadcrumb Toolbar — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Live runnable Breadcrumb Toolbar example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "description": "A breadcrumb over the engine repository's folders: a subfolder goes one level down, a crumb goes back up. Open grid under src, then press the neo crumb to...",
         "schemaType": "WebPage",
-        "lastmod": "2025-07-11"
+        "lastmod": "2026-11-19"
     },
     "/examples/tree/index.html": {
         "title": "Tree — Web Worker JavaScript UI Demo | Neo.mjs",

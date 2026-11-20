@@ -33,6 +33,7 @@ class MainContainer extends Viewport {
          */
         items: [{
             module: Toolbar,
+            cls   : ['neo-examples-list-animate-toolbar'],
             flex  : 'none',
 
             itemDefaults: {

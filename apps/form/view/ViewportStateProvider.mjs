@@ -17,74 +17,48 @@ class ViewportStateProvider extends StateProvider {
          */
         data: {
             /**
-             * The currently selected list item inside the SideNavList
+             * The index of the open step
              * @member {Number} data.activeIndex
              */
             activeIndex: 0,
             /**
-             * The name of the currently selected list item record
+             * The name of the open step
              * @member {String} data.activeTitle
              */
-            activeTitle: '',
+            activeTitle: 'About you',
             /**
-             * The amount of non-header SideNavList items
+             * The index of the last step, which the step list sets from its store
              * @member {Number} data.maxIndex
              */
-            maxIndex: 0
+            maxIndex: 0,
+            /**
+             * What the open step asks the visitor to fix after Next or Create account met an invalid field
+             * @member {String|null} data.stepMessage
+             */
+            stepMessage: null,
+            /**
+             * True while a phone shows the step list above the form
+             * @member {Boolean} data.stepsOpen
+             */
+            stepsOpen: false
         },
         /**
          * @member {Object} stores
          */
         stores: {
+            /**
+             * One record per step, in the order of the cards inside `pages-container`
+             * @member {Object} stores.sideNav
+             */
             sideNav: {
-                module  : SideNavStore,
-                autoLoad: true,
-                url     : '../../resources/examples/data/formSideNav.json'
-            }
-        }
-    }
-
-    /**
-     * We are storing the local storage data into this class field
-     * @member {Object} data
-     */
-    formData = null
-
-    /**
-     * Loading the local storage formData
-     * @param {Object} config
-     */
-    construct(config) {
-        super.construct(config);
-
-        Neo.main.addon.LocalStorage.readLocalStorageItem({
-            key     : 'neo-form',
-            windowId: this.windowId
-        }).then(data => {
-            this.formData = JSON.parse(data.value);
-        })
-    }
-
-    /**
-     *
-     * @param {String} key
-     * @param {*} value
-     * @param {*} oldValue
-     */
-    onDataPropertyChange(key, value, oldValue) {
-        super.onDataPropertyChange(key, value, oldValue);
-
-        let me = this;
-
-        if (me.formData && key === 'activeIndex') {
-            let page = me.getController().getReference('pages-container').items[value];
-
-            if (page instanceof Neo.core.Base) {
-                page.setValues(me.formData, true);
-            } else {
-                me.timeout(30).then(() => {
-                    me.onDataPropertyChange(key, value, oldValue)
-                })
+                module: SideNavStore,
+                data  : [
+                    {cardIndex: 0, id: 'about-you',   name: 'About you'},
+                    {cardIndex: 1, id: 'address',     name: 'Address'},
+                    {cardIndex: 2, id: 'team',        name: 'Your team'},
+                    {cardIndex: 3, id: 'preferences', name: 'Preferences'},
+                    {cardIndex: 4, id: 'review',      name: 'Review'}
+                ]
             }
         }
     }

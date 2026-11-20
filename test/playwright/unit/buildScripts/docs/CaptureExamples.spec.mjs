@@ -73,6 +73,15 @@ test('a second URL registry and executable recipe strings are not admitted', () 
     expect(() => validateCaptureRecipes(executable, catalog())).toThrow(/unsupported action/i)
 });
 
+test('a click may name its button, so a recipe can open a context menu; no other action takes one', () => {
+    const right = manifest(); right.recipes[0].steps = [{kind: 'click', selector: '.file', button: 'right'}];
+    expect(validateCaptureRecipes(right, catalog()).recipes[0].steps[0].button).toBe('right');
+    for (const step of [{kind: 'click', selector: '.file', button: 'middle'}, {kind: 'dblclick', selector: '.file', button: 'right'}]) {
+        const invalid = manifest(); invalid.recipes[0].steps = [step];
+        expect(() => validateCaptureRecipes(invalid, catalog())).toThrow(/button/i)
+    }
+});
+
 test('unsafe output identities and unsupported frame dimensions refuse before capture', () => {
     const suffix = manifest(); suffix.suffix = '../other';
     expect(() => validateCaptureRecipes(suffix, catalog())).toThrow(/suffix/i);

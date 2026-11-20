@@ -88,26 +88,26 @@
         "lookFor": "Open a squad to its people, give kudos from a cell, then raise rows and depth in ☰ and expand all; filter by first name."
     },
     {
-        "id": "dock-choreography",
-        "family": "dashboard",
-        "component": "Dock Workspace",
-        "feature": "A scripted layout tour splits, groups and auto-hides live panes",
-        "lookFor": "Press Tour and watch the editor clock keep ticking as the panes rearrange.",
+        "id": "devindex",
+        "family": "apps",
         "featured": true,
         "environments": [
-            "Desktop"
+            "Desktop",
+            "Mobile"
         ],
-        "image": "devmode/dock-choreography-14.jpg",
-        "name": "Dock Choreography Demo",
-        "sharedWorkers": true,
-        "sourceUrl": "examples/dashboard/choreography",
+        "image": "devmode/devindex-14.jpg",
+        "name": "GitHub Meritocracy Index",
+        "sourceUrl": "https://github.com/neomjs/devindex",
         "urls": {
-            "devmode": "examples/dashboard/choreography/index.html",
-            "dist_dev": "dist/development/examples/dashboard/choreography/index.html",
-            "dist_esm": "dist/esm/examples/dashboard/choreography/index.html",
-            "dist_prod": "dist/production/examples/dashboard/choreography/index.html"
+            "devmode": "https://neomjs.com/devindex/",
+            "dist_dev": "https://neomjs.com/devindex/dist/development/apps/devindex/",
+            "dist_esm": "https://neomjs.com/devindex/",
+            "dist_prod": "https://neomjs.com/devindex/dist/production/apps/devindex/"
         },
-        "hiddenIn": []
+        "hiddenIn": [],
+        "feature": "GitHub contributor rankings in a buffered grid",
+        "lookFor": "Open Search, filter the contributor grid by username, and compare ranks and contribution totals.",
+        "scope": "Loads a published GitHub contributor dataset rather than querying GitHub live."
     },
     {
         "id": "shared-covid",
@@ -291,8 +291,30 @@
         "hiddenIn": []
     },
     {
-        "id": "grid-countries",
+        "id": "dock-choreography",
+        "family": "dashboard",
+        "component": "Dock Workspace",
+        "feature": "A scripted layout tour splits, groups and auto-hides live panes",
+        "lookFor": "Press Tour and watch the editor clock keep ticking as the panes rearrange.",
         "featured": true,
+        "environments": [
+            "Desktop"
+        ],
+        "image": "devmode/dock-choreography-14.jpg",
+        "name": "Dock Choreography Demo",
+        "sharedWorkers": true,
+        "sourceUrl": "examples/dashboard/choreography",
+        "urls": {
+            "devmode": "examples/dashboard/choreography/index.html",
+            "dist_dev": "dist/development/examples/dashboard/choreography/index.html",
+            "dist_esm": "dist/esm/examples/dashboard/choreography/index.html",
+            "dist_prod": "dist/production/examples/dashboard/choreography/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "grid-countries",
+        "featured": false,
         "image": "devmode/grid-countries-14.jpg",
         "name": "Country Statistics Grid",
         "sourceUrl": "examples/grid/countries",
@@ -325,28 +347,6 @@
             "dist_prod": "dist/production/examples/component/helix/index.html"
         },
         "hiddenIn": []
-    },
-    {
-        "id": "devindex",
-        "family": "apps",
-        "featured": false,
-        "environments": [
-            "Desktop",
-            "Mobile"
-        ],
-        "image": "devmode/DevIndex.png",
-        "name": "GitHub Meritocracy Index",
-        "sourceUrl": "https://github.com/neomjs/devindex",
-        "urls": {
-            "devmode": "https://neomjs.com/devindex/",
-            "dist_dev": "https://neomjs.com/devindex/dist/development/apps/devindex/",
-            "dist_esm": "https://neomjs.com/devindex/",
-            "dist_prod": "https://neomjs.com/devindex/dist/production/apps/devindex/"
-        },
-        "hiddenIn": [],
-        "feature": "GitHub contributor rankings in a buffered grid",
-        "lookFor": "Open Search, filter the contributor grid by username, and compare ranks and contribution totals.",
-        "scope": "Loads a published GitHub contributor dataset rather than querying GitHub live."
     },
     {
         "id": "multi-window-covid-gallery",
@@ -616,13 +616,44 @@
         "hiddenIn": []
     },
     {
-        "id": "carousel",
+        "id": "list-reorder",
         "family": "lists",
-        "component": "Carousel",
-        "feature": "An automatically advancing carousel cycles through styled testimonial cards.",
-        "lookFor": "Watch the slides rotate every 5.5 seconds, then resize the carousel with the height and width fields.",
-        "image": null,
-        "name": "component.Carousel",
+        "feature": "A checklist and a wall of portraits, each reordered by drag and drop over its own store",
+        "lookFor": "Drag Freeze the release branch below Write the release notes, then drag a portrait to another place on the wall.",
+        "featured": false,
+        "image": "devmode/list-reorder-14.jpg",
+        "name": "Reorder by Drag",
+        "sourceUrl": "examples/list/reorder",
+        "urls": {
+            "devmode": "examples/list/reorder/index.html",
+            "dist_dev": "dist/development/examples/list/reorder/index.html",
+            "dist_esm": "dist/esm/examples/list/reorder/index.html",
+            "dist_prod": "dist/production/examples/list/reorder/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "list-animate",
+        "family": "lists",
+        "feature": "Fifteen portrait cards that sort, filter and search, every move animated",
+        "lookFor": "Press Lastname, type an a into Search, then turn on Is online and watch the cards slide into place.",
+        "featured": false,
+        "image": "devmode/list-animate-14.jpg",
+        "name": "Animated List",
+        "sourceUrl": "examples/list/animate",
+        "urls": {
+            "devmode": "examples/list/animate/index.html",
+            "dist_dev": "dist/development/examples/list/animate/index.html",
+            "dist_esm": "dist/esm/examples/list/animate/index.html",
+            "dist_prod": "dist/production/examples/list/animate/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "carousel",
+        "kind": "component",
+        "image": "devmode/tiles/component-carousel-14.jpg",
+        "name": "Carousel",
         "sourceUrl": "examples/component/carousel",
         "urls": {
             "devmode": "examples/component/carousel/index.html",
@@ -630,7 +661,11 @@
             "dist_esm": "dist/esm/examples/component/carousel/index.html",
             "dist_prod": "dist/production/examples/component/carousel/index.html"
         },
-        "hiddenIn": []
+        "hiddenIn": [],
+        "family": "lists",
+        "component": "Carousel",
+        "feature": "A carousel that advances through portraits on its own",
+        "lookFor": "Watch a portrait slide in every four seconds, then change the height and width in the panel."
     },
     {
         "id": "chip",
@@ -944,7 +979,7 @@
         "feature": "An amCharts pie chart wrapper renders a labelled dataset and interactive legend.",
         "lookFor": "Hover the pie segments and legend entries to compare each country's share.",
         "scope": "Loads amCharts 4 from cdn.amcharts.com; the country values are static demonstration data.",
-        "image": null,
+        "image": "devmode/am-charts-14.jpg",
         "name": "amCharts Pie",
         "sourceUrl": "examples/charts",
         "urls": {
@@ -1006,6 +1041,40 @@
             "dist_dev": "dist/development/examples/videoMove/index.html",
             "dist_esm": "dist/esm/examples/videoMove/index.html",
             "dist_prod": "dist/production/examples/videoMove/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "context-menu-files",
+        "family": "buttons",
+        "component": "Context Menu",
+        "feature": "A right-click on a project file opens its actions at the pointer, and every action changes the list.",
+        "lookFor": "Right-click a file to move, star, duplicate or delete it; right-click the free space below the files for a new one.",
+        "image": "devmode/context-menu-files-14.jpg",
+        "name": "Context Menu",
+        "sourceUrl": "examples/menu/contextFiles",
+        "urls": {
+            "devmode": "examples/menu/contextFiles/index.html",
+            "dist_dev": "dist/development/examples/menu/contextFiles/index.html",
+            "dist_esm": "dist/esm/examples/menu/contextFiles/index.html",
+            "dist_prod": "dist/production/examples/menu/contextFiles/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "breadcrumb",
+        "family": "buttons",
+        "component": "Breadcrumb",
+        "feature": "A breadcrumb over the engine repository's folders: a subfolder goes one level down, a crumb goes back up.",
+        "lookFor": "Open grid under src, then press the neo crumb to return to the top; reload and the page keeps its folder.",
+        "image": "devmode/breadcrumb-14.jpg",
+        "name": "Breadcrumb Toolbar",
+        "sourceUrl": "examples/toolbar/breadcrumb",
+        "urls": {
+            "devmode": "examples/toolbar/breadcrumb/index.html",
+            "dist_dev": "dist/development/examples/toolbar/breadcrumb/index.html",
+            "dist_esm": "dist/esm/examples/toolbar/breadcrumb/index.html",
+            "dist_prod": "dist/production/examples/toolbar/breadcrumb/index.html"
         },
         "hiddenIn": []
     },
@@ -1174,8 +1243,8 @@
         "hiddenIn": [],
         "family": "grid-table",
         "component": "Grid",
-        "feature": "Cell, row and column selection",
-        "lookFor": "Switch between cell, row, column and combined selection, then change the grid height."
+        "feature": "Cell, row, column and crosshair selection modes",
+        "lookFor": "Click any shift on a 42-clinician weekly roster, move with ArrowUp/Down/Left/Right, and switch between Cell, Column, Row and combined crosshair models."
     },
     {
         "id": "grid-content-sized-rows",
@@ -1241,6 +1310,9 @@
         },
         "hiddenIn": [],
         "family": "grid-table",
+        "alsoIn": [
+            "buttons"
+        ],
         "component": "Grid",
         "feature": "One-page loading with remote sorting and filtering over 100,000 seeded orders",
         "lookFor": "Change page, sort a header or choose a country: the request line shows the parameters and only one page reaches the grid.",
@@ -1289,7 +1361,7 @@
     {
         "id": "grid-nested-record-fields",
         "image": "devmode/grid-nested-record-fields-14.jpg",
-        "name": "Nested Grid Records",
+        "name": "Edit a Row in a Dialog",
         "sourceUrl": "examples/grid/nestedRecordFields",
         "urls": {
             "devmode": "examples/grid/nestedRecordFields/index.html",
@@ -1300,8 +1372,8 @@
         "hiddenIn": [],
         "family": "grid-table",
         "component": "Grid",
-        "feature": "Nested records and component cells",
-        "lookFor": "Open Edit to change nested user fields and watch modified-cell highlighting; compare header-only and full-column dragging."
+        "feature": "Modal form editing on a grid row",
+        "lookFor": "Press Edit in any row to open its dialog form, change contact or nested address fields, and save to highlight modified cells; compare header-only and full-column dragging."
     },
     {
         "id": "grid-streaming",
@@ -1338,8 +1410,8 @@
             "tree"
         ],
         "component": "Grid",
-        "feature": "Hierarchical rows",
-        "lookFor": "Expand and collapse the sample file hierarchy in the Name column."
+        "feature": "A three-level budget hierarchy whose parent rows roll up seats, budget and spend from their children",
+        "lookFor": "Expand a team with its arrow or Right/Left keys and check that its items sum to the team and department totals."
     },
     {
         "id": "grid-value-banding",
@@ -1361,7 +1433,7 @@
     {
         "id": "table-container",
         "image": "devmode/table-container-14.jpg",
-        "name": "Table Configuration",
+        "name": "When to Use a Table",
         "sourceUrl": "examples/table/container",
         "urls": {
             "devmode": "examples/table/container/index.html",
@@ -1372,8 +1444,8 @@
         "hiddenIn": [],
         "family": "grid-table",
         "component": "Table",
-        "feature": "Selection modes and embedded controls",
-        "lookFor": "Switch selection models, toggle fit width or column dragging, and open a cell menu."
+        "feature": "Content-sized columns, sticky headers and wrapping cells on local data",
+        "lookFor": "Compare 14 service tier specifications where columns size to their text and notes wrap. Sort, filter inline, resize or drag-reorder headers, and toggle Fit width."
     },
     {
         "id": "checkbox-field",
@@ -1809,6 +1881,23 @@
         "lookFor": "Adjust the inner number values and try the title field in the panel."
     },
     {
+        "id": "form-validation",
+        "image": null,
+        "name": "Sign-up validation",
+        "sourceUrl": "examples/form/validation",
+        "urls": {
+            "devmode": "examples/form/validation/index.html",
+            "dist_dev": "dist/development/examples/form/validation/index.html",
+            "dist_esm": "dist/esm/examples/form/validation/index.html",
+            "dist_prod": "dist/production/examples/form/validation/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "Form Container",
+        "feature": "How does a form tell the user what is wrong? A sign-up form validates as you type, blocks submit and lists the errors",
+        "lookFor": "Type a bad email, fix it, and sign up."
+    },
+    {
         "id": "field-with-prefix",
         "image": null,
         "name": "Input masks",
@@ -1848,10 +1937,11 @@
     },
     {
         "id": "form-app",
-        "image": null,
-        "name": "Form App",
+        "image": "devmode/form-app-14.jpg",
+        "name": "Multi-Step Account Form",
         "environments": [
-            "Desktop"
+            "Desktop",
+            "Mobile"
         ],
         "sourceUrl": "apps/form",
         "urls": {
@@ -1866,8 +1956,8 @@
             "apps"
         ],
         "component": "Form",
-        "feature": "A complete form application: 15 pages behind a side navigation",
-        "lookFor": "Open pages from the side navigation and step through their fields."
+        "feature": "Each step validates before Next and names what is wrong; Create account checks every step and shows the object the form submits",
+        "lookFor": "Press Next on the empty first step, then open Review and press Create account."
     },
     {
         "id": "board-swimlanes",
@@ -2070,7 +2160,10 @@
         "family": "apps",
         "component": "Grid",
         "name": "Live Finance Desk",
-        "environments": ["Desktop", "Mobile"],
+        "environments": [
+            "Desktop",
+            "Mobile"
+        ],
         "image": "devmode/finance-14.jpg",
         "feature": "Streaming equity quotes with animated currency diffs and instant filtering",
         "lookFor": "Filter by sector or ticker while live price and percent changes keep ticking, then press Stop to freeze the tape.",
@@ -2094,11 +2187,17 @@
     {
         "id": "email",
         "family": "apps",
-        "alsoIn": ["multi-window", "functional"],
+        "alsoIn": [
+            "multi-window",
+            "functional"
+        ],
         "component": "Dashboard",
         "name": "Multi-Window Email Client",
         "sharedWorkers": true,
-        "environments": ["Desktop", "Mobile"],
+        "environments": [
+            "Desktop",
+            "Mobile"
+        ],
         "image": "devmode/email-14.jpg",
         "feature": "Buffered inbox and functional message reader that detaches into its own window",
         "lookFor": "Select another conversation in the inbox, then press Open in window to move the live reader or a Compose draft into a native popup.",
@@ -2207,6 +2306,42 @@
         "component": "ColorList",
         "feature": "A list of colors over a store",
         "lookFor": "Select a color, then toggle disableSelection in the panel."
+    },
+    {
+        "id": "list-buffered",
+        "kind": "component",
+        "image": "devmode/tiles/list-buffered-14.jpg",
+        "name": "Buffered list",
+        "sourceUrl": "examples/list/buffered",
+        "urls": {
+            "devmode": "examples/list/buffered/index.html",
+            "dist_dev": "dist/development/examples/list/buffered/index.html",
+            "dist_esm": "dist/esm/examples/list/buffered/index.html",
+            "dist_prod": "dist/production/examples/list/buffered/index.html"
+        },
+        "hiddenIn": [],
+        "family": "lists",
+        "component": "Buffered",
+        "feature": "A list of 5,000 records that renders only the rows in view and recycles them as you scroll",
+        "lookFor": "Scroll through the records, then raise bufferRowRange or itemHeight in the panel."
+    },
+    {
+        "id": "list-circle",
+        "kind": "component",
+        "image": "devmode/tiles/list-circle-14.jpg",
+        "name": "Circle list",
+        "sourceUrl": "examples/list/circle",
+        "urls": {
+            "devmode": "examples/list/circle/index.html",
+            "dist_dev": "dist/development/examples/list/circle/index.html",
+            "dist_esm": "dist/esm/examples/list/circle/index.html",
+            "dist_prod": "dist/production/examples/list/circle/index.html"
+        },
+        "hiddenIn": [],
+        "family": "lists",
+        "component": "CircleList",
+        "feature": "Groups as circles in a list, each showing its member count",
+        "lookFor": "Switch Sort to DESC, then rename a group in the panel."
     },
     {
         "id": "functional-define-component",
