@@ -1,0 +1,28 @@
+:where(.neo-theme-light) {
+    --site-header-bg            : var(--neo-background-color, #ffffff);
+    --site-status-bg            : #f5f8fb;
+    --site-border               : var(--grid-container-border-color, #d5dce4);
+    --site-title                : #163a5f;
+    --site-muted                : #4d5968;
+    --site-badge-bg             : #e8f2fc;
+    --site-badge-border         : #aac9ea;
+    --site-badge-text           : #163a5f;
+    --site-control-bg           : var(--button-background-color, #ffffff);
+    --site-hover-bg             : #eef4fa;
+    --site-switch-off-bg        : #dde5ee;
+    --site-switch-active-surface: #e7f1fb;
+    --site-selected-bg          : var(--button-text-color, #1c60a0);
+    --site-selected-text        : var(--button-background-color, #ffffff);
+    --site-focus                : var(--button-text-color, #1c60a0);
+    --site-nw-bg                : rgba(22, 58, 95, 0.055);
+    --site-nw-stripe            : rgba(22, 58, 95, 0.065);
+    --site-nw-swatch-bg         : rgba(22, 58, 95, 0.1);
+    --site-nw-border            : rgba(22, 58, 95, 0.16);
+    --site-holiday-bg           : rgba(211, 47, 47, 0.075);
+    --site-holiday-stripe       : rgba(211, 47, 47, 0.1);
+    --site-holiday-swatch-bg    : rgba(211, 47, 47, 0.14);
+    --site-holiday-border       : rgba(211, 47, 47, 0.36);
+    --site-holiday-pill-bg      : rgba(211, 47, 47, 0.09);
+    --site-holiday-pill-text    : #9a1b1b;
+    --site-bar-shadow           : 0 2px 5px rgba(22, 58, 95, 0.13);
+}
