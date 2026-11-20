@@ -30,6 +30,7 @@ export const MIRRORS = Object.freeze([
     {file: 'README.md',                                     figure: 'namespaces', pattern: /— `\d+` classes across `(\d+)` namespaces/d},
     {file: 'README.md',                                     figure: 'addons',     pattern: /routing, and `(\d+)` main-thread addons\)/d},
     {file: 'README.md',                                     figure: 'classes',    pattern: /a complete `(\d+)`-class web application platform/d},
+    {file: 'README.md',                                     figure: 'addons',     pattern: /DomApiRenderer`\) and (\d+) main-thread addons;/d},
     {file: 'apps/portal/view/home/parts/AudienceDoors.mjs', figure: 'classes',    pattern: /runtime — (\d+) classes across \d+ namespaces/d},
     {file: 'apps/portal/view/home/parts/AudienceDoors.mjs', figure: 'namespaces', pattern: /runtime — \d+ classes across (\d+) namespaces/d},
     {file: 'apps/portal/resources/data/seo.json',           figure: 'classes',    pattern: /platform — (\d+) classes in \d+ namespaces/d},
@@ -37,6 +38,7 @@ export const MIRRORS = Object.freeze([
     {file: 'apps/portal/resources/data/seo.json',           figure: 'namespaces', pattern: /more than \d+ classes in (\d+) namespaces/d},
     {file: 'learn/README.md',                               figure: 'classes',    pattern: /platform — (\d+) classes from grid/d},
     {file: 'learn/README.md',                               figure: 'classes',    pattern: /across all `(\d+)` platform classes/d},
+    {file: 'learn/README.md',                               figure: 'addons',     pattern: /layouts, and `(\d+)` main-thread addons\./d},
     {file: 'learn/UsingTheseTopics.md',                     figure: 'classes',    pattern: /platform — (\d+) classes in \d+ namespaces/d},
     {file: 'learn/UsingTheseTopics.md',                     figure: 'namespaces', pattern: /platform — \d+ classes in (\d+) namespaces/d},
     {file: 'learn/UsingTheseTopics.md',                     figure: 'addons',     pattern: /docking to (\d+) main-thread addons/d},
@@ -44,7 +46,8 @@ export const MIRRORS = Object.freeze([
     {file: 'learn/benefits/body/ApplicationEngine.md',      figure: 'classes',    pattern: /\(`(\d+)` classes across `\d+` namespaces/d},
     {file: 'learn/benefits/body/ApplicationEngine.md',      figure: 'namespaces', pattern: /\(`\d+` classes across `(\d+)` namespaces/d},
     {file: 'learn/benefits/body/ApplicationEngine.md',      figure: 'addons',     pattern: /routing, and `(\d+)` main-thread addons\)/d},
-    {file: 'learn/benefits/body/Features.md',               figure: 'namespaces', pattern: /classes in (\d+) namespaces: the components/d}
+    {file: 'learn/benefits/body/Features.md',               figure: 'namespaces', pattern: /classes in (\d+) namespaces: the components/d},
+    {file: 'learn/benefits/body/Features.md',               figure: 'addons',     pattern: /\*\*(\d+) main-thread addons\*\*/d}
 ]);
 
 /**
