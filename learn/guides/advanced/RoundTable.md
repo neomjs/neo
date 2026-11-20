@@ -78,7 +78,7 @@ The scene takes four inputs: `setRecord()`, `setLook()`, `setMotion()` and `setQ
 
 The record is plain JSON: groups, seats and items, with every time in minutes from the window's first instant. An item is one row, `[number, title, seat, login, opened, merged, reviews]`, and a review is `[seat, 'A' | 'C', minute]`, an approval or a change request.
 
-`RoundTable.index()` turns it into typed arrays once per record: `opened`, `approved` and `merged` as `Float32Array`, each item's `author` (its seat) and `day` as `Uint8Array`, the reviews flat and sorted by time. A frame reads numbers and builds no object per item.
+`RoundTable.index()` turns it into typed arrays once per record: `opened`, `approved` and `merged` as `Float32Array`, each item's `author` (its seat) and `day` as `Uint8Array`, the reviews flat and sorted by time. `approved` is derived: the minute of an item's last review if that review approved, else the minute of its merge. A frame reads numbers and builds no object per item.
 
 One piece of real work happens here. Several pull requests are open at one desk at the same time, and several wait in front of the merge seat at the same time. If an item's place depended on what else is open *now*, items would jump whenever a neighbour left. So each item receives one place for its whole stay, by interval colouring. `deskMax` records the most places each desk ever needs, which the layout uses later to keep that room free:
 
@@ -256,7 +256,7 @@ I am Mnemosyne (`@neo-fable-mnemosyne`, Claude Fable 5.2), one of the ten mainta
 
 At 1440 × 800 the strip under the table stood in 8 px squares, and its caption ended 10 px above the window's edge. My rule had been the largest square that fits. A reviewer from another model family proposed a different rule from a unit fixture: 6 px squares keep the 48 px of room the strip is meant to leave.
 
-`RoundTable.layout()` is a static function of the statement's boxes, the size and the record. So I read the statement's real boxes from the page at eleven window sizes and called the function once per square size:
+`RoundTable.layout()` is a static function of the statement's boxes, the size and the record. So I read the statement's real boxes from the page at eleven window sizes and called the function once per square size. Five of the eleven:
 
 | Window | Room under the strip with 8, 6 and 5 px squares | The rule now picks |
 |---|---|---|
@@ -279,7 +279,7 @@ A layout that lives in a function of plain inputs turns a matter of taste into a
 
 ## Step 5: Stillness and Sharpness
 
-Two details separate a scene people keep on from one they switch off.
+Two details are easy to get wrong.
 
 **Stillness is the end state, drawn once.** The engine's motion vocabulary collapses the CSS variable `--motion-base` to `0ms` when the reader prefers reduced motion. The host reads it from its own node on every mount:
 
@@ -330,7 +330,7 @@ The early return matters as much as the scaling. Setting a canvas's width clears
 
 ## What Testing Looks Like
 
-Every method that decides something is a static function of plain inputs, so a spec can ask the question an eye would ask. This one checks that no item ever jumps. `at(i, clock)` is one line in the spec that calls `RoundTable.locate()` with a fresh array:
+Every method that decides something is a static function of plain inputs, so a spec can ask the question an eye would ask. This one checks that the first four items of its fixture never jump. `at(i, clock)` is one line in the spec that calls `RoundTable.locate()` with a fresh array:
 
 ```javascript
 test('its way has no jump: not at its approval, not at its merge, not where it lands', () => {
@@ -377,7 +377,7 @@ Two things to know before you write a record of your own:
 
 ## What the Engine Does for You
 
-The pattern itself needs no engine: a record, a clock and three functions. What Neo.mjs supplies is everything around it, which is where such a scene usually gets expensive:
+The pattern itself needs no engine: a record, a clock and three functions. What Neo.mjs supplies is everything around it:
 
 - **The second thread.** [`Neo.app.SharedCanvas`](../../../src/app/SharedCanvas.mjs), the host's base class, hands an `OffscreenCanvas` to the Canvas Worker and loads the renderer there.
 - **Size and pixel ratio.** It reports the node's size to the worker whenever it changes, with the display's ratio.
