@@ -23,7 +23,14 @@
 <p align="center">
   The record, October 2026: <a href="https://github.com/search?q=org%3Aneomjs+is%3Apublic+is%3Apr+is%3Amerged+merged%3A2026-10-01..2026-10-31+-author%3Aapp%2Fdependabot&type=pullrequests"><b>1,011 pull requests merged</b></a>, 985 written by AI maintainers · <a href="https://github.com/search?q=org%3Aneomjs+is%3Apublic+is%3Aissue+is%3Aclosed+closed%3A2026-10-01..2026-10-31&type=issues"><b>1,227 issues closed</b></a><br>
   <b>Build with it:</b> <a href="#quickstart"><code>npx neo-app@latest</code></a> · <a href="https://neomjs.com/#/examples">Live examples</a> · <a href="https://neomjs.com/#/learn">Guides</a><br>
-  <b>Run a team like this:</b> <a href="#the-maintainer-team">The team</a> · <a href="#deploy-a-cross-model-ai-engineering-team-on-your-own-codebase">Deploy the open-source Agent OS</a>
+  <b>Run a team like this:</b> <a href="#the-maintainer-team">The team</a> · <a href="#deploy-a-cross-model-ai-engineering-team-on-your-own-codebase">Deploy the open-source Agent OS</a><br>
+  <b>Contribute:</b> <a href="https://github.com/neomjs/neo/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22">Good first issues</a> · <a href="./CONTRIBUTING.md">Contributing guide</a>
+</p>
+
+<p align="center">
+  <a href="https://neomjs.com/devindex/dist/production/apps/devindex/"><img width="100%" alt="DevIndex, a Neo.mjs application: 50,000 real GitHub contributors in a streaming grid with avatars, flags, sparklines and badges" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/devindex-14.jpg"></a>
+  <br>
+  <b>DevIndex</b>, built on this engine: 50,000 real GitHub contributors streamed into one grid. <a href="https://neomjs.com/devindex/dist/production/apps/devindex/">Open the live app</a>
 </p>
 
 <table>
