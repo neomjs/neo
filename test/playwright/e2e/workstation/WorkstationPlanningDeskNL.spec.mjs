@@ -1,6 +1,7 @@
-import {test, expect} from '../../fixtures.mjs';
-import {daysLabel}    from '../../../../apps/workstation/view/planningCalendar.mjs';
-import {popOut}       from '../utils/workstationPopOut.mjs';
+import {test, expect}              from '../../fixtures.mjs';
+import {daysLabel}                 from '../../../../apps/workstation/view/planningCalendar.mjs';
+import {popOut}                    from '../utils/workstationPopOut.mjs';
+import {attachPageSharedAppWorker} from '../../sharedWorkerAppWorker.mjs';
 
 /**
  * @summary Whitebox E2E witness for the Workstation's planning arrangement: one record store across two
@@ -88,6 +89,64 @@ const cardDays = record => daysLabel(new Date(record.startDate), new Date(record
 test.describe('Workstation planning desk (Neural Link)', () => {
     test.setTimeout(180000);
     test.use({viewport: VIEWPORT});
+
+    test('a card released over the schedule stays put; returning to a collapsed board column commits once', async ({browser, page, neuralLink}) => {
+        const {app, boardId, id} = await openPlanningDesk(page, neuralLink),
+              storeId            = (await app.getComponent(id, ['stateProvider.stores.workItems.id']))['stateProvider.stores.workItems.id'],
+              card               = page.locator(`[id="${boardId}__card__wi-9"]`),
+              done               = page.locator(`[id="${boardId}__col__done"]`),
+              schedule           = page.locator('.workstation-pane-scheduler'),
+              bar                = schedule.locator('.neo-timeline-bar[data-event-id="wi-9"]'),
+              before             = await readRecord(app, storeId, 'wi-9'),
+              observer           = await attachPageSharedAppWorker({browser, page});
+
+        try {
+            await observer.evaluate(boardId => {
+                const board = Neo.getComponent(boardId), events = globalThis.planningBoardDropEvents = [];
+                board.on('cardMove', ({record, to}) => events.push(`${record.id}:${to.status}`));
+                board.sortZone.on('dragEnd', () => events.push('end'))
+            }, boardId);
+            const events = () => observer.evaluate(() => globalThis.planningBoardDropEvents);
+
+            // Cross columns only after leaving the Board. The Scheduler remains under the pointer until
+            // the second gesture deliberately re-enters the Done header.
+            const drag = async returnToBoard => {
+                const from   = await card.boundingBox(),
+                      header = await done.locator('.neo-board-column-header').boundingBox(),
+                      track  = await bar.boundingBox(),
+                      startX = from.x + from.width / 2, startY = from.y + from.height / 2,
+                      endX   = header.x + header.width / 2, outsideY = track.y + track.height / 2;
+
+                expect(await schedule.evaluate((node, {x, y}) => node.contains(document.elementFromPoint(x, y)),
+                    {x: endX, y: outsideY}), 'released at a Scheduler point beneath Done').toBe(true);
+                await page.mouse.move(startX, startY);
+                await page.mouse.down();
+                await page.mouse.move(startX + 16, startY, {steps: 4});
+                await expect(page.locator('.neo-dragproxy')).toBeVisible();
+                await page.mouse.move(startX + 16, outsideY, {steps: 16});
+                await page.mouse.move(endX, outsideY, {steps: 16});
+                if (returnToBoard) await page.mouse.move(endX, header.y + header.height / 2, {steps: 12});
+                await page.mouse.up()
+            };
+
+            await drag(false);
+            await expect.poll(events).toContain('end');
+            expect(await events(), 'the Board completed the rejected drop without moving a card').toEqual(['end']);
+            expect(await readRecord(app, storeId, 'wi-9'), 'status, order, resource and dates stayed with the original booking').toEqual(before);
+            await expect(bar).toHaveAttribute('data-status', 'ready');
+
+            await done.locator('.neo-board-column-collapse').click();
+            await expect(done).toHaveClass(/neo-board-column-collapsed/);
+            await drag(true);
+            await expect.poll(events).toEqual(['end', 'wi-9:done', 'end']);
+            expect(await readRecord(app, storeId, 'wi-9')).toMatchObject({
+                status: 'done', resourceId: before.resourceId, startDate: before.startDate, endDate: before.endDate
+            });
+            await expect(bar).toHaveAttribute('data-status', 'done')
+        } finally {
+            await observer.close()
+        }
+    });
 
     test('in one window: a card dragged to another column is one record change its bar shows, a bar moved is one its card shows', async ({page, neuralLink}) => {
         const {app, boardId, id} = await openPlanningDesk(page, neuralLink),

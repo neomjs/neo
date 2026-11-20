@@ -256,6 +256,7 @@ test.describe('Neo.board.SortZone', () => {
         // A card's rect follows the DOM: a node the zone moved sits where its delta put it and pushes the cards at
         // and after that index down
         rectFor = id => {
+            if (id === board.id) return new Rectangle(0, 0, 1200, 600);
             const columnIndex = board.items.findIndex(column => column.id === id || column.body.id === id);
 
             if (columnIndex > -1) {
@@ -527,6 +528,43 @@ test.describe('Neo.board.SortZone', () => {
 
         expect(events).toEqual([{id: 'c1', names: ['order']}]);
         expect(keys(board.getColumn('backlog'))).toEqual(['c2', 'c1'])
+    });
+
+    for (const [target, clientX, clientY] of [['below the board', 1000, 740], ['between two columns', 290, 200]]) {
+        test(`a multi-card release ${target} restores its preview without writing the last column`, async () => {
+            store = createStore();
+            const zone = await startZone(), events = recordChanges(store), moves = [];
+            board.selectionModel.setSelection(['c1', 'c2']);
+            board.on('cardMove', () => moves.push('one'));
+            board.on('cardsMove', () => moves.push('many'));
+
+            await drag(zone, 'c1', 100, 70);
+            await zone.onDragMove({clientX: 400, clientY: 160});
+            expect(zone.activeColumn).toBe(board.getColumn('in-progress'));
+            await zone.onDragEnd({clientX, clientY});
+
+            expect(events).toEqual([]);
+            expect(moves).toEqual([]);
+            expect(keys(board.getColumn('backlog'))).toEqual(['c1', 'c2']);
+            expect(deltas.at(-1).parentId).toBe(root('backlog'));
+            expectNothingPinned()
+        })
+    }
+
+    test('the release uses the current board viewport, and an ended gesture takes no new measurement', async () => {
+        store = createStore();
+        const zone = await startZone(), events = recordChanges(store), point = {clientX: 400, clientY: 160};
+        await drag(zone, 'c1', 100, 70);
+        await zone.onDragMove(point);
+
+        // The scrollable columns can extend beyond the visible board.
+        board.getDomRect = async ids => ids.map(id => id === board.id ? new Rectangle(0, 0, 300, 600) : rectFor(id));
+        await zone.onDragEnd(point);
+        expect(events).toEqual([]);
+        expectNothingPinned();
+
+        board.getDomRect = () => {throw new Error('release without a live card measured the board')};
+        await zone.onDragEnd(point)
     });
 
     test('an empty column takes the card at index 0 with order 1000', async () => {

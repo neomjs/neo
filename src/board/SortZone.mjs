@@ -6,7 +6,7 @@ import {getTitleField} from './CardItems.mjs';
 /**
  * @summary The board's one drag zone: a card or multi-selection moves within or across columns, the drop commits
  * through `owner.moveCard` (once per record under `isNormalizing` for a multi-selection, plus one `cardsMove` event),
- * and a cancelled drag (Escape) or same-position drop writes nothing.
+ * and a cancelled drag (Escape), an off-board release or a same-position drop writes nothing.
  * @description The engine zone sorts its owner's direct children, which on a board are the columns. This zone points
  * the sort at the active column's body instead: it snapshots that body's cards, {@link #updateItem} positions them,
  * and the engine's vertical sort runs unchanged inside the body. A pointer over another column moves the hidden
@@ -253,19 +253,31 @@ class BoardSortZone extends SortZone {
     }
 
     /**
-     * @summary The column under the pointer `(clientX, clientY)`, or null over a gap. Single-lane boards match on `x`;
-     * swimlane boards (`owner.laneField`) match on both `x` and `y` across the 2D grid of lane rows.
+     * @summary The measured column under the pointer, or null over a gap. A horizontal-only query matches on x.
      * @param {Number} clientX
      * @param {Number} [clientY]
      * @returns {Neo.board.Column|null}
      */
     getColumnAt(clientX, clientY) {
-        const checkY = Boolean(this.owner?.laneField) && Number.isFinite(clientY);
-
-        return this.columnRects?.find(({rect}) =>
-            clientX >= rect.x && clientX <= rect.x + rect.width &&
-            (!checkY || (clientY >= rect.y && clientY <= rect.y + rect.height))
+        return this.columnRects?.find(({rect}) => Number.isFinite(clientY)
+            ? rect.containsPoint(clientX, clientY)
+            : clientX >= rect.left && clientX <= rect.right
         )?.column || null
+    }
+
+    /**
+     * @summary Resolves a pointer release against the current board and column bounds after scrolling or layout.
+     * @param {Object} point The source viewport's pointer coordinates.
+     * @returns {Promise<Neo.board.Column|null>} The visible destination, or null outside its column or board.
+     */
+    async getReleaseColumn({clientX, clientY}) {
+        const {owner} = this, columns = owner.getColumns();
+        if (!columns.length) return null;
+
+        const [board, ...rects] = await owner.getDomRect([owner.id, ...columns.map(column => column.id)]);
+        if (!board.width || !board.height || !board.containsPoint(clientX, clientY)) return null;
+
+        return columns.find((column, i) => rects[i].width && rects[i].height && rects[i].containsPoint(clientX, clientY)) || null
     }
 
     /**
@@ -513,7 +525,12 @@ class BoardSortZone extends SortZone {
 
         column = me.getColumnAt(data.clientX, data.clientY);
 
-        if (column && column !== me.activeColumn) {
+        if (!column) {
+            me.isOverDragging = false;
+            return
+        }
+
+        if (column !== me.activeColumn) {
             const entry = me.columnEntry = me.enterColumn(column, data);
             try {
                 await entry
@@ -685,17 +702,21 @@ class BoardSortZone extends SortZone {
 
         me.isOverDragging = false;
         await me.columnEntry;
+        if (me.isDestroying || me.isDestroyed) return;
 
         const terminal = Number.isFinite(data.clientX) && Number.isFinite(data.clientY) ? data : me.pendingColumnMove;
         me.pendingColumnMove = null;
 
-        if (!data.cancelled && terminal && me.columnRects && !me.dragComponent?.isDestroyed && me.dragRecord &&
-            me.owner.store?.get(me.owner.getKey(me.dragRecord)) === me.dragRecord) {
-            const column = me.getColumnAt(terminal.clientX, terminal.clientY);
+        let targetColumn = data.cancelled ? null : me.activeColumn;
+        if (targetColumn && terminal) {
+            const liveSource = me.columnRects && me.dragComponent && !me.dragComponent.isDestroyed &&
+                !me.owner.isDestroying && !me.owner.isDestroyed && me.dragRecord &&
+                me.owner.store?.get(me.owner.getKey(me.dragRecord)) === me.dragRecord;
 
-            if (column && column !== me.activeColumn && !column.isDestroyed) {
-                await me.enterColumn(column, terminal)
-            } else if (me.itemRects) {
+            targetColumn = liveSource ? await me.getReleaseColumn(terminal) : null;
+            if (targetColumn && !targetColumn.isDestroyed && targetColumn !== me.activeColumn) {
+                await me.enterColumn(targetColumn, terminal)
+            } else if (targetColumn && targetColumn === me.activeColumn && me.itemRects) {
                 // Apply the release once; it must not start the Engine's continuing overdrag poll.
                 const moving = super.onDragMove(terminal);
                 me.isOverDragging = false;
@@ -738,7 +759,7 @@ class BoardSortZone extends SortZone {
         }
 
         // After the last await, so the store these checks read is the one the write sees
-        commit = !data.cancelled && !!activeColumn && !activeColumn.isDestroyed ?
+        commit = activeColumn && activeColumn === targetColumn && !activeColumn.isDestroyed ?
             me.resolveDrop({...anchor, column: activeColumn, record: dragRecord}) : null;
 
         if (!commit && me.dragProxy && !me.dragProxy.isDestroyed) {
