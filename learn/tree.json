@@ -125,7 +125,7 @@
         {"name": "Advanced Architecture",                              "parentId": "guides",                             "isLeaf": false, "id": "guides/advanced", "collapsed": true},
             {"name": "Canvas Architecture (Zero-Allocation)",          "parentId": "guides/advanced",                                     "id": "guides/advanced/CanvasArchitecture"},
             {"name": "Build Architecture & Service Workers",           "parentId": "guides/advanced",                                     "id": "guides/advanced/BuildArchitecture"},
-            {"name": "Neural Swarm (Autonomous Simulation)",           "parentId": "guides/advanced",                                     "id": "guides/advanced/NeuralSwarm"},
+            {"name": "Round Table (Record-Driven Scene)",              "parentId": "guides/advanced",                                     "id": "guides/advanced/RoundTable"},
             {"name": "Neural Timeline (Coordinator Pattern)",          "parentId": "guides/advanced",                                     "id": "guides/advanced/NeuralTimeline"},
             {"name": "Neural Fabric (2.5D Projection)",                "parentId": "guides/advanced",                                     "id": "guides/advanced/NeuralFabric"},
     {"name": "Tutorials",                                              "parentId": null,                                 "isLeaf": false, "id": "Tutorials",  "collapsed": true},
