@@ -64,6 +64,12 @@ class Button extends Component {
          */
         ariaCurrent_: null,
         /**
+         * Accessible name projected onto the button's VDOM root (`aria-label`), or `null` to omit.
+         * @member {String|null} ariaLabel_=null
+         * @reactive
+         */
+        ariaLabel_: null,
+        /**
          * @member {String} badgePosition_='top-right'
          * @reactive
          */
@@ -283,6 +289,18 @@ class Button extends Component {
     afterSetAriaCurrent(value, oldValue) {
         if (oldValue !== undefined || value) {
             this.changeVdomRootKey('aria-current', value)
+        }
+    }
+
+    /**
+     * @summary Projects `aria-label` onto the button's VDOM root, omitting the attribute when `null` or empty.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetAriaLabel(value, oldValue) {
+        if (oldValue !== undefined || value) {
+            this.changeVdomRootKey('aria-label', value || null)
         }
     }
 
@@ -804,6 +822,7 @@ class Button extends Component {
         return {
             ...super.toJSON(),
             ariaCurrent  : me.ariaCurrent,
+            ariaLabel    : me.ariaLabel,
             badgePosition: me.badgePosition,
             badgeText    : me.badgeText,
             handler      : Neo.isString(handler) ? handler : (Neo.isFunction(handler) ? 'function' : null),
