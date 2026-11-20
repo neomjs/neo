@@ -172,6 +172,7 @@ class BigDataViewport extends Viewport {
             flex               : 1,
             rowHeight          : 40,
             editable           : true,
+            animateCascade     : true,
             cascadeDependencies: true,
             showNonWorkingTime : false,
             store              : {module: TaskStore,       data: tasks},

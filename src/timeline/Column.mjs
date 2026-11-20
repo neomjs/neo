@@ -854,6 +854,19 @@ class Column extends BaseColumn {
     }
 
     /**
+     * @summary Returns the span a bar is drawn over: its record's own. A subclass may draw a bar elsewhere for a
+     * while, as {@link Neo.gantt.Column} does while a cascade moves its task. The bar's dates stay the record's.
+     * @param {Object} item Event or task record
+     * @param {Number} startMs The record's start
+     * @param {Number} endMs The record's end
+     * @returns {Number[]} `[startMs, endMs]`
+     * @protected
+     */
+    getDrawnSpan(item, startMs, endMs) {
+        return [startMs, endMs]
+    }
+
+    /**
      * @summary Resolves the resource/row identifier for `record` using `resourceIdField`.
      * @param {Object} record
      * @returns {String|Number|null}
@@ -948,10 +961,9 @@ class Column extends BaseColumn {
             }
 
             const
-                startDate = rawStart instanceof Date ? rawStart : new Date(rawStart),
-                endDate   = rawEnd   instanceof Date ? rawEnd   : new Date(rawEnd),
-                startMs   = startDate.getTime(),
-                endMs     = endDate.getTime();
+                startDate        = rawStart instanceof Date ? rawStart : new Date(rawStart),
+                endDate          = rawEnd   instanceof Date ? rawEnd   : new Date(rawEnd),
+                [startMs, endMs] = me.getDrawnSpan(item, startDate.getTime(), endDate.getTime());
 
             if (!EventStore.intersectsRange(startMs, endMs, visStartMs, visEndMs)) {
                 continue

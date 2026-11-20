@@ -143,6 +143,13 @@ class DependencyLayer extends Component {
     arrows = []
 
     /**
+     * In-flight spans by task id that links attach to instead of their tasks' dates. The owning chart shares its
+     * {@link Neo.gantt.Container#drawnSpans}, so a link follows a moving bar.
+     * @member {Map<String, Number[]>|null} drawnSpans=null
+     */
+    drawnSpans = null
+
+    /**
      * Normalized string set of `highlightedDependencyIds` for $O(1)$ lookup during SVG arrow projection.
      * @member {Set<String>} #highlightedDependencySet=new Set()
      * @private
@@ -452,13 +459,15 @@ class DependencyLayer extends Component {
             }
 
             const
-                type = String(edge.type || 'FS').toUpperCase(),
-                x1   = (type === 'SS' || type === 'SF')
-                    ? axis.dateToOffset(fromStart)
-                    : axis.dateToOffset(fromEnd),
-                x2   = (type === 'FF' || type === 'SF')
-                    ? axis.dateToOffset(toEnd)
-                    : axis.dateToOffset(toStart),
+                type     = String(edge.type || 'FS').toUpperCase(),
+                fromSpan = me.drawnSpans?.get(fromId),
+                toSpan   = me.drawnSpans?.get(toId),
+                x1       = (type === 'SS' || type === 'SF')
+                    ? axis.dateToOffset(fromSpan?.[0] ?? fromStart)
+                    : axis.dateToOffset(fromSpan?.[1] ?? fromEnd),
+                x2       = (type === 'FF' || type === 'SF')
+                    ? axis.dateToOffset(toSpan?.[1] ?? toEnd)
+                    : axis.dateToOffset(toSpan?.[0] ?? toStart),
                 // A left or right turn can lie one stub beyond both anchors. Include the same
                 // rounded coordinates the SVG path uses at the edge of the buffered window.
                 spanMin = Math.round(Math.min(x1, x2) * 100) / 100 - ARROW_STUB_PX,
