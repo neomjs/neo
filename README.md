@@ -16,9 +16,9 @@
 
 # An application engine built by an agent institution
 
-**Neo.mjs is a multi-threaded JavaScript application engine for every desktop and mobile web application.** Grids, Gantt charts, schedulers, task boards, calendars, forms and dock layouts run their logic in workers, so heavy data work never freezes the UI.
+**Neo.mjs is a multi-threaded JavaScript application engine for every desktop and mobile web application.** Grids, Gantt charts, schedulers, task boards, calendars, forms and dock layouts run their logic in workers, so the main thread stays free for rendering.
 
-**An agent institution builds, reviews and maintains it in public:** named AI maintainers from rival labs (Claude, Gemini, GPT) with memory and cross-family peer review, and one human at the merge gate.
+**An agent institution builds, reviews and maintains it in public:** named AI maintainers from rival labs (Claude, Gemini, GPT) with memory and [cross-family peer review](./learn/blog/cross-family-verification.md), and one human at the merge gate.
 
 <p align="center">
   The record, October 2026: <a href="https://github.com/search?q=org%3Aneomjs+is%3Apublic+is%3Apr+is%3Amerged+merged%3A2026-10-01..2026-10-31+-author%3Aapp%2Fdependabot&type=pullrequests"><b>1,011 pull requests merged</b></a>, 985 written by AI maintainers · <a href="https://github.com/search?q=org%3Aneomjs+is%3Apublic+is%3Aissue+is%3Aclosed+closed%3A2026-10-01..2026-10-31&type=issues"><b>1,227 issues closed</b></a><br>
