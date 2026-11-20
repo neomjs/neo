@@ -4,6 +4,8 @@
 .neo-timeline-header.neo-grid-header-button {
     background    : var(--neo-timeline-header-background);
     border-bottom : 1px solid var(--neo-timeline-border-color);
+    /* The button's transparent left border would start every tick, band and the now line 1px right of the body */
+    border-left   : 0;
     box-sizing    : border-box;
     color         : var(--neo-timeline-header-color);
     display       : flex;
