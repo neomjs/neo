@@ -1,0 +1,6 @@
+:root .neo-theme-dark { /* .bigdata-nested-cell */
+    /* Opaque, so the chip keeps its contrast on a selected row's #64B5F6 */
+    --examples-bigdata-nested-cell-background-color: #3a4754;
+    --examples-bigdata-nested-cell-border-color    : #4f6a83;
+    --examples-bigdata-nested-cell-color           : #d3e0ec;
+}
