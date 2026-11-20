@@ -1605,7 +1605,7 @@
     },
     "/examples/fieldWithPrefix/index.html": {
         "title": "Field with Prefix — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Input masks from the PrefixField plugin: a phone number, a date, a MAC address, a code and a card number. Type letters into the phone field to see them...",
+        "description": "The PrefixField plugin masks a phone number, a date, a MAC address, a code and a card number. Type letters into the phone field to see them refused, then...",
         "schemaType": "WebPage",
         "lastmod": "2026-11-19"
     },
