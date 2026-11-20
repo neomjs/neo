@@ -1149,7 +1149,8 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     * @summary Applies the first matching responsive locked-column breakpoint, coalescing multi-column transitions into one rebuild.
+     * @summary Applies the first matching responsive locked-column breakpoint, coalescing multi-column transitions
+     * into one rebuild.
      * @param {Object|Number} data Resize payload or measured width
      * @returns {Boolean} true when at least one column lock state changed
      */
@@ -1184,14 +1185,7 @@ class GridContainer extends BaseContainer {
                 if (column && locked !== undefined && column.locked !== locked) {
                     column.locked = locked;
                     lastColumn    = column;
-
-                    if (column.headerGroup) {
-                        me.columns.items.forEach(sibling => {
-                            if (sibling.headerGroup?.id === column.headerGroup.id && sibling.locked !== locked) {
-                                sibling.locked = locked
-                            }
-                        })
-                    }
+                    me.syncHeaderGroupLock(column)
                 }
             }
         } finally {
@@ -1303,11 +1297,29 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     * @summary True while a multi-column lock batch ({@link #onColumnLockChange} group sync or {@link #applyResponsiveLockPolicy}) updates `locked` setters before a single rebuild.
+     * @summary True while a multi-column lock batch ({@link #onColumnLockChange} group sync or
+     * {@link #applyResponsiveLockPolicy}) updates `locked` setters before a single rebuild.
      * @member {Boolean} syncingGroupLock=false
      * @protected
      */
     syncingGroupLock = false
+
+    /**
+     * @summary Propagates `column.locked` to every sibling sharing `column.headerGroup.id`.
+     * @param {Neo.grid.column.Base} column
+     * @protected
+     */
+    syncHeaderGroupLock(column) {
+        let {headerGroup, locked} = column;
+
+        if (headerGroup) {
+            this.columns.items.forEach(sibling => {
+                if (sibling.headerGroup?.id === headerGroup.id && sibling.locked !== locked) {
+                    sibling.locked = locked
+                }
+            })
+        }
+    }
 
     /**
      * @summary Triggered by `grid.column.Base#afterSetLocked`. Re-sorts the internal columns collection, the header
@@ -1325,20 +1337,15 @@ class GridContainer extends BaseContainer {
             return
         }
 
-        let {headerGroup, locked} = column,
-            cellEditing           = me.getPlugin('grid-cell-editing'),
-            holds                 = !!cellEditing?.session,
+        let cellEditing = me.getPlugin('grid-cell-editing'),
+            holds       = !!cellEditing?.session,
             sortedColumns;
 
-        if (headerGroup) {
+        if (column.headerGroup) {
             me.syncingGroupLock = true;
 
             try {
-                me.columns.items.forEach(sibling => {
-                    if (sibling.headerGroup?.id === headerGroup.id && sibling.locked !== locked) {
-                        sibling.locked = locked
-                    }
-                })
+                me.syncHeaderGroupLock(column)
             } finally {
                 me.syncingGroupLock = false
             }
