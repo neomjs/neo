@@ -205,7 +205,7 @@ class Button extends Component {
     }
     /**
      * Settles once the `menu` config's list exists: its module loads on demand, so a click can arrive first.
-     * Every `menu` change replaces it, and only the latest one builds a list.
+     * Every `menu` change replaces it, and only the latest one builds a list; a cleared menu sets it to `null`.
      * @member {Promise|null} menuListReady=null
      * @protected
      */
@@ -352,13 +352,20 @@ class Button extends Component {
     }
 
     /**
-     * Triggered after the menu config got changed. A button holds one menu list, built from its latest menu.
+     * Triggered after the menu config got changed. A button holds one menu list, built from its latest menu; a cleared
+     * menu is the latest too, so it takes the list with it and no build still in flight lands.
      * @param {Object|Object[]|null} value    The new value of the menu config.
      * @param {Object|Object[]|null} oldValue The old value of the menu config.
      * @protected
      */
     afterSetMenu(value, oldValue) {
-        if (value) {
+        if (!value) {
+            if (oldValue) {
+                this.menuListReady = null;
+                this.menuList?.destroy(true, false);
+                this.menuList = null
+            }
+        } else {
             let ready = this.menuListReady = import('../menu/List.mjs').then(module => {
                 let me = this;
 
@@ -393,8 +400,16 @@ class Button extends Component {
                     config.stateProvider = {parent: stateProvider}
                 }
 
-                me.menuList?.destroy(true, false);
-                me.menuList = Neo.create(config)
+                let list    = Neo.create(config),
+                    retired = me.menuList;
+
+                if (retired) {
+                    // A store the replacement shares stays alive: only the retired list goes
+                    retired.store === list.store && (retired.autoDestroyStore = false);
+                    retired.destroy(true, false)
+                }
+
+                me.menuList = list
             })
         }
     }
@@ -702,9 +717,15 @@ class Button extends Component {
         let me = this,
             ready;
 
-        // A click can land before the lazily loaded menu exists: it toggles once the latest menu's list does
+        // A click can land before the lazily loaded menu exists: it toggles once the latest menu's list does,
+        // and does nothing once the menu was cleared
         while (ready !== me.menuListReady) {
             ready = me.menuListReady;
+
+            if (!ready) {
+                return
+            }
+
             await me.trap(ready)
         }
 
