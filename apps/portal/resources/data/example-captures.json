@@ -7,7 +7,7 @@
       "id": "grid-animated-row-sorting",
       "viewport": {"width": 640, "height": 360},
       "theme": "default",
-      "state": "Live leaderboard with Firstname sorted ascending mid-transition, showing Transition Duration and Pause controls.",
+      "state": "Live leaderboard with Firstname sorted ascending once the sort settles, showing Transition Duration and Pause controls.",
       "ready": [{"selector": ".neo-grid-cell[data-field='firstname']", "text": "Max"}],
       "steps": [
         {"kind": "fill", "selector": ".neo-numberfield input", "value": "1000"},
