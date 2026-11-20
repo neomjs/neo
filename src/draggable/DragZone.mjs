@@ -7,6 +7,19 @@ import Observable         from '../core/Observable.mjs';
 import VDomUtil           from '../util/VDom.mjs';
 
 /**
+ * @summary Drops `name` from every native form control in a proxy's clone, so a cloned radio never joins its source's
+ * group and unchecks the source when the proxy renders.
+ * @param {Object} node A node of the proxy's vdom clone
+ */
+function unnameFormControls(node) {
+    if (node.tag === 'input' || node.tag === 'select' || node.tag === 'textarea') {
+        delete node.name
+    }
+
+    node.cn?.forEach(unnameFormControls)
+}
+
+/**
  * @class Neo.draggable.DragZone
  * @extends Neo.core.Base
  * @mixes Neo.core.Observable
@@ -315,13 +328,16 @@ class DragZone extends Base {
      * @summary The drag proxy's content: a fresh clone of the drag element (or of the configured proxy
      * vdom), wrapped unless `useProxyWrapper` is off. A cross-window target proxy renders the same
      * content as the local one: during a gesture the clone comes from the `dragElementSnapshot` the local
-     * proxy was built from, not from the element the sort zone has hidden since.
+     * proxy was built from, not from the element the sort zone has hidden since. Cloned form controls lose their
+     * `name`, so the copy never shares a radio group with its source.
      * @returns {Object|null} `null` while no drag element is known
      */
     getDragProxyVdom() {
         let me     = this,
             source = me.dragProxyConfig?.vdom || me.dragElementSnapshot || me.dragElement,
             clone  = source && VDomUtil.clone(source);
+
+        clone && unnameFormControls(clone);
 
         return !clone ? null : me.useProxyWrapper ? {cn: [clone]} : clone
     }

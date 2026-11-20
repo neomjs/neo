@@ -137,7 +137,8 @@ class ColumnSortZone extends SortZone {
 
     /**
      * @summary Keys the main-thread zone registry on the column header, so card drags inside the column keep their
-     * own zone, and measures the pointer's offset from the carried column rather than from the header inside its border.
+     * own zone. The proxy's pointer offset and its clamp inside the board come from the carried column, not from the
+     * pressed header, which sits inside the column's border and is a fraction of its height.
      * @param {Object} data The `drag:start` data
      * @param {Object} rect The dragged column's rect
      * @returns {Object}
@@ -147,6 +148,7 @@ class ColumnSortZone extends SortZone {
         return {
             ...super.getMainThreadConfigs(data, rect),
             dragElementRootId: this.dragComponent.header.id,
+            dragProxyRect    : rect,
             offsetX          : data.clientX - rect.left,
             offsetY          : data.clientY - rect.top
         }

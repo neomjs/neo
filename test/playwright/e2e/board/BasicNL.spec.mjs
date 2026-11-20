@@ -188,6 +188,35 @@ test.describe('Board, basic example: one store, two views', () => {
         })
     }
 
+    test('a column dragged diagonally past the board\'s corner stays inside the board', async ({page, neuralLink}) => {
+        const {boardId, domOrder} = await open(page, neuralLink),
+              proxy = page.locator('.neo-dragproxy'),
+              board = await page.locator(`[id="${boardId}"]`).boundingBox(),
+              from  = await page.locator(`[id="${boardId}__col__ready"] .neo-board-column-header`).boundingBox(),
+              y     = from.y + from.height / 2;
+
+        await page.mouse.move(from.x + 24, y);
+        await page.mouse.down();
+        await page.mouse.move(from.x + 44, y, {steps: 4});
+        await expect(proxy.locator('.neo-board-column-header')).toHaveCount(1);
+
+        // The board's sort zones clamp to the board: the carried column is clamped by its own size, not its header's
+        await page.mouse.move(board.x + board.width + 100, board.y + board.height + 200, {steps: 12});
+
+        const box = await proxy.boundingBox();
+
+        expect(box.y, 'the carried column keeps the board\'s top').toBeGreaterThanOrEqual(board.y - 1);
+        expect(box.y + box.height, 'and its bottom').toBeLessThanOrEqual(board.y + board.height + 1);
+        expect(box.x + box.width, 'and its right edge').toBeLessThanOrEqual(board.x + board.width + 1);
+
+        const cards = await domOrder('ready');
+
+        await page.keyboard.press('Escape');
+        await page.mouse.up();
+        await expect(proxy).toHaveCount(0);
+        expect(await domOrder('ready'), 'a cancelled drag moves nothing').toEqual(cards)
+    });
+
     test('a windowed column dragged by its header carries only the cards it renders', async ({page, neuralLink}) => {
         const {app, boardId, storeId, domOrder} = await open(page, neuralLink),
               proxy = page.locator('.neo-dragproxy');
