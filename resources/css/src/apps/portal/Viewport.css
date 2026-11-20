@@ -11,6 +11,12 @@
     100% {--portal-glass-card-sweep-angle: 360deg; opacity: 0}
 }
 
+/* The glint layer crosses the glass; the light layer under it stays put */
+@keyframes portal-glass-card-glint {
+    from {background-position: 100% 0, 0 0}
+    to   {background-position: 0% 0,   0 0}
+}
+
 body {
     > .neo-viewport {
         /* without the snap scrolling it is possible to scroll the viewport
@@ -177,17 +183,19 @@ body {
             z-index       : -1;
         }
 
-        /* The light inside the glass, falling from the top edge */
+        /* The glass: one glint crosses it on entry, over the light falling from its top edge */
         &::after {
-            background: radial-gradient(120% 70% at 50% 0%, var(--portal-glass-card-hover-light), transparent 70%);
+            background:
+                linear-gradient(115deg, transparent 36%, var(--portal-glass-card-glint-edge) 44%, var(--portal-glass-card-glint-core) 50%, var(--portal-glass-card-glint-edge) 56%, transparent 64%) 100% 0 / 250% 100% no-repeat,
+                radial-gradient(120% 70% at 50% 0%, var(--portal-glass-card-hover-light), transparent 70%);
             transition: opacity var(--motion-base) var(--ease-out-soft);
         }
 
-        /* One lap of light around the border on entry: a conic ring masked down to the border, its head leading */
+        /* The border: one lap of light on entry, a conic ring masked down to the border, its head leading */
         &::before {
-            background            : conic-gradient(from var(--portal-glass-card-sweep-angle), transparent 0turn 0.8turn, var(--portal-glass-card-sweep-color) 0.97turn, var(--portal-glass-card-sweep-head) 1turn);
+            background            : conic-gradient(from var(--portal-glass-card-sweep-angle), transparent 0turn 0.72turn, var(--portal-glass-card-sweep-color) 0.96turn, var(--portal-glass-card-sweep-head) 1turn);
             mask                  : linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
-            padding               : 2px;
+            padding               : var(--portal-glass-card-sweep-width);
             -webkit-mask          : linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
             -webkit-mask-composite: xor;
         }
@@ -198,7 +206,8 @@ body {
             box-shadow  : var(--portal-glass-card-hover-shadow);
 
             &::after {
-                opacity: 1;
+                animation: portal-glass-card-glint calc(var(--motion-stage) * 1.5) var(--ease-out-soft) forwards;
+                opacity  : 1;
             }
 
             /* Recorded exception: a lap runs at constant speed (linear) for twice the stage tier; an ease-out would spend

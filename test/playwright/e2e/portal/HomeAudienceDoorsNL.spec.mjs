@@ -303,7 +303,7 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
         ).toBe(true)
     });
 
-    test('a hovered or keyboard-focused door lights in place: it never moves, its border stays whole, and reduced motion skips the lap', async ({page, neuralLink}) => {
+    test('a hovered or keyboard-focused door lights in place: it never moves, its border stays whole, and reduced motion skips the glint and the lap', async ({page, neuralLink}) => {
         await page.setViewportSize({width: 1440, height: 900});
         await page.goto(HOME_URL);
 
@@ -325,7 +325,7 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
 
             return {
                 border      : getComputedStyle(node).borderTopColor,
-                laps        : node.getAnimations({subtree: true}).filter(a => a.animationName === 'portal-glass-card-sweep').map(a => a.effect.getComputedTiming().duration),
+                motions     : Object.fromEntries(node.getAnimations({subtree: true}).filter(a => a.animationName?.startsWith('portal-glass-card-')).map(a => [a.animationName, a.effect.getComputedTiming().duration])),
                 light       : getComputedStyle(node, '::after').opacity,
                 position    : {left: rect.left, top: rect.top},
                 topBorderHit: node.contains(document.elementFromPoint(rect.left + rect.width / 2, rect.top + 0.5))
@@ -345,8 +345,8 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
         expect(rest.light).toBe('0');
         expect(hovered.border).not.toBe(rest.border);
         expect(hovered.light).toBe('1');
-        expect(hovered.laps).toHaveLength(1);
-        expect(hovered.laps[0]).toBeGreaterThan(0);
+        expect(Object.keys(hovered.motions).sort(), 'a glint crosses the glass and a lap runs the border').toEqual(['portal-glass-card-glint', 'portal-glass-card-sweep']);
+        expect(Object.values(hovered.motions).every(duration => duration > 0)).toBe(true);
 
         // Keyboard focus inside the door gets the same treatment
         await page.mouse.move(5, 895);
@@ -360,14 +360,14 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
         expect(focused.light).toBe('1');
         expect(focused.position).toEqual(rest.position);
 
-        // Reduced motion keeps the static light and skips the lap
+        // Reduced motion keeps the static light and skips the glint and the lap
         await page.locator(`#${studyCta.id}`).blur();
         await page.emulateMedia({reducedMotion: 'reduce'});
         await page.mouse.move(box.x + box.width / 2, box.y + box.height - 12);
 
         const reduced = await read();
         expect(reduced.light).toBe('1');
-        expect(reduced.laps.every(duration => duration === 0)).toBe(true)
+        expect(Object.values(reduced.motions).every(duration => duration === 0)).toBe(true)
     });
 
     test('exposes crawler and agent DOM snapshot parity across root entry and #/home', async ({page, neuralLink}) => {
