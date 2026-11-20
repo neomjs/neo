@@ -875,6 +875,19 @@
         {"selector": "input[name='address.city']", "inRegion": true}
       ],
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "live-preview",
+      "viewport": {"width": 672, "height": 523},
+      "theme": "default",
+      "state": "The Source tab as the page opens in neo-light, below the page's header: the function component the Preview tab runs, a defineComponent counter with its useConfig state.",
+      "ready": [{"selector": ".view-lines", "text": "defineComponent"}],
+      "steps": [
+        {"kind": "wait", "selector": ".monaco-scrollable-element > .scrollbar.vertical.invisible.fade"},
+        {"kind": "wait", "selector": ".monaco-scrollable-element > .scrollbar.horizontal.invisible.fade"}
+      ],
+      "after": [{"selector": ".view-line span", "text": "useConfig(0)", "inRegion": true}, {"selector": ".view-line span", "text": "setCount", "inRegion": true}],
+      "region": {"selector": ".neo-code-live-preview", "anchor": "top-left", "offsetX": 0, "offsetY": 0, "width": 640, "height": 360}
     }
   ]
 }
