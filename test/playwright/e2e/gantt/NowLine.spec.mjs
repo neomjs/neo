@@ -14,29 +14,33 @@ const
     THEMES = ['neo-theme-neo-light', 'neo-theme-neo-dark'];
 
 /**
- * @summary Sets the axis instant, the theme and, for a band case, one non-working date in the App Worker.
+ * @summary Sets the axis instant, the theme and, for a band case, one non-working date in the App Worker. `locked`
+ * moves the timeline column into that lock region through its own `locked` config.
  * @param {Object} page
  * @param {Object} options
  * @param {String} options.now
  * @param {String} options.theme
  * @param {String} [options.band]
+ * @param {String} [options.locked]
  */
-async function arrange(page, {now, theme, band}) {
+async function arrange(page, {now, theme, band, locked}) {
     await expect.poll(() => page.workers().some(worker => worker.url().includes('worker/App'))).toBe(true);
 
-    await page.workers().find(worker => worker.url().includes('worker/App')).evaluate(({now, theme, band}) => {
+    await page.workers().find(worker => worker.url().includes('worker/App')).evaluate(({now, theme, band, locked}) => {
         const items = [...globalThis.Neo.manager.Instance.items.values()];
 
         items.filter(item => item.className === 'Neo.timeline.TimeAxis').forEach(axis => {
             axis.set(band ? {now, nonWorkingDates: [band]} : {now})
         });
         band && items.filter(item => 'showNonWorkingTime' in item && item.timeAxis).forEach(owner => { owner.showNonWorkingTime = true });
+        locked && items.filter(item => item.timelineColumn).forEach(owner => { owner.timelineColumn.locked = locked });
         items.filter(item => /Viewport$/.test(item.className)).forEach(viewport => { viewport.theme = theme })
-    }, {now, theme, band: band ?? null})
+    }, {now, theme, band: band ?? null, locked: locked ?? null})
 }
 
 /**
- * @summary Reads the now line, the first minor tick and an optional band from the DOM.
+ * @summary Reads the now line, the first minor tick and an optional band from the DOM. Rows count only in a body with
+ * a width: a body that a lock change emptied keeps its old cells at zero width, where no visitor sees them.
  * @param {Object} page
  * @param {String|null} band The day key of a band drawn in header and rows
  * @returns {Promise<Object>}
@@ -46,22 +50,29 @@ function measure(page, band) {
         const
             rect     = element => element.getBoundingClientRect(),
             center   = box => box.left + box.width / 2,
+            bodies   = [...document.querySelectorAll('.neo-grid-body')].filter(body => rect(body).width > 0),
+            inRows   = selector => bodies.flatMap(body => [...body.querySelectorAll(`.neo-timeline-track ${selector}`)]),
             header   = rect(document.querySelector('.neo-timeline-header .neo-timeline-now')),
-            segments = [...document.querySelectorAll('.neo-timeline-track .neo-timeline-now')].map(rect).sort((a, b) => a.top - b.top),
-            track    = rect(document.querySelector('.neo-timeline-track')),
+            lines    = inRows('.neo-timeline-now'),
+            segments = lines.map(rect).sort((a, b) => a.top - b.top),
+            track    = rect(lines[0].closest('.neo-timeline-track')),
             tick     = document.querySelector('.neo-timeline-header .neo-timeline-tick-minor'),
             bands    = band && {
                 header: document.querySelector(`.neo-timeline-header .neo-timeline-non-working[data-day-key="${band}"]`),
-                row   : document.querySelector(`.neo-timeline-track .neo-timeline-non-working[data-day-key="${band}"]`)
+                row   : inRows(`.neo-timeline-non-working[data-day-key="${band}"]`)[0]
             },
-            bar      = [...document.querySelectorAll('.neo-timeline-track .neo-timeline-bar')].map(rect)
+            bar      = inRows('.neo-timeline-bar').map(rect)
                 .find(box => box.left < center(header) - 4 && box.right > center(header) + 4);
 
         let barOnTop = null;
 
         if (bar) {
+            // The line ignores the pointer, so it takes hits for this one read: the topmost of bar and line answers
+            lines.forEach(line => { line.style.pointerEvents = 'auto' });
             const hit = document.elementFromPoint(center(header), bar.top + bar.height / 2);
-            barOnTop  = Boolean(hit?.closest('.neo-timeline-bar'))
+            lines.forEach(line => { line.style.pointerEvents = '' });
+
+            barOnTop = Boolean(hit?.closest('.neo-timeline-bar'))
         }
 
         return {
@@ -103,3 +114,28 @@ for (const {family, url, now, band} of CASES) {
         })
     }
 }
+
+// The locked end opens on a 1px seam its first column's cells draw (grid/Body.css); its header must keep the same inset
+test('scheduler: a timeline that opens the locked end keeps its header mark over the body line', async ({page}) => {
+    const
+        {url, now} = CASES[1],
+        errors     = [];
+
+    page.on('pageerror', error => errors.push(error.message));
+
+    await page.setViewportSize({width: 1440, height: 900});
+    await page.goto(url);
+    await expect(page.locator('.neo-timeline-bar').first()).toBeVisible();
+
+    await arrange(page, {now, theme: THEMES[0], locked: 'end'});
+    await expect(page.locator('.neo-timeline-header.neo-locked-end')).toBeVisible();
+    await expect(page.locator('.neo-timeline-cell.neo-locked-end-first-column').first()).toBeVisible();
+    await expect(page.locator('.neo-timeline-track .neo-timeline-now').first()).toBeVisible();
+
+    const result = await measure(page, null);
+
+    expect(result.segments, 'one segment per rendered row').toBeGreaterThan(2);
+    result.bodyX.forEach(x => expect(Math.abs(x - result.headerX), 'body line under the header mark').toBeLessThanOrEqual(0.5));
+    expect(Math.abs(result.tickDelta), 'a header tick stands where the body draws its offset').toBeLessThanOrEqual(0.5);
+    expect(errors).toEqual([])
+});

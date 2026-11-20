@@ -16,6 +16,13 @@
     position      : relative;
     user-select   : none;
 
+    /* A first locked-end timeline keeps its left border: its cells open on that 1px seam (grid/Body.css), drawn here
+       in the color grid/header/Button.css gives it */
+    &.neo-locked-end:first-child {
+        border-left-style: solid;
+        border-left-width: 1px;
+    }
+
     .neo-timeline-header-row {
         box-sizing: border-box;
         flex      : 1 1 50%;
