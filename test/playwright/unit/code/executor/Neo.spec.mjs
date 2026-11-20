@@ -1,7 +1,7 @@
 /**
  * @file test/playwright/unit/code/executor/Neo.spec.mjs
- * @summary Pins that `Neo.code.executor.Neo#execute` leaves the container to the newest run, and settles once its own
- * run has rendered.
+ * @summary Pins `Neo.code.executor.Neo#execute` staleness handling, settlement timing, and relative `../` import
+ * resolution across unbundled `development` and `dist/esm` environments.
  *
  * Each run resolves its imports before it renders. A run that `current` no longer names by then must not touch the
  * container, or two quick edits stack two results. The browser witness is
@@ -32,18 +32,20 @@ class Probe extends Neo.component.Base {
 Probe = Neo.setupClass(Probe);`;
 
 test.describe('Neo.code.executor.Neo#execute', () => {
-    let calls, container, executor;
+    let calls, container, executor, savedEnvironment;
 
     test.beforeEach(() => {
-        calls     = [];
-        executor  = Neo.create(Executor);
-        container = {
+        calls            = [];
+        savedEnvironment = Neo.config.environment;
+        executor         = Neo.create(Executor);
+        container        = {
             add      : ({html, module}) => calls.push(`add ${module?.prototype.className ?? html}`),
             removeAll: () => calls.push('removeAll')
         }
     });
 
     test.afterEach(() => {
+        Neo.config.environment = savedEnvironment;
         executor.destroy()
     });
 
@@ -64,5 +66,30 @@ test.describe('Neo.code.executor.Neo#execute', () => {
         await executor.execute({code: source('Only'), container, current: () => true});
 
         expect(calls).toEqual(['removeAll', 'add Test.executor.Only'])
+    });
+
+    test('resolves relative ../ engine imports in dist/esm just like development', async () => {
+        const relativeSource = envLabel => `import {defineComponent} from '../functional/_export.mjs';
+export default defineComponent({
+    config: {
+        className: 'Test.Unit.Code.Executor.${envLabel}'
+    },
+    createVdom() {
+        return {text: '${envLabel}'}
+    }
+});`;
+
+        Neo.config.environment = 'development';
+        await executor.execute({code: relativeSource('Development'), container, current: () => true});
+
+        Neo.config.environment = 'dist/esm';
+        await executor.execute({code: relativeSource('DistEsm'), container, current: () => true});
+
+        expect(calls).toEqual([
+            'removeAll',
+            'add Test.Unit.Code.Executor.Development',
+            'removeAll',
+            'add Test.Unit.Code.Executor.DistEsm'
+        ])
     })
 });
