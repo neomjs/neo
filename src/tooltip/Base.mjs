@@ -120,6 +120,13 @@ class Tooltip extends Container {
      */
     #delegations = new Map()
     /**
+     * DOM id of the currently hovered delegated target (`Neo` component id or raw `[data-neo-tooltip]` VDOM id).
+     * Tracked separately from `activeTarget` because `Neo.get()` resolves component instances only.
+     * @member {String|null} activeTargetId=null
+     * @protected
+     */
+    activeTargetId = null
+    /**
      * True once Main aligned the shown tooltip, which lifts its paint gate (`Base.css`), until it retires. Mounted is
      * not painted: an insert lands hidden, and only an alignment shows it.
      * @member {Boolean} painted=false
@@ -356,8 +363,9 @@ class Tooltip extends Container {
      * @returns {Object} The config applied to the singleton.
      */
     static applySingletonTargetConfig(tooltip, {target, data} = {}) {
-        let config = target?._tooltip ? {...target._tooltip} : {text: data?.target?.data?.neoTooltip},
-            theme  = this.resolveTargetTheme(target, data),
+        let delegatedNode = data?.currentTarget && data?.path?.find?.(node => node.id === data.currentTarget) || data?.target,
+            config        = target?._tooltip ? {...target._tooltip} : {text: delegatedNode?.data?.neoTooltip},
+            theme         = this.resolveTargetTheme(target, data),
             key;
 
         // Revert last pointerOver config set to initial setting.
@@ -440,9 +448,11 @@ class Tooltip extends Container {
         // on the alignment's own channel hides the unpainted tooltip first
         me.mounted && !me.painted && Neo.main.DomAccess.setStyle({id: me.id, style: {visibility: 'hidden'}, windowId});
 
-        me._hidden    = true;
-        me.painted    = false;
-        me.retirement = {};
+        me._hidden        = true;
+        me.activeTarget   = null;
+        me.activeTargetId = null;
+        me.painted        = false;
+        me.retirement     = {};
 
         let out = me.mounted ? me.unmount() : me.mountFlight;
 
@@ -480,8 +490,9 @@ class Tooltip extends Container {
             {currentTarget} = data;
 
         // If it's an internal move within the delegate, do nothing
-        if (currentTarget !== me.activeTarget?.id) {
-            me.activeTarget = Neo.get(currentTarget);
+        if (currentTarget !== me.activeTargetId) {
+            me.activeTargetId = currentTarget;
+            me.activeTarget   = Neo.get(currentTarget) || null;
 
             // Allow listeners (eg the Tooltip singleton) which is shared between all Components
             // listens for this in order to reconfigure itself from the activeTarget.
@@ -513,13 +524,14 @@ class Tooltip extends Container {
         let me = this;
 
         // If it's an internal move within the delegate, do nothing
-        if (data.currentTarget === me.activeTarget?.id) {
+        if (data.currentTarget === me.activeTargetId) {
             me.fire('targetOut', {
                 target : me.activeTarget,
                 data
             });
 
-            me.activeTarget = null;
+            me.activeTarget   = null;
+            me.activeTargetId = null;
             // a show still pending would fire after the leave and cancel the hide
             me.clearTimeout('show');
 
@@ -544,6 +556,38 @@ class Tooltip extends Container {
     }
 
     /**
+     * @summary True if a DOM node lies inside the aligned target, whether that target is a `Neo.component.Base`
+     * instance or a raw `[data-neo-tooltip]` VDOM subtree under one of this tooltip's delegation roots (`VDomUtil.find`
+     * expands `{componentId}` references by default, so targets inside child components are reached too).
+     * @param {Object|undefined} node
+     * @param {String|null|undefined} targetId
+     * @returns {Boolean}
+     * @protected
+     */
+    isNodeInTarget(node, targetId) {
+        let me = this,
+            id = node?.id;
+
+        if (!id || !targetId) {
+            return false
+        }
+
+        if (id === targetId || Tooltip.nodeIsIn(node, Neo.getComponent(targetId))) {
+            return true
+        }
+
+        for (const {root} of me.#delegations.values()) {
+            let targetSubtree = !root.isDestroyed && root.vdom && VDomUtil.find(root.vdom, targetId);
+
+            if (targetSubtree?.vdom && VDomUtil.find(targetSubtree.vdom, id)) {
+                return true
+            }
+        }
+
+        return false
+    }
+
+    /**
      * mouseleave event listener for the tooltip element. Back onto its target the tooltip stays, since the target's
      * enter shows it again, and so does a move within the tooltip: Chromium reports a crossing from the hit area that
      * spans the gap into the tooltip's own box as a leave whose `relatedTarget` is the tooltip itself. Anywhere else
@@ -551,12 +595,11 @@ class Tooltip extends Container {
      * @param {Object} data
      */
     onMouseLeave(data) {
-        let me                = this,
-            {relatedTarget}   = data,
-            target            = me.align?.target,
-            targetId          = data.path[0].id,
-            stays             = Tooltip.nodeIsIn(relatedTarget, me) || relatedTarget?.id === target ||
-                                Tooltip.nodeIsIn(relatedTarget, Neo.getComponent(target));
+        let me              = this,
+            {relatedTarget} = data,
+            target          = me.align?.target,
+            targetId        = data.path[0].id,
+            stays           = Tooltip.nodeIsIn(relatedTarget, me) || me.isNodeInTarget(relatedTarget, target);
 
         // only use path[0] based events to ignore mouseenter & leave for child nodes
         me.id === targetId && !stays && me.hideDelayed(null)

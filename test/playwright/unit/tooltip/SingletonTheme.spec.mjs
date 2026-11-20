@@ -66,6 +66,24 @@ test.describe('Neo.tooltip.Base singleton theme resolution', () => {
         expect(tooltip.theme).toBe('neo-theme-neo-light');
     });
 
+    test('reads data-neo-tooltip from the delegated currentTarget path node when data.target is a child element', () => {
+        const tooltip = createTooltipHarness(),
+              config  = Tooltip.applySingletonTargetConfig(tooltip, {
+                  data: {
+                      currentTarget: 'multi-window-pill',
+                      target       : {id: 'multi-window-label', data: {}},
+                      path         : [
+                          {id: 'multi-window-label', cls: ['neo-multi-window-label'], data: {}},
+                          {id: 'multi-window-pill',  cls: ['neo-multi-window'], data: {neoTooltip: 'Multi-window live example'}},
+                          {id: 'portal-viewport',    cls: ['neo-theme-neo-dark'], data: {}}
+                      ]
+                  }
+              });
+
+        expect(config).toEqual({text: 'Multi-window live example', theme: 'neo-theme-neo-dark'});
+        expect(tooltip.text).toBe('Multi-window live example')
+    });
+
     test('keeps an explicit tooltip theme ahead of inherited target themes', () => {
         const tooltip = createTooltipHarness(),
               config  = Tooltip.applySingletonTargetConfig(tooltip, {
