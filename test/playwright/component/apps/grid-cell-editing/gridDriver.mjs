@@ -88,10 +88,11 @@ const actions = {
         let count = 0;
         globalThis.gridDriverUpdates = setInterval(() => store.get(3).set({c4: `pushed ${++count}`}), 4)
     },
-    stopUpdates : () => clearInterval(globalThis.gridDriverUpdates),
-    unlock      : () => {columns.get('c3').locked = null},
-    updateEdited: () => store.get(3).set({c3: 'pushed', c4: 'pushed'}),
-    updateOther : () => store.get(3).set({c4: 'pushed'})
+    stopUpdates   : () => clearInterval(globalThis.gridDriverUpdates),
+    unlock        : () => {columns.get('c3').locked = null},
+    unlockBothEnds: () => {columns.get('c0').locked = null; columns.get('c39').locked = null},
+    updateEdited  : () => store.get(3).set({c3: 'pushed', c4: 'pushed'}),
+    updateOther   : () => store.get(3).set({c4: 'pushed'})
 };
 
 actions[searchParams.get('action')]()
