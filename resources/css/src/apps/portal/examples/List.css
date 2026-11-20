@@ -43,14 +43,6 @@
         white-space  : normal;
         width        : 100%;
 
-        @media (min-width: 601px) and (hover: hover) {
-            &:hover {
-                outline       : 1px solid var(--portal-examples-list-link-hover);
-                outline-offset: -1px;
-                transform     : translateY(-2px);
-            }
-        }
-
         &:focus-visible {
             outline       : 2px solid var(--portal-examples-list-link-hover);
             outline-offset: -2px;
@@ -156,21 +148,37 @@
         overflow  : hidden;
     }
 
-    .neo-list-item:focus-within,
-    .neo-list-item.neo-selected {
-        .portal-example-more {
-            grid-template-rows: 1fr;
+    @media (max-width: 600px), (hover: none) {
+        .neo-list-item:focus-visible,
+        .neo-list-item:has(:focus-visible),
+        .neo-list-item.neo-selected {
+            .portal-example-more {
+                grid-template-rows: 1fr;
+            }
         }
     }
 
     @media (min-width: 601px) and (hover: hover) {
-        .neo-list-item:hover {
+        &:not(.portal-examples-keyboard) .neo-list-item:hover {
+            outline       : 1px solid var(--portal-examples-list-link-hover);
+            outline-offset: -1px;
+            transform     : translateY(-2px);
+
             .portal-example-more {
                 grid-template-rows: 1fr;
             }
 
             .portal-example-open-cue {
                 color: var(--portal-examples-list-link-hover);
+            }
+        }
+
+        &:not(.portal-examples-pointer) {
+            .neo-list-item:focus-visible,
+            .neo-list-item:has(:focus-visible) {
+                .portal-example-more {
+                    grid-template-rows: 1fr;
+                }
             }
         }
 

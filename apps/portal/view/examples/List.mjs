@@ -174,10 +174,11 @@ class List extends BaseList {
 
         let me = this;
 
-        me.addDomListeners({
-            intersect: me.onIntersect,
-            scope    : me
-        })
+        me.addDomListeners([
+            {intersect : me.onIntersect,       scope: me},
+            {mouseenter: me.onCardMouseEnter,  delegate: `.${me.itemCls}`, scope: me},
+            {keydown   : me.onDocumentKeyDown, vnodeId: 'document.body',   scope: me}
+        ])
     }
 
     /**
@@ -337,6 +338,14 @@ class List extends BaseList {
     }
 
     /**
+     * @summary Disables `ListModel#onListClick` desktop auto-selection; touch tap toggling runs in {@link #onItemClick}.
+     * @returns {undefined}
+     */
+    getInteractiveItemIndex() {
+        return undefined
+    }
+
+    /**
      * @returns {Object}
      */
     getVdomRoot() {
@@ -363,6 +372,75 @@ class List extends BaseList {
         // A link to the page itself would be pointless
         return !Example.publishes(record, this.catalogMode) ||
             (record.sourceUrl === 'apps/portal' && this.environment === Neo.config.environment)
+    }
+
+    /**
+     * @summary Hands card-detail disclosure back to pointer hover and clears any stale selection.
+     */
+    onCardMouseEnter() {
+        let me    = this,
+            {cls} = me;
+
+        if (me.tiles) return;
+
+        me.selectionModel?.items.length && me.selectionModel.deselectAll();
+
+        if (cls.includes('portal-examples-keyboard') || !cls.includes('portal-examples-pointer')) {
+            NeoArray.remove(cls, 'portal-examples-keyboard');
+            NeoArray.add(cls, 'portal-examples-pointer');
+            me.cls = cls
+        }
+    }
+
+    /**
+     * @summary Hands card-detail disclosure to `:focus-visible` during keyboard navigation, suppressing stationary `:hover`.
+     * @param {Object} data
+     */
+    onDocumentKeyDown(data) {
+        let me = this;
+
+        if (me.tiles || !me.mounted || !['ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'Tab'].includes(data.key)) {
+            return
+        }
+
+        let {cls} = me;
+
+        if (!cls.includes('portal-examples-keyboard') || cls.includes('portal-examples-pointer')) {
+            NeoArray.remove(cls, 'portal-examples-pointer');
+            NeoArray.add(cls, 'portal-examples-keyboard');
+            me.cls = cls
+        }
+    }
+
+    /**
+     * @summary Toggles `.neo-selected` on non-mouse taps outside `<a>` links so phone cards open and close one at a time.
+     * @param {Object} node
+     * @param {Object} data
+     */
+    onItemClick(node, data) {
+        super.onItemClick(node, data);
+
+        let me               = this,
+            {selectionModel} = me;
+
+        if (me.tiles || !selectionModel || data.pointerType === 'mouse') {
+            return
+        }
+
+        for (const entry of data.path || []) {
+            if (entry.id === node.id) {
+                break
+            }
+            if (entry.tagName === 'a') {
+                return
+            }
+        }
+
+        if (selectionModel.isSelected(node.id)) {
+            selectionModel.deselect(node.id)
+        } else {
+            selectionModel.select(node.id)
+        }
     }
 
     /**

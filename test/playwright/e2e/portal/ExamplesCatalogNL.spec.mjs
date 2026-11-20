@@ -854,5 +854,78 @@ test.describe('Portal examples section', () => {
         await expect(results.getByRole('link', {name: 'Sprint Board', exact: true})).toBeVisible();
         await results.getByRole('button', {name: 'Clear (Esc)'}).click();
         await expectOpenPage(page, 'Grid & Table')
+    });
+
+    test('at most one card opens its details across click, hover, keyboard and touch (#21606)', async ({page, neuralLink, browser, baseURL}) => {
+        const expandedTitles = list => list.locator('.neo-list-item').evaluateAll(nodes =>
+            nodes
+                .filter(node => (node.querySelector('.portal-example-more')?.getBoundingClientRect().height || 0) > 4)
+                .map(node => node.querySelector('.neo-title')?.textContent?.trim())
+        );
+
+        await page.setViewportSize({width: 1440, height: 900});
+        await page.goto(`${PORTAL}#/examples`);
+        await neuralLink.connectToApp('Portal');
+
+        const featured = page.locator(FEATURED),
+              sprint   = featured.locator('.neo-list-item', {hasText: 'Sprint Board'}),
+              garden   = featured.locator('.neo-list-item', {hasText: 'Community Garden Plan'}),
+              studio   = featured.locator('.neo-list-item', {hasText: 'Studio Bookings'});
+
+        await sprint.scrollIntoViewIfNeeded();
+
+        // 1. Clicking Sprint Board on desktop never latches it open once the pointer moves to Community Garden Plan or leaves
+        const sprintBox = await sprint.boundingBox();
+        await page.mouse.click(sprintBox.x + 24, sprintBox.y + 24);
+        await garden.hover();
+        await expect.poll(() => expandedTitles(featured), 'hovering a sibling after clicking Sprint Board expands only the hovered card')
+            .toEqual(['Community Garden Plan']);
+
+        await page.mouse.move(0, 0);
+        await expect.poll(() => expandedTitles(featured), 'leaving all cards after a desktop click leaves zero expanded')
+            .toEqual([]);
+
+        // 2. Stationary pointer over Community Garden Plan + keyboard Tab/Arrow navigation expands only the keyboard-focused card
+        await garden.hover();
+        await expect.poll(() => expandedTitles(featured)).toEqual(['Community Garden Plan']);
+
+        await studio.locator('.neo-title').focus();
+        await page.keyboard.press('Tab');
+        await expect.poll(() => expandedTitles(featured), 'keyboard navigation overrides stationary hover')
+            .toEqual(['Studio Bookings']);
+
+        // 3. Moving the pointer onto Sprint Board hands expansion back to hover alone, and moving away leaves zero open
+        await sprint.hover();
+        await expect.poll(() => expandedTitles(featured), 'pointer hover reclaims disclosure from keyboard focus')
+            .toEqual(['Sprint Board']);
+
+        await page.mouse.move(0, 0);
+        await expect.poll(() => expandedTitles(featured), 'previously focused Studio Bookings does not pop back open')
+            .toEqual([]);
+
+        // 4. Touch / phone (390×844): tapping a card body opens it, tapping another switches, re-tapping closes
+        const touchContext = await browser.newContext({baseURL, hasTouch: true, viewport: {width: 390, height: 844}}),
+              touchPage    = await touchContext.newPage();
+
+        await touchPage.goto(`${PORTAL}#/examples`);
+        const touchList = touchPage.locator(FEATURED),
+              firstCard = touchList.locator('.neo-list-item').nth(0),
+              nextCard  = touchList.locator('.neo-list-item').nth(1);
+
+        await firstCard.scrollIntoViewIfNeeded();
+        const firstImg = await firstCard.locator('.preview-image').boundingBox();
+        await touchPage.touchscreen.tap(firstImg.x + 30, firstImg.y + 30);
+        await expect.poll(() => expandedTitles(touchList), 'first tap opens one card').toEqual(['Workstation']);
+
+        await nextCard.scrollIntoViewIfNeeded();
+        const nextImg = await nextCard.locator('.preview-image').boundingBox();
+        await touchPage.touchscreen.tap(nextImg.x + 30, nextImg.y + 30);
+        await expect.poll(() => expandedTitles(touchList), 'tapping a second card switches selection').toEqual(['Data Grid: 100k Rows & 200 Columns']);
+
+        const nextImgAfter = await nextCard.locator('.preview-image').boundingBox();
+        await touchPage.touchscreen.tap(nextImgAfter.x + 30, nextImgAfter.y + 30);
+        await expect.poll(() => expandedTitles(touchList), 're-tapping the open card closes it').toEqual([]);
+
+        await touchContext.close()
     })
 });
