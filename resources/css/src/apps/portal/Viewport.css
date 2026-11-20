@@ -1,3 +1,16 @@
+/* Typed, so the glass card's border light can animate its angle */
+@property --portal-glass-card-sweep-angle {
+    syntax       : "<angle>";
+    initial-value: 0deg;
+    inherits     : false;
+}
+
+@keyframes portal-glass-card-sweep {
+    0%   {--portal-glass-card-sweep-angle: 0deg;   opacity: 1}
+    80%  {opacity: 1}
+    100% {--portal-glass-card-sweep-angle: 360deg; opacity: 0}
+}
+
 body {
     > .neo-viewport {
         /* without the snap scrolling it is possible to scroll the viewport
@@ -141,19 +154,58 @@ body {
         box-shadow             : var(--portal-glass-card-shadow);
         box-sizing             : border-box;
         flex-shrink            : 0;
+        isolation              : isolate;
         margin-left            : auto;
         margin-right           : auto;
         max-width              : 800px;
         min-height             : fit-content;
         opacity                : 1;
         padding                : 2.5em;
-        transition             : transform var(--motion-base) var(--ease-out-soft), box-shadow var(--motion-base) var(--ease-out-soft), border-color var(--motion-base) var(--ease-out-soft);
+        position               : relative;
+        transition             : box-shadow var(--motion-base) var(--ease-out-soft), border-color var(--motion-base) var(--ease-out-soft);
         width                  : 100%;
 
-        &:hover {
+        /* A hover lights the card and never moves it: a lift clipped the top border and moved every target inside the card. */
+        &::before,
+        &::after {
+            border-radius : inherit;
+            content       : '';
+            inset         : -1px;
+            opacity       : 0;
+            pointer-events: none;
+            position      : absolute;
+            z-index       : -1;
+        }
+
+        /* The light inside the glass, falling from the top edge */
+        &::after {
+            background: radial-gradient(120% 70% at 50% 0%, var(--portal-glass-card-hover-light), transparent 70%);
+            transition: opacity var(--motion-base) var(--ease-out-soft);
+        }
+
+        /* One lap of light around the border on entry: a conic ring masked down to the border, its head leading */
+        &::before {
+            background            : conic-gradient(from var(--portal-glass-card-sweep-angle), transparent 0turn 0.8turn, var(--portal-glass-card-sweep-color) 0.97turn, var(--portal-glass-card-sweep-head) 1turn);
+            mask                  : linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+            padding               : 2px;
+            -webkit-mask          : linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            -webkit-mask-composite: xor;
+        }
+
+        &:hover,
+        &:has(:focus-visible) {
             border-color: var(--portal-glass-card-hover-border);
             box-shadow  : var(--portal-glass-card-hover-shadow);
-            transform   : translateY(-5px);
+
+            &::after {
+                opacity: 1;
+            }
+
+            /* Recorded exception: a lap runs at constant speed (linear) for twice the stage tier; an ease-out would spend
+               three quarters of it in the first 150 ms. Reduced motion collapses the tier to 0, so the lap is skipped. */
+            &::before {
+                animation: portal-glass-card-sweep calc(var(--motion-stage) * 2) linear forwards;
+            }
         }
 
         .portal-content-box-headline {
