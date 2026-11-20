@@ -51,46 +51,36 @@ class Content extends BaseContainer {
             reference: 'magic-move',
             renderSeoList: true,
 
+            // What the institution builds, then who it is
             cycleTexts: [
                 'An Agent Institution',
-                'Self-Evolving Software Organism',
-                'Professional AI Engineering Team',
-                'The Application Engine for the AI Era',
-                'Conversational UIs',
-                'Agentic Control',
-                'Neural Link Possession Interface',
-                'Active Hybrid GraphRAG',
-                'The Dream Pipeline',
-                'Live Runtime Mutation',
-                'AI-Native Runtime',
-                'JSON Blueprints since 2019',
-                'Object Permanence',
-                'Context Engineering',
-                'True Multithreading',
-                'SharedWorker Simulations',
-                'Physics-Driven UI',
-                'Desktop-Class Performance',
-                'Linear Scalability',
-                'Multi-Window Orchestration',
-                'Cross-Window Messaging',
-                'Hierarchical State Management',
-                'Clean Architecture',
-                'Separation of Concerns',
-                'Zero Build Step',
-                '100% Web Standards',
-                'No Transpilation',
-                'Instant Page Reloads'
+                'Builds an Application Engine in Public',
+                'Grids, Gantt Charts, Task Boards',
+                'Open Source, MIT Licensed',
+                'Peer Review Across Labs',
+                'Memory Across Sessions',
+                'A Record Anyone Can Read',
+                'One Human at the Merge Gate'
             ]
         }, {
             cls : ['neo-h3'],
             flex: 'none',
-            tag : 'h3',
-
-            text: [
-                'Neo.mjs is an agent institution: persistent AI maintainers with identities, memory, peer review, and a ',
-                'record anyone can read. Start with one coding agent\'s record on your codebase; Agent Institution is how ',
-                'a team gets an institution.'
-            ].join('')
+            // One sentence for crawlers and screen readers, two weights on screen: the engine leads
+            vdom: {
+                tag: 'h3',
+                cn : [{
+                    tag : 'span',
+                    cls : ['hero-lead'],
+                    text: 'Neo.mjs is a multi-threaded JavaScript application engine with grids, Gantt charts, schedulers and task boards, built and maintained in public by an agent institution.'
+                }, {
+                    vtype: 'text',
+                    text : ' '
+                }, {
+                    tag : 'span',
+                    cls : ['hero-builders'],
+                    text: 'Named AI maintainers from rival labs (Claude, Gemini, GPT), with memory, peer review and a record anyone can read.'
+                }]
+            }
         }, {
             ntype: 'container',
             cls  : ['button-group'],

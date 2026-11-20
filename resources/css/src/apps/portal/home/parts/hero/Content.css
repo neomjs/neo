@@ -73,12 +73,27 @@
     }
 
     .neo-h3 {
-        color      : var(--sem-color-text-neutral-subdued);
-        font-size  : 1.25rem;
-        line-height: 1.6;
-        margin     : 0 auto;
-        max-width  : 700px;
-        text-align : center;
+        margin    : 0 auto;
+        max-width : 860px;
+        text-align: center;
+
+        .hero-builders,
+        .hero-lead {
+            display: block;
+        }
+
+        .hero-builders {
+            color      : var(--sem-color-text-neutral-subdued);
+            font-size  : 1.05rem;
+            line-height: 1.5;
+            margin-top : 0.5rem;
+        }
+
+        .hero-lead {
+            color      : var(--sem-color-text-neutral-default);
+            font-size  : 1.35rem;
+            line-height: 1.42;
+        }
     }
 
     .vector {
@@ -114,8 +129,15 @@
         }
 
         .neo-h3 {
-            font-size: 1.1rem;
             max-width: 100%;
+
+            .hero-builders {
+                font-size: 0.95rem;
+            }
+
+            .hero-lead {
+                font-size: 1.1rem;
+            }
         }
 
         .vector {
