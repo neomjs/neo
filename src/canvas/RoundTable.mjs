@@ -1029,7 +1029,7 @@ class RoundTable extends Base {
 
             if (strip.words) {
                 // each day's name, dim until the replay reaches it; beside it how many have landed in it so far,
-                // and at the day the replay is in, its clock
+                // and at the day the replay is in, its clock where the row has room for one
                 const y = strip.baseline + measures.small + 4;
 
                 let x = strip.x + day * (strip.dayW + strip.dayGap);
@@ -1045,10 +1045,10 @@ class RoundTable extends Base {
                     x += ctx.measureText(words.numbers[words.landed[day]]).width + 9
                 }
 
-                if (day === today) {
+                if (day === today && words.zone !== null) {
                     const tick = clock / 5 | 0;
 
-                    tick !== words.tick && (words.tick = tick, words.clock = me.stamp(tick * 5));
+                    tick !== words.tick && (words.tick = tick, words.clock = me.stamp(tick * 5, words.zone));
                     ctx.fillStyle = palette.inkDim;
                     ctx.fillText(words.clock, x, y)
                 }
@@ -1263,9 +1263,10 @@ class RoundTable extends Base {
                     ...(record.seats.some(seat => seat.kind === 'door') ? [['Contributors', 'door']] : []),
                     ...(changes ? [[`${changes} change request${changes === 1 ? '' : 's'}`, 'warn']] : [])
                 ],
-                numbers  : Array.from({length: data.dayMax + 1}, (_, n) => String(n)),
-                room     : 0,
-                tick     : -2
+                numbers: Array.from({length: data.dayMax + 1}, (_, n) => String(n)),
+                room   : 0,
+                tick   : -2,
+                zone   : null
             };
 
             me.place = RoundTable.layout({
@@ -1279,7 +1280,16 @@ class RoundTable extends Base {
                 nameWidths: me.nameWidths,
                 seats     : record.seats,
                 width     : canvasSize.width
-            })
+            });
+
+            // the replay's clock ends a gap before the next day's name, beside the widest name and the fullest count
+            // with their gaps as drawn: with its zone, else without it, else it is left out
+            const
+                {strip} = me.place,
+                lead    = Math.max(...me.words.dayWidths) + 7 + context.measureText(me.words.numbers.at(-1)).width + 9,
+                room    = strip?.words ? strip.dayW + strip.dayGap - lead - 9 : -1;
+
+            me.words.zone = [' UTC', ''].find(zone => context.measureText(`00:00${zone}`).width <= room) ?? null
         }
     }
 
@@ -1433,14 +1443,16 @@ class RoundTable extends Base {
     }
 
     /**
-     * @summary The replay's clock as the strip shows it beside the day it is in: `14:20 UTC`.
+     * @summary The replay's clock as the strip shows it beside the day it is in: `14:20 UTC`, or `14:20` where
+     * the day row has no room for the zone.
      * @param {Number} clock Minutes
+     * @param {String} [zone=' UTC']
      * @returns {String}
      */
-    stamp(clock) {
+    stamp(clock, zone = ' UTC') {
         const date = new Date(this.indexed.from + Math.max(clock, 0) * 60000), pad = n => String(n).padStart(2, '0');
 
-        return `${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())} UTC`
+        return `${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}${zone}`
     }
 
     /**

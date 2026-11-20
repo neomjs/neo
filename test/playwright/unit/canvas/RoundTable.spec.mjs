@@ -425,5 +425,33 @@ test.describe('Neo.canvas.RoundTable — the scene and its inputs', () => {
         renderer.setRecord({record: calm});
 
         expect(renderer.words.legend.map(([name]) => name), 'no change request, no key').toEqual(['Claude', 'Gemini', 'GPT', 'Contributors'])
+    });
+
+    test('the replay\'s clock ends before the next day\'s name: with its zone, without it, or not at all', () => {
+        const
+            texts   = [],
+            context = createContext(),
+            // seven day columns; the last statement is as wide as a 768 px surface allows
+            week    = {...record(), to: '2026-11-20T00:00:00Z'},
+            tablet  = {blocks: [{height: 300, width: 700, x: 34, y: 300}]};
+
+        context.fillText = text => texts.push(text);
+        renderer.context = context;
+        renderer.setLook({palettes});
+        renderer.setRecord({record: week});
+        renderer.setMotion({still: false});
+
+        for (const [width, height, statement, zone] of [[1440, 842, wide, ' UTC'], [900, 642, narrow, ''], [768, 966, tablet, null]]) {
+            renderer.updateSize({devicePixelRatio: 1, height, width});
+            stopLoop();
+            texts.length = 0;
+            renderer.setQuiet(statement);
+            stopLoop();
+
+            expect(renderer.words.zone, `at ${width} px`).toBe(zone);
+            expect(texts.filter(text => /^\d\d:\d\d/.test(text)), `the frame at ${width} px`).toEqual(zone === null ? [] : [expect.stringMatching(new RegExp(`^\\d\\d:\\d\\d${zone}$`))])
+        }
+
+        expect(renderer.stamp(860, ''), 'the clock without its zone').toBe('14:20')
     })
 });
