@@ -1,5 +1,5 @@
 import chalk                     from 'chalk';
-import {spawnSync}               from 'child_process';
+import {spawn, spawnSync}        from 'child_process';
 import {Command}                 from 'commander';
 import envinfo                   from 'envinfo';
 import fs                        from 'fs-extra';
@@ -24,6 +24,52 @@ const __dirname   = path.resolve(),
       webpackPath = path.resolve(neoPath, 'buildScripts/webpack'),
       programName = `${packageJson.name} buildAll`,
       questions   = [];
+
+/**
+ * @summary Runs build steps that share no output, as many at once as a quarter of the machine's cores allows: four on
+ * 18 cores, one on a 4-core CI runner, where they keep their sequence. After a failed step no new one starts.
+ * @param {Array[]} steps `[label, command, args]` each
+ * @returns {Promise<Object[]>} `{label, status}` for each step that ran
+ */
+async function runSteps(steps) {
+    const cores   = os.availableParallelism?.() ?? os.cpus().length,
+          limit   = Math.max(1, Math.min(steps.length, Math.floor(cores / 4))),
+          queue   = [...steps],
+          results = [];
+
+    const lane = async () => {
+        while (queue.length) {
+            const result = await startStep(...queue.shift());
+
+            results.push(result);
+            result.status && queue.splice(0)
+        }
+    };
+
+    await Promise.all(Array.from({length: limit}, lane));
+
+    return results
+}
+
+/**
+ * @summary Starts one build step as a child process and settles with its exit status, never with a rejection.
+ * @param {String}   label   The step's name in a failure message
+ * @param {String}   command
+ * @param {String[]} args
+ * @returns {Promise<Object>} `{label, status}`
+ */
+function startStep(label, command, args) {
+    return new Promise(resolve => {
+        const child = spawn(command, args, cpOpts);
+
+        child.on('error', error => {
+            console.error(chalk.red(`${label}: ${error.message}`));
+            resolve({label, status: 1})
+        });
+
+        child.on('close', status => resolve({label, status: status ?? 1}))
+    })
+}
 
 program
     .name(programName)
@@ -121,7 +167,7 @@ if (programOpts.info) {
         questions
     });
 
-    (questions.length ? inquirer.prompt(questions) : Promise.resolve({})).then(answers => {
+    (questions.length ? inquirer.prompt(questions) : Promise.resolve({})).then(async answers => {
         const env        = answers.env        || programOpts.env        || 'all',
               npminstall = answers.npminstall || programOpts.npminstall || 'yes',
               parsedocs  = answers.parsedocs  || programOpts.parsedocs  || 'yes',
@@ -168,29 +214,34 @@ if (programOpts.info) {
             childProcess.status && process.exit(childProcess.status);
         }
 
+        // Each of these writes its own tree (a dist folder, `dist/esm`, `docs/output`) and reads only the sources, so
+        // they run together; the steps after them read their output and wait
+        const hasDocs = fs.existsSync(path.join(cwd, 'docs/app')),
+              steps   = [];
+
         if (threads === 'yes') {
-            if (env !== 'esm') {
-                childProcess = spawnSync(nodeCmd, [`${webpackPath}/buildThreads.mjs`].concat(cpArgs, '--no-stamp'), cpOpts);
-                childProcess.status && process.exit(childProcess.status);
+            env !== 'esm' && (env === 'all' ? ['dev', 'prod'] : [env]).forEach(target => {
+                steps.push([`threads ${target}`, nodeCmd, [`${webpackPath}/buildThreads.mjs`, '-e', target, ...cpArgs.slice(2), '--no-stamp']])
+            });
 
-                if (env === 'all' || env === 'prod') {
-                    childProcess = spawnSync(nodeCmd, [`${neoPath}/buildScripts/util/check-dist-paths.mjs`, path.resolve(cwd, 'dist/production')], cpOpts);
-                    childProcess.status && process.exit(childProcess.status);
-                }
-            }
-
-            if (env === 'all' || env === 'esm') {
-                childProcess = spawnSync(nodeCmd, [`${neoPath}/buildScripts/build/esmodules.mjs`, '--no-stamp'], cpOpts);
-                childProcess.status && process.exit(childProcess.status);
-            }
+            (env === 'all' || env === 'esm') && steps.push(['esmodules', nodeCmd, [`${neoPath}/buildScripts/build/esmodules.mjs`, '--no-stamp']])
         }
 
-        if (fs.existsSync(path.join(cwd, 'docs/app'))) {
-            if (parsedocs === 'yes') {
-                childProcess = spawnSync(npmCmd, ['run', 'generate-docs-json'], cpOpts);
-                childProcess.status && process.exit(childProcess.status);
-            }
+        hasDocs && parsedocs === 'yes' && steps.push(['docs json', npmCmd, ['run', 'generate-docs-json']]);
 
+        const failed = (await runSteps(steps)).find(result => result.status);
+
+        if (failed) {
+            console.error(chalk.red(`${failed.label} failed`));
+            process.exit(failed.status)
+        }
+
+        if (threads === 'yes' && (env === 'all' || env === 'prod')) {
+            childProcess = spawnSync(nodeCmd, [`${neoPath}/buildScripts/util/check-dist-paths.mjs`, path.resolve(cwd, 'dist/production')], cpOpts);
+            childProcess.status && process.exit(childProcess.status);
+        }
+
+        if (hasDocs) {
             if (parsedocs === 'yes' && (env === 'all' || env === 'dev')) {
                 childProcess = spawnSync(nodeCmd, [`${neoPath}/buildScripts/util/copyFolder.mjs -s ${path.resolve(cwd, 'docs/output')   } -t ${path.resolve(cwd, 'dist/development/docs/output')}`],    cpOpts);
                 childProcess.status && process.exit(childProcess.status);
