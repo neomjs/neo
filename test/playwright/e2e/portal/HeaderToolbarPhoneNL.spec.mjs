@@ -89,6 +89,45 @@ test.describe('Portal phone header: single 58px row with Theme, GitHub and Disco
         })
     }
 
+    test('at 360px wide #/examples fits all 8 header targets under fallback sans-serif when Google Fonts is blocked', async ({neuralLink, page}) => {
+        await page.route('**/*fonts.googleapis.com/**', route => route.abort());
+        await page.setViewportSize({width: 360, height: 844});
+        await page.goto('/apps/portal/index.html#/examples');
+
+        const app = await neuralLink.connectToApp('Portal');
+
+        await expect(page.locator('.portal-header-toolbar .logo')).toBeVisible({timeout: 20000});
+
+        const providers  = await app.findInstances({className: 'Portal.view.ViewportStateProvider'}, ['id']),
+              providerId = (Array.isArray(providers) ? providers[0] : providers).id;
+
+        await app.modifyStateProvider(providerId, {blogPostCount: 59});
+
+        await expect.poll(async () => {
+            const matches = await app.queryComponent({reference: 'home-button'}, ['text']),
+                  home    = Array.isArray(matches) ? matches[0] : matches;
+            return home?.properties?.text === null
+        }, {timeout: 10000}).toBe(true);
+
+        await expect.poll(async () => {
+            const g = await readHeaderGeometry(page);
+            return g.buttons.length === 8 && g.buttons.every(b => b.visible && b.top === 5)
+        }, {timeout: 10000}).toBe(true);
+
+        const geometry = await readHeaderGeometry(page);
+
+        expect(geometry.height).toBe(58);
+        expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.clientWidth);
+        expect(geometry.buttons).toHaveLength(8);
+
+        for (const btn of geometry.buttons) {
+            expect(btn.height).toBeGreaterThanOrEqual(44);
+            expect(btn.top).toBe(5);
+            expect(btn.left).toBeGreaterThanOrEqual(0);
+            expect(btn.right).toBeLessThanOrEqual(360)
+        }
+    });
+
     test('at 390x844 clicking the phone header theme button on #/examples flips the Portal theme and #/home has no floating separate-bar', async ({neuralLink, page}) => {
         await page.setViewportSize({width: 390, height: 844});
         await page.goto('/apps/portal/index.html#/examples');
