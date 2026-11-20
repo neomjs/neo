@@ -251,18 +251,16 @@ class Resizable extends Plugin {
     }
 
     /**
-     * Triggered after the windowId config got changed
-     * @param {Number} value
+     * @summary Injects theme files and keeps `dragZone.windowId` aligned with the plugin's `windowId`.
+     * @param {Number|null} value
      * @param {Number|null} oldValue
      * @protected
      */
     afterSetWindowId(value, oldValue) {
-        let me = this;
+        super.afterSetWindowId(value, oldValue);
 
-        value && Neo.currentWorker.insertThemeFiles(value, me.__proto__);
-
-        if (me.dragZone) {
-            me.dragZone.windowId = value
+        if (this.dragZone) {
+            this.dragZone.windowId = value
         }
     }
 
