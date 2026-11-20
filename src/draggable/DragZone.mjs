@@ -558,7 +558,7 @@ class DragZone extends Base {
         mainData = await Neo.main.addon.DragDrop.setConfigs({
             appName,
             windowId,
-            ...me.getMainThreadConfigs()
+            ...me.getMainThreadConfigs(data, rect)
         });
 
         if (signal?.aborted) return;
@@ -627,10 +627,12 @@ class DragZone extends Base {
     /**
      * Override this method inside class extensions to add more configs
      * which get passed to main.addon.DragDrop onDragStart()
+     * @param {Object} [data] The `drag:start` data of the gesture, when called from {@link #dragStart}
+     * @param {Object} [rect] The drag element's rect, when called from {@link #dragStart}
      * @returns {Object}
      * @protected
      */
-    getMainThreadConfigs() {
+    getMainThreadConfigs(data, rect) {
         let me = this;
 
         return {
