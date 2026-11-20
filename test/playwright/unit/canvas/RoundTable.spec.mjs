@@ -170,6 +170,19 @@ test.describe('Neo.canvas.RoundTable — the scene stands around the statement',
         expect(place.strip.top).toBeGreaterThan(717)
     });
 
+    test('the scene is erased under the statement\'s column: its parts, the headline across their width, the gaps between them', () => {
+        expect(RoundTable.calmOf(wide)).toEqual([
+            {height: 100, width: 388, x: 526, y: 187},
+            {height: 80,  width: 700, x: 370, y: 327},
+            {height: 96,  width: 700, x: 370, y: 447},
+            {height: 56,  width: 352, x: 544, y: 599},
+            {height: 40,  width: 388, x: 526, y: 287},
+            {height: 40,  width: 700, x: 370, y: 407},
+            {height: 56,  width: 352, x: 544, y: 543}
+        ]);
+        expect(RoundTable.calmOf({bands: wide.bands, blocks: []}), 'a headline alone names no column').toEqual([])
+    });
+
     test('where not even the strip fits, nothing stands', () => {
         expect(arrange(390, 730, phone).mode).toBe('none')
     })
@@ -327,6 +340,14 @@ test.describe('Neo.canvas.RoundTable — the scene and its inputs', () => {
         expect(renderer.seatLines(0)).toEqual(['Ada · Claude', '2 pull requests merged · 1 review']);
         expect(renderer.seatLines(4)).toEqual(['Contributors', '1 account · 1 pull request merged']);
         expect(renderer.seatLines(5)).toEqual(['@t', 'merged 4 pull requests']);
+        expect(renderer.captionOf(2), 'a still scene without a unit names the record\'s caption alone').toBe('two days');
+        renderer.setRecord({record: {...record(), unit: 'things landed'}});
+        expect(renderer.captionOf(2)).toBe('4 things landed · two days');
+        renderer.still = false;
+        expect(renderer.captionOf(2), 'a replay under way says how far it is').toBe('2 / 4 things landed · two days');
+        expect(renderer.stamp(860)).toBe('14:20 UTC');
+        renderer.still = true;
+
         expect(RoundTable.duration(47)).toBe('47 min');
         expect(RoundTable.duration(4610)).toBe('3 d 4 h');
         expect(RoundTable.dayLabel(Date.parse('2026-11-13T00:00:00Z'), 1)).toBe('Sat 14')

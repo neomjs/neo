@@ -6,8 +6,7 @@ const
     GLOW   = 48,   // px, the side of a seat's glow sprite
     RAD    = Math.PI / 180,
     TAU    = Math.PI * 2,
-    WEEK   = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
-    YEAR   = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    WEEK   = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 /**
  * @summary A team's work as a scene on the canvas worker: a round table that replays a record.
@@ -30,7 +29,7 @@ const
  * draws its ground alone. A still scene, the host's reduced-motion preference, is the end state, drawn once and
  * again only when an input changes.
  *
- * The record (`version: 1`): `{from, to, caption, groups: [{id, name}], seats: [{id, name, group, kind}],
+ * The record (`version: 1`): `{from, to, caption, unit, groups: [{id, name}], seats: [{id, name, group, kind}],
  * items: [[number, title, seat, login, opened, merged, [[seat, 'A' | 'C', minute], …]], …]}` with times in minutes
  * from `from`. `buildScripts/docs/recordWeek.mjs` writes one from a repository's merged pull requests.
  *
@@ -62,10 +61,10 @@ class RoundTable extends Base {
             bottom : 48,
             dayGap : 18,
             font   : 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-            label  : 12.5,
+            label  : 13,
             margin : 20,
             seat   : 4.5,
-            small  : 11,
+            small  : 12,
             squares: [[8, 2], [6, 2], [5, 1], [4, 1], [3, 1]]
         },
         /**
@@ -99,6 +98,11 @@ class RoundTable extends Base {
         singleton: true
     }
 
+    /**
+     * The boxes the scene is erased under, for the current statement ({@link #calmOf}).
+     * @member {Object[]} calm=[]
+     */
+    calm = []
     /**
      * The replay's clock, in minutes from the record's `from`.
      * @member {Number} clock=0
@@ -170,6 +174,35 @@ class RoundTable extends Base {
      * @member {Object|null} words=null
      */
     words = null
+
+    /**
+     * @summary The boxes the scene is erased under: every block, every band across the blocks' width, and the gap
+     * between two parts that follow each other, as wide as what both share. Together they are the statement's
+     * column, so a chord dissolves at its edge and leaves no stub between two of its lines.
+     * @param {Object}   statement
+     * @param {Object[]} statement.bands
+     * @param {Object[]} statement.blocks
+     * @returns {Object[]} `{x, y, width, height}` each
+     */
+    static calmOf({bands, blocks}) {
+        if (!blocks.length) {
+            return []
+        }
+
+        const
+            left  = Math.min(...blocks.map(block => block.x)),
+            right = Math.max(...blocks.map(block => block.x + block.width)),
+            parts = [...blocks, ...bands.map(({height, y}) => ({height, width: right - left, x: left, y}))].sort((a, b) => a.y - b.y),
+            calm  = [...parts];
+
+        parts.slice(1).forEach((next, n) => {
+            const prev = parts[n], x = Math.max(prev.x, next.x), end = Math.min(prev.x + prev.width, next.x + next.width), y = prev.y + prev.height;
+
+            end > x && next.y > y && calm.push({height: next.y - y, width: end - x, x, y})
+        });
+
+        return calm
+    }
 
     /**
      * @summary A day of the window as the strip names it, `Fri 13`.
@@ -542,12 +575,28 @@ class RoundTable extends Base {
     }
 
     /**
+     * @summary The strip's caption: how many of the record's items have landed, in the record's own `unit`, then
+     * the record's caption. A strip half full then reads as a replay under way. A still scene names the total.
+     * @param {Number} landed
+     * @returns {String}
+     */
+    captionOf(landed) {
+        const
+            {indexed: data, record} = this,
+            unit                    = record.unit ? ` ${record.unit}` : '',
+            head                    = this.still ? unit && `${data.count}${unit}` : `${landed} / ${data.count}${unit}`;
+
+        return [head, record.caption].filter(Boolean).join(' · ')
+    }
+
+    /**
      * @summary Forgets the scene with the canvas; the host hands its inputs over again once a canvas returns.
      */
     clearGraph() {
         const me = this;
 
         super.clearGraph();
+        me.calm     = [];
         me.clock    = 0;
         me.hover    = null;
         me.indexed  = null;
@@ -776,20 +825,20 @@ class RoundTable extends Base {
     }
 
     /**
-     * @summary Erases the scene under the statement's blocks, full at each box and fading over a feather beyond
-     * it, so a chord dissolves toward a block instead of ending at its edge. The feather grows with the block, up
-     * to 56px, and is a shadow, which every engine draws, where a canvas filter is not.
+     * @summary Erases the scene under the statement's column ({@link #calmOf}), full at each box and fading over a
+     * feather beyond it, so a chord dissolves toward the statement instead of ending at an edge. The feather grows
+     * with the box, up to 56px, and is a shadow, which every engine draws, where a canvas filter is not.
      * @param {OffscreenCanvasRenderingContext2D} ctx
      */
     drawQuiet(ctx) {
-        const {blocks} = this.quiet, ratio = this.canvasSize.devicePixelRatio || 1;
+        const ratio = this.canvasSize.devicePixelRatio || 1;
 
         ctx.globalAlpha              = 1;
         ctx.globalCompositeOperation = 'destination-out';
         ctx.fillStyle                = '#000';
         ctx.shadowColor              = '#000';
 
-        for (const {height, width, x, y} of blocks) {
+        for (const {height, width, x, y} of this.calm) {
             ctx.shadowBlur = Math.min(56, Math.max(12, Math.min(width, height) / 2)) * ratio;
             ctx.fillRect(x - 2, y - 2, width + 4, height + 4)
         }
@@ -919,21 +968,41 @@ class RoundTable extends Base {
             }
         }
 
-        ctx.font        = `500 ${measures.small}px ${measures.font}`;
-        ctx.globalAlpha = 0.9 * alpha;
-        ctx.textAlign   = 'left';
+        ctx.font      = `500 ${measures.small}px ${measures.font}`;
+        ctx.textAlign = 'left';
 
-        if (strip.words) {
-            // each day's name, and beside it how many have landed in it so far
-            for (let day = 0; day < data.days; day++) {
-                const x = strip.x + day * (strip.dayW + strip.dayGap), y = strip.baseline + measures.small + 4;
+        // the day the replay is in, or none once it holds its end state
+        const today = me.still || clock >= data.minutes ? -1 : clock / DAY | 0;
 
-                ctx.fillStyle = palette.inkDim;
+        let landed = 0;
+
+        for (let day = 0; day < data.days; day++) {
+            landed += words.landed[day];
+
+            if (strip.words) {
+                // each day's name, dim until the replay reaches it; beside it how many have landed in it so far,
+                // and at the day the replay is in, its clock
+                const y = strip.baseline + measures.small + 4;
+
+                let x = strip.x + day * (strip.dayW + strip.dayGap);
+
+                ctx.globalAlpha = (day * DAY <= clock ? 0.9 : 0.45) * alpha;
+                ctx.fillStyle   = palette.inkDim;
                 ctx.fillText(words.days[day], x, y);
+                x += words.dayWidths[day] + 7;
 
                 if (words.landed[day]) {
                     ctx.fillStyle = palette.ink;
-                    ctx.fillText(words.numbers[words.landed[day]], x + words.dayWidths[day] + 7, y)
+                    ctx.fillText(words.numbers[words.landed[day]], x, y);
+                    x += ctx.measureText(words.numbers[words.landed[day]]).width + 9
+                }
+
+                if (day === today) {
+                    const tick = clock / 5 | 0;
+
+                    tick !== words.tick && (words.tick = tick, words.clock = me.stamp(tick * 5));
+                    ctx.fillStyle = palette.inkDim;
+                    ctx.fillText(words.clock, x, y)
                 }
             }
         }
@@ -958,11 +1027,9 @@ class RoundTable extends Base {
             }
         }
 
-        // the replay's clock steps by five minutes, and the caption is fitted once per step
-        const tick = me.still ? -1 : Math.min(clock, data.minutes - 1) / 5 | 0;
-
-        if (tick !== words.tick || end !== words.room) {
-            let caption = `${me.still ? '' : `${me.stamp(tick * 5)} · `}${record.caption || ''}`;
+        // the caption is fitted once per landing
+        if (landed !== words.count || end !== words.room) {
+            let caption = me.captionOf(landed);
 
             // a caption too long for its room loses its last parts
             while (caption.includes(' · ') && ctx.measureText(caption).width > end - strip.x) {
@@ -970,8 +1037,8 @@ class RoundTable extends Base {
             }
 
             words.caption = caption;
-            words.room    = end;
-            words.tick    = tick
+            words.count   = landed;
+            words.room    = end
         }
 
         ctx.textAlign = 'left';
@@ -1109,6 +1176,7 @@ class RoundTable extends Base {
 
         me.place = null;
         me.hover = null;
+        me.calm  = quiet ? RoundTable.calmOf(quiet) : [];
 
         if (context && canvasSize && data && quiet && canvasSize.width > 0 && canvasSize.height > 0) {
             context.font  = `600 ${measures.label}px ${measures.font}`;
@@ -1121,6 +1189,8 @@ class RoundTable extends Base {
 
             me.words = {
                 caption  : '',
+                clock    : '',
+                count    : -1,
                 days,
                 dayWidths: days.map(day => context.measureText(day).width),
                 landed   : new Uint16Array(data.days),
@@ -1294,14 +1364,14 @@ class RoundTable extends Base {
     }
 
     /**
-     * @summary The replay's clock as the caption shows it: `Tue 17 Nov · 14:20 UTC`, the window's last minute at most.
-     * @param {Number} clock
+     * @summary The replay's clock as the strip shows it beside the day it is in: `14:20 UTC`.
+     * @param {Number} clock Minutes
      * @returns {String}
      */
     stamp(clock) {
-        const {from, minutes} = this.indexed, date = new Date(from + Math.min(Math.max(clock, 0), minutes - 1) * 60000), pad = n => String(n).padStart(2, '0');
+        const date = new Date(this.indexed.from + Math.max(clock, 0) * 60000), pad = n => String(n).padStart(2, '0');
 
-        return `${WEEK[date.getUTCDay()]} ${date.getUTCDate()} ${YEAR[date.getUTCMonth()]} · ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())} UTC`
+        return `${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())} UTC`
     }
 
     /**

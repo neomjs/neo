@@ -3,7 +3,8 @@
   "repo": "neomjs/neo",
   "from": "2026-11-13T00:00:00.000Z",
   "to": "2026-11-20T00:00:00.000Z",
-  "caption": "13–19 Nov 2026 · neomjs/neo · 301 pull requests merged · 469 reviews · 136 change requests · 39 outside contributors",
+  "caption": "13–19 Nov 2026 · 469 reviews · 136 change requests · 39 outside contributors · neomjs/neo",
+  "unit": "pull requests merged, one square each",
   "groups": [
     {
       "id": "claude",

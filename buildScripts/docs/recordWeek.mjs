@@ -97,7 +97,7 @@ export function windowLabel(from, to) {
  * @param {Object[]} input.pulls `{number, title, createdAt, mergedAt, authorAssociation, author: {login, bot},
  * mergedBy, reviews: [{login, association, bot, state, submittedAt}]}` each
  * @param {String}   input.repo `owner/name`
- * @returns {Object} `{version, repo, from, to, caption, groups, seats, totals, items}`; an item is
+ * @returns {Object} `{version, repo, from, to, caption, unit, groups, seats, totals, items}`; an item is
  * `[number, title, seat, login, opened, merged, reviews]` with times in minutes from `from`, `login` only for an
  * author at the door, and a review `[seat, 'A' | 'C', minute]`
  */
@@ -201,15 +201,16 @@ export function buildRecord({from, pulls, repo, to}) {
         repo,
         from   : new Date(from).toISOString(),
         to     : new Date(to).toISOString(),
+        // the scene opens the caption with the count in this unit; a caption too long for its room loses its last parts
         caption: [
             windowLabel(from, to),
-            repo,
-            `${counted(totals.merged, 'pull request')} merged`,
             counted(totals.reviews, 'review'),
             counted(totals.changeRequests, 'change request'),
-            counted(totals.contributors, 'outside contributor')
+            counted(totals.contributors, 'outside contributor'),
+            repo
         ].join(' · '),
-        groups : groups.map(id => ({id, name: seated.find(seat => seat.group === id).groupName})),
+        unit  : `pull request${totals.merged === 1 ? '' : 's'} merged, one square each`,
+        groups: groups.map(id => ({id, name: seated.find(seat => seat.group === id).groupName})),
         seats,
         totals,
         items
