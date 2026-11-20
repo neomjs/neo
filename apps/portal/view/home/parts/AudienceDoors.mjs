@@ -122,7 +122,7 @@ class AudienceDoors extends BaseContainer {
                             }, {
                                 tag : 'p',
                                 cls : ['portal-door-copy'],
-                                text: 'Ship desktop and mobile web apps on an off-main-thread runtime — 461 classes across 39 namespaces, persistent JSON-first components in Web Workers, zero runtime dependencies, and zero build step in dev mode.'
+                                text: 'Ship desktop and mobile web apps on an off-main-thread runtime — 503 classes across 44 namespaces, persistent JSON-first components in Web Workers, zero runtime dependencies, and zero build step in dev mode.'
                             }, {
                                 tag: 'div',
                                 cls: ['portal-door-command'],

@@ -26,9 +26,9 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../
  * @type {Object[]}
  */
 export const MIRRORS = Object.freeze([
-    {file: 'README.md',                                     figure: 'classes',    pattern: /— `(\d+)` classes across `\d+` namespaces/d},
-    {file: 'README.md',                                     figure: 'namespaces', pattern: /— `\d+` classes across `(\d+)` namespaces/d},
-    {file: 'README.md',                                     figure: 'addons',     pattern: /routing, and `(\d+)` main-thread addons\)/d},
+    {file: 'README.md',                                     figure: 'classes',    pattern: /batteries-included: `(\d+)` classes across `\d+` namespaces/d},
+    {file: 'README.md',                                     figure: 'namespaces', pattern: /batteries-included: `\d+` classes across `(\d+)` namespaces/d},
+    {file: 'README.md',                                     figure: 'addons',     pattern: /examples\/platform\) \(`(\d+)` main-thread addons\)/d},
     {file: 'README.md',                                     figure: 'classes',    pattern: /a complete `(\d+)`-class web application platform/d},
     {file: 'README.md',                                     figure: 'addons',     pattern: /DomApiRenderer`\) and (\d+) main-thread addons;/d},
     {file: 'apps/portal/view/home/parts/AudienceDoors.mjs', figure: 'classes',    pattern: /runtime — (\d+) classes across \d+ namespaces/d},
