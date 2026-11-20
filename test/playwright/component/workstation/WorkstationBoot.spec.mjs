@@ -1,4 +1,6 @@
-import {test, expect} from '@playwright/test';
+import {test, expect}              from '@playwright/test';
+import fs                          from 'node:fs/promises';
+import {attachPageSharedAppWorker} from '../../sharedWorkerAppWorker.mjs';
 
 /**
  * @summary Workstation's three boot modes, and the reload that rebinds one of them, observed as RENDERED DOM in the real app.
@@ -116,6 +118,50 @@ const readBoot = page => page.evaluate(() => ({
     viewportId: document.querySelector('.workstation-viewport')?.id,
     windowId  : Neo.worker.Manager.windowId
 }));
+
+/**
+ * @summary Reads the main dock workspace's projection record from the page's own App Worker: the latest cycle's timing,
+ * whether its refresh settles at all, and which documents are scheduled and parked. Read only after a miss, so it
+ * cannot perturb the run it explains; the handle closes before the page goes, or the worker would stop answering.
+ * @param {import('@playwright/test').Browser} browser
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<Object>}
+ */
+const readProjectionState = async (browser, page) => {
+    const hostId = await page.evaluate(() => document.querySelector('.workstation-dock-host')?.id),
+          handle = await attachPageSharedAppWorker({browser, page}).catch(error => ({error: error.message}));
+
+    if (!handle?.evaluate) return {hostId, attach: handle?.error ?? 'no App Worker handle'};
+
+    try {
+        return await handle.evaluate(async id => {
+            let workspace = globalThis.Neo.getComponent(id);
+
+            while (workspace && typeof workspace.refreshDockWorkspace !== 'function') workspace = workspace.parent;
+
+            if (!workspace) return {hostId: id, workspace: null};
+
+            const {dockModel, departedProjection, refreshPromise, scheduledProjection} = workspace;
+
+            return {
+                hostId   : id,
+                workspace: workspace.id,
+                cycle    : workspace.projectionCycle?.timing ?? null,
+                // 500 ms out-waits the refresh's own longest timer, the 300 ms chrome settle after its motion
+                refresh         : refreshPromise ? await Promise.race([
+                    refreshPromise.then(() => 'settled', () => 'rejected'),
+                    new Promise(resolve => setTimeout(() => resolve('pending'), 500))
+                ]) : 'none',
+                scheduledIsModel: Boolean(scheduledProjection) && scheduledProjection.document === dockModel,
+                scheduledHasFeed: Boolean(scheduledProjection?.document?.items?.feed),
+                modelHasFeed    : Boolean(dockModel?.items?.feed),
+                parked          : Boolean(departedProjection)
+            }
+        }, hostId)
+    } finally {
+        await handle.close()
+    }
+};
 
 test.describe('workstation boot — the rendered outcome of each URL mode', () => {
     test('default boot mounts the dock host', async ({page}) => {
@@ -269,8 +315,20 @@ test.describe('workstation boot — the rendered outcome of each URL mode', () =
                 }
             }, {message: 'the saved topology gives the pane back to the main workspace', timeout: 30000})
                 .toEqual({main: true, vessel: []});
-            await expect(cold.locator(FEED_PANE).first(), 'Reset returns the retained pane to the default arrangement')
-                .toBeVisible({timeout: 60000})
+            try {
+                await expect(cold.locator(FEED_PANE).first(), 'Reset returns the retained pane to the default arrangement')
+                    .toBeVisible({timeout: 60000})
+            } catch (error) {
+                // The DOM looks the same whether Reset's projection was starved, stuck, stood down or failed. The file
+                // sits beside error-context.md in the CI artifact, and the log line reaches a reader without it.
+                const state = await readProjectionState(browser, cold),
+                      file  = test.info().outputPath('app-worker-projection-state.json');
+
+                await fs.writeFile(file, JSON.stringify(state, null, 4));
+                await test.info().attach('app-worker-projection-state.json', {contentType: 'application/json', path: file});
+                console.log(`app-worker-projection-state ${JSON.stringify(state)}`);
+                throw error
+            }
         } finally {
             await coldContext.close()
         }
