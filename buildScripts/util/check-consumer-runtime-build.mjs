@@ -234,6 +234,11 @@ export const CANVAS_EXPECTATIONS = [{
     present: true,
     because: 'the graph-scene renderer ships in the package for consumer renderers to extend, so the Canvas worker must reach it there'
 }, {
+    file   : 'node_modules/neo.mjs/src/canvas/RoundTable.mjs',
+    match  : /neo\.mjs[/\\]src[/\\]canvas[/\\]RoundTable\.mjs\b/,
+    present: true,
+    because: 'the round-table renderer ships in the package for a consumer to mount on its own record, so the Canvas worker must reach it there'
+}, {
     file   : 'apps/probe/canvas/ProbeRenderer.mjs',
     match  : /apps[/\\]probe[/\\]canvas[/\\]ProbeRenderer\.mjs\b/,
     present: true,
