@@ -43,6 +43,8 @@ test('a linked project edit and a new dependency survive reload', async ({page, 
     const app     = await neuralLink.connectToApp('GanttBasic');
     const [gantt] = await app.findInstances({className:'Neo.gantt.Container'}, ['id']);
     expect(gantt.id).toBeTruthy();
+    // Bars are measured right after moves: the cascade lands in one update (CascadeTransitionNL covers the motion)
+    await app.setProperties(gantt.id, {animateCascade:false});
 
     // The link terminal and resize handle are separate targets.
     await survey.hover();
@@ -135,6 +137,8 @@ test('task and link previews follow the pointer without mutating the plan until 
     const app     = await neuralLink.connectToApp('GanttBasic');
     const [gantt] = await app.findInstances({className:'Neo.gantt.Container'}, ['id']);
     const read    = id => app.callMethod(gantt.id, 'resolveTaskRecord', [id]);
+    // Bars are measured right after moves: the cascade lands in one update (CascadeTransitionNL covers the motion)
+    await app.setProperties(gantt.id, {animateCascade:false});
 
     const beforeMove = await read('survey'), source = await survey.boundingBox();
     const proxy      = page.locator('.neo-dragproxy');

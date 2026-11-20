@@ -39,7 +39,7 @@ class ProjectViewport extends Viewport {
                 {module:Button, ui:'secondary', cls:['project-control'], text:'Week', reference:'week', pressed:true, handler:'up.onWeek'}
             ]
         }, {
-            module:Gantt, reference:'gantt', flex:1, editable:true, rowHeight:56,
+            module:Gantt, reference:'gantt', flex:1, editable:true, rowHeight:56, animateCascade:true,
             store:{module:TaskStore, data:tasks}, dependencyStore:{module:DependencyStore, data:dependencies},
             dependencyCreation:true, cascadeDependencies:true, showNonWorkingTime:true,
             taskColumns:[{type:'tree',dataField:'title',text:'Task',width:220,locked:'start'}],

@@ -208,6 +208,15 @@ const DefaultConfig = {
      */
     prefersDarkTheme: false,
     /**
+     * The user's `prefers-reduced-motion: reduce`, detected by the main thread and kept current: a change of the
+     * system preference reaches every worker. A worker that steps a motion itself reads it before and during the move.
+     * @default false
+     * @memberOf! module:Neo
+     * @name config.prefersReducedMotion
+     * @type Boolean
+     */
+    prefersReducedMotion: false,
+    /**
      * Pass the URL of a JSON-file, which contains the services and methods from your backend,
      * which you want to expose to the client.
      * See: https://github.com/neomjs/neo/projects/32
