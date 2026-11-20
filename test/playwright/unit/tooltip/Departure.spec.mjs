@@ -98,15 +98,29 @@ test.describe('Neo.tooltip.Base — where the pointer goes decides when a toolti
     });
 
     test('a target left for its hoverable tooltip keeps it, and the tooltip left for the page hides it', async () => {
-        const {host} = makeHost();
+        const tooltip = Neo.create(Tooltip, {
+            appName       : 'TooltipDepartureTest',
+            retargetWindow: 40,
+            showDelay     : 20,
+            stayOnHover   : true,
+            windowId      : `hoverable-window-${++hosts}`
+        });
 
-        await showOn(host, 'target-1');
-        host.onDelegateMouseLeave({currentTarget: 'target-1', relatedTarget: {id: host.id}});
-        await wait(100);
-        expect(host.mounted, 'onto the hit area that spans the gap').toBe(true);
+        tooltip.initVnode = async () => { tooltip.mounted = true; tooltip.painted = true };
+        tooltip.unmount   = () => { tooltip.mounted = false };
+        tooltip.alignTo   = async () => { tooltip._hidden || (tooltip.painted = true) };
 
-        host.onMouseLeave({path: [{id: host.id}], relatedTarget: {id: 'page'}});
-        await expect.poll(() => host.mounted, {timeout: 150}).toBe(false)
+        try {
+            await showOn(tooltip, 'target-1');
+            tooltip.onDelegateMouseLeave({currentTarget: 'target-1', relatedTarget: {id: tooltip.id}});
+            await wait(100);
+            expect(tooltip.mounted, 'onto the hit area that spans the gap').toBe(true);
+
+            tooltip.onMouseLeave({path: [{id: tooltip.id}], relatedTarget: {id: 'page'}});
+            await expect.poll(() => tooltip.mounted, {timeout: 150}).toBe(false)
+        } finally {
+            tooltip.destroy()
+        }
     });
 
     test('the tooltip left for its target or a node inside the tooltip stays', async () => {

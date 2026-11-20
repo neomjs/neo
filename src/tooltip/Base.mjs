@@ -557,7 +557,8 @@ class Tooltip extends Container {
 
     /**
      * @summary True if a DOM node lies inside the aligned target, whether that target is a `Neo.component.Base`
-     * instance or a raw `[data-neo-tooltip]` VDOM subtree under one of this tooltip's delegation roots.
+     * instance or a raw `[data-neo-tooltip]` VDOM subtree under one of this tooltip's delegation roots (`VDomUtil.find`
+     * expands `{componentId}` references by default, so targets inside child components are reached too).
      * @param {Object|undefined} node
      * @param {String|null|undefined} targetId
      * @returns {Boolean}
@@ -575,13 +576,11 @@ class Tooltip extends Container {
             return true
         }
 
-        if (#delegations in me) {
-            for (const {root} of me.#delegations.values()) {
-                let targetSubtree = !root.isDestroyed && root.vdom && VDomUtil.find(root.vdom, targetId);
+        for (const {root} of me.#delegations.values()) {
+            let targetSubtree = !root.isDestroyed && root.vdom && VDomUtil.find(root.vdom, targetId);
 
-                if (targetSubtree?.vdom && VDomUtil.find(targetSubtree.vdom, id)) {
-                    return true
-                }
+            if (targetSubtree?.vdom && VDomUtil.find(targetSubtree.vdom, id)) {
+                return true
             }
         }
 
