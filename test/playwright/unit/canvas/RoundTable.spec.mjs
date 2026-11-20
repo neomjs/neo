@@ -21,8 +21,9 @@ const
         {id: 'door', kind: 'door', name: 'Contributors'},
         {id: 'tobiu', kind: 'merge', name: '@tobiu'}
     ],
-    // the Portal hero's statement at 1440×900, 900×700 and 390×844, canvas-relative
+    // the Portal hero's statement at 1440×900, 1440×800, 900×700 and 390×844, canvas-relative
     wide       = {bands: [{height: 80, y: 327}], blocks: [{height: 100, width: 388, x: 526, y: 187}, {height: 96, width: 700, x: 370, y: 447}, {height: 56, width: 352, x: 544, y: 599}]},
+    shorter    = {bands: [{height: 80, y: 277}], blocks: [{height: 100, width: 388, x: 526, y: 137}, {height: 96, width: 700, x: 370, y: 397}, {height: 56, width: 352, x: 544, y: 549}]},
     narrow     = {bands: [{height: 80, y: 236}], blocks: [{height: 100, width: 331, x: 285, y: 96}, {height: 96, width: 700, x: 100, y: 356}, {height: 56, width: 352, x: 274, y: 508}]},
     phone      = {bands: [{height: 140, y: 201}], blocks: [{height: 100, width: 246, x: 72, y: 69}, {height: 169, width: 342, x: 24, y: 373}, {height: 128, width: 342, x: 24, y: 589}]},
     palettes   = {dark: {card: '#000', door: '#fff', ground: ['#001', '#002'], groups: {claude: '#a0f', gemini: '#08f', gpt: '#0c9'}, ink: '#eee', inkDim: '#999', line: '#446', merge: '#fff', warn: '#fa0'}};
@@ -150,6 +151,26 @@ test.describe('Neo.canvas.RoundTable — the scene stands around the statement',
         expect(strip.top - 24, 'below the buttons').toBeGreaterThan(655 + margin / 2);
         expect(842 - strip.captionY - 4, 'the room kept free').toBe(renderer.measures.bottom);
         expect(strip.size).toBe(8)
+    });
+
+    test('the squares step down before the bottom\'s room shrinks, but not below the floor for its sake', () => {
+        const {bottom, floor} = renderer.measures, below = (place, height) => height - place.strip.captionY - 4;
+
+        // 20px less than the wide surface: the next size keeps the whole room
+        const lower = arrange(1440, 822, wide);
+
+        expect(lower.strip.size).toBe(6);
+        expect(below(lower, 822)).toBe(bottom);
+
+        // 1440×800: only 3px squares would keep the whole room, so the floor stands and the room gives 6px
+        const short = arrange(1440, 742, shorter);
+
+        expect(short.mode).toBe('table');
+        expect(short.strip.size).toBe(floor);
+        expect(below(short, 742)).toBe(42);
+
+        // a phone: nothing larger stands
+        expect(arrange(390, 786, phone).strip.size).toBeLessThan(floor)
     });
 
     test('where the sides do not hold the seats, the strip stands alone', () => {
@@ -351,5 +372,24 @@ test.describe('Neo.canvas.RoundTable — the scene and its inputs', () => {
         expect(RoundTable.duration(47)).toBe('47 min');
         expect(RoundTable.duration(4610)).toBe('3 d 4 h');
         expect(RoundTable.dayLabel(Date.parse('2026-11-13T00:00:00Z'), 1)).toBe('Sat 14')
+    });
+
+    test('a caption too long for its room keeps the window: its last parts go, then what a square is, then the unit', () => {
+        const within = length => text => text.length <= length;
+
+        renderer.setRecord({record: {...record(), caption: 'two days · five reviews · some/repo', unit: 'things landed, one square each'}});
+        renderer.still = false;
+
+        expect(renderer.captionOf(2, within(74))).toBe('2 / 4 things landed, one square each · two days · five reviews · some/repo');
+        expect(renderer.captionOf(2, within(62))).toBe('2 / 4 things landed, one square each · two days · five reviews');
+        expect(renderer.captionOf(2, within(47))).toBe('2 / 4 things landed, one square each · two days');
+        expect(renderer.captionOf(2, within(46)), 'the window outlasts what a square is').toBe('2 / 4 things landed · two days');
+        expect(renderer.captionOf(2, within(29))).toBe('2 / 4 · two days');
+        expect(renderer.captionOf(2, within(5)), 'and stays where nothing fits').toBe('2 / 4 · two days');
+
+        renderer.still = true;
+
+        expect(renderer.captionOf(2, within(42))).toBe('4 things landed · two days');
+        expect(renderer.captionOf(2, within(25)), 'a total without its unit says nothing').toBe('two days')
     })
 });

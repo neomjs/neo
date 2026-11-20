@@ -81,6 +81,13 @@ class Canvas extends SharedCanvas {
      */
     motionRead = 0
     /**
+     * The one size listener this host adds to the statement's components, kept so that `destroy()` takes back
+     * exactly what `watchStatement()` added.
+     * @member {Object|null} statementListener=null
+     * @protected
+     */
+    statementListener = null
+    /**
      * Counts the statement's measurements and the graph's lifetimes, so that only the latest measurement of the
      * current graph may answer.
      * @member {Number} statementRead=0
@@ -108,9 +115,11 @@ class Canvas extends SharedCanvas {
         me.statementRead++;
 
         if (value && me.renderer) {
-            me.renderer.setLook({...me.look, ...me.address()});
-            me.renderer.setMotion({still: me.still, ...me.address()});
-            me.renderer.setRecord({record: me.record, ...me.address()})
+            const canvasId = me.getCanvasId(), {windowId} = me;
+
+            me.renderer.setLook({...me.look, canvasId, windowId});
+            me.renderer.setMotion({canvasId, still: me.still, windowId});
+            me.renderer.setRecord({canvasId, record: me.record, windowId})
         }
     }
 
@@ -123,7 +132,7 @@ class Canvas extends SharedCanvas {
     afterSetLook(value, oldValue) {
         const me = this;
 
-        me.isCanvasReady && me.renderer?.setLook({...value, ...me.address()})
+        me.isCanvasReady && me.renderer?.setLook({...value, canvasId: me.getCanvasId(), windowId: me.windowId})
     }
 
     /**
@@ -167,7 +176,7 @@ class Canvas extends SharedCanvas {
     afterSetRecord(value, oldValue) {
         const me = this;
 
-        me.isCanvasReady && me.renderer?.setRecord({record: value, ...me.address()})
+        me.isCanvasReady && me.renderer?.setRecord({canvasId: me.getCanvasId(), record: value, windowId: me.windowId})
     }
 
     /**
@@ -204,16 +213,21 @@ class Canvas extends SharedCanvas {
     afterSetStill(value, oldValue) {
         const me = this;
 
-        me.isCanvasReady && me.renderer?.setMotion({still: value, ...me.address()})
+        me.isCanvasReady && me.renderer?.setMotion({canvasId: me.getCanvasId(), still: value, windowId: me.windowId})
     }
 
     /**
-     * @summary What routes a call to this host's renderer: its canvas and its window.
-     * @returns {Object} `{canvasId, windowId}`
-     * @protected
+     * @summary Takes the size listeners back from the statement's components: they are not this host's, and one
+     * that outlives it would go on calling a host that is gone.
+     * @param {...*} args
      */
-    address() {
-        return {canvasId: this.getCanvasId(), windowId: this.windowId}
+    destroy(...args) {
+        const me = this;
+
+        me.watched.forEach(id => Neo.getComponent(id)?.removeDomListeners(me.statementListener));
+        me.watched.clear();
+
+        super.destroy(...args)
     }
 
     /**
@@ -248,9 +262,10 @@ class Canvas extends SharedCanvas {
             const {x, y} = me.canvasRect, local = rect => rect && {height: rect.height, width: rect.width, x: rect.x - x, y: rect.y - y};
 
             me.renderer.setQuiet({
-                bands : rects.slice(blockIds.length).map(local).filter(Boolean),
-                blocks: rects.slice(0, blockIds.length).map(local).filter(Boolean),
-                ...me.address()
+                bands   : rects.slice(blockIds.length).map(local).filter(Boolean),
+                blocks  : rects.slice(0, blockIds.length).map(local).filter(Boolean),
+                canvasId: me.getCanvasId(),
+                windowId: me.windowId
             })
         }
     }
@@ -284,7 +299,7 @@ class Canvas extends SharedCanvas {
     async readStats() {
         const me = this;
 
-        return me.isCanvasReady && me.renderer ? me.renderer.getStats(me.address()) : null
+        return me.isCanvasReady && me.renderer ? me.renderer.getStats({canvasId: me.getCanvasId(), windowId: me.windowId}) : null
     }
 
     /**
@@ -305,14 +320,14 @@ class Canvas extends SharedCanvas {
      * what stands below it, without resizing the canvas.
      */
     watchStatement() {
-        const me = this;
+        const me = this, listener = me.statementListener ??= {resize: me.measureStatement, scope: me};
 
         [...me.blockIds, ...me.bandIds].forEach(id => {
             const component = Neo.getComponent(id);
 
             if (component && !me.watched.has(id)) {
                 me.watched.add(id);
-                component.addDomListeners({resize: me.measureStatement, scope: me})
+                component.addDomListeners(listener)
             }
         })
     }

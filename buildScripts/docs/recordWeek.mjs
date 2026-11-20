@@ -201,7 +201,7 @@ export function buildRecord({from, pulls, repo, to}) {
         repo,
         from   : new Date(from).toISOString(),
         to     : new Date(to).toISOString(),
-        // the scene opens the caption with the count in this unit; a caption too long for its room loses its last parts
+        // the scene opens the caption with the count in this unit; a caption too long for its room keeps the window
         caption: [
             windowLabel(from, to),
             counted(totals.reviews, 'review'),

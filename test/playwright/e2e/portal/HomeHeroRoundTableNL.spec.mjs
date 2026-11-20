@@ -84,6 +84,9 @@ test.describe('Portal home hero: the round table stands around the statement (Ne
             expect(stats.strip, 'the strip stands at every size').not.toBeNull();
             expect(stats.strip[1] + stats.strip[3], 'inside the canvas').toBeLessThanOrEqual(stats.size.height);
 
+            // where the surface is tall enough, the strip leaves the bottom its room
+            viewport.height === 900 && expect(stats.size.height - stats.strip[1] - stats.strip[3], 'the room below the strip').toBe(48);
+
             if (mode === 'table') {
                 expect(stats.seats.map(seat => seat.kind).filter(kind => kind === 'merge')).toHaveLength(1);
                 expect(stats.seats.filter(seat => seat.kind === 'seat').length, 'the maintainers').toBeGreaterThan(1)

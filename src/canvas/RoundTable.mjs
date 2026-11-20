@@ -31,7 +31,9 @@ const
  *
  * The record (`version: 1`): `{from, to, caption, unit, groups: [{id, name}], seats: [{id, name, group, kind}],
  * items: [[number, title, seat, login, opened, merged, [[seat, 'A' | 'C', minute], …]], …]}` with times in minutes
- * from `from`. `buildScripts/docs/recordWeek.mjs` writes one from a repository's merged pull requests.
+ * from `from`. The `caption`'s parts are joined by ` · ` and its first names the window: that part always shows.
+ * The `unit` says what an item is and, after a comma, what a square is. `buildScripts/docs/recordWeek.mjs` writes
+ * a record from a repository's merged pull requests.
  *
  * The quiet rects, the still frame and the pixel-ratio buffer follow `AgentOS.canvas.Home` of
  * `neomjs/neo-agent-institution`.
@@ -50,16 +52,18 @@ class RoundTable extends Base {
         className: 'Neo.canvas.RoundTable',
         /**
          * The scene's measures, in CSS pixels: the left arc's span in degrees (`arc`, mirrored on the right), the
-         * room kept free under the strip (`bottom`), the gap between day columns (`dayGap`), the font stack and
-         * the sizes of names (`label`) and of the strip's words (`small`), the room between the statement and
-         * anything drawn (`margin`), a seat's radius (`seat`), and the strip's square sizes to try, largest first
-         * (`squares`, each with the gap it keeps).
+         * room kept free under the strip (`bottom`), the gap between day columns (`dayGap`), the smallest square
+         * the strip takes for that room's sake (`floor`), the font stack and the sizes of names (`label`) and of
+         * the strip's words (`small`), the room between the statement and anything drawn (`margin`), a seat's
+         * radius (`seat`), and the strip's square sizes to try, largest first (`squares`, each with the gap it
+         * keeps).
          * @member {Object} measures
          */
         measures: {
             arc    : [128, 232],
             bottom : 48,
             dayGap : 18,
+            floor  : 5,
             font   : 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
             label  : 13,
             margin : 20,
@@ -324,8 +328,9 @@ class RoundTable extends Base {
      * @summary Lays the scene out around the statement for a size: the strip below it, the merge seat above the
      * strip, the ring through the merge seat and around the statement, the seats on the ring's two side arcs.
      *
-     * The strip takes the largest square size whose rows fit between the statement and the room kept free at the
-     * bottom; that room shrinks before the strip does. A seat takes no place in a band's rows and none whose dot,
+     * The strip takes the largest squares that leave the bottom its room (`measures.bottom`). Where none does, the
+     * squares step down to `measures.floor` before that room shrinks, and go below the floor only where nothing
+     * larger stands. A seat takes no place in a band's rows and none whose dot,
      * name or desk would touch a block. The first half of the seats take the left arc, top to bottom, with the
      * door last; the rest take the right arc, each side as far apart as its free places allow. Where the sides do
      * not hold every seat with its name, the strip stands alone (`mode: 'strip'`); where not even the strip fits,
@@ -370,24 +375,31 @@ class RoundTable extends Base {
                     stripW = ringed ? tryRing * 2 : Math.min(width - 32, 1180),
                     dayGap = stripW < 600 ? 8 : measures.dayGap,
                     dayW   = (stripW - (days - 1) * dayGap) / days,
-                    words  = stripW >= 600 ? measures.small + 7 : 0; // the day names' row
+                    words  = stripW >= 600 ? measures.small + 7 : 0, // the day names' row
+                    // every size that stands, largest first, with the room it leaves below
+                    stands = days > 0 ? measures.squares.map(([size, gap]) => {
+                        const
+                            pitch   = size + gap,
+                            columns = Math.max(1, (dayW + gap) / pitch | 0),
+                            rows    = Math.max(1, Math.ceil(dayMax / columns));
 
-                for (const [size, gap] of measures.squares) {
-                    const
-                        pitch   = size + gap,
-                        columns = Math.max(1, (dayW + gap) / pitch | 0),
-                        rows    = Math.max(1, Math.ceil(dayMax / columns)),
-                        need    = rows * pitch + words + measures.small + 10 + (ringed ? 26 : 0),
-                        free    = Math.min(measures.bottom, room - need);
+                        return {columns, gap, pitch, rows, size, free: room - rows * pitch - words - measures.small - 10 - (ringed ? 26 : 0)}
+                    }).filter(strip => strip.free >= 4) : [],
+                    legible = stands.filter(strip => strip.size >= measures.floor),
+                    strip   = legible.find(strip => strip.free >= measures.bottom)
+                        || legible.reduce((most, strip) => strip.free > most.free ? strip : most, legible[0])
+                        || stands[0];
 
-                    if (days > 0 && free >= 4) {
-                        const captionY = height - free - 4, baseline = captionY - measures.small - 6 - words;
-
-                        return {baseline, captionY, columns, dayGap, dayW, gap, pitch, ringed, size, top: baseline - rows * pitch, width: stripW, words, x: cx - stripW / 2}
-                    }
+                if (!strip) {
+                    return null
                 }
 
-                return null
+                const
+                    {columns, gap, pitch, rows, size} = strip,
+                    captionY                          = height - Math.min(measures.bottom, strip.free) - 4,
+                    baseline                          = captionY - measures.small - 6 - words;
+
+                return {baseline, captionY, columns, dayGap, dayW, gap, pitch, ringed, size, top: baseline - rows * pitch, width: stripW, words, x: cx - stripW / 2}
             };
 
         place.strip = tryRing && fit(true) || fit(false);
@@ -577,16 +589,38 @@ class RoundTable extends Base {
     /**
      * @summary The strip's caption: how many of the record's items have landed, in the record's own `unit`, then
      * the record's caption. A strip half full then reads as a replay under way. A still scene names the total.
-     * @param {Number} landed
+     *
+     * Given a test of what `fits`, the caption is shortened until it passes. The record's caption gives up its
+     * parts from the end, but never the first: it names the window, and a count without its dates would not stay
+     * true at any age. Then the unit gives up what follows its comma, then the unit goes.
+     * @param {Number}   landed
+     * @param {Function} [fits] Whether a text has room; without it the caption is whole
      * @returns {String}
      */
-    captionOf(landed) {
+    captionOf(landed, fits) {
         const
-            {indexed: data, record} = this,
-            unit                    = record.unit ? ` ${record.unit}` : '',
-            head                    = this.still ? unit && `${data.count}${unit}` : `${landed} / ${data.count}${unit}`;
+            {indexed: data, record, still} = this,
+            parts                          = String(record.caption ?? '').split(' · ').filter(Boolean),
+            least                          = Math.min(1, parts.length),
+            whole                          = record.unit || '',
+            units                          = fits ? [...new Set([whole, whole.split(',')[0], ''])] : [whole];
 
-        return [head, record.caption].filter(Boolean).join(' · ')
+        let text = '';
+
+        for (const unit of units) {
+            const words = unit && ` ${unit}`, head = still ? words && `${data.count}${words}` : `${landed} / ${data.count}${words}`;
+
+            // only the whole unit is worth more of the caption than its window
+            for (let n = unit === whole ? parts.length : least; n >= least; n--) {
+                text = [head, ...parts.slice(0, n)].filter(Boolean).join(' · ');
+
+                if (!fits || fits(text)) {
+                    return text
+                }
+            }
+        }
+
+        return text
     }
 
     /**
@@ -748,7 +782,7 @@ class RoundTable extends Base {
                     ey     = u * u * sy + 2 * u * reach * cY + reach * reach * spot[1];
 
                 ctx.strokeStyle = ctx.fillStyle = change ? palette.warn : me.colourOf(palette, record.seats[seat]);
-                ctx.globalAlpha = 0.7 * fade;
+                ctx.globalAlpha = (palette.chord ?? 0.7) * fade;
                 ctx.lineWidth   = change ? 1.6 : 1.2;
                 ctx.beginPath();
                 ctx.moveTo(sx, sy);
@@ -1030,14 +1064,7 @@ class RoundTable extends Base {
 
         // the caption is fitted once per landing
         if (landed !== words.count || end !== words.room) {
-            let caption = me.captionOf(landed);
-
-            // a caption too long for its room loses its last parts
-            while (caption.includes(' · ') && ctx.measureText(caption).width > end - strip.x) {
-                caption = caption.slice(0, caption.lastIndexOf(' · '))
-            }
-
-            words.caption = caption;
+            words.caption = me.captionOf(landed, text => ctx.measureText(text).width <= end - strip.x);
             words.count   = landed;
             words.room    = end
         }
@@ -1279,8 +1306,9 @@ class RoundTable extends Base {
 
     /**
      * @summary Remote entry: the look the host draws the scene in. `palettes` holds one palette per theme,
-     * `{ground: [from, to], ink, inkDim, line, card, warn, door, merge, groups: {<group id>: colour}}`; `measures`
-     * and `pace` replace the parts of the scene's own they name.
+     * `{ground: [from, to], ink, inkDim, line, card, warn, door, merge, groups: {<group id>: colour}}`, and may name
+     * how opaque a review chord is (`chord`, 0.7 without it); `measures` and `pace` replace the parts of the scene's
+     * own they name.
      * @param {Object} data
      * @param {Object} [data.measures]
      * @param {Object} [data.pace]

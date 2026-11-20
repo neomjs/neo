@@ -145,6 +145,31 @@ test.describe('Neo.app.roundtable.Canvas — what the host hands its renderer', 
         expect(listeners[0][1]).toEqual({resize: host.measureStatement, scope: host})
     });
 
+    test('a host that goes takes its listener back from the statement\'s components that remain', () => {
+        const added = [], removed = [], original = Neo.getComponent, component = id => ({
+            addDomListeners   : config => added.push([id, config]),
+            removeDomListeners: config => removed.push([id, config])
+        });
+
+        Neo.getComponent = component;
+
+        try {
+            host.blockIds = ['logo'];
+            host.bandIds  = ['headline'];
+            host.watchStatement();
+
+            // the logo went before the host does
+            Neo.getComponent = id => id === 'logo' ? null : component(id);
+            host.destroy()
+        } finally {
+            Neo.getComponent = original
+        }
+
+        expect(added.map(([id]) => id)).toEqual(['logo', 'headline']);
+        expect(removed.map(([id]) => id)).toEqual(['headline']);
+        expect(removed[0][1], 'the listener it added, not a copy').toBe(added[1][1])
+    });
+
     test('a record url loads its file; a file that is missing or unreadable leaves the table without a record', async () => {
         const settled = () => new Promise(resolve => setTimeout(resolve, 5));
 

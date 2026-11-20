@@ -41,6 +41,7 @@ class CanvasComponent extends RoundTableCanvas {
                 },
                 light: {
                     card  : 'rgba(255, 255, 255, 0.96)',
+                    chord : 0.9, // a thin line on white needs more of its colour than one on navy
                     door  : '#39425C',
                     ground: ['rgba(62, 99, 221, 0.05)', 'rgba(139, 166, 255, 0.05)'],
                     groups: {claude: '#6D4AE6', gemini: '#1F6FEB', gpt: '#0E8F82'},
