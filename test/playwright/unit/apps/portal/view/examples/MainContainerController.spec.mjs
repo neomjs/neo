@@ -148,7 +148,7 @@ test.describe('Portal examples overview and group pages', () => {
         expect(pageIds(view, 'drag-drop')).toEqual(['multi-window-drag-drop', 'dialog-drag-drop', 'dock-tear-out']);
         expect(pageIds(view, 'apps')).toEqual([
             'workstation', 'devindex', 'shared-covid', 'webdesktop', 'multi-window-drag-drop', 'colors-dashboard',
-            'covid-dashboard', 'portal', 'form-app', 'finance', 'email'
+            'covid-dashboard', 'portal', 'form-app', 'finance', 'email', 'on-air-at-eight'
         ]);
 
         // every card and tile of every page has its image; the catalog keeps the records that wait for one
@@ -697,8 +697,8 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           'workstation', 'shared-covid', 'multi-window-covid-gallery', 'shared-offscreen-canvas',
           'multi-window-drag-drop', 'colors-dashboard'
       ],
-      // the Multi-Window page also shows dock-cross-window, dock-tear-out and Email, whose alsoIn names it
-      multiWindowPageIds    = [...coveredMultiWindowIds, 'dock-cross-window', 'dock-tear-out', 'email'],
+      // the Multi-Window page also shows the dock examples, Email and On Air at Eight through alsoIn
+      multiWindowPageIds    = [...coveredMultiWindowIds, 'dock-cross-window', 'dock-tear-out', 'email', 'on-air-at-eight'],
       // every group: each has a card or tile a production build opens on this catalog, in definition order
       publishedRoutes = [
           '/examples/apps', '/examples/grid', '/examples/tree', '/examples/lists', '/examples/charts',
@@ -711,10 +711,10 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
       // [home count, count from other groups] per group in a production build, in definition order.
       // One group per line, so examples PRs on different groups never edit the same line.
       groupCounts = {
-          apps          : [6, 5],
+          apps          : [7, 5],
           'grid-table'  : [20, 0],
           tree          : [0, 2],
-          lists         : [12, 0],
+          lists         : [12, 1],
           charts        : [5, 1],
           calendar      : [1, 0],
           scheduler     : [2, 0],
@@ -727,13 +727,13 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           forms         : [30, 1],
           buttons       : [4, 1],
           components    : [13, 0],
-          'multi-window': [6, 3],
+          'multi-window': [6, 4],
           platform      : [2, 1],
           state         : [1, 0],
           functional    : [3, 2],
           'drag-drop'   : [0, 3]
       },
-      recordCount    = 126,
+      recordCount    = 127,
       publishedCount = Object.values(groupCounts).reduce((sum, [count]) => sum + count, 0),
       groupCount     = Object.keys(groupCounts).length,
       // every record with a cover publishes in a production build, so the rest wait for one
@@ -924,6 +924,7 @@ test.describe('Portal examples canonical catalog', () => {
             'dock-cross-window'      : ['multi-window'],
             'dock-tear-out'          : ['multi-window', 'drag-drop'],
             'email'                  : ['multi-window', 'functional'],
+            'on-air-at-eight'        : ['lists', 'multi-window'],
             'live-preview'           : ['functional']
         })
     });
@@ -982,7 +983,7 @@ test.describe('Portal examples canonical catalog', () => {
             ...coveredMultiWindowIds, 'multi-window-helix', 'multi-window-state-provider'
         ]);
         expect(catalogStore.items.filter(record => Example.belongsTo(record, 'multi-window') && record.family !== 'multi-window')
-            .map(record => record.id)).toEqual(['dock-cross-window', 'dock-tear-out', 'email']);
+            .map(record => record.id)).toEqual(['dock-cross-window', 'dock-tear-out', 'email', 'on-air-at-eight']);
 
         for (const mode of modes) {
 
@@ -1001,7 +1002,7 @@ test.describe('Portal examples canonical catalog', () => {
               completeIds = [
                   ...startHereIds, ...establishedTailIds, ...componentExampleIds, ...establishedMiddleIds,
                   ...newExampleIds, ...formExampleIds, 'board-swimlanes', 'scheduler-big-data', 'gantt-big-data', 'timeline-basic',
-                  ...multiWindowExampleIds, 'finance', 'email', ...newTileIds, ...layoutExampleIds
+                  ...multiWindowExampleIds, 'finance', 'email', 'on-air-at-eight', ...newTileIds, ...layoutExampleIds
               ],
               excluded = {
                   devmode  : ['portal', 'liquid-glass'],
@@ -1191,7 +1192,8 @@ test.describe('Portal examples canonical catalog', () => {
 
         expect(store.get('grid-issues').scope).toContain('issue snapshot');
         expect(store.get('grid-countries').scope).toContain('CC BY 4.0');
-        expect(list.getBackgroundImageStyle(store.get('grid-tree')).backgroundImage).toContain('grid-tree-14.jpg');
+        expect(list.getBackgroundImageStyle(store.get('grid-tree')).backgroundImage).toContain(`url('${list.imageBasePath}/devmode/grid-tree-14.jpg')`);
+        expect(list.getBackgroundImageStyle(store.get('on-air-at-eight')).backgroundImage).toContain("url('./resources/images/examples/on-air-at-eight-14.jpg')");
         const uncovered = store.items.find(record => !record.image);
         expect(uncovered).toBeDefined();
         expect(list.getBackgroundImageStyle(uncovered).backgroundImage).not.toContain('url(')

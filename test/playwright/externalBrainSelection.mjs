@@ -90,6 +90,7 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'grid/StoreUpdateRowsNL.spec.mjs',
     'grid/StreamingExample.spec.mjs',
     'list/AnimateMembershipNL.spec.mjs',
+    'list/OnAir.spec.mjs',
     'list/ReorderExampleNL.spec.mjs',
     'neural-link/CreateComponent.spec.mjs',
     'neural-link/CreateGrid.spec.mjs',

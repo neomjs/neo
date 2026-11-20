@@ -1065,7 +1065,7 @@
     },
     "/examples/apps": {
         "title": "JavaScript Web App Examples — Full Apps on Worker Threads | Neo.mjs",
-        "description": "Explore 11 live JavaScript web app examples: A living-data workspace whose panes can leave the browser window; GitHub contributor rankings in a buffered grid.",
+        "description": "Explore 12 live JavaScript web app examples: A living-data workspace whose panes can leave the browser window; GitHub contributor rankings in a buffered grid.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-20"
     },
@@ -1083,7 +1083,7 @@
     },
     "/examples/lists": {
         "title": "JavaScript Lists & Galleries — 3D Helix & Gallery Views | Neo.mjs",
-        "description": "Explore 12 live JavaScript list and gallery examples: Image items on a 3D helix that you reshape live.",
+        "description": "Explore 13 live JavaScript list and gallery examples: Image items on a 3D helix that you reshape live.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-20"
     },
@@ -1161,7 +1161,7 @@
     },
     "/examples/multi-window": {
         "title": "Multi-Window JavaScript App Examples — SharedWorker State | Neo.mjs",
-        "description": "Explore 9 live multi-window JavaScript app examples: A living-data workspace whose panes can leave the browser window.",
+        "description": "Explore 10 live multi-window JavaScript app examples: A living-data workspace whose panes can leave the browser window.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-20"
     },
@@ -1829,7 +1829,7 @@
         "title": "Grid: Animated Row Sorting — Web Worker Data Grid Demo | Neo.mjs",
         "description": "Animated sorting and filtering. Sort a header or filter Firstname, then adjust the transition duration to watch the rows move.",
         "schemaType": "WebPage",
-        "lastmod": "2026-10-20"
+        "lastmod": "2026-11-20"
     },
     "/examples/grid/bigData/index.html": {
         "title": "JavaScript Data Grid — 100k Rows & 200 Columns in a Web Worker | Neo.mjs",
@@ -1992,6 +1992,12 @@
         "description": "A list of colors over a store. Select a color, then toggle disableSelection in the panel.",
         "schemaType": "WebPage",
         "lastmod": "2025-07-11"
+    },
+    "/examples/list/onAir/index.html": {
+        "title": "On Air at Eight — Live Broadcast Desk | Neo.mjs",
+        "description": "Direct a live TV opening from a sortable rundown that drives the program feed and the presenter’s next cue. Drag Night Service ahead of the late guest, then...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-20"
     },
     "/examples/list/reorder/index.html": {
         "title": "Reorder by Drag — Web Worker JavaScript UI Demo | Neo.mjs",

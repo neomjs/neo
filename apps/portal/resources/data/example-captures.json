@@ -551,6 +551,16 @@
       "region": {"x": 320, "y": 0, "width": 640, "height": 360}
     },
     {
+      "id": "on-air-at-eight",
+      "viewport": {"width": 694, "height": 800},
+      "theme": "default",
+      "state": "The director’s opening desk with the show titles on the program monitor and the rundown ready to reorder.",
+      "ready": [{"selector": ".air-desk"}, {"selector": ".air-list .neo-list-item"}],
+      "steps": [],
+      "after": [{"selector": ".air-titles .air-feed-title", "text": "Night Edition", "inRegion": true}, {"selector": ".air-list .neo-list-item", "text": "Night Service", "inRegion": true}],
+      "region": {"selector": ".air-layout", "anchor": "top-left", "offsetY": -10, "width": 640, "height": 360}
+    },
+    {
       "id": "scheduler-big-data",
       "viewport": {"width": 1280, "height": 720},
       "theme": "dark",

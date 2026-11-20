@@ -2244,6 +2244,28 @@
         "hiddenIn": []
     },
     {
+        "id": "on-air-at-eight",
+        "family": "apps",
+        "alsoIn": ["lists", "multi-window"],
+        "component": "Sortable List",
+        "name": "On Air at Eight",
+        "sharedWorkers": true,
+        "environments": ["Desktop"],
+        "image": "./resources/images/examples/on-air-at-eight-14.jpg",
+        "feature": "Direct a live TV opening from a sortable rundown that drives the program feed and the presenter’s next cue.",
+        "lookFor": "Drag Night Service ahead of the late guest, then press Take next cue to put the film on air. Replay with the guest first to see the difference.",
+        "keywords": ["broadcast", "rundown", "drag", "reorder", "presenter", "popup"],
+        "scope": "A local broadcast simulation. Play at one desk or open a second window for the presenter.",
+        "sourceUrl": "examples/list/onAir",
+        "urls": {
+            "devmode": "examples/list/onAir/index.html",
+            "dist_dev": "dist/development/examples/list/onAir/index.html",
+            "dist_esm": "dist/esm/examples/list/onAir/index.html",
+            "dist_prod": "dist/production/examples/list/onAir/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
         "id": "button-base",
         "kind": "component",
         "image": "devmode/tiles/button-base-14.jpg",
