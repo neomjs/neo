@@ -7,7 +7,8 @@ import Model from '../../../src/data/Model.mjs';
  * `Portal.view.examples.MainContainer#familyDefinitions`. `count` and `crossCount` follow the catalog and the
  * selected build (`Portal.view.examples.MainContainerController#publishGroups()`). `count` holds the group's home records
  * that publish, cards and tiles alike, so every example counts once and the counts add up to the overview's headline.
- * `crossCount` holds the ones other groups lend it through `alsoIn`: shown on its page, not counted. `tileCount` holds the
+ * `crossCount` holds the ones other groups lend it through `alsoIn`: they show on its page and in its number
+ * (`countText`, `countLabel`: `count + crossCount`), never in the overview's headline. `tileCount` holds the
  * tiles its page shows, its own and lent ones (`kind: 'component'`): the page heads its cards and its tiles only when it
  * shows both.
  * @class Portal.model.ExampleGroup
@@ -66,28 +67,25 @@ class ExampleGroup extends Model {
     }
 
     /**
-     * @summary A group's count in words, as its card and its page say it.
+     * @summary A group's count in words, as its list entry and its page say it: every live example its page shows,
+     * its own and the ones other groups lend it.
      * @param {Object} record A group record or its raw row
-     * @returns {String} e.g. '21 examples', '4 examples, 4 from other groups' or '2 from other groups'
+     * @returns {String} e.g. '1 live example' or '11 live examples'
      */
     static countLabel({count, crossCount}) {
-        if (count === 0) {
-            return `${crossCount === 1 ? '1 live example' : `${crossCount} live examples`} from other groups`
-        }
+        const total = count + crossCount;
 
-        const home = count === 1 ? '1 live example' : `${count} live examples`;
-
-        return crossCount > 0 ? `${home}, ${crossCount} from other groups` : home
+        return total === 1 ? '1 live example' : `${total} live examples`
     }
 
     /**
-     * @summary A group's number in the banded index: its home records, and none for a group that owns none. What a
-     * group borrows from others is said in words by {@link #countLabel}, the entry's `aria-label` and its page's line.
+     * @summary A group's number in the list, the figure of {@link #countLabel}. A borrowed example counts in every group
+     * that shows it, so the numbers add up to more than the overview's headline; the line under the list says so.
      * @param {Object} record A group record or its raw row
      * @returns {String}
      */
-    static countText({count}) {
-        return count > 0 ? String(count) : ''
+    static countText({count, crossCount}) {
+        return String(count + crossCount)
     }
 }
 

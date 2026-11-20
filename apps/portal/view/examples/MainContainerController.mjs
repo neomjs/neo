@@ -184,9 +184,10 @@ class MainContainerController extends Component {
      * @summary Counts what each group publishes in the selected build, writes the groups that publish to the groups
      * store, and gives each of them a page.
      *
-     * A group counts its home records, so every example counts once and the counts add up to the overview's headline.
-     * The records other groups lend it through `alsoIn` show on its page and count as `crossCount`. A group with
-     * neither gets no entry and no page. Runs on each catalog load and build selection.
+     * `count` holds a group's home records, so every example counts once and the counts add up to the overview's
+     * headline. The records other groups lend it through `alsoIn` show on its page and count as `crossCount`; the list
+     * and the page show the sum of both. A group with neither gets no entry and no page. Runs on each catalog load and
+     * build selection.
      */
     publishGroups() {
         const view                             = this.component,

@@ -156,14 +156,21 @@ class GroupIndex extends Component {
 
     /**
      * @summary Renders optional unbanded groups above the bands, then every banded group in its section. A band without
-     * a published group has no section.
+     * a published group has no section. While a group borrows and no filter is on, one line under the list gives the
+     * published total, since a borrowed example counts in every group that shows it.
      */
     createEntries() {
-        let me       = this,
-            bands    = new Map(),
-            unbanded = [];
+        let me        = this,
+            bands     = new Map(),
+            borrowing = false,
+            published = 0,
+            unbanded  = [];
 
         me.store.forEach(group => {
+            // each example counts once at home: the overview's headline sums the same figure
+            published += group.count;
+            borrowing ||= group.crossCount > 0;
+
             if (group.band) {
                 bands.has(group.band) || bands.set(group.band, []);
                 bands.get(group.band).push(group)
@@ -185,7 +192,9 @@ class GroupIndex extends Component {
                     {tag: 'h3', text: band},
                     {tag: 'ul', cn: groups.map(group => me.createEntry(group))}
                 ]
-            }))
+            })),
+            {tag: 'p', cls: ['portal-examples-group-index-note'], removeDom: !borrowing || !!me.matchCounts,
+                text: `${published} examples in all. Some appear in more than one group.`}
         ];
 
         me.update()
@@ -203,18 +212,12 @@ class GroupIndex extends Component {
         let countText, ariaLabel, liCls;
 
         if (me.matchCounts) {
-            const home  = counts?.home || 0,
-                  cross = counts?.cross || 0,
-                  total = counts?.total || 0;
+            const total = counts?.total || 0;
 
-            // a group matching only through borrowed examples shows no number, as without a filter; its label says so
-            countText = home > 0 ? String(home) : cross > 0 ? '' : '0';
-            ariaLabel = home > 0
-                ? `${group.title}, ${home === 1 ? '1 matching example' : `${home} matching examples`}`
-                : cross > 0
-                    ? `${group.title}, ${cross === 1 ? '1 matching example' : `${cross} matching examples`} from other groups`
-                    : `${group.title}, 0 matching examples`;
-            liCls = total === 0 ? ['portal-examples-group-index-zero'] : null
+            // as without a filter, a group's number is what its page shows: its own matches and the borrowed ones
+            countText = String(total);
+            ariaLabel = `${group.title}, ${total === 1 ? '1 matching example' : `${total} matching examples`}`;
+            liCls     = total === 0 ? ['portal-examples-group-index-zero'] : null
         } else {
             countText = ExampleGroup.countText(group);
             ariaLabel = `${group.title}, ${ExampleGroup.countLabel(group)}`
