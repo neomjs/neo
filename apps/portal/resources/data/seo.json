@@ -1089,7 +1089,7 @@
     },
     "/examples/charts": {
         "title": "JavaScript Charts, Canvas & Maps — OffscreenCanvas Demos | Neo.mjs",
-        "description": "Explore 5 live JavaScript chart and canvas examples: A chart of up to a million points, drawn in a canvas worker.",
+        "description": "Explore 6 live JavaScript chart and canvas examples: A chart of up to a million points, drawn in a canvas worker.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-19"
     },
