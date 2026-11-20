@@ -10,9 +10,13 @@
     min-width            : 0;
     overflow             : hidden;
 
+    /* A setting beside the page's action, so lower and lighter than that action */
     .portal-examples-build-control.neo-button {
+        --button-height          : 36px;
+        --button-text-font-size  : 14px;
+        --button-text-font-weight: var(--core-fontweight-regular);
+
         border-radius: 8px;
-        font-size    : 14px;
         white-space  : nowrap;
     }
 

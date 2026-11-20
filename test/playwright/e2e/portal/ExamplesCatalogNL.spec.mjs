@@ -98,9 +98,12 @@ async function openGroup(page, name) {
  * @returns {Promise<void>}
  */
 async function selectBuild(page, label) {
-    await page.getByRole('button', {name: /^Running /}).locator('visible=true').click();
+    const control = page.getByRole('button', {name: /^Examples open in: /}).locator('visible=true');
+
+    await control.click();
     await page.locator('.neo-menu-list:visible .neo-list-item').filter({hasText: label}).click();
-    await expect(page.locator('.neo-menu-list:visible')).toHaveCount(0)
+    await expect(page.locator('.neo-menu-list:visible')).toHaveCount(0);
+    await expect(control).toHaveText(`Examples open in: ${label}`)
 }
 
 /**
@@ -265,6 +268,13 @@ test.describe('Portal examples section', () => {
             await expect(featured.locator('.neo-list-item').first()).toBeVisible();
             await expect(featured.locator('.neo-list-item')).toHaveCount((await readOverviewList(app)).properties.store.count);
             await expect.poll(() => links.locator('.portal-examples-group-index-title').allTextContents()).toEqual(GROUPS);
+
+            // the build control is a setting beside the page's action, not a second action
+            expect(await page.locator('.portal-examples-build-control').locator('visible=true').evaluate(node => ({
+                height: node.getBoundingClientRect().height,
+                label : node.textContent.trim(),
+                weight: getComputedStyle(node.querySelector('.neo-button-text')).fontWeight
+            }))).toEqual({height: 36, label: 'Examples open in: Production build', weight: '400'});
 
             if (isPhone) {
                 const indexBox = await page.locator(MOBILE_IX).evaluate(node => ({height: node.getBoundingClientRect().height}));
@@ -476,7 +486,7 @@ test.describe('Portal examples section', () => {
         await openOverview(page);
         await openGroup(page, 'Multi-Window');
         // the build selected on another page holds here
-        await expect(page.getByRole('button', {name: /^Running /}).locator('visible=true')).toHaveText(/Running the ESM build/);
+        await expect(page.getByRole('button', {name: /^Examples open in: /}).locator('visible=true')).toHaveText('Examples open in: ESM build');
         await expect((await readList(app, 'multi-window')).properties.catalogMode).toBe('dist_esm');
         expect(await page.locator(PAGE).evaluate(node => node.scrollTop)).toBe(0);
 

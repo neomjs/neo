@@ -36,14 +36,15 @@ class MainContainer extends Container {
             findQuery  : data => data.findQuery
         },
         /**
-         * The builds the section can open its examples in. `text` names a build in the menu, `status` in the control.
+         * The builds the section can open its examples in. `text` names a build in the menu and, after
+         * "Examples open in:", on the control.
          * @member {Object[]} buildModes
          */
         buildModes: [
-            {id: 'dist_prod', text: 'Production build',  status: 'Running the production build'},
-            {id: 'dist_esm',  text: 'ESM build',         status: 'Running the ESM build'},
-            {id: 'dist_dev',  text: 'Development build', status: 'Running the development build'},
-            {id: 'devmode',   text: 'Dev mode',          status: 'Running in dev mode'}
+            {id: 'dist_prod', text: 'Production build'},
+            {id: 'dist_esm',  text: 'ESM build'},
+            {id: 'dist_dev',  text: 'Development build'},
+            {id: 'devmode',   text: 'Dev mode'}
         ],
         /**
          * The selected build mode, bound to the state provider's `catalogMode`. The overview and group pages filter by
@@ -222,7 +223,7 @@ class MainContainer extends Container {
 
     /**
      * @summary The build control the overview and every group page show: one button whose menu selects the build,
-     * labelled with the build that runs.
+     * labelled as the setting it is, "Examples open in:" and the selected build.
      * @returns {Object}
      */
     createBuildControl() {
@@ -230,7 +231,7 @@ class MainContainer extends Container {
 
         return {
             module      : Button,
-            bind        : {text: data => me.buildModes.find(mode => mode.id === data.catalogMode).status},
+            bind        : {text: data => `Examples open in: ${me.buildModes.find(mode => mode.id === data.catalogMode).text}`},
             cls         : ['portal-examples-build-control'],
             iconCls     : 'fa fa-chevron-down',
             iconPosition: 'right',
