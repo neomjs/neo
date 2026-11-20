@@ -1,7 +1,8 @@
-import BaseList from '../../../../src/list/Base.mjs';
-import Example  from '../../model/Example.mjs';
-import NeoArray from '../../../../src/util/Array.mjs';
-import VDomUtil from '../../../../src/util/VDom.mjs';
+import BaseList  from '../../../../src/list/Base.mjs';
+import Example   from '../../model/Example.mjs';
+import ListModel from './ListModel.mjs';
+import NeoArray  from '../../../../src/util/Array.mjs';
+import VDomUtil  from '../../../../src/util/VDom.mjs';
 
 /**
  * @class Portal.view.examples.List
@@ -57,6 +58,11 @@ class List extends BaseList {
          * @member {Number} preloadImages=5
          */
         preloadImages: 5,
+        /**
+         * @member {Portal.view.examples.ListModel} selectionModel=ListModel
+         * @reactive
+         */
+        selectionModel: ListModel,
         /**
          * Show each card's home group title badge (`groupTitles[record.family]`) in the upper-left corner.
          * @member {Boolean} showGroup_=false
@@ -338,14 +344,6 @@ class List extends BaseList {
     }
 
     /**
-     * @summary Disables `ListModel#onListClick` desktop auto-selection; touch tap toggling runs in {@link #onItemClick}.
-     * @returns {undefined}
-     */
-    getInteractiveItemIndex() {
-        return undefined
-    }
-
-    /**
      * @returns {Object}
      */
     getVdomRoot() {
@@ -423,38 +421,6 @@ class List extends BaseList {
             NeoArray.remove(cls, 'portal-examples-pointer');
             NeoArray.add(cls, 'portal-examples-keyboard');
             me.cls = cls
-        }
-    }
-
-    /**
-     * @summary Toggles `.neo-selected` on touch/pen taps or `<= 600px` single-column clicks outside `<a>` links so
-     * compact cards open and close one at a time.
-     * @param {Object} node
-     * @param {Object} data
-     */
-    onItemClick(node, data) {
-        super.onItemClick(node, data);
-
-        let me               = this,
-            {selectionModel} = me;
-
-        if (me.tiles || !selectionModel || (data.pointerType === 'mouse' && !me.isCompactViewport(data))) {
-            return
-        }
-
-        for (const entry of data.path || []) {
-            if (entry.id === node.id) {
-                break
-            }
-            if (entry.tagName === 'a') {
-                return
-            }
-        }
-
-        if (selectionModel.isSelected(node.id)) {
-            selectionModel.deselect(node.id)
-        } else {
-            selectionModel.select(node.id)
         }
     }
 
