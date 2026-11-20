@@ -2,17 +2,17 @@
     "/": {
         "title": "Neo.mjs - An Agent Institution",
         "description": "Neo.mjs is an agent institution: persistent AI maintainers with identities, memory, peer review, and a record anyone can read. Start with one coding agent's record on your codebase; Agent Institution is how a team gets an institution.",
-        "lastmod": "2026-11-19"
+        "lastmod": "2026-11-20"
     },
     "/about-us": {
         "title": "About Us - Neo.mjs",
         "description": "Learn more about the team behind Neo.mjs.",
-        "lastmod": "2026-11-14"
+        "lastmod": "2026-11-20"
     },
     "/docs": {
         "title": "API Documentation — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "API reference for 460+ Neo.mjs classes across Web Worker UI components, virtual-scrolling data grids, reactive state providers, SharedWorkers & Canvas.",
-        "lastmod": "2026-11-14"
+        "lastmod": "2026-11-20"
     },
     "/examples": {
         "title": "Live JavaScript Examples — Web Worker Grids & Multi-Window UI | Neo.mjs",
@@ -22,65 +22,65 @@
     "/learn": {
         "title": "Developer Guides — Web Worker UI Engine, SharedWorker & AI Agent OS | Neo.mjs",
         "description": "Learn how to build off-main-thread JavaScript apps and AI Agent OS workflows with Neo.mjs: Web Worker UIs, multi-window SharedWorkers, data grids & MCP tools.",
-        "lastmod": "2026-11-19"
+        "lastmod": "2026-11-20"
     },
     "/news": {
         "title": "News, Blog & Release Notes — Multi-Threaded JavaScript Engine | Neo.mjs",
         "description": "Engineering blog posts, release notes, architectural discussions, and live demos from the Neo.mjs multi-threaded JavaScript engine and AI Agent OS team.",
-        "lastmod": "2026-11-14"
+        "lastmod": "2026-11-20"
     },
     "/news/blog": {
         "title": "Engineering Blog — Web Worker UI Architecture & AI Agent OS | Neo.mjs",
         "description": "Engineering deep dives from the Neo.mjs team on Web Worker data grids, SharedWorker multi-window UIs, OffscreenCanvas, GraphRAG memory, and MCP servers.",
-        "lastmod": "2026-11-17"
+        "lastmod": "2026-11-20"
     },
     "/news/discussions": {
         "title": "Architectural Discussions & RFCs — Neo.mjs Engine & Agent OS",
         "description": "Open architectural discussions, RFCs, and cross-model design reviews from the human and AI maintainers building the Neo.mjs engine and Agent OS.",
-        "lastmod": "2026-11-14"
+        "lastmod": "2026-11-20"
     },
     "/news/medium": {
         "title": "Medium & ITNEXT Article Archive — Neo.mjs Engineering",
         "description": "External engineering articles published by the Neo.mjs team on Medium and ITNEXT covering Web Workers, SharedWorkers, VDOM diffing, and multi-window UIs.",
-        "lastmod": "2026-11-17"
+        "lastmod": "2026-11-20"
     },
     "/news/pulls": {
         "title": "GitHub Pull Request Archive — Neo.mjs",
         "description": "Searchable archive of Neo.mjs GitHub pull requests and cross-family AI code reviews.",
         "robots": "noindex, follow",
-        "lastmod": "2026-11-14"
+        "lastmod": "2026-11-20"
     },
     "/news/releases": {
         "title": "Release Notes & Changelog — Multi-Threaded JavaScript Engine | Neo.mjs",
         "description": "Version history, architecture notes, and release highlights for the Neo.mjs multi-threaded JavaScript application engine and AI Agent OS.",
-        "lastmod": "2026-11-14"
+        "lastmod": "2026-11-20"
     },
     "/news/tickets": {
         "title": "GitHub Issue Archive — Neo.mjs",
         "description": "Searchable archive of Neo.mjs GitHub issues, bug reports, and engineering specifications.",
         "robots": "noindex, follow",
-        "lastmod": "2026-11-14"
+        "lastmod": "2026-11-20"
     },
     "/news/videos": {
         "title": "Videos & Live Demos — Multi-Window Web Apps & Agent OS | Neo.mjs",
         "description": "Recorded demos and product films of Neo.mjs multi-window browser workspaces, Web Worker data grids, OffscreenCanvas charts, and the AI maintainer team.",
-        "lastmod": "2026-11-14"
+        "lastmod": "2026-11-20"
     },
     "/services": {
         "title": "Connect with Neo.mjs",
         "description": "Build an app with Neo.mjs, explore persistent project memory for coding agents, join the public development work, or reach the maintainers directly.",
-        "lastmod": "2026-11-16"
+        "lastmod": "2026-11-20"
     },
     "/home": {
         "title": "Neo.mjs - An Agent Institution",
         "description": "Neo.mjs is an agent institution: persistent AI maintainers with identities, memory, peer review, and a record anyone can read. Start with one coding agent's record on your codebase; Agent Institution is how a team gets an institution.",
-        "lastmod": "2026-11-19"
+        "lastmod": "2026-11-20"
     },
     "/learn/UsingTheseTopics": {
         "title": "Using These Topics — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "Welcome to the Neo.mjs learning base! Neo.mjs is a complete application platform — 503 classes in 44 namespaces from grid, forms, calendar, and dashboard...",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-15"
+        "lastmod": "2026-11-20"
     },
     "/learn/benefits/Introduction": {
         "title": "What Is Neo.mjs?",
@@ -104,7 +104,7 @@
         "title": "The Application Engine for the AI Era - Neo.mjs",
         "description": "Traditional frameworks compile away. Engines stay alive.",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-07"
+        "lastmod": "2026-11-20"
     },
     "/learn/benefits/body/ObjectPermanence": {
         "title": "Object Permanence & Component Trees — Multi-Threaded JavaScript Application Engine | Neo.mjs",
@@ -176,7 +176,7 @@
         "title": "Features and Benefits Summary — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "Neo.mjs is a complete application platform for every desktop and mobile web application. It ships more than 450 classes in 44 namespaces: the components...",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-07"
+        "lastmod": "2026-11-20"
     },
     "/learn/gettingstarted/Setup": {
         "title": "Setup — Multi-Threaded JavaScript Application Engine | Neo.mjs",
@@ -284,7 +284,7 @@
         "title": "ADR 0018: Neo Identity Source-of-Truth Model - Neo.mjs",
         "description": "Neo's identity is not a document — it is a distributed property spread across ~30+ surfaces: hand-edited canonical prose (README.md, .github/VISION.md...",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-19"
+        "lastmod": "2026-11-20"
     },
     "/learn/agentos/decisions/0020-agent-harness-concept": {
         "title": "ADR 0020 moved to Agent Institution — AI Agent OS & Multi-Threaded Application Engine | Neo.mjs",
@@ -744,11 +744,11 @@
         "schemaType": "TechArticle",
         "lastmod": "2026-09-05"
     },
-    "/learn/guides/advanced/NeuralSwarm": {
-        "title": "The Neural Swarm: Simulating an \"Agent-Native\" OS - Neo.mjs",
-        "description": "The \"Neural Swarm\" (Home Hero Canvas) is more than just a background effect; it is a living simulation designed to visualize the core philosophy of Neo.mjs...",
+    "/learn/guides/advanced/RoundTable": {
+        "title": "Record-Driven Canvas Scenes: A Deterministic Replay off the Main Thread | Neo.mjs",
+        "description": "Draw a team's real work as an animated canvas scene that loops, seeks and tests exactly: one frame is a function of a record and a clock, rendered in a...",
         "schemaType": "TechArticle",
-        "lastmod": "2026-07-19"
+        "lastmod": "2026-11-20"
     },
     "/learn/guides/advanced/NeuralTimeline": {
         "title": "The Neural Timeline (App Worker Coordination) - Neo.mjs",
@@ -760,7 +760,7 @@
         "title": "The Neural Fabric: 2.5D Projection & Hexagonal Grids - Neo.mjs",
         "description": "The \"Neural Fabric\" (Services Canvas) visualizes the Neo.mjs Application Engine as a structured, engineered lattice. It represents the \"Motherboard\" or...",
         "schemaType": "TechArticle",
-        "lastmod": "2026-01-17"
+        "lastmod": "2026-11-20"
     },
     "/learn/tutorials/RSP": {
         "title": "Rock Scissors Paper — Neo.mjs Tutorial | Neo.mjs",
@@ -1061,7 +1061,7 @@
         "title": "Neo.mjs v14.0.0 Release Notes",
         "description": "Release Type: Pending the operator. Planned as a major: Engine 14 — The Front Door (ROADMAP). Stability: Pending the operator. It is set at the cut...",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-19"
+        "lastmod": "2026-11-20"
     },
     "/examples/apps": {
         "title": "JavaScript Web App Examples — Full Apps on Worker Threads | Neo.mjs",
@@ -1313,7 +1313,7 @@
         "title": "Live Preview — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "The engine's code editor runs the function component it holds, and runs it again after every edit. Open Preview and press the counter, then change its text...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-19"
+        "lastmod": "2026-11-20"
     },
     "/examples/component/canvas/index.html": {
         "title": "OffscreenCanvas Web Worker Rendering Example | Neo.mjs",
@@ -1481,7 +1481,7 @@
         "title": "Video — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A video component plays a remote MP4 and keeps the player inside a themed panel. Play the sample video, then use the sun or moon action to switch the...",
         "schemaType": "WebPage",
-        "lastmod": "2025-12-21"
+        "lastmod": "2026-11-20"
     },
     "/examples/component/wrapper/cesiumJS/index.html": {
         "title": "CesiumJS Component — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1835,7 +1835,7 @@
         "title": "JavaScript Data Grid — 100k Rows & 200 Columns in a Web Worker | Neo.mjs",
         "description": "Interactive Neo.mjs JavaScript Data Grid with up to 100,000 rows and 200 columns in a Web Worker, with virtual scrolling and zero main-thread blocking.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-17"
+        "lastmod": "2026-11-20"
     },
     "/examples/grid/cellEditing/index.html": {
         "title": "Grid CellEditing — Web Worker Data Grid Demo | Neo.mjs",
@@ -1925,7 +1925,7 @@
         "title": "TreeGrid - Big Data — Web Worker Data Grid Demo | Neo.mjs",
         "description": "An organization of 20,000 people and units as a tree grid, up to 100,000 rows, 200 columns and 20 levels. Open a squad to its people, give kudos from a...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-17"
+        "lastmod": "2026-11-20"
     },
     "/examples/grid/valueBanding/index.html": {
         "title": "Grid Value Banding — Web Worker Data Grid Demo | Neo.mjs",
@@ -2159,7 +2159,7 @@
         "title": "Table Filtering — Web Worker Data Grid Demo | Neo.mjs",
         "description": "Live runnable Table Filtering example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-17"
+        "lastmod": "2026-11-20"
     },
     "/examples/tabs/index.html": {
         "title": "Tabs — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -2207,7 +2207,7 @@
         "title": "Moving a Video Tag — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A mounted video component moves between two containers without being recreated. Press Move Video and watch the same player switch sides between the two panels.",
         "schemaType": "WebPage",
-        "lastmod": "2024-11-12"
+        "lastmod": "2026-11-20"
     },
     "/examples/viewport/index.html": {
         "title": "Viewport — Web Worker JavaScript UI Demo | Neo.mjs",
