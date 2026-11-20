@@ -360,6 +360,19 @@ class List extends BaseList {
     }
 
     /**
+     * @summary True when the event comes from the `<= 600px` single-column breakpoint where `:hover` disclosure is
+     * inactive and cards open below their cover via `.neo-selected` even under a mouse pointer.
+     * @param {Object} data
+     * @returns {Boolean}
+     */
+    isCompactViewport(data) {
+        let viewport = data?.path?.find(entry => entry.tagName === 'html' || entry.cls?.includes('neo-viewport')),
+            width    = viewport?.rect?.width ?? viewport?.clientWidth;
+
+        return typeof width === 'number' && width <= 600
+    }
+
+    /**
      * @summary Hides a card the build mode cannot publish (`Portal.model.Example.publishes()`), and the Portal's own
      * card in the build that is running it.
      *
@@ -375,13 +388,14 @@ class List extends BaseList {
     }
 
     /**
-     * @summary Hands card-detail disclosure back to pointer hover and clears any stale selection.
+     * @summary Hands card-detail disclosure back to pointer hover on wide viewports and clears any stale selection.
+     * @param {Object} data
      */
-    onCardMouseEnter() {
+    onCardMouseEnter(data) {
         let me    = this,
             {cls} = me;
 
-        if (me.tiles) return;
+        if (me.tiles || me.isCompactViewport(data)) return;
 
         me.selectionModel?.items.length && me.selectionModel.deselectAll();
 
@@ -413,7 +427,8 @@ class List extends BaseList {
     }
 
     /**
-     * @summary Toggles `.neo-selected` on non-mouse taps outside `<a>` links so phone cards open and close one at a time.
+     * @summary Toggles `.neo-selected` on touch/pen taps or `<= 600px` single-column clicks outside `<a>` links so
+     * compact cards open and close one at a time.
      * @param {Object} node
      * @param {Object} data
      */
@@ -423,7 +438,7 @@ class List extends BaseList {
         let me               = this,
             {selectionModel} = me;
 
-        if (me.tiles || !selectionModel || data.pointerType === 'mouse') {
+        if (me.tiles || !selectionModel || (data.pointerType === 'mouse' && !me.isCompactViewport(data))) {
             return
         }
 
