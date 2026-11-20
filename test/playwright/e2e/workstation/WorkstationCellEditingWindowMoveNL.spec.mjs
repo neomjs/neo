@@ -85,6 +85,26 @@ async function findAnotherVisibleCell(target, gridId, excludeRecordId) {
 }
 
 /**
+ * @summary Polls a one-shot cell finder until it returns a cell.
+ * After a scroll or a window move, the pooled rows render a few frames after `scrollTop` settles,
+ * so a single read can land in frames that hold no row.
+ * @param {Function} find Returns a cell, or null while no row qualifies
+ * @param {String} message Failure message when no cell appears in time
+ * @returns {Promise<{id: String, recordId: String}>}
+ */
+async function waitForCell(find, message) {
+    let cell = null;
+
+    await expect.poll(async () => {
+        cell = await find();
+
+        return cell
+    }, {message, timeout: 10000}).toBeTruthy();
+
+    return cell
+}
+
+/**
  * Reads DOM editor inputs inside a grid in a target window and whether DOM focus sits inside each input.
  * @param {import('@playwright/test').Page} target
  * @param {String} gridId
@@ -201,9 +221,7 @@ async function setupEditableScaleGrid(page, neuralLink, {consoleErrors, editor=n
  * @returns {Promise<{input: import('@playwright/test').Locator, originalName: String, recordId: String}>}
  */
 async function startCellDraft(page, {app, gridId, openerWindowId, pluginId}, draft) {
-    const targetCell = await findVisibleNameCell(page, gridId);
-
-    expect(targetCell, 'a visible name cell is found').toBeTruthy();
+    const targetCell = await waitForCell(() => findVisibleNameCell(page, gridId), 'a visible name cell is found');
 
     const originalName = (await app.callMethod(gridId, 'store.get', [targetCell.recordId]))?.name ?? null;
 
@@ -289,9 +307,8 @@ test.describe('Workstation — open cell edit across window move', () => {
 
         // Before the move: clicking another cell still commits a valid draft
         const preCell  = await startCellDraft(page, ctx, 'PRE-MOVE-CLICK'),
-              preOther = await findAnotherVisibleCell(page, gridId, preCell.recordId);
+              preOther = await waitForCell(() => findAnotherVisibleCell(page, gridId, preCell.recordId), 'another visible cell exists in opener');
 
-        expect(preOther, 'another visible cell exists in opener').toBeTruthy();
         await page.locator(`[id="${preOther.id}"]`).click();
 
         await expect(page.locator(`#${gridId} .neo-grid-editor`)).toHaveCount(0, {timeout: 10000});
@@ -325,10 +342,9 @@ test.describe('Workstation — open cell edit across window move', () => {
             .toBe(draft);
 
         // After the move: clicking another cell still commits a valid draft in the popup
-        const postCell  = await findVisibleNameCell(popup, gridId),
-              postOther = await findAnotherVisibleCell(popup, gridId, postCell.recordId);
+        const postCell  = await waitForCell(() => findVisibleNameCell(popup, gridId), 'a visible name cell is found in popup'),
+              postOther = await waitForCell(() => findAnotherVisibleCell(popup, gridId, postCell.recordId), 'another visible cell exists in popup');
 
-        expect(postCell && postOther, 'two visible cells exist in popup').toBeTruthy();
         await popup.locator(`[id="${postCell.id}"]`).dblclick();
 
         const postInput = popup.locator(`#${gridId} .neo-grid-editor input`).first();
