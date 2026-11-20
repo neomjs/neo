@@ -59,11 +59,7 @@ class Viewport extends BaseViewport {
                 reference: 'pauseButton',
                 iconCls  : 'fa fa-pause',
                 text     : 'Pause',
-                handler  : 'up.onPauseButtonClick',
-                style    : {
-                    '--button-outline-active': '2px solid var(--textfield-border-color-active, #5d83a7)',
-                    outlineOffset            : '1px'
-                }
+                handler  : 'up.onPauseButtonClick'
             },{
                 module: Label,
                 text  : 'Rows re-sort as scores change. Click a header to sort by another column.',
@@ -84,16 +80,12 @@ class Viewport extends BaseViewport {
                 animatedRowSorting: true
             },
 
-            columnDefaults: {
-                width: 200
-            },
-
             columns: [
-                {dataField: 'id',        locked: 'start', text: 'Id', width: 100},
-                {dataField: 'firstname', text: 'Firstname'},
-                {dataField: 'lastname',  text: 'Lastname'},
-                {dataField: 'progress',  text: 'Progress', type: 'progress'},
-                {dataField: 'country',   text: 'Country'}
+                {dataField: 'id',        locked: 'start', text: 'Id', width: 70},
+                {dataField: 'firstname', text: 'Firstname', flex: 1, minWidth: 130},
+                {dataField: 'progress',  text: 'Progress',  flex: 1, minWidth: 140, type: 'progress'},
+                {dataField: 'lastname',  text: 'Lastname',  flex: 1, minWidth: 130},
+                {dataField: 'country',   text: 'Country',   width: 100}
             ]
         }]
     }
