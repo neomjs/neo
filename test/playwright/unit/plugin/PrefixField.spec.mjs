@@ -163,5 +163,48 @@ test.describe('Neo.plugin.PrefixField (unit)', () => {
         await Promise.resolve();
 
         expect(calls).toContainEqual({op: 'unregister', id: elId, windowId: 1})
+    });
+
+    test('cross-window transfer unregisters InputMask from the old windowId and registers on the new windowId', async () => {
+        const calls = [];
+
+        Neo.currentWorker.getAddon = async (name, windowId) => {
+            calls.push({op: 'getAddon', name, windowId});
+            return {
+                register  : payload => calls.push({op: 'register', ...payload}),
+                setConfigs: payload => calls.push({op: 'setConfigs', ...payload}),
+                unregister: payload => calls.push({op: 'unregister', ...payload})
+            }
+        };
+
+        const field  = createMaskedField({accept: /[0-9a-f]/i, pattern: 'XX:XX', slots: 'X'}),
+              plugin = field.getPlugin('prefixfield'),
+              elId   = field.getInputElId();
+
+        field.mounted = true;
+        await Promise.resolve();
+
+        calls.length   = 0;
+        field.windowId = 2;
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(plugin.windowId).toBe(2);
+        expect(calls).toContainEqual({op: 'unregister', id: elId, windowId: 1});
+        expect(calls).toContainEqual({
+            op          : 'register',
+            id          : elId,
+            acceptSource: '[0-9a-f]',
+            acceptFlags : 'i',
+            pattern     : 'XX:XX',
+            slots       : 'X',
+            windowId    : 2
+        });
+
+        calls.length = 0;
+        field.destroy();
+        await Promise.resolve();
+
+        expect(calls).toContainEqual({op: 'unregister', id: elId, windowId: 2})
     })
 });

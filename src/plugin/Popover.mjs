@@ -160,29 +160,21 @@ class Popover extends Plugin {
     }
 
     /**
-     * An owner can get its window after it was constructed. Mounted, it has one: the plugin takes it, which loads the
-     * stylesheet that places the popover (plugin.Base#afterSetWindowId)
-     */
-    onOwnerMounted() {
-        this.windowId = this.owner.windowId
-    }
-
-    /**
-     * @event mouseout
+     * @summary Forwards the owner's `windowId` when hiding the popover on mouseout.
      * @param {Object} data
      * @protected
      */
     onTargetMouseOut(data) {
-        Neo.main.addon.Popover.hide({id: data.component.id})
+        Neo.main.addon.Popover.hide({id: data.component.id, windowId: this.windowId})
     }
 
     /**
-     * @event mouseover
+     * @summary Forwards the owner's `windowId` when showing the popover on mouseover.
      * @param {Object} data
      * @protected
      */
     onTargetMouseOver(data) {
-        Neo.main.addon.Popover.show({id: data.component.id})
+        Neo.main.addon.Popover.show({id: data.component.id, windowId: this.windowId})
     }
 
     /**

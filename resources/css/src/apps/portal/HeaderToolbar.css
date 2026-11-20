@@ -40,23 +40,67 @@
         }
     }
 
-    .separate-bar {
-        animation     : fade-in-animation 200ms linear;
-        box-shadow    : var(--portal-header-shadow);
-        flex-direction: column;
-        position      : absolute;
-        right         : 0;
-        top           : 58px;
-        z-index       : 9;
+    /* Must stay aligned with `Viewport#getSize` (`x-small` <= 640px) and `HeaderToolbar` `home-button` text bind */
+    @media (max-width: 640px) {
+        --button-min-width     : 30px;
+        --button-padding       : 0 4px;
+        --button-text-font-size: 13px;
 
-        &.hide-sidebar {
-            animation: fade-out-animation 200ms linear forwards;
+        .neo-button.neo-button-ghost {
+            &:not(:first-child) {
+                margin-left: 2px;
+            }
+
+            &.no-text {
+                margin-left: 0;
+                padding    : 0;
+                width      : 30px;
+
+                .neo-button-glyph {
+                    font-size: 18px;
+                    margin   : 0;
+                }
+            }
+
+            &.logo {
+                margin-left: 0;
+                padding    : 0;
+                width      : 30px;
+
+                .neo-button-glyph.neo-logo-blue {
+                    height    : 22px;
+                    margin    : 0;
+                    min-height: 22px;
+                    min-width : 22px;
+                    width     : 22px;
+                }
+
+                .neo-button-text {
+                    display: none;
+                }
+            }
+        }
+
+        .portal-header-actions {
+            gap        : 2px;
+            margin-left: 2px;
         }
     }
 
-    /* find parallel class hide-sidebar */
-    &:has(+div .hide-sidebar) .separate-bar {
-        animation: fade-out-animation 200ms linear forwards;
+    @media (min-width: 390px) and (max-width: 640px) {
+        --button-min-width: 36px;
+        --button-padding  : 0 6px;
+
+        .neo-button.neo-button-ghost {
+            &.no-text,
+            &.logo {
+                width: 36px;
+            }
+        }
+
+        .portal-header-actions {
+            margin-left: 6px;
+        }
     }
 }
 
@@ -86,28 +130,6 @@
     12%, 100% {
         opacity  : 0;
         transform: scale(1.5);
-    }
-}
-
-@keyframes fade-in-animation {
-    from {
-        opacity: 0;
-        right  : -30px
-    }
-    to {
-        opacity: 1;
-        right  : 0;
-    }
-}
-
-@keyframes fade-out-animation {
-    from {
-        opacity: 1;
-        right  : 0;
-    }
-    to {
-        opacity: 0;
-        right  : -30px
     }
 }
 

@@ -10,9 +10,13 @@
     min-width            : 0;
     overflow             : hidden;
 
+    /* A setting beside the page's action, so lower and lighter than that action */
     .portal-examples-build-control.neo-button {
+        --button-height          : 36px;
+        --button-text-font-size  : 14px;
+        --button-text-font-weight: var(--core-fontweight-regular);
+
         border-radius: 8px;
-        font-size    : 14px;
         white-space  : nowrap;
     }
 
@@ -69,11 +73,23 @@
         padding         : 8px 12px;
         position        : relative;
         z-index         : 5;
+
+        > .portal-examples-find-field {
+            margin   : 0;
+            min-width: 180px;
+        }
     }
 
     .portal-examples-group-crumb-bar {
-        gap     : 4px;
-        overflow: visible;
+        gap      : 4px;
+        margin   : 0;
+        max-width: 100%;
+        min-width: 0;
+        overflow : visible;
+
+        .neo-button {
+            --button-margin: 0;
+        }
     }
 
     .portal-examples-group-crumb-separator {
@@ -81,6 +97,8 @@
     }
 
     .portal-examples-group-button.neo-button {
+        --button-padding: 0 10px;
+
         border-radius: 8px;
         min-width    : 0;
 

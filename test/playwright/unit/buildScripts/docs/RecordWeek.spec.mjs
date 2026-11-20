@@ -82,8 +82,8 @@ test('the totals count what the rows hold, and the caption names the window', ()
     expect(record.totals).toEqual({
         approvals: 4, changeRequests: 1, contributors: 2, crossGroup: 2, maintainers: 3, medianMinutesToMerge: 120, merged: 4, reviews: 5, seatAuthored: 2
     });
-    expect(record.caption).toBe('13–14 Nov 2026 · 5 reviews · 1 change request · 2 outside contributors · neomjs/neo');
-    expect(record.unit).toBe('pull requests merged, one square each');
+    expect(record.caption, 'the change requests are the scene\'s to count, beside their colour').toBe('13–14 Nov 2026 · 5 reviews · 2 outside contributors · neomjs/neo');
+    expect(record.unit, '"merged" leads, so a count of them cannot read as a share').toBe('merged pull requests, one square each');
     expect(record).toMatchObject({from: '2026-11-13T00:00:00.000Z', repo: 'neomjs/neo', to: '2026-11-15T00:00:00.000Z', version: 1})
 });
 

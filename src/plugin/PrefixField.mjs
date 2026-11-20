@@ -144,6 +144,31 @@ class PrefixField extends Plugin {
     }
 
     /**
+     * @summary Unregisters `InputMask` from `oldValue` and re-registers when moving while mounted.
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        super.afterSetWindowId(value, oldValue);
+
+        const me      = this,
+              {owner} = me;
+
+        if (oldValue && oldValue !== value && owner) {
+            const elId = owner.getInputElId();
+
+            Neo.currentWorker?.getAddon?.('PrefixField', oldValue)?.then(addon => {
+                addon?.unregister?.({id: elId, windowId: oldValue})
+            })
+        }
+
+        if (value && oldValue !== undefined && oldValue !== value && owner?.mounted && !me.isDestroyed) {
+            me.onOwnerMounted()
+        }
+    }
+
+    /**
      * @param {String|Set|null} value
      * @returns {Set}
      * @protected
@@ -222,9 +247,10 @@ class PrefixField extends Plugin {
             }
         }
 
-        if (owner?.windowId) {
-            const elId     = owner.getInputElId(),
-                  windowId = owner.windowId;
+        const windowId = me.windowId || owner?.windowId;
+
+        if (owner && windowId) {
+            const elId = owner.getInputElId();
 
             Neo.currentWorker?.getAddon?.('PrefixField', windowId)?.then(addon => {
                 addon?.unregister?.({id: elId, windowId})
@@ -272,11 +298,7 @@ class PrefixField extends Plugin {
         const me      = this,
               {owner} = me;
 
-        if (!owner || me.isDestroyed) return;
-
-        if (owner.windowId) {
-            me.windowId = owner.windowId
-        }
+        if (!owner || !owner.windowId || me.isDestroyed) return;
 
         const addon = await Neo.currentWorker.getAddon('PrefixField', owner.windowId);
 

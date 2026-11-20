@@ -36,14 +36,15 @@ class MainContainer extends Container {
             findQuery  : data => data.findQuery
         },
         /**
-         * The builds the section can open its examples in. `text` names a build in the menu, `status` in the control.
+         * The builds the section can open its examples in. `text` names a build in the menu and, after
+         * "Examples open in:", on the control.
          * @member {Object[]} buildModes
          */
         buildModes: [
-            {id: 'dist_prod', text: 'Production build',  status: 'Running the production build'},
-            {id: 'dist_esm',  text: 'ESM build',         status: 'Running the ESM build'},
-            {id: 'dist_dev',  text: 'Development build', status: 'Running the development build'},
-            {id: 'devmode',   text: 'Dev mode',          status: 'Running in dev mode'}
+            {id: 'dist_prod', text: 'Production build'},
+            {id: 'dist_esm',  text: 'ESM build'},
+            {id: 'dist_dev',  text: 'Development build'},
+            {id: 'devmode',   text: 'Dev mode'}
         ],
         /**
          * The selected build mode, bound to the state provider's `catalogMode`. The overview and group pages filter by
@@ -222,7 +223,8 @@ class MainContainer extends Container {
 
     /**
      * @summary The build control the overview and every group page show: one button whose menu selects the build,
-     * labelled with the build that runs.
+     * labelled as the setting it is, "Examples open in:" and the selected build. On a phone (`size: 'x-small'`) the
+     * label drops "Examples", so the control keeps its place beside the heading instead of taking a row of its own.
      * @returns {Object}
      */
     createBuildControl() {
@@ -230,7 +232,7 @@ class MainContainer extends Container {
 
         return {
             module      : Button,
-            bind        : {text: data => me.buildModes.find(mode => mode.id === data.catalogMode).status},
+            bind        : {text: data => `${data.size === 'x-small' ? 'Open' : 'Examples open'} in: ${me.buildModes.find(mode => mode.id === data.catalogMode).text}`},
             cls         : ['portal-examples-build-control'],
             iconCls     : 'fa fa-chevron-down',
             iconPosition: 'right',
@@ -243,16 +245,17 @@ class MainContainer extends Container {
     /**
      * @summary Creates one synchronized find input shared between desktop sidebar and phone crumb surfaces.
      * @param {String} reference
+     * @param {Number|String} [flex='none']
      * @returns {Object}
      */
-    createFindField(reference) {
+    createFindField(reference, flex='none') {
         return {
             module         : SearchField,
             clearable      : true,
             cls            : ['portal-examples-find-field'],
             domListeners   : {keydown: this.onFindFieldKeyDown, scope: this},
             emptyValue     : '',
-            flex           : 'none',
+            flex,
             hideLabel      : true,
             listeners      : {change: 'onFindFieldChange'},
             placeholderText: 'Find examples…  /',
@@ -304,7 +307,7 @@ class MainContainer extends Container {
         me.items = [{
             module   : Container,
             cls      : ['portal-examples-group-crumb'],
-            layout   : {ntype: 'vbox', align: 'stretch'},
+            layout   : {ntype: 'hbox', align: 'center', wrap: 'wrap'},
             reference: 'examples-crumb',
             items    : [{
                 module: Container,
@@ -334,7 +337,7 @@ class MainContainer extends Container {
                     text     : 'All examples',
                     ui       : 'secondary'
                 }]
-            }, me.createFindField('mobile-find'), {
+            }, me.createFindField('mobile-find', '1 1 180px'), {
                 module      : GroupIndex,
                 hidden      : true,
                 id          : me.id + '__sheet',

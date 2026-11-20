@@ -98,9 +98,12 @@ async function openGroup(page, name) {
  * @returns {Promise<void>}
  */
 async function selectBuild(page, label) {
-    await page.getByRole('button', {name: /^Running /}).locator('visible=true').click();
+    const control = page.getByRole('button', {name: /^(Examples open|Open) in: /}).locator('visible=true');
+
+    await control.click();
     await page.locator('.neo-menu-list:visible .neo-list-item').filter({hasText: label}).click();
-    await expect(page.locator('.neo-menu-list:visible')).toHaveCount(0)
+    await expect(page.locator('.neo-menu-list:visible')).toHaveCount(0);
+    await expect(control).toHaveText(new RegExp(`^(Examples open|Open) in: ${label}$`))
 }
 
 /**
@@ -152,6 +155,7 @@ async function expectCardLayout(list, width) {
               caption = node.querySelector('.neo-item-bottom-position'),
               copy    = caption.getBoundingClientRect(),
               image   = node.querySelector('.preview-image').getBoundingClientRect(),
+              feature = node.querySelector('.portal-example-feature'),
               more    = node.querySelector('.portal-example-more'),
               shown   = [
                   node.querySelector('.portal-example-group-badge'),
@@ -178,7 +182,9 @@ async function expectCardLayout(list, width) {
             // a group card has no action line to keep closed
             closed      : !more || more.getBoundingClientRect().height < 1,
             opaque      : [node, caption, ...texts].every(text => getComputedStyle(text).opacity === '1'),
-            noInlineSize: !node.style.height && !node.querySelector('.content').style.aspectRatio
+            noInlineSize: !node.style.height && !node.querySelector('.content').style.aspectRatio,
+            // the proof line shows whole at rest, or ends in an ellipsis
+            featureWhole: !feature || feature.scrollHeight <= feature.clientHeight + 1
         }
     }));
 
@@ -210,6 +216,7 @@ async function expectCardLayout(list, width) {
 /**
  * @summary Measures the caption's text colors against the actual composited paint of scrim and cover behind them.
  * The first sampled row is where the title starts, the place the scrim has to hold against a white cover.
+ * Below the text the scrim must paint its opaque surface: a cover that shows through fails.
  * @param {Object} caption Caption locator.
  * @param {Object} testInfo Playwright evidence writer.
  * @param {String} name Attachment name.
@@ -243,6 +250,19 @@ async function expectCaptionContrast(caption, testInfo, name) {
         })
     }));
     expect(Math.min(...contrasts), 'ordinary caption text contrasts with the rendered surface').toBeGreaterThanOrEqual(4.5);
+    // the text region is opaque: inside the bottom padding the caption paints its surface, never the cover
+    const surface = await caption.evaluate(node => {
+        const probe = document.body.appendChild(document.createElement('i'));
+        probe.style.color = getComputedStyle(node).getPropertyValue('--portal-examples-list-surface');
+        const color = getComputedStyle(probe).color, values = color.match(/[\d.]+/g).map(Number);
+        probe.remove();
+        return color.startsWith('color(') ? values.slice(0, 3).map(value => value * 255) : values.slice(0, 3)
+    });
+    [0.12, 0.5, 0.88].forEach(fraction => {
+        const offset = ((decoded.height - 4) * decoded.width + Math.floor(decoded.width * fraction)) * decoded.channels;
+        expect([...decoded.pixels.subarray(offset, offset + 3)].every((value, index) => Math.abs(value - surface[index]) <= 2),
+            'the caption paints its surface behind the text, not the cover').toBe(true)
+    });
     await testInfo.attach(name, {body: screenshot, contentType: 'image/png'})
 }
 
@@ -266,7 +286,48 @@ test.describe('Portal examples section', () => {
             await expect(featured.locator('.neo-list-item')).toHaveCount((await readOverviewList(app)).properties.store.count);
             await expect.poll(() => links.locator('.portal-examples-group-index-title').allTextContents()).toEqual(GROUPS);
 
+            // the build control is a setting, not a second action: beside the heading on a desktop, and under the featured
+            // cards on a phone, off its first screen. Its phone label waits for the viewport to measure its size.
+            await expect.poll(() => page.locator('.portal-examples-build-control').locator('visible=true').evaluate(node => {
+                const control  = node.getBoundingClientRect(),
+                      overview = node.closest('.portal-examples-overview'),
+                      cards    = overview.querySelector('.portal-examples-overview-cards').getBoundingClientRect(),
+                      heading  = overview.querySelector('.portal-examples-overview-start .portal-examples-overview-heading').getBoundingClientRect();
+
+                return {
+                    height: control.height,
+                    label : node.textContent.trim(),
+                    place : control.top < heading.bottom ? 'beside the heading' : control.top >= cards.bottom ? 'under the cards' : 'between',
+                    weight: getComputedStyle(node.querySelector('.neo-button-text')).fontWeight
+                }
+            })).toEqual({
+                height: 36,
+                label : `${isPhone ? 'Open' : 'Examples open'} in: Production build`,
+                place : isPhone ? 'under the cards' : 'beside the heading',
+                weight: '400'
+            });
+
+            // Phone viewports use the concise two-line lead and bring the first featured card above the screen's midpoint
+            await expect.poll(() => page.locator('.portal-examples-overview:visible .portal-examples-overview-lead').evaluate(node => {
+                const style = getComputedStyle(node);
+
+                return {
+                    linesValid: Math.round(node.getBoundingClientRect().height / parseFloat(style.lineHeight)) <= (window.innerWidth <= 640 ? 2 : 3),
+                    text      : node.textContent.trim()
+                }
+            })).toEqual({
+                linesValid: true,
+                text      : isPhone
+                    ? 'Grids, Gantt charts, forms and apps, each one running live in your browser.'
+                    : 'Grids with 100,000 rows × 200 columns, forms, calendars, a Gantt chart, docking dashboards and multi-window apps, each one running live in your browser. Neo.mjs keeps the app and its data in workers, so the main thread only paints.'
+            });
+
             if (isPhone) {
+                if (viewport.width === 390 && viewport.height === 844) {
+                    const firstCardTop = await featured.locator('.neo-list-item').first().evaluate(node => node.getBoundingClientRect().top);
+                    expect(firstCardTop).toBeLessThanOrEqual(422)
+                }
+
                 const indexBox = await page.locator(MOBILE_IX).evaluate(node => ({height: node.getBoundingClientRect().height}));
                 expect(indexBox.height).toBeLessThanOrEqual(viewport.height * 1.35)
             } else {
@@ -399,6 +460,50 @@ test.describe('Portal examples section', () => {
         await expect(page.locator(`${CRUMB} .portal-examples-group-button`)).toHaveText('Calendar')
     });
 
+    for (const width of [360, 639]) {
+        test(`${width}×800: the phone crumb shares one row with >=180px find field and neither crumb nor hero actions overflow`, async ({page, neuralLink}) => {
+            await page.setViewportSize({width, height: 800});
+            await page.goto(`${PORTAL}#/examples`);
+            await neuralLink.connectToApp('Portal');
+
+            const button = page.locator(`${CRUMB} .portal-examples-group-button`),
+                  find   = page.locator(`${CRUMB} .portal-examples-find-field`);
+
+            await expect(button).toHaveText(`All ${GROUPS.length} groups`);
+            await expect(find).toBeVisible();
+
+            const geometry = await page.locator(CRUMB).evaluate((crumb, width) => {
+                const btn      = crumb.querySelector('.portal-examples-group-button'),
+                      btnText  = btn.querySelector('.neo-button-text'),
+                      findNode = crumb.querySelector('.portal-examples-find-field'),
+                      overview = document.querySelector('.portal-examples-overview'),
+                      actions  = overview.querySelector('.portal-examples-overview-actions'),
+                      wsLink   = overview.querySelector('[data-ref="overview-action-workstation"]') || actions.lastElementChild,
+                      btnRect  = btn.getBoundingClientRect(),
+                      findRect = findNode.getBoundingClientRect(),
+                      wsRect   = wsLink.getBoundingClientRect();
+
+                return {
+                    actionsOverflow: actions.scrollWidth > actions.clientWidth + 1 || wsRect.right > width + 0.5,
+                    buttonLabelCut : btnText.scrollWidth > btnText.clientWidth + 1,
+                    crumbOverflow  : crumb.scrollWidth > crumb.clientWidth + 1 || findRect.right > width + 0.5,
+                    findWidth      : findRect.width,
+                    overviewScrollX: overview.scrollWidth > overview.clientWidth + 1,
+                    sameCrumbRow   : Math.abs((btnRect.top + btnRect.height / 2) - (findRect.top + findRect.height / 2)) <= 2
+                }
+            }, width);
+
+            expect(geometry).toMatchObject({
+                actionsOverflow: false,
+                buttonLabelCut : false,
+                crumbOverflow  : false,
+                overviewScrollX: false,
+                sameCrumbRow   : true
+            });
+            expect(geometry.findWidth).toBeGreaterThanOrEqual(180)
+        })
+    }
+
     for (const viewport of [{width: 1440, height: 900}, {width: 1280, height: 720}]) {
         test(`${viewport.width}×${viewport.height}, list: the hoisted index stands beside the cards inside the viewport, 3 cols at 1440 with 2×2 lead`, async ({page, neuralLink}, testInfo) => {
             await page.setViewportSize(viewport);
@@ -494,7 +599,7 @@ test.describe('Portal examples section', () => {
         await openOverview(page);
         await openGroup(page, 'Multi-Window');
         // the build selected on another page holds here
-        await expect(page.getByRole('button', {name: /^Running /}).locator('visible=true')).toHaveText(/Running the ESM build/);
+        await expect(page.getByRole('button', {name: /^Examples open in: /}).locator('visible=true')).toHaveText('Examples open in: ESM build');
         await expect((await readList(app, 'multi-window')).properties.catalogMode).toBe('dist_esm');
         expect(await page.locator(PAGE).evaluate(node => node.scrollTop)).toBe(0);
 
@@ -576,7 +681,12 @@ test.describe('Portal examples section', () => {
                 await expect(featured.locator('.neo-list-item').first()).toBeVisible();
                 await expect(featured.locator('.neo-list-item')).toHaveCount((await readOverviewList(app)).properties.store.count);
                 await page.evaluate(() => document.fonts.ready);
-                await expectCardLayout(featured, viewport.width);
+                const startHere = await expectCardLayout(featured, viewport.width);
+
+                if (viewport.width > 600) {
+                    // a desktop card never opens its proof line: what rests on the card is all a visitor reads
+                    expect(startHere.filter(card => !card.featureWhole).map(card => card.title), 'every Start here proof line reads whole at rest').toEqual([])
+                }
                 await expect(featured.locator('.neo-title').nth(0)).toHaveText('Workstation');
                 await expect(featured.locator('.portal-example-group-badge').nth(0)).toHaveText('Multi-Window');
                 await expect(featured.locator('.neo-title').nth(1)).toHaveText('Data Grid: 100k Rows & 200 Columns');

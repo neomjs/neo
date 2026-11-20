@@ -8,7 +8,8 @@ import {expect, test} from '../../fixtures.mjs';
  * step has already put the moved record's row at its previous offset when the body repaints that row for its new
  * values. The spec drives `examples/grid/animatedRowSorting` over the Neural Link, follows the record by its
  * Firstname cell (the rows are a pool, `learn/guides/datahandling/PooledGridAnimation.md`), and samples its offset
- * once per frame.
+ * once per frame. It holds the example's own updates and reads the records it moves from the store, so the example
+ * can change its data and its timer without moving this measurement.
  */
 const APP = 'examples/grid/animatedRowSorting/index.html',
       ROW = '.neo-grid-body .neo-grid-row';
@@ -44,6 +45,27 @@ async function expectSettled(page, names, rowHeight) {
         .toEqual(names.map((name, index) => [name, index * rowHeight, '0s']))
 }
 
+/**
+ * Waits until the displayed rows show the store's order from its first record, each at rest on its whole row offset.
+ * The rows are a pool, so they may show fewer records than the store holds.
+ * @param {import('@playwright/test').Page} page
+ * @param {String[]} names The store's Firstnames in order
+ * @param {Number} rowHeight
+ * @returns {Promise<String[]>} The displayed Firstnames, top to bottom
+ */
+async function settledStoreOrder(page, names, rowHeight) {
+    let shown = [];
+
+    await expect.poll(async () => {
+        const rows = await displayedRows(page);
+
+        shown = rows.map(row => row.name);
+        return rows.length > 4 && rows.every((row, index) => row.name === names[index] && row.offset === index * rowHeight && row.transitions === '0s')
+    }).toBe(true);
+
+    return shown
+}
+
 test.describe('grid: AnimateRows moves a record its own change re-sorts', () => {
     test.setTimeout(90000);
 
@@ -54,50 +76,60 @@ test.describe('grid: AnimateRows moves a record its own change re-sorts', () => 
 
         await expect(page.locator('.neo-grid-body.neo-animate-rows', {has: page.locator('[data-field="firstname"]')})).toHaveCount(1);
 
-        const grids   = await app.findInstances({className: 'Neo.grid.Container'}, ['id']),
-              gridId  = (Array.isArray(grids) ? grids[0] : grids)?.id,
-              storeId = (await app.getComponent(gridId, ['store'])).store?.id;
+        const grids      = await app.findInstances({className: 'Neo.grid.Container'}, ['id']),
+              gridId     = (Array.isArray(grids) ? grids[0] : grids)?.id,
+              grid       = await app.getComponent(gridId, ['rowHeight', 'store']),
+              storeId    = grid.store?.id,
+              height     = grid.rowHeight,
+              viewports  = await app.findInstances({className: 'Neo.examples.grid.animatedRowSorting.Viewport'}, ['id']),
+              viewportId = (Array.isArray(viewports) ? viewports[0] : viewports)?.id;
 
         expect(storeId, 'the grid exposes its store').toBeTruthy();
 
-        const before = await displayedRows(page),
-              height = before[1].offset - before[0].offset;
-
-        // Amanda 100, Sam 90, Carol 70, Max 50, Sarah 35, William 30, Paul 10
+        // a Viewport that updates its records on a timer reads `isPaused`; on one without a timer the field is inert
+        await app.setProperties(viewportId, {isPaused: true});
         await app.setProperties(storeId, {sorters: [{direction: 'DESC', property: 'progress', reapplyOnRecordChange: true}]});
-        await expectSettled(page, ['Amanda', 'Sam', 'Carol', 'Max', 'Sarah', 'William', 'Paul'], height);
 
-        await page.evaluate(selector => {
+        const items  = (await app.inspectStore(storeId, 100, 0)).items.map(item => item.data || item),
+              before = await settledStoreOrder(page, items.map(item => item.firstname), height);
+
+        // the fifth record moves between the first two, and the first can then drop by one and keep its row
+        const [first, second, , , mover] = items,
+              target                     = Math.round((first.progress + second.progress) / 2),
+              after                      = [before[0], mover.firstname, ...before.slice(1, 4), ...before.slice(5)];
+
+        expect(first.progress - target > 1 && target > second.progress, `room between ${first.progress} and ${second.progress}`).toBe(true);
+
+        await page.evaluate(([selector, name]) => {
             window.__offsets  = [];
             window.__sampling = true;
 
             const read = () => {
                 const row = [...document.querySelectorAll(selector)]
                     .filter(item => item.style.display !== 'none')
-                    .find(item => item.querySelector('[data-field="firstname"]')?.textContent.trim() === 'Sarah');
+                    .find(item => item.querySelector('[data-field="firstname"]')?.textContent.trim() === name);
 
                 row && window.__offsets.push(Math.round(new DOMMatrixReadOnly(getComputedStyle(row).transform).m42));
                 window.__sampling && requestAnimationFrame(read)
             };
 
             requestAnimationFrame(read)
-        }, ROW);
+        }, [ROW, mover.firstname]);
 
-        // Sarah, 35 → 95: from the fifth row to the second
-        await app.callMethod(storeId, 'updateRows', [[{key: 7, values: {progress: 95}}]]);
-        await expectSettled(page, ['Amanda', 'Sarah', 'Sam', 'Carol', 'Max', 'William', 'Paul'], height);
+        await app.callMethod(storeId, 'updateRows', [[{key: mover.id, values: {progress: target}}]]);
+        await expectSettled(page, after, height);
 
         const offsets = await page.evaluate(() => {
             window.__sampling = false;
             return window.__offsets
         });
 
-        expect(offsets[0], 'Sarah starts on the fifth row').toBe(4 * height);
+        expect(offsets[0], `${mover.firstname} starts on the fifth row`).toBe(4 * height);
         expect(offsets.some(offset => offset > height && offset < 4 * height),
             `a frame between the two rows: ${offsets.join(', ')}`).toBe(true);
         expect(offsets.at(-1)).toBe(height);
 
-        // Amanda, 100 → 99, keeps the first row: her cell repaints, and no row transitions
+        // the first record drops by one and keeps its row: its cell repaints, and no row transitions
         await page.evaluate(selector => {
             window.__transitions = new Set();
             window.__sampling    = true;
@@ -113,8 +145,8 @@ test.describe('grid: AnimateRows moves a record its own change re-sorts', () => 
             requestAnimationFrame(read)
         }, ROW);
 
-        await app.callMethod(storeId, 'updateRows', [[{key: 6, values: {progress: 99}}]]);
-        await expectSettled(page, ['Amanda', 'Sarah', 'Sam', 'Carol', 'Max', 'William', 'Paul'], height);
+        await app.callMethod(storeId, 'updateRows', [[{key: first.id, values: {progress: first.progress - 1}}]]);
+        await expectSettled(page, after, height);
         await page.waitForTimeout(600); // out-waits: the 500 ms default transition a wrongly started move would run
 
         const transitions = await page.evaluate(() => {

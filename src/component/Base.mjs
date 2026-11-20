@@ -391,6 +391,9 @@ class Component extends Abstract {
      */
     mountFlight = null
 
+    /** @member {Object|null} #tooltipSetupToken=null @private */
+    #tooltipSetupToken = null
+
     /**
      * @param {Object} config
      */
@@ -1004,28 +1007,33 @@ class Component extends Abstract {
     }
 
     /**
-     * Triggered after the tooltip config got changed
-     * @param {Object|String} value
-     * @param {Object|String} oldValue
+     * @summary Reconciles shared-tooltip delegation and dedicated `ownInstance` tooltips across async module loads.
+     * @param {Object|String|null} value
+     * @param {Object|String|null} oldValue
      * @protected
      */
     afterSetTooltip(value, oldValue) {
         let me = this;
 
+        me.#tooltipSetupToken = null;
         oldValue?.destroy?.();
+
+        if (oldValue && (!value || value.ownInstance)) {
+            me.removeCls('neo-uses-shared-tooltip')
+        }
 
         if (value) {
             if (Neo.ns('Neo.tooltip.Base')) {
                 me.createTooltip(value)
             } else {
+                const token = me.#tooltipSetupToken = {};
+
                 import('../tooltip/Base.mjs').then(() => {
-                    me.createTooltip(value)
+                    if (!me.isDestroyed && me.#tooltipSetupToken === token && me._tooltip === value) {
+                        me.createTooltip(value)
+                    }
                 })
             }
-        } else if (oldValue) {
-            // Retiring a tooltip: an own instance is destroyed above; a shared-tooltip owner must
-            // also leave the singleton's delegate set, or hovering it would open an empty tooltip.
-            me.removeCls('neo-uses-shared-tooltip')
         }
     }
 
@@ -1429,13 +1437,18 @@ class Component extends Abstract {
     }
 
     /**
-     * Unregister this instance from the ComponentManager
+     * @summary Unregisters this component and tears down its owned controller, plugins, tooltip, and render flight.
      * @param {Boolean} updateParentVdom=false true to remove the component from the parent vdom => real dom
      * @param {Boolean} silent=false true to update the vdom silently (useful for destroying multiple child items in a row)
-     * todo: unregister events
      */
     destroy(updateParentVdom=false, silent=false) {
         let me = this;
+
+        me.#tooltipSetupToken = null;
+
+        if (!me._tooltip?.isShared) {
+            me._tooltip?.destroy?.()
+        }
 
         me.revertFocusOnDeparture();
 
