@@ -62,6 +62,7 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'dashboard/TearOutMatrixRows4To7NL.spec.mjs',
     'gantt/BasicNL.spec.mjs',
     'gantt/BigDataNL.spec.mjs',
+    'grid/AnimateRowsRecordChangeNL.spec.mjs',
     'grid/BigDataMultiBodyNL.spec.mjs',
     'grid/BigDataNL.spec.mjs',
     'grid/ColumnCrossBodyDnD.spec.mjs',
