@@ -100,7 +100,8 @@ class Content extends BaseContainer {
                 cls   : ['get-started-button'],
                 flex  : 'none',
                 route : '/learn/gettingstarted/Setup',
-                text  : 'Get started'
+                text  : 'Get started',
+                ui    : 'primary'
             }, {
                 module: Button,
                 cls   : ['neo-github'],

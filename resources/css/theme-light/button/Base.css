@@ -43,6 +43,33 @@
     --button-text-transform                     : uppercase;
     --button-use-gradients                      : false;
 
+    /* {module: Button; ui: --primary} */
+    --button-primary-background-color           : #fff;
+    --button-primary-background-color-active    : #ddd;
+    --button-primary-background-color-disabled  : #fff;
+    --button-primary-background-color-hover     : #fff;
+    --button-primary-background-color-pressed   : #fff;
+    --button-primary-background-image           : none;
+    --button-primary-badge-background-color     : var(--button-badge-background-color);
+    --button-primary-badge-color                : var(--button-badge-color);
+    --button-primary-border                     : 1px solid #ddd;
+    --button-primary-border-active              : 1px solid #1c60a0;
+    --button-primary-border-disabled            : 1px solid #ddd;
+    --button-primary-border-hover               : 1px solid #1c60a0;
+    --button-primary-border-pressed             : 1px solid #1c60a0;
+    --button-primary-glyph-color                : #1c60a0;
+    --button-primary-glyph-color-active         : #1c60a0;
+    --button-primary-glyph-color-disabled       : #1c60a0;
+    --button-primary-glyph-color-hover          : #1c60a0;
+    --button-primary-glyph-color-pressed        : #1c60a0;
+    --button-primary-opacity-disabled           : var(--neo-disabled-opacity);
+    --button-primary-ripple-background-color    : rgb(77.6387150605%, 87.1422611598%, 96.0867751356%);
+    --button-primary-text-color                 : #1c60a0;
+    --button-primary-text-color-active          : #1c60a0;
+    --button-primary-text-color-disabled        : #1c60a0;
+    --button-primary-text-color-hover           : #1c60a0;
+    --button-primary-text-color-pressed         : #1c60a0;
+
     /* {module: Button; ui: --ghost} */
     --button-ghost-background-color             : var(--button-text-color);
     --button-ghost-background-color-active      : #ddd;

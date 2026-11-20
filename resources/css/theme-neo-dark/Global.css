@@ -210,7 +210,7 @@
     --cmp-button-primary-surface-default        : var(--sem-color-surface-primary-default);
     --cmp-button-primary-surface-disabled       : var(--sem-color-bg-primary-disabled);
     --cmp-button-primary-surface-hover          : var(--sem-color-surface-primary-hover);
-    --cmp-button-primary-text-default           : var(--sem-color-text-neutral-reversed);
+    --cmp-button-primary-text-default           : var(--sem-color-text-neutral-contrast);
     --cmp-button-primary-text-disabled          : var(--sem-color-text-disabled);
     --cmp-button-secondary-border-default       : var(--sem-color-border-default);
     --cmp-button-secondary-border-disabled      : var(--sem-color-border-subtle);

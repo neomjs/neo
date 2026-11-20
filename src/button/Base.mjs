@@ -174,6 +174,15 @@ class Button extends Component {
          */
         text: null,
         /**
+         * The button's surface role: `null` is the neutral bordered control for toolbars, headers and layouts;
+         * `'primary'` is the filled call to action for free-floating placements such as the Portal hero (while the
+         * classic themes declare it equal to their neutral default); `'secondary'`, `'ghost'` and `'tertiary'`
+         * select their respective variants.
+         * @member {String|null} ui=null
+         * @reactive
+         */
+        ui: null,
+        /**
          * Transforms the button tag into an a tag [optional]
          * @member {String|null} url_=null
          * @reactive

@@ -9,7 +9,7 @@ import {test, expect} from '@playwright/test';
 
 const NEO_THEMES     = ['neo-theme-neo-light', 'neo-theme-neo-dark'],
       CLASSIC_THEMES = ['neo-theme-light', 'neo-theme-dark', 'neo-theme-cyberpunk'],
-      UIS            = [null, 'secondary', 'ghost', 'tertiary'],
+      UIS            = [null, 'primary', 'secondary', 'ghost', 'tertiary'],
       PRIMARY        = 'rgb(62, 99, 221)';
 
 let componentIds = [];
@@ -68,12 +68,23 @@ const applyTheme = (page, theme) => page.evaluate(name => {
  */
 const readColors = (page, id) => page.evaluate(buttonId => {
     const button = document.getElementById(buttonId),
-          style  = getComputedStyle(button);
+          style  = getComputedStyle(button),
+          probe  = document.createElement('div');
+
+    probe.style.backgroundColor = 'var(--sem-color-surface-neutral-default)';
+    document.body.appendChild(probe);
+
+    const surface = getComputedStyle(probe).backgroundColor;
+
+    probe.remove();
 
     return {
-        background: style.backgroundColor,
-        border    : style.borderTopColor,
-        text      : getComputedStyle(button.querySelector('.neo-button-text')).color
+        background : style.backgroundColor,
+        border     : style.borderTopColor,
+        borderStyle: style.borderTopStyle,
+        borderWidth: style.borderTopWidth,
+        surface,
+        text       : getComputedStyle(button.querySelector('.neo-button-text')).color
     }
 }, id);
 
@@ -114,7 +125,7 @@ function contrast(a, b) {
     return (light + .05) / (dark + .05)
 }
 
-const idOf = (ui, pressed) => `pressed-${ui || 'primary'}-${pressed ? 'on' : 'off'}`;
+const idOf = (ui, pressed) => `pressed-${ui || 'default'}-${pressed ? 'on' : 'off'}`;
 
 test.describe('Neo.button.Base — pressed', () => {
     test.beforeEach(async ({page}) => {
@@ -128,13 +139,13 @@ test.describe('Neo.button.Base — pressed', () => {
             for (const [index, ui] of uis.entries()) {
                 for (const pressed of [false, true]) {
                     const result = await Neo.worker.App.createNeoInstance({
-                        id        : `pressed-${ui || 'primary'}-${pressed ? 'on' : 'off'}`,
+                        id        : `pressed-${ui || 'default'}-${pressed ? 'on' : 'off'}`,
                         importPath: '../button/Base.mjs',
                         ntype     : 'button',
                         parentId  : 'component-test-viewport',
                         pressed,
                         style     : {left: `${index * 160}px`, position: 'absolute', top: pressed ? '60px' : '0px'},
-                        text      : `${ui || 'primary'} ${pressed}`,
+                        text      : `${ui || 'default'} ${pressed}`,
                         ui
                     });
 
@@ -181,20 +192,35 @@ test.describe('Neo.button.Base — pressed', () => {
     });
 
     for (const theme of NEO_THEMES) {
-        test(`${theme}: each ui draws its pressed state apart from its rest, with a readable label, under the pointer too`, async ({page}) => {
+        test(`${theme}: default ui is neutral bordered, primary ui is filled CTA, and each ui draws its pressed state with readable contrast`, async ({page}) => {
             await applyTheme(page, theme);
 
             for (const ui of UIS) {
                 const rest    = await readColors(page, idOf(ui, false)),
                       pressed = await readColors(page, idOf(ui, true)),
-                      name    = ui || 'primary';
+                      name    = ui || 'default';
 
                 expect(pressed.background, `${name}: pressed background`).not.toBe(rest.background);
                 expect(contrast(pressed.text, pressed.background), `${name}: pressed label contrast`).toBeGreaterThanOrEqual(4.5);
                 expect(await readHovered(page, idOf(ui, true)), `${name}: hovered pressed`).toEqual(pressed)
             }
 
-            expect((await readColors(page, idOf('secondary', true))).border, 'secondary: pressed border').toBe(PRIMARY)
+            const defaultRest   = await readColors(page, idOf(null, false)),
+                  secondaryRest = await readColors(page, idOf('secondary', false)),
+                  primaryRest   = await readColors(page, idOf('primary', false));
+
+            expect(defaultRest.background, 'default (ui: null) rest surface is neutral transparent').toBe('rgba(0, 0, 0, 0)');
+            expect(defaultRest.borderWidth, 'default (ui: null) rest border width is 1px').toBe('1px');
+            expect(defaultRest.borderStyle, 'default (ui: null) rest border style is solid').toBe('solid');
+            expect(defaultRest.border, 'default (ui: null) rest border is neutral').toBe(secondaryRest.border);
+            expect(defaultRest.border, 'default (ui: null) rest border is visible').not.toBe('rgba(0, 0, 0, 0)');
+            expect(defaultRest.border, 'default (ui: null) rest border is not primary CTA blue').not.toBe(PRIMARY);
+            expect(defaultRest.text, 'default (ui: null) rest label is neutral text').toBe(secondaryRest.text);
+            expect(contrast(defaultRest.text, defaultRest.surface), 'default: rest label contrast on neutral surface').toBeGreaterThanOrEqual(4.5);
+            expect((await readColors(page, idOf(null, true))).border, 'default: pressed border').toBe(PRIMARY);
+            expect((await readColors(page, idOf('secondary', true))).border, 'secondary: pressed border').toBe(PRIMARY);
+            expect(primaryRest.background, 'primary (ui: primary) rest surface is filled CTA blue').toBe(PRIMARY);
+            expect(contrast(primaryRest.text, primaryRest.background), 'primary: rest label contrast').toBeGreaterThanOrEqual(4.5)
         })
     }
 
@@ -203,11 +229,11 @@ test.describe('Neo.button.Base — pressed', () => {
             await applyTheme(page, theme);
 
             for (const ui of UIS) {
-                // Cyberpunk's primary and tertiary buttons drew their hover tint on a pressed button under the pointer
-                const hoverTint = theme === 'neo-theme-cyberpunk' && (ui === null || ui === 'tertiary'),
+                // Cyberpunk's default, primary, and tertiary buttons draw their hover tint on a pressed button under the pointer
+                const hoverTint = theme === 'neo-theme-cyberpunk' && (ui === null || ui === 'primary' || ui === 'tertiary'),
                       expected  = hoverTint ? await readHovered(page, idOf(ui, false)) : await readColors(page, idOf(ui, false)),
                       pressed   = await readColors(page, idOf(ui, true)),
-                      name      = ui || 'primary';
+                      name      = ui || 'default';
 
                 expect(pressed.background, `${name}: pressed background`).toBe(expected.background);
                 expect(pressed.text, `${name}: pressed label`).toBe(expected.text)
