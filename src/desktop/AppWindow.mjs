@@ -1,9 +1,11 @@
-import Dialog from '../dialog/Base.mjs';
-import Icon   from '../component/Icon.mjs';
+import Dialog         from '../dialog/Base.mjs';
+import Icon           from '../component/Icon.mjs';
+import WindowDragZone from './WindowDragZone.mjs';
+import WindowTearOut  from './WindowTearOut.mjs';
 
 /**
- * @summary One app's window on a web desktop. Its only public input is {@link #record}, the app: the title and the
- * header icon follow it, and its items read it as `data.record` from the window's own state provider.
+ * @summary One app's window on a web desktop. Its title and header icon follow its app {@link #record}, and its
+ * items read that record as `data.record` from the window's own state provider.
  *
  * A window here is an app window, addressed by its app's id. `windowId` keeps its engine meaning, the browser window
  * the app window lives in (`Neo.manager.Window`).
@@ -60,9 +62,98 @@ class AppWindow extends Dialog {
             data: {record: null}
         },
         /**
+         * A same-app popup entry for a desktop that supports tearing out its windows in a shared App Worker.
+         * @member {String|null} tearOutUrl=null
+         */
+        tearOutUrl: null,
+        /**
          * @member {Number} width=520
          */
         width: 520
+    }
+
+    /**
+     * @summary Opts a shared-worker window into desktop drag handling before the dialog registers its header listeners.
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+
+        if (this.tearOutUrl && Neo.currentWorker.isSharedWorker) {
+            this.tearOut = Neo.create(WindowTearOut, {owner: this, popupUrl: this.tearOutUrl});
+            this.dragZoneConfig = {...this.dragZoneConfig, module: WindowDragZone, alwaysFireDragMove: true, allowOverdrag: true}
+        }
+    }
+
+    /**
+     * @summary Retires the source gesture and its native window along with the managed dialog.
+     * @param {...*} args
+     */
+    destroy(...args) {
+        if (this.tearOut) {
+            this.dragZone?.destroy();
+            this.dragZone = null;
+            this.tearOut.destroy()
+        }
+        super.destroy(...args)
+    }
+
+    /**
+     * @summary Directs a task activation to the popup while it owns the app.
+     * @returns {Boolean}
+     */
+    focusTornOutWindow() {
+        if (!this.tearOut?.committed) return false;
+        this.tearOut.focus();
+        return true
+    }
+
+    /**
+     * @summary Returns an app's content before a close, minimize or revoked task hides its desktop window.
+     * @param {...*} args
+     * @returns {Promise<void>}
+     */
+    hide(...args) {
+        if (this.tearOut) {
+            this.dragZone?.restoreSource();
+            this.tearOut.returnToDesktop()
+        }
+        return super.hide(...args)
+    }
+
+    /**
+     * @summary Completes an opt-in gesture at its pointer position. Ordinary dialogs keep their proxy-based release.
+     * @param {Object} data
+     */
+    onDragEnd(data) {
+        if (this.tearOut) {
+            this.dragZone?.finishGesture(data)
+        } else {
+            super.onDragEnd(data)
+        }
+    }
+
+    /**
+     * @summary Consumes the Escape that cancels an active header drag while leaving the next Escape to the dialog.
+     * @param {Object} data Keyboard event forwarded by Main
+     */
+    onKeyDownEscape(data) {
+        const zone = this.tearOut && this.dragZone;
+        if (zone?.gesture) {
+            zone.onDragCancel(data)
+        } else if (!zone || data?.timeStamp == null || zone.cancelledAt !== data.timeStamp) {
+            super.onKeyDownEscape(data)
+        }
+    }
+
+    /**
+     * @summary Recovers a held drag or closes the task when the user closes its committed native window.
+     * @param {Object} [data]
+     * @param {Boolean} [data.committed]
+     */
+    onTearOutDisconnect({committed}={}) {
+        if (committed) this.hide(false);
+        else this.dragZone?.restoreSource()
     }
 
     /**

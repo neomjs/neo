@@ -124,6 +124,18 @@ test.describe('Neo.main.addon.DragDrop — physical window drag', () => {
             .toEqual({height: 240, width: 320, x: 480, y: 290})
     });
 
+    test('a delayed desktop popup grant applies only to the same live, uncancelled source gesture', () => {
+        const native = {}, grant = {gestureId: 1, popupName: 'child', popupHeight: 240, popupWidth: 320};
+        for (const [id, cancelled] of [[null, false], [2, false], [1, true]]) {
+            Object.assign(native, {gestureId: id, dragCancelled: cancelled});
+            expect(DragDrop.prototype.startWindowDrag.call(native, grant)).toBe(false);
+            expect(native.isWindowDragging).toBeUndefined()
+        }
+        native.dragCancelled = false;
+        expect(DragDrop.prototype.startWindowDrag.call(native, grant)).toBe(true);
+        expect(native.popupName).toBe('child')
+    });
+
     test('a refused native move skips only that move: the drag frame still flows and nothing goes unhandled', async () => {
         const sent    = [],
               seen    = [],
@@ -911,6 +923,12 @@ test.describe('Neo.main.addon.DragDrop — Escape across windows', () => {
         expect(resizeCancels).toBe(1);
         expect(idle.dragCancelled).toBe(false)
     })
+});
+
+test('a popup Escape from a retired gesture cannot cancel a newer source drag', () => {
+    const source = {dragZoneId: 'window-zone', gestureId: 2};
+    expect(DragDrop.prototype.cancelDrag.call(source, {gestureId: 1, key: 'Escape'})).toBe(false);
+    expect(source.dragCancelled).toBeUndefined()
 });
 
 /**

@@ -148,6 +148,55 @@ test.describe('web desktop apps', () => {
         expect(errors).toEqual([])
     });
 
+    test('revoking a permission closes its committed popup and removes its task', async ({page}) => {
+        await signIn(page);
+        await page.getByRole('button', {name: 'Switch theme'}).click();
+        await expect(page.locator('body')).toHaveClass(/neo-theme-neo-light/);
+        await page.locator(ICON).filter({hasText: 'Mail'}).dblclick();
+
+        const mail = windowOf(page, 'Mail');
+        await expect(async () => {
+            expect(Math.round((await mail.boundingBox()).width)).toBe(880);
+            await expectInsideWorkspace(page, mail)
+        }).toPass();
+
+        const readColors = element => {
+            const style = getComputedStyle(element);
+            return ['--desktop-app-window-color', '--webdesktop-ink-dim'].map(name => style.getPropertyValue(name).trim())
+        };
+        const sourceColors = await mail.locator('.webdesktop-mail').evaluate(readColors);
+        expect(sourceColors.every(Boolean)).toBe(true);
+
+        const header = mail.locator('.neo-header-toolbar').first();
+        await header.hover();
+        const box = await header.boundingBox(),
+              x   = box.x + box.width / 2,
+              y   = box.y + box.height / 2;
+
+        await page.mouse.move(x, y);
+        await page.mouse.down();
+        await page.mouse.move(x + 20, y, {steps: 5});
+        await expect(page.locator('.neo-dragproxy')).toBeVisible();
+        const [popup] = await Promise.all([
+            page.waitForEvent('popup'),
+            page.mouse.move(page.viewportSize().width + 300, y, {steps: 35})
+        ]);
+        await expect(popup.locator('.webdesktop-mail')).toBeVisible();
+        await expect(popup.locator('body')).toHaveClass(/neo-theme-neo-light/);
+        await expect.poll(() => popup.locator('.webdesktop-mail').evaluate(readColors)).toEqual(sourceColors);
+        await page.mouse.up();
+        await expect(page.locator('.neo-dragproxy')).toHaveCount(0);
+        await expect(page.locator('.neo-desktop-task-list .neo-list-item')).toHaveCount(1);
+
+        await page.getByRole('button', {name: 'Permissions'}).click();
+        await Promise.all([
+            popup.waitForEvent('close'),
+            page.getByRole('option').filter({hasText: 'view-mail'}).click()
+        ]);
+        await expect(page.locator(ICON).filter({hasText: 'Mail'})).toHaveCount(0);
+        await expect(page.locator('.neo-desktop-task-list .neo-list-item')).toHaveCount(0)
+    });
+
     test('Restore in the Recycle Bin puts the file back in Documents', async ({page}) => {
         await signIn(page);
 
