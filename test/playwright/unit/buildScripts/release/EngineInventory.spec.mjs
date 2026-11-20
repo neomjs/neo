@@ -27,7 +27,7 @@ test.describe('buildScripts/release/engineInventory', () => {
             'src/main/addon/Base.mjs',
             'src/main/addon/Navigator.mjs',
             'src/main/addon/mixin/Remote.mjs'
-        ])).toEqual({addons: 2, classes: 7, namespaces: 2})
+        ], ['src/button/'])).toEqual({addons: 2, classes: 7, namespaces: 2, 'src/button/': 2})
     });
 
     test('every mirror pattern matches exactly once in its file', () => {

@@ -47,17 +47,31 @@ export const MIRRORS = Object.freeze([
     {file: 'learn/benefits/body/ApplicationEngine.md',      figure: 'namespaces', pattern: /\(`\d+` classes across `(\d+)` namespaces/d},
     {file: 'learn/benefits/body/ApplicationEngine.md',      figure: 'addons',     pattern: /routing, and `(\d+)` main-thread addons\)/d},
     {file: 'learn/benefits/body/Features.md',               figure: 'namespaces', pattern: /classes in (\d+) namespaces: the components/d},
-    {file: 'learn/benefits/body/Features.md',               figure: 'addons',     pattern: /\*\*(\d+) main-thread addons\*\*/d}
+    {file: 'learn/benefits/body/Features.md',               figure: 'addons',     pattern: /\*\*(\d+) main-thread addons\*\*/d},
+    {file: 'learn/benefits/body/Features.md',               figure: 'src/grid/',  pattern: /\(`src\/grid\/`, (\d+) classes\)/d}
 ]);
 
 /**
- * @summary The figures for a list of class modules, as paths relative to the repository root (`src/…`).
- * @param {String[]} classFiles
- * @returns {{addons: Number, classes: Number, namespaces: Number}}
+ * @summary The folders whose class count a mirror copies: every {@link MIRRORS} figure named by its `src/` path.
+ * @type {String[]}
  */
-export function countInventory(classFiles) {
-    const namespaces = new Set();
+export const MIRROR_FOLDERS = Object.freeze([...new Set(MIRRORS.map(mirror => mirror.figure).filter(figure => figure.startsWith('src/')))]);
+
+/**
+ * @summary The figures for a list of class modules, as paths relative to the repository root (`src/…`): the totals,
+ * plus one class count per folder a mirror names.
+ * @param {String[]} classFiles
+ * @param {String[]} [folders=MIRROR_FOLDERS] Folder prefixes such as `src/grid/`
+ * @returns {Object} `addons`, `classes`, `namespaces`, and one count per folder, keyed by the folder
+ */
+export function countInventory(classFiles, folders=MIRROR_FOLDERS) {
+    const namespaces = new Set(),
+          figures    = {};
     let   addons     = 0;
+
+    for (const folder of folders) {
+        figures[folder] = classFiles.filter(file => file.startsWith(folder)).length
+    }
 
     for (const file of classFiles) {
         const parts = file.split('/');
@@ -69,7 +83,7 @@ export function countInventory(classFiles) {
         }
     }
 
-    return {addons, classes: classFiles.length, namespaces: namespaces.size}
+    return {...figures, addons, classes: classFiles.length, namespaces: namespaces.size}
 }
 
 /**
