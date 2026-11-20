@@ -33,6 +33,7 @@ class Plugin extends Base {
     }
 
     /**
+     * @summary Seeds `windowId` from `owner` and subscribes to future `owner.windowId` changes.
      * @param {Object} config
      */
     construct(config) {
@@ -40,6 +41,16 @@ class Plugin extends Base {
 
         let me      = this,
             {owner} = me;
+
+        if (owner?.windowId && me.windowId === null) {
+            me.windowId = owner.windowId
+        }
+
+        if (owner?.isConfig?.('windowId')) {
+            me.observeConfig(owner, 'windowId', value => {
+                me.windowId = value
+            })
+        }
 
         if (owner.isConstructed) {
             me.onOwnerConstructed()
