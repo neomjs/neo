@@ -22,7 +22,7 @@
 
 <p align="center">
   The record, October 2026: <a href="https://github.com/search?q=org%3Aneomjs+is%3Apublic+is%3Apr+is%3Amerged+merged%3A2026-10-01..2026-10-31+-author%3Aapp%2Fdependabot&type=pullrequests"><b>1,011 pull requests merged</b></a> · <a href="https://github.com/search?q=org%3Aneomjs+is%3Apublic+is%3Aissue+is%3Aclosed+closed%3A2026-10-01..2026-10-31&type=issues"><b>1,227 issues closed</b></a><br>
-  985 written by AI maintainers: 976 approved by a reviewer from another model family, 341 sent back for changes on the way, all 985 merged by one human<br>
+  985 by AI maintainers: 976 approved across model families, 341 sent back for changes, all merged by one human<br>
   <b>Build with it:</b> <a href="#quickstart"><code>npx neo-app@latest</code></a> · <a href="https://neomjs.com/#/examples">Live examples</a> · <a href="https://neomjs.com/#/learn">Guides</a><br>
   <b>Run a team like this:</b> <a href="#the-maintainer-team">The team</a> · <a href="#deploy-a-cross-model-ai-engineering-team-on-your-own-codebase">Deploy the open-source Agent OS</a><br>
   <b>Contribute:</b> <a href="https://github.com/neomjs/neo/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22">Good first issues</a> · <a href="./CONTRIBUTING.md">Contributing guide</a>
@@ -51,7 +51,7 @@
 
 *Here for the AI maintainers? Jump to [An agent institution](#an-agent-institution).*
 
-The engine is complete and batteries-included: `461` classes across `39` namespaces, zero runtime dependencies, native ES modules, no transpilation. It builds everything teams build with [Angular, React, or Vue](./learn/comparisons/Overview.md) today, at [feature parity with Ext JS](./learn/comparisons/NeoVsExtJs.md) and generations ahead of it in architecture.
+The engine is complete and batteries-included: `461` classes across `39` namespaces, zero runtime dependencies, native ES modules, no transpilation. It builds everything teams build with [Angular, React, or Vue](./learn/comparisons/Overview.md) today, with the component library in the box.
 
 What ships in the box, each group with live examples:
 
@@ -223,7 +223,7 @@ The organism is **autopoietic** — it invents on its own. Internal friction bec
 
 Neo.mjs is built for three audiences across its two hemispheres:
 
-- **Web & Application Engineers** building any desktop or mobile web application — from everyday business apps, form-driven portals, and analytics views ([Angular, React, or Vue](./learn/comparisons/Overview.md) / [Ext JS](./learn/comparisons/NeoVsExtJs.md) replacements) to [`100,000`-row](./examples/grid/bigData) [grids](./learn/guides/datahandling/Grids.md), [multi-window dock workspaces](./learn/guides/uibuildingblocks/DockLayouts.md), financial trading platforms, IDE-class tools, and control-room dashboards where [`40,000+` ops/sec](./learn/benefits/body/Speed.md) without jank is table stakes — start with **[the Engine](#the-engine)**. Because the engine runs workers behind the scenes and has been [JSON-first since its 2019 GA](./learn/benefits/body/JSONFirstUIs.md), both human developers and coding agents build with zero-builds speed out of the box.
+- **Web & Application Engineers** building any desktop or mobile web application — from everyday business apps, form-driven portals, and analytics views ([Angular, React, or Vue](./learn/comparisons/Overview.md) replacements) to [`100,000`-row](./examples/grid/bigData) [grids](./learn/guides/datahandling/Grids.md), [multi-window dock workspaces](./learn/guides/uibuildingblocks/DockLayouts.md), financial trading platforms, IDE-class tools, and control-room dashboards where [`40,000+` ops/sec](./learn/benefits/body/Speed.md) without jank is table stakes — start with **[the Engine](#the-engine)**. Because the engine runs workers behind the scenes and has been [JSON-first since its 2019 GA](./learn/benefits/body/JSONFirstUIs.md), both human developers and coding agents build with zero-builds speed out of the box.
 - **Engineering Teams & AI Architects** deploying coding agents or standing multi-agent teams with persistent memory, cross-family peer review, and live runtime inspection & hot-patching of running apps — start with the **[Neural Link](./learn/agentos/NeuralLink.md)**, [`neo-agent-brain`](https://github.com/neomjs/neo-agent-brain), and [`neo-agent-institution`](https://github.com/neomjs/neo-agent-institution).
 - **Researchers** studying autopoietic systems, gated-RSI patterns, or empirical multi-agent organism governance — start with [What Is Neo.mjs?](./learn/benefits/Introduction.md), [Discussion #10137 (MX coinage)](https://github.com/orgs/neomjs/discussions/10137), and [Discussion #10119 (harness coordination — graduated to ADR 0020 / Epic neo-agent-brain#144)](https://github.com/orgs/neomjs/discussions/10119).
 
